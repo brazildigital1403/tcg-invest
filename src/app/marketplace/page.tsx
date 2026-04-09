@@ -1,0 +1,162 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabaseClient'
+
+export default function Marketplace() {
+  const [cards, setCards] = useState<any[]>([])
+  const [userId, setUserId] = useState<string | null>(null)
+  const [myCards, setMyCards] = useState<any[]>([])
+  const [otherCards, setOtherCards] = useState<any[]>([])
+
+async function handleBuy(card: any) {
+  const { data: userData } = await supabase.auth.getUser()
+
+  if (!userData.user) {
+    alert('Você precisa estar logado')
+    return
+  }
+
+  const userId = userData.user.id
+
+  // Impedir comprar a própria carta
+  if (card.user_id === userId) {
+    alert('Você não pode comprar sua própria carta')
+    return
+  }
+
+  // 1. Adicionar na coleção do comprador
+  const { error: insertError } = await supabase.from('user_cards').insert([
+    {
+      user_id: userId,
+      card_id: card.card_id,
+      card_name: card.card_name,
+      card_image: card.card_image,
+    },
+  ])
+
+  if (insertError) {
+    alert('Erro ao comprar')
+    console.log(insertError)
+    return
+  }
+
+  // Registrar transação
+    await supabase.from('transactions').insert([
+    {
+        buyer_id: userId,
+        seller_id: card.user_id,
+        card_name: card.card_name,
+        price: card.price,
+    },
+    ])
+
+  // 2. Remover do marketplace
+  const { error: deleteError } = await supabase
+    .from('marketplace')
+    .delete()
+    .eq('id', card.id)
+
+  if (deleteError) {
+    alert('Erro ao remover do marketplace')
+    console.log(deleteError)
+    return
+  }
+
+  alert('Compra realizada com sucesso!')
+
+  // 3. Atualizar tela
+  window.location.reload()
+}
+
+  useEffect(() => {
+    async function loadMarket() {
+      const { data: userData } = await supabase.auth.getUser()
+      if (userData.user) {
+        setUserId(userData.user.id)
+      }
+      const { data } = await supabase
+        .from('marketplace')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      const uid = userData.user?.id
+
+      const sortedCards = (data || []).sort((a, b) => {
+        if (a.user_id === uid && b.user_id !== uid) return -1
+        if (a.user_id !== uid && b.user_id === uid) return 1
+        return 0
+      })
+
+      setCards(sortedCards)
+
+      const mine = sortedCards.filter((card) => card.user_id === uid)
+      const others = sortedCards.filter((card) => card.user_id !== uid)
+
+      setMyCards(mine)
+      setOtherCards(others)
+    }
+
+    loadMarket()
+  }, [])
+
+  return (
+    <div className="p-10">
+      <h1 className="text-2xl font-bold mb-5">Marketplace</h1>
+
+      {myCards.length > 0 && (
+        <>
+          <h2 className="text-xl font-semibold mb-2">Seus anúncios</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {myCards.map((card) => (
+              <div
+                key={card.id}
+                className={`p-2 rounded shadow border ${
+                  card.user_id === userId
+                    ? 'border-yellow-400 bg-yellow-50'
+                    : 'border-gray-200'
+                }`}
+              >
+                <img src={card.card_image} />
+                <p className="font-bold mt-2">{card.card_name}</p>
+                <p className="text-green-600 font-bold">
+                  R$ {card.price}
+                </p>
+                <p className="mt-2 text-center text-sm font-semibold text-yellow-600">
+                  Seu Anúncio
+                </p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <h2 className="text-xl font-semibold mb-2">Outros anúncios</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {otherCards.map((card) => (
+          <div
+            key={card.id}
+            className={`p-2 rounded shadow border ${
+              card.user_id === userId
+                ? 'border-yellow-400 bg-yellow-50'
+                : 'border-gray-200'
+            }`}
+          >
+            <img src={card.card_image} />
+            <p className="font-bold mt-2">{card.card_name}</p>
+            <p className="text-green-600 font-bold">
+              R$ {card.price}
+            </p>
+
+            <button
+              onClick={() => handleBuy(card)}
+              className="mt-2 bg-blue-600 text-white w-full p-1 rounded"
+            >
+              Comprar
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
