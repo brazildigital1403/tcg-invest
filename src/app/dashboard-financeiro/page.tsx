@@ -98,10 +98,79 @@ export default function DashboardFinanceiro() {
   const [selectedCard, setSelectedCard] = useState<string | null>(null)
   const [selectedCardPrice, setSelectedCardPrice] = useState<any>(null)
   const [cardImage, setCardImage] = useState<string | null>(null)
-  const [userCards, setUserCards] = useState<string[]>([])
+  const [userCards, setUserCards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  // Importar por link handler
+  async function handleAddByLink() {
+    const input = prompt('Cole UM ou VÁRIOS links da LigaPokemon (um por linha):')
+    if (!input) return
+
+    const links = input
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+
+    if (links.length === 0) return
+
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) {
+      alert('Usuário não logado')
+      return
+    }
+
+    let success = 0
+    let fail = 0
+
+    for (const url of links) {
+      try {
+        const res = await fetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
+        const data = await res.json()
+
+        if (!data?.card_name) {
+          fail++
+          continue
+        }
+
+        const { error: insertError } = await supabase.from('user_cards').insert({
+          user_id: userData.user.id,
+          card_name: data.card_name,
+          card_id: data.card_number,
+          card_image: data.card_image,
+          card_link: data.link,
+          rarity: data.rarity || null,
+        })
+
+        if (insertError) {
+          console.error(insertError)
+          fail++
+          continue
+        }
+
+        const { error: priceError } = await supabase.from('card_prices').upsert({
+          card_name: data.card_name,
+          preco_min: data.preco_min || 0,
+          preco_medio: data.preco_medio || 0,
+          preco_max: data.preco_max || 0,
+          preco_normal: data.preco_normal || 0,
+          preco_foil: data.preco_foil || 0,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'card_name' })
+
+        if (priceError) console.error(priceError)
+
+        success++
+      } catch (e) {
+        console.error(e)
+        fail++
+      }
+    }
+
+    alert(`Importação concluída!\nSucesso: ${success}\nFalhas: ${fail}`)
+
+    window.location.reload()
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -175,8 +244,7 @@ const { data: cards } = await supabase
   .select('*')
   .eq('user_id', uid)
 
-const uniqueCards = Array.from(new Set((cards || []).map(c => c.card_name)))
-setUserCards(uniqueCards)
+setUserCards(cards || [])
 
 // Calcular valor da coleção (otimizado)
 let valorTotal = 0
@@ -383,6 +451,17 @@ if (cardNames.length > 0) {
           onAdd={() => window.location.reload()}
         />
       )}
+      {userId && (
+        <div className="mt-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
+          <p className="text-sm text-gray-500 mb-2">Importar por link</p>
+          <button
+            onClick={handleAddByLink}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:opacity-90 transition"
+          >
+            + Importar por link
+          </button>
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
@@ -479,9 +558,9 @@ if (cardNames.length > 0) {
           value={selectedCard || ''}
           onChange={(e) => setSelectedCard(e.target.value)}
         >
-          {userCards.map((name) => (
-            <option key={name} value={name}>
-              {name}
+          {userCards.map((c) => (
+            <option key={c.id} value={c.card_name}>
+              {c.card_name}
             </option>
           ))}
         </select>
@@ -507,7 +586,12 @@ if (cardNames.length > 0) {
             </div>
 
             <a
-              href={`https://www.ligapokemon.com.br/?view=cards/search&tipo=1&card=${encodeURIComponent(selectedCard)}`}
+              href={
+                (() => {
+                  const found = userCards.find(c => c.card_name === selectedCard)
+                  return found?.card_link || '#'
+                })()
+              }
               target="_blank"
               className="text-xs text-blue-600"
             >
@@ -548,7 +632,8 @@ if (cardNames.length > 0) {
             <button
               onClick={async () => {
                 // 1. chama API e pega retorno direto
-                const res = await fetch(`/api/preco-puppeteer?name=${encodeURIComponent(selectedCard)}`)
+                const found = userCards.find(c => c.card_name === selectedCard)
+                const res = await fetch(`/api/preco-puppeteer?url=${encodeURIComponent(found?.card_link || '')}`)
                 const apiData = await res.json()
 
                 // 2. atualiza UI imediatamente com retorno da API

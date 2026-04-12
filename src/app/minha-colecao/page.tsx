@@ -30,15 +30,59 @@ export default function MinhaColecao() {
 
       console.log('🔍 DATA DA API:', data)
 
-      // salvar carta
-      const { error: insertError } = await supabase.from('user_cards').insert({
-        user_id: userData.user.id,
-        card_name: data.card_name,
-        card_id: data.card_number,
-        card_image: data.card_image,
-        card_link: data.link,
-        rarity: data.rarity || null,
-      })
+      // verificar se já existe
+      let existing = null
+
+      if (data.card_number) {
+        const { data: list } = await supabase
+          .from('user_cards')
+          .select('*')
+          .eq('user_id', userData.user.id)
+          .eq('card_id', data.card_number)
+
+        existing = list && list.length > 0 ? list[0] : null
+      } else {
+        const { data: list } = await supabase
+          .from('user_cards')
+          .select('*')
+          .eq('user_id', userData.user.id)
+          .ilike('card_name', data.card_name)
+
+        existing = list && list.length > 0 ? list[0] : null
+      }
+
+      let insertError = null
+
+      if (existing) {
+        const newQty = (existing.quantity || 1) + 1
+
+        const { error } = await supabase
+          .from('user_cards')
+          .update({ quantity: newQty })
+          .eq('id', existing.id)
+
+        insertError = error
+
+        // atualizar estado local
+        setCards((prev) =>
+          prev.map((c) =>
+            c.id === existing.id ? { ...c, quantity: newQty } : c
+          )
+        )
+      } else {
+        // inserir novo
+        const { error } = await supabase.from('user_cards').insert({
+          user_id: userData.user.id,
+          card_name: data.card_name,
+          card_id: data.card_number,
+          card_image: data.card_image,
+          card_link: data.link,
+          rarity: data.rarity || null,
+          quantity: 1,
+        })
+
+        insertError = error
+      }
 
       if (insertError) {
         console.error('❌ ERRO AO SALVAR:', insertError)
@@ -75,6 +119,7 @@ export default function MinhaColecao() {
         card_image: data.card_image,
         card_link: data.link,
         rarity: data.rarity || null,
+        quantity: 1,
         price: {
           preco_min: data.preco_min || 0,
           preco_medio: data.preco_medio || 0,
@@ -82,7 +127,9 @@ export default function MinhaColecao() {
         },
       }
 
-      setCards((prev) => [newCard, ...prev])
+      if (!existing) {
+        setCards((prev) => [newCard, ...prev])
+      }
     } catch (err) {
       console.log(err)
       alert('Erro ao importar carta')
@@ -90,7 +137,18 @@ export default function MinhaColecao() {
   }
 
 async function handleSell(card: any) {
-  const price = prompt('Digite o preço da carta:')
+  const qty = prompt(`Você tem ${card.quantity || 1}. Quantas deseja vender?`)
+
+  if (!qty) return
+
+  const quantityToSell = Number(qty)
+
+  if (quantityToSell <= 0 || quantityToSell > (card.quantity || 1)) {
+    alert('Quantidade inválida')
+    return
+  }
+
+  const price = prompt('Digite o preço UNITÁRIO da carta:')
 
   if (!price) return
 
@@ -101,22 +159,48 @@ async function handleSell(card: any) {
     return
   }
 
-  const { error } = await supabase.from('marketplace').insert([
-    {
-      user_id: userData.user.id,
-      card_id: card.card_id,
-      card_name: card.card_name,
-      card_image: card.card_image,
-      price: Number(price),
-    },
-  ])
+  // inserir no marketplace
+  const items = Array.from({ length: quantityToSell }).map(() => ({
+    user_id: userData.user.id,
+    card_id: card.card_id,
+    card_name: card.card_name,
+    card_image: card.card_image,
+    price: Number(price),
+  }))
+
+  const { error } = await supabase.from('marketplace').insert(items)
 
   if (error) {
     alert('Erro ao colocar à venda')
     console.log(error)
-  } else {
-    alert('Carta colocada à venda!')
+    return
   }
+
+  // atualizar quantidade
+  const newQty = (card.quantity || 1) - quantityToSell
+
+  if (newQty <= 0) {
+    await handleRemove(card.id)
+  } else {
+    const { error: updateError } = await supabase
+      .from('user_cards')
+      .update({ quantity: newQty })
+      .eq('id', card.id)
+
+    if (updateError) {
+      console.log(updateError)
+      alert('Erro ao atualizar quantidade')
+      return
+    }
+
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === card.id ? { ...c, quantity: newQty } : c
+      )
+    )
+  }
+
+  alert('Venda realizada com sucesso!')
 }
 
   useEffect(() => {
@@ -168,6 +252,32 @@ async function handleSell(card: any) {
     loadCards()
   }, [])
 
+  async function handleUpdateQuantity(card: any, delta: number) {
+    const newQty = (card.quantity || 1) + delta
+
+    if (newQty <= 0) {
+      await handleRemove(card.id)
+      return
+    }
+
+    const { error } = await supabase
+      .from('user_cards')
+      .update({ quantity: newQty })
+      .eq('id', card.id)
+
+    if (error) {
+      console.log(error)
+      alert('Erro ao atualizar quantidade')
+      return
+    }
+
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === card.id ? { ...c, quantity: newQty } : c
+      )
+    )
+  }
+
   async function handleRemove(id: string) {
     await supabase.from('user_cards').delete().eq('id', id)
 
@@ -178,7 +288,9 @@ async function handleSell(card: any) {
     return <div className="p-10">Carregando coleção...</div>
   }
 
-  const totalCarteira = cards.reduce((acc, c) => acc + (c.price?.preco_medio || 0), 0)
+  const totalCarteira = cards.reduce((acc, c) => {
+    return acc + (c.price?.preco_medio || 0) * (c.quantity || 1)
+  }, 0)
 
   return (
     <div className="p-10">
@@ -222,7 +334,21 @@ async function handleSell(card: any) {
               <a href={c.card_link} target="_blank" className="font-semibold text-sm text-blue-600 hover:underline">
                 {c.card_name}
               </a>
-
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <button
+                  onClick={() => handleUpdateQuantity(c, -1)}
+                  className="bg-gray-200 px-2 rounded hover:bg-gray-300"
+                >
+                  -
+                </button>
+                <span>Qtd: {c.quantity || 1}</span>
+                <button
+                  onClick={() => handleUpdateQuantity(c, 1)}
+                  className="bg-gray-200 px-2 rounded hover:bg-gray-300"
+                >
+                  +
+                </button>
+              </div>
               <div className="mt-1 text-xs text-gray-500">
                 <p>Raridade: {c.rarity || '-'}</p>
 

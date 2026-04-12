@@ -9,6 +9,32 @@ export default function Marketplace() {
   const [myCards, setMyCards] = useState<any[]>([])
   const [otherCards, setOtherCards] = useState<any[]>([])
 
+  async function handleClearMyListings() {
+    const { data: userData } = await supabase.auth.getUser()
+
+    if (!userData.user) {
+      alert('Usuário não logado')
+      return
+    }
+
+    const confirmDelete = confirm('Tem certeza que deseja remover TODOS os seus anúncios?')
+    if (!confirmDelete) return
+
+    const { error } = await supabase
+      .from('marketplace')
+      .delete()
+      .eq('user_id', userData.user.id)
+
+    if (error) {
+      console.log(error)
+      alert('Erro ao remover anúncios')
+      return
+    }
+
+    alert('Todos os seus anúncios foram removidos!')
+    window.location.reload()
+  }
+
 async function handleBuy(card: any) {
   const { data: userData } = await supabase.auth.getUser()
 
@@ -75,14 +101,25 @@ async function handleBuy(card: any) {
       if (userData.user) {
         setUserId(userData.user.id)
       }
+
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id')
+
+      const validUserIds = (usersData || []).map((u) => u.id)
+
       const { data } = await supabase
         .from('marketplace')
         .select('*')
         .order('created_at', { ascending: false })
 
+      const filteredData = (data || []).filter((card) =>
+        validUserIds.includes(card.user_id)
+      )
+
       const uid = userData.user?.id
 
-      const sortedCards = (data || []).sort((a, b) => {
+      const sortedCards = filteredData.sort((a, b) => {
         if (a.user_id === uid && b.user_id !== uid) return -1
         if (a.user_id !== uid && b.user_id === uid) return 1
         return 0
@@ -103,6 +140,12 @@ async function handleBuy(card: any) {
   return (
     <div className="p-10">
       <h1 className="text-2xl font-bold mb-5">Marketplace</h1>
+      <button
+        onClick={handleClearMyListings}
+        className="mb-4 bg-red-600 text-white px-4 py-2 rounded hover:opacity-90"
+      >
+        Limpar meus anúncios
+      </button>
 
       {myCards.length > 0 && (
         <>
