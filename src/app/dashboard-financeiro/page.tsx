@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import PriceChart from '@/components/PriceChart'
 import AddCard from '@/components/AddCard'
+import AppLayout from '@/components/ui/AppLayout'
 
 
 const formatCurrency = (value: number) => {
@@ -424,7 +425,8 @@ if (cardNames.length > 0) {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <AppLayout total={stats.valorColecao}>
+      <div className="p-6 bg-gray-900 min-h-screen">
       <div className="mb-6 p-6 rounded-2xl bg-gradient-to-r from-black via-gray-900 to-gray-800 text-white shadow-lg">
         <p className="text-xs text-gray-300">Patrimônio total</p>
         <h1 className="text-3xl font-bold mt-1">
@@ -452,8 +454,8 @@ if (cardNames.length > 0) {
         />
       )}
       {userId && (
-        <div className="mt-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
-          <p className="text-sm text-gray-500 mb-2">Importar por link</p>
+        <div className="mt-4 p-4 bg-gray-900 rounded-xl border border-gray-800 shadow-sm">
+          <p className="text-sm text-gray-400 mb-2">Importar por link</p>
           <button
             onClick={handleAddByLink}
             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:opacity-90 transition"
@@ -464,54 +466,54 @@ if (cardNames.length > 0) {
       )}
 
       <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 shadow-sm text-center">
           <p className="text-xs text-gray-400">Patrimônio</p>
-          <p className="font-bold">{formatCurrency(stats.valorColecao)}</p>
+          <p className="font-bold text-white">{formatCurrency(stats.valorColecao)}</p>
         </div>
-        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 shadow-sm text-center">
           <p className="text-xs text-gray-400">Saldo</p>
-          <p className={`font-bold ${saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`font-bold ${saldo >= 0 ? 'text-green-600' : 'text-red-600'} text-white`}>
             {formatCurrency(saldo)}
           </p>
         </div>
-        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 shadow-sm text-center">
           <p className="text-xs text-gray-400">Cartas</p>
-          <p className="font-bold">{stats.quantidade}</p>
+          <p className="font-bold text-white">{stats.quantidade}</p>
         </div>
-        <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-center">
+        <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800 shadow-sm text-center">
           <p className="text-xs text-gray-400">Performance</p>
-          <p className={`font-bold ${variation >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`font-bold ${variation >= 0 ? 'text-green-600' : 'text-red-600'} text-white`}>
             {variation >= 0 ? '+' : ''}{variation.toFixed(1)}%
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-white shadow-sm border border-gray-100">
-          <p className="text-gray-500">Total Compras</p>
+        <div className="p-5 rounded-2xl bg-gray-900 shadow-sm border border-gray-800">
+          <p className="text-gray-400">Total Compras</p>
           <h2 className="text-xl font-bold text-red-600">
             {formatCurrency(stats.totalCompras)}
           </h2>
         </div>
-        <div className="p-5 rounded-2xl bg-white shadow-sm border border-gray-100">
-          <p className="text-gray-500">Total Vendas</p>
+        <div className="p-5 rounded-2xl bg-gray-900 shadow-sm border border-gray-800">
+          <p className="text-gray-400">Total Vendas</p>
           <h2 className="text-xl font-bold text-green-600">
             {formatCurrency(stats.totalVendas)}
           </h2>
         </div>
-        <div className="p-5 rounded-2xl bg-white shadow-sm border border-gray-100">
-          <p className="text-gray-500">Cartas na coleção</p>
-          <h2 className="text-xl font-bold">
+        <div className="p-5 rounded-2xl bg-gray-900 shadow-sm border border-gray-800">
+          <p className="text-gray-400">Cartas na coleção</p>
+          <h2 className="text-xl font-bold text-white">
             {stats.quantidade}
           </h2>
         </div>
       </div>
 
-      <div className="mt-6 p-6 rounded-2xl bg-white shadow-sm border border-gray-100">
+      <div className="mt-6 p-6 rounded-2xl bg-gray-900 shadow-sm border border-gray-800">
         <p className={`text-sm ${saldo >= 0 ? 'text-green-500' : 'text-red-500'}`}>
           {saldo >= 0 ? '+ lucro' : '- prejuízo'}
         </p>
-        <p className="text-gray-500">Saldo</p>
+        <p className="text-gray-400">Saldo</p>
         <h2
           className={`text-2xl font-bold ${
             saldo >= 0 ? 'text-green-600' : 'text-red-600'
@@ -532,9 +534,9 @@ if (cardNames.length > 0) {
       </div>
 
       {/* Portfolio Score */}
-      <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100 shadow-md hover:shadow-lg transition">
-        <p className="text-gray-500 text-sm">Score da Carteira</p>
-        <h3 className={`text-xl font-bold ${portfolioScore > 1 ? 'text-green-600' : portfolioScore < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+      <div className="mt-6 p-5 rounded-2xl bg-gray-900 border border-gray-800 shadow-md hover:shadow-lg transition">
+        <p className="text-gray-400 text-sm">Score da Carteira</p>
+        <h3 className={`text-xl font-bold ${portfolioScore > 1 ? 'text-green-600' : portfolioScore < 0 ? 'text-red-600' : 'text-white'}`}>
           {portfolioScore.toFixed(2)}
         </h3>
         <p className="text-xs text-gray-400 mt-1">
@@ -543,8 +545,8 @@ if (cardNames.length > 0) {
           {portfolioScore < 0 && 'Carteira com ativos caros'}
         </p>
       </div>
-      <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100 shadow-md hover:shadow-lg transition">
-        <p className="text-gray-500 text-sm">Performance</p>
+      <div className="mt-6 p-5 rounded-2xl bg-gray-900 border border-gray-800 shadow-md hover:shadow-lg transition">
+        <p className="text-gray-400 text-sm">Performance</p>
         <h3 className={`text-xl font-bold ${variation >= 0 ? 'text-green-600' : 'text-red-600'}`}>
           {variation >= 0 ? '+' : ''}{variation.toFixed(2)}% no período
         </h3>
@@ -552,9 +554,9 @@ if (cardNames.length > 0) {
       </div>
 
       <div className="mt-6">
-        <label className="text-sm text-gray-500">Selecionar carta</label>
+        <label className="text-sm text-gray-400">Selecionar carta</label>
         <select
-          className="w-full mt-1 p-2 rounded-xl border border-gray-200"
+          className="w-full mt-1 p-2 rounded-xl border border-gray-800 bg-gray-900 text-white"
           value={selectedCard || ''}
           onChange={(e) => setSelectedCard(e.target.value)}
         >
@@ -567,7 +569,7 @@ if (cardNames.length > 0) {
       </div>
 
       {selectedCard && (
-        <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100 shadow-md hover:shadow-lg transition">
+        <div className="mt-6 p-5 rounded-2xl bg-gray-900 border border-gray-800 shadow-md hover:shadow-lg transition">
 
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-3">
@@ -578,11 +580,11 @@ if (cardNames.length > 0) {
                   className="w-12 h-16 object-cover rounded shadow"
                 />
               ) : (
-                <div className="w-12 h-16 bg-gray-200 rounded flex items-center justify-center text-[10px] text-gray-500">
+                <div className="w-12 h-16 bg-gray-800 rounded flex items-center justify-center text-[10px] text-gray-400">
                   sem imagem
                 </div>
               )}
-              <h3 className="font-semibold">{selectedCard}</h3>
+              <h3 className="font-semibold text-white">{selectedCard}</h3>
             </div>
 
             <a
@@ -710,10 +712,10 @@ if (cardNames.length > 0) {
 
       {/* Gráfico da Carteira */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3 text-gray-800">📊 Evolução da Carteira</h2>
+        <h2 className="text-lg font-semibold mb-3 text-white">📊 Evolução da Carteira</h2>
 
         {chartData.length > 0 ? (
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="bg-gray-900 p-4 rounded-2xl shadow-sm border border-gray-800">
             <PriceChart data={chartData.map(d => ({
               date: d.date,
               normal: d.value,
@@ -730,7 +732,7 @@ if (cardNames.length > 0) {
 
       {/* Gráfico de preço real */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3 text-gray-800">Histórico de Preço</h2>
+        <h2 className="text-lg font-semibold mb-3 text-white">Histórico de Preço</h2>
         {priceHistory.length > 0 ? (
           <PriceChart data={priceHistory.map((d) => ({
             date: d.date || d.created_at || '',
@@ -747,14 +749,14 @@ if (cardNames.length > 0) {
 
       {/* Histórico */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3 text-gray-800">Histórico</h2>
+        <h2 className="text-lg font-semibold mb-3 text-white">Histórico</h2>
         {transactions.length === 0 && (
           <p className="text-gray-400 text-sm">Nenhuma transação ainda</p>
         )}
         {transactions.map((t) => (
-          <div key={t.id} className="p-4 mb-3 rounded-2xl bg-white shadow-sm border border-gray-100 flex justify-between items-center hover:shadow-md transition">
-            <p className="font-medium">{t.card_name}</p>
-            <p className="text-sm text-gray-500">
+          <div key={t.id} className="p-4 mb-3 rounded-2xl bg-gray-900 shadow-sm border border-gray-800 flex justify-between items-center hover:shadow-md transition">
+            <p className="font-medium text-white">{t.card_name}</p>
+            <p className="text-sm text-gray-400">
               {formatCurrency(Number(t.price))}
             </p>
           </div>
@@ -763,7 +765,7 @@ if (cardNames.length > 0) {
 
       {/* Alertas Inteligentes */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3 text-gray-800">🔔 Alertas</h2>
+        <h2 className="text-lg font-semibold mb-3 text-white">🔔 Alertas</h2>
         {rankingWithVariation
           .filter((r) => {
             const price = Number(r.preco_medio || r.price || 0)
@@ -782,7 +784,7 @@ if (cardNames.length > 0) {
 
       {/* Top Oportunidades */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3 text-gray-800">🔥 Oportunidades</h2>
+        <h2 className="text-lg font-semibold mb-3 text-white">🔥 Oportunidades</h2>
 
         {rankingWithVariation.filter((r) => {
           const price = Number(r.preco_medio || r.price || 0)
@@ -816,7 +818,7 @@ if (cardNames.length > 0) {
                   <p className="font-bold text-green-700">
                     {formatCurrency(price)}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-400">
                     médio: {formatCurrency(medio)}
                   </p>
                 </div>
@@ -827,7 +829,7 @@ if (cardNames.length > 0) {
 
       {/* Top Valorização */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3 text-gray-800">📈 Mais valorizadas</h2>
+        <h2 className="text-lg font-semibold mb-3 text-white">📈 Mais valorizadas</h2>
 
         {rankingWithVariation
           .filter((r) => r.variation > 0)
@@ -850,7 +852,7 @@ if (cardNames.length > 0) {
 
       {/* Top Queda */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3 text-gray-800">📉 Em queda</h2>
+        <h2 className="text-lg font-semibold mb-3 text-white">📉 Em queda</h2>
 
         {rankingWithVariation
           .filter((r) => r.variation < 0)
@@ -873,13 +875,13 @@ if (cardNames.length > 0) {
 
       {/* Ranking */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3 text-gray-800">Cartas mais caras</h2>
+        <h2 className="text-lg font-semibold mb-3 text-white">Cartas mais caras</h2>
         {rankingWithVariation.length === 0 && (
           <p className="text-gray-400 text-sm">Sem dados suficientes para ranking</p>
         )}
         {rankingWithVariation.map((r) => (
-          <div key={r.id} className="p-4 mb-3 rounded-2xl bg-white shadow-sm border border-gray-100 flex justify-between items-center hover:shadow-md transition">
-            <p className="font-medium">{r.card_name}</p>
+          <div key={r.id} className="p-4 mb-3 rounded-2xl bg-gray-900 shadow-sm border border-gray-800 flex justify-between items-center hover:shadow-md transition">
+            <p className="font-medium text-white">{r.card_name}</p>
             <div className="text-right">
               {(() => {
                 const price = Number(r.preco_medio || r.price || 0)
@@ -891,7 +893,7 @@ if (cardNames.length > 0) {
                     {price && medio && price < medio * 0.8 && (
                       <p className="text-[10px] text-green-500 font-bold">OPORTUNIDADE</p>
                     )}
-                    <p className="font-bold">
+                    <p className="font-bold text-white">
                       {formatCurrency(price)}
                     </p>
                     <p className={`text-xs ${r.variation >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -908,5 +910,6 @@ if (cardNames.length > 0) {
         ))}
       </div>
     </div>
-  )
+  </AppLayout>
+)
 }

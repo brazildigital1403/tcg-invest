@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import AppLayout from '@/components/ui/AppLayout'
 
 export default function Pokedex() {
   const [cards, setCards] = useState<any[]>([])
@@ -49,32 +50,38 @@ export default function Pokedex() {
   }, [])
 
   if (loading) {
-    return <div className="p-10">Carregando cartas...</div>
+    return (
+      <AppLayout total={0}>
+        <div className="p-6">Carregando cartas...</div>
+      </AppLayout>
+    )
   }
 
   return (
-    <div className="p-10">
-      <h1 className="text-2xl font-bold mb-5">Pokédex</h1>
+    <AppLayout total={0}>
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-5">Pokédex</h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {cards.map((card) => (
-          <div
-  key={card.id}
-  className="border rounded p-2 shadow hover:scale-105 transition"
->
-  <img src={card.images.small} alt={card.name} />
-  <p className="mt-2 font-bold">{card.name}</p>
-  <p className="text-sm text-gray-500">{card.rarity}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {cards.map((card) => (
+            <div
+              key={card.id}
+              className="border border-gray-800 bg-gray-900 rounded-xl p-3 shadow-lg hover:scale-105 transition"
+            >
+              <img src={card.images.small} alt={card.name} />
+              <p className="mt-2 font-bold">{card.name}</p>
+              <p className="text-sm text-gray-400">{card.rarity}</p>
 
-  <button
-    onClick={() => handleAddCard(card)}
-    className="mt-2 bg-blue-600 text-white w-full p-1 rounded"
-  >
-    Adicionar
-  </button>
-</div>
-        ))}
+              <button
+                onClick={() => handleAddCard(card)}
+                className="mt-2 bg-purple-600 text-white w-full p-1 rounded"
+              >
+                Adicionar
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </AppLayout>
   )
 }

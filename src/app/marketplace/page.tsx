@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import AppLayout from '@/components/ui/AppLayout'
 
 export default function Marketplace() {
   const [cards, setCards] = useState<any[]>([])
@@ -138,7 +139,8 @@ async function handleBuy(card: any) {
   }, [])
 
   return (
-    <div className="p-10">
+    <AppLayout total={0}>
+      <div className="p-6">
       <h1 className="text-2xl font-bold mb-5">Marketplace</h1>
       <button
         onClick={handleClearMyListings}
@@ -154,15 +156,15 @@ async function handleBuy(card: any) {
             {myCards.map((card) => (
               <div
                 key={card.id}
-                className={`p-2 rounded shadow border ${
+                className={`p-3 rounded-xl shadow-lg bg-gray-900 border ${
                   card.user_id === userId
-                    ? 'border-yellow-400 bg-yellow-50'
-                    : 'border-gray-200'
+                    ? 'border-yellow-400 bg-yellow-900/20'
+                    : 'border-gray-800'
                 }`}
               >
                 <img src={card.card_image} />
                 <p className="font-bold mt-2">{card.card_name}</p>
-                <p className="text-green-600 font-bold">
+                <p className="text-green-400 font-bold">
                   R$ {card.price}
                 </p>
                 <p className="mt-2 text-center text-sm font-semibold text-yellow-600">
@@ -179,21 +181,21 @@ async function handleBuy(card: any) {
         {otherCards.map((card) => (
           <div
             key={card.id}
-            className={`p-2 rounded shadow border ${
+            className={`p-3 rounded-xl shadow-lg bg-gray-900 border ${
               card.user_id === userId
-                ? 'border-yellow-400 bg-yellow-50'
-                : 'border-gray-200'
+                ? 'border-yellow-400 bg-yellow-900/20'
+                : 'border-gray-800'
             }`}
           >
             <img src={card.card_image} />
             <p className="font-bold mt-2">{card.card_name}</p>
-            <p className="text-green-600 font-bold">
+            <p className="text-green-400 font-bold">
               R$ {card.price}
             </p>
 
             <button
               onClick={() => handleBuy(card)}
-              className="mt-2 bg-blue-600 text-white w-full p-1 rounded"
+              className="mt-2 bg-purple-600 text-white w-full p-1 rounded"
             >
               Comprar
             </button>
@@ -201,5 +203,6 @@ async function handleBuy(card: any) {
         ))}
       </div>
     </div>
+  </AppLayout>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import AppLayout from '@/components/ui/AppLayout'
 
 export default function MinhaColecao() {
   const [cards, setCards] = useState<any[]>([])
@@ -285,7 +286,11 @@ async function handleSell(card: any) {
   }
 
   if (loading) {
-    return <div className="p-10">Carregando coleção...</div>
+    return (
+      <AppLayout total={0}>
+        <div className="p-6">Carregando coleção...</div>
+      </AppLayout>
+    )
   }
 
   const totalCarteira = cards.reduce((acc, c) => {
@@ -293,88 +298,90 @@ async function handleSell(card: any) {
   }, 0)
 
   return (
-    <div className="p-10">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">📊 Minha Carteira</h1>
-        <div className="text-right">
-          <p className="text-sm text-gray-500">Valor total</p>
-          <p className="text-xl font-bold text-green-600">
-            R$ {totalCarteira.toFixed(2)}
-          </p>
-        </div>
-        <button
-          onClick={handleAddByLink}
-          className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-        >
-          + Importar por link
-        </button>
-      </div>
-
-      {cards.length === 0 && <p>Você ainda não adicionou cartas.</p>}
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {cards.map((c) => (
-          <div
-            key={c.id}
-            className={`rounded-2xl p-4 shadow-md bg-white hover:shadow-lg transition border ${
-              (c.price?.preco_medio || 0) > 100 ? 'border-green-500' : 'border-gray-200'
-            }`}
+    <AppLayout total={totalCarteira}>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">📊 Minha Carteira</h1>
+          <div className="text-right">
+            <p className="text-sm text-gray-400">Valor total</p>
+            <p className="text-xl font-bold text-green-600">
+              R$ {totalCarteira.toFixed(2)}
+            </p>
+          </div>
+          <button
+            onClick={handleAddByLink}
+            className="ml-4 bg-purple-600 hover:opacity-90 text-white px-4 py-2 rounded-lg text-sm"
           >
-            <img
-              src={c.card_image || '/placeholder-card.png'}
-              alt={c.card_name}
-              onError={(e) => {
-                if (!e.currentTarget.src.includes('placeholder-card.png')) {
-                  e.currentTarget.src = '/placeholder-card.png'
-                }
-              }}
-              className="w-full h-auto object-cover rounded"
-            />
-            <div className="mt-3">
-              <a href={c.card_link} target="_blank" className="font-semibold text-sm text-blue-600 hover:underline">
-                {c.card_name}
-              </a>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <button
-                  onClick={() => handleUpdateQuantity(c, -1)}
-                  className="bg-gray-200 px-2 rounded hover:bg-gray-300"
-                >
-                  -
-                </button>
-                <span>Qtd: {c.quantity || 1}</span>
-                <button
-                  onClick={() => handleUpdateQuantity(c, 1)}
-                  className="bg-gray-200 px-2 rounded hover:bg-gray-300"
-                >
-                  +
-                </button>
-              </div>
-              <div className="mt-1 text-xs text-gray-500">
-                <p>Raridade: {c.rarity || '-'}</p>
+            + Importar por link
+          </button>
+        </div>
 
-                <div className="mt-2">
-                  <p>Preço mínimo: R$ {c.price?.preco_min ?? '-'}</p>
-                  <p>Preço médio: R$ {c.price?.preco_medio ?? '-'}</p>
-                  <p>Preço máximo: R$ {c.price?.preco_max ?? '-'}</p>
+        {cards.length === 0 && <p>Você ainda não adicionou cartas.</p>}
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {cards.map((c) => (
+            <div
+              key={c.id}
+              className={`rounded-2xl p-4 shadow-md bg-gray-900 hover:shadow-lg transition border ${
+                (c.price?.preco_medio || 0) > 100 ? 'border-green-500' : 'border-gray-800'
+              }`}
+            >
+              <img
+                src={c.card_image || '/placeholder-card.png'}
+                alt={c.card_name}
+                onError={(e) => {
+                  if (!e.currentTarget.src.includes('placeholder-card.png')) {
+                    e.currentTarget.src = '/placeholder-card.png'
+                  }
+                }}
+                className="w-full h-auto object-cover rounded"
+              />
+              <div className="mt-3">
+                <a href={c.card_link} target="_blank" className="font-semibold text-sm text-blue-400 hover:underline">
+                  {c.card_name}
+                </a>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <button
+                    onClick={() => handleUpdateQuantity(c, -1)}
+                    className="bg-gray-200 px-2 rounded hover:bg-gray-300"
+                  >
+                    -
+                  </button>
+                  <span>Qtd: {c.quantity || 1}</span>
+                  <button
+                    onClick={() => handleUpdateQuantity(c, 1)}
+                    className="bg-gray-200 px-2 rounded hover:bg-gray-300"
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="mt-1 text-xs text-gray-400">
+                  <p>Raridade: {c.rarity || '-'}</p>
+
+                  <div className="mt-2">
+                    <p>Preço mínimo: R$ {c.price?.preco_min ?? '-'}</p>
+                    <p>Preço médio: R$ {c.price?.preco_medio ?? '-'}</p>
+                    <p>Preço máximo: R$ {c.price?.preco_max ?? '-'}</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => handleRemove(c.id)}
-              className="mt-3 bg-red-500 hover:bg-red-600 text-white w-full p-2 rounded-lg text-sm"
-            >
-              Remover
-            </button>
-            <button
-            onClick={() => handleSell(c)}
-            className="mt-2 bg-green-500 hover:bg-green-600 text-white w-full p-2 rounded-lg text-sm"
-            >
-            Vender
-            </button>
-          </div>
-        ))}
+              <button
+                onClick={() => handleRemove(c.id)}
+                className="mt-3 bg-red-500 hover:bg-red-600 text-white w-full p-2 rounded-lg text-sm"
+              >
+                Remover
+              </button>
+              <button
+                onClick={() => handleSell(c)}
+                className="mt-2 bg-green-500 hover:bg-green-600 text-white w-full p-2 rounded-lg text-sm"
+              >
+                Vender
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </AppLayout>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import AppLayout from '@/components/ui/AppLayout'
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
@@ -12,7 +13,7 @@ export default function Dashboard() {
       const { data } = await supabase.auth.getUser()
 
       if (!data.user) {
-        window.location.href = '/login'
+        window.location.href = '/'
         return
       }
 
@@ -33,28 +34,30 @@ export default function Dashboard() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    window.location.href = '/login'
+    window.location.href = '/'
   }
 
   return (
-    <div className="p-10">
-      <button
-        onClick={handleLogout}
-        className="bg-red-600 text-white px-4 py-2 rounded mb-5"
-      >
-        Sair
-      </button>
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+    <AppLayout total={0}>
+      <div className="p-6">
+        <button
+          onClick={handleLogout}
+          className="bg-red-600 text-white px-4 py-2 rounded-lg mb-5 hover:opacity-90"
+        >
+          Sair
+        </button>
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
 
-      <p className="mt-4">Email: {user?.email}</p>
+        <p className="mt-4 text-gray-400">Email: {user?.email}</p>
 
-      {profile && (
-        <>
-          <p>Nome: {profile.name}</p>
-          <p>Cidade: {profile.city}</p>
-          <p>WhatsApp: {profile.whatsapp}</p>
-        </>
-      )}
-    </div>
+        {profile && (
+          <>
+            <p className="text-gray-400">Nome: {profile.name}</p>
+            <p className="text-gray-400">Cidade: {profile.city}</p>
+            <p className="text-gray-400">WhatsApp: {profile.whatsapp}</p>
+          </>
+        )}
+      </div>
+    </AppLayout>
   )
 }
