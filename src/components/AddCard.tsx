@@ -11,6 +11,8 @@ export default function AddCard({ userId, onAdd }) {
   const [selected, setSelected] = useState<any | null>(null)
 
   useEffect(() => {
+    const controller = new AbortController()
+
     const delay = setTimeout(async () => {
       if (!name || name.length < 2) {
         setResults([])
@@ -19,62 +21,112 @@ export default function AddCard({ userId, onAdd }) {
       }
 
       try {
-        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(name)}`)
+        const res = await fetch(
+          `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(name)}`,
+          { signal: controller.signal }
+        )
         const data = await res.json()
 
-        setResults(data?.data?.slice(0, 15) || [])
+        setResults(data?.data?.slice(0, 50) || [])
         setShowDropdown(true)
       } catch (e) {
-        console.log('erro autocomplete')
+        if ((e as any).name !== 'AbortError') {
+          console.log('erro autocomplete')
+        }
       }
-    }, 400)
+    }, 300)
 
-    return () => clearTimeout(delay)
+    return () => {
+      controller.abort()
+      clearTimeout(delay)
+    }
   }, [name])
 
   const handleAdd = async () => {
     if (!name) return
 
-    setLoading(true)
-
-    let finalName = name
-
-    if (selected) {
-      const number = (selected.number && selected.set?.printedTotal)
-        ? ` (${selected.number}/${selected.set.printedTotal})`
-        : ''
-      finalName = `${selected.name}${number}`
-    } else {
-      try {
-        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(name)}`)
-        const data = await res.json()
-
-        if (data?.data?.length > 0) {
-          const card = data.data[0]
-          const number = (card.number && card.set?.printedTotal)
-            ? ` (${card.number}/${card.set.printedTotal})`
-            : ''
-          finalName = `${card.name}${number}`
-        }
-      } catch (e) {
-        console.log('erro ao buscar fallback')
-      }
+    if (!userId) {
+      alert('Usuário não identificado (userId vazio)')
+      return
     }
 
-    const { error } = await supabase.from('user_cards').insert([
-      {
-        user_id: userId,
+    setLoading(true)
+
+    try {
+      let cardData = selected
+
+      // fallback se não selecionou
+      if (!cardData) {
+        const res = await fetch(
+          `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(name)}`
+        )
+        const data = await res.json()
+        cardData = data?.data?.[0]
+      }
+
+      if (!cardData) {
+        alert('Carta não encontrada')
+        setLoading(false)
+        return
+      }
+
+      const number = cardData.number || ''
+      const total = cardData.set?.printedTotal || ''
+
+      const finalName = number && total
+        ? `${cardData.name} (${number}/${total})`
+        : cardData.name
+
+      const image = cardData.images?.large || cardData.images?.small || null
+
+      console.log('USER ID DEBUG:', userId)
+
+      // 🔥 sempre usa usuário autenticado do Supabase
+      let validUserId = ''
+      const { data: authData } = await supabase.auth.getUser()
+
+      if (!authData?.user?.id) {
+        alert('Erro: usuário não autenticado')
+        setLoading(false)
+        return
+      }
+
+      validUserId = authData.user.id
+
+      const payload = {
+        user_id: validUserId,
         card_name: finalName,
-      },
-    ])
+        card_image: image,
+        card_id: cardData.id, // 🔥 ESSENCIAL
+      }
 
-    setLoading(false)
+      console.log('INSERT USER CARD:', payload)
 
-    if (!error) {
-      setName('')
-      onAdd()
-    } else {
-      alert('Erro ao adicionar carta')
+      const { error } = await supabase
+        .from('user_cards')
+        .insert(payload, { returning: 'minimal' })
+
+      setLoading(false)
+
+      if (error) {
+        console.error('SUPABASE INSERT ERROR FULL:', JSON.stringify(error, null, 2))
+      }
+
+      if (error) {
+        alert(`Erro Supabase: ${error.message || 'sem mensagem'} | code: ${error.code || 'N/A'}`)
+      }
+
+      if (!error) {
+        setName('')
+        setSelected(null)
+        onAdd()
+      } else {
+        alert('Erro ao adicionar carta (ver console)')
+      }
+    } catch (err) {
+      console.log(err)
+      alert('Erro ao buscar carta')
+      setLoading(false)
     }
   }
 
@@ -89,11 +141,17 @@ export default function AddCard({ userId, onAdd }) {
             setName(e.target.value)
             setSelected(null)
           }}
-          placeholder="Ex: Charizard (ou nome completo)"
+          onFocus={() => {
+            if (results.length > 0) setShowDropdown(true)
+          }}
+          onBlur={() => {
+            setTimeout(() => setShowDropdown(false), 150)
+          }}
+          placeholder="Ex: Charizard ou Charizard (25/185)"
           className="flex-1 p-2 border rounded-lg"
         />
         {showDropdown && results.length > 0 && (
-          <div className="absolute top-10 left-0 w-full bg-white border rounded-lg shadow z-10 max-h-60 overflow-auto">
+          <div className="absolute top-10 left-0 w-full bg-white border rounded-lg shadow z-10 max-h-80 overflow-y-auto">
             {results.map((card) => (
               <div
                 key={card.id}
@@ -128,7 +186,7 @@ export default function AddCard({ userId, onAdd }) {
 
         <button
           onClick={handleAdd}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:opacity-90 transition"
         >
           {loading ? '...' : 'Adicionar'}
         </button>

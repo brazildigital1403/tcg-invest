@@ -50,8 +50,32 @@ async function handleSell(card: any) {
         .from('user_cards')
         .select('*')
         .eq('user_id', userData.user.id)
+        .order('created_at', { ascending: false })
 
-      setCards(data || [])
+      const cardsData = data || []
+
+      const names = cardsData.map((c) => c.card_name)
+
+      let priceMap: any = {}
+
+      if (names.length > 0) {
+        const { data: prices } = await supabase
+          .from('card_prices')
+          .select('*')
+          .in('card_name', names)
+
+        priceMap = (prices || []).reduce((acc: any, p: any) => {
+          acc[p.card_name] = p
+          return acc
+        }, {})
+      }
+
+      const merged = cardsData.map((c) => ({
+        ...c,
+        price: priceMap[c.card_name] || null,
+      }))
+
+      setCards(merged)
       setLoading(false)
     }
 
@@ -68,30 +92,59 @@ async function handleSell(card: any) {
     return <div className="p-10">Carregando coleção...</div>
   }
 
+  const totalCarteira = cards.reduce((acc, c) => acc + (c.price?.preco_medio || 0), 0)
+
   return (
     <div className="p-10">
-      <h1 className="text-2xl font-bold mb-5">Minha Coleção</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">📊 Minha Carteira</h1>
+        <div className="text-right">
+          <p className="text-sm text-gray-500">Valor total</p>
+          <p className="text-xl font-bold text-green-600">
+            R$ {totalCarteira.toFixed(2)}
+          </p>
+        </div>
+      </div>
 
       {cards.length === 0 && <p>Você ainda não adicionou cartas.</p>}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {cards.map((card) => (
+        {cards.map((c) => (
           <div
-            key={card.id}
-            className="border rounded p-2 shadow"
+            key={c.id}
+            className={`rounded-2xl p-4 shadow-md bg-white hover:shadow-lg transition border ${
+              (c.price?.preco_medio || 0) > 100 ? 'border-green-500' : 'border-gray-200'
+            }`}
           >
-            <img src={card.card_image} alt={card.card_name} />
-            <p className="mt-2 font-bold">{card.card_name}</p>
+            <img
+              src={c.card_image || '/placeholder-card.png'}
+              alt={c.card_name}
+              onError={(e) => {
+                if (!e.currentTarget.src.includes('placeholder-card.png')) {
+                  e.currentTarget.src = '/placeholder-card.png'
+                }
+              }}
+              className="w-full h-auto object-cover rounded"
+            />
+            <div className="mt-3">
+              <p className="font-semibold text-sm">{c.card_name}</p>
+
+              <div className="mt-2 text-xs text-gray-500">
+                <p>Preço mínimo: R$ {c.price?.preco_min ?? '-'}</p>
+                <p>Preço médio: R$ {c.price?.preco_medio ?? '-'}</p>
+                <p>Preço máximo: R$ {c.price?.preco_max ?? '-'}</p>
+              </div>
+            </div>
 
             <button
-              onClick={() => handleRemove(card.id)}
-              className="mt-2 bg-red-600 text-white w-full p-1 rounded"
+              onClick={() => handleRemove(c.id)}
+              className="mt-3 bg-red-500 hover:bg-red-600 text-white w-full p-2 rounded-lg text-sm"
             >
               Remover
             </button>
             <button
-            onClick={() => handleSell(card)}
-            className="mt-2 bg-green-600 text-white w-full p-1 rounded"
+            onClick={() => handleSell(c)}
+            className="mt-2 bg-green-500 hover:bg-green-600 text-white w-full p-2 rounded-lg text-sm"
             >
             Vender
             </button>
