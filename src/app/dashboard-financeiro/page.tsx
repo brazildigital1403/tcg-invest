@@ -195,6 +195,21 @@ if (cardNames.length > 0) {
     priceMap[p.card_name] = p
   })
 
+  // 🔥 construir ranking e variação baseado em preços reais
+  if (prices && prices.length > 0) {
+    const enrichedPrices = await Promise.all(
+      prices.map(async (p) => {
+        const variation = await getCardVariation(p.card_name)
+        return { ...p, variation }
+      })
+    )
+
+    enrichedPrices.sort((a, b) => (b.preco_medio || 0) - (a.preco_medio || 0))
+
+    setRanking(enrichedPrices.slice(0, 5))
+    setRankingWithVariation(enrichedPrices)
+  }
+
   for (const card of cards || []) {
     const priceData = priceMap[card.card_name]
 
@@ -612,22 +627,13 @@ if (cardNames.length > 0) {
       <div className="mt-8">
         <h2 className="text-lg font-semibold mb-3 text-gray-800">📊 Evolução da Carteira</h2>
 
-        {(chartData.length > 0 || true) ? (
+        {chartData.length > 0 ? (
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <PriceChart data={
-              chartData.length > 0
-                ? chartData.map(d => ({
-                    date: d.date,
-                    normal: d.value,
-                    foil: null
-                  }))
-                : [
-                    { date: '01/04', normal: 1000, foil: null },
-                    { date: '02/04', normal: 1200, foil: null },
-                    { date: '03/04', normal: 1100, foil: null },
-                    { date: '04/04', normal: 1500, foil: null },
-                  ]
-            } />
+            <PriceChart data={chartData.map(d => ({
+              date: d.date,
+              normal: d.value,
+              foil: null
+            }))} />
           </div>
         ) : (
           <div className="text-center text-gray-400 py-10">
@@ -657,6 +663,9 @@ if (cardNames.length > 0) {
       {/* Histórico */}
       <div className="mt-8">
         <h2 className="text-lg font-semibold mb-3 text-gray-800">Histórico</h2>
+        {transactions.length === 0 && (
+          <p className="text-gray-400 text-sm">Nenhuma transação ainda</p>
+        )}
         {transactions.map((t) => (
           <div key={t.id} className="p-4 mb-3 rounded-2xl bg-white shadow-sm border border-gray-100 flex justify-between items-center hover:shadow-md transition">
             <p className="font-medium">{t.card_name}</p>
