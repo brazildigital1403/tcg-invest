@@ -9,9 +9,13 @@ export default function MinhaColecao() {
   const [loading, setLoading] = useState(true)
 
   async function handleAddByLink() {
+    console.log('CLICK IMPORT BUTTON')
     const url = prompt('Cole o link da LigaPokemon:')
 
-    if (!url) return
+    if (!url) {
+      console.log('NO URL PROVIDED')
+      return
+    }
 
     const { data: userData } = await supabase.auth.getUser()
 
@@ -74,6 +78,7 @@ export default function MinhaColecao() {
         // inserir novo
         const { error } = await supabase.from('user_cards').insert({
           user_id: userData.user.id,
+          pokemon_api_id: null,
           card_name: data.card_name,
           card_id: data.card_number,
           card_image: data.card_image,
@@ -112,25 +117,8 @@ export default function MinhaColecao() {
 
       alert('Carta adicionada com sucesso!')
 
-      // 🔥 atualizar lista sem precisar reload
-      const newCard = {
-        id: Date.now(),
-        card_name: data.card_name,
-        card_id: data.card_number,
-        card_image: data.card_image,
-        card_link: data.link,
-        rarity: data.rarity || null,
-        quantity: 1,
-        price: {
-          preco_min: data.preco_min || 0,
-          preco_medio: data.preco_medio || 0,
-          preco_max: data.preco_max || 0,
-        },
-      }
 
-      if (!existing) {
-        setCards((prev) => [newCard, ...prev])
-      }
+      await loadCards()
     } catch (err) {
       console.log(err)
       alert('Erro ao importar carta')
@@ -204,53 +192,65 @@ async function handleSell(card: any) {
   alert('Venda realizada com sucesso!')
 }
 
+async function loadCards() {
+  const { data: userData } = await supabase.auth.getUser()
+
+  if (!userData.user) {
+    window.location.href = '/login'
+    return
+  }
+
+  const { data } = await supabase
+    .from('user_cards')
+    .select('*')
+    .eq('user_id', userData.user.id)
+    .order('created_at', { ascending: false })
+
+  const cardsData = data || []
+
+  const names = cardsData.map((c) => c.card_name?.trim())
+
+  let priceMap: any = {}
+
+  if (names.length > 0) {
+    const { data: prices } = await supabase
+      .from('card_prices')
+      .select('*')
+      .in('card_name', names)
+
+    priceMap = (prices || []).reduce((acc: any, p: any) => {
+      const key = p.card_name?.trim()
+      acc[key] = p
+      return acc
+    }, {})
+  }
+
+  const merged = cardsData.map((c) => {
+    const key = c.card_name?.trim()
+    return {
+      ...c,
+      price: priceMap[key] || null,
+    }
+  })
+
+  setCards(merged)
+  setLoading(false)
+}
+
   useEffect(() => {
-    async function loadCards() {
-      const { data: userData } = await supabase.auth.getUser()
+    loadCards()
+  }, [])
 
-      if (!userData.user) {
-        window.location.href = '/login'
-        return
-      }
-
-      const { data } = await supabase
-        .from('user_cards')
-        .select('*')
-        .eq('user_id', userData.user.id)
-        .order('created_at', { ascending: false })
-
-      const cardsData = data || []
-
-      const names = cardsData.map((c) => c.card_name?.trim())
-
-      let priceMap: any = {}
-
-      if (names.length > 0) {
-        const { data: prices } = await supabase
-          .from('card_prices')
-          .select('*')
-          .in('card_name', names)
-
-        priceMap = (prices || []).reduce((acc: any, p: any) => {
-          const key = p.card_name?.trim()
-          acc[key] = p
-          return acc
-        }, {})
-      }
-
-      const merged = cardsData.map((c) => {
-        const key = c.card_name?.trim()
-        return {
-          ...c,
-          price: priceMap[key] || null,
-        }
-      })
-
-      setCards(merged)
-      setLoading(false)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadCards()
     }
 
-    loadCards()
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   async function handleUpdateQuantity(card: any, delta: number) {
@@ -280,7 +280,29 @@ async function handleSell(card: any) {
   }
 
   async function handleRemove(id: string) {
-    await supabase.from('user_cards').delete().eq('id', id)
+    const { data: userData } = await supabase.auth.getUser()
+
+    if (!userData.user) return
+
+    const { data, error } = await supabase
+      .from('user_cards')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userData.user.id)
+      .select()
+
+    console.log('DELETE RESULT:', data, error)
+
+    if (error) {
+      console.log(error)
+      alert('Erro ao remover carta')
+      return
+    }
+
+    if (!data || data.length === 0) {
+      alert('Nada foi deletado no banco → provavelmente RLS bloqueando')
+      return
+    }
 
     setCards((prev) => prev.filter((card) => card.id !== id))
   }
