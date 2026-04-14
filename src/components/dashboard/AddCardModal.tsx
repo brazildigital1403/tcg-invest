@@ -10,464 +10,380 @@ interface Props {
   onAdded: () => void
 }
 
+// ─── Tokens ──────────────────────────────────────────────────────────────────
+
+const BRAND   = 'linear-gradient(135deg, #f59e0b, #ef4444)'
+const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }
+const TEXT_MUTED = 'rgba(255,255,255,0.4)'
+
+// ─── Raridade → emoji ────────────────────────────────────────────────────────
+
+const rarityIcon = (r: string) => {
+  if (!r) return ''
+  if (r.includes('Rare Holo') || r.includes('Rare Secret')) return '✦'
+  if (r.includes('Rare')) return '◆'
+  if (r.includes('Uncommon')) return '◇'
+  return '○'
+}
+
+const typeColors: Record<string, string> = {
+  Fire: '#ef4444', Water: '#60a5fa', Grass: '#22c55e',
+  Lightning: '#f59e0b', Psychic: '#a855f7', Fighting: '#f97316',
+  Darkness: '#6b7280', Metal: '#94a3b8', Dragon: '#10b981',
+  Colorless: '#d1d5db', Fairy: '#f472b6',
+}
+
 export default function AddCardModal({ userId, onClose, onAdded }: Props) {
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchTerm, setSearchTerm]     = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [selectedCards, setSelectedCards] = useState<any[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [selectedPreview, setSelectedPreview] = useState<any | null>(null)
-  const [priceDataPreview, setPriceDataPreview] = useState<any | null>(null)
-  const [typeFilterModal, setTypeFilterModal] = useState<string>('')
-  const [rarityFilterModal, setRarityFilterModal] = useState<string>('')
-  const [sortModal, setSortModal] = useState('name')
-  const [previewTab, setPreviewTab] = useState<'card' | 'info' | 'price'>('card')
+  const [isSearching, setIsSearching]   = useState(false)
+  const [preview, setPreview]           = useState<any | null>(null)
+  const [priceData, setPriceData]       = useState<any | null>(null)
+  const [typeFilter, setTypeFilter]     = useState('')
+  const [rarityFilter, setRarityFilter] = useState('')
+  const [adding, setAdding]             = useState(false)
+  const [ligaLinks, setLigaLinks]       = useState<Record<string, string>>({})
   const searchTimeout = useRef<any>(null)
 
-  async function handleSearchCards(value: string) {
+  // ── Busca ──────────────────────────────────────────────────────────────────
+
+  async function handleSearch(value: string) {
     setSearchTerm(value)
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
     searchTimeout.current = setTimeout(async () => {
-      if (!value) { setSearchResults([]); setIsSearching(false); return }
+      if (!value.trim()) { setSearchResults([]); setIsSearching(false); return }
       setIsSearching(true)
       try {
-        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(value)}`)
+        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(value)}&pageSize=50`)
         const data = await res.json()
-        setSearchResults(data?.data?.slice(0, 50) || [])
+        setSearchResults(data?.data || [])
       } catch { setSearchResults([]) }
       setIsSearching(false)
     }, 400)
   }
 
-  async function matchPokemonApiId(cardName: string, cardNumber?: string) {
-    try {
-      const cleanName = cardName.split('(')[0].trim().toLowerCase()
-      const number = cardNumber || ''
-      const queryExact = `https://api.pokemontcg.io/v2/cards?q=name:"${cleanName}"${number ? ` number:${number}` : ''}`
-      const resExact = await fetch(queryExact)
-      const dataExact = await resExact.json()
-      if (dataExact?.data?.length > 0) return { id: dataExact.data[0].id, score: 1 }
-      const queryName = `https://api.pokemontcg.io/v2/cards?q=name:"${cleanName}"`
-      const resName = await fetch(queryName)
-      const dataName = await resName.json()
-      if (!dataName?.data?.length) return { id: null, score: 0 }
-      let bestMatch = null, bestScore = 0
-      for (const card of dataName.data) {
-        const apiName = card.name.toLowerCase()
-        let score = 0
-        if (apiName === cleanName) score += 0.7
-        if (apiName.includes(cleanName)) score += 0.2
-        if (number && card.number === number) score += 0.1
-        if (score > bestScore) { bestScore = score; bestMatch = card }
-      }
-      return { id: bestMatch?.id || null, score: bestScore }
-    } catch { return { id: null, score: 0 } }
+  // ── Selecionar carta ────────────────────────────────────────────────────────
+
+  async function handleCardClick(card: any) {
+    setPreview(card)
+    // carrega preço do banco se existir
+    const { data } = await supabase.from('card_prices').select('*').eq('pokemon_api_id', card.id).maybeSingle()
+    setPriceData(data || null)
+    // toggle seleção
+    setSelectedCards(prev =>
+      prev.find(c => c.id === card.id)
+        ? prev.filter(c => c.id !== card.id)
+        : [...prev, card]
+    )
   }
 
-  const filteredResults = searchResults
-    .filter((c) => !typeFilterModal || (c.types || []).includes(typeFilterModal))
-    .filter((c) => !rarityFilterModal || c.rarity === rarityFilterModal)
-    .sort((a, b) => {
-      if (sortModal === 'name') return a.name.localeCompare(b.name)
-      if (sortModal === 'number') return Number(a.number) - Number(b.number)
-      return 0
-    })
+  // ── Adicionar cartas selecionadas ───────────────────────────────────────────
+
+  async function handleAdd() {
+    if (!userId || !selectedCards.length) return
+    setAdding(true)
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData?.user?.id) { setAdding(false); return }
+
+    for (const card of selectedCards) {
+      const number    = card.number || ''
+      const total     = card.set?.printedTotal || ''
+      const cardName  = number && total ? `${card.name} (${number}/${total})` : card.name
+      const cardImage = card.images?.large || card.images?.small || null
+      const ligaUrl   = ligaLinks[card.id] || null
+
+      let cardLink: string | null = null
+
+      // Se o usuário informou link da LigaPokemon, busca preço
+      if (ligaUrl) {
+        try {
+          const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(ligaUrl)}`)
+          const priceData = await res.json()
+          if (priceData?.card_name) {
+            cardLink = priceData.link || ligaUrl
+            await supabase.from('card_prices').upsert({
+              card_name: cardName,
+              preco_min: priceData.preco_min || 0,
+              preco_medio: priceData.preco_medio || 0,
+              preco_max: priceData.preco_max || 0,
+              preco_normal: priceData.preco_normal || 0,
+              preco_foil: priceData.preco_foil || 0,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'card_name' })
+          }
+        } catch { /* continua sem preço */ }
+      }
+
+      await supabase.from('user_cards').insert({
+        user_id: authData.user.id,
+        pokemon_api_id: card.id,
+        card_name: cardName,
+        card_id: card.id,
+        card_image: cardImage,
+        card_link: cardLink,
+        rarity: card.rarity || null,
+      })
+    }
+
+    setAdding(false)
+    onClose()
+    onAdded()
+  }
+
+  // ── Resultados filtrados ────────────────────────────────────────────────────
+
+  const filtered = searchResults
+    .filter(c => !typeFilter    || (c.types || []).includes(typeFilter))
+    .filter(c => !rarityFilter  || c.rarity === rarityFilter)
+
+  const fmt = (v: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-<div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
-        <div className="w-full max-w-6xl bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl flex flex-col max-h-[90vh]">
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ width: '100%', maxWidth: 1000, maxHeight: '90vh', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-          {/* HEADER */}
-          <div className="flex items-center justify-between p-5 border-b border-gray-800">
-            <h2 className="text-xl font-semibold text-white">Adicionar Cartas</h2>
-            <button
-              onClick={() => onClose()}
-              className="text-gray-400 hover:text-white text-xl"
-            >
-              ✕
-            </button>
+        {/* ── HEADER ── */}
+        <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.15))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+              🔍
+            </div>
+            <div>
+              <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: '#f0f0f0' }}>Buscar cartas</p>
+              <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 1 }}>Base oficial do Pokémon TCG · {filtered.length > 0 ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}` : 'Digite para buscar'}</p>
+            </div>
           </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            ✕
+          </button>
+        </div>
 
-          {/* SEARCH + CONTROLS */}
-          <div className="p-5 border-b border-gray-800 space-y-4">
+        {/* ── SEARCH + FILTERS ── */}
+        <div style={{ padding: '16px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+          {/* Input de busca */}
+          <div style={{ position: 'relative', marginBottom: 12 }}>
+            <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: TEXT_MUTED }}>🔍</span>
             <input
+              autoFocus
               value={searchTerm}
-              onChange={(e) => handleSearchCards(e.target.value)}
-              placeholder="Buscar cartas..."
-              className="w-full p-3 rounded-xl bg-gray-800 border border-gray-700 text-white"
+              onChange={e => handleSearch(e.target.value)}
+              placeholder="Nome da carta... ex: Charizard, Pikachu ex, Mewtwo V"
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
+              onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
-
-            <div className="flex gap-2 flex-wrap">
-              {selectedCards.map((c) => (
-                <span
-                  key={c.id}
-                  className="px-3 py-1 bg-yellow-500 text-black text-xs rounded-full"
-                >
-                  {c.name}
-                </span>
-              ))}
-            </div>
-
-            {/* Filters, sorting */}
-            <div className="flex gap-2 flex-wrap">
-              <select
-                value={typeFilterModal}
-                onChange={(e) => setTypeFilterModal(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs"
-              >
-                <option value="">Tipo</option>
-                <option value="Fire">Fire</option>
-                <option value="Water">Water</option>
-                <option value="Grass">Grass</option>
-                <option value="Lightning">Lightning</option>
-              </select>
-
-              <select
-                value={rarityFilterModal}
-                onChange={(e) => setRarityFilterModal(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs"
-              >
-                <option value="">Raridade</option>
-                <option value="Common">Common</option>
-                <option value="Uncommon">Uncommon</option>
-                <option value="Rare">Rare</option>
-              </select>
-
-              <select
-                value={sortModal}
-                onChange={(e) => setSortModal(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs"
-              >
-                <option value="name">Nome</option>
-                <option value="number">Número</option>
-              </select>
-            </div>
+            {isSearching && (
+              <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#f59e0b' }}>Buscando...</span>
+            )}
           </div>
 
-          {/* CONTENT */}
-          <div className="flex flex-1 overflow-hidden">
+          {/* Filtros + cartas selecionadas */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* Filtros */}
+            {[
+              { value: typeFilter, onChange: setTypeFilter, opts: ['', 'Fire', 'Water', 'Grass', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Dragon', 'Colorless'], labels: ['Tipo', 'Fogo', 'Água', 'Planta', 'Elétrico', 'Psíquico', 'Lutador', 'Trevas', 'Metal', 'Dragão', 'Incolor'] },
+              { value: rarityFilter, onChange: setRarityFilter, opts: ['', 'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Ultra', 'Rare Secret'], labels: ['Raridade', 'Comum', 'Incomum', 'Rara', 'Rara Holo', 'Ultra Rara', 'Secreta'] },
+            ].map((f, i) => (
+              <select key={i} value={f.value} onChange={e => f.onChange(e.target.value)}
+                style={{ fontSize: 12, background: f.value ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${f.value ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, padding: '6px 10px', color: f.value ? '#f59e0b' : TEXT_MUTED, cursor: 'pointer' }}>
+                {f.opts.map((o, j) => <option key={o} value={o} style={{ background: '#0d0f14', color: '#f0f0f0' }}>{f.labels[j]}</option>)}
+              </select>
+            ))}
 
-            {/* GRID */}
-            <div className="w-2/3 overflow-y-auto p-5">
-              {isSearching && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[...Array(8)].map((_, i) => (
-                    <div key={i} className="h-48 bg-gray-800 rounded-xl animate-pulse" />
-                  ))}
-                </div>
-              )}
-
-              {!isSearching && searchResults.length === 0 && (
-                <div className="text-center text-gray-400 py-10">
-                  Digite para buscar cartas
-                </div>
-              )}
-
-              {!isSearching && (() => {
-                const filteredResults = searchResults
-                  .filter((c) => {
-                    if (!typeFilterModal) return true
-                    return (c.types || []).includes(typeFilterModal)
-                  })
-                  .filter((c) => {
-                    if (!rarityFilterModal) return true
-                    return c.rarity === rarityFilterModal
-                  })
-                  .sort((a, b) => {
-                    if (sortModal === 'name') return a.name.localeCompare(b.name)
-                    if (sortModal === 'number') return Number(a.number) - Number(b.number)
-                    return 0
-                  })
-                return (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {filteredResults.map((card) => {
-                      const isSelected = selectedCards.find((c) => c.id === card.id)
-
-                      return (
-                        <div
-                          key={card.id}
-                          onClick={() => {
-                            setSelectedPreview(card)
-                            // carregar preço do Supabase
-                            ;(async () => {
-                              const { data } = await supabase
-                                .from('card_prices')
-                                .select('*')
-                                .eq('pokemon_api_id', card.id)
-                                .maybeSingle()
-
-                              setPriceDataPreview(data || null)
-                            })()
-                            if (isSelected) {
-                              setSelectedCards((prev) => prev.filter((c) => c.id !== card.id))
-                            } else {
-                              setSelectedCards((prev) => [...prev, card])
-                            }
-                          }}
-                          className={`relative bg-gray-800 rounded-xl p-3 cursor-pointer transition hover:scale-105 ${
-                            isSelected ? 'ring-2 ring-yellow-500' : ''
-                          }`}
-                        >
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full">
-                              ✓
-                            </div>
-                          )}
-
-                          <img
-                            src={card.images?.small}
-                            alt={card.name}
-                            className="w-full rounded mb-2"
-                          />
-
-                          <p className="text-sm text-white font-medium">{card.name}</p>
-                          <p className="text-xs text-gray-400">#{card.number}</p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
-            </div>
-
-            {/* PREVIEW */}
-            <div className="w-1/3 border-l border-gray-800 p-5">
-              {selectedPreview ? (
-                <div>
-                  {/* TABS */}
-                  <div className="flex gap-2 mb-4">
+            {/* Cartas selecionadas */}
+            {selectedCards.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
+                {selectedCards.map(c => (
+                  <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '3px 6px 3px 10px', borderRadius: 100, fontWeight: 600, maxWidth: 140 }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                     <button
-                      onClick={() => setPreviewTab('card')}
-                      className={`px-3 py-1 text-xs rounded-full ${
-                        previewTab === 'card'
-                          ? 'bg-yellow-500 text-black'
-                          : 'bg-gray-800 text-gray-400'
-                      }`}
+                      onClick={e => { e.stopPropagation(); setSelectedCards(prev => prev.filter(s => s.id !== c.id)); if (preview?.id === c.id) setPreview(null) }}
+                      style={{ background: 'rgba(245,158,11,0.2)', border: 'none', color: '#f59e0b', cursor: 'pointer', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, flexShrink: 0, lineHeight: 1 }}
                     >
-                      Card
+                      ✕
                     </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-                    <button
-                      onClick={() => setPreviewTab('info')}
-                      className={`px-3 py-1 text-xs rounded-full ${
-                        previewTab === 'info'
-                          ? 'bg-yellow-500 text-black'
-                          : 'bg-gray-800 text-gray-400'
-                      }`}
-                    >
-                      Info
-                    </button>
+        {/* ── CONTENT ── */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-                    <button
-                      onClick={() => setPreviewTab('price')}
-                      className={`px-3 py-1 text-xs rounded-full ${
-                        previewTab === 'price'
-                          ? 'bg-yellow-500 text-black'
-                          : 'bg-gray-800 text-gray-400'
-                      }`}
-                    >
-                      Price
-                    </button>
-                  </div>
+          {/* Grid de resultados */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
 
-                  {/* TAB CONTENT */}
-                  {previewTab === 'card' && (
-                    <img
-                      src={selectedPreview.images?.large}
-                      className="w-full rounded-xl mb-4"
-                    />
-                  )}
+            {/* Estado vazio inicial */}
+            {!isSearching && searchResults.length === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: TEXT_MUTED }}>
+                <div style={{ fontSize: 48, opacity: 0.3 }}>🃏</div>
+                <p style={{ fontSize: 14 }}>Digite o nome de uma carta para buscar</p>
+                <p style={{ fontSize: 12, opacity: 0.6 }}>Ex: Charizard, Pikachu, Mewtwo, Blastoise...</p>
+              </div>
+            )}
 
-                  {previewTab === 'info' && (
-                    <div className="space-y-2 text-sm">
-                      <p className="text-white font-bold">{selectedPreview.name}</p>
-                      <p className="text-gray-400">#{selectedPreview.number}</p>
-                      <p className="text-gray-400">{selectedPreview.rarity || 'Sem raridade'}</p>
-                      <p className="text-gray-500 text-xs">
-                        {(selectedPreview.types || []).join(', ')}
-                      </p>
+            {/* Skeleton loading */}
+            {isSearching && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, overflow: 'hidden' }}>
+                    <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />
+                    <div style={{ padding: '10px 12px' }}>
+                      <div style={{ height: 10, background: 'rgba(255,255,255,0.06)', borderRadius: 4, marginBottom: 6 }} />
+                      <div style={{ height: 8, background: 'rgba(255,255,255,0.04)', borderRadius: 4, width: '60%' }} />
                     </div>
-                  )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-                  {previewTab === 'price' && (
-                    <div className="space-y-3">
-                      {priceDataPreview ? (
-                        <div>
-                          <div className="grid grid-cols-3 gap-2 text-center">
-                            <div>
-                              <p className="text-xs text-gray-400">Min</p>
-                              <p className="text-green-500 font-bold">
-                                R$ {Number(priceDataPreview.preco_min || 0).toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-400">Médio</p>
-                              <p className="text-white font-bold">
-                                R$ {Number(priceDataPreview.preco_medio || 0).toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-400">Max</p>
-                              <p className="text-red-500 font-bold">
-                                R$ {Number(priceDataPreview.preco_max || 0).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                          {/* Match Score UI */}
-                          {priceDataPreview?.matched_score !== undefined && (
-                            <div className="mt-3 text-center">
-                              <p className="text-xs text-gray-400">Confiança do match</p>
-                              <p className={`text-sm font-semibold ${
-                                priceDataPreview.matched_score >= 0.8
-                                  ? 'text-green-500'
-                                  : priceDataPreview.matched_score >= 0.5
-                                  ? 'text-yellow-500'
-                                  : 'text-red-500'
-                              }`}>
-                                {(priceDataPreview.matched_score * 100).toFixed(0)}%
-                              </p>
-                              {priceDataPreview.matched_score < 0.5 && (
-                                <p className="text-[11px] text-red-400 mt-1">
-                                  Baixa confiança. Verifique se a carta está correta.
-                                </p>
-                              )}
-                            </div>
-                          )}
+            {/* Resultados */}
+            {!isSearching && filtered.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+                {filtered.map(card => {
+                  const isSelected = !!selectedCards.find(c => c.id === card.id)
+                  const isPreviewed = preview?.id === card.id
+                  const cardType = card.types?.[0]
+                  const typeColor = typeColors[cardType] || '#6b7280'
+
+                  return (
+                    <div
+                      key={card.id}
+                      onClick={() => handleCardClick(card)}
+                      style={{
+                        background: isSelected ? 'rgba(245,158,11,0.06)' : isPreviewed ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
+                        border: isSelected ? '1.5px solid rgba(245,158,11,0.5)' : isPreviewed ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: 12, cursor: 'pointer', overflow: 'hidden', transition: 'all 0.15s', position: 'relative',
+                      }}
+                      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.18)' }}
+                      onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = isPreviewed ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)' }}
+                    >
+                      {/* Checkmark */}
+                      {isSelected && (
+                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#000', fontWeight: 700 }}>
+                          ✓
                         </div>
-                      ) : (
-                        <>
-                          <p className="text-gray-500 text-sm">Sem preço salvo</p>
-                          {/* Match Score UI even when no price? (not needed, only on priceDataPreview) */}
-                        </>
                       )}
 
-                      <button
-                        onClick={async () => {
-                          const url = prompt('Cole o link da LigaPokemon dessa carta:')
-                          if (!url) return
+                      {/* Imagem */}
+                      <div style={{ position: 'relative', paddingBottom: '140%' }}>
+                        <img src={card.images?.small} alt={card.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
 
-                          const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
-                          const data = await res.json()
-
-                          if (!data?.card_name) return alert('Erro ao importar')
-
-                          const match = selectedPreview
-                            ? { id: selectedPreview.id, score: 1 }
-                            : await matchPokemonApiId(data.card_name)
-
-                          const matchedId = match.id
-
-                          await supabase.from('card_prices').upsert({
-                            pokemon_api_id: matchedId,
-                            card_name: data.card_name,
-                            preco_min: data.preco_min || 0,
-                            preco_medio: data.preco_medio || 0,
-                            preco_max: data.preco_max || 0,
-                            preco_normal: data.preco_normal || 0,
-                            preco_foil: data.preco_foil || 0,
-                            updated_at: new Date().toISOString(),
-                            matched_score: match.score,
-                          }, { onConflict: 'pokemon_api_id' })
-
-                          setPriceDataPreview({ ...data, matched_score: match.score })
-                        }}
-                        className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-semibold hover:opacity-90"
-                      >
-                        Importar preço da LigaPokemon
-                      </button>
+                      {/* Info */}
+                      <div style={{ padding: '8px 10px' }}>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.name}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>#{card.number} · {card.set?.name?.slice(0, 12)}</p>
+                          {cardType && <span style={{ fontSize: 9, color: typeColor, fontWeight: 700 }}>{cardType}</span>}
+                        </div>
+                      </div>
                     </div>
-                  )}
-
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">Selecione uma carta</p>
-              )}
-            </div>
+                  )
+                })}
+              </div>
+            )}
 
           </div>
 
-          {/* FOOTER */}
-          <div className="p-5 border-t border-gray-800 flex justify-between items-center">
-            <p className="text-sm text-gray-400">
-              {selectedCards.length} selecionadas
-            </p>
+          {/* ── PREVIEW ── */}
+          <div style={{ width: 260, borderLeft: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto', flexShrink: 0 }}>
+            {!preview ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, padding: 24, textAlign: 'center' }}>
+                <div style={{ fontSize: 40, opacity: 0.2 }}>👆</div>
+                <p style={{ fontSize: 13, color: TEXT_MUTED }}>Clique em uma carta para ver detalhes</p>
+              </div>
+            ) : (
+              <div style={{ padding: 16 }}>
+                {/* Imagem grande */}
+                <img src={preview.images?.large || preview.images?.small} alt={preview.name} style={{ width: '100%', borderRadius: 10, marginBottom: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }} />
 
+                {/* Nome + número */}
+                <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2 }}>{preview.name}</p>
+                <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 12 }}>#{preview.number} · {preview.set?.name} ({preview.set?.releaseDate?.slice(0, 4)})</p>
+
+                {/* Badges */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                  {(preview.types || []).map((t: string) => (
+                    <span key={t} style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: (typeColors[t] || '#6b7280') + '22', color: typeColors[t] || '#6b7280' }}>{t}</span>
+                  ))}
+                  {preview.rarity && (
+                    <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 100, background: 'rgba(255,255,255,0.06)', color: TEXT_MUTED }}>
+                      {rarityIcon(preview.rarity)} {preview.rarity}
+                    </span>
+                  )}
+                  {preview.hp && (
+                    <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>HP {preview.hp}</span>
+                  )}
+                </div>
+
+                {/* Preço no banco */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 14px' }}>
+                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Preço na LigaPokemon</p>
+                  {priceData ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 4, textAlign: 'center' }}>
+                      <div><p style={{ fontSize: 9, color: TEXT_MUTED }}>Mín</p><p style={{ fontSize: 12, fontWeight: 700, color: '#22c55e' }}>{fmt(priceData.preco_min)}</p></div>
+                      <div><p style={{ fontSize: 9, color: TEXT_MUTED }}>Méd</p><p style={{ fontSize: 12, fontWeight: 700, color: '#60a5fa' }}>{fmt(priceData.preco_medio)}</p></div>
+                      <div><p style={{ fontSize: 9, color: TEXT_MUTED }}>Máx</p><p style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{fmt(priceData.preco_max)}</p></div>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>Sem dados — adicione via link na Minha Carteira</p>
+                  )}
+                </div>
+
+                {/* Link LigaPokemon */}
+                <div style={{ marginTop: 12 }}>
+                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Link da LigaPokemon</p>
+                  <input
+                    value={ligaLinks[preview.id] || ''}
+                    onChange={e => setLigaLinks(prev => ({ ...prev, [preview.id]: e.target.value }))}
+                    placeholder="https://www.ligapokemon.com.br/..."
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${ligaLinks[preview.id] ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, padding: '8px 10px', color: '#f0f0f0', fontSize: 11, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                    onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+                    onBlur={e => e.target.style.borderColor = ligaLinks[preview.id] ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}
+                  />
+                  {ligaLinks[preview.id] && (
+                    <p style={{ fontSize: 10, color: '#22c55e', marginTop: 4 }}>✓ Preço será importado ao adicionar</p>
+                  )}
+                </div>
+
+                {/* Artista */}
+                {preview.artist && (
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 10, textAlign: 'center' }}>
+                    Ilustrado por {preview.artist}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── FOOTER ── */}
+        <div style={{ padding: '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.01)' }}>
+          <p style={{ fontSize: 13, color: selectedCards.length > 0 ? '#f59e0b' : TEXT_MUTED, fontWeight: selectedCards.length > 0 ? 600 : 400 }}>
+            {selectedCards.length === 0 ? 'Nenhuma carta selecionada' : `${selectedCards.length} carta${selectedCards.length !== 1 ? 's' : ''} selecionada${selectedCards.length !== 1 ? 's' : ''}`}
+          </p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, padding: '10px 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
+              Cancelar
+            </button>
             <button
-              onClick={async () => {
-                if (!userId || selectedCards.length === 0) return
-
-                const { data: authData } = await supabase.auth.getUser()
-                if (!authData?.user?.id) return alert('Usuário não autenticado')
-
-                for (const card of selectedCards) {
-                  const number = card.number || ''
-                  const total = card.set?.printedTotal || ''
-                  const cardName = number && total
-                    ? `${card.name} (${number}/${total})`
-                    : card.name
-                  const cardImage = card.images?.large || card.images?.small || null
-
-                  // Pede link da LigaPokemon (opcional)
-                  const ligaUrl = prompt(
-                    `Cole o link da LigaPokemon para "${card.name}" (opcional — deixe em branco para pular):`
-                  )
-
-                  let cardLink: string | null = null
-
-                  if (ligaUrl) {
-                    try {
-                      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(ligaUrl)}`)
-                      const priceData = await res.json()
-
-                      if (priceData?.card_name) {
-                        cardLink = priceData.link || ligaUrl
-
-                        await supabase.from('card_prices').upsert({
-                          card_name: cardName,
-                          preco_min: priceData.preco_min || 0,
-                          preco_medio: priceData.preco_medio || 0,
-                          preco_max: priceData.preco_max || 0,
-                          preco_normal: priceData.preco_normal || 0,
-                          preco_foil: priceData.preco_foil || 0,
-                          updated_at: new Date().toISOString(),
-                        }, { onConflict: 'card_name' })
-
-                        // ✅ gravar no histórico de preços
-                        await supabase.from('card_price_history').insert({
-                          card_name: cardName,
-                          preco_min: priceData.preco_min || null,
-                          preco_medio: priceData.preco_medio || null,
-                          preco_max: priceData.preco_max || null,
-                          preco_normal: priceData.preco_normal || null,
-                          preco_foil: priceData.preco_foil || null,
-                          recorded_at: new Date().toISOString(),
-                        })
-                      }
-                    } catch {
-                      // link inválido ou erro no scraping — continua sem preço
-                    }
-                  }
-
-                  await supabase.from('user_cards').insert({
-                    user_id: authData.user.id,
-                    pokemon_api_id: card.id,
-                    card_name: cardName,
-                    card_id: card.id,
-                    card_image: cardImage,
-                    card_link: cardLink,
-                    rarity: card.rarity || null,
-                  })
-                }
-
-                onClose()
-                onAdded()
-              }}
-              className="px-5 py-3 bg-yellow-500 text-black rounded-xl font-semibold hover:opacity-90"
+              onClick={handleAdd}
+              disabled={selectedCards.length === 0 || adding}
+              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, padding: '10px 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none' }}
             >
-              Adicionar ({selectedCards.length})
+              {adding ? 'Adicionando...' : `Adicionar ${selectedCards.length > 0 ? `(${selectedCards.length})` : ''} →`}
             </button>
           </div>
-
         </div>
+
       </div>
+    </div>
   )
 }
