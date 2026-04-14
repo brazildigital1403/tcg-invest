@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
+import { useAppModal } from '@/components/ui/useAppModal'
 
 const fmt = (v: number | null | undefined) => {
   if (!v) return 'R$ -'
@@ -39,6 +40,7 @@ function getVariantesDisponiveis(price: any) {
 }
 
 export default function MinhaColecao() {
+  const { showAlert, showPrompt, showConfirm } = useAppModal()
   const [cards, setCards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -89,18 +91,18 @@ export default function MinhaColecao() {
   }
 
   async function handleAddByLink() {
-    const url = prompt('Cole o link da LigaPokemon:')
+    const url = await showPrompt({ message: 'Cole o link da carta na LigaPokemon:', placeholder: 'https://www.ligapokemon.com.br/?view=cards/card&card=...' })
     if (!url) return
 
     const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) { alert('Usuário não logado'); return }
+    if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
 
     try {
       const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
       const data = await res.json()
 
       if (!data?.card_name) {
-        alert('Não foi possível identificar a carta. Tente novamente.')
+        showAlert('Não foi possível identificar a carta. Verifique o link e tente novamente.', 'error')
         return
       }
 
@@ -134,7 +136,7 @@ export default function MinhaColecao() {
         insertError = error
       }
 
-      if (insertError) { alert('Erro ao salvar carta'); return }
+      if (insertError) { showAlert('Erro ao salvar a carta. Tente novamente.', 'error'); return }
 
       await supabase.from('card_prices').upsert({
         card_name: data.card_name,
@@ -154,23 +156,23 @@ export default function MinhaColecao() {
         recorded_at: new Date().toISOString(),
       })
 
-      alert('Carta adicionada com sucesso!')
+      showAlert('Carta adicionada com sucesso!', 'success')
       window.location.reload()
     } catch (err) {
-      alert('Erro ao importar carta')
+      showAlert('Erro ao importar a carta. Verifique o link.', 'error')
     }
   }
 
   async function handleSell(card: any) {
-    const qty = prompt(`Você tem ${card.quantity || 1}. Quantas deseja vender?`)
+    const qty = await showPrompt({ message: `Quantas cópias deseja vender?`, placeholder: `1 a ${card.quantity || 1}` })
     if (!qty) return
     const quantityToSell = Number(qty)
-    if (quantityToSell <= 0 || quantityToSell > (card.quantity || 1)) { alert('Quantidade inválida'); return }
-    const price = prompt('Digite o preço UNITÁRIO da carta:')
+    if (quantityToSell <= 0 || quantityToSell > (card.quantity || 1)) { showAlert('Quantidade inválida.', 'error'); return }
+    const price = await showPrompt({ message: 'Qual o preço UNITÁRIO da carta? (em R$)', placeholder: 'Ex: 150.00' })
     if (!price) return
 
     const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) { alert('Usuário não logado'); return }
+    if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
 
     const items = Array.from({ length: quantityToSell }).map(() => ({
       user_id: userData.user.id,
@@ -181,7 +183,7 @@ export default function MinhaColecao() {
     }))
 
     const { error } = await supabase.from('marketplace').insert(items)
-    if (error) { alert('Erro ao colocar à venda'); return }
+    if (error) { showAlert('Erro ao colocar à venda. Tente novamente.', 'error'); return }
 
     const newQty = (card.quantity || 1) - quantityToSell
     if (newQty <= 0) {
@@ -190,14 +192,14 @@ export default function MinhaColecao() {
       await supabase.from('user_cards').update({ quantity: newQty }).eq('id', card.id)
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, quantity: newQty } : c))
     }
-    alert('Venda realizada com sucesso!')
+    showAlert('Venda realizada com sucesso!', 'success')
   }
 
   async function handleUpdateQuantity(card: any, delta: number) {
     const newQty = (card.quantity || 1) + delta
     if (newQty <= 0) { await handleRemove(card.id); return }
     const { error } = await supabase.from('user_cards').update({ quantity: newQty }).eq('id', card.id)
-    if (error) { alert('Erro ao atualizar quantidade'); return }
+    if (error) { showAlert('Erro ao atualizar quantidade.', 'error'); return }
     setCards(prev => prev.map(c => c.id === card.id ? { ...c, quantity: newQty } : c))
   }
 
@@ -206,8 +208,8 @@ export default function MinhaColecao() {
     if (!userData.user) return
     const { data, error } = await supabase.from('user_cards').delete()
       .eq('id', id).eq('user_id', userData.user.id).select()
-    if (error) { alert('Erro ao remover carta'); return }
-    if (!data || data.length === 0) { alert('Nada foi deletado → verifique as políticas RLS'); return }
+    if (error) { showAlert('Erro ao remover a carta.', 'error'); return }
+    if (!data || data.length === 0) { showAlert('Nada foi deletado. Verifique as políticas RLS no Supabase.', 'warning'); return }
     setCards(prev => prev.filter(c => c.id !== id))
   }
 
@@ -239,38 +241,47 @@ export default function MinhaColecao() {
       <div className="p-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">📊 Minha Carteira</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Minha Carteira</h1>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>{cards.length} carta{cards.length !== 1 ? 's' : ''} na coleção</p>
+          </div>
           <button
             onClick={handleAddByLink}
-            className="bg-purple-600 hover:opacity-90 text-white px-4 py-2 rounded-lg text-sm"
+            style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '12px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.2)' }}
           >
             + Importar por link
           </button>
         </div>
 
-        {/* ✅ Resumo financeiro da carteira */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="bg-green-900/40 border border-green-700 rounded-2xl p-4 text-center">
-            <p className="text-xs text-green-400 mb-1">Mínimo da Carteira</p>
-            <p className="text-xl font-bold text-green-400">{fmt(totais.min)}</p>
-            <p className="text-xs text-gray-500 mt-1">Pior cenário de venda</p>
+        {/* Resumo financeiro da carteira */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 32 }}>
+          <div style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 16, padding: 20, textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: 'rgba(34,197,94,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Mínimo da Carteira</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: '#22c55e', letterSpacing: '-0.02em' }}>{fmt(totais.min)}</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>Pior cenário de venda</p>
           </div>
-          <div className="bg-blue-900/40 border border-blue-700 rounded-2xl p-4 text-center">
-            <p className="text-xs text-blue-400 mb-1">Valor Médio da Carteira</p>
-            <p className="text-xl font-bold text-blue-400">{fmt(totais.medio)}</p>
-            <p className="text-xs text-gray-500 mt-1">Preço médio de mercado</p>
+          <div style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 16, padding: 20, textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Valor Médio</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.02em' }}>{fmt(totais.medio)}</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>Preço médio de mercado</p>
           </div>
-          <div className="bg-yellow-900/40 border border-yellow-700 rounded-2xl p-4 text-center">
-            <p className="text-xs text-yellow-400 mb-1">Máximo da Carteira</p>
-            <p className="text-xl font-bold text-yellow-400">{fmt(totais.max)}</p>
-            <p className="text-xs text-gray-500 mt-1">Melhor cenário de venda</p>
+          <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 16, padding: 20, textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Máximo da Carteira</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em' }}>{fmt(totais.max)}</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>Melhor cenário de venda</p>
           </div>
         </div>
 
-        {cards.length === 0 && <p className="text-gray-400">Você ainda não adicionou cartas.</p>}
+        {cards.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
+            <p style={{ fontSize: 48, marginBottom: 16 }}>🃏</p>
+            <p style={{ fontSize: 16 }}>Você ainda não adicionou cartas.</p>
+            <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "+ Importar por link" para começar</p>
+          </div>
+        )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
           {cards.map((c) => {
             const variante = c.variante || 'normal'
             const variantesDisponiveis = getVariantesDisponiveis(c.price)
@@ -279,9 +290,13 @@ export default function MinhaColecao() {
             return (
               <div
                 key={c.id}
-                className={`rounded-2xl p-4 shadow-md bg-gray-900 hover:shadow-lg transition border ${
-                  (precos.medio || 0) > 100 ? 'border-green-500' : 'border-gray-800'
-                }`}
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: (precos.medio || 0) > 100 ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 16,
+                  padding: 16,
+                  transition: 'border-color 0.2s',
+                }}
               >
                 <img
                   src={c.card_image || '/placeholder-card.png'}
@@ -300,9 +315,9 @@ export default function MinhaColecao() {
 
                   {/* Quantidade */}
                   <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                    <button onClick={() => handleUpdateQuantity(c, -1)} className="bg-gray-700 px-2 rounded hover:bg-gray-600">-</button>
+                    <button onClick={() => handleUpdateQuantity(c, -1)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "2px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>-</button>
                     <span>Qtd: {c.quantity || 1}</span>
-                    <button onClick={() => handleUpdateQuantity(c, 1)} className="bg-gray-700 px-2 rounded hover:bg-gray-600">+</button>
+                    <button onClick={() => handleUpdateQuantity(c, 1)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "2px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>+</button>
                   </div>
 
                   {/* ✅ Seletor de variante */}
@@ -312,7 +327,7 @@ export default function MinhaColecao() {
                       <select
                         value={variante}
                         onChange={(e) => handleVarianteChange(c, e.target.value)}
-                        className="w-full text-xs bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-white"
+                        style={{ width: "100%", fontSize: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 8px", color: "#fff", cursor: "pointer" }}
                       >
                         {variantesDisponiveis.map(v => (
                           <option key={v.key} value={v.key}>{v.label}</option>
@@ -343,13 +358,13 @@ export default function MinhaColecao() {
 
                 <button
                   onClick={() => handleRemove(c.id)}
-                  className="mt-3 bg-red-500 hover:bg-red-600 text-white w-full p-2 rounded-lg text-sm"
+                  style={{ marginTop: 12, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', width: '100%', padding: '8px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
                 >
                   Remover
                 </button>
                 <button
                   onClick={() => handleSell(c)}
-                  className="mt-2 bg-green-500 hover:bg-green-600 text-white w-full p-2 rounded-lg text-sm"
+                  style={{ marginTop: 8, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', width: '100%', padding: '8px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
                 >
                   Vender
                 </button>
