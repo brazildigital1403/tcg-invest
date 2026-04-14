@@ -4,6 +4,84 @@ import { useRef, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
+// ─── Validadores ─────────────────────────────────────────────────────────────
+
+function validarCPF(cpf: string) {
+  const digits = cpf.replace(/\D/g, '')
+  if (digits.length !== 11) return false
+  if (/^(\d)\1{10}$/.test(digits)) return false
+  let sum = 0
+  for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * (10 - i)
+  let rest = (sum * 10) % 11
+  if (rest === 10 || rest === 11) rest = 0
+  if (rest !== parseInt(digits[9])) return false
+  sum = 0
+  for (let i = 0; i < 10; i++) sum += parseInt(digits[i]) * (11 - i)
+  rest = (sum * 10) % 11
+  if (rest === 10 || rest === 11) rest = 0
+  return rest === parseInt(digits[10])
+}
+
+function formatarCPF(value: string) {
+  const d = value.replace(/\D/g, '').slice(0, 11)
+  return d.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4')
+          .replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3')
+          .replace(/(\d{3})(\d{1,3})/, '$1.$2')
+}
+
+function formatarWhatsApp(value: string) {
+  const d = value.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 2) return d
+  if (d.length <= 7) return `(${d.slice(0,2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
+}
+
+function validarEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function forcasenha(senha: string) {
+  if (senha.length < 6) return { nivel: 0, label: 'Muito curta', cor: '#ef4444' }
+  if (senha.length < 8) return { nivel: 1, label: 'Fraca', cor: '#f59e0b' }
+  const temNum = /\d/.test(senha)
+  const temEsp = /[^a-zA-Z0-9]/.test(senha)
+  const temMaius = /[A-Z]/.test(senha)
+  const score = [temNum, temEsp, temMaius].filter(Boolean).length
+  if (score === 0) return { nivel: 1, label: 'Fraca', cor: '#f59e0b' }
+  if (score === 1) return { nivel: 2, label: 'Média', cor: '#f59e0b' }
+  return { nivel: 3, label: 'Forte', cor: '#22c55e' }
+}
+
+// ─── Componente de campo com erro ─────────────────────────────────────────────
+
+function Campo({ label, erro, children }: { label?: string; erro?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {label && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</p>}
+      {children}
+      {erro && (
+        <p style={{ fontSize: 11, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span>⚠</span> {erro}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Estilos de input ─────────────────────────────────────────────────────────
+
+function inputStyle(erro?: string, valido?: boolean): React.CSSProperties {
+  return {
+    background: 'rgba(255,255,255,0.05)',
+    border: `1px solid ${erro ? 'rgba(239,68,68,0.6)' : valido ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.1)'}`,
+    borderRadius: 10, padding: '13px 16px', color: '#fff', fontSize: 14,
+    outline: 'none', width: '100%', boxSizing: 'border-box' as const,
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+    transition: 'border-color 0.2s',
+  }
+}
+
 export default function Home() {
   const howRef = useRef<HTMLDivElement>(null)
   const pricingRef = useRef<HTMLDivElement>(null)
@@ -12,13 +90,71 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [isLogin, setIsLogin] = useState(true)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Campos
   const [name, setName] = useState('')
   const [cpf, setCpf] = useState('')
   const [city, setCity] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [forgotStep, setForgotStep] = useState(false) // true = tela de recuperar senha
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
+
+  // Erros por campo (só mostra após o usuário interagir)
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [erros, setErros] = useState<Record<string, string>>({})
+  const [serverError, setServerError] = useState('')
+
+  // Valida todos os campos e retorna erros
+  function validarCampos() {
+    const e: Record<string, string> = {}
+    if (!isLogin) {
+      if (!name.trim() || name.trim().split(' ').filter(Boolean).length < 2)
+        e.name = 'Informe nome e sobrenome'
+      if (!validarCPF(cpf))
+        e.cpf = 'CPF inválido'
+      if (!city.trim())
+        e.city = 'Informe sua cidade'
+      const wDigits = whatsapp.replace(/\D/g, '')
+      if (wDigits.length < 10)
+        e.whatsapp = 'WhatsApp incompleto (DDD + número)'
+    }
+    if (!validarEmail(email))
+      e.email = 'E-mail inválido'
+    if (password.length < 6)
+      e.password = 'Senha deve ter pelo menos 6 caracteres'
+    return e
+  }
+
+  // Marca campo como tocado e valida
+  function handleBlur(field: string) {
+    setTouched(prev => ({ ...prev, [field]: true }))
+    setErros(validarCampos())
+  }
+
+  // Limpa tudo ao trocar de modo
+  function trocarModo() {
+    setIsLogin(!isLogin)
+    setForgotStep(false); setForgotSent(false); setForgotEmail('')
+    setName(''); setCpf(''); setCity(''); setWhatsapp('')
+    setEmail(''); setPassword('')
+    setTouched({}); setErros({}); setServerError('')
+  }
+
+  async function handleForgotPassword() {
+    if (!forgotEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) return
+    setForgotLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setForgotLoading(false)
+    if (!error) setForgotSent(true)
+  }
 
   useEffect(() => {
     async function getUser() {
@@ -35,15 +171,23 @@ export default function Home() {
   const scrollTo = (ref: any) => ref.current?.scrollIntoView({ behavior: 'smooth' })
 
   async function handleAuth() {
-    if (!email || !password || (!isLogin && (!name || !cpf || !city || !whatsapp))) {
-      alert('Preencha todos os campos')
-      return
-    }
+    // Marca todos os campos como tocados e valida
+    const allTouched: Record<string, boolean> = { name: true, cpf: true, city: true, whatsapp: true, email: true, password: true }
+    setTouched(allTouched)
+    const e = validarCampos()
+    setErros(e)
+    if (Object.keys(e).length > 0) return
+
     setLoading(true)
+    setServerError('')
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        if (error) {
+          if (error.message.includes('Invalid login')) setServerError('E-mail ou senha incorretos.')
+          else setServerError(error.message)
+          return
+        }
         setShowAuthModal(false)
         router.push('/dashboard-financeiro')
       } else {
@@ -51,15 +195,21 @@ export default function Home() {
           email, password,
           options: { data: { name, cpf, city, whatsapp } },
         })
-        if (error) throw error
+        if (error) {
+          if (error.message.includes('already registered')) setServerError('Este e-mail já está cadastrado.')
+          else setServerError(error.message)
+          return
+        }
         if (data.user) {
           await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp })
         }
-        alert('Conta criada! Verifique seu e-mail.')
-        setIsLogin(true)
+        setServerError('')
+        setShowAuthModal(false)
+        // Mostra feedback e redireciona
+        router.push('/dashboard-financeiro')
       }
     } catch (err: any) {
-      alert(err.message)
+      setServerError('Ocorreu um erro. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -339,49 +489,224 @@ export default function Home() {
 
       {/* MODAL AUTH */}
       {showAuthModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}>
-          <div style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 40, width: '100%', maxWidth: 440, position: 'relative' }}>
-            <button onClick={() => setShowAuthModal(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 20 }}>✕</button>
-
-            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, textAlign: 'center', letterSpacing: '-0.03em' }}>
-              {isLogin ? 'Bem-vindo de volta 👋' : 'Criar sua conta'}
-            </h2>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginBottom: 32 }}>
-              {isLogin ? 'Entre para acessar sua coleção' : 'Grátis para sempre nos primeiros 15 cards'}
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {!isLogin && (
-                <>
-                  <input type="text" placeholder="Nome completo" value={name} onChange={e => setName(e.target.value)}
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '14px 16px', color: '#fff', fontSize: 15, outline: 'none' }} />
-                  <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(e.target.value)}
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '14px 16px', color: '#fff', fontSize: 15, outline: 'none' }} />
-                  <input type="text" placeholder="Cidade" value={city} onChange={e => setCity(e.target.value)}
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '14px 16px', color: '#fff', fontSize: 15, outline: 'none' }} />
-                  <input type="text" placeholder="WhatsApp" value={whatsapp} onChange={e => setWhatsapp(e.target.value)}
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '14px 16px', color: '#fff', fontSize: 15, outline: 'none' }} />
-                </>
-              )}
-              <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '14px 16px', color: '#fff', fontSize: 15, outline: 'none' }} />
-              <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '14px 16px', color: '#fff', fontSize: 15, outline: 'none' }} />
-              <button onClick={handleAuth} disabled={loading}
-                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15, opacity: loading ? 0.6 : 1, marginTop: 4 }}>
-                {loading ? 'Carregando...' : isLogin ? 'Entrar' : 'Criar conta grátis'}
-              </button>
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}
+          onClick={() => setShowAuthModal(false)}
+        >
+          <div
+            style={{ background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, width: '100%', maxWidth: 440, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', overflow: 'hidden' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header — muda título conforme o step */}
+            <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>
+                  {forgotStep ? 'Recuperar acesso 🔑' : isLogin ? 'Bem-vindo de volta 👋' : 'Criar sua conta'}
+                </h2>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
+                  {forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Grátis para sempre nos primeiros 15 cards'}
+                </p>
+              </div>
+              <button onClick={() => setShowAuthModal(false)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 32, height: 32, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
             </div>
 
-            <p style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'rgba(255,255,255,0.35)' }}>
-              {isLogin ? 'Não tem conta? ' : 'Já tem conta? '}
-              <button onClick={() => setIsLogin(!isLogin)} style={{ background: 'none', border: 'none', color: '#f59e0b', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-                {isLogin ? 'Criar gratuitamente' : 'Entrar'}
-              </button>
-            </p>
+            {/* Body */}
+            <div style={{ padding: '20px 28px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {forgotStep ? (
+                /* ── STEP ESQUECI A SENHA ── */
+                forgotSent ? (
+                  <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                    <div style={{ fontSize: 48, marginBottom: 16 }}>📬</div>
+                    <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>E-mail enviado!</p>
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 24 }}>
+                      Verifique sua caixa de entrada em{' '}
+                      <span style={{ color: '#f59e0b' }}>{forgotEmail}</span>{' '}
+                      e clique no link para criar uma nova senha.
+                    </p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginBottom: 20 }}>
+                      Não recebeu? Verifique o spam ou tente novamente.
+                    </p>
+                    <button
+                      onClick={() => { setForgotStep(false); setForgotSent(false) }}
+                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', padding: '10px 24px', borderRadius: 10, cursor: 'pointer', fontSize: 13 }}
+                    >
+                      ← Voltar ao login
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 10 }}>
+                      <span>💡</span>
+                      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                        Informe seu e-mail cadastrado e enviaremos um link para criar uma nova senha.
+                      </p>
+                    </div>
+                    <Campo erro={forgotEmail.length > 0 && !validarEmail(forgotEmail) ? 'E-mail inválido' : undefined}>
+                      <input
+                        autoFocus
+                        type="email"
+                        placeholder="Seu e-mail cadastrado"
+                        value={forgotEmail}
+                        onChange={e => setForgotEmail(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleForgotPassword() }}
+                        style={inputStyle(
+                          forgotEmail.length > 0 && !validarEmail(forgotEmail) ? 'inválido' : undefined,
+                          forgotEmail.length > 0 && validarEmail(forgotEmail)
+                        )}
+                      />
+                    </Campo>
+                    <button
+                      onClick={handleForgotPassword}
+                      disabled={forgotLoading || !validarEmail(forgotEmail)}
+                      style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 10, fontWeight: 700, cursor: forgotLoading ? 'not-allowed' : 'pointer', fontSize: 14, opacity: forgotLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                    >
+                      {forgotLoading ? (
+                        <>
+                          <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                          Enviando...
+                        </>
+                      ) : 'Enviar link de recuperação →'}
+                    </button>
+                    <button
+                      onClick={() => setForgotStep(false)}
+                      style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 13, textAlign: 'center' }}
+                    >
+                      ← Voltar ao login
+                    </button>
+                  </div>
+                )
+              ) : (
+                /* ── FORM LOGIN / CADASTRO ── */
+                <>
+                  {!isLogin && (
+                    <>
+                      <Campo erro={touched.name ? erros.name : undefined}>
+                        <input type="text" placeholder="Nome completo"
+                          value={name}
+                          onChange={e => { setName(e.target.value); if (touched.name) setErros(validarCampos()) }}
+                          onBlur={() => handleBlur('name')}
+                          style={inputStyle(touched.name ? erros.name : undefined, touched.name && !erros.name && name.length > 3)}
+                        />
+                      </Campo>
+                      <Campo erro={touched.cpf ? erros.cpf : undefined}>
+                        <input type="text" placeholder="CPF (000.000.000-00)"
+                          value={cpf}
+                          onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
+                          onBlur={() => handleBlur('cpf')}
+                          style={inputStyle(touched.cpf ? erros.cpf : undefined, touched.cpf && !erros.cpf && cpf.length > 0)}
+                        />
+                      </Campo>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <Campo erro={touched.city ? erros.city : undefined}>
+                          <input type="text" placeholder="Cidade"
+                            value={city}
+                            onChange={e => { setCity(e.target.value); if (touched.city) setErros(validarCampos()) }}
+                            onBlur={() => handleBlur('city')}
+                            style={inputStyle(touched.city ? erros.city : undefined, touched.city && !erros.city && city.length > 0)}
+                          />
+                        </Campo>
+                        <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
+                          <input type="text" placeholder="WhatsApp"
+                            value={whatsapp}
+                            onChange={e => { setWhatsapp(formatarWhatsApp(e.target.value)); if (touched.whatsapp) setErros(validarCampos()) }}
+                            onBlur={() => handleBlur('whatsapp')}
+                            style={inputStyle(touched.whatsapp ? erros.whatsapp : undefined, touched.whatsapp && !erros.whatsapp && whatsapp.length > 0)}
+                          />
+                        </Campo>
+                      </div>
+                    </>
+                  )}
+
+                  <Campo erro={touched.email ? erros.email : undefined}>
+                    <input type="email" placeholder="E-mail"
+                      value={email}
+                      onChange={e => { setEmail(e.target.value); if (touched.email) setErros(validarCampos()) }}
+                      onBlur={() => handleBlur('email')}
+                      style={inputStyle(touched.email ? erros.email : undefined, touched.email && !erros.email && email.length > 0)}
+                    />
+                  </Campo>
+
+                  <Campo erro={touched.password ? erros.password : undefined}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Senha"
+                        value={password}
+                        onChange={e => { setPassword(e.target.value); if (touched.password) setErros(validarCampos()) }}
+                        onBlur={() => handleBlur('password')}
+                        style={{ ...inputStyle(touched.password ? erros.password : undefined, touched.password && !erros.password && password.length > 0), paddingRight: 44 }}
+                      />
+                      <button type="button" onClick={() => setShowPassword(s => !s)}
+                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 16 }}>
+                        {showPassword ? '🙈' : '👁️'}
+                      </button>
+                    </div>
+                    {!isLogin && password.length > 0 && (() => {
+                      const f = forcasenha(password)
+                      return (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                            {[1,2,3].map(n => (
+                              <div key={n} style={{ height: 3, flex: 1, borderRadius: 2, background: n <= f.nivel ? f.cor : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
+                            ))}
+                          </div>
+                          <p style={{ fontSize: 11, color: f.cor }}>{f.label}</p>
+                        </div>
+                      )
+                    })()}
+                  </Campo>
+
+                  {serverError && (
+                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: '#ef4444', fontSize: 16 }}>⚠</span>
+                      <p style={{ fontSize: 13, color: '#ef4444' }}>{serverError}</p>
+                    </div>
+                  )}
+
+                  <button onClick={handleAuth} disabled={loading}
+                    style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1, marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    {loading ? (
+                      <>
+                        <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                        Carregando...
+                      </>
+                    ) : isLogin ? 'Entrar →' : 'Criar conta grátis →'}
+                  </button>
+
+                  {isLogin && (
+                    <p style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: -4 }}>
+                      Esqueceu a senha?{' '}
+                      <button
+                        style={{ background: 'none', border: 'none', color: '#f59e0b', cursor: 'pointer', fontSize: 12 }}
+                        onClick={() => { setForgotStep(true); setForgotEmail(email); setForgotSent(false) }}
+                      >
+                        Recuperar acesso
+                      </button>
+                    </p>
+                  )}
+                </>
+              )}
+
+            </div>
+
+            {/* Footer — troca modo */}
+            {!forgotStep && (
+              <div style={{ padding: '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', textAlign: 'center', background: 'rgba(255,255,255,0.01)' }}>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
+                  {isLogin ? 'Não tem conta? ' : 'Já tem conta? '}
+                  <button onClick={trocarModo} style={{ background: 'none', border: 'none', color: '#f59e0b', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                    {isLogin ? 'Criar gratuitamente' : 'Entrar'}
+                  </button>
+                </p>
+              </div>
+            )}
+
           </div>
         </div>
       )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

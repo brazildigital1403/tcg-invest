@@ -386,4 +386,4 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       </div>
     </div>
   )
-}
+} 
