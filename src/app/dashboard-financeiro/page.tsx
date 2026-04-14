@@ -229,7 +229,7 @@ export default function DashboardFinanceiro() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   if (loading) return (
-    <AppLayout total={0}>
+    <AppLayout>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'rgba(255,255,255,0.3)', flexDirection: 'column', gap: 12 }}>
         <div style={{ fontSize: 32 }}>📊</div>
         <p style={{ fontSize: 14 }}>Carregando dashboard...</p>
@@ -238,7 +238,7 @@ export default function DashboardFinanceiro() {
   )
 
   return (
-    <AppLayout total={stats.valorColecao}>
+    <AppLayout>
       <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 1200, margin: '0 auto' }}>
 
         {/* ── HERO ── */}

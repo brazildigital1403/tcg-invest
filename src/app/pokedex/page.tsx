@@ -1,503 +1,528 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 
+// ─── Tipos por cor ────────────────────────────────────────────────────────────
+
+const TYPE_COLOR: Record<string, string> = {
+  Fire: '#ef4444', Water: '#60a5fa', Grass: '#22c55e',
+  Lightning: '#f59e0b', Psychic: '#a855f7', Fighting: '#f97316',
+  Darkness: '#6b7280', Metal: '#94a3b8', Dragon: '#10b981',
+  Colorless: '#d1d5db', Fairy: '#f472b6',
+}
+
+const GEN_RANGES: Record<string, [number, number]> = {
+  Kanto: [1, 151], Johto: [152, 251], Hoenn: [252, 386],
+  Sinnoh: [387, 493], Unova: [494, 649], Kalos: [650, 721],
+  Alola: [722, 809], Galar: [810, 905], Paldea: [906, 1025],
+}
+
+function getGeneration(num: number) {
+  for (const [gen, [min, max]] of Object.entries(GEN_RANGES)) {
+    if (num >= min && num <= max) return gen
+  }
+  return 'Outro'
+}
+
+const fmt = (v: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function Pokedex() {
-  const [cards, setCards] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedCard, setSelectedCard] = useState<any>(null)
-  const [variations, setVariations] = useState<any[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [rarityFilter, setRarityFilter] = useState<string[]>([])
-  const [typeFilter, setTypeFilter] = useState<string[]>([])
-  const [genFilter, setGenFilter] = useState('')
-  const [sort, setSort] = useState('num-asc')
+  const [cards, setCards]               = useState<any[]>([])
+  const [loading, setLoading]           = useState(true)
+  const [loadingMore, setLoadingMore]   = useState(false)
+  const [hasMore, setHasMore]           = useState(true)
+  const [page, setPage]                 = useState(1)
+
+  const [search, setSearch]             = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [rarities, setRarities] = useState<string[]>([])
-  const [types, setTypes] = useState<string[]>([])
-  const [ownedIds, setOwnedIds] = useState<string[]>([])
-  const [page, setPage] = useState(1)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
-  const [showTop, setShowTop] = useState(false)
+  const [genFilter, setGenFilter]       = useState('')
+  const [typeFilter, setTypeFilter]     = useState('')
+  const [rarityFilter, setRarityFilter] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching]   = useState(false)
 
-  async function handleAddCard(card: any) {
-  const { data } = await supabase.auth.getUser()
+  const [ownedIds, setOwnedIds]         = useState<Set<string>>(new Set())
+  const [prices, setPrices]             = useState<Record<string, any>>({})
 
-  if (!data.user) {
-    alert('Você precisa estar logado')
-    return
+  const [selected, setSelected]         = useState<any | null>(null)
+  const [selectedPrice, setSelectedPrice] = useState<any | null>(null)
+  const [variations, setVariations]     = useState<any[]>([])
+  const [loadingVariations, setLoadingVariations] = useState(false)
+  const [addingCard, setAddingCard]     = useState(false)
+  const [addedFeedback, setAddedFeedback] = useState(false)
+
+  const [showTop, setShowTop]           = useState(false)
+  const panelRef                        = useRef<HTMLDivElement>(null)
+
+  // ── Debounce search — se tem texto, busca na API direto ──────────────────────
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search)
+      if (search.trim().length >= 2) {
+        searchAPI(search.trim())
+      } else {
+        setSearchResults([])
+        setIsSearching(false)
+      }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [search])
+
+  async function searchAPI(term: string) {
+    setIsSearching(true)
+    try {
+      const res = await fetch(
+        `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(term)}*&pageSize=100&orderBy=name`
+      )
+      const data = await res.json()
+      setSearchResults(data?.data || [])
+    } catch {
+      setSearchResults([])
+    }
+    setIsSearching(false)
   }
 
-  const { error } = await supabase.from('user_cards').insert([
-    {
-      user_id: data.user.id,
-      card_id: card.id,
-      card_name: card.name,
-      card_image: card.images.small,
-    },
-  ])
+  // ── Scroll top button ────────────────────────────────────────────────────────
 
-  if (error) {
-    alert('Erro ao salvar carta')
-    console.log(error)
-  } else {
-    alert('Carta adicionada!')
-  }
-}
+  useEffect(() => {
+    const fn = () => setShowTop(window.scrollY > 400)
+    window.addEventListener('scroll', fn)
+    return () => window.removeEventListener('scroll', fn)
+  }, [])
 
-  async function openModal(card: any) {
-  setSelectedCard(card)
-  setActiveId(card.id)
+  // ── Scroll infinito ──────────────────────────────────────────────────────────
 
-  try {
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:\"${card.name}\"`)
-    const data = await res.json()
-
-    // limitar a 10
-    setVariations((data.data || []).slice(0, 10))
-  } catch (e) {
-    console.log(e)
-    setVariations([])
-  }
-}
-
-  // Carrega cartas em blocos contínuos (100 por página)
-  // Scroll infinito vai acumulando (1000, 2000, 3000...)
-  async function fetchCards(pageNumber = 1) {
-    if (pageNumber === 1) {
-      const cache = localStorage.getItem('pokedex-cache')
-      const cacheTime = localStorage.getItem('pokedex-cache-time')
-
-      if (cache && cacheTime) {
-        const isValid = Date.now() - Number(cacheTime) < 30 * 24 * 60 * 60 * 1000
-
-        if (isValid) {
-          setCards(JSON.parse(cache))
-          setLoading(false)
-          return
-        }
+  useEffect(() => {
+    function onScroll() {
+      if (!hasMore || loadingMore) return
+      const { scrollY, innerHeight } = window
+      const docH = document.documentElement.scrollHeight
+      if (scrollY + innerHeight >= docH - 300) {
+        const next = page + 1
+        setPage(next)
+        fetchCards(next)
       }
     }
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [page, hasMore, loadingMore])
+
+  // ── Fetch cartas ──────────────────────────────────────────────────────────────
+
+  async function fetchCards(pageNum = 1) {
+    if (pageNum === 1) {
+      const cache = localStorage.getItem('pokedex-v2')
+      const ts    = localStorage.getItem('pokedex-v2-ts')
+      if (cache && ts && Date.now() - Number(ts) < 7 * 24 * 60 * 60 * 1000) {
+        setCards(JSON.parse(cache))
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+    } else {
+      setLoadingMore(true)
+    }
+
     try {
-      if (pageNumber === 1) setLoading(true)
-      else setLoadingMore(true)
-
-      const res = await fetch(`https://api.pokemontcg.io/v2/cards?page=${pageNumber}&pageSize=100`)
+      const res  = await fetch(`https://api.pokemontcg.io/v2/cards?page=${pageNum}&pageSize=100`)
       const data = await res.json()
+      const batch: any[] = data.data || []
 
-      const batch = data.data || []
-
-      // gerar filtros com base em TODAS as cartas carregadas
-      setCards((prev) => {
-        const merged = [...prev, ...batch]
-
-        const raritiesSet = new Set(merged.map((c: any) => c.rarity).filter(Boolean))
-        setRarities(Array.from(raritiesSet))
-
-        const typesSet = new Set(merged.flatMap((c: any) => c.types || []))
-        setTypes(Array.from(typesSet))
-
-        return merged.sort((a, b) =>
+      setCards(prev => {
+        const merged = pageNum === 1 ? batch : [...prev, ...batch]
+        const sorted = merged.sort((a, b) =>
           Number(a.nationalPokedexNumbers?.[0] || 9999) -
           Number(b.nationalPokedexNumbers?.[0] || 9999)
         )
+        if (pageNum === 1) {
+          localStorage.setItem('pokedex-v2', JSON.stringify(sorted))
+          localStorage.setItem('pokedex-v2-ts', String(Date.now()))
+        }
+        return sorted
       })
 
-      if (pageNumber === 1) {
-        localStorage.setItem('pokedex-cache', JSON.stringify(batch))
-        localStorage.setItem('pokedex-cache-time', String(Date.now()))
-      }
+      if (batch.length < 100) setHasMore(false)
+    } catch {}
 
-      if (batch.length < 100) {
-        setHasMore(false)
-      }
-
-    } catch (error) {
-      console.log(error)
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
-    }
+    setLoading(false)
+    setLoadingMore(false)
   }
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetchCards(1)
 
-    async function fetchOwned() {
-      const { data } = await supabase.auth.getUser()
-      if (!data.user) return
+    async function loadOwned() {
+      const { data: authData } = await supabase.auth.getUser()
+      if (!authData.user) return
 
-      const { data: cards } = await supabase
-        .from('user_cards')
-        .select('card_id')
-        .eq('user_id', data.user.id)
+      const { data: userCards } = await supabase
+        .from('user_cards').select('card_id').eq('user_id', authData.user.id)
+      setOwnedIds(new Set(userCards?.map((c: any) => c.card_id) || []))
 
-      setOwnedIds(cards?.map((c) => c.card_id) || [])
+      const { data: priceData } = await supabase
+        .from('card_prices').select('pokemon_api_id,preco_min,preco_medio,preco_max')
+      const map: Record<string, any> = {}
+      priceData?.forEach((p: any) => { map[p.pokemon_api_id] = p })
+      setPrices(map)
     }
 
-    fetchOwned()
+    loadOwned()
   }, [])
 
-  useEffect(() => {
-    function handleScroll() {
-      if (!hasMore || loadingMore) return
+  // ── Selecionar carta ──────────────────────────────────────────────────────────
 
-      const scrollTop = window.scrollY
-      const windowHeight = window.innerHeight
-      const docHeight = document.documentElement.scrollHeight
+  async function handleSelect(card: any) {
+    setSelected(card)
+    setAddedFeedback(false)
+    setSelectedPrice(prices[card.id] || null)
+    panelRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
 
-      if (scrollTop + windowHeight >= docHeight - 200) {
-        const nextPage = page + 1
-        setPage(nextPage)
-        fetchCards(nextPage)
-      }
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [page, hasMore, loadingMore])
-
-  useEffect(() => {
-    const saved = sessionStorage.getItem('pokedex-scroll')
-    if (saved) {
-      window.scrollTo(0, Number(saved))
-    }
-
-    const saveScroll = () => {
-      sessionStorage.setItem('pokedex-scroll', String(window.scrollY))
-    }
-
-    window.addEventListener('scroll', saveScroll)
-    return () => window.removeEventListener('scroll', saveScroll)
-  }, [])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search)
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [search])
-
-  useEffect(() => {
-  function handleScrollTop() {
-    setShowTop(window.scrollY > 400)
+    setLoadingVariations(true)
+    try {
+      const res  = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(card.name)}"&pageSize=12`)
+      const data = await res.json()
+      setVariations((data.data || []).filter((v: any) => v.id !== card.id))
+    } catch {}
+    setLoadingVariations(false)
   }
 
-  window.addEventListener('scroll', handleScrollTop)
-  return () => window.removeEventListener('scroll', handleScrollTop)
-}, [])
+  // ── Adicionar à coleção ────────────────────────────────────────────────────
 
-  function toggleRarity(value: string) {
-    const normalized = value.toLowerCase()
-    setRarityFilter((prev) =>
-      prev.includes(normalized)
-        ? prev.filter((v) => v !== normalized)
-        : [...prev, normalized]
-    )
+  async function handleAdd() {
+    if (!selected) return
+    setAddingCard(true)
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData.user) { setAddingCard(false); return }
+
+    const number = selected.number || ''
+    const total  = selected.set?.printedTotal || ''
+    const cardName = number && total ? `${selected.name} (${number}/${total})` : selected.name
+
+    await supabase.from('user_cards').insert({
+      user_id: authData.user.id,
+      card_id: selected.id,
+      pokemon_api_id: selected.id,
+      card_name: cardName,
+      card_image: selected.images?.large || selected.images?.small,
+      rarity: selected.rarity || null,
+    })
+
+    setOwnedIds(prev => new Set([...prev, selected.id]))
+    setAddingCard(false)
+    setAddedFeedback(true)
   }
 
-  function toggleType(value: string) {
-    const normalized = value.toLowerCase()
-    setTypeFilter((prev) =>
-      prev.includes(normalized)
-        ? prev.filter((v) => v !== normalized)
-        : [...prev, normalized]
-    )
-  }
+  // ── Filtros ──────────────────────────────────────────────────────────────────
 
-  const filteredCards = cards
-  .filter((c) =>
-    c.name.toLowerCase().includes(debouncedSearch.toLowerCase())
-  )
-  .filter((c) => {
-    if (rarityFilter.length === 0) return true
-    return rarityFilter.some(r => (c.rarity || '').toLowerCase() === r.toLowerCase())
-  })
-  .filter((c) => {
-    if (typeFilter.length === 0) return true
-    return (c.types || []).some((t: string) =>
-      typeFilter.some(f => f.toLowerCase() === t.toLowerCase())
-    )
-  })
-  .filter((c) => {
-    if (!genFilter) return true
-    const num = Number(c.nationalPokedexNumbers?.[0] || 9999)
-    return getGeneration(num) === genFilter
-  })
-  .sort((a, b) => {
-    if (sort === 'num-asc') return Number(a.nationalPokedexNumbers?.[0] || 9999) - Number(b.nationalPokedexNumbers?.[0] || 9999)
-    if (sort === 'num-desc') return Number(b.nationalPokedexNumbers?.[0] || 9999) - Number(a.nationalPokedexNumbers?.[0] || 9999)
-    return 0
-  })
+  const allTypes    = [...new Set(cards.flatMap(c => c.types || []))] as string[]
+  const allRarities = [...new Set(cards.map(c => c.rarity).filter(Boolean))] as string[]
 
-  const groupedCards = filteredCards.reduce((acc: any, card: any) => {
-    const num = Number(card.nationalPokedexNumbers?.[0] || 9999)
-    const gen = getGeneration(num)
+  // Se há busca: usa os resultados diretos da API (ignora scroll infinito)
+  // Se não há busca: filtra as cartas carregadas localmente
+  const isSearchMode = debouncedSearch.trim().length >= 2
+  const filtered = isSearchMode
+    ? searchResults
+        .filter(c => !typeFilter   || (c.types || []).includes(typeFilter))
+        .filter(c => !rarityFilter || c.rarity === rarityFilter)
+    : cards
+        .filter(c => {
+          if (!genFilter) return true
+          const num = Number(c.nationalPokedexNumbers?.[0] || 9999)
+          return getGeneration(num) === genFilter
+        })
+        .filter(c => !typeFilter   || (c.types || []).includes(typeFilter))
+        .filter(c => !rarityFilter || c.rarity === rarityFilter)
 
-    if (!acc[gen]) acc[gen] = []
-    acc[gen].push(card)
-
-    return acc
-  }, {})
-
-  function getProgress(cards: any[]) {
-    const total = cards.length
-    const owned = cards.filter((c) => ownedIds.includes(c.id)).length
-
-    return { total, owned }
-  }
-
-  if (loading) {
-    return (
-      <AppLayout total={0}>
-        <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className="animate-pulse bg-gray-800 rounded-xl h-40"
-            />
-          ))}
-        </div>
-      </AppLayout>
-    )
-  }
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <AppLayout total={0}>
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-5">Pokédex</h1>
+    <AppLayout>
+      <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", display: 'flex', gap: 0, height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
 
-        <div className="flex flex-col gap-4 mb-6">
+        {/* ── COLUNA PRINCIPAL ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 24px 80px' }}>
 
-          {/* ROW 1 */}
-          <div className="flex flex-wrap gap-3 items-center">
-            <input
-              placeholder="Buscar carta..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
-            />
-
-            <select
-              value={genFilter}
-              onChange={(e) => setGenFilter(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
-            >
-              <option value="">Geração</option>
-              <option value="Kanto">Kanto</option>
-              <option value="Johto">Johto</option>
-              <option value="Hoenn">Hoenn</option>
-              <option value="Sinnoh">Sinnoh</option>
-              <option value="Unova">Unova</option>
-              <option value="Kalos">Kalos</option>
-              <option value="Alola">Alola</option>
-              <option value="Galar">Galar</option>
-              <option value="Paldea">Paldea</option>
-            </select>
-
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
-            >
-              <option value="num-asc"># - Z</option>
-              <option value="num-desc">Z - #</option>
-            </select>
-
-            <button
-              onClick={() => {
-                setRarityFilter([])
-                setTypeFilter([])
-                setGenFilter('')
-              }}
-              className="text-xs text-gray-400 hover:text-white"
-            >
-              Limpar filtros
-            </button>
-          </div>
-
-          {/* ROW 2 - RARIDADE */}
-          <div className="flex flex-col">
-            <span className="text-xs text-gray-400 mb-1">Raridade</span>
-            <div className="flex flex-wrap gap-2">
-              {rarities.map((r) => {
-                const active = rarityFilter.includes(r.toLowerCase())
-                return (
-                  <button
-                    key={r}
-                    onClick={() => toggleRarity(r)}
-                    className={`px-3 py-1 rounded-full text-xs border transition ${
-                      active
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
-                    }`}
-                  >
-                    {r}
-                  </button>
-                )
-              })}
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 2 }}>Pokédex</h1>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
+              {isSearchMode
+                ? isSearching
+                  ? 'Buscando na API...'
+                  : `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''} para "${debouncedSearch}"`
+                : `${filtered.length.toLocaleString()} cartas · ${ownedIds.size} na sua coleção`}
+            </p>
             </div>
           </div>
 
-          {/* ROW 3 - TIPO */}
-          <div className="flex flex-col">
-            <span className="text-xs text-gray-400 mb-1">Tipo</span>
-            <div className="flex flex-wrap gap-2">
-              {types.map((t) => {
-                const active = typeFilter.includes(t.toLowerCase())
-                return (
-                  <button
-                    key={t}
-                    onClick={() => toggleType(t)}
-                    className={`px-3 py-1 rounded-full text-xs border transition ${
-                      active
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          {/* Filtros */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
 
-        </div>
-
-        {(rarityFilter.length > 0 || typeFilter.length > 0) && (
-          <p className="text-xs text-gray-400 mt-2">
-            {rarityFilter.length + typeFilter.length} filtros ativos
-          </p>
-        )}
-
-
-        <p className="text-sm text-gray-400 mb-4 mt-4">
-          {cards.length} cartas carregadas
-        </p>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {filteredCards.map((card: any) => {
-            const number = card.nationalPokedexNumbers?.[0] || card.number
-
-            return (
-              <div
-                key={card.id}
-                onClick={() => openModal(card)}
-                className="relative border border-gray-800 bg-gray-900 rounded-xl p-3 shadow-lg hover:scale-105 transition cursor-pointer"
-              >
-
-                {/* BIG NUMBER */}
-                <span className="absolute top-2 left-2 text-xs bg-black/70 text-white px-2 py-0.5 rounded">
-                  #{number}
-                </span>
-
-                <img src={card.images.small} alt={card.name} />
-
-                <p className="mt-2 font-bold">{card.name}</p>
-
-                {ownedIds.includes(card.id) && (
-                  <p className="text-xs text-green-400">Já tenho</p>
-                )}
-
-                <p className="text-sm text-gray-400">{card.rarity}</p>
-                <p className="text-xs text-gray-500">{card.types?.join(', ')}</p>
-              </div>
-            )
-          })}
-        </div>
-
-        {loadingMore && (
-          <p className="text-center text-gray-400 mt-4">Carregando mais cartas...</p>
-        )}
-      </div>
-
-      {selectedCard && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 w-full max-w-3xl relative">
-
-            <button
-              onClick={() => setSelectedCard(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
-            >
-              ✕
-            </button>
-
-            <div className="grid md:grid-cols-2 gap-6">
-
-              {/* IMAGE */}
-              <img
-                key={selectedCard.id}
-                src={selectedCard.images.large}
-                className="w-full rounded transition-all duration-300 ease-in-out"
+            {/* Search */}
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'rgba(255,255,255,0.3)' }}>🔍</span>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar carta..."
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 12px 9px 32px', color: '#f0f0f0', fontSize: 13, outline: 'none', width: 180, fontFamily: 'inherit' }}
+                onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
+            </div>
 
-              {/* INFO */}
-              <div>
-                <h2 className="text-xl font-bold mb-2">{selectedCard.name}</h2>
-                <p className="text-gray-400">Número: {selectedCard.number}</p>
-                <p className="text-gray-400">Raridade: {selectedCard.rarity}</p>
-                <p className="text-gray-400">Tipo: {selectedCard.types?.join(', ')}</p>
+            {/* Geração */}
+            <select value={genFilter} onChange={e => setGenFilter(e.target.value)}
+              style={{ background: genFilter ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${genFilter ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '9px 12px', color: genFilter ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', outline: 'none' }}>
+              <option value="">Geração</option>
+              {Object.keys(GEN_RANGES).map(g => <option key={g} value={g} style={{ background: '#0d0f14' }}>{g}</option>)}
+            </select>
 
-                <button
-                  onClick={() => handleAddCard(selectedCard)}
-                  className="mt-4 bg-purple-600 px-4 py-2 rounded-lg text-sm hover:opacity-90"
-                >
-                  Adicionar à coleção
+            {/* Tipo */}
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+              style={{ background: typeFilter ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${typeFilter ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '9px 12px', color: typeFilter ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', outline: 'none' }}>
+              <option value="">Tipo</option>
+              {allTypes.map(t => <option key={t} value={t} style={{ background: '#0d0f14' }}>{t}</option>)}
+            </select>
+
+            {/* Raridade */}
+            <select value={rarityFilter} onChange={e => setRarityFilter(e.target.value)}
+              style={{ background: rarityFilter ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${rarityFilter ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '9px 12px', color: rarityFilter ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', outline: 'none' }}>
+              <option value="">Raridade</option>
+              {allRarities.map(r => <option key={r} value={r} style={{ background: '#0d0f14' }}>{r}</option>)}
+            </select>
+
+            {/* Limpar */}
+            {(genFilter || typeFilter || rarityFilter || search) && (
+              <button onClick={() => { setGenFilter(''); setTypeFilter(''); setRarityFilter(''); setSearch('') }}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+                Limpar filtros
+              </button>
+            )}
+          </div>
+
+          {/* Grid */}
+          {loading || (isSearchMode && isSearching) ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+              {Array.from({ length: 20 }).map((_, i) => (
+                <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, paddingBottom: '145%', animation: 'pulse 1.5s infinite' }} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+              {filtered.map(card => {
+                const isOwned    = ownedIds.has(card.id)
+                const isSelected = selected?.id === card.id
+                const num        = card.nationalPokedexNumbers?.[0]
+                const cardType   = card.types?.[0]
+                const typeColor  = TYPE_COLOR[cardType] || '#6b7280'
+
+                return (
+                  <div
+                    key={card.id}
+                    onClick={() => handleSelect(card)}
+                    style={{
+                      background: isSelected ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.02)',
+                      border: isSelected ? '1.5px solid rgba(245,158,11,0.5)' : isOwned ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: 12, cursor: 'pointer', overflow: 'hidden',
+                      transition: 'all 0.15s', position: 'relative',
+                    }}
+                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.2)' }}
+                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = isOwned ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.07)' }}
+                  >
+                    {/* Badge "tenho" */}
+                    {isOwned && (
+                      <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 2, width: 20, height: 20, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#000' }}>✓</div>
+                    )}
+
+                    {/* Número */}
+                    {num && (
+                      <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 2, background: 'rgba(0,0,0,0.6)', borderRadius: 6, padding: '2px 6px', fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
+                        #{num}
+                      </div>
+                    )}
+
+                    {/* Imagem */}
+                    <img src={card.images?.small} alt={card.name} style={{ width: '100%', display: 'block' }} loading="lazy" />
+
+                    {/* Info */}
+                    <div style={{ padding: '8px 10px' }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0', marginBottom: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.name}</p>
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 3 }}>
+                        {card.number && card.set?.printedTotal ? `${card.number}/${card.set.printedTotal}` : card.number ? `#${card.number}` : ''}
+                        {card.set?.name ? ` · ${card.set.name}` : ''}
+                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        {cardType ? (
+                          <span style={{ fontSize: 10, color: typeColor, fontWeight: 700 }}>{cardType}</span>
+                        ) : <span />}
+                        {prices[card.id]?.preco_medio > 0 && (
+                          <span style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700 }}>{fmt(prices[card.id].preco_medio)}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {!isSearchMode && loadingMore && (
+            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 13, marginTop: 24 }}>Carregando mais cartas...</p>
+          )}
+          {isSearchMode && !isSearching && filtered.length === 0 && debouncedSearch.length >= 2 && (
+            <div style={{ textAlign: 'center', padding: '60px 24px', color: 'rgba(255,255,255,0.3)' }}>
+              <p style={{ fontSize: 32, marginBottom: 12 }}>🔍</p>
+              <p style={{ fontSize: 14 }}>Nenhuma carta encontrada para "{debouncedSearch}"</p>
+            </div>
+          )}
+        </div>
+
+        {/* ── PAINEL LATERAL DE DETALHES ── */}
+        <div
+          ref={panelRef}
+          style={{
+            width: selected ? 300 : 0,
+            minWidth: selected ? 300 : 0,
+            borderLeft: '1px solid rgba(255,255,255,0.08)',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            transition: 'width 0.25s ease, min-width 0.25s ease',
+            background: 'rgba(255,255,255,0.01)',
+          }}
+        >
+          {selected && (
+            <div style={{ padding: 20, width: 300 }}>
+              {/* Close */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <button onClick={() => setSelected(null)}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 28, height: 28, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  ✕
                 </button>
               </div>
 
-            </div>
+              {/* Imagem */}
+              <img
+                src={selected.images?.large || selected.images?.small}
+                alt={selected.name}
+                style={{ width: '100%', borderRadius: 12, marginBottom: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+              />
 
-            {/* VARIATIONS */}
-            <div className="mt-6">
-              <p className="text-sm text-gray-400 mb-2">Cartas Relacionadas</p>
-              <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory">
-                {variations.map((v) => (
-                  <img
-                    key={v.id}
-                    src={v.images.small}
-                    onClick={() => {
-                      setSelectedCard(v)
-                      setActiveId(v.id)
-                    }}
-                    className={`w-20 rounded border cursor-pointer hover:scale-105 transition snap-center ${
-                      activeId === v.id
-                        ? 'border-purple-500 scale-105'
-                        : 'border-gray-700'
-                    }`}
-                  />
+              {/* Nome + Set */}
+              <p style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 2 }}>{selected.name}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {selected.number && selected.set?.printedTotal
+                  ? <span style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 6, padding: '2px 8px', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{selected.number}/{selected.set.printedTotal}</span>
+                  : selected.number
+                  ? <span style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>#{selected.number}</span>
+                  : null}
+                <span>{selected.set?.name}</span>
+                {selected.set?.releaseDate && <span style={{ color: 'rgba(255,255,255,0.25)' }}>{selected.set.releaseDate.slice(0, 4)}</span>}
+              </p>
+
+              {/* Badges */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                {(selected.types || []).map((t: string) => (
+                  <span key={t} style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: (TYPE_COLOR[t] || '#6b7280') + '22', color: TYPE_COLOR[t] || '#6b7280' }}>{t}</span>
                 ))}
+                {selected.rarity && (
+                  <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>{selected.rarity}</span>
+                )}
+                {selected.hp && (
+                  <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>HP {selected.hp}</span>
+                )}
               </div>
-            </div>
 
-          </div>
+              {/* Preço */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Preço na LigaPokemon</p>
+                {selectedPrice ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', textAlign: 'center', gap: 4 }}>
+                    <div><p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(selectedPrice.preco_min)}</p></div>
+                    <div><p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(selectedPrice.preco_medio)}</p></div>
+                    <div><p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(selectedPrice.preco_max)}</p></div>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>Sem preço — importe via Minha Carteira</p>
+                )}
+              </div>
+
+              {/* Botão adicionar */}
+              {ownedIds.has(selected.id) || addedFeedback ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '11px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, fontSize: 13, color: '#22c55e', fontWeight: 600 }}>
+                  ✓ Na sua coleção
+                </div>
+              ) : (
+                <button
+                  onClick={handleAdd}
+                  disabled={addingCard}
+                  style={{ width: '100%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: addingCard ? 'not-allowed' : 'pointer', opacity: addingCard ? 0.7 : 1 }}
+                >
+                  {addingCard ? 'Adicionando...' : '+ Adicionar à coleção'}
+                </button>
+              )}
+
+              {/* Variantes */}
+              {(loadingVariations || variations.length > 0) && (
+                <div style={{ marginTop: 20 }}>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                    Outras versões
+                  </p>
+                  {loadingVariations ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                      {[1,2,3].map(i => <div key={i} style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }} />)}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                      {variations.slice(0, 9).map(v => (
+                        <img
+                          key={v.id}
+                          src={v.images?.small}
+                          alt={v.name}
+                          onClick={() => handleSelect(v)}
+                          style={{ width: '100%', borderRadius: 8, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.08)', transition: 'border-color 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(245,158,11,0.5)')}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Artista */}
+              {selected.artist && (
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginTop: 16 }}>
+                  Ilustrado por {selected.artist}
+                </p>
+              )}
+
+            </div>
+          )}
         </div>
-      )}
+
+      </div>
+
+      {/* Scroll to top */}
       {showTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-6 right-6 bg-purple-600 p-3 rounded-full shadow-lg hover:opacity-90"
+          style={{ position: 'fixed', bottom: 24, right: 24, width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', fontSize: 18, cursor: 'pointer', boxShadow: '0 4px 16px rgba(245,158,11,0.3)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
         >
           ↑
         </button>
       )}
+
+      <style>{`@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.7} }`}</style>
     </AppLayout>
   )
-}
-
-function getGeneration(num: number) {
-  if (num <= 151) return 'Kanto'
-  if (num <= 251) return 'Johto'
-  if (num <= 386) return 'Hoenn'
-  if (num <= 493) return 'Sinnoh'
-  if (num <= 649) return 'Unova'
-  if (num <= 721) return 'Kalos'
-  if (num <= 809) return 'Alola'
-  if (num <= 905) return 'Galar'
-  return 'Paldea'
 }

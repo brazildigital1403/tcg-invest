@@ -163,6 +163,67 @@ export default function MinhaColecao() {
     }
   }
 
+  async function handleAddPrice(card: any) {
+    const url = await showPrompt({
+      message: `Cole o link da LigaPokemon para "${card.card_name}":`,
+      placeholder: 'https://www.ligapokemon.com.br/?view=cards/card&card=...',
+      icon: '🔗',
+    })
+    if (!url) return
+
+    try {
+      const { authFetch } = await import('@/lib/authFetch')
+      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
+      const data = await res.json()
+
+      if (!data?.card_name) {
+        showAlert('Não foi possível importar o preço. Verifique o link.', 'error')
+        return
+      }
+
+      const variantes = data.variantes || {}
+      const n = variantes.normal
+      const f = variantes.foil
+      const p = variantes.promo
+      const r = variantes.reverse
+
+      // Salva com o card_name EXATO do user_cards — garante que o JOIN funcione
+      await supabase.from('card_prices').upsert({
+        card_name: card.card_name,
+        preco_min:    n?.min    || 0,
+        preco_medio:  n?.medio  || 0,
+        preco_max:    n?.max    || 0,
+        preco_normal: n?.medio  || 0,
+        preco_foil:   f?.medio  || 0,
+        preco_foil_min:    f?.min    || null,
+        preco_foil_medio:  f?.medio  || null,
+        preco_foil_max:    f?.max    || null,
+        preco_promo_min:   p?.min    || null,
+        preco_promo_medio: p?.medio  || null,
+        preco_promo_max:   p?.max    || null,
+        preco_reverse_min:   r?.min   || null,
+        preco_reverse_medio: r?.medio || null,
+        preco_reverse_max:   r?.max   || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'card_name' })
+
+      // Atualiza o link da carta
+      await supabase.from('user_cards')
+        .update({ card_link: data.link || url })
+        .eq('id', card.id)
+
+      const nomes = Object.keys(variantes).map(k => k.charAt(0).toUpperCase() + k.slice(1))
+      const msg = nomes.length > 0
+        ? `Preços importados: ${nomes.join(', ')}`
+        : 'Preço importado com sucesso!'
+
+      showAlert(msg, 'success')
+      loadCards()
+    } catch {
+      showAlert('Erro ao importar preço. Tente novamente.', 'error')
+    }
+  }
+
   async function handleSell(card: any) {
     const qty = await showPrompt({ message: `Quantas cópias deseja vender?`, placeholder: `1 a ${card.quantity || 1}` })
     if (!qty) return
@@ -221,7 +282,7 @@ export default function MinhaColecao() {
   }, [])
 
   if (loading) {
-    return <AppLayout total={0}><div className="p-6">Carregando coleção...</div></AppLayout>
+    return <AppLayout><div className="p-6">Carregando coleção...</div></AppLayout>
   }
 
   // ✅ Totais da carteira baseados na VARIANTE selecionada de cada carta
@@ -237,13 +298,13 @@ export default function MinhaColecao() {
   }, { min: 0, medio: 0, max: 0 })
 
   return (
-    <AppLayout total={totais.medio}>
+    <AppLayout>
       <div className="p-6">
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Minha Carteira</h1>
+            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Minha Coleção</h1>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>{cards.length} carta{cards.length !== 1 ? 's' : ''} na coleção</p>
           </div>
           <button
@@ -336,23 +397,42 @@ export default function MinhaColecao() {
                     </div>
                   )}
 
-                  {/* ✅ Preços da variante selecionada */}
-                  <div className="mt-2 text-xs text-gray-400 space-y-1">
-                    <p className="text-gray-500">Raridade: {c.rarity || '-'}</p>
-                    <div className="mt-1 bg-gray-800 rounded-lg p-2 space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Mínimo</span>
-                        <span className="text-green-400 font-semibold">{fmt(precos.min)}</span>
+                  {/* Preços da variante selecionada */}
+                  <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                    <p style={{ marginBottom: 6 }}>Raridade: <span style={{ color: 'rgba(255,255,255,0.6)' }}>{c.rarity || '—'}</span></p>
+
+                    {c.price && (precos.min || precos.medio || precos.max) ? (
+                      <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Mínimo</span>
+                          <span style={{ color: '#22c55e', fontWeight: 700 }}>{fmt(precos.min)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Médio</span>
+                          <span style={{ color: '#60a5fa', fontWeight: 700 }}>{fmt(precos.medio)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Máximo</span>
+                          <span style={{ color: '#f59e0b', fontWeight: 700 }}>{fmt(precos.max)}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Médio</span>
-                        <span className="text-blue-400 font-semibold">{fmt(precos.medio)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Máximo</span>
-                        <span className="text-yellow-400 font-semibold">{fmt(precos.max)}</span>
-                      </div>
-                    </div>
+                    ) : (
+                      /* Sem preço — botão para adicionar */
+                      <button
+                        onClick={() => handleAddPrice(c)}
+                        style={{
+                          width: '100%', marginTop: 4,
+                          background: 'rgba(245,158,11,0.08)',
+                          border: '1px dashed rgba(245,158,11,0.4)',
+                          color: '#f59e0b', padding: '9px 12px',
+                          borderRadius: 10, fontSize: 12,
+                          cursor: 'pointer', fontWeight: 600,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        }}
+                      >
+                        🔗 Vincular preço da LigaPokemon
+                      </button>
+                    )}
                   </div>
                 </div>
 
