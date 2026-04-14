@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { authFetch } from '@/lib/authFetch'
 import PriceChart from '@/components/PriceChart'
 import AddCard from '@/components/AddCard'
 import AppLayout from '@/components/ui/AppLayout'
@@ -30,7 +31,7 @@ const getVariation = (history: any[]) => {
 
 const getCardVariation = async (cardName: string) => {
   try {
-    const res = await fetch(`/api/historico?name=${encodeURIComponent(cardName)}`)
+    const res = await authFetch(`/api/historico?name=${encodeURIComponent(cardName)}`)
     const data = await res.json()
 
     if (!data.history || data.history.length < 2) return 0
@@ -217,7 +218,7 @@ export default function DashboardFinanceiro() {
 
     for (const url of links) {
       try {
-        const res = await fetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
+        const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
         const data = await res.json()
 
         if (!data?.card_name) {
@@ -402,7 +403,7 @@ if (cardNames.length > 0) {
         if (cards && cards.length > 0) {
           const firstCardName = cards[0].card_name
 
-          const res = await fetch(`/api/historico?name=${encodeURIComponent(firstCardName)}`)
+          const res = await authFetch(`/api/historico?name=${encodeURIComponent(firstCardName)}`)
           const historicoData = await res.json()
 
           setPriceHistory(historicoData.history || [])
@@ -422,7 +423,7 @@ if (cardNames.length > 0) {
     async function loadHistory() {
       if (!selectedCard) return
 
-      const res = await fetch(`/api/historico?name=${encodeURIComponent(selectedCard)}`)
+      const res = await authFetch(`/api/historico?name=${encodeURIComponent(selectedCard)}`)
       const data = await res.json()
 
       if (data.history && data.history.length > 0) {
@@ -737,7 +738,7 @@ if (cardNames.length > 0) {
               onClick={async () => {
                 // 1. chama API e pega retorno direto
                 const found = userCards.find(c => c.card_name === selectedCard)
-                const res = await fetch(`/api/preco-puppeteer?url=${encodeURIComponent(found?.card_link || '')}`)
+                const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(found?.card_link || '')}`)
                 const apiData = await res.json()
 
                 // 2. atualiza UI imediatamente com retorno da API
@@ -798,7 +799,7 @@ if (cardNames.length > 0) {
 
                 // 4. atualizar histórico
                 try {
-                  const historicoRes = await fetch(`/api/historico?name=${encodeURIComponent(selectedCard)}`)
+                  const historicoRes = await authFetch(`/api/historico?name=${encodeURIComponent(selectedCard)}`)
                   const historicoData = await historicoRes.json()
                   setPriceHistory(historicoData.history || [])
                 } catch {}
@@ -1285,7 +1286,7 @@ if (cardNames.length > 0) {
                           const url = prompt('Cole o link da LigaPokemon dessa carta:')
                           if (!url) return
 
-                          const res = await fetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
+                          const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
                           const data = await res.json()
 
                           if (!data?.card_name) return alert('Erro ao importar')
@@ -1335,16 +1336,66 @@ if (cardNames.length > 0) {
               onClick={async () => {
                 if (!userId || selectedCards.length === 0) return
 
+                const { data: authData } = await supabase.auth.getUser()
+                if (!authData?.user?.id) return alert('Usuário não autenticado')
+
                 for (const card of selectedCards) {
+                  const number = card.number || ''
+                  const total = card.set?.printedTotal || ''
+                  const cardName = number && total
+                    ? `${card.name} (${number}/${total})`
+                    : card.name
+                  const cardImage = card.images?.large || card.images?.small || null
+
+                  // Pede link da LigaPokemon (opcional)
+                  const ligaUrl = prompt(
+                    `Cole o link da LigaPokemon para "${card.name}" (opcional — deixe em branco para pular):`
+                  )
+
+                  let cardLink: string | null = null
+
+                  if (ligaUrl) {
+                    try {
+                      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(ligaUrl)}`)
+                      const priceData = await res.json()
+
+                      if (priceData?.card_name) {
+                        cardLink = priceData.link || ligaUrl
+
+                        await supabase.from('card_prices').upsert({
+                          card_name: cardName,
+                          preco_min: priceData.preco_min || 0,
+                          preco_medio: priceData.preco_medio || 0,
+                          preco_max: priceData.preco_max || 0,
+                          preco_normal: priceData.preco_normal || 0,
+                          preco_foil: priceData.preco_foil || 0,
+                          updated_at: new Date().toISOString(),
+                        }, { onConflict: 'card_name' })
+
+                        // ✅ gravar no histórico de preços
+                        await supabase.from('card_price_history').insert({
+                          card_name: cardName,
+                          preco_min: priceData.preco_min || null,
+                          preco_medio: priceData.preco_medio || null,
+                          preco_max: priceData.preco_max || null,
+                          preco_normal: priceData.preco_normal || null,
+                          preco_foil: priceData.preco_foil || null,
+                          recorded_at: new Date().toISOString(),
+                        })
+                      }
+                    } catch {
+                      // link inválido ou erro no scraping — continua sem preço
+                    }
+                  }
+
                   await supabase.from('user_cards').insert({
-                    user_id: userData.user.id,
-                    pokemon_api_id: matchedId,
-                    card_name: data.card_name,
-                    card_id: data.card_number,
-                    card_image: data.card_image,
-                    card_link: data.link,
-                    rarity: data.rarity || null,
-                    matched_score: match.score,
+                    user_id: authData.user.id,
+                    pokemon_api_id: card.id,
+                    card_name: cardName,
+                    card_id: card.id,
+                    card_image: cardImage,
+                    card_link: cardLink,
+                    rarity: card.rarity || null,
                   })
                 }
 

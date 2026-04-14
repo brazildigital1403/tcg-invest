@@ -7,6 +7,25 @@ const supabase = createClient(
 )
 
 export async function GET(req: Request) {
+  // ✅ Verificação de autenticação
+  const authHeader = req.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+
+  if (!token) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Sessão inválida' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(req.url)
   const cardName = searchParams.get('name')
 
@@ -71,7 +90,7 @@ export async function GET(req: Request) {
       return NextResponse.json({
         name: fullName,
         number,
-        tipo,
+        tipo: null, // ✅ variável ainda não foi extraída neste ponto
         edicao: null,
         raridade: null,
         artista: null,

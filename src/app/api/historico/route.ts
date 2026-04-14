@@ -7,19 +7,38 @@ const supabase = createClient(
 )
 
 export async function GET(req: Request) {
+  // ✅ Verificação de autenticação
+  const authHeader = req.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+
+  if (!token) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Sessão inválida' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(req.url)
   const cardName = searchParams.get('name')
 
   if (!cardName) {
-    // quando não tem nome, não quebra a API
     return NextResponse.json({ message: 'OK - sem nome (rota chamada sem parâmetro)' })
   }
 
+  // ✅ Busca histórico real da tabela card_price_history
   const { data, error } = await supabase
-    .from('card_prices')
+    .from('card_price_history')
     .select('*')
     .ilike('card_name', `%${cardName}%`)
-    .order('updated_at', { ascending: true })
+    .order('recorded_at', { ascending: true })
 
   if (error) {
     console.error('SUPABASE ERROR:', error)
@@ -27,53 +46,18 @@ export async function GET(req: Request) {
   }
 
   const history = data.map(item => ({
-    date: item.updated_at,
+    date: item.recorded_at,
     normal: item.preco_normal,
     foil: item.preco_foil,
+    preco_min: item.preco_min,
+    preco_medio: item.preco_medio,
+    preco_max: item.preco_max,
   }))
 
-  if (history.length > 0) {
-    return NextResponse.json({
-      name: cardName,
-      history,
-      total: history.length,
-      source: 'historico'
-    })
-  }
-
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-
-    const puppeteerRes = await fetch(
-      `${baseUrl}/api/preco-puppeteer?name=${encodeURIComponent(cardName)}`
-    )
-
-    const data = await puppeteerRes.json()
-
-    if (!data || data.error) {
-      return NextResponse.json({ error: 'Erro ao buscar via puppeteer' })
-    }
-
-    // 💾 salvar no banco (cache)
-    await supabase.from('card_prices').upsert([
-      {
-        card_name: data.name,
-        number: data.number,
-        tipo: data.tipo,
-        edicao: data.edicao,
-        raridade: data.raridade,
-        artista: data.artista,
-        preco_normal: data.precoNormal,
-        preco_foil: data.precoFoil,
-        updated_at: new Date().toISOString(),
-      },
-    ], { onConflict: 'card_name' })
-
-    return NextResponse.json({
-      ...data,
-      source: 'puppeteer',
-    })
-  } catch (error) {
-    return NextResponse.json({ error: 'Erro ao buscar dados' })
-  }
+  return NextResponse.json({
+    name: cardName,
+    history,
+    total: history.length,
+    source: 'card_price_history',
+  })
 }

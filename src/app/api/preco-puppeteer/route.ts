@@ -1,6 +1,26 @@
 import puppeteer from 'puppeteer'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET(req: Request) {
+  // ✅ Verificação de autenticação
+  const authHeader = req.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+
+  if (!token) {
+    return Response.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
+
+  if (authError || !user) {
+    return Response.json({ error: 'Sessão inválida' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(req.url)
   const targetUrl = searchParams.get('url')
 
@@ -8,7 +28,23 @@ export async function GET(req: Request) {
     return Response.json({ error: 'URL não informada' }, { status: 400 })
   }
 
-  const url = targetUrl
+  // ✅ Validação de segurança: só aceita URLs da LigaPokemon
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(targetUrl)
+  } catch {
+    return Response.json({ error: 'URL inválida' }, { status: 400 })
+  }
+
+  const dominiosPermitidos = ['ligapokemon.com.br', 'www.ligapokemon.com.br']
+  if (!dominiosPermitidos.includes(parsedUrl.hostname)) {
+    return Response.json(
+      { error: 'URL não permitida. Apenas links da LigaPokemon são aceitos.' },
+      { status: 403 }
+    )
+  }
+
+  const url = parsedUrl.toString()
 
   const browser = await puppeteer.launch({
     headless: 'new',
@@ -53,9 +89,11 @@ export async function GET(req: Request) {
           return { debug: 'preços insuficientes', prices }
         }
 
-        // 🔥 pegar nome da carta
-        const titleEl = document.querySelector('h1') || document.querySelector('#featuredImage')
-        const title = titleEl?.textContent?.trim() || (titleEl as HTMLImageElement)?.alt || null
+        // 🔥 pegar nome da carta — usa document.title pois o h1 não inclui o número
+        const metaTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content')
+        const pageTitle = metaTitle || document.title || ''
+        // extrai só o nome com número: "Bulbasaur (064/063) | ..." → "Bulbasaur (064/063)"
+        const title = pageTitle.split('|')[0].trim() || null
 
         // 🔥 extrair raridade (mais preciso)
         let rarity = null
@@ -131,6 +169,35 @@ export async function GET(req: Request) {
     })
 
     console.log('SCRAP RESULT:', data)
+
+    // ✅ Grava no histórico de preços sempre que fizer scraping
+    if (data && !data.debug && data.card_name) {
+      const supabaseAdmin = (await import('@supabase/supabase-js')).createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+
+      await supabaseAdmin.from('card_price_history').insert({
+        card_name: data.card_name,
+        preco_min: data.preco_min || null,
+        preco_medio: data.preco_medio || null,
+        preco_max: data.preco_max || null,
+        preco_normal: data.preco_normal || null,
+        preco_foil: data.preco_foil || null,
+        recorded_at: new Date().toISOString(),
+      })
+
+      // Atualiza também o preço atual na card_prices
+      await supabaseAdmin.from('card_prices').upsert({
+        card_name: data.card_name,
+        preco_min: data.preco_min || 0,
+        preco_medio: data.preco_medio || 0,
+        preco_max: data.preco_max || 0,
+        preco_normal: data.preco_normal || 0,
+        preco_foil: data.preco_foil || 0,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'card_name' })
+    }
 
     return Response.json(data)
   } catch (err) {
