@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AnunciarModal from '@/components/marketplace/AnunciarModal'
+import NegociacoesTab from '@/components/marketplace/NegociacoesTab'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -267,11 +268,30 @@ export default function Marketplace() {
       }, {})
     }
 
+    // Enrich com dados de vendedor E comprador
+    const buyerIds = [...new Set(listings.map((c: any) => c.buyer_id).filter(Boolean))]
+    let buyerMap: Record<string, any> = {}
+
+    if (buyerIds.length > 0) {
+      const { data: buyers } = await supabase
+        .from('users')
+        .select('id, name, whatsapp, city')
+        .in('id', buyerIds)
+
+      buyerMap = (buyers || []).reduce((acc: any, s: any) => {
+        acc[s.id] = s
+        return acc
+      }, {})
+    }
+
     const enriched = listings.map((c: any) => ({
       ...c,
       seller_name: sellerMap[c.user_id]?.name,
       seller_whatsapp: sellerMap[c.user_id]?.whatsapp,
       seller_city: sellerMap[c.user_id]?.city,
+      buyer_name: buyerMap[c.buyer_id]?.name,
+      buyer_whatsapp: buyerMap[c.buyer_id]?.whatsapp,
+      buyer_city: buyerMap[c.buyer_id]?.city,
     }))
 
     setListings(enriched)
@@ -437,21 +457,11 @@ export default function Marketplace() {
 
         {/* ── NEGOCIAÇÕES ── */}
         {tab === 'negociacoes' && (
-          <>
-            {minhasNegociacoes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
-                <p style={{ fontSize: 40, marginBottom: 16 }}>🤝</p>
-                <p style={{ fontSize: 15 }}>Nenhuma negociação ativa no momento.</p>
-                <p style={{ fontSize: 13, marginTop: 8 }}>Demonstre interesse em cartas na Vitrine para iniciar.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-                {minhasNegociacoes.map(card => (
-                  <AnuncioCard key={card.id} card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
-                ))}
-              </div>
-            )}
-          </>
+          <NegociacoesTab
+            listings={listings}
+            userId={userId}
+            onAction={loadData}
+          />
         )}
 
       </div>

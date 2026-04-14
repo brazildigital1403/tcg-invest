@@ -165,26 +165,54 @@ export default function DashboardFinanceiro() {
         if (!userData.user) { window.location.href = '/login'; return }
         const uid = userData.user.id
         setUserId(uid)
-        const { data: txns } = await supabase.from('transactions').select('*')
-        setTransactions(txns || [])
+        const { data: txns } = await supabase
+          .from('transactions')
+          .select('*')
+          .or(`buyer_id.eq.${uid},seller_id.eq.${uid}`)
+          .order('created_at', { ascending: false })
+          .limit(10)
+        // Enrich com nomes dos usuários
+        const userIds = [...new Set([
+          ...(txns || []).map(t => t.buyer_id),
+          ...(txns || []).map(t => t.seller_id),
+        ].filter(Boolean))]
+        let usersMap: Record<string, any> = {}
+        if (userIds.length > 0) {
+          const { data: usersData } = await supabase.from('users').select('id, name, city').in('id', userIds)
+          usersMap = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc }, {})
+        }
+        const txnsEnriched = (txns || []).map(t => ({
+          ...t,
+          buyer_name: usersMap[t.buyer_id]?.name || 'Comprador',
+          seller_name: usersMap[t.seller_id]?.name || 'Vendedor',
+          buyer_city: usersMap[t.buyer_id]?.city || '',
+          seller_city: usersMap[t.seller_id]?.city || '',
+        }))
+        setTransactions(txnsEnriched)
         const compras = (txns || []).filter(t => t.buyer_id === uid).reduce((a, t) => a + Number(t.price), 0)
         const vendas = (txns || []).filter(t => t.seller_id === uid).reduce((a, t) => a + Number(t.price), 0)
         const { data: cards } = await supabase.from('user_cards').select('*').eq('user_id', uid)
         setUserCards(cards || [])
         let valorTotal = 0
-        const apiIds = (cards || []).map(c => c.pokemon_api_id).filter(Boolean)
-        if (apiIds.length > 0) {
-          const { data: prices } = await supabase.from('card_prices').select('*').in('pokemon_api_id', apiIds)
+        const cardNames = (cards || []).map(c => c.card_name?.trim()).filter(Boolean)
+        if (cardNames.length > 0) {
+          const { data: prices } = await supabase
+            .from('card_prices').select('*').in('card_name', cardNames)
           const priceMap: any = {}
-          ;(prices || []).forEach(p => { priceMap[p.card_name] = p })
+          ;(prices || []).forEach(p => { priceMap[p.card_name?.trim()] = p })
           if (prices && prices.length > 0) {
             const enriched = await Promise.all(prices.map(async p => ({ ...p, variation: await getCardVariation(p.card_name) })))
             enriched.sort((a, b) => (b.preco_medio || 0) - (a.preco_medio || 0))
             setRankingWithVariation(enriched)
           }
           for (const card of cards || []) {
-            const p = priceMap[card.card_name]
-            valorTotal += Number(p?.preco_medio || p?.preco_min || p?.preco_normal || 0)
+            const p = priceMap[card.card_name?.trim()]
+            if (!p) continue
+            const variante = card.variante || 'normal'
+            if (variante === 'foil')         valorTotal += Number(p.preco_foil_medio || p.preco_medio || 0)
+            else if (variante === 'promo')   valorTotal += Number(p.preco_promo_medio || p.preco_medio || 0)
+            else if (variante === 'reverse') valorTotal += Number(p.preco_reverse_medio || p.preco_medio || 0)
+            else                             valorTotal += Number(p.preco_medio || 0)
           }
         }
         setStats({ totalCompras: compras, totalVendas: vendas, quantidade: cards?.length || 0, valorColecao: valorTotal })
@@ -366,12 +394,41 @@ export default function DashboardFinanceiro() {
                   <EmptyRow label="para ver seu histórico aqui" />
                 </>
               ) : (
-                transactions.slice(0, 5).map(t => (
-                  <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <p style={{ fontSize: 14, color: '#f0f0f0' }}>{t.card_name}</p>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(Number(t.price))}</p>
-                  </div>
-                ))
+                transactions.slice(0, 8).map(t => {
+                  const isCompra = t.buyer_id === userId
+                  const contato  = isCompra ? t.seller_name : t.buyer_name
+                  const cidade   = isCompra ? t.seller_city : t.buyer_city
+                  const data     = t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : ''
+                  return (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      {/* Ícone */}
+                      <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                        background: isCompra ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
+                        border: `1px solid ${isCompra ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`,
+                      }}>
+                        {isCompra ? '🛒' : '💰'}
+                      </div>
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {t.card_name}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                          {isCompra ? 'Compra de' : 'Venda para'} {contato}{cidade ? ` · ${cidade}` : ''}{data ? ` · ${data}` : ''}
+                        </p>
+                      </div>
+                      {/* Valor */}
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: isCompra ? '#ef4444' : '#22c55e' }}>
+                          {isCompra ? '-' : '+'}{fmt(Number(t.price))}
+                        </p>
+                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                          {isCompra ? 'compra' : 'venda'}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })
               )}
             </div>
 
