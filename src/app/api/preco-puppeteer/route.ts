@@ -55,7 +55,20 @@ export async function GET(req: Request) {
     const page = await browser.newPage()
     await page.goto(url, { waitUntil: 'domcontentloaded' })
     await page.waitForSelector('body', { timeout: 10000 })
-    await new Promise(res => setTimeout(res, 3000))
+    await new Promise(res => setTimeout(res, 2000))
+
+    // ✅ Clica em "Ver Mais" dos preços para abrir o modal com Promo/Foil/Reverse
+    try {
+      await page.evaluate(() => {
+        // O "Ver Mais" de preços é o segundo span.cursor-pointer com esse texto
+        const verMaisSpans = Array.from(document.querySelectorAll('span.cursor-pointer'))
+          .filter(el => el.textContent?.trim() === 'Ver Mais')
+        const target = verMaisSpans[1] || verMaisSpans[0]
+        if (target) (target as HTMLElement).click()
+      })
+      // Aguarda o modal/conteúdo carregar
+      await new Promise(res => setTimeout(res, 1500))
+    } catch { /* continua mesmo sem modal */ }
 
     const data = await page.evaluate(() => {
       const parse = (t: string | null | undefined) => {
@@ -114,23 +127,40 @@ export async function GET(req: Request) {
 
         const variants: Record<string, { min: number|null, medio: number|null, max: number|null, label: string }> = {}
 
-        const priceContainers = document.querySelectorAll('.container-price-mkp')
-        priceContainers.forEach(container => {
-          const extrasEl = container.querySelector('[class*="extras_"]')
-          if (!extrasEl) return
+        // ✅ Busca preços em AMBAS as estruturas da LigaPokemon:
+        // .container-price-mkp = preços visíveis na página
+        // .edition-price-extras = preços do modal "Ver Mais" (inclui Promo)
+        const allExtrasEls = Array.from(document.querySelectorAll('[class*="extras_n"],[class*="extras_f"],[class*="extras_p"],[class*="extras_r"],[class*="extras_pb"],[class*="extras_mf"]'))
 
-          const typeClass = Array.from(extrasEl.classList).find(c => c.startsWith('extras_'))
+        allExtrasEls.forEach(extEl => {
+          const typeClass = Array.from(extEl.classList).find(c => c.startsWith('extras_'))
           if (!typeClass) return
 
           const varKey = variantMap[typeClass] || typeClass.replace('extras_', '')
-          const label = container.querySelector('.container-extras span')?.textContent?.trim() || varKey
 
-          const min = parse(container.querySelector('.min .price')?.textContent)
-          const medio = parse(container.querySelector('.medium .price')?.textContent)
-          const max = parse(container.querySelector('.max .price')?.textContent)
+          // Já foi processado
+          if (variants[varKey]) return
 
-          if (medio !== null) {
-            variants[varKey] = { min, medio, max, label }
+          // Sobe até encontrar um ancestral com preços
+          let ancestor = extEl.parentElement
+          for (let i = 0; i < 5; i++) {
+            if (!ancestor) break
+            const prices = ancestor.textContent?.match(/R\$\s?[\d.,]+/g)
+            if (prices && prices.length >= 1) {
+              const label = ancestor.querySelector('span')?.textContent?.trim() || varKey
+              // Pega min/medio/max na ordem
+              const nums = prices.map(p => parse(p)).filter(n => n !== null) as number[]
+              if (nums.length >= 1) {
+                variants[varKey] = {
+                  min: nums[0] || null,
+                  medio: nums[1] || nums[0] || null,
+                  max: nums[2] || nums[1] || nums[0] || null,
+                  label
+                }
+              }
+              break
+            }
+            ancestor = ancestor.parentElement
           }
         })
 
