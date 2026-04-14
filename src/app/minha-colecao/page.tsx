@@ -332,10 +332,27 @@ export default function MinhaColecao() {
                 </div>
                 <div className="mt-1 text-xs text-gray-400">
                   <p>Raridade: {c.rarity || '-'}</p>
-                  <div className="mt-2">
-                    <p>Preço mínimo: R$ {c.price?.preco_min ?? '-'}</p>
-                    <p>Preço médio: R$ {c.price?.preco_medio ?? '-'}</p>
-                    <p>Preço máximo: R$ {c.price?.preco_max ?? '-'}</p>
+                  <div className="mt-2 space-y-1">
+                    <p className="font-semibold text-xs text-gray-300">Normal</p>
+                    <p>Mín: R$ {c.price?.preco_min ?? '-'} | Méd: R$ {c.price?.preco_medio ?? '-'} | Máx: R$ {c.price?.preco_max ?? '-'}</p>
+                    {c.price?.preco_foil_medio && (
+                      <>
+                        <p className="font-semibold text-xs text-yellow-400 mt-1">Foil</p>
+                        <p>Mín: R$ {c.price?.preco_foil_min ?? '-'} | Méd: R$ {c.price?.preco_foil_medio ?? '-'} | Máx: R$ {c.price?.preco_foil_max ?? '-'}</p>
+                      </>
+                    )}
+                    {c.price?.preco_promo_medio && (
+                      <>
+                        <p className="font-semibold text-xs text-purple-400 mt-1">Promo</p>
+                        <p>Mín: R$ {c.price?.preco_promo_min ?? '-'} | Méd: R$ {c.price?.preco_promo_medio ?? '-'} | Máx: R$ {c.price?.preco_promo_max ?? '-'}</p>
+                      </>
+                    )}
+                    {c.price?.preco_reverse_medio && (
+                      <>
+                        <p className="font-semibold text-xs text-blue-400 mt-1">Reverse</p>
+                        <p>Mín: R$ {c.price?.preco_reverse_min ?? '-'} | Méd: R$ {c.price?.preco_reverse_medio ?? '-'} | Máx: R$ {c.price?.preco_reverse_max ?? '-'}</p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

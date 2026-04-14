@@ -53,102 +53,110 @@ export async function GET(req: Request) {
 
   try {
     const page = await browser.newPage()
-
     await page.goto(url, { waitUntil: 'domcontentloaded' })
-
-    // 🔥 espera o bloco de preço aparecer de verdade
     await page.waitForSelector('body', { timeout: 10000 })
     await new Promise(res => setTimeout(res, 3000))
 
     const data = await page.evaluate(() => {
-      const parse = (t: string | null) => {
+      const parse = (t: string | null | undefined) => {
         if (!t) return null
-        return parseFloat(
-          t.replace('R$', '')
-            .replace(/\./g, '')
-            .replace(',', '.')
-            .trim()
-        )
+        const n = parseFloat(t.replace('R$', '').replace(/\./g, '').replace(',', '.').trim())
+        return isNaN(n) ? null : n
       }
 
       try {
-        const all = Array.from(document.querySelectorAll('*'))
-
-        const target = all.find(el =>
-          el.textContent?.includes('Preço Médio de Venda no Marketplace')
-        )
-
-        if (!target) {
-          return { debug: 'bloco não encontrado' }
-        }
-
-        const text = target.textContent || ''
-        const prices = text.match(/R\$\s?[\d,.]+/g) || []
-
-        if (prices.length < 3) {
-          return { debug: 'preços insuficientes', prices }
-        }
-
-        // 🔥 pegar nome da carta — usa document.title pois o h1 não inclui o número
+        // ✅ Nome da carta via og:title (inclui número)
         const metaTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content')
         const pageTitle = metaTitle || document.title || ''
-        // extrai só o nome com número: "Bulbasaur (064/063) | ..." → "Bulbasaur (064/063)"
         const title = pageTitle.split('|')[0].trim() || null
 
-        // 🔥 extrair raridade (mais preciso)
-        let rarity = null
-
-        // 🎯 tentar pegar raridade por seletor comum da LigaPokemon
-        const rarityEl = document.querySelector('[class*="raridade" i], [class*="rarity" i]')
-        if (rarityEl?.textContent) {
-          rarity = rarityEl.textContent.trim()
+        // ✅ Número da carta
+        const numberMatch = title?.match(/\(([^)]+)\)/)
+        let cardNumber = numberMatch ? numberMatch[1] : null
+        if (!cardNumber) {
+          const cid = new URL(window.location.href).searchParams.get('cid')
+          if (cid) cardNumber = cid
         }
 
-        // fallback texto (menos confiável)
-        if (!rarity) {
-          const infoText = document.body.innerText
+        // ✅ Imagem da carta
+        const featuredImg = document.querySelector('#featuredImage') as HTMLImageElement | null
+        const zoomDiv = document.querySelector('#container-zoom') as HTMLDivElement | null
+        const metaImage = document.querySelector('meta[property="og:image"]') as HTMLMetaElement | null
+        let cardImage = null
+        if (featuredImg?.src) {
+          cardImage = featuredImg.src
+        } else if (zoomDiv?.style?.backgroundImage) {
+          const m = zoomDiv.style.backgroundImage.match(/url\("?(.*?)"?\)/)
+          cardImage = m ? m[1] : null
+        } else if (metaImage?.content) {
+          cardImage = metaImage.content
+        }
+        if (cardImage?.startsWith('//')) cardImage = 'https:' + cardImage
 
-          if (!rarity) {
-            const rarityMatch = infoText.match(/Raridade:\s*(.+)/i)
-            if (rarityMatch) {
-              rarity = rarityMatch[1].split('\n')[0].trim()
+        // ✅ Raridade
+        let rarity = null
+        const rarityEl = document.querySelector('[class*="raridade" i], [class*="rarity" i]')
+        if (rarityEl?.textContent) rarity = rarityEl.textContent.trim()
+        if (!rarity) {
+          const rarityMatch = document.body.innerText.match(/Raridade:\s*(.+)/i)
+          if (rarityMatch) rarity = rarityMatch[1].split('\n')[0].trim()
+        }
+
+        // ✅ Extrai TODAS as variantes de preço (Normal, Foil, Promo, Reverse, Pokeball)
+        const variantMap: Record<string, string> = {
+          extras_n: 'normal',
+          extras_f: 'foil',
+          extras_p: 'promo',
+          extras_r: 'reverse',
+          extras_pb: 'pokeball',
+          extras_mf: 'master_foil',
+        }
+
+        const variants: Record<string, { min: number|null, medio: number|null, max: number|null, label: string }> = {}
+
+        const priceContainers = document.querySelectorAll('.container-price-mkp')
+        priceContainers.forEach(container => {
+          const extrasEl = container.querySelector('[class*="extras_"]')
+          if (!extrasEl) return
+
+          const typeClass = Array.from(extrasEl.classList).find(c => c.startsWith('extras_'))
+          if (!typeClass) return
+
+          const varKey = variantMap[typeClass] || typeClass.replace('extras_', '')
+          const label = container.querySelector('.container-extras span')?.textContent?.trim() || varKey
+
+          const min = parse(container.querySelector('.min .price')?.textContent)
+          const medio = parse(container.querySelector('.medium .price')?.textContent)
+          const max = parse(container.querySelector('.max .price')?.textContent)
+
+          if (medio !== null) {
+            variants[varKey] = { min, medio, max, label }
+          }
+        })
+
+        // Fallback: se não encontrou nenhuma variante pelo seletor novo,
+        // tenta pelo método antigo (regex no texto)
+        const hasVariants = Object.keys(variants).length > 0
+        if (!hasVariants) {
+          const target = Array.from(document.querySelectorAll('*')).find(el =>
+            el.textContent?.includes('Preço Médio de Venda no Marketplace')
+          )
+          if (target) {
+            const prices = target.textContent?.match(/R\$\s?[\d,.]+/g) || []
+            if (prices.length >= 3) {
+              variants['normal'] = {
+                min: parse(prices[0]),
+                medio: parse(prices[1]),
+                max: parse(prices[2]),
+                label: 'Normal'
+              }
             }
           }
         }
 
-        // 🔥 tentar extrair número do nome (ex: Pikachu (4/53))
-        const numberMatch = title?.match(/\(([^)]+)\)/)
-        let cardNumber = numberMatch ? numberMatch[1] : null
-
-        // 🔥 fallback: extrair do URL (cid)
-        if (!cardNumber) {
-          const urlParams = new URL(window.location.href).searchParams
-          const cid = urlParams.get('cid')
-          if (cid) {
-            cardNumber = cid
-          }
-        }
-
-        // 🔥 pegar imagem correta da carta
-        const featuredImg = document.querySelector('#featuredImage') as HTMLImageElement | null
-        const zoomDiv = document.querySelector('#container-zoom') as HTMLDivElement | null
-        const metaImage = document.querySelector('meta[property="og:image"]') as HTMLMetaElement | null
-
-        let cardImage = null
-
-        if (featuredImg?.src) {
-          cardImage = featuredImg.src
-        } else if (zoomDiv?.style?.backgroundImage) {
-          const match = zoomDiv.style.backgroundImage.match(/url\("?(.*?)"?\)/)
-          cardImage = match ? match[1] : null
-        } else if (metaImage?.content) {
-          cardImage = metaImage.content
-        }
-
-        // corrigir URLs que começam com //
-        if (cardImage && cardImage.startsWith('//')) {
-          cardImage = 'https:' + cardImage
-        }
+        // Preços da variante principal (normal) para compatibilidade
+        const normalVariant = variants['normal']
+        const foilVariant = variants['foil']
 
         return {
           card_name: title,
@@ -156,11 +164,14 @@ export async function GET(req: Request) {
           card_image: cardImage,
           link: window.location.href,
           rarity,
-          preco_min: parse(prices[0]),
-          preco_medio: parse(prices[1]),
-          preco_max: parse(prices[2]),
-          preco_normal: parse(prices[1]),
-          preco_foil: prices[4] ? parse(prices[4]) : null,
+          // Campos legados (compatibilidade)
+          preco_min: normalVariant?.min || null,
+          preco_medio: normalVariant?.medio || null,
+          preco_max: normalVariant?.max || null,
+          preco_normal: normalVariant?.medio || null,
+          preco_foil: foilVariant?.medio || null,
+          // ✅ Novas variantes completas
+          variantes: variants,
           debug: null,
         }
       } catch (e) {
@@ -170,33 +181,58 @@ export async function GET(req: Request) {
 
     console.log('SCRAP RESULT:', data)
 
-    // ✅ Grava no histórico de preços sempre que fizer scraping
+    // ✅ Grava no banco se scraping teve sucesso
     if (data && !data.debug && data.card_name) {
       const supabaseAdmin = (await import('@supabase/supabase-js')).createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       )
 
-      await supabaseAdmin.from('card_price_history').insert({
-        card_name: data.card_name,
-        preco_min: data.preco_min || null,
-        preco_medio: data.preco_medio || null,
-        preco_max: data.preco_max || null,
-        preco_normal: data.preco_normal || null,
-        preco_foil: data.preco_foil || null,
-        recorded_at: new Date().toISOString(),
-      })
+      const variants = (data as any).variantes || {}
 
-      // Atualiza também o preço atual na card_prices
+      // Upsert preço atual com todas as variantes
       await supabaseAdmin.from('card_prices').upsert({
         card_name: data.card_name,
-        preco_min: data.preco_min || 0,
-        preco_medio: data.preco_medio || 0,
-        preco_max: data.preco_max || 0,
-        preco_normal: data.preco_normal || 0,
-        preco_foil: data.preco_foil || 0,
+        preco_min: variants.normal?.min || 0,
+        preco_medio: variants.normal?.medio || 0,
+        preco_max: variants.normal?.max || 0,
+        preco_normal: variants.normal?.medio || 0,
+        preco_foil: variants.foil?.medio || 0,
+        // Variantes completas
+        preco_foil_min: variants.foil?.min || null,
+        preco_foil_medio: variants.foil?.medio || null,
+        preco_foil_max: variants.foil?.max || null,
+        preco_promo_min: variants.promo?.min || null,
+        preco_promo_medio: variants.promo?.medio || null,
+        preco_promo_max: variants.promo?.max || null,
+        preco_reverse_min: variants.reverse?.min || null,
+        preco_reverse_medio: variants.reverse?.medio || null,
+        preco_reverse_max: variants.reverse?.max || null,
+        preco_pokeball_min: variants.pokeball?.min || null,
+        preco_pokeball_medio: variants.pokeball?.medio || null,
+        preco_pokeball_max: variants.pokeball?.max || null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'card_name' })
+
+      // Insere no histórico com todas as variantes
+      await supabaseAdmin.from('card_price_history').insert({
+        card_name: data.card_name,
+        preco_min: variants.normal?.min || null,
+        preco_medio: variants.normal?.medio || null,
+        preco_max: variants.normal?.max || null,
+        preco_normal: variants.normal?.medio || null,
+        preco_foil: variants.foil?.medio || null,
+        preco_foil_min: variants.foil?.min || null,
+        preco_foil_medio: variants.foil?.medio || null,
+        preco_foil_max: variants.foil?.max || null,
+        preco_promo_min: variants.promo?.min || null,
+        preco_promo_medio: variants.promo?.medio || null,
+        preco_promo_max: variants.promo?.max || null,
+        preco_reverse_min: variants.reverse?.min || null,
+        preco_reverse_medio: variants.reverse?.medio || null,
+        preco_reverse_max: variants.reverse?.max || null,
+        recorded_at: new Date().toISOString(),
+      })
     }
 
     return Response.json(data)
