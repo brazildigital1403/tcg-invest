@@ -267,6 +267,12 @@ export default function DashboardFinanceiro() {
 
   return (
     <AppLayout>
+      <style>{`
+        @media (max-width: 768px) {
+          .dash-hero-btns { flex-direction: column !important; }
+          .dash-hero-btns button { width: 100% !important; }
+        }
+      `}</style>
       <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 1200, margin: '0 auto' }}>
 
         {/* ── HERO ── */}
@@ -311,7 +317,7 @@ export default function DashboardFinanceiro() {
         </div>
 
         {/* ── 4 CHIPS ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
           <StatChip label="Total cartas" value={String(stats.quantidade)} />
           <StatChip label="Total compras" value={fmt(stats.totalCompras)} color="#ef4444" />
           <StatChip label="Total vendas" value={fmt(stats.totalVendas)} color="#22c55e" />
@@ -319,19 +325,19 @@ export default function DashboardFinanceiro() {
         </div>
 
         {/* ── 2 COLUNAS ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 20, alignItems: 'start' }}>
 
           {/* COLUNA ESQUERDA — Gráfico */}
           <div>
 
             {/* Seletor de carta + gráfico */}
             <div style={{ ...SURFACE, padding: 24, marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ marginBottom: 16 }}>
                 <SectionTitle>📈 Histórico de preço</SectionTitle>
                 <select
                   value={selectedCard || ''}
                   onChange={e => setSelectedCard(e.target.value)}
-                  style={{ fontSize: 13, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#fff', cursor: 'pointer', maxWidth: 200 }}
+                  style={{ width: '100%', marginTop: 10, fontSize: 13, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 12px', color: '#fff', cursor: 'pointer', boxSizing: 'border-box' as const }}
                 >
                   {userCards.length === 0 && <option value="">Nenhuma carta</option>}
                   {userCards.map(c => <option key={c.id} value={c.card_name}>{c.card_name}</option>)}
@@ -340,30 +346,34 @@ export default function DashboardFinanceiro() {
 
               {/* Carta selecionada */}
               {selectedCard && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12 }}>
-                  {cardImage ? (
-                    <img src={cardImage} alt={selectedCard} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6 }} />
-                  ) : (
-                    <div style={{ width: 44, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🃏</div>
-                  )}
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{selectedCard}</p>
-                    {selectedCardPrice ? (
-                      <div style={{ display: 'flex', gap: 16 }}>
-                        <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(selectedCardPrice.preco_min)}</p></div>
-                        <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(selectedCardPrice.preco_medio)}</p></div>
-                        <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(selectedCardPrice.preco_max)}</p></div>
-                      </div>
+                <div style={{ marginBottom: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12 }}>
+                  {/* Linha superior: imagem + nome + preços */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    {cardImage ? (
+                      <img src={cardImage} alt={selectedCard} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
                     ) : (
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Sem dados de preço — clique em Atualizar</p>
+                      <div style={{ width: 44, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🃏</div>
                     )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedCard}</p>
+                      {selectedCardPrice ? (
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                          <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(selectedCardPrice.preco_min)}</p></div>
+                          <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(selectedCardPrice.preco_medio)}</p></div>
+                          <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(selectedCardPrice.preco_max)}</p></div>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Sem dados — clique em Atualizar</p>
+                      )}
+                    </div>
                   </div>
+                  {/* Botão atualizar sempre em linha cheia */}
                   <button
                     onClick={handleUpdatePrice}
                     disabled={updatingPrice}
-                    style={{ background: BRAND, border: 'none', color: '#000', padding: '8px 14px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: updatingPrice ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                    style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '10px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: updatingPrice ? 0.6 : 1 }}
                   >
-                    {updatingPrice ? 'Atualizando...' : '↻ Atualizar'}
+                    {updatingPrice ? '⏳ Atualizando...' : '↻ Atualizar preço'}
                   </button>
                 </div>
               )}
@@ -400,7 +410,7 @@ export default function DashboardFinanceiro() {
                   const cidade   = isCompra ? t.seller_city : t.buyer_city
                   const data     = t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : ''
                   return (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                       {/* Ícone */}
                       <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
                         background: isCompra ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
@@ -409,7 +419,7 @@ export default function DashboardFinanceiro() {
                         {isCompra ? '🛒' : '💰'}
                       </div>
                       {/* Info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                         <p style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {t.card_name}
                         </p>
@@ -418,7 +428,7 @@ export default function DashboardFinanceiro() {
                         </p>
                       </div>
                       {/* Valor */}
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 80 }}>
                         <p style={{ fontSize: 14, fontWeight: 700, color: isCompra ? '#ef4444' : '#22c55e' }}>
                           {isCompra ? '-' : '+'}{fmt(Number(t.price))}
                         </p>

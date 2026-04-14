@@ -100,6 +100,7 @@ export default function Home() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [forgotStep, setForgotStep] = useState(false) // true = tela de recuperar senha
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
@@ -219,26 +220,82 @@ export default function Home() {
     <div style={{ fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", background: '#080a0f', color: '#f0f0f0', minHeight: '100vh' }}>
 
       {/* HEADER */}
-      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, backdropFilter: 'blur(16px)', background: 'rgba(8,10,15,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📊</div>
-            <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.03em' }}>TCG Manager</span>
+      {/* CSS responsivo landing */}
+      <style>{`
+        @media (max-width: 768px) {
+          .lp-nav-desktop { display: none !important; }
+          .lp-hamburger   { display: flex !important; }
+          .lp-hero-btns   { flex-direction: column !important; align-items: stretch !important; }
+          .lp-mockup-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .lp-stats-row   { flex-wrap: wrap !important; gap: 24px !important; }
+          .lp-sets-row    { gap: 24px !important; flex-wrap: wrap !important; }
+          .lp-plans-grid  { grid-template-columns: 1fr !important; }
+          .lp-how-grid    { grid-template-columns: 1fr !important; }
+          .lp-feat-grid   { grid-template-columns: repeat(2, 1fr) !important; }
+          .lp-mockup-stats { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
+
+      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, backdropFilter: 'blur(16px)', background: 'rgba(8,10,15,0.9)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📊</div>
+            <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.03em' }}>TCG Manager</span>
           </div>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-            <button onClick={() => scrollTo(howRef)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14 }}>Como funciona</button>
-            <button onClick={() => scrollTo(pricingRef)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14 }}>Planos</button>
+
+          {/* Nav desktop */}
+          <nav className="lp-nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
+            <button onClick={() => scrollTo(howRef)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>Como funciona</button>
+            <button onClick={() => scrollTo(pricingRef)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>Planos</button>
             {user ? (
-              <button onClick={() => router.push('/dashboard-financeiro')} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '10px 20px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+              <button onClick={() => router.push('/dashboard-financeiro')} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '9px 18px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
                 Meu Dashboard
               </button>
             ) : (
-              <button onClick={() => { setIsLogin(true); setShowAuthModal(true) }} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '10px 20px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+              <button onClick={() => { setIsLogin(true); setShowAuthModal(true) }} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '9px 18px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
                 Entrar
               </button>
             )}
           </nav>
+
+          {/* Hamburguer mobile */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* CTA compacto mobile */}
+            <div className="lp-nav-desktop" style={{ display: 'none' }} />
+            {user ? (
+              <button className="lp-hamburger" onClick={() => router.push('/dashboard-financeiro')}
+                style={{ display: 'none', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '8px 14px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                Dashboard
+              </button>
+            ) : (
+              <button className="lp-hamburger" onClick={() => { setIsLogin(true); setShowAuthModal(true) }}
+                style={{ display: 'none', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '8px 14px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                Entrar
+              </button>
+            )}
+            <button className="lp-hamburger" onClick={() => setMobileMenuOpen(v => !v)}
+              style={{ display: 'none', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', flexDirection: 'column', gap: 4 }}>
+              <span style={{ display: 'block', width: 18, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
+              <span style={{ display: 'block', width: 18, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
+              <span style={{ display: 'block', width: 18, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
+            </button>
+          </div>
         </div>
+
+        {/* Menu mobile expandido */}
+        {mobileMenuOpen && (
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <button onClick={() => { scrollTo(howRef); setMobileMenuOpen(false) }}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 15, padding: '10px 0', textAlign: 'left', fontFamily: 'inherit', fontWeight: 500 }}>
+              Como funciona
+            </button>
+            <button onClick={() => { scrollTo(pricingRef); setMobileMenuOpen(false) }}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 15, padding: '10px 0', textAlign: 'left', fontFamily: 'inherit', fontWeight: 500 }}>
+              Planos
+            </button>
+          </div>
+        )}
       </header>
 
       {/* HERO */}
@@ -260,7 +317,7 @@ export default function Home() {
           Importe suas cartas por link, acompanhe preços por variante (Normal, Foil, Promo) e saiba exatamente quanto sua coleção vale agora.
         </p>
 
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 80 }}>
+        <div className="lp-hero-btns" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 80 }}>
           <button
             onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
             style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '16px 32px', borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 0 40px rgba(245,158,11,0.3)' }}
@@ -284,7 +341,7 @@ export default function Home() {
             <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#22c55e' }} />
           </div>
           {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }}>
+          <div className="lp-mockup-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }}>
             {[
               { label: 'Mínimo da Carteira', value: 'R$ 29.009,50', color: '#22c55e' },
               { label: 'Valor Médio', value: 'R$ 29.565,36', color: '#60a5fa' },
@@ -297,7 +354,7 @@ export default function Home() {
             ))}
           </div>
           {/* Cards mockup com imagens reais */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+          <div className="lp-mockup-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             {[
               { name: 'Mega Charizard X ex', variante: 'Foil', medio: 'R$ 1.955,86', badge: '#f59e0b', img: 'https://repositorio.sbrauble.com/arquivos/in/pokemon_bkp/cd/738/6924ac1ff1bb1-8t6ug-w0jnu-6386cdd1635c69bcd3f1e8f5ea9c84f1.jpg' },
               { name: 'Mega Lucario ex', variante: 'Normal', medio: 'R$ 1.491,16', badge: '#6b7280', img: 'https://repositorio.sbrauble.com/arquivos/in/pokemon_bkp/cd/730/68d6d9f43ca1d-0ix3o-6t79y-bda68739bd4cf82472222621b2fdd599.jpg' },
@@ -341,7 +398,7 @@ export default function Home() {
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 48, display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
+        <div className="lp-stats-row" style={{ marginTop: 48, display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
           {[
             { num: '+500', label: 'cartas cadastradas' },
             { num: '+120', label: 'colecionadores ativos' },
@@ -361,7 +418,7 @@ export default function Home() {
           <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Como funciona</p>
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em' }}>Simples como deve ser</h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+        <div className="lp-how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           {[
             { num: '01', icon: '🔗', title: 'Cole o link da LigaPokemon', desc: 'Importação automática de dados, imagem e todos os preços por variante (Normal, Foil, Promo) com um único link.' },
             { num: '02', icon: '📊', title: 'Selecione o tipo da sua carta', desc: 'Diga se a sua é Normal, Foil ou Promo. O sistema calcula o valor real da sua coleção baseado no mercado atual.' },
@@ -383,7 +440,7 @@ export default function Home() {
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 42px)', fontWeight: 800, letterSpacing: '-0.03em' }}>O que nos diferencia</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+          <div className="lp-feat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             {[
               { icon: '🎯', title: 'Preços por variante', desc: 'Normal, Foil e Promo separados. O valor certo para a carta que você tem.' },
               { icon: '📈', title: 'Portfólio financeiro', desc: 'Min, médio e máximo da carteira. Pense como um investidor.' },
@@ -408,7 +465,7 @@ export default function Home() {
         <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 16 }}>Comece grátis, cresça quando precisar</h2>
         <p style={{ color: 'rgba(255,255,255,0.4)', marginBottom: 56, fontSize: 16 }}>Sem cartão de crédito para começar.</p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, textAlign: 'left' }}>
+        <div className="lp-plans-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, textAlign: 'left' }}>
           {/* Plano Free */}
           <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 36 }}>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Grátis</p>

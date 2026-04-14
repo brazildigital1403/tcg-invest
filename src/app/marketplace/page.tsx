@@ -400,7 +400,7 @@ export default function Marketplace() {
             </div>
 
             {loading ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, height: 320, animation: 'pulse 1.5s infinite' }} />
                 ))}
@@ -412,7 +412,7 @@ export default function Marketplace() {
                 <p style={{ fontSize: 13, marginTop: 8 }}>Seja o primeiro a anunciar uma carta!</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
                 {vitrine.map(card => (
                   <AnuncioCard key={card.id} card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
                 ))}
@@ -445,7 +445,7 @@ export default function Marketplace() {
                     )
                   })}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
                   {meusAnuncios.map(card => (
                     <AnuncioCard key={card.id} card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
                   ))}

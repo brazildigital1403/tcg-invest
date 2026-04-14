@@ -245,10 +245,18 @@ export default function Pokedex() {
 
   return (
     <AppLayout>
-      <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", display: 'flex', gap: 0, height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+      <style>{`
+        .pokedex-root { height: calc(100vh - 64px); overflow: hidden; }
+        .pokedex-col-main { overflow-y: auto; }
+        @media (max-width: 768px) {
+          .pokedex-root { height: auto !important; overflow: visible !important; }
+          .pokedex-col-main { overflow-y: visible !important; height: auto !important; }
+        }
+      `}</style>
+      <div className="pokedex-root" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", display: 'flex', gap: 0 }}>
 
         {/* ── COLUNA PRINCIPAL ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 24px 80px' }}>
+        <div className="pokedex-col-main" style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 100px' }}>
 
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
@@ -265,7 +273,7 @@ export default function Pokedex() {
           </div>
 
           {/* Filtros */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
 
             {/* Search */}
             <div style={{ position: 'relative' }}>
@@ -312,13 +320,13 @@ export default function Pokedex() {
 
           {/* Grid */}
           {loading || (isSearchMode && isSearching) ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+            <div className="tcg-pokedex-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
               {Array.from({ length: 20 }).map((_, i) => (
                 <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, paddingBottom: '145%', animation: 'pulse 1.5s infinite' }} />
               ))}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+            <div className="tcg-pokedex-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
               {filtered.map(card => {
                 const isOwned    = ownedIds.has(card.id)
                 const isSelected = selected?.id === card.id
@@ -390,18 +398,20 @@ export default function Pokedex() {
         {/* ── PAINEL LATERAL DE DETALHES ── */}
         <div
           ref={panelRef}
+          className={`tcg-pokedex-panel${selected ? ' panel-open' : ''}`}
           style={{
             width: selected ? 300 : 0,
             minWidth: selected ? 300 : 0,
+            flexShrink: 0,
             borderLeft: '1px solid rgba(255,255,255,0.08)',
             overflowY: 'auto',
             overflowX: 'hidden',
             transition: 'width 0.25s ease, min-width 0.25s ease',
-            background: 'rgba(255,255,255,0.01)',
+            background: '#0d0f14',
           }}
         >
           {selected && (
-            <div style={{ padding: 20, width: 300 }}>
+            <div style={{ padding: 20, width: '100%', maxWidth: 480, margin: '0 auto' }}>
               {/* Close */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
                 <button onClick={() => setSelected(null)}
@@ -522,7 +532,29 @@ export default function Pokedex() {
         </button>
       )}
 
-      <style>{`@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.7} }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.7} }
+        @media (max-width: 768px) {
+          .tcg-pokedex-panel {
+            display: none !important;
+          }
+          .tcg-pokedex-panel.panel-open {
+            display: block !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            z-index: 500 !important;
+            background: #0d0f14 !important;
+            border-left: none !important;
+            overflow-y: auto !important;
+          }
+          .tcg-pokedex-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important; }
+        }
+      `}</style>
     </AppLayout>
   )
 }
