@@ -170,7 +170,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* ── SIDEBAR desktop ── */}
         <aside className="tcg-sidebar">
           <Link href="/dashboard-financeiro" style={{ textDecoration: 'none', marginBottom: 28 }}>
-            <img src="/logo_BYNX.png" alt="TCG Manager" style={{ height: 32, width: 'auto', objectFit: 'contain', display: 'block' }} />
+            <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 32, width: 'auto', objectFit: 'contain', display: 'block' }} />
           </Link>
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
@@ -213,7 +213,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             {/* Logo — mobile */}
             <div className="tcg-header-logo" style={{ display: 'none', alignItems: 'center', gap: 8, flex: 1 }}>
-              <img src="/logo_BYNX.png" alt="TCG Manager" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
+              <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
             </div>
 
             {/* Patrimônio */}
@@ -270,7 +270,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {/* Header drawer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <img src="/logo_BYNX.png" alt="TCG Manager" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
+                  <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
                 </div>
                 <button onClick={() => setDrawerOpen(false)}
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>

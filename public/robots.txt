@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /pokedex
+Allow: /marketplace
+Allow: /perfil/
+
+Disallow: /minha-colecao
+Disallow: /dashboard-financeiro
+Disallow: /minha-conta
+Disallow: /api/
+Disallow: /reset-password
+
+Sitemap: https://bynx.gg/sitemap.xml
+Host: https://bynx.gg

@@ -43,6 +43,9 @@ export default function Pokedex() {
   const [genFilter, setGenFilter]       = useState('')
   const [typeFilter, setTypeFilter]     = useState('')
   const [rarityFilter, setRarityFilter] = useState('')
+  const [setFilter, setSetFilter]       = useState('')
+  const [soMinha, setSoMinha]           = useState(false)
+  const [sortBy, setSortBy]             = useState('num-asc')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching]   = useState(false)
 
@@ -224,22 +227,29 @@ export default function Pokedex() {
 
   const allTypes    = [...new Set(cards.flatMap(c => c.types || []))] as string[]
   const allRarities = [...new Set(cards.map(c => c.rarity).filter(Boolean))] as string[]
+  const allSets     = [...new Set(cards.map(c => c.set?.name).filter(Boolean))].sort() as string[]
 
-  // Se há busca: usa os resultados diretos da API (ignora scroll infinito)
-  // Se não há busca: filtra as cartas carregadas localmente
   const isSearchMode = debouncedSearch.trim().length >= 2
-  const filtered = isSearchMode
-    ? searchResults
-        .filter(c => !typeFilter   || (c.types || []).includes(typeFilter))
-        .filter(c => !rarityFilter || c.rarity === rarityFilter)
-    : cards
-        .filter(c => {
-          if (!genFilter) return true
-          const num = Number(c.nationalPokedexNumbers?.[0] || 9999)
-          return getGeneration(num) === genFilter
-        })
-        .filter(c => !typeFilter   || (c.types || []).includes(typeFilter))
-        .filter(c => !rarityFilter || c.rarity === rarityFilter)
+
+  function applyFilters(list: any[]) {
+    return list
+      .filter(c => !genFilter    || getGeneration(Number(c.nationalPokedexNumbers?.[0] || 9999)) === genFilter)
+      .filter(c => !typeFilter   || (c.types || []).includes(typeFilter))
+      .filter(c => !rarityFilter || c.rarity === rarityFilter)
+      .filter(c => !setFilter    || c.set?.name === setFilter)
+      .filter(c => !soMinha      || ownedIds.has(c.id))
+      .sort((a, b) => {
+        if (sortBy === 'num-asc')  return Number(a.nationalPokedexNumbers?.[0] || 9999) - Number(b.nationalPokedexNumbers?.[0] || 9999)
+        if (sortBy === 'num-desc') return Number(b.nationalPokedexNumbers?.[0] || 9999) - Number(a.nationalPokedexNumbers?.[0] || 9999)
+        if (sortBy === 'name-asc') return a.name.localeCompare(b.name)
+        if (sortBy === 'hp-desc')  return Number(b.hp || 0) - Number(a.hp || 0)
+        return 0
+      })
+  }
+
+  const filtered = applyFilters(isSearchMode ? searchResults : cards)
+
+  const activeFiltersCount = [genFilter, typeFilter, rarityFilter, setFilter, soMinha ? '1' : ''].filter(Boolean).length
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -273,7 +283,7 @@ export default function Pokedex() {
           </div>
 
           {/* Filtros */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
 
             {/* Search */}
             <div style={{ position: 'relative' }}>
@@ -309,12 +319,43 @@ export default function Pokedex() {
               {allRarities.map(r => <option key={r} value={r} style={{ background: '#0d0f14' }}>{r}</option>)}
             </select>
 
-            {/* Limpar */}
-            {(genFilter || typeFilter || rarityFilter || search) && (
-              <button onClick={() => { setGenFilter(''); setTypeFilter(''); setRarityFilter(''); setSearch('') }}
-                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
-                Limpar filtros
-              </button>
+            {/* Set */}
+            <select value={setFilter} onChange={e => setSetFilter(e.target.value)}
+              style={{ background: setFilter ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${setFilter ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '9px 12px', color: setFilter ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', outline: 'none', maxWidth: 160 }}>
+              <option value="">Set</option>
+              {allSets.map(s => <option key={s} value={s} style={{ background: '#0d0f14' }}>{s}</option>)}
+            </select>
+
+            {/* Ordenação */}
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 12px', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', outline: 'none' }}>
+              <option value="num-asc" style={{ background: '#0d0f14' }}>Nº ↑</option>
+              <option value="num-desc" style={{ background: '#0d0f14' }}>Nº ↓</option>
+              <option value="name-asc" style={{ background: '#0d0f14' }}>Nome A→Z</option>
+              <option value="hp-desc" style={{ background: '#0d0f14' }}>Maior HP</option>
+            </select>
+
+            {/* Toggle: só minha coleção */}
+            <button
+              onClick={() => setSoMinha(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', borderRadius: 10, border: `1px solid ${soMinha ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.1)'}`, background: soMinha ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)', color: soMinha ? '#22c55e' : 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: soMinha ? 700 : 400 }}
+            >
+              <span>✓</span> Minha coleção
+            </button>
+
+            {/* Contador + Limpar */}
+            {(activeFiltersCount > 0 || search) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {activeFiltersCount > 0 && (
+                  <span style={{ fontSize: 11, background: 'rgba(245,158,11,0.2)', color: '#f59e0b', padding: '3px 8px', borderRadius: 100, fontWeight: 700 }}>
+                    {activeFiltersCount} filtro{activeFiltersCount > 1 ? 's' : ''}
+                  </span>
+                )}
+                <button onClick={() => { setGenFilter(''); setTypeFilter(''); setRarityFilter(''); setSetFilter(''); setSoMinha(false); setSearch(''); setSearchResults([]) }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
+                  Limpar
+                </button>
+              </div>
             )}
           </div>
 

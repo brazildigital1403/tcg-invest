@@ -240,7 +240,7 @@ export default function Home() {
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <img src="/logo_BYNX.png" alt="TCG Manager" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
+            <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
           </div>
 
           {/* Nav desktop */}
@@ -308,12 +308,12 @@ export default function Home() {
         </div>
 
         <h1 style={{ fontSize: 'clamp(40px, 7vw, 80px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05, marginBottom: 24, maxWidth: 900 }}>
-          Sua coleção de cartas<br />
+          Sua coleção Pokémon TCG<br />
           <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>vale dinheiro de verdade.</span>
         </h1>
 
         <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)', maxWidth: 560, lineHeight: 1.6, marginBottom: 48 }}>
-          Importe suas cartas por link, acompanhe preços por variante (Normal, Foil, Promo) e saiba exatamente quanto sua coleção vale agora.
+          Importe cartas da LigaPokemon por link, acompanhe preços por variante (Normal, Foil, Promo) em tempo real e saiba exatamente quanto seu portfólio Pokémon TCG vale agora.
         </p>
 
         <div className="lp-hero-btns" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 80 }}>
@@ -364,7 +364,7 @@ export default function Home() {
                 <div style={{ width: '100%', paddingBottom: '140%', borderRadius: 8, marginBottom: 10, position: 'relative', overflow: 'hidden' }}>
                   <img
                     src={c.img}
-                    alt={c.name}
+                    alt={`Carta Pokémon TCG ${c.name} - ${c.variante}`}
                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                   />
@@ -412,7 +412,7 @@ export default function Home() {
       </section>
 
       {/* COMO FUNCIONA */}
-      <section ref={howRef} style={{ padding: '100px 24px', maxWidth: 1100, margin: '0 auto' }}>
+      <section ref={howRef} aria-label="Como funciona o Bynx" style={{ padding: '100px 24px', maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 64 }}>
           <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Como funciona</p>
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em' }}>Simples como deve ser</h2>
@@ -540,7 +540,7 @@ export default function Home() {
 
       {/* FOOTER */}
       <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '32px 24px', textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>
-        <p>© 2026 TCG Manager · Feito para colecionadores brasileiros</p>
+        <p>© 2026 <strong>Bynx</strong> · Feito para colecionadores brasileiros de Pokémon TCG</p>
       </footer>
 
       {/* MODAL AUTH */}

@@ -250,15 +250,28 @@ export default function MinhaConta() {
             </div>
           </div>
 
-          {/* Badge plano */}
-          <div style={{
-            padding: '6px 14px', borderRadius: 100,
-            background: planoFree ? 'rgba(255,255,255,0.06)' : 'rgba(245,158,11,0.12)',
-            border: `1px solid ${planoFree ? 'rgba(255,255,255,0.1)' : 'rgba(245,158,11,0.3)'}`,
-            fontSize: 12, fontWeight: 700,
-            color: planoFree ? 'rgba(255,255,255,0.4)' : '#f59e0b',
-          }}>
-            {planoFree ? 'Plano Free' : 'Plano Pro ✦'}
+          {/* Badge plano + link perfil */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+            <div style={{
+              padding: '6px 14px', borderRadius: 100,
+              background: planoFree ? 'rgba(255,255,255,0.06)' : 'rgba(245,158,11,0.12)',
+              border: `1px solid ${planoFree ? 'rgba(255,255,255,0.1)' : 'rgba(245,158,11,0.3)'}`,
+              fontSize: 12, fontWeight: 700,
+              color: planoFree ? 'rgba(255,255,255,0.4)' : '#f59e0b',
+            }}>
+              {planoFree ? 'Plano Free' : 'Plano Pro ✦'}
+            </div>
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/perfil/${user?.id}`
+                navigator.clipboard?.writeText(url)
+                  .then(() => showAlert('Link do perfil copiado! 🔗', 'success'))
+                  .catch(() => showAlert(url, 'info'))
+              }}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+            >
+              🔗 Compartilhar perfil
+            </button>
           </div>
         </div>
 
