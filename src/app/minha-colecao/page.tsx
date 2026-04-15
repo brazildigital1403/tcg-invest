@@ -42,7 +42,42 @@ function getVariantesDisponiveis(price: any) {
 export default function MinhaColecao() {
   const { showAlert, showPrompt, showConfirm } = useAppModal()
   const [cards, setCards] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+  const [filtroVariante, setFiltroVariante] = useState('')
+  const [filtroRaridade, setFiltroRaridade] = useState('')
   const [loading, setLoading] = useState(true)
+
+  function handleExportCSV() {
+    const rows = [
+      ['Nome', 'Variante', 'Raridade', 'Qtd', 'Preço Mín', 'Preço Médio', 'Preço Máx', 'Link'],
+      ...cards.map(c => {
+        const variante = c.variante || 'normal'
+        const p = c.price
+        const precos = !p ? { min: '', medio: '', max: '' }
+          : variante === 'foil' ? { min: p.preco_foil_min || '', medio: p.preco_foil_medio || '', max: p.preco_foil_max || '' }
+          : variante === 'promo' ? { min: p.preco_promo_min || '', medio: p.preco_promo_medio || '', max: p.preco_promo_max || '' }
+          : { min: p.preco_min || '', medio: p.preco_medio || '', max: p.preco_max || '' }
+        return [
+          c.card_name || '',
+          variante,
+          c.rarity || '',
+          c.quantity || 1,
+          precos.min,
+          precos.medio,
+          precos.max,
+          c.card_link || '',
+        ]
+      })
+    ]
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `minha-colecao-${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   async function loadCards() {
     const { data: userData } = await supabase.auth.getUser()
@@ -297,22 +332,102 @@ export default function MinhaColecao() {
     }
   }, { min: 0, medio: 0, max: 0 })
 
+  // ── Filtro local ────────────────────────────────────────────────────────────
+  const filteredCards = cards.filter(c => {
+    const matchSearch = !search || c.card_name?.toLowerCase().includes(search.toLowerCase())
+    const matchVariante = !filtroVariante || (c.variante || 'normal') === filtroVariante
+    const matchRaridade = !filtroRaridade || c.rarity === filtroRaridade
+    return matchSearch && matchVariante && matchRaridade
+  })
+
+  // Raridades únicas da coleção
+  const raridades = [...new Set(cards.map(c => c.rarity).filter(Boolean))] as string[]
+
   return (
     <AppLayout>
       <div className="p-6">
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Minha Coleção</h1>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>{cards.length} carta{cards.length !== 1 ? 's' : ''} na coleção</p>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Minha Coleção</h1>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+                {filteredCards.length !== cards.length
+                  ? `${filteredCards.length} de ${cards.length} carta${cards.length !== 1 ? 's' : ''}`
+                  : `${cards.length} carta${cards.length !== 1 ? 's' : ''} na coleção`}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                onClick={handleAddByLink}
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 18px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+              >
+                + Importar por link
+              </button>
+              {cards.length > 0 && (
+                <button
+                  onClick={handleExportCSV}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  ⬇ Exportar CSV
+                </button>
+              )}
+            </div>
           </div>
-          <button
-            onClick={handleAddByLink}
-            style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '12px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.2)' }}
-          >
-            + Importar por link
-          </button>
+
+          {/* Busca + filtros */}
+          {cards.length > 0 && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* Search */}
+              <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+                <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}>🔍</span>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar carta..."
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 12px 9px 34px', color: '#f0f0f0', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </div>
+
+              {/* Filtro variante */}
+              <select
+                value={filtroVariante}
+                onChange={e => setFiltroVariante(e.target.value)}
+                style={{ background: filtroVariante ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroVariante ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '9px 12px', color: filtroVariante ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', outline: 'none' }}
+              >
+                <option value="" style={{ background: '#0d0f14' }}>Variante</option>
+                <option value="normal" style={{ background: '#0d0f14' }}>Normal</option>
+                <option value="foil" style={{ background: '#0d0f14' }}>Foil</option>
+                <option value="promo" style={{ background: '#0d0f14' }}>Promo</option>
+                <option value="reverse" style={{ background: '#0d0f14' }}>Reverse Foil</option>
+              </select>
+
+              {/* Filtro raridade */}
+              {raridades.length > 0 && (
+                <select
+                  value={filtroRaridade}
+                  onChange={e => setFiltroRaridade(e.target.value)}
+                  style={{ background: filtroRaridade ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroRaridade ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '9px 12px', color: filtroRaridade ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', outline: 'none', maxWidth: 160 }}
+                >
+                  <option value="" style={{ background: '#0d0f14' }}>Raridade</option>
+                  {raridades.map(r => <option key={r} value={r} style={{ background: '#0d0f14' }}>{r}</option>)}
+                </select>
+              )}
+
+              {/* Limpar filtros */}
+              {(search || filtroVariante || filtroRaridade) && (
+                <button
+                  onClick={() => { setSearch(''); setFiltroVariante(''); setFiltroRaridade('') }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Resumo financeiro — scroll horizontal com snap no mobile */}
@@ -366,8 +481,15 @@ export default function MinhaColecao() {
           </div>
         )}
 
+        {filteredCards.length === 0 && cards.length > 0 && (
+          <div style={{ textAlign: 'center', padding: '60px 24px', color: 'rgba(255,255,255,0.3)' }}>
+            <p style={{ fontSize: 36, marginBottom: 12 }}>🔍</p>
+            <p style={{ fontSize: 15, marginBottom: 6 }}>Nenhuma carta encontrada</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.2)' }}>Tente outros filtros ou limpe a busca</p>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
-          {cards.map((c) => {
+          {filteredCards.map((c) => {
             const variante = c.variante || 'normal'
             const variantesDisponiveis = getVariantesDisponiveis(c.price)
             const precos = getVariantePrices(c.price, variante)
