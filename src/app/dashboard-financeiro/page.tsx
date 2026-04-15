@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
+import OnboardingModal from '@/components/ui/OnboardingModal'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import { useAppModal } from '@/components/ui/useAppModal'
 
@@ -88,6 +89,8 @@ export default function DashboardFinanceiro() {
   const [cardImage, setCardImage] = useState<string | null>(null)
   const [userCards, setUserCards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [userName, setUserName] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [updatingPrice, setUpdatingPrice] = useState(false)
@@ -216,6 +219,16 @@ export default function DashboardFinanceiro() {
           }
         }
         setStats({ totalCompras: compras, totalVendas: vendas, quantidade: cards?.length || 0, valorColecao: valorTotal })
+
+        // Onboarding — só para quem não tem cartas e nunca viu
+        const visto = localStorage.getItem('onboarding-visto')
+        if (!visto && (!cards || cards.length === 0)) {
+          setShowOnboarding(true)
+        }
+
+        // Busca nome do usuário
+        const { data: profile } = await supabase.from('users').select('name').eq('id', uid).single()
+        if (profile?.name) setUserName(profile.name)
         if (cards && cards.length > 0) {
           setSelectedCard(cards[0].card_name)
         }
@@ -522,6 +535,15 @@ export default function DashboardFinanceiro() {
 
       {openAddModal && (
         <AddCardModal userId={userId} onClose={() => setOpenAddModal(false)} onAdded={() => window.location.reload()} />
+      )}
+      {showOnboarding && (
+        <OnboardingModal
+          userName={userName}
+          onClose={() => {
+            setShowOnboarding(false)
+            localStorage.setItem('onboarding-visto', '1')
+          }}
+        />
       )}
     </AppLayout>
   )
