@@ -9,6 +9,10 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "TCG Manager",
   description: "Gerencie sua coleção de Pokémon TCG como um portfólio financeiro",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/favicon.png",
+  },
 }
 
 export const viewport = {

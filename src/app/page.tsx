@@ -239,9 +239,8 @@ export default function Home() {
       <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, backdropFilter: 'blur(16px)', background: 'rgba(8,10,15,0.9)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📊</div>
-            <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.03em' }}>TCG Manager</span>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <img src="/logo_BYNX.png" alt="TCG Manager" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
           </div>
 
           {/* Nav desktop */}
