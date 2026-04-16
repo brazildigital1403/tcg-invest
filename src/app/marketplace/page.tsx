@@ -239,6 +239,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
 export default function Marketplace() {
   const { showAlert, showConfirm, showPrompt } = useAppModal()
   const [tab, setTab] = useState<'vitrine' | 'meus' | 'negociacoes'>('vitrine')
+  const [totalAnuncios, setTotalAnuncios] = useState(0)
   const [listings, setListings] = useState<any[]>([])
   const [userId, setUserId]     = useState<string | null>(null)
   const [userWhatsapp, setUserWhatsapp] = useState<string | null>(null)

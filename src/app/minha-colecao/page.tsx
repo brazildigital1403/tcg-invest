@@ -173,8 +173,10 @@ export default function MinhaColecao() {
           .update({ quantity: (existing.quantity || 1) + 1 }).eq('id', existing.id)
         insertError = error
       } else {
-        const { bloqueado } = await checkCardLimit(userId)
-        if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning'); return }
+        if (!isPro) {
+          const { bloqueado } = await checkCardLimit(userId)
+          if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning'); return }
+        }
 
         const { error } = await supabase.from('user_cards').insert({
           user_id: userData.user.id,
@@ -371,7 +373,7 @@ export default function MinhaColecao() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
               <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
-              {totalCartas >= LIMITE_FREE ? (
+              {!isPro && totalCartas >= LIMITE_FREE ? (
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
                   🔒 Limite atingido ({totalCartas}/{limiteDisplay})
                 </span>

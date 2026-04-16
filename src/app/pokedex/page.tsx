@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
+import { getUserPlan } from '@/lib/isPro'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
 
@@ -208,9 +209,13 @@ export default function Pokedex() {
     const { data: authData } = await supabase.auth.getUser()
     if (!authData.user) { setAddingCard(false); return }
 
+    // Carrega plano se ainda não carregou
+    const { isPro: pro } = await getUserPlan(authData.user.id)
+    setIsPro(pro)
+
     const { bloqueado } = await checkCardLimit(authData.user.id)
     if (bloqueado) {
-      showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro para adicionar cartas ilimitadas! 🚀`, 'warning')
+      showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano (2 meses grátis)! 🚀`, 'warning')
       setAddingCard(false)
       return
     }
