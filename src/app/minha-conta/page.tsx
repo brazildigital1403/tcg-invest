@@ -89,6 +89,7 @@ export default function MinhaConta() {
 
   const [user, setUser] = useState<any>(null)
   const [isPro, setIsPro] = useState(false)
+  const [loadingCheckout, setLoadingCheckout] = useState<string | null>(null)
   const [userData, setUserData] = useState<any>(null)
   const [cardCount, setCardCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -135,6 +136,25 @@ export default function MinhaConta() {
   }, [])
 
   // ── Salvar dados pessoais ───────────────────────────────────────────────────
+
+  async function handleCheckout(plano: 'mensal' | 'anual') {
+    setLoadingCheckout(plano)
+    try {
+      const { data: authData } = await supabase.auth.getUser()
+      if (!authData.user) return
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plano, userId: authData.user.id, userEmail: authData.user.email }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+      else showAlert('Erro ao iniciar checkout. Tente novamente.', 'error')
+    } catch {
+      showAlert('Erro ao iniciar checkout. Tente novamente.', 'error')
+    }
+    setLoadingCheckout(null)
+  }
 
   async function handleSave() {
     if (!name.trim() || name.trim().split(' ').filter(Boolean).length < 2) {
@@ -215,7 +235,7 @@ export default function MinhaConta() {
     )
   }
 
-  const planoFree = false // futuro: checar assinatura real
+  const planoFree = !isPro
   const LIMITE_FREE = 6 // plano Free
 
   return (
