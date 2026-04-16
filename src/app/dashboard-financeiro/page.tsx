@@ -91,7 +91,7 @@ export default function DashboardFinanceiro() {
   const [cardImage, setCardImage] = useState<string | null>(null)
   const [userCards, setUserCards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const isPro = true // TODO: checar plano
+  const [isPro, setIsPro] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [userName, setUserName] = useState('')
   const [userId, setUserId] = useState<string | null>(null)

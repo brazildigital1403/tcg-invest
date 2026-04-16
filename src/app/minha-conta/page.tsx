@@ -88,7 +88,7 @@ export default function MinhaConta() {
   const { showAlert, showConfirm } = useAppModal()
 
   const [user, setUser] = useState<any>(null)
-  const isPro = true // TODO: checar plano
+  const [isPro, setIsPro] = useState(false)
   const [userData, setUserData] = useState<any>(null)
   const [cardCount, setCardCount] = useState(0)
   const [loading, setLoading] = useState(true)
