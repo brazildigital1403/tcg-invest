@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { getUserPlan } from '@/lib/isPro'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { authFetch } from '@/lib/authFetch'
 import PriceChart from '@/components/PriceChart'
@@ -90,7 +91,7 @@ export default function DashboardFinanceiro() {
   const [cardImage, setCardImage] = useState<string | null>(null)
   const [userCards, setUserCards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const isPro = false // TODO: checar plano
+  const isPro = true // TODO: checar plano
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [userName, setUserName] = useState('')
   const [userId, setUserId] = useState<string | null>(null)

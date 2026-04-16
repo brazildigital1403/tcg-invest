@@ -9,7 +9,6 @@ export async function getUserPlan(userId: string): Promise<{ isPro: boolean; pla
 
   if (!data) return { isPro: false, plano: 'free' }
 
-  // Verifica se o Pro expirou
   if (data.is_pro && data.pro_expira_em) {
     const expirou = new Date(data.pro_expira_em) < new Date()
     if (expirou) return { isPro: false, plano: 'free' }
