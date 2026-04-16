@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
+import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
 
 // ─── Tipos por cor ────────────────────────────────────────────────────────────
@@ -60,6 +62,7 @@ export default function Pokedex() {
   const [addedFeedback, setAddedFeedback] = useState(false)
 
   const [showTop, setShowTop]           = useState(false)
+  const { showAlert } = useAppModal()
   const panelRef                        = useRef<HTMLDivElement>(null)
 
   // ── Debounce search — se tem texto, busca na API direto ──────────────────────
@@ -204,6 +207,13 @@ export default function Pokedex() {
     setAddingCard(true)
     const { data: authData } = await supabase.auth.getUser()
     if (!authData.user) { setAddingCard(false); return }
+
+    const { bloqueado } = await checkCardLimit(authData.user.id)
+    if (bloqueado) {
+      showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro para adicionar cartas ilimitadas! 🚀`, 'warning')
+      setAddingCard(false)
+      return
+    }
 
     const number = selected.number || ''
     const total  = selected.set?.printedTotal || ''
@@ -521,6 +531,19 @@ export default function Pokedex() {
                   {addingCard ? 'Adicionando...' : '+ Adicionar à coleção'}
                 </button>
               )}
+
+              {/* Botão compartilhar */}
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/carta/${selected?.id}`
+                  navigator.clipboard?.writeText(url).then(() => {
+                    showAlert('🔗 Link copiado! Compartilhe com quem quiser.', 'success')
+                  })
+                }}
+                style={{ width: '100%', marginTop: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)', padding: '10px', borderRadius: 10, fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit' }}
+              >
+                🔗 Compartilhar esta carta
+              </button>
 
               {/* Variantes */}
               {(loadingVariations || variations.length > 0) && (

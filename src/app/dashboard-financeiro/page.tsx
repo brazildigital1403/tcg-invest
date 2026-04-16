@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { authFetch } from '@/lib/authFetch'
 import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
@@ -115,7 +116,10 @@ export default function DashboardFinanceiro() {
         const data = await res.json()
         if (!data?.card_name) { fail++; continue }
         const match = await matchPokemonApiId(data.card_name, data.card_number)
-        const { error: insertError } = await supabase.from('user_cards').insert({
+        const { bloqueado } = await checkCardLimit(authData.user.id)
+    if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning'); return }
+
+    const { error: insertError } = await supabase.from('user_cards').insert({
           user_id: userData.user.id, pokemon_api_id: match.id,
           card_name: data.card_name, card_id: data.card_number,
           card_image: data.card_image, card_link: data.link,

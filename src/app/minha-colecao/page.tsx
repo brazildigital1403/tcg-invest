@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
@@ -42,6 +43,7 @@ function getVariantesDisponiveis(price: any) {
 export default function MinhaColecao() {
   const { showAlert, showPrompt, showConfirm } = useAppModal()
   const [cards, setCards] = useState<any[]>([])
+  const [totalCartas, setTotalCartas] = useState(0)
   const [search, setSearch] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
@@ -158,6 +160,9 @@ export default function MinhaColecao() {
           .update({ quantity: (existing.quantity || 1) + 1 }).eq('id', existing.id)
         insertError = error
       } else {
+        const { bloqueado } = await checkCardLimit(userId)
+        if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning'); return }
+
         const { error } = await supabase.from('user_cards').insert({
           user_id: userData.user.id,
           card_name: data.card_name,
@@ -351,7 +356,18 @@ export default function MinhaColecao() {
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Minha Coleção</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
+              <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
+              {totalCartas >= LIMITE_FREE ? (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
+                  🔒 Limite atingido ({totalCartas}/{LIMITE_FREE})
+                </span>
+              ) : (
+                <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  {totalCartas}/{LIMITE_FREE} cartas
+                </span>
+              )}
+            </div>
               <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
                 {filteredCards.length !== cards.length
                   ? `${filteredCards.length} de ${cards.length} carta${cards.length !== 1 ? 's' : ''}`

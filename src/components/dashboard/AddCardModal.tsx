@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { authFetch } from '@/lib/authFetch'
 
 interface Props {
@@ -114,6 +115,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           }
         } catch { /* continua sem preço */ }
       }
+
+      const { bloqueado } = await checkCardLimit(userId)
+      if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning'); return }
 
       await supabase.from('user_cards').insert({
         user_id: authData.user.id,
@@ -386,4 +390,4 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       </div>
     </div>
   )
-} 
+}
