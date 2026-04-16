@@ -7,6 +7,10 @@ const supabase = createClient(
 )
 
 export async function GET(req: Request) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const { searchParams } = new URL(req.url)
   const cardName = searchParams.get('name')
 
