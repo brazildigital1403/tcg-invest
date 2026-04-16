@@ -87,7 +87,7 @@ export default function MinhaConta() {
   const { showAlert, showConfirm } = useAppModal()
 
   const [user, setUser] = useState<any>(null)
-  const isPro = false // TODO: checar plano
+  const isPro = true // TODO: checar plano
   const [userData, setUserData] = useState<any>(null)
   const [cardCount, setCardCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -214,7 +214,7 @@ export default function MinhaConta() {
     )
   }
 
-  const planoFree = true // futuro: checar assinatura real
+  const planoFree = false // futuro: checar assinatura real
   const LIMITE_FREE = 6 // plano Free
 
   return (
@@ -450,10 +450,11 @@ export default function MinhaConta() {
                   <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 19,90</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por mês · cancele quando quiser</p>
                   <button
-                    onClick={() => showAlert('Pagamentos em breve! Entraremos em contato. 🚀', 'info')}
-                    style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                    onClick={() => handleCheckout('mensal')}
+                    disabled={!!loadingCheckout}
+                    style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: loadingCheckout ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loadingCheckout === 'mensal' ? 0.7 : 1 }}
                   >
-                    Assinar Pro →
+                    {loadingCheckout === 'mensal' ? 'Aguarde...' : 'Assinar Pro →'}
                   </button>
                 </div>
 
@@ -466,10 +467,11 @@ export default function MinhaConta() {
                   <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 179</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por ano · R$ 14,91/mês</p>
                   <button
-                    onClick={() => showAlert('Pagamentos em breve! Entraremos em contato. 🚀', 'info')}
-                    style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                    onClick={() => handleCheckout('anual')}
+                    disabled={!!loadingCheckout}
+                    style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: loadingCheckout ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loadingCheckout === 'anual' ? 0.7 : 1 }}
                   >
-                    Assinar Anual →
+                    {loadingCheckout === 'anual' ? 'Aguarde...' : 'Assinar Anual →'}
                   </button>
                 </div>
               </div>
