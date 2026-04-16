@@ -48,44 +48,19 @@ export async function GET(req: Request) {
     try {
       const page = await browser.newPage()
       await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-      
-      await page.goto(parsedUrl.toString(), { waitUntil: 'networkidle2', timeout: 25000 })
 
-      // Aguarda até a página terminar de carregar — detecta "Just a moment" do Cloudflare
-      let retries = 0
-      while (retries < 5) {
-        const title = await page.title()
-        if (title.includes('Just a moment') || title.includes('Checking') || title.toLowerCase().includes('cloudflare')) {
-          await new Promise(r => setTimeout(r, 3000))
-          retries++
-        } else {
-          break
-        }
+      // Timeout agressivo para caber em 30s
+      await page.goto(parsedUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 12000 })
+      await new Promise(r => setTimeout(r, 2500))
+
+      const title = await page.title()
+
+      // Se Cloudflare bloqueou, retorna erro específico
+      if (title.toLowerCase().includes('just a moment') || title.toLowerCase().includes('checking')) {
+        return Response.json({
+          error: 'LigaPokemon está verificando o acesso. Aguarde alguns segundos e tente novamente.'
+        }, { status: 429 })
       }
-
-      // Espera o conteúdo principal da carta carregar
-      try {
-        await page.waitForSelector('meta[property="og:title"]', { timeout: 8000 })
-      } catch {}
-
-      await new Promise(r => setTimeout(r, 2000))
-
-      // Verifica se ainda está na tela de loading
-      const finalTitle = await page.title()
-      if (finalTitle.includes('Just a moment') || finalTitle.includes('Checking')) {
-        return Response.json({ error: 'LigaPokemon bloqueou o acesso. Tente novamente em alguns segundos.' }, { status: 429 })
-      }
-
-      // Clica em "Ver Mais" para abrir preços extras
-      try {
-        await page.evaluate(() => {
-          const spans = Array.from(document.querySelectorAll('span.cursor-pointer'))
-            .filter((el: any) => el.textContent?.trim() === 'Ver Mais')
-          const t = (spans as any)[1] || (spans as any)[0]
-          if (t) (t as HTMLElement).click()
-        })
-        await new Promise(r => setTimeout(r, 1000))
-      } catch {}
 
       const data = await page.evaluate(() => {
         const parse = (t: string | null | undefined): number | null => {
@@ -95,14 +70,12 @@ export async function GET(req: Request) {
         }
 
         const metaTitle = (document.querySelector('meta[property="og:title"]') as any)?.content
-        const rawTitle = (metaTitle || document.title || '').split('|')[0].trim()
-        
-        // Rejeita se ainda é página de loading
-        if (!rawTitle || rawTitle.toLowerCase().includes('just a moment') || rawTitle.toLowerCase().includes('checking')) {
-          return { error: 'Página não carregou' }
+        const card_name = (metaTitle || document.title || '').split('|')[0].trim() || null
+
+        if (!card_name || card_name.toLowerCase().includes('just a moment')) {
+          return { error: 'Página não carregou corretamente' }
         }
 
-        const card_name = rawTitle || null
         const numberMatch = card_name?.match(/\(([^)]+)\)/)
         const card_number = numberMatch?.[1] || new URL(location.href).searchParams.get('cid') || null
 
@@ -120,11 +93,11 @@ export async function GET(req: Request) {
           const el = document.querySelector(`[class*="${cls}"]`)
           if (!el) return
           let anc = el.parentElement
-          for (let i=0; i<5; i++) {
+          for (let i = 0; i < 5; i++) {
             if (!anc) break
             const prices = anc.textContent?.match(/R\$\s*[\d.,]+/g)
             if (prices && prices.length >= 1) {
-              const nums = prices.map((p:string)=>parse(p)).filter((n:any):n is number => n!==null)
+              const nums = prices.map((p: string) => parse(p)).filter((n: any): n is number => n !== null)
               if (nums.length) variants[varMap[cls]] = { min:nums[0], medio:nums[1]??nums[0], max:nums[2]??nums[1]??nums[0] }
               break
             }
@@ -144,35 +117,31 @@ export async function GET(req: Request) {
         }
       })
 
-      // Verifica se retornou erro
-      if ((data as any).error) {
-        return Response.json({ error: (data as any).error }, { status: 422 })
-      }
-
-      if (!data?.card_name) {
+      if (!data || (data as any).error || !data.card_name) {
         return Response.json({ error: 'Não foi possível identificar a carta. Verifique o link.' }, { status: 422 })
       }
 
-      console.log('SCRAP OK:', data.card_name, '| preço normal:', data.preco_normal)
+      console.log('SCRAP OK:', data.card_name)
 
-      // Salva no banco
+      // Salva no banco em paralelo
       const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
       const v = (data as any).variantes || {}
-      await supabaseAdmin.from('card_prices').upsert({
-        card_name: data.card_name,
-        preco_min: v.normal?.min||0, preco_medio: v.normal?.medio||0, preco_max: v.normal?.max||0,
-        preco_normal: v.normal?.medio||0, preco_foil: v.foil?.medio||0,
-        preco_foil_min: v.foil?.min, preco_foil_medio: v.foil?.medio, preco_foil_max: v.foil?.max,
-        preco_promo_min: v.promo?.min, preco_promo_medio: v.promo?.medio, preco_promo_max: v.promo?.max,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'card_name' })
-
-      await supabaseAdmin.from('card_price_history').insert({
-        card_name: data.card_name,
-        preco_min: v.normal?.min, preco_medio: v.normal?.medio, preco_max: v.normal?.max,
-        preco_normal: v.normal?.medio, preco_foil: v.foil?.medio,
-        recorded_at: new Date().toISOString(),
-      })
+      await Promise.all([
+        supabaseAdmin.from('card_prices').upsert({
+          card_name: data.card_name,
+          preco_min: v.normal?.min||0, preco_medio: v.normal?.medio||0, preco_max: v.normal?.max||0,
+          preco_normal: v.normal?.medio||0, preco_foil: v.foil?.medio||0,
+          preco_foil_min: v.foil?.min, preco_foil_medio: v.foil?.medio, preco_foil_max: v.foil?.max,
+          preco_promo_min: v.promo?.min, preco_promo_medio: v.promo?.medio, preco_promo_max: v.promo?.max,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'card_name' }),
+        supabaseAdmin.from('card_price_history').insert({
+          card_name: data.card_name,
+          preco_min: v.normal?.min, preco_medio: v.normal?.medio, preco_max: v.normal?.max,
+          preco_normal: v.normal?.medio, preco_foil: v.foil?.medio,
+          recorded_at: new Date().toISOString(),
+        })
+      ])
 
       return Response.json(data)
     } finally {
