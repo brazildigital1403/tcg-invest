@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { marcarTodasLidas } from '@/lib/notificacoes'
 
 const BRAND  = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const BG     = '#080a0f'
@@ -23,6 +24,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname  = usePathname()
   const [patrimonio, setPatrimonio] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [notifs, setNotifs] = useState<any[]>([])
+  const [notifOpen, setNotifOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -49,9 +52,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         else                      total += Number(p.preco_medio || 0)
       }
       setPatrimonio(total)
+
+      // Carrega notificações não lidas
+      const { data: notifsData } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', authData.user.id)
+        .eq('read', false)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      setNotifs(notifsData || [])
     }
     load()
     setDrawerOpen(false)
+    setNotifOpen(false)
   }, [pathname])
 
   async function handleLogout() {
@@ -64,6 +78,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* ── CSS ── */}
+      {notifOpen && <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 599 }} />}
+
       <style>{`
         *, *::before, *::after { box-sizing: border-box; }
         body { margin: 0; overflow-x: hidden; }
@@ -224,11 +240,65 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </p>
             </div>
 
-            {/* Minha Conta — desktop */}
-            <Link href="/minha-conta" className="tcg-header-account"
-              style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', flexShrink: 0 }}>
-              Minha Conta
-            </Link>
+          {/* Sino de notificações */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setNotifOpen(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <span style={{ fontSize: 22 }}>🔔</span>
+                {notifs.length > 0 && (
+                  <span style={{ position: 'absolute', top: 0, right: 0, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #080a0f' }}>
+                    {notifs.length > 9 ? '9+' : notifs.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown de notificações */}
+              {notifOpen && (
+                <div style={{ position: 'fixed', top: 56, right: 12, width: 'min(320px, calc(100vw - 24px))', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.6)', zIndex: 600, overflow: 'hidden' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p style={{ fontSize: 13, fontWeight: 700 }}>Notificações {notifs.length > 0 && <span style={{ fontSize: 11, color: '#ef4444' }}>({notifs.length})</span>}</p>
+                    {notifs.length > 0 && (
+                      <button
+                        onClick={async () => {
+                          const { data: authData } = await supabase.auth.getUser()
+                          if (authData.user) {
+                            await marcarTodasLidas(authData.user.id)
+                            setNotifs([])
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#f59e0b', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        Marcar todas como lidas
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                    {notifs.length === 0 ? (
+                      <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
+                        <p style={{ fontSize: 24, marginBottom: 8 }}>🔔</p>
+                        <p style={{ fontSize: 13 }}>Nenhuma notificação</p>
+                      </div>
+                    ) : (
+                      notifs.map(n => (
+                        <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(245,158,11,0.03)' }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{n.title}</p>
+                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>{n.message}</p>
+                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
+                            {new Date(n.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
           </header>
 
           {/* CONTEÚDO */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { criarNotificacao } from '@/lib/notificacoes'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AnunciarModal from '@/components/marketplace/AnunciarModal'
@@ -61,6 +62,16 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
     await supabase.from('marketplace')
       .update({ status: 'reservado', buyer_id: userId })
       .eq('id', card.id)
+
+    // Notifica o vendedor
+    const { data: buyerProfile } = await supabase.from('users').select('name').eq('id', userId).single()
+    await criarNotificacao(
+      card.user_id,
+      'interesse',
+      '🤝 Novo interesse na sua carta!',
+      `${buyerProfile?.name || 'Um usuário'} demonstrou interesse em "${card.card_name}" por ${fmt(card.price)}.`,
+      { marketplace_id: card.id, card_name: card.card_name }
+    )
 
     // Mostra contato do vendedor
     const tel = card.seller_whatsapp?.replace(/\D/g, '')

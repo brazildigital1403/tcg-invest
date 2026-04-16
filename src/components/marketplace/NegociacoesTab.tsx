@@ -1,6 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import AvaliacaoModal from './AvaliacaoModal'
+import { criarNotificacao } from '@/lib/notificacoes'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -85,12 +88,14 @@ function Timeline({ steps, currentStatus }: { steps: typeof STEPS_COMPRADOR; cur
 
 // ─── Card de negociação ───────────────────────────────────────────────────────
 
-function NegociacaoCard({ card, role, onAction }: {
+function NegociacaoCard({ card, role, onAction, userId }: {
   card: any
   role: 'comprador' | 'vendedor'
   onAction: () => void
+  userId: string
 }) {
   const { showConfirm, showAlert } = useAppModal()
+  const [showAvaliacao, setShowAvaliacao] = useState(false)
   const status = card.status || 'reservado'
   const steps  = role === 'comprador' ? STEPS_COMPRADOR : STEPS_VENDEDOR
 
@@ -115,6 +120,18 @@ function NegociacaoCard({ card, role, onAction }: {
     })
     if (!ok) return
     await supabase.from('marketplace').update({ status: 'enviado' }).eq('id', card.id)
+
+    // Notifica o comprador
+    if (card.buyer_id) {
+      await criarNotificacao(
+        card.buyer_id,
+        'enviado',
+        '📦 Sua carta foi enviada!',
+        `${nomeContato || 'O vendedor'} confirmou o envio de "${card.card_name}". Confirme o recebimento quando chegar.`,
+        { marketplace_id: card.id, card_name: card.card_name }
+      )
+    }
+
     showAlert('Envio confirmado! Aguardando o comprador confirmar o recebimento.', 'success')
     onAction()
   }
@@ -151,8 +168,19 @@ function NegociacaoCard({ card, role, onAction }: {
     // Conclui anúncio
     await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', card.id)
 
+    // Notifica o vendedor
+    await criarNotificacao(
+      card.user_id,
+      'recebido',
+      '✅ Venda concluída!',
+      `O comprador confirmou o recebimento de "${card.card_name}". Negociação concluída com sucesso!`,
+      { marketplace_id: card.id, card_name: card.card_name }
+    )
+
     showAlert('🎉 Compra concluída! A carta foi adicionada à sua coleção.', 'success')
     onAction()
+    // Abre modal de avaliação
+    setTimeout(() => setShowAvaliacao(true), 800)
   }
 
   async function handleCancelar() {
@@ -167,6 +195,7 @@ function NegociacaoCard({ card, role, onAction }: {
   }
 
   return (
+    <>
     <div style={{
       background: 'rgba(255,255,255,0.03)',
       border: status === 'enviado'
@@ -288,6 +317,17 @@ function NegociacaoCard({ card, role, onAction }: {
         )}
       </div>
     </div>
+
+    {/* Modal de avaliação */}
+    {showAvaliacao && (
+      <AvaliacaoModal
+        card={card}
+        userId={userId}
+        role={role}
+        onClose={() => setShowAvaliacao(false)}
+      />
+    )}
+    </>
   )
 }
 
@@ -348,7 +388,7 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
           {items.map(card => (
-            <NegociacaoCard key={card.id} card={card} role={role} onAction={onAction} />
+            <NegociacaoCard key={card.id} card={card} role={role} onAction={onAction} userId={userId || ''} />
           ))}
         </div>
       </div>
@@ -373,6 +413,7 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
                 card={card}
                 role={card.buyer_id === userId ? 'comprador' : 'vendedor'}
                 onAction={onAction}
+                userId={userId || ''}
               />
             ))}
           </div>
