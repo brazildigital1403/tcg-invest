@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
+import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
@@ -44,41 +45,48 @@ export default function MinhaColecao() {
   const { showAlert, showPrompt, showConfirm } = useAppModal()
   const [cards, setCards] = useState<any[]>([])
   const [totalCartas, setTotalCartas] = useState(0)
+  const isPro = false // TODO: checar plano do usuário
+  const limiteDisplay = isPro ? '∞' : String(LIMITE_FREE)
   const [search, setSearch] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
   const [loading, setLoading] = useState(true)
 
   function handleExportCSV() {
-    const rows = [
-      ['Nome', 'Variante', 'Raridade', 'Qtd', 'Preço Mín', 'Preço Médio', 'Preço Máx', 'Link'],
-      ...cards.map(c => {
-        const variante = c.variante || 'normal'
-        const p = c.price
-        const precos = !p ? { min: '', medio: '', max: '' }
-          : variante === 'foil' ? { min: p.preco_foil_min || '', medio: p.preco_foil_medio || '', max: p.preco_foil_max || '' }
-          : variante === 'promo' ? { min: p.preco_promo_min || '', medio: p.preco_promo_medio || '', max: p.preco_promo_max || '' }
-          : { min: p.preco_min || '', medio: p.preco_medio || '', max: p.preco_max || '' }
-        return [
-          c.card_name || '',
-          variante,
-          c.rarity || '',
-          c.quantity || 1,
-          precos.min,
-          precos.medio,
-          precos.max,
-          c.card_link || '',
-        ]
-      })
-    ]
-    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `minha-colecao-${new Date().toISOString().slice(0,10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (isPro) {
+      // Exporta CSV completo
+      const rows = [
+        ['Nome', 'Variante', 'Raridade', 'Qtd', 'Preço Mín', 'Preço Médio', 'Preço Máx', 'Link'],
+        ...cards.map(c => {
+          const variante = c.variante || 'normal'
+          const p = c.price
+          const precos = !p ? { min: '', medio: '', max: '' }
+            : variante === 'foil' ? { min: p.preco_foil_min || '', medio: p.preco_foil_medio || '', max: p.preco_foil_max || '' }
+            : variante === 'promo' ? { min: p.preco_promo_min || '', medio: p.preco_promo_medio || '', max: p.preco_promo_max || '' }
+            : { min: p.preco_min || '', medio: p.preco_medio || '', max: p.preco_max || '' }
+          return [
+            c.card_name || '',
+            variante,
+            c.rarity || '',
+            c.quantity || 1,
+            precos.min,
+            precos.medio,
+            precos.max,
+            c.card_link || '',
+          ]
+        })
+      ]
+      const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `minha-colecao-${new Date().toISOString().slice(0,10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } else {
+      showAlert('Exportar CSV é exclusivo do plano Pro. Faça upgrade para R$ 19,90/mês ou R$ 179/ano! 🚀', 'warning')
+    }
   }
 
   async function loadCards() {
@@ -360,11 +368,11 @@ export default function MinhaColecao() {
               <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
               {totalCartas >= LIMITE_FREE ? (
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
-                  🔒 Limite atingido ({totalCartas}/{LIMITE_FREE})
+                  🔒 Limite atingido ({totalCartas}/{limiteDisplay})
                 </span>
               ) : (
                 <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  {totalCartas}/{LIMITE_FREE} cartas
+                  {totalCartas}/{limiteDisplay} cartas
                 </span>
               )}
             </div>

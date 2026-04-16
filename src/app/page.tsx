@@ -459,69 +459,112 @@ export default function Home() {
       </section>
 
       {/* PLANOS */}
-      <section ref={pricingRef} style={{ padding: '100px 24px', maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
+      <section ref={pricingRef} style={{ padding: '100px 24px', maxWidth: 1000, margin: '0 auto', textAlign: 'center' }}>
         <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Planos</p>
         <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 16 }}>Comece grátis, cresça quando precisar</h2>
         <p style={{ color: 'rgba(255,255,255,0.4)', marginBottom: 56, fontSize: 16 }}>Sem cartão de crédito para começar.</p>
 
-        <div className="lp-plans-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, textAlign: 'left' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, textAlign: 'left' }}>
+
           {/* Plano Free */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 36 }}>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Grátis</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
-              <span style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-0.04em' }}>R$ 0</span>
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '32px 28px' }}>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Grátis</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
+              <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em' }}>R$ 0</span>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, marginBottom: 32 }}>Para começar a organizar</p>
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 24, marginBottom: 32 }}>
-              {['Até 15 cartas na coleção', 'Importação por link', 'Preços por variante', 'Histórico de preços'].map(f => (
-                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                  <span style={{ color: '#22c55e', fontSize: 16 }}>✓</span>
-                  <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{f}</span>
-                </div>
-              ))}
-              {['Dashboard financeiro completo', 'Marketplace', 'Suporte prioritário'].map(f => (
-                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, opacity: 0.35 }}>
-                  <span style={{ color: '#6b7280', fontSize: 16 }}>✕</span>
-                  <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>{f}</span>
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28 }}>Para experimentar</p>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { txt: '6 cartas na coleção', ok: true },
+                { txt: '3 anúncios no Marketplace', ok: true },
+                { txt: 'Pokédex completa', ok: true },
+                { txt: 'Dashboard financeiro', ok: true },
+                { txt: 'Cartas ilimitadas', ok: false },
+                { txt: 'Perfil público', ok: false },
+                { txt: 'Exportar CSV', ok: false },
+                { txt: 'Anúncios ilimitados', ok: false },
+              ].map(f => (
+                <div key={f.txt} style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: f.ok ? 1 : 0.35 }}>
+                  <span style={{ color: f.ok ? '#22c55e' : '#6b7280', fontSize: 13, flexShrink: 0 }}>{f.ok ? '✓' : '✕'}</span>
+                  <span style={{ fontSize: 13, color: f.ok ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.4)' }}>{f.txt}</span>
                 </div>
               ))}
             </div>
             <button
               onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
-              style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '14px', borderRadius: 12, fontWeight: 600, cursor: 'pointer', fontSize: 15 }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', padding: '13px', borderRadius: 12, fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}
             >
               Criar conta grátis
             </button>
           </div>
 
-          {/* Plano Pro */}
-          <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.08))', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 20, padding: 36, position: 'relative' }}>
-            <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#000', fontSize: 12, fontWeight: 700, padding: '4px 16px', borderRadius: 100, whiteSpace: 'nowrap' }}>
-              MAIS POPULAR
+          {/* Pro Mensal */}
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '32px 28px' }}>
+            <p style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pro · Mensal</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 6 }}>
+              <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 19</span>
+              <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.45)', letterSpacing: '-0.02em' }}>,90<span style={{ fontSize: 13 }}>/mês</span></span>
             </div>
-            <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pro</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
-              <span style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-0.04em' }}>R$ 19</span>
-              <span style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)' }}>,90/mês</span>
-            </div>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, marginBottom: 32 }}>Para o colecionador sério</p>
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 24, marginBottom: 32 }}>
-              {['Cartas ilimitadas', 'Importação por link', 'Preços por variante (Normal, Foil, Promo)', 'Histórico de preços', 'Dashboard financeiro completo', 'Marketplace integrado', 'Suporte prioritário'].map(f => (
-                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                  <span style={{ color: '#f59e0b', fontSize: 16 }}>✓</span>
-                  <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>{f}</span>
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28 }}>Cancele quando quiser</p>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                'Cartas ilimitadas',
+                'Anúncios ilimitados',
+                'Pokédex completa',
+                'Dashboard financeiro completo',
+                'Perfil público compartilhável',
+                'Exportar CSV',
+                'Marketplace sem limites',
+                'Badge Pro no perfil',
+              ].map(f => (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: '#f59e0b', fontSize: 13, flexShrink: 0 }}>✓</span>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{f}</span>
                 </div>
               ))}
             </div>
             <button
               onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
-              style={{ width: '100%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', fontSize: 15, boxShadow: '0 0 30px rgba(245,158,11,0.3)' }}
+              style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}
             >
-              Começar com Pro →
+              Assinar Pro Mensal →
+            </button>
+          </div>
+
+          {/* Pro Anual — destaque */}
+          <div style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 20, padding: '32px 28px', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 10, fontWeight: 800, padding: '4px 14px', borderRadius: 100, whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
+              🔥 MELHOR VALOR · 2 MESES GRÁTIS
+            </div>
+            <p style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pro · Anual</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 4 }}>
+              <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 179</span>
+            </div>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 4 }}>R$ 14,91/mês · equivale a 10 meses</p>
+            <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, marginBottom: 28, textDecoration: 'line-through' }}>R$ 238,80 no mensal</p>
+            <div style={{ borderTop: '1px solid rgba(245,158,11,0.15)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                'Tudo do Pro Mensal',
+                '2 meses grátis incluso',
+                'Prioridade no suporte',
+                'Acesso antecipado a novidades',
+              ].map(f => (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: '#f59e0b', fontSize: 13, flexShrink: 0 }}>✓</span>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{f}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
+              style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', boxShadow: '0 0 30px rgba(245,158,11,0.25)' }}
+            >
+              Assinar Pro Anual →
             </button>
           </div>
         </div>
       </section>
+
 
       {/* CTA FINAL */}
       <section style={{ padding: '100px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', position: 'relative', overflow: 'hidden' }}>

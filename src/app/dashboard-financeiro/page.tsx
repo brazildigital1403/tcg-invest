@@ -90,6 +90,7 @@ export default function DashboardFinanceiro() {
   const [cardImage, setCardImage] = useState<string | null>(null)
   const [userCards, setUserCards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const isPro = false // TODO: checar plano
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [userName, setUserName] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
@@ -117,7 +118,7 @@ export default function DashboardFinanceiro() {
         if (!data?.card_name) { fail++; continue }
         const match = await matchPokemonApiId(data.card_name, data.card_number)
         const { bloqueado } = await checkCardLimit(authData.user.id)
-    if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning'); return }
+    if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano! 🚀`, 'warning'); return }
 
     const { error: insertError } = await supabase.from('user_cards').insert({
           user_id: userData.user.id, pokemon_api_id: match.id,
@@ -300,9 +301,19 @@ export default function DashboardFinanceiro() {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20
         }}>
           <div>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-              Patrimônio total da coleção
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Patrimônio total da coleção
+              </p>
+              <span style={{
+                fontSize: 10, fontWeight: 800, padding: '2px 9px', borderRadius: 100, letterSpacing: '0.08em',
+                background: isPro ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${isPro ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.12)'}`,
+                color: isPro ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+              }}>
+                {isPro ? '⭐ PRO' : 'FREE'}
+              </span>
+            </div>
             <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.04em', background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 16 }}>
               {fmt(stats.valorColecao)}
             </h1>

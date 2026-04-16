@@ -87,6 +87,7 @@ export default function MinhaConta() {
   const { showAlert, showConfirm } = useAppModal()
 
   const [user, setUser] = useState<any>(null)
+  const isPro = false // TODO: checar plano
   const [userData, setUserData] = useState<any>(null)
   const [cardCount, setCardCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -214,7 +215,7 @@ export default function MinhaConta() {
   }
 
   const planoFree = true // futuro: checar assinatura real
-  const LIMITE_FREE = 15
+  const LIMITE_FREE = 6 // plano Free
 
   return (
     <AppLayout>
@@ -263,14 +264,16 @@ export default function MinhaConta() {
             </div>
             <button
               onClick={() => {
+                if (planoFree) { showAlert('O Perfil Público é exclusivo do plano Pro. Faça upgrade para compartilhar sua coleção! 🚀', 'warning'); return }
                 const url = `${window.location.origin}/perfil/${user?.id}`
                 navigator.clipboard?.writeText(url)
                   .then(() => showAlert('Link do perfil copiado! 🔗', 'success'))
                   .catch(() => showAlert(url, 'info'))
               }}
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+              title={planoFree ? 'Disponível no plano Pro 🚀' : ''}
+              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${planoFree ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'}`, color: planoFree ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.5)', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: planoFree ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
             >
-              🔗 Compartilhar perfil
+              🔒 {planoFree ? 'Perfil Público (Pro)' : '🔗 Compartilhar perfil'}
             </button>
           </div>
         </div>
@@ -389,91 +392,107 @@ export default function MinhaConta() {
 
           {planoFree ? (
             <>
-              {/* Plano atual */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Plano Free</p>
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Gratuito para sempre</p>
+              {/* Plano atual + barra de uso */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Plano Free</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Gratuito · sem data de expiração</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Cartas</p>
+                    <p style={{ fontSize: 18, fontWeight: 800, color: cardCount >= LIMITE_FREE ? '#ef4444' : '#f59e0b' }}>
+                      {cardCount}<span style={{ fontSize: 12, fontWeight: 400, color: 'rgba(255,255,255,0.3)' }}>/{LIMITE_FREE}</span>
+                    </p>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>Cartas cadastradas</p>
-                  <p style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: cardCount >= LIMITE_FREE ? '#ef4444' : '#f59e0b' }}>
-                    {cardCount} <span style={{ fontSize: 13, fontWeight: 400, color: 'rgba(255,255,255,0.3)' }}>/ {LIMITE_FREE}</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Barra de progresso */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 100, overflow: 'hidden' }}>
+                <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 100, overflow: 'hidden' }}>
                   <div style={{
                     height: '100%',
                     width: `${Math.min((cardCount / LIMITE_FREE) * 100, 100)}%`,
-                    background: cardCount >= LIMITE_FREE
-                      ? 'linear-gradient(90deg, #ef4444, #dc2626)'
-                      : 'linear-gradient(90deg, #f59e0b, #ef4444)',
-                    borderRadius: 100,
-                    transition: 'width 0.5s ease',
+                    background: cardCount >= LIMITE_FREE ? 'linear-gradient(90deg,#ef4444,#dc2626)' : 'linear-gradient(90deg,#f59e0b,#ef4444)',
+                    borderRadius: 100, transition: 'width 0.5s ease',
                   }} />
                 </div>
                 {cardCount >= LIMITE_FREE && (
-                  <p style={{ fontSize: 12, color: '#ef4444', marginTop: 6 }}>
-                    ⚠ Limite atingido — faça upgrade para adicionar mais cartas
-                  </p>
+                  <p style={{ fontSize: 11, color: '#ef4444', marginTop: 6 }}>⚠ Limite atingido — faça upgrade para continuar</p>
                 )}
               </div>
 
-              {/* Card Pro */}
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))',
-                border: '1px solid rgba(245,158,11,0.25)',
-                borderRadius: 14, padding: '20px 24px',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16,
-              }}>
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-                    ✦ Plano Pro — R$ 19,90/mês
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {['Cartas ilimitadas', 'Dashboard financeiro completo', 'Marketplace integrado', 'Suporte prioritário'].map(f => (
-                      <p key={f} style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ color: '#f59e0b' }}>✓</span> {f}
-                      </p>
-                    ))}
-                  </div>
+              {/* Limitações do Free */}
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>O que está incluído no Free</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  {[
+                    { txt: '6 cartas na coleção', ok: true },
+                    { txt: '3 anúncios no Marketplace', ok: true },
+                    { txt: 'Pokédex completa', ok: true },
+                    { txt: 'Dashboard financeiro', ok: true },
+                    { txt: 'Cartas ilimitadas', ok: false },
+                    { txt: 'Perfil público', ok: false },
+                    { txt: 'Exportar CSV', ok: false },
+                    { txt: 'Anúncios ilimitados', ok: false },
+                  ].map(f => (
+                    <p key={f.txt} style={{ fontSize: 12, color: f.ok ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: f.ok ? '#22c55e' : '#ef4444', fontSize: 10 }}>{f.ok ? '✓' : '✕'}</span> {f.txt}
+                    </p>
+                  ))}
                 </div>
-                <button
-                  style={{
-                    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-                    border: 'none', color: '#000',
-                    padding: '12px 24px', borderRadius: 10,
-                    fontWeight: 700, fontSize: 14, cursor: 'pointer',
-                    boxShadow: '0 0 20px rgba(245,158,11,0.2)',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onClick={() => showAlert('Pagamento em breve! Entraremos em contato pelo WhatsApp cadastrado.', 'info')}
-                >
-                  Fazer upgrade →
-                </button>
+              </div>
+
+              {/* Cards de upgrade — Mensal e Anual lado a lado */}
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Fazer upgrade para Pro</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+
+                {/* Pro Mensal */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '18px 16px' }}>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>Pro Mensal</p>
+                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 19,90</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por mês · cancele quando quiser</p>
+                  <button
+                    onClick={() => showAlert('Pagamentos em breve! Entraremos em contato. 🚀', 'info')}
+                    style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Assinar Pro →
+                  </button>
+                </div>
+
+                {/* Pro Anual — destaque */}
+                <div style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: '18px 16px', position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 100, whiteSpace: 'nowrap', letterSpacing: '0.05em' }}>
+                    2 MESES GRÁTIS
+                  </div>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>Pro Anual</p>
+                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 179</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por ano · R$ 14,91/mês</p>
+                  <button
+                    onClick={() => showAlert('Pagamentos em breve! Entraremos em contato. 🚀', 'info')}
+                    style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Assinar Anual →
+                  </button>
+                </div>
               </div>
             </>
           ) : (
             /* Plano Pro ativo */
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontSize: 20 }}>✦</span>
-                  <p style={{ fontSize: 15, fontWeight: 700 }}>Plano Pro ativo</p>
-                  <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.15)', color: '#22c55e', padding: '2px 8px', borderRadius: 100, fontWeight: 700 }}>ATIVO</span>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 20 }}>⭐</span>
+                    <p style={{ fontSize: 15, fontWeight: 700 }}>Plano Pro ativo</p>
+                    <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.15)', color: '#22c55e', padding: '2px 8px', borderRadius: 100, fontWeight: 700 }}>ATIVO</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Cartas ilimitadas · Anúncios ilimitados · Perfil público</p>
                 </div>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Cartas ilimitadas · Renova em —</p>
+                <button
+                  style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '9px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
+                  onClick={() => showAlert('Para cancelar sua assinatura, entre em contato pelo WhatsApp cadastrado.', 'info')}
+                >
+                  Cancelar plano
+                </button>
               </div>
-              <button
-                style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '9px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
-                onClick={() => showAlert('Para cancelar sua assinatura, entre em contato pelo WhatsApp.', 'info')}
-              >
-                Cancelar plano
-              </button>
             </div>
           )}
         </div>
