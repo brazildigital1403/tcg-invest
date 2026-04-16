@@ -130,6 +130,11 @@ export default function MinhaConta() {
         .eq('user_id', authData.user.id)
 
       setCardCount(count || 0)
+
+      // Verifica plano Pro
+      const { isPro: pro } = await getUserPlan(authData.user.id)
+      setIsPro(pro)
+
       setLoading(false)
     }
     load()

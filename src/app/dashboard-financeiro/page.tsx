@@ -174,6 +174,9 @@ export default function DashboardFinanceiro() {
         if (!userData.user) { window.location.href = '/login'; return }
         const uid = userData.user.id
         setUserId(uid)
+
+        const { isPro: pro } = await getUserPlan(uid)
+        setIsPro(pro)
         const { data: txns } = await supabase
           .from('transactions')
           .select('*')

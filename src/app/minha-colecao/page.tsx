@@ -94,6 +94,9 @@ export default function MinhaColecao() {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { window.location.href = '/login'; return }
 
+    const { isPro: pro } = await getUserPlan(userData.user.id)
+    setIsPro(pro)
+
     const { data } = await supabase
       .from('user_cards')
       .select('*')
