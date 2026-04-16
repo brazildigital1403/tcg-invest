@@ -121,6 +121,7 @@ export default function MinhaColecao() {
     }))
 
     setCards(merged)
+    setTotalCartas(merged.length)
     setLoading(false)
   }
 
@@ -392,9 +393,10 @@ export default function MinhaColecao() {
               {cards.length > 0 && (
                 <button
                   onClick={handleExportCSV}
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                  title={!isPro ? 'Disponível no plano Pro 🚀' : ''}
+                  style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
                 >
-                  ⬇ Exportar CSV
+                  {isPro ? '⬇ Exportar CSV' : '🔒 Exportar CSV (Pro)'}
                 </button>
               )}
             </div>
