@@ -63,31 +63,35 @@ export async function GET(req: Request) {
 
   // ── Normaliza URL: resolve link curto e trata busca ─────────────────────
 
-  // 1) Link curto lig.ae → segue redirect
-  if (parsedUrl.hostname === 'lig.ae') {
+  // 1) Link curto lig.ae → segue redirect para URL completa
+  if (parsedUrl.hostname === 'lig.ae' || parsedUrl.hostname.endsWith('.lig.ae')) {
     try {
-      const redirectRes = await fetch(targetUrl, { redirect: 'follow', signal: AbortSignal.timeout(8000) })
-      parsedUrl = new URL(redirectRes.url)
+      const redirectRes = await fetch(targetUrl, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36' }
+      })
+      const finalUrl = redirectRes.url
+      console.log('lig.ae redirect →', finalUrl)
+      try { parsedUrl = new URL(finalUrl) }
+      catch { return Response.json({ error: 'Link inválido após redirecionamento.' }, { status: 400 }) }
     } catch {
       return Response.json({ error: 'Não foi possível resolver o link curto.' }, { status: 400 })
     }
   }
 
-  // 2) URL de busca → extrai nome/número do parâmetro e redireciona para URL de carta
+  // 2) URL de busca → mantém e extrai nome do parâmetro card
   if (parsedUrl.searchParams.get('view')?.includes('search')) {
-    const cardParam = decodeURIComponent(parsedUrl.searchParams.get('card') || '')
-    // Extrai cid se presente no parâmetro card (ex: "cid=1234")
-    const cidMatch = cardParam.match(/cid=(\d+)/)
+    const cidMatch = (parsedUrl.searchParams.get('card') || '').match(/cid=(\d+)/)
     if (cidMatch) {
       parsedUrl = new URL(`https://www.ligapokemon.com.br/?view=cards/card&cid=${cidMatch[1]}`)
     }
-    // Caso contrário usa o nome para buscar — o card param já tem nome e número
-    // ex: "Mewtwo ex da Equipe Rocket (213/182)"
-    // Mantém a URL de busca — o ScraperAPI vai carregar e vamos extrair do HTML
+    // Para busca geral mantém a URL — ScraperAPI vai carregar e extrair os dados
   }
 
+  // Valida que chegou num domínio permitido
   if (!['ligapokemon.com.br', 'www.ligapokemon.com.br'].includes(parsedUrl.hostname)) {
-    return Response.json({ error: 'URL não permitida. Use links da LigaPokemon.' }, { status: 403 })
+    return Response.json({ error: `URL não permitida: ${parsedUrl.hostname}. Use links da LigaPokemon.` }, { status: 403 })
   }
 
   const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY
