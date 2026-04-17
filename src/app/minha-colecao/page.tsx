@@ -70,6 +70,7 @@ export default function MinhaColecao() {
 
   const MAX_LINKS = 20
   const SECS_PER_CARD = 6
+  const [importingTotal, setImportingTotal] = useState(0)
 
   function handleExportCSV() {
     if (isPro) {
@@ -175,6 +176,7 @@ export default function MinhaColecao() {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
 
+    setImportingTotal(links.length)
     setImporting(true)
     setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
     const msgInterval = setInterval(() => {
@@ -418,7 +420,13 @@ export default function MinhaColecao() {
               {importingMsg}
             </p>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 16 }}>
-              Aguarde, isso pode levar até 40 segundos 🕐
+              {(() => {
+                const secs = importingTotal * SECS_PER_CARD
+                const timeStr = secs >= 60
+                  ? `~${Math.floor(secs / 60)}min${secs % 60 > 0 ? ` ${secs % 60}s` : ''}`
+                  : secs > 0 ? `~${secs}s` : ''
+                return `Aguarde${timeStr ? `, estimado ${timeStr}` : ''} 🕐`
+              })()}
             </p>
           </div>
           <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
@@ -438,24 +446,22 @@ export default function MinhaColecao() {
           <div style={{
             position: 'fixed', inset: 0, zIndex: 9997,
             background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
           }}>
             <div style={{
-              background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 20, padding: 28, width: '100%', maxWidth: 520,
-              display: 'flex', flexDirection: 'column', gap: 16,
+              background: '#0f1117', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 460,
+              fontFamily: "\'DM Sans\', system-ui, sans-serif", color: '#f0f0f0',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
             }}>
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>🔗</span>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#fff' }}>
-                  Importar cartas por link
-                </h3>
-              </div>
+              {/* Título */}
+              <p style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, letterSpacing: '-0.02em' }}>
+                Importar cartas por link
+              </p>
 
-              {/* Dica */}
-              <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
-                Cole os links da LigaPokemon, um por linha. Aceita links completos ou curtos (lig.ae).
+              {/* Subtítulo */}
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 20 }}>
+                Cole os links da LigaPokemon, um por linha. Aceita links completos ou curtos (lig.ae). Máximo de {MAX_LINKS} cartas por vez.
               </p>
 
               {/* Textarea */}
@@ -464,32 +470,30 @@ export default function MinhaColecao() {
                 value={importLinks}
                 onChange={e => setImportLinks(e.target.value)}
                 rows={6}
-                placeholder={'https://www.ligapokemon.com.br/...\nhttps://lig.ae/c2/...\nhttps://lig.ae/c2/...'}
+                placeholder={"https://www.ligapokemon.com.br/...\nhttps://lig.ae/c2/...\nhttps://lig.ae/c2/..."}
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${overLimit ? '#ef4444' : 'rgba(255,255,255,0.15)'}`,
-                  borderRadius: 10, padding: '12px 14px',
-                  color: '#fff', fontSize: 13, lineHeight: 1.6,
-                  resize: 'vertical', outline: 'none', fontFamily: 'monospace',
+                  width: '100%', background: 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${overLimit ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                  borderRadius: 10, padding: '12px 14px', color: '#f0f0f0',
+                  fontSize: 13, lineHeight: 1.6, resize: 'vertical', outline: 'none',
+                  fontFamily: 'monospace', boxSizing: 'border-box', marginBottom: 12,
                   transition: 'border-color 0.2s',
                 }}
               />
 
               {/* Contador + estimativa */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <span style={{
                   fontSize: 13, fontWeight: 600,
-                  color: overLimit ? '#ef4444' : count > 0 ? '#f59e0b' : 'rgba(255,255,255,0.35)',
+                  color: overLimit ? '#ef4444' : count > 0 ? '#f59e0b' : 'rgba(255,255,255,0.3)',
                 }}>
-                  {count === 0
-                    ? 'Nenhum link colado ainda'
-                    : overLimit
-                      ? `⚠️ ${count}/${MAX_LINKS} links — limite excedido!`
-                      : `${count}/${MAX_LINKS} carta${count > 1 ? 's' : ''}`}
+                  {count === 0 ? 'Nenhum link colado ainda'
+                    : overLimit ? `⚠️ ${count}/${MAX_LINKS} — limite excedido!`
+                    : `${count} de ${MAX_LINKS} carta${count > 1 ? 's' : ''}`}
                 </span>
                 {count > 0 && !overLimit && (
-                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
-                    ⏱ Tempo estimado: <strong style={{ color: '#fff' }}>{timeStr}</strong>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                    ⏱ Estimado: <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{timeStr}</strong>
                   </span>
                 )}
               </div>
@@ -499,9 +503,9 @@ export default function MinhaColecao() {
                 <button
                   onClick={() => setShowImportModal(false)}
                   style={{
-                    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
-                    borderRadius: 10, padding: '10px 20px', color: '#fff',
-                    fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'rgba(255,255,255,0.6)', padding: '10px 20px', borderRadius: 10,
+                    fontSize: 14, cursor: 'pointer', fontWeight: 500,
                   }}
                 >
                   Cancelar
@@ -510,14 +514,13 @@ export default function MinhaColecao() {
                   onClick={handleImportSubmit}
                   disabled={count === 0 || overLimit}
                   style={{
-                    background: count === 0 || overLimit ? '#555' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                    background: count === 0 || overLimit ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
                     border: 'none', borderRadius: 10, padding: '10px 24px',
-                    color: '#fff', fontSize: 14, fontWeight: 700,
-                    cursor: count === 0 || overLimit ? 'not-allowed' : 'pointer',
-                    opacity: count === 0 || overLimit ? 0.6 : 1,
+                    color: count === 0 || overLimit ? 'rgba(255,255,255,0.3)' : '#000',
+                    fontSize: 14, cursor: count === 0 || overLimit ? 'not-allowed' : 'pointer', fontWeight: 700,
                   }}
                 >
-                  Importar {count > 0 && !overLimit ? `${count} carta${count > 1 ? 's' : ''} →` : '→'}
+                  {count > 0 && !overLimit ? `Importar ${count} carta${count > 1 ? 's' : ''} →` : 'Importar →'}
                 </button>
               </div>
             </div>

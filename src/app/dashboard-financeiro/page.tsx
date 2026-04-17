@@ -103,6 +103,7 @@ export default function DashboardFinanceiro() {
   const [importLinks, setImportLinks] = useState('')
   const MAX_LINKS = 20
   const SECS_PER_CARD = 6
+  const [importingTotal, setImportingTotal] = useState(0)
 
   const LOADING_MSGS = [
     '🔍 Procurando a carta na LigaPokemon...',
@@ -133,6 +134,7 @@ export default function DashboardFinanceiro() {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { showAlert('Você precisa estar logado.', 'error'); return }
     let success = 0, fail = 0
+    setImportingTotal(links.length)
     setImporting(true)
     setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
     const msgInterval = setInterval(() => {
@@ -351,7 +353,13 @@ export default function DashboardFinanceiro() {
               {importingMsg}
             </p>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 16 }}>
-              Aguarde, isso pode levar até 10 segundos por carta 🕐
+              {(() => {
+                const secs = importingTotal * SECS_PER_CARD
+                const timeStr = secs >= 60
+                  ? `~${Math.floor(secs / 60)}min${secs % 60 > 0 ? ` ${secs % 60}s` : ''}`
+                  : secs > 0 ? `~${secs}s` : ''
+                return `Aguarde${timeStr ? `, estimado ${timeStr}` : ''} 🕐`
+              })()}
             </p>
           </div>
           <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
