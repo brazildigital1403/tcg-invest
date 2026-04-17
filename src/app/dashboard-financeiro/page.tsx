@@ -146,8 +146,16 @@ export default function DashboardFinanceiro() {
         const data = await res.json()
         if (!data?.card_name) { fail++; continue }
         const match = await matchPokemonApiId(data.card_name, data.card_number)
-        const { bloqueado } = await checkCardLimit(userData.user.id)
-        if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano! 🚀`, 'warning'); return }
+        if (!isPro) {
+          const { bloqueado } = await checkCardLimit(userData.user.id)
+          if (bloqueado) {
+            clearInterval(msgInterval)
+            setImporting(false)
+            showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano! 🚀`, 'warning')
+            if (success > 0) window.location.reload()
+            return
+          }
+        }
 
         const { error: insertError } = await supabase.from('user_cards').insert({
           user_id: userData.user.id, pokemon_api_id: match.id,
