@@ -60,6 +60,7 @@ export default function Pokedex() {
   const [variations, setVariations]     = useState<any[]>([])
   const [loadingVariations, setLoadingVariations] = useState(false)
   const [addingCard, setAddingCard]     = useState(false)
+  const [isPro, setIsPro]               = useState(false)
   const [addedFeedback, setAddedFeedback] = useState(false)
 
   const [showTop, setShowTop]           = useState(false)
