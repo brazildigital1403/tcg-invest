@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-export const maxDuration = 30
+export const maxDuration = 60
+
+// Cache do executável — evita download repetido em warm starts
+let cachedExecutablePath: string | null = null
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
@@ -28,16 +31,21 @@ export async function GET(req: Request) {
 
   try {
     let browser: any
+
     if (process.env.VERCEL) {
       const chromium = (await import('@sparticuz/chromium-min')).default
       const puppeteer = (await import('puppeteer-core')).default
-      const executablePath = await chromium.executablePath(
-        'https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar'
-      )
+
+      if (!cachedExecutablePath) {
+        cachedExecutablePath = await chromium.executablePath(
+          'https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar'
+        )
+      }
+
       browser = await puppeteer.launch({
         args: chromium.args,
         defaultViewport: chromium.defaultViewport,
-        executablePath,
+        executablePath: cachedExecutablePath,
         headless: true,
       })
     } else {
@@ -49,23 +57,26 @@ export async function GET(req: Request) {
       const page = await browser.newPage()
       await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
-      // Timeout agressivo para caber em 30s
-      await page.goto(parsedUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 12000 })
-      await new Promise(r => setTimeout(r, 2500))
+      await page.goto(parsedUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 20000 })
+      await new Promise(r => setTimeout(r, 3000))
 
+      // Verifica se Cloudflare bloqueou
       const title = await page.title()
-
-      // Se Cloudflare bloqueou, retorna erro específico
       if (title.toLowerCase().includes('just a moment') || title.toLowerCase().includes('checking')) {
-        return Response.json({
-          error: 'LigaPokemon está verificando o acesso. Aguarde alguns segundos e tente novamente.'
-        }, { status: 429 })
+        // Tenta aguardar mais um pouco
+        await new Promise(r => setTimeout(r, 5000))
+        const title2 = await page.title()
+        if (title2.toLowerCase().includes('just a moment') || title2.toLowerCase().includes('checking')) {
+          return Response.json({
+            error: 'LigaPokemon está verificando o acesso. Tente novamente em alguns segundos.'
+          }, { status: 429 })
+        }
       }
 
       const data = await page.evaluate(() => {
         const parse = (t: string | null | undefined): number | null => {
           if (!t) return null
-          const n = parseFloat(t.replace('R$','').replace(/\./g,'').replace(',','.').trim())
+          const n = parseFloat(t.replace('R$', '').replace(/\./g, '').replace(',', '.').trim())
           return isNaN(n) ? null : n
         }
 
@@ -73,7 +84,7 @@ export async function GET(req: Request) {
         const card_name = (metaTitle || document.title || '').split('|')[0].trim() || null
 
         if (!card_name || card_name.toLowerCase().includes('just a moment')) {
-          return { error: 'Página não carregou corretamente' }
+          return { error: 'Página não carregou' }
         }
 
         const numberMatch = card_name?.match(/\(([^)]+)\)/)
@@ -87,7 +98,9 @@ export async function GET(req: Request) {
         const rarityMatch = document.body.innerText.match(/Raridade:\s*(.+)/i)
         const rarity = rarityMatch?.[1]?.split('\n')[0]?.trim() || null
 
-        const varMap: Record<string, string> = { extras_n:'normal', extras_f:'foil', extras_p:'promo', extras_r:'reverse' }
+        const varMap: Record<string, string> = {
+          extras_n: 'normal', extras_f: 'foil', extras_p: 'promo', extras_r: 'reverse'
+        }
         const variants: Record<string, any> = {}
         Object.keys(varMap).forEach(cls => {
           const el = document.querySelector(`[class*="${cls}"]`)
@@ -98,7 +111,7 @@ export async function GET(req: Request) {
             const prices = anc.textContent?.match(/R\$\s*[\d.,]+/g)
             if (prices && prices.length >= 1) {
               const nums = prices.map((p: string) => parse(p)).filter((n: any): n is number => n !== null)
-              if (nums.length) variants[varMap[cls]] = { min:nums[0], medio:nums[1]??nums[0], max:nums[2]??nums[1]??nums[0] }
+              if (nums.length) variants[varMap[cls]] = { min: nums[0], medio: nums[1] ?? nums[0], max: nums[2] ?? nums[1] ?? nums[0] }
               break
             }
             anc = anc.parentElement
@@ -111,8 +124,8 @@ export async function GET(req: Request) {
         return {
           card_name, card_number, card_image,
           link: location.href, rarity,
-          preco_min: normal.min||null, preco_medio: normal.medio||null, preco_max: normal.max||null,
-          preco_normal: normal.medio||null, preco_foil: foil.medio||null,
+          preco_min: normal.min || null, preco_medio: normal.medio || null, preco_max: normal.max || null,
+          preco_normal: normal.medio || null, preco_foil: foil.medio || null,
           variantes: variants
         }
       })
@@ -121,16 +134,15 @@ export async function GET(req: Request) {
         return Response.json({ error: 'Não foi possível identificar a carta. Verifique o link.' }, { status: 422 })
       }
 
-      console.log('SCRAP OK:', data.card_name)
+      console.log('SCRAP OK:', data.card_name, '| normal:', data.preco_normal)
 
-      // Salva no banco em paralelo
       const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
       const v = (data as any).variantes || {}
       await Promise.all([
         supabaseAdmin.from('card_prices').upsert({
           card_name: data.card_name,
-          preco_min: v.normal?.min||0, preco_medio: v.normal?.medio||0, preco_max: v.normal?.max||0,
-          preco_normal: v.normal?.medio||0, preco_foil: v.foil?.medio||0,
+          preco_min: v.normal?.min || 0, preco_medio: v.normal?.medio || 0, preco_max: v.normal?.max || 0,
+          preco_normal: v.normal?.medio || 0, preco_foil: v.foil?.medio || 0,
           preco_foil_min: v.foil?.min, preco_foil_medio: v.foil?.medio, preco_foil_max: v.foil?.max,
           preco_promo_min: v.promo?.min, preco_promo_medio: v.promo?.medio, preco_promo_max: v.promo?.max,
           updated_at: new Date().toISOString(),
