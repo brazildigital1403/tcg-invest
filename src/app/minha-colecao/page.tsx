@@ -65,6 +65,11 @@ export default function MinhaColecao() {
   ]
   const [importing, setImporting] = useState(false)
   const [importingMsg, setImportingMsg] = useState('')
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importLinks, setImportLinks] = useState('')
+
+  const MAX_LINKS = 20
+  const SECS_PER_CARD = 6
 
   function handleExportCSV() {
     if (isPro) {
@@ -153,17 +158,20 @@ export default function MinhaColecao() {
     }
   }
 
-  async function handleAddByLink() {
-    const input = await showPrompt({
-      message: 'Cole os links das cartas da LigaPokemon:',
-      placeholder: 'https://www.ligapokemon.com.br/...\nhttps://lig.ae/...\nhttps://lig.ae/...',
-      multiline: true,
-    })
-    if (!input) return
+  function handleAddByLink() {
+    setImportLinks('')
+    setShowImportModal(true)
+  }
 
-    const links = input.split('\n').map(l => l.trim()).filter(Boolean)
+  async function handleImportSubmit() {
+    const links = importLinks.split('\n').map(l => l.trim()).filter(Boolean)
     if (!links.length) return
+    if (links.length > MAX_LINKS) {
+      showAlert(`Máximo de ${MAX_LINKS} cartas por lote. Você colou ${links.length} links.`, 'warning')
+      return
+    }
 
+    setShowImportModal(false)
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
 
@@ -179,10 +187,8 @@ export default function MinhaColecao() {
       try {
         const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
         const data = await res.json()
-
         if (!data?.card_name) { fail++; continue }
 
-        // Verifica se carta já existe (incrementa quantidade)
         let existing = null
         if (data.card_number) {
           const { data: list } = await supabase.from('user_cards').select('*')
@@ -212,32 +218,24 @@ export default function MinhaColecao() {
           }
           const { error } = await supabase.from('user_cards').insert({
             user_id: userData.user.id,
-            card_name: data.card_name,
-            card_id: data.card_number,
-            card_image: data.card_image,
-            card_link: data.link,
-            rarity: data.rarity || null,
-            quantity: 1,
-            variante: 'normal',
+            card_name: data.card_name, card_id: data.card_number,
+            card_image: data.card_image, card_link: data.link,
+            rarity: data.rarity || null, quantity: 1, variante: 'normal',
           })
           if (error) { fail++; continue }
           success++
         }
-
-        // Salva preços (já feito na API, mas atualiza localmente)
         await supabase.from('card_prices').upsert({
           card_name: data.card_name,
           preco_min: data.preco_min || 0, preco_medio: data.preco_medio || 0,
           preco_max: data.preco_max || 0, preco_normal: data.preco_normal || 0,
           preco_foil: data.preco_foil || 0, updated_at: new Date().toISOString(),
         }, { onConflict: 'card_name' })
-
       } catch { fail++ }
     }
 
     clearInterval(msgInterval)
     setImporting(false)
-
     const msg = success > 0
       ? `✓ ${success} carta${success > 1 ? 's adicionadas' : ' adicionada'}!${fail > 0 ? ` · ${fail} falha(s)` : ''}`
       : 'Não foi possível importar. Verifique os links.'
@@ -426,6 +424,106 @@ export default function MinhaColecao() {
           <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
         </div>
       )}
+
+      {/* Modal de importação por link */}
+      {showImportModal && (() => {
+        const lines = importLinks.split('\n').map(l => l.trim()).filter(Boolean)
+        const count = lines.length
+        const overLimit = count > MAX_LINKS
+        const secs = count * SECS_PER_CARD
+        const timeStr = secs >= 60
+          ? `~${Math.floor(secs / 60)}min${secs % 60 > 0 ? ` ${secs % 60}s` : ''}`
+          : `~${secs}s`
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 9997,
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}>
+            <div style={{
+              background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 20, padding: 28, width: '100%', maxWidth: 520,
+              display: 'flex', flexDirection: 'column', gap: 16,
+            }}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>🔗</span>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#fff' }}>
+                  Importar cartas por link
+                </h3>
+              </div>
+
+              {/* Dica */}
+              <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                Cole os links da LigaPokemon, um por linha. Aceita links completos ou curtos (lig.ae).
+              </p>
+
+              {/* Textarea */}
+              <textarea
+                autoFocus
+                value={importLinks}
+                onChange={e => setImportLinks(e.target.value)}
+                rows={6}
+                placeholder={'https://www.ligapokemon.com.br/...\nhttps://lig.ae/c2/...\nhttps://lig.ae/c2/...'}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${overLimit ? '#ef4444' : 'rgba(255,255,255,0.15)'}`,
+                  borderRadius: 10, padding: '12px 14px',
+                  color: '#fff', fontSize: 13, lineHeight: 1.6,
+                  resize: 'vertical', outline: 'none', fontFamily: 'monospace',
+                  transition: 'border-color 0.2s',
+                }}
+              />
+
+              {/* Contador + estimativa */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{
+                  fontSize: 13, fontWeight: 600,
+                  color: overLimit ? '#ef4444' : count > 0 ? '#f59e0b' : 'rgba(255,255,255,0.35)',
+                }}>
+                  {count === 0
+                    ? 'Nenhum link colado ainda'
+                    : overLimit
+                      ? `⚠️ ${count}/${MAX_LINKS} links — limite excedido!`
+                      : `${count}/${MAX_LINKS} carta${count > 1 ? 's' : ''}`}
+                </span>
+                {count > 0 && !overLimit && (
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+                    ⏱ Tempo estimado: <strong style={{ color: '#fff' }}>{timeStr}</strong>
+                  </span>
+                )}
+              </div>
+
+              {/* Botões */}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: 10, padding: '10px 20px', color: '#fff',
+                    fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleImportSubmit}
+                  disabled={count === 0 || overLimit}
+                  style={{
+                    background: count === 0 || overLimit ? '#555' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                    border: 'none', borderRadius: 10, padding: '10px 24px',
+                    color: '#fff', fontSize: 14, fontWeight: 700,
+                    cursor: count === 0 || overLimit ? 'not-allowed' : 'pointer',
+                    opacity: count === 0 || overLimit ? 0.6 : 1,
+                  }}
+                >
+                  Importar {count > 0 && !overLimit ? `${count} carta${count > 1 ? 's' : ''} →` : '→'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
       <div className="p-6">
 
         {/* Header */}

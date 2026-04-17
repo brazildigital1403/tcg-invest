@@ -99,6 +99,10 @@ export default function DashboardFinanceiro() {
   const [updatingPrice, setUpdatingPrice] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importingMsg, setImportingMsg] = useState('')
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importLinks, setImportLinks] = useState('')
+  const MAX_LINKS = 20
+  const SECS_PER_CARD = 6
 
   const LOADING_MSGS = [
     '🔍 Procurando a carta na LigaPokemon...',
@@ -113,15 +117,19 @@ export default function DashboardFinanceiro() {
 
   // ── Importar por link ───────────────────────────────────────────────────
 
-  async function handleAddByLink() {
-    const input = await showPrompt({
-      message: 'Cole um ou vários links da LigaPokemon (um por linha):',
-      placeholder: 'https://www.ligapokemon.com.br/... ou https://lig.ae/...',
-      multiline: true,
-    })
-    if (!input) return
-    const links = input.split('\n').map(l => l.trim()).filter(Boolean)
+  function handleAddByLink() {
+    setImportLinks('')
+    setShowImportModal(true)
+  }
+
+  async function handleImportSubmit() {
+    const links = importLinks.split('\n').map((l: string) => l.trim()).filter(Boolean)
     if (!links.length) return
+    if (links.length > MAX_LINKS) {
+      showAlert(`Máximo de ${MAX_LINKS} cartas por lote.`, 'warning')
+      return
+    }
+    setShowImportModal(false)
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { showAlert('Você precisa estar logado.', 'error'); return }
     let success = 0, fail = 0
@@ -349,6 +357,85 @@ export default function DashboardFinanceiro() {
           <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
         </div>
       )}
+
+      {/* Modal de importação por link */}
+      {showImportModal && (() => {
+        const lines = importLinks.split('\n').map((l: string) => l.trim()).filter(Boolean)
+        const count = lines.length
+        const overLimit = count > MAX_LINKS
+        const secs = count * SECS_PER_CARD
+        const timeStr = secs >= 60
+          ? `~${Math.floor(secs / 60)}min${secs % 60 > 0 ? ` ${secs % 60}s` : ''}`
+          : `~${secs}s`
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 9997,
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}>
+            <div style={{
+              background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 20, padding: 28, width: '100%', maxWidth: 520,
+              display: 'flex', flexDirection: 'column', gap: 16,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>🔗</span>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#fff' }}>
+                  Importar cartas por link
+                </h3>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                Cole os links da LigaPokemon, um por linha. Aceita links completos ou curtos (lig.ae).
+              </p>
+              <textarea
+                autoFocus
+                value={importLinks}
+                onChange={e => setImportLinks(e.target.value)}
+                rows={6}
+                placeholder={'https://www.ligapokemon.com.br/...\nhttps://lig.ae/c2/...\nhttps://lig.ae/c2/...'}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${overLimit ? '#ef4444' : 'rgba(255,255,255,0.15)'}`,
+                  borderRadius: 10, padding: '12px 14px',
+                  color: '#fff', fontSize: 13, lineHeight: 1.6,
+                  resize: 'vertical', outline: 'none', fontFamily: 'monospace',
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{
+                  fontSize: 13, fontWeight: 600,
+                  color: overLimit ? '#ef4444' : count > 0 ? '#f59e0b' : 'rgba(255,255,255,0.35)',
+                }}>
+                  {count === 0 ? 'Nenhum link colado ainda'
+                    : overLimit ? `⚠️ ${count}/${MAX_LINKS} links — limite excedido!`
+                    : `${count}/${MAX_LINKS} carta${count > 1 ? 's' : ''}`}
+                </span>
+                {count > 0 && !overLimit && (
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
+                    ⏱ Tempo estimado: <strong style={{ color: '#fff' }}>{timeStr}</strong>
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowImportModal(false)} style={{
+                  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 10, padding: '10px 20px', color: '#fff',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                }}>Cancelar</button>
+                <button onClick={handleImportSubmit} disabled={count === 0 || overLimit} style={{
+                  background: count === 0 || overLimit ? '#555' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                  border: 'none', borderRadius: 10, padding: '10px 24px',
+                  color: '#fff', fontSize: 14, fontWeight: 700,
+                  cursor: count === 0 || overLimit ? 'not-allowed' : 'pointer',
+                  opacity: count === 0 || overLimit ? 0.6 : 1,
+                }}>
+                  Importar {count > 0 && !overLimit ? `${count} carta${count > 1 ? 's' : ''} →` : '→'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
       <style>{`
         @media (max-width: 768px) {
           .dash-hero-btns { flex-direction: column !important; }
