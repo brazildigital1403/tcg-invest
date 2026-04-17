@@ -26,41 +26,25 @@ export async function GET(req: Request) {
     return Response.json({ error: 'URL não permitida.' }, { status: 403 })
   }
 
-  const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN
+  const SCRAPER_URL = process.env.SCRAPER_URL // https://tcg-invest-production.up.railway.app
+  const SCRAPER_SECRET = process.env.SCRAPER_SECRET || 'bynx-scraper-2026'
 
   try {
-    let html: string
+    let data: any
 
-    if (BROWSERLESS_TOKEN) {
-      // Produção: Browserless.io smart-scrape
-      const blRes = await fetch(
-        `https://production-sfo.browserless.io/smart-scrape?timeout=55000&token=${BROWSERLESS_TOKEN}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: parsedUrl.toString(),
-            formats: ['html'],
-            waitForTimeout: 3000,
-          }),
-          signal: AbortSignal.timeout(57000),
-        }
-      )
-      if (!blRes.ok) {
-        const errText = await blRes.text().catch(() => '')
-        console.error('Browserless error:', blRes.status, errText)
-        return Response.json({ error: `Erro no serviço de scraping: ${blRes.status}` }, { status: 502 })
+    if (SCRAPER_URL) {
+      // Produção: chama o microserviço no Railway
+      const res = await fetch(`${SCRAPER_URL}/scrape?url=${encodeURIComponent(parsedUrl.toString())}`, {
+        headers: { 'x-scraper-secret': SCRAPER_SECRET },
+        signal: AbortSignal.timeout(55000),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }))
+        return Response.json({ error: err.error || 'Erro no serviço de scraping' }, { status: 502 })
       }
-      const blData = await blRes.json()
-      // smart-scrape retorna { data: [{ results: [...], type: 'html' }] }
-      html = blData?.data?.[0]?.results || blData?.html || ''
-      if (!html && typeof blData === 'string') html = blData
-      if (!html) {
-        console.error('Browserless empty response:', JSON.stringify(blData).slice(0, 200))
-        return Response.json({ error: 'Resposta vazia do serviço de scraping' }, { status: 502 })
-      }
+      data = await res.json()
     } else {
-      // Local: puppeteer normal
+      // Local: puppeteer direto
       const puppeteer = (await import('puppeteer')).default
       const browser = await puppeteer.launch({ headless: 'new' as any, args: ['--no-sandbox'] })
       try {
@@ -68,93 +52,82 @@ export async function GET(req: Request) {
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36')
         await page.goto(parsedUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 20000 })
         await new Promise(r => setTimeout(r, 2500))
-        html = await page.content()
+        try {
+          await page.evaluate(() => {
+            const spans = Array.from(document.querySelectorAll('span.cursor-pointer'))
+              .filter((el: any) => el.textContent?.trim() === 'Ver Mais')
+            const t = (spans as any)[1] || (spans as any)[0]
+            if (t) (t as HTMLElement).click()
+          })
+          await new Promise(r => setTimeout(r, 1000))
+        } catch {}
+        data = await page.evaluate(() => {
+          const parse = (t: string | null | undefined): number | null => {
+            if (!t) return null
+            const n = parseFloat(t.replace('R$','').replace(/\./g,'').replace(',','.').trim())
+            return isNaN(n) ? null : n
+          }
+          const metaTitle = (document.querySelector('meta[property="og:title"]') as any)?.content
+          const card_name = (metaTitle || document.title || '').split('|')[0].trim() || null
+          if (!card_name) return { error: 'Não carregou' }
+          const numberMatch = card_name?.match(/\(([^)]+)\)/)
+          const card_number = numberMatch?.[1] || null
+          const featuredImg = document.querySelector('#featuredImage') as HTMLImageElement
+          const metaImg = document.querySelector('meta[property="og:image"]') as HTMLMetaElement
+          let card_image = featuredImg?.src || metaImg?.content || null
+          if (card_image?.startsWith('//')) card_image = 'https:' + card_image
+          const rarityMatch = document.body.innerText.match(/Raridade:\s*(.+)/i)
+          const rarity = rarityMatch?.[1]?.split('\n')[0]?.trim() || null
+          const varMap: Record<string, string> = { extras_n:'normal', extras_f:'foil', extras_p:'promo', extras_r:'reverse' }
+          const variants: Record<string, any> = {}
+          Object.keys(varMap).forEach(cls => {
+            const el = document.querySelector(`[class*="${cls}"]`)
+            if (!el) return
+            let anc = el.parentElement
+            for (let i=0; i<5; i++) {
+              if (!anc) break
+              const prices = anc.textContent?.match(/R\$\s*[\d.,]+/g)
+              if (prices?.length >= 1) {
+                const nums = prices.map((p: string) => parse(p)).filter((n: any): n is number => n !== null)
+                if (nums.length) variants[varMap[cls]] = { min:nums[0], medio:nums[1]??nums[0], max:nums[2]??nums[1]??nums[0] }
+                break
+              }
+              anc = anc.parentElement
+            }
+          })
+          const normal = variants['normal'] || {}
+          const foil = variants['foil'] || {}
+          return { card_name, card_number, card_image, link:location.href, rarity,
+            preco_min:normal.min||null, preco_medio:normal.medio||null, preco_max:normal.max||null,
+            preco_normal:normal.medio||null, preco_foil:foil.medio||null, variantes:variants }
+        })
       } finally {
         await browser.close()
       }
     }
 
-    // Parse do HTML
-    const parse = (t: string | null | undefined): number | null => {
-      if (!t) return null
-      const n = parseFloat(t.replace('R$', '').replace(/\./g, '').replace(',', '.').trim())
-      return isNaN(n) ? null : n
+    if (!data || data.error || !data.card_name) {
+      return Response.json({ error: data?.error || 'Não foi possível identificar a carta.' }, { status: 422 })
     }
 
-    // Nome da carta via og:title
-    const metaTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i)
-    const rawTitle = metaTitleMatch?.[1] || ''
-    const card_name = rawTitle.split('|')[0].trim() || null
-
-    if (!card_name || card_name.toLowerCase().includes('just a moment') || card_name.toLowerCase().includes('checking')) {
-      return Response.json({ error: 'LigaPokemon bloqueou o acesso. Tente novamente.' }, { status: 429 })
-    }
-
-    // Número da carta
-    const numberMatch = card_name?.match(/\(([^)]+)\)/)
-    const card_number = numberMatch?.[1] || parsedUrl.searchParams.get('cid') || parsedUrl.searchParams.get('num') || null
-
-    // Imagem
-    const metaImgMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
-    let card_image = metaImgMatch?.[1] || null
-    if (card_image?.startsWith('//')) card_image = 'https:' + card_image
-
-    // Raridade
-    const rarityMatch = html.match(/Raridade:\s*([^\n<]{2,30})/i)
-    const rarity = rarityMatch?.[1]?.trim() || null
-
-    // Preços
-    const varMap: Record<string, string> = {
-      extras_n: 'normal', extras_f: 'foil', extras_p: 'promo', extras_r: 'reverse'
-    }
-    const variants: Record<string, { min: number|null, medio: number|null, max: number|null }> = {}
-
-    for (const [cls, name] of Object.entries(varMap)) {
-      const re = new RegExp(`class="[^"]*${cls}[^"]*"[^>]*>([\\s\\S]{0,600})`, 'i')
-      const block = html.match(re)?.[1] || ''
-      const prices = block.match(/R\$\s*[\d.,]+/g)?.map(p => parse(p)).filter((n): n is number => n !== null) || []
-      if (prices.length > 0) {
-        variants[name] = { min: prices[0], medio: prices[1] ?? prices[0], max: prices[2] ?? prices[1] ?? prices[0] }
-      }
-    }
-
-    // Fallback geral
-    if (!variants.normal) {
-      const allPrices = html.match(/R\$\s*[\d.,]+/g)?.map(p => parse(p)).filter((n): n is number => n !== null) || []
-      if (allPrices.length > 0) {
-        variants.normal = { min: allPrices[0], medio: allPrices[1] ?? allPrices[0], max: allPrices[2] ?? allPrices[1] ?? allPrices[0] }
-      }
-    }
-
-    const normal = variants.normal || { min: null, medio: null, max: null }
-    const foil   = variants.foil   || { min: null, medio: null, max: null }
-    const promo  = variants.promo  || { min: null, medio: null, max: null }
-
-    const data = {
-      card_name, card_number, card_image,
-      link: parsedUrl.toString(), rarity,
-      preco_min: normal.min, preco_medio: normal.medio, preco_max: normal.max,
-      preco_normal: normal.medio, preco_foil: foil.medio,
-      variantes: variants,
-    }
-
-    console.log('SCRAP OK:', card_name, '| normal:', normal.medio, '| foil:', foil.medio)
+    console.log('SCRAP OK:', data.card_name)
 
     // Salva no banco
     const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
+    const v = data.variantes || {}
     await Promise.all([
       supabaseAdmin.from('card_prices').upsert({
-        card_name, preco_min: normal.min || 0, preco_medio: normal.medio || 0,
-        preco_max: normal.max || 0, preco_normal: normal.medio || 0, preco_foil: foil.medio || 0,
-        preco_foil_min: foil.min, preco_foil_medio: foil.medio, preco_foil_max: foil.max,
-        preco_promo_min: promo.min, preco_promo_medio: promo.medio, preco_promo_max: promo.max,
+        card_name: data.card_name,
+        preco_min: v.normal?.min||0, preco_medio: v.normal?.medio||0, preco_max: v.normal?.max||0,
+        preco_normal: v.normal?.medio||0, preco_foil: v.foil?.medio||0,
+        preco_foil_min: v.foil?.min, preco_foil_medio: v.foil?.medio, preco_foil_max: v.foil?.max,
+        preco_promo_min: v.promo?.min, preco_promo_medio: v.promo?.medio, preco_promo_max: v.promo?.max,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'card_name' }),
       supabaseAdmin.from('card_price_history').insert({
-        card_name, preco_min: normal.min, preco_medio: normal.medio, preco_max: normal.max,
-        preco_normal: normal.medio, preco_foil: foil.medio,
+        card_name: data.card_name,
+        preco_min: v.normal?.min, preco_medio: v.normal?.medio, preco_max: v.normal?.max,
+        preco_normal: v.normal?.medio, preco_foil: v.foil?.medio,
         recorded_at: new Date().toISOString(),
       })
     ])
