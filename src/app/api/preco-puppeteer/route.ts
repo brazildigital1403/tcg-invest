@@ -32,23 +32,35 @@ export async function GET(req: Request) {
     let html: string
 
     if (BROWSERLESS_TOKEN) {
-      // Produção: usa Browserless.io (sem timeout de download)
-      const res = await fetch(`https://chrome.browserless.io/content?token=${BROWSERLESS_TOKEN}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: parsedUrl.toString(),
-          waitFor: 3000,
-          rejectResourceTypes: ['image', 'font', 'stylesheet'],
-        }),
-        signal: AbortSignal.timeout(50000),
-      })
-      if (!res.ok) {
-        return Response.json({ error: `Erro ao acessar LigaPokemon: ${res.status}` }, { status: 502 })
+      // Produção: Browserless.io smart-scrape
+      const blRes = await fetch(
+        `https://production-sfo.browserless.io/smart-scrape?timeout=55000&token=${BROWSERLESS_TOKEN}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: parsedUrl.toString(),
+            formats: ['html'],
+            waitForTimeout: 3000,
+          }),
+          signal: AbortSignal.timeout(57000),
+        }
+      )
+      if (!blRes.ok) {
+        const errText = await blRes.text().catch(() => '')
+        console.error('Browserless error:', blRes.status, errText)
+        return Response.json({ error: `Erro no serviço de scraping: ${blRes.status}` }, { status: 502 })
       }
-      html = await res.text()
+      const blData = await blRes.json()
+      // smart-scrape retorna { data: [{ results: [...], type: 'html' }] }
+      html = blData?.data?.[0]?.results || blData?.html || ''
+      if (!html && typeof blData === 'string') html = blData
+      if (!html) {
+        console.error('Browserless empty response:', JSON.stringify(blData).slice(0, 200))
+        return Response.json({ error: 'Resposta vazia do serviço de scraping' }, { status: 502 })
+      }
     } else {
-      // Local: usa puppeteer normal
+      // Local: puppeteer normal
       const puppeteer = (await import('puppeteer')).default
       const browser = await puppeteer.launch({ headless: 'new' as any, args: ['--no-sandbox'] })
       try {
@@ -69,19 +81,19 @@ export async function GET(req: Request) {
       return isNaN(n) ? null : n
     }
 
-    // Nome da carta
+    // Nome da carta via og:title
     const metaTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
       || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i)
     const rawTitle = metaTitleMatch?.[1] || ''
     const card_name = rawTitle.split('|')[0].trim() || null
 
     if (!card_name || card_name.toLowerCase().includes('just a moment') || card_name.toLowerCase().includes('checking')) {
-      return Response.json({ error: 'LigaPokemon bloqueou o acesso. Tente novamente em alguns segundos.' }, { status: 429 })
+      return Response.json({ error: 'LigaPokemon bloqueou o acesso. Tente novamente.' }, { status: 429 })
     }
 
     // Número da carta
     const numberMatch = card_name?.match(/\(([^)]+)\)/)
-    const card_number = numberMatch?.[1] || parsedUrl.searchParams.get('cid') || null
+    const card_number = numberMatch?.[1] || parsedUrl.searchParams.get('cid') || parsedUrl.searchParams.get('num') || null
 
     // Imagem
     const metaImgMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
@@ -90,10 +102,10 @@ export async function GET(req: Request) {
     if (card_image?.startsWith('//')) card_image = 'https:' + card_image
 
     // Raridade
-    const rarityMatch = html.match(/Raridade[^<]*<[^>]+>([^<]+)<\/|Raridade:\s*([^\n<]+)/i)
-    const rarity = (rarityMatch?.[1] || rarityMatch?.[2])?.trim() || null
+    const rarityMatch = html.match(/Raridade:\s*([^\n<]{2,30})/i)
+    const rarity = rarityMatch?.[1]?.trim() || null
 
-    // Preços por variante
+    // Preços
     const varMap: Record<string, string> = {
       extras_n: 'normal', extras_f: 'foil', extras_p: 'promo', extras_r: 'reverse'
     }
@@ -108,7 +120,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Fallback — pega qualquer preço no HTML se não achou variantes
+    // Fallback geral
     if (!variants.normal) {
       const allPrices = html.match(/R\$\s*[\d.,]+/g)?.map(p => parse(p)).filter((n): n is number => n !== null) || []
       if (allPrices.length > 0) {
