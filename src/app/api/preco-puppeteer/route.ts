@@ -34,7 +34,7 @@ export async function GET(req: Request) {
 
   try {
     // ScraperAPI usa proxies residenciais que bypassam Cloudflare
-    const scraperUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(parsedUrl.toString())}&render=true&country_code=br`
+    const scraperUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(parsedUrl.toString())}&country_code=br`
 
     const res = await fetch(scraperUrl, {
       signal: AbortSignal.timeout(55000),
