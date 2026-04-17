@@ -53,6 +53,19 @@ export default function MinhaColecao() {
   const [filtroRaridade, setFiltroRaridade] = useState('')
   const [loading, setLoading] = useState(true)
 
+  const LOADING_MSGS = [
+    '🔍 Procurando a carta na LigaPokemon...',
+    '⚡ Treinando nossos Pokémon para buscar o preço...',
+    '🎴 Varrendo o mercado TCG brasileiro...',
+    '🌟 Consultando os preços das cartas raras...',
+    '📊 Calculando o valor do seu patrimônio...',
+    '🔮 Prevendo o futuro do mercado Pokémon...',
+    '🏪 Visitando todas as lojas virtuais...',
+    '💰 Analisando os preços Normal, Foil e Promo...',
+  ]
+  const [importing, setImporting] = useState(false)
+  const [importingMsg, setImportingMsg] = useState('')
+
   function handleExportCSV() {
     if (isPro) {
       // Exporta CSV completo
@@ -148,8 +161,17 @@ export default function MinhaColecao() {
     if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
 
     try {
+      // Mostra loading com mensagens rotativas
+      setImporting(true)
+      setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
+      const msgInterval = setInterval(() => {
+        setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
+      }, 3000)
+
       const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
       const data = await res.json()
+      clearInterval(msgInterval)
+      setImporting(false)
 
       if (!data?.card_name) {
         showAlert(data?.error || 'Não foi possível identificar a carta. Verifique o link e tente novamente.', 'error')
@@ -214,6 +236,7 @@ export default function MinhaColecao() {
       showAlert('Carta adicionada com sucesso!', 'success')
       window.location.reload()
     } catch (err) {
+      setImporting(false)
       showAlert('Erro ao importar a carta. Verifique o link.', 'error')
     }
   }
@@ -365,6 +388,32 @@ export default function MinhaColecao() {
 
   return (
     <AppLayout>
+      {/* Loading overlay para importação */}
+      {importing && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9998,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24,
+        }}>
+          {/* Pokébola girando */}
+          <div style={{ fontSize: 64, animation: 'spin 1.5s linear infinite' }}>⚡</div>
+          <div style={{
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 20, padding: '28px 40px', maxWidth: 420, textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b', marginBottom: 12 }}>
+              Importando carta...
+            </p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, transition: 'all 0.5s' }}>
+              {importingMsg}
+            </p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 16 }}>
+              Aguarde, isso pode levar até 40 segundos 🕐
+            </p>
+          </div>
+          <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+        </div>
+      )}
       <div className="p-6">
 
         {/* Header */}
