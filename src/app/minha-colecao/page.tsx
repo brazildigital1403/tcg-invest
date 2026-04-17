@@ -154,91 +154,95 @@ export default function MinhaColecao() {
   }
 
   async function handleAddByLink() {
-    const url = await showPrompt({ message: 'Cole o link da carta na LigaPokemon:', placeholder: 'https://www.ligapokemon.com.br/... ou https://lig.ae/...' })
-    if (!url) return
+    const input = await showPrompt({
+      message: 'Cole os links das cartas da LigaPokemon:',
+      placeholder: 'https://www.ligapokemon.com.br/...\nhttps://lig.ae/...\nhttps://lig.ae/...',
+      multiline: true,
+    })
+    if (!input) return
+
+    const links = input.split('\n').map(l => l.trim()).filter(Boolean)
+    if (!links.length) return
 
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
 
-    try {
-      // Mostra loading com mensagens rotativas
-      setImporting(true)
+    setImporting(true)
+    setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
+    const msgInterval = setInterval(() => {
       setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
-      const msgInterval = setInterval(() => {
-        setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
-      }, 3000)
+    }, 3000)
 
-      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
-      const data = await res.json()
-      clearInterval(msgInterval)
-      setImporting(false)
+    let success = 0, fail = 0
 
-      if (!data?.card_name) {
-        showAlert(data?.error || 'Não foi possível identificar a carta. Verifique o link e tente novamente.', 'error')
-        return
-      }
+    for (const url of links) {
+      try {
+        const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
+        const data = await res.json()
 
-      let existing = null
-      if (data.card_number) {
-        const { data: list } = await supabase.from('user_cards').select('*')
-          .eq('user_id', userData.user.id).eq('card_id', data.card_number)
-        existing = list && list.length > 0 ? list[0] : null
-      } else {
-        const { data: list } = await supabase.from('user_cards').select('*')
-          .eq('user_id', userData.user.id).ilike('card_name', data.card_name)
-        existing = list && list.length > 0 ? list[0] : null
-      }
+        if (!data?.card_name) { fail++; continue }
 
-      let insertError = null
-      if (existing) {
-        const { error } = await supabase.from('user_cards')
-          .update({ quantity: (existing.quantity || 1) + 1 }).eq('id', existing.id)
-        insertError = error
-      } else {
-        if (!isPro) {
-          const { bloqueado } = await checkCardLimit(userId)
-          if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning'); return }
+        // Verifica se carta já existe (incrementa quantidade)
+        let existing = null
+        if (data.card_number) {
+          const { data: list } = await supabase.from('user_cards').select('*')
+            .eq('user_id', userData.user.id).eq('card_id', data.card_number).limit(1)
+          existing = list?.[0] || null
+        }
+        if (!existing) {
+          const { data: list } = await supabase.from('user_cards').select('*')
+            .eq('user_id', userData.user.id).ilike('card_name', data.card_name).limit(1)
+          existing = list?.[0] || null
         }
 
-        const { error } = await supabase.from('user_cards').insert({
-          user_id: userData.user.id,
+        if (existing) {
+          await supabase.from('user_cards')
+            .update({ quantity: (existing.quantity || 1) + 1 }).eq('id', existing.id)
+          success++
+        } else {
+          if (!isPro) {
+            const { bloqueado } = await checkCardLimit(userData.user.id)
+            if (bloqueado) {
+              clearInterval(msgInterval)
+              setImporting(false)
+              showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning')
+              if (success > 0) window.location.reload()
+              return
+            }
+          }
+          const { error } = await supabase.from('user_cards').insert({
+            user_id: userData.user.id,
+            card_name: data.card_name,
+            card_id: data.card_number,
+            card_image: data.card_image,
+            card_link: data.link,
+            rarity: data.rarity || null,
+            quantity: 1,
+            variante: 'normal',
+          })
+          if (error) { fail++; continue }
+          success++
+        }
+
+        // Salva preços (já feito na API, mas atualiza localmente)
+        await supabase.from('card_prices').upsert({
           card_name: data.card_name,
-          card_id: data.card_number,
-          card_image: data.card_image,
-          card_link: data.link,
-          rarity: data.rarity || null,
-          quantity: 1,
-          variante: 'normal',
-        })
-        insertError = error
-      }
+          preco_min: data.preco_min || 0, preco_medio: data.preco_medio || 0,
+          preco_max: data.preco_max || 0, preco_normal: data.preco_normal || 0,
+          preco_foil: data.preco_foil || 0, updated_at: new Date().toISOString(),
+        }, { onConflict: 'card_name' })
 
-      if (insertError) { showAlert('Erro ao salvar a carta. Tente novamente.', 'error'); return }
-
-      await supabase.from('card_prices').upsert({
-        card_name: data.card_name,
-        preco_min: data.preco_min || 0,
-        preco_medio: data.preco_medio || 0,
-        preco_max: data.preco_max || 0,
-        preco_normal: data.preco_normal || 0,
-        preco_foil: data.preco_foil || 0,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'card_name' })
-
-      await supabase.from('card_price_history').insert({
-        card_name: data.card_name,
-        preco_min: data.preco_min || null,
-        preco_medio: data.preco_medio || null,
-        preco_max: data.preco_max || null,
-        recorded_at: new Date().toISOString(),
-      })
-
-      showAlert('Carta adicionada com sucesso!', 'success')
-      window.location.reload()
-    } catch (err) {
-      setImporting(false)
-      showAlert('Erro ao importar a carta. Verifique o link.', 'error')
+      } catch { fail++ }
     }
+
+    clearInterval(msgInterval)
+    setImporting(false)
+
+    const msg = success > 0
+      ? `✓ ${success} carta${success > 1 ? 's adicionadas' : ' adicionada'}!${fail > 0 ? ` · ${fail} falha(s)` : ''}`
+      : 'Não foi possível importar. Verifique os links.'
+    showAlert(msg, success > 0 ? 'success' : 'error')
+    if (success > 0) window.location.reload()
   }
 
   async function handleAddPrice(card: any) {
