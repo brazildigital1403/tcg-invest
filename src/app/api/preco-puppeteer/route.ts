@@ -1,6 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-export const maxDuration = 60
+export const maxDuration = 30
+
+// Mapeamento de tipos de extras do LigaPokemon
+const EXTRAS_MAP: Record<number, string> = {
+  0: 'normal',
+  2: 'foil',
+  3: 'reverse',
+  14: 'promo',
+  47: 'pokeball',
+  1: 'foil',       // foil alternativo
+  4: 'reverse',    // reverse alternativo
+  15: 'special',
+}
 
 function decodeHtmlEntities(str: string): string {
   return str
@@ -14,52 +26,14 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&atilde;/g, 'ã').replace(/&Atilde;/g, 'Ã')
     .replace(/&otilde;/g, 'õ').replace(/&Otilde;/g, 'Õ')
     .replace(/&ccedil;/g, 'ç').replace(/&Ccedil;/g, 'Ç')
-    .replace(/&agrave;/g, 'à').replace(/&acirc;/g, 'â').replace(/&ecirc;/g, 'ê')
-    .replace(/&ocirc;/g, 'ô').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&agrave;/g, 'à').replace(/&acirc;/g, 'â').replace(/&ecirc;/g, 'ê').replace(/&ocirc;/g, 'ô')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
 }
 
-const GENERIC_IMAGES = ['logo_new_tcg_2', 'lmcorp.com.br/arquivos/img/logo', 'default', 'placeholder', 'favicon', 'icon.svg', 'loading']
-
-function isGenericImage(url: string | null): boolean {
-  if (!url) return true
-  return GENERIC_IMAGES.some(g => url.toLowerCase().includes(g))
-}
-
-const parse = (t: string | null | undefined): number | null => {
-  if (!t) return null
-  const n = parseFloat(t.replace('R$', '').replace(/\./g, '').replace(',', '.').trim())
+function parsePrice(v: string | number | null | undefined): number | null {
+  if (v == null) return null
+  const n = parseFloat(String(v).replace('R$', '').replace(/\./g, '').replace(',', '.').trim())
   return isNaN(n) ? null : n
-}
-
-function extractFromHtml(html: string) {
-  const metaTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
-    || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i)
-  const card_name = decodeHtmlEntities(metaTitle?.[1]?.split('|')[0]?.trim() || '') || null
-
-  const featuredMatch = html.match(/id=["']featuredImage["'][^>]*src=["']([^"']+)["']/i)
-    || html.match(/src=["']([^"']*repositorio\.sbrauble[^"']+)["']/i)
-    || html.match(/src=["']([^"']*lmcorp\.com\.br\/arquivos\/in\/[^"']+)["']/i)
-  const ogImgMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
-    || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
-  const card_image = [featuredMatch?.[1], ogImgMatch?.[1]].find(u => !isGenericImage(u)) || null
-
-  const rarityMatch = html.match(/Raridade:\s*([^\n<]{2,40})/i)
-  const rarity = decodeHtmlEntities(rarityMatch?.[1]?.trim() || '') || null
-
-  const varMap: Record<string, string> = { extras_n: 'normal', extras_f: 'foil', extras_p: 'promo', extras_r: 'reverse' }
-  const variantes: Record<string, { min: number|null; medio: number|null; max: number|null }> = {}
-  for (const [cls, name] of Object.entries(varMap)) {
-    const block = html.match(new RegExp(`class="[^"]*${cls}[^"]*"[\\s\\S]{0,800}`, 'i'))?.[0] || ''
-    const prices = block.match(/R\$\s*[\d.,]+/g)?.map(p => parse(p)).filter((n): n is number => n !== null) || []
-    if (prices.length > 0) variantes[name] = { min: prices[0], medio: prices[1] ?? prices[0], max: prices[2] ?? prices[1] ?? prices[0] }
-  }
-  if (!variantes.normal) {
-    const all = html.match(/R\$\s*[\d.,]+/g)?.map(p => parse(p)).filter((n): n is number => n !== null) || []
-    if (all.length >= 1) variantes.normal = { min: all[0], medio: all[1] ?? all[0], max: all[2] ?? all[1] ?? all[0] }
-  }
-
-  return { card_name, card_image, rarity, variantes }
 }
 
 export async function GET(req: Request) {
@@ -86,67 +60,121 @@ export async function GET(req: Request) {
   const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY
   if (!SCRAPER_API_KEY) return Response.json({ error: 'Serviço de scraping não configurado.' }, { status: 503 })
 
-  // ── STEP 1: Extrai nome/número diretamente da URL (instantâneo) ────────
+  // ── STEP 1: Extrai nome/número da URL (instantâneo) ────────────────────
   const cardParam = decodeURIComponent(parsedUrl.searchParams.get('card') || '')
   let card_name = decodeHtmlEntities(cardParam.split('|')[0].trim()) || null
   const numberMatch = card_name?.match(/\(([^)]+)\)/)
   let card_number = numberMatch?.[1] || parsedUrl.searchParams.get('num') || null
 
-  // ── STEP 2: Busca imagem no Pokemon TCG API (paralelo com scraping) ────
-  const tcgPromise = (async (): Promise<string | null> => {
+  // ── STEP 2: ScraperAPI sem render para pegar HTML estático ────────────
+  const fastUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(parsedUrl.toString())}&country_code=br`
+  const fastRes = await fetch(fastUrl, { signal: AbortSignal.timeout(15000) })
+  if (!fastRes.ok) return Response.json({ error: 'Erro ao acessar LigaPokemon' }, { status: 502 })
+  const html = await fastRes.text()
+
+  // Extrai nome do HTML se não tinha na URL
+  if (!card_name) {
+    const metaTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+    card_name = decodeHtmlEntities(metaTitle?.[1]?.split('|')[0]?.trim() || '') || null
+  }
+  if (!card_name) return Response.json({ error: 'Não foi possível identificar a carta.' }, { status: 422 })
+
+  // Extrai número
+  if (!card_number) {
+    const nm = card_name.match(/\(([^)]+)\)/)
+    card_number = nm?.[1] || parsedUrl.searchParams.get('num') || null
+  }
+
+  // Raridade
+  const rarityMatch = html.match(/Raridade[^<]*<[^>]*>\s*([^<]+)<|Raridade:\s*([^\n<]{2,40})/i)
+  const rarity = decodeHtmlEntities((rarityMatch?.[1] || rarityMatch?.[2])?.trim() || '') || null
+
+  // ── STEP 3: Encontra e busca o JS da edição (dados completos) ──────────
+  // O HTML tem um script tag com: new_ed_assoc_tcg_2_ed_{ID}.js
+  const jsUrlMatch = html.match(/https?:\/\/[^"']+new_ed_assoc_tcg_2_ed_(\d+)\.js/i)
+    || html.match(/\/\/[^"']+new_ed_assoc_tcg_2_ed_(\d+)\.js/i)
+    || html.match(/new_ed_assoc_tcg_2_ed_(\d+)\.js/i)
+
+  let card_image: string | null = null
+  const variantes: Record<string, { min: number|null; medio: number|null; max: number|null }> = {}
+
+  if (jsUrlMatch) {
+    const editionId = jsUrlMatch[1]
+    const jsUrl = `https://www.lmcorp.com.br/arquivos/up/prod_js/new_ed_assoc_tcg_2_ed_${editionId}.js`
+
     try {
-      const baseName = (card_name || '').split('(')[0].trim()
-      if (!baseName) return null
-      const res = await fetch(
+      const jsRes = await fetch(jsUrl, { signal: AbortSignal.timeout(8000) })
+      if (jsRes.ok) {
+        const jsText = await jsRes.text()
+
+        // Extrai cards_editions para pegar a imagem
+        const editionsMatch = jsText.match(/cards_editions\s*=\s*(\[[\s\S]+?\]);/)
+        if (editionsMatch) {
+          try {
+            const editions = JSON.parse(editionsMatch[1])
+            const img = editions[0]?.img
+            if (img) card_image = img.startsWith('//') ? 'https:' + img : img
+          } catch {}
+        }
+
+        // Extrai cards_stock para calcular preços
+        const stockMatch = jsText.match(/cards_stock\s*=\s*(\[[\s\S]+?\]);/)
+        if (stockMatch) {
+          try {
+            const stock: Array<{ extras: number; precoFinal: string; num: string }> = JSON.parse(stockMatch[1])
+
+            // Agrupa por tipo de extra
+            const byExtra: Record<number, number[]> = {}
+            stock.forEach(s => {
+              const key = s.extras ?? 0
+              if (!byExtra[key]) byExtra[key] = []
+              byExtra[key].push(parsePrice(s.precoFinal) || 0)
+            })
+
+            // Calcula min/medio/max por tipo
+            Object.entries(byExtra).forEach(([key, prices]) => {
+              const variantName = EXTRAS_MAP[parseInt(key)] || `extra_${key}`
+              prices.sort((a, b) => a - b)
+              const min = prices[0]
+              const max = prices[prices.length - 1]
+              const medio = prices.reduce((a, b) => a + b, 0) / prices.length
+              variantes[variantName] = {
+                min: parseFloat(min.toFixed(2)),
+                medio: parseFloat(medio.toFixed(2)),
+                max: parseFloat(max.toFixed(2))
+              }
+            })
+          } catch {}
+        }
+      }
+    } catch (e: any) {
+      console.log('JS fetch error:', e.message)
+    }
+  }
+
+  // Fallback imagem: Pokemon TCG API
+  if (!card_image) {
+    try {
+      const baseName = card_name.split('(')[0].trim()
+      const tcgRes = await fetch(
         `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(baseName)}"&pageSize=8`,
         { signal: AbortSignal.timeout(5000) }
       )
-      if (!res.ok) return null
-      const data = await res.json()
-      const cards = data?.data || []
-      const numOnly = card_number?.split('/')[0]
-      const matched = cards.find((c: any) => c.number === numOnly) || cards[0]
-      return matched?.images?.large || matched?.images?.small || null
-    } catch { return null }
-  })()
-
-  // ── STEP 3: ScraperAPI com render=true (mais tempo disponível) ─────────
-  const scraperPromise = (async (): Promise<string> => {
-    try {
-      const renderUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(parsedUrl.toString())}&render=true&country_code=br&wait=3000&timeout=45000`
-      const res = await fetch(renderUrl, { signal: AbortSignal.timeout(50000) })
-      if (res.ok) return await res.text()
-    } catch (e: any) { console.log('ScraperAPI render error:', e.message) }
-    return ''
-  })()
-
-  // Roda TCG API e ScraperAPI em paralelo
-  const [tcgImage, html] = await Promise.all([tcgPromise, scraperPromise])
-
-  // Parse do HTML scrapeado
-  let card_image: string | null = null
-  let rarity: string | null = null
-  let variantes: Record<string, { min: number|null; medio: number|null; max: number|null }> = {}
-
-  if (html) {
-    const parsed = extractFromHtml(html)
-    if (parsed.card_name) card_name = parsed.card_name
-    card_image = parsed.card_image
-    rarity = parsed.rarity
-    variantes = parsed.variantes
-    // Número do nome parseado
-    const nm = card_name?.match(/\(([^)]+)\)/)
-    if (nm?.[1]) card_number = nm[1]
+      if (tcgRes.ok) {
+        const tcgData = await tcgRes.json()
+        const cards = tcgData?.data || []
+        const numOnly = card_number?.split('/')[0]
+        const matched = cards.find((c: any) => c.number === numOnly) || cards[0]
+        card_image = matched?.images?.large || matched?.images?.small || null
+      }
+    } catch {}
   }
 
-  // Usa imagem do TCG API se não achou no LigaPokemon
-  if (!card_image) card_image = tcgImage
-
-  if (!card_name) return Response.json({ error: 'Não foi possível identificar a carta.' }, { status: 422 })
-
-  const normal = variantes.normal || { min: null, medio: null, max: null }
-  const foil   = variantes.foil   || { min: null, medio: null, max: null }
-  const promo  = variantes.promo  || { min: null, medio: null, max: null }
+  const normal  = variantes.normal  || { min: null, medio: null, max: null }
+  const foil    = variantes.foil    || { min: null, medio: null, max: null }
+  const promo   = variantes.promo   || { min: null, medio: null, max: null }
+  const reverse = variantes.reverse || { min: null, medio: null, max: null }
+  const pokeball = variantes.pokeball || { min: null, medio: null, max: null }
 
   const data = {
     card_name, card_number, card_image,
@@ -156,19 +184,24 @@ export async function GET(req: Request) {
     variantes,
   }
 
-  console.log('SCRAP:', card_name, '| img:', !!card_image, '| normal:', normal.medio, '| foil:', foil.medio, '| rarity:', rarity)
+  console.log('✅', card_name, '| normal:', normal.medio, '| foil:', foil.medio, '| reverse:', reverse.medio, '| pokeball:', pokeball.medio)
 
+  // Salva no banco
   const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
   await Promise.all([
     supabaseAdmin.from('card_prices').upsert({
-      card_name, preco_min: normal.min||0, preco_medio: normal.medio||0, preco_max: normal.max||0,
-      preco_normal: normal.medio||0, preco_foil: foil.medio||0,
+      card_name,
+      preco_min: normal.min || 0, preco_medio: normal.medio || 0, preco_max: normal.max || 0,
+      preco_normal: normal.medio || 0, preco_foil: foil.medio || 0,
       preco_foil_min: foil.min, preco_foil_medio: foil.medio, preco_foil_max: foil.max,
       preco_promo_min: promo.min, preco_promo_medio: promo.medio, preco_promo_max: promo.max,
+      preco_reverse_min: reverse.min, preco_reverse_medio: reverse.medio, preco_reverse_max: reverse.max,
+      preco_pokeball_min: pokeball.min, preco_pokeball_medio: pokeball.medio, preco_pokeball_max: pokeball.max,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'card_name' }),
     supabaseAdmin.from('card_price_history').insert({
-      card_name, preco_min: normal.min, preco_medio: normal.medio, preco_max: normal.max,
+      card_name,
+      preco_min: normal.min, preco_medio: normal.medio, preco_max: normal.max,
       preco_normal: normal.medio, preco_foil: foil.medio,
       recorded_at: new Date().toISOString(),
     })
