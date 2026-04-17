@@ -52,6 +52,7 @@ export default function MinhaColecao() {
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
 
   const LOADING_MSGS = [
     '🔍 Procurando a carta na LigaPokemon...',
@@ -253,12 +254,14 @@ export default function MinhaColecao() {
     })
     if (!url) return
 
+    setLoadingPriceId(card.id)
     try {
       const { authFetch } = await import('@/lib/authFetch')
       const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
       const data = await res.json()
 
       if (!data?.card_name) {
+        setLoadingPriceId(null)
         showAlert(data?.error || 'Não foi possível importar o preço. Verifique o link.', 'error')
         return
       }
@@ -300,8 +303,10 @@ export default function MinhaColecao() {
         : 'Preço importado com sucesso!'
 
       showAlert(msg, 'success')
+      setLoadingPriceId(null)
       loadCards()
     } catch {
+      setLoadingPriceId(null)
       showAlert('Erro ao importar preço. Tente novamente.', 'error')
     }
   }
@@ -759,18 +764,33 @@ export default function MinhaColecao() {
                     ) : (
                       /* Sem preço — botão para adicionar */
                       <button
-                        onClick={() => handleAddPrice(c)}
+                        onClick={() => loadingPriceId === c.id ? null : handleAddPrice(c)}
+                        disabled={loadingPriceId === c.id}
                         style={{
                           width: '100%', marginTop: 4,
-                          background: 'rgba(245,158,11,0.08)',
+                          background: loadingPriceId === c.id ? 'rgba(245,158,11,0.15)' : 'rgba(245,158,11,0.08)',
                           border: '1px dashed rgba(245,158,11,0.4)',
                           color: '#f59e0b', padding: '9px 12px',
                           borderRadius: 10, fontSize: 12,
-                          cursor: 'pointer', fontWeight: 600,
+                          cursor: loadingPriceId === c.id ? 'not-allowed' : 'pointer', fontWeight: 600,
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                         }}
                       >
-                        🔗 Vincular preço da LigaPokemon
+                        {loadingPriceId === c.id ? (
+                          <>
+                            <div style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }}>
+                              <svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="36" cy="36" r="34" fill="#fff" stroke="#f59e0b" strokeWidth="4"/>
+                                <path d="M2 36 Q2 2 36 2 Q70 2 70 36Z" fill="#e53e3e"/>
+                                <rect x="2" y="33" width="68" height="6" fill="#333"/>
+                                <circle cx="36" cy="36" r="10" fill="#fff" stroke="#333" strokeWidth="3"/>
+                              </svg>
+                            </div>
+                            Buscando preço...
+                          </>
+                        ) : (
+                          <>🔗 Vincular preço da LigaPokemon</>
+                        )}
                       </button>
                     )}
                   </div>
