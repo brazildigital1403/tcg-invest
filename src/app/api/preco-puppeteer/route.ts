@@ -89,68 +89,58 @@ export async function GET(req: Request) {
   const rarityMatch = html.match(/Raridade[^<]*<[^>]*>\s*([^<]+)<|Raridade:\s*([^\n<]{2,40})/i)
   const rarity = decodeHtmlEntities((rarityMatch?.[1] || rarityMatch?.[2])?.trim() || '') || null
 
-  // ── STEP 3: Encontra e busca o JS da edição (dados completos) ──────────
-  // O HTML tem um script tag com: new_ed_assoc_tcg_2_ed_{ID}.js
-  const jsUrlMatch = html.match(/https?:\/\/[^"']+new_ed_assoc_tcg_2_ed_(\d+)\.js/i)
-    || html.match(/\/\/[^"']+new_ed_assoc_tcg_2_ed_(\d+)\.js/i)
-    || html.match(/new_ed_assoc_tcg_2_ed_(\d+)\.js/i)
+  // ── STEP 3: Extrai dados diretamente do HTML (cards_stock e cards_editions) ──
+  // Os dados já estão no HTML como variáveis JavaScript inline!
 
   let card_image: string | null = null
   const variantes: Record<string, { min: number|null; medio: number|null; max: number|null }> = {}
 
-  if (jsUrlMatch) {
-    const editionId = jsUrlMatch[1]
-    const jsUrl = `https://www.lmcorp.com.br/arquivos/up/prod_js/new_ed_assoc_tcg_2_ed_${editionId}.js`
-
+  // Extrai cards_editions (imagem real da carta)
+  const editionsMatch = html.match(/var\s+cards_editions\s*=\s*(\[[\s\S]+?\]);/)
+    || html.match(/cards_editions\s*=\s*(\[[\s\S]+?\]);/)
+  if (editionsMatch) {
     try {
-      const jsRes = await fetch(jsUrl, { signal: AbortSignal.timeout(8000) })
-      if (jsRes.ok) {
-        const jsText = await jsRes.text()
+      const editions = JSON.parse(editionsMatch[1])
+      const img = editions[0]?.img
+      if (img) card_image = img.startsWith('//') ? 'https:' + img : img
+    } catch {}
+  }
 
-        // Extrai cards_editions para pegar a imagem
-        const editionsMatch = jsText.match(/cards_editions\s*=\s*(\[[\s\S]+?\]);/)
-        if (editionsMatch) {
-          try {
-            const editions = JSON.parse(editionsMatch[1])
-            const img = editions[0]?.img
-            if (img) card_image = img.startsWith('//') ? 'https:' + img : img
-          } catch {}
+  // Extrai cards_stock (preços por variante)
+  const stockMatch = html.match(/var\s+cards_stock\s*=\s*(\[[\s\S]+?\]);/)
+    || html.match(/cards_stock\s*=\s*(\[[\s\S]+?\]);/)
+  if (stockMatch) {
+    try {
+      const stock: Array<{ extras: number; precoFinal: string }> = JSON.parse(stockMatch[1])
+
+      // Agrupa preços por tipo de extra
+      const byExtra: Record<number, number[]> = {}
+      stock.forEach(s => {
+        const key = s.extras ?? 0
+        if (!byExtra[key]) byExtra[key] = []
+        const price = parsePrice(s.precoFinal)
+        if (price && price > 0) byExtra[key].push(price)
+      })
+
+      // Calcula min/medio/max por tipo
+      Object.entries(byExtra).forEach(([key, prices]) => {
+        const variantName = EXTRAS_MAP[parseInt(key)] || `extra_${key}`
+        prices.sort((a, b) => a - b)
+        const min = prices[0]
+        const max = prices[prices.length - 1]
+        const medio = prices.reduce((a, b) => a + b, 0) / prices.length
+        variantes[variantName] = {
+          min: parseFloat(min.toFixed(2)),
+          medio: parseFloat(medio.toFixed(2)),
+          max: parseFloat(max.toFixed(2))
         }
-
-        // Extrai cards_stock para calcular preços
-        const stockMatch = jsText.match(/cards_stock\s*=\s*(\[[\s\S]+?\]);/)
-        if (stockMatch) {
-          try {
-            const stock: Array<{ extras: number; precoFinal: string; num: string }> = JSON.parse(stockMatch[1])
-
-            // Agrupa por tipo de extra
-            const byExtra: Record<number, number[]> = {}
-            stock.forEach(s => {
-              const key = s.extras ?? 0
-              if (!byExtra[key]) byExtra[key] = []
-              byExtra[key].push(parsePrice(s.precoFinal) || 0)
-            })
-
-            // Calcula min/medio/max por tipo
-            Object.entries(byExtra).forEach(([key, prices]) => {
-              const variantName = EXTRAS_MAP[parseInt(key)] || `extra_${key}`
-              prices.sort((a, b) => a - b)
-              const min = prices[0]
-              const max = prices[prices.length - 1]
-              const medio = prices.reduce((a, b) => a + b, 0) / prices.length
-              variantes[variantName] = {
-                min: parseFloat(min.toFixed(2)),
-                medio: parseFloat(medio.toFixed(2)),
-                max: parseFloat(max.toFixed(2))
-              }
-            })
-          } catch {}
-        }
-      }
+      })
     } catch (e: any) {
-      console.log('JS fetch error:', e.message)
+      console.log('Erro ao parsear cards_stock:', e.message)
     }
   }
+
+  console.log('variantes:', JSON.stringify(variantes))
 
   // Fallback imagem: Pokemon TCG API
   if (!card_image) {
