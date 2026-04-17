@@ -2,11 +2,14 @@
   "crons": [
     {
       "path": "/api/cron-precos",
-      "schedule": "0 3 * * *"
+      "schedule": "0 */6 * * *"
     }
   ],
   "functions": {
     "src/app/api/preco-puppeteer/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron-precos/route.ts": {
       "maxDuration": 60
     }
   }
