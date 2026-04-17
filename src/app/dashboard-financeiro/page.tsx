@@ -97,6 +97,19 @@ export default function DashboardFinanceiro() {
   const [userId, setUserId] = useState<string | null>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [updatingPrice, setUpdatingPrice] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importingMsg, setImportingMsg] = useState('')
+
+  const LOADING_MSGS = [
+    '🔍 Procurando a carta na LigaPokemon...',
+    '⚡ Treinando nossos Pokémon para buscar o preço...',
+    '🎴 Varrendo o mercado TCG brasileiro...',
+    '🌟 Consultando os preços das cartas raras...',
+    '📊 Calculando o valor do seu patrimônio...',
+    '🔮 Prevendo o futuro do mercado Pokémon...',
+    '🏪 Visitando todas as lojas virtuais...',
+    '💰 Analisando os preços Normal, Foil e Promo...',
+  ]
 
   // ── Importar por link ───────────────────────────────────────────────────
 
@@ -112,6 +125,11 @@ export default function DashboardFinanceiro() {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { showAlert('Você precisa estar logado.', 'error'); return }
     let success = 0, fail = 0
+    setImporting(true)
+    setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
+    const msgInterval = setInterval(() => {
+      setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
+    }, 3000)
     for (const url of links) {
       try {
         const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
@@ -140,6 +158,8 @@ export default function DashboardFinanceiro() {
         success++
       } catch { fail++ }
     }
+    clearInterval(msgInterval)
+    setImporting(false)
     showAlert(`Importação concluída! ✓ ${success} carta(s)${fail > 0 ? ` · ${fail} falha(s)` : ''}`, success > 0 ? 'success' : 'error')
     window.location.reload()
   }
@@ -295,6 +315,40 @@ export default function DashboardFinanceiro() {
 
   return (
     <AppLayout>
+      {/* Loading overlay para importação */}
+      {importing && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9998,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24,
+        }}>
+          {/* Pokébola animada */}
+          <div style={{ animation: 'spin 1.2s linear infinite', width: 72, height: 72 }}>
+            <svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="36" cy="36" r="34" fill="#fff" stroke="#222" strokeWidth="3"/>
+              <path d="M2 36 Q2 2 36 2 Q70 2 70 36Z" fill="#e53e3e"/>
+              <rect x="2" y="33" width="68" height="6" fill="#222"/>
+              <circle cx="36" cy="36" r="10" fill="#fff" stroke="#222" strokeWidth="3"/>
+              <circle cx="36" cy="36" r="5" fill="#f0f0f0" stroke="#888" strokeWidth="1.5"/>
+            </svg>
+          </div>
+          <div style={{
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 20, padding: '28px 40px', maxWidth: 420, textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b', marginBottom: 12 }}>
+              Importando carta(s)...
+            </p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
+              {importingMsg}
+            </p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 16 }}>
+              Aguarde, isso pode levar até 10 segundos por carta 🕐
+            </p>
+          </div>
+          <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+        </div>
+      )}
       <style>{`
         @media (max-width: 768px) {
           .dash-hero-btns { flex-direction: column !important; }

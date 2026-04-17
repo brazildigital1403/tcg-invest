@@ -395,8 +395,16 @@ export default function MinhaColecao() {
           background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24,
         }}>
-          {/* Pokébola girando */}
-          <div style={{ fontSize: 64, animation: 'spin 1.5s linear infinite' }}>⚡</div>
+          {/* Pokébola animada */}
+          <div style={{ animation: 'spin 1.2s linear infinite', width: 72, height: 72 }}>
+            <svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="36" cy="36" r="34" fill="#fff" stroke="#222" strokeWidth="3"/>
+              <path d="M2 36 Q2 2 36 2 Q70 2 70 36Z" fill="#e53e3e"/>
+              <rect x="2" y="33" width="68" height="6" fill="#222"/>
+              <circle cx="36" cy="36" r="10" fill="#fff" stroke="#222" strokeWidth="3"/>
+              <circle cx="36" cy="36" r="5" fill="#f0f0f0" stroke="#888" strokeWidth="1.5"/>
+            </svg>
+          </div>
           <div style={{
             background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)',
             borderRadius: 20, padding: '28px 40px', maxWidth: 420, textAlign: 'center',
