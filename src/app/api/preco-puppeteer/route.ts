@@ -32,8 +32,16 @@ function decodeHtmlEntities(str: string): string {
 
 function parsePrice(v: string | number | null | undefined): number | null {
   if (v == null) return null
-  const n = parseFloat(String(v).replace('R$', '').replace(/\./g, '').replace(',', '.').trim())
-  return isNaN(n) ? null : n
+  const s = String(v).trim()
+  const n = parseFloat(s)
+  if (isNaN(n) || n <= 0) return null
+  // LigaPokemon armazena preços em 2 formatos:
+  // "0.17" → já em reais (tem ponto decimal)
+  // "4499" → em centavos (sem ponto decimal) → divide por 100
+  if (!s.includes('.') && !s.includes(',')) {
+    return parseFloat((n / 100).toFixed(2))
+  }
+  return parseFloat(n.toFixed(2))
 }
 
 export async function GET(req: Request) {
