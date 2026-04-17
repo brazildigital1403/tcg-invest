@@ -111,13 +111,12 @@ export default function DashboardFinanceiro() {
     if (!links.length) return
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { showAlert('Você precisa estar logado.', 'error'); return }
-    const { scrapeCardFromBrowser } = await import('@/lib/scraperBrowser')
     let success = 0, fail = 0
     for (const url of links) {
       try {
-        showAlert(`Buscando carta ${success + fail + 1} de ${links.length}...`, 'info')
-        const data = await scrapeCardFromBrowser(url)
-        if ('error' in data || !data?.card_name) { fail++; continue }
+        const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
+        const data = await res.json()
+        if (!data?.card_name) { fail++; continue }
         const match = await matchPokemonApiId(data.card_name, data.card_number)
         const { bloqueado } = await checkCardLimit(userData.user.id)
         if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano! 🚀`, 'warning'); return }
@@ -153,17 +152,20 @@ export default function DashboardFinanceiro() {
     try {
       const found = userCards.find(c => c.card_name === selectedCard)
       if (!found?.card_link) { showAlert('Link da carta não encontrado.', 'error'); setUpdatingPrice(false); return }
-      const { scrapeCardFromBrowser } = await import('@/lib/scraperBrowser')
-      const apiData = await scrapeCardFromBrowser(found.card_link)
-      if ('error' in apiData) { showAlert(apiData.error, 'error'); setUpdatingPrice(false); return }
-      setSelectedCardPrice({ preco_min: apiData.preco_min || 0, preco_medio: apiData.preco_medio || 0, preco_max: apiData.preco_max || 0 })
-      await supabase.from('card_prices').upsert({
-        card_name: selectedCard, preco_min: apiData.preco_min || 0,
-        preco_medio: apiData.preco_medio || 0, preco_max: apiData.preco_max || 0,
-        preco_normal: apiData.preco_normal || 0, preco_foil: apiData.preco_foil || 0,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'card_name' })
-      showAlert('Preço atualizado com sucesso!', 'success')
+      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(found.card_link)}`)
+      const apiData = await res.json()
+      if (apiData?.card_name) {
+        setSelectedCardPrice({ preco_min: apiData.preco_min || 0, preco_medio: apiData.preco_medio || 0, preco_max: apiData.preco_max || 0 })
+        await supabase.from('card_prices').upsert({
+          card_name: selectedCard, preco_min: apiData.preco_min || 0,
+          preco_medio: apiData.preco_medio || 0, preco_max: apiData.preco_max || 0,
+          preco_normal: apiData.preco_normal || 0, preco_foil: apiData.preco_foil || 0,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'card_name' })
+        showAlert('Preço atualizado com sucesso!', 'success')
+      } else {
+        showAlert(apiData?.error || 'Erro ao atualizar preço.', 'error')
+      }
     } catch { showAlert('Erro ao atualizar preço.', 'error') }
     setUpdatingPrice(false)
   }

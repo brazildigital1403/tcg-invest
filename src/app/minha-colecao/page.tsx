@@ -148,18 +148,11 @@ export default function MinhaColecao() {
     if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
 
     try {
-      // Scraping direto no browser do usuário — sem bloqueio do Cloudflare
-      const { scrapeCardFromBrowser } = await import('@/lib/scraperBrowser')
-      showAlert('Buscando dados da carta...', 'info')
-      const data = await scrapeCardFromBrowser(url)
-
-      if ('error' in data) {
-        showAlert(data.error, 'error')
-        return
-      }
+      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
+      const data = await res.json()
 
       if (!data?.card_name) {
-        showAlert('Não foi possível identificar a carta. Verifique o link e tente novamente.', 'error')
+        showAlert(data?.error || 'Não foi possível identificar a carta. Verifique o link e tente novamente.', 'error')
         return
       }
 
@@ -234,17 +227,12 @@ export default function MinhaColecao() {
     if (!url) return
 
     try {
-      const { scrapeCardFromBrowser } = await import('@/lib/scraperBrowser')
-      showAlert('Buscando preço...', 'info')
-      const data = await scrapeCardFromBrowser(url)
-
-      if ('error' in data) {
-        showAlert(data.error, 'error')
-        return
-      }
+      const { authFetch } = await import('@/lib/authFetch')
+      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
+      const data = await res.json()
 
       if (!data?.card_name) {
-        showAlert('Não foi possível importar o preço. Verifique o link.', 'error')
+        showAlert(data?.error || 'Não foi possível importar o preço. Verifique o link.', 'error')
         return
       }
 
