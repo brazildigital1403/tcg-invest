@@ -154,7 +154,7 @@ export default function MinhaColecao() {
   }
 
   async function handleAddByLink() {
-    const url = await showPrompt({ message: 'Cole o link da carta na LigaPokemon:', placeholder: 'https://www.ligapokemon.com.br/?view=cards/card&card=...' })
+    const url = await showPrompt({ message: 'Cole o link da carta na LigaPokemon:', placeholder: 'https://www.ligapokemon.com.br/... ou https://lig.ae/...' })
     if (!url) return
 
     const { data: userData } = await supabase.auth.getUser()

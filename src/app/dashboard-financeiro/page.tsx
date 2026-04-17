@@ -116,7 +116,7 @@ export default function DashboardFinanceiro() {
   async function handleAddByLink() {
     const input = await showPrompt({
       message: 'Cole um ou vários links da LigaPokemon (um por linha):',
-      placeholder: 'https://www.ligapokemon.com.br/?view=cards/card&card=...',
+      placeholder: 'https://www.ligapokemon.com.br/... ou https://lig.ae/...',
       multiline: true,
     })
     if (!input) return
