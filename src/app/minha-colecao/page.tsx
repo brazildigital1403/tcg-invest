@@ -9,6 +9,34 @@ import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 
+const fmt = (v: number | null | undefined) => {
+  if (!v) return 'R$ -'
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+}
+
+function getVariantePrices(price: any, variante: string) {
+  if (!price) return { min: null, medio: null, max: null }
+  switch (variante) {
+    case 'foil':     return { min: price.preco_foil_min,     medio: price.preco_foil_medio,     max: price.preco_foil_max }
+    case 'promo':    return { min: price.preco_promo_min,    medio: price.preco_promo_medio,    max: price.preco_promo_max }
+    case 'reverse':  return { min: price.preco_reverse_min,  medio: price.preco_reverse_medio,  max: price.preco_reverse_max }
+    case 'pokeball': return { min: price.preco_pokeball_min, medio: price.preco_pokeball_medio, max: price.preco_pokeball_max }
+    default:         return { min: price.preco_min,          medio: price.preco_medio,          max: price.preco_max }
+  }
+}
+
+function getVarianteEfetiva(price: any, varianteSalva: string): string {
+  if (!price) return varianteSalva || 'normal'
+  const CAMPOS: Record<string, string> = {
+    normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
+    reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
+  }
+  if (Number(price[CAMPOS[varianteSalva]] || 0) > 0) return varianteSalva
+  for (const [key, campo] of Object.entries(CAMPOS)) {
+    if (Number(price[campo] || 0) > 0) return key
+  }
+  return 'normal'
+}
 
 // Variantes disponíveis — só inclui as que têm preço
 function getVariantesDisponiveis(price: any) {
