@@ -1,17 +1,13 @@
 {
   "crons": [
-    {
-      "path": "/api/cron-precos",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron-notificacoes",
-      "schedule": "0 4 * * *"
-    }
+    { "path": "/api/cron-precos",       "schedule": "0 3 * * *" },
+    { "path": "/api/cron-notificacoes", "schedule": "0 4 * * *" },
+    { "path": "/api/cron-portfolio",    "schedule": "0 5 * * *" }
   ],
   "functions": {
-    "src/app/api/preco-puppeteer/route.ts": { "maxDuration": 60 },
-    "src/app/api/cron-precos/route.ts": { "maxDuration": 60 },
-    "src/app/api/cron-notificacoes/route.ts": { "maxDuration": 60 }
+    "src/app/api/preco-puppeteer/route.ts":   { "maxDuration": 60 },
+    "src/app/api/cron-precos/route.ts":       { "maxDuration": 60 },
+    "src/app/api/cron-notificacoes/route.ts": { "maxDuration": 60 },
+    "src/app/api/cron-portfolio/route.ts":    { "maxDuration": 60 }
   }
 }

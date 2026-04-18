@@ -45,6 +45,7 @@ export default function PerfilPage() {
   const [listings, setListings]   = useState<any[]>([])
   const [showcase, setShowcase]   = useState<any[]>([])
   const [patrimonio, setPatrimonio] = useState(0)
+  const [portfolioHistory, setPortfolioHistory] = useState<any[]>([])
   const [stats, setStats]         = useState({ cartas: 0, anuncios: 0, vendas: 0 })
   const [loading, setLoading]     = useState(true)
   const [notFound, setNotFound]   = useState(false)
@@ -126,6 +127,15 @@ export default function PerfilPage() {
         vendas: (vendas || []).length,
       })
 
+      // Histórico de patrimônio
+      const { data: history } = await supabase
+        .from('portfolio_history')
+        .select('valor, recorded_at')
+        .eq('user_id', userData.id)
+        .order('recorded_at', { ascending: true })
+        .limit(60)
+      setPortfolioHistory(history || [])
+
       setLoading(false)
     }
     load()
@@ -188,6 +198,63 @@ export default function PerfilPage() {
             </div>
           )}
         </div>
+
+        {/* ── PATRIMÔNIO HISTÓRICO ── */}
+        {portfolioHistory.length >= 2 && (() => {
+          const values = portfolioHistory.map(h => Number(h.valor))
+          const minVal = Math.min(...values)
+          const maxVal = Math.max(...values)
+          const range = maxVal - minVal || 1
+          const W = 600, H = 120, PAD = 16
+          const points = values.map((v, i) => {
+            const x = PAD + (i / (values.length - 1)) * (W - PAD * 2)
+            const y = H - PAD - ((v - minVal) / range) * (H - PAD * 2)
+            return `${x},${y}`
+          }).join(' ')
+          const first = values[0], last = values[values.length - 1]
+          const variacao = first > 0 ? ((last - first) / first) * 100 : 0
+          const cor = variacao >= 0 ? '#22c55e' : '#ef4444'
+          const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+          return (
+            <div style={{ ...SURFACE, padding: '20px 24px', marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>📈 Histórico do Patrimônio</p>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: '#f0f0f0', letterSpacing: '-0.02em' }}>{fmt(last)}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: variacao >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', color: cor }}>
+                    {variacao >= 0 ? '▲' : '▼'} {Math.abs(variacao).toFixed(1)}% no período
+                  </span>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>
+                    {fmtDate(portfolioHistory[0].recorded_at)} → {fmtDate(portfolioHistory[portfolioHistory.length - 1].recorded_at)}
+                  </p>
+                </div>
+              </div>
+              <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+                <defs>
+                  <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={cor} stopOpacity="0.25" />
+                    <stop offset="100%" stopColor={cor} stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+                {/* Área preenchida */}
+                <polygon
+                  points={`${PAD},${H - PAD} ${points} ${W - PAD},${H - PAD}`}
+                  fill="url(#pg)"
+                />
+                {/* Linha */}
+                <polyline points={points} fill="none" stroke={cor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                {/* Ponto final */}
+                {(() => {
+                  const last = points.split(' ').pop()!
+                  const [lx, ly] = last.split(',').map(Number)
+                  return <circle cx={lx} cy={ly} r="5" fill={cor} stroke="#080a0f" strokeWidth="2" />
+                })()}
+              </svg>
+            </div>
+          )
+        })()}
 
         {/* ── STATS ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 32 }}>
