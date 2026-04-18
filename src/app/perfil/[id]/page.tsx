@@ -52,12 +52,19 @@ export default function PerfilPage() {
   useEffect(() => {
     if (!id) return
     async function load() {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, name, city, whatsapp, created_at')
-        .eq('id', id).single()
+      // Suporta username OU UUID
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      const query = supabase.from('users').select('id, name, city, whatsapp, created_at, username')
+      const { data: userData } = isUUID
+        ? await query.eq('id', id).single()
+        : await query.eq('username', id).single()
 
       if (!userData) { setNotFound(true); setLoading(false); return }
+
+      // Redireciona UUID → username se disponível (no browser)
+      if (isUUID && userData.username && typeof window !== 'undefined') {
+        window.history.replaceState(null, '', `/perfil/${userData.username}`)
+      }
       setUser(userData)
 
       // Anúncios ativos

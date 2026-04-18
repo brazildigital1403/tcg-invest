@@ -97,6 +97,7 @@ export default function MinhaConta() {
 
   // Campos editáveis
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   const [city, setCity] = useState('')
 
@@ -119,6 +120,7 @@ export default function MinhaConta() {
       if (profile) {
         setUserData(profile)
         setName(profile.name || '')
+        setUsername(profile.username || '')
         setWhatsapp(profile.whatsapp || '')
         setCity(profile.city || '')
       }
@@ -176,10 +178,27 @@ export default function MinhaConta() {
       return
     }
 
+    // Valida username
+    const uSlug = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+    if (uSlug.length < 3) {
+      showAlert('Username deve ter pelo menos 3 caracteres (letras, números e _).', 'error')
+      return
+    }
+
     setSaving(true)
+
+    // Verifica se username já está em uso por outro usuário
+    const { data: existing } = await supabase
+      .from('users').select('id').eq('username', uSlug).neq('id', user.id).single()
+    if (existing) {
+      setSaving(false)
+      showAlert('Este username já está em uso. Escolha outro.', 'error')
+      return
+    }
+
     const { error } = await supabase
       .from('users')
-      .update({ name, whatsapp, city })
+      .update({ name, whatsapp, city, username: uSlug })
       .eq('id', user.id)
 
     setSaving(false)
@@ -187,7 +206,8 @@ export default function MinhaConta() {
     if (error) {
       showAlert('Erro ao salvar. Tente novamente.', 'error')
     } else {
-      setUserData((prev: any) => ({ ...prev, name, whatsapp, city }))
+      setUsername(uSlug)
+      setUserData((prev: any) => ({ ...prev, name, whatsapp, city, username: uSlug }))
       showAlert('Dados atualizados com sucesso!', 'success')
     }
   }
@@ -291,7 +311,7 @@ export default function MinhaConta() {
             <button
               onClick={() => {
                 if (planoFree) { showAlert('O Perfil Público é exclusivo do plano Pro. Faça upgrade para compartilhar sua coleção! 🚀', 'warning'); return }
-                const url = `${window.location.origin}/perfil/${user?.id}`
+                const url = `${window.location.origin}/perfil/${userData?.username || user?.id}`
                 navigator.clipboard?.writeText(url)
                   .then(() => showAlert('Link do perfil copiado! 🔗', 'success'))
                   .catch(() => showAlert(url, 'info'))
@@ -320,6 +340,28 @@ export default function MinhaConta() {
                 onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
+            </div>
+
+            {/* Username */}
+            <div>
+              <label style={LABEL}>Username <span style={{ color: 'rgba(255,255,255,0.25)', textTransform: 'none', fontSize: 11 }}>— URL do seu perfil público</span></label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}>bynx.gg/perfil/</span>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  placeholder="seuusername"
+                  style={{ ...INPUT, paddingLeft: 130 }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </div>
+              {username && (
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+                  Seu perfil ficará em: <span style={{ color: '#f59e0b' }}>bynx.gg/perfil/{username}</span>
+                </p>
+              )}
             </div>
 
             {/* Cidade + WhatsApp */}
