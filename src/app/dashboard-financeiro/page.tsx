@@ -99,6 +99,7 @@ export default function DashboardFinanceiro() {
   const [updatingPrice, setUpdatingPrice] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importingMsg, setImportingMsg] = useState('')
+  const [cardSortOrder, setCardSortOrder] = useState<'alpha' | 'recent'>('alpha')
   const [showImportModal, setShowImportModal] = useState(false)
   const [importLinks, setImportLinks] = useState('')
   const MAX_LINKS = 20
@@ -189,17 +190,63 @@ export default function DashboardFinanceiro() {
     setUpdatingPrice(true)
     try {
       const found = userCards.find(c => c.card_name === selectedCard)
-      if (!found?.card_link) { showAlert('Link da carta não encontrado.', 'error'); setUpdatingPrice(false); return }
-      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(found.card_link)}`)
+
+      // Se não tem link, pede pro usuário colar
+      let link = found?.card_link
+      if (!link) {
+        setUpdatingPrice(false)
+        const input = await showPrompt({
+          message: `Cole o link da LigaPokemon para "${selectedCard}":`,
+          placeholder: 'https://www.ligapokemon.com.br/... ou https://lig.ae/...',
+        })
+        if (!input) return
+        link = input
+        setUpdatingPrice(true)
+      }
+
+      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(link)}`)
       const apiData = await res.json()
+
       if (apiData?.card_name) {
-        setSelectedCardPrice({ preco_min: apiData.preco_min || 0, preco_medio: apiData.preco_medio || 0, preco_max: apiData.preco_max || 0 })
+        const v = apiData.variantes || {}
+        const n = v.normal || {}
+        const f = v.foil || {}
+        const p = v.promo || {}
+        const r = v.reverse || {}
+        const pb = v.pokeball || {}
+
+        // Atualiza preço exibido
+        setSelectedCardPrice({
+          preco_min: n.min || 0,
+          preco_medio: n.medio || 0,
+          preco_max: n.max || 0
+        })
+
+        // Salva todas as variantes no banco
         await supabase.from('card_prices').upsert({
-          card_name: selectedCard, preco_min: apiData.preco_min || 0,
-          preco_medio: apiData.preco_medio || 0, preco_max: apiData.preco_max || 0,
-          preco_normal: apiData.preco_normal || 0, preco_foil: apiData.preco_foil || 0,
+          card_name: selectedCard,
+          preco_min: n.min || 0, preco_medio: n.medio || 0, preco_max: n.max || 0,
+          preco_normal: n.medio || 0, preco_foil: f.medio || 0,
+          preco_foil_min: f.min || null, preco_foil_medio: f.medio || null, preco_foil_max: f.max || null,
+          preco_promo_min: p.min || null, preco_promo_medio: p.medio || null, preco_promo_max: p.max || null,
+          preco_reverse_min: r.min || null, preco_reverse_medio: r.medio || null, preco_reverse_max: r.max || null,
+          preco_pokeball_min: pb.min || null, preco_pokeball_medio: pb.medio || null, preco_pokeball_max: pb.max || null,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'card_name' })
+
+        // Salva histórico
+        await supabase.from('card_price_history').insert({
+          card_name: selectedCard,
+          preco_min: n.min || null, preco_medio: n.medio || null, preco_max: n.max || null,
+          preco_normal: n.medio || null, preco_foil: f.medio || null,
+          recorded_at: new Date().toISOString(),
+        })
+
+        // Atualiza link se foi digitado agora
+        if (!found?.card_link && link) {
+          await supabase.from('user_cards').update({ card_link: link }).eq('card_name', selectedCard)
+        }
+
         showAlert('Preço atualizado com sucesso!', 'success')
       } else {
         showAlert(apiData?.error || 'Erro ao atualizar preço.', 'error')
@@ -257,19 +304,31 @@ export default function DashboardFinanceiro() {
           const priceMap: any = {}
           ;(prices || []).forEach(p => { priceMap[p.card_name?.trim()] = p })
           if (prices && prices.length > 0) {
-            const enriched = await Promise.all(prices.map(async p => ({ ...p, variation: await getCardVariation(p.card_name) })))
-            enriched.sort((a, b) => (b.preco_medio || 0) - (a.preco_medio || 0))
+            const enriched = await Promise.all(prices.map(async p => {
+              // Pega a variante salva do user_cards para esta carta
+              const card = (cards || []).find(c => c.card_name?.trim() === p.card_name?.trim())
+              const variante = card?.variante || 'normal'
+              // Calcula o preço correto para a variante
+              const precoVariante =
+                variante === 'foil'     ? (p.preco_foil_medio || p.preco_medio || 0)
+                : variante === 'promo'   ? (p.preco_promo_medio || p.preco_medio || 0)
+                : variante === 'reverse' ? (p.preco_reverse_medio || p.preco_medio || 0)
+                : variante === 'pokeball' ? (p.preco_pokeball_medio || p.preco_medio || 0)
+                : (p.preco_medio || 0)
+              return {
+                ...p,
+                variante,
+                precoVariante: Number(precoVariante),
+                variation: await getCardVariation(p.card_name)
+              }
+            }))
+            // Ordena pelo preço da variante correta
+            enriched.sort((a, b) => b.precoVariante - a.precoVariante)
             setRankingWithVariation(enriched)
           }
-          for (const card of cards || []) {
-            const p = priceMap[card.card_name?.trim()]
-            if (!p) continue
-            const variante = card.variante || 'normal'
-            if (variante === 'foil')         valorTotal += Number(p.preco_foil_medio || p.preco_medio || 0)
-            else if (variante === 'promo')   valorTotal += Number(p.preco_promo_medio || p.preco_medio || 0)
-            else if (variante === 'reverse') valorTotal += Number(p.preco_reverse_medio || p.preco_medio || 0)
-            else                             valorTotal += Number(p.preco_medio || 0)
-          }
+          const { calcPatrimonio } = await import('@/lib/calcPatrimonio')
+          const totaisCalc = calcPatrimonio(cards || [], priceMap)
+          valorTotal = totaisCalc.medio
         }
         setStats({ totalCompras: compras, totalVendas: vendas, quantidade: cards?.length || 0, valorColecao: valorTotal })
 
@@ -529,14 +588,101 @@ export default function DashboardFinanceiro() {
             <div style={{ ...SURFACE, padding: 24, marginBottom: 16 }}>
               <div style={{ marginBottom: 16 }}>
                 <SectionTitle>📈 Histórico de preço</SectionTitle>
-                <select
-                  value={selectedCard || ''}
-                  onChange={e => setSelectedCard(e.target.value)}
-                  style={{ width: '100%', marginTop: 10, fontSize: 13, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 12px', color: '#fff', cursor: 'pointer', boxSizing: 'border-box' as const }}
-                >
-                  {userCards.length === 0 && <option value="">Nenhuma carta</option>}
-                  {userCards.map(c => <option key={c.id} value={c.card_name}>{c.card_name}</option>)}
-                </select>
+
+                {/* Filtros de ordenação */}
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, marginBottom: 10 }}>
+                  {(['alpha', 'recent'] as const).map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setCardSortOrder(opt)}
+                      style={{
+                        fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none',
+                        background: cardSortOrder === opt ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.06)',
+                        color: cardSortOrder === opt ? '#f59e0b' : 'rgba(255,255,255,0.4)',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {opt === 'alpha' ? '↑ Alfabética' : '🕐 Mais recente'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Label */}
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Selecione sua carta
+                </p>
+
+                {/* Lista de cartas — uma por linha */}
+                <div style={{ maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2 }}>
+                  {userCards.length === 0 && (
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Nenhuma carta na coleção</p>
+                  )}
+                  {[...userCards]
+                    .sort((a, b) => cardSortOrder === 'alpha'
+                      ? a.card_name.localeCompare(b.card_name)
+                      : new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+                    )
+                    .map(c => {
+                      const isSelected = selectedCard === c.card_name
+                      const varLabels: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
+                      const vLabel = varLabels[c.variante || 'normal'] || 'Normal'
+                      const varColors: Record<string, string> = { normal: '#60a5fa', foil: '#f59e0b', promo: '#a78bfa', reverse: '#34d399', pokeball: '#fb923c' }
+                      const vColor = varColors[c.variante || 'normal'] || '#60a5fa'
+                      // Extrai número da carta do nome (ex: "Charizard (4/102)" → "4/102")
+                      const numMatch = c.card_name.match(/\(([^)]+)\)/)
+                      const cardNum = numMatch?.[1] || ''
+                      const cardBaseName = c.card_name.replace(/\s*\([^)]*\)/, '').trim()
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => setSelectedCard(c.card_name)}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            width: '100%', padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                            border: isSelected ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            background: isSelected ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)',
+                            transition: 'all 0.15s', textAlign: 'left',
+                          }}
+                        >
+                          {/* Coluna esquerda: Nome + Número + Badge variante */}
+                          <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                            <p style={{
+                              fontSize: 13, fontWeight: isSelected ? 700 : 500,
+                              color: isSelected ? '#f0f0f0' : 'rgba(255,255,255,0.75)',
+                              marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            }}>
+                              {cardBaseName}
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {cardNum && (
+                                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>#{cardNum}</span>
+                              )}
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
+                                background: `${vColor}18`, color: vColor, border: `1px solid ${vColor}40`,
+                              }}>{vLabel}</span>
+                            </div>
+                          </div>
+
+                          {/* Coluna direita: Imagem da carta */}
+                          <div style={{ position: 'relative', flexShrink: 0 }}>
+                            {c.card_image ? (
+                              <img
+                                src={c.card_image}
+                                alt={c.card_name}
+                                style={{ width: 36, height: 50, objectFit: 'cover', borderRadius: 5, display: 'block', border: isSelected ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(255,255,255,0.1)' }}
+                              />
+                            ) : (
+                              <div style={{ width: 36, height: 50, borderRadius: 5, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🃏</div>
+                            )}
+                            {isSelected && (
+                              <div style={{ position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: '50%', background: '#f59e0b', border: '2px solid #0f1117' }} />
+                            )}
+                          </div>
+                        </button>
+                      )
+                  })}
+                </div>
               </div>
 
               {/* Carta selecionada */}
@@ -551,13 +697,32 @@ export default function DashboardFinanceiro() {
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedCard}</p>
-                      {selectedCardPrice ? (
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                          <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(selectedCardPrice.preco_min)}</p></div>
-                          <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(selectedCardPrice.preco_medio)}</p></div>
-                          <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(selectedCardPrice.preco_max)}</p></div>
-                        </div>
-                      ) : (
+                      {selectedCardPrice ? (() => {
+                        // Usa a variante salva no user_cards para esta carta
+                        const cardVariante = userCards.find(c => c.card_name === selectedCard)?.variante || 'normal'
+                        const variantLabel: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
+                        const precos = cardVariante === 'foil'
+                          ? { min: selectedCardPrice.preco_foil_min, medio: selectedCardPrice.preco_foil_medio, max: selectedCardPrice.preco_foil_max }
+                          : cardVariante === 'promo'
+                          ? { min: selectedCardPrice.preco_promo_min, medio: selectedCardPrice.preco_promo_medio, max: selectedCardPrice.preco_promo_max }
+                          : cardVariante === 'reverse'
+                          ? { min: selectedCardPrice.preco_reverse_min, medio: selectedCardPrice.preco_reverse_medio, max: selectedCardPrice.preco_reverse_max }
+                          : cardVariante === 'pokeball'
+                          ? { min: selectedCardPrice.preco_pokeball_min, medio: selectedCardPrice.preco_pokeball_medio, max: selectedCardPrice.preco_pokeball_max }
+                          : { min: selectedCardPrice.preco_min, medio: selectedCardPrice.preco_medio, max: selectedCardPrice.preco_max }
+                        return (
+                          <>
+                            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>
+                              Variante: <strong style={{ color: '#f59e0b' }}>{variantLabel[cardVariante] || cardVariante}</strong>
+                            </p>
+                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                              <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(precos.min)}</p></div>
+                              <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(precos.medio)}</p></div>
+                              <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(precos.max)}</p></div>
+                            </div>
+                          </>
+                        )
+                      })() : (
                         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Sem dados — clique em Atualizar</p>
                       )}
                     </div>
@@ -653,14 +818,21 @@ export default function DashboardFinanceiro() {
                 </>
               ) : (
                 rankingWithVariation.slice(0, 8).map((r, i) => {
-                  const price = Number(r.preco_medio || r.price || 0)
+                  const price = r.precoVariante || 0
+                  const varLabels: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball' }
+                  const varColors: Record<string, string> = { normal: '#60a5fa', foil: '#f59e0b', promo: '#a78bfa', reverse: '#34d399', pokeball: '#fb923c' }
+                  const vLabel = varLabels[r.variante || 'normal'] || 'Normal'
+                  const vColor = varColors[r.variante || 'normal'] || '#60a5fa'
                   return (
                     <div key={r.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: i === 0 ? '#f59e0b' : 'rgba(255,255,255,0.2)', minWidth: 20 }}>#{i + 1}</span>
-                        <p style={{ fontSize: 13, color: '#f0f0f0' }}>{r.card_name}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: i === 0 ? '#f59e0b' : 'rgba(255,255,255,0.2)', minWidth: 20, flexShrink: 0 }}>#{i + 1}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: 13, color: '#f0f0f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.card_name}</p>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: `${vColor}18`, color: vColor, border: `1px solid ${vColor}40` }}>{vLabel}</span>
+                        </div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
+                      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
                         <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>{fmt(price)}</p>
                         {r.variation !== 0 && (
                           <p style={{ fontSize: 10, color: r.variation >= 0 ? '#22c55e' : '#ef4444' }}>

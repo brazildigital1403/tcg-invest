@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient'
 
 export async function criarNotificacao(
   userId: string,
-  type: 'interesse' | 'enviado' | 'recebido' | 'avaliacao' | 'cancelado',
+  type: 'interesse' | 'enviado' | 'recebido' | 'avaliacao' | 'cancelado' | 'valorizacao' | 'desvalorizacao',
   title: string,
   message: string,
   data?: Record<string, any>

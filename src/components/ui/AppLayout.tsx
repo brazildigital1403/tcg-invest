@@ -32,26 +32,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const { data: authData } = await supabase.auth.getUser()
       if (!authData.user) return
       const { data: cards } = await supabase
-        .from('user_cards').select('card_name, variante').eq('user_id', authData.user.id)
+        .from('user_cards').select('card_name, variante, quantity').eq('user_id', authData.user.id)
       if (!cards || cards.length === 0) { setPatrimonio(0); return }
       const names = cards.map((c: any) => c.card_name?.trim()).filter(Boolean)
       const { data: prices } = await supabase
         .from('card_prices')
-        .select('card_name, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio')
+        .select('card_name, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max')
         .in('card_name', names)
       const priceMap: Record<string, any> = {}
       prices?.forEach((p: any) => { priceMap[p.card_name?.trim()] = p })
-      let total = 0
-      for (const card of cards) {
-        const p = priceMap[card.card_name?.trim()]
-        if (!p) continue
-        const v = card.variante || 'normal'
-        if (v === 'foil')         total += Number(p.preco_foil_medio    || p.preco_medio || 0)
-        else if (v === 'promo')   total += Number(p.preco_promo_medio   || p.preco_medio || 0)
-        else if (v === 'reverse') total += Number(p.preco_reverse_medio || p.preco_medio || 0)
-        else                      total += Number(p.preco_medio || 0)
-      }
-      setPatrimonio(total)
+      const { calcPatrimonio } = await import('@/lib/calcPatrimonio')
+      const totais = calcPatrimonio(cards, priceMap)
+      setPatrimonio(totais.medio)
 
       // Carrega notificações não lidas
       const { data: notifsData } = await supabase
@@ -280,19 +272,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <div style={{ maxHeight: 360, overflowY: 'auto' }}>
                     {notifs.length === 0 ? (
                       <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
-                        <p style={{ fontSize: 24, marginBottom: 8 }}>🔔</p>
+                        <p style={{ fontSize: 28, marginBottom: 8 }}>🔔</p>
                         <p style={{ fontSize: 13 }}>Nenhuma notificação</p>
+                        <p style={{ fontSize: 11, marginTop: 4, color: 'rgba(255,255,255,0.2)' }}>Avisamos quando suas cartas variarem ±10%</p>
                       </div>
                     ) : (
-                      notifs.map(n => (
-                        <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(245,158,11,0.03)' }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{n.title}</p>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>{n.message}</p>
-                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
-                            {new Date(n.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                      ))
+                      notifs.map(n => {
+                        const subiu = n.type === 'valorizacao'
+                        const color = subiu ? '#22c55e' : '#ef4444'
+                        const bg = subiu ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)'
+                        const icon = subiu ? '▲' : '▼'
+                        return (
+                          <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: bg, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                            <span style={{ fontSize: 16, color, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</p>
+                              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>{n.message}</p>
+                              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 4 }}>
+                                {new Date(n.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        )
+                      })
                     )}
                   </div>
                 </div>

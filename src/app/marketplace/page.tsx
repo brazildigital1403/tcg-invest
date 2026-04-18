@@ -149,7 +149,14 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
     }}>
       {/* Imagem */}
       <div style={{ position: 'relative' }}>
-        <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+        {card.card_image ? (
+          <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden') }}
+          />
+        ) : null}
+        <div hidden={!!card.card_image} style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: card.card_image ? 'absolute' : 'relative', inset: 0 }}>
+          <span style={{ fontSize: 40 }}>🃏</span>
+        </div>
 
         {/* Status badge */}
         <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: st.bg, color: st.color, backdropFilter: 'blur(4px)' }}>
@@ -192,6 +199,17 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
             <button onClick={handleInteresse} style={{ background: BRAND, border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
               🤝 Tenho interesse
             </button>
+          )}
+
+          {/* WhatsApp do vendedor — aparece após demonstrar interesse */}
+          {isBuyer && card.seller_whatsapp && (card.status === 'reservado' || card.status === 'em_negociacao') && (
+            <a
+              href={`https://wa.me/55${card.seller_whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(`Olá! Tenho interesse na carta ${card.card_name} anunciada no Bynx por ${fmt(card.price)}.`)}`}
+              target="_blank" rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
+            >
+              📱 Contato via WhatsApp
+            </a>
           )}
 
           {/* Comprador: aguardando */}
@@ -249,6 +267,7 @@ export default function Marketplace() {
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroCondicao, setFiltroCondicao] = useState('')
   const [busca, setBusca]       = useState('')
+  const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior'>('recente')
 
   async function loadData() {
     setLoading(true)
@@ -342,6 +361,10 @@ export default function Marketplace() {
     if (filtroCondicao && c.condicao !== filtroCondicao) return false
     if (busca && !c.card_name.toLowerCase().includes(busca.toLowerCase())) return false
     return true
+  }).sort((a, b) => {
+    if (ordenacao === 'menor') return (a.price || 0) - (b.price || 0)
+    if (ordenacao === 'maior') return (b.price || 0) - (a.price || 0)
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   })
 
   const meusAnuncios = listings.filter(c => c.user_id === userId)
@@ -424,6 +447,20 @@ export default function Marketplace() {
                   {f.opts.map(([v, l]) => <option key={v} value={v} style={{ background: '#0d0f14' }}>{l}</option>)}
                 </select>
               ))}
+
+              {/* Ordenação */}
+              <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                {([['recente', '🕐 Recente'], ['menor', '↑ Menor preço'], ['maior', '↓ Maior preço']] as const).map(([key, label]) => (
+                  <button key={key} onClick={() => setOrdenacao(key)}
+                    style={{ fontSize: 11, fontWeight: 600, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', border: 'none', fontFamily: 'inherit',
+                      background: ordenacao === key ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
+                      color: ordenacao === key ? '#f59e0b' : 'rgba(255,255,255,0.4)',
+                      outline: ordenacao === key ? '1px solid rgba(245,158,11,0.3)' : 'none',
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {loading ? (

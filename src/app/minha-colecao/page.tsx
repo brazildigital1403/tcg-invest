@@ -8,37 +8,19 @@ import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { getVarianteEfetiva, getPrecoVariante as getVariantePrices } from '@/lib/calcPatrimonio'
 
-const fmt = (v: number | null | undefined) => {
-  if (!v) return 'R$ -'
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
-}
-
-// Retorna os preços da variante selecionada pelo usuário
-function getVariantePrices(price: any, variante: string) {
-  if (!price) return { min: null, medio: null, max: null }
-  switch (variante) {
-    case 'foil':
-      return { min: price.preco_foil_min, medio: price.preco_foil_medio, max: price.preco_foil_max }
-    case 'promo':
-      return { min: price.preco_promo_min, medio: price.preco_promo_medio, max: price.preco_promo_max }
-    case 'reverse':
-      return { min: price.preco_reverse_min, medio: price.preco_reverse_medio, max: price.preco_reverse_max }
-    case 'pokeball':
-      return { min: price.preco_pokeball_min, medio: price.preco_pokeball_medio, max: price.preco_pokeball_max }
-    default:
-      return { min: price.preco_min, medio: price.preco_medio, max: price.preco_max }
-  }
-}
-
-// Variantes disponíveis para uma carta com base nos preços que existem
+// Variantes disponíveis — só inclui as que têm preço
 function getVariantesDisponiveis(price: any) {
   if (!price) return [{ key: 'normal', label: 'Normal' }]
-  const opts = [{ key: 'normal', label: 'Normal' }]
-  if (price.preco_foil_medio) opts.push({ key: 'foil', label: 'Foil' })
-  if (price.preco_promo_medio) opts.push({ key: 'promo', label: 'Promo' })
-  if (price.preco_reverse_medio) opts.push({ key: 'reverse', label: 'Reverse Foil' })
+  const opts = []
+  if (price.preco_medio)          opts.push({ key: 'normal',   label: 'Normal' })
+  if (price.preco_foil_medio)     opts.push({ key: 'foil',     label: 'Foil' })
+  if (price.preco_promo_medio)    opts.push({ key: 'promo',    label: 'Promo' })
+  if (price.preco_reverse_medio)  opts.push({ key: 'reverse',  label: 'Reverse Foil' })
   if (price.preco_pokeball_medio) opts.push({ key: 'pokeball', label: 'Pokeball Foil' })
+  // Garante pelo menos uma opção
+  if (opts.length === 0) opts.push({ key: 'normal', label: 'Normal' })
   return opts
 }
 
@@ -75,19 +57,22 @@ export default function MinhaColecao() {
 
   function handleExportCSV() {
     if (isPro) {
-      // Exporta CSV completo
       const rows = [
-        ['Nome', 'Variante', 'Raridade', 'Qtd', 'Preço Mín', 'Preço Médio', 'Preço Máx', 'Link'],
+        ['Nome', 'Número', 'Variante', 'Raridade', 'Qtd', 'Preço Mín', 'Preço Médio', 'Preço Máx', 'Link'],
         ...cards.map(c => {
-          const variante = c.variante || 'normal'
+          const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
           const p = c.price
           const precos = !p ? { min: '', medio: '', max: '' }
-            : variante === 'foil' ? { min: p.preco_foil_min || '', medio: p.preco_foil_medio || '', max: p.preco_foil_max || '' }
-            : variante === 'promo' ? { min: p.preco_promo_min || '', medio: p.preco_promo_medio || '', max: p.preco_promo_max || '' }
+            : variante === 'foil'     ? { min: p.preco_foil_min || '', medio: p.preco_foil_medio || '', max: p.preco_foil_max || '' }
+            : variante === 'promo'    ? { min: p.preco_promo_min || '', medio: p.preco_promo_medio || '', max: p.preco_promo_max || '' }
+            : variante === 'reverse'  ? { min: p.preco_reverse_min || '', medio: p.preco_reverse_medio || '', max: p.preco_reverse_max || '' }
+            : variante === 'pokeball' ? { min: p.preco_pokeball_min || '', medio: p.preco_pokeball_medio || '', max: p.preco_pokeball_max || '' }
             : { min: p.preco_min || '', medio: p.preco_medio || '', max: p.preco_max || '' }
+          const numMatch = c.card_name?.match(/\(([^)]+)\)/)
           return [
-            c.card_name || '',
-            variante,
+            c.card_name?.replace(/\s*\([^)]*\)/, '').trim() || '',
+            numMatch?.[1] || '',
+            variante.charAt(0).toUpperCase() + variante.slice(1),
             c.rarity || '',
             c.quantity || 1,
             precos.min,
@@ -97,17 +82,147 @@ export default function MinhaColecao() {
           ]
         })
       ]
-      const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+      const csv = '\uFEFF' + rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n')
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `minha-colecao-${new Date().toISOString().slice(0,10)}.csv`
+      a.download = `bynx-colecao-${new Date().toISOString().slice(0,10)}.csv`
       a.click()
       URL.revokeObjectURL(url)
     } else {
       showAlert('Exportar CSV é exclusivo do plano Pro. Faça upgrade para R$ 19,90/mês ou R$ 179/ano! 🚀', 'warning')
     }
+  }
+
+  function handleExportPDF() {
+    if (!isPro) {
+      showAlert('Exportar PDF é exclusivo do plano Pro. Faça upgrade para R$ 19,90/mês ou R$ 179/ano! 🚀', 'warning')
+      return
+    }
+    const totalMedio = totais.medio
+    const date = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+    const variantLabel: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
+
+    const rows = cards.map(c => {
+      const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
+      const p = c.price
+      const medio = !p ? 0
+        : variante === 'foil'     ? (p.preco_foil_medio || 0)
+        : variante === 'promo'    ? (p.preco_promo_medio || 0)
+        : variante === 'reverse'  ? (p.preco_reverse_medio || 0)
+        : variante === 'pokeball' ? (p.preco_pokeball_medio || 0)
+        : (p.preco_medio || 0)
+      const total = medio * (c.quantity || 1)
+      return { name: c.card_name || '', variante, rarity: c.rarity || '—', qty: c.quantity || 1, medio, total, image: c.card_image }
+    }).sort((a, b) => b.total - a.total)
+
+    const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Bynx — Minha Coleção</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; color: #111; padding: 40px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 3px solid #f59e0b; }
+  .title { font-size: 28px; font-weight: 900; color: #111; letter-spacing: -0.03em; }
+  .subtitle { font-size: 13px; color: #888; margin-top: 4px; }
+  .stats { display: flex; gap: 24px; margin-bottom: 28px; }
+  .stat { background: #f9f9f9; border-radius: 10px; padding: 14px 20px; border: 1px solid #eee; }
+  .stat-label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+  .stat-value { font-size: 20px; font-weight: 800; color: #f59e0b; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #111; color: #fff; padding: 10px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
+  th:last-child, td:last-child { text-align: right; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .card-img { width: 28px; height: 39px; object-fit: cover; border-radius: 3px; vertical-align: middle; margin-right: 8px; }
+  .badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 10px; background: #f59e0b22; color: #b45309; }
+  .footer { margin-top: 32px; text-align: center; font-size: 10px; color: #bbb; border-top: 1px solid #eee; padding-top: 16px; }
+  .total-row td { font-weight: 800; background: #f9f9f9; border-top: 2px solid #111; }
+  @media print { body { padding: 20px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="title">🎴 Bynx</div>
+    <div class="subtitle">Relatório da Coleção Pokémon TCG · ${date}</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:22px;font-weight:900;color:#f59e0b">${fmtBRL(totalMedio)}</div>
+    <div style="font-size:11px;color:#888">Patrimônio estimado (médio)</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-label">Total de cartas</div>
+    <div class="stat-value">${cards.reduce((a, c) => a + (c.quantity || 1), 0)}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Tipos únicos</div>
+    <div class="stat-value">${cards.length}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Mais valiosa</div>
+    <div class="stat-value" style="font-size:13px">${rows[0]?.name?.replace(/\s*\([^)]*\)/, '') || '—'}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Valor mínimo</div>
+    <div class="stat-value">${fmtBRL(totais.min)}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Valor máximo</div>
+    <div class="stat-value">${fmtBRL(totais.max)}</div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th colspan="2">Carta</th>
+      <th>Variante</th>
+      <th>Raridade</th>
+      <th>Qtd</th>
+      <th>Preço Médio</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rows.map(r => `
+    <tr>
+      <td style="width:36px;padding-right:0">
+        ${r.image ? `<img src="${r.image}" class="card-img" />` : '<span style="font-size:20px">🃏</span>'}
+      </td>
+      <td style="font-weight:600">${r.name}</td>
+      <td><span class="badge">${variantLabel[r.variante] || r.variante}</span></td>
+      <td style="color:#888">${r.rarity}</td>
+      <td style="text-align:center">${r.qty}</td>
+      <td style="text-align:right">${r.medio > 0 ? fmtBRL(r.medio) : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:${r.total > 0 ? '#111' : '#ccc'}">${r.total > 0 ? fmtBRL(r.total) : '—'}</td>
+    </tr>`).join('')}
+    <tr class="total-row">
+      <td colspan="5">Total da coleção</td>
+      <td></td>
+      <td>${fmtBRL(totalMedio)}</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="footer">Gerado pelo Bynx · bynx.gg · ${date}</div>
+</body>
+</html>`
+
+    const win = window.open('', '_blank')
+    if (!win) { showAlert('Permita popups para exportar o PDF.', 'warning'); return }
+    win.document.write(html)
+    win.document.close()
+    win.onload = () => { win.focus(); win.print() }
   }
 
   async function loadCards() {
@@ -223,7 +338,13 @@ export default function MinhaColecao() {
             user_id: userData.user.id,
             card_name: data.card_name, card_id: data.card_number,
             card_image: data.card_image, card_link: data.link,
-            rarity: data.rarity || null, quantity: 1, variante: 'normal',
+            rarity: data.rarity || null, quantity: 1,
+            variante: data.variantes?.normal ? 'normal'
+              : data.variantes?.foil ? 'foil'
+              : data.variantes?.promo ? 'promo'
+              : data.variantes?.reverse ? 'reverse'
+              : data.variantes?.pokeball ? 'pokeball'
+              : 'normal',
           })
           if (error) { fail++; continue }
           success++
@@ -374,7 +495,7 @@ export default function MinhaColecao() {
 
   // ✅ Totais da carteira baseados na VARIANTE selecionada de cada carta
   const totais = cards.reduce((acc, c) => {
-    const variante = c.variante || 'normal'
+    const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
     const p = getVariantePrices(c.price, variante)
     const qty = c.quantity || 1
     return {
@@ -564,13 +685,22 @@ export default function MinhaColecao() {
                 + Importar por link
               </button>
               {cards.length > 0 && (
-                <button
-                  onClick={handleExportCSV}
-                  title={!isPro ? 'Disponível no plano Pro 🚀' : ''}
-                  style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
-                >
-                  {isPro ? '⬇ Exportar CSV' : '🔒 Exportar CSV (Pro)'}
-                </button>
+                <>
+                  <button
+                    onClick={handleExportCSV}
+                    title={!isPro ? 'Disponível no plano Pro 🚀' : 'Exportar como planilha'}
+                    style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+                  >
+                    {isPro ? '⬇ CSV' : '🔒 CSV'}
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    title={!isPro ? 'Disponível no plano Pro 🚀' : 'Exportar relatório PDF'}
+                    style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+                  >
+                    {isPro ? '📄 PDF' : '🔒 PDF'}
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -689,7 +819,7 @@ export default function MinhaColecao() {
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
           {filteredCards.map((c) => {
-            const variante = c.variante || 'normal'
+            const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
             const variantesDisponiveis = getVariantesDisponiveis(c.price)
             const precos = getVariantePrices(c.price, variante)
 
