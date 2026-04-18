@@ -8,7 +8,7 @@ import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { getVarianteEfetiva, getPrecoVariante as getVariantePrices } from '@/lib/calcPatrimonio'
+
 
 // Variantes disponíveis — só inclui as que têm preço
 function getVariantesDisponiveis(price: any) {

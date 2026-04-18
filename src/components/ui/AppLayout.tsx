@@ -37,13 +37,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const names = cards.map((c: any) => c.card_name?.trim()).filter(Boolean)
       const { data: prices } = await supabase
         .from('card_prices')
-        .select('card_name, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max')
+        .select('card_name, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
         .in('card_name', names)
       const priceMap: Record<string, any> = {}
       prices?.forEach((p: any) => { priceMap[p.card_name?.trim()] = p })
-      const { calcPatrimonio } = await import('@/lib/calcPatrimonio')
-      const totais = calcPatrimonio(cards, priceMap)
-      setPatrimonio(totais.medio)
+      const CAMPOS: Record<string, string> = {
+        normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
+        reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
+      }
+      let total = 0
+      for (const card of cards) {
+        const p = priceMap[card.card_name?.trim()]
+        if (!p) continue
+        const qty = (card as any).quantity || 1
+        let v = card.variante || 'normal'
+        // Se a variante salva não tem preço, pega a primeira que tem
+        if (!Number(p[CAMPOS[v]] || 0)) {
+          v = Object.keys(CAMPOS).find(k => Number(p[CAMPOS[k]] || 0) > 0) || 'normal'
+        }
+        total += Number(p[CAMPOS[v]] || 0) * qty
+      }
+      setPatrimonio(total)
 
       // Carrega notificações não lidas
       const { data: notifsData } = await supabase

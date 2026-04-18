@@ -326,9 +326,20 @@ export default function DashboardFinanceiro() {
             enriched.sort((a, b) => b.precoVariante - a.precoVariante)
             setRankingWithVariation(enriched)
           }
-          const { calcPatrimonio } = await import('@/lib/calcPatrimonio')
-          const totaisCalc = calcPatrimonio(cards || [], priceMap)
-          valorTotal = totaisCalc.medio
+          const CAMPOS: Record<string, string> = {
+            normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
+            reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
+          }
+          for (const card of cards || []) {
+            const p = priceMap[card.card_name?.trim()]
+            if (!p) continue
+            const qty = card.quantity || 1
+            let v = card.variante || 'normal'
+            if (!Number(p[CAMPOS[v]] || 0)) {
+              v = Object.keys(CAMPOS).find(k => Number(p[CAMPOS[k]] || 0) > 0) || 'normal'
+            }
+            valorTotal += Number(p[CAMPOS[v]] || 0) * qty
+          }
         }
         setStats({ totalCompras: compras, totalVendas: vendas, quantidade: cards?.length || 0, valorColecao: valorTotal })
 
