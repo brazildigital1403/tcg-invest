@@ -160,11 +160,19 @@ export default function Home() {
   useEffect(() => {
     async function getUser() {
       const { data } = await supabase.auth.getSession()
-      if (data.session?.user) setUser(data.session.user)
+      if (data.session?.user) {
+        // Já está logado → vai direto para o Dashboard
+        router.replace('/dashboard-financeiro')
+        return
+      }
     }
     getUser()
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      if (session?.user) {
+        router.replace('/dashboard-financeiro')
+      } else {
+        setUser(null)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
