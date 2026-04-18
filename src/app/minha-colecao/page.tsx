@@ -61,7 +61,7 @@ export default function MinhaColecao() {
   const [search, setSearch] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
-  const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero'>('recente')
+  const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc'>('numero')
   const [loading, setLoading] = useState(true)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
 
@@ -552,6 +552,13 @@ export default function MinhaColecao() {
         }
         return getNum(a.card_name) - getNum(b.card_name)
       }
+      case 'numero_desc': {
+        const getNum = (name: string) => {
+          const m = name?.match(/\(([^/)]+)/)
+          return m ? parseInt(m[1]) || 0 : 0
+        }
+        return getNum(b.card_name) - getNum(a.card_name)
+      }
       default: return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     }
   })
@@ -748,78 +755,6 @@ export default function MinhaColecao() {
             </div>
           </div>
 
-          {/* Busca + filtros */}
-          {cards.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Linha 1: busca */}
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}>🔍</span>
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar carta..."
-                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 12px 9px 34px', color: '#f0f0f0', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                  onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
-              </div>
-
-              {/* Linha 2: filtros e ordenação */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* Raridade */}
-                {raridades.length > 0 && (
-                  <select value={filtroRaridade} onChange={e => setFiltroRaridade(e.target.value)}
-                    style={{ background: filtroRaridade ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroRaridade ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroRaridade ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-                    <option value="" style={{ background: '#0d0f14' }}>Raridade</option>
-                    {raridades.map(r => <option key={r} value={r} style={{ background: '#0d0f14' }}>{r}</option>)}
-                  </select>
-                )}
-
-                {/* Variante */}
-                <select value={filtroVariante} onChange={e => setFiltroVariante(e.target.value)}
-                  style={{ background: filtroVariante ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroVariante ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroVariante ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-                  <option value="" style={{ background: '#0d0f14' }}>Variante</option>
-                  <option value="normal" style={{ background: '#0d0f14' }}>Normal</option>
-                  <option value="foil" style={{ background: '#0d0f14' }}>Foil</option>
-                  <option value="promo" style={{ background: '#0d0f14' }}>Promo</option>
-                  <option value="reverse" style={{ background: '#0d0f14' }}>Reverse Foil</option>
-                  <option value="pokeball" style={{ background: '#0d0f14' }}>Pokeball Foil</option>
-                </select>
-
-                {/* Ordenação */}
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
-                  {([
-                    ['recente', '🕐 Recente'],
-                    ['antiga',  '📅 Antiga'],
-                    ['az',      'A → Z'],
-                    ['za',      'Z → A'],
-                    ['numero',  '# Número'],
-                  ] as const).map(([key, label]) => (
-                    <button key={key} onClick={() => setOrdenacao(key)}
-                      style={{
-                        fontSize: 11, fontWeight: 600, padding: '7px 12px', borderRadius: 8,
-                        cursor: 'pointer', border: 'none', fontFamily: 'inherit',
-                        background: ordenacao === key ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
-                        color: ordenacao === key ? '#f59e0b' : 'rgba(255,255,255,0.4)',
-                        outline: ordenacao === key ? '1px solid rgba(245,158,11,0.3)' : 'none',
-                      }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Limpar filtros */}
-                {(search || filtroVariante || filtroRaridade) && (
-                  <button
-                    onClick={() => { setSearch(''); setFiltroVariante(''); setFiltroRaridade('') }}
-                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
-                  >
-                    Limpar
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Resumo financeiro — scroll horizontal com snap no mobile */}
@@ -864,6 +799,65 @@ export default function MinhaColecao() {
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Melhor cenário de venda</p>
           </div>
         </div>
+
+        {/* Busca + filtros — 1 linha única, após boxes */}
+        {cards.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+            {/* Busca */}
+            <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
+              <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}>🔍</span>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar carta..."
+                style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px 8px 32px', color: '#f0f0f0', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+              />
+            </div>
+
+            {/* Raridade */}
+            {raridades.length > 0 && (
+              <select value={filtroRaridade} onChange={e => setFiltroRaridade(e.target.value)}
+                style={{ background: filtroRaridade ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroRaridade ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroRaridade ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+                <option value="" style={{ background: '#0d0f14' }}>Raridade</option>
+                {raridades.map(r => <option key={r} value={r} style={{ background: '#0d0f14' }}>{r}</option>)}
+              </select>
+            )}
+
+            {/* Variante */}
+            <select value={filtroVariante} onChange={e => setFiltroVariante(e.target.value)}
+              style={{ background: filtroVariante ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroVariante ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroVariante ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+              <option value="" style={{ background: '#0d0f14' }}>Variante</option>
+              <option value="normal" style={{ background: '#0d0f14' }}>Normal</option>
+              <option value="foil" style={{ background: '#0d0f14' }}>Foil</option>
+              <option value="promo" style={{ background: '#0d0f14' }}>Promo</option>
+              <option value="reverse" style={{ background: '#0d0f14' }}>Reverse Foil</option>
+              <option value="pokeball" style={{ background: '#0d0f14' }}>Pokeball Foil</option>
+            </select>
+
+            {/* Ordenação — select único igual à Pokédex */}
+            <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as any)}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+              <option value="numero" style={{ background: '#0d0f14' }}>Nº ↑</option>
+              <option value="numero_desc" style={{ background: '#0d0f14' }}>Nº ↓</option>
+              <option value="az" style={{ background: '#0d0f14' }}>Nome A→Z</option>
+              <option value="za" style={{ background: '#0d0f14' }}>Nome Z→A</option>
+              <option value="recente" style={{ background: '#0d0f14' }}>Mais recente</option>
+              <option value="antiga" style={{ background: '#0d0f14' }}>Mais antiga</option>
+            </select>
+
+            {/* Limpar filtros */}
+            {(search || filtroVariante || filtroRaridade) && (
+              <button
+                onClick={() => { setSearch(''); setFiltroVariante(''); setFiltroRaridade('') }}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        )}
 
         {cards.length === 0 && (
           <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
