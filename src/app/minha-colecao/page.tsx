@@ -9,6 +9,7 @@ import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist'
+import ScanModal from '@/components/ui/ScanModal'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 const fmt = (v: number | null | undefined) => {
@@ -61,6 +62,7 @@ export default function MinhaColecao() {
   const [isPro, setIsPro] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
+  const [openScanModal, setOpenScanModal] = useState(false)
   const limiteDisplay = isPro ? '∞' : String(LIMITE_FREE)
   const [search, setSearch] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
@@ -757,6 +759,14 @@ export default function MinhaColecao() {
                   Buscar na API
                 </button>
               )}
+              {userId && (
+                <button
+                  onClick={() => setOpenScanModal(true)}
+                  style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '11px 18px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  📷 Escanear foto
+                </button>
+              )}
               {cards.length > 0 && (
                 <>
                   <button
@@ -1031,6 +1041,14 @@ export default function MinhaColecao() {
           userId={userId}
           onClose={() => setOpenAddModal(false)}
           onAdded={() => window.location.reload()}
+        />
+      )}
+
+      {openScanModal && userId && (
+        <ScanModal
+          userId={userId}
+          onClose={() => setOpenScanModal(false)}
+          onAdded={() => { setOpenScanModal(false); window.location.reload() }}
         />
       )}
     </AppLayout>

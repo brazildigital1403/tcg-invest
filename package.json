@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@sparticuz/chromium-min": "^147.0.0",
     "@supabase/supabase-js": "^2.101.1",
     "chart.js": "^4.5.1",
