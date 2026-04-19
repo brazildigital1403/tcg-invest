@@ -68,23 +68,25 @@ export default function PerfilPage() {
       }
       setUser(userData)
 
+      const uid = userData.id // sempre usa o UUID real
+
       // Anúncios ativos
       const { data: listingsData } = await supabase
-        .from('marketplace').select('*').eq('user_id', id).eq('status', 'disponivel')
+        .from('marketplace').select('*').eq('user_id', uid).eq('status', 'disponivel')
         .order('created_at', { ascending: false })
       setListings(listingsData || [])
 
       // Vendas
       const { data: vendas } = await supabase
-        .from('transactions').select('id, price').eq('seller_id', id)
+        .from('transactions').select('id, price').eq('seller_id', uid)
 
       // Total cartas
       const { count: totalCartas } = await supabase
-        .from('user_cards').select('*', { count: 'exact', head: true }).eq('user_id', id)
+        .from('user_cards').select('*', { count: 'exact', head: true }).eq('user_id', uid)
 
       // Cartas com preços — para showcase e patrimônio
       const { data: cards } = await supabase
-        .from('user_cards').select('card_name, variante, quantity, card_image').eq('user_id', id)
+        .from('user_cards').select('card_name, variante, quantity, card_image').eq('user_id', uid)
 
       if (cards && cards.length > 0) {
         const names = cards.map(c => c.card_name?.trim()).filter(Boolean)
@@ -131,7 +133,7 @@ export default function PerfilPage() {
       const { data: history } = await supabase
         .from('portfolio_history')
         .select('valor, recorded_at')
-        .eq('user_id', userData.id)
+        .eq('user_id', uid)
         .order('recorded_at', { ascending: true })
         .limit(60)
       setPortfolioHistory(history || [])
