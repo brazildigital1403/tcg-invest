@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import Anthropic from '@anthropic-ai/sdk'
 
 export const maxDuration = 60
 export const dynamic = 'force-dynamic'
@@ -18,32 +17,50 @@ export async function POST(req: NextRequest) {
   const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
   if (authError || !user) return NextResponse.json({ error: 'Sessão inválida' }, { status: 401 })
 
-  // Recebe imagem base64
-  const { image, mediaType } = await req.json()
-  if (!image) return NextResponse.json({ error: 'Imagem não recebida' }, { status: 400 })
+  // API Key
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY não configurada no servidor' }, { status: 503 })
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  // Recebe imagem
+  let image: string, mediaType: string
+  try {
+    const body = await req.json()
+    image = body.image
+    mediaType = body.mediaType || 'image/jpeg'
+    if (!image) return NextResponse.json({ error: 'Imagem não recebida' }, { status: 400 })
+  } catch {
+    return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
+  }
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 2000,
-    messages: [
-      {
-        role: 'user',
-        content: [
+  // Chama API Anthropic via fetch (sem SDK)
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 1024,
+        messages: [
           {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: mediaType || 'image/jpeg',
-              data: image,
-            },
-          },
-          {
-            type: 'text',
-            text: `You are a Pokémon TCG card recognition system. Analyze this image and identify ALL visible Pokémon TCG cards.
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: mediaType,
+                  data: image,
+                },
+              },
+              {
+                type: 'text',
+                text: `You are a Pokémon TCG card recognition system. Analyze this image and identify ALL visible Pokémon TCG cards.
 
-IMPORTANT: Respond with ONLY a raw JSON array. No markdown, no code blocks, no explanations, no text before or after.
+IMPORTANT: Respond with ONLY a raw JSON array. No markdown, no code blocks, no explanations.
 
 For each card return an object with:
 - "name": card name as shown (Portuguese or English)
@@ -51,44 +68,49 @@ For each card return an object with:
 - "set": set/expansion name if visible, otherwise null
 - "hp": HP number if visible, otherwise null
 
-Example output:
-[{"name":"Charmander","number":"004/165","set":"151","hp":"60"},{"name":"Pikachu","number":"025/165","set":"151","hp":"60"}]
-
 If no Pokémon TCG cards are visible, respond with exactly: []
 
 Start your response with [ and end with ]`,
+              },
+            ],
           },
         ],
-      },
-    ],
-  })
+      }),
+      signal: AbortSignal.timeout(50000),
+    })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text : ''
+    if (!response.ok) {
+      const errText = await response.text()
+      console.error('[scan-cards] Anthropic error:', response.status, errText)
+      return NextResponse.json({ error: `Erro na API: ${response.status}` }, { status: 502 })
+    }
 
-  // Parse do JSON retornado — tenta múltiplas estratégias
-  let cards: any[] = []
-  try {
-    // 1. Remove markdown code blocks
-    let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+    const data = await response.json()
+    const text = data.content?.[0]?.text || ''
+    console.log('[scan-cards] raw:', text.slice(0, 200))
 
-    // 2. Extrai só o array JSON se houver texto antes/depois
-    const arrayMatch = clean.match(/\[[\s\S]*\]/)
-    if (arrayMatch) clean = arrayMatch[0]
-
-    // 3. Parse
-    const parsed = JSON.parse(clean)
-    cards = Array.isArray(parsed) ? parsed : []
-  } catch {
-    // 4. Fallback: extrai objetos individuais
+    // Parse robusto
+    let cards: any[] = []
     try {
-      const objMatches = [...text.matchAll(/\{[^{}]+\}/g)]
-      for (const m of objMatches) {
-        try { cards.push(JSON.parse(m[0])) } catch { /* ignora */ }
-      }
-    } catch { cards = [] }
-  }
+      let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+      const arrayMatch = clean.match(/\[[\s\S]*\]/)
+      if (arrayMatch) clean = arrayMatch[0]
+      const parsed = JSON.parse(clean)
+      cards = Array.isArray(parsed) ? parsed : []
+    } catch {
+      try {
+        const objMatches = [...text.matchAll(/\{[^{}]+\}/g)]
+        for (const m of objMatches) {
+          try { cards.push(JSON.parse(m[0])) } catch { /* ignora */ }
+        }
+      } catch { cards = [] }
+    }
 
-  console.log('[scan-cards] raw response:', text.slice(0, 200))
-  console.log('[scan-cards] cards found:', cards.length)
-  return NextResponse.json({ cards, raw: text })
+    console.log('[scan-cards] cards:', cards.length)
+    return NextResponse.json({ cards })
+
+  } catch (err: any) {
+    console.error('[scan-cards] erro:', err?.message)
+    return NextResponse.json({ error: err?.message || 'Erro interno' }, { status: 500 })
+  }
 }
