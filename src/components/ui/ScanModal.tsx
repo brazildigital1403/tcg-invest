@@ -151,15 +151,30 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
 
   async function fetchCardImage(name: string, number?: string | null, set?: string | null): Promise<string | null> {
     try {
-      // Monta query — mais específica possível
-      let q = `name:"${name.split('(')[0].trim()}"`
-      if (number) q += ` number:${number.split('/')[0]}`
-      if (set) q += ` set.name:"${set}"`
+      const cleanName = name.split('(')[0].trim()
+      // Remove zeros à esquerda do número (TCG API não aceita "020", só "20")
+      const cleanNumber = number ? String(parseInt(number.split('/')[0], 10)) : null
 
-      const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1&select=id,images`)
-      if (!res.ok) return null
-      const data = await res.json()
-      return data?.data?.[0]?.images?.large || data?.data?.[0]?.images?.small || null
+      // Tentativa 1: nome + número
+      if (cleanNumber) {
+        const q1 = `name:"${cleanName}" number:${cleanNumber}`
+        const r1 = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q1)}&pageSize=1&select=id,images`)
+        if (r1.ok) {
+          const d1 = await r1.json()
+          const img1 = d1?.data?.[0]?.images?.large || d1?.data?.[0]?.images?.small
+          if (img1) return img1
+        }
+      }
+
+      // Tentativa 2: só nome (pega o mais recente)
+      const q2 = `name:"${cleanName}"`
+      const r2 = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=1&orderBy=-set.releaseDate&select=id,images`)
+      if (r2.ok) {
+        const d2 = await r2.json()
+        return d2?.data?.[0]?.images?.large || d2?.data?.[0]?.images?.small || null
+      }
+
+      return null
     } catch {
       return null
     }
