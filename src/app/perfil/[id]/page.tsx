@@ -375,17 +375,18 @@ export default function PerfilPage() {
                     <div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {s.logo_url ? (
                         <img src={s.logo_url} alt={s.name}
-                          style={{ maxWidth: 64, maxHeight: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.85 }}
+                          style={{ maxWidth: 64, maxHeight: 36, objectFit: 'contain', opacity: 0.9 }}
                           onError={e => {
                             const t = e.target as HTMLImageElement
                             t.style.display = 'none'
-                            if (s.symbol_url && t.nextSibling) (t.nextSibling as HTMLElement).style.display = 'block'
+                            const next = t.nextElementSibling as HTMLElement
+                            if (next) next.style.display = 'flex'
                           }}
                         />
                       ) : null}
                       {s.symbol_url ? (
                         <img src={s.symbol_url} alt={s.name}
-                          style={{ width: 28, height: 28, objectFit: 'contain', display: s.logo_url ? 'none' : 'block', filter: 'brightness(0) invert(1)', opacity: 0.6 }}
+                          style={{ width: 28, height: 28, objectFit: 'contain', display: s.logo_url ? 'none' : 'block', opacity: 0.7 }}
                         />
                       ) : (
                         !s.logo_url && <span style={{ fontSize: 24 }}>📦</span>
