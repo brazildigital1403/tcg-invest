@@ -38,8 +38,8 @@ const nextConfig: NextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           // Controla informações enviadas ao navegar para outros sites
           { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
-          // Desativa funcionalidades desnecessárias do browser
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // Desativa funcionalidades desnecessárias do browser (câmera liberada para o próprio site)
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
         ],
       },
     ]

@@ -84,6 +84,28 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
     reader.readAsDataURL(file)
   }
 
+  // ── Comprime imagem antes de enviar ────────────────────────────────────────────
+
+  function compressImage(dataUrl: string, maxWidth = 1280, quality = 0.8): Promise<{ base64: string; mediaType: string }> {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d')?.drawImage(img, 0, 0, width, height)
+        const compressed = canvas.toDataURL('image/jpeg', quality)
+        resolve({ base64: compressed.split(',')[1], mediaType: 'image/jpeg' })
+      }
+      img.src = dataUrl
+    })
+  }
+
   // ── Scan via Claude Vision ───────────────────────────────────────────────────
 
   async function handleScan() {
@@ -96,8 +118,8 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       const token = session?.access_token
       if (!token) throw new Error('Sessão expirada')
 
-      // Extrai base64 puro (remove o prefixo data:image/...;base64,)
-      const base64 = preview.split(',')[1]
+      // Comprime imagem antes de enviar (reduz de vários MB para ~200KB)
+      const { base64, mediaType: compressedType } = await compressImage(preview)
 
       const res = await fetch('/api/scan-cards', {
         method: 'POST',
@@ -105,7 +127,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ image: base64, mediaType }),
+        body: JSON.stringify({ image: base64, mediaType: compressedType }),
       })
 
       const data = await res.json()
