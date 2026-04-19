@@ -65,7 +65,7 @@ export default function MinhaColecao() {
   const [search, setSearch] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
-  const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc'>('numero')
+  const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc'>('recente')
   const [loading, setLoading] = useState(true)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
 
