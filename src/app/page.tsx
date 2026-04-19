@@ -378,12 +378,12 @@ export default function Home() {
         </div>
 
         <h1 style={{ fontSize: 'clamp(40px, 7vw, 80px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05, marginBottom: 24, maxWidth: 900 }}>
-          Sua coleção Pokémon TCG<br />
+          Sua coleção Pokémon<br />
           <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>organizada de verdade.</span>
         </h1>
 
         <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)', maxWidth: 560, lineHeight: 1.6, marginBottom: 48 }}>
-          Cole o link da sua carta da LigaPokemon, escolha a variante (Normal, Foil, Promo) e veja os preços de referência do mercado organizados na sua coleção pessoal.
+          Cole o link da sua carta, escolha a variante (Normal, Foil, Promo) e veja os preços de referência do mercado organizados na sua coleção pessoal.
         </p>
 
         <div className="lp-hero-btns" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 80 }}>
