@@ -117,16 +117,19 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       }
 
       const { bloqueado } = await checkCardLimit(userId)
-      if (bloqueado) { showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning'); return }
+      if (bloqueado) { alert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Acesse Minha Conta para fazer upgrade! 🚀`); setAdding(false); return }
 
       await supabase.from('user_cards').insert({
         user_id: authData.user.id,
         pokemon_api_id: card.id,
         card_name: cardName,
-        card_id: card.id,
+        card_id: card.number || card.id,
         card_image: cardImage,
         card_link: cardLink,
         rarity: card.rarity || null,
+        variante: 'normal',
+        quantity: 1,
+        set_name: card.set?.name || null,
       })
     }
 
