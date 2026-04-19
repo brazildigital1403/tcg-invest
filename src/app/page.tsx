@@ -374,16 +374,16 @@ export default function Home() {
         <div style={{ position: 'absolute', top: '40%', left: '20%', width: 300, height: 300, background: 'radial-gradient(ellipse, rgba(239,68,68,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 100, padding: '6px 16px', fontSize: 13, color: '#f59e0b', marginBottom: 32, fontWeight: 500 }}>
-          ✦ Portfólio financeiro para colecionadores de TCG
+          ✦ Sua ferramenta de organização para colecionadores de TCG
         </div>
 
         <h1 style={{ fontSize: 'clamp(40px, 7vw, 80px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05, marginBottom: 24, maxWidth: 900 }}>
           Sua coleção Pokémon TCG<br />
-          <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>vale dinheiro de verdade.</span>
+          <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>organizada de verdade.</span>
         </h1>
 
         <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)', maxWidth: 560, lineHeight: 1.6, marginBottom: 48 }}>
-          Importe cartas da LigaPokemon por link, acompanhe preços por variante (Normal, Foil, Promo) em tempo real e saiba exatamente quanto seu portfólio Pokémon TCG vale agora.
+          Cole o link da sua carta da LigaPokemon, escolha a variante (Normal, Foil, Promo) e veja os preços de referência do mercado organizados na sua coleção pessoal.
         </p>
 
         <div className="lp-hero-btns" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 80 }}>
@@ -489,9 +489,9 @@ export default function Home() {
         </div>
         <div className="lp-how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           {[
-            { num: '01', icon: '🔗', title: 'Cole o link da LigaPokemon', desc: 'Importação automática de dados, imagem e todos os preços por variante (Normal, Foil, Promo) com um único link.' },
-            { num: '02', icon: '📊', title: 'Selecione o tipo da sua carta', desc: 'Diga se a sua é Normal, Foil ou Promo. O sistema calcula o valor real da sua coleção baseado no mercado atual.' },
-            { num: '03', icon: '💰', title: 'Veja seu portfólio ao vivo', desc: 'Mínimo, médio e máximo da carteira inteira. Saiba quanto você pode ganhar dependendo de como negociar.' },
+            { num: '01', icon: '🔗', title: 'Você cola o link da sua carta', desc: 'Acesse a LigaPokemon, copie o link da sua carta e cole no Bynx. Os preços de referência por variante são carregados para você organizar sua coleção.' },
+            { num: '02', icon: '📊', title: 'Você escolhe a variante', desc: 'Diga se a sua carta é Normal, Foil ou Promo. O Bynx exibe os preços de referência por variante para você acompanhar sua coleção.' },
+            { num: '03', icon: '💰', title: 'Veja sua coleção organizada', desc: 'Mínimo, médio e máximo de referência da sua coleção. Uma visão clara para você tomar suas próprias decisões de negociação.' },
           ].map((s) => (
             <div key={s.num} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 32, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', top: 20, right: 20, fontSize: 40, opacity: 0.06, fontWeight: 900 }}>{s.num}</div>
@@ -512,10 +512,10 @@ export default function Home() {
           <div className="lp-feat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             {[
               { icon: '🎯', title: 'Preços por variante', desc: 'Normal, Foil e Promo separados. O valor certo para a carta que você tem.' },
-              { icon: '📈', title: 'Portfólio financeiro', desc: 'Min, médio e máximo da carteira. Pense como um investidor.' },
-              { icon: '⚡', title: 'Importação por link', desc: 'Um link da LigaPokemon importa tudo automaticamente.' },
-              { icon: '📉', title: 'Histórico de preços', desc: 'Acompanhe a variação do mercado ao longo do tempo.' },
-              { icon: '🛒', title: 'Marketplace integrado', desc: 'Compre e venda direto na plataforma.' },
+              { icon: '📈', title: 'Painel da sua coleção', desc: 'Mínimo, médio e máximo de referência. Informação organizada para suas decisões.' },
+              { icon: '⚡', title: 'Organização por link', desc: 'Cole o link da sua carta e o Bynx organiza os dados na sua coleção pessoal.' },
+              { icon: '📉', title: 'Histórico de referência', desc: 'Veja como os preços de referência da sua coleção variaram ao longo do tempo.' },
+              { icon: '🛒', title: 'Marketplace entre colecionadores', desc: 'Anuncie suas cartas e conecte-se com outros colecionadores. A negociação é entre vocês.' },
               { icon: '🔒', title: 'Seus dados seguros', desc: 'Autenticação segura. Só você vê sua coleção.' },
             ].map((f) => (
               <div key={f.title} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -531,7 +531,7 @@ export default function Home() {
       {/* PLANOS */}
       <section ref={pricingRef} style={{ padding: '100px 24px', maxWidth: 1000, margin: '0 auto', textAlign: 'center' }}>
         <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Planos</p>
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 16 }}>Comece grátis, cresça quando precisar</h2>
+        <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 16 }}>Comece grátis, desbloqueie mais quando quiser</h2>
         <p style={{ color: 'rgba(255,255,255,0.4)', marginBottom: 56, fontSize: 16 }}>Sem cartão de crédito para começar.</p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, textAlign: 'left' }}>
@@ -542,7 +542,7 @@ export default function Home() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
               <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em' }}>R$ 0</span>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28 }}>Para experimentar</p>
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28 }}>Para começar a organizar</p>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 { txt: '6 cartas na coleção', ok: true },
@@ -575,7 +575,7 @@ export default function Home() {
               <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 19</span>
               <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.45)', letterSpacing: '-0.02em' }}>,90<span style={{ fontSize: 13 }}>/mês</span></span>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28 }}>Cancele quando quiser</p>
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28 }}>Cancele quando quiser · sem fidelidade</p>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 'Cartas ilimitadas',
@@ -717,9 +717,9 @@ export default function Home() {
       <section style={{ padding: '100px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 600, height: 300, background: 'radial-gradient(ellipse, rgba(245,158,11,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <h2 style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 800, letterSpacing: '-0.04em', marginBottom: 20, position: 'relative' }}>
-          Sua coleção merece<br />uma gestão profissional.
+          Sua coleção merece<br />estar organizada.
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 17, marginBottom: 40, position: 'relative' }}>Comece grátis. Sem cartão de crédito.</p>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 17, marginBottom: 40, position: 'relative' }}>Comece a organizar grátis. Sem cartão de crédito.</p>
         <button
           onClick={() => handleClickPlan('free')}
           style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '18px 48px', borderRadius: 14, fontWeight: 700, fontSize: 18, cursor: 'pointer', boxShadow: '0 0 60px rgba(245,158,11,0.25)', position: 'relative' }}
@@ -750,7 +750,7 @@ export default function Home() {
                   {showPlanStep ? 'Escolha seu plano 🎴' : forgotStep ? 'Recuperar acesso 🔑' : isLogin ? 'Bem-vindo de volta 👋' : 'Criar sua conta'}
                 </h2>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-                  {showPlanStep ? 'Comece grátis ou desbloqueie tudo com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Grátis para sempre nas primeiras 6 cartas'}
+                  {showPlanStep ? 'Organize sua coleção grátis ou desbloqueie mais com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Organize até 6 cartas gratuitamente'}
                 </p>
                 {/* Badge do plano escolhido */}
                 {!isLogin && !forgotStep && !showPlanStep && pendingPlan && pendingPlan !== 'free' && (
