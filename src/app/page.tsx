@@ -90,7 +90,9 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [isLogin, setIsLogin] = useState(true)
+  const [showPlanStep, setShowPlanStep] = useState(false) // step 0: escolha do plano
   const [loading, setLoading] = useState(false)
+  const [pendingPlan, setPendingPlan] = useState<'free' | 'mensal' | 'anual' | null>(null)
 
   // Campos
   const [name, setName] = useState('')
@@ -141,6 +143,7 @@ export default function Home() {
   // Limpa tudo ao trocar de modo
   function trocarModo() {
     setIsLogin(!isLogin)
+    setShowPlanStep(false)
     setForgotStep(false); setForgotSent(false); setForgotEmail('')
     setName(''); setCpf(''); setCity(''); setWhatsapp('')
     setEmail(''); setPassword('')
@@ -179,6 +182,34 @@ export default function Home() {
 
   const scrollTo = (ref: any) => ref.current?.scrollIntoView({ behavior: 'smooth' })
 
+  // Abre modal com contexto do plano escolhido
+  async function handleClickPlan(plano: 'free' | 'mensal' | 'anual') {
+    // Se já logado e escolheu Pro → vai direto para Stripe
+    if (user && plano !== 'free') {
+      try {
+        const res = await fetch('/api/stripe/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plano, userId: user.id, userEmail: user.email }),
+        })
+        const data = await res.json()
+        if (data.url) window.location.href = data.url
+      } catch { }
+      return
+    }
+    // Se já logado e free → vai para dashboard
+    if (user && plano === 'free') {
+      router.push('/dashboard-financeiro')
+      return
+    }
+    // Não logado → abre modal
+    setPendingPlan(plano)
+    setIsLogin(false)
+    setShowAuthModal(true)
+    // Se clicou em "grátis" mostra step de escolha de plano (incentiva upgrade)
+    setShowPlanStep(plano === 'free')
+  }
+
   async function handleAuth() {
     // Marca todos os campos como tocados e valida
     const allTouched: Record<string, boolean> = { name: true, cpf: true, city: true, whatsapp: true, email: true, password: true }
@@ -211,11 +242,24 @@ export default function Home() {
         }
         if (data.user) {
           await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp })
+
+          setServerError('')
+          setShowAuthModal(false)
+
+          // Redireciona conforme plano escolhido
+          if (pendingPlan && pendingPlan !== 'free') {
+            try {
+              const res = await fetch('/api/stripe/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plano: pendingPlan, userId: data.user.id, userEmail: email }),
+              })
+              const checkoutData = await res.json()
+              if (checkoutData.url) { window.location.href = checkoutData.url; return }
+            } catch { }
+          }
+          router.push('/dashboard-financeiro')
         }
-        setServerError('')
-        setShowAuthModal(false)
-        // Mostra feedback e redireciona
-        router.push('/dashboard-financeiro')
       }
     } catch (err: any) {
       setServerError('Ocorreu um erro. Tente novamente.')
@@ -499,7 +543,7 @@ export default function Home() {
               ))}
             </div>
             <button
-              onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
+              onClick={() => handleClickPlan('free')}
               style={{ width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', padding: '13px', borderRadius: 12, fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}
             >
               Criar conta grátis
@@ -532,10 +576,10 @@ export default function Home() {
               ))}
             </div>
             <button
-              onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
+              onClick={() => handleClickPlan('mensal')}
               style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}
             >
-              Assinar Pro Mensal →
+              {user ? 'Assinar Pro Mensal →' : 'Começar com Pro Mensal →'}
             </button>
           </div>
 
@@ -564,10 +608,10 @@ export default function Home() {
               ))}
             </div>
             <button
-              onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
+              onClick={() => handleClickPlan('anual')}
               style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', boxShadow: '0 0 30px rgba(245,158,11,0.25)' }}
             >
-              Assinar Pro Anual →
+              {user ? 'Assinar Pro Anual →' : 'Começar com Pro Anual →'}
             </button>
           </div>
         </div>
@@ -598,7 +642,7 @@ export default function Home() {
       {showAuthModal && (
         <div
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}
-          onClick={() => setShowAuthModal(false)}
+          onClick={() => { setShowAuthModal(false); setShowPlanStep(false) }}
         >
           <div
             style={{ background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, width: '100%', maxWidth: 440, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', overflow: 'hidden' }}
@@ -608,19 +652,71 @@ export default function Home() {
             <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>
-                  {forgotStep ? 'Recuperar acesso 🔑' : isLogin ? 'Bem-vindo de volta 👋' : 'Criar sua conta'}
+                  {showPlanStep ? 'Escolha seu plano 🎴' : forgotStep ? 'Recuperar acesso 🔑' : isLogin ? 'Bem-vindo de volta 👋' : 'Criar sua conta'}
                 </h2>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-                  {forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Grátis para sempre nos primeiros 15 cards'}
+                  {showPlanStep ? 'Comece grátis ou desbloqueie tudo com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Grátis para sempre nas primeiras 6 cartas'}
                 </p>
+                {/* Badge do plano escolhido */}
+                {!isLogin && !forgotStep && !showPlanStep && pendingPlan && pendingPlan !== 'free' && (
+                  <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 10px' }}>
+                    <span style={{ fontSize: 13 }}>⭐</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>
+                      Plano Pro {pendingPlan === 'mensal' ? 'Mensal · R$ 19,90/mês' : 'Anual · R$ 179/ano'} será ativado após o cadastro
+                    </span>
+                  </div>
+                )}
               </div>
-              <button onClick={() => setShowAuthModal(false)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 32, height: 32, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
+              <button onClick={() => { setShowAuthModal(false); setShowPlanStep(false) }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 32, height: 32, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
             </div>
 
             {/* Body */}
             <div style={{ padding: '20px 28px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-              {forgotStep ? (
+              {/* ── STEP 0: ESCOLHA DO PLANO ── */}
+              {showPlanStep ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* Grátis */}
+                  <button onClick={() => { setPendingPlan('free'); setShowPlanStep(false) }}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', transition: 'all 0.15s' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700 }}>Grátis</span>
+                      <span style={{ fontSize: 18, fontWeight: 900 }}>R$ 0</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>6 cartas · 3 anúncios · Dashboard básico</p>
+                  </button>
+
+                  {/* Pro Mensal */}
+                  <button onClick={() => { setPendingPlan('mensal'); setShowPlanStep(false) }}
+                    style={{ width: '100%', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', transition: 'all 0.15s' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: '#f59e0b' }}>Pro Mensal</span>
+                      <span style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 19,90<span style={{ fontSize: 11 }}>/mês</span></span>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Cartas ilimitadas · Perfil público · Exportar · Marketplace completo</p>
+                  </button>
+
+                  {/* Pro Anual — destaque */}
+                  <button onClick={() => { setPendingPlan('anual'); setShowPlanStep(false) }}
+                    style={{ width: '100%', background: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(239,68,68,0.08))', border: '2px solid rgba(245,158,11,0.5)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', position: 'relative', transition: 'all 0.15s' }}>
+                    <div style={{ position: 'absolute', top: -10, right: 16, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 100, letterSpacing: '0.05em' }}>
+                      🔥 MELHOR VALOR
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: '#f59e0b' }}>Pro Anual</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 179</span>
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block' }}>R$ 14,91/mês · 2 meses grátis</span>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Tudo do Pro + prioridade no suporte + acesso antecipado</p>
+                  </button>
+
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 4 }}>
+                    Sem cartão de crédito para começar gratuitamente
+                  </p>
+                </div>
+              ) : forgotStep ? (
                 /* ── STEP ESQUECI A SENHA ── */
                 forgotSent ? (
                   <div style={{ textAlign: 'center', padding: '16px 0' }}>
@@ -778,7 +874,10 @@ export default function Home() {
                         <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                         Carregando...
                       </>
-                    ) : isLogin ? 'Entrar →' : 'Criar conta grátis →'}
+                    ) : isLogin ? 'Entrar →' 
+                      : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
+                      : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
+                      : 'Criar conta grátis →'}
                   </button>
 
                   {isLogin && (
