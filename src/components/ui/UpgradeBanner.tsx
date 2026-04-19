@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -10,6 +10,23 @@ interface Props {
 
 export default function UpgradeBanner({ tipo }: Props) {
   const [loading, setLoading] = useState<string | null>(null)
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
+
+  useEffect(() => {
+    async function checkTrial() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase.from('users').select('trial_expires_at, is_pro').eq('id', user.id).single()
+      if (data && !data.is_pro && data.trial_expires_at) {
+        const expiry = new Date(data.trial_expires_at)
+        if (expiry > new Date()) {
+          const days = Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          setTrialDaysLeft(days)
+        }
+      }
+    }
+    checkTrial()
+  }, [])
 
   const msg = tipo === 'cartas'
     ? 'Você atingiu o limite de 6 cartas do plano Gratuito.'
@@ -20,23 +37,14 @@ export default function UpgradeBanner({ tipo }: Props) {
     try {
       const { data: authData } = await supabase.auth.getUser()
       if (!authData.user) { alert('Faça login para continuar'); setLoading(null); return }
-
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plano,
-          userId: authData.user.id,
-          userEmail: authData.user.email,
-        }),
+        body: JSON.stringify({ plano, userId: authData.user.id, userEmail: authData.user.email }),
       })
-
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        alert('Erro ao iniciar checkout. Tente novamente.')
-      }
+      if (data.url) window.location.href = data.url
+      else alert('Erro ao iniciar checkout. Tente novamente.')
     } catch {
       alert('Erro ao iniciar checkout. Tente novamente.')
     }
@@ -48,20 +56,19 @@ export default function UpgradeBanner({ tipo }: Props) {
       margin: '8px 0 24px',
       background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.08))',
       border: '1px solid rgba(245,158,11,0.25)',
-      borderRadius: 16,
-      padding: '20px 24px',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      textAlign: 'center',
-      gap: 12,
+      borderRadius: 16, padding: '20px 24px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      textAlign: 'center', gap: 12,
       fontFamily: "'DM Sans', system-ui, sans-serif",
     }}>
       <p style={{ fontSize: 20 }}>🚀</p>
       <div>
         <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0', marginBottom: 4 }}>{msg}</p>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>
-          Faça upgrade para o plano <strong style={{ color: '#f59e0b' }}>Pro</strong> e tenha acesso ilimitado.
+          {trialDaysLeft !== null && trialDaysLeft <= 2
+            ? <><strong style={{ color: '#ef4444' }}>⚠️ Seu trial Pro expira em {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''}!</strong> Assine para manter acesso ilimitado.</>
+            : <>Faça upgrade para o plano <strong style={{ color: '#f59e0b' }}>Pro</strong> e tenha acesso ilimitado.</>
+          }
         </p>
       </div>
 
@@ -71,11 +78,8 @@ export default function UpgradeBanner({ tipo }: Props) {
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Pro Mensal</p>
           <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 19,90</p>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>por mês</p>
-          <button
-            onClick={() => handleCheckout('mensal')}
-            disabled={!!loading}
-            style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loading === 'mensal' ? 0.7 : 1 }}
-          >
+          <button onClick={() => handleCheckout('mensal')} disabled={!!loading}
+            style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loading === 'mensal' ? 0.7 : 1 }}>
             {loading === 'mensal' ? 'Aguarde...' : 'Assinar Pro'}
           </button>
         </div>
@@ -88,11 +92,8 @@ export default function UpgradeBanner({ tipo }: Props) {
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Pro Anual</p>
           <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 179</p>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>por ano · R$ 14,91/mês</p>
-          <button
-            onClick={() => handleCheckout('anual')}
-            disabled={!!loading}
-            style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loading === 'anual' ? 0.7 : 1 }}
-          >
+          <button onClick={() => handleCheckout('anual')} disabled={!!loading}
+            style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loading === 'anual' ? 0.7 : 1 }}>
             {loading === 'anual' ? 'Aguarde...' : 'Assinar Anual'}
           </button>
         </div>

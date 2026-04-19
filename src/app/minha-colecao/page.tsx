@@ -120,13 +120,13 @@ export default function MinhaColecao() {
       a.click()
       URL.revokeObjectURL(url)
     } else {
-      showAlert('Exportar CSV é exclusivo do plano Pro. Faça upgrade para R$ 19,90/mês ou R$ 179/ano! 🚀', 'warning')
+      showAlert('Exportar CSV é exclusivo do plano Pro. Acesse Minha Conta para fazer upgrade! 🚀', 'warning')
     }
   }
 
   function handleExportPDF() {
     if (!isPro) {
-      showAlert('Exportar PDF é exclusivo do plano Pro. Faça upgrade para R$ 19,90/mês ou R$ 179/ano! 🚀', 'warning')
+      showAlert('Exportar PDF é exclusivo do plano Pro. Acesse Minha Conta para fazer upgrade! 🚀', 'warning')
       return
     }
     const totalMedio = totais.medio
@@ -258,8 +258,8 @@ export default function MinhaColecao() {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { window.location.href = '/login'; return }
 
-    const { isPro: pro } = await getUserPlan(userData.user.id)
-    setIsPro(pro)
+    const { isPro: pro, isTrial: trial } = await getUserPlan(userData.user.id)
+    setIsPro(pro || trial)
 
     const { data } = await supabase
       .from('user_cards')
@@ -895,6 +895,8 @@ export default function MinhaColecao() {
                 <img
                   src={c.card_image || '/placeholder-card.png'}
                   alt={c.card_name}
+                  loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     if (!e.currentTarget.src.includes('placeholder-card.png'))
                       e.currentTarget.src = '/placeholder-card.png'

@@ -92,6 +92,7 @@ export default function DashboardFinanceiro() {
   const [userCards, setUserCards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isPro, setIsPro] = useState(false)
+  const [isTrial, setIsTrial] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [userName, setUserName] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
@@ -266,8 +267,9 @@ export default function DashboardFinanceiro() {
         const uid = userData.user.id
         setUserId(uid)
 
-        const { isPro: pro } = await getUserPlan(uid)
-        setIsPro(pro)
+        const { isPro: pro, isTrial: trial } = await getUserPlan(uid)
+        setIsPro(pro || trial)
+        setIsTrial(trial && !pro)
         const { data: txns } = await supabase
           .from('transactions')
           .select('*')
@@ -548,7 +550,7 @@ export default function DashboardFinanceiro() {
                 border: `1px solid ${isPro ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.12)'}`,
                 color: isPro ? '#f59e0b' : 'rgba(255,255,255,0.5)',
               }}>
-                {isPro ? '⭐ PRO' : 'FREE'}
+                {isPro && !isTrial ? '⭐ PRO' : isTrial ? '⭐ TRIAL' : 'FREE'}
               </span>
             </div>
             <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.04em', background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 16 }}>

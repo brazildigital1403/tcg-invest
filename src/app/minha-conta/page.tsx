@@ -89,6 +89,8 @@ export default function MinhaConta() {
 
   const [user, setUser] = useState<any>(null)
   const [isPro, setIsPro] = useState(false)
+  const [isTrial, setIsTrial] = useState(false)
+  const [trialDaysLeft, setTrialDaysLeft] = useState(0)
   const [loadingCheckout, setLoadingCheckout] = useState<string | null>(null)
   const [userData, setUserData] = useState<any>(null)
   const [cardCount, setCardCount] = useState(0)
@@ -136,8 +138,10 @@ export default function MinhaConta() {
       setCardCount(count || 0)
 
       // Verifica plano Pro
-      const { isPro: pro } = await getUserPlan(authData.user.id)
+      const { isPro: pro, isTrial: trial, trialDaysLeft: days } = await getUserPlan(authData.user.id)
       setIsPro(pro)
+      setIsTrial(trial)
+      setTrialDaysLeft(days)
 
       setLoading(false)
     }
@@ -492,7 +496,29 @@ export default function MinhaConta() {
         <div style={SURFACE}>
           <p style={SECTION_TITLE}>💳 Assinatura</p>
 
-          {planoFree ? (
+          {/* Trial banner */}
+          {isTrial && (
+            <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(239,68,68,0.08))', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 14, padding: '16px 20px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 800, color: '#f59e0b', marginBottom: 4 }}>
+                  ⭐ Pro Trial ativo — {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''} restante{trialDaysLeft !== 1 ? 's' : ''}
+                </p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                  {trialDaysLeft <= 2
+                    ? '⚠️ Trial expirando! Assine para não perder acesso à sua coleção completa.'
+                    : 'Aproveite para importar toda sua coleção e ver o valor real das suas cartas.'}
+                </p>
+              </div>
+              <button
+                onClick={() => handleCheckout('mensal')}
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '10px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
+              >
+                Assinar Pro →
+              </button>
+            </div>
+          )}
+
+          {planoFree && !isTrial ? (
             <>
               {/* Plano atual + barra de uso */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>

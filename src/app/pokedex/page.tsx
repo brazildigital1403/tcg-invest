@@ -211,13 +211,13 @@ export default function Pokedex() {
     if (!authData.user) { setAddingCard(false); return }
 
     // Carrega plano se ainda não carregou
-    const { isPro: pro } = await getUserPlan(authData.user.id)
-    setIsPro(pro)
+    const { isPro: pro, isTrial: trial } = await getUserPlan(authData.user.id)
+    setIsPro(pro || trial)
 
     if (!pro) {
       const { bloqueado } = await checkCardLimit(authData.user.id)
       if (bloqueado) {
-        showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano (2 meses grátis)! 🚀`, 'warning')
+        showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano! 🚀`, 'warning')
         setAddingCard(false)
         return
       }

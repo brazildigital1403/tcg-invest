@@ -26,6 +26,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifs, setNotifs] = useState<any[]>([])
   const [notifOpen, setNotifOpen] = useState(false)
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -58,6 +59,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         total += Number(p[CAMPOS[v]] || 0) * qty
       }
       setPatrimonio(total)
+
+      // Verifica trial
+      const { data: userData } = await supabase
+        .from('users').select('is_pro, trial_expires_at').eq('id', authData.user.id).single()
+      if (userData && !userData.is_pro && userData.trial_expires_at) {
+        const expiry = new Date(userData.trial_expires_at)
+        if (expiry > new Date()) {
+          const days = Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          setTrialDaysLeft(days)
+        }
+      }
 
       // Carrega notificações não lidas
       const { data: notifsData } = await supabase
@@ -237,6 +249,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="tcg-header-logo" style={{ display: 'none', alignItems: 'center', gap: 8, flex: 1 }}>
               <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
             </div>
+
+            {/* Trial badge */}
+            {trialDaysLeft !== null && (
+              <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '4px 10px', flexShrink: 0 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', whiteSpace: 'nowrap' }}>
+                  ⭐ Pro Trial · {trialDaysLeft}d restante{trialDaysLeft !== 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
 
             {/* Patrimônio */}
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
