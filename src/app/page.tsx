@@ -656,19 +656,19 @@ export default function Home() {
             },
             {
               q: 'Como importo minhas cartas?',
-              a: 'Simples: acesse a página da sua carta na LigaPokemon, copie o link e cole no Bynx. Em segundos, a imagem, nome, variante e preços (Normal, Foil, Promo) são importados automaticamente.'
+              a: 'Simples: acesse a página da sua carta na LigaPokemon, copie o link e cole no Bynx. Em segundos, os preços (Normal, Foil, Promo) são importados automaticamente.'
             },
             {
               q: 'Os preços são atualizados automaticamente?',
-              a: 'Sim! O sistema atualiza os preços diariamente de madrugada. Você também pode atualizar manualmente a qualquer momento clicando em "Atualizar preço" em cada carta.'
+              a: 'Você tem autonomia para atualizar manualmente a qualquer momento clicando em "Atualizar preço" em cada carta, sempre que quiser ter o valor mais recente da sua coleção.'
             },
             {
               q: 'Qual a diferença entre Normal, Foil e Promo?',
               a: 'Cada variante tem um preço diferente no mercado. Uma carta Foil pode valer 10x mais que a Normal. O Bynx rastreia cada variante separadamente para você ter o valor exato da carta que possui.'
             },
             {
-              q: 'Posso vender minhas cartas pelo Bynx?',
-              a: 'Sim! O Marketplace integrado permite criar anúncios e negociar diretamente com outros colecionadores. O contato final é feito via WhatsApp, simples e seguro.'
+              q: 'O Bynx vende minhas cartas para mim?',
+              a: 'Não! O Marketplace integrado permite que você crie anúncios e negocie diretamente com outros colecionadores. O contato final é feito via WhatsApp, simples e seguro entre colecionadores. O Bynx é apenas o organizador da sua coleção.'
             },
           ].map((item, i) => (
             <FaqItem key={i} q={item.q} a={item.a} />
