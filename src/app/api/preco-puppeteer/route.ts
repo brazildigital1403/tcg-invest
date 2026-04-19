@@ -132,7 +132,8 @@ export async function GET(req: Request) {
   let card_image: string | null = null
   const variantes: Record<string, { min: number|null; medio: number|null; max: number|null }> = {}
 
-  // Extrai cards_editions (imagem real da carta)
+  // Extrai cards_editions (imagem real da carta + nome da edição)
+  let set_name: string | null = null
   const editionsMatch = html.match(/var\s+cards_editions\s*=\s*(\[[\s\S]+?\]);/)
     || html.match(/cards_editions\s*=\s*(\[[\s\S]+?\]);/)
   if (editionsMatch) {
@@ -140,7 +141,18 @@ export async function GET(req: Request) {
       const editions = JSON.parse(editionsMatch[1])
       const img = editions[0]?.img
       if (img) card_image = img.startsWith('//') ? 'https:' + img : img
+      // Extrai nome da edição
+      const edName = editions[0]?.name || editions[0]?.edition || editions[0]?.set
+      if (edName) set_name = decodeHtmlEntities(String(edName).trim())
     } catch {}
+  }
+
+  // Fallback: tenta extrair set do HTML diretamente
+  if (!set_name) {
+    const setMatch = html.match(/Expans[ãa]o[^<]*<[^>]*>([^<]{3,60})</)
+      || html.match(/Edi[çc][ãa]o[^<]*<[^>]*>([^<]{3,60})</)
+      || html.match(/Set[:\s]+<[^>]*>([^<]{3,60})</)
+    if (setMatch?.[1]) set_name = decodeHtmlEntities(setMatch[1].trim())
   }
 
   // Extrai cards_stock (preços por variante)
@@ -204,7 +216,7 @@ export async function GET(req: Request) {
   const pokeball = variantes.pokeball || { min: null, medio: null, max: null }
 
   const data = {
-    card_name, card_number, card_image,
+    card_name, card_number, card_image, set_name,
     link: parsedUrl.toString(), rarity,
     preco_min: normal.min, preco_medio: normal.medio, preco_max: normal.max,
     preco_normal: normal.medio, preco_foil: foil.medio,

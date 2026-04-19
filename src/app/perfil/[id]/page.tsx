@@ -46,6 +46,7 @@ export default function PerfilPage() {
   const [showcase, setShowcase]   = useState<any[]>([])
   const [patrimonio, setPatrimonio] = useState(0)
   const [portfolioHistory, setPortfolioHistory] = useState<any[]>([])
+  const [setProgress, setSetProgress] = useState<any[]>([])
   const [stats, setStats]         = useState({ cartas: 0, anuncios: 0, vendas: 0 })
   const [loading, setLoading]     = useState(true)
   const [notFound, setNotFound]   = useState(false)
@@ -137,6 +138,39 @@ export default function PerfilPage() {
         .order('recorded_at', { ascending: true })
         .limit(60)
       setPortfolioHistory(history || [])
+
+      // Progresso por set
+      if (cards && cards.length > 0) {
+        // Agrupa cartas do usuário por set_name
+        const setMap: Record<string, number> = {}
+        for (const c of cards) {
+          if (c.set_name) setMap[c.set_name] = (setMap[c.set_name] || 0) + 1
+        }
+        
+        if (Object.keys(setMap).length > 0) {
+          const setNames = Object.keys(setMap)
+          const { data: setsData } = await supabase
+            .from('pokemon_sets')
+            .select('id, name, total, printed_total, logo_url, symbol_url, series, release_date')
+            .in('name', setNames)
+
+          // Monta progresso
+          const progress = setNames.map(name => {
+            const setInfo = setsData?.find(s => s.name === name)
+            return {
+              name,
+              collected: setMap[name],
+              total: setInfo?.total || setInfo?.printed_total || null,
+              logo_url: setInfo?.logo_url || null,
+              symbol_url: setInfo?.symbol_url || null,
+              series: setInfo?.series || null,
+              release_date: setInfo?.release_date || null,
+            }
+          }).sort((a, b) => (b.release_date || '').localeCompare(a.release_date || ''))
+
+          setSetProgress(progress)
+        }
+      }
 
       setLoading(false)
     }
@@ -310,6 +344,82 @@ export default function PerfilPage() {
                         )}
                       </div>
                     </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── PROGRESSO POR COLEÇÃO ── */}
+        {setProgress.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>
+              📦 Progresso por coleção
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {setProgress.map((s, i) => {
+                const pct = s.total ? Math.min(100, Math.round((s.collected / s.total) * 100)) : null
+                return (
+                  <div key={i} style={{ ...SURFACE, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    {/* Logo ou símbolo do set */}
+                    <div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {s.logo_url ? (
+                        <img src={s.logo_url} alt={s.name}
+                          style={{ maxWidth: 64, maxHeight: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.85 }}
+                          onError={e => {
+                            const t = e.target as HTMLImageElement
+                            t.style.display = 'none'
+                            if (s.symbol_url && t.nextSibling) (t.nextSibling as HTMLElement).style.display = 'block'
+                          }}
+                        />
+                      ) : null}
+                      {s.symbol_url ? (
+                        <img src={s.symbol_url} alt={s.name}
+                          style={{ width: 28, height: 28, objectFit: 'contain', display: s.logo_url ? 'none' : 'block', filter: 'brightness(0) invert(1)', opacity: 0.6 }}
+                        />
+                      ) : (
+                        !s.logo_url && <span style={{ fontSize: 24 }}>📦</span>
+                      )}
+                    </div>
+
+                    {/* Info + barra */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                        <div>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</p>
+                          {s.series && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>{s.series}</p>}
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: pct === 100 ? '#22c55e' : '#f59e0b' }}>
+                            {s.collected}{s.total ? `/${s.total}` : ''}
+                          </span>
+                          {pct !== null && (
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 4 }}>{pct}%</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Barra de progresso */}
+                      {pct !== null && (
+                        <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%', borderRadius: 99, transition: 'width 0.6s ease',
+                            width: `${pct}%`,
+                            background: pct === 100
+                              ? 'linear-gradient(90deg, #22c55e, #16a34a)'
+                              : pct >= 50
+                              ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
+                              : 'linear-gradient(90deg, #60a5fa, #3b82f6)',
+                          }} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Badge 100% */}
+                    {pct === 100 && (
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>🏆</span>
+                    )}
                   </div>
                 )
               })}

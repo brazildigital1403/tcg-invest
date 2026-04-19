@@ -368,6 +368,7 @@ export default function MinhaColecao() {
             card_name: data.card_name, card_id: data.card_number,
             card_image: data.card_image, card_link: data.link,
             rarity: data.rarity || null, quantity: 1,
+            set_name: data.set_name || null,
             variante: data.variantes?.normal ? 'normal'
               : data.variantes?.foil ? 'foil'
               : data.variantes?.promo ? 'promo'
