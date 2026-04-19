@@ -164,15 +164,15 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         ? `${card.name} (${card.number})`
         : card.name
 
-      // Verifica se já existe
-      const { data: existing } = await supabase
+      // Verifica se já existe (sem .single() para evitar erro quando não achar)
+      const { data: existingList } = await supabase
         .from('user_cards')
         .select('id, quantity')
         .eq('user_id', user.id)
         .ilike('card_name', cardName)
         .limit(1)
-        .single()
-        .catch(() => ({ data: null }))
+
+      const existing = existingList?.[0] || null
 
       if (existing) {
         await supabase.from('user_cards')
@@ -195,7 +195,8 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
     }
 
     setAddedCount(added)
-    onAdded()
+    // Aguarda 2s para mostrar o sucesso antes de recarregar
+    setTimeout(() => onAdded(), 2000)
   }
 
   const selectedCount = cards.filter(c => c.selected).length
