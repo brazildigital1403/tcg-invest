@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -80,6 +80,24 @@ function inputStyle(erro?: string, valido?: boolean): React.CSSProperties {
     fontFamily: "'DM Sans', system-ui, sans-serif",
     transition: 'border-color 0.2s',
   }
+}
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <div style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, textAlign: 'left', fontFamily: 'inherit' }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 600, color: '#f0f0f0' }}>{q}</span>
+        <span style={{ fontSize: 20, color: '#f59e0b', flexShrink: 0, transition: 'transform 0.2s', transform: open ? 'rotate(45deg)' : 'none' }}>+</span>
+      </button>
+      {open && (
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, paddingBottom: 20 }}>{a}</p>
+      )}
+    </div>
+  )
 }
 
 export default function Home() {
@@ -451,9 +469,9 @@ export default function Home() {
         </div>
         <div className="lp-stats-row" style={{ marginTop: 48, display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
           {[
-            { num: '+500', label: 'cartas cadastradas' },
-            { num: '+120', label: 'colecionadores ativos' },
-            { num: 'R$ 50k+', label: 'em coleções gerenciadas' },
+            { num: '46', label: 'cartas na coleção beta' },
+            { num: 'R$ 25k+', label: 'em preços monitorados' },
+            { num: '100%', label: 'foco no mercado BR' },
           ].map((s) => (
             <div key={s.label} style={{ textAlign: 'center' }}>
               <p style={{ fontSize: 28, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.03em' }}>{s.num}</p>
@@ -617,6 +635,83 @@ export default function Home() {
         </div>
       </section>
 
+
+      {/* ── FAQ ── */}
+      <section style={{ padding: '80px 24px', maxWidth: 720, margin: '0 auto' }}>
+        <h2 style={{ fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 8 }}>
+          Perguntas frequentes
+        </h2>
+        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 15, marginBottom: 48 }}>
+          Tudo que você precisa saber antes de começar
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {[
+            {
+              q: 'Precisa de cartão de crédito para começar?',
+              a: 'Não! O plano gratuito é 100% gratuito, sem cartão de crédito. Você só precisa de um e-mail para criar sua conta e começar a organizar sua coleção agora mesmo.'
+            },
+            {
+              q: 'Funciona com cartas em português do Brasil?',
+              a: 'Sim! O Bynx é totalmente focado no mercado brasileiro. Os preços vêm direto da LigaPokemon.com.br, o maior marketplace de TCG do Brasil, com valores em reais (R$).'
+            },
+            {
+              q: 'Como importo minhas cartas?',
+              a: 'Simples: acesse a página da sua carta na LigaPokemon, copie o link e cole no Bynx. Em segundos, a imagem, nome, variante e preços (Normal, Foil, Promo) são importados automaticamente.'
+            },
+            {
+              q: 'Os preços são atualizados automaticamente?',
+              a: 'Sim! O sistema atualiza os preços diariamente de madrugada. Você também pode atualizar manualmente a qualquer momento clicando em "Atualizar preço" em cada carta.'
+            },
+            {
+              q: 'Qual a diferença entre Normal, Foil e Promo?',
+              a: 'Cada variante tem um preço diferente no mercado. Uma carta Foil pode valer 10x mais que a Normal. O Bynx rastreia cada variante separadamente para você ter o valor exato da carta que possui.'
+            },
+            {
+              q: 'Posso vender minhas cartas pelo Bynx?',
+              a: 'Sim! O Marketplace integrado permite criar anúncios e negociar diretamente com outros colecionadores. O contato final é feito via WhatsApp, simples e seguro.'
+            },
+          ].map((item, i) => (
+            <FaqItem key={i} q={item.q} a={item.a} />
+          ))}
+        </div>
+      </section>
+
+      {/* ── DEPOIMENTO ── */}
+      <section style={{ padding: '60px 24px', maxWidth: 720, margin: '0 auto' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 24, padding: '40px 48px', position: 'relative' }}>
+          <span style={{ position: 'absolute', top: 24, left: 32, fontSize: 48, color: 'rgba(245,158,11,0.3)', fontFamily: 'Georgia, serif', lineHeight: 1 }}>"</span>
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', marginBottom: 24, paddingTop: 16 }}>
+            Eu não sabia o quanto minha coleção valia de verdade. Depois de importar tudo no Bynx, descobri que tenho mais de R$ 2.000 em cartas. Agora acompanho o mercado toda semana e sei exatamente quando é hora de vender.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#000', flexShrink: 0 }}>
+              ES
+            </div>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>Eduardo Silva</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Colecionador · São Paulo, SP · Usuário beta</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── VÍDEO DEMO ── */}
+      <section style={{ padding: '60px 24px', maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
+        <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
+          Veja em 60 segundos
+        </h2>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15, marginBottom: 32 }}>
+          Do link da LigaPokemon ao portfólio completo
+        </p>
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden', position: 'relative', paddingBottom: '56.25%' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 40px rgba(245,158,11,0.4)' }}>
+              <span style={{ fontSize: 28, marginLeft: 4 }}>▶</span>
+            </div>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>Vídeo demo em breve</p>
+          </div>
+        </div>
+      </section>
 
       {/* CTA FINAL */}
       <section style={{ padding: '100px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', position: 'relative', overflow: 'hidden' }}>
