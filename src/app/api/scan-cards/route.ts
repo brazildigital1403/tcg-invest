@@ -40,18 +40,22 @@ export async function POST(req: NextRequest) {
           },
           {
             type: 'text',
-            text: `Analise esta foto de cartas Pokémon TCG e identifique TODAS as cartas visíveis.
+            text: `You are a Pokémon TCG card recognition system. Analyze this image and identify ALL visible Pokémon TCG cards.
 
-Para cada carta retorne um JSON com:
-- "name": nome completo da carta em português ou inglês como aparecer na carta
-- "number": número da carta no formato "XXX/YYY" (ex: "004/165") — se visível
-- "set": nome do set/expansão se visível
-- "hp": HP da carta se visível
+IMPORTANT: Respond with ONLY a raw JSON array. No markdown, no code blocks, no explanations, no text before or after.
 
-Retorne SOMENTE um array JSON válido, sem texto adicional, sem markdown, sem explicações.
-Exemplo: [{"name":"Charmander","number":"004/165","set":"151","hp":"60"},{"name":"Pikachu","number":"025/165","set":"151","hp":"60"}]
+For each card return an object with:
+- "name": card name as shown (Portuguese or English)
+- "number": card number like "004/165" if visible, otherwise null
+- "set": set/expansion name if visible, otherwise null
+- "hp": HP number if visible, otherwise null
 
-Se não identificar nenhuma carta Pokémon, retorne: []`,
+Example output:
+[{"name":"Charmander","number":"004/165","set":"151","hp":"60"},{"name":"Pikachu","number":"025/165","set":"151","hp":"60"}]
+
+If no Pokémon TCG cards are visible, respond with exactly: []
+
+Start your response with [ and end with ]`,
           },
         ],
       },
@@ -60,15 +64,30 @@ Se não identificar nenhuma carta Pokémon, retorne: []`,
 
   const text = response.content[0].type === 'text' ? response.content[0].text : ''
 
-  // Parse do JSON retornado
+  // Parse do JSON retornado — tenta múltiplas estratégias
   let cards: any[] = []
   try {
-    const clean = text.replace(/```json|```/g, '').trim()
-    cards = JSON.parse(clean)
-    if (!Array.isArray(cards)) cards = []
+    // 1. Remove markdown code blocks
+    let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+
+    // 2. Extrai só o array JSON se houver texto antes/depois
+    const arrayMatch = clean.match(/\[[\s\S]*\]/)
+    if (arrayMatch) clean = arrayMatch[0]
+
+    // 3. Parse
+    const parsed = JSON.parse(clean)
+    cards = Array.isArray(parsed) ? parsed : []
   } catch {
-    cards = []
+    // 4. Fallback: extrai objetos individuais
+    try {
+      const objMatches = [...text.matchAll(/\{[^{}]+\}/g)]
+      for (const m of objMatches) {
+        try { cards.push(JSON.parse(m[0])) } catch { /* ignora */ }
+      }
+    } catch { cards = [] }
   }
 
+  console.log('[scan-cards] raw response:', text.slice(0, 200))
+  console.log('[scan-cards] cards found:', cards.length)
   return NextResponse.json({ cards, raw: text })
 }
