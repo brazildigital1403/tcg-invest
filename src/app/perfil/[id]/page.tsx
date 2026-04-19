@@ -87,7 +87,7 @@ export default function PerfilPage() {
 
       // Cartas com preços — para showcase e patrimônio
       const { data: cards } = await supabase
-        .from('user_cards').select('card_name, variante, quantity, card_image').eq('user_id', uid)
+        .from('user_cards').select('card_name, variante, quantity, card_image, set_name').eq('user_id', uid)
 
       if (cards && cards.length > 0) {
         const names = cards.map(c => c.card_name?.trim()).filter(Boolean)
