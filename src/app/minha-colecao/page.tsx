@@ -7,6 +7,7 @@ import { getUserPlan } from '@/lib/isPro'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
+import AddCardModal from '@/components/dashboard/AddCardModal'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 const fmt = (v: number | null | undefined) => {
@@ -57,6 +58,8 @@ export default function MinhaColecao() {
   const [cards, setCards] = useState<any[]>([])
   const [totalCartas, setTotalCartas] = useState(0)
   const [isPro, setIsPro] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [openAddModal, setOpenAddModal] = useState(false)
   const limiteDisplay = isPro ? '∞' : String(LIMITE_FREE)
   const [search, setSearch] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
@@ -258,6 +261,7 @@ export default function MinhaColecao() {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { window.location.href = '/login'; return }
 
+    setUserId(userData.user.id)
     const { isPro: pro, isTrial: trial } = await getUserPlan(userData.user.id)
     setIsPro(pro || trial)
 
@@ -735,6 +739,14 @@ export default function MinhaColecao() {
               >
                 + Importar por link
               </button>
+              {userId && (
+                <button
+                  onClick={() => setOpenAddModal(true)}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', padding: '11px 18px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+                >
+                  Buscar na API
+                </button>
+              )}
               {cards.length > 0 && (
                 <>
                   <button
@@ -1003,6 +1015,14 @@ export default function MinhaColecao() {
           })}
         </div>
       </div>
+
+      {openAddModal && userId && (
+        <AddCardModal
+          userId={userId}
+          onClose={() => setOpenAddModal(false)}
+          onAdded={() => window.location.reload()}
+        />
+      )}
     </AppLayout>
   )
 }
