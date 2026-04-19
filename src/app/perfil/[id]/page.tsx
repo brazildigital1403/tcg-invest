@@ -149,14 +149,23 @@ export default function PerfilPage() {
         
         if (Object.keys(setMap).length > 0) {
           const setNames = Object.keys(setMap)
-          const { data: setsData } = await supabase
+          // Busca sets pelo nome PT ou nome EN
+          const { data: setsDataPt } = await supabase
             .from('pokemon_sets')
-            .select('id, name, total, printed_total, logo_url, symbol_url, series, release_date')
+            .select('id, name, name_pt, total, printed_total, logo_url, symbol_url, series, release_date')
+            .in('name_pt', setNames)
+
+          const { data: setsDataEn } = await supabase
+            .from('pokemon_sets')
+            .select('id, name, name_pt, total, printed_total, logo_url, symbol_url, series, release_date')
             .in('name', setNames)
+
+          const allSetsData = [...(setsDataPt || []), ...(setsDataEn || [])]
 
           // Monta progresso
           const progress = setNames.map(name => {
-            const setInfo = setsData?.find(s => s.name === name)
+            // Tenta match por name_pt primeiro, depois por name
+            const setInfo = allSetsData.find(s => s.name_pt === name || s.name === name)
             return {
               name,
               collected: setMap[name],
