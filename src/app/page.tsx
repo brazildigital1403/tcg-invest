@@ -259,7 +259,8 @@ export default function Home() {
           return
         }
         if (data.user) {
-          await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp })
+          const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, trial_expires_at: trialExpiry })
 
           setServerError('')
           setShowAuthModal(false)
@@ -382,9 +383,15 @@ export default function Home() {
           <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>organizada de verdade.</span>
         </h1>
 
-        <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)', maxWidth: 560, lineHeight: 1.6, marginBottom: 48 }}>
+        <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)', maxWidth: 560, lineHeight: 1.6, marginBottom: 24 }}>
           Cole o link da sua carta, escolha a variante (Normal, Foil, Promo) e veja os preços de referência do mercado organizados na sua coleção pessoal.
         </p>
+        {/* Trial badge */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 100, padding: '8px 20px', marginBottom: 40 }}>
+          <span style={{ fontSize: 16 }}>⭐</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#f59e0b' }}>7 dias de Pro grátis</span>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>· sem cartão de crédito</span>
+        </div>
 
         <div className="lp-hero-btns" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 80 }}>
           <button
@@ -542,7 +549,10 @@ export default function Home() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
               <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em' }}>R$ 0</span>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28 }}>Para começar a organizar</p>
+            <div style={{ marginBottom: 28 }}>
+              <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 4 }}>Para começar a organizar</p>
+              <p style={{ color: '#f59e0b', fontSize: 12, fontWeight: 700 }}>⭐ Inclui 7 dias de Pro grátis</p>
+            </div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 { txt: '6 cartas na coleção', ok: true },
@@ -564,8 +574,9 @@ export default function Home() {
               onClick={() => handleClickPlan('free')}
               style={{ width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', padding: '13px', borderRadius: 12, fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}
             >
-              Criar conta grátis
+              ⭐ Começar com 7 dias Pro grátis
             </button>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 10 }}>Após o trial: plano gratuito com 6 cartas</p>
           </div>
 
           {/* Pro Mensal */}
@@ -719,7 +730,8 @@ export default function Home() {
         <h2 style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 800, letterSpacing: '-0.04em', marginBottom: 20, position: 'relative' }}>
           Sua coleção merece<br />estar organizada.
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 17, marginBottom: 40, position: 'relative' }}>Comece a organizar grátis. Sem cartão de crédito.</p>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 17, marginBottom: 12, position: 'relative' }}>Comece a organizar grátis. Sem cartão de crédito.</p>
+        <p style={{ color: '#f59e0b', fontSize: 14, fontWeight: 600, marginBottom: 40, position: 'relative' }}>⭐ 7 dias de Pro incluídos no cadastro gratuito</p>
         <button
           onClick={() => handleClickPlan('free')}
           style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '18px 48px', borderRadius: 14, fontWeight: 700, fontSize: 18, cursor: 'pointer', boxShadow: '0 0 60px rgba(245,158,11,0.25)', position: 'relative' }}
@@ -771,14 +783,17 @@ export default function Home() {
               {/* ── STEP 0: ESCOLHA DO PLANO ── */}
               {showPlanStep ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {/* Grátis */}
+                  {/* Grátis com trial */}
                   <button onClick={() => { setPendingPlan('free'); setShowPlanStep(false) }}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', transition: 'all 0.15s' }}>
+                    style={{ width: '100%', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', transition: 'all 0.15s', position: 'relative' }}>
+                    <div style={{ position: 'absolute', top: -10, left: 16, background: 'rgba(245,158,11,0.9)', color: '#000', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 100, letterSpacing: '0.05em' }}>
+                      ⭐ 7 DIAS DE PRO GRÁTIS
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <span style={{ fontSize: 15, fontWeight: 700 }}>Grátis</span>
+                      <span style={{ fontSize: 15, fontWeight: 700 }}>Começar grátis</span>
                       <span style={{ fontSize: 18, fontWeight: 900 }}>R$ 0</span>
                     </div>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>6 cartas · 3 anúncios · Dashboard básico</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>7 dias de Pro completo · depois 6 cartas grátis para sempre</p>
                   </button>
 
                   {/* Pro Mensal */}
