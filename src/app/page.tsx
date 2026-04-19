@@ -370,7 +370,7 @@ export default function Home() {
 
         <div className="lp-hero-btns" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 80 }}>
           <button
-            onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
+            onClick={() => handleClickPlan('free')}
             style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '16px 32px', borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 0 40px rgba(245,158,11,0.3)' }}
           >
             Começar grátis →
@@ -626,7 +626,7 @@ export default function Home() {
         </h2>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 17, marginBottom: 40, position: 'relative' }}>Comece grátis. Sem cartão de crédito.</p>
         <button
-          onClick={() => { setIsLogin(false); setShowAuthModal(true) }}
+          onClick={() => handleClickPlan('free')}
           style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '18px 48px', borderRadius: 14, fontWeight: 700, fontSize: 18, cursor: 'pointer', boxShadow: '0 0 60px rgba(245,158,11,0.25)', position: 'relative' }}
         >
           Começar agora grátis →
