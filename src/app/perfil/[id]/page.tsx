@@ -302,7 +302,7 @@ export default function PerfilPage() {
         })()}
 
         {/* ── STATS ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 32 }}>
           {[
             { label: 'Cartas na coleção', value: stats.cartas, color: '#60a5fa', icon: '🃏' },
             { label: 'Anúncios ativos',   value: stats.anuncios, color: '#f59e0b', icon: '📢' },
@@ -323,7 +323,7 @@ export default function PerfilPage() {
             <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
               🏆 Cartas mais valiosas
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 14 }}>
               {showcase.map((card, i) => {
                 const vColor = VARIANTE_COLOR[card.variante || 'normal'] || '#60a5fa'
                 const vLabel = VARIANTE_LABEL[card.variante || 'normal'] || 'Normal'
@@ -449,7 +449,7 @@ export default function PerfilPage() {
               <p style={{ fontSize: 14 }}>Nenhum anúncio ativo no momento.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
               {listings.map((card: any) => (
                 <div key={card.id} style={{ ...SURFACE, overflow: 'hidden' }}>
                   {card.card_image

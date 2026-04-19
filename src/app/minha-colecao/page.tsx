@@ -8,6 +8,7 @@ import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import AddCardModal from '@/components/dashboard/AddCardModal'
+import OnboardingChecklist from '@/components/ui/OnboardingChecklist'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 const fmt = (v: number | null | undefined) => {
@@ -177,6 +178,12 @@ export default function MinhaColecao() {
   .footer { margin-top: 32px; text-align: center; font-size: 10px; color: #bbb; border-top: 1px solid #eee; padding-top: 16px; }
   .total-row td { font-weight: 800; background: #f9f9f9; border-top: 2px solid #111; }
   @media print { body { padding: 20px; } }
+  @media (min-width: 640px) { .md-row { flex-direction: row !important; align-items: flex-start !important; } }
+  @media (max-width: 639px) {
+    .p-6 { padding: 16px !important; }
+    .colecao-titulo { font-size: 22px !important; }
+    .colecao-botoes button { font-size: 13px !important; padding: 10px 14px !important; }
+  }
 </style>
 </head>
 <body>
@@ -710,9 +717,12 @@ export default function MinhaColecao() {
       })()}
       <div className="p-6">
 
+        {/* Onboarding */}
+        {userId && <OnboardingChecklist userId={userId} />}
+
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12, flexDirection: 'column' }} className="md-row">
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
               <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
@@ -732,7 +742,7 @@ export default function MinhaColecao() {
                   : `${cards.length} carta${cards.length !== 1 ? 's' : ''} na coleção`}
               </p>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}>
               <button
                 onClick={handleAddByLink}
                 style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 18px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
@@ -770,7 +780,7 @@ export default function MinhaColecao() {
 
         </div>
 
-        {/* Resumo financeiro — scroll horizontal com snap no mobile */}
+        {/* Resumo financeiro — scroll horizontal */}
         <style>{`
           .colecao-resumo-track {
             display: flex;
@@ -815,7 +825,7 @@ export default function MinhaColecao() {
 
         {/* Busca + filtros — 1 linha única, após boxes */}
         {cards.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
             {/* Busca */}
             <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
               <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}>🔍</span>
