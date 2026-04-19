@@ -701,7 +701,7 @@ export default function Home() {
           Veja em 60 segundos
         </h2>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15, marginBottom: 32 }}>
-          Do link da LigaPokemon ao portfólio completo
+          Do link colado à coleção organizada
         </p>
         <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden', position: 'relative', paddingBottom: '56.25%' }}>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
