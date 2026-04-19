@@ -98,6 +98,7 @@ export default function MinhaConta() {
   // Campos editáveis
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
+  const [usernameChangedAt, setUsernameChangedAt] = useState<string | null>(null)
   const [whatsapp, setWhatsapp] = useState('')
   const [city, setCity] = useState('')
 
@@ -121,6 +122,7 @@ export default function MinhaConta() {
         setUserData(profile)
         setName(profile.name || '')
         setUsername(profile.username || '')
+        setUsernameChangedAt(profile.username_changed_at || null)
         setWhatsapp(profile.whatsapp || '')
         setCity(profile.city || '')
       }
@@ -178,27 +180,45 @@ export default function MinhaConta() {
       return
     }
 
-    // Valida username
+    // ── Valida username ──────────────────────────────────────────────────────
     const uSlug = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
     if (uSlug.length < 3) {
       showAlert('Username deve ter pelo menos 3 caracteres (letras, números e _).', 'error')
       return
     }
 
+    const usernameChanged = uSlug !== (userData?.username || '')
+
+    // Verifica cooldown de 30 dias se está tentando trocar
+    if (usernameChanged && usernameChangedAt) {
+      const lastChange = new Date(usernameChangedAt)
+      const diasDesde = Math.floor((Date.now() - lastChange.getTime()) / (1000 * 60 * 60 * 24))
+      const diasRestantes = 30 - diasDesde
+      if (diasRestantes > 0) {
+        showAlert(`Você só pode trocar o username uma vez a cada 30 dias. Aguarde mais ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''}.`, 'warning')
+        return
+      }
+    }
+
     setSaving(true)
 
     // Verifica se username já está em uso por outro usuário
-    const { data: existing } = await supabase
-      .from('users').select('id').eq('username', uSlug).neq('id', user.id).single()
-    if (existing) {
-      setSaving(false)
-      showAlert('Este username já está em uso. Escolha outro.', 'error')
-      return
+    if (usernameChanged) {
+      const { data: existing } = await supabase
+        .from('users').select('id').eq('username', uSlug).neq('id', user.id).single()
+      if (existing) {
+        setSaving(false)
+        showAlert('Este username já está em uso. Escolha outro — cada perfil é único no Bynx! 🎴', 'error')
+        return
+      }
     }
+
+    const updateData: any = { name, whatsapp, city, username: uSlug }
+    if (usernameChanged) updateData.username_changed_at = new Date().toISOString()
 
     const { error } = await supabase
       .from('users')
-      .update({ name, whatsapp, city, username: uSlug })
+      .update(updateData)
       .eq('id', user.id)
 
     setSaving(false)
@@ -206,8 +226,9 @@ export default function MinhaConta() {
     if (error) {
       showAlert('Erro ao salvar. Tente novamente.', 'error')
     } else {
+      if (usernameChanged) setUsernameChangedAt(new Date().toISOString())
       setUsername(uSlug)
-      setUserData((prev: any) => ({ ...prev, name, whatsapp, city, username: uSlug }))
+      setUserData((prev: any) => ({ ...prev, ...updateData }))
       showAlert('Dados atualizados com sucesso!', 'success')
     }
   }
@@ -359,9 +380,22 @@ export default function MinhaConta() {
               </div>
               {username && (
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
-                  Seu perfil ficará em: <span style={{ color: '#f59e0b' }}>bynx.gg/perfil/{username}</span>
+                  Seu perfil: <span style={{ color: '#f59e0b' }}>bynx.gg/perfil/{username}</span>
                 </p>
               )}
+              {(() => {
+                if (!usernameChangedAt) return null
+                const diasDesde = Math.floor((Date.now() - new Date(usernameChangedAt).getTime()) / (1000 * 60 * 60 * 24))
+                const diasRestantes = 30 - diasDesde
+                if (diasRestantes <= 0) return (
+                  <p style={{ fontSize: 11, color: '#22c55e', marginTop: 4 }}>✓ Você pode trocar o username</p>
+                )
+                return (
+                  <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', marginTop: 4 }}>
+                    🔒 Próxima troca disponível em {diasRestantes} dia{diasRestantes > 1 ? 's' : ''}
+                  </p>
+                )
+              })()}
             </div>
 
             {/* Cidade + WhatsApp */}
