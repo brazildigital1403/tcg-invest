@@ -147,6 +147,24 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
     }
   }
 
+  // ── Busca imagem na TCG API ──────────────────────────────────────────────────
+
+  async function fetchCardImage(name: string, number?: string | null, set?: string | null): Promise<string | null> {
+    try {
+      // Monta query — mais específica possível
+      let q = `name:"${name.split('(')[0].trim()}"`
+      if (number) q += ` number:${number.split('/')[0]}`
+      if (set) q += ` set.name:"${set}"`
+
+      const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1&select=id,images`)
+      if (!res.ok) return null
+      const data = await res.json()
+      return data?.data?.[0]?.images?.large || data?.data?.[0]?.images?.small || null
+    } catch {
+      return null
+    }
+  }
+
   // ── Adicionar cartas confirmadas ─────────────────────────────────────────────
 
   async function handleAdd() {
@@ -164,20 +182,24 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         ? `${card.name} (${card.number})`
         : card.name
 
-      // Verifica se já existe (sem .single() para evitar erro quando não achar)
-      const { data: existingList } = await supabase
-        .from('user_cards')
-        .select('id, quantity')
-        .eq('user_id', user.id)
-        .ilike('card_name', cardName)
-        .limit(1)
+      // Busca imagem na TCG API em paralelo com o check de existência
+      const [imageUrl, existingResult] = await Promise.all([
+        fetchCardImage(card.name, card.number, card.set),
+        supabase
+          .from('user_cards')
+          .select('id, quantity')
+          .eq('user_id', user.id)
+          .ilike('card_name', cardName)
+          .limit(1)
+      ])
 
-      const existing = existingList?.[0] || null
+      const existing = existingResult.data?.[0] || null
 
       if (existing) {
-        await supabase.from('user_cards')
-          .update({ quantity: (existing.quantity || 1) + 1 })
-          .eq('id', existing.id)
+        // Já existe — incrementa quantidade e atualiza imagem se não tinha
+        const updates: any = { quantity: (existing.quantity || 1) + 1 }
+        if (imageUrl) updates.card_image = imageUrl
+        await supabase.from('user_cards').update(updates).eq('id', existing.id)
       } else {
         await supabase.from('user_cards').insert({
           user_id: user.id,
@@ -186,7 +208,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           set_name: card.set || null,
           variante: 'normal',
           quantity: 1,
-          card_image: null,
+          card_image: imageUrl,
           card_link: null,
           rarity: null,
         })
