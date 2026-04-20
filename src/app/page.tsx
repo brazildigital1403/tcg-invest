@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef, useEffect, useState } from 'react'
+import { IconWarning, IconLink, IconTrendingUp, IconTrendingDown, IconDashboard, IconMarketplace, IconShield, IconWallet, IconCheck, IconClose, IconEye, IconEyeOff, IconKey, IconFire, IconCollection, IconChart } from '@/components/ui/Icons'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -62,7 +63,7 @@ function Campo({ label, erro, children }: { label?: string; erro?: string; child
       {children}
       {erro && (
         <p style={{ fontSize: 11, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span>⚠</span> {erro}
+          <IconWarning size={14} color="#ef4444" style={{marginRight:4}} /> {erro}
         </p>
       )}
     </div>
@@ -496,13 +497,13 @@ export default function Home() {
         </div>
         <div className="lp-how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           {[
-            { num: '01', icon: '🔗', title: 'Você cola o link da sua carta', desc: 'Acesse a LigaPokemon, copie o link da sua carta e cole no Bynx. Os preços de referência por variante são carregados para você organizar sua coleção.' },
-            { num: '02', icon: '📊', title: 'Você escolhe a variante', desc: 'Diga se a sua carta é Normal, Foil ou Promo. O Bynx exibe os preços de referência por variante para você acompanhar sua coleção.' },
-            { num: '03', icon: '💰', title: 'Veja sua coleção organizada', desc: 'Mínimo, médio e máximo de referência da sua coleção. Uma visão clara para você tomar suas próprias decisões de negociação.' },
+            { num: '01', Icon: IconLink, title: 'Você cola o link da sua carta', desc: 'Acesse a LigaPokemon, copie o link da sua carta e cole no Bynx. Os preços de referência por variante são carregados para você organizar sua coleção.' },
+            { num: '02', Icon: IconChart, title: 'Você escolhe a variante', desc: 'Diga se a sua carta é Normal, Foil ou Promo. O Bynx exibe os preços de referência por variante para você acompanhar sua coleção.' },
+            { num: '03', Icon: IconWallet, title: 'Veja sua coleção organizada', desc: 'Mínimo, médio e máximo de referência da sua coleção. Uma visão clara para você tomar suas próprias decisões de negociação.' },
           ].map((s) => (
             <div key={s.num} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 32, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', top: 20, right: 20, fontSize: 40, opacity: 0.06, fontWeight: 900 }}>{s.num}</div>
-              <div style={{ fontSize: 36, marginBottom: 16 }}>{s.icon}</div>
+              <s.Icon size={36} color='rgba(245,158,11,0.8)' style={{marginBottom:16}} />
               <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, letterSpacing: '-0.02em' }}>{s.title}</h3>
               <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>{s.desc}</p>
             </div>
@@ -518,15 +519,15 @@ export default function Home() {
           </div>
           <div className="lp-feat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             {[
-              { icon: '🎯', title: 'Preços por variante', desc: 'Normal, Foil e Promo separados. O valor certo para a carta que você tem.' },
-              { icon: '📈', title: 'Painel da sua coleção', desc: 'Mínimo, médio e máximo de referência. Informação organizada para suas decisões.' },
-              { icon: '⚡', title: 'Organização por link', desc: 'Cole o link da sua carta e o Bynx organiza os dados na sua coleção pessoal.' },
-              { icon: '📉', title: 'Histórico de referência', desc: 'Veja como os preços de referência da sua coleção variaram ao longo do tempo.' },
-              { icon: '🛒', title: 'Marketplace entre colecionadores', desc: 'Anuncie suas cartas e conecte-se com outros colecionadores. A negociação é entre vocês.' },
-              { icon: '🔒', title: 'Seus dados seguros', desc: 'Autenticação segura. Só você vê sua coleção.' },
+              { Icon: IconCollection, title: 'Preços por variante', desc: 'Normal, Foil e Promo separados. O valor certo para a carta que você tem.' },
+              { Icon: IconTrendingUp, title: 'Painel da sua coleção', desc: 'Mínimo, médio e máximo de referência. Informação organizada para suas decisões.' },
+              { Icon: IconDashboard, title: 'Organização por link', desc: 'Cole o link da sua carta e o Bynx organiza os dados na sua coleção pessoal.' },
+              { Icon: IconTrendingDown, title: 'Histórico de referência', desc: 'Veja como os preços de referência da sua coleção variaram ao longo do tempo.' },
+              { Icon: IconMarketplace, title: 'Marketplace entre colecionadores', desc: 'Anuncie suas cartas e conecte-se com outros colecionadores. A negociação é entre vocês.' },
+              { Icon: IconShield, title: 'Seus dados seguros', desc: 'Autenticação segura. Só você vê sua coleção.' },
             ].map((f) => (
               <div key={f.title} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
+                <f.Icon size={28} color='rgba(245,158,11,0.7)' style={{marginBottom:12}} />
                 <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{f.title}</h4>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>{f.desc}</p>
               </div>
@@ -565,7 +566,7 @@ export default function Home() {
                 { txt: 'Anúncios ilimitados', ok: false },
               ].map(f => (
                 <div key={f.txt} style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: f.ok ? 1 : 0.35 }}>
-                  <span style={{ color: f.ok ? '#22c55e' : '#6b7280', fontSize: 13, flexShrink: 0 }}>{f.ok ? '✓' : '✕'}</span>
+                  <span style={{ color: f.ok ? '#22c55e' : '#6b7280', fontSize: 13, flexShrink: 0 }}>{f.ok ? <IconCheck size={13} color='#22c55e' /> : <svg width='13' height='13' viewBox='0 0 20 20' fill='none'><path d='M5 5l10 10M15 5L5 15' stroke='#6b7280' strokeWidth='1.6' strokeLinecap='round'/></svg>}</span>
                   <span style={{ fontSize: 13, color: f.ok ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.4)' }}>{f.txt}</span>
                 </div>
               ))}
@@ -599,7 +600,7 @@ export default function Home() {
                 'Badge Pro no perfil',
               ].map(f => (
                 <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: '#f59e0b', fontSize: 13, flexShrink: 0 }}>✓</span>
+                  <IconCheck size={13} color='#f59e0b' />
                   <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{f}</span>
                 </div>
               ))}
@@ -615,7 +616,7 @@ export default function Home() {
           {/* Pro Anual — destaque */}
           <div style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 20, padding: '32px 28px', position: 'relative' }}>
             <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 10, fontWeight: 800, padding: '4px 14px', borderRadius: 100, whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
-              🔥 MELHOR VALOR · 2 MESES GRÁTIS
+              MELHOR VALOR · 2 MESES GRÁTIS
             </div>
             <p style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pro · Anual</p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 4 }}>
@@ -631,7 +632,7 @@ export default function Home() {
                 'Acesso antecipado a novidades',
               ].map(f => (
                 <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: '#f59e0b', fontSize: 13, flexShrink: 0 }}>✓</span>
+                  <IconCheck size={13} color='#f59e0b' />
                   <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{f}</span>
                 </div>
               ))}
@@ -759,7 +760,7 @@ export default function Home() {
             <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>
-                  {showPlanStep ? 'Escolha seu plano 🎴' : forgotStep ? 'Recuperar acesso 🔑' : isLogin ? 'Bem-vindo de volta 👋' : 'Criar sua conta'}
+                  {showPlanStep ? 'Escolha seu plano' : forgotStep ? 'Recuperar acesso' : isLogin ? 'Bem-vindo de volta' : 'Criar sua conta'}
                 </h2>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
                   {showPlanStep ? 'Organize sua coleção grátis ou desbloqueie mais com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Organize até 6 cartas gratuitamente'}
@@ -774,7 +775,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <button onClick={() => { setShowAuthModal(false); setShowPlanStep(false) }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 32, height: 32, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
+              <button onClick={() => { setShowAuthModal(false); setShowPlanStep(false) }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 32, height: 32, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconClose size={13} color="rgba(255,255,255,0.4)" /></button>
             </div>
 
             {/* Body */}
@@ -810,7 +811,7 @@ export default function Home() {
                   <button onClick={() => { setPendingPlan('anual'); setShowPlanStep(false) }}
                     style={{ width: '100%', background: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(239,68,68,0.08))', border: '2px solid rgba(245,158,11,0.5)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', position: 'relative', transition: 'all 0.15s' }}>
                     <div style={{ position: 'absolute', top: -10, right: 16, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 100, letterSpacing: '0.05em' }}>
-                      🔥 MELHOR VALOR
+                      MELHOR VALOR
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <span style={{ fontSize: 15, fontWeight: 700, color: '#f59e0b' }}>Pro Anual</span>
@@ -830,7 +831,7 @@ export default function Home() {
                 /* ── STEP ESQUECI A SENHA ── */
                 forgotSent ? (
                   <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                    <div style={{ fontSize: 48, marginBottom: 16 }}>📬</div>
+                    <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{marginBottom:16}}><rect x="2" y="5" width="16" height="11" rx="2" stroke="rgba(245,158,11,0.6)" strokeWidth="1.3"/><path d="M2 7l8 6 8-6" stroke="rgba(245,158,11,0.6)" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>E-mail enviado!</p>
                     <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 24 }}>
                       Verifique sua caixa de entrada em{' '}
@@ -850,7 +851,7 @@ export default function Home() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 10 }}>
-                      <span>💡</span>
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{flexShrink:0}}><path d="M10 2a6 6 0 014.5 10l-1 1.5H6.5L5.5 12A6 6 0 0110 2z" stroke="rgba(245,158,11,0.8)" strokeWidth="1.3"/><path d="M7.5 16.5h5M8.5 18.5h3" stroke="rgba(245,158,11,0.6)" strokeWidth="1.3" strokeLinecap="round"/></svg>
                       <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
                         Informe seu e-mail cadastrado e enviaremos um link para criar uma nova senha.
                       </p>
@@ -952,7 +953,7 @@ export default function Home() {
                       />
                       <button type="button" onClick={() => setShowPassword(s => !s)}
                         style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 16 }}>
-                        {showPassword ? '🙈' : '👁️'}
+                        {showPassword ? <IconEyeOff size={16} color='rgba(255,255,255,0.4)' /> : <IconEye size={16} color='rgba(255,255,255,0.4)' />}
                       </button>
                     </div>
                     {!isLogin && password.length > 0 && (() => {
@@ -972,7 +973,7 @@ export default function Home() {
 
                   {serverError && (
                     <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: '#ef4444', fontSize: 16 }}>⚠</span>
+                      <IconWarning size={16} color="#ef4444" />
                       <p style={{ fontSize: 13, color: '#ef4444' }}>{serverError}</p>
                     </div>
                   )}
