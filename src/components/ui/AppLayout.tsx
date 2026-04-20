@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount, IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp } from '@/components/ui/Icons'
 import { marcarTodasLidas } from '@/lib/notificacoes'
 
 const BRAND  = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -13,11 +14,11 @@ const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
 const menu = [
-  { name: 'Coleção',     full: 'Minha Coleção',  href: '/minha-colecao',       icon: '🃏' },
-  { name: 'Dashboard',   full: 'Dashboard',       href: '/dashboard-financeiro', icon: '📊' },
-  { name: 'Pokédex',     full: 'Pokédex',         href: '/pokedex',              icon: '📖' },
-  { name: 'Marketplace', full: 'Marketplace',     href: '/marketplace',          icon: '🛒' },
-  { name: 'Conta',       full: 'Minha Conta',     href: '/minha-conta',          icon: '👤' },
+  { name: 'Coleção',     full: 'Minha Coleção',  href: '/minha-colecao',       Icon: IconCollection },
+  { name: 'Dashboard',   full: 'Dashboard',       href: '/dashboard-financeiro', Icon: IconDashboard  },
+  { name: 'Pokédex',     full: 'Pokédex',         href: '/pokedex',              Icon: IconPokedex    },
+  { name: 'Marketplace', full: 'Marketplace',     href: '/marketplace',          Icon: IconMarketplace},
+  { name: 'Conta',       full: 'Minha Conta',     href: '/minha-conta',          Icon: IconAccount    },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -219,7 +220,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
                   borderLeft: active ? '2px solid #f59e0b' : '2px solid transparent',
                 }}>
-                  <span style={{ fontSize: 16 }}>{item.icon}</span>
+                  <item.Icon size={16} color={active ? "#f59e0b" : "rgba(255,255,255,0.45)"} />
                   {item.full}
                 </Link>
               )
@@ -228,7 +229,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <button onClick={handleLogout}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 14, cursor: 'pointer' }}>
-            <span>↩</span> Sair
+            <IconLogout size={15} color="rgba(255,255,255,0.3)" /> Sair
           </button>
         </aside>
 
@@ -273,7 +274,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 onClick={() => setNotifOpen(v => !v)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                <span style={{ fontSize: 22 }}>🔔</span>
+{unreadCount > 0 ? <IconBellDot size={22} color="rgba(255,255,255,0.8)" /> : <IconBell size={22} color="rgba(255,255,255,0.8)" />}
                 {notifs.length > 0 && (
                   <span style={{ position: 'absolute', top: 0, right: 0, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #080a0f' }}>
                     {notifs.length > 9 ? '9+' : notifs.length}
@@ -307,7 +308,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <div style={{ maxHeight: 360, overflowY: 'auto' }}>
                     {notifs.length === 0 ? (
                       <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
-                        <p style={{ fontSize: 28, marginBottom: 8 }}>🔔</p>
+                        <IconBell size={28} color="rgba(255,255,255,0.2)" style={{ marginBottom: 8 }} />
                         <p style={{ fontSize: 13 }}>Nenhuma notificação</p>
                         <p style={{ fontSize: 11, marginTop: 4, color: 'rgba(255,255,255,0.2)' }}>Avisamos quando suas cartas variarem ±10%</p>
                       </div>
@@ -342,6 +343,48 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <main className="tcg-content">
             {children}
           </main>
+
+          {/* ── FOOTER ── */}
+          <footer style={{
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+            padding: '24px 32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 16,
+          }}>
+            {/* Logo */}
+            <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 24, width: 'auto', objectFit: 'contain', opacity: 0.7 }} />
+
+            {/* Social icons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <a href="https://instagram.com/bynx.gg" target="_blank" rel="noopener noreferrer"
+                style={{ color: 'rgba(255,255,255,0.35)', transition: 'color 0.15s', display: 'flex' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.8)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>
+                <IconInstagram size={18} color="currentColor" />
+              </a>
+              <a href="https://discord.gg/bynx" target="_blank" rel="noopener noreferrer"
+                style={{ color: 'rgba(255,255,255,0.35)', transition: 'color 0.15s', display: 'flex' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.8)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>
+                <IconDiscord size={18} color="currentColor" />
+              </a>
+              <a href="https://wa.me/bynx" target="_blank" rel="noopener noreferrer"
+                style={{ color: 'rgba(255,255,255,0.35)', transition: 'color 0.15s', display: 'flex' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.8)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>
+                <IconWhatsApp size={18} color="currentColor" />
+              </a>
+            </div>
+
+            {/* Copyright */}
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>
+              © 2026 Bynx · Feito para colecionadores brasileiros de Pokémon TCG
+            </p>
+          </footer>
+
         </div>
 
         {/* ── BOTTOM NAV mobile ── */}
@@ -361,7 +404,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 color: active ? '#f59e0b' : 'rgba(255,255,255,0.35)',
                 borderTop: active ? '2px solid #f59e0b' : '2px solid transparent',
               }}>
-                <span style={{ fontSize: 19 }}>{item.icon}</span>
+                <item.Icon size={19} color={active ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />
                 <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
                   {item.name}
                 </span>
@@ -408,7 +451,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
                         border: active ? '1px solid rgba(245,158,11,0.2)' : '1px solid transparent',
                       }}>
-                      <span style={{ fontSize: 20 }}>{item.icon}</span>
+                      <item.Icon size={20} color={active ? '#fff' : 'rgba(255,255,255,0.5)'} />
                       {item.full}
                       {active && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />}
                     </Link>
@@ -419,7 +462,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {/* Sair */}
               <button onClick={handleLogout}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', marginTop: 8, borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: '#ef4444', fontSize: 14, cursor: 'pointer', width: '100%' }}>
-                <span>↩</span> Sair da conta
+                <IconLogout size={16} color="#ef4444" /> Sair da conta
               </button>
             </div>
           </div>
