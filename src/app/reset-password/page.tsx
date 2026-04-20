@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { IconLink, IconKey, IconEye, IconEyeOff } from '@/components/ui/Icons'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -87,7 +88,7 @@ export default function ResetPassword() {
     return (
       <div style={{ minHeight: '100vh', background: '#080a0f', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
         <div style={{ textAlign: 'center', maxWidth: 400 }}>
-          <div style={{ fontSize: 56, marginBottom: 20 }}>🔗</div>
+          <IconLink size={48} color="rgba(255,255,255,0.3)" style={{marginBottom:20}} />
           <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f0f0f0', marginBottom: 10 }}>Link inválido ou expirado</h1>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', marginBottom: 28, lineHeight: 1.6 }}>
             O link de recuperação expirou ou já foi usado. Solicite um novo na tela de login.
@@ -107,7 +108,7 @@ export default function ResetPassword() {
     return (
       <div style={{ minHeight: '100vh', background: '#080a0f', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
         <div style={{ textAlign: 'center', maxWidth: 400 }}>
-          <div style={{ fontSize: 56, marginBottom: 20 }}>🎉</div>
+          <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{marginBottom:20}}><circle cx="10" cy="10" r="7.5" stroke="rgba(34,197,94,0.5)" strokeWidth="1.4"/><path d="M6 10l3 3 5-6" stroke="rgba(34,197,94,0.7)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: '#22c55e', marginBottom: 10 }}>Senha atualizada!</h1>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>
             Sua senha foi alterada com sucesso. Redirecionando para o dashboard...
@@ -127,7 +128,7 @@ export default function ResetPassword() {
         {/* Header */}
         <div style={{ padding: '28px 32px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.15))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-            🔑
+            <IconKey size={16} color="rgba(255,255,255,0.4)" style={{marginRight:6}} />
           </div>
           <div>
             <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: '#f0f0f0', marginBottom: 3 }}>Criar nova senha</h1>
@@ -157,7 +158,7 @@ export default function ResetPassword() {
               />
               <button type="button" onClick={() => setShowPass(s => !s)}
                 style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 16 }}>
-                {showPass ? '🙈' : '👁️'}
+                {showPass ? <IconEyeOff size={16} color='rgba(255,255,255,0.4)' /> : <IconEye size={16} color='rgba(255,255,255,0.4)' />}
               </button>
             </div>
 
@@ -193,7 +194,7 @@ export default function ResetPassword() {
               />
               <button type="button" onClick={() => setShowConf(s => !s)}
                 style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 16 }}>
-                {showConf ? '🙈' : '👁️'}
+                {showConf ? <IconEyeOff size={16} color='rgba(255,255,255,0.4)' /> : <IconEye size={16} color='rgba(255,255,255,0.4)' />}
               </button>
             </div>
             {confirm.length > 0 && !coincidem && (

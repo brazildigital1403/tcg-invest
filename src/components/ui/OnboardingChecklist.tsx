@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { IconLink, IconAccount, IconMarketplace, IconDashboard, IconCheck, IconRocket } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 
 const STEPS = [
-  { key: 'imported',   icon: '🔗', label: 'Importar primeira carta',    desc: 'Cole um link da LigaPokemon'      },
-  { key: 'profile',    icon: '👤', label: 'Configurar seu perfil',       desc: 'Adicione username em Minha Conta' },
-  { key: 'marketplace',icon: '🛒', label: 'Explorar o Marketplace',     desc: 'Veja cartas à venda'              },
-  { key: 'dashboard',  icon: '📊', label: 'Ver o Dashboard financeiro',  desc: 'Confira o valor da sua coleção'   },
+  { key: 'imported',   Icon: IconLink, label: 'Importar primeira carta',    desc: 'Cole um link da LigaPokemon'      },
+  { key: 'profile',    Icon: IconAccount, label: 'Configurar seu perfil',       desc: 'Adicione username em Minha Conta' },
+  { key: 'marketplace',Icon: IconMarketplace, label: 'Explorar o Marketplace',     desc: 'Veja cartas à venda'              },
+  { key: 'dashboard',  Icon: IconDashboard, label: 'Ver o Dashboard financeiro',  desc: 'Confira o valor da sua coleção'   },
 ]
 
 export default function OnboardingChecklist({ userId }: { userId: string }) {
@@ -68,7 +69,7 @@ export default function OnboardingChecklist({ userId }: { userId: string }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
           <p style={{ fontSize: 14, fontWeight: 800, color: '#f0f0f0', marginBottom: 2 }}>
-            {allDone ? '🎉 Tudo certo! Bem-vindo ao Bynx!' : '🚀 Primeiros passos'}
+            {allDone ? 'Tudo certo! Bem-vindo ao Bynx!' : 'Primeiros passos'}
           </p>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
             {allDone ? 'Sua coleção está pronta para decolar.' : `${completedCount} de ${STEPS.length} concluídos`}
@@ -97,7 +98,7 @@ export default function OnboardingChecklist({ userId }: { userId: string }) {
               background: done[step.key] ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
               border: `1px solid ${done[step.key] ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`,
             }}>
-              {done[step.key] ? '✓' : step.icon}
+              {done[step.key] ? <IconCheck size={13} color='#22c55e' /> : <step.Icon size={13} color='rgba(255,255,255,0.7)' />}
             </div>
             <div>
               <p style={{ fontSize: 13, fontWeight: done[step.key] ? 400 : 600, color: done[step.key] ? 'rgba(255,255,255,0.4)' : '#f0f0f0', textDecoration: done[step.key] ? 'line-through' : 'none' }}>

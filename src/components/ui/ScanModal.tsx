@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useCallback } from 'react'
+import { IconCamera, IconScan, IconClose, IconWarning } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -284,7 +285,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
               {/* Erro */}
               {error && (
                 <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#ef4444' }}>
-                  ⚠️ {error}
+                  <IconWarning size={14} color="#ef4444" style={{marginRight:4}} /> {error}
                 </div>
               )}
 
@@ -313,7 +314,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
               ) : (
                 // Placeholder quando sem câmera e sem preview
                 <div style={{ ...SURFACE, padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
-                  <div style={{ fontSize: 48, opacity: 0.3 }}>📷</div>
+                  <IconCamera size={48} color="rgba(255,255,255,0.3)" />
                   <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
                     Fotografe suas cartas organizadas em uma binder ou mesa
                   </p>
@@ -334,7 +335,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                         <div style={{ display: 'flex', gap: 10 }}>
                           <button onClick={capturePhoto}
                             style={{ flex: 1, background: BRAND, border: 'none', color: '#000', padding: '14px', borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.3)' }}>
-                            📸 Tirar foto
+                            Tirar foto
                           </button>
                           <button onClick={stopCamera}
                             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', padding: '14px 18px', borderRadius: 12, cursor: 'pointer', fontSize: 14 }}>
@@ -344,7 +345,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                       ) : (
                         <button onClick={startCamera}
                           style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '14px', borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.3)' }}>
-                          📷 Usar câmera
+                          Usar câmera
                         </button>
                       )}
 
@@ -357,7 +358,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
                       <button onClick={() => fileInputRef.current?.click()}
                         style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', padding: '13px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-                        🖼️ Carregar imagem da galeria
+                        Carregar imagem da galeria
                       </button>
                     </>
                   )}
@@ -366,7 +367,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                   {preview && (
                     <button onClick={handleScan}
                       style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '14px', borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 0 24px rgba(245,158,11,0.35)' }}>
-                      🔍 Analisar cartas com IA →
+                      Analisar cartas com IA →
                     </button>
                   )}
                 </div>

@@ -9,6 +9,7 @@ import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
 import OnboardingModal from '@/components/ui/OnboardingModal'
 import AddCardModal from '@/components/dashboard/AddCardModal'
+import { IconSearch, IconDownload, IconTrendingUp, IconScan } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -550,7 +551,7 @@ export default function DashboardFinanceiro() {
                 border: `1px solid ${isPro ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.12)'}`,
                 color: isPro ? '#f59e0b' : 'rgba(255,255,255,0.5)',
               }}>
-                {isPro && !isTrial ? '⭐ PRO' : isTrial ? '⭐ TRIAL' : 'FREE'}
+                {isPro && !isTrial ? 'PRO ✦' : isTrial ? 'TRIAL ✦' : 'FREE'}
               </span>
             </div>
             <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.04em', background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 16 }}>

@@ -25,7 +25,7 @@ export default function PriceChart({ data }: PriceChartProps) {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         height: 140, gap: 8, color: 'rgba(255,255,255,0.2)',
       }}>
-        <span style={{ fontSize: 28 }}>📊</span>
+        <svg width="28" height="28" viewBox="0 0 20 20" fill="none"><path d="M3 15l4-5 3.5 2.5L14 7l3 4" stroke="rgba(255,255,255,0.2)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 17h14" stroke="rgba(255,255,255,0.2)" strokeWidth="1.4" strokeLinecap="round"/></svg>
         <span style={{ fontSize: 13 }}>Histórico aparece após atualizar o preço</span>
       </div>
     )

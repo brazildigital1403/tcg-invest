@@ -10,6 +10,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist'
 import ScanModal from '@/components/ui/ScanModal'
+import { IconScan, IconSearch, IconDownload } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 const fmt = (v: number | null | undefined) => {
@@ -772,7 +773,7 @@ export default function MinhaColecao() {
                   onClick={() => setOpenScanModal(true)}
                   style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '11px 18px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
                 >
-                  📷 Escanear foto
+                  Escanear foto
                 </button>
               )}
               {cards.length > 0 && (
@@ -782,7 +783,7 @@ export default function MinhaColecao() {
                     title={!isPro ? 'Disponível no plano Pro 🚀' : 'Exportar como planilha'}
                     style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
                   >
-                    {isPro ? '⬇ CSV' : '🔒 CSV'}
+                    {isPro ? 'CSV' : '🔒 CSV'}
                   </button>
                   <button
                     onClick={handleExportPDF}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { IconSearch, IconClose, IconRocket } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 
 const BRAND   = 'linear-gradient(135deg, #f59e0b, #ef4444)'

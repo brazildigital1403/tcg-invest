@@ -45,7 +45,7 @@ export default function CardRankings({ rankingWithVariation, transactions }: Pro
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
       {/* Histórico */}
-      <Section title="📋 Histórico de transações">
+      <Section title="Histórico de transações">
         {transactions.length === 0 ? (
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>Nenhuma transação ainda</p>
         ) : (
@@ -57,7 +57,7 @@ export default function CardRankings({ rankingWithVariation, transactions }: Pro
 
       {/* Alertas */}
       {alertas.length > 0 && (
-        <Section title="🔔 Alertas de preço">
+        <Section title="Alertas de preço">
           {alertas.map(r => (
             <Row key={r.id} name={r.card_name} value={fmt(Number(r.preco_medio || r.price || 0))} badge="Acima do mercado" badgeColor="#f59e0b" />
           ))}
@@ -65,7 +65,7 @@ export default function CardRankings({ rankingWithVariation, transactions }: Pro
       )}
 
       {/* Oportunidades */}
-      <Section title="🔥 Oportunidades">
+      <Section title="Oportunidades">
         {oportunidades.length === 0 ? (
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>Nenhuma oportunidade no momento</p>
         ) : (
@@ -79,7 +79,7 @@ export default function CardRankings({ rankingWithVariation, transactions }: Pro
       </Section>
 
       {/* Mais valorizadas */}
-      <Section title="📈 Mais valorizadas">
+      <Section title="Mais valorizadas">
         {valorizadas.length === 0 ? (
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>Sem dados de valorização</p>
         ) : (
@@ -91,7 +91,7 @@ export default function CardRankings({ rankingWithVariation, transactions }: Pro
 
       {/* Em queda */}
       {emQueda.length > 0 && (
-        <Section title="📉 Em queda">
+        <Section title="Em queda">
           {emQueda.map(r => (
             <Row key={r.id} name={r.card_name} value={fmt(Number(r.preco_medio || r.price || 0))} sub={`${r.variation.toFixed(1)}%`} subColor="#ef4444" />
           ))}

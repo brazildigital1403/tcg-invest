@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
+import { IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 
@@ -278,7 +279,7 @@ export default function MinhaConta() {
     return (
       <AppLayout>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'rgba(255,255,255,0.3)', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 32 }}>👤</div>
+          <IconAccount size={32} color="rgba(255,255,255,0.4)" />
           <p style={{ fontSize: 14 }}>Carregando perfil...</p>
         </div>
       </AppLayout>
@@ -314,10 +315,10 @@ export default function MinhaConta() {
             </p>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
-                📅 Membro desde {formatarData(user?.created_at)}
+                <IconCalendar size={12} color="rgba(255,255,255,0.3)" style={{marginRight:4}} /> Membro desde {formatarData(user?.created_at)}
               </span>
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
-                📍 {userData?.city || '—'}
+                <IconLocation size={12} color="rgba(255,255,255,0.3)" style={{marginRight:4}} /> {userData?.city || '—'}
               </span>
             </div>
           </div>
@@ -610,7 +611,7 @@ export default function MinhaConta() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <span style={{ fontSize: 20 }}>⭐</span>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 5h5.3l-4.3 3.1 1.7 5.2L10 12.3l-5.1 2.9 1.7-5.2L2.3 7h5.3L10 2z" fill="#f59e0b"/></svg>
                     <p style={{ fontSize: 15, fontWeight: 700 }}>Plano Pro ativo</p>
                     <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.15)', color: '#22c55e', padding: '2px 8px', borderRadius: 100, fontWeight: 700 }}>ATIVO</span>
                   </div>

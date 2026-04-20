@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { criarNotificacao } from '@/lib/notificacoes'
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
@@ -197,7 +198,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           {/* Visitante: botão comprar */}
           {!isMeu && !isBuyer && card.status === 'disponivel' && (
             <button onClick={handleInteresse} style={{ background: BRAND, border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              🤝 Tenho interesse
+              Tenho interesse
             </button>
           )}
 
@@ -208,7 +209,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
               target="_blank" rel="noopener noreferrer"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
             >
-              📱 Contato via WhatsApp
+              WhatsApp
             </a>
           )}
 
@@ -223,7 +224,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           {/* Comprador: confirmar recebimento */}
           {isBuyer && card.status === 'enviado' && (
             <button onClick={handleConfirmarRecebimento} style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              ✓ Confirmar recebimento
+              Confirmar recebimento
             </button>
           )}
 
@@ -345,7 +346,7 @@ export default function Marketplace() {
     if (!userId) { showAlert('Você precisa estar logado.', 'error'); return }
     const { bloqueado } = await checkMarketplaceLimit(userId)
     if (bloqueado) {
-      showAlert(`Você atingiu o limite de ${LIMITE_FREE_MKTPLACE} anúncios ativos do plano Gratuito. Faça upgrade para o plano Pro para anunciar sem limites! 🚀`, 'warning')
+      showAlert(`Você atingiu o limite de ${LIMITE_FREE_MKTPLACE} anúncios ativos do plano Gratuito. Acesse Minha Conta para fazer upgrade para o plano Pro! 🚀`, 'warning')
       return
     }
     setShowAnunciarModal(true)

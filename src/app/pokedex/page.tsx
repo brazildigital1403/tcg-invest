@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { getUserPlan } from '@/lib/isPro'
+import { IconSearch, IconShare, IconCheck, IconPokeball } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
 
@@ -358,7 +359,7 @@ export default function Pokedex() {
               onClick={() => setSoMinha(v => !v)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', borderRadius: 10, border: `1px solid ${soMinha ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.1)'}`, background: soMinha ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)', color: soMinha ? '#22c55e' : 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: soMinha ? 700 : 400 }}
             >
-              <span>✓</span> Minha coleção
+              <IconCheck size={13} color="currentColor" style={{marginRight:4}} /> Minha coleção
             </button>
 
             {/* Contador + Limpar */}
@@ -448,7 +449,7 @@ export default function Pokedex() {
           )}
           {isSearchMode && !isSearching && filtered.length === 0 && debouncedSearch.length >= 2 && (
             <div style={{ textAlign: 'center', padding: '60px 24px', color: 'rgba(255,255,255,0.3)' }}>
-              <p style={{ fontSize: 32, marginBottom: 12 }}>🔍</p>
+              <IconSearch size={32} color="rgba(255,255,255,0.15)" style={{marginBottom:12}} />
               <p style={{ fontSize: 14 }}>Nenhuma carta encontrada para "{debouncedSearch}"</p>
             </div>
           )}

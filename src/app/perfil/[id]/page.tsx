@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 
 const fmt = (v: number) =>
@@ -198,7 +199,7 @@ export default function PerfilPage() {
 
   if (notFound) return (
     <div style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontFamily: "'DM Sans', system-ui, sans-serif", gap: 16 }}>
-      <p style={{ fontSize: 48 }}>😕</p>
+      <svg width="48" height="48" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="rgba(255,255,255,0.15)" strokeWidth="1.2"/><path d="M7 12.5c.7-.8 1.8-1.5 3-1.5s2.3.7 3 1.5" stroke="rgba(255,255,255,0.15)" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7.5" cy="8.5" r="1" fill="rgba(255,255,255,0.2)"/><circle cx="12.5" cy="8.5" r="1" fill="rgba(255,255,255,0.2)"/></svg>
       <p style={{ fontSize: 18 }}>Perfil não encontrado</p>
       <Link href="/" style={{ color: '#f59e0b', textDecoration: 'none', fontSize: 14 }}>← Voltar ao início</Link>
     </div>

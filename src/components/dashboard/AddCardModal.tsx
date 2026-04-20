@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { IconSearch, IconClose } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { authFetch } from '@/lib/authFetch'
@@ -157,7 +158,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.15))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
-              🔍
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5.5" stroke="rgba(245,158,11,0.8)" strokeWidth="1.4"/><path d="M13 13l3.5 3.5" stroke="rgba(245,158,11,0.8)" strokeWidth="1.4" strokeLinecap="round"/></svg>
             </div>
             <div>
               <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: '#f0f0f0' }}>Buscar cartas</p>
@@ -173,7 +174,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         <div style={{ padding: '16px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
           {/* Input de busca */}
           <div style={{ position: 'relative', marginBottom: 12 }}>
-            <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: TEXT_MUTED }}>🔍</span>
+            <IconSearch size={16} color={TEXT_MUTED} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
             <input
               autoFocus
               value={searchTerm}

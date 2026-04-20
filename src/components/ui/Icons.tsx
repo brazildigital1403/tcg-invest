@@ -355,3 +355,160 @@ export function Icon({ name, ...props }: IconProps & { name: string }) {
   if (!Component) return null
   return <Component {...props} />
 }
+
+// ── Ícones adicionais ─────────────────────────────────────────────────────────
+
+export function IconLocation({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="10" cy="7" r="2" stroke={color} strokeWidth={strokeWidth}/>
+    </svg>
+  )
+}
+
+export function IconCalendar({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <rect x="3" y="4" width="14" height="13" rx="2" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M3 8h14M7 2v4M13 2v4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconWallet({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 6a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V6z" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M13 10a1 1 0 100 2 1 1 0 000-2z" fill={color}/>
+      <path d="M13 6V4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconTrendingUp({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 14l5-5 3 3 6-7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14 5h3v3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconTrendingDown({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 6l5 5 3-3 6 7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14 15h3v-3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconHistory({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 10a7 7 0 107-7 7 7 0 00-5 2H2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+      <path d="M2 4v5h5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M10 7v4l2.5 2.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconFire({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M10 2c0 4-4 5-4 9a4 4 0 008 0c0-2-1-3-1-3s-1 2-2 2c0-3 2-4 2-7a5 5 0 00-3-1z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconWarning({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M10 3L2 17h16L10 3z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <path d="M10 9v4M10 14.5v.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconPhone({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <rect x="5" y="2" width="10" height="16" rx="2" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="10" cy="15.5" r="0.8" fill={color}/>
+      <path d="M8 4h4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconEye({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M2 10s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="10" cy="10" r="2.5" stroke={color} strokeWidth={strokeWidth}/>
+    </svg>
+  )
+}
+
+export function IconEyeOff({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 3l14 14M7.5 7.6A5 5 0 0014.4 12.5M5 5.5C3.3 7 2 9 2 10s3 6 8 6a8 8 0 003.5-.8M9.5 5.1c.2 0 .3 0 .5 0 5 0 8 6 8 6a13 13 0 01-2 2.9" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconKey({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <circle cx="7.5" cy="9.5" r="4" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M11 10l7 7M15 14l-2 2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconTag({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 3h7l7 7-7 7-7-7V3z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <circle cx="7" cy="7" r="1" fill={color}/>
+    </svg>
+  )
+}
+
+export function IconBox({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 7l7-4 7 4v9l-7 4-7-4V7z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <path d="M10 3v13M3 7l7 4 7-4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconChat({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 3h14a1 1 0 011 1v9a1 1 0 01-1 1H6l-4 3V4a1 1 0 011-1z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconRocket({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M10 2c3 0 6 3 6 8 0 2-1 4-2 5l-3 3c-1-1-2-1-3 0L5 15c-1-1-2-3-2-5 0-5 3-8 7-8z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <circle cx="10" cy="9" r="2" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M7 17l-2 1M13 17l2 1" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconGlobe({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <circle cx="10" cy="10" r="7.5" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M10 2.5C8 5 7 7.5 7 10s1 5 3 7.5M10 2.5c2 2.5 3 5 3 7.5s-1 5-3 7.5" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M2.5 10h15" stroke={color} strokeWidth={strokeWidth}/>
+    </svg>
+  )
+}

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { IconRocket, IconWarning, IconCheck } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -61,12 +62,12 @@ export default function UpgradeBanner({ tipo }: Props) {
       textAlign: 'center', gap: 12,
       fontFamily: "'DM Sans', system-ui, sans-serif",
     }}>
-      <p style={{ fontSize: 20 }}>🚀</p>
+      <IconRocket size={20} color="#f59e0b" />
       <div>
         <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0', marginBottom: 4 }}>{msg}</p>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>
           {trialDaysLeft !== null && trialDaysLeft <= 2
-            ? <><strong style={{ color: '#ef4444' }}>⚠️ Seu trial Pro expira em {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''}!</strong> Assine para manter acesso ilimitado.</>
+            ? <><IconWarning size={13} color='#ef4444' style={{marginRight:4}} /><strong style={{ color: '#ef4444' }}>Seu trial Pro expira em {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''}!</strong> Assine para manter acesso ilimitado.</>
             : <>Faça upgrade para o plano <strong style={{ color: '#f59e0b' }}>Pro</strong> e tenha acesso ilimitado.</>
           }
         </p>
@@ -100,7 +101,7 @@ export default function UpgradeBanner({ tipo }: Props) {
       </div>
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
-        {['✓ Cartas ilimitadas', '✓ Anúncios ilimitados', '✓ Perfil público', '✓ Exportar CSV'].map(f => (
+        {['Cartas ilimitadas', 'Anúncios ilimitados', 'Perfil público', 'Exportar CSV'].map(f => (
           <span key={f} style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{f}</span>
         ))}
       </div>
