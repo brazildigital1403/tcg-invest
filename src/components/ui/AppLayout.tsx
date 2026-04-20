@@ -274,7 +274,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 onClick={() => setNotifOpen(v => !v)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-{unreadCount > 0 ? <IconBellDot size={22} color="rgba(255,255,255,0.8)" /> : <IconBell size={22} color="rgba(255,255,255,0.8)" />}
+{notifs.length > 0 ? <IconBellDot size={22} color="rgba(255,255,255,0.8)" /> : <IconBell size={22} color="rgba(255,255,255,0.8)" />}
                 {notifs.length > 0 && (
                   <span style={{ position: 'absolute', top: 0, right: 0, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #080a0f' }}>
                     {notifs.length > 9 ? '9+' : notifs.length}
