@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { IconWallet, IconMarketplace, IconLink, IconTag, IconWhatsApp } from '@/components/ui/Icons'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -163,7 +164,7 @@ export default function CartaPage() {
             {/* Preços */}
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-                💰 Preço na LigaPokemon
+                Preço na LigaPokemon
               </p>
               {price ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
@@ -193,18 +194,18 @@ export default function CartaPage() {
             {/* Botões */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link href="/" style={{ flex: 1, display: 'block', textAlign: 'center', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: 'none', minWidth: 140 }}>
-                🤝 Tenho interesse
+                Tenho interesse
               </Link>
               <button
                 onClick={handleCopy}
                 style={{ padding: '13px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: copied ? '#22c55e' : 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'color 0.2s' }}
               >
-                {copied ? '✓ Copiado!' : '🔗 Copiar link'}
+                {copied ? 'Copiado!' : 'Copiar link'}
               </button>
               {cardLink && (
                 <a href={cardLink} target="_blank" rel="noopener"
                   style={{ padding: '13px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  🏷 LigaPokemon
+                  LigaPokemon
                 </a>
               )}
             </div>
