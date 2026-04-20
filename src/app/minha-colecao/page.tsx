@@ -499,7 +499,7 @@ export default function MinhaColecao() {
 
     const newQty = (card.quantity || 1) - quantityToSell
     if (newQty <= 0) {
-      await handleRemove(card.id)
+      await handleRemove(card.id, card.card_name)
     } else {
       await supabase.from('user_cards').update({ quantity: newQty }).eq('id', card.id)
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, quantity: newQty } : c))
@@ -509,13 +509,21 @@ export default function MinhaColecao() {
 
   async function handleUpdateQuantity(card: any, delta: number) {
     const newQty = (card.quantity || 1) + delta
-    if (newQty <= 0) { await handleRemove(card.id); return }
+    if (newQty <= 0) { await handleRemove(card.id, card.card_name); return }
     const { error } = await supabase.from('user_cards').update({ quantity: newQty }).eq('id', card.id)
     if (error) { showAlert('Erro ao atualizar quantidade.', 'error'); return }
     setCards(prev => prev.map(c => c.id === card.id ? { ...c, quantity: newQty } : c))
   }
 
-  async function handleRemove(id: string) {
+  async function handleRemove(id: string, cardName?: string) {
+    const confirmed = await showConfirm({
+      message: `Tem certeza que deseja remover "${cardName || 'esta carta'}" da sua coleção? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Sim, remover',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    })
+    if (!confirmed) return
+
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) return
     const { data, error } = await supabase.from('user_cards').delete()
@@ -1019,7 +1027,7 @@ export default function MinhaColecao() {
                 </div>
 
                 <button
-                  onClick={() => handleRemove(c.id)}
+                  onClick={() => handleRemove(c.id, c.card_name)}
                   style={{ marginTop: 12, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', width: '100%', padding: '8px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
                 >
                   Remover
