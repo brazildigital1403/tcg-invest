@@ -291,8 +291,8 @@ function NegociacaoCard({ card, role, onAction, userId }: {
               <p style={{ fontSize: 12, color: '#60a5fa', display:'flex', alignItems:'center', gap:4 }}><IconChat size={12} color='currentColor' />Combine a entrega pelo WhatsApp antes de confirmar o envio</p>
             </div>
             <button onClick={handleConfirmarEnvio}
-              style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60a5fa', padding: '12px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              <IconBox size={13} color="currentColor" style={{marginRight:4}} />Confirmar que enviei a carta
+              style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60a5fa', padding: '12px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
+              <IconBox size={14} color="currentColor" />Confirmar que enviei a carta
             </button>
           </>
         )}
