@@ -218,7 +218,7 @@ export default function Pokedex() {
     if (!pro) {
       const { bloqueado } = await checkCardLimit(authData.user.id)
       if (bloqueado) {
-        showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano! 🚀`, 'warning')
+        showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas. Acesse Minha Conta para fazer upgrade.`, 'warning')
         setAddingCard(false)
         return
       }
@@ -306,7 +306,7 @@ export default function Pokedex() {
 
             {/* Search */}
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'rgba(255,255,255,0.3)' }}>🔍</span>
+              <IconSearch size={14} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -476,7 +476,7 @@ export default function Pokedex() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
                 <button onClick={() => setSelected(null)}
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 28, height: 28, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  ✕
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
                 </button>
               </div>
 
@@ -529,7 +529,7 @@ export default function Pokedex() {
               {/* Botão adicionar */}
               {ownedIds.has(selected.id) || addedFeedback ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '11px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, fontSize: 13, color: '#22c55e', fontWeight: 600 }}>
-                  ✓ Na sua coleção
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg> Na sua coleção
                 </div>
               ) : (
                 <button
@@ -546,12 +546,12 @@ export default function Pokedex() {
                 onClick={() => {
                   const url = `${window.location.origin}/carta/${selected?.id}`
                   navigator.clipboard?.writeText(url).then(() => {
-                    showAlert('🔗 Link copiado! Compartilhe com quem quiser.', 'success')
+                    showAlert('Link copiado! Compartilhe com quem quiser.', 'success')
                   })
                 }}
                 style={{ width: '100%', marginTop: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)', padding: '10px', borderRadius: 10, fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit' }}
               >
-                🔗 Compartilhar esta carta
+                <IconShare size={13} color="currentColor" /> Compartilhar esta carta
               </button>
 
               {/* Variantes */}
