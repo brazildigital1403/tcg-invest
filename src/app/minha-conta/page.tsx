@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
-import { IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink } from '@/components/ui/Icons'
+import { IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink, IconCamera, IconCollection as IconBinder } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 
@@ -97,6 +97,9 @@ export default function MinhaConta() {
   const [cardCount, setCardCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [scanCreditos, setScanCreditos] = useState<number>(0)
+  const [sepDesbloqueado, setSepDesbloqueado] = useState<boolean>(false)
+  const [loadingCompra, setLoadingCompra] = useState<string | null>(null)
 
   // Campos editáveis
   const [name, setName] = useState('')
@@ -138,6 +141,15 @@ export default function MinhaConta() {
 
       setCardCount(count || 0)
 
+      // Carrega créditos de scan e separadores
+      const { data: extrasData } = await supabase
+        .from('users')
+        .select('scan_creditos, separadores_desbloqueado')
+        .eq('id', authData.user.id)
+        .limit(1)
+      setScanCreditos(extrasData?.[0]?.scan_creditos ?? 0)
+      setSepDesbloqueado(extrasData?.[0]?.separadores_desbloqueado ?? false)
+
       // Verifica plano Pro
       const { isPro: pro, isTrial: trial, trialDaysLeft: days } = await getUserPlan(authData.user.id)
       setIsPro(pro)
@@ -148,6 +160,26 @@ export default function MinhaConta() {
     }
     load()
   }, [])
+
+  // ── Comprar créditos de scan ou separadores ─────────────────────────────────
+
+  async function handleComprarExtras(plano: string) {
+    setLoadingCompra(plano)
+    try {
+      const { data: authData } = await supabase.auth.getUser()
+      if (!authData.user) return
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plano, userId: authData.user.id, userEmail: authData.user.email }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } catch {
+      showAlert('Erro ao processar pagamento. Tente novamente.', 'error')
+    }
+    setLoadingCompra(null)
+  }
 
   // ── Salvar dados pessoais ───────────────────────────────────────────────────
 
@@ -626,6 +658,104 @@ export default function MinhaConta() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* ── COMPRAS & CRÉDITOS ── */}
+        <div style={SURFACE}>
+          <p style={SECTION_TITLE}>
+            <IconWallet size={13} color='currentColor' style={{marginRight:6,verticalAlign:'middle'}} />
+            Compras & Créditos
+          </p>
+
+          {/* Separadores de Fichário */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: 12, padding: '16px 0',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: sepDesbloqueado ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.05)', border: `1px solid ${sepDesbloqueado ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                  <rect x="3" y="2" width="14" height="16" rx="2" stroke={sepDesbloqueado ? '#22c55e' : 'rgba(255,255,255,0.4)'} strokeWidth="1.3"/>
+                  <path d="M3 7h14M3 12h14M7 2v5M7 12v6" stroke={sepDesbloqueado ? '#22c55e' : 'rgba(255,255,255,0.4)'} strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Separadores de Fichário</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+                  {sepDesbloqueado
+                    ? <span style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}><IconCheck size={11} color='currentColor' /> Desbloqueado · Acesso vitalício</span>
+                    : 'Não adquirido · 1.025 Pokémons prontos para imprimir'
+                  }
+                </p>
+              </div>
+            </div>
+            {sepDesbloqueado ? (
+              <a href="/separadores" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#22c55e', padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                Abrir Separadores →
+              </a>
+            ) : (
+              <button
+                onClick={() => handleComprarExtras('separadores')}
+                disabled={loadingCompra === 'separadores'}
+                style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: loadingCompra ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', opacity: loadingCompra === 'separadores' ? 0.7 : 1 }}
+              >
+                {loadingCompra === 'separadores' ? 'Aguarde...' : 'Desbloquear — R$14,90'}
+              </button>
+            )}
+          </div>
+
+          {/* Créditos de Scan */}
+          <div style={{ paddingTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                    <rect x="3" y="3" width="14" height="14" rx="1.5" stroke="rgba(245,158,11,0.8)" strokeWidth="1.3"/>
+                    <rect x="6" y="6" width="8" height="8" rx="1" stroke="rgba(245,158,11,0.8)" strokeWidth="1.3"/>
+                  </svg>
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Créditos de Scan</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+                    Escaneie cartas com IA · <strong style={{ color: scanCreditos > 0 ? '#f59e0b' : '#ef4444' }}>{scanCreditos} crédito{scanCreditos !== 1 ? 's' : ''}</strong> disponível{scanCreditos !== 1 ? 'is' : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Pacotes */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {[
+                { plano: 'scan_basico',       label: '5 scans',  preco: 'R$5,90',  unit: 'R$1,18/scan' },
+                { plano: 'scan_popular',      label: '15 scans', preco: 'R$14,90', unit: 'R$0,99/scan', popular: true },
+                { plano: 'scan_colecionador', label: '40 scans', preco: 'R$34,90', unit: 'R$0,87/scan' },
+              ].map(pkg => (
+                <button
+                  key={pkg.plano}
+                  onClick={() => handleComprarExtras(pkg.plano)}
+                  disabled={!!loadingCompra}
+                  style={{
+                    background: pkg.popular ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${pkg.popular ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: 12, padding: '12px 10px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                    cursor: loadingCompra ? 'wait' : 'pointer', fontFamily: 'inherit', position: 'relative',
+                    opacity: loadingCompra === pkg.plano ? 0.7 : 1,
+                  }}
+                >
+                  {pkg.popular && (
+                    <span style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 8, fontWeight: 800, padding: '2px 8px', borderRadius: 100, whiteSpace: 'nowrap', letterSpacing: '0.05em' }}>
+                      POPULAR
+                    </span>
+                  )}
+                  <span style={{ fontSize: 14, fontWeight: 800, color: pkg.popular ? '#f59e0b' : '#f0f0f0' }}>{pkg.label}</span>
+                  <span style={{ fontSize: 15, fontWeight: 900, color: pkg.popular ? '#f59e0b' : '#f0f0f0' }}>{pkg.preco}</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{pkg.unit}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ── ZONA DE PERIGO ── */}
