@@ -55,6 +55,23 @@ export default function SeparadoresPage() {
 
   useEffect(() => { loadPokemons() }, [loadPokemons])
 
+  // Força carregamento de todas as imagens antes de imprimir
+  useEffect(() => {
+    const handleBeforePrint = () => {
+      const imgs = document.querySelectorAll('.sep-card img')
+      imgs.forEach((img: any) => {
+        if (!img.complete) {
+          img.loading = 'eager'
+          const src = img.src
+          img.src = ''
+          img.src = src
+        }
+      })
+    }
+    window.addEventListener('beforeprint', handleBeforePrint)
+    return () => window.removeEventListener('beforeprint', handleBeforePrint)
+  }, [])
+
   function toggleGen(idx: number) {
     setSelectedGens(p => p.includes(idx) ? p.filter(g => g !== idx) : [...p, idx].sort((a, b) => a - b))
   }
@@ -158,7 +175,24 @@ export default function SeparadoresPage() {
               </p>
             </div>
             <button
-              onClick={() => window.print()}
+              onClick={async () => {
+                // Aguarda todas as imagens carregarem antes de imprimir
+                const imgs = Array.from(document.querySelectorAll('.sep-card img')) as HTMLImageElement[]
+                const unloaded = imgs.filter(img => !img.complete || img.naturalWidth === 0)
+                if (unloaded.length > 0) {
+                  await Promise.allSettled(unloaded.map(img =>
+                    new Promise(res => {
+                      img.onload = res
+                      img.onerror = res
+                      // Força recarregamento
+                      const src = img.src
+                      img.src = ''
+                      img.src = src
+                    })
+                  ))
+                }
+                window.print()
+              }}
               disabled={filtered.length === 0}
               style={{
                 background: filtered.length === 0 ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f59e0b,#ef4444)',
@@ -295,22 +329,22 @@ function SepCard({ id, name }: { id: number; name: string }) {
         width: 'min(4vw, 18px)',
         height: 'min(4vw, 18px)',
         borderRadius: '50%',
-        background: '#000',
+        background: 'transparent',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        overflow: 'hidden',
+        overflow: 'visible',
         zIndex: 3,
-        boxShadow: '0 0 0 0.5px rgba(0,0,0,0.3)',
         flexShrink: 0,
       }}>
         <img
-          src="https://www.bynx.gg/favicon.png"
+          src="/bynx_perfil.png"
           alt="Bynx"
+          onError={(e: any) => { e.currentTarget.src = '/favicon.png' }}
           style={{
-            width: '85%',
-            height: '85%',
-            objectFit: 'contain',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
             display: 'block',
           }}
         />
@@ -328,7 +362,7 @@ function SepCard({ id, name }: { id: number; name: string }) {
           src={img}
           alt={name}
           onError={() => setImgErr(true)}
-          loading="lazy"
+          loading="eager"
           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
       </div>
