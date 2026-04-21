@@ -471,7 +471,7 @@ export default function Marketplace() {
                 ))}
               </div>
             ) : vitrine.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
                 <IconMarketplace size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:16}} />
                 <p style={{ fontSize: 15 }}>Nenhum anúncio disponível no momento.</p>
                 <p style={{ fontSize: 13, marginTop: 8 }}>Seja o primeiro a anunciar uma carta!</p>
@@ -490,7 +490,7 @@ export default function Marketplace() {
         {tab === 'meus' && (
           <>
             {meusAnuncios.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
                 <IconCollection size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:16}} />
                 <p style={{ fontSize: 15 }}>Você ainda não tem anúncios.</p>
                 <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "+ Anunciar carta" para começar.</p>

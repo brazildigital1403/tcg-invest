@@ -343,7 +343,7 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
   onAction: () => void
 }) {
   if (!userId) return (
-    <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
       <IconShield size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:12}} />
       <p>Faça login para ver suas negociações.</p>
     </div>
@@ -370,7 +370,7 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
   const vazio = comoComprador.length === 0 && comoVendedor.length === 0
 
   if (vazio && historico.length === 0) return (
-    <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
       <svg width="40" height="40" viewBox="0 0 20 20" fill="none" style={{marginBottom:16, opacity:0.15}}><path d="M3 7l4 3 3-2 3 2 4-3" stroke="white" strokeWidth="1.3" strokeLinecap="round"/><path d="M3 13l4-3 3 2 3-2 4 3" stroke="white" strokeWidth="1.3" strokeLinecap="round"/></svg>
       <p style={{ fontSize: 15 }}>Nenhuma negociação ativa.</p>
       <p style={{ fontSize: 13, marginTop: 8, color: 'rgba(255,255,255,0.2)' }}>
