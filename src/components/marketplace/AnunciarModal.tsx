@@ -63,7 +63,7 @@ function EscolherCarta({ userId, onSelect }: { userId: string; onSelect: (c: any
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
         <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }}>🔍</span>
+          <IconSearch size={16} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
           <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Filtrar cartas da sua coleção..."
             style={{ ...INPUT, paddingLeft: 36 }}
@@ -253,7 +253,7 @@ function DetalhesAnuncio({ card, precoMercado, onBack, onConfirm, loading }: {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            {loading ? <><span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Publicando...</> : '📢 Publicar anúncio'}
+            {loading ? <><span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Publicando...</> : 'Publicar anúncio'}
           </button>
         </div>
       </div>
@@ -306,14 +306,14 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
                 {i > 0 && <span style={{ color: 'rgba(255,255,255,0.2)' }}>→</span>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 22, height: 22, borderRadius: '50%', background: step === s ? BRAND : (step === 'detalhes' && s === 'escolher') ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: step === s ? '#000' : 'rgba(255,255,255,0.4)' }}>
-                    {step === 'detalhes' && s === 'escolher' ? '✓' : i + 1}
+                    {step === 'detalhes' && s === 'escolher' ? <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M4 10l4.5 4.5L16 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/></svg> : i + 1}
                   </div>
                   <span style={{ fontSize: 13, color: step === s ? '#f0f0f0' : 'rgba(255,255,255,0.35)', fontWeight: step === s ? 600 : 400 }}>{label}</span>
                 </div>
               </div>
             ))}
           </div>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg></button>
         </div>
 
         <div style={{ flex: 1, overflow: 'hidden' }}>

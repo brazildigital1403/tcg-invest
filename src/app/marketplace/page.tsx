@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation } from '@/components/ui/Icons'
+import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, IconHistory, IconCollection, IconChat, IconBox, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { criarNotificacao } from '@/lib/notificacoes'
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
@@ -74,7 +74,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
     await criarNotificacao(
       card.user_id,
       'interesse',
-      '🤝 Novo interesse na sua carta!',
+      'Novo interesse na sua carta!',
       `${buyerProfile?.name || 'Um usuário'} demonstrou interesse em "${card.card_name}" por ${fmt(card.price)}.`,
       { marketplace_id: card.id, card_name: card.card_name }
     )
@@ -179,7 +179,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
               {CONDICAO_DESC[card.condicao] || card.condicao || 'NM'}
             </span>
             {card.seller_city && (
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>· 📍 {card.seller_city}</span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>· {card.seller_city}</span>
             )}
           </div>
           {card.descricao && (
@@ -231,7 +231,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           {/* Vendedor: confirmar envio */}
           {isMeu && (card.status === 'reservado' || card.status === 'em_negociacao') && (
             <button onClick={handleConfirmarEnvio} style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', color: '#60a5fa', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              📦 Confirmar envio
+              Confirmar envio
             </button>
           )}
 
@@ -346,7 +346,7 @@ export default function Marketplace() {
     if (!userId) { showAlert('Você precisa estar logado.', 'error'); return }
     const { bloqueado } = await checkMarketplaceLimit(userId)
     if (bloqueado) {
-      showAlert(`Você atingiu o limite de ${LIMITE_FREE_MKTPLACE} anúncios ativos do plano Gratuito. Acesse Minha Conta para fazer upgrade para o plano Pro! 🚀`, 'warning')
+      showAlert(`Você atingiu o limite de ${LIMITE_FREE_MKTPLACE} anúncios. Acesse Minha Conta para fazer upgrade.`, 'warning')
       return
     }
     setShowAnunciarModal(true)
@@ -399,9 +399,9 @@ export default function Marketplace() {
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4 }}>
           {[
-            { key: 'vitrine',      label: '🛒 Vitrine',          count: vitrine.length },
-            { key: 'meus',         label: '📋 Meus anúncios',    count: meusAnuncios.length },
-            { key: 'negociacoes',  label: '🤝 Negociações',      count: minhasNegociacoes.length },
+            { key: 'vitrine',      label: 'Vitrine',          count: vitrine.length },
+            { key: 'meus',         label: 'Meus anúncios',    count: meusAnuncios.length },
+            { key: 'negociacoes',  label: 'Negociações',      count: minhasNegociacoes.length },
           ].map(t => (
             <button
               key={t.key}
@@ -431,7 +431,7 @@ export default function Marketplace() {
             {/* Filtros */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }}>🔍</span>
+              <IconSearch size={14} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
                 <input
                   value={busca} onChange={e => setBusca(e.target.value)}
                   placeholder="Buscar carta..."
@@ -451,7 +451,7 @@ export default function Marketplace() {
 
               {/* Ordenação */}
               <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-                {([['recente', '🕐 Recente'], ['menor', '↑ Menor preço'], ['maior', '↓ Maior preço']] as const).map(([key, label]) => (
+                {([['recente', 'Recente'], ['menor', '↑ Menor preço'], ['maior', '↓ Maior preço']] as const).map(([key, label]) => (
                   <button key={key} onClick={() => setOrdenacao(key)}
                     style={{ fontSize: 11, fontWeight: 600, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', border: 'none', fontFamily: 'inherit',
                       background: ordenacao === key ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
@@ -472,7 +472,7 @@ export default function Marketplace() {
               </div>
             ) : vitrine.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
-                <p style={{ fontSize: 40, marginBottom: 16 }}>🛒</p>
+                <IconMarketplace size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:16}} />
                 <p style={{ fontSize: 15 }}>Nenhum anúncio disponível no momento.</p>
                 <p style={{ fontSize: 13, marginTop: 8 }}>Seja o primeiro a anunciar uma carta!</p>
               </div>
@@ -491,7 +491,7 @@ export default function Marketplace() {
           <>
             {meusAnuncios.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
-                <p style={{ fontSize: 40, marginBottom: 16 }}>📋</p>
+                <IconCollection size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:16}} />
                 <p style={{ fontSize: 15 }}>Você ainda não tem anúncios.</p>
                 <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "+ Anunciar carta" para começar.</p>
               </div>
