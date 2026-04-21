@@ -24,12 +24,12 @@ const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
 const menu = [
-  { name: 'Coleção',     full: 'Minha Coleção',  href: '/minha-colecao',       Icon: IconCollection },
   { name: 'Dashboard',   full: 'Dashboard',       href: '/dashboard-financeiro', Icon: IconDashboard  },
+  { name: 'Coleção',     full: 'Minha Coleção',  href: '/minha-colecao',       Icon: IconCollection },
   { name: 'Pokédex',     full: 'Pokédex',         href: '/pokedex',              Icon: IconPokedex    },
   { name: 'Marketplace', full: 'Marketplace',     href: '/marketplace',          Icon: IconMarketplace},
-  { name: 'Conta',       full: 'Minha Conta',     href: '/minha-conta',          Icon: IconAccount    },
   { name: 'Separadores', full: 'Separadores',     href: '/separadores',          Icon: IconSeparador  },
+  { name: 'Conta',       full: 'Minha Conta',     href: '/minha-conta',          Icon: IconAccount    },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
