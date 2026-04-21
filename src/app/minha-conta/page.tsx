@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
-import { IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck } from '@/components/ui/Icons'
+import { IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 
@@ -213,7 +213,7 @@ export default function MinhaConta() {
         .from('users').select('id').eq('username', uSlug).neq('id', user.id).single()
       if (existing) {
         setSaving(false)
-        showAlert('Este username já está em uso. Escolha outro — cada perfil é único no Bynx! 🎴', 'error')
+        showAlert('Este username já está em uso. Escolha outro — cada perfil é único no Bynx!', 'error')
         return
       }
     }
@@ -336,23 +336,23 @@ export default function MinhaConta() {
             </div>
             <button
               onClick={() => {
-                if (planoFree) { showAlert('O Perfil Público é exclusivo do plano Pro. Faça upgrade para compartilhar sua coleção! 🚀', 'warning'); return }
+                if (planoFree) { showAlert('O Perfil Público é exclusivo do plano Pro. Faça upgrade para compartilhar sua coleção!', 'warning'); return }
                 const url = `${window.location.origin}/perfil/${userData?.username || user?.id}`
                 navigator.clipboard?.writeText(url)
-                  .then(() => showAlert('Link do perfil copiado! 🔗', 'success'))
+                  .then(() => showAlert('Link do perfil copiado!', 'success'))
                   .catch(() => showAlert(url, 'info'))
               }}
-              title={planoFree ? 'Disponível no plano Pro 🚀' : ''}
+              title={planoFree ? 'Disponível no plano Pro' : ''}
               style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${planoFree ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'}`, color: planoFree ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.5)', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: planoFree ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
             >
-              🔒 {planoFree ? 'Perfil Público (Pro)' : '🔗 Compartilhar perfil'}
+              <>{planoFree ? <IconShield size={13} color='currentColor' style={{marginRight:5}} /> : <IconLink size={13} color='currentColor' style={{marginRight:5}} />}{planoFree ? 'Perfil Público (Pro)' : 'Compartilhar perfil'}</>
             </button>
           </div>
         </div>
 
         {/* ── DADOS PESSOAIS ── */}
         <div style={SURFACE}>
-          <p style={SECTION_TITLE}>✏️ Dados pessoais</p>
+          <p style={SECTION_TITLE}><svg width='13' height='13' viewBox='0 0 20 20' fill='none' style={{marginRight:6,verticalAlign:'middle'}}><path d='M4 14l8-8 3 3-8 8-4 1 1-4z' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round' strokeLinejoin='round'/></svg>Dados pessoais</p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* Nome */}
@@ -393,11 +393,11 @@ export default function MinhaConta() {
                 const diasDesde = Math.floor((Date.now() - new Date(usernameChangedAt).getTime()) / (1000 * 60 * 60 * 24))
                 const diasRestantes = 30 - diasDesde
                 if (diasRestantes <= 0) return (
-                  <p style={{ fontSize: 11, color: '#22c55e', marginTop: 4 }}>✓ Você pode trocar o username</p>
+                  <p style={{ fontSize: 11, color: '#22c55e', marginTop: 4, display:'flex', alignItems:'center', gap:3 }}><svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M4 10l4.5 4.5L16 6' stroke='currentColor' strokeWidth='1.8' strokeLinecap='round' strokeLinejoin='round'/></svg>Você pode trocar o username</p>
                 )
                 return (
                   <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', marginTop: 4 }}>
-                    🔒 Próxima troca disponível em {diasRestantes} dia{diasRestantes > 1 ? 's' : ''}
+                    <svg width='12' height='12' viewBox='0 0 20 20' fill='none' style={{marginRight:4,flexShrink:0}}><rect x='4' y='9' width='12' height='9' rx='2' stroke='currentColor' strokeWidth='1.4'/><path d='M7 9V6a3 3 0 016 0v3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>Próxima troca disponível em {diasRestantes} dia{diasRestantes > 1 ? 's' : ''}
                   </p>
                 )
               })()}
@@ -468,7 +468,7 @@ export default function MinhaConta() {
 
         {/* ── SEGURANÇA ── */}
         <div style={SURFACE}>
-          <p style={SECTION_TITLE}>🔑 Segurança</p>
+          <p style={SECTION_TITLE}><IconKey size={13} color='currentColor' style={{marginRight:6,verticalAlign:'middle'}} />Segurança</p>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div>
@@ -495,7 +495,7 @@ export default function MinhaConta() {
 
         {/* ── ASSINATURA ── */}
         <div style={SURFACE}>
-          <p style={SECTION_TITLE}>💳 Assinatura</p>
+          <p style={SECTION_TITLE}><IconCard size={13} color='currentColor' style={{marginRight:6,verticalAlign:'middle'}} />Assinatura</p>
 
           {/* Trial banner */}
           {isTrial && (
@@ -506,7 +506,7 @@ export default function MinhaConta() {
                 </p>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
                   {trialDaysLeft <= 2
-                    ? '⚠️ Trial expirando! Assine para não perder acesso à sua coleção completa.'
+                    ? 'Trial expirando! Assine para não perder acesso à sua coleção completa.'
                     : 'Aproveite para importar toda sua coleção e ver o valor real das suas cartas.'}
                 </p>
               </div>
@@ -544,7 +544,7 @@ export default function MinhaConta() {
                   }} />
                 </div>
                 {cardCount >= LIMITE_FREE && (
-                  <p style={{ fontSize: 11, color: '#ef4444', marginTop: 6 }}>⚠ Limite atingido — faça upgrade para continuar</p>
+                  <p style={{ fontSize: 11, color: '#ef4444', marginTop: 6, display:'flex', alignItems:'center', gap:3 }}><IconWarning size={10} color='currentColor' />Limite atingido — faça upgrade para continuar</p>
                 )}
               </div>
 
@@ -563,7 +563,7 @@ export default function MinhaConta() {
                     { txt: 'Anúncios ilimitados', ok: false },
                   ].map(f => (
                     <p key={f.txt} style={{ fontSize: 12, color: f.ok ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: f.ok ? '#22c55e' : '#ef4444', fontSize: 10 }}>{f.ok ? '✓' : '✕'}</span> {f.txt}
+                      <span style={{ color: f.ok ? '#22c55e' : '#ef4444', fontSize: 10 }}>{f.ok ? <IconCheck size={10} color='currentColor' /> : <IconClose size={10} color='currentColor' />}</span> {f.txt}
                     </p>
                   ))}
                 </div>
@@ -630,7 +630,7 @@ export default function MinhaConta() {
 
         {/* ── ZONA DE PERIGO ── */}
         <div style={{ ...SURFACE, border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.03)' }}>
-          <p style={{ ...SECTION_TITLE, color: 'rgba(239,68,68,0.6)' }}>⚠ Zona de perigo</p>
+          <p style={{ ...SECTION_TITLE, color: 'rgba(239,68,68,0.6)' }}><IconWarning size={13} color='currentColor' style={{marginRight:6,verticalAlign:'middle'}} />Zona de perigo</p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <p style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 4 }}>Encerrar sessão</p>
