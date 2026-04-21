@@ -9,7 +9,7 @@ import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
 import OnboardingModal from '@/components/ui/OnboardingModal'
 import AddCardModal from '@/components/dashboard/AddCardModal'
-import { IconSearch, IconDownload, IconTrendingUp, IconScan } from '@/components/ui/Icons'
+import { IconSearch, IconDownload, IconTrendingUp, IconTrendingDown, IconScan, IconHistory, IconCollection, IconFire, IconWarning, IconWallet, IconMarketplace, IconLink, IconChart } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -109,14 +109,14 @@ export default function DashboardFinanceiro() {
   const [importingTotal, setImportingTotal] = useState(0)
 
   const LOADING_MSGS = [
-    '🔍 Procurando a carta na LigaPokemon...',
-    '⚡ Treinando nossos Pokémon para buscar o preço...',
-    '🎴 Varrendo o mercado TCG brasileiro...',
-    '🌟 Consultando os preços das cartas raras...',
-    '📊 Calculando o valor do seu patrimônio...',
-    '🔮 Prevendo o futuro do mercado Pokémon...',
-    '🏪 Visitando todas as lojas virtuais...',
-    '💰 Analisando os preços Normal, Foil e Promo...',
+    'Procurando a carta...',
+    'Buscando preços de mercado...',
+    'Varrendo o mercado TCG...',
+    'Consultando preços das cartas...',
+    'Calculando o valor do patrimônio...',
+    'Analisando variações de mercado...',
+    'Consultando fontes de preços...',
+    'Analisando Normal, Foil e Promo...',
   ]
 
   // ── Importar por link ───────────────────────────────────────────────────
@@ -154,7 +154,7 @@ export default function DashboardFinanceiro() {
           if (bloqueado) {
             clearInterval(msgInterval)
             setImporting(false)
-            showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro por R$ 19,90/mês ou R$ 179/ano! 🚀`, 'warning')
+            showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Acesse Minha Conta para fazer upgrade.`, 'warning')
             if (success > 0) window.location.reload()
             return
           }
@@ -398,7 +398,7 @@ export default function DashboardFinanceiro() {
   if (loading) return (
     <AppLayout>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'rgba(255,255,255,0.3)', flexDirection: 'column', gap: 12 }}>
-        <div style={{ fontSize: 32 }}>📊</div>
+        <IconChart size={32} color="rgba(255,255,255,0.2)" />
         <p style={{ fontSize: 14 }}>Carregando dashboard...</p>
       </div>
     </AppLayout>
@@ -439,7 +439,7 @@ export default function DashboardFinanceiro() {
                 const timeStr = secs >= 60
                   ? `~${Math.floor(secs / 60)}min${secs % 60 > 0 ? ` ${secs % 60}s` : ''}`
                   : secs > 0 ? `~${secs}s` : ''
-                return `Aguarde${timeStr ? `, estimado ${timeStr}` : ''} 🕐`
+                return `Aguarde${timeStr ? `, estimado ${timeStr}` : ''}`
               })()}
             </p>
           </div>
@@ -468,7 +468,7 @@ export default function DashboardFinanceiro() {
               display: 'flex', flexDirection: 'column', gap: 16,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>🔗</span>
+                <IconLink size={22} color="rgba(245,158,11,0.8)" />
                 <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#fff' }}>
                   Importar cartas por link
                 </h3>
@@ -496,7 +496,7 @@ export default function DashboardFinanceiro() {
                   color: overLimit ? '#ef4444' : count > 0 ? '#f59e0b' : 'rgba(255,255,255,0.35)',
                 }}>
                   {count === 0 ? 'Nenhum link colado ainda'
-                    : overLimit ? `⚠️ ${count}/${MAX_LINKS} links — limite excedido!`
+                    : overLimit ? `⚠ ${count}/${MAX_LINKS} links — limite excedido!`
                     : `${count}/${MAX_LINKS} carta${count > 1 ? 's' : ''}`}
                 </span>
                 {count > 0 && !overLimit && (
@@ -601,7 +601,7 @@ export default function DashboardFinanceiro() {
             {/* Seletor de carta + gráfico */}
             <div style={{ ...SURFACE, padding: 24, marginBottom: 16 }}>
               <div style={{ marginBottom: 16 }}>
-                <SectionTitle>📈 Histórico de preço</SectionTitle>
+                <SectionTitle><IconTrendingUp size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Histórico de preço</SectionTitle>
 
                 {/* Filtros de ordenação */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, marginBottom: 10 }}>
@@ -616,7 +616,7 @@ export default function DashboardFinanceiro() {
                         transition: 'all 0.2s',
                       }}
                     >
-                      {opt === 'alpha' ? '↑ Alfabética' : '🕐 Mais recente'}
+                      {opt === 'alpha' ? '↑ Alfabética' : '↓ Mais recente'}
                     </button>
                   ))}
                 </div>
@@ -770,7 +770,7 @@ export default function DashboardFinanceiro() {
 
             {/* Últimas transações */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle>📋 Últimas transações</SectionTitle>
+              <SectionTitle><IconHistory size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Últimas transações</SectionTitle>
               {transactions.length === 0 ? (
                 <>
                   <EmptyRow label="Nenhuma transação ainda" />
@@ -790,7 +790,7 @@ export default function DashboardFinanceiro() {
                         background: isCompra ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
                         border: `1px solid ${isCompra ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`,
                       }}>
-                        {isCompra ? '🛒' : '💰'}
+                        {isCompra ? <IconMarketplace size={14} color="currentColor" /> : <IconWallet size={14} color="currentColor" />}
                       </div>
                       {/* Info */}
                       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
@@ -823,7 +823,7 @@ export default function DashboardFinanceiro() {
 
             {/* Cartas mais valiosas */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle>🏆 Cartas mais valiosas</SectionTitle>
+              <SectionTitle><IconCollection size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Cartas mais valiosas</SectionTitle>
               {rankingWithVariation.length === 0 ? (
                 <>
                   {['Adicione cartas para ver o ranking', 'Importe pelo link da LigaPokemon', 'Atualize os preços para calcular'].map(l => (
@@ -862,7 +862,7 @@ export default function DashboardFinanceiro() {
 
             {/* Oportunidades */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle>🔥 Oportunidades de compra</SectionTitle>
+              <SectionTitle><IconFire size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Oportunidades de compra</SectionTitle>
               {rankingWithVariation.filter(r => r.variation > 10).length === 0 ? (
                 <>
                   <EmptyRow label="Carta valorizando +10% no período" />
@@ -880,7 +880,7 @@ export default function DashboardFinanceiro() {
 
             {/* Alertas */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle>⚠️ Alertas de mercado</SectionTitle>
+              <SectionTitle><IconWarning size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Alertas de mercado</SectionTitle>
               {rankingWithVariation.filter(r => r.variation < -10).length === 0 ? (
                 <>
                   <EmptyRow label="Carta em queda -10% no período" />
