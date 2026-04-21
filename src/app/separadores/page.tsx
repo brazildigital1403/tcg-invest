@@ -90,13 +90,12 @@ export default function SeparadoresPage() {
           }
           .print-page:last-child { page-break-after: auto !important; break-after: auto !important; }
           /* Card — exatamente 63mm x 88mm */
-          /* Corner tip na impressão */
-          .bynx-tip-triangle {
-            border-width: 0 5mm 5mm 0 !important;
-          }
-          .bynx-tip-logo {
-            width: 3.5mm !important;
-            height: 3.5mm !important;
+          /* Bynx badge circular na impressão */
+          .bynx-badge {
+            width: 5mm !important;
+            height: 5mm !important;
+            top: 2mm !important;
+            right: 2mm !important;
           }
           .sep-card {
             width: 63mm !important;
@@ -261,34 +260,31 @@ function SepCard({ id, name }: { id: number; name: string }) {
         {gen.short}
       </div>
 
-      {/* Bynx tip — canto superior direito */}
-      <div className="bynx-tip-triangle" style={{
-        position: 'absolute', top: 0, right: 0,
-        width: 0, height: 0,
-        borderStyle: 'solid',
-        /* Triângulo no canto — preenchido de preto */
-        borderWidth: '0 20px 20px 0',
-        borderColor: 'transparent #000 transparent transparent',
-        zIndex: 3,
-      }} />
-      <div className="bynx-tip-logo" style={{
+      {/* Bynx badge circular — canto superior direito */}
+      <div className="bynx-badge" style={{
         position: 'absolute',
-        top: '1%',
-        right: '2%',
-        width: 'min(3.5vw, 14px)',
-        height: 'min(3.5vw, 14px)',
-        zIndex: 4,
+        top: '3%',
+        right: '4%',
+        width: 'min(4vw, 18px)',
+        height: 'min(4vw, 18px)',
+        borderRadius: '50%',
+        background: '#000',
         display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-end',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        zIndex: 3,
+        boxShadow: '0 0 0 0.5px rgba(0,0,0,0.3)',
+        flexShrink: 0,
       }}>
         <img
           src="https://www.bynx.gg/favicon.png"
           alt="Bynx"
           style={{
-            width: '100%',
-            height: '100%',
+            width: '85%',
+            height: '85%',
             objectFit: 'contain',
+            display: 'block',
           }}
         />
       </div>
