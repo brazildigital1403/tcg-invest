@@ -47,8 +47,8 @@ function Timeline({ steps, currentStatus }: { steps: typeof STEPS_COMPRADOR; cur
             {/* Step */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
               <div style={{
-                width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: done ? 16 : active ? 18 : 14,
+                width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: done ? 18 : active ? 20 : 16,
                 background: done
                   ? 'rgba(34,197,94,0.15)'
                   : active
@@ -61,10 +61,10 @@ function Timeline({ steps, currentStatus }: { steps: typeof STEPS_COMPRADOR; cur
                   : '1.5px solid rgba(255,255,255,0.1)',
                 transition: 'all 0.3s',
               }}>
-                {done ? <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M4 10l4.5 4.5L16 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/></svg> : step.icon === 'handshake' ? <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M3 7l4 3 3-2 3 2 4-3' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'/><path d='M3 13l4-3 3 2 3-2 4 3' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'/></svg> : step.icon === 'chat' ? <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M3 3h14v9H6l-4 3V3z' stroke='currentColor' strokeWidth='1.5' strokeLinejoin='round'/></svg> : step.icon === 'box' ? <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M3 7l7-4 7 4v9l-7 4-7-4V7z' stroke='currentColor' strokeWidth='1.5' strokeLinejoin='round'/></svg> : step.icon === 'check' ? <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='10' r='7' stroke='currentColor' strokeWidth='1.5'/><path d='M6.5 10l2.5 2.5 4-5' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'/></svg> : <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='10' r='4.5' stroke='currentColor' strokeWidth='1.5'/><path d='M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z' stroke='currentColor' strokeWidth='1.5'/></svg>}
+                {done ? <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M4 10l4.5 4.5L16 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/></svg> : step.icon === 'handshake' ? <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M3 7l4 3 3-2 3 2 4-3' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'/><path d='M3 13l4-3 3 2 3-2 4 3' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'/></svg> : step.icon === 'chat' ? <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M3 3h14v9H6l-4 3V3z' stroke='currentColor' strokeWidth='1.5' strokeLinejoin='round'/></svg> : step.icon === 'box' ? <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M3 7l7-4 7 4v9l-7 4-7-4V7z' stroke='currentColor' strokeWidth='1.5' strokeLinejoin='round'/></svg> : step.icon === 'check' ? <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='10' r='7' stroke='currentColor' strokeWidth='1.5'/><path d='M6.5 10l2.5 2.5 4-5' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'/></svg> : <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='10' r='4.5' stroke='currentColor' strokeWidth='1.5'/><path d='M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z' stroke='currentColor' strokeWidth='1.5'/></svg>}
               </div>
               <p style={{
-                fontSize: 9, textAlign: 'center', maxWidth: 56, lineHeight: 1.3,
+                fontSize: 11, textAlign: 'center', maxWidth: 64, lineHeight: 1.3,
                 color: done ? '#22c55e' : active ? '#f59e0b' : 'rgba(255,255,255,0.25)',
                 fontWeight: active ? 700 : 400,
               }}>
@@ -243,7 +243,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
                   {role === 'comprador' ? 'Vendedor: ' : 'Comprador: '}
                   {nomeContato || 'Usuário'}
                 </p>
-                {cidadeContato && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display:'flex', alignItems:'center', gap:3 }}><svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z' stroke='currentColor' strokeWidth='1.3'/><circle cx='10' cy='7' r='2' stroke='currentColor' strokeWidth='1.3'/></svg> {cidadeContato}</p>}
+                {cidadeContato && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display:'flex', alignItems:'center', gap:3 }}><svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z' stroke='currentColor' strokeWidth='1.3'/><circle cx='10' cy='7' r='2' stroke='currentColor' strokeWidth='1.3'/></svg> {cidadeContato}</p>}
               </div>
               {whatsapp && (
                 <button onClick={abrirWhatsApp}
@@ -268,7 +268,10 @@ function NegociacaoCard({ card, role, onAction, userId }: {
         {/* COMPRADOR: aguardando vendedor aceitar */}
         {role === 'comprador' && status === 'reservado' && (
           <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-            <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 3 }}>⏳ Aguardando o vendedor confirmar o envio</p>
+            <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 3, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 2h10M5 18h10M6 2v4l4 4-4 4v4M14 2v4l-4 4 4 4v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Aguardando o vendedor confirmar o envio
+            </p>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Entre em contato pelo WhatsApp para combinar os detalhes</p>
           </div>
         )}
@@ -297,7 +300,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
         {/* VENDEDOR: aguardando comprador confirmar */}
         {role === 'vendedor' && status === 'enviado' && (
           <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-            <p style={{ fontSize: 13, color: '#a855f7', fontWeight: 600, marginBottom: 3, display:'flex', alignItems:'center', gap:4 }}><IconBox size={13} color="currentColor" /> Carta enviada!</p>
+            <p style={{ fontSize: 13, color: '#a855f7', fontWeight: 600, marginBottom: 3, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}><IconBox size={14} color="currentColor" /> Carta enviada!</p>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Aguardando o comprador confirmar o recebimento</p>
           </div>
         )}
@@ -305,7 +308,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
         {/* Concluído — ambos */}
         {status === 'concluido' && (
           <div style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-            <p style={{ fontSize: 13, color: '#22c55e', fontWeight: 700, display:'flex', alignItems:'center', gap:4 }}><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 10l2.5 2.5 4-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>Negociação concluída!</p>
+            <p style={{ fontSize: 13, color: '#22c55e', fontWeight: 700, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 10l2.5 2.5 4-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>Negociação concluída!</p>
           </div>
         )}
 
