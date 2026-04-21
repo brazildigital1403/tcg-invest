@@ -178,8 +178,8 @@ export default function SeparadoresPage() {
             display: grid !important;
             grid-template-columns: repeat(3, 63mm) !important;
             grid-template-rows: repeat(3, 88mm) !important;
-            gap: 0 !important;
-            padding: 10.5mm !important;
+            gap: 3mm !important;
+            padding: 7.5mm 7.5mm 13.5mm !important;
             box-sizing: border-box !important;
             background: white !important;
             margin: 0 !important;
@@ -218,6 +218,12 @@ export default function SeparadoresPage() {
         }
         @page { size: A4 portrait; margin: 0; }
 
+        /* ── Desktop: tip em linha única ── */
+        .sep-tip-content { display: inline; }
+        .sep-tip-row1, .sep-tip-row2, .sep-tip-row3 { display: inline; }
+        .sep-tip-row1::after { content: ' '; }
+        .sep-tip-row2::after { content: ' '; }
+
         /* ── Mobile ── */
         @media (max-width: 640px) {
           .sep-header { flex-direction: column !important; align-items: stretch !important; }
@@ -228,8 +234,8 @@ export default function SeparadoresPage() {
           .sep-banner-btn { width: 100% !important; }
           .sep-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; padding: 12px !important; }
           .sep-tip { align-items: flex-start !important; }
-          .sep-tip-content { flex-direction: column !important; gap: 3px !important; align-items: flex-start !important; }
-          .sep-tip-line1, .sep-tip-line2 { white-space: normal !important; }
+          .sep-tip-content { display: flex; flex-direction: column; gap: 2px; }
+          .sep-tip-row1, .sep-tip-row2, .sep-tip-row3 { display: block; }
           .sep-success { align-items: flex-start !important; }
           .sep-success-text { display: flex !important; flex-direction: column !important; gap: 3px !important; }
         }
@@ -338,15 +344,17 @@ export default function SeparadoresPage() {
                 <circle cx="10" cy="10" r="7.5" stroke="#f59e0b" strokeWidth="1.3"/>
                 <path d="M10 9v5M10 7v.5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/>
               </svg>
-              <span className="sep-tip-content" style={{ display: 'flex', flexWrap: 'wrap', gap: '0 4px', alignItems: 'baseline' }}>
-                <strong style={{ color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap' }}>Ao imprimir:</strong>
-                <span className="sep-tip-line1" style={{ whiteSpace: 'nowrap' }}>
-                  selecione <strong style={{ color: 'rgba(255,255,255,0.65)' }}>Sem margens</strong>,
-                  tamanho <strong style={{ color: 'rgba(255,255,255,0.65)' }}>A4</strong>,
+              <span className="sep-tip-content">
+                <span className="sep-tip-row1">
+                  <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Ao imprimir, selecione:</strong>
+                </span>
+                <span className="sep-tip-row2">
+                  <strong style={{ color: 'rgba(255,255,255,0.65)' }}>Sem margens</strong>{', '}
+                  tamanho <strong style={{ color: 'rgba(255,255,255,0.65)' }}>A4</strong>{', '}
                   escala <strong style={{ color: 'rgba(255,255,255,0.65)' }}>100%</strong>.
                 </span>
-                <span className="sep-tip-line2" style={{ whiteSpace: 'nowrap' }}>
-                  Cada cartão: <strong style={{ color: 'rgba(255,255,255,0.65)' }}>6,3 × 8,8 cm</strong> — tamanho real de uma carta TCG.
+                <span className="sep-tip-row3">
+                  Cada cartão: <strong style={{ color: 'rgba(255,255,255,0.65)' }}>6,3 × 8,8 cm</strong>.
                 </span>
               </span>
             </div>
