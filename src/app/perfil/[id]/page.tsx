@@ -231,8 +231,8 @@ export default function PerfilPage() {
           <div style={{ flex: 1, minWidth: 180 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 6 }}>{user?.name}</h1>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {user?.city && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>{user.city}</span>}
-              {membroDesde && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}><IconCalendar size={12} color='currentColor' style={{marginRight:3}} />Membro desde {membroDesde}</span>}
+              {user?.city && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', display:'flex', alignItems:'center', gap:4 }}><IconLocation size={12} color='currentColor' />{user.city}</span>}
+              {membroDesde && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', display:'flex', alignItems:'center', gap:4 }}><IconCalendar size={12} color='currentColor' />Membro desde {membroDesde}</span>}
             </div>
           </div>
 
@@ -305,20 +305,22 @@ export default function PerfilPage() {
         {/* ── STATS ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 32 }}>
           {[
-            { label: 'Cartas na coleção', value: stats.cartas, color: '#60a5fa', icon: '🃏' },
+            { label: 'Cartas na coleção', value: stats.cartas, color: '#60a5fa', icon: 'cards' },
             { label: 'Anúncios ativos',   value: stats.anuncios, color: '#f59e0b', icon: 'megaphone' },
             { label: 'Vendas concluídas', value: stats.vendas, color: '#22c55e', icon: 'check' },
-            { label: 'Reputação', value: stats.vendas === 0 ? 'Novo' : stats.vendas < 3 ? '3 vendas' : stats.vendas < 10 ? '⭐⭐⭐⭐' : '⭐⭐⭐⭐⭐', color: '#f59e0b', icon: 'medal', text: true },
+            { label: 'Reputação', value: stats.vendas === 0 ? 'Novo' : stats.vendas < 3 ? `${stats.vendas} venda${stats.vendas > 1 ? 's' : ''}` : stats.vendas < 10 ? `${stats.vendas} vendas` : `${stats.vendas} vendas`, color: '#f59e0b', icon: 'medal', text: true },
           ].map((s, i) => (
             <div key={i} style={{ ...SURFACE, padding: '20px 16px', textAlign: 'center' }}>
-              <p style={{ fontSize: 22, marginBottom: 8 }}>{s.icon === 'megaphone'
+              <div style={{ display:'flex', justifyContent:'center', alignItems:'center', marginBottom: 8, height: 28 }}>{s.icon === 'megaphone'
                     ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><path d='M3 7h10l2-3v12l-2-3H3V7z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 13v3' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>
                     : s.icon === 'check'
                     ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='10' r='7.5' stroke='currentColor' strokeWidth='1.3'/><path d='M6.5 10l2.5 2.5 4-5' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>
                     : s.icon === 'cards'
-                    ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><rect x='2' y='4' width='11' height='14' rx='2' stroke='currentColor' strokeWidth='1.3'/><rect x='5' y='2' width='11' height='14' rx='2' stroke='currentColor' strokeWidth='1.3'/></svg>
-                    : s.icon
-                  }</p>
+                    ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><rect x='2' y='4' width='11' height='14' rx='2' stroke='currentColor' strokeWidth='1.3'/><rect x='5' y='2' width='11' height='14' rx='2' stroke='currentColor' strokeWidth='1.3'/><path d='M8 9l1.5 2L12 8' stroke='currentColor' strokeWidth='1.2' strokeLinecap='round' strokeLinejoin='round'/></svg>
+                    : s.icon === 'medal'
+                    ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='13' r='4.5' stroke='currentColor' strokeWidth='1.3'/><path d='M7 8.5L5 3h10l-2 5.5' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round' strokeLinejoin='round'/><path d='M10 11v2.5l1.5 1' stroke='currentColor' strokeWidth='1.2' strokeLinecap='round'/></svg>
+                    : null
+                  }</div>
               <p style={{ fontSize: (s as any).text ? 16 : 26, fontWeight: 800, color: s.color, letterSpacing: '-0.02em', marginBottom: 4 }}>{s.value}</p>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</p>
             </div>
@@ -329,7 +331,7 @@ export default function PerfilPage() {
         {showcase.length > 0 && (
           <div style={{ marginBottom: 32 }}>
             <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width='14' height='14' viewBox='0 0 20 20' fill='none' style={{marginRight:6,verticalAlign:'middle'}}><path d='M5 3h10l-2 7H7L5 3z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 10l-2 7h10l-2-7' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M8 17h4' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>Cartas mais valiosas
+              <svg width='14' height='14' viewBox='0 0 20 20' fill='none'><path d='M5 3h10l-2 7H7L5 3z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 10l-2 7h10l-2-7' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M8 17h4' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>Cartas mais valiosas
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 14 }}>
               {showcase.map((card, i) => {
@@ -371,8 +373,8 @@ export default function PerfilPage() {
         {/* ── PROGRESSO POR COLEÇÃO ── */}
         {setProgress.length > 0 && (
           <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>
-              <IconBox size={14} color='currentColor' style={{marginRight:6,verticalAlign:'middle'}} />Progresso por coleção
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display:'flex', alignItems:'center', gap:8 }}>
+              <IconBox size={14} color='currentColor' />Progresso por coleção
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {setProgress.map((s, i) => {
@@ -473,7 +475,7 @@ export default function PerfilPage() {
                     <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
                     <Link href="/" style={{ display: 'block', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}
                       onClick={e => { e.preventDefault(); localStorage.setItem('interesse-card-id', card.id); window.location.href = '/?login=1&redirect=marketplace' }}>
-                      <svg width='13' height='13' viewBox='0 0 20 20' fill='none' style={{marginRight:5}}><path d='M3 7l4 3 3-2 3 2 4-3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/><path d='M3 13l4-3 3 2 3-2 4 3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>Tenho interesse
+                      <svg width='14' height='14' viewBox='0 0 20 20' fill='none'><path d='M3 7l4 3 3-2 3 2 4-3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/><path d='M3 13l4-3 3 2 3-2 4 3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>Tenho interesse
                     </Link>
                   </div>
                 </div>

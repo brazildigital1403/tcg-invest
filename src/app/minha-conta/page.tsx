@@ -314,11 +314,11 @@ export default function MinhaConta() {
               {user?.email}
             </p>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
-                <IconCalendar size={12} color="rgba(255,255,255,0.3)" style={{marginRight:4}} /> Membro desde {formatarData(user?.created_at)}
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', display:'flex', alignItems:'center', gap:4 }}>
+                <IconCalendar size={12} color="rgba(255,255,255,0.3)" />Membro desde {formatarData(user?.created_at)}
               </span>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
-                <IconLocation size={12} color="rgba(255,255,255,0.3)" style={{marginRight:4}} /> {userData?.city || '—'}
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', display:'flex', alignItems:'center', gap:4 }}>
+                <IconLocation size={12} color="rgba(255,255,255,0.3)" />{userData?.city || '—'}
               </span>
             </div>
           </div>
@@ -396,8 +396,8 @@ export default function MinhaConta() {
                   <p style={{ fontSize: 11, color: '#22c55e', marginTop: 4, display:'flex', alignItems:'center', gap:3 }}><svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M4 10l4.5 4.5L16 6' stroke='currentColor' strokeWidth='1.8' strokeLinecap='round' strokeLinejoin='round'/></svg>Você pode trocar o username</p>
                 )
                 return (
-                  <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', marginTop: 4 }}>
-                    <svg width='12' height='12' viewBox='0 0 20 20' fill='none' style={{marginRight:4,flexShrink:0}}><rect x='4' y='9' width='12' height='9' rx='2' stroke='currentColor' strokeWidth='1.4'/><path d='M7 9V6a3 3 0 016 0v3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>Próxima troca disponível em {diasRestantes} dia{diasRestantes > 1 ? 's' : ''}
+                  <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', marginTop: 4, display:'flex', alignItems:'center', gap:4 }}>
+                    <svg width='12' height='12' viewBox='0 0 20 20' fill='none' style={{flexShrink:0}}><rect x='4' y='9' width='12' height='9' rx='2' stroke='currentColor' strokeWidth='1.4'/><path d='M7 9V6a3 3 0 016 0v3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>Próxima troca disponível em {diasRestantes} dia{diasRestantes > 1 ? 's' : ''}
                   </p>
                 )
               })()}
