@@ -10,7 +10,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import OnboardingChecklist from '@/components/ui/OnboardingChecklist'
 import ScanModal from '@/components/ui/ScanModal'
-import { IconScan, IconSearch, IconDownload } from '@/components/ui/Icons'
+import { IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 const fmt = (v: number | null | undefined) => {
