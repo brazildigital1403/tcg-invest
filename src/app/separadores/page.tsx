@@ -70,10 +70,35 @@ export default function SeparadoresPage() {
     <AppLayout>
       <style>{`
         @media print {
-          .no-print, .tcg-sidebar, .tcg-header, .tcg-bottom-nav, footer, header, nav, aside { display: none !important; }
-          html, body { background: white !important; margin: 0 !important; padding: 0 !important; }
-          .tcg-content { padding: 0 !important; margin: 0 !important; }
-          /* Cada bloco de 9 = uma página A4 */
+          /* ── Esconde interface do app ── */
+          .no-print, .tcg-sidebar, .tcg-header, .tcg-bottom-nav,
+          footer, header, nav, aside { display: none !important; }
+
+          /* ── Reset total — neutraliza todos os containers do AppLayout ── */
+          html, body {
+            background: white !important;
+            margin: 0 !important; padding: 0 !important;
+            width: 210mm !important;
+            overflow: visible !important;
+          }
+          .tcg-root, .tcg-main-col, .tcg-content {
+            display: block !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+          }
+          /* Wrapper inline (max-width:1000 + padding:32px 24px) */
+          .tcg-content > div {
+            max-width: 210mm !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            width: 210mm !important;
+          }
+
+          /* ── Uma página A4 por bloco de 9 cartas ── */
           .print-page {
             width: 210mm !important;
             height: 297mm !important;
@@ -87,16 +112,12 @@ export default function SeparadoresPage() {
             box-sizing: border-box !important;
             background: white !important;
             margin: 0 !important;
+            border: none !important;
+            border-radius: 0 !important;
           }
           .print-page:last-child { page-break-after: auto !important; break-after: auto !important; }
-          /* Card — exatamente 63mm x 88mm */
-          /* Bynx badge circular na impressão */
-          .bynx-badge {
-            width: 5mm !important;
-            height: 5mm !important;
-            top: 2mm !important;
-            right: 2mm !important;
-          }
+
+          /* ── Card: exatamente 63mm x 88mm ── */
           .sep-card {
             width: 63mm !important;
             height: 88mm !important;
@@ -107,6 +128,12 @@ export default function SeparadoresPage() {
             overflow: hidden !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
+          }
+
+          /* ── Badge Bynx ── */
+          .bynx-badge {
+            width: 5mm !important; height: 5mm !important;
+            top: 1.5mm !important; right: 1.5mm !important;
           }
         }
         @page { size: A4 portrait; margin: 0; }
