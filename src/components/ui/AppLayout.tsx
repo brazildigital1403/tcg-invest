@@ -316,7 +316,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     )}
                   </div>
 
-                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }} onWheel={e => e.stopPropagation()}>
+                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
                     {notifs.length === 0 ? (
                       <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
                         <IconBell size={28} color="rgba(255,255,255,0.2)" style={{ marginBottom: 8 }} />
