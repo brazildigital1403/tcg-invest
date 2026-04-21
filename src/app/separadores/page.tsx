@@ -41,6 +41,7 @@ export default function SeparadoresPage() {
   const [loaded, setLoaded]       = useState(false)
   const [desbloqueado, setDesbloqueado] = useState<boolean | null>(null)
   const [comprando, setComprando] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   const loadPokemons = useCallback(async () => {
     if (loaded) return
@@ -83,9 +84,14 @@ export default function SeparadoresPage() {
       const status = data?.[0]?.separadores_desbloqueado ?? false
       setDesbloqueado(status)
 
-      // Se voltou do Stripe com ?desbloqueado=1, força refresh
-      if (window.location.search.includes('desbloqueado=1') && !status) {
-        setTimeout(checkStatus, 2000) // Aguarda webhook processar
+      // Se voltou do Stripe com ?desbloqueado=1
+      if (window.location.search.includes('desbloqueado=1')) {
+        if (!status) {
+          setTimeout(checkStatus, 2000) // Aguarda webhook processar
+        } else {
+          setShowSuccess(true)
+          setTimeout(() => setShowSuccess(false), 8000) // Exibe por 8 segundos
+        }
       }
     }
     checkStatus()
@@ -220,9 +226,8 @@ export default function SeparadoresPage() {
 
         /* ── Desktop: tip em linha única ── */
         .sep-tip-content { display: inline; }
-        .sep-tip-row1, .sep-tip-row2, .sep-tip-row3 { display: inline; }
+        .sep-tip-row1, .sep-tip-row2 { display: inline; }
         .sep-tip-row1::after { content: ' '; }
-        .sep-tip-row2::after { content: ' '; }
 
         /* ── Mobile ── */
         @media (max-width: 640px) {
@@ -233,9 +238,11 @@ export default function SeparadoresPage() {
           .sep-banner { flex-direction: column !important; text-align: center !important; }
           .sep-banner-btn { width: 100% !important; }
           .sep-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; padding: 12px !important; }
+          .sep-subtitle-line1 { display: block; }
+          .sep-subtitle-line2 { display: block; }
           .sep-tip { align-items: flex-start !important; }
           .sep-tip-content { display: flex; flex-direction: column; gap: 2px; }
-          .sep-tip-row1, .sep-tip-row2, .sep-tip-row3 { display: block; }
+          .sep-tip-row1, .sep-tip-row2 { display: block; }
           .sep-success { align-items: flex-start !important; }
           .sep-success-text { display: flex !important; flex-direction: column !important; gap: 3px !important; }
         }
@@ -250,13 +257,27 @@ export default function SeparadoresPage() {
         <div className="no-print" style={{ marginBottom: 24 }}>
           <div className="sep-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
             <div>
-              <h1 style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 6 }}>
-                Separadores de Fichário
-              </h1>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
-                Tamanho exato de carta TCG Pokémon (6,3 × 8,8 cm).
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 800, letterSpacing: '-0.03em', margin: 0 }}>
+                  Separadores de Fichário
+                </h1>
+                {desbloqueado === true && (
+                  <span style={{
+                    background: 'linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.08))',
+                    border: '1px solid rgba(34,197,94,0.35)',
+                    color: '#22c55e', fontSize: 10, fontWeight: 800,
+                    padding: '3px 10px', borderRadius: 100,
+                    letterSpacing: '0.08em', textTransform: 'uppercase',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    ✦ Vitalício
+                  </span>
+                )}
+              </div>
+              <p className="sep-subtitle" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
+                <span className="sep-subtitle-line1">Tamanho exato de carta TCG Pokémon (6,3 × 8,8 cm)</span>
                 {filtered.length > 0 && (
-                  <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                  <span className="sep-subtitle-line2" style={{ color: '#f59e0b', fontWeight: 600 }}>
                     {' '}· {filtered.length} Pokémons · {pages.length} página{pages.length > 1 ? 's' : ''} A4
                   </span>
                 )}
@@ -353,9 +374,7 @@ export default function SeparadoresPage() {
                   tamanho <strong style={{ color: 'rgba(255,255,255,0.65)' }}>A4</strong>{', '}
                   escala <strong style={{ color: 'rgba(255,255,255,0.65)' }}>100%</strong>.
                 </span>
-                <span className="sep-tip-row3">
-                  Cada cartão: <strong style={{ color: 'rgba(255,255,255,0.65)' }}>6,3 × 8,8 cm</strong>.
-                </span>
+
               </span>
             </div>
           )}
@@ -399,20 +418,34 @@ export default function SeparadoresPage() {
           </div>
         )}
 
-        {/* Sucesso após pagamento */}
-        {desbloqueado === true && window?.location?.search?.includes('desbloqueado=1') && (
+        {/* Sucesso após pagamento — exibe por 8 segundos */}
+        {showSuccess && (
           <div className="no-print sep-success" style={{
             background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
             borderRadius: 12, padding: '14px 20px', marginBottom: 20,
-            display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#22c55e',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            fontSize: 13, color: '#22c55e', flexWrap: 'wrap',
           }}>
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-              <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.3"/>
-              <path d="M6.5 10l2.5 2.5 4-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
-            <span className="sep-success-text">
-              <strong>Separadores desbloqueados!</strong>{' '}
-              Agora você pode selecionar as gerações e imprimir à vontade.
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.3"/>
+                <path d="M6.5 10l2.5 2.5 4-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+              <span className="sep-success-text">
+                <strong>Separadores desbloqueados!</strong>{' '}
+                Agora você pode selecionar as gerações e imprimir à vontade.
+              </span>
+            </div>
+            {/* Badge VITALÍCIO */}
+            <span style={{
+              background: 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(34,197,94,0.1))',
+              border: '1px solid rgba(34,197,94,0.4)',
+              color: '#22c55e', fontSize: 10, fontWeight: 800,
+              padding: '3px 10px', borderRadius: 100,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              whiteSpace: 'nowrap', flexShrink: 0,
+            }}>
+              ✦ Vitalício
             </span>
           </div>
         )}
