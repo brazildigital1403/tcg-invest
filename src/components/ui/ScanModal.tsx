@@ -295,7 +295,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       padding: 24, fontFamily: "'DM Sans', system-ui, sans-serif",
     }}>
       <div style={{
-        width: '100%', maxWidth: 560, background: '#0d0f14',
+        width: '100%', maxWidth: 880, background: '#0d0f14',
         border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24,
         boxShadow: '0 32px 100px rgba(0,0,0,0.7)', overflow: 'hidden',
         color: '#f0f0f0',
@@ -328,7 +328,9 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
 
           {/* ── STEP: CAPTURE ── */}
           {(step === 'capture' || step === 'scanning') && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+              {/* ── COLUNA ESQUERDA: câmera / preview ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
               {/* Erro */}
               {error && (
@@ -421,9 +423,9 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                 </div>
               )}
 
-              {/* Loading scan */}
+              {/* Loading scan — span ambas colunas */}
               {step === 'scanning' && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '20px 0' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '20px 0', gridColumn: 'span 1' }}>
                   <div style={{ width: 48, height: 48, border: '3px solid rgba(245,158,11,0.2)', borderTop: '3px solid #f59e0b', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                   <div style={{ textAlign: 'center' }}>
                     <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Analisando com Claude Vision...</p>
@@ -433,8 +435,10 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                 </div>
               )}
 
-              {/* Dicas */}
-              {/* ── Créditos de scan ── */}
+              </div>{/* fim coluna esquerda */}
+
+              {/* ── COLUNA DIREITA: créditos / pacotes / dicas ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {step === 'capture' && (
                 <div style={{
                   background: creditos === 0 ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)',
@@ -518,6 +522,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                   </div>
                 </div>
               )}
+              </div>{/* fim coluna direita */}
             </div>
           )}
 
