@@ -5,6 +5,16 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount, IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp } from '@/components/ui/Icons'
+
+function IconSeparador({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <rect x='3' y='2' width='14' height='16' rx='2' stroke={color} strokeWidth='1.4'/>
+      <path d='M3 7h14M3 12h14' stroke={color} strokeWidth='1.4'/>
+      <path d='M7 2v5M7 12v6' stroke={color} strokeWidth='1.4' strokeLinecap='round'/>
+    </svg>
+  )
+}
 import { marcarTodasLidas } from '@/lib/notificacoes'
 
 const BRAND  = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -19,6 +29,7 @@ const menu = [
   { name: 'Pokédex',     full: 'Pokédex',         href: '/pokedex',              Icon: IconPokedex    },
   { name: 'Marketplace', full: 'Marketplace',     href: '/marketplace',          Icon: IconMarketplace},
   { name: 'Conta',       full: 'Minha Conta',     href: '/minha-conta',          Icon: IconAccount    },
+  { name: 'Separadores', full: 'Separadores',     href: '/separadores',          Icon: IconSeparador  },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
