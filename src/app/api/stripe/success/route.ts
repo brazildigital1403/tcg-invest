@@ -20,6 +20,19 @@ export async function GET(req: NextRequest) {
 
     const plano = session.metadata?.plano
 
+    // Créditos de scan
+    if (plano?.startsWith('scan_')) {
+      const creditos = parseInt(session.metadata?.creditos || '0', 10)
+      if (creditos > 0) {
+        const { data: user } = await supabase
+          .from('users').select('scan_creditos').eq('id', userId).limit(1)
+        const atual = user?.[0]?.scan_creditos || 0
+        await supabase.from('users').update({ scan_creditos: atual + creditos }).eq('id', userId)
+        console.log(`[stripe/success] +${creditos} créditos de scan para ${userId}`)
+      }
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/minha-colecao?scan_creditos=${session.metadata?.creditos || 0}`)
+    }
+
     // Separadores — pagamento único
     if (plano === 'separadores') {
       await supabase.from('users').update({

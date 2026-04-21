@@ -31,6 +31,25 @@ export async function POST(req: NextRequest) {
         const planoMeta = session.metadata?.plano
         if (!userId) break
 
+        // Créditos de scan — pacotes avulsos
+        if (planoMeta?.startsWith('scan_')) {
+          const creditos = parseInt(session.metadata?.creditos || '0', 10)
+          if (creditos > 0) {
+            // Incrementa créditos existentes com rpc para atomicidade
+            const { data: user } = await supabase
+              .from('users')
+              .select('scan_creditos')
+              .eq('id', userId)
+              .limit(1)
+            const atual = user?.[0]?.scan_creditos || 0
+            await supabase.from('users').update({
+              scan_creditos: atual + creditos,
+            }).eq('id', userId)
+            console.log(`[webhook] +${creditos} créditos de scan para ${userId} (total: ${atual + creditos})`)
+          }
+          break
+        }
+
         // Separadores — pagamento único
         if (planoMeta === 'separadores') {
           await supabase.from('users').update({

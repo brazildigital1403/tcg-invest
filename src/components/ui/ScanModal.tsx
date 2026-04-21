@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { IconCamera, IconScan, IconClose, IconWarning } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -22,6 +22,8 @@ interface Props {
 
 export default function ScanModal({ userId, onClose, onAdded }: Props) {
   const [step, setStep] = useState<'capture' | 'scanning' | 'confirm' | 'adding'>('capture')
+  const [creditos, setCreditos] = useState<number | null>(null)
+  const [comprando, setComprando] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<string>('image/jpeg')
   const [cards, setCards] = useState<ScannedCard[]>([])
@@ -107,10 +109,52 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
     })
   }
 
+  // ── Carrega créditos disponíveis ─────────────────────────────────────────────
+
+  useEffect(() => {
+    async function loadCreditos() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase.from('users').select('scan_creditos').eq('id', user.id).limit(1)
+      setCreditos(data?.[0]?.scan_creditos ?? 0)
+    }
+    loadCreditos()
+  }, [])
+
+  async function handleComprarCreditos(pacote: string) {
+    setComprando(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: userData } = await supabase.from('users').select('email').eq('id', user.id).limit(1)
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plano: pacote, userId: user.id, userEmail: userData?.[0]?.email || user.email }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } catch { /* silently fail */ }
+    setComprando(false)
+  }
+
   // ── Scan via Claude Vision ───────────────────────────────────────────────────
 
   async function handleScan() {
     if (!preview) return
+    if (creditos === 0) { setError('Sem créditos de scan.'); return }
+
+    // ── Verifica saldo de créditos ─────────────────────────────────────────
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setError('Sessão expirada. Faça login novamente.'); return }
+
+    const { data: userData } = await supabase.from('users').select('scan_creditos').eq('id', user.id).limit(1)
+    const saldo = userData?.[0]?.scan_creditos ?? 0
+    if (saldo <= 0) {
+      setError('Sem créditos de scan. Compre um pacote para continuar.')
+      return
+    }
+
     setStep('scanning')
     setError(null)
 
@@ -142,6 +186,10 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
 
       setCards(data.cards.map((c: any) => ({ ...c, selected: true })))
       setStep('confirm')
+
+      // Debita 1 crédito após scan bem-sucedido
+      await supabase.from('users').update({ scan_creditos: saldo - 1 }).eq('id', user.id)
+      setCreditos(saldo - 1)
     } catch (err: any) {
       setError(err.message || 'Erro ao processar imagem')
       setStep('capture')
@@ -386,6 +434,75 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
               )}
 
               {/* Dicas */}
+              {/* ── Créditos de scan ── */}
+              {step === 'capture' && (
+                <div style={{
+                  background: creditos === 0 ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)',
+                  border: `1px solid ${creditos === 0 ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`,
+                  borderRadius: 10, padding: '10px 14px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                      <circle cx="10" cy="10" r="7.5" stroke={creditos === 0 ? '#ef4444' : '#f59e0b'} strokeWidth="1.3"/>
+                      <path d="M10 6v5M10 13v.5" stroke={creditos === 0 ? '#ef4444' : '#f59e0b'} strokeWidth="1.3" strokeLinecap="round"/>
+                    </svg>
+                    <span style={{ fontSize: 12, color: creditos === 0 ? '#ef4444' : 'rgba(255,255,255,0.6)' }}>
+                      {creditos === null ? 'Carregando...' : creditos === 0
+                        ? 'Sem créditos — compre um pacote para escanear'
+                        : <><strong style={{ color: '#f59e0b' }}>{creditos}</strong> crédito{creditos !== 1 ? 's' : ''} disponível{creditos !== 1 ? 'is' : ''}</>
+                      }
+                    </span>
+                  </div>
+                  {creditos !== null && creditos <= 3 && (
+                    <button
+                      onClick={() => handleComprarCreditos('scan_popular')}
+                      disabled={comprando}
+                      style={{
+                        background: 'linear-gradient(135deg,#f59e0b,#ef4444)',
+                        border: 'none', borderRadius: 8, padding: '5px 12px',
+                        color: '#000', fontWeight: 700, fontSize: 11,
+                        cursor: comprando ? 'wait' : 'pointer', whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Comprar créditos
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Pacotes — se sem créditos */}
+              {step === 'capture' && creditos === 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Escolha um pacote</p>
+                  {[
+                    { plano: 'scan_basico',       label: '5 scans',  preco: 'R$5,90',  desc: 'R$1,18/scan' },
+                    { plano: 'scan_popular',      label: '15 scans', preco: 'R$14,90', desc: 'R$0,99/scan', destaque: true },
+                    { plano: 'scan_colecionador', label: '40 scans', preco: 'R$34,90', desc: 'R$0,87/scan' },
+                  ].map(pkg => (
+                    <button
+                      key={pkg.plano}
+                      onClick={() => handleComprarCreditos(pkg.plano)}
+                      disabled={comprando}
+                      style={{
+                        background: pkg.destaque ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${pkg.destaque ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        borderRadius: 10, padding: '11px 14px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        cursor: comprando ? 'wait' : 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: pkg.destaque ? '#f59e0b' : '#f0f0f0' }}>{pkg.label}</span>
+                        {pkg.destaque && <span style={{ fontSize: 9, fontWeight: 800, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', padding: '2px 6px', borderRadius: 100, letterSpacing: '0.06em' }}>POPULAR</span>}
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{pkg.desc}</span>
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: pkg.destaque ? '#f59e0b' : '#f0f0f0' }}>{pkg.preco}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {step === 'capture' && !preview && !cameraActive && (
                 <div style={{ ...SURFACE, padding: '14px 16px' }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 014.5 10l-1 1.5H6.5L5.5 12A6 6 0 0110 2z" stroke="#f59e0b" strokeWidth="1.3"/><path d="M7.5 16.5h5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/></svg>Dicas para melhor resultado:</p>

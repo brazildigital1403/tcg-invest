@@ -535,6 +535,16 @@ export default function MinhaColecao() {
   }
 
   useEffect(() => { loadCards() }, [])
+
+  // Toast de sucesso ao retornar da compra de créditos
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const creditos = params.get('scan_creditos')
+    if (creditos) {
+      showAlert(`+${creditos} crédito${Number(creditos) > 1 ? 's' : ''} de scan adicionado${Number(creditos) > 1 ? 's' : ''}! Pode escanear suas cartas agora.`, 'success')
+      window.history.replaceState({}, '', '/minha-colecao')
+    }
+  }, [])
   useEffect(() => {
     const fn = () => loadCards()
     window.addEventListener('focus', fn)
