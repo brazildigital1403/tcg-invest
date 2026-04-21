@@ -268,43 +268,48 @@ export default function MinhaColecao() {
   }
 
   async function loadCards() {
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) { window.location.href = '/login'; return }
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      if (!userData?.user) { window.location.href = '/login'; return }
 
-    setUserId(userData.user.id)
-    const { isPro: pro, isTrial: trial } = await getUserPlan(userData.user.id)
-    setIsPro(pro || trial)
+      setUserId(userData.user.id)
+      const { isPro: pro, isTrial: trial } = await getUserPlan(userData.user.id)
+      setIsPro(pro || trial)
 
-    const { data } = await supabase
-      .from('user_cards')
-      .select('*')
-      .eq('user_id', userData.user.id)
-      .order('created_at', { ascending: false })
-
-    const cardsData = data || []
-    const names = cardsData.map((c) => c.card_name?.trim())
-    let priceMap: any = {}
-
-    if (names.length > 0) {
-      const { data: prices } = await supabase
-        .from('card_prices')
+      const { data } = await supabase
+        .from('user_cards')
         .select('*')
-        .in('card_name', names)
+        .eq('user_id', userData.user.id)
+        .order('created_at', { ascending: false })
 
-      priceMap = (prices || []).reduce((acc: any, p: any) => {
-        acc[p.card_name?.trim()] = p
-        return acc
-      }, {})
+      const cardsData = data || []
+      const names = cardsData.map((c: any) => c.card_name?.trim())
+      let priceMap: any = {}
+
+      if (names.length > 0) {
+        const { data: prices } = await supabase
+          .from('card_prices')
+          .select('*')
+          .in('card_name', names)
+
+        priceMap = (prices || []).reduce((acc: any, p: any) => {
+          acc[p.card_name?.trim()] = p
+          return acc
+        }, {})
+      }
+
+      const merged = cardsData.map((c: any) => ({
+        ...c,
+        price: priceMap[c.card_name?.trim()] || null,
+      }))
+
+      setCards(merged)
+      setTotalCartas(merged.length)
+    } catch (err: any) {
+      console.error('[minha-colecao] loadCards error:', err?.message || err)
+    } finally {
+      setLoading(false)
     }
-
-    const merged = cardsData.map((c) => ({
-      ...c,
-      price: priceMap[c.card_name?.trim()] || null,
-    }))
-
-    setCards(merged)
-    setTotalCartas(merged.length)
-    setLoading(false)
   }
 
   async function handleVarianteChange(card: any, novaVariante: string) {
@@ -537,11 +542,7 @@ export default function MinhaColecao() {
   useEffect(() => { loadCards() }, [])
 
 
-  useEffect(() => {
-    const fn = () => loadCards()
-    window.addEventListener('focus', fn)
-    return () => window.removeEventListener('focus', fn)
-  }, [])
+
 
   if (loading) {
     return <AppLayout><div className="p-6">Carregando coleção...</div></AppLayout>
