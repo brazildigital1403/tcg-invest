@@ -20,6 +20,13 @@ interface Props {
   onAdded: () => void
 }
 
+
+const SCAN_PKGS = [
+  { plano: 'scan_basico',       scans: 5,  preco: 'R$5,90',  unit: 'R$1,18/scan' },
+  { plano: 'scan_popular',      scans: 15, preco: 'R$14,90', unit: 'R$0,99/scan', popular: true as true },
+  { plano: 'scan_colecionador', scans: 40, preco: 'R$34,90', unit: 'R$0,87/scan' },
+]
+
 export default function ScanModal({ userId, onClose, onAdded }: Props) {
   const [step, setStep] = useState<'capture' | 'scanning' | 'confirm' | 'adding'>('capture')
   const [creditos, setCreditos] = useState<number | null>(null)
@@ -459,79 +466,76 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                 )}
 
                 {/* Pacotes de seleção */}
-                {step === 'capture' && (creditos === 0 || (creditos !== null && creditos <= 3)) && (() => {
-                  const PKGS = [
-                    { plano: 'scan_basico',       scans: 5,  preco: 'R$5,90',  unit: 'R$1,18/scan' },
-                    { plano: 'scan_popular',      scans: 15, preco: 'R$14,90', unit: 'R$0,99/scan', popular: true },
-                    { plano: 'scan_colecionador', scans: 40, preco: 'R$34,90', unit: 'R$0,87/scan' },
-                  ]
-                  const sel = PKGS.find(p => p.plano === selectedPackage) || PKGS[1]
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        {creditos === 0 ? 'Escolha um pacote para começar' : 'Comprar mais créditos'}
-                      </p>
+                {step === 'capture' && (creditos === 0 || (creditos !== null && creditos <= 3)) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      {creditos === 0 ? 'Escolha um pacote para começar' : 'Comprar mais créditos'}
+                    </p>
 
-                      {PKGS.map(pkg => {
-                        const isSel = selectedPackage === pkg.plano
-                        return (
-                          <button
-                            key={pkg.plano}
-                            onClick={() => setSelectedPackage(pkg.plano)}
-                            style={{
-                              background: isSel ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.03)',
-                              border: `1.5px solid ${isSel ? 'rgba(245,158,11,0.6)' : 'rgba(255,255,255,0.08)'}`,
-                              borderRadius: 10, padding: '10px 14px',
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                              cursor: 'pointer', fontFamily: 'inherit', width: '100%',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{
-                                width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-                                border: `2px solid ${isSel ? '#f59e0b' : 'rgba(255,255,255,0.25)'}`,
-                                background: isSel ? '#f59e0b' : 'transparent',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              }}>
-                                {isSel && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#000' }} />}
-                              </div>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: isSel ? '#f59e0b' : '#f0f0f0' }}>
-                                {pkg.scans} scans
-                              </span>
-                              {pkg.popular && <span style={{ fontSize: 9, fontWeight: 800, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', padding: '2px 6px', borderRadius: 100, letterSpacing: '0.06em' }}>POPULAR</span>}
-                              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{pkg.unit}</span>
+                    {SCAN_PKGS.map(pkg => {
+                      const isSel = selectedPackage === pkg.plano
+                      return (
+                        <button
+                          key={pkg.plano}
+                          onClick={() => setSelectedPackage(pkg.plano)}
+                          style={{
+                            background: isSel ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.03)',
+                            border: `1.5px solid ${isSel ? 'rgba(245,158,11,0.6)' : 'rgba(255,255,255,0.08)'}`,
+                            borderRadius: 10, padding: '10px 14px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{
+                              width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                              border: `2px solid ${isSel ? '#f59e0b' : 'rgba(255,255,255,0.25)'}`,
+                              background: isSel ? '#f59e0b' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {isSel && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#000' }} />}
                             </div>
-                            <span style={{ fontSize: 14, fontWeight: 800, color: isSel ? '#f59e0b' : 'rgba(255,255,255,0.5)' }}>{pkg.preco}</span>
-                          </button>
-                        )
-                      })}
+                            <span style={{ fontSize: 13, fontWeight: 700, color: isSel ? '#f59e0b' : '#f0f0f0' }}>
+                              {pkg.scans} scans
+                            </span>
+                            {pkg.popular && <span style={{ fontSize: 9, fontWeight: 800, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', padding: '2px 6px', borderRadius: 100, letterSpacing: '0.06em' }}>POPULAR</span>}
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{pkg.unit}</span>
+                          </div>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: isSel ? '#f59e0b' : 'rgba(255,255,255,0.5)' }}>{pkg.preco}</span>
+                        </button>
+                      )
+                    })}
 
-                      {/* Botão de compra */}
-                      <button
-                        onClick={() => handleComprarCreditos(selectedPackage)}
-                        disabled={comprando}
-                        style={{
-                          background: comprando ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f59e0b,#ef4444)',
-                          border: 'none', borderRadius: 10, padding: '12px 16px',
-                          color: comprando ? 'rgba(255,255,255,0.3)' : '#000',
-                          fontWeight: 800, fontSize: 14,
-                          cursor: comprando ? 'wait' : 'pointer', width: '100%', marginTop: 2,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                          fontFamily: 'inherit',
-                        }}
-                      >
-                        {comprando ? 'Aguarde...' : `Comprar ${sel.scans} scans por ${sel.preco}`}
-                      </button>
+                    {/* Botão de compra */}
+                    {(() => {
+                      const sel = SCAN_PKGS.find(p => p.plano === selectedPackage) || SCAN_PKGS[1]
+                      return (
+                        <button
+                          onClick={() => handleComprarCreditos(selectedPackage)}
+                          disabled={comprando}
+                          style={{
+                            background: comprando ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f59e0b,#ef4444)',
+                            border: 'none', borderRadius: 10, padding: '12px 16px',
+                            color: comprando ? 'rgba(255,255,255,0.3)' : '#000',
+                            fontWeight: 800, fontSize: 14,
+                            cursor: comprando ? 'wait' : 'pointer', width: '100%', marginTop: 2,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            fontFamily: 'inherit',
+                          }}
+                        >
+                          {comprando ? 'Aguarde...' : `Comprar ${sel.scans} scans por ${sel.preco}`}
+                        </button>
+                      )
+                    })()}
 
-                      {/* Aviso sem créditos */}
-                      {creditos === 0 && (
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', lineHeight: 1.5, marginTop: 2 }}>
-                          Você precisa de créditos para escanear cartas.
-                        </p>
-                      )}
-                    </div>
-                  )
-                })()}
+                    {/* Aviso sem créditos */}
+                    {creditos === 0 && (
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', lineHeight: 1.5, marginTop: 2 }}>
+                        Você precisa de créditos para escanear cartas.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Dicas */}
                 {step === 'capture' && !preview && !cameraActive && (
