@@ -28,8 +28,19 @@ export async function POST(req: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.CheckoutSession
         const userId = session.metadata?.userId
+        const planoMeta = session.metadata?.plano
         if (!userId) break
 
+        // Separadores — pagamento único
+        if (planoMeta === 'separadores') {
+          await supabase.from('users').update({
+            separadores_desbloqueado: true,
+          }).eq('id', userId)
+          console.log(`[webhook] Separadores desbloqueado para ${userId}`)
+          break
+        }
+
+        // Pro — assinatura recorrente
         const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
         const priceId = subscription.items.data[0]?.price.id
         const plano = priceId === process.env.STRIPE_PRICE_ANUAL ? 'anual' : 'mensal'

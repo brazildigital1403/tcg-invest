@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import AppLayout from '@/components/ui/AppLayout'
+import { supabase } from '@/lib/supabaseClient'
 
 const GENERATIONS = [
   { label: 'Gen I',    short: 'GEN 1', from: 1,    to: 151,  region: 'Kanto',  color: '#e74c3c' },
@@ -35,9 +36,11 @@ interface Pokemon { id: number; name: string }
 
 export default function SeparadoresPage() {
   const [selectedGens, setSelectedGens] = useState<number[]>([0])
-  const [pokeList, setPokeList] = useState<Pokemon[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loaded, setLoaded] = useState(false)
+  const [pokeList, setPokeList]   = useState<Pokemon[]>([])
+  const [loading, setLoading]     = useState(false)
+  const [loaded, setLoaded]       = useState(false)
+  const [desbloqueado, setDesbloqueado] = useState<boolean | null>(null)
+  const [comprando, setComprando] = useState(false)
 
   const loadPokemons = useCallback(async () => {
     if (loaded) return
@@ -54,6 +57,57 @@ export default function SeparadoresPage() {
   }, [loaded])
 
   useEffect(() => { loadPokemons() }, [loadPokemons])
+
+  // Bloqueia impressão no CSS quando não desbloqueado
+  useEffect(() => {
+    if (desbloqueado === false) {
+      document.body.classList.add('print-blocked')
+    } else {
+      document.body.classList.remove('print-blocked')
+    }
+    return () => document.body.classList.remove('print-blocked')
+  }, [desbloqueado])
+
+  // Verifica se já desbloqueou + detecta retorno do Stripe
+  useEffect(() => {
+    async function checkStatus() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setDesbloqueado(false); return }
+
+      const { data } = await supabase
+        .from('users')
+        .select('separadores_desbloqueado')
+        .eq('id', user.id)
+        .limit(1)
+
+      const status = data?.[0]?.separadores_desbloqueado ?? false
+      setDesbloqueado(status)
+
+      // Se voltou do Stripe com ?desbloqueado=1, força refresh
+      if (window.location.search.includes('desbloqueado=1') && !status) {
+        setTimeout(checkStatus, 2000) // Aguarda webhook processar
+      }
+    }
+    checkStatus()
+  }, [])
+
+  async function handleComprar() {
+    setComprando(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { window.location.href = '/'; return }
+
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plano: 'separadores', userId: user.id, userEmail: user.email }),
+      })
+      const { url } = await res.json()
+      if (url) window.location.href = url
+    } catch {
+      setComprando(false)
+    }
+  }
 
   // Força carregamento de todas as imagens antes de imprimir
   useEffect(() => {
@@ -152,6 +206,15 @@ export default function SeparadoresPage() {
             width: 5mm !important; height: 5mm !important;
             top: 1.5mm !important; right: 1.5mm !important;
           }
+          /* Bloqueia impressão se não desbloqueado */
+          .print-blocked * { display: none !important; }
+          .print-blocked::before {
+            display: block !important;
+            content: 'Acesse bynx.gg/separadores para desbloquear os Separadores de Fichário.';
+            font-size: 16pt;
+            text-align: center;
+            margin-top: 120mm;
+          }
         }
         @page { size: A4 portrait; margin: 0; }
       `}</style>
@@ -174,40 +237,51 @@ export default function SeparadoresPage() {
                 )}
               </p>
             </div>
-            <button
-              onClick={async () => {
-                // Aguarda todas as imagens carregarem antes de imprimir
-                const imgs = Array.from(document.querySelectorAll('.sep-card img')) as HTMLImageElement[]
-                const unloaded = imgs.filter(img => !img.complete || img.naturalWidth === 0)
-                if (unloaded.length > 0) {
-                  await Promise.allSettled(unloaded.map(img =>
-                    new Promise(res => {
-                      img.onload = res
-                      img.onerror = res
-                      // Força recarregamento
-                      const src = img.src
-                      img.src = ''
-                      img.src = src
-                    })
-                  ))
-                }
-                window.print()
-              }}
-              disabled={filtered.length === 0}
-              style={{
-                background: filtered.length === 0 ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f59e0b,#ef4444)',
+            {/* Botão: comprar ou imprimir */}
+            {desbloqueado === false ? (
+              <button onClick={handleComprar} disabled={comprando} style={{
+                background: 'linear-gradient(135deg,#f59e0b,#ef4444)',
                 border: 'none', borderRadius: 12, padding: '12px 24px',
-                color: filtered.length === 0 ? 'rgba(255,255,255,0.3)' : '#000',
-                fontWeight: 800, fontSize: 14, cursor: filtered.length === 0 ? 'not-allowed' : 'pointer',
+                color: '#000', fontWeight: 800, fontSize: 14,
+                cursor: comprando ? 'wait' : 'pointer',
                 display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', flexShrink: 0,
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-                <path d="M5 7V3h10v4M5 15H3a1 1 0 01-1-1V8a1 1 0 011-1h14a1 1 0 011 1v6a1 1 0 01-1 1h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                <rect x="5" y="11" width="10" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-              </svg>
-              Imprimir / PDF
-            </button>
+                opacity: comprando ? 0.7 : 1,
+              }}>
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+                  <rect x="2" y="6" width="16" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M6 6V5a4 4 0 018 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                {comprando ? 'Aguarde...' : 'Desbloquear — R$14,90'}
+              </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  const imgs = Array.from(document.querySelectorAll('.sep-card img')) as HTMLImageElement[]
+                  const unloaded = imgs.filter(img => !img.complete || img.naturalWidth === 0)
+                  if (unloaded.length > 0) {
+                    await Promise.allSettled(unloaded.map(img =>
+                      new Promise(res => { img.onload = res; img.onerror = res; const s = img.src; img.src = ''; img.src = s })
+                    ))
+                  }
+                  window.print()
+                }}
+                disabled={filtered.length === 0 || desbloqueado === null}
+                style={{
+                  background: filtered.length === 0 || desbloqueado === null ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f59e0b,#ef4444)',
+                  border: 'none', borderRadius: 12, padding: '12px 24px',
+                  color: filtered.length === 0 || desbloqueado === null ? 'rgba(255,255,255,0.3)' : '#000',
+                  fontWeight: 800, fontSize: 14,
+                  cursor: filtered.length === 0 || desbloqueado === null ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', flexShrink: 0,
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+                  <path d="M5 7V3h10v4M5 15H3a1 1 0 01-1-1V8a1 1 0 011-1h14a1 1 0 011 1v6a1 1 0 01-1 1h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <rect x="5" y="11" width="10" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                </svg>
+                Imprimir / PDF
+              </button>
+            )}
           </div>
 
           {/* Gerações */}
@@ -256,8 +330,52 @@ export default function SeparadoresPage() {
           </p>
         )}
 
+        {/* Banner de desbloqueio — quando não pago */}
+        {desbloqueado === false && filtered.length > 0 && (
+          <div className="no-print" style={{
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))',
+            border: '1px solid rgba(245,158,11,0.25)',
+            borderRadius: 16, padding: '28px 32px', marginBottom: 24,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 24, flexWrap: 'wrap',
+          }}>
+            <div>
+              <p style={{ fontSize: 18, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em' }}>
+                🔒 Preview — 9 separadores de amostra
+              </p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                Desbloqueie os <strong style={{ color: '#f59e0b' }}>1.025 Pokémons completos</strong> por apenas <strong style={{ color: '#f59e0b' }}>R$14,90 uma única vez</strong>. Acesso vitalício, sempre atualizado.
+              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
+                ✓ Todas as 9 gerações · ✓ Seleção por geração · ✓ Para sempre · ✓ Impressão ilimitada
+              </p>
+            </div>
+            <button onClick={handleComprar} disabled={comprando} style={{
+              background: 'linear-gradient(135deg,#f59e0b,#ef4444)',
+              border: 'none', borderRadius: 12, padding: '14px 28px',
+              color: '#000', fontWeight: 800, fontSize: 15,
+              cursor: comprando ? 'wait' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+              opacity: comprando ? 0.7 : 1,
+            }}>
+              {comprando ? 'Aguarde...' : 'Desbloquear por R$14,90'}
+            </button>
+          </div>
+        )}
+
+        {/* Sucesso após pagamento */}
+        {desbloqueado === true && window?.location?.search?.includes('desbloqueado=1') && (
+          <div className="no-print" style={{
+            background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
+            borderRadius: 12, padding: '14px 20px', marginBottom: 20,
+            display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#22c55e',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 10l2.5 2.5 4-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+            <strong>Separadores desbloqueados!</strong> Agora você pode selecionar as gerações e imprimir à vontade.
+          </div>
+        )}
+
         {/* Grid de preview + impressão */}
-        {pages.map((page, pi) => (
+        {(desbloqueado === false ? pages.slice(0, 1) : pages).map((page, pi) => (
           <div key={pi} className="print-page" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
