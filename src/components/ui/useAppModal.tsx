@@ -36,9 +36,9 @@ export function useAppModal() {
 // ─── Cores por tipo ───────────────────────────────────────────────────────────
 
 const TYPE_CFG = {
-  success: { icon: '✓', color: '#22c55e', border: 'rgba(34,197,94,0.3)',  bg: 'rgba(34,197,94,0.06)'  },
-  error:   { icon: '✕', color: '#ef4444', border: 'rgba(239,68,68,0.3)',  bg: 'rgba(239,68,68,0.06)'  },
-  warning: { icon: '⚠', color: '#f59e0b', border: 'rgba(245,158,11,0.3)', bg: 'rgba(245,158,11,0.06)' },
+  success: { icon: <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M4 10l4.5 4.5L16 6' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round'/></svg>, color: '#22c55e', border: 'rgba(34,197,94,0.3)',  bg: 'rgba(34,197,94,0.06)'  },
+  error:   { icon: <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M5 5l10 10M15 5L5 15' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round'/></svg>, color: '#ef4444', border: 'rgba(239,68,68,0.3)',  bg: 'rgba(239,68,68,0.06)'  },
+  warning: { icon: <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M10 3L2 17h16L10 3z' stroke='currentColor' strokeWidth='1.4' strokeLinejoin='round'/><path d='M10 9v4' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>, color: '#f59e0b', border: 'rgba(245,158,11,0.3)', bg: 'rgba(245,158,11,0.06)' },
   info:    { icon: 'ℹ', color: '#60a5fa', border: 'rgba(96,165,250,0.3)', bg: 'rgba(96,165,250,0.06)' },
 }
 
@@ -171,7 +171,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
               {/* header */}
               <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.15))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                  {o.icon || (isLink ? '🔗' : '✏️')}
+                  {o.icon || (isLink ? <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M8 12.5l4-4a3.5 3.5 0 000-5l-.5-.5a3.5 3.5 0 00-5 5L8 9.5' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/><path d='M12 7.5l-4 4a3.5 3.5 0 000 5l.5.5a3.5 3.5 0 005-5L12 10.5' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg> : <svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M4 14l8-8 3 3-8 8-4 1 1-4z' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round' strokeLinejoin='round'/></svg>)}
                 </div>
                 <div>
                   <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>{o.message}</p>
@@ -184,7 +184,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
                 {/* dica específica para links */}
                 {isLink && (
                   <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: 14, flexShrink: 0 }}>💡</span>
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{flexShrink:0}}><path d="M10 2a6 6 0 014.5 10l-1 1.5H6.5L5.5 12A6 6 0 0110 2z" stroke="rgba(245,158,11,0.8)" strokeWidth="1.3"/><path d="M7.5 16.5h5" stroke="rgba(245,158,11,0.6)" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
                       Abra a carta na LigaPokemon, copie o link da barra de endereço e cole aqui.
                       Para várias cartas, cole uma por linha.
@@ -238,7 +238,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
               {/* header */}
               <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: o.danger ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-                  {o.danger ? '⚠️' : '🤔'}
+                  {o.danger ? <svg width='20' height='20' viewBox='0 0 20 20' fill='none'><path d='M10 3L2 17h16L10 3z' stroke='#ef4444' strokeWidth='1.4' strokeLinejoin='round'/><path d='M10 9v4' stroke='#ef4444' strokeWidth='1.4' strokeLinecap='round'/></svg> : <svg width='20' height='20' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='10' r='7.5' stroke='rgba(255,255,255,0.5)' strokeWidth='1.4'/><path d='M10 9v5M10 7v1' stroke='rgba(255,255,255,0.5)' strokeWidth='1.4' strokeLinecap='round'/></svg>}
                 </div>
                 <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>Confirmar ação</p>
               </div>

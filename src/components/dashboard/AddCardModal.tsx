@@ -118,7 +118,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       }
 
       const { bloqueado } = await checkCardLimit(userId)
-      if (bloqueado) { alert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Acesse Minha Conta para fazer upgrade! 🚀`); setAdding(false); return }
+      if (bloqueado) { alert(`Você atingiu o limite de ${LIMITE_FREE} cartas. Acesse Minha Conta para fazer upgrade.`); setAdding(false); return }
 
       await supabase.from('user_cards').insert({
         user_id: authData.user.id,
@@ -166,7 +166,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             </div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            ✕
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </button>
         </div>
 
@@ -212,7 +212,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       onClick={e => { e.stopPropagation(); setSelectedCards(prev => prev.filter(s => s.id !== c.id)); if (preview?.id === c.id) setPreview(null) }}
                       style={{ background: 'rgba(245,158,11,0.2)', border: 'none', color: '#f59e0b', cursor: 'pointer', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, flexShrink: 0, lineHeight: 1 }}
                     >
-                      ✕
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
                     </button>
                   </span>
                 ))}
@@ -274,8 +274,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     >
                       {/* Checkmark */}
                       {isSelected && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#000', fontWeight: 700 }}>
-                          ✓
+                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M4 10l4.5 4.5L16 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/></svg>
                         </div>
                       )}
 
@@ -304,7 +304,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           <div style={{ width: 260, borderLeft: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto', flexShrink: 0 }}>
             {!preview ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, padding: 24, textAlign: 'center' }}>
-                <div style={{ fontSize: 40, opacity: 0.2 }}>👆</div>
+                <svg width="40" height="40" viewBox="0 0 20 20" fill="none" style={{opacity:0.2}}><path d="M10 2v9M7 5V4a1 1 0 012 0v1M13 6V4a1 1 0 012 0v5l1 2v2a4 4 0 01-4 4H9a4 4 0 01-4-4v-3l1-1V6a1 1 0 012 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 <p style={{ fontSize: 13, color: TEXT_MUTED }}>Clique em uma carta para ver detalhes</p>
               </div>
             ) : (
@@ -357,7 +357,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     onBlur={e => e.target.style.borderColor = ligaLinks[preview.id] ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}
                   />
                   {ligaLinks[preview.id] && (
-                    <p style={{ fontSize: 10, color: '#22c55e', marginTop: 4 }}>✓ Preço será importado ao adicionar</p>
+                    <p style={{ fontSize: 10, color: '#22c55e', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}><svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> Preço será importado ao adicionar</p>
                   )}
                 </div>
 

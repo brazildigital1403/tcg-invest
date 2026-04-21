@@ -257,7 +257,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
-              📷
+              
             </div>
             <div>
               <p style={{ fontSize: 16, fontWeight: 700 }}>Escanear cartas</p>
@@ -271,7 +271,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           </div>
           <button onClick={() => { stopCamera(); onClose() }}
             style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            ✕
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </button>
         </div>
 
@@ -388,7 +388,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
               {/* Dicas */}
               {step === 'capture' && !preview && !cameraActive && (
                 <div style={{ ...SURFACE, padding: '14px 16px' }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 8 }}>💡 Dicas para melhor resultado:</p>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}><svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 014.5 10l-1 1.5H6.5L5.5 12A6 6 0 0110 2z" stroke="#f59e0b" strokeWidth="1.3"/><path d="M7.5 16.5h5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/></svg>Dicas para melhor resultado:</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {[
                       'Organize as cartas sem sobreposição',
@@ -433,7 +433,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                         {[card.set, card.hp ? `HP ${card.hp}` : null].filter(Boolean).join(' · ') || 'Set não identificado'}
                       </p>
                     </div>
-                    <span style={{ fontSize: 18 }}>{card.selected ? '✅' : '⬜'}</span>
+                    <svg width='18' height='18' viewBox='0 0 20 20' fill='none'>{card.selected ? <><rect x='2' y='2' width='16' height='16' rx='3' fill='rgba(245,158,11,0.15)' stroke='rgba(245,158,11,0.6)' strokeWidth='1.3'/><path d='M5 10l3.5 3.5L15 7' stroke='#f59e0b' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round'/></> : <rect x='2' y='2' width='16' height='16' rx='3' stroke='rgba(255,255,255,0.2)' strokeWidth='1.3' fill='none'/>}</svg>
                   </label>
                 ))}
               </div>
@@ -455,7 +455,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 56 }}>🎉</div>
+                  <svg width="56" height="56" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="rgba(34,197,94,0.5)" strokeWidth="1.3"/><path d="M6 10l3 3 5-6" stroke="rgba(34,197,94,0.8)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   <p style={{ fontSize: 18, fontWeight: 800 }}>{addedCount} carta{addedCount !== 1 ? 's' : ''} adicionada{addedCount !== 1 ? 's' : ''}!</p>
                   <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center' }}>
                     Agora vincule os links da LigaPokemon para buscar os preços reais.

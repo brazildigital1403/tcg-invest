@@ -73,14 +73,14 @@ export default function MinhaColecao() {
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
 
   const LOADING_MSGS = [
-    '🔍 Procurando a carta na LigaPokemon...',
-    '⚡ Treinando nossos Pokémon para buscar o preço...',
-    '🎴 Varrendo o mercado TCG brasileiro...',
-    '🌟 Consultando os preços das cartas raras...',
-    '📊 Calculando o valor do seu patrimônio...',
-    '🔮 Prevendo o futuro do mercado Pokémon...',
-    '🏪 Visitando todas as lojas virtuais...',
-    '💰 Analisando os preços Normal, Foil e Promo...',
+    'Procurando a carta...',
+    'Buscando preços de mercado...',
+    'Varrendo o mercado TCG...',
+    'Consultando preços das cartas...',
+    'Calculando o valor do patrimônio...',
+    'Analisando variações de mercado...',
+    'Consultando fontes de preços...',
+    'Analisando Normal, Foil e Promo...',
   ]
   const [importing, setImporting] = useState(false)
   const [importingMsg, setImportingMsg] = useState('')
@@ -127,13 +127,13 @@ export default function MinhaColecao() {
       a.click()
       URL.revokeObjectURL(url)
     } else {
-      showAlert('Exportar CSV é exclusivo do plano Pro. Acesse Minha Conta para fazer upgrade! 🚀', 'warning')
+      showAlert('Exportar CSV é exclusivo do plano Pro. Acesse Minha Conta para fazer upgrade.', 'warning')
     }
   }
 
   function handleExportPDF() {
     if (!isPro) {
-      showAlert('Exportar PDF é exclusivo do plano Pro. Acesse Minha Conta para fazer upgrade! 🚀', 'warning')
+      showAlert('Exportar PDF é exclusivo do plano Pro. Acesse Minha Conta para fazer upgrade.', 'warning')
       return
     }
     const totalMedio = totais.medio
@@ -192,7 +192,7 @@ export default function MinhaColecao() {
 <body>
 <div class="header">
   <div>
-    <div class="title">🎴 Bynx</div>
+    <div class="title">Bynx</div>
     <div class="subtitle">Relatório da Coleção Pokémon TCG · ${date}</div>
   </div>
   <div style="text-align:right">
@@ -372,7 +372,7 @@ export default function MinhaColecao() {
             if (bloqueado) {
               clearInterval(msgInterval)
               setImporting(false)
-              showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Faça upgrade para o plano Pro! 🚀`, 'warning')
+              showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Acesse Minha Conta para fazer upgrade.`, 'warning')
               if (success > 0) window.location.reload()
               return
             }
@@ -415,7 +415,7 @@ export default function MinhaColecao() {
     const url = await showPrompt({
       message: `Cole o link da LigaPokemon para "${card.card_name}":`,
       placeholder: 'https://www.ligapokemon.com.br/?view=cards/card&card=...',
-      icon: '🔗',
+      icon: undefined,
     })
     if (!url) return
 
@@ -624,7 +624,7 @@ export default function MinhaColecao() {
                 const timeStr = secs >= 60
                   ? `~${Math.floor(secs / 60)}min${secs % 60 > 0 ? ` ${secs % 60}s` : ''}`
                   : secs > 0 ? `~${secs}s` : ''
-                return `Aguarde${timeStr ? `, estimado ${timeStr}` : ''} 🕐`
+                return `Aguarde${timeStr ? `, estimado ${timeStr}` : ''}`
               })()}
             </p>
           </div>
@@ -687,7 +687,7 @@ export default function MinhaColecao() {
                   color: overLimit ? '#ef4444' : count > 0 ? '#f59e0b' : 'rgba(255,255,255,0.3)',
                 }}>
                   {count === 0 ? 'Nenhum link colado ainda'
-                    : overLimit ? `⚠️ ${count}/${MAX_LINKS} — limite excedido!`
+                    : overLimit ? `${count}/${MAX_LINKS} — limite excedido!`
                     : `${count} de ${MAX_LINKS} carta${count > 1 ? 's' : ''}`}
                 </span>
                 {count > 0 && !overLimit && (
@@ -739,7 +739,7 @@ export default function MinhaColecao() {
               <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
               {!isPro && totalCartas >= LIMITE_FREE ? (
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
-                  🔒 Limite atingido ({totalCartas}/{limiteDisplay})
+                  Limite atingido ({totalCartas}/{limiteDisplay})
                 </span>
               ) : (
                 <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -780,17 +780,17 @@ export default function MinhaColecao() {
                 <>
                   <button
                     onClick={handleExportCSV}
-                    title={!isPro ? 'Disponível no plano Pro 🚀' : 'Exportar como planilha'}
+                    title={!isPro ? 'Disponível no plano Pro' : 'Exportar como planilha'}
                     style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
                   >
-                    {isPro ? 'CSV' : '🔒 CSV'}
+                    {isPro ? 'CSV' : 'CSV'}
                   </button>
                   <button
                     onClick={handleExportPDF}
-                    title={!isPro ? 'Disponível no plano Pro 🚀' : 'Exportar relatório PDF'}
+                    title={!isPro ? 'Disponível no plano Pro' : 'Exportar relatório PDF'}
                     style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
                   >
-                    {isPro ? '📄 PDF' : '🔒 PDF'}
+                    {isPro ? 'PDF' : 'PDF'}
                   </button>
                 </>
               )}
@@ -847,7 +847,7 @@ export default function MinhaColecao() {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
             {/* Busca */}
             <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
-              <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }}>🔍</span>
+              <IconSearch size={14} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -911,7 +911,7 @@ export default function MinhaColecao() {
 
         {filteredCards.length === 0 && cards.length > 0 && (
           <div style={{ textAlign: 'center', padding: '60px 24px', color: 'rgba(255,255,255,0.3)' }}>
-            <p style={{ fontSize: 36, marginBottom: 12 }}>🔍</p>
+            <IconSearch size={36} color="rgba(255,255,255,0.15)" style={{marginBottom:12}} />
             <p style={{ fontSize: 15, marginBottom: 6 }}>Nenhuma carta encontrada</p>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.2)' }}>Tente outros filtros ou limpe a busca</p>
           </div>
@@ -1020,7 +1020,7 @@ export default function MinhaColecao() {
                             Buscando preço...
                           </>
                         ) : (
-                          <>🔗 Vincular preço da LigaPokemon</>
+                          <><IconLink size={13} color="currentColor" style={{marginRight:5}} />Vincular preço da LigaPokemon</>
                         )}
                       </button>
                     )}
