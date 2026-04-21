@@ -227,7 +227,11 @@ export default function SeparadoresPage() {
           .sep-banner { flex-direction: column !important; text-align: center !important; }
           .sep-banner-btn { width: 100% !important; }
           .sep-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; padding: 12px !important; }
-          .sep-tip { font-size: 11px !important; }
+          .sep-tip { align-items: flex-start !important; }
+          .sep-tip-content { flex-direction: column !important; gap: 3px !important; align-items: flex-start !important; }
+          .sep-tip-line1, .sep-tip-line2 { white-space: normal !important; }
+          .sep-success { align-items: flex-start !important; }
+          .sep-success-text { display: flex !important; flex-direction: column !important; gap: 3px !important; }
         }
         @media (max-width: 380px) {
           .sep-grid { grid-template-columns: repeat(2, 1fr) !important; }
@@ -330,11 +334,21 @@ export default function SeparadoresPage() {
           {/* Dica */}
           {filtered.length > 0 && (
             <div className="sep-tip" style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '9px 14px', fontSize: 12, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
                 <circle cx="10" cy="10" r="7.5" stroke="#f59e0b" strokeWidth="1.3"/>
                 <path d="M10 9v5M10 7v.5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/>
               </svg>
-              Ao imprimir: selecione <strong style={{ color: 'rgba(255,255,255,0.65)' }}>Sem margens</strong>, tamanho <strong style={{ color: 'rgba(255,255,255,0.65)' }}>A4</strong>, escala <strong style={{ color: 'rgba(255,255,255,0.65)' }}>100%</strong>. Cada cartão imprime exatamente em 6,3 × 8,8 cm — tamanho real de uma carta TCG.
+              <span className="sep-tip-content" style={{ display: 'flex', flexWrap: 'wrap', gap: '0 4px', alignItems: 'baseline' }}>
+                <strong style={{ color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap' }}>Ao imprimir:</strong>
+                <span className="sep-tip-line1" style={{ whiteSpace: 'nowrap' }}>
+                  selecione <strong style={{ color: 'rgba(255,255,255,0.65)' }}>Sem margens</strong>,
+                  tamanho <strong style={{ color: 'rgba(255,255,255,0.65)' }}>A4</strong>,
+                  escala <strong style={{ color: 'rgba(255,255,255,0.65)' }}>100%</strong>.
+                </span>
+                <span className="sep-tip-line2" style={{ whiteSpace: 'nowrap' }}>
+                  Cada cartão: <strong style={{ color: 'rgba(255,255,255,0.65)' }}>6,3 × 8,8 cm</strong> — tamanho real de uma carta TCG.
+                </span>
+              </span>
             </div>
           )}
         </div>
@@ -379,13 +393,19 @@ export default function SeparadoresPage() {
 
         {/* Sucesso após pagamento */}
         {desbloqueado === true && window?.location?.search?.includes('desbloqueado=1') && (
-          <div className="no-print" style={{
+          <div className="no-print sep-success" style={{
             background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
             borderRadius: 12, padding: '14px 20px', marginBottom: 20,
             display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#22c55e',
           }}>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 10l2.5 2.5 4-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-            <strong>Separadores desbloqueados!</strong> Agora você pode selecionar as gerações e imprimir à vontade.
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+              <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M6.5 10l2.5 2.5 4-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            <span className="sep-success-text">
+              <strong>Separadores desbloqueados!</strong>{' '}
+              Agora você pode selecionar as gerações e imprimir à vontade.
+            </span>
           </div>
         )}
 
