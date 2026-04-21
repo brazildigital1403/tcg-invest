@@ -90,6 +90,14 @@ export default function SeparadoresPage() {
           }
           .print-page:last-child { page-break-after: auto !important; break-after: auto !important; }
           /* Card — exatamente 63mm x 88mm */
+          /* Corner tip na impressão */
+          .bynx-tip-triangle {
+            border-width: 0 5mm 5mm 0 !important;
+          }
+          .bynx-tip-logo {
+            width: 3.5mm !important;
+            height: 3.5mm !important;
+          }
           .sep-card {
             width: 63mm !important;
             height: 88mm !important;
@@ -239,7 +247,7 @@ function SepCard({ id, name }: { id: number; name: string }) {
       aspectRatio: '63 / 88',
       position: 'relative',
     }}>
-      {/* GEN badge */}
+      {/* GEN badge — canto superior esquerdo */}
       <div style={{
         position: 'absolute', top: '4%', left: '5%',
         fontSize: 'min(1.8vw, 8px)',
@@ -248,8 +256,41 @@ function SepCard({ id, name }: { id: number; name: string }) {
         letterSpacing: '0.04em',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         lineHeight: 1,
+        zIndex: 2,
       }}>
         {gen.short}
+      </div>
+
+      {/* Bynx tip — canto superior direito */}
+      <div className="bynx-tip-triangle" style={{
+        position: 'absolute', top: 0, right: 0,
+        width: 0, height: 0,
+        borderStyle: 'solid',
+        /* Triângulo no canto — preenchido de preto */
+        borderWidth: '0 20px 20px 0',
+        borderColor: 'transparent #000 transparent transparent',
+        zIndex: 3,
+      }} />
+      <div className="bynx-tip-logo" style={{
+        position: 'absolute',
+        top: '1%',
+        right: '2%',
+        width: 'min(3.5vw, 14px)',
+        height: 'min(3.5vw, 14px)',
+        zIndex: 4,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'flex-end',
+      }}>
+        <img
+          src="https://www.bynx.gg/favicon.png"
+          alt="Bynx"
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+          }}
+        />
       </div>
 
       {/* Imagem Pokémon — 65% da altura */}
