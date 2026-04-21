@@ -256,8 +256,8 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         {/* Header */}
         <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
-              
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <IconCamera size={20} color="rgba(245,158,11,0.9)" />
             </div>
             <div>
               <p style={{ fontSize: 16, fontWeight: 700 }}>Escanear cartas</p>

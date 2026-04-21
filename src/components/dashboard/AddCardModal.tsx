@@ -230,7 +230,11 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             {/* Estado vazio inicial */}
             {!isSearching && searchResults.length === 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: TEXT_MUTED }}>
-                <div style={{ fontSize: 48, opacity: 0.3 }}>🃏</div>
+                <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{opacity:0.3}}>
+                  <rect x="2" y="3" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
+                  <rect x="5" y="1" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
+                  <path d="M8 8l1.5 2.5L12 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
                 <p style={{ fontSize: 14 }}>Digite o nome de uma carta para buscar</p>
                 <p style={{ fontSize: 12, opacity: 0.6 }}>Ex: Charizard, Pikachu, Mewtwo, Blastoise...</p>
               </div>
