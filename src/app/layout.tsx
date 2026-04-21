@@ -166,7 +166,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 },
                 {
                   "@type": "Offer",
-                  price: "19.90",
+                  price: "29.90",
                   priceCurrency: "BRL",
                   name: "Plano Pro",
                   description: "Cartas ilimitadas e todas as funcionalidades",

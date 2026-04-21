@@ -77,7 +77,7 @@ export default function UpgradeBanner({ tipo }: Props) {
         {/* Pro Mensal */}
         <div style={{ flex: 1, minWidth: 160, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '14px 16px' }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Pro Mensal</p>
-          <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 19,90</p>
+          <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 29,90</p>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>por mês</p>
           <button onClick={() => handleCheckout('mensal')} disabled={!!loading}
             style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loading === 'mensal' ? 0.7 : 1 }}>
@@ -91,7 +91,7 @@ export default function UpgradeBanner({ tipo }: Props) {
             2 MESES GRÁTIS
           </div>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Pro Anual</p>
-          <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 179</p>
+          <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 249</p>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>por ano · R$ 14,91/mês</p>
           <button onClick={() => handleCheckout('anual')} disabled={!!loading}
             style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loading === 'anual' ? 0.7 : 1 }}>
