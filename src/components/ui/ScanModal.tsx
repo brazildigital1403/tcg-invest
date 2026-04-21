@@ -474,7 +474,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         {(step === 'capture' || step === 'confirm') && (
           <div style={{ padding: '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)' }}>
             {step === 'capture' ? (
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Powered by Claude Vision ✦</p>
+              <span />
             ) : (
               <p style={{ fontSize: 13, color: selectedCount > 0 ? '#f59e0b' : 'rgba(255,255,255,0.3)', fontWeight: selectedCount > 0 ? 600 : 400 }}>
                 {selectedCount} de {cards.length} selecionada{selectedCount !== 1 ? 's' : ''}
