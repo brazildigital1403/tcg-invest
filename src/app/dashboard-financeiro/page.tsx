@@ -67,7 +67,7 @@ function StatChip({ label, value, color }: { label: string; value: string; color
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>{children}</p>
+  return <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>{children}</p>
 }
 
 function EmptyRow({ label }: { label: string }) {
@@ -601,7 +601,7 @@ export default function DashboardFinanceiro() {
             {/* Seletor de carta + gráfico */}
             <div style={{ ...SURFACE, padding: 24, marginBottom: 16 }}>
               <div style={{ marginBottom: 16 }}>
-                <SectionTitle><IconTrendingUp size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Histórico de preço</SectionTitle>
+                <SectionTitle><IconTrendingUp size={14} color="rgba(255,255,255,0.5)" />Histórico de preço</SectionTitle>
 
                 {/* Filtros de ordenação */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, marginBottom: 10 }}>
@@ -770,7 +770,7 @@ export default function DashboardFinanceiro() {
 
             {/* Últimas transações */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconHistory size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Últimas transações</SectionTitle>
+              <SectionTitle><IconHistory size={14} color="rgba(255,255,255,0.5)" />Últimas transações</SectionTitle>
               {transactions.length === 0 ? (
                 <>
                   <EmptyRow label="Nenhuma transação ainda" />
@@ -823,7 +823,7 @@ export default function DashboardFinanceiro() {
 
             {/* Cartas mais valiosas */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconCollection size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Cartas mais valiosas</SectionTitle>
+              <SectionTitle><IconCollection size={14} color="rgba(255,255,255,0.5)" />Cartas mais valiosas</SectionTitle>
               {rankingWithVariation.length === 0 ? (
                 <>
                   {['Adicione cartas para ver o ranking', 'Importe pelo link da LigaPokemon', 'Atualize os preços para calcular'].map(l => (
@@ -862,7 +862,7 @@ export default function DashboardFinanceiro() {
 
             {/* Oportunidades */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconFire size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Oportunidades de compra</SectionTitle>
+              <SectionTitle><IconFire size={14} color="rgba(255,255,255,0.5)" />Oportunidades de compra</SectionTitle>
               {rankingWithVariation.filter(r => r.variation > 10).length === 0 ? (
                 <>
                   <EmptyRow label="Carta valorizando +10% no período" />
@@ -880,7 +880,7 @@ export default function DashboardFinanceiro() {
 
             {/* Alertas */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconWarning size={14} color="rgba(255,255,255,0.5)" style={{marginRight:6,verticalAlign:'middle'}} />Alertas de mercado</SectionTitle>
+              <SectionTitle><IconWarning size={14} color="rgba(255,255,255,0.5)" />Alertas de mercado</SectionTitle>
               {rankingWithVariation.filter(r => r.variation < -10).length === 0 ? (
                 <>
                   <EmptyRow label="Carta em queda -10% no período" />
