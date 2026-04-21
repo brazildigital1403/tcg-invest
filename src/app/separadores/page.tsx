@@ -217,15 +217,30 @@ export default function SeparadoresPage() {
           }
         }
         @page { size: A4 portrait; margin: 0; }
+
+        /* ── Mobile ── */
+        @media (max-width: 640px) {
+          .sep-header { flex-direction: column !important; align-items: stretch !important; }
+          .sep-header-btn { width: 100% !important; justify-content: center !important; }
+          .sep-gens { gap: 4px !important; }
+          .sep-gen-btn { padding: 6px 9px !important; font-size: 11px !important; }
+          .sep-banner { flex-direction: column !important; text-align: center !important; }
+          .sep-banner-btn { width: 100% !important; }
+          .sep-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; padding: 12px !important; }
+          .sep-tip { font-size: 11px !important; }
+        }
+        @media (max-width: 380px) {
+          .sep-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
       `}</style>
 
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 24px)' }}>
 
         {/* Header */}
         <div className="no-print" style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
+          <div className="sep-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
             <div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 6 }}>
+              <h1 style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 6 }}>
                 Separadores de Fichário
               </h1>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
@@ -246,7 +261,7 @@ export default function SeparadoresPage() {
                 cursor: comprando ? 'wait' : 'pointer',
                 display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', flexShrink: 0,
                 opacity: comprando ? 0.7 : 1,
-              }}>
+              }} className="sep-header-btn">
                 <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
                   <rect x="2" y="6" width="16" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M6 6V5a4 4 0 018 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -273,7 +288,7 @@ export default function SeparadoresPage() {
                   fontWeight: 800, fontSize: 14,
                   cursor: filtered.length === 0 || desbloqueado === null ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', flexShrink: 0,
-                }}
+                }} className="sep-header-btn"
               >
                 <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
                   <path d="M5 7V3h10v4M5 15H3a1 1 0 01-1-1V8a1 1 0 011-1h14a1 1 0 011 1v6a1 1 0 01-1 1h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -293,11 +308,11 @@ export default function SeparadoresPage() {
                 <button onClick={() => setSelectedGens([])} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.25)', padding: '3px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Limpar</button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div className="sep-gens" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {GENERATIONS.map((g, idx) => {
                 const on = selectedGens.includes(idx)
                 return (
-                  <button key={idx} onClick={() => toggleGen(idx)} style={{
+                  <button key={idx} onClick={() => toggleGen(idx)} className="sep-gen-btn" style={{
                     background: on ? `${g.color}20` : 'rgba(255,255,255,0.03)',
                     border: `1px solid ${on ? g.color + '55' : 'rgba(255,255,255,0.07)'}`,
                     color: on ? g.color : 'rgba(255,255,255,0.35)',
@@ -314,7 +329,7 @@ export default function SeparadoresPage() {
 
           {/* Dica */}
           {filtered.length > 0 && (
-            <div style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '9px 14px', fontSize: 12, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="sep-tip" style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '9px 14px', fontSize: 12, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 8 }}>
               <svg width="13" height="13" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
                 <circle cx="10" cy="10" r="7.5" stroke="#f59e0b" strokeWidth="1.3"/>
                 <path d="M10 9v5M10 7v.5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/>
@@ -332,16 +347,16 @@ export default function SeparadoresPage() {
 
         {/* Banner de desbloqueio — quando não pago */}
         {desbloqueado === false && filtered.length > 0 && (
-          <div className="no-print" style={{
+          <div className="no-print sep-banner" style={{
             background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))',
             border: '1px solid rgba(245,158,11,0.25)',
-            borderRadius: 16, padding: '28px 32px', marginBottom: 24,
+            borderRadius: 16, padding: 'clamp(16px, 4vw, 28px) clamp(16px, 4vw, 32px)', marginBottom: 24,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             gap: 24, flexWrap: 'wrap',
           }}>
             <div>
-              <p style={{ fontSize: 18, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em' }}>
-                🔒 Preview — 9 separadores de amostra
+              <p style={{ fontSize: 'clamp(15px, 4vw, 18px)', fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="4" y="9" width="12" height="9" rx="2" stroke="#f59e0b" strokeWidth="1.4"/><path d="M7 9V6a3 3 0 016 0v3" stroke="#f59e0b" strokeWidth="1.4" strokeLinecap="round"/></svg>Preview — 9 separadores de amostra
               </p>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
                 Desbloqueie os <strong style={{ color: '#f59e0b' }}>1.025 Pokémons completos</strong> por apenas <strong style={{ color: '#f59e0b' }}>R$14,90 uma única vez</strong>. Acesso vitalício, sempre atualizado.
@@ -354,9 +369,9 @@ export default function SeparadoresPage() {
               background: 'linear-gradient(135deg,#f59e0b,#ef4444)',
               border: 'none', borderRadius: 12, padding: '14px 28px',
               color: '#000', fontWeight: 800, fontSize: 15,
-              cursor: comprando ? 'wait' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+              cursor: comprando ? 'wait' : 'pointer', flexShrink: 0,
               opacity: comprando ? 0.7 : 1,
-            }}>
+            }} className="sep-banner-btn">
               {comprando ? 'Aguarde...' : 'Desbloquear por R$14,90'}
             </button>
           </div>
@@ -376,7 +391,7 @@ export default function SeparadoresPage() {
 
         {/* Grid de preview + impressão */}
         {(desbloqueado === false ? pages.slice(0, 1) : pages).map((page, pi) => (
-          <div key={pi} className="print-page" style={{
+          <div key={pi} className="print-page sep-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: 10,
