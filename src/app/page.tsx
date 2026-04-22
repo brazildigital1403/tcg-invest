@@ -780,14 +780,20 @@ export default function Home() {
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
                 {[
-                  { name:'Charizard ex', set:'151', price:'R$189', foil:true, var:'Foil' },
-                  { name:'Pikachu ex', set:'MEW', price:'R$87', foil:false, var:'Normal' },
-                  { name:'Mewtwo ex', set:'151', price:'R$134', foil:true, var:'Foil' },
-                  { name:'Umbreon ex', set:'PAL', price:'R$210', foil:true, var:'Foil' },
+                  { name:'Charizard ex', set:'151', price:'R$189', foil:true, var:'Foil', img:'https://images.pokemontcg.io/sv3pt5/183_hires.png', fb:'🔥' },
+                  { name:'Pikachu ex', set:'151', price:'R$87', foil:false, var:'Normal', img:'https://images.pokemontcg.io/sv3pt5/25_hires.png', fb:'⚡' },
+                  { name:'Mewtwo ex', set:'151', price:'R$134', foil:true, var:'Foil', img:'https://images.pokemontcg.io/sv3pt5/150_hires.png', fb:'🌀' },
+                  { name:'Umbreon ex', set:'PAL', price:'R$210', foil:true, var:'Foil', img:'https://images.pokemontcg.io/sv2/210_hires.png', fb:'🌙' },
                 ].map((c,i)=>(
                   <div key={i} style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${c.foil ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius:12, padding:'12px 10px', animation:`bynx-cardin 0.4s ${0.1*i}s ease both` }}>
-                    <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:8, height:90, marginBottom:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>
-                      {['🔥','⚡','🌀','🌙'][i]}
+                    <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:8, height:90, marginBottom:8, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <img
+                        src={c.img}
+                        alt={c.name}
+                        style={{ height:'100%', width:'100%', objectFit:'cover' }}
+                        onError={(e) => { const t = e.currentTarget; t.style.display='none'; (t.nextSibling as any).style.display='flex'; }}
+                      />
+                      <div style={{ display:'none', alignItems:'center', justifyContent:'center', width:'100%', height:'100%', fontSize:24 }}>{c.fb}</div>
                     </div>
                     <div style={{ fontSize:11, fontWeight:700, color:'#f0f0f0', marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name}</div>
                     <div style={{ fontSize:10, color:'rgba(255,255,255,0.35)', marginBottom:4 }}>{c.set} · {c.var}</div>
@@ -813,8 +819,14 @@ export default function Home() {
                   { name:'Lugia V Alt Art', set:'SIL', seller:'misty.water', price:'R$820', badge:'FOIL', city:'MG' },
                 ].map((l,i)=>(
                   <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:14 }}>
-                    <div style={{ width:44, height:44, background:'rgba(255,255,255,0.06)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
-                      {['🌟','🔥','💧'][i]}
+                    <div style={{ width:44, height:44, background:'rgba(255,255,255,0.06)', borderRadius:8, overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <img
+                        src={['https://images.pokemontcg.io/sv3pt5/183_hires.png','https://images.pokemontcg.io/sv3pt5/6_hires.png','https://images.pokemontcg.io/sv2/210_hires.png'][i]}
+                        alt={l.name}
+                        style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                        onError={(e) => { const t = e.currentTarget; t.style.display='none'; (t.nextSibling as any).style.display='flex'; }}
+                      />
+                      <div style={{ display:'none', alignItems:'center', justifyContent:'center', width:'100%', height:'100%', fontSize:20 }}>{['🌟','🔥','💧'][i]}</div>
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:700, marginBottom:2 }}>{l.name}</div>
