@@ -884,7 +884,7 @@ export default function MinhaConta() {
 
             {/* Benefícios */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 20 }}>
-              {['Cartas ilimitadas', 'Perfil público', 'Marketplace ilimitado', 'Alertas de preço', 'Scan com IA', 'Exportar CSV'].map(b => (
+              {['Cartas ilimitadas', 'Perfil público', 'Marketplace ilimitado', 'Alertas de preço', 'Scan com IA', 'Exportar CSV', 'Separadores de Fichário'].map(b => (
                 <p key={b} style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ color: '#22c55e', fontSize: 10 }}>✓</span> {b}
                 </p>

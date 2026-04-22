@@ -564,6 +564,8 @@ export default function Home() {
                 { txt: 'Perfil público', ok: false },
                 { txt: 'Exportar CSV', ok: false },
                 { txt: 'Anúncios ilimitados', ok: false },
+                { txt: 'Scan com IA', ok: false },
+                { txt: 'Separadores de Fichário', ok: false },
               ].map(f => (
                 <div key={f.txt} style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: f.ok ? 1 : 0.35 }}>
                   <span style={{ color: f.ok ? '#22c55e' : '#6b7280', fontSize: 13, flexShrink: 0 }}>{f.ok ? <IconCheck size={13} color='#22c55e' /> : <svg width='13' height='13' viewBox='0 0 20 20' fill='none'><path d='M5 5l10 10M15 5L5 15' stroke='#6b7280' strokeWidth='1.6' strokeLinecap='round'/></svg>}</span>
@@ -598,6 +600,8 @@ export default function Home() {
                 'Exportar CSV',
                 'Marketplace sem limites',
                 'Badge Pro no perfil',
+                'Scan com IA (créditos disponíveis)',
+                'Separadores de Fichário (disponíveis)',
               ].map(f => (
                 <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <IconCheck size={13} color='#f59e0b' />
