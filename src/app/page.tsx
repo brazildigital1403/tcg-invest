@@ -180,37 +180,18 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // Checa se a conta do usuário está suspensa ANTES de redirecionar
-    // Retorna true se pode seguir, false se foi suspenso e deslogado
-    async function checkSuspensionAndRedirect(userId: string) {
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('suspended_at')
-        .eq('id', userId)
-        .limit(1)
-      if (userRow?.[0]?.suspended_at) {
-        await supabase.auth.signOut()
-        setServerError('Esta conta foi suspensa. Entre em contato com o suporte.')
-        setShowAuthModal(true)
-        setIsLogin(true)
-        return false
-      }
-      return true
-    }
-
     async function getUser() {
       const { data } = await supabase.auth.getSession()
       if (data.session?.user) {
-        const ok = await checkSuspensionAndRedirect(data.session.user.id)
-        if (ok) router.replace('/dashboard-financeiro')
+        // Já está logado → vai direto para o Dashboard
+        router.replace('/dashboard-financeiro')
         return
       }
     }
     getUser()
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        const ok = await checkSuspensionAndRedirect(session.user.id)
-        if (ok) router.replace('/dashboard-financeiro')
+        router.replace('/dashboard-financeiro')
       } else {
         setUser(null)
       }
@@ -260,24 +241,11 @@ export default function Home() {
     setServerError('')
     try {
       if (isLogin) {
-        const { data: loginData, error } = await supabase.auth.signInWithPassword({ email, password })
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) {
           if (error.message.includes('Invalid login')) setServerError('E-mail ou senha incorretos.')
           else setServerError(error.message)
           return
-        }
-        // Verifica se a conta está suspensa
-        if (loginData.user) {
-          const { data: userRow } = await supabase
-            .from('users')
-            .select('suspended_at')
-            .eq('id', loginData.user.id)
-            .limit(1)
-          if (userRow?.[0]?.suspended_at) {
-            await supabase.auth.signOut()
-            setServerError('Esta conta foi suspensa. Entre em contato com o suporte.')
-            return
-          }
         }
         setShowAuthModal(false)
         router.push('/dashboard-financeiro')
@@ -686,6 +654,7 @@ export default function Home() {
         </div>
       </section>
 
+
       {/* ── FAQ ── */}
       <section style={{ padding: '80px 24px', maxWidth: 720, margin: '0 auto' }}>
         <h2 style={{ fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 8 }}>
@@ -745,22 +714,169 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── VÍDEO DEMO ── */}
-      <section style={{ padding: '60px 24px', maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
+      {/* ── DEMO ANIMADA ── */}
+      <section style={{ padding: '60px 24px', maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
         <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
-          Veja em 60 segundos
+          Veja como funciona
         </h2>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15, marginBottom: 32 }}>
           Do link colado à coleção organizada
         </p>
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden', position: 'relative', paddingBottom: '56.25%' }}>
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 40px rgba(245,158,11,0.4)' }}>
-              <span style={{ fontSize: 28, marginLeft: 4 }}>▶</span>
+
+        {/* Container do mockup animado */}
+        <div style={{ background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden', position: 'relative' }}>
+
+          {/* Barra superior do "browser" */}
+          <div style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(239,68,68,0.6)' }} />
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(245,158,11,0.6)' }} />
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(34,197,94,0.6)' }} />
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: 6, padding: '4px 12px', marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'left' }}>
+              bynx.gg/dashboard-financeiro
             </div>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>Vídeo demo em breve</p>
+          </div>
+
+          {/* Conteúdo animado — 3 cenas em loop */}
+          <div style={{ position: 'relative', height: 380, overflow: 'hidden' }}>
+
+            {/* ── Cena 1: Dashboard com patrimônio ── */}
+            <div style={{ position: 'absolute', inset: 0, padding: '24px 28px', animation: 'bynx-scene1 12s ease-in-out infinite' }}>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Patrimônio total da coleção</div>
+              <div style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 20, animation: 'bynx-countup 3s ease-out 0.5s both' }}>
+                R$ 2.847,00
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
+                {[{l:'Cartas',v:'47'},{l:'Saldo',v:'+R$340',c:'#22c55e'},{l:'Performance',v:'+13,6%',c:'#22c55e'},{l:'Compras',v:'R$2.507'}].map((s,i)=>(
+                  <div key={i} style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:10, padding:'10px 12px' }}>
+                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.35)', marginBottom:4 }}>{s.l}</div>
+                    <div style={{ fontSize:15, fontWeight:700, color: s.c || '#f0f0f0' }}>{s.v}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Mini gráfico simulado */}
+              <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'14px 16px' }}>
+                <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:12 }}>Histórico de preço — Charizard ex</div>
+                <svg viewBox="0 0 400 80" style={{ width:'100%', height:80 }}>
+                  <defs>
+                    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3"/>
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M0 65 C40 60 80 55 120 45 C160 35 200 50 240 30 C280 15 320 20 360 10 L360 80 L0 80 Z" fill="url(#g1)"/>
+                  <path d="M0 65 C40 60 80 55 120 45 C160 35 200 50 240 30 C280 15 320 20 360 10" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* ── Cena 2: Minha Coleção com cards ── */}
+            <div style={{ position: 'absolute', inset: 0, padding: '24px 28px', animation: 'bynx-scene2 12s ease-in-out infinite' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+                <div>
+                  <div style={{ fontSize:20, fontWeight:800, letterSpacing:'-0.03em', marginBottom:2 }}>Minha Coleção</div>
+                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>47 cartas · R$2.847,00</div>
+                </div>
+                <div style={{ background:'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius:10, padding:'8px 16px', fontSize:13, fontWeight:700, color:'#000' }}>+ Importar por link</div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
+                {[
+                  { name:'Charizard ex', set:'151', price:'R$189', foil:true, var:'Foil' },
+                  { name:'Pikachu ex', set:'MEW', price:'R$87', foil:false, var:'Normal' },
+                  { name:'Mewtwo ex', set:'151', price:'R$134', foil:true, var:'Foil' },
+                  { name:'Umbreon ex', set:'PAL', price:'R$210', foil:true, var:'Foil' },
+                ].map((c,i)=>(
+                  <div key={i} style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${c.foil ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius:12, padding:'12px 10px', animation:`bynx-cardin 0.4s ${0.1*i}s ease both` }}>
+                    <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:8, height:90, marginBottom:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>
+                      {['🔥','⚡','🌀','🌙'][i]}
+                    </div>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#f0f0f0', marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name}</div>
+                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.35)', marginBottom:4 }}>{c.set} · {c.var}</div>
+                    <div style={{ fontSize:13, fontWeight:800, color: c.foil ? '#f59e0b' : '#f0f0f0' }}>{c.price}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Cena 3: Marketplace ── */}
+            <div style={{ position: 'absolute', inset: 0, padding: '24px 28px', animation: 'bynx-scene3 12s ease-in-out infinite' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+                <div>
+                  <div style={{ fontSize:20, fontWeight:800, letterSpacing:'-0.03em', marginBottom:2 }}>Marketplace</div>
+                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>128 anúncios disponíveis</div>
+                </div>
+                <div style={{ background:'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius:10, padding:'8px 16px', fontSize:13, fontWeight:700, color:'#000' }}>+ Anunciar carta</div>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {[
+                  { name:'Rayquaza ex Full Art', set:'MEW', seller:'ash.ketchum', price:'R$450', badge:'FOIL', city:'SP' },
+                  { name:'Charizard ex', set:'151', seller:'gary_oak', price:'R$189', badge:'NORMAL', city:'RJ' },
+                  { name:'Lugia V Alt Art', set:'SIL', seller:'misty.water', price:'R$820', badge:'FOIL', city:'MG' },
+                ].map((l,i)=>(
+                  <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:14 }}>
+                    <div style={{ width:44, height:44, background:'rgba(255,255,255,0.06)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
+                      {['🌟','🔥','💧'][i]}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:700, marginBottom:2 }}>{l.name}</div>
+                      <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>{l.set} · {l.seller} · {l.city}</div>
+                    </div>
+                    <div style={{ textAlign:'right', flexShrink:0 }}>
+                      <div style={{ fontSize:15, fontWeight:800, color:'#f59e0b', marginBottom:2 }}>{l.price}</div>
+                      <div style={{ fontSize:9, fontWeight:700, background:'rgba(245,158,11,0.15)', color:'#f59e0b', padding:'2px 7px', borderRadius:100 }}>{l.badge}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Indicadores de cena */}
+            <div style={{ position:'absolute', bottom:16, left:'50%', transform:'translateX(-50%)', display:'flex', gap:6 }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{ width: 6, height: 6, borderRadius:'50%', background:'rgba(255,255,255,0.2)', animation:`bynx-dot${i+1} 12s ease-in-out infinite` }} />
+              ))}
+            </div>
           </div>
         </div>
+
+        <style>{`
+          @keyframes bynx-scene1 {
+            0%,25%   { opacity:1; transform:translateX(0); }
+            30%,65%  { opacity:0; transform:translateX(-40px); }
+            96%,100% { opacity:0; transform:translateX(40px); }
+          }
+          @keyframes bynx-scene2 {
+            0%,28%   { opacity:0; transform:translateX(40px); }
+            33%,58%  { opacity:1; transform:translateX(0); }
+            63%,100% { opacity:0; transform:translateX(-40px); }
+          }
+          @keyframes bynx-scene3 {
+            0%,60%   { opacity:0; transform:translateX(40px); }
+            65%,90%  { opacity:1; transform:translateX(0); }
+            95%,100% { opacity:0; transform:translateX(-40px); }
+          }
+          @keyframes bynx-countup {
+            from { opacity:0; transform:translateY(8px); }
+            to   { opacity:1; transform:translateY(0); }
+          }
+          @keyframes bynx-cardin {
+            from { opacity:0; transform:translateY(12px) scale(0.95); }
+            to   { opacity:1; transform:translateY(0) scale(1); }
+          }
+          @keyframes bynx-dot1 {
+            0%,25%  { background:rgba(245,158,11,0.9); transform:scale(1.3); }
+            30%,100%{ background:rgba(255,255,255,0.2); transform:scale(1); }
+          }
+          @keyframes bynx-dot2 {
+            0%,30%  { background:rgba(255,255,255,0.2); transform:scale(1); }
+            33%,58% { background:rgba(245,158,11,0.9); transform:scale(1.3); }
+            63%,100%{ background:rgba(255,255,255,0.2); transform:scale(1); }
+          }
+          @keyframes bynx-dot3 {
+            0%,62%  { background:rgba(255,255,255,0.2); transform:scale(1); }
+            65%,90% { background:rgba(245,158,11,0.9); transform:scale(1.3); }
+            95%,100%{ background:rgba(255,255,255,0.2); transform:scale(1); }
+          }
+        `}</style>
       </section>
 
       {/* CTA FINAL */}
@@ -1023,8 +1139,8 @@ export default function Home() {
                         <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                         Carregando...
                       </>
-                    ) : isLogin ? 'Entrar →'
-                       : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
+                    ) : isLogin ? 'Entrar →' 
+                      : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
                       : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
                       : 'Criar conta grátis →'}
                   </button>
