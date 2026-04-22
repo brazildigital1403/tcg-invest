@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount, IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp } from '@/components/ui/Icons'
 
@@ -38,7 +38,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifs, setNotifs] = useState<any[]>([])
   const [notifOpen, setNotifOpen] = useState(false)
+  const notifScrollRef = useRef<HTMLDivElement>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
+
+  // Scroll nativo não-passivo — captura wheel antes do browser propagar para a página
+  useEffect(() => {
+    const el = notifScrollRef.current
+    if (!el || !notifOpen) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      el.scrollTop += e.deltaY
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [notifOpen])
 
   useEffect(() => {
     async function load() {
@@ -316,7 +330,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     )}
                   </div>
 
-                  <div style={{ flex: 1, minHeight: 0, overflowY: 'scroll', overflowX: 'hidden', borderRadius: '0 0 16px 16px', overscrollBehavior: 'contain' }} onWheel={e => e.stopPropagation()}>
+                  <div ref={notifScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'scroll', overflowX: 'hidden', borderRadius: '0 0 16px 16px' }}>
                     {notifs.length === 0 ? (
                       <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
                         <IconBell size={28} color="rgba(255,255,255,0.2)" style={{ marginBottom: 8 }} />
