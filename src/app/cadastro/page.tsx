@@ -74,7 +74,7 @@ export default function Cadastro() {
     }).catch(() => {}) // silently fail
 
     alert('Usuário cadastrado com sucesso!')
-    window.location.href = '/dashboard'
+    window.location.href = '/dashboard-financeiro'
   }
 }
 

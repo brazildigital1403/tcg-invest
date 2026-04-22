@@ -346,9 +346,9 @@ export default function DashboardFinanceiro() {
         }
         setStats({ totalCompras: compras, totalVendas: vendas, quantidade: cards?.length || 0, valorColecao: valorTotal })
 
-        // Onboarding — só para quem não tem cartas e nunca viu
+        // Onboarding — mostra para quem nunca viu
         const visto = localStorage.getItem('onboarding-visto')
-        if (!visto && (!cards || cards.length === 0)) {
+        if (!visto) {
           setShowOnboarding(true)
         }
 
