@@ -815,6 +815,16 @@ export default function MinhaConta() {
           >
             {/* Header */}
             <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              {isTrial && trialDaysLeft <= 3 && (
+                <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '8px 16px', marginBottom: 16, display: 'inline-block' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>⚡ Seu trial expira em {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''}! Garanta seu desconto agora.</p>
+                </div>
+              )}
+              {isTrial && trialDaysLeft > 3 && (
+                <div style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 10, padding: '8px 16px', marginBottom: 16, display: 'inline-block' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#60a5fa' }}>⏳ Você tem {trialDaysLeft} dias de trial restantes</p>
+                </div>
+              )}
               <p style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>✦ Assinar Bynx Pro</p>
               <h2 style={{ fontSize: 24, fontWeight: 900, color: '#f0f0f0', letterSpacing: '-0.03em', margin: '0 0 8px' }}>Escolha seu plano</h2>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Acesso completo a todas as funcionalidades</p>
@@ -825,23 +835,26 @@ export default function MinhaConta() {
 
               {/* Anual — destaque */}
               <div style={{ background: 'rgba(245,158,11,0.08)', border: '2px solid rgba(245,158,11,0.4)', borderRadius: 14, padding: '20px 20px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: 0, right: 0, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius: '0 14px 0 12px', padding: '4px 12px' }}>
-                  <p style={{ fontSize: 9, fontWeight: 800, color: '#000', letterSpacing: '0.08em' }}>MAIS POPULAR</p>
+                <div style={{ position: 'absolute', top: 0, right: 0, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius: '0 14px 0 12px', padding: '4px 14px' }}>
+                  <p style={{ fontSize: 9, fontWeight: 800, color: '#000', letterSpacing: '0.08em' }}>30% OFF</p>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <div>
                     <p style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b', marginBottom: 2 }}>Pro Anual</p>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>2 meses grátis · Melhor custo-benefício</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>R$20,75/mês · cobrado anualmente</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through' }}>R$358,80</p>
                     <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>R$249</p>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>R$20,75/mês</p>
                   </div>
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 100 }}>✓ Você economiza R$109,80/ano</span>
                 </div>
                 <button
                   onClick={() => { setShowUpgradeModal(false); handleCheckout('anual') }}
                   disabled={loadingCheckout === 'anual'}
-                  style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+                  style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(245,158,11,0.3)' }}
                 >
                   {loadingCheckout === 'anual' ? 'Aguarde...' : 'Assinar por R$249/ano →'}
                 </button>

@@ -616,18 +616,21 @@ export default function Home() {
           {/* Pro Anual — destaque */}
           <div style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 20, padding: '32px 28px', position: 'relative' }}>
             <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 10, fontWeight: 800, padding: '4px 14px', borderRadius: 100, whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
-              MELHOR VALOR · 2 MESES GRÁTIS
+              MELHOR VALOR · 30% OFF
             </div>
             <p style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pro · Anual</p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 4 }}>
               <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 249</span>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 4 }}>R$ 14,91/mês · equivale a 10 meses</p>
-            <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, marginBottom: 28, textDecoration: 'line-through' }}>R$ 238,80 no mensal</p>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 4 }}>R$ 20,75/mês · cobrado anualmente</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
+              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, textDecoration: 'line-through' }}>R$358,80/ano</span>
+              <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 100 }}>Economize R$109,80</span>
+            </div>
             <div style={{ borderTop: '1px solid rgba(245,158,11,0.15)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 'Tudo do Pro Mensal',
-                '2 meses grátis incluso',
+                'Economize R$109,80 por ano',
                 'Prioridade no suporte',
                 'Acesso antecipado a novidades',
               ].map(f => (
