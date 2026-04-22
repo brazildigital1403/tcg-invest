@@ -295,7 +295,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {/* Dropdown de notificações */}
               {notifOpen && (
-                <div style={{ position: 'fixed', top: 56, right: 12, width: 'min(320px, calc(100vw - 24px))', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.6)', zIndex: 600, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 72px)', height: 'calc(100vh - 72px)', touchAction: 'none' }}
+                <div style={{ position: 'fixed', top: 56, right: 12, width: 'min(320px, calc(100vw - 24px))', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.6)', zIndex: 600, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 72px)' }}
                   onClick={e => e.stopPropagation()}
                 >
                   <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -316,7 +316,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     )}
                   </div>
 
-                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' as any, touchAction: 'pan-y' }}>
+                  <div style={{ flex: 1, minHeight: 0, overflowY: 'scroll', overflowX: 'hidden', borderRadius: '0 0 16px 16px' }}>
                     {notifs.length === 0 ? (
                       <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
                         <IconBell size={28} color="rgba(255,255,255,0.2)" style={{ marginBottom: 8 }} />
