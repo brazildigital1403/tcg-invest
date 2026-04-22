@@ -814,9 +814,9 @@ export default function Home() {
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {[
-                  { name:'Rayquaza ex Full Art', set:'MEW', seller:'ash.ketchum', price:'R$450', badge:'FOIL', city:'SP' },
+                  { name:'Charizard ex SIR', set:'151', seller:'ash.ketchum', price:'R$450', badge:'FOIL', city:'SP' },
                   { name:'Charizard ex', set:'151', seller:'gary_oak', price:'R$189', badge:'NORMAL', city:'RJ' },
-                  { name:'Lugia V Alt Art', set:'SIL', seller:'misty.water', price:'R$820', badge:'FOIL', city:'MG' },
+                  { name:'Umbreon ex SIR', set:'PAL', seller:'misty.water', price:'R$820', badge:'FOIL', city:'MG' },
                 ].map((l,i)=>(
                   <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:14 }}>
                     <div style={{ width:44, height:44, background:'rgba(255,255,255,0.06)', borderRadius:8, overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
