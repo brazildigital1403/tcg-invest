@@ -85,7 +85,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     </table>
     ${btn('Acessar minha conta', `${APP_URL}/minha-colecao`)}
     ${divider()}
-    `<p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Nosso time está pronto para ajudar. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>`
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Nosso time está pronto para ajudar. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Bem-vindo ao Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`)
 
   return resend.emails.send({ from: FROM, to, subject: `Bem-vindo ao Bynx, ${firstName}! 🎉`, html })
@@ -119,7 +119,7 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
       </tr>
     </table>
     ${btn('Assinar Pro agora →', `${APP_URL}/minha-conta`)}
-    `<p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Precisa de ajuda? Manda uma Pokébola para a gente 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>`
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Precisa de ajuda? Manda uma Pokébola para a gente 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, 'Seu trial Pro expira em 2 dias. Assine para não perder acesso.')
 
   return resend.emails.send({ from: FROM, to, subject: '⏰ Seu trial Pro expira em 2 dias', html })
@@ -143,7 +143,7 @@ export async function sendTrialExpiring7Email(to: string, name: string) {
           <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.55);">${f}</p>
         </td></tr>`).join('')}
     </table>
-    `<p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Precisa de ajuda? Manda uma Pokébola para a gente 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>`
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Precisa de ajuda? Manda uma Pokébola para a gente 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, 'Hoje é o último dia do seu Pro trial. Assine para manter acesso completo.')
 
   return resend.emails.send({ from: FROM, to, subject: '🔔 Último dia do seu trial Pro — assine agora', html })
@@ -185,7 +185,7 @@ export async function sendPurchaseConfirmationEmail(to: string, name: string, ty
       </tr>
     </table>
     ${btn(info.linkLabel, info.link)}
-    `<p style='margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;'>Guarde este email como comprovante. Dúvidas? Manda uma Pokébola 📬 <a href='mailto:suporte@bynx.gg' style='color:#f59e0b;text-decoration:none;'>suporte@bynx.gg</a></p>`
+    <p style="margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Guarde este email como comprovante. Dúvidas? Manda uma Pokébola 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Compra confirmada: ${info.titulo}`)
 
   return resend.emails.send({ from: FROM, to, subject: `✅ ${info.titulo} — Bynx`, html })
