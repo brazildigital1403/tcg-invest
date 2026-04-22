@@ -180,18 +180,37 @@ export default function Home() {
   }
 
   useEffect(() => {
+    // Checa se a conta do usuário está suspensa ANTES de redirecionar
+    // Retorna true se pode seguir, false se foi suspenso e deslogado
+    async function checkSuspensionAndRedirect(userId: string) {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('suspended_at')
+        .eq('id', userId)
+        .limit(1)
+      if (userRow?.[0]?.suspended_at) {
+        await supabase.auth.signOut()
+        setServerError('Esta conta foi suspensa. Entre em contato com o suporte.')
+        setShowAuthModal(true)
+        setIsLogin(true)
+        return false
+      }
+      return true
+    }
+
     async function getUser() {
       const { data } = await supabase.auth.getSession()
       if (data.session?.user) {
-        // Já está logado → vai direto para o Dashboard
-        router.replace('/dashboard-financeiro')
+        const ok = await checkSuspensionAndRedirect(data.session.user.id)
+        if (ok) router.replace('/dashboard-financeiro')
         return
       }
     }
     getUser()
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        router.replace('/dashboard-financeiro')
+        const ok = await checkSuspensionAndRedirect(session.user.id)
+        if (ok) router.replace('/dashboard-financeiro')
       } else {
         setUser(null)
       }
@@ -241,11 +260,24 @@ export default function Home() {
     setServerError('')
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const { data: loginData, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) {
           if (error.message.includes('Invalid login')) setServerError('E-mail ou senha incorretos.')
           else setServerError(error.message)
           return
+        }
+        // Verifica se a conta está suspensa
+        if (loginData.user) {
+          const { data: userRow } = await supabase
+            .from('users')
+            .select('suspended_at')
+            .eq('id', loginData.user.id)
+            .limit(1)
+          if (userRow?.[0]?.suspended_at) {
+            await supabase.auth.signOut()
+            setServerError('Esta conta foi suspensa. Entre em contato com o suporte.')
+            return
+          }
         }
         setShowAuthModal(false)
         router.push('/dashboard-financeiro')
@@ -654,7 +686,6 @@ export default function Home() {
         </div>
       </section>
 
-
       {/* ── FAQ ── */}
       <section style={{ padding: '80px 24px', maxWidth: 720, margin: '0 auto' }}>
         <h2 style={{ fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 8 }}>
@@ -992,8 +1023,8 @@ export default function Home() {
                         <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                         Carregando...
                       </>
-                    ) : isLogin ? 'Entrar →' 
-                      : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
+                    ) : isLogin ? 'Entrar →'
+                       : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
                       : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
                       : 'Criar conta grátis →'}
                   </button>

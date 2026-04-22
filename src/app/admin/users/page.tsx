@@ -15,14 +15,16 @@ type User = {
   plano_efetivo: 'pro' | 'trial' | 'free'
   trial_days_left: number
   scan_creditos: number | null
+  is_suspended: boolean
   created_at: string
 }
 
 const FILTER_TABS = [
-  { key: '',      label: 'Todos' },
-  { key: 'pro',   label: 'Pro' },
-  { key: 'trial', label: 'Trial' },
-  { key: 'free',  label: 'Free' },
+  { key: '',          label: 'Todos' },
+  { key: 'pro',       label: 'Pro' },
+  { key: 'trial',     label: 'Trial' },
+  { key: 'free',      label: 'Free' },
+  { key: 'suspended', label: 'Suspensos' },
 ]
 
 const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string; bg: string; border: string }> = {
@@ -85,6 +87,10 @@ function UsersView() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         {FILTER_TABS.map(t => {
           const active = filter === t.key
+          const isRed = t.key === 'suspended'
+          const color = active ? (isRed ? '#ef4444' : '#f59e0b') : 'rgba(255,255,255,0.55)'
+          const bg    = active ? (isRed ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)') : 'transparent'
+          const bd    = active ? (isRed ? 'rgba(239,68,68,0.3)'  : 'rgba(245,158,11,0.3)')  : 'rgba(255,255,255,0.08)'
           return (
             <button
               key={t.key || 'all'}
@@ -93,9 +99,8 @@ function UsersView() {
                 padding: '7px 14px', borderRadius: 100,
                 fontSize: 12, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
-                border: `1px solid ${active ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
-                color: active ? '#f59e0b' : 'rgba(255,255,255,0.55)',
+                border: `1px solid ${bd}`,
+                background: bg, color,
               }}
             >
               {t.label}
@@ -169,12 +174,29 @@ function UsersView() {
                 {users.map(u => {
                   const p = PLANO_STYLE[u.plano_efetivo]
                   return (
-                    <tr key={u.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <tr key={u.id} style={{
+                      borderTop: '1px solid rgba(255,255,255,0.05)',
+                      opacity: u.is_suspended ? 0.5 : 1,
+                    }}>
                       <td style={td}>
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 280 }}>
-                            {u.display_name || u.email}
-                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 240 }}>
+                              {u.display_name || u.email}
+                            </p>
+                            {u.is_suspended && (
+                              <span style={{
+                                fontSize: 9, fontWeight: 800,
+                                padding: '2px 8px', borderRadius: 100,
+                                color: '#ef4444', background: 'rgba(239,68,68,0.1)',
+                                border: '1px solid rgba(239,68,68,0.3)',
+                                textTransform: 'uppercase', letterSpacing: '0.08em',
+                                flexShrink: 0,
+                              }}>
+                                Suspenso
+                              </span>
+                            )}
+                          </div>
                           {u.display_name && (
                             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 280 }}>
                               {u.email}

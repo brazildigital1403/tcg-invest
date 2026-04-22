@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAppModal } from '@/components/ui/useAppModal'
 
@@ -20,6 +21,9 @@ type User = {
   trial_expires_at: string | null
   pro_expira_em: string | null
   scan_creditos: number | null
+  is_suspended: boolean
+  suspended_at: string | null
+  suspended_reason: string | null
   created_at: string
 }
 
@@ -51,23 +55,26 @@ const fmtDateTime = (iso?: string | null) => iso ? new Date(iso).toLocaleString(
 
 export default function AdminUserDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const router = useRouter()
   const { showAlert, showConfirm, showPrompt } = useAppModal()
 
   const [loading, setLoading] = useState(true)
   const [user, setUser]       = useState<User | null>(null)
   const [stats, setStats]     = useState<Stats | null>(null)
 
-  // Aba ativa
   const [tab, setTab] = useState<'info' | 'collection' | 'resync'>('info')
 
-  // Coleção (lazy load)
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName]       = useState('')
+  const [editUsername, setEditUsername] = useState('')
+  const [editCity, setEditCity]       = useState('')
+  const [editWhatsapp, setEditWhatsapp] = useState('')
+
   const [collection, setCollection] = useState<{ cards: CollectionCard[]; total_cards: number; total_value: number } | null>(null)
   const [loadingCol, setLoadingCol] = useState(false)
 
-  // Busy de ações
   const [busy, setBusy] = useState(false)
 
-  // Resync
   const [resyncCardName, setResyncCardName] = useState('')
   const [resyncResult, setResyncResult]     = useState<any>(null)
 
@@ -78,6 +85,10 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
     const d = await res.json()
     setUser(d.user)
     setStats(d.stats)
+    setEditName(d.user.name || '')
+    setEditUsername(d.user.username || '')
+    setEditCity(d.user.city || '')
+    setEditWhatsapp(d.user.whatsapp || '')
   }
   useEffect(() => { load() /* eslint-disable-next-line */ }, [id])
 
@@ -110,19 +121,11 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   }
 
   async function grantPro() {
-    const input = await showPrompt({
-      message: 'Conceder Pro por quantos meses?',
-      placeholder: '1, 3, 6, 12...',
-      defaultValue: '1',
-    })
+    const input = await showPrompt({ message: 'Conceder Pro por quantos meses?', placeholder: '1, 3, 6, 12...', defaultValue: '1' })
     if (!input) return
     const months = parseInt(input)
-    if (!months || months < 1 || months > 60) {
-      return showAlert('Informe um número entre 1 e 60.', 'warning')
-    }
-    const ok = await showConfirm({
-      message: `Conceder Pro por ${months} ${months === 1 ? 'mês' : 'meses'} a ${user?.email}?`,
-    })
+    if (!months || months < 1 || months > 60) return showAlert('Informe um número entre 1 e 60.', 'warning')
+    const ok = await showConfirm({ message: `Conceder Pro por ${months} ${months === 1 ? 'mês' : 'meses'} a ${user?.email}?` })
     if (!ok) return
     await doAction('grant_pro', months, `Pro concedido por ${months} ${months === 1 ? 'mês' : 'meses'}.`)
   }
@@ -130,47 +133,110 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   async function revokePro() {
     const ok = await showConfirm({
       message: `Revogar Pro de ${user?.email}? O usuário voltará ao plano Free.`,
-      danger: true,
-      confirmLabel: 'Revogar',
+      danger: true, confirmLabel: 'Revogar',
     })
     if (!ok) return
     await doAction('revoke_pro', null, 'Pro revogado.')
   }
 
   async function extendTrial() {
-    const input = await showPrompt({
-      message: 'Estender trial por quantos dias?',
-      placeholder: '7, 15, 30...',
-      defaultValue: '7',
-    })
+    const input = await showPrompt({ message: 'Estender trial por quantos dias?', placeholder: '7, 15, 30...', defaultValue: '7' })
     if (!input) return
     const days = parseInt(input)
-    if (!days || days < 1 || days > 365) {
-      return showAlert('Informe um número entre 1 e 365.', 'warning')
-    }
+    if (!days || days < 1 || days > 365) return showAlert('Informe um número entre 1 e 365.', 'warning')
     await doAction('extend_trial', days, `Trial estendido por ${days} ${days === 1 ? 'dia' : 'dias'}.`)
   }
 
   async function addCredits() {
-    const input = await showPrompt({
-      message: 'Adicionar quantos créditos de scan?',
-      placeholder: '5, 10, 50...',
-      defaultValue: '10',
-    })
+    const input = await showPrompt({ message: 'Adicionar quantos créditos de scan?', placeholder: '5, 10, 50...', defaultValue: '10' })
     if (!input) return
     const amount = parseInt(input)
-    if (!amount || amount < 1 || amount > 1000) {
-      return showAlert('Informe um número entre 1 e 1000.', 'warning')
-    }
+    if (!amount || amount < 1 || amount > 1000) return showAlert('Informe um número entre 1 e 1000.', 'warning')
     await doAction('add_scan_credits', amount, `+${amount} créditos de scan adicionados.`)
+  }
+
+  // ─── A3: Editar dados ─────────────────────────────────────────────────────
+
+  async function saveEdit() {
+    // Validações básicas
+    if (editUsername && !/^[a-z0-9_-]{3,30}$/.test(editUsername.toLowerCase())) {
+      return showAlert('Username deve ter 3-30 caracteres: letras, números, hífen ou underline.', 'warning')
+    }
+    if (editWhatsapp && !/^\d{10,11}$/.test(editWhatsapp.replace(/\D/g, ''))) {
+      return showAlert('WhatsApp deve ter 10 ou 11 dígitos (só números).', 'warning')
+    }
+
+    await doAction('edit_profile', {
+      name:     editName,
+      username: editUsername.toLowerCase(),
+      city:     editCity,
+      whatsapp: editWhatsapp.replace(/\D/g, ''), // salva só números
+    }, 'Dados atualizados.')
+    setEditing(false)
+  }
+
+  // ─── A6: Suspender / Reativar ─────────────────────────────────────────────
+
+  async function suspend() {
+    const reason = await showPrompt({
+      message: `Suspender a conta de ${user?.email}? O usuário não poderá mais logar. Motivo (opcional, fica registrado):`,
+      placeholder: 'Violação de regras, suspeita de fraude...',
+      multiline: true,
+    })
+    if (reason === null) return // cancelado
+    await doAction('suspend', { reason }, 'Conta suspensa. O usuário não poderá mais logar.')
+  }
+
+  async function unsuspend() {
+    const ok = await showConfirm({ message: `Reativar a conta de ${user?.email}?`, confirmLabel: 'Reativar' })
+    if (!ok) return
+    await doAction('unsuspend', null, 'Conta reativada.')
+  }
+
+  // ─── A6: Excluir definitivamente ──────────────────────────────────────────
+
+  async function deleteAccount() {
+    if (!user) return
+    if (user.is_pro) {
+      return showAlert('Usuário com Pro ativo. Revogue o Pro primeiro (e cancele a assinatura no Stripe antes).', 'warning')
+    }
+
+    // 1ª confirmação
+    const first = await showConfirm({
+      message: `⚠️ EXCLUIR PERMANENTEMENTE a conta de ${user.email}?\n\nIsso vai apagar: ${stats?.total_cards || 0} cartas, ${stats?.total_tickets || 0} tickets, notificações e anúncios.\n\nEssa ação NÃO pode ser desfeita.`,
+      danger: true,
+      confirmLabel: 'Sim, prosseguir',
+    })
+    if (!first) return
+
+    // 2ª confirmação: digitar o email
+    const typed = await showPrompt({
+      message: `Para confirmar a exclusão, digite exatamente o email da conta abaixo:\n\n${user.email}`,
+      placeholder: 'Digite o email para confirmar',
+    })
+    if (!typed) return
+    if (typed.trim().toLowerCase() !== user.email.toLowerCase()) {
+      return showAlert('Email de confirmação não bate. Exclusão cancelada.', 'error')
+    }
+
+    setBusy(true)
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmEmail: typed.trim() }),
+    })
+    setBusy(false)
+    const d = await res.json()
+    if (!res.ok) return showAlert(d.error || 'Erro ao excluir.', 'error')
+
+    showAlert(d.warning || `Conta ${user.email} excluída permanentemente.`, 'success')
+    setTimeout(() => router.push('/admin/users'), 1500)
   }
 
   // ─── Resync de preços ─────────────────────────────────────────────────────
 
   async function doResync() {
-    if (!resyncCardName.trim()) {
-      return showAlert('Informe o nome exato da carta.', 'warning')
-    }
+    if (!resyncCardName.trim()) return showAlert('Informe o nome exato da carta.', 'warning')
     setBusy(true)
     setResyncResult(null)
     const res = await fetch('/api/admin/resync-price', {
@@ -180,9 +246,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
     })
     setBusy(false)
     const d = await res.json()
-    if (!res.ok) {
-      return showAlert(d.error || 'Erro ao ressincronizar.', 'error')
-    }
+    if (!res.ok) return showAlert(d.error || 'Erro ao ressincronizar.', 'error')
     setResyncResult(d)
     showAlert(`Preços atualizados para "${d.cardName}".`, 'success')
   }
@@ -211,6 +275,40 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
         ← Voltar para Usuários
       </Link>
 
+      {/* ── Banner de suspenso ── */}
+      {user.is_suspended && (
+        <div style={{
+          background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.3)',
+          borderRadius: 12, padding: '14px 18px',
+          marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 12,
+          flexWrap: 'wrap',
+        }}>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#ef4444', margin: '0 0 2px' }}>
+              ⛔ Conta suspensa
+            </p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+              Suspenso em {fmtDateTime(user.suspended_at)}
+              {user.suspended_reason ? ` · Motivo: ${user.suspended_reason}` : ''}
+            </p>
+          </div>
+          <button onClick={unsuspend} disabled={busy} style={{
+            marginLeft: 'auto',
+            background: 'rgba(34,197,94,0.1)',
+            border: '1px solid rgba(34,197,94,0.3)',
+            color: '#22c55e',
+            padding: '6px 14px', borderRadius: 8,
+            fontSize: 12, fontWeight: 700,
+            cursor: busy ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit',
+          }}>
+            Reativar conta
+          </button>
+        </div>
+      )}
+
       {/* ── Cabeçalho ── */}
       <div style={{
         background: 'rgba(255,255,255,0.03)',
@@ -218,12 +316,13 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
         borderRadius: 16, padding: '24px 28px', marginBottom: 16,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-          {/* Avatar */}
           <div style={{
             width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+            background: user.is_suspended ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, fontWeight: 800, color: '#000', letterSpacing: '-0.02em',
+            fontSize: 22, fontWeight: 800,
+            color: user.is_suspended ? 'rgba(255,255,255,0.3)' : '#000',
+            letterSpacing: '-0.02em',
           }}>
             {(user.display_name || user.email).charAt(0).toUpperCase()}
           </div>
@@ -254,26 +353,20 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
 
           <div style={{ display: 'flex', gap: 8 }}>
             {user.username && (
-              <a
-                href={`/perfil/${user.username}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.7)',
-                  padding: '8px 14px', borderRadius: 10,
-                  fontSize: 12, fontWeight: 600,
-                  textDecoration: 'none', whiteSpace: 'nowrap',
-                }}
-              >
+              <a href={`/perfil/${user.username}`} target="_blank" rel="noopener noreferrer" style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.7)',
+                padding: '8px 14px', borderRadius: 10,
+                fontSize: 12, fontWeight: 600,
+                textDecoration: 'none', whiteSpace: 'nowrap',
+              }}>
                 Perfil público →
               </a>
             )}
           </div>
         </div>
 
-        {/* Stats rápidas */}
         <div style={{ display: 'flex', gap: 24, marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
           <MiniStat label="Cartas na coleção" value={stats?.total_cards?.toLocaleString('pt-BR') ?? '—'} />
           <MiniStat label="Créditos de scan"  value={user.scan_creditos?.toString() || '0'} />
@@ -293,15 +386,65 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
       {tab === 'info' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 16, alignItems: 'start' }} className="user-grid">
 
-          {/* ── Dados cadastrais ── */}
           <div style={surface}>
-            <h3 style={sectionTitle}>Dados cadastrais</h3>
-            <InfoRow label="Nome"          value={user.name || '—'} />
-            <InfoRow label="Email"         value={user.email} mono />
-            <InfoRow label="Username"      value={user.username ? `@${user.username}` : '—'} />
-            <InfoRow label="Cidade"        value={user.city || '—'} />
-            <InfoRow label="WhatsApp"      value={user.whatsapp || '—'} />
-            <InfoRow label="CPF"           value={user.cpf ? '****' + user.cpf.slice(-4) : '—'} mono />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ ...sectionTitle, margin: 0 }}>Dados cadastrais</h3>
+              {!editing ? (
+                <button onClick={() => setEditing(true)} style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'rgba(255,255,255,0.7)',
+                  padding: '6px 12px', borderRadius: 8,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}>
+                  Editar
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => { setEditing(false); load() }} style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'rgba(255,255,255,0.6)',
+                    padding: '6px 12px', borderRadius: 8,
+                    fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    Cancelar
+                  </button>
+                  <button onClick={saveEdit} disabled={busy} style={{
+                    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                    border: 'none', color: '#000',
+                    padding: '6px 14px', borderRadius: 8,
+                    fontSize: 12, fontWeight: 800,
+                    cursor: busy ? 'not-allowed' : 'pointer',
+                    opacity: busy ? 0.5 : 1,
+                    fontFamily: 'inherit',
+                  }}>
+                    {busy ? 'Salvando...' : 'Salvar'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {!editing ? (
+              <>
+                <InfoRow label="Nome"     value={user.name || '—'} />
+                <InfoRow label="Email"    value={user.email} mono />
+                <InfoRow label="Username" value={user.username ? `@${user.username}` : '—'} />
+                <InfoRow label="Cidade"   value={user.city || '—'} />
+                <InfoRow label="WhatsApp" value={user.whatsapp || '—'} />
+                <InfoRow label="CPF"      value={user.cpf ? '****' + user.cpf.slice(-4) : '—'} mono />
+              </>
+            ) : (
+              <>
+                <EditRow label="Nome" value={editName} onChange={setEditName} />
+                <InfoRow label="Email (não editável)" value={user.email} mono />
+                <EditRow label="Username" value={editUsername} onChange={setEditUsername} placeholder="sem @, min 3 chars" prefix="@" />
+                <EditRow label="Cidade" value={editCity} onChange={setEditCity} />
+                <EditRow label="WhatsApp" value={editWhatsapp} onChange={setEditWhatsapp} placeholder="11999999999" />
+                <InfoRow label="CPF (não editável)" value={user.cpf ? '****' + user.cpf.slice(-4) : '—'} mono />
+              </>
+            )}
 
             <h3 style={{ ...sectionTitle, marginTop: 28 }}>Assinatura</h3>
             <InfoRow label="Status" value={user.is_pro ? 'Pro ativo' : user.plano_efetivo === 'trial' ? `Trial (${user.trial_days_left} dias)` : 'Free'} />
@@ -314,15 +457,26 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
           <aside style={{ ...surface, position: 'sticky', top: 80 }}>
             <h3 style={sectionTitle}>⚡ Ações rápidas</h3>
 
-            <ActionButton label="Conceder Pro"     onClick={grantPro}     color="#f59e0b" busy={busy} />
+            <ActionButton label="Conceder Pro"    onClick={grantPro}    color="#f59e0b" busy={busy} />
             {user.is_pro && (
-              <ActionButton label="Revogar Pro"    onClick={revokePro}    color="#ef4444" busy={busy} variant="outline" />
+              <ActionButton label="Revogar Pro"   onClick={revokePro}   color="#ef4444" busy={busy} variant="outline" />
             )}
-            <ActionButton label="Estender trial"   onClick={extendTrial}  color="#60a5fa" busy={busy} variant="outline" />
-            <ActionButton label="+ Créditos scan"  onClick={addCredits}   color="#22c55e" busy={busy} variant="outline" />
+            <ActionButton label="Estender trial"  onClick={extendTrial} color="#60a5fa" busy={busy} variant="outline" />
+            <ActionButton label="+ Créditos scan" onClick={addCredits}  color="#22c55e" busy={busy} variant="outline" />
 
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 16, marginBottom: 0, lineHeight: 1.5 }}>
-              Todas as ações são gravadas com a data/hora atual. Conceder Pro estende a partir da data de expiração existente se ainda estiver ativo.
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '16px 0', paddingTop: 16 }}>
+              <h3 style={{ ...sectionTitle, fontSize: 10, marginBottom: 10 }}>⚠️ Zona perigosa</h3>
+
+              {!user.is_suspended ? (
+                <ActionButton label="Suspender conta" onClick={suspend} color="#f59e0b" busy={busy} variant="outline" />
+              ) : (
+                <ActionButton label="Reativar conta"  onClick={unsuspend} color="#22c55e" busy={busy} variant="outline" />
+              )}
+              <ActionButton label="Excluir conta"   onClick={deleteAccount} color="#ef4444" busy={busy} variant="outline" />
+            </div>
+
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 14, marginBottom: 0, lineHeight: 1.5 }}>
+              <b style={{ color: '#ef4444' }}>Excluir</b> é irreversível e apaga todos os dados do usuário (cartas, tickets, etc). Use para solicitações LGPD.
             </p>
           </aside>
         </div>
@@ -348,37 +502,31 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr>
-                      <th style={th}>Carta</th>
-                      <th style={{ ...th, textAlign: 'center' }}>Qtd</th>
-                      <th style={{ ...th, textAlign: 'center' }}>Variante</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Preço un.</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Total</th>
+                      <th style={thTbl}>Carta</th>
+                      <th style={{ ...thTbl, textAlign: 'center' }}>Qtd</th>
+                      <th style={{ ...thTbl, textAlign: 'center' }}>Variante</th>
+                      <th style={{ ...thTbl, textAlign: 'right' }}>Preço un.</th>
+                      <th style={{ ...thTbl, textAlign: 'right' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {collection.cards.map(c => (
                       <tr key={c.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                        <td style={td}>
+                        <td style={tdTbl}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                             {c.card_image && <img src={c.card_image} alt="" style={{ width: 28, height: 39, borderRadius: 3, objectFit: 'cover', flexShrink: 0 }} />}
                             <div style={{ minWidth: 0 }}>
                               <p style={{ fontSize: 13, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 360 }}>
                                 {c.card_name}
                               </p>
-                              {c.set_name && (
-                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: 0 }}>{c.set_name}</p>
-                              )}
+                              {c.set_name && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: 0 }}>{c.set_name}</p>}
                             </div>
                           </div>
                         </td>
-                        <td style={{ ...td, textAlign: 'center', color: 'rgba(255,255,255,0.7)' }}>{c.quantity}</td>
-                        <td style={{ ...td, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{c.variante || 'normal'}</td>
-                        <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.7)' }}>
-                          {fmtBRL(c.preco_unitario)}
-                        </td>
-                        <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#f59e0b', fontWeight: 700 }}>
-                          {fmtBRL(c.valor_total)}
-                        </td>
+                        <td style={{ ...tdTbl, textAlign: 'center', color: 'rgba(255,255,255,0.7)' }}>{c.quantity}</td>
+                        <td style={{ ...tdTbl, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{c.variante || 'normal'}</td>
+                        <td style={{ ...tdTbl, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.7)' }}>{fmtBRL(c.preco_unitario)}</td>
+                        <td style={{ ...tdTbl, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#f59e0b', fontWeight: 700 }}>{fmtBRL(c.valor_total)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -397,7 +545,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
             Ressincroniza os preços de uma carta específica com a LigaPokemon, sem esperar o cron das 3h. Útil quando um usuário reporta preço desatualizado.
           </p>
 
-          <label style={label}>Nome exato da carta</label>
+          <label style={labelStyle}>Nome exato da carta</label>
           <input
             value={resyncCardName}
             onChange={e => setResyncCardName(e.target.value)}
@@ -413,19 +561,15 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
             }}
           />
 
-          <button
-            onClick={doResync}
-            disabled={busy || !resyncCardName.trim()}
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-              border: 'none', color: '#000',
-              padding: '10px 22px', borderRadius: 10,
-              fontSize: 13, fontWeight: 800,
-              cursor: (busy || !resyncCardName.trim()) ? 'not-allowed' : 'pointer',
-              opacity: (busy || !resyncCardName.trim()) ? 0.5 : 1,
-              fontFamily: 'inherit',
-            }}
-          >
+          <button onClick={doResync} disabled={busy || !resyncCardName.trim()} style={{
+            background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+            border: 'none', color: '#000',
+            padding: '10px 22px', borderRadius: 10,
+            fontSize: 13, fontWeight: 800,
+            cursor: (busy || !resyncCardName.trim()) ? 'not-allowed' : 'pointer',
+            opacity: (busy || !resyncCardName.trim()) ? 0.5 : 1,
+            fontFamily: 'inherit',
+          }}>
             {busy ? 'Ressincronizando...' : 'Forçar atualização'}
           </button>
 
@@ -465,7 +609,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   )
 }
 
-// ─── Componentes auxiliares ──────────────────────────────────────────────────
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 
 const surface: React.CSSProperties = {
   background: 'rgba(255,255,255,0.03)',
@@ -477,10 +621,10 @@ const sectionTitle: React.CSSProperties = {
   fontSize: 11, fontWeight: 800,
   textTransform: 'uppercase', letterSpacing: '0.1em',
   color: 'rgba(255,255,255,0.5)',
-  margin: '0 0 16px', paddingBottom: 0,
+  margin: '0 0 16px',
 }
 
-const label: React.CSSProperties = {
+const labelStyle: React.CSSProperties = {
   fontSize: 11,
   color: 'rgba(255,255,255,0.4)',
   textTransform: 'uppercase',
@@ -488,14 +632,16 @@ const label: React.CSSProperties = {
   marginBottom: 6, display: 'block',
 }
 
-const th: React.CSSProperties = {
+const thTbl: React.CSSProperties = {
   padding: '10px 14px',
   fontSize: 10, fontWeight: 800,
   color: 'rgba(255,255,255,0.4)',
   textTransform: 'uppercase', letterSpacing: '0.08em',
   textAlign: 'left',
 }
-const td: React.CSSProperties = { padding: '10px 14px', verticalAlign: 'middle' }
+const tdTbl: React.CSSProperties = { padding: '10px 14px', verticalAlign: 'middle' }
+
+// ─── Componentes auxiliares ──────────────────────────────────────────────────
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -518,11 +664,43 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', width: 140, flexShrink: 0 }}>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', width: 160, flexShrink: 0 }}>
         {label}
       </div>
       <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontFamily: mono ? 'monospace' : 'inherit', wordBreak: 'break-word' }}>
         {value}
+      </div>
+    </div>
+  )
+}
+
+function EditRow({ label, value, onChange, placeholder, prefix }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  prefix?: string
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', width: 160, flexShrink: 0 }}>
+        {label}
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+        {prefix && <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>{prefix}</span>}
+        <input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          style={{
+            flex: 1,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 8, padding: '6px 10px',
+            color: '#f0f0f0', fontSize: 13,
+            outline: 'none', fontFamily: 'inherit',
+          }}
+        />
       </div>
     </div>
   )
@@ -538,8 +716,7 @@ function MiniStat({ label, value, highlight }: { label: string; value: string; h
         fontSize: highlight ? 20 : 16,
         fontWeight: highlight ? 800 : 700,
         color: highlight ? '#f59e0b' : '#f0f0f0',
-        margin: 0,
-        letterSpacing: '-0.02em',
+        margin: 0, letterSpacing: '-0.02em',
       }}>
         {value}
       </p>
@@ -547,9 +724,7 @@ function MiniStat({ label, value, highlight }: { label: string; value: string; h
   )
 }
 
-function ActionButton({
-  label, onClick, color, busy, variant = 'solid',
-}: {
+function ActionButton({ label, onClick, color, busy, variant = 'solid' }: {
   label: string
   onClick: () => void
   color: string
@@ -558,23 +733,18 @@ function ActionButton({
 }) {
   const outline = variant === 'outline'
   return (
-    <button
-      onClick={onClick}
-      disabled={busy}
-      style={{
-        display: 'block', width: '100%',
-        background: outline ? 'transparent' : color,
-        border: `1px solid ${outline ? color + '50' : color}`,
-        color: outline ? color : '#000',
-        padding: '10px 14px', borderRadius: 10,
-        fontSize: 13, fontWeight: 800,
-        cursor: busy ? 'not-allowed' : 'pointer',
-        opacity: busy ? 0.5 : 1,
-        marginBottom: 8,
-        fontFamily: 'inherit',
-        textAlign: 'center',
-      }}
-    >
+    <button onClick={onClick} disabled={busy} style={{
+      display: 'block', width: '100%',
+      background: outline ? 'transparent' : color,
+      border: `1px solid ${outline ? color + '50' : color}`,
+      color: outline ? color : '#000',
+      padding: '10px 14px', borderRadius: 10,
+      fontSize: 13, fontWeight: 800,
+      cursor: busy ? 'not-allowed' : 'pointer',
+      opacity: busy ? 0.5 : 1,
+      marginBottom: 8,
+      fontFamily: 'inherit', textAlign: 'center',
+    }}>
       {label}
     </button>
   )

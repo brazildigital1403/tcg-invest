@@ -8,14 +8,14 @@ function supabaseAdmin() {
   )
 }
 
-// GET /api/admin/users?q=&page=1&perPage=50
+// GET /api/admin/users?q=&page=1&perPage=50&filter=pro|trial|free|suspended
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const q       = searchParams.get('q')?.trim().toLowerCase()
     const page    = Math.max(1, Number(searchParams.get('page')    || 1))
     const perPage = Math.min(100, Number(searchParams.get('perPage') || 50))
-    const filter  = searchParams.get('filter') // 'pro' | 'trial' | 'free' | undefined
+    const filter  = searchParams.get('filter')
 
     const sb = supabaseAdmin()
     const from = (page - 1) * perPage
@@ -23,12 +23,11 @@ export async function GET(req: NextRequest) {
 
     let query = sb
       .from('users')
-      .select('id, email, name, username, city, whatsapp, is_pro, plano, trial_expires_at, pro_expira_em, scan_creditos, created_at', { count: 'exact' })
+      .select('id, email, name, username, city, whatsapp, is_pro, plano, trial_expires_at, pro_expira_em, scan_creditos, suspended_at, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to)
 
     if (q) {
-      // Busca em email ou nome (ilike não tem "or" fácil — usa or() sintaxe PostgREST)
       query = query.or(`email.ilike.%${q}%,name.ilike.%${q}%,username.ilike.%${q}%`)
     }
 
@@ -38,8 +37,9 @@ export async function GET(req: NextRequest) {
     } else if (filter === 'trial') {
       query = query.eq('is_pro', false).gt('trial_expires_at', nowISO)
     } else if (filter === 'free') {
-      // Free = não-pro e sem trial válido (ou nulo, ou expirado)
       query = query.eq('is_pro', false).or(`trial_expires_at.is.null,trial_expires_at.lt.${nowISO}`)
+    } else if (filter === 'suspended') {
+      query = query.not('suspended_at', 'is', null)
     }
 
     const { data, error, count } = await query
@@ -49,7 +49,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Determina o "plano efetivo" pra cada user (Pro pago, Trial, ou Free)
     const now = Date.now()
     const users = (data || []).map(u => {
       const trialMs = u.trial_expires_at ? new Date(u.trial_expires_at).getTime() : 0
@@ -59,6 +58,7 @@ export async function GET(req: NextRequest) {
         display_name: u.name || null,
         plano_efetivo: u.is_pro ? 'pro' : isTrial ? 'trial' : 'free',
         trial_days_left: isTrial ? Math.ceil((trialMs - now) / 86_400_000) : 0,
+        is_suspended: !!u.suspended_at,
       }
     })
 
