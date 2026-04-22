@@ -328,7 +328,7 @@ export default function MinhaConta() {
       <div style={{ maxWidth: 700, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
         {/* ── PERFIL ── */}
-        <div style={{ ...SURFACE, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+        <div style={{ ...SURFACE, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }} className="mc-profile">
           {/* Avatar */}
           <div style={{
             width: 72, height: 72, borderRadius: '50%', flexShrink: 0,
@@ -438,7 +438,7 @@ export default function MinhaConta() {
             </div>
 
             {/* Cidade + WhatsApp */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="mc-2col">
               <div>
                 <label style={LABEL}>Cidade</label>
                 <input
@@ -605,7 +605,7 @@ export default function MinhaConta() {
 
               {/* Cards de upgrade — Mensal e Anual lado a lado */}
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Fazer upgrade para Pro</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="mc-2col">
 
                 {/* Pro Mensal */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '18px 16px' }}>
@@ -642,7 +642,7 @@ export default function MinhaConta() {
           ) : isTrial ? (
             /* Trial ativo */
             <div style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 12, padding: '16px 20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }} className="mc-plan-row">
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 18 }}>⏳</span>
@@ -749,7 +749,7 @@ export default function MinhaConta() {
             </div>
 
             {/* Pacotes */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }} className="mc-scan-grid">
               {[
                 { plano: 'scan_basico',       label: '5 scans',  preco: 'R$5,90',  unit: 'R$1,18/scan' },
                 { plano: 'scan_popular',      label: '15 scans', preco: 'R$14,90', unit: 'R$0,99/scan', popular: true },
@@ -801,7 +801,19 @@ export default function MinhaConta() {
 
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @media (max-width: 768px) {
+          .mc-surface { padding: 16px !important; }
+          .mc-profile { flex-direction: column !important; align-items: flex-start !important; }
+          .mc-profile-actions { align-items: flex-start !important; flex-direction: row !important; flex-wrap: wrap !important; }
+          .mc-2col { grid-template-columns: 1fr !important; }
+          .mc-scan-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .mc-upgrade-grid { grid-template-columns: 1fr !important; }
+          .mc-plan-row { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+          .mc-plan-row button { width: 100% !important; }
+        }
+      `}</style>
 
       {/* ── Modal de escolha de plano ── */}
       {showUpgradeModal && (
@@ -883,7 +895,7 @@ export default function MinhaConta() {
             </div>
 
             {/* Benefícios */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 20 }} className="mc-upgrade-grid">
               {['Cartas ilimitadas', 'Perfil público', 'Marketplace ilimitado', 'Alertas de preço', 'Scan com IA', 'Exportar CSV', 'Separadores de Fichário'].map(b => (
                 <p key={b} style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ color: '#22c55e', fontSize: 10 }}>✓</span> {b}

@@ -527,8 +527,15 @@ export default function DashboardFinanceiro() {
       })()}
       <style>{`
         @media (max-width: 768px) {
-          .dash-hero-btns { flex-direction: column !important; }
+          .dash-hero { flex-direction: column !important; padding: 20px 16px !important; }
+          .dash-hero h1 { font-size: 32px !important; }
+          .dash-hero-btns { flex-direction: column !important; min-width: unset !important; width: 100% !important; }
           .dash-hero-btns button { width: 100% !important; }
+          .dash-2col { grid-template-columns: 1fr !important; }
+          .dash-surface { padding: 16px !important; }
+          .dash-chips { grid-template-columns: repeat(2, 1fr) !important; }
+          .dash-oport-row { flex-direction: column !important; gap: 8px !important; }
+          .dash-oport-val { text-align: left !important; }
         }
       `}</style>
       <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 1200, margin: '0 auto' }}>
@@ -539,7 +546,7 @@ export default function DashboardFinanceiro() {
           border: '1px solid rgba(245,158,11,0.2)',
           borderRadius: 20, padding: '28px 32px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20
-        }}>
+        }} className="dash-hero">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -572,7 +579,7 @@ export default function DashboardFinanceiro() {
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 200 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 200 }} className="dash-hero-btns">
             <button onClick={handleAddByLink} style={{ background: BRAND, border: 'none', color: '#000', padding: '13px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 24px rgba(245,158,11,0.25)' }}>
               + Importar por link
             </button>
@@ -581,11 +588,20 @@ export default function DashboardFinanceiro() {
                 Buscar na API
               </button>
             )}
+            {isPro && userId && (
+              <button
+                onClick={() => { window.location.href = `/api/export/csv?userId=${userId}` }}
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', padding: '12px 20px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4M4 17h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Exportar CSV
+              </button>
+            )}
           </div>
         </div>
 
         {/* ── 4 CHIPS ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }} className="dash-chips">
           <StatChip label="Total cartas" value={String(stats.quantidade)} />
           <StatChip label="Total compras" value={fmt(stats.totalCompras)} color="#ef4444" />
           <StatChip label="Total vendas" value={fmt(stats.totalVendas)} color="#22c55e" />
@@ -593,7 +609,7 @@ export default function DashboardFinanceiro() {
         </div>
 
         {/* ── 2 COLUNAS ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 20, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 20, alignItems: 'start' }} className="dash-2col">
 
           {/* COLUNA ESQUERDA — Gráfico */}
           <div>

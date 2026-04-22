@@ -381,7 +381,7 @@ export default function Marketplace() {
       <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 1200, margin: '0 auto' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }} className="mkt-header">
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Marketplace</h1>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
@@ -465,7 +465,7 @@ export default function Marketplace() {
             </div>
 
             {loading ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="mkt-grid">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, height: 320, animation: 'pulse 1.5s infinite' }} />
                 ))}
@@ -477,7 +477,7 @@ export default function Marketplace() {
                 <p style={{ fontSize: 13, marginTop: 8 }}>Seja o primeiro a anunciar uma carta!</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="mkt-grid">
                 {vitrine.map(card => (
                   <AnuncioCard key={card.id} card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
                 ))}
@@ -510,7 +510,7 @@ export default function Marketplace() {
                     )
                   })}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="mkt-grid">
                   {meusAnuncios.map(card => (
                     <AnuncioCard key={card.id} card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
                   ))}
@@ -535,7 +535,21 @@ export default function Marketplace() {
         )}
 
       </div>
-      <style>{`@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.7} }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.7} }
+        @media (max-width: 768px) {
+          .mkt-header { flex-direction: column !important; align-items: flex-start !important; }
+          .mkt-header button { width: 100% !important; }
+          .mkt-tabs button { font-size: 11px !important; padding: 8px 6px !important; }
+          .mkt-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .mkt-neg-row { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+          .mkt-neg-row .mkt-neg-actions { width: 100% !important; justify-content: flex-start !important; }
+          .mkt-card-img { width: 70px !important; height: 98px !important; }
+        }
+        @media (max-width: 400px) {
+          .mkt-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+      `}</style>
 
       {showAnunciarModal && userId && (
         <AnunciarModal
