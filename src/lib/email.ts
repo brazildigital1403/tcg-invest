@@ -104,7 +104,7 @@ function divider() {
 }
 
 function badge(text: string, color: string, bg: string) {
-  return `<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:800;padding:4px 12px;border-radius:100px;letter-spacing:0.06em;text-transform:uppercase;">${text}</span>`
+  return `<p style="margin:0 0 8px;font-size:10px;font-weight:800;color:${color};letter-spacing:0.08em;text-transform:uppercase;font-family:Arial,sans-serif;">${text}</p>`
 }
 
 // ── 1. Email de boas-vindas ────────────────────────────────────────────────────
@@ -142,17 +142,17 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     ${divider()}
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td width="48%" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:20px;text-align:center;">
-          <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.4);">MENSAL</p>
-          <p style="margin:0;font-size:28px;font-weight:900;background:linear-gradient(135deg,#f59e0b,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">R$29,90</p>
-          <p style="margin:4px 0 0;font-size:11px;color:rgba(255,255,255,0.3);">por mês</p>
+        <td width="48%" bgcolor="#1a1c24" style="background-color:#1a1c24;border:1px solid #2d3748;border-radius:8px;padding:16px 12px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:0.08em;">MENSAL</p>
+          <p style="margin:0;font-size:26px;font-weight:900;color:#f59e0b;">R$29,90</p>
+          <p style="margin:4px 0 0;font-size:11px;color:#6b7280;">por mês</p>
         </td>
         <td width="4%"></td>
-        <td width="48%" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:14px;padding:20px;text-align:center;position:relative;">
-          <p style="margin:0 0 4px;font-size:11px;color:rgba(255,255,255,0.4);">ANUAL <span style="color:#f59e0b;">· 30% OFF</span></p>
-          <p style="margin:0;font-size:28px;font-weight:900;background:linear-gradient(135deg,#f59e0b,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">R$249</p>
-          <p style="margin:2px 0 0;font-size:11px;color:rgba(255,255,255,0.3);text-decoration:line-through;">R$358,80/ano</p>
-          <p style="margin:2px 0 0;font-size:11px;color:rgba(255,255,255,0.3);">R$20,75/mês</p>
+        <td width="48%" bgcolor="#1f1a0a" style="background-color:#1f1a0a;border:2px solid #78350f;border-radius:8px;padding:16px 12px;text-align:center;">
+          <p style="margin:0 0 2px;font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:0.06em;">ANUAL <span style="color:#f59e0b;">· 30% OFF</span></p>
+          <p style="margin:0;font-size:26px;font-weight:900;color:#f59e0b;">R$249</p>
+          <p style="margin:2px 0 0;font-size:11px;color:#6b7280;text-decoration:line-through;">R$358,80/ano</p>
+          <p style="margin:2px 0 0;font-size:11px;color:#9ca3af;">R$20,75/mês</p>
         </td>
       </tr>
     </table>
@@ -211,15 +211,17 @@ export async function sendPurchaseConfirmationEmail(to: string, name: string, ty
     ${p(`${firstName}, sua compra foi confirmada com sucesso!`)}
     ${p(info.descricao)}
     ${divider()}
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border-radius:12px;padding:16px 20px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
       <tr>
-        <td style="font-size:13px;color:rgba(255,255,255,0.4);">Produto</td>
-        <td style="font-size:13px;color:#f0f0f0;text-align:right;font-weight:600;">${info.titulo.replace('!','')}</td>
+        <td style="padding:14px 18px 6px;font-size:12px;color:#9ca3af;font-family:Arial,sans-serif;">Produto</td>
+        <td style="padding:14px 18px 6px;font-size:12px;color:#e5e7eb;text-align:right;font-weight:600;font-family:Arial,sans-serif;">${info.titulo.replace('!','')}</td>
       </tr>
-      <tr><td colspan="2" style="height:8px;"></td></tr>
       <tr>
-        <td style="font-size:13px;color:rgba(255,255,255,0.4);">Valor</td>
-        <td style="font-size:15px;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:right;">${info.valor}</td>
+        <td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 18px 14px;font-size:12px;color:#9ca3af;font-family:Arial,sans-serif;">Valor</td>
+        <td style="padding:8px 18px 14px;font-size:16px;font-weight:900;color:#f59e0b;text-align:right;font-family:Arial,sans-serif;">${info.valor}</td>
       </tr>
     </table>
     ${btn(info.linkLabel, info.link)}
