@@ -8,7 +8,6 @@ import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import AddCardModal from '@/components/dashboard/AddCardModal'
-import OnboardingChecklist from '@/components/ui/OnboardingChecklist'
 import ScanModal from '@/components/ui/ScanModal'
 import { IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
@@ -732,7 +731,6 @@ export default function MinhaColecao() {
       <div className="p-6">
 
         {/* Onboarding */}
-        {userId && <OnboardingChecklist userId={userId} />}
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
