@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       pro_expira_em: new Date(subscription.current_period_end * 1000).toISOString(),
     }).eq('id', userId)
 
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/minha-conta?upgrade=success`)
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/pro-ativado?plano=${planoFinal}`)
   } catch (err: any) {
     console.error('[stripe/success]', err.message)
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/minha-conta`)
