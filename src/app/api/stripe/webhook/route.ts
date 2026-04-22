@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sendPurchaseConfirmationEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 
@@ -46,6 +47,12 @@ export async function POST(req: NextRequest) {
               scan_creditos: atual + creditos,
             }).eq('id', userId)
             console.log(`[webhook] +${creditos} créditos de scan para ${userId} (total: ${atual + creditos})`)
+            // Envia email de confirmação
+            const { data: uDataScan } = await supabase.from('users').select('email, full_name').eq('id', userId).limit(1)
+            if (uDataScan?.[0]?.email) {
+              const scanType = (planoMeta as any) || 'scan_popular'
+              await sendPurchaseConfirmationEmail(uDataScan[0].email, uDataScan[0].full_name || '', scanType).catch(console.error)
+            }
           }
           break
         }
@@ -56,6 +63,11 @@ export async function POST(req: NextRequest) {
             separadores_desbloqueado: true,
           }).eq('id', userId)
           console.log(`[webhook] Separadores desbloqueado para ${userId}`)
+          // Envia email de confirmação
+          const { data: uData } = await supabase.from('users').select('email, full_name').eq('id', userId).limit(1)
+          if (uData?.[0]?.email) {
+            await sendPurchaseConfirmationEmail(uData[0].email, uData[0].full_name || '', 'separadores').catch(console.error)
+          }
           break
         }
 
@@ -73,6 +85,11 @@ export async function POST(req: NextRequest) {
         }).eq('id', userId)
 
         console.log(`[webhook] Pro ativado para ${userId} — plano ${plano}`)
+        // Envia email de confirmação
+        const { data: uDataPro } = await supabase.from('users').select('email, full_name').eq('id', userId).limit(1)
+        if (uDataPro?.[0]?.email) {
+          await sendPurchaseConfirmationEmail(uDataPro[0].email, uDataPro[0].full_name || '', plano === 'anual' ? 'pro_anual' : 'pro_mensal').catch(console.error)
+        }
         break
       }
 

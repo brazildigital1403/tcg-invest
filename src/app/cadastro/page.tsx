@@ -66,6 +66,13 @@ export default function Cadastro() {
     alert('Erro ao salvar dados')
     console.log(error)
   } else {
+    // Envia email de boas-vindas em background
+    fetch('/api/email/welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id }),
+    }).catch(() => {}) // silently fail
+
     alert('Usuário cadastrado com sucesso!')
     window.location.href = '/dashboard'
   }
