@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     const { data: user } = await supabase
       .from('users')
-      .select('email, full_name, name')
+      .select('email, name')
       .eq('id', userId)
       .limit(1)
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    await sendWelcomeEmail(user[0].email, user[0].full_name || user[0].name || '')
+    await sendWelcomeEmail(user[0].email, user[0].name || '')
     console.log(`[email/welcome] Enviado para ${user[0].email}`)
 
     return NextResponse.json({ ok: true })

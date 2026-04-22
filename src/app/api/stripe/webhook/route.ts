@@ -48,10 +48,10 @@ export async function POST(req: NextRequest) {
             }).eq('id', userId)
             console.log(`[webhook] +${creditos} créditos de scan para ${userId} (total: ${atual + creditos})`)
             // Envia email de confirmação
-            const { data: uDataScan } = await supabase.from('users').select('email, full_name').eq('id', userId).limit(1)
+            const { data: uDataScan } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
             if (uDataScan?.[0]?.email) {
               const scanType = (planoMeta as any) || 'scan_popular'
-              await sendPurchaseConfirmationEmail(uDataScan[0].email, uDataScan[0].full_name || '', scanType).catch(console.error)
+              await sendPurchaseConfirmationEmail(uDataScan[0].email, uDataScan[0].name || '', scanType).catch(console.error)
             }
           }
           break
@@ -64,9 +64,9 @@ export async function POST(req: NextRequest) {
           }).eq('id', userId)
           console.log(`[webhook] Separadores desbloqueado para ${userId}`)
           // Envia email de confirmação
-          const { data: uData } = await supabase.from('users').select('email, full_name').eq('id', userId).limit(1)
+          const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
           if (uData?.[0]?.email) {
-            await sendPurchaseConfirmationEmail(uData[0].email, uData[0].full_name || '', 'separadores').catch(console.error)
+            await sendPurchaseConfirmationEmail(uData[0].email, uData[0].name || '', 'separadores').catch(console.error)
           }
           break
         }
@@ -86,9 +86,9 @@ export async function POST(req: NextRequest) {
 
         console.log(`[webhook] Pro ativado para ${userId} — plano ${plano}`)
         // Envia email de confirmação
-        const { data: uDataPro } = await supabase.from('users').select('email, full_name').eq('id', userId).limit(1)
+        const { data: uDataPro } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
         if (uDataPro?.[0]?.email) {
-          await sendPurchaseConfirmationEmail(uDataPro[0].email, uDataPro[0].full_name || '', plano === 'anual' ? 'pro_anual' : 'pro_mensal').catch(console.error)
+          await sendPurchaseConfirmationEmail(uDataPro[0].email, uDataPro[0].name || '', plano === 'anual' ? 'pro_anual' : 'pro_mensal').catch(console.error)
         }
         break
       }

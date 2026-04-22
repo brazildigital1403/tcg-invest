@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     // Busca usuários em trial
     const { data: trialUsers } = await supabase
       .from('users')
-      .select('id, email, full_name, trial_expires_at')
+      .select('id, email, name, trial_expires_at')
       .not('trial_expires_at', 'is', null)
       .eq('is_pro', false)
 
@@ -36,13 +36,13 @@ export async function GET(req: NextRequest) {
 
       // 5º dia = 2 dias restantes
       if (daysLeft === 2) {
-        await sendTrialExpiring5Email(user.email, user.full_name || '').catch(console.error)
+        await sendTrialExpiring5Email(user.email, user.name || '').catch(console.error)
         sent5++
       }
 
       // 7º dia = último dia (0 ou 1 dia restante)
       if (daysLeft === 1) {
-        await sendTrialExpiring7Email(user.email, user.full_name || '').catch(console.error)
+        await sendTrialExpiring7Email(user.email, user.name || '').catch(console.error)
         sent7++
       }
     }
