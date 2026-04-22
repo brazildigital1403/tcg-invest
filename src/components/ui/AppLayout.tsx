@@ -126,7 +126,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── Painel de notificações — FORA do header para evitar stacking context ── */}
       {notifOpen && (
-        <div style={{ position: 'fixed', top: 56, right: 12, width: 'min(320px, calc(100vw - 24px))', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 72px)' }}
+        <div style={{ position: 'fixed', top: 60, right: 12, width: 'min(340px, calc(100vw - 24px))', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 76px)', overflow: 'hidden' }}
           onClick={e => e.stopPropagation()}
         >
           <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -156,8 +156,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             ) : (
               notifs.map(n => {
-                const color = n.type === 'alta' ? '#22c55e' : n.type === 'baixa' ? '#ef4444' : n.type === 'marketplace' ? '#f59e0b' : '#60a5fa'
-                const bg = n.type === 'alta' ? 'rgba(34,197,94,0.06)' : n.type === 'baixa' ? 'rgba(239,68,68,0.06)' : n.type === 'marketplace' ? 'rgba(245,158,11,0.06)' : 'rgba(96,165,250,0.06)'
+                const color = n.type === 'valorizacao' ? '#22c55e' : n.type === 'desvalorizacao' ? '#ef4444' : n.type === 'marketplace' ? '#f59e0b' : '#60a5fa'
+                const bg = n.type === 'valorizacao' ? 'rgba(34,197,94,0.06)' : n.type === 'desvalorizacao' ? 'rgba(239,68,68,0.06)' : n.type === 'marketplace' ? 'rgba(245,158,11,0.06)' : 'rgba(96,165,250,0.06)'
                 return (
                   <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: bg }}>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
