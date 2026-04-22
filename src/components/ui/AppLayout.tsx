@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount, IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp } from '@/components/ui/Icons'
+import { IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount, IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp, IconChat } from '@/components/ui/Icons'
 
 function IconSeparador({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
@@ -30,6 +30,7 @@ const menu = [
   { name: 'Marketplace', full: 'Marketplace',     href: '/marketplace',          Icon: IconMarketplace},
   { name: 'Separadores', full: 'Separadores',     href: '/separadores',          Icon: IconSeparador  },
   { name: 'Conta',       full: 'Minha Conta',     href: '/minha-conta',          Icon: IconAccount    },
+  { name: 'Suporte',     full: 'Suporte',         href: '/suporte',              Icon: IconChat       },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

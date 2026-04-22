@@ -230,3 +230,119 @@ export async function sendPurchaseConfirmationEmail(to: string, name: string, ty
 
   return resend.emails.send({ from: FROM, to, subject: `✅ ${info.titulo} — Bynx`, html })
 }
+// ── 5. SUPORTE — novo ticket (para o admin) ──────────────────────────────────
+
+export async function sendNewTicketAdminEmail(args: {
+  to: string
+  ticketId: string
+  subject: string
+  message: string
+  userEmail: string
+  userName?: string
+}) {
+  const html = baseLayout(`
+    ${badge('Novo Ticket', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Novo ticket de suporte')}
+    ${p(`<strong style="color:#f0f0f0;">${args.userName || 'Colecionador'}</strong> (${args.userEmail}) abriu um ticket:`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
+      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Assunto</td></tr>
+      <tr><td style="padding:0 18px 14px;font-size:15px;color:#f0f0f0;font-weight:700;font-family:Arial,sans-serif;">${escapeHtml(args.subject)}</td></tr>
+      <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
+      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Mensagem</td></tr>
+      <tr><td style="padding:0 18px 16px;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+    </table>
+    ${btn('Responder no painel →', `${APP_URL}/admin/tickets/${args.ticketId}`)}
+  `, `Novo ticket: ${args.subject}`)
+
+  return resend.emails.send({ from: FROM, to: args.to, subject: `[Suporte Bynx] ${args.subject}`, html })
+}
+
+// ── 6. SUPORTE — resposta do usuário (para o admin) ──────────────────────────
+
+export async function sendUserReplyAdminEmail(args: {
+  to: string
+  ticketId: string
+  subject: string
+  message: string
+  userEmail: string
+  userName?: string
+}) {
+  const html = baseLayout(`
+    ${badge('Nova Resposta', '#60a5fa', 'rgba(96,165,250,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Nova resposta em ticket')}
+    ${p(`<strong style="color:#f0f0f0;">${args.userName || 'Colecionador'}</strong> (${args.userEmail}) respondeu em "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>":`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
+      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+    </table>
+    ${btn('Responder no painel →', `${APP_URL}/admin/tickets/${args.ticketId}`)}
+  `, `Nova resposta: ${args.subject}`)
+
+  return resend.emails.send({ from: FROM, to: args.to, subject: `[Suporte Bynx] Resposta: ${args.subject}`, html })
+}
+
+// ── 7. SUPORTE — resposta do admin (para o usuário) ──────────────────────────
+
+export async function sendAdminReplyUserEmail(args: {
+  to: string
+  userName?: string
+  ticketId: string
+  subject: string
+  message: string
+}) {
+  const firstName = args.userName?.split(' ')[0] || 'Colecionador'
+  const html = baseLayout(`
+    ${badge('Resposta da Equipe', '#22c55e', 'rgba(34,197,94,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Você tem uma nova resposta')}
+    ${p(`${firstName}, nossa equipe respondeu seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>":`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
+      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+    </table>
+    ${btn('Ver conversa completa →', `${APP_URL}/suporte/${args.ticketId}`)}
+    ${divider()}
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Para responder, basta abrir a conversa no botão acima. Você também pode responder este email, mas o caminho mais rápido é pelo app. 📬</p>
+  `, `Resposta para seu ticket: ${args.subject}`)
+
+  return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] ${args.subject}`, html })
+}
+
+// ── 8. SUPORTE — mudança de status (para o usuário) ──────────────────────────
+
+const STATUS_LABEL: Record<string, { label: string; color: string; emoji: string }> = {
+  open:        { label: 'Aberto',       color: '#f59e0b', emoji: '📬' },
+  in_progress: { label: 'Em andamento', color: '#60a5fa', emoji: '⚙️' },
+  resolved:    { label: 'Resolvido',    color: '#22c55e', emoji: '✅' },
+  closed:      { label: 'Fechado',      color: '#64748b', emoji: '📪' },
+}
+
+export async function sendTicketStatusChangedEmail(args: {
+  to: string
+  userName?: string
+  ticketId: string
+  subject: string
+  status: 'open' | 'in_progress' | 'resolved' | 'closed'
+}) {
+  const info = STATUS_LABEL[args.status] || STATUS_LABEL.open
+  const firstName = args.userName?.split(' ')[0] || 'Colecionador'
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:48px;line-height:1;">${info.emoji}</div>
+    </div>
+    ${h1(`Ticket ${info.label.toLowerCase()}`)}
+    ${p(`${firstName}, o status do seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>" foi atualizado para <strong style="color:${info.color};">${info.label}</strong>.`)}
+    ${args.status === 'resolved' ? p('Se ainda tiver dúvidas ou o problema voltar, é só responder o ticket — ele reabre automaticamente.') : ''}
+    ${btn('Ver ticket →', `${APP_URL}/suporte/${args.ticketId}`)}
+  `, `Seu ticket agora está ${info.label.toLowerCase()}`)
+
+  return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] ${info.label}: ${args.subject}`, html })
+}
+
+// ── Helper: escapa HTML em mensagens de usuário ──────────────────────────────
+
+function escapeHtml(s: string): string {
+  return (s || '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)
+  )
+}
