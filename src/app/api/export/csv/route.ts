@@ -3,9 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization')
     const userId = req.nextUrl.searchParams.get('userId')
-
     if (!userId) {
       return NextResponse.json({ error: 'userId required' }, { status: 400 })
     }
@@ -15,24 +13,30 @@ export async function GET(req: NextRequest) {
       process.env.SUPABASE_SERVICE_KEY!
     )
 
-    // Busca cartas do usuário com preços
+    // Query 1: cartas do usuário
     const { data: cards, error } = await supabase
       .from('user_cards')
-      .select(`
-        card_name, card_id, set_name, rarity, variante, quantity,
-        card_link, created_at,
-        card_prices ( preco_normal, preco_foil, preco_min, preco_medio, preco_max )
-      `)
+      .select('card_name, card_id, set_name, rarity, variante, quantity, card_link, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
     if (error) throw error
-
     if (!cards || cards.length === 0) {
       return new NextResponse('Nenhuma carta encontrada', { status: 404 })
     }
 
-    // Monta o CSV
+    // Query 2: preços das cartas
+    const cardNames = cards.map(c => c.card_name).filter(Boolean)
+    const { data: prices } = await supabase
+      .from('card_prices')
+      .select('card_name, preco_normal, preco_foil, preco_min, preco_medio, preco_max')
+      .in('card_name', cardNames)
+
+    // Mapa de preços por nome
+    const priceMap: Record<string, any> = {}
+    prices?.forEach(p => { priceMap[p.card_name] = p })
+
+    // Monta CSV
     const header = [
       'Nome', 'ID', 'Set', 'Raridade', 'Variante', 'Quantidade',
       'Preço Normal (R$)', 'Preço Foil (R$)', 'Preço Mín (R$)',
@@ -41,35 +45,30 @@ export async function GET(req: NextRequest) {
     ].join(',')
 
     const rows = cards.map(c => {
-      const prices = (c.card_prices as any) || {}
-      const precoUnit = c.variante === 'foil' ? (prices.preco_foil || 0) : (prices.preco_normal || 0)
-      const totalCard = precoUnit * (c.quantity || 1)
-      const addedAt = c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : ''
+      const p = priceMap[c.card_name] || {}
+      const precoUnit = c.variante === 'foil' ? (p.preco_foil || 0) : (p.preco_normal || 0)
+      const total = precoUnit * (c.quantity || 1)
+      const data = c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : ''
 
-      const escape = (val: any) => {
-        const str = String(val ?? '').replace(/"/g, '""')
-        return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str
+      const esc = (v: any) => {
+        const s = String(v ?? '')
+        return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s
       }
 
       return [
-        escape(c.card_name),
-        escape(c.card_id),
-        escape(c.set_name),
-        escape(c.rarity),
-        escape(c.variante),
+        esc(c.card_name), esc(c.card_id), esc(c.set_name), esc(c.rarity), esc(c.variante),
         c.quantity || 1,
-        (prices.preco_normal || 0).toFixed(2).replace('.', ','),
-        (prices.preco_foil || 0).toFixed(2).replace('.', ','),
-        (prices.preco_min || 0).toFixed(2).replace('.', ','),
-        (prices.preco_medio || 0).toFixed(2).replace('.', ','),
-        (prices.preco_max || 0).toFixed(2).replace('.', ','),
-        totalCard.toFixed(2).replace('.', ','),
-        escape(c.card_link),
-        addedAt,
+        (p.preco_normal || 0).toFixed(2).replace('.', ','),
+        (p.preco_foil || 0).toFixed(2).replace('.', ','),
+        (p.preco_min || 0).toFixed(2).replace('.', ','),
+        (p.preco_medio || 0).toFixed(2).replace('.', ','),
+        (p.preco_max || 0).toFixed(2).replace('.', ','),
+        total.toFixed(2).replace('.', ','),
+        esc(c.card_link), data,
       ].join(',')
     })
 
-    const csv = [header, ...rows].join('\n')
+    const csv = '\uFEFF' + [header, ...rows].join('\n') // BOM para Excel abrir em pt-BR
     const today = new Date().toISOString().split('T')[0]
 
     return new NextResponse(csv, {
