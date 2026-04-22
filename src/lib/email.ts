@@ -9,47 +9,85 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 
 function baseLayout(content: string, preheader = '') {
   return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="x-apple-disable-message-reformatting"/>
   <title>Bynx</title>
-  <!--[if mso]><style>td{font-family:Arial,sans-serif}</style><![endif]-->
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <style>td,th{font-family:Arial,sans-serif!important}v\:* {behavior:url(#default#VML)}o\:* {behavior:url(#default#VML)}</style>
+  <![endif]-->
+  <style>
+    body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+    img{-ms-interpolation-mode:bicubic}
+    body{margin:0!important;padding:0!important;background-color:#080a0f!important}
+    @media only screen and (max-width:600px){.container{width:100%!important;padding:20px 12px!important}}
+  </style>
 </head>
-<body style="margin:0;padding:0;background:#080a0f;font-family:'Segoe UI',Arial,sans-serif;">
-  ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>` : ''}
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#080a0f;min-height:100vh;">
-    <tr><td align="center" style="padding:40px 16px;">
-      <table width="100%" style="max-width:560px;" cellpadding="0" cellspacing="0">
+<body style="margin:0;padding:0;background-color:#080a0f;" bgcolor="#080a0f">
+  ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>` : ''}
 
-        <!-- Header -->
-        <tr><td style="padding-bottom:32px;text-align:center;">
-          <img src="${LOGO}" alt="Bynx" height="36" style="height:36px;width:auto;"/>
-        </td></tr>
+  <!-- Outer wrapper -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#080a0f" style="background-color:#080a0f;">
+    <tr>
+      <td align="center" style="padding:40px 16px;background-color:#080a0f;" bgcolor="#080a0f">
 
-        <!-- Card -->
-        <tr><td style="background:#0d0f14;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:40px 36px;">
-          ${content}
-        </td></tr>
+        <!-- Inner container -->
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;">
 
-        <!-- Footer -->
-        <tr><td style="padding-top:28px;text-align:center;color:rgba(255,255,255,0.25);font-size:12px;line-height:1.6;">
-          © 2026 Bynx · Feito para colecionadores brasileiros de Pokémon TCG<br/>
-          <a href="${APP_URL}" style="color:rgba(255,255,255,0.4);text-decoration:none;">bynx.gg</a>
-        </td></tr>
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom:32px;background-color:#080a0f;" bgcolor="#080a0f">
+              <img src="${LOGO}" alt="Bynx" height="36" width="auto" style="height:36px;width:auto;display:block;border:0;"/>
+            </td>
+          </tr>
 
-      </table>
-    </td></tr>
+          <!-- Card -->
+          <!--[if mso]>
+          <tr><td>
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" bgcolor="#0d0f14" style="background-color:#0d0f14;">
+          <tr><td style="padding:40px 36px;font-family:Arial,sans-serif;background-color:#0d0f14;" bgcolor="#0d0f14">
+          <![endif]-->
+          <!--[if !mso]><!-->
+          <tr>
+            <td style="background-color:#0d0f14;border-radius:20px;padding:40px 36px;border:1px solid #1f2937;" bgcolor="#0d0f14">
+          <!--<![endif]-->
+              ${content}
+          <!--[if mso]></td></tr></table></td></tr><![endif]-->
+          <!--[if !mso]><!-->
+            </td>
+          </tr>
+          <!--<![endif]-->
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding-top:28px;color:#4b5563;font-size:12px;line-height:1.6;font-family:Arial,sans-serif;background-color:#080a0f;" bgcolor="#080a0f">
+              © 2026 Bynx · Feito para colecionadores brasileiros de Pokémon TCG<br/>
+              <a href="${APP_URL}" style="color:#6b7280;text-decoration:none;">bynx.gg</a>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`
 }
 
 function btn(label: string, href: string, color = '#f59e0b') {
-  return `<table cellpadding="0" cellspacing="0" style="margin:28px auto 0;">
-    <tr><td style="background:linear-gradient(135deg,#f59e0b,#ef4444);border-radius:12px;">
-      <a href="${href}" style="display:block;padding:14px 32px;color:#000;font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap;">${label}</a>
-    </td></tr>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px auto 0;">
+    <tr>
+      <td align="center" bgcolor="#f59e0b" style="background-color:#f59e0b;border-radius:12px;mso-padding-alt:0;">
+        <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="25%" stroke="f" fillcolor="#f59e0b"><w:anchorlock/><center style="color:#000000;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${label}</center></v:roundrect><![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${href}" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#ef4444);border-radius:12px;color:#000;font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap;padding:14px 32px;font-family:Arial,sans-serif;">${label}</a>
+        <!--<![endif]-->
+      </td>
+    </tr>
   </table>`
 }
 
@@ -62,7 +100,7 @@ function p(text: string, style = '') {
 }
 
 function divider() {
-  return `<div style="height:1px;background:rgba(255,255,255,0.08);margin:28px 0;"></div>`
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;"><tr><td height="1" bgcolor="#1f2937" style="background-color:#1f2937;height:1px;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>`
 }
 
 function badge(text: string, color: string, bg: string) {
