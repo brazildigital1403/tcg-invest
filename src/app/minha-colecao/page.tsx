@@ -93,27 +93,34 @@ export default function MinhaColecao() {
   function handleExportCSV() {
     if (isPro) {
       const rows = [
-        ['Nome', 'Número', 'Variante', 'Raridade', 'Qtd', 'Preço Mín', 'Preço Médio', 'Preço Máx', 'Link'],
+        ['Nome', 'Número', 'Set', 'Variante', 'Raridade', 'Qtd', 'Preço Mín', 'Preço Médio', 'Preço Máx', 'Valor Total (R$)', 'Link', 'Adicionada em'],
         ...cards.map(c => {
           const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
           const p = c.price
-          const precos = !p ? { min: '', medio: '', max: '' }
-            : variante === 'foil'     ? { min: p.preco_foil_min || '', medio: p.preco_foil_medio || '', max: p.preco_foil_max || '' }
-            : variante === 'promo'    ? { min: p.preco_promo_min || '', medio: p.preco_promo_medio || '', max: p.preco_promo_max || '' }
-            : variante === 'reverse'  ? { min: p.preco_reverse_min || '', medio: p.preco_reverse_medio || '', max: p.preco_reverse_max || '' }
-            : variante === 'pokeball' ? { min: p.preco_pokeball_min || '', medio: p.preco_pokeball_medio || '', max: p.preco_pokeball_max || '' }
-            : { min: p.preco_min || '', medio: p.preco_medio || '', max: p.preco_max || '' }
+          const precos = !p ? { min: 0, medio: 0, max: 0 }
+            : variante === 'foil'     ? { min: p.preco_foil_min || 0, medio: p.preco_foil_medio || 0, max: p.preco_foil_max || 0 }
+            : variante === 'promo'    ? { min: p.preco_promo_min || 0, medio: p.preco_promo_medio || 0, max: p.preco_promo_max || 0 }
+            : variante === 'reverse'  ? { min: p.preco_reverse_min || 0, medio: p.preco_reverse_medio || 0, max: p.preco_reverse_max || 0 }
+            : variante === 'pokeball' ? { min: p.preco_pokeball_min || 0, medio: p.preco_pokeball_medio || 0, max: p.preco_pokeball_max || 0 }
+            : { min: p.preco_min || 0, medio: p.preco_medio || 0, max: p.preco_max || 0 }
+          const qty = c.quantity || 1
+          const valorTotal = (precos.medio * qty).toFixed(2).replace('.', ',')
           const numMatch = c.card_name?.match(/\(([^)]+)\)/)
+          const addedAt = c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : ''
+          const fmtPreco = (v: number) => v > 0 ? v.toFixed(2).replace('.', ',') : ''
           return [
             c.card_name?.replace(/\s*\([^)]*\)/, '').trim() || '',
             numMatch?.[1] || '',
+            c.set_name || '',
             variante.charAt(0).toUpperCase() + variante.slice(1),
             c.rarity || '',
-            c.quantity || 1,
-            precos.min,
-            precos.medio,
-            precos.max,
+            qty,
+            fmtPreco(precos.min),
+            fmtPreco(precos.medio),
+            fmtPreco(precos.max),
+            valorTotal,
             c.card_link || '',
+            addedAt,
           ]
         })
       ]

@@ -588,15 +588,7 @@ export default function DashboardFinanceiro() {
                 Buscar na API
               </button>
             )}
-            {isPro && userId && (
-              <button
-                onClick={() => { window.location.href = `/api/export/csv?userId=${userId}` }}
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', padding: '12px 20px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-              >
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4M4 17h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Exportar CSV
-              </button>
-            )}
+
           </div>
         </div>
 
