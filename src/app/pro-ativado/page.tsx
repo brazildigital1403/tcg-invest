@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -15,7 +15,7 @@ const PERKS = [
   { icon: '📤', label: 'Exportar CSV' },
 ]
 
-export default function ProAtivadoPage() {
+function ProAtivadoContent() {
   const params = useSearchParams()
   const plano = params.get('plano') || 'mensal'
   const [show, setShow] = useState(false)
