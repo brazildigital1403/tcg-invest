@@ -346,8 +346,9 @@ export default function DashboardFinanceiro() {
         }
         setStats({ totalCompras: compras, totalVendas: vendas, quantidade: cards?.length || 0, valorColecao: valorTotal })
 
-        // Onboarding — mostra para quem nunca viu
-        const visto = localStorage.getItem('onboarding-visto')
+        // Onboarding — por usuário (chave inclui userId)
+        const obKey = `onboarding-visto-${uid}`
+        const visto = localStorage.getItem(obKey)
         if (!visto) {
           setShowOnboarding(true)
         }
@@ -922,10 +923,9 @@ export default function DashboardFinanceiro() {
       )}
       {showOnboarding && (
         <OnboardingModal
-          userName={userName}
           onClose={() => {
             setShowOnboarding(false)
-            localStorage.setItem('onboarding-visto', '1')
+            localStorage.setItem(`onboarding-visto-${userId}`, '1')
           }}
         />
       )}
