@@ -786,11 +786,11 @@ export default function Home() {
                   { name:'Umbreon ex', set:'PAL', price:'R$210', foil:true, var:'Foil', img:'https://images.pokemontcg.io/sv2/210_hires.png', fb:'🌙' },
                 ].map((c,i)=>(
                   <div key={i} style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${c.foil ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius:12, padding:'12px 10px', animation:`bynx-cardin 0.4s ${0.1*i}s ease both` }}>
-                    <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:8, height:90, marginBottom:8, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:8, height:130, marginBottom:8, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center' }}>
                       <img
                         src={c.img}
                         alt={c.name}
-                        style={{ height:'100%', width:'100%', objectFit:'cover' }}
+                        style={{ height:'100%', width:'100%', objectFit:'contain' }}
                         onError={(e) => { const t = e.currentTarget; t.style.display='none'; (t.nextSibling as any).style.display='flex'; }}
                       />
                       <div style={{ display:'none', alignItems:'center', justifyContent:'center', width:'100%', height:'100%', fontSize:24 }}>{c.fb}</div>
