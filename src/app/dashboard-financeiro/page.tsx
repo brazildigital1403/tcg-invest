@@ -270,7 +270,7 @@ export default function DashboardFinanceiro() {
 
         const { isPro: pro, isTrial: trial } = await getUserPlan(uid)
         setIsPro(pro || trial)
-        setIsTrial(trial && !pro)
+        setIsTrial(trial)  // trial já indica trial, independente de isPro
         const { data: txns } = await supabase
           .from('transactions')
           .select('*')
@@ -547,9 +547,9 @@ export default function DashboardFinanceiro() {
               </p>
               <span style={{
                 fontSize: 10, fontWeight: 800, padding: '2px 9px', borderRadius: 100, letterSpacing: '0.08em',
-                background: isPro ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${isPro ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.12)'}`,
-                color: isPro ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                background: isTrial ? 'rgba(96,165,250,0.12)' : isPro ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${isTrial ? 'rgba(96,165,250,0.35)' : isPro ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.12)'}`,
+                color: isTrial ? '#60a5fa' : isPro ? '#f59e0b' : 'rgba(255,255,255,0.5)',
               }}>
                 {isPro && !isTrial ? 'PRO ✦' : isTrial ? 'TRIAL ✦' : 'FREE'}
               </span>
