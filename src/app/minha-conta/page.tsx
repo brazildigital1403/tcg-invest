@@ -529,8 +529,8 @@ export default function MinhaConta() {
         <div style={SURFACE}>
           <p style={SECTION_TITLE}><IconCard size={13} color='currentColor' style={{marginRight:6,verticalAlign:'middle'}} />Assinatura</p>
 
-          {/* Trial banner */}
-          {isTrial && (
+          {/* Trial banner — só mostra se ainda não assinou */}
+          {isTrial && !isPro && (
             <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(239,68,68,0.08))', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 14, padding: '16px 20px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <p style={{ fontSize: 14, fontWeight: 800, color: '#f59e0b', marginBottom: 4 }}>
