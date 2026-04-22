@@ -92,6 +92,7 @@ export default function MinhaConta() {
   const [isPro, setIsPro] = useState(false)
   const [isTrial, setIsTrial] = useState(false)
   const [trialDaysLeft, setTrialDaysLeft] = useState(0)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [loadingCheckout, setLoadingCheckout] = useState<string | null>(null)
   const [userData, setUserData] = useState<any>(null)
   const [cardCount, setCardCount] = useState(0)
@@ -653,10 +654,10 @@ export default function MinhaConta() {
                   </p>
                 </div>
                 <button
-                  onClick={() => handleCheckout('mensal')}
+                  onClick={() => setShowUpgradeModal(true)}
                   style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '10px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
                 >
-                  Assinar Pro →
+                  Escolher plano →
                 </button>
               </div>
             </div>
@@ -801,6 +802,92 @@ export default function MinhaConta() {
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
+      {/* ── Modal de escolha de plano ── */}
+      {showUpgradeModal && (
+        <div
+          onClick={() => setShowUpgradeModal(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '36px 32px', width: '100%', maxWidth: 480, fontFamily: 'inherit' }}
+          >
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>✦ Assinar Bynx Pro</p>
+              <h2 style={{ fontSize: 24, fontWeight: 900, color: '#f0f0f0', letterSpacing: '-0.03em', margin: '0 0 8px' }}>Escolha seu plano</h2>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Acesso completo a todas as funcionalidades</p>
+            </div>
+
+            {/* Cards de plano */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+
+              {/* Anual — destaque */}
+              <div style={{ background: 'rgba(245,158,11,0.08)', border: '2px solid rgba(245,158,11,0.4)', borderRadius: 14, padding: '20px 20px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, right: 0, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius: '0 14px 0 12px', padding: '4px 12px' }}>
+                  <p style={{ fontSize: 9, fontWeight: 800, color: '#000', letterSpacing: '0.08em' }}>MAIS POPULAR</p>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b', marginBottom: 2 }}>Pro Anual</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>2 meses grátis · Melhor custo-benefício</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>R$249</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>R$20,75/mês</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowUpgradeModal(false); handleCheckout('anual') }}
+                  disabled={loadingCheckout === 'anual'}
+                  style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  {loadingCheckout === 'anual' ? 'Aguarde...' : 'Assinar por R$249/ano →'}
+                </button>
+              </div>
+
+              {/* Mensal */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '20px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>Pro Mensal</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Cancele quando quiser</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>R$29,90</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>por mês</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowUpgradeModal(false); handleCheckout('mensal') }}
+                  disabled={loadingCheckout === 'mensal'}
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', color: '#f0f0f0', padding: '12px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  {loadingCheckout === 'mensal' ? 'Aguarde...' : 'Assinar por R$29,90/mês'}
+                </button>
+              </div>
+            </div>
+
+            {/* Benefícios */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 20 }}>
+              {['Cartas ilimitadas', 'Perfil público', 'Marketplace ilimitado', 'Alertas de preço', 'Scan com IA', 'Exportar CSV'].map(b => (
+                <p key={b} style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#22c55e', fontSize: 10 }}>✓</span> {b}
+                </p>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              style={{ width: '100%', background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: '8px' }}
+            >
+              Continuar no trial por agora
+            </button>
+          </div>
+        </div>
+      )}
+
     </AppLayout>
   )
 }
