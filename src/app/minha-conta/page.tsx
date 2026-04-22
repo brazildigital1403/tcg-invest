@@ -318,7 +318,8 @@ export default function MinhaConta() {
     )
   }
 
-  const planoFree = !isPro
+  const planoFree = !isPro && !isTrial
+  const isPaidPro = isPro && !isTrial  // Pro pago (não trial)
   const LIMITE_FREE = 6 // plano Free
 
   return (
@@ -359,12 +360,12 @@ export default function MinhaConta() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             <div style={{
               padding: '6px 14px', borderRadius: 100,
-              background: planoFree ? 'rgba(255,255,255,0.06)' : 'rgba(245,158,11,0.12)',
-              border: `1px solid ${planoFree ? 'rgba(255,255,255,0.1)' : 'rgba(245,158,11,0.3)'}`,
+              background: planoFree ? 'rgba(255,255,255,0.06)' : isTrial ? 'rgba(96,165,250,0.1)' : 'rgba(245,158,11,0.12)',
+              border: `1px solid ${planoFree ? 'rgba(255,255,255,0.1)' : isTrial ? 'rgba(96,165,250,0.3)' : 'rgba(245,158,11,0.3)'}`,
               fontSize: 12, fontWeight: 700,
-              color: planoFree ? 'rgba(255,255,255,0.4)' : '#f59e0b',
+              color: planoFree ? 'rgba(255,255,255,0.4)' : isTrial ? '#60a5fa' : '#f59e0b',
             }}>
-              {planoFree ? 'Plano Free' : 'Plano Pro ✦'}
+              {planoFree ? 'Plano Free' : isTrial ? `⏳ Trial — ${trialDaysLeft}d` : 'Plano Pro ✦'}
             </div>
             <button
               onClick={() => {
@@ -551,7 +552,7 @@ export default function MinhaConta() {
             </div>
           )}
 
-          {planoFree && !isTrial ? (
+          {planoFree ? (
             <>
               {/* Plano atual + barra de uso */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
@@ -637,8 +638,30 @@ export default function MinhaConta() {
                 </div>
               </div>
             </>
+          ) : isTrial ? (
+            /* Trial ativo */
+            <div style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 12, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 18 }}>⏳</span>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#60a5fa' }}>Pro Trial ativo</p>
+                    <span style={{ fontSize: 10, background: 'rgba(96,165,250,0.15)', color: '#60a5fa', padding: '2px 8px', borderRadius: 100, fontWeight: 700 }}>TRIAL</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
+                    {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''} restante{trialDaysLeft !== 1 ? 's' : ''} · Acesso completo ao Pro
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleCheckout('mensal')}
+                  style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '10px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                >
+                  Assinar Pro →
+                </button>
+              </div>
+            </div>
           ) : (
-            /* Plano Pro ativo */
+            /* Plano Pro pago ativo */
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
                 <div>
