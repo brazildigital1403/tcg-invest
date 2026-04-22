@@ -130,7 +130,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onClick={e => e.stopPropagation()}
         >
           <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 700 }}>Notificações {notifs.length > 0 && <span style={{ fontSize: 11, color: '#ef4444' }}>({notifs.length})</span>}</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>Notificações {notifs.length > 0 && <span style={{ fontSize: 11, color: '#ef4444' }}>({notifs.length})</span>}</p>
             {notifs.length > 0 && (
               <button
                 onClick={async () => {
