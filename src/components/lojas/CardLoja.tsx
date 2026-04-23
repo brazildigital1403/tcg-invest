@@ -1,9 +1,48 @@
 import { CSSProperties } from 'react'
 import Link from 'next/link'
+import { Metadata } from 'next'
+import { supabase } from '@/lib/supabaseClient'
+import PublicHeader from '@/components/ui/PublicHeader'
+import PublicFooter from '@/components/ui/PublicFooter'
+import CardLoja from '@/components/lojas/CardLoja'
+import FiltrosGuia from '@/components/lojas/FiltrosGuia'
 
-// ─── Tipos (espelham src/app/lojas/page.tsx) ──────────────────────────────────
+// ─── Config ───────────────────────────────────────────────────────────────────
 
-interface LojaCard {
+export const revalidate = 60 // ISR: cache por 60s
+
+interface SearchParams {
+  q?: string
+  estado?: string
+  tipo?: string
+  especialidade?: string
+}
+
+// ─── SEO dinâmico ─────────────────────────────────────────────────────────────
+
+export async function generateMetadata(
+  { searchParams }: { searchParams: Promise<SearchParams> }
+): Promise<Metadata> {
+  const sp = await searchParams
+  const partes: string[] = ['Guia de Lojas de TCG']
+  if (sp.especialidade) partes[0] = `Lojas de ${capitalize(sp.especialidade)}`
+  if (sp.estado) partes.push(`em ${sp.estado}`)
+
+  const title = partes.join(' ')
+  const description =
+    'Encontre as melhores lojas de TCG do Brasil. Pokémon, Magic, Yu-Gi-Oh, Lorcana e mais. Lojas físicas e online.'
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: 'website' },
+    twitter: { card: 'summary_large_image', title, description },
+  }
+}
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+export interface LojaCard {
   id: string
   slug: string
   nome: string
@@ -17,93 +56,116 @@ interface LojaCard {
   logo_url: string | null
 }
 
-// ─── Labels ───────────────────────────────────────────────────────────────────
+const ORDEM_PLANO: Record<string, number> = { premium: 0, pro: 1, basico: 2 }
 
-const TIPO_LABEL: Record<string, string> = {
-  fisica: 'Física',
-  online: 'Online',
-  ambas: 'Física + Online',
-}
+// ─── Página ───────────────────────────────────────────────────────────────────
 
-const ESPECIALIDADE_LABEL: Record<string, string> = {
-  pokemon: 'Pokémon',
-  magic: 'Magic',
-  yugioh: 'Yu-Gi-Oh!',
-  lorcana: 'Lorcana',
-  digimon: 'Digimon',
-  outros: 'Outros',
-}
+export default async function LojasPage(
+  { searchParams }: { searchParams: Promise<SearchParams> }
+) {
+  const sp = await searchParams
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+  // Monta query
+  let query = supabase
+    .from('lojas')
+    .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url')
+    .eq('status', 'ativa')
+    .limit(200)
 
-export default function CardLoja({ loja }: { loja: LojaCard }) {
-  const isPremium = loja.plano === 'premium'
-  const isPro = loja.plano === 'pro'
+  if (sp.q?.trim())             query = query.ilike('nome', `%${sp.q.trim()}%`)
+  if (sp.estado?.trim())        query = query.eq('estado', sp.estado.trim().toUpperCase())
+  if (sp.tipo?.trim())          query = query.eq('tipo', sp.tipo.trim())
+  if (sp.especialidade?.trim()) query = query.contains('especialidades', [sp.especialidade.trim()])
 
-  // Cor da inicial (fallback quando não tem logo): hash simples do nome
-  const inicial = loja.nome.trim().charAt(0).toUpperCase() || '?'
+  const { data, error } = await query
+  const lojas: LojaCard[] = (data || []) as LojaCard[]
+
+  // Ordenação: premium > pro > basico, depois verificadas primeiro
+  lojas.sort((a, b) => {
+    const diff = (ORDEM_PLANO[a.plano] ?? 99) - (ORDEM_PLANO[b.plano] ?? 99)
+    if (diff !== 0) return diff
+    if (a.verificada !== b.verificada) return a.verificada ? -1 : 1
+    return 0
+  })
+
+  const totalResultados = lojas.length
+  const temFiltro = !!(sp.q || sp.estado || sp.tipo || sp.especialidade)
 
   return (
-    <Link href={`/lojas/${loja.slug}`} style={{ ...S.card, ...(isPremium ? S.cardPremium : {}) }}>
-      {/* Badge de plano (só Premium/Pro) */}
-      {isPremium && <div style={S.badgePremium}>Premium</div>}
-      {isPro && <div style={S.badgePro}>Pro</div>}
+    <div style={S.page}>
+      <PublicHeader />
 
-      {/* Header: logo + nome + verificado */}
-      <div style={S.headerRow}>
-        {loja.logo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={loja.logo_url} alt={loja.nome} style={S.logo} />
-        ) : (
-          <div style={S.logoFallback}>{inicial}</div>
-        )}
-        <div style={S.nameBlock}>
-          <div style={S.nameRow}>
-            <h3 style={S.name}>{loja.nome}</h3>
-            {loja.verificada && (
-              <span style={S.verifiedBadge} title="Loja verificada pelo Bynx">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2l2.5 4.5L20 8l-4 4 1 6-5-2.5L7 18l1-6-4-4 5.5-1.5z" />
-                </svg>
-              </span>
-            )}
+      {/* Spacer pro header fixed (62px) */}
+      <div style={{ height: 62 }} />
+
+      {/* ─── Hero ───────────────────────────────────────────────── */}
+      <section style={S.hero}>
+        <h1 style={S.heroTitle}>Guia de Lojas</h1>
+        <p style={S.heroSubtitle}>
+          Encontre lojas de TCG do Brasil. Físicas e online, com especialidade em Pokémon, Magic, Yu-Gi-Oh e mais.
+        </p>
+      </section>
+
+      {/* ─── Filtros ────────────────────────────────────────────── */}
+      <FiltrosGuia
+        initialQ={sp.q || ''}
+        initialEstado={sp.estado || ''}
+        initialTipo={sp.tipo || ''}
+        initialEspecialidade={sp.especialidade || ''}
+      />
+
+      {/* ─── Resultados ─────────────────────────────────────────── */}
+      <section style={S.resultsSection}>
+        {error && (
+          <div style={S.errorBox}>
+            Erro ao carregar lojas. Tente recarregar a página.
           </div>
-          <p style={S.location}>{loja.cidade}, {loja.estado}</p>
+        )}
+
+        {!error && (
+          <>
+            <p style={S.resultCount}>
+              {totalResultados === 0
+                ? (temFiltro ? 'Nenhuma loja encontrada para esses filtros.' : 'Nenhuma loja cadastrada ainda.')
+                : `${totalResultados} ${totalResultados === 1 ? 'loja encontrada' : 'lojas encontradas'}`}
+            </p>
+
+            {totalResultados > 0 && (
+              <div style={S.grid}>
+                {lojas.map(loja => (
+                  <CardLoja key={loja.id} loja={loja} />
+                ))}
+              </div>
+            )}
+
+            {totalResultados === 0 && temFiltro && (
+              <Link href="/lojas" style={S.clearFiltersLink}>
+                Limpar filtros
+              </Link>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* ─── CTA Lojista ────────────────────────────────────────── */}
+      <section style={S.ctaSection}>
+        <div style={S.ctaBox}>
+          <h2 style={S.ctaTitle}>Tem uma loja de TCG?</h2>
+          <p style={S.ctaSubtitle}>
+            Seja encontrado por milhares de colecionadores brasileiros. Comece grátis.
+          </p>
+          <Link href="/minha-loja" style={S.ctaButton}>
+            Cadastrar minha loja →
+          </Link>
         </div>
-      </div>
+      </section>
 
-      {/* Descrição (se houver) */}
-      {loja.descricao && (
-        <p style={S.description}>{truncate(loja.descricao, 90)}</p>
-      )}
-
-      {/* Tipo */}
-      <div style={S.metaRow}>
-        <span style={S.typeChip}>{TIPO_LABEL[loja.tipo] || loja.tipo}</span>
-      </div>
-
-      {/* Especialidades */}
-      {loja.especialidades.length > 0 && (
-        <div style={S.chipsRow}>
-          {loja.especialidades.slice(0, 4).map(esp => (
-            <span key={esp} style={S.chip}>
-              {ESPECIALIDADE_LABEL[esp] || capitalize(esp)}
-            </span>
-          ))}
-          {loja.especialidades.length > 4 && (
-            <span style={S.chip}>+{loja.especialidades.length - 4}</span>
-          )}
-        </div>
-      )}
-    </Link>
+      <PublicFooter />
+    </div>
   )
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function truncate(s: string, max: number) {
-  return s.length <= max ? s : s.slice(0, max - 1).trimEnd() + '…'
-}
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -112,148 +174,114 @@ function capitalize(s: string) {
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const S: Record<string, CSSProperties> = {
-  card: {
-    position: 'relative',
+  page: {
+    minHeight: '100vh',
+    background: '#080a0f',
+    color: '#f0f0f0',
+    fontFamily: "'DM Sans', system-ui, sans-serif",
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
-    background: '#0d0f14',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    padding: 20,
-    textDecoration: 'none',
-    color: 'inherit',
-    transition: 'all 0.18s ease',
-    overflow: 'hidden',
-  },
-  cardPremium: {
-    border: '1px solid rgba(245,158,11,0.35)',
-    background: 'linear-gradient(180deg, rgba(245,158,11,0.04), #0d0f14 40%)',
-    boxShadow: '0 0 0 1px rgba(245,158,11,0.12), 0 8px 24px rgba(245,158,11,0.06)',
   },
 
-  badgePremium: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    fontSize: 10,
+  hero: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '64px 24px 32px',
+    textAlign: 'center',
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+  heroTitle: {
+    fontSize: 44,
     fontWeight: 800,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    padding: '4px 8px',
-    borderRadius: 6,
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    color: '#000',
-  },
-  badgePro: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    padding: '4px 8px',
-    borderRadius: 6,
-    background: 'rgba(245,158,11,0.15)',
-    color: '#f59e0b',
-    border: '1px solid rgba(245,158,11,0.25)',
-  },
-
-  headerRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    paddingRight: 60, // espaço pro badge de plano
-  },
-  logo: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    objectFit: 'cover',
-    background: 'rgba(255,255,255,0.05)',
-    flexShrink: 0,
-  },
-  logoFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    color: '#000',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 22,
-    fontWeight: 800,
-    flexShrink: 0,
-  },
-  nameBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-    minWidth: 0,
-  },
-  nameRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    minWidth: 0,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: 700,
+    letterSpacing: '-0.03em',
     margin: 0,
-    letterSpacing: '-0.01em',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
+    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.55)',
+    margin: '12px auto 0',
+    maxWidth: 580,
+    lineHeight: 1.6,
+  },
+
+  resultsSection: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '20px 24px 48px',
+    width: '100%',
+    boxSizing: 'border-box',
+    flex: 1,
+  },
+  resultCount: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
+    margin: '0 0 20px',
+    fontWeight: 500,
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gap: 16,
+  },
+  errorBox: {
+    background: 'rgba(239,68,68,0.08)',
+    border: '1px solid rgba(239,68,68,0.25)',
+    borderRadius: 12,
+    padding: 16,
+    color: '#ef4444',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  clearFiltersLink: {
+    display: 'inline-block',
+    marginTop: 16,
+    color: '#f59e0b',
+    fontSize: 14,
+    fontWeight: 600,
+    textDecoration: 'none',
+  },
+
+  ctaSection: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '24px 24px 64px',
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+  ctaBox: {
+    background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.08))',
+    border: '1px solid rgba(245,158,11,0.2)',
+    borderRadius: 20,
+    padding: '40px 28px',
+    textAlign: 'center',
+  },
+  ctaTitle: {
+    fontSize: 24,
+    fontWeight: 700,
+    letterSpacing: '-0.02em',
+    margin: 0,
     color: '#f0f0f0',
   },
-  verifiedBadge: {
-    color: '#f59e0b',
-    display: 'inline-flex',
-    flexShrink: 0,
-  },
-  location: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.45)',
-    margin: 0,
-  },
-
-  description: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.55)',
-    margin: 0,
+  ctaSubtitle: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.6)',
+    margin: '8px 0 24px',
     lineHeight: 1.5,
   },
-
-  metaRow: {
-    display: 'flex',
-    gap: 6,
-  },
-  typeChip: {
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '4px 10px',
-    borderRadius: 6,
-    background: 'rgba(96,165,250,0.1)',
-    color: '#60a5fa',
-    border: '1px solid rgba(96,165,250,0.2)',
-  },
-
-  chipsRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 'auto',
-  },
-  chip: {
-    fontSize: 11,
-    fontWeight: 500,
-    padding: '4px 10px',
-    borderRadius: 6,
-    background: 'rgba(255,255,255,0.04)',
-    color: 'rgba(255,255,255,0.6)',
-    border: '1px solid rgba(255,255,255,0.08)',
+  ctaButton: {
+    display: 'inline-block',
+    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    color: '#000',
+    fontSize: 14,
+    fontWeight: 700,
+    padding: '12px 28px',
+    borderRadius: 10,
+    textDecoration: 'none',
+    letterSpacing: '-0.01em',
   },
 }
