@@ -276,6 +276,7 @@ export default function Home() {
   const [showPassword, setShowPassword] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [forgotStep, setForgotStep] = useState(false) // true = tela de recuperar senha
+  const [signupStep, setSignupStep] = useState(1) // 1 = conta, 2 = perfil + aceites
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
@@ -1241,88 +1242,95 @@ export default function Home() {
                     const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }
                     return (
                     <>
-                      {/* Nome */}
-                      <div>
-                        <label style={lbl}>Nome completo *</label>
-                        <Campo erro={touched.name ? erros.name : undefined}>
-                          <input type="text" placeholder="Seu nome completo"
-                            value={name}
-                            onChange={e => { setName(e.target.value); if (touched.name) setErros(validarCampos()) }}
-                            onBlur={() => handleBlur('name')}
-                            style={inputStyle(touched.name ? erros.name : undefined, touched.name && !erros.name && name.length > 3)}
-                          />
-                        </Campo>
+                      {/* Indicador de etapas */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        {[1,2].map(s => (
+                          <div key={s} style={{ flex: 1, height: 3, borderRadius: 100, background: s <= signupStep ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
+                        ))}
                       </div>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 12 }}>
+                        Etapa {signupStep} de 2 — {signupStep === 1 ? 'Dados da conta' : 'Perfil e aceites'}
+                      </p>
 
-                      {/* CPF */}
-                      <div>
-                        <label style={lbl}>CPF</label>
-                        <Campo erro={touched.cpf ? erros.cpf : undefined}>
-                          <input type="text" placeholder="000.000.000-00"
-                            value={cpf}
-                            onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
-                            onBlur={() => handleBlur('cpf')}
-                            style={inputStyle(touched.cpf ? erros.cpf : undefined, touched.cpf && !erros.cpf && cpf.length > 0)}
-                          />
-                        </Campo>
-                      </div>
-
-                      {/* Cidade + WhatsApp */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <div>
-                          <label style={lbl}>Cidade</label>
-                          <Campo erro={touched.city ? erros.city : undefined}>
-                            <input type="text" placeholder="São Paulo"
-                              value={city}
-                              onChange={e => { setCity(e.target.value); if (touched.city) setErros(validarCampos()) }}
-                              onBlur={() => handleBlur('city')}
-                              style={inputStyle(touched.city ? erros.city : undefined, touched.city && !erros.city && city.length > 0)}
+                      {/* ── ETAPA 1: Nome, E-mail, Senha, Nascimento ── */}
+                      {signupStep === 1 && (
+                        <>
+                          <div>
+                            <label style={lbl}>Nome completo *</label>
+                            <Campo erro={touched.name ? erros.name : undefined}>
+                              <input type="text" placeholder="Seu nome completo"
+                                value={name}
+                                onChange={e => { setName(e.target.value); if (touched.name) setErros(validarCampos()) }}
+                                onBlur={() => handleBlur('name')}
+                                style={inputStyle(touched.name ? erros.name : undefined, touched.name && !erros.name && name.length > 3)}
+                              />
+                            </Campo>
+                          </div>
+                          <div>
+                            <label style={lbl}>Data de nascimento *</label>
+                            <input type="date" value={dataNasc} onChange={e => setDataNasc(e.target.value)}
+                              max={new Date().toISOString().split('T')[0]}
+                              style={{ ...inputStyle(), width: '100%', colorScheme: 'dark' }}
                             />
-                          </Campo>
-                        </div>
-                        <div>
-                          <label style={lbl}>WhatsApp</label>
-                          <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
-                            <input type="text" placeholder="(11) 99999-9999"
-                              value={whatsapp}
-                              onChange={e => { setWhatsapp(formatarWhatsApp(e.target.value)); if (touched.whatsapp) setErros(validarCampos()) }}
-                              onBlur={() => handleBlur('whatsapp')}
-                              style={inputStyle(touched.whatsapp ? erros.whatsapp : undefined, touched.whatsapp && !erros.whatsapp && whatsapp.length > 0)}
-                            />
-                          </Campo>
-                        </div>
-                      </div>
-
-                      {/* Data de nascimento */}
-                      <div>
-                        <label style={lbl}>Data de nascimento *</label>
-                        <input
-                          type="date"
-                          value={dataNasc}
-                          onChange={e => setDataNasc(e.target.value)}
-                          max={new Date().toISOString().split('T')[0]}
-                          style={{ ...inputStyle(), width: '100%', colorScheme: 'dark' }}
-                        />
-                      </div>
-
-                      {/* Bloqueio menor de 13 */}
-                      {menorDe13 && (
-                        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 14px' }}>
-                          <p style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}>🔒 <strong>Cadastro não permitido.</strong> O Bynx não permite cadastro de menores de 13 anos (LGPD, Art. 14).</p>
-                        </div>
+                          </div>
+                          {menorDe13 && (
+                            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 14px' }}>
+                              <p style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}>🔒 <strong>Cadastro não permitido.</strong> O Bynx não permite cadastro de menores de 13 anos (LGPD, Art. 14).</p>
+                            </div>
+                          )}
+                          {entre13e17 && (
+                            <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '12px 14px' }}>
+                              <p style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1.5 }}>⚠️ Ao continuar, declare que possui autorização de um responsável legal (LGPD, Art. 14).</p>
+                            </div>
+                          )}
+                        </>
                       )}
 
-                      {/* Aviso 13-17 */}
-                      {entre13e17 && (
-                        <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '12px 14px' }}>
-                          <p style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1.5 }}>⚠️ Ao continuar, você declara que possui autorização de um responsável legal (LGPD, Art. 14).</p>
-                        </div>
+                      {/* ── ETAPA 2: CPF, Cidade, WhatsApp, Aceites ── */}
+                      {signupStep === 2 && (
+                        <>
+                          <div>
+                            <label style={lbl}>CPF</label>
+                            <Campo erro={touched.cpf ? erros.cpf : undefined}>
+                              <input type="text" placeholder="000.000.000-00"
+                                value={cpf}
+                                onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
+                                onBlur={() => handleBlur('cpf')}
+                                style={inputStyle(touched.cpf ? erros.cpf : undefined, touched.cpf && !erros.cpf && cpf.length > 0)}
+                              />
+                            </Campo>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                            <div>
+                              <label style={lbl}>Cidade</label>
+                              <Campo erro={touched.city ? erros.city : undefined}>
+                                <input type="text" placeholder="São Paulo"
+                                  value={city}
+                                  onChange={e => { setCity(e.target.value); if (touched.city) setErros(validarCampos()) }}
+                                  onBlur={() => handleBlur('city')}
+                                  style={inputStyle(touched.city ? erros.city : undefined, touched.city && !erros.city && city.length > 0)}
+                                />
+                              </Campo>
+                            </div>
+                            <div>
+                              <label style={lbl}>WhatsApp</label>
+                              <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
+                                <input type="text" placeholder="(11) 99999-9999"
+                                  value={whatsapp}
+                                  onChange={e => { setWhatsapp(formatarWhatsApp(e.target.value)); if (touched.whatsapp) setErros(validarCampos()) }}
+                                  onBlur={() => handleBlur('whatsapp')}
+                                  style={inputStyle(touched.whatsapp ? erros.whatsapp : undefined, touched.whatsapp && !erros.whatsapp && whatsapp.length > 0)}
+                                />
+                              </Campo>
+                            </div>
+                          </div>
+                        </>
                       )}
                     </>
                     )
                   })()}
 
-                  <div>
+                  {(!isLogin ? signupStep === 1 : true) && <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }}>E-mail *</label>
                   <Campo erro={touched.email ? erros.email : undefined}>
                     <input type="email" placeholder="seu@email.com"
@@ -1332,9 +1340,9 @@ export default function Home() {
                       style={inputStyle(touched.email ? erros.email : undefined, touched.email && !erros.email && email.length > 0)}
                     />
                   </Campo>
-                  </div>
+                  </div>}
 
-                  <div>
+                  {(!isLogin ? signupStep === 1 : true) && <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }}>Senha *</label>
                   <Campo erro={touched.password ? erros.password : undefined}>
                     <div style={{ position: 'relative' }}>
@@ -1365,10 +1373,10 @@ export default function Home() {
                       )
                     })()}
                   </Campo>
-                  </div>
+                  </div>}
 
-                  {/* Aceites — só no cadastro */}
-                  {!isLogin && (
+                  {/* Aceites — etapa 2 do cadastro */}
+                  {!isLogin && signupStep === 2 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px' }}>
                       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
                         <input type="checkbox" checked={termosAceito} onChange={e => setTermosAceito(e.target.checked)}
@@ -1398,18 +1406,41 @@ export default function Home() {
                     </div>
                   )}
 
-                  <button onClick={handleAuth} disabled={loading}
-                    style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1, marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    {loading ? (
-                      <>
-                        <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                        Carregando...
-                      </>
-                    ) : isLogin ? 'Entrar →' 
-                      : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
-                      : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
-                      : 'Criar conta grátis →'}
-                  </button>
+                  {/* Botões de navegação */}
+                  {!isLogin && signupStep === 1 ? (
+                    <button
+                      disabled={!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13}
+                      onClick={() => {
+                        const e = validarCampos()
+                        if (e.name || e.email || e.password) { setErros(e); setTouched({ name: true, email: true, password: true }); return }
+                        if (!dataNasc) { setServerError('Informe sua data de nascimento.'); return }
+                        setServerError(''); setSignupStep(2)
+                      }}
+                      style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15, marginTop: 4, opacity: (!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13) ? 0.5 : 1 }}>
+                      Continuar →
+                    </button>
+                  ) : (
+                    <>
+                      {!isLogin && (
+                        <button onClick={() => setSignupStep(1)}
+                          style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)', padding: '11px', borderRadius: 10, fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
+                          ← Voltar
+                        </button>
+                      )}
+                      <button onClick={handleAuth} disabled={loading}
+                        style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1, marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        {loading ? (
+                          <>
+                            <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                            Carregando...
+                          </>
+                        ) : isLogin ? 'Entrar →'
+                          : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
+                          : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
+                          : 'Criar conta grátis →'}
+                      </button>
+                    </>
+                  )}
 
                   {isLogin && (
                     <p style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: -4 }}>
