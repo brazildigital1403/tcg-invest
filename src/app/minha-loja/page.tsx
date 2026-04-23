@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
-import { useAppModal } from '@/hooks/useAppModal'
+import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 

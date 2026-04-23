@@ -2,7 +2,7 @@
 
 import { CSSProperties, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { useAppModal } from '@/hooks/useAppModal'
+import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
