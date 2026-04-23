@@ -334,21 +334,20 @@ export default function Home() {
   }
 
   useEffect(() => {
+    // ─── Detecta sessão sem redirecionar ────────────────────────
+    // Agora que o Bynx tem várias seções (Guia de Lojas, Para Lojistas, etc),
+    // a landing é navegável pra todo usuário — logado ou não. O botão
+    // "Entrar" do header vira "Meu Dashboard" quando o user está logado,
+    // permitindo acesso rápido sem empurrar o user pra fora da landing.
     async function getUser() {
       const { data } = await supabase.auth.getSession()
       if (data.session?.user) {
-        // Já está logado → vai direto para o Dashboard
-        router.replace('/dashboard-financeiro')
-        return
+        setUser(data.session.user)
       }
     }
     getUser()
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        router.replace('/dashboard-financeiro')
-      } else {
-        setUser(null)
-      }
+      setUser(session?.user ?? null)
     })
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -489,6 +488,9 @@ export default function Home() {
             <a href="/lojas" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5 }}>
               🏪 Guia de Lojas
             </a>
+            <a href="/para-lojistas" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: 14 }}>
+              Para lojistas
+            </a>
             {user ? (
               <button onClick={() => router.push('/dashboard-financeiro')} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '9px 18px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
                 Meu Dashboard
@@ -538,6 +540,10 @@ export default function Home() {
             <a href="/lojas" onClick={() => setMobileMenuOpen(false)}
               style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, padding: '10px 0', fontWeight: 500, display: 'block' }}>
               🏪 Guia de Lojas
+            </a>
+            <a href="/para-lojistas" onClick={() => setMobileMenuOpen(false)}
+              style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, padding: '10px 0', fontWeight: 500, display: 'block' }}>
+              Para lojistas
             </a>
           </div>
         )}
