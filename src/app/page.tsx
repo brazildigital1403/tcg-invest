@@ -1108,7 +1108,7 @@ export default function Home() {
                   {showPlanStep ? 'Escolha seu plano' : forgotStep ? 'Recuperar acesso' : isLogin ? 'Bem-vindo de volta' : 'Criar sua conta'}
                 </h2>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-                  {showPlanStep ? 'Organize sua coleção grátis ou desbloqueie mais com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Organize até 6 cartas gratuitamente'}
+                  {showPlanStep ? 'Organize sua coleção grátis ou desbloqueie mais com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Grátis · 7 dias de Pro incluídos ⭐'}
                 </p>
                 {/* Badge do plano escolhido */}
                 {!isLogin && !forgotStep && !showPlanStep && pendingPlan && pendingPlan !== 'free' && (
@@ -1304,7 +1304,7 @@ export default function Home() {
                             <div>
                               <label style={lbl}>Cidade</label>
                               <Campo erro={touched.city ? erros.city : undefined}>
-                                <input type="text" placeholder="São Paulo"
+                                <input type="text" placeholder="Cidade"
                                   value={city}
                                   onChange={e => { setCity(e.target.value); if (touched.city) setErros(validarCampos()) }}
                                   onBlur={() => handleBlur('city')}
@@ -1419,6 +1419,7 @@ export default function Home() {
                       style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15, marginTop: 4, opacity: (!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13) ? 0.5 : 1 }}>
                       Continuar →
                     </button>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: -4 }}>* campos obrigatórios</p>
                   ) : (
                     <>
                       {!isLogin && (
