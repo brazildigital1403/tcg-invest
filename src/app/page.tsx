@@ -1408,18 +1408,20 @@ export default function Home() {
 
                   {/* Botões de navegação */}
                   {!isLogin && signupStep === 1 ? (
-                    <button
-                      disabled={!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13}
-                      onClick={() => {
-                        const e = validarCampos()
-                        if (e.name || e.email || e.password) { setErros(e); setTouched({ name: true, email: true, password: true }); return }
-                        if (!dataNasc) { setServerError('Informe sua data de nascimento.'); return }
-                        setServerError(''); setSignupStep(2)
-                      }}
-                      style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15, marginTop: 4, opacity: (!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13) ? 0.5 : 1 }}>
-                      Continuar →
-                    </button>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: -4 }}>* campos obrigatórios</p>
+                    <>
+                      <button
+                        disabled={!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13}
+                        onClick={() => {
+                          const e = validarCampos()
+                          if (e.name || e.email || e.password) { setErros(e); setTouched({ name: true, email: true, password: true }); return }
+                          if (!dataNasc) { setServerError('Informe sua data de nascimento.'); return }
+                          setServerError(''); setSignupStep(2)
+                        }}
+                        style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15, marginTop: 4, opacity: (!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13) ? 0.5 : 1 }}>
+                        Continuar →
+                      </button>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: -4 }}>* campos obrigatórios</p>
+                    </>
                   ) : (
                     <>
                       {!isLogin && (
