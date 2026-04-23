@@ -266,6 +266,9 @@ export default function Home() {
   // Campos
   const [name, setName] = useState('')
   const [cpf, setCpf] = useState('')
+  const [dataNasc, setDataNasc] = useState('')
+  const [termosAceito, setTermosAceito] = useState(false)
+  const [marketingAceito, setMarketingAceito] = useState(false)
   const [city, setCity] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   const [email, setEmail] = useState('')
@@ -387,6 +390,8 @@ export default function Home() {
     setErros(e)
     if (Object.keys(e).length > 0) return
 
+    if (!isLogin && menorDe13) { setServerError('Cadastro não permitido para menores de 13 anos.'); return }
+    if (!isLogin && !termosAceito) { setServerError('Você precisa aceitar os Termos de Uso e a Política de Privacidade.'); return }
     setLoading(true)
     setServerError('')
     try {
@@ -411,7 +416,7 @@ export default function Home() {
         }
         if (data.user) {
           const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-          await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, trial_expires_at: trialExpiry })
+          await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito })
 
           setServerError('')
           setShowAuthModal(false)
@@ -437,6 +442,17 @@ export default function Home() {
       setLoading(false)
     }
   }
+
+  function calcIdade(nasc: string) {
+    if (!nasc) return -1
+    const hoje = new Date(); const d = new Date(nasc)
+    let idade = hoje.getFullYear() - d.getFullYear()
+    if (hoje.getMonth() - d.getMonth() < 0 || (hoje.getMonth() - d.getMonth() === 0 && hoje.getDate() < d.getDate())) idade--
+    return idade
+  }
+  const idadeCalc = calcIdade(dataNasc)
+  const menorDe13  = dataNasc !== '' && idadeCalc < 13
+  const entre13e17 = dataNasc !== '' && idadeCalc >= 13 && idadeCalc < 18
 
   return (
     <div style={{ fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", background: '#080a0f', color: '#f0f0f0', minHeight: '100vh' }}>
@@ -1257,6 +1273,30 @@ export default function Home() {
                           />
                         </Campo>
                       </div>
+
+                      {/* Data de nascimento */}
+                      <input
+                        type="date"
+                        value={dataNasc}
+                        onChange={e => setDataNasc(e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        style={{ ...inputStyle(), width: '100%', colorScheme: 'dark' }}
+                        placeholder="Data de nascimento"
+                      />
+
+                      {/* Bloqueio menor de 13 */}
+                      {menorDe13 && (
+                        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 14px' }}>
+                          <p style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}>🔒 <strong>Cadastro não permitido.</strong> O Bynx não permite cadastro de menores de 13 anos (LGPD, Art. 14).</p>
+                        </div>
+                      )}
+
+                      {/* Aviso 13-17 */}
+                      {entre13e17 && (
+                        <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '12px 14px' }}>
+                          <p style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1.5 }}>⚠️ Ao continuar, você declara que possui autorização de um responsável legal (LGPD, Art. 14).</p>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -1298,6 +1338,30 @@ export default function Home() {
                       )
                     })()}
                   </Campo>
+
+                  {/* Aceites — só no cadastro */}
+                  {!isLogin && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px' }}>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={termosAceito} onChange={e => setTermosAceito(e.target.checked)}
+                          style={{ marginTop: 3, accentColor: '#f59e0b', width: 15, height: 15, flexShrink: 0 }} />
+                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
+                          Li e aceito os{' '}
+                          <a href="/termos" target="_blank" style={{ color: '#f59e0b', textDecoration: 'underline' }}>Termos de Uso</a>
+                          {' '}e a{' '}
+                          <a href="/privacidade" target="_blank" style={{ color: '#f59e0b', textDecoration: 'underline' }}>Política de Privacidade</a>
+                          {' '}<span style={{ color: '#ef4444' }}>*</span>
+                        </span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={marketingAceito} onChange={e => setMarketingAceito(e.target.checked)}
+                          style={{ marginTop: 3, accentColor: '#f59e0b', width: 15, height: 15, flexShrink: 0 }} />
+                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>
+                          Quero receber novidades e dicas de TCG do Bynx <span style={{ color: 'rgba(255,255,255,0.25)' }}>(opcional)</span>
+                        </span>
+                      </label>
+                    </div>
+                  )}
 
                   {serverError && (
                     <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
