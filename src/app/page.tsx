@@ -1237,52 +1237,73 @@ export default function Home() {
               ) : (
                 /* ── FORM LOGIN / CADASTRO ── */
                 <>
-                  {!isLogin && (
+                  {!isLogin && (() => {
+                    const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }
+                    return (
                     <>
-                      <Campo erro={touched.name ? erros.name : undefined}>
-                        <input type="text" placeholder="Nome completo"
-                          value={name}
-                          onChange={e => { setName(e.target.value); if (touched.name) setErros(validarCampos()) }}
-                          onBlur={() => handleBlur('name')}
-                          style={inputStyle(touched.name ? erros.name : undefined, touched.name && !erros.name && name.length > 3)}
-                        />
-                      </Campo>
-                      <Campo erro={touched.cpf ? erros.cpf : undefined}>
-                        <input type="text" placeholder="CPF (000.000.000-00)"
-                          value={cpf}
-                          onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
-                          onBlur={() => handleBlur('cpf')}
-                          style={inputStyle(touched.cpf ? erros.cpf : undefined, touched.cpf && !erros.cpf && cpf.length > 0)}
-                        />
-                      </Campo>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <Campo erro={touched.city ? erros.city : undefined}>
-                          <input type="text" placeholder="Cidade"
-                            value={city}
-                            onChange={e => { setCity(e.target.value); if (touched.city) setErros(validarCampos()) }}
-                            onBlur={() => handleBlur('city')}
-                            style={inputStyle(touched.city ? erros.city : undefined, touched.city && !erros.city && city.length > 0)}
-                          />
-                        </Campo>
-                        <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
-                          <input type="text" placeholder="WhatsApp"
-                            value={whatsapp}
-                            onChange={e => { setWhatsapp(formatarWhatsApp(e.target.value)); if (touched.whatsapp) setErros(validarCampos()) }}
-                            onBlur={() => handleBlur('whatsapp')}
-                            style={inputStyle(touched.whatsapp ? erros.whatsapp : undefined, touched.whatsapp && !erros.whatsapp && whatsapp.length > 0)}
+                      {/* Nome */}
+                      <div>
+                        <label style={lbl}>Nome completo *</label>
+                        <Campo erro={touched.name ? erros.name : undefined}>
+                          <input type="text" placeholder="Seu nome completo"
+                            value={name}
+                            onChange={e => { setName(e.target.value); if (touched.name) setErros(validarCampos()) }}
+                            onBlur={() => handleBlur('name')}
+                            style={inputStyle(touched.name ? erros.name : undefined, touched.name && !erros.name && name.length > 3)}
                           />
                         </Campo>
                       </div>
 
+                      {/* CPF */}
+                      <div>
+                        <label style={lbl}>CPF</label>
+                        <Campo erro={touched.cpf ? erros.cpf : undefined}>
+                          <input type="text" placeholder="000.000.000-00"
+                            value={cpf}
+                            onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
+                            onBlur={() => handleBlur('cpf')}
+                            style={inputStyle(touched.cpf ? erros.cpf : undefined, touched.cpf && !erros.cpf && cpf.length > 0)}
+                          />
+                        </Campo>
+                      </div>
+
+                      {/* Cidade + WhatsApp */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <label style={lbl}>Cidade</label>
+                          <Campo erro={touched.city ? erros.city : undefined}>
+                            <input type="text" placeholder="São Paulo"
+                              value={city}
+                              onChange={e => { setCity(e.target.value); if (touched.city) setErros(validarCampos()) }}
+                              onBlur={() => handleBlur('city')}
+                              style={inputStyle(touched.city ? erros.city : undefined, touched.city && !erros.city && city.length > 0)}
+                            />
+                          </Campo>
+                        </div>
+                        <div>
+                          <label style={lbl}>WhatsApp</label>
+                          <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
+                            <input type="text" placeholder="(11) 99999-9999"
+                              value={whatsapp}
+                              onChange={e => { setWhatsapp(formatarWhatsApp(e.target.value)); if (touched.whatsapp) setErros(validarCampos()) }}
+                              onBlur={() => handleBlur('whatsapp')}
+                              style={inputStyle(touched.whatsapp ? erros.whatsapp : undefined, touched.whatsapp && !erros.whatsapp && whatsapp.length > 0)}
+                            />
+                          </Campo>
+                        </div>
+                      </div>
+
                       {/* Data de nascimento */}
-                      <input
-                        type="date"
-                        value={dataNasc}
-                        onChange={e => setDataNasc(e.target.value)}
-                        max={new Date().toISOString().split('T')[0]}
-                        style={{ ...inputStyle(), width: '100%', colorScheme: 'dark' }}
-                        placeholder="Data de nascimento"
-                      />
+                      <div>
+                        <label style={lbl}>Data de nascimento *</label>
+                        <input
+                          type="date"
+                          value={dataNasc}
+                          onChange={e => setDataNasc(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          style={{ ...inputStyle(), width: '100%', colorScheme: 'dark' }}
+                        />
+                      </div>
 
                       {/* Bloqueio menor de 13 */}
                       {menorDe13 && (
@@ -1298,17 +1319,23 @@ export default function Home() {
                         </div>
                       )}
                     </>
-                  )}
+                    )
+                  })()}
 
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }}>E-mail *</label>
                   <Campo erro={touched.email ? erros.email : undefined}>
-                    <input type="email" placeholder="E-mail"
+                    <input type="email" placeholder="seu@email.com"
                       value={email}
                       onChange={e => { setEmail(e.target.value); if (touched.email) setErros(validarCampos()) }}
                       onBlur={() => handleBlur('email')}
                       style={inputStyle(touched.email ? erros.email : undefined, touched.email && !erros.email && email.length > 0)}
                     />
                   </Campo>
+                  </div>
 
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }}>Senha *</label>
                   <Campo erro={touched.password ? erros.password : undefined}>
                     <div style={{ position: 'relative' }}>
                       <input
@@ -1338,6 +1365,7 @@ export default function Home() {
                       )
                     })()}
                   </Campo>
+                  </div>
 
                   {/* Aceites — só no cadastro */}
                   {!isLogin && (
