@@ -108,8 +108,8 @@ function NegociacaoCard({ card, role, onAction, userId }: {
     if (!whatsapp) return
     const tel = whatsapp.replace(/\D/g, '')
     const msg = role === 'comprador'
-      ? `Olá! Tenho interesse na carta *${card.card_name}* por ${fmt(card.price)} anunciada no TCG Manager.`
-      : `Olá! Você demonstrou interesse na minha carta *${card.card_name}* por ${fmt(card.price)} no TCG Manager.`
+      ? `Olá! Tenho interesse na carta *${card.card_name}* por ${fmt(card.price)} anunciada no Bynx.`
+      : `Olá! Você demonstrou interesse na minha carta *${card.card_name}* por ${fmt(card.price)} no Bynx.`
     window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 

@@ -82,7 +82,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
     // Mostra contato do vendedor
     const tel = card.seller_whatsapp?.replace(/\D/g, '')
     if (tel) {
-      const msg = encodeURIComponent(`Olá! Vi seu anúncio no TCG Manager e tenho interesse na carta *${card.card_name}* por ${fmt(card.price)}. Podemos negociar?`)
+      const msg = encodeURIComponent(`Olá! Vi seu anúncio no Bynx e tenho interesse na carta *${card.card_name}* por ${fmt(card.price)}. Podemos negociar?`)
       window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank')
     } else {
       showAlert('Interesse registrado! O vendedor será notificado.', 'success')
