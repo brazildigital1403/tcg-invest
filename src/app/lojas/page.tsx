@@ -9,7 +9,8 @@ import FiltrosGuia from '@/components/lojas/FiltrosGuia'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-export const revalidate = 60 // ISR: cache por 60s
+// Força renderização dinâmica (já implícito por usar searchParams, mas explícito é mais seguro)
+export const dynamic = 'force-dynamic'
 
 interface SearchParams {
   q?: string
@@ -45,14 +46,14 @@ export async function generateMetadata(
 export interface LojaCard {
   id: string
   slug: string
-  nome: string
+  nome: string | null
   descricao: string | null
-  cidade: string
-  estado: string
-  tipo: 'fisica' | 'online' | 'ambas'
-  especialidades: string[]
-  plano: 'basico' | 'pro' | 'premium'
-  verificada: boolean
+  cidade: string | null
+  estado: string | null
+  tipo: 'fisica' | 'online' | 'ambas' | null
+  especialidades: string[] | null
+  plano: 'basico' | 'pro' | 'premium' | null
+  verificada: boolean | null
   logo_url: string | null
 }
 
@@ -65,6 +66,12 @@ export default async function LojasPage(
 ) {
   const sp = await searchParams
 
+  // Normaliza searchParams (Next.js 16 pode trazer string[] ou string)
+  const qParam             = typeof sp.q === 'string' ? sp.q.trim() : ''
+  const estadoParam        = typeof sp.estado === 'string' ? sp.estado.trim().toUpperCase() : ''
+  const tipoParam          = typeof sp.tipo === 'string' ? sp.tipo.trim() : ''
+  const especialidadeParam = typeof sp.especialidade === 'string' ? sp.especialidade.trim() : ''
+
   // Monta query
   let query = supabase
     .from('lojas')
@@ -72,30 +79,30 @@ export default async function LojasPage(
     .eq('status', 'ativa')
     .limit(200)
 
-  if (sp.q?.trim())             query = query.ilike('nome', `%${sp.q.trim()}%`)
-  if (sp.estado?.trim())        query = query.eq('estado', sp.estado.trim().toUpperCase())
-  if (sp.tipo?.trim())          query = query.eq('tipo', sp.tipo.trim())
-  if (sp.especialidade?.trim()) query = query.contains('especialidades', [sp.especialidade.trim()])
+  if (qParam)             query = query.ilike('nome', `%${qParam}%`)
+  if (estadoParam)        query = query.eq('estado', estadoParam)
+  if (tipoParam)          query = query.eq('tipo', tipoParam)
+  if (especialidadeParam) query = query.contains('especialidades', [especialidadeParam])
 
   const { data, error } = await query
   const lojas: LojaCard[] = (data || []) as LojaCard[]
 
   // Ordenação: premium > pro > basico, depois verificadas primeiro
   lojas.sort((a, b) => {
-    const diff = (ORDEM_PLANO[a.plano] ?? 99) - (ORDEM_PLANO[b.plano] ?? 99)
+    const diff = (ORDEM_PLANO[a.plano || ''] ?? 99) - (ORDEM_PLANO[b.plano || ''] ?? 99)
     if (diff !== 0) return diff
     if (a.verificada !== b.verificada) return a.verificada ? -1 : 1
     return 0
   })
 
   const totalResultados = lojas.length
-  const temFiltro = !!(sp.q || sp.estado || sp.tipo || sp.especialidade)
+  const temFiltro = !!(qParam || estadoParam || tipoParam || especialidadeParam)
 
   return (
     <div style={S.page}>
       <PublicHeader />
 
-      {/* Spacer pro header fixed (62px) */}
+      {/* Spacer pro header fixed */}
       <div style={{ height: 62 }} />
 
       {/* ─── Hero ───────────────────────────────────────────────── */}
@@ -108,10 +115,10 @@ export default async function LojasPage(
 
       {/* ─── Filtros ────────────────────────────────────────────── */}
       <FiltrosGuia
-        initialQ={sp.q || ''}
-        initialEstado={sp.estado || ''}
-        initialTipo={sp.tipo || ''}
-        initialEspecialidade={sp.especialidade || ''}
+        initialQ={qParam}
+        initialEstado={estadoParam}
+        initialTipo={tipoParam}
+        initialEspecialidade={especialidadeParam}
       />
 
       {/* ─── Resultados ─────────────────────────────────────────── */}
