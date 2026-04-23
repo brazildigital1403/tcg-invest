@@ -5,6 +5,7 @@ import { Metadata } from 'next'
 import { supabase } from '@/lib/supabaseClient'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
+import GaleriaFotos from '@/components/lojas/GaleriaFotos'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,9 @@ export default async function LojaPage(
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${loja.endereco}, ${cidade}, ${estado}`)}`
     : null
 
+  // Limite de fotos por plano
+  const fotosVisiveis = fotos.slice(0, isPremium ? 10 : 5)
+
   return (
     <div style={S.page}>
       <PublicHeader />
@@ -296,16 +300,11 @@ export default async function LojaPage(
           </section>
         )}
 
-        {/* ─── Fotos (Pro/Premium) ───────────────────────────── */}
-        {fotos.length > 0 && (isPremium || isPro) && (
+        {/* ─── Fotos (Pro/Premium) — com lightbox ───────────── */}
+        {fotosVisiveis.length > 0 && (isPremium || isPro) && (
           <section style={S.card}>
             <h2 style={S.sectionTitle}>Fotos</h2>
-            <div style={S.fotosGrid}>
-              {fotos.slice(0, isPremium ? 10 : 5).map((foto, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={i} src={foto} alt={`${nome} foto ${i + 1}`} style={S.fotoItem} />
-              ))}
-            </div>
+            <GaleriaFotos fotos={fotosVisiveis} nomeLoja={nome} />
           </section>
         )}
 
@@ -562,20 +561,6 @@ const S: Record<string, CSSProperties> = {
     fontSize: 14,
     fontWeight: 600,
     textDecoration: 'none',
-  },
-
-  fotosGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-    gap: 8,
-  },
-  fotoItem: {
-    width: '100%',
-    aspectRatio: '4 / 3',
-    objectFit: 'cover',
-    borderRadius: 10,
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
   },
 
   eventosList: {
