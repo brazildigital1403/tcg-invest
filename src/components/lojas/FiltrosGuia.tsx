@@ -1,287 +1,336 @@
-import { CSSProperties } from 'react'
-import Link from 'next/link'
-import { Metadata } from 'next'
-import { supabase } from '@/lib/supabaseClient'
-import PublicHeader from '@/components/ui/PublicHeader'
-import PublicFooter from '@/components/ui/PublicFooter'
-import CardLoja from '@/components/lojas/CardLoja'
-import FiltrosGuia from '@/components/lojas/FiltrosGuia'
+'use client'
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+import { CSSProperties, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 
-export const revalidate = 60 // ISR: cache por 60s
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
-interface SearchParams {
-  q?: string
-  estado?: string
-  tipo?: string
-  especialidade?: string
+const UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
+
+const TIPOS = [
+  { value: '', label: 'Todas' },
+  { value: 'fisica', label: 'Física' },
+  { value: 'online', label: 'Online' },
+  { value: 'ambas', label: 'Física + Online' },
+]
+
+const ESPECIALIDADES = [
+  { value: '', label: 'Todos os jogos' },
+  { value: 'pokemon', label: 'Pokémon' },
+  { value: 'magic', label: 'Magic' },
+  { value: 'yugioh', label: 'Yu-Gi-Oh!' },
+  { value: 'lorcana', label: 'Lorcana' },
+  { value: 'digimon', label: 'Digimon' },
+  { value: 'outros', label: 'Outros' },
+]
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+
+interface Props {
+  initialQ: string
+  initialEstado: string
+  initialTipo: string
+  initialEspecialidade: string
 }
 
-// ─── SEO dinâmico ─────────────────────────────────────────────────────────────
+export default function FiltrosGuia({
+  initialQ,
+  initialEstado,
+  initialTipo,
+  initialEspecialidade,
+}: Props) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
 
-export async function generateMetadata(
-  { searchParams }: { searchParams: Promise<SearchParams> }
-): Promise<Metadata> {
-  const sp = await searchParams
-  const partes: string[] = ['Guia de Lojas de TCG']
-  if (sp.especialidade) partes[0] = `Lojas de ${capitalize(sp.especialidade)}`
-  if (sp.estado) partes.push(`em ${sp.estado}`)
+  const [q, setQ] = useState(initialQ)
+  const [estado, setEstado] = useState(initialEstado)
+  const [tipo, setTipo] = useState(initialTipo)
+  const [especialidade, setEspecialidade] = useState(initialEspecialidade)
 
-  const title = partes.join(' ')
-  const description =
-    'Encontre as melhores lojas de TCG do Brasil. Pokémon, Magic, Yu-Gi-Oh, Lorcana e mais. Lojas físicas e online.'
+  function aplicar(overrides: Partial<Props> = {}) {
+    const finalQ             = overrides.initialQ ?? q
+    const finalEstado        = overrides.initialEstado ?? estado
+    const finalTipo          = overrides.initialTipo ?? tipo
+    const finalEspecialidade = overrides.initialEspecialidade ?? especialidade
 
-  return {
-    title,
-    description,
-    openGraph: { title, description, type: 'website' },
-    twitter: { card: 'summary_large_image', title, description },
+    const params = new URLSearchParams()
+    if (finalQ.trim())             params.set('q', finalQ.trim())
+    if (finalEstado.trim())        params.set('estado', finalEstado.trim())
+    if (finalTipo.trim())          params.set('tipo', finalTipo.trim())
+    if (finalEspecialidade.trim()) params.set('especialidade', finalEspecialidade.trim())
+
+    const queryString = params.toString()
+    startTransition(() => {
+      router.push(queryString ? `/lojas?${queryString}` : '/lojas')
+    })
   }
-}
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+  function onSelectTipo(valor: string) {
+    setTipo(valor)
+    aplicar({ initialTipo: valor })
+  }
 
-export interface LojaCard {
-  id: string
-  slug: string
-  nome: string
-  descricao: string | null
-  cidade: string
-  estado: string
-  tipo: 'fisica' | 'online' | 'ambas'
-  especialidades: string[]
-  plano: 'basico' | 'pro' | 'premium'
-  verificada: boolean
-  logo_url: string | null
-}
+  function onSelectEspecialidade(valor: string) {
+    setEspecialidade(valor)
+    aplicar({ initialEspecialidade: valor })
+  }
 
-const ORDEM_PLANO: Record<string, number> = { premium: 0, pro: 1, basico: 2 }
+  function limpar() {
+    setQ('')
+    setEstado('')
+    setTipo('')
+    setEspecialidade('')
+    startTransition(() => router.push('/lojas'))
+  }
 
-// ─── Página ───────────────────────────────────────────────────────────────────
-
-export default async function LojasPage(
-  { searchParams }: { searchParams: Promise<SearchParams> }
-) {
-  const sp = await searchParams
-
-  // Monta query
-  let query = supabase
-    .from('lojas')
-    .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url')
-    .eq('status', 'ativa')
-    .limit(200)
-
-  if (sp.q?.trim())             query = query.ilike('nome', `%${sp.q.trim()}%`)
-  if (sp.estado?.trim())        query = query.eq('estado', sp.estado.trim().toUpperCase())
-  if (sp.tipo?.trim())          query = query.eq('tipo', sp.tipo.trim())
-  if (sp.especialidade?.trim()) query = query.contains('especialidades', [sp.especialidade.trim()])
-
-  const { data, error } = await query
-  const lojas: LojaCard[] = (data || []) as LojaCard[]
-
-  // Ordenação: premium > pro > basico, depois verificadas primeiro
-  lojas.sort((a, b) => {
-    const diff = (ORDEM_PLANO[a.plano] ?? 99) - (ORDEM_PLANO[b.plano] ?? 99)
-    if (diff !== 0) return diff
-    if (a.verificada !== b.verificada) return a.verificada ? -1 : 1
-    return 0
-  })
-
-  const totalResultados = lojas.length
-  const temFiltro = !!(sp.q || sp.estado || sp.tipo || sp.especialidade)
+  const temFiltroAtivo = q || estado || tipo || especialidade
 
   return (
-    <div style={S.page}>
-      <PublicHeader />
-
-      {/* Spacer pro header fixed (62px) */}
-      <div style={{ height: 62 }} />
-
-      {/* ─── Hero ───────────────────────────────────────────────── */}
-      <section style={S.hero}>
-        <h1 style={S.heroTitle}>Guia de Lojas</h1>
-        <p style={S.heroSubtitle}>
-          Encontre lojas de TCG do Brasil. Físicas e online, com especialidade em Pokémon, Magic, Yu-Gi-Oh e mais.
-        </p>
-      </section>
-
-      {/* ─── Filtros ────────────────────────────────────────────── */}
-      <FiltrosGuia
-        initialQ={sp.q || ''}
-        initialEstado={sp.estado || ''}
-        initialTipo={sp.tipo || ''}
-        initialEspecialidade={sp.especialidade || ''}
-      />
-
-      {/* ─── Resultados ─────────────────────────────────────────── */}
-      <section style={S.resultsSection}>
-        {error && (
-          <div style={S.errorBox}>
-            Erro ao carregar lojas. Tente recarregar a página.
+    <section style={S.wrap}>
+      {/* Linha 1: busca + estado + botão */}
+      <div style={S.topRow}>
+        <div style={S.searchBlock}>
+          <label style={S.label}>Buscar loja</label>
+          <div style={S.searchWrap}>
+            <span style={S.searchIcon}>
+              {/* SVG inline (evita cross-boundary server→client import) */}
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <circle cx="9" cy="9" r="5.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.4"/>
+                <path d="M13 13l3.5 3.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Nome da loja..."
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') aplicar() }}
+              style={S.searchInput}
+              disabled={pending}
+            />
           </div>
-        )}
-
-        {!error && (
-          <>
-            <p style={S.resultCount}>
-              {totalResultados === 0
-                ? (temFiltro ? 'Nenhuma loja encontrada para esses filtros.' : 'Nenhuma loja cadastrada ainda.')
-                : `${totalResultados} ${totalResultados === 1 ? 'loja encontrada' : 'lojas encontradas'}`}
-            </p>
-
-            {totalResultados > 0 && (
-              <div style={S.grid}>
-                {lojas.map(loja => (
-                  <CardLoja key={loja.id} loja={loja} />
-                ))}
-              </div>
-            )}
-
-            {totalResultados === 0 && temFiltro && (
-              <Link href="/lojas" style={S.clearFiltersLink}>
-                Limpar filtros
-              </Link>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* ─── CTA Lojista ────────────────────────────────────────── */}
-      <section style={S.ctaSection}>
-        <div style={S.ctaBox}>
-          <h2 style={S.ctaTitle}>Tem uma loja de TCG?</h2>
-          <p style={S.ctaSubtitle}>
-            Seja encontrado por milhares de colecionadores brasileiros. Comece grátis.
-          </p>
-          <Link href="/minha-loja" style={S.ctaButton}>
-            Cadastrar minha loja →
-          </Link>
         </div>
-      </section>
 
-      <PublicFooter />
-    </div>
+        <div style={S.estadoBlock}>
+          <label style={S.label}>Estado</label>
+          <select
+            value={estado}
+            onChange={e => {
+              setEstado(e.target.value)
+              aplicar({ initialEstado: e.target.value })
+            }}
+            style={S.select}
+            disabled={pending}
+          >
+            <option value="">Todos</option>
+            {UFS.map(uf => (
+              <option key={uf} value={uf}>{uf}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={S.actionBlock}>
+          <button
+            type="button"
+            onClick={() => aplicar()}
+            style={S.searchBtn}
+            disabled={pending}
+          >
+            {pending ? 'Buscando…' : 'Buscar'}
+          </button>
+        </div>
+      </div>
+
+      {/* Linha 2: chips de tipo */}
+      <div style={S.chipsBlock}>
+        <span style={S.chipsLabel}>Tipo</span>
+        <div style={S.chipsList}>
+          {TIPOS.map(t => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => onSelectTipo(t.value)}
+              style={{
+                ...S.chip,
+                ...(tipo === t.value ? S.chipActive : {}),
+              }}
+              disabled={pending}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Linha 3: chips de especialidade */}
+      <div style={S.chipsBlock}>
+        <span style={S.chipsLabel}>Jogo</span>
+        <div style={S.chipsList}>
+          {ESPECIALIDADES.map(e => (
+            <button
+              key={e.value}
+              type="button"
+              onClick={() => onSelectEspecialidade(e.value)}
+              style={{
+                ...S.chip,
+                ...(especialidade === e.value ? S.chipActive : {}),
+              }}
+              disabled={pending}
+            >
+              {e.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Limpar filtros */}
+      {temFiltroAtivo && (
+        <button type="button" onClick={limpar} style={S.clearBtn} disabled={pending}>
+          ✕ Limpar filtros
+        </button>
+      )}
+    </section>
   )
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const S: Record<string, CSSProperties> = {
-  page: {
-    minHeight: '100vh',
-    background: '#080a0f',
-    color: '#f0f0f0',
-    fontFamily: "'DM Sans', system-ui, sans-serif",
+  wrap: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '0 24px',
     display: 'flex',
     flexDirection: 'column',
-  },
-
-  hero: {
-    maxWidth: 1200,
-    margin: '0 auto',
-    padding: '64px 24px 32px',
-    textAlign: 'center',
+    gap: 14,
     width: '100%',
     boxSizing: 'border-box',
   },
-  heroTitle: {
-    fontSize: 44,
-    fontWeight: 800,
-    letterSpacing: '-0.03em',
-    margin: 0,
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-  },
-  heroSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.55)',
-    margin: '12px auto 0',
-    maxWidth: 580,
-    lineHeight: 1.6,
-  },
 
-  resultsSection: {
-    maxWidth: 1200,
-    margin: '0 auto',
-    padding: '20px 24px 48px',
-    width: '100%',
-    boxSizing: 'border-box',
-    flex: 1,
-  },
-  resultCount: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.4)',
-    margin: '0 0 20px',
-    fontWeight: 500,
-  },
-  grid: {
+  topRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: 16,
-  },
-  errorBox: {
-    background: 'rgba(239,68,68,0.08)',
-    border: '1px solid rgba(239,68,68,0.25)',
-    borderRadius: 12,
-    padding: 16,
-    color: '#ef4444',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  clearFiltersLink: {
-    display: 'inline-block',
-    marginTop: 16,
-    color: '#f59e0b',
-    fontSize: 14,
-    fontWeight: 600,
-    textDecoration: 'none',
+    gridTemplateColumns: '1fr 140px auto',
+    gap: 12,
+    alignItems: 'end',
   },
 
-  ctaSection: {
-    maxWidth: 1200,
-    margin: '0 auto',
-    padding: '24px 24px 64px',
+  searchBlock: { display: 'flex', flexDirection: 'column' },
+  estadoBlock: { display: 'flex', flexDirection: 'column' },
+  actionBlock: { display: 'flex', flexDirection: 'column' },
+
+  label: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'rgba(255,255,255,0.45)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+    marginBottom: 5,
+    display: 'block',
+  },
+
+  searchWrap: {
+    position: 'relative',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 14,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  searchInput: {
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    padding: '12px 14px 12px 40px',
+    color: '#f0f0f0',
+    fontSize: 14,
+    outline: 'none',
+    fontFamily: 'inherit',
     width: '100%',
     boxSizing: 'border-box',
   },
-  ctaBox: {
-    background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.08))',
-    border: '1px solid rgba(245,158,11,0.2)',
-    borderRadius: 20,
-    padding: '40px 28px',
-    textAlign: 'center',
-  },
-  ctaTitle: {
-    fontSize: 24,
-    fontWeight: 700,
-    letterSpacing: '-0.02em',
-    margin: 0,
-    color: '#f0f0f0',
-  },
-  ctaSubtitle: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.6)',
-    margin: '8px 0 24px',
-    lineHeight: 1.5,
-  },
-  ctaButton: {
-    display: 'inline-block',
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    color: '#000',
-    fontSize: 14,
-    fontWeight: 700,
-    padding: '12px 28px',
+
+  select: {
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: 10,
-    textDecoration: 'none',
-    letterSpacing: '-0.01em',
+    padding: '12px 14px',
+    color: '#f0f0f0',
+    fontSize: 14,
+    outline: 'none',
+    fontFamily: 'inherit',
+    width: '100%',
+    boxSizing: 'border-box',
+    cursor: 'pointer',
+    appearance: 'none',
+  },
+
+  searchBtn: {
+    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    border: 'none',
+    color: '#000',
+    fontSize: 13,
+    fontWeight: 700,
+    padding: '12px 22px',
+    borderRadius: 10,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
+  },
+
+  chipsBlock: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  chipsLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'rgba(255,255,255,0.45)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+    minWidth: 38,
+  },
+  chipsList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  chip: {
+    fontSize: 12,
+    fontWeight: 600,
+    padding: '7px 14px',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.04)',
+    color: 'rgba(255,255,255,0.65)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.12s ease',
+  },
+  chipActive: {
+    background: 'rgba(245,158,11,0.15)',
+    color: '#f59e0b',
+    border: '1px solid rgba(245,158,11,0.35)',
+  },
+
+  clearBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+    padding: 0,
+    fontFamily: 'inherit',
+    alignSelf: 'flex-start',
   },
 }
