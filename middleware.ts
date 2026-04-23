@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 
 // ─── Rotas protegidas do APP (áreas logadas) ────────────────────────────────
 //
-//   /dashboard-financeiro, /minha-colecao, /minha-conta,
+//   /dashboard-financeiro, /minha-colecao, /minha-conta, /minha-loja,
 //   /marketplace, /pokedex, /separadores, /pro-ativado, /suporte*
 //   → bloqueia usuários com suspended_at preenchido
 
@@ -20,6 +20,7 @@ const APP_PROTECTED = [
   '/dashboard-financeiro',
   '/minha-colecao',
   '/minha-conta',
+  '/minha-loja',
   '/marketplace',
   '/pokedex',
   '/separadores',
@@ -119,6 +120,8 @@ export const config = {
     '/minha-colecao',
     '/minha-conta/:path*',
     '/minha-conta',
+    '/minha-loja/:path*',
+    '/minha-loja',
     '/marketplace/:path*',
     '/marketplace',
     '/pokedex/:path*',
