@@ -1290,7 +1290,7 @@ export default function Home() {
                       {signupStep === 2 && (
                         <>
                           <div>
-                            <label style={lbl}>CPF</label>
+                            <label style={lbl}>CPF *</label>
                             <Campo erro={touched.cpf ? erros.cpf : undefined}>
                               <input type="text" placeholder="000.000.000-00"
                                 value={cpf}
@@ -1302,7 +1302,7 @@ export default function Home() {
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                             <div>
-                              <label style={lbl}>Cidade</label>
+                              <label style={lbl}>Cidade *</label>
                               <Campo erro={touched.city ? erros.city : undefined}>
                                 <input type="text" placeholder="Cidade"
                                   value={city}
@@ -1313,7 +1313,7 @@ export default function Home() {
                               </Campo>
                             </div>
                             <div>
-                              <label style={lbl}>WhatsApp</label>
+                              <label style={lbl}>WhatsApp *</label>
                               <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
                                 <input type="text" placeholder="(11) 99999-9999"
                                   value={whatsapp}
@@ -1442,6 +1442,7 @@ export default function Home() {
                           : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
                           : 'Criar conta grátis →'}
                       </button>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: -4 }}>* campos obrigatórios</p>
                     </>
                   )}
 
