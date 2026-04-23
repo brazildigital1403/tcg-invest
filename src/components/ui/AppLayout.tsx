@@ -15,23 +15,64 @@ function IconSeparador({ size = 20, color = 'currentColor' }: { size?: number; c
     </svg>
   )
 }
+
+// Ícone "Guia de Lojas" — storefront stroke
+function IconGuiaLojas({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <path d='M3 8v9h14V8' stroke={color} strokeWidth='1.4' strokeLinejoin='round'/>
+      <path d='M2 8l1.5-4h13L18 8' stroke={color} strokeWidth='1.4' strokeLinejoin='round'/>
+      <path d='M8 17v-5h4v5' stroke={color} strokeWidth='1.4' strokeLinejoin='round'/>
+      <path d='M6.5 4v4a2 2 0 11-4 0M9 4v4a2 2 0 11-4 0M13.5 4v4a2 2 0 11-4 0M17.5 4v4a2 2 0 11-4 0' stroke={color} strokeWidth='1.4'/>
+    </svg>
+  )
+}
+
+// Ícone "Minha Loja" — storefront com chave/gerência
+function IconMinhaLoja({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <path d='M3 8v9h14V8' stroke={color} strokeWidth='1.4' strokeLinejoin='round'/>
+      <path d='M2 8l1.5-4h13L18 8' stroke={color} strokeWidth='1.4' strokeLinejoin='round'/>
+      <circle cx='10' cy='12' r='1.2' fill={color}/>
+      <path d='M10 13v2' stroke={color} strokeWidth='1.4' strokeLinecap='round'/>
+    </svg>
+  )
+}
+
+// Ícone "Explorar" — compass
+function IconExplorar({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <circle cx='10' cy='10' r='7.5' stroke={color} strokeWidth='1.4'/>
+      <path d='M13 7l-2 4-4 2 2-4z' stroke={color} strokeWidth='1.4' strokeLinejoin='round'/>
+    </svg>
+  )
+}
+
 import { marcarTodasLidas } from '@/lib/notificacoes'
 
 const BRAND  = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const BG     = '#080a0f'
+const EXPLORE_KEY = 'bynx_explore_mode'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
-const menu = [
+// ─── Menus por seção ──────────────────────────────────────────────────────────
+
+const menuColecionador = [
   { name: 'Dashboard',   full: 'Dashboard',       href: '/dashboard-financeiro', Icon: IconDashboard  },
-  { name: 'Coleção',     full: 'Minha Coleção',  href: '/minha-colecao',       Icon: IconCollection },
+  { name: 'Coleção',     full: 'Minha Coleção',  href: '/minha-colecao',        Icon: IconCollection },
   { name: 'Pokédex',     full: 'Pokédex',         href: '/pokedex',              Icon: IconPokedex    },
   { name: 'Marketplace', full: 'Marketplace',     href: '/marketplace',          Icon: IconMarketplace},
   { name: 'Separadores', full: 'Separadores',     href: '/separadores',          Icon: IconSeparador  },
-  { name: 'Conta',       full: 'Minha Conta',     href: '/minha-conta',          Icon: IconAccount    },
-  { name: 'Suporte',     full: 'Suporte',         href: '/suporte',              Icon: IconChat       },
 ]
+
+const itemGuiaLojas = { name: 'Guia',       full: 'Guia de Lojas',   href: '/lojas',        Icon: IconGuiaLojas }
+const itemMinhaLoja = { name: 'Loja',       full: 'Minha Loja',      href: '/minha-loja',   Icon: IconMinhaLoja  }
+const itemConta     = { name: 'Conta',      full: 'Minha Conta',     href: '/minha-conta',  Icon: IconAccount    }
+const itemSuporte   = { name: 'Suporte',    full: 'Suporte',         href: '/suporte',      Icon: IconChat       }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname  = usePathname()
@@ -41,6 +82,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [notifOpen, setNotifOpen] = useState(false)
   const notifScrollRef = useRef<HTMLDivElement>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
+
+  // ─── Menu adaptativo ───────────────────────────────────────────────
+  const [temCartas, setTemCartas] = useState<boolean | null>(null)  // null = loading
+  const [temLoja,   setTemLoja]   = useState<boolean | null>(null)
+  const [exploreMode, setExploreMode] = useState(false)             // lojista puro querendo ver menu completo
+
+  // Hidrata exploreMode do localStorage no mount (client only)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(EXPLORE_KEY) === '1'
+      if (saved) setExploreMode(true)
+    } catch {}
+  }, [])
 
   // Scroll nativo não-passivo — captura wheel antes do browser propagar para a página
   useEffect(() => {
@@ -59,33 +113,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     async function load() {
       const { data: authData } = await supabase.auth.getUser()
       if (!authData.user) return
+
+      // ─── Carrega cartas (patrimônio + temCartas) ────────────────
       const { data: cards } = await supabase
         .from('user_cards').select('card_name, variante, quantity').eq('user_id', authData.user.id)
-      if (!cards || cards.length === 0) { setPatrimonio(0); return }
-      const names = cards.map((c: any) => c.card_name?.trim()).filter(Boolean)
-      const { data: prices } = await supabase
-        .from('card_prices')
-        .select('card_name, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
-        .in('card_name', names)
-      const priceMap: Record<string, any> = {}
-      prices?.forEach((p: any) => { priceMap[p.card_name?.trim()] = p })
-      const CAMPOS: Record<string, string> = {
-        normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
-        reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
-      }
-      let total = 0
-      for (const card of cards) {
-        const p = priceMap[card.card_name?.trim()]
-        if (!p) continue
-        const qty = (card as any).quantity || 1
-        let v = card.variante || 'normal'
-        // Se a variante salva não tem preço, pega a primeira que tem
-        if (!Number(p[CAMPOS[v]] || 0)) {
-          v = Object.keys(CAMPOS).find(k => Number(p[CAMPOS[k]] || 0) > 0) || 'normal'
+
+      setTemCartas(!!cards && cards.length > 0)
+
+      if (!cards || cards.length === 0) {
+        setPatrimonio(0)
+      } else {
+        const names = cards.map((c: any) => c.card_name?.trim()).filter(Boolean)
+        const { data: prices } = await supabase
+          .from('card_prices')
+          .select('card_name, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
+          .in('card_name', names)
+        const priceMap: Record<string, any> = {}
+        prices?.forEach((p: any) => { priceMap[p.card_name?.trim()] = p })
+        const CAMPOS: Record<string, string> = {
+          normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
+          reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
         }
-        total += Number(p[CAMPOS[v]] || 0) * qty
+        let total = 0
+        for (const card of cards) {
+          const p = priceMap[card.card_name?.trim()]
+          if (!p) continue
+          const qty = (card as any).quantity || 1
+          let v = card.variante || 'normal'
+          // Se a variante salva não tem preço, pega a primeira que tem
+          if (!Number(p[CAMPOS[v]] || 0)) {
+            v = Object.keys(CAMPOS).find(k => Number(p[CAMPOS[k]] || 0) > 0) || 'normal'
+          }
+          total += Number(p[CAMPOS[v]] || 0) * qty
+        }
+        setPatrimonio(total)
       }
-      setPatrimonio(total)
+
+      // ─── Detecta se tem loja ────────────────────────────────────
+      const { data: lojas } = await supabase
+        .from('lojas').select('id').eq('owner_user_id', authData.user.id).limit(1)
+      setTemLoja(!!lojas && lojas.length > 0)
 
       // Verifica trial
       const { data: userData } = await supabase
@@ -114,8 +181,42 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   async function handleLogout() {
+    try { localStorage.removeItem(EXPLORE_KEY) } catch {}
     await supabase.auth.signOut()
     window.location.href = '/'
+  }
+
+  // ─── Lógica do menu adaptativo ─────────────────────────────────────
+  //
+  //  Lojista puro = tem loja MAS não tem cartas
+  //  Colecionador = tem cartas (com ou sem loja)
+  //  Novo usuário = nem cartas nem loja
+  //
+  //  Lojista puro em exploreMode = força menu completo
+
+  const isLojistaPuro = temLoja === true && temCartas === false && !exploreMode
+
+  // Monta o menu principal conforme o modo
+  const menu = (() => {
+    if (isLojistaPuro) {
+      // Menu enxuto do lojista puro
+      return [itemMinhaLoja, itemGuiaLojas, itemConta, itemSuporte]
+    }
+    // Menu completo (colecionador, híbrido, novo, ou lojista explorando)
+    const base = [...menuColecionador]
+    if (temLoja) base.push(itemMinhaLoja)       // lojista híbrido ou explorando
+    base.push(itemGuiaLojas)                     // guia sempre visível
+    base.push(itemConta, itemSuporte)
+    return base
+  })()
+
+  function toggleExploreMode() {
+    const novo = !exploreMode
+    setExploreMode(novo)
+    try {
+      if (novo) localStorage.setItem(EXPLORE_KEY, '1')
+      else       localStorage.removeItem(EXPLORE_KEY)
+    } catch {}
   }
 
   const currentPage = menu.find(m => m.href === pathname)
@@ -266,6 +367,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
         .tcg-drawer.open { transform: translateX(0); }
 
+        /* Trial banner quando esconde patrimônio no lojista puro */
+        .tcg-patrimonio { display: block; }
+
         /* ── MOBILE ── */
         @media (max-width: 768px) {
           .tcg-sidebar          { display: none !important; }
@@ -282,7 +386,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* ── SIDEBAR desktop ── */}
         <aside className="tcg-sidebar">
-          <Link href="/dashboard-financeiro" style={{ textDecoration: 'none', marginBottom: 28 }}>
+          <Link href={isLojistaPuro ? '/minha-loja' : '/dashboard-financeiro'} style={{ textDecoration: 'none', marginBottom: 28 }}>
             <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 32, width: 'auto', objectFit: 'contain', display: 'block' }} />
           </Link>
 
@@ -304,6 +408,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )
             })}
           </nav>
+
+          {/* ── Toggle "Explorar como colecionador" — só pra lojista puro ── */}
+          {temLoja === true && temCartas === false && (
+            <button onClick={toggleExploreMode}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 12px', marginBottom: 8,
+                borderRadius: 10,
+                background: exploreMode ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)',
+                border: exploreMode ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.06)',
+                color: exploreMode ? '#f59e0b' : 'rgba(255,255,255,0.55)',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'inherit', textAlign: 'left',
+              }}
+              title={exploreMode ? 'Voltar para menu de lojista' : 'Ver o Bynx como um colecionador'}
+            >
+              <IconExplorar size={14} color={exploreMode ? '#f59e0b' : 'rgba(255,255,255,0.55)'} />
+              {exploreMode ? 'Voltar pro modo lojista' : 'Explorar como colecionador'}
+            </button>
+          )}
 
           <button onClick={handleLogout}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 14, cursor: 'pointer' }}>
@@ -338,13 +462,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
 
-            {/* Patrimônio */}
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 1 }}>Patrimônio</p>
-              <p style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>
-                {patrimonio === null ? '...' : fmt(patrimonio)}
-              </p>
-            </div>
+            {/* Patrimônio — oculto pra lojista puro (sem cartas não faz sentido) */}
+            {!isLojistaPuro && (
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 1 }}>Patrimônio</p>
+                <p style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>
+                  {patrimonio === null ? '...' : fmt(patrimonio)}
+                </p>
+              </div>
+            )}
 
           {/* Sino de notificações */}
             <div style={{ position: 'relative' }}>
@@ -363,6 +489,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
           </header>
+
+          {/* ── Banner "Modo colecionador ativo" — só pra lojista em explore ── */}
+          {exploreMode && temLoja === true && temCartas === false && (
+            <div style={{
+              background: 'linear-gradient(90deg, rgba(245,158,11,0.08), rgba(239,68,68,0.04))',
+              borderBottom: '1px solid rgba(245,158,11,0.2)',
+              padding: '10px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
+                <IconExplorar size={14} color="#f59e0b" />
+                <span>
+                  <strong style={{ color: '#f59e0b' }}>Modo colecionador ativo</strong>
+                  <span style={{ color: 'rgba(255,255,255,0.45)' }}> · você está vendo o Bynx como um colecionador</span>
+                </span>
+              </div>
+              <button onClick={toggleExploreMode}
+                style={{
+                  background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)',
+                  color: '#f59e0b', padding: '6px 12px', borderRadius: 8,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  whiteSpace: 'nowrap',
+                }}>
+                Voltar pro modo lojista
+              </button>
+            </div>
+          )}
 
           {/* CONTEÚDO */}
           <main className="tcg-content">
@@ -418,6 +575,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           background: 'rgba(8,10,15,0.98)',
           borderTop: '1px solid rgba(255,255,255,0.1)',
           alignItems: 'stretch',
+          overflowX: 'auto',
         }}>
           {menu.map(item => {
             const active = pathname === item.href
@@ -428,6 +586,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 textDecoration: 'none',
                 color: active ? '#f59e0b' : 'rgba(255,255,255,0.35)',
                 borderTop: active ? '2px solid #f59e0b' : '2px solid transparent',
+                minWidth: 64,
               }}>
                 <item.Icon size={19} color={active ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />
                 <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
@@ -453,13 +612,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
 
-              {/* Patrimônio no drawer */}
-              <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Patrimônio</p>
-                <p style={{ fontSize: 20, fontWeight: 800, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  {patrimonio === null ? '...' : fmt(patrimonio)}
-                </p>
-              </div>
+              {/* Patrimônio no drawer — oculto pra lojista puro */}
+              {!isLojistaPuro && (
+                <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Patrimônio</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    {patrimonio === null ? '...' : fmt(patrimonio)}
+                  </p>
+                </div>
+              )}
 
               {/* Nav links */}
               <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
@@ -483,6 +644,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   )
                 })}
               </nav>
+
+              {/* Toggle "Explorar como colecionador" no drawer — só pra lojista puro */}
+              {temLoja === true && temCartas === false && (
+                <button onClick={() => { toggleExploreMode(); setDrawerOpen(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '12px 14px', marginTop: 8, borderRadius: 12,
+                    background: exploreMode ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.03)',
+                    border: exploreMode ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                    color: exploreMode ? '#f59e0b' : 'rgba(255,255,255,0.55)',
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    width: '100%', textAlign: 'left',
+                  }}>
+                  <IconExplorar size={16} color={exploreMode ? '#f59e0b' : 'rgba(255,255,255,0.55)'} />
+                  {exploreMode ? 'Voltar pro modo lojista' : 'Explorar como colecionador'}
+                </button>
+              )}
 
               {/* Sair */}
               <button onClick={handleLogout}
