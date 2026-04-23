@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState } from 'react'
 import { IconWarning, IconLink, IconTrendingUp, IconTrendingDown, IconDashboard, IconMarketplace, IconShield, IconWallet, IconCheck, IconClose, IconEye, IconEyeOff, IconKey, IconFire, IconCollection, IconChart } from '@/components/ui/Icons'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import PublicHeader from '@/components/ui/PublicHeader'
 
 // ─── Validadores ─────────────────────────────────────────────────────────────
 
@@ -274,7 +275,7 @@ export default function Home() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false) // mantido por compatibilidade, nao usado mais (PublicHeader gerencia seu proprio state)
   const [forgotStep, setForgotStep] = useState(false) // true = tela de recuperar senha
   const [signupStep, setSignupStep] = useState(1) // 1 = conta, 2 = perfil + aceites
   const [forgotEmail, setForgotEmail] = useState('')
@@ -457,12 +458,9 @@ export default function Home() {
   return (
     <div style={{ fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", background: '#080a0f', color: '#f0f0f0', minHeight: '100vh' }}>
 
-      {/* HEADER */}
       {/* CSS responsivo landing */}
       <style>{`
         @media (max-width: 768px) {
-          .lp-nav-desktop { display: none !important; }
-          .lp-hamburger   { display: flex !important; }
           .lp-hero-btns   { flex-direction: column !important; align-items: stretch !important; }
           .lp-mockup-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .lp-stats-row   { flex-wrap: wrap !important; gap: 24px !important; }
@@ -474,80 +472,7 @@ export default function Home() {
         }
       `}</style>
 
-      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, backdropFilter: 'blur(16px)', background: 'rgba(8,10,15,0.9)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
-          </div>
-
-          {/* Nav desktop */}
-          <nav className="lp-nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-            <button onClick={() => scrollTo(howRef)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>Como funciona</button>
-            <button onClick={() => scrollTo(pricingRef)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>Planos</button>
-            <a href="/lojas" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5 }}>
-              🏪 Guia de Lojas
-            </a>
-            <a href="/para-lojistas" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: 14 }}>
-              Para lojistas
-            </a>
-            {user ? (
-              <button onClick={() => router.push('/dashboard-financeiro')} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '9px 18px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
-                Meu Dashboard
-              </button>
-            ) : (
-              <button onClick={() => { setIsLogin(true); setShowAuthModal(true) }} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '9px 18px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
-                Entrar
-              </button>
-            )}
-          </nav>
-
-          {/* Hamburguer mobile */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* CTA compacto mobile */}
-            <div className="lp-nav-desktop" style={{ display: 'none' }} />
-            {user ? (
-              <button className="lp-hamburger" onClick={() => router.push('/dashboard-financeiro')}
-                style={{ display: 'none', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '8px 14px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
-                Dashboard
-              </button>
-            ) : (
-              <button className="lp-hamburger" onClick={() => { setIsLogin(true); setShowAuthModal(true) }}
-                style={{ display: 'none', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '8px 14px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
-                Entrar
-              </button>
-            )}
-            <button className="lp-hamburger" onClick={() => setMobileMenuOpen(v => !v)}
-              style={{ display: 'none', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', flexDirection: 'column', gap: 4 }}>
-              <span style={{ display: 'block', width: 18, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
-              <span style={{ display: 'block', width: 18, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
-              <span style={{ display: 'block', width: 18, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
-            </button>
-          </div>
-        </div>
-
-        {/* Menu mobile expandido */}
-        {mobileMenuOpen && (
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <button onClick={() => { scrollTo(howRef); setMobileMenuOpen(false) }}
-              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 15, padding: '10px 0', textAlign: 'left', fontFamily: 'inherit', fontWeight: 500 }}>
-              Como funciona
-            </button>
-            <button onClick={() => { scrollTo(pricingRef); setMobileMenuOpen(false) }}
-              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 15, padding: '10px 0', textAlign: 'left', fontFamily: 'inherit', fontWeight: 500 }}>
-              Planos
-            </button>
-            <a href="/lojas" onClick={() => setMobileMenuOpen(false)}
-              style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, padding: '10px 0', fontWeight: 500, display: 'block' }}>
-              🏪 Guia de Lojas
-            </a>
-            <a href="/para-lojistas" onClick={() => setMobileMenuOpen(false)}
-              style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, padding: '10px 0', fontWeight: 500, display: 'block' }}>
-              Para lojistas
-            </a>
-          </div>
-        )}
-      </header>
+      <PublicHeader landingScrollTargets={{ howRef, pricingRef }} />
 
       {/* HERO */}
       <section style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '120px 24px 80px', position: 'relative', overflow: 'hidden' }}>
