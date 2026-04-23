@@ -486,6 +486,9 @@ export default function Home() {
           <nav className="lp-nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
             <button onClick={() => scrollTo(howRef)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>Como funciona</button>
             <button onClick={() => scrollTo(pricingRef)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>Planos</button>
+            <a href="/lojas" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5 }}>
+              🏪 Guia de Lojas
+            </a>
             {user ? (
               <button onClick={() => router.push('/dashboard-financeiro')} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '9px 18px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
                 Meu Dashboard
@@ -532,6 +535,10 @@ export default function Home() {
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 15, padding: '10px 0', textAlign: 'left', fontFamily: 'inherit', fontWeight: 500 }}>
               Planos
             </button>
+            <a href="/lojas" onClick={() => setMobileMenuOpen(false)}
+              style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: 15, padding: '10px 0', fontWeight: 500, display: 'block' }}>
+              🏪 Guia de Lojas
+            </a>
           </div>
         )}
       </header>
