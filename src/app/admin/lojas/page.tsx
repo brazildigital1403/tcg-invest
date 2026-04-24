@@ -20,7 +20,7 @@ type Loja = {
   suspensao_motivo: string | null
   suspensao_data: string | null
   aprovada_data: string | null
-  trial_expires_at: string | null
+  plano_expira_em: string | null
   created_at: string
   owner_email: string | null
   owner_name: string | null
@@ -484,8 +484,8 @@ function LojasView() {
                 <InfoRow label="Motivo"      value={detailsLoja.suspensao_motivo || '—'} />
               </>
             )}
-            {detailsLoja.trial_expires_at && (
-              <InfoRow label="Trial expira em" value={fmtDateTime(detailsLoja.trial_expires_at)} />
+            {detailsLoja.plano_expira_em && (
+              <InfoRow label="Plano expira em" value={fmtDateTime(detailsLoja.plano_expira_em)} />
             )}
 
             <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
