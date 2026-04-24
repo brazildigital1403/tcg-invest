@@ -353,6 +353,45 @@ export default function Home() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  // ─── Lê query param ?auth=signup e abre modal antigo em fluxo de signup ──
+  // Usado pelo AuthModal (botão "Criar conta") e por outras páginas que
+  // queiram direcionar usuários pro funil completo de cadastro.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const authParam = params.get('auth')
+    if (authParam === 'signup') {
+      setIsLogin(false)
+      setShowPlanStep(true)   // começa pela escolha de plano
+      setShowAuthModal(true)
+      // Remove o query param da URL sem recarregar
+      const url = new URL(window.location.href)
+      url.searchParams.delete('auth')
+      window.history.replaceState({}, '', url.toString())
+    } else if (authParam === 'login') {
+      setIsLogin(true)
+      setShowAuthModal(true)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('auth')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
+
+  // ─── Escuta evento customizado 'bynx:open-signup' ──────────────
+  // Disparado pelo AuthModal (src/components/ui/AuthModal.tsx) quando o user
+  // clica "Criar conta grátis" estando já na landing. Abre o modal antigo
+  // em modo signup com step de plano (fluxo completo).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    function handleOpenSignup() {
+      setIsLogin(false)
+      setShowPlanStep(true)
+      setShowAuthModal(true)
+    }
+    window.addEventListener('bynx:open-signup', handleOpenSignup)
+    return () => window.removeEventListener('bynx:open-signup', handleOpenSignup)
+  }, [])
+
   const scrollTo = (ref: any) => ref.current?.scrollIntoView({ behavior: 'smooth' })
 
   // Abre modal com contexto do plano escolhido
