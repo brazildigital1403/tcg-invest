@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     // ─── Query principal ────────────────────────────────────────────────
     let query = sb
       .from('lojas')
-      .select('id, owner_user_id, nome, slug, logo_url, cidade, estado, tipo, especialidades, plano, status, verificada, suspensao_motivo, suspensao_data, aprovada_data, trial_expires_at, created_at', { count: 'exact' })
+      .select('id, owner_user_id, nome, slug, logo_url, cidade, estado, tipo, especialidades, plano, status, verificada, suspensao_motivo, suspensao_data, aprovada_data, plano_expira_em, created_at', { count: 'exact' })
 
     if (status && ['pendente', 'ativa', 'suspensa', 'inativa'].includes(status)) {
       query = query.eq('status', status)
