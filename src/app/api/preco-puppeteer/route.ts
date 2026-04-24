@@ -1,17 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
-// Mapeamento de tipos de extras do LigaPokemon
 const EXTRAS_MAP: Record<number, string> = {
-  0: 'normal',
-  2: 'foil',
-  3: 'reverse',
-  14: 'promo',
-  47: 'pokeball',
-  1: 'foil',       // foil alternativo
-  4: 'reverse',    // reverse alternativo
-  15: 'special',
+  0: 'normal', 1: 'foil', 2: 'foil', 3: 'reverse',
+  4: 'reverse', 14: 'promo', 15: 'special', 47: 'pokeball',
+}
+
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
 }
 
 function decodeHtmlEntities(str: string): string {
@@ -26,7 +33,8 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&atilde;/g, 'ã').replace(/&Atilde;/g, 'Ã')
     .replace(/&otilde;/g, 'õ').replace(/&Otilde;/g, 'Õ')
     .replace(/&ccedil;/g, 'ç').replace(/&Ccedil;/g, 'Ç')
-    .replace(/&agrave;/g, 'à').replace(/&acirc;/g, 'â').replace(/&ecirc;/g, 'ê').replace(/&ocirc;/g, 'ô')
+    .replace(/&agrave;/g, 'à').replace(/&acirc;/g, 'â')
+    .replace(/&ecirc;/g, 'ê').replace(/&ocirc;/g, 'ô')
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
 }
 
@@ -35,13 +43,57 @@ function parsePrice(v: string | number | null | undefined): number | null {
   const s = String(v).trim()
   const n = parseFloat(s)
   if (isNaN(n) || n <= 0) return null
-  // LigaPokemon armazena preços em 2 formatos:
-  // "0.17" → já em reais (tem ponto decimal)
-  // "4499" → em centavos (sem ponto decimal) → divide por 100
   if (!s.includes('.') && !s.includes(',')) {
     return parseFloat((n / 100).toFixed(2))
   }
   return parseFloat(n.toFixed(2))
+}
+
+async function fetchHtml(url: string): Promise<{ html: string; method: string } | null> {
+  // Tentativa 1: fetch direto com headers de browser
+  try {
+    const res = await fetch(url, {
+      headers: BROWSER_HEADERS,
+      redirect: 'follow',
+      signal: AbortSignal.timeout(12000),
+    })
+    if (res.ok) {
+      const html = await res.text()
+      // Valida que é HTML real da LigaPokemon (não uma página de bloqueio)
+      if (html.includes('cards_stock') || html.includes('cards_editions') || html.includes('ligapokemon')) {
+        console.log('[preco] fetch direto OK')
+        return { html, method: 'direct' }
+      }
+    }
+    console.log('[preco] fetch direto retornou', res.status)
+  } catch (e: any) {
+    console.log('[preco] fetch direto falhou:', e.message)
+  }
+
+  // Tentativa 2: ScraperAPI (se configurado)
+  const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY
+  if (SCRAPER_API_KEY) {
+    try {
+      const scraperUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(url)}&country_code=br&render=false`
+      const res = await fetch(scraperUrl, { signal: AbortSignal.timeout(25000) })
+      if (res.ok) {
+        const html = await res.text()
+        if (html.includes('cards_stock') || html.includes('ligapokemon')) {
+          console.log('[preco] ScraperAPI OK')
+          return { html, method: 'scraperapi' }
+        }
+        console.log('[preco] ScraperAPI retornou HTML sem dados úteis')
+      } else {
+        console.log('[preco] ScraperAPI status:', res.status)
+      }
+    } catch (e: any) {
+      console.log('[preco] ScraperAPI falhou:', e.message)
+    }
+  } else {
+    console.log('[preco] SCRAPER_API_KEY não configurada')
+  }
+
+  return null
 }
 
 export async function GET(req: Request) {
@@ -49,7 +101,10 @@ export async function GET(req: Request) {
   const token = authHeader?.replace('Bearer ', '')
   if (!token) return Response.json({ error: 'Não autorizado' }, { status: 401 })
 
-  const supabaseAuth = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
   if (authError || !user) return Response.json({ error: 'Sessão inválida' }, { status: 401 })
 
@@ -61,79 +116,72 @@ export async function GET(req: Request) {
   try { parsedUrl = new URL(targetUrl) }
   catch { return Response.json({ error: 'URL inválida' }, { status: 400 }) }
 
-  // ── Normaliza URL: resolve link curto e trata busca ─────────────────────
-
-  // 1) Link curto lig.ae → segue redirect para URL completa
+  // Resolve link curto lig.ae
   if (parsedUrl.hostname === 'lig.ae' || parsedUrl.hostname.endsWith('.lig.ae')) {
     try {
-      const redirectRes = await fetch(targetUrl, {
+      const res = await fetch(targetUrl, {
         redirect: 'follow',
         signal: AbortSignal.timeout(8000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36' }
+        headers: BROWSER_HEADERS,
       })
-      const finalUrl = redirectRes.url
-      console.log('lig.ae redirect →', finalUrl)
-      try { parsedUrl = new URL(finalUrl) }
+      try { parsedUrl = new URL(res.url) }
       catch { return Response.json({ error: 'Link inválido após redirecionamento.' }, { status: 400 }) }
     } catch {
-      return Response.json({ error: 'Não foi possível resolver o link curto.' }, { status: 400 })
+      return Response.json({ error: 'Não foi possível resolver o link curto.' }, { status: 400 }) 
     }
   }
 
-  // 2) URL de busca → mantém e extrai nome do parâmetro card
+  // URL de busca com card param aninhado
   if (parsedUrl.searchParams.get('view')?.includes('search')) {
     const cidMatch = (parsedUrl.searchParams.get('card') || '').match(/cid=(\d+)/)
     if (cidMatch) {
       parsedUrl = new URL(`https://www.ligapokemon.com.br/?view=cards/card&cid=${cidMatch[1]}`)
     }
-    // Para busca geral mantém a URL — ScraperAPI vai carregar e extrair os dados
   }
 
-  // Valida que chegou num domínio permitido
   if (!['ligapokemon.com.br', 'www.ligapokemon.com.br'].includes(parsedUrl.hostname)) {
-    return Response.json({ error: `URL não permitida: ${parsedUrl.hostname}. Use links da LigaPokemon.` }, { status: 403 })
+    return Response.json({ error: `Use links da LigaPokemon.com.br` }, { status: 403 })
   }
 
-  const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY
-  if (!SCRAPER_API_KEY) return Response.json({ error: 'Serviço de scraping não configurado.' }, { status: 503 })
+  // ── Busca HTML ──────────────────────────────────────────────────────────
+  const result = await fetchHtml(parsedUrl.toString())
+  if (!result) {
+    return Response.json({
+      error: 'Não foi possível acessar a LigaPokemon. Verifique o link e tente novamente.',
+      debug: 'Ambas as tentativas de fetch falharam (direto + ScraperAPI)',
+    }, { status: 503 })
+  }
 
-  // ── STEP 1: Extrai nome/número da URL (instantâneo) ────────────────────
+  const { html } = result
+
+  // ── Extrai nome da carta ────────────────────────────────────────────────
   const cardParam = decodeURIComponent(parsedUrl.searchParams.get('card') || '')
   let card_name = decodeHtmlEntities(cardParam.split('|')[0].trim()) || null
-  const numberMatch = card_name?.match(/\(([^)]+)\)/)
-  let card_number = numberMatch?.[1] || parsedUrl.searchParams.get('num') || null
 
-  // ── STEP 2: ScraperAPI sem render para pegar HTML estático ────────────
-  const fastUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(parsedUrl.toString())}&country_code=br`
-  const fastRes = await fetch(fastUrl, { signal: AbortSignal.timeout(15000) })
-  if (!fastRes.ok) return Response.json({ error: 'Erro ao acessar LigaPokemon' }, { status: 502 })
-  const html = await fastRes.text()
-
-  // Extrai nome do HTML se não tinha na URL
   if (!card_name) {
     const metaTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
-    card_name = decodeHtmlEntities(metaTitle?.[1]?.split('|')[0]?.trim() || '') || null
-  }
-  if (!card_name) return Response.json({ error: 'Não foi possível identificar a carta.' }, { status: 422 })
-
-  // Extrai número
-  if (!card_number) {
-    const nm = card_name.match(/\(([^)]+)\)/)
-    card_number = nm?.[1] || parsedUrl.searchParams.get('num') || null
+      || html.match(/<title>([^<]{3,80})<\/title>/i)
+    const raw = metaTitle?.[1]?.split('|')[0]?.split('-')[0]?.trim() || ''
+    card_name = decodeHtmlEntities(raw) || null
   }
 
-  // Raridade
+  if (!card_name) {
+    return Response.json({ error: 'Não foi possível identificar a carta. Tente um link diferente.' }, { status: 422 })
+  }
+
+  // ── Extrai número ───────────────────────────────────────────────────────
+  let card_number: string | null = null
+  const nm = card_name.match(/\(([^)]+)\)/)
+  card_number = nm?.[1] || parsedUrl.searchParams.get('num') || null
+
+  // ── Raridade ────────────────────────────────────────────────────────────
   const rarityMatch = html.match(/Raridade[^<]*<[^>]*>\s*([^<]+)<|Raridade:\s*([^\n<]{2,40})/i)
   const rarity = decodeHtmlEntities((rarityMatch?.[1] || rarityMatch?.[2])?.trim() || '') || null
 
-  // ── STEP 3: Extrai dados diretamente do HTML (cards_stock e cards_editions) ──
-  // Os dados já estão no HTML como variáveis JavaScript inline!
-
+  // ── cards_editions → imagem + set ──────────────────────────────────────
   let card_image: string | null = null
-  const variantes: Record<string, { min: number|null; medio: number|null; max: number|null }> = {}
-
-  // Extrai cards_editions (imagem real da carta + nome da edição)
   let set_name: string | null = null
+
   const editionsMatch = html.match(/var\s+cards_editions\s*=\s*(\[[\s\S]+?\]);/)
     || html.match(/cards_editions\s*=\s*(\[[\s\S]+?\]);/)
   if (editionsMatch) {
@@ -141,28 +189,26 @@ export async function GET(req: Request) {
       const editions = JSON.parse(editionsMatch[1])
       const img = editions[0]?.img
       if (img) card_image = img.startsWith('//') ? 'https:' + img : img
-      // Extrai nome da edição
       const edName = editions[0]?.name || editions[0]?.edition || editions[0]?.set
       if (edName) set_name = decodeHtmlEntities(String(edName).trim())
     } catch {}
   }
 
-  // Fallback: tenta extrair set do HTML diretamente
   if (!set_name) {
     const setMatch = html.match(/Expans[ãa]o[^<]*<[^>]*>([^<]{3,60})</)
       || html.match(/Edi[çc][ãa]o[^<]*<[^>]*>([^<]{3,60})</)
-      || html.match(/Set[:\s]+<[^>]*>([^<]{3,60})</)
     if (setMatch?.[1]) set_name = decodeHtmlEntities(setMatch[1].trim())
   }
 
-  // Extrai cards_stock (preços por variante)
+  // ── cards_stock → preços ────────────────────────────────────────────────
+  const variantes: Record<string, { min: number|null; medio: number|null; max: number|null }> = {}
+
   const stockMatch = html.match(/var\s+cards_stock\s*=\s*(\[[\s\S]+?\]);/)
     || html.match(/cards_stock\s*=\s*(\[[\s\S]+?\]);/)
+
   if (stockMatch) {
     try {
       const stock: Array<{ extras: number; precoFinal: string }> = JSON.parse(stockMatch[1])
-
-      // Agrupa preços por tipo de extra
       const byExtra: Record<number, number[]> = {}
       stock.forEach(s => {
         const key = s.extras ?? 0
@@ -170,8 +216,6 @@ export async function GET(req: Request) {
         const price = parsePrice(s.precoFinal)
         if (price && price > 0) byExtra[key].push(price)
       })
-
-      // Calcula min/medio/max por tipo
       Object.entries(byExtra).forEach(([key, prices]) => {
         const variantName = EXTRAS_MAP[parseInt(key)] || `extra_${key}`
         prices.sort((a, b) => a - b)
@@ -181,17 +225,18 @@ export async function GET(req: Request) {
         variantes[variantName] = {
           min: parseFloat(min.toFixed(2)),
           medio: parseFloat(medio.toFixed(2)),
-          max: parseFloat(max.toFixed(2))
+          max: parseFloat(max.toFixed(2)),
         }
       })
+      console.log('[preco] variantes extraídas:', Object.keys(variantes), JSON.stringify(variantes))
     } catch (e: any) {
-      console.log('Erro ao parsear cards_stock:', e.message)
+      console.log('[preco] erro ao parsear cards_stock:', e.message)
     }
+  } else {
+    console.log('[preco] cards_stock NÃO encontrado no HTML')
   }
 
-  console.log('variantes:', JSON.stringify(variantes))
-
-  // Fallback imagem: Pokemon TCG API
+  // ── Fallback imagem via TCG API ─────────────────────────────────────────
   if (!card_image) {
     try {
       const baseName = card_name.split('(')[0].trim()
@@ -209,29 +254,28 @@ export async function GET(req: Request) {
     } catch {}
   }
 
-  const normal  = variantes.normal  || { min: null, medio: null, max: null }
-  const foil    = variantes.foil    || { min: null, medio: null, max: null }
-  const promo   = variantes.promo   || { min: null, medio: null, max: null }
-  const reverse = variantes.reverse || { min: null, medio: null, max: null }
+  const normal   = variantes.normal   || { min: null, medio: null, max: null }
+  const foil     = variantes.foil     || { min: null, medio: null, max: null }
+  const promo    = variantes.promo    || { min: null, medio: null, max: null }
+  const reverse  = variantes.reverse  || { min: null, medio: null, max: null }
   const pokeball = variantes.pokeball || { min: null, medio: null, max: null }
 
-  const data = {
-    card_name, card_number, card_image, set_name,
-    link: parsedUrl.toString(), rarity,
-    preco_min: normal.min, preco_medio: normal.medio, preco_max: normal.max,
-    preco_normal: normal.medio, preco_foil: foil.medio,
-    variantes,
-  }
+  console.log(`[preco] ✅ ${card_name} | normal: ${normal.medio} | foil: ${foil.medio}`)
 
-  console.log('✅', card_name, '| normal:', normal.medio, '| foil:', foil.medio, '| reverse:', reverse.medio, '| pokeball:', pokeball.medio)
+  // ── Salva no banco ──────────────────────────────────────────────────────
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+  )
 
-  // Salva no banco
-  const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
-  await Promise.all([
+  await Promise.allSettled([
     supabaseAdmin.from('card_prices').upsert({
       card_name,
-      preco_min: normal.min || 0, preco_medio: normal.medio || 0, preco_max: normal.max || 0,
-      preco_normal: normal.medio || 0, preco_foil: foil.medio || 0,
+      preco_min: normal.min || 0,
+      preco_medio: normal.medio || 0,
+      preco_max: normal.max || 0,
+      preco_normal: normal.medio || 0,
+      preco_foil: foil.medio || 0,
       preco_foil_min: foil.min, preco_foil_medio: foil.medio, preco_foil_max: foil.max,
       preco_promo_min: promo.min, preco_promo_medio: promo.medio, preco_promo_max: promo.max,
       preco_reverse_min: reverse.min, preco_reverse_medio: reverse.medio, preco_reverse_max: reverse.max,
@@ -243,8 +287,18 @@ export async function GET(req: Request) {
       preco_min: normal.min, preco_medio: normal.medio, preco_max: normal.max,
       preco_normal: normal.medio, preco_foil: foil.medio,
       recorded_at: new Date().toISOString(),
-    })
+    }),
   ])
 
-  return Response.json(data)
+  return Response.json({
+    card_name, card_number, card_image, set_name, rarity,
+    link: parsedUrl.toString(),
+    preco_min: normal.min,
+    preco_medio: normal.medio,
+    preco_max: normal.max,
+    preco_normal: normal.medio,
+    preco_foil: foil.medio,
+    variantes,
+    _method: result.method,
+  })
 }
