@@ -28,12 +28,41 @@ export const metadata: Metadata = {
 export default function ParaLojistasPage() {
   return (
     <div style={S.page}>
+      {/* CSS responsivo — empilha hero no mobile e ajusta paddings */}
+      <style>{`
+        @media (max-width: 768px) {
+          .pl-hero {
+            padding: 48px 20px 64px !important;
+          }
+          .pl-hero-inner {
+            grid-template-columns: 1fr !important;
+            gap: 40px !important;
+          }
+          .pl-hero-ctas {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .pl-hero-ctas > a {
+            text-align: center;
+          }
+          .pl-final-ctas {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            width: 100%;
+            max-width: 360px;
+          }
+          .pl-final-ctas > a {
+            text-align: center;
+          }
+        }
+      `}</style>
+
       <PublicHeader />
 
       <main>
         {/* ─── HERO ───────────────────────────────────────── */}
-        <section style={S.hero}>
-          <div style={S.heroInner}>
+        <section className="pl-hero" style={S.hero}>
+          <div className="pl-hero-inner" style={S.heroInner}>
             <div style={S.heroLeft}>
               <span style={S.heroBadge}>
                 <span style={S.heroBadgeDot} />
@@ -50,7 +79,7 @@ export default function ParaLojistasPage() {
                 usam o Bynx todos os dias. Agora eles encontram sua loja aqui.
               </p>
 
-              <div style={S.heroCtas}>
+              <div className="pl-hero-ctas" style={S.heroCtas}>
                 <Link href="/minha-loja" style={S.ctaPrimary}>
                   Cadastrar minha loja grátis
                 </Link>
@@ -343,7 +372,7 @@ export default function ParaLojistasPage() {
                 Cadastre agora e ganhe 14 dias de Pro pra testar tudo.
                 Sem cartão, sem pegadinha.
               </p>
-              <div style={S.heroCtas}>
+              <div className="pl-final-ctas" style={{ ...S.heroCtas, justifyContent: 'center' }}>
                 <Link href="/minha-loja" style={S.ctaPrimary}>
                   Cadastrar minha loja grátis
                 </Link>
