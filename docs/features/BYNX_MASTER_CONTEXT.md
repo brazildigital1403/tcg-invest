@@ -1,5 +1,5 @@
 # BYNX — Master Context
-_Última atualização: 23/abril/2026_
+_Última atualização: 24/abril/2026 (fim do dia — Passo 7 completo)_
 
 > Documento vivo que resume o estado atual do projeto Bynx pra ser passado como contexto inicial em novas sessões com a Mia. Atualizado ao final de cada sessão.
 
@@ -10,7 +10,7 @@ _Última atualização: 23/abril/2026_
 **Bynx** (bynx.gg) é um app brasileiro pra colecionadores de Pokémon TCG organizarem e valorizarem suas coleções. Recentemente expandido com um **Guia de Lojistas** — seção B2B que permite lojas de TCG no Brasil serem descobertas pelos colecionadores da plataforma.
 
 - **Dono:** Du (Eduardo)
-- **Repo:** `brazildigital1403/tcg-invest` (main)
+- **Repo:** `brazildigital1403/tcg-invest` (main) — pasta local `~/tcg-app`
 - **Stack:** Next.js 16 (Turbopack) + React 19 + Supabase + Stripe + Resend + Vercel
 - **User teste:** `eduardo` / `122267ef-5aeb-4fd0-a9c0-616bfca068bd`
 - **Projeto Vercel:** `prj_X1CUMTLMwTL77trWqZdDdmBI9PRC` / team `team_FK9fHseL9hy5mbNR6c0Q8JuK`
@@ -35,6 +35,9 @@ _Última atualização: 23/abril/2026_
 | Header público unificado | `@/components/ui/PublicHeader` |
 | Footer público | `@/components/ui/PublicFooter` |
 | Cliente Supabase | `@/lib/supabaseClient` |
+| **Helper de API autenticada** | `@/lib/authFetch` |
+| **Link com tracking** | `@/components/lojas/TrackedLink` |
+| Form de loja | `@/components/lojas/FormLoja` |
 | Icon system | `@/components/ui/Icons` (⚠️ evitar import cross-boundary client→server no Turbopack) |
 
 ---
@@ -43,241 +46,223 @@ _Última atualização: 23/abril/2026_
 
 ### Passos concluídos e em produção
 
-| # | Passo | Status | Arquivos principais |
-|---|---|---|---|
-| 1 | Tabela `lojas` no Supabase (~30 colunas, 8 índices, 4 RLS policies, CHECK constraints, trigger updated_at) | ✅ | `001_create_lojas.sql` |
-| 2 | `/lojas` listagem pública com filtros e SEO dinâmico | ✅ | `src/app/lojas/page.tsx`, `CardLoja.tsx`, `FiltrosGuia.tsx` |
-| 3 | `/lojas/[slug]` página individual com CTA WhatsApp | ✅ | `src/app/lojas/[slug]/page.tsx` |
-| 3.5 | Lightbox full-screen na galeria (teclado + swipe) | ✅ | `src/components/lojas/GaleriaFotos.tsx` |
-| 4 | `/minha-loja` painel do lojista (4 estados, trial Pro 14 dias) | ✅ | `src/app/minha-loja/page.tsx`, `FormLoja.tsx` |
-| 5 | `/para-lojistas` landing B2B dedicada | ✅ | `src/app/para-lojistas/page.tsx`, `LojistasFAQ.tsx` |
-| 6 | AppLayout adaptativo (colecionador/híbrido/lojista puro) | ✅ | `src/components/ui/AppLayout.tsx` |
-| — | Header público unificado (Opção B — prop opcional na landing) | ✅ | `src/components/ui/PublicHeader.tsx`, `src/app/page.tsx` |
-| — | Redirect automático removido da landing pra logados | ✅ | `src/app/page.tsx` |
-
-### Pendências do roadmap (backlog)
-
-| # | Passo | Notas |
+| # | Passo | Status |
 |---|---|---|
-| 7 | APIs `/api/lojas/*` (CRUD + track-click + upload-foto) | próximo lógico |
-| 8 | Integração Stripe (Pro/Premium mensal+anual + ofertas avulsas) | |
-| 9 | `/admin/lojas` (moderação — aprovar/suspender/verificar) | |
-| 10 | Upload de fotos via Supabase Storage | |
-| 11 | Analytics de views/cliques + ofertas avulsas (boost 72h, destaque evento, foto extra) | |
+| 1 | Tabela `lojas` no Supabase | ✅ |
+| 2 | `/lojas` listagem pública com filtros e SEO | ✅ |
+| 3 | `/lojas/[slug]` página individual | ✅ |
+| 3.5 | Lightbox na galeria (teclado + swipe) | ✅ |
+| 4 | `/minha-loja` painel do lojista | ✅ |
+| 5 | `/para-lojistas` landing B2B | ✅ |
+| 6 | AppLayout adaptativo | ✅ |
+| — | Header público unificado (+ remove redirect auto) | ✅ |
+| — | Modal de auth unificado (landing serve todas as páginas) | ✅ |
+| — | Ajustes mobile /para-lojistas | ✅ |
+| **7** | **APIs /api/lojas/* + frontend consumindo** | ✅ **hoje** |
+
+### Pendências — ordem de prioridade
+
+| # | Passo | Dificuldade | Tempo | Por que nessa ordem |
+|---|---|---|---|---|
+| 🥇 9 | `/admin/lojas` (moderação) | 🟢 Fácil | 2-3h | Destrava moderação manual via SQL; vitória rápida; aproveita toda infra existente (auth HMAC, email) |
+| 🥈 10 | Upload de fotos (Storage) | 🟡 Média | 3-5h | Melhora drasticamente o valor percebido de Pro/Premium |
+| 🥉 11 | Analytics Premium | 🟡 Média | 3-4h | Dados já sendo gravados desde Passo 7; falta dashboard |
+| 4️⃣ 8 | Stripe (Pro/Premium) | 🔴 Alta | 6-10h | Edge cases críticos; beta fechado cobre até lá (30 Pro grátis 6m) |
 
 ---
 
-## 💰 Pricing e modelo de negócio (travado)
+## 🎯 Passo 7 — Detalhamento (sessão de 24/abril)
 
-### Planos de loja
+### Entrega 1 — APIs no servidor
+
+**Nova tabela SQL** — `loja_cliques`:
+```
+id, loja_id (FK lojas), tipo ('whatsapp'|'instagram'|'facebook'|'website'|'maps'),
+user_id (FK users, opcional), user_agent, referrer, ip, created_at
+```
+3 índices (loja_id, loja_id+tipo, loja_id+date). RLS: owner lê próprios, inserts via service role.
+
+**5 endpoints novos** em `src/app/api/lojas/`:
+
+| Endpoint | Método | Auth | Função |
+|---|---|---|---|
+| `/api/lojas` | POST | Bearer | Cria loja (whitelist 18 campos, slug único, 1 loja ativa por user, seta `status=pendente` + `plano=pro` trial) |
+| `/api/lojas/[id]` | PATCH | Bearer owner | Edita (transições de status: `ativa→inativa`, `pendente→inativa`, `inativa→pendente`; `suspensa` só admin) |
+| `/api/lojas/[id]` | DELETE | Bearer owner | Soft delete (`status='inativa'`), idempotente |
+| `/api/lojas/[id]/track-click` | POST | **Pública** | Registra clique CTA (captura user-agent, referer, ip, header opcional `x-user-id`) |
+| `/api/lojas/[id]/upload-foto` | POST | Bearer owner | **STUB 501** — Passo 10 implementa com Supabase Storage |
+
+### Entrega 2 — Frontend consumindo APIs
+
+**Arquivo novo:**
+- `src/components/lojas/TrackedLink.tsx` — Client Component que envolve `<a>` e dispara track-click via fetch (fire-and-forget com `keepalive: true`). Não bloqueia navegação, silent fail.
+
+**Refatorado `FormLoja.tsx`:**
+- Antes: `supabase.from('lojas').insert/update()` inline
+- Depois: `authFetch('/api/lojas')` POST / `authFetch('/api/lojas/[id]')` PATCH
+- `Content-Type: application/json` manual (o `authFetch` existente não seta automaticamente)
+- Remove validação manual de slug (servidor valida via 409)
+- Remove `owner_user_id` do payload (servidor seta do JWT)
+
+**Refatorado `/lojas/[slug]/page.tsx`:**
+- Import de `TrackedLink`
+- 5 `<a>` substituídos por `<TrackedLink>` com tipos `whatsapp`, `instagram`, `facebook`, `website`, `maps`
+
+### ⚠️ Notas / pendências do Passo 7
+
+- **Campo `email` NÃO está no whitelist** das APIs. Se quiser salvar email da loja, adicionar em `ALLOWED_FIELDS` e `EDITABLE_FIELDS`.
+- **SQL do `loja_cliques` rodado manualmente** no Supabase SQL Editor (não commitado no repo).
+- **`/minha-loja/page.tsx` ainda usa Supabase direto** para algumas operações (não mandado pra refatorar). Se tiver botão "Desativar loja" chamando `.delete()` ou `.update({ status: 'inativa' })`, refatorar num próximo passo.
+
+---
+
+## 💰 Pricing travado
 
 | Plano | Preço | Limites |
 |---|---|---|
-| **Básico** | Grátis | 1 jogo, 160 chars descrição, sem fotos/sociais |
-| **Pro** | R$ 39/mês ou R$ 390/ano (2 meses grátis) | 5 fotos, redes sociais, especialidades ilimitadas |
+| **Básico** | Grátis | 1 jogo, 160 chars, sem fotos/sociais |
+| **Pro** | R$ 39/mês ou R$ 390/ano | 5 fotos, redes sociais, especialidades ilimitadas |
 | **Premium** | R$ 89/mês ou R$ 890/ano | 10 fotos, eventos, analytics, rotação no topo |
 
-### Condições
+- Trial Pro 14 dias (sem cartão)
+- Renovação anual após 12m: 20% off
+- Beta fechado: 30 primeiros Pro grátis por 6m
 
-- **Trial Pro 14 dias** pra todo novo cadastro (sem cartão)
-- **Renovação anual após 12m**: 20% off (só plano anual)
-- **Beta fechado**: primeiros 30 lojistas Pro grátis por 6m (contrapartida: feedback/depoimento)
-
-### Ofertas avulsas (Passo 11 — planejado)
-
-- Destaque evento na home do guia: R$ 29 / 7 dias
-- Boost 72h topo da cidade: R$ 19 / 72h (fura rotação Premium)
+### Ofertas avulsas (Passo 11)
+- Destaque evento na home: R$ 29 / 7 dias
+- Boost 72h topo da cidade: R$ 19
 - Foto extra acima do limite: R$ 9 permanente
 
-### Destaque Premium — diferenciação visual + rotação
-
-- Card 1.5x maior, borda âmbar, preview 3 fotos, preview próximo evento, glow hover
-- Dentro do tier Premium: rotação round-robin (coluna `ultima_aparicao_topo`) + verificadas primeiro
-- Ordem da listagem: Premium (rotação) → Pro → Básico
-- NÃO usa topo absoluto (evita churn quando muitos Premium)
-
 ---
 
-## 🧭 Arquitetura User ↔ Lojista (decisão v2)
+## 🧭 Arquitetura User ↔ Lojista
 
-**User único** — não existe "tipo de conta" separado. Um registro `public.users` pode ser colecionador, lojista, ou ambos ao mesmo tempo. O `AppLayout` detecta o perfil em runtime via 2 queries e adapta o menu.
-
-### Detecção no mount (queries Supabase)
-
+**User único** — detecta perfil em runtime via 2 queries no mount do `AppLayout`:
 ```sql
-SELECT 1 FROM user_cards WHERE user_id = ? LIMIT 1   → setTemCartas
-SELECT id FROM lojas WHERE owner_user_id = ? LIMIT 1 → setTemLoja
+SELECT 1 FROM user_cards WHERE user_id = ? LIMIT 1   → temCartas
+SELECT id FROM lojas WHERE owner_user_id = ? LIMIT 1 → temLoja
 ```
 
-### Modos e menus
+4 modos: colecionador puro / híbrido / lojista puro (menu enxuto) / lojista em explore mode (`localStorage['bynx_explore_mode']`).
 
-| Perfil | Condição | Menu |
+---
+
+## 🎨 Auth unificado — fluxo atual
+
+**1 modal só** (o rico da landing) serve todas as páginas públicas:
+
+| Origem | Ação | Resultado |
 |---|---|---|
-| **Colecionador puro** | tem cartas, sem loja | Dashboard · Coleção · Pokédex · Marketplace · Separadores · Guia de Lojas · Conta · Suporte |
-| **Híbrido** | tem cartas E loja | [mesmo acima] + **Minha Loja** |
-| **Lojista puro** | tem loja, sem cartas | Minha Loja · Guia de Lojas · Conta · Suporte (menu enxuto) |
-| **Lojista em "explore mode"** | clicou em "Explorar como colecionador" | Menu completo + Minha Loja |
-| **Novo usuário** | nem cartas nem loja | Menu completo + Guia de Lojas |
-
-### Peculiaridades do AppLayout
-
-- "Guia de Lojas" **sempre visível** pra todo usuário logado
-- "Minha Loja" **condicional** (só aparece se owner_user_id = userId retornar loja)
-- Botão **"Explorar como colecionador"** — pra lojista puro, persiste em `localStorage['bynx_explore_mode']`
-- Banner **"Modo colecionador ativo"** no topo quando explore mode ligado
-- Patrimônio **oculto** pra lojista puro (sem cartas não faz sentido mostrar R$ 0,00)
-- Logo da sidebar aponta pra `/minha-loja` no lojista puro (vs `/dashboard-financeiro` normal)
-- Bottom nav mobile ganhou `overflowX: auto` + `minWidth: 64` pra acomodar até 9 itens
-- Logout limpa flag `bynx_explore_mode`
+| PublicHeader (`/`) | click "Entrar" | CustomEvent `bynx:open-login` (sem reload) |
+| PublicHeader (outra página) | click "Entrar" | navigate `/?auth=login` |
+| Modal em login | click "Criar conta" | Troca interna pra signup + step plano |
 
 ---
 
-## 🎨 Header público unificado
-
-Arquitetura final: **1 componente, 3 páginas, 1 prop opcional**.
-
-### Uso
-
-```tsx
-// Landing (src/app/page.tsx)
-<PublicHeader landingScrollTargets={{ howRef, pricingRef }} />
-
-// /lojas, /lojas/[slug], /para-lojistas
-<PublicHeader />
-```
-
-### Comportamento
-
-| Contexto | Nav desktop mostra |
-|---|---|
-| Landing | Como funciona · Planos · 🏪 Guia de Lojas · Para lojistas · [CTA] |
-| Outras páginas públicas | 🏪 Guia de Lojas · Para lojistas · [CTA] |
-
-### CTA dinâmico
-
-- **Logado** → "Meu Dashboard" (navega pra `/dashboard-financeiro`)
-- **Deslogado** → "Entrar" (navega pra `/login`)
-- **Loading** → placeholder sutil pra evitar flash
-
-### Redirect automático — REMOVIDO
-
-Antes: logado que abria `bynx.gg` era empurrado pra `/dashboard-financeiro` no useEffect. Hoje: permanece na landing, botão do header oferece acesso rápido se quiser. Racional: com várias seções novas (Guia, Para Lojistas, Minha Loja), não faz sentido forçar o user a sair da landing.
-
-### Consequência UX
-
-Botão "Entrar" do header da landing agora navega pra `/login` em vez de abrir modal in-place. CTAs dos cards de planos continuam abrindo o modal normalmente.
-
----
-
-## 🗄️ Dados de teste em produção (Supabase)
+## 🗄️ Dados de teste em produção
 
 3 lojas com `owner_user_id='122267ef-5aeb-4fd0-a9c0-616bfca068bd'`:
 
-1. **`loja-premium-sp`** — Mestre dos Baralhos (SP, Premium, WhatsApp 11999998888, IG/FB/site, Rua Augusta 1200, 6 fotos Unsplash, 2 eventos)
-2. **`card-house-rj`** — Card House Rio (RJ, Pro, física, pokemon+yugioh)
-3. **`pokeshop-online`** — PokéShop Online (PR, Básico, online, pokemon)
+1. **`loja-premium-sp`** (uuid: `3ce64f94-a4a8-493b-b2f4-e965cba489b1`) — Mestre dos Baralhos (SP, Premium, 6 fotos, 2 eventos)
+2. **`card-house-rj`** — Card House Rio (RJ, Pro)
+3. **`pokeshop-online`** — PokéShop Online (PR, Básico)
 
 ---
 
 ## 🧠 Aprendizados técnicos acumulados
 
 ### Supabase v2
-
 - `.single().catch()` chaining é **unpredictable** — usar `.limit(1)` e checar `data?.[0]`
 
 ### TCG API
-
-- **Não aceita** card numbers com leading zeros (usar `20`, não `020`)
+- Não aceita card numbers com leading zeros (usar `20`, não `020`)
 
 ### Imagens
-
-- `images.pokemontcg.io` **bloqueia** requests diretos do browser (CORS) — usar scrydex.com pra set logos
+- `images.pokemontcg.io` bloqueia browser (CORS) — usar scrydex.com
 
 ### Next.js 16 / Turbopack
+- `params` e `searchParams` são **Promises** — `await ctx.params`
+- **Quirk cross-boundary**: Server Component importando Client Component que importa `Icons.tsx` (sem `'use client'`) causa 500. Solução: SVG inline
+- `revalidate = 60` + searchParams dinâmicos = conflito. Usar `export const dynamic = 'force-dynamic'`
 
-- `params` e `searchParams` são **Promises** — normalizar com `typeof === 'string'` antes de usar
-- **Quirk cross-boundary**: Server Component importando Client Component que importa `Icons.tsx` (sem `'use client'`) causa 500. Solução: SVG inline ou adicionar `'use client'` no Icons
-- **`revalidate = 60` + searchParams dinâmicos** = conflito. Usar `export const dynamic = 'force-dynamic'`
-- Body size default 4MB — client-side image compression antes de base64 pra API routes
-- `Permissions-Policy: camera=()` no `next.config.ts` bloqueia câmera — deve ser `camera=(self)`
+### Paths/imports
+- `@/hooks/useAppModal` **não existe** — usar `@/components/ui/useAppModal`
 
-### Paths que já quebraram antes
+### Padrão de APIs no repo
+- **Cliente no server**: `@supabase/supabase-js` puro com `SUPABASE_SERVICE_KEY`, helper `supabaseAdmin()` em cada arquivo
+- **Auth de user APIs**: Bearer token via `Authorization` header, `sb.auth.getUser(token)`
+- **Auth admin**: cookie HMAC `bynx_admin` via middleware raiz
+- **Retornos**: `NextResponse.json({ error: 'msg' }, { status: 400 })`
+- **Try/catch** envolvendo tudo + `console.error('[rota]', err)`
 
-- `@/hooks/useAppModal` **não existe** no repo — usar `@/components/ui/useAppModal`
-
-### Vercel
-
-- Build logs ficam em: deployment URL + `/source` ou aba "Logs" dentro do detail
-- API do MCP: `get_deployment_build_logs` com o ID
-- **Bynx em produção:** `https://www.bynx.gg`
+### Vercel / Git
+- **Quirk mac**: arquivos baixados às vezes têm atributo `@` (Gatekeeper) — não afeta git
+- **`git add` silencioso**: se rodar e não imprimir nada, provavelmente **o commit já foi feito antes** — sempre checar `git log --oneline -5`
+- Build logs: `get_deployment_build_logs` com o ID
 
 ### Debugging
-
-- Interceptar `window.fetch` com wrapper que clone response e logue `res.text()` antes de JSON parse — debugging confiável de APIs no browser
-- `web_fetch_vercel_url` retorna HTML do SSR direto — bom pra confirmar que páginas renderizam sem precisar abrir o browser
-
-### Anthropic API
-
-- 400 errors podem indicar **créditos insuficientes** na conta, não necessariamente bug no código
+- `web_fetch_vercel_url` retorna HTML do SSR direto — bom pra confirmar que páginas renderizam sem abrir browser
 
 ---
 
-## 📧 Sistema de suporte e admin (em produção)
-
-Construído em sessão paralela:
+## 📧 Sistema de suporte e admin (já existente)
 
 - `/suporte` e `/suporte/[id]` — tickets do usuário
-- `/admin/*` — painel protegido (login HMAC cookie, dashboard métricas, gestão de tickets, gestão de usuários)
-- Tabelas novas: `tickets`, `ticket_messages`
-- Colunas novas em `users`: `suspended_at`, `suspended_reason`
+- `/admin/*` — painel protegido (login HMAC cookie)
+- Tabelas: `tickets`, `ticket_messages`
+- Colunas em `users`: `suspended_at`, `suspended_reason`
 - Middleware protege `/admin/*` e bloqueia suspensos
-- `email.ts` tem 4 funções de ticket
-- Fix `full_name` → `name` em webhook, welcome e cron-trial
+- `email.ts` com 4 funções de ticket + Resend
+- **Passo 9 vai aproveitar essa infraestrutura** pra criar `/admin/lojas`
 
 ---
 
-## 🚀 Deploys relevantes
+## 🚀 Deploys relevantes da sessão de hoje
 
-| Deploy | Commit | Descrição | Status |
-|---|---|---|---|
-| — | último | refactor PublicHeader unificado (sessão 23/abr) | 🆕 acabou de subir |
-| `dpl_35vWsN5ie7nFrAk5BcSzQAYeAcGD` | `2c82e85` | Passo 6 AppLayout adaptativo | READY |
-| `dpl_FbC4bNSFE9rGxhp5nyHoGbF7i2jW` | `87f16be` | Passo 5 landing B2B | READY |
-| `dpl_DwDYv7hvSx3TGeJDptHYYNW4LnvQ` | `7adcbc3` | fix path useAppModal | READY |
-
----
-
-## 🧪 Testes que foram confirmados em produção
-
-- `/lojas` renderiza 3 cards (Premium→Pro→Básico) corretamente
-- `/lojas/loja-premium-sp` renderiza completo com lightbox
-- `/minha-loja` status 200 no SSR (Client Component com skeleton de loading)
-- `/para-lojistas` com hero + métricas + passos + planos + benefícios + FAQ + CTA final
-- AppLayout pós-Passo 6: sidebar tem 8 itens incluindo "Guia de Lojas", bottom nav mobile com `overflowX` funcional
+| Commit | Descrição | Status |
+|---|---|---|
+| `502463f` | Entrega 2 Passo 7 — frontend consome APIs + TrackedLink | READY 🆕 |
+| `d4acde5` | Entrega 1 Passo 7 — 5 API routes em /api/lojas/* | READY |
+| `a1e32de` | Ajustes mobile hero /para-lojistas + centralização CTAs | READY |
+| `ce59199` | Auth unificado — remove AuthModal, usa modal antigo | READY |
+| `dc9aa32` | Landing lê ?auth=signup query param | READY |
 
 ---
 
-## 🔜 Próximos passos sugeridos (quando Du voltar)
+## 🧪 Para testar analytics em ação
 
-### Curto prazo — Passo 7: APIs `/api/lojas/*`
+```sql
+-- No Supabase SQL Editor, após clicar em CTAs de uma loja:
+SELECT tipo, created_at, user_agent, referrer
+FROM loja_cliques
+ORDER BY created_at DESC
+LIMIT 10;
+```
 
-Estruturar os endpoints necessários:
-- `POST /api/lojas` — criar loja (hoje tá inline no page)
-- `PATCH /api/lojas/[id]` — editar loja
-- `POST /api/lojas/[id]/track-click` — registra clique em WhatsApp (pra analytics Premium)
-- `POST /api/lojas/[id]/upload-foto` — stub (Storage vem no Passo 10)
+---
 
-### Médio prazo — Passo 8: Stripe
+## 🔜 Próximo passo — Passo 9 (/admin/lojas)
 
-- Products: Pro Mensal (R$ 39), Pro Anual (R$ 390), Premium Mensal (R$ 89), Premium Anual (R$ 890)
-- Webhook `/api/webhooks/stripe` pra ativar plano após checkout
-- Ofertas avulsas (boost/destaque/foto extra) como one-time payments
+**Dificuldade:** 🟢 Fácil-Média · **Tempo estimado:** 2-3h (1 sessão)
 
-### Antes de Stripe — melhorias UX possíveis
+### O que envolve
 
-- Onboarding pós-cadastro: modal perguntando "Você é colecionador, lojista, ou os dois?" — ajuda a direcionar pro primeiro passo certo
-- Banner na `/minha-loja` quando trial tá nos últimos 3 dias
-- Email de "sua loja foi aprovada" (usando Resend) — hoje a aprovação é silenciosa
+- Nova página `/admin/lojas/page.tsx` com lista e filtros (pendente/ativa/suspensa/inativa)
+- Botões: aprovar, suspender (com motivo), verificar/desverificar
+- 3 novas API routes admin:
+  - `POST /api/admin/lojas/[id]/approve` (status=ativa, envia email)
+  - `POST /api/admin/lojas/[id]/suspend` (status=suspensa, com motivo)
+  - `POST /api/admin/lojas/[id]/toggle-verified` (verificada=!verificada)
+- Email automático "sua loja foi aprovada" via Resend
+- Modal de confirmação pra suspender (com campo de motivo)
+
+### O que a Mia vai precisar pra começar
+
+Na próxima sessão, quando voltarmos, Mia vai pedir:
+
+1. **Exemplo de página admin existente** (ex: `src/app/admin/users/page.tsx` ou similar) — pra seguir o padrão visual/funcional
+2. **Exemplo de API admin existente** (ex: `src/app/api/admin/users/[id]/route.ts`) — pra seguir o padrão de auth HMAC
+3. **Template de email existente** (ex: `src/lib/email.ts`) — pra adicionar template "loja aprovada"
 
 ---
 
@@ -285,10 +270,10 @@ Estruturar os endpoints necessários:
 
 1. Abre chat novo no Claude
 2. Cola este arquivo como primeira mensagem
-3. Diz o que quer fazer — ex: "Bora no Passo 7" ou "Preciso fazer um ajuste em X"
-4. A Mia já vai ter todo o contexto pra não perguntar coisas óbvias
+3. Diz: **"Bora no Passo 9 — /admin/lojas"**
+4. Mia vai pedir os 3 arquivos de referência acima e começar a trabalhar
 
-Se a Mia parecer perdida, pode sempre me mandar arquivos específicos do repo que eu leio e entendo o estado atual.
+Se Mia parecer perdida, é só mandar arquivos específicos do repo que ela lê e entende o estado atual.
 
 ---
 
