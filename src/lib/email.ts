@@ -339,6 +339,70 @@ export async function sendTicketStatusChangedEmail(args: {
   return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] ${info.label}: ${args.subject}`, html })
 }
 
+// ── 9. LOJAS — loja aprovada (para o owner) ──────────────────────────────────
+
+export async function sendEmailLojaAprovada(args: {
+  to: string
+  nomeUser: string
+  nomeLoja: string
+  slug: string
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const urlPublica = `${APP_URL}/lojas/${args.slug}`
+  const urlEdicao  = `${APP_URL}/minha-loja`
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:48px;line-height:1;">🎉</div>
+    </div>
+    ${h1('Sua loja foi aprovada!')}
+    ${p(`${firstName}, boa notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi aprovada pela equipe do Bynx e já está no ar no Guia de Lojas.`)}
+    ${divider()}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
+      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Página pública</td></tr>
+      <tr><td style="padding:0 18px 12px;font-size:13px;font-family:Arial,sans-serif;"><a href="${urlPublica}" style="color:#f59e0b;text-decoration:none;word-break:break-all;">${urlPublica}</a></td></tr>
+      <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
+      <tr><td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Painel de edição</td></tr>
+      <tr><td style="padding:0 18px 14px;font-size:13px;font-family:Arial,sans-serif;"><a href="${urlEdicao}" style="color:#f59e0b;text-decoration:none;">${urlEdicao}</a></td></tr>
+    </table>
+    ${btn('Abrir minha loja →', urlEdicao)}
+    ${divider()}
+    ${p('<strong style="color:#f59e0b;">⭐ Seu trial Pro de 14 dias começou agora.</strong> Aproveita pra colocar fotos, redes sociais e deixar tudo bonito antes dos clientes chegarem.')}
+    ${p('Depois dos 14 dias, você escolhe se quer continuar no <strong style="color:#f0f0f0;">Pro (R$ 39/mês)</strong> ou voltar pro <strong style="color:#f0f0f0;">Básico (grátis)</strong>.')}
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+  `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
+
+  return resend.emails.send({ from: FROM, to: args.to, subject: `🎉 Sua loja foi aprovada no Bynx!`, html })
+}
+
+// ── 10. LOJAS — loja suspensa (para o owner) ─────────────────────────────────
+
+export async function sendEmailLojaSuspensa(args: {
+  to: string
+  nomeUser: string
+  nomeLoja: string
+  motivo: string
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+
+  const html = baseLayout(`
+    ${badge('Loja suspensa', '#ef4444', 'rgba(239,68,68,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Sua loja foi suspensa')}
+    ${p(`${firstName}, precisamos te avisar que <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi suspensa temporariamente no Guia do Bynx.`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(239,68,68,0.3);margin-top:16px;">
+      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#ef4444;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Motivo</td></tr>
+      <tr><td style="padding:0 18px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.motivo)}</td></tr>
+    </table>
+    ${divider()}
+    ${p('Enquanto suspensa, sua loja <strong style="color:#ef4444;">não aparece</strong> no guia público. Para contestar ou pedir a reativação, é só responder este email explicando o que mudou.')}
+    ${p('Nossa equipe analisa todos os pedidos e responde em até 48 horas úteis.')}
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+  `, `Sua loja ${args.nomeLoja} foi suspensa no Bynx`)
+
+  return resend.emails.send({ from: FROM, to: args.to, subject: `Sua loja foi suspensa no Bynx`, html })
+}
+
 // ── Helper: escapa HTML em mensagens de usuário ──────────────────────────────
 
 function escapeHtml(s: string): string {
