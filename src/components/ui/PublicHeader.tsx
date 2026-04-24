@@ -15,6 +15,15 @@ import { supabase } from '@/lib/supabaseClient'
  *   <PublicHeader landingScrollTargets={{ howRef, pricingRef }} />
  *
  * Logo clica e volta pra `/`. CTA muda entre "Entrar" (deslogado) e "Meu Dashboard" (logado).
+ *
+ * Comportamento do botão "Entrar":
+ *   - Se já está na landing: dispara CustomEvent 'bynx:open-login'
+ *     (a landing escuta e abre seu modal de auth em modo login)
+ *   - Se está em outra página: navega pra `/?auth=login`
+ *     (a landing lê o query param no mount e abre o modal)
+ *
+ * Isso garante que todo login usa o mesmo modal rico da landing (que tem
+ * fluxo completo de login + signup com escolha de plano).
  */
 
 interface LandingScrollTargets {
@@ -64,6 +73,22 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
 
   function closeMobile() {
     setMobileMenuOpen(false)
+  }
+
+  /**
+   * Abre o modal de login da landing.
+   * Se já estamos na landing, dispara evento customizado (sem reload).
+   * Se estamos em outra página, navega pra /?auth=login.
+   */
+  function openLogin() {
+    setMobileMenuOpen(false)
+    if (typeof window === 'undefined') return
+
+    if (window.location.pathname === '/') {
+      window.dispatchEvent(new CustomEvent('bynx:open-login'))
+    } else {
+      router.push('/?auth=login')
+    }
   }
 
   return (
@@ -129,7 +154,7 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
               </button>
             ) : (
               <button
-                onClick={() => router.push('/login')}
+                onClick={openLogin}
                 style={S.ctaPrimary}
               >
                 Entrar
@@ -150,7 +175,7 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
               </button>
             ) : (
               <button
-                onClick={() => router.push('/login')}
+                onClick={openLogin}
                 style={S.ctaPrimaryMobile}
               >
                 Entrar

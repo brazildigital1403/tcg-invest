@@ -377,19 +377,29 @@ export default function Home() {
     }
   }, [])
 
-  // ─── Escuta evento customizado 'bynx:open-signup' ──────────────
-  // Disparado pelo AuthModal (src/components/ui/AuthModal.tsx) quando o user
-  // clica "Criar conta grátis" estando já na landing. Abre o modal antigo
-  // em modo signup com step de plano (fluxo completo).
+  // ─── Escuta eventos customizados disparados pelo PublicHeader ──────────
+  // 'bynx:open-signup' — clicou em "Criar conta" em algum lugar (abre modal em signup com plano)
+  // 'bynx:open-login'  — clicou em "Entrar" no PublicHeader (abre modal em login)
   useEffect(() => {
     if (typeof window === 'undefined') return
+
     function handleOpenSignup() {
       setIsLogin(false)
       setShowPlanStep(true)
       setShowAuthModal(true)
     }
+    function handleOpenLogin() {
+      setIsLogin(true)
+      setShowPlanStep(false)
+      setShowAuthModal(true)
+    }
+
     window.addEventListener('bynx:open-signup', handleOpenSignup)
-    return () => window.removeEventListener('bynx:open-signup', handleOpenSignup)
+    window.addEventListener('bynx:open-login', handleOpenLogin)
+    return () => {
+      window.removeEventListener('bynx:open-signup', handleOpenSignup)
+      window.removeEventListener('bynx:open-login', handleOpenLogin)
+    }
   }, [])
 
   const scrollTo = (ref: any) => ref.current?.scrollIntoView({ behavior: 'smooth' })
