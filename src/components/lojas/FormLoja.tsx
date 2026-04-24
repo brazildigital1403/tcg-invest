@@ -1,7 +1,7 @@
 'use client'
 
 import { CSSProperties, useState, useMemo } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { authFetch } from '@/lib/authFetch'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -112,7 +112,10 @@ const TEXTAREA: CSSProperties = {
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
-export default function FormLoja({ userId, initialData, isEditMode = false, onSaved }: Props) {
+export default function FormLoja({ userId: _userId, initialData, isEditMode = false, onSaved }: Props) {
+  // `userId` não é mais usado aqui — a API pega o owner do token JWT.
+  // Mantemos a prop pra preservar o contrato atual do componente.
+
   const { showAlert } = useAppModal()
 
   const plano = initialData?.plano || 'basico'
@@ -170,7 +173,7 @@ export default function FormLoja({ userId, initialData, isEditMode = false, onSa
     }
   }
 
-  // Validação
+  // Validação local (pré-flight, pra UX rápida — servidor revalida tudo)
   function validar(): string | null {
     if (!nome.trim())                    return 'O nome da loja é obrigatório.'
     if (nome.trim().length < 3)          return 'O nome precisa ter pelo menos 3 caracteres.'
@@ -186,6 +189,43 @@ export default function FormLoja({ userId, initialData, isEditMode = false, onSa
     return null
   }
 
+  // Monta payload enxuto (só campos que o endpoint aceita na whitelist)
+  function montarPayload() {
+    return {
+      slug: slugFinal,
+      nome: nome.trim(),
+      descricao: descricao.trim() || null,
+      cidade: cidade.trim(),
+      estado: estado.trim().toUpperCase(),
+      endereco: endereco.trim() || null,
+      tipo,
+      especialidades,
+      whatsapp: whatsapp.trim() || null,
+      // OBS: campo `email` não está no whitelist das APIs atuais — se precisar,
+      // adicione `email` em ALLOWED_FIELDS / EDITABLE_FIELDS nas rotas
+      // (src/app/api/lojas/route.ts e src/app/api/lojas/[id]/route.ts)
+      website: website.trim() || null,
+      instagram: instagram.trim() || null,
+      facebook: facebook.trim() || null,
+      logo_url: logoUrl.trim() || null,
+      fotos: fotosArray,
+    }
+  }
+
+  // Handler genérico de erros da API
+  function handleApiError(data: any, res: Response, contexto: 'criar' | 'salvar'): void {
+    const msg = data?.error || `Erro ao ${contexto} loja. Tente novamente.`
+
+    // 409 de slug duplicado: mostra inline no campo do slug
+    if (res.status === 409 && /slug/i.test(msg)) {
+      setSlugError('Este identificador já está em uso. Escolha outro.')
+      return
+    }
+
+    // Erros gerais: modal
+    showAlert(msg, 'error')
+  }
+
   // Salvar
   async function handleSave(e?: React.FormEvent) {
     e?.preventDefault()
@@ -199,89 +239,56 @@ export default function FormLoja({ userId, initialData, isEditMode = false, onSa
 
     setSaving(true)
 
-    // Valida unicidade do slug (exceto se for o próprio slug atual em edição)
-    if (!isEditMode || slugFinal !== initialData?.slug) {
-      const { data: existing } = await supabase
-        .from('lojas')
-        .select('id')
-        .eq('slug', slugFinal)
-        .limit(1)
-      if (existing && existing.length > 0) {
-        setSaving(false)
-        setSlugError('Este identificador já está em uso. Escolha outro.')
-        return
-      }
-    }
+    try {
+      const payload = montarPayload()
 
-    // Payload
-    const payload = {
-      slug: slugFinal,
-      nome: nome.trim(),
-      descricao: descricao.trim() || null,
-      cidade: cidade.trim(),
-      estado: estado.trim().toUpperCase(),
-      endereco: endereco.trim() || null,
-      tipo,
-      especialidades,
-      whatsapp: whatsapp.trim() || null,
-      email: email.trim() || null,
-      website: website.trim() || null,
-      instagram: instagram.trim() || null,
-      facebook: facebook.trim() || null,
-      logo_url: logoUrl.trim() || null,
-      fotos: fotosArray,
-      owner_user_id: userId,
-    }
-
-    if (isEditMode && initialData?.id) {
-      // UPDATE
-      const { error } = await supabase
-        .from('lojas')
-        .update(payload)
-        .eq('id', initialData.id)
-        .eq('owner_user_id', userId)
-
-      setSaving(false)
-
-      if (error) {
-        showAlert('Erro ao salvar. Tente novamente.', 'error')
-        return
-      }
-      showAlert('Loja atualizada com sucesso!', 'success')
-      onSaved?.({ ...initialData, ...payload } as LojaFormData)
-    } else {
-      // INSERT — trial Pro de 14 dias + status pendente
-      const trialInicio = new Date()
-      const trialFim = new Date()
-      trialFim.setDate(trialFim.getDate() + 14)
-
-      const { data, error } = await supabase
-        .from('lojas')
-        .insert({
-          ...payload,
-          plano: 'pro',              // entra no trial Pro
-          status: 'pendente',        // aguarda moderação admin
-          verificada: false,
+      if (isEditMode && initialData?.id) {
+        // ─── UPDATE via PATCH /api/lojas/[id] ──────────────
+        const res = await authFetch(`/api/lojas/${initialData.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         })
-        .select()
-        .limit(1)
 
-      setSaving(false)
+        const data = await res.json().catch(() => ({}))
 
-      if (error) {
-        if (error.code === '23505') {
-          setSlugError('Este identificador já está em uso. Escolha outro.')
-        } else {
-          showAlert('Erro ao criar loja. Tente novamente.', 'error')
+        if (!res.ok) {
+          handleApiError(data, res, 'salvar')
+          return
         }
-        return
+
+        showAlert('Loja atualizada com sucesso!', 'success')
+        onSaved?.({ ...initialData, ...payload, id: data?.loja?.id || initialData.id } as LojaFormData)
+
+      } else {
+        // ─── INSERT via POST /api/lojas ───────────────────
+        // O servidor seta automaticamente: owner_user_id, status='pendente',
+        // plano='pro' (trial 14 dias), verificada=false
+        const res = await authFetch('/api/lojas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+
+        const data = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          handleApiError(data, res, 'criar')
+          return
+        }
+
+        showAlert(
+          'Loja cadastrada! Sua loja está em análise pelo time do Bynx. Assim que aprovada, ela aparecerá no Guia de Lojas.',
+          'success'
+        )
+        if (data?.loja) onSaved?.(data.loja as LojaFormData)
       }
-      const criada = data?.[0]
-      showAlert(
-        'Loja cadastrada! Sua loja está em análise pelo time do Bynx. Assim que aprovada, ela aparecerá no Guia de Lojas.',
-        'success'
-      )
-      if (criada) onSaved?.(criada as LojaFormData)
+
+    } catch (err: any) {
+      console.error('[FormLoja] handleSave erro inesperado', err)
+      showAlert('Erro inesperado ao salvar. Verifique sua conexão e tente novamente.', 'error')
+    } finally {
+      setSaving(false)
     }
   }
 

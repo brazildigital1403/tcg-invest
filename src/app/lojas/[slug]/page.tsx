@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import GaleriaFotos from '@/components/lojas/GaleriaFotos'
+import TrackedLink from '@/components/lojas/TrackedLink'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -233,13 +234,20 @@ export default async function LojaPage(
       <main style={S.main}>
         {/* ─── CTA WhatsApp ───────────────────────────────────── */}
         {whatsappLink && (
-          <a href={whatsappLink} target="_blank" rel="noopener noreferrer" style={S.waBtn}>
+          <TrackedLink
+            lojaId={loja.id}
+            tipo="whatsapp"
+            href={whatsappLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={S.waBtn}
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ marginRight: 8 }}>
               <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2 22l5.26-1.38c1.45.79 3.08 1.21 4.75 1.21h.03c5.46 0 9.91-4.45 9.91-9.92 0-2.65-1.03-5.14-2.9-7.01A9.85 9.85 0 0012.04 2zm0 18.14h-.03c-1.49 0-2.96-.4-4.24-1.16l-.3-.18-3.14.82.84-3.05-.2-.32a8.22 8.22 0 01-1.26-4.34c0-4.54 3.7-8.23 8.24-8.23 2.2 0 4.27.86 5.83 2.41a8.2 8.2 0 012.41 5.82c0 4.55-3.7 8.23-8.22 8.23z"/>
               <path d="M16.56 14.29c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.79.97-.15.17-.29.18-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.15.17-.25.25-.42.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.41-.56-.42h-.48c-.17 0-.43.06-.66.31-.23.25-.87.85-.87 2.07 0 1.22.89 2.4 1.01 2.57.12.17 1.76 2.68 4.26 3.76.59.26 1.06.41 1.42.52.6.19 1.14.16 1.57.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.15-1.18-.06-.1-.23-.17-.48-.29z"/>
             </svg>
             Falar no WhatsApp
-          </a>
+          </TrackedLink>
         )}
 
         {/* ─── Descrição ──────────────────────────────────────── */}
@@ -256,31 +264,31 @@ export default async function LojaPage(
             <h2 style={S.sectionTitle}>Onde encontrar</h2>
             <div style={S.socialGrid}>
               {instagramUrl && (
-                <a href={instagramUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
+                <TrackedLink lojaId={loja.id} tipo="instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <rect x="3" y="3" width="14" height="14" rx="4" stroke="currentColor" strokeWidth="1.4"/>
                     <circle cx="10" cy="10" r="3.2" stroke="currentColor" strokeWidth="1.4"/>
                     <circle cx="14.2" cy="5.8" r="0.8" fill="currentColor"/>
                   </svg>
                   <span>Instagram</span>
-                </a>
+                </TrackedLink>
               )}
               {facebookUrl && (
-                <a href={facebookUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
+                <TrackedLink lojaId={loja.id} tipo="facebook" href={facebookUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M12 7V5.3C12 4.6 12.2 4 13 4h1.5V1.5h-2C10.5 1.5 9 3 9 5v2H7v3h2v8h3v-8h2.2l.3-3H12z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
                   </svg>
                   <span>Facebook</span>
-                </a>
+                </TrackedLink>
               )}
               {websiteUrl && (
-                <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
+                <TrackedLink lojaId={loja.id} tipo="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4"/>
                     <path d="M3 10h14M10 3c2 2.5 3 5 3 7s-1 4.5-3 7c-2-2.5-3-5-3-7s1-4.5 3-7z" stroke="currentColor" strokeWidth="1.4"/>
                   </svg>
                   <span>Website</span>
-                </a>
+                </TrackedLink>
               )}
             </div>
           </section>
@@ -293,9 +301,9 @@ export default async function LojaPage(
             <p style={S.endereco}>{loja.endereco}</p>
             {localizacao && <p style={S.enderecoCidade}>{localizacao}</p>}
             {mapsUrl && (
-              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={S.mapsLink}>
+              <TrackedLink lojaId={loja.id} tipo="maps" href={mapsUrl} target="_blank" rel="noopener noreferrer" style={S.mapsLink}>
                 Abrir no Google Maps →
-              </a>
+              </TrackedLink>
             )}
           </section>
         )}
