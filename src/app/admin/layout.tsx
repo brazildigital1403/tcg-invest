@@ -6,17 +6,32 @@ import { IconDashboard, IconChat, IconAccount, IconLogout } from '@/components/u
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
-// Menu de itens do admin — fácil adicionar mais depois
+// ─── Ícone de loja inline (storefront) ────────────────────────────────────
+// Se você já tem um IconStore/IconGuiaLojas no projeto, pode trocar.
+
+function IconStore({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 7l1-3h12l1 3" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M3 7v2a2 2 0 0 0 4 0V7" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M7 7v2a2 2 0 0 0 4 0V7" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M11 7v2a2 2 0 0 0 4 0V7" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M15 7v2a2 2 0 0 0 2 0V7" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M4 10v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-6" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 const adminMenu = [
   { label: 'Dashboard', href: '/admin',         Icon: IconDashboard },
   { label: 'Tickets',   href: '/admin/tickets', Icon: IconChat      },
+  { label: 'Lojas',     href: '/admin/lojas',   Icon: IconStore     },
   { label: 'Usuários',  href: '/admin/users',   Icon: IconAccount   },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
-  // Não mostra o layout na página de login — ela tem seu próprio centralizado
   if (pathname === '/admin/login') return <>{children}</>
 
   async function handleLogout() {
@@ -88,7 +103,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <div className="adm-root">
 
-        {/* ── SIDEBAR desktop ── */}
         <aside className="adm-sidebar">
           <Link href="/admin" style={{ textDecoration: 'none', marginBottom: 6 }}>
             <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain', display: 'block' }} />
@@ -148,11 +162,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </aside>
 
-        {/* ── MAIN ── */}
         <div className="adm-main">
 
           <header className="adm-header">
-            {/* Logo mobile */}
             <div className="adm-header-logo" style={{ display: 'none', alignItems: 'center', gap: 8, flex: 1 }}>
               <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 26, width: 'auto', objectFit: 'contain' }} />
               <span style={{
@@ -165,7 +177,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </span>
             </div>
 
-            {/* Badge */}
             <div style={{
               padding: '4px 10px', borderRadius: 100,
               background: 'rgba(245,158,11,0.08)',
@@ -194,7 +205,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="adm-content">{children}</div>
         </div>
 
-        {/* ── BOTTOM NAV mobile ── */}
         <nav className="adm-bottom-nav" style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
           background: 'rgba(8,10,15,0.98)',
