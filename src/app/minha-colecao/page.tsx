@@ -761,7 +761,7 @@ export default function MinhaColecao() {
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.2)' }}>Tente outros filtros ou limpe a busca</p>
           </div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
           {filteredCards.map((c) => (
             <CardItem
               key={c.id}
@@ -774,34 +774,6 @@ export default function MinhaColecao() {
               onRemove={() => handleRemove(c.id, c.card_name)}
             />
           ))}
-                        </div>
-                        <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
-                          Toque na linha para indicar qual você tem
-                        </p>
-                      </div>
-                    )
-
-                    if (best) return (
-                      <div style={{ textAlign: 'center', fontSize: 10, padding: '4px 0', color: 'rgba(96,165,250,0.7)', fontWeight: 600 }}>
-                        ~{fmt(best.valor)} <span style={{ fontSize: 9, color: 'rgba(96,165,250,0.4)' }}>({best.tipo.toUpperCase()})</span>
-                      </div>
-                    )
-                    return <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.15)', padding: '4px 0' }}>Sem preço disponível</div>
-                  })()}
-
-                  {/* Qtd + Remover */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                    <button onClick={() => handleUpdateQuantity(c, -1)} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
-                    <span style={{ fontSize: 12, color: '#f0f0f0', fontWeight: 600, flex: 1, textAlign: 'center' }}>{c.quantity || 1}×</span>
-                    <button onClick={() => handleUpdateQuantity(c, 1)} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
-                    <button onClick={() => handleRemove(c.id, c.card_name)} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
         </div>
       </div>
 
