@@ -855,34 +855,62 @@ export default function MinhaColecao() {
 
                   {/* Preços — mostra todas as variantes com preço */}
                   {(() => {
-                    const rows: { label: string; color: string; min: number|null; med: number|null; max: number|null }[] = []
+                    const rows: { key: string; label: string; color: string; min: number|null; med: number|null; max: number|null }[] = []
                     if (c.price) {
                       const pn = n(c.price.preco_min) || n(c.price.preco_medio) || n(c.price.preco_max)
                       const pf = n(c.price.preco_foil_min) || n(c.price.preco_foil_medio) || n(c.price.preco_foil_max)
                       const pp = n(c.price.preco_promo_min) || n(c.price.preco_promo_medio) || n(c.price.preco_promo_max)
                       const pr = n(c.price.preco_reverse_min) || n(c.price.preco_reverse_medio) || n(c.price.preco_reverse_max)
-                      if (pn) rows.push({ label: 'Normal', color: '#f0f0f0', min: n(c.price.preco_min), med: n(c.price.preco_medio), max: n(c.price.preco_max) })
-                      if (pf) rows.push({ label: 'Foil', color: '#f59e0b', min: n(c.price.preco_foil_min), med: n(c.price.preco_foil_medio), max: n(c.price.preco_foil_max) })
-                      if (pp) rows.push({ label: 'Promo', color: '#a855f7', min: n(c.price.preco_promo_min), med: n(c.price.preco_promo_medio), max: n(c.price.preco_promo_max) })
-                      if (pr) rows.push({ label: 'Reverse', color: '#60a5fa', min: n(c.price.preco_reverse_min), med: n(c.price.preco_reverse_medio), max: n(c.price.preco_reverse_max) })
+                      const pk = n(c.price.preco_pokeball_min) || n(c.price.preco_pokeball_medio) || n(c.price.preco_pokeball_max)
+                      if (pn) rows.push({ key: 'normal',   label: 'Normal',   color: '#f0f0f0', min: n(c.price.preco_min),         med: n(c.price.preco_medio),         max: n(c.price.preco_max) })
+                      if (pf) rows.push({ key: 'foil',     label: 'Foil',     color: '#f59e0b', min: n(c.price.preco_foil_min),     med: n(c.price.preco_foil_medio),     max: n(c.price.preco_foil_max) })
+                      if (pp) rows.push({ key: 'promo',    label: 'Promo',    color: '#a855f7', min: n(c.price.preco_promo_min),    med: n(c.price.preco_promo_medio),    max: n(c.price.preco_promo_max) })
+                      if (pr) rows.push({ key: 'reverse',  label: 'Reverse',  color: '#60a5fa', min: n(c.price.preco_reverse_min),  med: n(c.price.preco_reverse_medio),  max: n(c.price.preco_reverse_max) })
+                      if (pk) rows.push({ key: 'pokeball', label: 'Pokeball', color: '#22c55e', min: n(c.price.preco_pokeball_min), med: n(c.price.preco_pokeball_medio), max: n(c.price.preco_pokeball_max) })
                     }
+
                     if (rows.length > 0) return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
-                        {/* Header */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr', gap: 2 }}>
-                          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)' }}></span>
-                          {['Mín','Méd','Máx'].map(l => <span key={l} style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{l}</span>)}
-                        </div>
-                        {rows.map(row => (
-                          <div key={row.label} style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr', gap: 2, alignItems: 'center' }}>
-                            <span style={{ fontSize: 9, color: row.color, fontWeight: 700 }}>{row.label}</span>
-                            <span style={{ fontSize: 10, color: '#22c55e', fontWeight: 600, textAlign: 'center' }}>{fmt(row.min) || '—'}</span>
-                            <span style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textAlign: 'center' }}>{fmt(row.med) || '—'}</span>
-                            <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600, textAlign: 'center' }}>{fmt(row.max) || '—'}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                        {/* Tabela de preços — linha selecionada = variante do usuário */}
+                        <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          {/* Header */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px', gap: 0, padding: '4px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipo</span>
+                            {['Mín','Méd','Máx'].map(l => <span key={l} style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</span>)}
                           </div>
-                        ))}
+                          {rows.map(row => {
+                            const isSelected = variante === row.key
+                            return (
+                              <button
+                                key={row.key}
+                                onClick={() => handleVarianteChange(c, row.key)}
+                                style={{
+                                  width: '100%', display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px',
+                                  gap: 0, padding: '7px 8px', cursor: 'pointer',
+                                  background: isSelected ? `${row.color}15` : 'transparent',
+                                  border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                  transition: 'background 0.15s', alignItems: 'center',
+                                  fontFamily: 'inherit',
+                                }}
+                              >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                  {/* Indicador selecionado */}
+                                  <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: isSelected ? row.color : 'rgba(255,255,255,0.1)', boxShadow: isSelected ? `0 0 6px ${row.color}` : 'none', transition: 'all 0.15s' }} />
+                                  <span style={{ fontSize: 10, color: isSelected ? row.color : 'rgba(255,255,255,0.4)', fontWeight: isSelected ? 700 : 500 }}>{row.label}</span>
+                                </span>
+                                <span style={{ fontSize: 10, color: isSelected ? '#22c55e' : 'rgba(255,255,255,0.25)', fontWeight: isSelected ? 700 : 400, textAlign: 'center' }}>{fmt(row.min) || '—'}</span>
+                                <span style={{ fontSize: 10, color: isSelected ? row.color : 'rgba(255,255,255,0.3)', fontWeight: isSelected ? 800 : 400, textAlign: 'center' }}>{fmt(row.med) || '—'}</span>
+                                <span style={{ fontSize: 10, color: isSelected ? '#f59e0b' : 'rgba(255,255,255,0.25)', fontWeight: isSelected ? 700 : 400, textAlign: 'center' }}>{fmt(row.max) || '—'}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
+                          Toque na linha para indicar qual você tem
+                        </p>
                       </div>
                     )
+
                     if (best) return (
                       <div style={{ textAlign: 'center', fontSize: 10, padding: '4px 0', color: 'rgba(96,165,250,0.7)', fontWeight: 600 }}>
                         ~{fmt(best.valor)} <span style={{ fontSize: 9, color: 'rgba(96,165,250,0.4)' }}>({best.tipo.toUpperCase()})</span>
