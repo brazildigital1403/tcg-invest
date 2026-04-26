@@ -288,78 +288,70 @@ export default function MinhaColecao() {
 
       const cardsData = data || []
 
-      // Extrai nome EN (remove número e pega parte após " / " se PT/EN)
-      const cleanEN = (n: string) => {
-        const s = (n || '').replace(/\s*\([^)]*\)?\s*$/, '').trim()
-        return s.includes(' / ') ? (s.split(' / ').pop()?.trim() || s) : s
-      }
-      const cleanPT = (n: string) => {
-        const s = (n || '').replace(/\s*\([^)]*\)?\s*$/, '').trim()
-        return s.includes(' / ') ? (s.split(' / ')[0]?.trim() || s) : s
-      }
+      const PRICE_SELECT = 'id, name, number, liga_link, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil'
 
-      // Extrai número da carta (remove zeros à esquerda para bater com pokemon_cards)
-      const extractNum = (c: any): string | null => {
-        const raw = c.card_id?.split('/')?.[0]?.trim()
-          || c.card_name?.match(/\((\d+)/)?.[1]
-        if (!raw) return null
-        const n = parseInt(raw, 10)
-        return isNaN(n) ? null : String(n)
+      const priceById: any   = {}
+      const priceByLink: any = {}
+
+      // ── 1. Lookup por pokemon_api_id (novo AddCardModal — mais preciso) ──
+      const apiIds = [...new Set(cardsData.map((c: any) => c.pokemon_api_id).filter(Boolean))]
+      if (apiIds.length > 0) {
+        const { data: byId } = await supabase
+          .from('pokemon_cards')
+          .select(PRICE_SELECT)
+          .in('id', apiIds)
+        ;(byId || []).forEach((p: any) => { priceById[p.id] = p })
       }
 
-      const allNames   = [...new Set(cardsData.flatMap((c: any) => [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)))]
-      const allLinks   = [...new Set(cardsData.map((c: any) => c.card_link).filter(Boolean))]
-
-      let priceMap: any = {}    // chave: "name|number" ou "name"
-      let linkMap: any  = {}    // chave: liga_link (match exato — mais preciso)
-
-      const PRICE_SELECT = 'name, number, liga_link, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil'
-
-      // Prioridade 1: match exato por liga_link
+      // ── 2. Lookup por liga_link (cartas antigas importadas por link) ──
+      const allLinks = [...new Set(cardsData.map((c: any) => c.card_link).filter(Boolean))]
       if (allLinks.length > 0) {
         const { data: byLink } = await supabase
           .from('pokemon_cards')
           .select(PRICE_SELECT)
           .in('liga_link', allLinks)
         ;(byLink || []).forEach((p: any) => {
-          if (p.liga_link) linkMap[p.liga_link] = p
+          if (p.liga_link) priceByLink[p.liga_link] = p
         })
       }
 
-      // Prioridade 2: match por nome (fallback para cartas sem liga_link)
-      if (allNames.length > 0) {
-        const { data: prices } = await supabase
-          .from('pokemon_cards')
-          .select(PRICE_SELECT)
-          .in('name', allNames)
-          .limit(2000)
-
-        const score = (pp: any) =>
-          (parseFloat(pp?.preco_normal || 0) > 0 ? 100 : 0) +
-          (parseFloat(pp?.price_usd_normal || 0) > 0 ? 30 : 0) +
-          (parseFloat(pp?.price_usd_holofoil || 0) > 0 ? 30 : 0) +
-          (parseFloat(pp?.price_eur_normal || 0) > 0 ? 20 : 0) +
-          (parseFloat(pp?.price_eur_holofoil || 0) > 0 ? 20 : 0)
-
-        ;(prices || []).forEach((p: any) => {
-          const num = p.number ? String(parseInt(p.number, 10)) : null
-          if (num) {
-            const key = `${p.name?.trim()}|${num}`
-            if (!priceMap[key] || score(p) > score(priceMap[key])) priceMap[key] = p
-          }
-          const nameKey = p.name?.trim()
-          if (!priceMap[nameKey] || score(p) > score(priceMap[nameKey])) priceMap[nameKey] = p
+      // ── 3. Fallback por nome (cartas sem api_id nem liga_link) ──
+      const legacyCards = cardsData.filter((c: any) => !c.pokemon_api_id && !c.card_link)
+      const priceByName: any = {}
+      if (legacyCards.length > 0) {
+        const cleanEN = (n: string) => {
+          const s = (n || '').replace(/\s*\([^)]*\)?\s*$/, '').trim()
+          return s.includes(' / ') ? (s.split(' / ').pop()?.trim() || s) : s
+        }
+        const cleanPT = (n: string) => {
+          const s = (n || '').replace(/\s*\([^)]*\)?\s*$/, '').trim()
+          return s.includes(' / ') ? (s.split(' / ')[0]?.trim() || s) : s
+        }
+        // Chunk de 50 nomes para evitar URL longa
+        const names = [...new Set(legacyCards.flatMap((c: any) =>
+          [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)
+        ))].slice(0, 50)
+        if (names.length > 0) {
+          const { data: byName } = await supabase
+            .from('pokemon_cards').select(PRICE_SELECT).in('name', names).limit(500)
+          ;(byName || []).forEach((p: any) => {
+            const k = p.name?.trim()
+            if (!priceByName[k]) priceByName[k] = p
+          })
+        }
+        legacyCards.forEach((c: any) => {
+          const en = cleanEN(c.card_name)
+          const pt = cleanPT(c.card_name)
+          if (!priceByName[en] && !priceByName[pt]) return
+          priceByLink[`legacy:${c.id}`] = priceByName[en] || priceByName[pt]
         })
       }
 
-      // Match: liga_link primeiro (exato), depois nome+número, depois só nome
+      // ── Resolve preço de cada carta ──
       const getPrice = (c: any) => {
-        if (c.card_link && linkMap[c.card_link]) return linkMap[c.card_link]
-        const num = extractNum(c)
-        const en  = cleanEN(c.card_name)
-        const pt  = cleanPT(c.card_name)
-        if (num) return priceMap[`${en}|${num}`] || priceMap[`${pt}|${num}`] || priceMap[en] || priceMap[pt] || null
-        return priceMap[en] || priceMap[pt] || null
+        if (c.pokemon_api_id && priceById[c.pokemon_api_id]) return priceById[c.pokemon_api_id]
+        if (c.card_link && priceByLink[c.card_link]) return priceByLink[c.card_link]
+        return priceByLink[`legacy:${c.id}`] || null
       }
 
       const merged = cardsData.map((c: any) => ({
