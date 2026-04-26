@@ -69,6 +69,7 @@ export default function MinhaColecao() {
   const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc'>('recente')
   const [loading, setLoading] = useState(true)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
+  const [exchangeRate, setExchangeRate] = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
 
   const LOADING_MSGS = [
     'Procurando a carta...',
@@ -406,6 +407,34 @@ export default function MinhaColecao() {
   }
 
   useEffect(() => { loadCards() }, [])
+  useEffect(() => {
+    fetch('/api/exchange-rate')
+      .then(r => r.json())
+      .then(d => setExchangeRate({ usd: d.usd || 6.0, eur: d.eur || 6.5 }))
+      .catch(() => {})
+  }, [])
+
+  // Melhor preço disponível: BRL real → USD convertido → EUR convertido
+  function getBestPrice(card: any): { valor: number; tipo: 'brl' | 'usd' | 'eur' } | null {
+    const p = card.price
+    if (!p) {
+      // Tenta preços USD/EUR diretamente do card (pokemon_cards fields)
+      if (card.price_usd_normal > 0) return { valor: card.price_usd_normal * exchangeRate.usd, tipo: 'usd' }
+      if (card.price_usd_holofoil > 0) return { valor: card.price_usd_holofoil * exchangeRate.usd, tipo: 'usd' }
+      return null
+    }
+    const variante = card.variante || 'normal'
+    const precoBRL =
+      variante === 'foil'     ? (p.preco_foil || p.preco_normal)
+      : variante === 'reverse' ? (p.preco_reverse || p.preco_normal)
+      : variante === 'promo'   ? (p.preco_promo || p.preco_normal)
+      : (p.preco_normal)
+    if (precoBRL > 0) return { valor: precoBRL, tipo: 'brl' }
+    if (p.price_usd_normal > 0) return { valor: p.price_usd_normal * exchangeRate.usd, tipo: 'usd' }
+    if (p.price_usd_holofoil > 0) return { valor: p.price_usd_holofoil * exchangeRate.usd, tipo: 'usd' }
+    if (p.price_eur_normal > 0) return { valor: p.price_eur_normal * exchangeRate.eur, tipo: 'eur' }
+    return null
+  }
 
 
 
@@ -752,21 +781,34 @@ export default function MinhaColecao() {
                           <span style={{ color: '#f59e0b', fontWeight: 700 }}>{fmt(precos.max)}</span>
                         </div>
                       </div>
-                    ) : (
-                      /* Sem preço — será atualizado automaticamente */
-                      <div
-                        style={{
-                          width: '100%', marginTop: 4,
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px dashed rgba(255,255,255,0.1)',
-                          color: 'rgba(255,255,255,0.25)', padding: '9px 12px',
-                          borderRadius: 10, fontSize: 11,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        }}
-                      >
-                        <span>Preço em breve</span>
-                      </div>
-                    )}
+                    ) : (() => {
+                      const best = getBestPrice(c)
+                      if (best) {
+                        const isEst = best.tipo !== 'brl'
+                        return (
+                          <div style={{ background: isEst ? 'rgba(96,165,250,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isEst ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: '10px 12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: isEst ? 'rgba(96,165,250,0.7)' : 'rgba(255,255,255,0.4)' }}>
+                                {isEst ? `~Estimativa (${best.tipo.toUpperCase()})` : 'Preço'}
+                              </span>
+                              <span style={{ color: isEst ? '#60a5fa' : '#f0f0f0', fontWeight: 700, fontSize: 13 }}>
+                                {isEst ? '~' : ''}{fmt(best.valor)}
+                              </span>
+                            </div>
+                            {isEst && (
+                              <p style={{ fontSize: 9, color: 'rgba(96,165,250,0.5)', marginTop: 4 }}>
+                                Preço BR em verificação
+                              </p>
+                            )}
+                          </div>
+                        )
+                      }
+                      return (
+                        <div style={{ width: '100%', marginTop: 4, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.25)', padding: '9px 12px', borderRadius: 10, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span>Sem dados de preço</span>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
 
