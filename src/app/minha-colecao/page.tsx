@@ -739,9 +739,8 @@ export default function MinhaColecao() {
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                         }}
                       >
-                        <span>Preço em breve</span
-                        )}
-                      </button>
+                        <span>Preço em breve</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -782,4 +781,3 @@ export default function MinhaColecao() {
     </AppLayout>
   )
 }
-// dom 26 abr 2026 01:09:03 -03
