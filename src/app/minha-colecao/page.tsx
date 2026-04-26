@@ -773,17 +773,27 @@ export default function MinhaColecao() {
                   transition: 'border-color 0.2s',
                 }}
               >
-                <img
-                  src={c.card_image || '/placeholder-card.png'}
-                  alt={c.card_name}
-                  loading="lazy"
-                  decoding="async"
-                  onError={(e) => {
-                    if (!e.currentTarget.src.includes('placeholder-card.png'))
-                      e.currentTarget.src = '/placeholder-card.png'
-                  }}
-                  className="w-full h-auto object-cover rounded"
-                />
+                {c.card_image ? (
+                  <img
+                    src={c.card_image}
+                    alt={c.card_name}
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement)?.style && ((e.currentTarget.nextSibling as HTMLElement).style.display = 'flex') }}
+                    className="w-full h-auto object-cover rounded"
+                  />
+                ) : (
+                  <div style={{ width: '100%', paddingBottom: '140%', position: 'relative', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <svg width="32" height="32" viewBox="0 0 100 100" fill="none" style={{opacity:0.2}}>
+                        <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="4"/>
+                        <path d="M2 50h96" stroke="currentColor" strokeWidth="4"/>
+                        <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
+                      </svg>
+                      <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>Liga BR</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-3">
                   {/* Nome da carta */}
