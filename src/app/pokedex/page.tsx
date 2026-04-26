@@ -141,23 +141,35 @@ export default function Pokedex() {
 
   // Busca dex numbers do PokeAPI para cada Pokémon
   async function enrichWithDexNumbers(pokemons: any[]) {
+    // Busca a lista do Supabase que já tem dex_id correto
     const cache: Record<string, number> = {}
     try {
-      const res = await fetch('https://pokeapi.co/api/v2/pokemon-species?limit=1025')
+      const res = await fetch('/api/pokedex/species')
       const data = await res.json()
-      ;(data.results || []).forEach((p: any, i: number) => {
-        cache[p.name.toLowerCase()] = i + 1
+      ;(data.species || []).forEach((s: any) => {
+        cache[s.name_en.toLowerCase()] = s.dex_id
       })
-    } catch {}
+    } catch {
+      // Fallback: PokeAPI
+      try {
+        const res = await fetch('https://pokeapi.co/api/v2/pokemon-species?limit=1025')
+        const data = await res.json()
+        ;(data.results || []).forEach((p: any, i: number) => {
+          cache[p.name.toLowerCase()] = i + 1
+        })
+      } catch {}
+    }
 
     return pokemons.map(p => {
-      const lookup = p.name.toLowerCase()
-        .replace(' ', '-')
-        .replace(' ', '-')
-        .replace('é', 'e')
-        .replace('ó', 'o')
-        .replace('ê', 'e')
-      const dexId = cache[lookup] || cache[lookup.replace(/-/g, '')] || 0
+      const nameLower = p.name.toLowerCase()
+      // Tenta match direto, depois variações
+      const dexId = cache[nameLower]
+        || cache[nameLower.replace(/['']/g, '')]           // Farfetch'd → farfetchd
+        || cache[nameLower.replace(/[éèê]/g, 'e')]         // Flabébé → flabebe
+        || cache[nameLower.replace(/\s+/g, '-')]           // Mr. Mime → mr.-mime
+        || cache[nameLower.replace(/[.\s]+/g, '-').replace(/--+/g, '-')]  // Mr. Mime → mr-mime
+        || cache[nameLower.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-')] // Type: Null → type-null
+        || 0
       return {
         ...p,
         dexId,
