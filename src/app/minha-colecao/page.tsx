@@ -851,40 +851,45 @@ export default function MinhaColecao() {
                     )}
                   </div>
 
-                  {/* Variante select */}
-                  {variantesDisponiveis.length > 0 && (
-                    <select
-                      value={variante}
-                      onChange={(e) => handleVarianteChange(c, e.target.value)}
-                      style={{ width: '100%', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 8px', color: '#f0f0f0', cursor: 'pointer', fontFamily: 'inherit' }}
-                    >
-                      {variantesDisponiveis.map(v => (
-                        <option key={v.key} value={v.key}>{v.label}</option>
-                      ))}
-                    </select>
-                  )}
 
-                  {/* Preços min/médio/máx — compacto */}
-                  {precos.min || precos.medio || precos.max ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, marginTop: 2 }}>
-                      {[
-                        { label: 'Mín', val: precos.min, color: '#22c55e' },
-                        { label: 'Méd', val: precos.medio, color: '#60a5fa' },
-                        { label: 'Máx', val: precos.max, color: '#f59e0b' },
-                      ].map(({ label, val, color }) => (
-                        <div key={label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '5px 6px', textAlign: 'center' }}>
-                          <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 2 }}>{label}</p>
-                          <p style={{ fontSize: 11, fontWeight: 700, color }}>{val ? fmt(val) : '—'}</p>
+
+                  {/* Preços — mostra todas as variantes com preço */}
+                  {(() => {
+                    const rows: { label: string; color: string; min: number|null; med: number|null; max: number|null }[] = []
+                    if (c.price) {
+                      const pn = n(c.price.preco_min) || n(c.price.preco_medio) || n(c.price.preco_max)
+                      const pf = n(c.price.preco_foil_min) || n(c.price.preco_foil_medio) || n(c.price.preco_foil_max)
+                      const pp = n(c.price.preco_promo_min) || n(c.price.preco_promo_medio) || n(c.price.preco_promo_max)
+                      const pr = n(c.price.preco_reverse_min) || n(c.price.preco_reverse_medio) || n(c.price.preco_reverse_max)
+                      if (pn) rows.push({ label: 'Normal', color: '#f0f0f0', min: n(c.price.preco_min), med: n(c.price.preco_medio), max: n(c.price.preco_max) })
+                      if (pf) rows.push({ label: 'Foil', color: '#f59e0b', min: n(c.price.preco_foil_min), med: n(c.price.preco_foil_medio), max: n(c.price.preco_foil_max) })
+                      if (pp) rows.push({ label: 'Promo', color: '#a855f7', min: n(c.price.preco_promo_min), med: n(c.price.preco_promo_medio), max: n(c.price.preco_promo_max) })
+                      if (pr) rows.push({ label: 'Reverse', color: '#60a5fa', min: n(c.price.preco_reverse_min), med: n(c.price.preco_reverse_medio), max: n(c.price.preco_reverse_max) })
+                    }
+                    if (rows.length > 0) return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+                        {/* Header */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr', gap: 2 }}>
+                          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)' }}></span>
+                          {['Mín','Méd','Máx'].map(l => <span key={l} style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{l}</span>)}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)', padding: '6px 0' }}>
-                      {best ? (
-                        <span style={{ color: 'rgba(96,165,250,0.6)' }}>~{fmt(best.valor)} ({best.tipo.toUpperCase()})</span>
-                      ) : 'Sem preço disponível'}
-                    </div>
-                  )}
+                        {rows.map(row => (
+                          <div key={row.label} style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr', gap: 2, alignItems: 'center' }}>
+                            <span style={{ fontSize: 9, color: row.color, fontWeight: 700 }}>{row.label}</span>
+                            <span style={{ fontSize: 10, color: '#22c55e', fontWeight: 600, textAlign: 'center' }}>{fmt(row.min) || '—'}</span>
+                            <span style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textAlign: 'center' }}>{fmt(row.med) || '—'}</span>
+                            <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600, textAlign: 'center' }}>{fmt(row.max) || '—'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                    if (best) return (
+                      <div style={{ textAlign: 'center', fontSize: 10, padding: '4px 0', color: 'rgba(96,165,250,0.7)', fontWeight: 600 }}>
+                        ~{fmt(best.valor)} <span style={{ fontSize: 9, color: 'rgba(96,165,250,0.4)' }}>({best.tipo.toUpperCase()})</span>
+                      </div>
+                    )
+                    return <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.15)', padding: '4px 0' }}>Sem preço disponível</div>
+                  })()}
 
                   {/* Qtd + Remover */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
