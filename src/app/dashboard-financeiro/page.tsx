@@ -158,16 +158,23 @@ export default function DashboardFinanceiro() {
         const { data: cards } = await supabase.from('user_cards').select('*').eq('user_id', uid)
         setUserCards(cards || [])
 
-        // Extrai nomes limpos (remove "(123/456)" do final)
-        const cleanName = (n: string) => (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
-        const cleanNames = [...new Set((cards || []).map(c => cleanName(c.card_name)).filter(Boolean))]
+        // Remove número do final e extrai nome EN se formato "PT / EN"
+        const cleanEN = (n: string) => {
+          const s = (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+          return s.includes(' / ') ? (s.split(' / ').pop()?.trim() || s) : s
+        }
+        const cleanPT = (n: string) => {
+          const s = (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+          return s.includes(' / ') ? (s.split(' / ')[0]?.trim() || s) : s
+        }
+        const allNames = [...new Set((cards || []).flatMap(c => [cleanEN(c.card_name), cleanPT(c.card_name)]).filter(Boolean))]
 
         let valorTotal = 0
-        if (cleanNames.length > 0) {
+        if (allNames.length > 0) {
           const { data: prices } = await supabase
             .from('pokemon_cards')
             .select('name, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max')
-            .in('name', cleanNames)
+            .in('name', allNames)
 
           const priceMap: any = {}
           ;(prices || []).forEach(p => {
@@ -177,19 +184,22 @@ export default function DashboardFinanceiro() {
             }
           })
 
+          // Busca preço tentando EN primeiro, depois PT
+          const getP = (c: any) => priceMap[cleanEN(c.card_name)] || priceMap[cleanPT(c.card_name)]
+
           if (prices && prices.length > 0) {
-            const enriched = await Promise.all((prices || []).map(async p => {
-              const card = (cards || []).find(c => cleanName(c.card_name) === p.name?.trim())
-              const variante = card?.variante || 'normal'
+            const enriched = await Promise.all((cards || []).filter(c => getP(c)).map(async c => {
+              const p = getP(c)
+              const variante = c.variante || 'normal'
               const precoVariante =
-                variante === 'foil'     ? (p.preco_foil_medio || p.preco_medio || 0)
+                variante === 'foil'      ? (p.preco_foil_medio || p.preco_medio || 0)
                 : variante === 'promo'   ? (p.preco_promo_medio || p.preco_medio || 0)
                 : variante === 'reverse' ? (p.preco_reverse_medio || p.preco_medio || 0)
-                : variante === 'pokeball' ? (p.preco_pokeball_medio || p.preco_medio || 0)
+                : variante === 'pokeball'? (p.preco_pokeball_medio || p.preco_medio || 0)
                 : (p.preco_medio || 0)
               return {
                 ...p,
-                card_name: p.name,
+                card_name: c.card_name,
                 variante,
                 precoVariante: Number(precoVariante),
                 variation: await getCardVariation(p.name)
@@ -204,7 +214,7 @@ export default function DashboardFinanceiro() {
             reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
           }
           for (const card of cards || []) {
-            const p = priceMap[cleanName(card.card_name)]
+            const p = getP(card)
             if (!p) continue
             const qty = card.quantity || 1
             let v = card.variante || 'normal'
