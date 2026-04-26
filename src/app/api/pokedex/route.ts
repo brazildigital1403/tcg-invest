@@ -7,30 +7,14 @@ const supabase = createClient(
 )
 
 export async function GET() {
-  // GROUP BY no banco — retorna apenas nomes únicos com seus tipos
-  const { data, error } = await supabase.rpc('get_unique_pokemon')
+  // Agrupa por base_pokemon_names — cada nome base é uma entrada na Pokédex
+  // unnest expande arrays: "Garchomp & Giratina-GX" → aparece em Garchomp E Giratina
+  const { data, error } = await supabase.rpc('get_unique_base_pokemon')
 
-  if (error) {
-    // Fallback: query manual
-    const { data: raw } = await supabase
-      .from('pokemon_cards')
-      .select('name, types')
-      .eq('supertype', 'Pokémon')
-      .not('image_small', 'is', null)
-      .not('id', 'like', 'liga-%')
-      .order('name')
-      .limit(10000) // busca tudo
-
-    // Agrupa no servidor
-    const map = new Map<string, any>()
-    for (const card of raw || []) {
-      if (!map.has(card.name)) {
-        map.set(card.name, { name: card.name, types: card.types })
-      }
-    }
-
-    return NextResponse.json({ pokemons: [...map.values()] })
+  if (error || !data) {
+    console.error('[api/pokedex]', error?.message)
+    return NextResponse.json({ pokemons: [] })
   }
 
-  return NextResponse.json({ pokemons: data || [] })
+  return NextResponse.json({ pokemons: data })
 }
