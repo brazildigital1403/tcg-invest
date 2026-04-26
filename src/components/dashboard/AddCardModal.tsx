@@ -119,18 +119,29 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       const variante = variantMap[card.id] || 'normal'
       const quantity = qtyMap[card.id] || 1
 
-      await supabase.from('user_cards').insert({
+      const { error: insertError } = await supabase.from('user_cards').insert({
         user_id:        authData.user.id,
         pokemon_api_id: card.id,
         card_name:      cardName,
         card_id:        card.number || card.id,
         card_image:     card.image_large || card.image_small || null,
-        card_link:      null, // não precisa mais de link
+        card_link:      null,
         rarity:         card.rarity || null,
         variante,
         quantity,
         set_name:       card.set_name || null,
       })
+
+      if (insertError) {
+        if (insertError.code === '23505') {
+          await showAlert(`"${card.name}" já está na sua coleção!`, 'warning')
+        } else {
+          console.error('[AddCardModal] insert error:', insertError)
+          await showAlert(`Erro ao adicionar "${card.name}". Tente novamente.`, 'error')
+        }
+        setAdding(false)
+        return
+      }
     }
 
     setAdding(false)
