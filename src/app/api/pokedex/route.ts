@@ -10,10 +10,13 @@ const supabase = createClient(
 let cache: { data: any[]; ts: number } | null = null
 const CACHE_TTL = 60 * 60 * 1000
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const forceRefresh = searchParams.get('refresh') === '1'
+
   // Serve do cache se ainda válido
-  if (cache && Date.now() - cache.ts < CACHE_TTL) {
-    return NextResponse.json({ pokemons: cache.data })
+  if (!forceRefresh && cache && Date.now() - cache.ts < CACHE_TTL) {
+    return NextResponse.json({ pokemons: cache.data, cached: true })
   }
 
   try {
