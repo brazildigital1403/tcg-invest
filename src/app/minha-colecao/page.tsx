@@ -305,33 +305,39 @@ export default function MinhaColecao() {
       }
 
       const allNames   = [...new Set(cardsData.flatMap((c: any) => [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)))]
-      const allNumbers = [...new Set(cardsData.map((c: any) => extractNum(c)).filter(Boolean))]
 
       let priceMap: any = {} // chave: "name|number" ou fallback "name"
 
       if (allNames.length > 0) {
-        let query = supabase
+        // Busca TODAS as versões de cada nome — o JS faz o match preciso por número
+        const { data: prices } = await supabase
           .from('pokemon_cards')
           .select('name, number, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil')
           .in('name', allNames)
+          .limit(2000)
 
-        // Filtra também por número se tiver — reduz drasticamente falsos positivos
-        if (allNumbers.length > 0) {
-          query = query.in('number', allNumbers)
-        }
-
-        const { data: prices } = await query
+        // Função de score — prefere entrada com mais dados de preço
+        const score = (pp: any) =>
+          (parseFloat(pp?.preco_normal || 0) > 0 ? 100 : 0) +
+          (parseFloat(pp?.price_usd_normal || 0) > 0 ? 30 : 0) +
+          (parseFloat(pp?.price_usd_holofoil || 0) > 0 ? 30 : 0) +
+          (parseFloat(pp?.price_eur_normal || 0) > 0 ? 20 : 0) +
+          (parseFloat(pp?.price_eur_holofoil || 0) > 0 ? 20 : 0)
 
         ;(prices || []).forEach((p: any) => {
           const num = p.number ? String(parseInt(p.number, 10)) : null
-          // Chave precisa: nome + número
+          // Chave precisa: nome + número (match exato de set)
           if (num) {
             const key = `${p.name?.trim()}|${num}`
-            priceMap[key] = p
+            if (!priceMap[key] || score(p) > score(priceMap[key])) {
+              priceMap[key] = p
+            }
           }
-          // Chave fallback: só nome (para cartas sem número)
+          // Chave fallback: só nome — pega a versão com mais dados
           const nameKey = p.name?.trim()
-          if (!priceMap[nameKey]) priceMap[nameKey] = p
+          if (!priceMap[nameKey] || score(p) > score(priceMap[nameKey])) {
+            priceMap[nameKey] = p
+          }
         })
       }
 
