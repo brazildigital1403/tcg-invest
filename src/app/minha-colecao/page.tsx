@@ -10,6 +10,7 @@ import AddCardModal from '@/components/dashboard/AddCardModal'
 import ScanModal from '@/components/ui/ScanModal'
 import { IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
+import CardItem from '@/components/ui/CardItem'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -761,149 +762,18 @@ export default function MinhaColecao() {
           </div>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
-          {filteredCards.map((c) => {
-            const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
-            const variantesDisponiveis = getVariantesDisponiveis(c.price, c.variante)
-            const precos = getVariantePrices(c.price, variante)
-            const best = getBestPrice(c)
-            const isValuable = (precos.medio || best?.valor || 0) > 100
-            const isEstimated = !precos.medio && best?.tipo !== 'brl'
-
-            // Cor de raridade
-            const rarityColor = (r: string) => {
-              if (!r) return null
-              if (r.includes('Secret') || r.includes('Special')) return '#f59e0b'
-              if (r.includes('Holo') || r.includes('Ultra') || r.includes('Rainbow')) return '#a855f7'
-              if (r.includes('Rare')) return '#60a5fa'
-              return null
-            }
-            const rColor = rarityColor(c.rarity || '')
-
-            return (
-              <div
-                key={c.id}
-                style={{
-                  background: isValuable ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.02)',
-                  border: isValuable ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: 18,
-                  overflow: 'hidden',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                {/* Imagem com badges flutuantes */}
-                <div style={{ position: 'relative' }}>
-                  {c.card_image ? (
-                    <img
-                      src={c.card_image}
-                      alt={c.card_name}
-                      loading="lazy"
-                      decoding="async"
-                      style={{ width: '100%', display: 'block', borderRadius: '18px 18px 0 0' }}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                    />
-                  ) : (
-                    <div style={{ width: '100%', paddingBottom: '140%', position: 'relative', background: 'rgba(255,255,255,0.03)', borderRadius: '18px 18px 0 0' }}>
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        <svg width="40" height="40" viewBox="0 0 100 100" fill="none" style={{opacity:0.15}}>
-                          <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="4"/>
-                          <path d="M2 50h96" stroke="currentColor" strokeWidth="4"/>
-                          <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
-                        </svg>
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', fontWeight: 600 }}>Liga BR</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Badge preço flutuante */}
-                  {(precos.medio || best) && (
-                    <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
-                      <div style={{ background: isEstimated ? 'rgba(96,165,250,0.9)' : 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontWeight: 800, color: isEstimated ? '#fff' : '#f0f0f0', letterSpacing: '-0.01em' }}>
-                        {isEstimated ? '~' : ''}{fmt(precos.medio || best?.valor)}
-                      </div>
-                      {/* Badge qtd */}
-                      {(c.quantity || 1) > 1 && (
-                        <div style={{ background: 'rgba(245,158,11,0.9)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 7px', fontSize: 11, fontWeight: 800, color: '#000' }}>
-                          ×{c.quantity}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Badge raridade */}
-                  {rColor && (
-                    <div style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: '50%', background: rColor, boxShadow: `0 0 6px ${rColor}` }} />
-                  )}
-                </div>
-
-                {/* Info */}
-                <div style={{ padding: '10px 12px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {/* Nome + número */}
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', lineHeight: 1.3, marginBottom: 1 }}>
-                      {c.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || '—'}
-                    </p>
-                    {c.card_id && (
-                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
-                        #{c.card_id} {c.set_name ? `· ${c.set_name}` : ''}
-                      </p>
-                    )}
-                  </div>
-
-
-
-                  {/* Preços — mostra todas as variantes com preço */}
-                  {(() => {
-                    const rows: { key: string; label: string; color: string; min: number|null; med: number|null; max: number|null }[] = []
-                    if (c.price) {
-                      const pn = n(c.price.preco_min) || n(c.price.preco_medio) || n(c.price.preco_max)
-                      const pf = n(c.price.preco_foil_min) || n(c.price.preco_foil_medio) || n(c.price.preco_foil_max)
-                      const pp = n(c.price.preco_promo_min) || n(c.price.preco_promo_medio) || n(c.price.preco_promo_max)
-                      const pr = n(c.price.preco_reverse_min) || n(c.price.preco_reverse_medio) || n(c.price.preco_reverse_max)
-                      const pk = n(c.price.preco_pokeball_min) || n(c.price.preco_pokeball_medio) || n(c.price.preco_pokeball_max)
-                      if (pn) rows.push({ key: 'normal',   label: 'Normal',   color: '#f0f0f0', min: n(c.price.preco_min),         med: n(c.price.preco_medio),         max: n(c.price.preco_max) })
-                      if (pf) rows.push({ key: 'foil',     label: 'Foil',     color: '#f59e0b', min: n(c.price.preco_foil_min),     med: n(c.price.preco_foil_medio),     max: n(c.price.preco_foil_max) })
-                      if (pp) rows.push({ key: 'promo',    label: 'Promo',    color: '#a855f7', min: n(c.price.preco_promo_min),    med: n(c.price.preco_promo_medio),    max: n(c.price.preco_promo_max) })
-                      if (pr) rows.push({ key: 'reverse',  label: 'Reverse',  color: '#60a5fa', min: n(c.price.preco_reverse_min),  med: n(c.price.preco_reverse_medio),  max: n(c.price.preco_reverse_max) })
-                      if (pk) rows.push({ key: 'pokeball', label: 'Pokeball', color: '#22c55e', min: n(c.price.preco_pokeball_min), med: n(c.price.preco_pokeball_medio), max: n(c.price.preco_pokeball_max) })
-                    }
-
-                    if (rows.length > 0) return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-                        {/* Tabela de preços — linha selecionada = variante do usuário */}
-                        <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          {/* Header */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px', gap: 0, padding: '4px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipo</span>
-                            {['Mín','Méd','Máx'].map(l => <span key={l} style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</span>)}
-                          </div>
-                          {rows.map(row => {
-                            const isSelected = variante === row.key
-                            return (
-                              <button
-                                key={row.key}
-                                onClick={() => handleVarianteChange(c, row.key)}
-                                style={{
-                                  width: '100%', display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px',
-                                  gap: 0, padding: '7px 8px', cursor: 'pointer',
-                                  background: isSelected ? `${row.color}15` : 'transparent',
-                                  border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                  transition: 'background 0.15s', alignItems: 'center',
-                                  fontFamily: 'inherit',
-                                }}
-                              >
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                  {/* Indicador selecionado */}
-                                  <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: isSelected ? row.color : 'rgba(255,255,255,0.1)', boxShadow: isSelected ? `0 0 6px ${row.color}` : 'none', transition: 'all 0.15s' }} />
-                                  <span style={{ fontSize: 10, color: isSelected ? row.color : 'rgba(255,255,255,0.4)', fontWeight: isSelected ? 700 : 500 }}>{row.label}</span>
-                                </span>
-                                <span style={{ fontSize: 10, color: isSelected ? '#22c55e' : 'rgba(255,255,255,0.25)', fontWeight: isSelected ? 700 : 400, textAlign: 'center' }}>{fmt(row.min) || '—'}</span>
-                                <span style={{ fontSize: 10, color: isSelected ? row.color : 'rgba(255,255,255,0.3)', fontWeight: isSelected ? 800 : 400, textAlign: 'center' }}>{fmt(row.med) || '—'}</span>
-                                <span style={{ fontSize: 10, color: isSelected ? '#f59e0b' : 'rgba(255,255,255,0.25)', fontWeight: isSelected ? 700 : 400, textAlign: 'center' }}>{fmt(row.max) || '—'}</span>
-                              </button>
-                            )
-                          })}
+          {filteredCards.map((c) => (
+            <CardItem
+              key={c.id}
+              card={c}
+              mode="collection"
+              variante={c.variante || 'normal'}
+              exchangeRate={exchangeRate}
+              onVarianteChange={(v) => handleVarianteChange(c, v)}
+              onQuantityChange={(delta) => handleUpdateQuantity(c, delta)}
+              onRemove={() => handleRemove(c.id, c.card_name)}
+            />
+          ))}
                         </div>
                         <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
                           Toque na linha para indicar qual você tem

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { IconSearch, IconClose, IconRocket } from '@/components/ui/Icons'
+import CardItem from '@/components/ui/CardItem'
 import { supabase } from '@/lib/supabaseClient'
 
 const BRAND   = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -100,19 +101,17 @@ function EscolherCarta({ userId, onSelect }: { userId: string; onSelect: (c: any
                 onMouseEnter={e => { if (!card.jaAnunciada) { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = 'rgba(245,158,11,0.6)'; el.style.transform = 'translateY(-2px)' }}}
                 onMouseLeave={e => { if (!card.jaAnunciada) { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = 'rgba(255,255,255,0.07)'; el.style.transform = '' }}}
               >
+              >
                 {card.jaAnunciada && (
-                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: 'rgba(0,0,0,0.8)', padding: '4px 8px', borderRadius: 6 }}>JÁ ANUNCIADA</span>
                   </div>
                 )}
-                {card.card_image
-                  ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
-                  : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)' }} />
-                }
-                <div style={{ padding: '8px 10px' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#f0f0f0', lineHeight: 1.3, marginBottom: 2 }}>{card.card_name}</p>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{card.variante || 'Normal'}</span>
-                </div>
+                <CardItem
+                  card={card}
+                  mode="select"
+                  selected={cartaSel?.id === card.id}
+                />
               </div>
             ))}
           </div>
