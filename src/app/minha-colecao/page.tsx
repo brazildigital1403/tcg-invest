@@ -705,6 +705,10 @@ export default function MinhaColecao() {
                 />
 
                 <div className="mt-3">
+                  {/* Nome da carta */}
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', marginBottom: 4, lineHeight: 1.3 }}>
+                    {c.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || '—'}
+                  </p>
 
                   {/* Quantidade */}
                   <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
