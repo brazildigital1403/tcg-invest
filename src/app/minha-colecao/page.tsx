@@ -32,17 +32,29 @@ function getVarianteEfetiva(_price: any, varianteSalva: string): string {
   return varianteSalva || 'normal'
 }
 
-// Variantes disponíveis — só inclui as que têm preço
-function getVariantesDisponiveis(_price: any) {
-  // Sempre mostra todas as variantes para o usuário poder selecionar
-  // independente de termos preço para aquela variante
-  return [
-    { key: 'normal',   label: 'Normal' },
-    { key: 'foil',     label: 'Foil' },
-    { key: 'reverse',  label: 'Reverse Foil' },
-    { key: 'promo',    label: 'Promo' },
-    { key: 'pokeball', label: 'Pokeball Foil' },
-  ]
+// Variantes disponíveis — só mostra as que têm preço real OU a variante salva
+function getVariantesDisponiveis(price: any, varianteSalva?: string) {
+  const opts: { key: string; label: string }[] = []
+
+  const hasNormal   = price && (Number(price.preco_normal   || 0) > 0 || Number(price.preco_medio       || 0) > 0)
+  const hasFoil     = price && (Number(price.preco_foil     || 0) > 0 || Number(price.preco_foil_medio  || 0) > 0)
+  const hasReverse  = price && (Number(price.preco_reverse  || 0) > 0 || Number(price.preco_reverse_medio|| 0) > 0)
+  const hasPromo    = price && (Number(price.preco_promo    || 0) > 0 || Number(price.preco_promo_medio  || 0) > 0)
+  const hasPokeball = price && (Number(price.preco_pokeball || 0) > 0 || Number(price.preco_pokeball_medio|| 0) > 0)
+
+  // Sempre inclui a variante salva (mesmo sem preço ainda)
+  const must = varianteSalva || 'normal'
+
+  if (hasNormal   || must === 'normal')   opts.push({ key: 'normal',   label: 'Normal' })
+  if (hasFoil     || must === 'foil')     opts.push({ key: 'foil',     label: 'Foil' })
+  if (hasReverse  || must === 'reverse')  opts.push({ key: 'reverse',  label: 'Reverse Foil' })
+  if (hasPromo    || must === 'promo')    opts.push({ key: 'promo',    label: 'Promo' })
+  if (hasPokeball || must === 'pokeball') opts.push({ key: 'pokeball', label: 'Pokeball Foil' })
+
+  // Garante pelo menos Normal
+  if (opts.length === 0) opts.push({ key: 'normal', label: 'Normal' })
+
+  return opts
 }
 
 export default function MinhaColecao() {
@@ -755,7 +767,7 @@ export default function MinhaColecao() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
           {filteredCards.map((c) => {
             const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
-            const variantesDisponiveis = getVariantesDisponiveis(c.price)
+            const variantesDisponiveis = getVariantesDisponiveis(c.price, c.variante)
             const precos = getVariantePrices(c.price, variante)
 
             return (
