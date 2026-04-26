@@ -11,19 +11,23 @@ import ScanModal from '@/components/ui/ScanModal'
 import { IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 
-const fmt = (v: number | null | undefined) => {
-  if (!v) return 'R$ -'
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
+
+const fmt = (v: any) => {
+  const num = n(v)
+  if (!num || num <= 0) return null
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
 }
 
 function getVariantePrices(price: any, variante: string) {
   if (!price) return { min: null, medio: null, max: null }
+  const p = (v: any) => n(v)
   switch (variante) {
-    case 'foil':     return { min: price.preco_foil_min,     medio: price.preco_foil_medio,     max: price.preco_foil_max }
-    case 'promo':    return { min: price.preco_promo_min,    medio: price.preco_promo_medio,    max: price.preco_promo_max }
-    case 'reverse':  return { min: price.preco_reverse_min,  medio: price.preco_reverse_medio,  max: price.preco_reverse_max }
-    case 'pokeball': return { min: price.preco_pokeball_min, medio: price.preco_pokeball_medio, max: price.preco_pokeball_max }
-    default:         return { min: price.preco_min,          medio: price.preco_medio,          max: price.preco_max }
+    case 'foil':     return { min: p(price.preco_foil_min),     medio: p(price.preco_foil_medio),     max: p(price.preco_foil_max) }
+    case 'promo':    return { min: p(price.preco_promo_min),    medio: p(price.preco_promo_medio),    max: p(price.preco_promo_max) }
+    case 'reverse':  return { min: p(price.preco_reverse_min),  medio: p(price.preco_reverse_medio),  max: p(price.preco_reverse_max) }
+    case 'pokeball': return { min: p(price.preco_pokeball_min), medio: p(price.preco_pokeball_medio), max: p(price.preco_pokeball_max) }
+    default:         return { min: p(price.preco_min),          medio: p(price.preco_medio),          max: p(price.preco_max) }
   }
 }
 
