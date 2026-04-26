@@ -244,7 +244,7 @@ export default function CardItem({
           <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', lineHeight: 1.3, marginBottom: 1 }}>{name}</p>
           {(number || card.set_name) && (
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
-              {number ? `#${number}` : ''}{number && card.set_name ? ' · ' : ''}{card.set_name || ''}
+              {number ? number : ''}{number && card.set_name ? ' · ' : ''}{card.set_name || ''}
             </p>
           )}
         </div>
