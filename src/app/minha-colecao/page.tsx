@@ -285,40 +285,66 @@ export default function MinhaColecao() {
 
       const cardsData = data || []
 
-      // Remove "(123/456)" do final e extrai nome EN se formato "PT / EN"
+      // Extrai nome EN (remove número e pega parte após " / " se PT/EN)
       const cleanEN = (n: string) => {
-        const s = (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+        const s = (n || '').replace(/\s*\([^)]*\)?\s*$/, '').trim()
         return s.includes(' / ') ? (s.split(' / ').pop()?.trim() || s) : s
       }
       const cleanPT = (n: string) => {
-        const s = (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+        const s = (n || '').replace(/\s*\([^)]*\)?\s*$/, '').trim()
         return s.includes(' / ') ? (s.split(' / ')[0]?.trim() || s) : s
       }
 
-      const allNames = [...new Set(cardsData.flatMap((c: any) =>
-        [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)
-      ))]
-
-      let priceMap: any = {}
-
-      if (allNames.length > 0) {
-        const { data: prices } = await supabase
-          .from('pokemon_cards')
-          .select('name, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil')
-          .in('name', allNames)
-
-        priceMap = (prices || []).reduce((acc: any, p: any) => {
-          const key = p.name?.trim()
-          if (!acc[key] || (p.preco_normal || 0) > (acc[key].preco_normal || 0)) {
-            acc[key] = { ...p, card_name: p.name }
-          }
-          return acc
-        }, {})
+      // Extrai número da carta (remove zeros à esquerda para bater com pokemon_cards)
+      const extractNum = (c: any): string | null => {
+        const raw = c.card_id?.split('/')?.[0]?.trim()
+          || c.card_name?.match(/\((\d+)/)?.[1]
+        if (!raw) return null
+        const n = parseInt(raw, 10)
+        return isNaN(n) ? null : String(n)
       }
 
-      // Tenta EN primeiro, depois PT como fallback
-      const getPrice = (c: any) =>
-        priceMap[cleanEN(c.card_name)] || priceMap[cleanPT(c.card_name)] || null
+      const allNames   = [...new Set(cardsData.flatMap((c: any) => [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)))]
+      const allNumbers = [...new Set(cardsData.map((c: any) => extractNum(c)).filter(Boolean))]
+
+      let priceMap: any = {} // chave: "name|number" ou fallback "name"
+
+      if (allNames.length > 0) {
+        let query = supabase
+          .from('pokemon_cards')
+          .select('name, number, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil')
+          .in('name', allNames)
+
+        // Filtra também por número se tiver — reduz drasticamente falsos positivos
+        if (allNumbers.length > 0) {
+          query = query.in('number', allNumbers)
+        }
+
+        const { data: prices } = await query
+
+        ;(prices || []).forEach((p: any) => {
+          const num = p.number ? String(parseInt(p.number, 10)) : null
+          // Chave precisa: nome + número
+          if (num) {
+            const key = `${p.name?.trim()}|${num}`
+            priceMap[key] = p
+          }
+          // Chave fallback: só nome (para cartas sem número)
+          const nameKey = p.name?.trim()
+          if (!priceMap[nameKey]) priceMap[nameKey] = p
+        })
+      }
+
+      // Busca preço: tenta nome+número primeiro (preciso), depois só nome (fallback)
+      const getPrice = (c: any) => {
+        const num = extractNum(c)
+        const en  = cleanEN(c.card_name)
+        const pt  = cleanPT(c.card_name)
+        if (num) {
+          return priceMap[`${en}|${num}`] || priceMap[`${pt}|${num}`] || priceMap[en] || priceMap[pt] || null
+        }
+        return priceMap[en] || priceMap[pt] || null
+      }
 
       const merged = cardsData.map((c: any) => ({
         ...c,
@@ -417,22 +443,44 @@ export default function MinhaColecao() {
   // Melhor preço disponível: BRL real → USD convertido → EUR convertido
   function getBestPrice(card: any): { valor: number; tipo: 'brl' | 'usd' | 'eur' } | null {
     const p = card.price
-    if (!p) {
-      // Tenta preços USD/EUR diretamente do card (pokemon_cards fields)
-      if (card.price_usd_normal > 0) return { valor: card.price_usd_normal * exchangeRate.usd, tipo: 'usd' }
-      if (card.price_usd_holofoil > 0) return { valor: card.price_usd_holofoil * exchangeRate.usd, tipo: 'usd' }
-      return null
+    const rate = exchangeRate
+
+    // Extrai qualquer preço USD disponível (o maior entre normal e holofoil)
+    const usdValor = (pp: any) => {
+      const u = Math.max(
+        parseFloat(pp?.price_usd_normal || 0),
+        parseFloat(pp?.price_usd_holofoil || 0),
+        parseFloat(pp?.price_usd_reverse || 0),
+      )
+      return u > 0 ? u * rate.usd : 0
     }
-    const variante = card.variante || 'normal'
-    const precoBRL =
-      variante === 'foil'     ? (p.preco_foil || p.preco_normal)
-      : variante === 'reverse' ? (p.preco_reverse || p.preco_normal)
-      : variante === 'promo'   ? (p.preco_promo || p.preco_normal)
-      : (p.preco_normal)
+    const eurValor = (pp: any) => {
+      const e = Math.max(
+        parseFloat(pp?.price_eur_normal || 0),
+        parseFloat(pp?.price_eur_holofoil || 0),
+      )
+      return e > 0 ? e * rate.eur : 0
+    }
+
+    if (!p) return null
+
+    // 1. Tenta BRL real primeiro
+    const precoBRL = parseFloat(
+      (card.variante === 'foil'     ? p.preco_foil
+      : card.variante === 'reverse' ? p.preco_reverse
+      : card.variante === 'promo'   ? p.preco_promo
+      : p.preco_normal) || 0
+    )
     if (precoBRL > 0) return { valor: precoBRL, tipo: 'brl' }
-    if (p.price_usd_normal > 0) return { valor: p.price_usd_normal * exchangeRate.usd, tipo: 'usd' }
-    if (p.price_usd_holofoil > 0) return { valor: p.price_usd_holofoil * exchangeRate.usd, tipo: 'usd' }
-    if (p.price_eur_normal > 0) return { valor: p.price_eur_normal * exchangeRate.eur, tipo: 'eur' }
+
+    // 2. Fallback USD convertido
+    const usd = usdValor(p)
+    if (usd > 0) return { valor: usd, tipo: 'usd' }
+
+    // 3. Fallback EUR convertido
+    const eur = eurValor(p)
+    if (eur > 0) return { valor: eur, tipo: 'eur' }
+
     return null
   }
 
