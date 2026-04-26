@@ -120,19 +120,15 @@ export default function Pokedex() {
       // Busca nomes únicos via API Route (GROUP BY no banco)
       const res = await fetch('/api/pokedex')
       const json = await res.json()
+      // Banco já retorna nomes base agrupados — não precisa de limpeza
       const unique: any[] = (json.pokemons || []).map((p: any) => ({
-        name: cleanPokemonName(p.name),
+        name: p.name,
         types: p.types,
+        card_count: p.card_count,
       }))
 
-      // Remove duplicatas após limpeza do nome
-      const map = new Map<string, any>()
-      for (const p of unique) {
-        if (!map.has(p.name)) map.set(p.name, p)
-      }
-
       // Busca dex numbers do PokeAPI
-      const withDex = await enrichWithDexNumbers([...map.values()])
+      const withDex = await enrichWithDexNumbers(unique)
 
       // Ordena por número da Pokédex (sem número vai para o fim)
       withDex.sort((a, b) => (a.dexId || 9999) - (b.dexId || 9999))
@@ -183,7 +179,7 @@ export default function Pokedex() {
       .from('pokemon_cards')
       .select(`
         id, name, number, set_id, set_name, set_total, set_release_date, rarity, types, hp, supertype,
-        image_small, image_large, liga_link,
+        image_small, image_large, liga_link, base_pokemon_names,
         preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball,
         preco_min, preco_medio, preco_max,
         preco_foil_min, preco_foil_medio, preco_foil_max,
@@ -192,10 +188,10 @@ export default function Pokedex() {
         price_usd_normal, price_usd_holofoil, price_usd_reverse,
         price_eur_normal, price_eur_holofoil
       `)
-      .ilike('name', `${pokemon.name}%`)
+      .contains('base_pokemon_names', [pokemon.name])
       .eq('supertype', 'Pokémon')
       .order('set_release_date', { ascending: false })
-      .limit(100)
+      .limit(200)
 
     setCards((data || []).map(c => ({ ...c, price: c })))
     setLoadingCards(false)
@@ -421,12 +417,19 @@ export default function Pokedex() {
                         </span>
                       )}
 
-                      {/* Gen badge */}
-                      {pokemon.generation && pokemon.generation !== '?' && (
-                        <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 600 }}>
-                          Gen {pokemon.generation}
-                        </span>
-                      )}
+                      {/* Gen badge + contagem */}
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        {pokemon.generation && pokemon.generation !== '?' && (
+                          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 600 }}>
+                            Gen {pokemon.generation}
+                          </span>
+                        )}
+                        {pokemon.card_count > 0 && (
+                          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)' }}>
+                            · {pokemon.card_count}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   )
                 })}
