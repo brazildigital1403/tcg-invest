@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { IconSearch } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
@@ -30,7 +30,7 @@ const rarityIcon = (r: string) => {
   return '○'
 }
 
-const fmt = (v: number | null | undefined) =>
+const fmtBRL = (v: number | null | undefined) =>
   v && v > 0
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
     : null
@@ -43,12 +43,30 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [selectedCards, setSelectedCards] = useState<any[]>([])
   const [isSearching, setIsSearching]     = useState(false)
   const [preview, setPreview]             = useState<any | null>(null)
+  const [exchangeRate, setExchangeRate]   = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
   const [typeFilter, setTypeFilter]       = useState('')
   const [rarityFilter, setRarityFilter]   = useState('')
   const [variantMap, setVariantMap]       = useState<Record<string, string>>({})
   const [qtyMap, setQtyMap]               = useState<Record<string, number>>({})
   const [adding, setAdding]               = useState(false)
   const searchTimeout = useRef<any>(null)
+
+  // ── Busca taxa de câmbio ao abrir ─────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/exchange-rate')
+      .then(r => r.json())
+      .then(d => setExchangeRate({ usd: d.usd || 6.0, eur: d.eur || 6.5 }))
+      .catch(() => {})
+  }, [])
+
+  // ── Calcula melhor preço disponível ──────────────────────────────────────
+  function getBestPrice(card: any): { valor: number; tipo: 'brl' | 'usd' | 'eur' } | null {
+    if (card.preco_normal > 0) return { valor: card.preco_normal, tipo: 'brl' }
+    if (card.price_usd_normal > 0) return { valor: card.price_usd_normal * exchangeRate.usd, tipo: 'usd' }
+    if (card.price_usd_holofoil > 0) return { valor: card.price_usd_holofoil * exchangeRate.usd, tipo: 'usd' }
+    if (card.price_eur_normal > 0) return { valor: card.price_eur_normal * exchangeRate.eur, tipo: 'eur' }
+    return null
+  }
 
   // ── Busca no banco local ────────────────────────────────────────────────────
 
@@ -254,12 +272,18 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                         </div>
                       )}
 
-                      {/* Preço badge se tiver */}
-                      {card.preco_normal > 0 && (
-                        <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, background: 'rgba(0,0,0,0.75)', borderRadius: 6, padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#f59e0b' }}>
-                          {fmt(card.preco_normal)}
-                        </div>
-                      )}
+                      {/* Badge de preço — BRL real ou estimado via câmbio */}
+                      {(() => {
+                        const best = getBestPrice(card)
+                        if (!best) return null
+                        const label = fmtBRL(best.valor)
+                        const isEstimated = best.tipo !== 'brl'
+                        return (
+                          <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, background: isEstimated ? 'rgba(96,165,250,0.85)' : 'rgba(0,0,0,0.75)', borderRadius: 6, padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#fff' }}>
+                            {isEstimated ? '~' : ''}{label}
+                          </div>
+                        )
+                      })()}
 
                       <div style={{ position: 'relative', paddingBottom: '140%' }}>
                         <img
@@ -318,41 +342,67 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   )}
                 </div>
 
-                {/* Preços automáticos do banco */}
+                {/* Preços — BRL real ou estimado via câmbio */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
                   <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💰 Preço de mercado</p>
-                  {preview.preco_normal > 0 || preview.preco_foil > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {preview.preco_normal > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>Normal</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>{fmt(preview.preco_normal)}</span>
+                  {(() => {
+                    const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
+                    const best = getBestPrice(preview)
+
+                    if (hasBRL) {
+                      // Tem preço BRL real da Liga
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {preview.preco_normal > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: TEXT_MUTED }}>Normal</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>{fmtBRL(preview.preco_normal)}</span>
+                            </div>
+                          )}
+                          {preview.preco_foil > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: TEXT_MUTED }}>Foil</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmtBRL(preview.preco_foil)}</span>
+                            </div>
+                          )}
+                          {preview.preco_reverse > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: TEXT_MUTED }}>Reverse</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmtBRL(preview.preco_reverse)}</span>
+                            </div>
+                          )}
+                          {preview.preco_promo > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: TEXT_MUTED }}>Promo</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: '#a855f7' }}>{fmtBRL(preview.preco_promo)}</span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {preview.preco_foil > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>Foil</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(preview.preco_foil)}</span>
+                      )
+                    } else if (best) {
+                      // Sem BRL — mostra estimativa via câmbio
+                      const srcLabel = best.tipo === 'usd'
+                        ? `USD × R$${exchangeRate.usd.toFixed(2)}`
+                        : `EUR × R$${exchangeRate.eur.toFixed(2)}`
+                      return (
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, color: TEXT_MUTED }}>Estimativa</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>~{fmtBRL(best.valor)}</span>
+                          </div>
+                          <p style={{ fontSize: 9, color: 'rgba(96,165,250,0.6)', fontStyle: 'italic' }}>
+                            Calculado via {srcLabel} • Preço BR em breve
+                          </p>
                         </div>
-                      )}
-                      {preview.preco_reverse > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>Reverse</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(preview.preco_reverse)}</span>
-                        </div>
-                      )}
-                      {preview.preco_promo > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>Promo</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#a855f7' }}>{fmt(preview.preco_promo)}</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>
-                      Preço ainda não disponível para esta carta
-                    </p>
-                  )}
+                      )
+                    } else {
+                      return (
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>
+                          Preço ainda não disponível
+                        </p>
+                      )
+                    }
+                  })()}
                 </div>
 
                 {/* Variante */}
