@@ -158,72 +158,90 @@ export default function DashboardFinanceiro() {
         const { data: cards } = await supabase.from('user_cards').select('*').eq('user_id', uid)
         setUserCards(cards || [])
 
-        // Remove número do final e extrai nome EN se formato "PT / EN"
-        const cleanEN = (n: string) => {
-          const s = (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
-          return s.includes(' / ') ? (s.split(' / ').pop()?.trim() || s) : s
+        // ── Busca câmbio para estimativas USD/EUR ──────────────────────────
+        let exchangeRate = { usd: 6.0, eur: 6.5 }
+        try {
+          const er = await fetch('/api/exchange-rate').then(r => r.json())
+          exchangeRate = { usd: er.usd || 6.0, eur: er.eur || 6.5 }
+        } catch {}
+
+        const PRICE_SELECT = 'id, name, number, set_total, liga_link, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil'
+
+        const priceById: any   = {}
+        const priceByLink: any = {}
+
+        // 1. Lookup por pokemon_api_id (mais preciso)
+        const apiIds = [...new Set((cards || []).map((c: any) => c.pokemon_api_id).filter(Boolean))]
+        if (apiIds.length > 0) {
+          const { data: byId } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('id', apiIds)
+          ;(byId || []).forEach((p: any) => { priceById[p.id] = p })
         }
-        const cleanPT = (n: string) => {
-          const s = (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
-          return s.includes(' / ') ? (s.split(' / ')[0]?.trim() || s) : s
+
+        // 2. Lookup por liga_link
+        const allLinks = [...new Set((cards || []).map((c: any) => c.card_link).filter(Boolean))]
+        if (allLinks.length > 0) {
+          const { data: byLink } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('liga_link', allLinks)
+          ;(byLink || []).forEach((p: any) => { if (p.liga_link) priceByLink[p.liga_link] = p })
         }
-        const allNames = [...new Set((cards || []).flatMap(c => [cleanEN(c.card_name), cleanPT(c.card_name)]).filter(Boolean))]
+
+        // 3. Fallback por nome (chunk de 50)
+        const priceByName: any = {}
+        const legacy = (cards || []).filter((c: any) => !c.pokemon_api_id && !c.card_link)
+        if (legacy.length > 0) {
+          const cleanEN = (n: string) => { const s = (n||'').replace(/\s*\([^)]*\)\s*$/,'').trim(); return s.includes(' / ')?(s.split(' / ').pop()?.trim()||s):s }
+          const cleanPT = (n: string) => { const s = (n||'').replace(/\s*\([^)]*\)\s*$/,'').trim(); return s.includes(' / ')?(s.split(' / ')[0]?.trim()||s):s }
+          const names = [...new Set(legacy.flatMap((c: any) => [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)))].slice(0, 50)
+          if (names.length > 0) {
+            const { data: byName } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('name', names).limit(200)
+            ;(byName || []).forEach((p: any) => { if (!priceByName[p.name?.trim()]) priceByName[p.name?.trim()] = p })
+          }
+          const cleanEN2 = (n: string) => { const s = (n||'').replace(/\s*\([^)]*\)\s*$/,'').trim(); return s.includes(' / ')?(s.split(' / ').pop()?.trim()||s):s }
+          const cleanPT2 = (n: string) => { const s = (n||'').replace(/\s*\([^)]*\)\s*$/,'').trim(); return s.includes(' / ')?(s.split(' / ')[0]?.trim()||s):s }
+          legacy.forEach((c: any) => {
+            const p = priceByName[cleanEN2(c.card_name)] || priceByName[cleanPT2(c.card_name)]
+            if (p) priceByLink[`legacy:${c.id}`] = p
+          })
+        }
+
+        const getP = (c: any) => {
+          if (c.pokemon_api_id && priceById[c.pokemon_api_id]) return priceById[c.pokemon_api_id]
+          if (c.card_link && priceByLink[c.card_link]) return priceByLink[c.card_link]
+          return priceByLink[`legacy:${c.id}`] || null
+        }
+
+        // Melhor preço por variante (BRL > USD > EUR)
+        const getBestVal = (p: any, variante: string): number => {
+          if (!p) return 0
+          const CAMPOS: any = { normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio', reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio' }
+          const brl = parseFloat(p[CAMPOS[variante]] || p.preco_medio || 0)
+          if (brl > 0) return brl
+          const usd = Math.max(parseFloat(p.price_usd_holofoil || 0), parseFloat(p.price_usd_normal || 0))
+          if (usd > 0) return usd * exchangeRate.usd
+          const eur = Math.max(parseFloat(p.price_eur_holofoil || 0), parseFloat(p.price_eur_normal || 0))
+          if (eur > 0) return eur * exchangeRate.eur
+          return 0
+        }
 
         let valorTotal = 0
-        if (allNames.length > 0) {
-          const { data: prices } = await supabase
-            .from('pokemon_cards')
-            .select('name, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil')
-            .in('name', allNames)
+        const enrichedCards: any[] = []
 
-          const priceMap: any = {}
-          ;(prices || []).forEach(p => {
-            const key = p.name?.trim()
-            if (!priceMap[key] || (p.preco_normal || 0) > (priceMap[key].preco_normal || 0)) {
-              priceMap[key] = { ...p, card_name: p.name }
-            }
-          })
-
-          // Busca preço tentando EN primeiro, depois PT
-          const getP = (c: any) => priceMap[cleanEN(c.card_name)] || priceMap[cleanPT(c.card_name)]
-
-          if (prices && prices.length > 0) {
-            const enriched = await Promise.all((cards || []).filter(c => getP(c)).map(async c => {
-              const p = getP(c)
-              const variante = c.variante || 'normal'
-              const precoVariante =
-                variante === 'foil'      ? (p.preco_foil_medio || p.preco_medio || 0)
-                : variante === 'promo'   ? (p.preco_promo_medio || p.preco_medio || 0)
-                : variante === 'reverse' ? (p.preco_reverse_medio || p.preco_medio || 0)
-                : variante === 'pokeball'? (p.preco_pokeball_medio || p.preco_medio || 0)
-                : (p.preco_medio || 0)
-              return {
-                ...p,
-                card_name: c.card_name,
-                variante,
-                precoVariante: Number(precoVariante),
-                variation: await getCardVariation(p.name)
-              }
-            }))
-            enriched.sort((a, b) => b.precoVariante - a.precoVariante)
-            setRankingWithVariation(enriched)
-          }
-
-          const CAMPOS: Record<string, string> = {
-            normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
-            reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
-          }
-          for (const card of cards || []) {
-            const p = getP(card)
-            if (!p) continue
-            const qty = card.quantity || 1
-            let v = card.variante || 'normal'
-            if (!Number(p[CAMPOS[v]] || 0)) {
-              v = Object.keys(CAMPOS).find(k => Number(p[CAMPOS[k]] || 0) > 0) || 'normal'
-            }
-            valorTotal += Number(p[CAMPOS[v]] || 0) * qty
+        for (const card of cards || []) {
+          const p = getP(card)
+          const variante = card.variante || 'normal'
+          const val = getBestVal(p, variante)
+          const qty = card.quantity || 1
+          valorTotal += val * qty
+          if (p && val > 0) {
+            enrichedCards.push({ ...p, card_name: card.card_name, variante, precoVariante: val, variation: 0 })
           }
         }
+
+        // Ranking com variação (async)
+        const withVariation = await Promise.all(enrichedCards.map(async c => ({
+          ...c, variation: await getCardVariation(c.card_name)
+        })))
+        withVariation.sort((a, b) => b.precoVariante - a.precoVariante)
+        setRankingWithVariation(withVariation)
         setStats({ totalCompras: compras, totalVendas: vendas, quantidade: cards?.length || 0, valorColecao: valorTotal })
 
         // Onboarding — aparece sempre que entrar, até completar todos os passos
