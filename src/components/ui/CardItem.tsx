@@ -46,6 +46,7 @@ export interface CardItemData {
   image_large?: string
   rarity?: string
   set_name?: string
+  set_total?: number | string
   quantity?: number
   variante?: string
   price?: CardPrice      // joined price data
@@ -122,7 +123,14 @@ export default function CardItem({
   const variante = varianteProp || card.variante || 'normal'
   const image    = card.card_image || card.image_large || card.image_small
   const name     = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || card.name || '—'
-  const number   = card.card_id || card.number
+  // Formata número no padrão Liga: "091/124"
+  const rawNum   = card.number || card.card_id?.split('/')?.[0]
+  const total    = card.price?.set_total || card.set_total
+  const number   = rawNum && total
+    ? `${String(rawNum).padStart(3, '0')}/${total}`
+    : rawNum
+    ? rawNum
+    : card.card_id
   const rColor   = rarityColor(card.rarity || '')
   const price    = card.price
 

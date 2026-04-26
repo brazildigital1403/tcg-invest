@@ -293,7 +293,7 @@ export default function MinhaColecao() {
 
       const cardsData = data || []
 
-      const PRICE_SELECT = 'id, name, number, liga_link, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil'
+      const PRICE_SELECT = 'id, name, number, set_total, liga_link, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil'
 
       const priceById: any   = {}
       const priceByLink: any = {}
@@ -359,10 +359,15 @@ export default function MinhaColecao() {
         return priceByLink[`legacy:${c.id}`] || null
       }
 
-      const merged = cardsData.map((c: any) => ({
-        ...c,
-        price: getPrice(c),
-      }))
+      const merged = cardsData.map((c: any) => {
+        const price = getPrice(c)
+        return {
+          ...c,
+          price,
+          number: price?.number || c.number || null,
+          set_total: price?.set_total || c.set_total || null,
+        }
+      })
 
       setCards(merged)
       setTotalCartas(merged.length)
