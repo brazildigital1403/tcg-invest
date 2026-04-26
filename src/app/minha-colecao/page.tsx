@@ -478,7 +478,7 @@ export default function MinhaColecao() {
           </div>
           <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
         </div>
-      )}()}
+      )}
       <div className="p-6">
 
         {/* Onboarding */}
