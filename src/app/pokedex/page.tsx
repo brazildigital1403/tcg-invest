@@ -35,6 +35,17 @@ const fmt = (v: number) =>
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+
+// Normaliza carta do Supabase para o formato esperado pelo componente
+function normalizeCard(c: any) {
+  return {
+    ...c,
+    images: { small: c.image_small, large: c.image_large },
+    nationalPokedexNumbers: [],
+    set: { id: c.set_id, name: c.set_name },
+  }
+}
+
 export default function Pokedex() {
   const [cards, setCards]               = useState<any[]>([])
   const [loading, setLoading]           = useState(true)
@@ -86,11 +97,14 @@ export default function Pokedex() {
   async function searchAPI(term: string) {
     setIsSearching(true)
     try {
-      const res = await fetch(
-        `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(term)}*&pageSize=100&orderBy=name`
-      )
-      const data = await res.json()
-      setSearchResults(data?.data || [])
+      const { data } = await supabase
+        .from('pokemon_cards')
+        .select('id, name, number, set_id, set_name, rarity, types, hp, supertype, image_small, image_large, preco_normal, preco_foil, price_usd_normal, price_usd_holofoil')
+        .ilike('name', `%${term}%`)
+        .not('image_small', 'is', null)
+        .order('set_release_date', { ascending: false })
+        .limit(100)
+      setSearchResults((data || []).map(normalizeCard))
     } catch {
       setSearchResults([])
     }
@@ -125,38 +139,23 @@ export default function Pokedex() {
   // ── Fetch cartas ──────────────────────────────────────────────────────────────
 
   async function fetchCards(pageNum = 1) {
-    if (pageNum === 1) {
-      const cache = localStorage.getItem('pokedex-v2')
-      const ts    = localStorage.getItem('pokedex-v2-ts')
-      if (cache && ts && Date.now() - Number(ts) < 7 * 24 * 60 * 60 * 1000) {
-        setCards(JSON.parse(cache))
-        setLoading(false)
-        return
-      }
-      setLoading(true)
-    } else {
-      setLoadingMore(true)
-    }
+    const PAGE_SIZE = 100
+    if (pageNum === 1) setLoading(true)
+    else setLoadingMore(true)
 
     try {
-      const res  = await fetch(`https://api.pokemontcg.io/v2/cards?page=${pageNum}&pageSize=100`)
-      const data = await res.json()
-      const batch: any[] = data.data || []
+      const from = (pageNum - 1) * PAGE_SIZE
+      const { data, error } = await supabase
+        .from('pokemon_cards')
+        .select('id, name, number, set_id, set_name, set_release_date, rarity, types, hp, supertype, image_small, image_large, preco_normal, preco_foil, preco_medio, price_usd_normal, price_usd_holofoil')
+        .not('image_small', 'is', null)
+        .order('set_release_date', { ascending: false })
+        .order('number', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
 
-      setCards(prev => {
-        const merged = pageNum === 1 ? batch : [...prev, ...batch]
-        const sorted = merged.sort((a, b) =>
-          Number(a.nationalPokedexNumbers?.[0] || 9999) -
-          Number(b.nationalPokedexNumbers?.[0] || 9999)
-        )
-        if (pageNum === 1) {
-          localStorage.setItem('pokedex-v2', JSON.stringify(sorted))
-          localStorage.setItem('pokedex-v2-ts', String(Date.now()))
-        }
-        return sorted
-      })
-
-      if (batch.length < 100) setHasMore(false)
+      const batch = (data || []).map(normalizeCard)
+      setCards(prev => pageNum === 1 ? batch : [...prev, ...batch])
+      if (batch.length < PAGE_SIZE) setHasMore(false)
     } catch {}
 
     setLoading(false)
@@ -176,11 +175,8 @@ export default function Pokedex() {
         .from('user_cards').select('card_id').eq('user_id', authData.user.id)
       setOwnedIds(new Set(userCards?.map((c: any) => c.card_id) || []))
 
-      const { data: priceData } = await supabase
-        .from('card_prices').select('pokemon_api_id,preco_min,preco_medio,preco_max')
-      const map: Record<string, any> = {}
-      priceData?.forEach((p: any) => { map[p.pokemon_api_id] = p })
-      setPrices(map)
+      // Preços carregados via pokemon_cards no handleSelect — não precisa pré-carregar
+      setPrices({})
     }
 
     loadOwned()
@@ -196,9 +192,14 @@ export default function Pokedex() {
 
     setLoadingVariations(true)
     try {
-      const res  = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(card.name)}"&pageSize=12`)
-      const data = await res.json()
-      setVariations((data.data || []).filter((v: any) => v.id !== card.id))
+      const { data } = await supabase
+        .from('pokemon_cards')
+        .select('id, name, number, set_id, set_name, rarity, types, image_small, image_large, preco_normal, price_usd_normal')
+        .ilike('name', card.name)
+        .not('image_small', 'is', null)
+        .neq('id', card.id)
+        .limit(12)
+      setVariations((data || []).map(normalizeCard))
     } catch {}
     setLoadingVariations(false)
   }
