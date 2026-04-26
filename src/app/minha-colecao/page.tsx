@@ -507,8 +507,6 @@ export default function MinhaColecao() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}>
               {userId && (
-              )}
-              {userId && (
                 <button
                   onClick={() => setOpenScanModal(true)}
                   style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '11px 18px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
