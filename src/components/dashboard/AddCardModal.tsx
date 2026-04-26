@@ -296,12 +296,23 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                         )
                       })()}
 
-                      <div style={{ position: 'relative', paddingBottom: '140%' }}>
-                        <img
-                          src={card.image_small || card.image_large}
-                          alt={card.name}
-                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
+                      <div style={{ position: 'relative', paddingBottom: '140%', background: 'rgba(255,255,255,0.03)' }}>
+                        {card.image_small || card.image_large ? (
+                          <img
+                            src={card.image_small || card.image_large}
+                            alt={card.name}
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12 }}>
+                            <svg width="36" height="36" viewBox="0 0 100 100" fill="none" style={{opacity:0.25}}>
+                              <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="4"/>
+                              <path d="M2 50h96M50 2a48 48 0 0 1 0 96" stroke="currentColor" strokeWidth="4"/>
+                              <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
+                            </svg>
+                            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 1.3 }}>Liga BR</p>
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ padding: '8px 10px' }}>
@@ -327,11 +338,24 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               </div>
             ) : (
               <div style={{ padding: 16 }}>
-                <img
-                  src={preview.image_large || preview.image_small}
-                  alt={preview.name}
-                  style={{ width: '100%', borderRadius: 10, marginBottom: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
-                />
+                {preview.image_large || preview.image_small ? (
+                  <img
+                    src={preview.image_large || preview.image_small}
+                    alt={preview.name}
+                    style={{ width: '100%', borderRadius: 10, marginBottom: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                  />
+                ) : (
+                  <div style={{ width: '100%', paddingBottom: '140%', position: 'relative', background: 'rgba(255,255,255,0.03)', borderRadius: 10, marginBottom: 14, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      <svg width="48" height="48" viewBox="0 0 100 100" fill="none" style={{opacity:0.2}}>
+                        <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="4"/>
+                        <path d="M2 50h96M50 2a48 48 0 0 1 0 96" stroke="currentColor" strokeWidth="4"/>
+                        <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
+                      </svg>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Carta Liga BR<br/>Sem imagem disponível</p>
+                    </div>
+                  </div>
+                )}
 
                 <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2 }}>{preview.name}</p>
                 <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 12 }}>
