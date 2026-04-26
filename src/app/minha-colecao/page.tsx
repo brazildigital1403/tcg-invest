@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { getUserPlan } from '@/lib/isPro'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
-import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import ScanModal from '@/components/ui/ScanModal'
@@ -83,12 +82,8 @@ export default function MinhaColecao() {
   ]
   const [importing, setImporting] = useState(false)
   const [importingMsg, setImportingMsg] = useState('')
-  const [showImportModal, setShowImportModal] = useState(false)
-  const [importLinks, setImportLinks] = useState('')
 
-  const MAX_LINKS = 20
   const SECS_PER_CARD = 6
-  const [importingTotal, setImportingTotal] = useState(0)
 
   function handleExportCSV() {
     if (isPro) {
@@ -119,7 +114,6 @@ export default function MinhaColecao() {
             fmtPreco(precos.medio),
             fmtPreco(precos.max),
             valorTotal,
-            c.card_link || '',
             addedAt,
           ]
         })
@@ -329,163 +323,8 @@ export default function MinhaColecao() {
     }
   }
 
-  function handleAddByLink() {
-    setImportLinks('')
-    setShowImportModal(true)
-  }
 
-  async function handleImportSubmit() {
-    const links = importLinks.split('\n').map(l => l.trim()).filter(Boolean)
-    if (!links.length) return
-    if (links.length > MAX_LINKS) {
-      showAlert(`Máximo de ${MAX_LINKS} cartas por lote. Você colou ${links.length} links.`, 'warning')
-      return
-    }
 
-    setShowImportModal(false)
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
-
-    setImportingTotal(links.length)
-    setImporting(true)
-    setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
-    const msgInterval = setInterval(() => {
-      setImportingMsg(LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)])
-    }, 3000)
-
-    let success = 0, fail = 0
-
-    for (const url of links) {
-      try {
-        const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
-        const data = await res.json()
-        if (!data?.card_name) { fail++; continue }
-
-        let existing = null
-        if (data.card_number) {
-          const { data: list } = await supabase.from('user_cards').select('*')
-            .eq('user_id', userData.user.id).eq('card_id', data.card_number).limit(1)
-          existing = list?.[0] || null
-        }
-        if (!existing) {
-          const { data: list } = await supabase.from('user_cards').select('*')
-            .eq('user_id', userData.user.id).ilike('card_name', data.card_name).limit(1)
-          existing = list?.[0] || null
-        }
-
-        if (existing) {
-          await supabase.from('user_cards')
-            .update({ quantity: (existing.quantity || 1) + 1 }).eq('id', existing.id)
-          success++
-        } else {
-          if (!isPro) {
-            const { bloqueado } = await checkCardLimit(userData.user.id)
-            if (bloqueado) {
-              clearInterval(msgInterval)
-              setImporting(false)
-              showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas do plano gratuito. Acesse Minha Conta para fazer upgrade.`, 'warning')
-              if (success > 0) window.location.reload()
-              return
-            }
-          }
-          const { error } = await supabase.from('user_cards').insert({
-            user_id: userData.user.id,
-            card_name: data.card_name, card_id: data.card_number,
-            card_image: data.card_image, card_link: data.link,
-            rarity: data.rarity || null, quantity: 1,
-            set_name: data.set_name || null,
-            variante: data.variantes?.normal ? 'normal'
-              : data.variantes?.foil ? 'foil'
-              : data.variantes?.promo ? 'promo'
-              : data.variantes?.reverse ? 'reverse'
-              : data.variantes?.pokeball ? 'pokeball'
-              : 'normal',
-          })
-          if (error) { fail++; continue }
-          success++
-        }
-        await supabase.from('card_prices').upsert({
-          card_name: data.card_name,
-          preco_min: data.preco_min || 0, preco_medio: data.preco_medio || 0,
-          preco_max: data.preco_max || 0, preco_normal: data.preco_normal || 0,
-          preco_foil: data.preco_foil || 0, updated_at: new Date().toISOString(),
-        }, { onConflict: 'card_name' })
-      } catch { fail++ }
-    }
-
-    clearInterval(msgInterval)
-    setImporting(false)
-    const msg = success > 0
-      ? `✓ ${success} carta${success > 1 ? 's adicionadas' : ' adicionada'}!${fail > 0 ? ` · ${fail} falha(s)` : ''}`
-      : 'Não foi possível importar. Verifique os links.'
-    showAlert(msg, success > 0 ? 'success' : 'error')
-    if (success > 0) window.location.reload()
-  }
-
-  async function handleAddPrice(card: any) {
-    const url = await showPrompt({
-      message: `Cole o link da LigaPokemon para "${card.card_name}":`,
-      placeholder: 'https://www.ligapokemon.com.br/?view=cards/card&card=...',
-      icon: undefined,
-    })
-    if (!url) return
-
-    setLoadingPriceId(card.id)
-    try {
-      const { authFetch } = await import('@/lib/authFetch')
-      const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(url)}`)
-      const data = await res.json()
-
-      if (!data?.card_name) {
-        setLoadingPriceId(null)
-        showAlert(data?.error || 'Não foi possível importar o preço. Verifique o link.', 'error')
-        return
-      }
-
-      const variantes = data.variantes || {}
-      const n = variantes.normal
-      const f = variantes.foil
-      const p = variantes.promo
-      const r = variantes.reverse
-
-      // Salva com o card_name EXATO do user_cards — garante que o JOIN funcione
-      await supabase.from('card_prices').upsert({
-        card_name: card.card_name,
-        preco_min:    n?.min    || 0,
-        preco_medio:  n?.medio  || 0,
-        preco_max:    n?.max    || 0,
-        preco_normal: n?.medio  || 0,
-        preco_foil:   f?.medio  || 0,
-        preco_foil_min:    f?.min    || null,
-        preco_foil_medio:  f?.medio  || null,
-        preco_foil_max:    f?.max    || null,
-        preco_promo_min:   p?.min    || null,
-        preco_promo_medio: p?.medio  || null,
-        preco_promo_max:   p?.max    || null,
-        preco_reverse_min:   r?.min   || null,
-        preco_reverse_medio: r?.medio || null,
-        preco_reverse_max:   r?.max   || null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'card_name' })
-
-      // Atualiza o link da carta
-      await supabase.from('user_cards')
-        .update({ card_link: data.link || url })
-        .eq('id', card.id)
-
-      const nomes = Object.keys(variantes).map(k => k.charAt(0).toUpperCase() + k.slice(1))
-      const msg = nomes.length > 0
-        ? `Preços importados: ${nomes.join(', ')}`
-        : 'Preço importado com sucesso!'
-
-      showAlert(msg, 'success')
-      setLoadingPriceId(null)
-      loadCards()
-    } catch {
-      setLoadingPriceId(null)
-      showAlert('Erro ao importar preço. Tente novamente.', 'error')
-    }
-  }
 
   async function handleSell(card: any) {
     const qty = await showPrompt({ message: `Quantas cópias deseja vender?`, placeholder: `1 a ${card.quantity || 1}` })
@@ -639,102 +478,7 @@ export default function MinhaColecao() {
           </div>
           <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
         </div>
-      )}
-
-      {/* Modal de importação por link */}
-      {showImportModal && (() => {
-        const lines = importLinks.split('\n').map(l => l.trim()).filter(Boolean)
-        const count = lines.length
-        const overLimit = count > MAX_LINKS
-        const secs = count * SECS_PER_CARD
-        const timeStr = secs >= 60
-          ? `~${Math.floor(secs / 60)}min${secs % 60 > 0 ? ` ${secs % 60}s` : ''}`
-          : `~${secs}s`
-        return (
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 9997,
-            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
-          }}>
-            <div style={{
-              background: '#0f1117', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 460,
-              fontFamily: "\'DM Sans\', system-ui, sans-serif", color: '#f0f0f0',
-              boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
-            }}>
-              {/* Título */}
-              <p style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, letterSpacing: '-0.02em' }}>
-                Importar cartas por link
-              </p>
-
-              {/* Subtítulo */}
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 20 }}>
-                Cole os links da LigaPokemon, um por linha. Aceita links completos ou curtos (lig.ae). Máximo de {MAX_LINKS} cartas por vez.
-              </p>
-
-              {/* Textarea */}
-              <textarea
-                autoFocus
-                value={importLinks}
-                onChange={e => setImportLinks(e.target.value)}
-                rows={6}
-                placeholder={"https://www.ligapokemon.com.br/...\nhttps://lig.ae/c2/...\nhttps://lig.ae/c2/..."}
-                style={{
-                  width: '100%', background: 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${overLimit ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                  borderRadius: 10, padding: '12px 14px', color: '#f0f0f0',
-                  fontSize: 13, lineHeight: 1.6, resize: 'vertical', outline: 'none',
-                  fontFamily: 'monospace', boxSizing: 'border-box', marginBottom: 12,
-                  transition: 'border-color 0.2s',
-                }}
-              />
-
-              {/* Contador + estimativa */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <span style={{
-                  fontSize: 13, fontWeight: 600,
-                  color: overLimit ? '#ef4444' : count > 0 ? '#f59e0b' : 'rgba(255,255,255,0.3)',
-                }}>
-                  {count === 0 ? 'Nenhum link colado ainda'
-                    : overLimit ? `${count}/${MAX_LINKS} — limite excedido!`
-                    : `${count} de ${MAX_LINKS} carta${count > 1 ? 's' : ''}`}
-                </span>
-                {count > 0 && !overLimit && (
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-                    ⏱ Estimado: <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{timeStr}</strong>
-                  </span>
-                )}
-              </div>
-
-              {/* Botões */}
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setShowImportModal(false)}
-                  style={{
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                    color: 'rgba(255,255,255,0.6)', padding: '10px 20px', borderRadius: 10,
-                    fontSize: 14, cursor: 'pointer', fontWeight: 500,
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleImportSubmit}
-                  disabled={count === 0 || overLimit}
-                  style={{
-                    background: count === 0 || overLimit ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
-                    border: 'none', borderRadius: 10, padding: '10px 24px',
-                    color: count === 0 || overLimit ? 'rgba(255,255,255,0.3)' : '#000',
-                    fontSize: 14, cursor: count === 0 || overLimit ? 'not-allowed' : 'pointer', fontWeight: 700,
-                  }}
-                >
-                  {count > 0 && !overLimit ? `Importar ${count} carta${count > 1 ? 's' : ''} →` : 'Importar →'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
+      )}()}
       <div className="p-6">
 
         {/* Onboarding */}
@@ -762,19 +506,7 @@ export default function MinhaColecao() {
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}>
-              <button
-                onClick={handleAddByLink}
-                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 18px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
-              >
-                + Importar por link
-              </button>
               {userId && (
-                <button
-                  onClick={() => setOpenAddModal(true)}
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', padding: '11px 18px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
-                >
-                  Buscar na API
-                </button>
               )}
               {userId && (
                 <button
@@ -913,7 +645,7 @@ export default function MinhaColecao() {
           <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
             <p style={{ fontSize: 48, marginBottom: 16 }}>🃏</p>
             <p style={{ fontSize: 16 }}>Você ainda não adicionou cartas.</p>
-            <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "+ Importar por link" para começar</p>
+            <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "+ Buscar carta" para adicionar sua primeira carta</p>
           </div>
         )}
 
@@ -954,9 +686,6 @@ export default function MinhaColecao() {
                 />
 
                 <div className="mt-3">
-                  <a href={c.card_link} target="_blank" className="font-semibold text-sm text-blue-400 hover:underline">
-                    {c.card_name}
-                  </a>
 
                   {/* Quantidade */}
                   <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
@@ -1001,34 +730,18 @@ export default function MinhaColecao() {
                         </div>
                       </div>
                     ) : (
-                      /* Sem preço — botão para adicionar */
-                      <button
-                        onClick={() => loadingPriceId === c.id ? null : handleAddPrice(c)}
-                        disabled={loadingPriceId === c.id}
+                      /* Sem preço — será atualizado automaticamente */
+                      <div
                         style={{
                           width: '100%', marginTop: 4,
-                          background: loadingPriceId === c.id ? 'rgba(245,158,11,0.15)' : 'rgba(245,158,11,0.08)',
-                          border: '1px dashed rgba(245,158,11,0.4)',
-                          color: '#f59e0b', padding: '9px 12px',
-                          borderRadius: 10, fontSize: 12,
-                          cursor: loadingPriceId === c.id ? 'not-allowed' : 'pointer', fontWeight: 600,
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '1px dashed rgba(255,255,255,0.1)',
+                          color: 'rgba(255,255,255,0.25)', padding: '9px 12px',
+                          borderRadius: 10, fontSize: 11,
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                         }}
                       >
-                        {loadingPriceId === c.id ? (
-                          <>
-                            <div style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }}>
-                              <svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="36" cy="36" r="34" fill="#fff" stroke="#f59e0b" strokeWidth="4"/>
-                                <path d="M2 36 Q2 2 36 2 Q70 2 70 36Z" fill="#e53e3e"/>
-                                <rect x="2" y="33" width="68" height="6" fill="#333"/>
-                                <circle cx="36" cy="36" r="10" fill="#fff" stroke="#333" strokeWidth="3"/>
-                              </svg>
-                            </div>
-                            Buscando preço...
-                          </>
-                        ) : (
-                          <><IconLink size={13} color="currentColor" style={{marginRight:5}} />Vincular preço da LigaPokemon</>
+                        <span>Preço em breve</span
                         )}
                       </button>
                     )}
