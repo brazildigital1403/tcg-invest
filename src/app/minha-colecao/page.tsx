@@ -284,20 +284,28 @@ export default function MinhaColecao() {
 
       const cardsData = data || []
 
-      // Extrai nomes limpos (remove "(123/456)" do final)
-      const cleanName = (n: string) => (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
-      const cleanNames = [...new Set(cardsData.map((c: any) => cleanName(c.card_name)))]
+      // Remove "(123/456)" do final e extrai nome EN se formato "PT / EN"
+      const cleanEN = (n: string) => {
+        const s = (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+        return s.includes(' / ') ? (s.split(' / ').pop()?.trim() || s) : s
+      }
+      const cleanPT = (n: string) => {
+        const s = (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+        return s.includes(' / ') ? (s.split(' / ')[0]?.trim() || s) : s
+      }
+
+      const allNames = [...new Set(cardsData.flatMap((c: any) =>
+        [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)
+      ))]
 
       let priceMap: any = {}
 
-      if (cleanNames.length > 0) {
-        // Busca preços na nova tabela pokemon_cards por nome exato
+      if (allNames.length > 0) {
         const { data: prices } = await supabase
           .from('pokemon_cards')
           .select('name, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max')
-          .in('name', cleanNames)
+          .in('name', allNames)
 
-        // Agrega por nome (pega o maior preço se houver duplicatas)
         priceMap = (prices || []).reduce((acc: any, p: any) => {
           const key = p.name?.trim()
           if (!acc[key] || (p.preco_normal || 0) > (acc[key].preco_normal || 0)) {
@@ -307,9 +315,13 @@ export default function MinhaColecao() {
         }, {})
       }
 
+      // Tenta EN primeiro, depois PT como fallback
+      const getPrice = (c: any) =>
+        priceMap[cleanEN(c.card_name)] || priceMap[cleanPT(c.card_name)] || null
+
       const merged = cardsData.map((c: any) => ({
         ...c,
-        price: priceMap[cleanName(c.card_name)] || null,
+        price: getPrice(c),
       }))
 
       setCards(merged)
