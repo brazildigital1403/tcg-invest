@@ -597,9 +597,9 @@ export default function MinhaColecao() {
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12, flexDirection: 'column' }} className="md-row">
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
+          {/* Linha principal: Título + botão Adicionar */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
               {!isPro && totalCartas >= LIMITE_FREE ? (
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
@@ -611,17 +611,30 @@ export default function MinhaColecao() {
                 </span>
               )}
             </div>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
-                {filteredCards.length !== cards.length
-                  ? `${filteredCards.length} de ${cards.length} carta${cards.length !== 1 ? 's' : ''}`
-                  : `${cards.length} carta${cards.length !== 1 ? 's' : ''} na coleção`}
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}>
+            {/* Botão principal — lado direito do título */}
+            {userId && (
+              <button
+                onClick={() => setOpenAddModal(true)}
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+                Adicionar carta
+              </button>
+            )}
+          </div>
+
+          {/* Subtítulo + botões secundários */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+              {filteredCards.length !== cards.length
+                ? `${filteredCards.length} de ${cards.length} carta${cards.length !== 1 ? 's' : ''}`
+                : `${cards.length} carta${cards.length !== 1 ? 's' : ''} na coleção`}
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {userId && (
                 <button
                   onClick={() => setOpenScanModal(true)}
-                  style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '11px 18px', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
                 >
                   Escanear foto
                 </button>
@@ -638,7 +651,7 @@ export default function MinhaColecao() {
                   <button
                     onClick={handleExportPDF}
                     title={!isPro ? 'Disponível no plano Pro' : 'Exportar relatório PDF'}
-                    style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+                    style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
                   >
                     {isPro ? 'PDF' : 'PDF'}
                   </button>
@@ -646,7 +659,6 @@ export default function MinhaColecao() {
               )}
             </div>
           </div>
-
         </div>
 
         {/* Resumo financeiro — scroll horizontal */}
