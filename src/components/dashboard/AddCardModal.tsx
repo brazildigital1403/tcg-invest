@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { IconSearch, IconClose } from '@/components/ui/Icons'
+import { IconSearch } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
-import { authFetch } from '@/lib/authFetch'
+import { useAppModal } from '@/components/ui/useAppModal'
 
 interface Props {
   userId: string | null
@@ -12,13 +12,15 @@ interface Props {
   onAdded: () => void
 }
 
-// ─── Tokens ──────────────────────────────────────────────────────────────────
-
-const BRAND   = 'linear-gradient(135deg, #f59e0b, #ef4444)'
-const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }
+const BRAND     = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const TEXT_MUTED = 'rgba(255,255,255,0.4)'
 
-// ─── Raridade → emoji ────────────────────────────────────────────────────────
+const typeColors: Record<string, string> = {
+  Fire: '#ef4444', Water: '#60a5fa', Grass: '#22c55e',
+  Lightning: '#f59e0b', Psychic: '#a855f7', Fighting: '#f97316',
+  Darkness: '#6b7280', Metal: '#94a3b8', Dragon: '#10b981',
+  Colorless: '#d1d5db', Fairy: '#f472b6',
+}
 
 const rarityIcon = (r: string) => {
   if (!r) return ''
@@ -28,51 +30,47 @@ const rarityIcon = (r: string) => {
   return '○'
 }
 
-const typeColors: Record<string, string> = {
-  Fire: '#ef4444', Water: '#60a5fa', Grass: '#22c55e',
-  Lightning: '#f59e0b', Psychic: '#a855f7', Fighting: '#f97316',
-  Darkness: '#6b7280', Metal: '#94a3b8', Dragon: '#10b981',
-  Colorless: '#d1d5db', Fairy: '#f472b6',
-}
+const fmt = (v: number | null | undefined) =>
+  v && v > 0
+    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+    : null
 
 export default function AddCardModal({ userId, onClose, onAdded }: Props) {
-  const [searchTerm, setSearchTerm]     = useState('')
+  const { showAlert } = useAppModal()
+
+  const [searchTerm, setSearchTerm]       = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [selectedCards, setSelectedCards] = useState<any[]>([])
-  const [isSearching, setIsSearching]   = useState(false)
-  const [preview, setPreview]           = useState<any | null>(null)
-  const [priceData, setPriceData]       = useState<any | null>(null)
-  const [typeFilter, setTypeFilter]     = useState('')
-  const [rarityFilter, setRarityFilter] = useState('')
-  const [adding, setAdding]             = useState(false)
-  const [ligaLinks, setLigaLinks]       = useState<Record<string, string>>({})
+  const [isSearching, setIsSearching]     = useState(false)
+  const [preview, setPreview]             = useState<any | null>(null)
+  const [typeFilter, setTypeFilter]       = useState('')
+  const [rarityFilter, setRarityFilter]   = useState('')
+  const [variantMap, setVariantMap]       = useState<Record<string, string>>({})
+  const [qtyMap, setQtyMap]               = useState<Record<string, number>>({})
+  const [adding, setAdding]               = useState(false)
   const searchTimeout = useRef<any>(null)
 
-  // ── Busca ──────────────────────────────────────────────────────────────────
+  // ── Busca no banco local ────────────────────────────────────────────────────
 
   async function handleSearch(value: string) {
     setSearchTerm(value)
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    if (!value.trim()) { setSearchResults([]); return }
     searchTimeout.current = setTimeout(async () => {
-      if (!value.trim()) { setSearchResults([]); setIsSearching(false); return }
       setIsSearching(true)
       try {
-        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(value)}&pageSize=50`)
+        const res = await fetch(`/api/cards/search?q=${encodeURIComponent(value)}&limit=48`)
         const data = await res.json()
-        setSearchResults(data?.data || [])
+        setSearchResults(data?.cards || [])
       } catch { setSearchResults([]) }
       setIsSearching(false)
-    }, 400)
+    }, 350)
   }
 
   // ── Selecionar carta ────────────────────────────────────────────────────────
 
-  async function handleCardClick(card: any) {
+  function handleCardClick(card: any) {
     setPreview(card)
-    // carrega preço do banco se existir
-    const { data } = await supabase.from('card_prices').select('*').eq('pokemon_api_id', card.id).maybeSingle()
-    setPriceData(data || null)
-    // toggle seleção
     setSelectedCards(prev =>
       prev.find(c => c.id === card.id)
         ? prev.filter(c => c.id !== card.id)
@@ -80,57 +78,40 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     )
   }
 
-  // ── Adicionar cartas selecionadas ───────────────────────────────────────────
+  // ── Adicionar ───────────────────────────────────────────────────────────────
 
   async function handleAdd() {
     if (!userId || !selectedCards.length) return
     setAdding(true)
+
     const { data: authData } = await supabase.auth.getUser()
     if (!authData?.user?.id) { setAdding(false); return }
 
     for (const card of selectedCards) {
-      const number    = card.number || ''
-      const total     = card.set?.printedTotal || ''
-      const cardName  = number && total ? `${card.name} (${number}/${total})` : card.name
-      const cardImage = card.images?.large || card.images?.small || null
-      const ligaUrl   = ligaLinks[card.id] || null
-
-      let cardLink: string | null = null
-
-      // Se o usuário informou link da LigaPokemon, busca preço
-      if (ligaUrl) {
-        try {
-          const res = await authFetch(`/api/preco-puppeteer?url=${encodeURIComponent(ligaUrl)}`)
-          const priceData = await res.json()
-          if (priceData?.card_name) {
-            cardLink = priceData.link || ligaUrl
-            await supabase.from('card_prices').upsert({
-              card_name: cardName,
-              preco_min: priceData.preco_min || 0,
-              preco_medio: priceData.preco_medio || 0,
-              preco_max: priceData.preco_max || 0,
-              preco_normal: priceData.preco_normal || 0,
-              preco_foil: priceData.preco_foil || 0,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'card_name' })
-          }
-        } catch { /* continua sem preço */ }
+      const { bloqueado } = await checkCardLimit(userId)
+      if (bloqueado) {
+        await showAlert(`Você atingiu o limite de ${LIMITE_FREE} cartas. Acesse Minha Conta para fazer upgrade.`, 'warning')
+        setAdding(false)
+        return
       }
 
-      const { bloqueado } = await checkCardLimit(userId)
-      if (bloqueado) { alert(`Você atingiu o limite de ${LIMITE_FREE} cartas. Acesse Minha Conta para fazer upgrade.`); setAdding(false); return }
+      const number   = card.number || ''
+      const total    = card.set_total ? `/${card.set_total}` : ''
+      const cardName = number ? `${card.name} (${number}${total})` : card.name
+      const variante = variantMap[card.id] || 'normal'
+      const quantity = qtyMap[card.id] || 1
 
       await supabase.from('user_cards').insert({
-        user_id: authData.user.id,
+        user_id:        authData.user.id,
         pokemon_api_id: card.id,
-        card_name: cardName,
-        card_id: card.number || card.id,
-        card_image: cardImage,
-        card_link: cardLink,
-        rarity: card.rarity || null,
-        variante: 'normal',
-        quantity: 1,
-        set_name: card.set?.name || null,
+        card_name:      cardName,
+        card_id:        card.number || card.id,
+        card_image:     card.image_large || card.image_small || null,
+        card_link:      null, // não precisa mais de link
+        rarity:         card.rarity || null,
+        variante,
+        quantity,
+        set_name:       card.set_name || null,
       })
     }
 
@@ -142,11 +123,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   // ── Resultados filtrados ────────────────────────────────────────────────────
 
   const filtered = searchResults
-    .filter(c => !typeFilter    || (c.types || []).includes(typeFilter))
-    .filter(c => !rarityFilter  || c.rarity === rarityFilter)
-
-  const fmt = (v: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+    .filter(c => !typeFilter   || (c.types || []).includes(typeFilter))
+    .filter(c => !rarityFilter || c.rarity === rarityFilter)
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -154,32 +132,33 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 1000, maxHeight: '90vh', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-        {/* ── HEADER ── */}
+        {/* HEADER */}
         <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.15))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.15))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5.5" stroke="rgba(245,158,11,0.8)" strokeWidth="1.4"/><path d="M13 13l3.5 3.5" stroke="rgba(245,158,11,0.8)" strokeWidth="1.4" strokeLinecap="round"/></svg>
             </div>
             <div>
-              <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: '#f0f0f0' }}>Buscar cartas</p>
-              <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 1 }}>Base oficial do Pokémon TCG · {filtered.length > 0 ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}` : 'Digite para buscar'}</p>
+              <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: '#f0f0f0' }}>Adicionar carta</p>
+              <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 1 }}>
+                {filtered.length > 0 ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}` : 'Digite o nome da carta para buscar'}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </button>
         </div>
 
-        {/* ── SEARCH + FILTERS ── */}
+        {/* SEARCH + FILTERS */}
         <div style={{ padding: '16px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-          {/* Input de busca */}
           <div style={{ position: 'relative', marginBottom: 12 }}>
             <IconSearch size={16} color={TEXT_MUTED} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
             <input
               autoFocus
               value={searchTerm}
               onChange={e => handleSearch(e.target.value)}
-              placeholder="Nome da carta... ex: Charizard, Pikachu ex, Mewtwo V"
+              placeholder="Ex: Charizard ex, Pikachu, Mewtwo V..."
               style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
@@ -189,9 +168,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             )}
           </div>
 
-          {/* Filtros + cartas selecionadas */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {/* Filtros */}
             {[
               { value: typeFilter, onChange: setTypeFilter, opts: ['', 'Fire', 'Water', 'Grass', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Dragon', 'Colorless'], labels: ['Tipo', 'Fogo', 'Água', 'Planta', 'Elétrico', 'Psíquico', 'Lutador', 'Trevas', 'Metal', 'Dragão', 'Incolor'] },
               { value: rarityFilter, onChange: setRarityFilter, opts: ['', 'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Ultra', 'Rare Secret'], labels: ['Raridade', 'Comum', 'Incomum', 'Rara', 'Rara Holo', 'Ultra Rara', 'Secreta'] },
@@ -202,7 +179,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               </select>
             ))}
 
-            {/* Cartas selecionadas */}
             {selectedCards.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
                 {selectedCards.map(c => (
@@ -210,9 +186,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                     <button
                       onClick={e => { e.stopPropagation(); setSelectedCards(prev => prev.filter(s => s.id !== c.id)); if (preview?.id === c.id) setPreview(null) }}
-                      style={{ background: 'rgba(245,158,11,0.2)', border: 'none', color: '#f59e0b', cursor: 'pointer', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, flexShrink: 0, lineHeight: 1 }}
+                      style={{ background: 'rgba(245,158,11,0.2)', border: 'none', color: '#f59e0b', cursor: 'pointer', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, flexShrink: 0 }}
                     >
-                      <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+                      <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                     </button>
                   </span>
                 ))}
@@ -221,31 +197,28 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           </div>
         </div>
 
-        {/* ── CONTENT ── */}
+        {/* CONTENT */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
           {/* Grid de resultados */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
 
-            {/* Estado vazio inicial */}
             {!isSearching && searchResults.length === 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: TEXT_MUTED }}>
                 <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{opacity:0.3}}>
                   <rect x="2" y="3" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                   <rect x="5" y="1" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
-                  <path d="M8 8l1.5 2.5L12 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <p style={{ fontSize: 14 }}>Digite o nome de uma carta para buscar</p>
                 <p style={{ fontSize: 12, opacity: 0.6 }}>Ex: Charizard, Pikachu, Mewtwo, Blastoise...</p>
               </div>
             )}
 
-            {/* Skeleton loading */}
             {isSearching && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
                 {[...Array(8)].map((_, i) => (
                   <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, overflow: 'hidden' }}>
-                    <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />
+                    <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)' }} />
                     <div style={{ padding: '10px 12px' }}>
                       <div style={{ height: 10, background: 'rgba(255,255,255,0.06)', borderRadius: 4, marginBottom: 6 }} />
                       <div style={{ height: 8, background: 'rgba(255,255,255,0.04)', borderRadius: 4, width: '60%' }} />
@@ -255,14 +228,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               </div>
             )}
 
-            {/* Resultados */}
             {!isSearching && filtered.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
                 {filtered.map(card => {
-                  const isSelected = !!selectedCards.find(c => c.id === card.id)
+                  const isSelected  = !!selectedCards.find(c => c.id === card.id)
                   const isPreviewed = preview?.id === card.id
-                  const cardType = card.types?.[0]
-                  const typeColor = typeColors[cardType] || '#6b7280'
+                  const cardType    = card.types?.[0]
+                  const typeColor   = typeColors[cardType] || '#6b7280'
 
                   return (
                     <div
@@ -276,23 +248,31 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.18)' }}
                       onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = isPreviewed ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)' }}
                     >
-                      {/* Checkmark */}
                       {isSelected && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width='10' height='10' viewBox='0 0 20 20' fill='none'><path d='M4 10l4.5 4.5L16 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'/></svg>
+                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </div>
                       )}
 
-                      {/* Imagem */}
+                      {/* Preço badge se tiver */}
+                      {card.preco_normal > 0 && (
+                        <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, background: 'rgba(0,0,0,0.75)', borderRadius: 6, padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#f59e0b' }}>
+                          {fmt(card.preco_normal)}
+                        </div>
+                      )}
+
                       <div style={{ position: 'relative', paddingBottom: '140%' }}>
-                        <img src={card.images?.small} alt={card.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img
+                          src={card.image_small || card.image_large}
+                          alt={card.name}
+                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
                       </div>
 
-                      {/* Info */}
                       <div style={{ padding: '8px 10px' }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.name}</p>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>#{card.number} · {card.set?.name?.slice(0, 12)}</p>
+                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>#{card.number} · {card.set_name?.slice(0, 12)}</p>
                           {cardType && <span style={{ fontSize: 9, color: typeColor, fontWeight: 700 }}>{cardType}</span>}
                         </div>
                       </div>
@@ -301,10 +281,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                 })}
               </div>
             )}
-
           </div>
 
-          {/* ── PREVIEW ── */}
+          {/* PREVIEW */}
           <div style={{ width: 260, borderLeft: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto', flexShrink: 0 }}>
             {!preview ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, padding: 24, textAlign: 'center' }}>
@@ -313,12 +292,16 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               </div>
             ) : (
               <div style={{ padding: 16 }}>
-                {/* Imagem grande */}
-                <img src={preview.images?.large || preview.images?.small} alt={preview.name} style={{ width: '100%', borderRadius: 10, marginBottom: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }} />
+                <img
+                  src={preview.image_large || preview.image_small}
+                  alt={preview.name}
+                  style={{ width: '100%', borderRadius: 10, marginBottom: 14, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                />
 
-                {/* Nome + número */}
                 <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2 }}>{preview.name}</p>
-                <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 12 }}>#{preview.number} · {preview.set?.name} ({preview.set?.releaseDate?.slice(0, 4)})</p>
+                <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 12 }}>
+                  #{preview.number} · {preview.set_name} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
+                </p>
 
                 {/* Badges */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
@@ -335,34 +318,69 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   )}
                 </div>
 
-                {/* Preço no banco */}
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 14px' }}>
-                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Preço na LigaPokemon</p>
-                  {priceData ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 4, textAlign: 'center' }}>
-                      <div><p style={{ fontSize: 9, color: TEXT_MUTED }}>Mín</p><p style={{ fontSize: 12, fontWeight: 700, color: '#22c55e' }}>{fmt(priceData.preco_min)}</p></div>
-                      <div><p style={{ fontSize: 9, color: TEXT_MUTED }}>Méd</p><p style={{ fontSize: 12, fontWeight: 700, color: '#60a5fa' }}>{fmt(priceData.preco_medio)}</p></div>
-                      <div><p style={{ fontSize: 9, color: TEXT_MUTED }}>Máx</p><p style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{fmt(priceData.preco_max)}</p></div>
+                {/* Preços automáticos do banco */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💰 Preço de mercado</p>
+                  {preview.preco_normal > 0 || preview.preco_foil > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {preview.preco_normal > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>Normal</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>{fmt(preview.preco_normal)}</span>
+                        </div>
+                      )}
+                      {preview.preco_foil > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>Foil</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(preview.preco_foil)}</span>
+                        </div>
+                      )}
+                      {preview.preco_reverse > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>Reverse</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(preview.preco_reverse)}</span>
+                        </div>
+                      )}
+                      {preview.preco_promo > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>Promo</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#a855f7' }}>{fmt(preview.preco_promo)}</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>Sem dados — adicione via link na Minha Carteira</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>
+                      Preço ainda não disponível para esta carta
+                    </p>
                   )}
                 </div>
 
-                {/* Link LigaPokemon */}
-                <div style={{ marginTop: 12 }}>
-                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Link da LigaPokemon</p>
-                  <input
-                    value={ligaLinks[preview.id] || ''}
-                    onChange={e => setLigaLinks(prev => ({ ...prev, [preview.id]: e.target.value }))}
-                    placeholder="https://www.ligapokemon.com.br/..."
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${ligaLinks[preview.id] ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, padding: '8px 10px', color: '#f0f0f0', fontSize: 11, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                    onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
-                    onBlur={e => e.target.style.borderColor = ligaLinks[preview.id] ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}
-                  />
-                  {ligaLinks[preview.id] && (
-                    <p style={{ fontSize: 10, color: '#22c55e', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}><svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> Preço será importado ao adicionar</p>
-                  )}
+                {/* Variante */}
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Variante</p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {['normal', 'foil', 'reverse', 'promo'].map(v => {
+                      const isActive = (variantMap[preview.id] || 'normal') === v
+                      return (
+                        <button key={v} onClick={() => setVariantMap(prev => ({ ...prev, [preview.id]: v }))}
+                          style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, border: `1px solid ${isActive ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)'}`, background: isActive ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.03)', color: isActive ? '#f59e0b' : TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>
+                          {v}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Quantidade */}
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Quantidade</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
+                      style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: '#f0f0f0', minWidth: 24, textAlign: 'center' }}>{qtyMap[preview.id] || 1}</span>
+                    <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: (prev[preview.id] || 1) + 1 }))}
+                      style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                  </div>
                 </div>
 
                 {/* Artista */}
@@ -376,7 +394,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           </div>
         </div>
 
-        {/* ── FOOTER ── */}
+        {/* FOOTER */}
         <div style={{ padding: '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.01)' }}>
           <p style={{ fontSize: 13, color: selectedCards.length > 0 ? '#f59e0b' : TEXT_MUTED, fontWeight: selectedCards.length > 0 ? 600 : 400 }}>
             {selectedCards.length === 0 ? 'Nenhuma carta selecionada' : `${selectedCards.length} carta${selectedCards.length !== 1 ? 's' : ''} selecionada${selectedCards.length !== 1 ? 's' : ''}`}
