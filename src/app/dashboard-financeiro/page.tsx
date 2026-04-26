@@ -157,19 +157,30 @@ export default function DashboardFinanceiro() {
         const vendas = (txns || []).filter(t => t.seller_id === uid).reduce((a, t) => a + Number(t.price), 0)
         const { data: cards } = await supabase.from('user_cards').select('*').eq('user_id', uid)
         setUserCards(cards || [])
+
+        // Extrai nomes limpos (remove "(123/456)" do final)
+        const cleanName = (n: string) => (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+        const cleanNames = [...new Set((cards || []).map(c => cleanName(c.card_name)).filter(Boolean))]
+
         let valorTotal = 0
-        const cardNames = (cards || []).map(c => c.card_name?.trim()).filter(Boolean)
-        if (cardNames.length > 0) {
+        if (cleanNames.length > 0) {
           const { data: prices } = await supabase
-            .from('card_prices').select('*').in('card_name', cardNames)
+            .from('pokemon_cards')
+            .select('name, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max')
+            .in('name', cleanNames)
+
           const priceMap: any = {}
-          ;(prices || []).forEach(p => { priceMap[p.card_name?.trim()] = p })
+          ;(prices || []).forEach(p => {
+            const key = p.name?.trim()
+            if (!priceMap[key] || (p.preco_normal || 0) > (priceMap[key].preco_normal || 0)) {
+              priceMap[key] = { ...p, card_name: p.name }
+            }
+          })
+
           if (prices && prices.length > 0) {
-            const enriched = await Promise.all(prices.map(async p => {
-              // Pega a variante salva do user_cards para esta carta
-              const card = (cards || []).find(c => c.card_name?.trim() === p.card_name?.trim())
+            const enriched = await Promise.all((prices || []).map(async p => {
+              const card = (cards || []).find(c => cleanName(c.card_name) === p.name?.trim())
               const variante = card?.variante || 'normal'
-              // Calcula o preço correto para a variante
               const precoVariante =
                 variante === 'foil'     ? (p.preco_foil_medio || p.preco_medio || 0)
                 : variante === 'promo'   ? (p.preco_promo_medio || p.preco_medio || 0)
@@ -178,21 +189,22 @@ export default function DashboardFinanceiro() {
                 : (p.preco_medio || 0)
               return {
                 ...p,
+                card_name: p.name,
                 variante,
                 precoVariante: Number(precoVariante),
-                variation: await getCardVariation(p.card_name)
+                variation: await getCardVariation(p.name)
               }
             }))
-            // Ordena pelo preço da variante correta
             enriched.sort((a, b) => b.precoVariante - a.precoVariante)
             setRankingWithVariation(enriched)
           }
+
           const CAMPOS: Record<string, string> = {
             normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
             reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
           }
           for (const card of cards || []) {
-            const p = priceMap[card.card_name?.trim()]
+            const p = priceMap[cleanName(card.card_name)]
             if (!p) continue
             const qty = card.quantity || 1
             let v = card.variante || 'normal'
@@ -229,8 +241,9 @@ export default function DashboardFinanceiro() {
       const data = await res.json()
       setPriceHistory(data.history || [])
       try {
-        const { data: priceData } = await supabase.from('card_prices').select('*').eq('card_name', selectedCard).single()
-        setSelectedCardPrice(priceData)
+        const cleanN = selectedCard!.replace(/\s*\([^)]*\)\s*$/, '').trim()
+        const { data: prices } = await supabase.from('pokemon_cards').select('*').ilike('name', cleanN).limit(1)
+        setSelectedCardPrice(prices?.[0] ? { ...prices[0], card_name: prices[0].name } : null)
       } catch { setSelectedCardPrice(null) }
     }
     loadHistory()
@@ -239,8 +252,6 @@ export default function DashboardFinanceiro() {
   useEffect(() => {
     if (!selectedCard) return
     async function fetchImage() {
-      const { data: dbCard } = await supabase.from('card_prices').select('image_url, card_image').eq('card_name', selectedCard).single()
-      if (dbCard?.image_url) { setCardImage(dbCard.image_url); return }
       const found = userCards.find(c => c.card_name === selectedCard)
       if (found?.card_image) { setCardImage(found.card_image); return }
       setCardImage(null)

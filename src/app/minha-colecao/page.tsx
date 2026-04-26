@@ -283,24 +283,33 @@ export default function MinhaColecao() {
         .order('created_at', { ascending: false })
 
       const cardsData = data || []
-      const names = cardsData.map((c: any) => c.card_name?.trim())
+
+      // Extrai nomes limpos (remove "(123/456)" do final)
+      const cleanName = (n: string) => (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+      const cleanNames = [...new Set(cardsData.map((c: any) => cleanName(c.card_name)))]
+
       let priceMap: any = {}
 
-      if (names.length > 0) {
+      if (cleanNames.length > 0) {
+        // Busca preços na nova tabela pokemon_cards por nome exato
         const { data: prices } = await supabase
-          .from('card_prices')
-          .select('*')
-          .in('card_name', names)
+          .from('pokemon_cards')
+          .select('name, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max')
+          .in('name', cleanNames)
 
+        // Agrega por nome (pega o maior preço se houver duplicatas)
         priceMap = (prices || []).reduce((acc: any, p: any) => {
-          acc[p.card_name?.trim()] = p
+          const key = p.name?.trim()
+          if (!acc[key] || (p.preco_normal || 0) > (acc[key].preco_normal || 0)) {
+            acc[key] = { ...p, card_name: p.name }
+          }
           return acc
         }, {})
       }
 
       const merged = cardsData.map((c: any) => ({
         ...c,
-        price: priceMap[c.card_name?.trim()] || null,
+        price: priceMap[cleanName(c.card_name)] || null,
       }))
 
       setCards(merged)
