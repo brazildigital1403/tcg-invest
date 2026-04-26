@@ -117,34 +117,24 @@ export default function Pokedex() {
   async function loadPokemons() {
     setLoading(true)
     try {
-      // Busca nomes únicos com tipos do banco
-      const { data } = await supabase
-        .from('pokemon_cards')
-        .select('name, types, image_small')
-        .eq('supertype', 'Pokémon')
-        .not('image_small', 'is', null)
-        .not('id', 'like', 'liga-%')
-        .order('name')
+      // Busca nomes únicos via API Route (GROUP BY no banco)
+      const res = await fetch('/api/pokedex')
+      const json = await res.json()
+      const unique: any[] = (json.pokemons || []).map((p: any) => ({
+        name: cleanPokemonName(p.name),
+        types: p.types,
+      }))
 
-      if (!data) return
-
-      // Agrupa por nome base, pega o melhor representante
+      // Remove duplicatas após limpeza do nome
       const map = new Map<string, any>()
-      for (const card of data) {
-        const base = cleanPokemonName(card.name)
-        if (!map.has(base)) {
-          map.set(base, { name: base, types: card.types, image: card.image_small, count: 1 })
-        } else {
-          map.get(base)!.count++
-        }
+      for (const p of unique) {
+        if (!map.has(p.name)) map.set(p.name, p)
       }
 
-      const unique = [...map.values()]
+      // Busca dex numbers do PokeAPI
+      const withDex = await enrichWithDexNumbers([...map.values()])
 
-      // Busca dex numbers do PokeAPI (cache em memória)
-      const withDex = await enrichWithDexNumbers(unique)
-
-      // Ordena por número da Pokédex
+      // Ordena por número da Pokédex (sem número vai para o fim)
       withDex.sort((a, b) => (a.dexId || 9999) - (b.dexId || 9999))
       setPokemons(withDex)
     } catch (e) {
