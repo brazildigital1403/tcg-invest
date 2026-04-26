@@ -756,143 +756,142 @@ export default function MinhaColecao() {
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.2)' }}>Tente outros filtros ou limpe a busca</p>
           </div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
           {filteredCards.map((c) => {
             const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
             const variantesDisponiveis = getVariantesDisponiveis(c.price, c.variante)
             const precos = getVariantePrices(c.price, variante)
+            const best = getBestPrice(c)
+            const isValuable = (precos.medio || best?.valor || 0) > 100
+            const isEstimated = !precos.medio && best?.tipo !== 'brl'
+
+            // Cor de raridade
+            const rarityColor = (r: string) => {
+              if (!r) return null
+              if (r.includes('Secret') || r.includes('Special')) return '#f59e0b'
+              if (r.includes('Holo') || r.includes('Ultra') || r.includes('Rainbow')) return '#a855f7'
+              if (r.includes('Rare')) return '#60a5fa'
+              return null
+            }
+            const rColor = rarityColor(c.rarity || '')
 
             return (
               <div
                 key={c.id}
                 style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: (precos.medio || 0) > 100 ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 16,
-                  padding: 16,
-                  transition: 'border-color 0.2s',
+                  background: isValuable ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.02)',
+                  border: isValuable ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: 18,
+                  overflow: 'hidden',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
               >
-                {c.card_image ? (
-                  <img
-                    src={c.card_image}
-                    alt={c.card_name}
-                    loading="lazy"
-                    decoding="async"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement)?.style && ((e.currentTarget.nextSibling as HTMLElement).style.display = 'flex') }}
-                    className="w-full h-auto object-cover rounded"
-                  />
-                ) : (
-                  <div style={{ width: '100%', paddingBottom: '140%', position: 'relative', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      <svg width="32" height="32" viewBox="0 0 100 100" fill="none" style={{opacity:0.2}}>
-                        <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="4"/>
-                        <path d="M2 50h96" stroke="currentColor" strokeWidth="4"/>
-                        <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
-                      </svg>
-                      <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>Liga BR</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-3">
-                  {/* Nome da carta */}
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', marginBottom: 2, lineHeight: 1.3 }}>
-                    {c.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || '—'}
-                  </p>
-
-                  {/* Número da carta */}
-                  {c.card_id && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>
-                      ({c.card_id})
-                    </p>
-                  )}
-
-                  {/* Quantidade */}
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                    <button onClick={() => handleUpdateQuantity(c, -1)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "2px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>-</button>
-                    <span>Qtd: {c.quantity || 1}</span>
-                    <button onClick={() => handleUpdateQuantity(c, 1)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "2px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>+</button>
-                  </div>
-
-                  {/* ✅ Seletor de variante */}
-                  {variantesDisponiveis.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-gray-500 mb-1">Tipo da carta:</p>
-                      <select
-                        value={variante}
-                        onChange={(e) => handleVarianteChange(c, e.target.value)}
-                        style={{ width: "100%", fontSize: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "6px 8px", color: "#fff", cursor: "pointer" }}
-                      >
-                        {variantesDisponiveis.map(v => (
-                          <option key={v.key} value={v.key}>{v.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Preços da variante selecionada */}
-                  <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-                    <p style={{ marginBottom: 6 }}>Raridade: <span style={{ color: 'rgba(255,255,255,0.6)' }}>{c.rarity || '—'}</span></p>
-
-                    {c.price && (precos.min || precos.medio || precos.max) ? (
-                      <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Mínimo</span>
-                          <span style={{ color: '#22c55e', fontWeight: 700 }}>{fmt(precos.min)}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Médio</span>
-                          <span style={{ color: '#60a5fa', fontWeight: 700 }}>{fmt(precos.medio)}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Máximo</span>
-                          <span style={{ color: '#f59e0b', fontWeight: 700 }}>{fmt(precos.max)}</span>
-                        </div>
+                {/* Imagem com badges flutuantes */}
+                <div style={{ position: 'relative' }}>
+                  {c.card_image ? (
+                    <img
+                      src={c.card_image}
+                      alt={c.card_name}
+                      loading="lazy"
+                      decoding="async"
+                      style={{ width: '100%', display: 'block', borderRadius: '18px 18px 0 0' }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    />
+                  ) : (
+                    <div style={{ width: '100%', paddingBottom: '140%', position: 'relative', background: 'rgba(255,255,255,0.03)', borderRadius: '18px 18px 0 0' }}>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <svg width="40" height="40" viewBox="0 0 100 100" fill="none" style={{opacity:0.15}}>
+                          <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="4"/>
+                          <path d="M2 50h96" stroke="currentColor" strokeWidth="4"/>
+                          <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
+                        </svg>
+                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', fontWeight: 600 }}>Liga BR</p>
                       </div>
-                    ) : (() => {
-                      const best = getBestPrice(c)
-                      if (best) {
-                        const isEst = best.tipo !== 'brl'
-                        return (
-                          <div style={{ background: isEst ? 'rgba(96,165,250,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isEst ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: '10px 12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ color: isEst ? 'rgba(96,165,250,0.7)' : 'rgba(255,255,255,0.4)' }}>
-                                {isEst ? `~Estimativa (${best.tipo.toUpperCase()})` : 'Preço'}
-                              </span>
-                              <span style={{ color: isEst ? '#60a5fa' : '#f0f0f0', fontWeight: 700, fontSize: 13 }}>
-                                {isEst ? '~' : ''}{fmt(best.valor)}
-                              </span>
-                            </div>
-                            {isEst && (
-                              <p style={{ fontSize: 9, color: 'rgba(96,165,250,0.5)', marginTop: 4 }}>
-                                Preço BR em verificação
-                              </p>
-                            )}
-                          </div>
-                        )
-                      }
-                      return (
-                        <div style={{ width: '100%', marginTop: 4, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.25)', padding: '9px 12px', borderRadius: 10, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span>Sem dados de preço</span>
+                    </div>
+                  )}
+
+                  {/* Badge preço flutuante */}
+                  {(precos.medio || best) && (
+                    <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+                      <div style={{ background: isEstimated ? 'rgba(96,165,250,0.9)' : 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontWeight: 800, color: isEstimated ? '#fff' : '#f0f0f0', letterSpacing: '-0.01em' }}>
+                        {isEstimated ? '~' : ''}{fmt(precos.medio || best?.valor)}
+                      </div>
+                      {/* Badge qtd */}
+                      {(c.quantity || 1) > 1 && (
+                        <div style={{ background: 'rgba(245,158,11,0.9)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 7px', fontSize: 11, fontWeight: 800, color: '#000' }}>
+                          ×{c.quantity}
                         </div>
-                      )
-                    })()}
-                  </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Badge raridade */}
+                  {rColor && (
+                    <div style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: '50%', background: rColor, boxShadow: `0 0 6px ${rColor}` }} />
+                  )}
                 </div>
 
-                <button
-                  onClick={() => handleRemove(c.id, c.card_name)}
-                  style={{ marginTop: 12, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', width: '100%', padding: '8px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
-                >
-                  Remover
-                </button>
-                <button
-                  onClick={() => handleSell(c)}
-                  style={{ marginTop: 8, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', width: '100%', padding: '8px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
-                >
-                  Vender
-                </button>
+                {/* Info */}
+                <div style={{ padding: '10px 12px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {/* Nome + número */}
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', lineHeight: 1.3, marginBottom: 1 }}>
+                      {c.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || '—'}
+                    </p>
+                    {c.card_id && (
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
+                        #{c.card_id} {c.set_name ? `· ${c.set_name}` : ''}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Variante select */}
+                  {variantesDisponiveis.length > 0 && (
+                    <select
+                      value={variante}
+                      onChange={(e) => handleVarianteChange(c, e.target.value)}
+                      style={{ width: '100%', fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 8px', color: '#f0f0f0', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      {variantesDisponiveis.map(v => (
+                        <option key={v.key} value={v.key}>{v.label}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Preços min/médio/máx — compacto */}
+                  {precos.min || precos.medio || precos.max ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, marginTop: 2 }}>
+                      {[
+                        { label: 'Mín', val: precos.min, color: '#22c55e' },
+                        { label: 'Méd', val: precos.medio, color: '#60a5fa' },
+                        { label: 'Máx', val: precos.max, color: '#f59e0b' },
+                      ].map(({ label, val, color }) => (
+                        <div key={label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '5px 6px', textAlign: 'center' }}>
+                          <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 2 }}>{label}</p>
+                          <p style={{ fontSize: 11, fontWeight: 700, color }}>{val ? fmt(val) : '—'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)', padding: '6px 0' }}>
+                      {best ? (
+                        <span style={{ color: 'rgba(96,165,250,0.6)' }}>~{fmt(best.valor)} ({best.tipo.toUpperCase()})</span>
+                      ) : 'Sem preço disponível'}
+                    </div>
+                  )}
+
+                  {/* Qtd + Remover */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <button onClick={() => handleUpdateQuantity(c, -1)} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
+                    <span style={{ fontSize: 12, color: '#f0f0f0', fontWeight: 600, flex: 1, textAlign: 'center' }}>{c.quantity || 1}×</span>
+                    <button onClick={() => handleUpdateQuantity(c, 1)} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
+                    <button onClick={() => handleRemove(c.id, c.card_name)} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             )
           })}
