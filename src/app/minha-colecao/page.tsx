@@ -41,17 +41,16 @@ function getVarianteEfetiva(price: any, varianteSalva: string): string {
 }
 
 // Variantes disponíveis — só inclui as que têm preço
-function getVariantesDisponiveis(price: any) {
-  if (!price) return [{ key: 'normal', label: 'Normal' }]
-  const opts = []
-  if (price.preco_medio)          opts.push({ key: 'normal',   label: 'Normal' })
-  if (price.preco_foil_medio)     opts.push({ key: 'foil',     label: 'Foil' })
-  if (price.preco_promo_medio)    opts.push({ key: 'promo',    label: 'Promo' })
-  if (price.preco_reverse_medio)  opts.push({ key: 'reverse',  label: 'Reverse Foil' })
-  if (price.preco_pokeball_medio) opts.push({ key: 'pokeball', label: 'Pokeball Foil' })
-  // Garante pelo menos uma opção
-  if (opts.length === 0) opts.push({ key: 'normal', label: 'Normal' })
-  return opts
+function getVariantesDisponiveis(_price: any) {
+  // Sempre mostra todas as variantes para o usuário poder selecionar
+  // independente de termos preço para aquela variante
+  return [
+    { key: 'normal',   label: 'Normal' },
+    { key: 'foil',     label: 'Foil' },
+    { key: 'reverse',  label: 'Reverse Foil' },
+    { key: 'promo',    label: 'Promo' },
+    { key: 'pokeball', label: 'Pokeball Foil' },
+  ]
 }
 
 export default function MinhaColecao() {
@@ -309,7 +308,7 @@ export default function MinhaColecao() {
       let priceMap: any = {} // chave: "name|number" ou fallback "name"
 
       if (allNames.length > 0) {
-        // Busca TODAS as versões de cada nome — o JS faz o match preciso por número
+        // v2: Busca TODAS as versões de cada nome — o JS faz o match preciso por número
         const { data: prices } = await supabase
           .from('pokemon_cards')
           .select('name, number, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil')
@@ -801,7 +800,7 @@ export default function MinhaColecao() {
                   </div>
 
                   {/* ✅ Seletor de variante */}
-                  {variantesDisponiveis.length > 1 && (
+                  {variantesDisponiveis.length > 0 && (
                     <div className="mt-2">
                       <p className="text-xs text-gray-500 mb-1">Tipo da carta:</p>
                       <select
