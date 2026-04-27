@@ -94,6 +94,13 @@ export default function Pokedex() {
   const [cards, setCards]           = useState<any[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
   const [selectedCard, setSelectedCard] = useState<any | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
   const [selectedCardIndex, setSelectedCardIndex] = useState<number>(0)
   const [selectedVariante, setSelectedVariante] = useState<string>('normal')
 
@@ -593,20 +600,11 @@ export default function Pokedex() {
               </div>
 
               {/* Corpo */}
-              <div className="card-detail-body" style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
-              <style>{`
-                @media (min-width: 640px) {
-                  .card-detail-body { flex-direction: row !important; }
-                  .card-detail-left { border-right: 1px solid rgba(255,255,255,0.06) !important; border-bottom: none !important; max-height: none !important; }
-                  .card-detail-right { overflow-y: auto !important; }
-                  .card-detail-footer { flex-direction: row !important; align-items: center !important; }
-                  .card-detail-variants { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)) !important; }
-                  .card-detail-actions { justify-content: flex-end !important; }
-                }
-              `}</style>
+              {/* Corpo — responsivo via JS: mobile=coluna, desktop=linha */}
+              <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection: isMobile ? 'column' : 'row' }}>
 
                 {/* Coluna esquerda — imagem + set */}
-                <div className="card-detail-left" style={{ padding:20, background:'rgba(255,255,255,0.02)', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', flexDirection:'row', flexWrap:'wrap', alignItems:'flex-start', gap:12, overflowY:'auto', maxHeight:220, flexShrink:0 }}>
+                <div style={{ padding:20, background:'rgba(255,255,255,0.02)', borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)', borderBottom: isMobile ? '1px solid rgba(255,255,255,0.06)' : 'none', display:'flex', flexDirection:'row', flexWrap:'wrap', alignItems:'flex-start', gap:12, overflowY:'auto', maxHeight: isMobile ? 220 : 'none', flexShrink:0 }}>
                   {(c.image_large || c.image_small) && (
                     <img src={c.image_large || c.image_small} alt={c.name} style={{ width:140, maxWidth:'40vw', borderRadius:12, flexShrink:0 }} />
                   )}
@@ -639,7 +637,7 @@ export default function Pokedex() {
                 </div>
 
                 {/* Coluna direita — detalhes */}
-                <div className="card-detail-right" style={{ padding:20, display:'flex', flexDirection:'column', gap:14, overflowY:'visible', flex:1 }}>
+                <div style={{ padding:20, display:'flex', flexDirection:'column', gap:14, overflowY:'auto', flex:1 }}>
                   {/* Header */}
                   <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
                     <div>
@@ -746,7 +744,7 @@ export default function Pokedex() {
               {/* Footer — Adicionar à Coleção */}
               <div style={{ padding:'16px 20px', borderTop:'1px solid rgba(255,255,255,0.07)', background:'rgba(0,0,0,0.3)', flexShrink:0 }}>
                 <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:10, fontWeight:600 }}>Qual versão você possui?</p>
-                <div className="card-detail-variants" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(80px, 1fr))', gap:8, marginBottom:14 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(80px, 1fr))', gap:8, marginBottom:14 }}>
                   {VARIANTES.map(v => {
                     const isSelected = selectedVariante === v.key
                     const price = fmtBRL(v.med)
@@ -760,7 +758,7 @@ export default function Pokedex() {
                     )
                   })}
                 </div>
-                <div className="card-detail-actions" style={{ display:'flex', gap:10, justifyContent:'flex-end', flexWrap:'wrap' }}>
+                <div  style={{ display:'flex', gap:10, justifyContent:'flex-end', flexWrap:'wrap' }}>
                   <button onClick={() => setSelectedCard(null)} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', padding:'11px 24px', borderRadius:12, fontSize:13, cursor:'pointer', fontFamily:'inherit', flex:1 }}>
                     Fechar
                   </button>
