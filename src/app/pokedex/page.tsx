@@ -94,6 +94,7 @@ export default function Pokedex() {
   const [cards, setCards]           = useState<any[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
   const [selectedCard, setSelectedCard] = useState<any | null>(null)
+  const [selectedVariante, setSelectedVariante] = useState<string>('normal')
 
   // Filtros do grid
   const [typeFilter, setTypeFilter] = useState('')
@@ -195,6 +196,14 @@ export default function Pokedex() {
 
   // ── Seleciona Pokémon → carrega cartas ─────────────────────────────────────
 
+  function pickBestVariante(card: any): string {
+    if (Number(card.preco_foil_medio) > 0) return 'foil'
+    if (Number(card.preco_normal) > 0 || Number(card.preco_medio) > 0) return 'normal'
+    if (Number(card.preco_reverse_medio) > 0) return 'reverse'
+    if (Number(card.preco_promo_medio) > 0) return 'promo'
+    return 'normal'
+  }
+
   async function handleSelectPokemon(pokemon: any) {
     setSelectedPokemon(pokemon)
     setView('cards')
@@ -231,11 +240,12 @@ export default function Pokedex() {
       const { bloqueado } = await checkCardLimit(userId)
       if (bloqueado) { showAlert(`Limite de ${LIMITE_FREE} cartas atingido. Faça upgrade!`, 'warning'); return }
     }
+    const variante = card._variante || selectedVariante || 'normal'
     const { error } = await supabase.from('user_cards').insert({
       user_id: userId, pokemon_api_id: card.id,
       card_name: card.name, card_id: card.number,
       card_image: card.image_small, set_name: card.set_name,
-      rarity: card.rarity, variante: 'normal', quantity: 1,
+      rarity: card.rarity, variante, quantity: 1,
     })
     if (error?.code === '23505') showAlert('Carta já está na sua coleção!', 'warning')
     else if (error) showAlert('Erro ao adicionar carta.', 'error')
@@ -341,7 +351,7 @@ export default function Pokedex() {
                       card={card}
                       mode="select"
                       exchangeRate={exchangeRate}
-                      onSelect={() => setSelectedCard(card)}
+                      onSelect={() => { setSelectedCard(card); setSelectedVariante(pickBestVariante(card)) }}
                       badge={
                         <button
                           onClick={e => { e.stopPropagation(); setSelectedCard(card) }}
@@ -514,62 +524,215 @@ export default function Pokedex() {
       `}</style>
 
       {/* ── Modal detalhe da carta ───────────────────────────────────── */}
-      {selectedCard && (
-        <div
-          onClick={() => setSelectedCard(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-        >
+      {selectedCard && (() => {
+        const c = selectedCard
+        const fmtBRL = (v: any) => v && Number(v) > 0 ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v)) : null
+        const attacks = (() => { try { return JSON.parse(c.attacks || '[]') } catch { return [] } })()
+        const weaknesses = (() => { try { return JSON.parse(c.weaknesses || '[]') } catch { return [] } })()
+        const resistances = (() => { try { return JSON.parse(c.resistances || '[]') } catch { return [] } })()
+        const legalities = (() => { try { return JSON.parse(c.legalities || '{}') } catch { return {} } })()
+        const ENERGY_ICONS: Record<string,string> = { Fire:'🔥', Water:'💧', Grass:'🌿', Lightning:'⚡', Psychic:'🔮', Fighting:'👊', Darkness:'🌑', Metal:'⚙️', Dragon:'🐉', Colorless:'⭕', Fairy:'🌸' }
+
+        // Variantes disponíveis
+        const VARIANTES = [
+          { key: 'normal',   label: 'Normal',   med: c.preco_medio,         min: c.preco_min,         max: c.preco_max },
+          { key: 'foil',     label: 'Foil',     med: c.preco_foil_medio,    min: c.preco_foil_min,    max: c.preco_foil_max },
+          { key: 'reverse',  label: 'Reverse',  med: c.preco_reverse_medio, min: c.preco_reverse_min, max: c.preco_reverse_max },
+          { key: 'promo',    label: 'Promo',    med: c.preco_promo_medio,   min: c.preco_promo_min,   max: c.preco_promo_max },
+          { key: 'pokeball', label: 'Pokéball', med: c.preco_pokeball_medio,min: c.preco_pokeball_min,max: c.preco_pokeball_max },
+        ].filter(v => Number(v.med) > 0 || Number(v.min) > 0)
+
+        if (VARIANTES.length === 0) VARIANTES.push({ key: 'normal', label: 'Normal', med: null, min: null, max: null })
+
+        return (
           <div
-            onClick={e => e.stopPropagation()}
-            style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}
+            onClick={() => setSelectedCard(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
           >
-            {/* Imagem grande */}
-            {(selectedCard.image_large || selectedCard.image_small) && (
-              <img
-                src={selectedCard.image_large || selectedCard.image_small}
-                alt={selectedCard.name}
-                style={{ width: '100%', borderRadius: 12, marginBottom: 16, display: 'block' }}
-              />
-            )}
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, width: '100%', maxWidth: 880, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', gap: 0 }}
+            >
+              {/* Layout: imagem | detalhes */}
+              <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 0 }}>
 
-            {/* Infos */}
-            <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 4 }}>{selectedCard.name}</h2>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 16 }}>
-              {selectedCard.number && selectedCard.set_total ? `${selectedCard.number}/${selectedCard.set_total} · ` : ''}{selectedCard.set_name}
-              {selectedCard.rarity ? ` · ${selectedCard.rarity}` : ''}
-            </p>
-
-            {/* Preço */}
-            {(() => {
-              const p = selectedCard.price || selectedCard
-              const brl = parseFloat(p.preco_medio || p.preco_normal || 0)
-              const usd = parseFloat(p.price_usd_normal || p.price_usd_holofoil || 0)
-              return (brl > 0 || usd > 0) ? (
-                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', gap: 16 }}>
-                  {brl > 0 && <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>PREÇO BR</p><p style={{ fontSize: 18, fontWeight: 800, color: '#22c55e' }}>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(brl)}</p></div>}
-                  {usd > 0 && <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>USD</p><p style={{ fontSize: 18, fontWeight: 800, color: '#60a5fa' }}>${usd.toFixed(2)}</p></div>}
+                {/* Coluna esquerda — imagem */}
+                <div style={{ padding: 24, background: 'rgba(255,255,255,0.02)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, borderRadius: '24px 0 0 0' }}>
+                  {(c.image_large || c.image_small) && (
+                    <img src={c.image_large || c.image_small} alt={c.name} style={{ width: '100%', maxWidth: 240, borderRadius: 12, display: 'block' }} />
+                  )}
+                  {/* Set info */}
+                  <div style={{ width: '100%' }}>
+                    {(c.set_logo || c.set_symbol) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        {c.set_symbol && <img src={c.set_symbol} alt="" style={{ height: 20, objectFit: 'contain' }} />}
+                        {c.set_logo && <img src={c.set_logo} alt={c.set_name} style={{ height: 20, objectFit: 'contain', flex: 1, maxWidth: 120 }} />}
+                      </div>
+                    )}
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>{c.set_name}</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                      {c.number && c.set_total ? `${String(c.number).padStart(3,'0')} / ${String(c.set_total).padStart(3,'0')}` : ''} · {c.set_series}
+                    </p>
+                    {c.set_release_date && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>{c.set_release_date.split('/').reverse().join('/')}</p>}
+                  </div>
+                  {/* Liga link */}
+                  {c.liga_link && (
+                    <a href={c.liga_link} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(96,165,250,0.8)', textDecoration: 'none', padding: '6px 10px', background: 'rgba(96,165,250,0.08)', borderRadius: 8, border: '1px solid rgba(96,165,250,0.15)', width: '100%', justifyContent: 'center' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M11 3h6v6m0-6L10 10M7 5H4a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Ver na Liga Pokémon
+                    </a>
+                  )}
                 </div>
-              ) : null
-            })()}
 
-            {/* Botões */}
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setSelectedCard(null)}
-                style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', padding: '11px 0', borderRadius: 12, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
-              >
-                Fechar
-              </button>
-              <button
-                onClick={() => { handleAddCard(selectedCard); setSelectedCard(null) }}
-                style={{ flex: 2, background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 0', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
-              >
-                + Adicionar à Coleção
-              </button>
+                {/* Coluna direita — tudo mais */}
+                <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
+
+                  {/* Header */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 6 }}>{c.name}</h2>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {c.rarity && <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>{c.rarity}</span>}
+                        {(c.subtypes || []).map((s: string) => <span key={s} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 100, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>{s}</span>)}
+                        {(c.types || []).map((t: string) => <span key={t} style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: TYPE_COLOR[t]?.bg || 'rgba(255,255,255,0.08)', color: TYPE_COLOR[t]?.text || '#f0f0f0' }}>{t}</span>)}
+                      </div>
+                    </div>
+                    {c.hp && <div style={{ textAlign: 'right', flexShrink: 0 }}><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>HP</p><p style={{ fontSize: 28, fontWeight: 900, color: '#ef4444', letterSpacing: '-0.03em' }}>{c.hp}</p></div>}
+                  </div>
+
+                  {/* Ataques */}
+                  {attacks.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Ataques</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {attacks.map((atk: any, i: number) => (
+                          <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: atk.text ? 4 : 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ display: 'flex', gap: 2 }}>
+                                  {(atk.cost || []).map((e: string, j: number) => (
+                                    <span key={j} style={{ fontSize: 13 }}>{ENERGY_ICONS[e] || '⭕'}</span>
+                                  ))}
+                                </div>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>{atk.name}</span>
+                              </div>
+                              {atk.damage && <span style={{ fontSize: 16, fontWeight: 900, color: '#f59e0b' }}>{atk.damage}</span>}
+                            </div>
+                            {atk.text && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>{atk.text}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fraquezas / Resistências / Recuo */}
+                  {(weaknesses.length > 0 || resistances.length > 0 || (c.retreat_cost || []).length > 0) && (
+                    <div style={{ display: 'flex', gap: 16 }}>
+                      {weaknesses.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Fraqueza</p>
+                          {weaknesses.map((w: any, i: number) => <span key={i} style={{ fontSize: 12, color: '#ef4444', fontWeight: 700 }}>{ENERGY_ICONS[w.type] || w.type} {w.value}</span>)}
+                        </div>
+                      )}
+                      {resistances.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Resistência</p>
+                          {resistances.map((r: any, i: number) => <span key={i} style={{ fontSize: 12, color: '#22c55e', fontWeight: 700 }}>{ENERGY_ICONS[r.type] || r.type} {r.value}</span>)}
+                        </div>
+                      )}
+                      {(c.retreat_cost || []).length > 0 && (
+                        <div>
+                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Recuo</p>
+                          <div style={{ display: 'flex', gap: 2 }}>
+                            {(c.retreat_cost || []).map((e: string, i: number) => <span key={i} style={{ fontSize: 13 }}>{ENERGY_ICONS[e] || '⭕'}</span>)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Artista */}
+                  {c.artist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>🎨 {c.artist}</p>}
+
+                  {/* Preços BRL */}
+                  {VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).length > 0 && (
+                    <div>
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Preços BR (Liga Pokémon)</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).map(v => (
+                          <div key={v.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(34,197,94,0.05)', borderRadius: 8, padding: '6px 10px', border: '1px solid rgba(34,197,94,0.1)' }}>
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{v.label}</span>
+                            <div style={{ display: 'flex', gap: 12 }}>
+                              {v.min && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>mín {fmtBRL(v.min)}</span>}
+                              {v.med && <span style={{ fontSize: 13, fontWeight: 800, color: '#22c55e' }}>{fmtBRL(v.med)}</span>}
+                              {v.max && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>máx {fmtBRL(v.max)}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preços USD/EUR */}
+                  {(c.price_usd_normal || c.price_usd_holofoil || c.price_eur_normal || c.price_eur_holofoil) && (
+                    <div>
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Preços Internacionais (TCG API)</p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {c.price_usd_normal && <div style={{ background: 'rgba(96,165,250,0.08)', borderRadius: 8, padding: '6px 12px', border: '1px solid rgba(96,165,250,0.15)' }}><p style={{ fontSize: 9, color: 'rgba(96,165,250,0.6)', marginBottom: 2 }}>USD Normal</p><p style={{ fontSize: 14, fontWeight: 800, color: '#60a5fa' }}>${Number(c.price_usd_normal).toFixed(2)}</p></div>}
+                        {c.price_usd_holofoil && <div style={{ background: 'rgba(96,165,250,0.08)', borderRadius: 8, padding: '6px 12px', border: '1px solid rgba(96,165,250,0.15)' }}><p style={{ fontSize: 9, color: 'rgba(96,165,250,0.6)', marginBottom: 2 }}>USD Foil</p><p style={{ fontSize: 14, fontWeight: 800, color: '#60a5fa' }}>${Number(c.price_usd_holofoil).toFixed(2)}</p></div>}
+                        {c.price_usd_reverse && <div style={{ background: 'rgba(96,165,250,0.08)', borderRadius: 8, padding: '6px 12px', border: '1px solid rgba(96,165,250,0.15)' }}><p style={{ fontSize: 9, color: 'rgba(96,165,250,0.6)', marginBottom: 2 }}>USD Reverse</p><p style={{ fontSize: 14, fontWeight: 800, color: '#60a5fa' }}>${Number(c.price_usd_reverse).toFixed(2)}</p></div>}
+                        {c.price_eur_normal && <div style={{ background: 'rgba(96,165,250,0.06)', borderRadius: 8, padding: '6px 12px', border: '1px solid rgba(96,165,250,0.12)' }}><p style={{ fontSize: 9, color: 'rgba(96,165,250,0.5)', marginBottom: 2 }}>EUR Normal</p><p style={{ fontSize: 14, fontWeight: 800, color: '#93c5fd' }}>€{Number(c.price_eur_normal).toFixed(2)}</p></div>}
+                        {c.price_eur_holofoil && <div style={{ background: 'rgba(96,165,250,0.06)', borderRadius: 8, padding: '6px 12px', border: '1px solid rgba(96,165,250,0.12)' }}><p style={{ fontSize: 9, color: 'rgba(96,165,250,0.5)', marginBottom: 2 }}>EUR Foil</p><p style={{ fontSize: 14, fontWeight: 800, color: '#93c5fd' }}>€{Number(c.price_eur_holofoil).toFixed(2)}</p></div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legalidades */}
+                  {Object.keys(legalities).length > 0 && (
+                    <div>
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Legalidade</p>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {Object.entries(legalities).map(([format, status]: [string, any]) => (
+                          <span key={format} style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: status === 'Legal' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.1)', color: status === 'Legal' ? '#22c55e' : '#ef4444', border: `1px solid ${status === 'Legal' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+                            {format.charAt(0).toUpperCase() + format.slice(1)}: {status}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer — seletor de variante + botões */}
+              <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'rgba(0,0,0,0.3)', borderRadius: '0 0 24px 24px' }}>
+                {/* Seletor variante */}
+                <div style={{ display: 'flex', gap: 6, flex: 1, flexWrap: 'wrap' }}>
+                  {VARIANTES.map(v => (
+                    <button
+                      key={v.key}
+                      onClick={() => setSelectedVariante(v.key)}
+                      style={{ fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: selectedVariante === v.key ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.05)', border: selectedVariante === v.key ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(255,255,255,0.1)', color: selectedVariante === v.key ? '#f59e0b' : 'rgba(255,255,255,0.5)' }}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+                {/* Botões ação */}
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button onClick={() => setSelectedCard(null)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', padding: '10px 20px', borderRadius: 12, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Fechar
+                  </button>
+                  <button onClick={() => { handleAddCard({ ...selectedCard, _variante: selectedVariante }); setSelectedCard(null) }} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '10px 24px', borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    + Adicionar à Coleção
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </AppLayout>
   )
 }
