@@ -656,6 +656,13 @@ export default function Pokedex() {
                   {/* Artista */}
                   {c.artist && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>🎨 {c.artist}</p>}
 
+                  {/* Flavor text */}
+                  {c.flavor_text && (
+                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.06)', borderLeft: '3px solid rgba(245,158,11,0.3)' }}>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, fontStyle: 'italic' }}>"{c.flavor_text}"</p>
+                    </div>
+                  )}
+
                   {/* Preços BRL */}
                   {VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).length > 0 && (
                     <div>
