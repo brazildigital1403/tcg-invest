@@ -108,6 +108,7 @@ export default function AdminFinanceiroPage() {
   const [showModalRec, setShowModalRec]   = useState(false)
   const [editingRec,   setEditingRec]     = useState<DespesaRecorrente | null>(null)
   const [showModalLanc, setShowModalLanc] = useState(false)
+  const [editingLanc,   setEditingLanc]   = useState<Lancamento | null>(null)
 
   // Filtros lançamentos
   const [filtroTipo,      setFiltroTipo]      = useState<string>('')
@@ -159,6 +160,15 @@ export default function AdminFinanceiroPage() {
       else next.add(id)
       return next
     })
+  }
+
+  function abrirEdicao(l: Lancamento) {
+    setEditingLanc(l)
+    setShowModalLanc(true)
+  }
+  function abrirNovo() {
+    setEditingLanc(null)
+    setShowModalLanc(true)
   }
 
   // ─── Ações lançamentos ─────────────────────────────────────────────
@@ -226,7 +236,7 @@ export default function AdminFinanceiroPage() {
             Controle de gastos, recebimentos e resultado do Bynx
           </p>
         </div>
-        <button onClick={() => setShowModalLanc(true)} style={{
+        <button onClick={abrirNovo} style={{
           background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
           border: 'none', color: '#000',
           padding: '10px 18px', borderRadius: 10,
@@ -406,7 +416,7 @@ export default function AdminFinanceiroPage() {
                   <th style={th}>Categoria</th>
                   <th style={{ ...th, textAlign: 'right' }}>Valor</th>
                   <th style={{ ...th, textAlign: 'center' }}>Status</th>
-                  <th style={{ ...th, textAlign: 'right', width: 160 }}>Ações</th>
+                  <th style={{ ...th, textAlign: 'right', width: 220 }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -415,6 +425,7 @@ export default function AdminFinanceiroPage() {
                   const ok = isReceita ? l.recebido : l.pago
                   const temDetalhes = !!(l.detalhes && l.detalhes.length > 0)
                   const aberto = expandedIds.has(l.id)
+                  const isStripe = l.fonte === 'stripe'
                   return (
                     <>
                       <tr key={l.id}
@@ -443,7 +454,7 @@ export default function AdminFinanceiroPage() {
                         </td>
                         <td style={{ ...td, color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{fmtData(l.data_competencia)}</td>
                         <td style={td}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             <span style={{ fontWeight: 600 }}>{l.descricao}</span>
                             {temDetalhes && (
                               <span style={{
@@ -453,6 +464,16 @@ export default function AdminFinanceiroPage() {
                                 border: '1px solid rgba(245,158,11,0.25)',
                               }}>
                                 {l.detalhes!.length} {l.detalhes!.length === 1 ? 'item' : 'itens'}
+                              </span>
+                            )}
+                            {isStripe && (
+                              <span style={{
+                                fontSize: 10, fontWeight: 700,
+                                padding: '2px 7px', borderRadius: 100,
+                                color: '#a78bfa', background: 'rgba(167,139,250,0.1)',
+                                border: '1px solid rgba(167,139,250,0.25)',
+                              }}>
+                                Stripe
                               </span>
                             )}
                           </div>
@@ -478,6 +499,9 @@ export default function AdminFinanceiroPage() {
                         <td style={{ ...td, textAlign: 'right' }}>
                           <button onClick={() => marcarPago(l)} disabled={busy} style={btnIcon(ok ? 'rgba(255,255,255,0.5)' : '#22c55e')}>
                             {ok ? 'Reverter' : isReceita ? 'Receber' : 'Pagar'}
+                          </button>
+                          <button onClick={() => abrirEdicao(l)} disabled={busy} style={btnIcon('rgba(255,255,255,0.7)')}>
+                            Editar
                           </button>
                           <button onClick={() => deletarLanc(l)} disabled={busy} style={btnIcon('#ef4444')}>Excluir</button>
                         </td>
@@ -535,11 +559,12 @@ export default function AdminFinanceiroPage() {
         />
       )}
 
-      {/* ── Modal: novo lançamento ── */}
+      {/* ── Modal: novo/editar lançamento ── */}
       {showModalLanc && (
         <ModalLancamento
-          onClose={() => setShowModalLanc(false)}
-          onSaved={async () => { setShowModalLanc(false); await refreshAll() }}
+          editing={editingLanc}
+          onClose={() => { setShowModalLanc(false); setEditingLanc(null) }}
+          onSaved={async () => { setShowModalLanc(false); setEditingLanc(null); await refreshAll() }}
           showAlert={showAlert}
         />
       )}
@@ -690,7 +715,7 @@ function ChartPizza({ rows }: { rows: { categoria: string; valor: number }[] }) 
   )
 }
 
-// ─── Modais ───────────────────────────────────────────────────────────
+// ─── Modal Despesa Recorrente ────────────────────────────────────────
 
 function ModalDespesaRec({ editing, onClose, onSaved, showAlert }: {
   editing: DespesaRecorrente | null
@@ -774,32 +799,53 @@ function ModalDespesaRec({ editing, onClose, onSaved, showAlert }: {
   )
 }
 
-// ─── Modal Lançamento com sub-itens ─────────────────────────────────
+// ─── Modal Lançamento (cria + edita) ──────────────────────────────────
 
-function ModalLancamento({ onClose, onSaved, showAlert }: {
+function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
+  editing: Lancamento | null
   onClose: () => void
   onSaved: () => Promise<void>
   showAlert: (m: string, t?: any) => void
 }) {
-  const [tipo,      setTipo]      = useState<'despesa'|'receita'>('despesa')
-  const [valor,     setValor]     = useState('')
-  const [taxa,      setTaxa]      = useState('')
-  const [descricao, setDesc]      = useState('')
-  const [categoria, setCategoria] = useState('infra')
-  const [dataComp,  setDataComp]  = useState(new Date().toISOString().slice(0,10))
-  const [pago,      setPago]      = useState(true)
-  const [observacao,setObs]       = useState('')
+  const isEditing = !!editing
+  const isStripe  = editing?.fonte === 'stripe'
+  const ehReceita = editing?.tipo === 'receita'
+  const okEdit    = isEditing ? (ehReceita ? !!editing!.recebido : !!editing!.pago) : false
+
+  const [tipo,      setTipo]      = useState<'despesa'|'receita'>(editing?.tipo || 'despesa')
+  const [valor,     setValor]     = useState(editing && !editing.detalhes ? String(editing.valor_bruto) : '')
+  const [taxa,      setTaxa]      = useState(editing && Number(editing.taxa) > 0 ? String(editing.taxa) : '')
+  const [descricao, setDesc]      = useState(editing?.descricao || '')
+  const [categoria, setCategoria] = useState(editing?.categoria || 'infra')
+  const [dataComp,  setDataComp]  = useState(editing?.data_competencia || new Date().toISOString().slice(0,10))
+  const [pago,      setPago]      = useState(isEditing ? okEdit : true)
+  const [observacao,setObs]       = useState(editing?.observacao || '')
   const [saving,    setSaving]    = useState(false)
 
-  // ─── Sub-itens ───────────────────────────────────────────────────
-  const [usaSubItens, setUsaSubItens] = useState(false)
-  const [subItens, setSubItens] = useState<DetalheItem[]>([{ descricao: '', valor: 0 }])
+  // Sub-itens
+  const inicialDetalhes = editing?.detalhes && editing.detalhes.length > 0
+    ? editing.detalhes.map(d => ({ descricao: d.descricao, valor: Number(d.valor) }))
+    : [{ descricao: '', valor: 0 }]
+
+  const [usaSubItens, setUsaSubItens] = useState(!!(editing?.detalhes && editing.detalhes.length > 0))
+  const [subItens,    setSubItens]    = useState<DetalheItem[]>(inicialDetalhes)
 
   const cats = tipo === 'despesa' ? CATEGORIAS_DESPESA : CATEGORIAS_RECEITA
 
+  // Reseta categoria quando troca tipo (só na criação)
   useEffect(() => {
-    setCategoria(tipo === 'despesa' ? 'infra' : 'assinatura')
-  }, [tipo])
+    if (!isEditing) {
+      setCategoria(tipo === 'despesa' ? 'infra' : 'assinatura')
+    }
+  }, [tipo, isEditing])
+
+  // Quando muda toggle de sub-itens, reseta lista pra ter algo
+  useEffect(() => {
+    if (usaSubItens && subItens.length === 0) {
+      setSubItens([{ descricao: '', valor: 0 }])
+    }
+    // eslint-disable-next-line
+  }, [usaSubItens])
 
   const totalSubItens = subItens.reduce((s, i) => s + (Number(i.valor) || 0), 0)
 
@@ -824,16 +870,50 @@ function ModalLancamento({ onClose, onSaved, showAlert }: {
   }
 
   async function salvar() {
+    // ─── Lançamento Stripe: só permite editar observação e marcar recebido ───
+    if (isStripe) {
+      const body: any = {
+        observacao,
+        recebido: pago,  // pra Stripe é receita, então pago = recebido
+      }
+      setSaving(true)
+      const r = await fetch(`/api/admin/financeiro/lancamentos/${editing!.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      setSaving(false)
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}))
+        return showAlert(e.error || 'Erro', 'error')
+      }
+      return onSaved()
+    }
+
+    // ─── Lançamento manual ───
     if (!descricao.trim()) return showAlert('Descrição obrigatória', 'warning')
 
     let body: any = {
-      tipo, descricao, categoria,
-      data_competencia: dataComp,
-      pago:     tipo === 'despesa' ? pago : undefined,
-      recebido: tipo === 'receita' ? pago : undefined,
-      fonte: 'manual',
+      descricao,
+      categoria,
       observacao,
     }
+
+    // Tipo só vai no POST
+    if (!isEditing) {
+      body.tipo = tipo
+      body.data_competencia = dataComp
+      body.fonte = 'manual'
+    } else {
+      // Em edição, se a data foi alterada, manda também
+      if (dataComp !== editing!.data_competencia) {
+        body.data_competencia = dataComp
+      }
+    }
+
+    // Status pago/recebido
+    if (tipo === 'despesa') body.pago = pago
+    else                    body.recebido = pago
 
     if (usaSubItens) {
       // Valida sub-itens
@@ -842,22 +922,28 @@ function ModalLancamento({ onClose, onSaved, showAlert }: {
         return showAlert('Adicione pelo menos 1 sub-item válido (descrição + valor)', 'warning')
       }
       body.detalhes = validos.map(i => ({ descricao: i.descricao.trim(), valor: Number(i.valor) }))
-      // valor_bruto vem da soma — backend recalcula
       const t = taxa ? parseFloat(taxa.replace(',', '.')) : 0
       if (!Number.isFinite(t) || t < 0) return showAlert('Taxa inválida', 'warning')
       body.taxa = t
     } else {
       const v = parseFloat(valor.replace(',', '.'))
-      if (!Number.isFinite(v) || v < 0) return showAlert('Valor inválido', 'warning')
+      if (!Number.isFinite(v) || v < 0) return showAlert('Valor inválido — informe um valor válido antes de salvar', 'warning')
       const t = taxa ? parseFloat(taxa.replace(',', '.')) : 0
       if (!Number.isFinite(t) || t < 0) return showAlert('Taxa inválida', 'warning')
       body.valor_bruto = v
       body.taxa = t
+      // Se está editando e antes tinha sub-itens, força null pra limpar
+      if (isEditing && editing!.detalhes && editing!.detalhes.length > 0) {
+        body.detalhes = null
+      }
     }
 
     setSaving(true)
-    const r = await fetch('/api/admin/financeiro/lancamentos', {
-      method: 'POST',
+    const url = isEditing
+      ? `/api/admin/financeiro/lancamentos/${editing!.id}`
+      : '/api/admin/financeiro/lancamentos'
+    const r = await fetch(url, {
+      method: isEditing ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
@@ -872,48 +958,85 @@ function ModalLancamento({ onClose, onSaved, showAlert }: {
   return (
     <div style={overlay} onClick={onClose}>
       <div style={{ ...modalBox, maxWidth: 560 }} onClick={e => e.stopPropagation()}>
-        <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 18px', color: '#f0f0f0' }}>Novo lançamento manual</h3>
+        <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 6px', color: '#f0f0f0' }}>
+          {isEditing ? 'Editar lançamento' : 'Novo lançamento manual'}
+        </h3>
+        {isStripe && (
+          <div style={{
+            background: 'rgba(167,139,250,0.08)',
+            border: '1px solid rgba(167,139,250,0.25)',
+            borderRadius: 8, padding: '8px 12px',
+            margin: '8px 0 16px',
+          }}>
+            <p style={{ fontSize: 12, color: '#a78bfa', margin: 0, fontWeight: 600 }}>
+              🔒 Lançamento Stripe — apenas observação e status são editáveis
+            </p>
+          </div>
+        )}
+        {!isStripe && <div style={{ height: 12 }} />}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          <button onClick={() => setTipo('despesa')} style={tabButton(tipo === 'despesa', '#ef4444')}>Despesa</button>
-          <button onClick={() => setTipo('receita')} style={tabButton(tipo === 'receita', '#22c55e')}>Receita</button>
-        </div>
+        {/* Tipo só pode trocar na criação */}
+        {!isEditing && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <button onClick={() => setTipo('despesa')} style={tabButton(tipo === 'despesa', '#ef4444')}>Despesa</button>
+            <button onClick={() => setTipo('receita')} style={tabButton(tipo === 'receita', '#22c55e')}>Receita</button>
+          </div>
+        )}
 
-        <Field label="Descrição (do lançamento principal)">
-          <input value={descricao} onChange={e => setDesc(e.target.value)} placeholder="Ex: ZenRows abr/2026" style={inputStyle} />
+        <Field label="Descrição">
+          <input
+            value={descricao}
+            onChange={e => setDesc(e.target.value)}
+            placeholder="Ex: ZenRows abr/2026"
+            disabled={isStripe}
+            style={isStripe ? inputDisabled : inputStyle}
+          />
         </Field>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <Field label="Categoria">
-            <select value={categoria} onChange={e => setCategoria(e.target.value)} style={inputStyle}>
+            <select
+              value={categoria}
+              onChange={e => setCategoria(e.target.value)}
+              disabled={isStripe}
+              style={isStripe ? inputDisabled : inputStyle}
+            >
               {cats.map(c => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
             </select>
           </Field>
           <Field label="Data">
-            <input type="date" value={dataComp} onChange={e => setDataComp(e.target.value)} style={inputStyle} />
+            <input
+              type="date"
+              value={dataComp}
+              onChange={e => setDataComp(e.target.value)}
+              disabled={isStripe}
+              style={isStripe ? inputDisabled : inputStyle}
+            />
           </Field>
         </div>
 
-        {/* ─── Toggle sub-itens ─── */}
-        <div style={{
-          marginTop: 10, marginBottom: 14,
-          padding: '12px 14px', borderRadius: 10,
-          background: usaSubItens ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.03)',
-          border: `1px solid ${usaSubItens ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.08)'}`,
-        }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: usaSubItens ? '#f59e0b' : 'rgba(255,255,255,0.75)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={usaSubItens} onChange={e => setUsaSubItens(e.target.checked)} />
-            Agrupar sub-itens (várias cobranças num só lançamento)
-          </label>
-          {usaSubItens && (
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '6px 0 0 22px' }}>
-              O valor total será calculado automaticamente pela soma dos sub-itens.
-            </p>
-          )}
-        </div>
+        {/* ─── Toggle sub-itens (oculto pra Stripe) ─── */}
+        {!isStripe && (
+          <div style={{
+            marginTop: 10, marginBottom: 14,
+            padding: '12px 14px', borderRadius: 10,
+            background: usaSubItens ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${usaSubItens ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.08)'}`,
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: usaSubItens ? '#f59e0b' : 'rgba(255,255,255,0.75)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={usaSubItens} onChange={e => setUsaSubItens(e.target.checked)} />
+              Agrupar sub-itens (várias cobranças num só lançamento)
+            </label>
+            {usaSubItens && (
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '6px 0 0 22px' }}>
+                O valor total será calculado automaticamente pela soma dos sub-itens.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ─── Bloco de valor (sem sub-itens) OU bloco de sub-itens ─── */}
-        {!usaSubItens ? (
+        {isStripe ? null : !usaSubItens ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Field label="Valor bruto (R$)">
               <input value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" inputMode="decimal" style={inputStyle} />
@@ -999,13 +1122,13 @@ function ModalLancamento({ onClose, onSaved, showAlert }: {
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 8 }}>
           <input type="checkbox" checked={pago} onChange={e => setPago(e.target.checked)} />
-          Já {tipo === 'receita' ? 'recebido' : 'pago'}
+          {tipo === 'receita' || isStripe ? 'Já recebido' : 'Já pago'}
         </label>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
           <button onClick={onClose} style={btnGhost}>Cancelar</button>
           <button onClick={salvar} disabled={saving} style={btnPrimary}>
-            {saving ? 'Salvando...' : 'Adicionar'}
+            {saving ? 'Salvando...' : isEditing ? 'Salvar alterações' : 'Adicionar'}
           </button>
         </div>
       </div>
@@ -1063,6 +1186,13 @@ const inputStyle: React.CSSProperties = {
   color: '#f0f0f0', fontSize: 14,
   outline: 'none', boxSizing: 'border-box',
   fontFamily: 'inherit',
+}
+
+const inputDisabled: React.CSSProperties = {
+  ...inputStyle,
+  background: 'rgba(255,255,255,0.02)',
+  color: 'rgba(255,255,255,0.4)',
+  cursor: 'not-allowed',
 }
 
 const overlay: React.CSSProperties = {
