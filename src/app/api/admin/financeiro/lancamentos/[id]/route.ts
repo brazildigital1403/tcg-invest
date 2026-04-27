@@ -8,8 +8,29 @@ function supabaseAdmin() {
   )
 }
 
+function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string; valor: number }[] } | { ok: false; error: string } {
+  if (detalhes === null) return { ok: true, lista: [] }
+  if (!Array.isArray(detalhes)) return { ok: false, error: 'detalhes deve ser um array' }
+
+  const lista: { descricao: string; valor: number }[] = []
+  for (let i = 0; i < detalhes.length; i++) {
+    const d = detalhes[i]
+    if (!d || typeof d !== 'object') return { ok: false, error: `Item ${i + 1}: formato inválido` }
+    const descricao = String(d.descricao || '').trim()
+    if (!descricao) return { ok: false, error: `Item ${i + 1}: descrição obrigatória` }
+    const valor = Number(d.valor)
+    if (!Number.isFinite(valor) || valor < 0) {
+      return { ok: false, error: `Item ${i + 1}: valor inválido` }
+    }
+    lista.push({ descricao, valor: Math.round(valor * 100) / 100 })
+  }
+  return { ok: true, lista }
+}
+
 // PATCH /api/admin/financeiro/lancamentos/[id]
-// Aceita: { pago?, recebido?, valor_bruto?, taxa?, descricao?, observacao?, data_liquidacao? }
+// Aceita: { pago?, recebido?, valor_bruto?, taxa?, descricao?, observacao?, data_liquidacao?, detalhes? }
+//
+// Se `detalhes` vier no body, valor_bruto é recalculado pela soma (regra única do sistema)
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctx.params
@@ -31,16 +52,55 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       patch.data_liquidacao = body.data_liquidacao || null
     }
 
-    // Se atualizar valor ou taxa, recalcular líquido (precisa buscar antes)
-    if (body.valor_bruto !== undefined || body.taxa !== undefined) {
-      const sb = supabaseAdmin()
+    const sb = supabaseAdmin()
+
+    // ─── Detalhes mudaram → recalcula valor_bruto pela soma ──────────
+    if (body.detalhes !== undefined) {
+      const det = validarDetalhes(body.detalhes)
+      if (!det.ok) return NextResponse.json({ error: det.error }, { status: 400 })
+
+      patch.detalhes = det.lista.length > 0 ? det.lista : null
+
+      if (det.lista.length > 0) {
+        // Soma manda — recalcula bruto e líquido
+        const novoBruto = Math.round(det.lista.reduce((s, i) => s + i.valor, 0) * 100) / 100
+        // Pega taxa atual (ou nova se enviada) pra recalcular líquido
+        let novaTaxa = body.taxa !== undefined ? Number(body.taxa) : null
+        if (novaTaxa === null) {
+          const { data: existing } = await sb
+            .from('lancamentos')
+            .select('taxa')
+            .eq('id', id)
+            .limit(1)
+          if (!existing?.[0]) {
+            return NextResponse.json({ error: 'Lançamento não encontrado' }, { status: 404 })
+          }
+          novaTaxa = Number(existing[0].taxa)
+        }
+        if (!Number.isFinite(novaTaxa) || novaTaxa < 0) {
+          return NextResponse.json({ error: 'Taxa inválida' }, { status: 400 })
+        }
+        patch.valor_bruto   = novoBruto
+        patch.taxa          = novaTaxa
+        patch.valor_liquido = novoBruto - novaTaxa
+      }
+    }
+
+    // ─── Sem detalhes mas valor/taxa mudaram → recálculo simples ──────
+    if (patch.detalhes === undefined && (body.valor_bruto !== undefined || body.taxa !== undefined)) {
       const { data: existing } = await sb
         .from('lancamentos')
-        .select('valor_bruto, taxa')
+        .select('valor_bruto, taxa, detalhes')
         .eq('id', id)
         .limit(1)
       if (!existing?.[0]) {
         return NextResponse.json({ error: 'Lançamento não encontrado' }, { status: 404 })
+      }
+      // Se já tem detalhes salvos, não permite alterar valor_bruto manualmente
+      if (existing[0].detalhes && body.valor_bruto !== undefined) {
+        return NextResponse.json({
+          error: 'Este lançamento tem sub-itens — edite os sub-itens pra alterar o valor'
+        }, { status: 400 })
       }
       const novoBruto = body.valor_bruto !== undefined ? Number(body.valor_bruto) : Number(existing[0].valor_bruto)
       const novaTaxa  = body.taxa        !== undefined ? Number(body.taxa)        : Number(existing[0].taxa)
@@ -55,7 +115,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       patch.valor_liquido = novoBruto - novaTaxa
     }
 
-    const sb = supabaseAdmin()
     const { data, error } = await sb
       .from('lancamentos')
       .update(patch)
