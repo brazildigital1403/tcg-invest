@@ -1,8 +1,9 @@
 'use client'
 
-import { CSSProperties, useState, useMemo } from 'react'
+import { CSSProperties, useState, useMemo, useRef } from 'react'
 import { authFetch } from '@/lib/authFetch'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { uploadFotoLoja, deletarFotoLoja } from '@/lib/uploadFoto'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -113,9 +114,6 @@ const TEXTAREA: CSSProperties = {
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function FormLoja({ userId: _userId, initialData, isEditMode = false, onSaved }: Props) {
-  // `userId` não é mais usado aqui — a API pega o owner do token JWT.
-  // Mantemos a prop pra preservar o contrato atual do componente.
-
   const { showAlert } = useAppModal()
 
   const plano = initialData?.plano || 'basico'
@@ -135,27 +133,21 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
   const [instagram,      setInstagram]      = useState(initialData?.instagram      || '')
   const [facebook,       setFacebook]       = useState(initialData?.facebook       || '')
   const [logoUrl,        setLogoUrl]        = useState(initialData?.logo_url       || '')
-  const [fotosText,      setFotosText]      = useState((initialData?.fotos || []).join('\n'))
+
+  // Fotos — agora é array direto (controlado pelo upload)
+  const [fotos, setFotos] = useState<string[]>(initialData?.fotos || [])
+  const [uploadingFotos, setUploadingFotos] = useState(0)
+  const [deletandoUrl, setDeletandoUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [saving, setSaving]     = useState(false)
   const [slugError, setSlugError] = useState('')
 
-  // Slug gerado automaticamente ou customizado
   const slugFinal = useMemo(() => {
     if (slugCustom.trim()) return slugify(slugCustom)
     return slugify(nome)
   }, [nome, slugCustom])
 
-  // Fotos parseadas
-  const fotosArray = useMemo(() => {
-    return fotosText
-      .split('\n')
-      .map(l => l.trim())
-      .filter(l => l.length > 0)
-      .slice(0, limites.fotos)
-  }, [fotosText, limites.fotos])
-
-  // Toggle especialidade
   function toggleEspecialidade(valor: string) {
     if (especialidades.includes(valor)) {
       setEspecialidades(prev => prev.filter(e => e !== valor))
@@ -173,7 +165,60 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     }
   }
 
-  // Validação local (pré-flight, pra UX rápida — servidor revalida tudo)
+  // ─── Upload de fotos ───────────────────────────────────────
+  // Só funciona em modo edit (precisa ter loja id pra subir)
+  async function handleAddFotos(files: FileList) {
+    if (!isEditMode || !initialData?.id) {
+      showAlert('Salve a loja primeiro para adicionar fotos.', 'warning')
+      return
+    }
+
+    const lojaId = initialData.id
+    const arquivos = Array.from(files)
+    if (arquivos.length === 0) return
+
+    const slots = limites.fotos - fotos.length - uploadingFotos
+    if (slots <= 0) {
+      showAlert(`Limite de ${limites.fotos} fotos atingido.`, 'warning')
+      return
+    }
+    const aSubir = arquivos.slice(0, slots)
+    if (arquivos.length > slots) {
+      showAlert(`Apenas ${slots} foto(s) cabem. As demais foram ignoradas.`, 'info')
+    }
+
+    setUploadingFotos(prev => prev + aSubir.length)
+    const promises = aSubir.map(async file => {
+      try {
+        const result = await uploadFotoLoja(lojaId, file)
+        // Atualiza com a lista mais recente vinda do servidor (source of truth)
+        setFotos(result.fotos)
+      } catch (err: any) {
+        console.error('[FormLoja] upload foto falhou', err)
+        showAlert(err?.message || 'Erro ao enviar foto.', 'error')
+      } finally {
+        setUploadingFotos(prev => Math.max(0, prev - 1))
+      }
+    })
+    await Promise.all(promises)
+
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function handleRemoverFoto(url: string) {
+    if (!initialData?.id) return
+    setDeletandoUrl(url)
+    try {
+      const novasFotos = await deletarFotoLoja(initialData.id, url)
+      setFotos(novasFotos)
+    } catch (err: any) {
+      console.error('[FormLoja] delete foto falhou', err)
+      showAlert(err?.message || 'Erro ao remover foto.', 'error')
+    } finally {
+      setDeletandoUrl(null)
+    }
+  }
+
   function validar(): string | null {
     if (!nome.trim())                    return 'O nome da loja é obrigatório.'
     if (nome.trim().length < 3)          return 'O nome precisa ter pelo menos 3 caracteres.'
@@ -189,7 +234,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     return null
   }
 
-  // Monta payload enxuto (só campos que o endpoint aceita na whitelist)
+  // Monta payload sem o campo `fotos` — gerenciado pelos endpoints dedicados
   function montarPayload() {
     return {
       slug: slugFinal,
@@ -201,32 +246,24 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       tipo,
       especialidades,
       whatsapp: whatsapp.trim() || null,
-      // OBS: campo `email` não está no whitelist das APIs atuais — se precisar,
-      // adicione `email` em ALLOWED_FIELDS / EDITABLE_FIELDS nas rotas
-      // (src/app/api/lojas/route.ts e src/app/api/lojas/[id]/route.ts)
       website: website.trim() || null,
       instagram: instagram.trim() || null,
       facebook: facebook.trim() || null,
       logo_url: logoUrl.trim() || null,
-      fotos: fotosArray,
     }
   }
 
-  // Handler genérico de erros da API
   function handleApiError(data: any, res: Response, contexto: 'criar' | 'salvar'): void {
     const msg = data?.error || `Erro ao ${contexto} loja. Tente novamente.`
 
-    // 409 de slug duplicado: mostra inline no campo do slug
     if (res.status === 409 && /slug/i.test(msg)) {
       setSlugError('Este identificador já está em uso. Escolha outro.')
       return
     }
 
-    // Erros gerais: modal
     showAlert(msg, 'error')
   }
 
-  // Salvar
   async function handleSave(e?: React.FormEvent) {
     e?.preventDefault()
     setSlugError('')
@@ -243,7 +280,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       const payload = montarPayload()
 
       if (isEditMode && initialData?.id) {
-        // ─── UPDATE via PATCH /api/lojas/[id] ──────────────
         const res = await authFetch(`/api/lojas/${initialData.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -258,12 +294,9 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         }
 
         showAlert('Loja atualizada com sucesso!', 'success')
-        onSaved?.({ ...initialData, ...payload, id: data?.loja?.id || initialData.id } as LojaFormData)
+        onSaved?.({ ...initialData, ...payload, fotos, id: data?.loja?.id || initialData.id } as LojaFormData)
 
       } else {
-        // ─── INSERT via POST /api/lojas ───────────────────
-        // O servidor seta automaticamente: owner_user_id, status='pendente',
-        // plano='pro' (trial 14 dias), verificada=false
         const res = await authFetch('/api/lojas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -291,6 +324,11 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       setSaving(false)
     }
   }
+
+  // Cálculos derivados pra UI das fotos
+  const totalFotosNoMomento = fotos.length + uploadingFotos
+  const slotsRestantes = Math.max(0, limites.fotos - totalFotosNoMomento)
+  const podeSubirMais = isEditMode && !!initialData?.id && slotsRestantes > 0
 
   return (
     <form onSubmit={handleSave} style={S.form}>
@@ -521,23 +559,77 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         </fieldset>
       )}
 
-      {/* ─── SEÇÃO: Fotos (Pro+) ─────────────────────────────── */}
+      {/* ─── SEÇÃO: Fotos (Pro+) — UPLOAD REAL ─────────────────────── */}
       {(plano === 'pro' || plano === 'premium') ? (
         <fieldset style={S.fieldset}>
           <legend style={S.legend}>Fotos da loja</legend>
 
           <div>
             <label style={LABEL}>
-              URLs das fotos · {fotosArray.length}/{limites.fotos} usadas
+              Galeria · {fotos.length}/{limites.fotos} fotos
+              {uploadingFotos > 0 && ` · enviando ${uploadingFotos}...`}
             </label>
-            <textarea
-              value={fotosText}
-              onChange={e => setFotosText(e.target.value)}
-              placeholder={'https://exemplo.com/foto1.jpg\nhttps://exemplo.com/foto2.jpg\n...'}
-              style={{ ...TEXTAREA, minHeight: 120, fontFamily: 'monospace', fontSize: 12 }}
+
+            {/* Grid de thumbs */}
+            <div style={S.fotosGrid}>
+              {fotos.map(url => (
+                <div key={url} style={S.fotoThumb}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="Foto da loja" style={S.fotoImg} />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoverFoto(url)}
+                    disabled={deletandoUrl === url}
+                    style={{
+                      ...S.fotoDeleteBtn,
+                      ...(deletandoUrl === url ? { opacity: 0.5, cursor: 'wait' } : {}),
+                    }}
+                    aria-label="Remover foto"
+                    title="Remover foto"
+                  >
+                    {deletandoUrl === url ? '...' : '×'}
+                  </button>
+                </div>
+              ))}
+
+              {/* Placeholders enquanto sobe */}
+              {Array.from({ length: uploadingFotos }).map((_, i) => (
+                <div key={`up-${i}`} style={{ ...S.fotoThumb, ...S.fotoUploading }}>
+                  <span style={S.fotoUploadingText}>Enviando...</span>
+                </div>
+              ))}
+
+              {/* Botão de adicionar (se há slots) */}
+              {podeSubirMais && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={S.fotoAddBtn}
+                >
+                  <span style={{ fontSize: 32, lineHeight: 1, color: 'rgba(245,158,11,0.7)' }}>+</span>
+                  <span style={S.fotoAddBtnLabel}>Adicionar foto</span>
+                </button>
+              )}
+            </div>
+
+            {/* Input file invisível */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={e => e.target.files && handleAddFotos(e.target.files)}
+              style={{ display: 'none' }}
             />
+
             <p style={S.hintText}>
-              Cole uma URL por linha. Limite: {limites.fotos} fotos no plano {plano === 'premium' ? 'Premium' : 'Pro'}. Upload direto em breve.
+              {!isEditMode || !initialData?.id ? (
+                <>Salve a loja primeiro para enviar fotos.</>
+              ) : fotos.length >= limites.fotos ? (
+                <>Limite de {limites.fotos} fotos atingido no plano {plano === 'premium' ? 'Premium' : 'Pro'}.</>
+              ) : (
+                <>JPG, PNG ou WebP · até 5MB cada · serão otimizadas automaticamente.</>
+              )}
             </p>
           </div>
         </fieldset>
@@ -659,6 +751,80 @@ const S: Record<string, CSSProperties> = {
     background: 'rgba(245,158,11,0.15)',
     color: '#f59e0b',
     border: '1px solid rgba(245,158,11,0.35)',
+  },
+
+  // ─── Galeria de fotos ───
+  fotosGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+    gap: 10,
+    marginTop: 4,
+  },
+  fotoThumb: {
+    position: 'relative',
+    aspectRatio: '4 / 3',
+    borderRadius: 10,
+    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+  },
+  fotoImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  fotoDeleteBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.7)',
+    border: '1px solid rgba(255,255,255,0.2)',
+    color: '#f0f0f0',
+    fontSize: 16,
+    fontWeight: 700,
+    lineHeight: 1,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: 'inherit',
+    padding: 0,
+  },
+  fotoUploading: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(245,158,11,0.06)',
+    border: '1px dashed rgba(245,158,11,0.3)',
+  },
+  fotoUploadingText: {
+    fontSize: 11,
+    color: 'rgba(245,158,11,0.8)',
+    fontWeight: 600,
+  },
+  fotoAddBtn: {
+    aspectRatio: '4 / 3',
+    borderRadius: 10,
+    background: 'rgba(245,158,11,0.04)',
+    border: '1px dashed rgba(245,158,11,0.3)',
+    color: 'rgba(245,158,11,0.85)',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    fontFamily: 'inherit',
+    transition: 'all 0.12s ease',
+  },
+  fotoAddBtnLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: '0.02em',
   },
 
   actions: {
