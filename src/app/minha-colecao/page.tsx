@@ -517,6 +517,20 @@ export default function MinhaColecao() {
     }
   }, { min: 0, medio: 0, max: 0 })
 
+  // Estimativa USD para cartas sem preço BRL
+  const usdEstimado = cards.reduce((acc, c) => {
+    const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
+    const p = getVariantePrices(c.price, variante)
+    if ((p.medio || 0) > 0) return acc  // já tem BRL — ignora
+    const price = c.price
+    if (!price) return acc
+    const usd = variante === 'foil'
+      ? parseFloat(price.price_usd_holofoil || 0) || parseFloat(price.price_usd_normal || 0)
+      : parseFloat(price.price_usd_normal || 0) || parseFloat(price.price_usd_holofoil || 0)
+    const qty = c.quantity || 1
+    return { valor: acc.valor + usd * exchangeRate.usd * qty, count: acc.count + (usd > 0 ? qty : 0) }
+  }, { valor: 0, count: 0 })
+
   // ── Filtro local ────────────────────────────────────────────────────────────
   const filteredCards = cards.filter(c => {
     const matchSearch = !search || c.card_name?.toLowerCase().includes(search.toLowerCase())
@@ -696,6 +710,16 @@ export default function MinhaColecao() {
             <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Valor Médio</p>
             <p style={{ fontSize: 26, fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.02em' }}>{fmt(totais.medio)}</p>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Preço médio de mercado</p>
+            {usdEstimado.valor > 0 && (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(96,165,250,0.15)' }}>
+                <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.5)', marginBottom: 2 }}>
+                  + {fmt(usdEstimado.valor)} estimado
+                </p>
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>
+                  {usdEstimado.count} carta{usdEstimado.count !== 1 ? 's' : ''} sem preço BR · USD×câmbio
+                </p>
+              </div>
+            )}
           </div>
           <div className="colecao-resumo-card" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
             <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Máximo da Carteira</p>
