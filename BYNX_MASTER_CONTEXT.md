@@ -1,193 +1,226 @@
-# BYNX — Master Context (Sessão 19 — 27/04/2026)
+# BYNX — Master Context (Sessão 20 — 27/04/2026)
 
 **Stack:** Next.js 16.2.2, Supabase hvkcwfcvizrvhkerupfc, Vercel prj_X1CUMTLMwTL77trWqZdDdmBI9PRC / team_FK9fHseL9hy5mbNR6c0Q8JuK
 **Repo:** brazildigital1403/tcg-invest (main) | **Domínio:** bynx.gg
 
 ---
 
-## Estado Atual (fim da sessão 19)
+## Sessão 20 — Foco: Admin Panel + Lojas + Financeiro
 
-### Banco de Dados
+Esta sessão rodou em **3 chats paralelos** (Admin, Lojas/Lojista, Principal). Tudo descrito abaixo foi feito no chat do Admin e está em produção.
+
+---
+
+## Estado Atual (fim da sessão 20)
+
+### Banco de Dados — novidades da sessão
+
+**Migration 003** — Moderação de lojas:
 ```
-pokemon_cards:   22.861+ cartas
-  com preço BRL: crescendo (scans em andamento)
-  com imagem:    2.624 Liga-only no Supabase Storage (100% completo!)
-  liga-only:     2.624 cartas
-
-pokemon_species: 1.025 espécies (PokeAPI)
-  - Farfetch'd (83), Sirfetch'd (865) adicionados manualmente
-  - Todos Gen IX DLC #1001-#1025 presentes
-
-pokemon_cards.base_pokemon_names text[]:
-  - Populada via SQL + fix-base-names.ts
-  - Farfetch'd, Flabébé, Type: Null corrigidos manualmente
-  - Buried Fossil → NULL (não é Pokémon)
-  - Prefixos: Alolan, Hisuian, Shining, Light, Dark, Mega etc. → nome base
-  - TAG TEAM "Garchomp & Giratina-GX" → ["Garchomp","Giratina"] ✅
-  - "Ash-Greninja" → ["Greninja"] ✅
-
-user_cards: constraint UNIQUE (user_id, pokemon_api_id)
-
-Bucket Supabase Storage: card-images (público)
-  URL: https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/
-  Status: 2.624/2.624 imagens Liga salvas (100% completo)
+lojas:
+  + suspensao_motivo TEXT
+  + suspensao_data   TIMESTAMPTZ
+  + suspenso_por     UUID FK users
+  + aprovada_data    TIMESTAMPTZ
+  + aprovada_por     UUID FK users
+  + index lojas_status_idx
+  + index lojas_suspensao_data_idx (parcial)
 ```
 
-### ZenRows Status
+**Migration 004** — Mini sistema financeiro:
 ```
-Plano: Startup
-Usado: $208.01 de $227.63 (91%)
-Renova: 26/05/2026
-Restante: ~$19
+despesas_recorrentes (nova):
+  id, nome, categoria, valor_mensal, dia_vencimento, ativa, observacao, timestamps
+  CHECK categoria IN (infra|marketing|dominio|pagamentos|impostos|outros)
 
-scan-images: ✅ COMPLETO — todas as 2.624 cartas Liga têm imagem
-scan-sets:   ⚠️ Parou por limite — 151 (sv3pt5) e Journey Together (sv9) ainda abaixo de 50%
+lancamentos (nova):
+  id, tipo, valor_bruto, taxa, valor_liquido, descricao, categoria,
+  data_competencia, data_liquidacao, pago, recebido, fonte,
+  despesa_recorrente_id FK, stripe_payment_intent_id, user_id FK, observacao, timestamps
+  CHECK tipo IN (despesa|receita)
+  CHECK fonte IN (manual|stripe|outro)
+  UNIQUE constraint em stripe_payment_intent_id (pra evitar duplicar webhook)
 ```
+
+**Migration 005** — Sub-itens em lançamentos:
+```
+lancamentos:
+  + detalhes JSONB  (array de { descricao, valor })
+```
+
+**Seed populado:**
+- 4 despesas recorrentes (ZenRows R$1160, Anthropic R$571, Godaddy R$64,56, INSS DAS MEI R$80,90)
+- 5 lançamentos retroativos abril/2026 (R$ 3.032,47 total, com sub-itens preenchidos)
+
+### Outros sistemas no admin (já estavam de antes)
+
+- Sistema de tickets (`/suporte` user-facing + `/admin/tickets`)
+- Login admin com cookie HMAC `bynx_admin` (7 dias)
+- `/admin/users` com gestão completa (Pro, créditos, edit, suspend, delete LGPD)
+- `users.suspended_at` + middleware bloqueando suspensos no app
 
 ---
 
 ## O Que Foi Feito Nessa Sessão
 
-### 1. scan-images v4 — Supabase Storage ✅ COMPLETO
-- Bucket `card-images` criado no Supabase Storage (público)
-- Script modificado: Liga → ZenRows → download → upload → URL permanente
-- Fix TypeScript: `Buffer` → `ArrayBuffer` para compatibilidade com `fetch(body)`
-- **2.624 imagens salvas permanentemente** — nunca mais dependemos da Liga para imagens
+### 1. Painel /admin/lojas — Moderação completa ✅
 
-### 2. scan-sets — Foco nos sets abaixo de 50%
-- TARGET_SETS atualizado para apenas os 9 sets abaixo de 50%
-- Depois restringido para apenas `sv3pt5` (151) e `sv9` (Journey Together)
-- Parou por limite ZenRows antes de completar — retomará quando possível
-
-### 3. AppLayout — Patrimônio no Header ✅
-- Migrado de `card_prices` (obsoleto) para `pokemon_cards`
-- Usa `pokemon_api_id` → lookup direto
-- Fallback `card_link` → `liga_link`
-- BRL → USD×câmbio → EUR×câmbio
-
-### 4. Dashboard Financeiro ✅
-- Reescrito para usar `pokemon_api_id` + `card_link` + fallback por nome
-- Câmbio via `/api/exchange-rate` (AwesomeAPI)
-- `getBestVal()`: BRL > USD×câmbio > EUR×câmbio
-- Ranking corretamente ordenado por valor
-
-### 5. Minha Coleção — Box Azul com Estimativa USD ✅
-- Calcula `usdEstimado` para cartas sem preço BRL
-- Mostra no box azul (Valor Médio): `+ R$ XXX estimado`
-- Boxes verde e amarelo centralizados verticalmente com `justifyContent: center`
-
-### 6. Pokédex — Redesign Completo ✅
-
-**Arquitetura:**
-- `/api/pokedex/route.ts` → `get_unique_base_pokemon()` SQL → cache 1h + `?refresh=1`
-- `/api/pokedex/species/route.ts` → `pokemon_species` em 2 lotes (fix limite 1000 PostgREST) → cache 24h + `?refresh=1`
-- `src/app/pokedex/page.tsx` → grid de Pokémon + vista de cartas
-- `src/app/pokedex/CardDetailModal.tsx` → componente separado (fix Turbopack IIFE bug)
+**Arquivos novos:**
+- `src/app/admin/lojas/page.tsx`
+- `src/app/api/admin/lojas/route.ts` (lista + filtros + counters)
+- `src/app/api/admin/lojas/[id]/approve/route.ts`
+- `src/app/api/admin/lojas/[id]/suspend/route.ts`
+- `src/app/api/admin/lojas/[id]/toggle-verified/route.ts`
 
 **Funcionalidades:**
-- Vista 1: Grid de Pokémon (~8 por linha desktop), ordenado pela Pokédex nacional
-- Sprites: pokemondb.net (Gen I-VIII) + PokeAPI official-artwork (Gen IX DLC #1001+)
-- `referrerPolicy="no-referrer"` no `<img>` para bypassa hotlink do pokemondb
-- Fallback: oficial-artwork → básico → esconde
-- Filtros: busca por nome, geração (I-IX), tipo
-- Badge dourado nos Pokémon que o usuário já tem na coleção
-- Gen IX DLC: sprites via PokeAPI (pokemondb não tem ainda)
+- Listagem com 4 contadores (Pendentes/Ativas/Suspensas/Inativas)
+- Filtros em pílulas + busca por nome/slug/cidade
+- Banner âmbar quando há pendentes (com botão "Ver pendentes →")
+- Cards por loja: logo (ou inicial), nome, badges status/verificada/plano, slug, cidade/UF, owner, data
+- Ações contextuais por status:
+  - Pendente → Aprovar / Suspender / Detalhes
+  - Ativa → Suspender / Verificar (toggle) / Detalhes
+  - Suspensa → Reativar / Detalhes
+  - Inativa → Detalhes
+- Modal de suspensão com textarea de motivo (mín 10 chars, máx 500) + contador
+- Modal de detalhes com info completa + link página pública + link perfil owner
 
-**Vista 2 — Cartas do Pokémon:**
-- Busca por `base_pokemon_names @> [pokemon.name]` (array contains)
-- Botões Anterior/Próximo Pokémon no header
-- Click na carta → abre CardDetailModal (NÃO adiciona direto)
+**Emails novos em `src/lib/email.ts`:**
+- `sendEmailLojaAprovada({ to, nomeUser, nomeLoja, slug })` — primeira aprovação somente
+- `sendEmailLojaSuspensa({ to, nomeUser, nomeLoja, motivo })`
 
-**CardDetailModal:**
-- Nav entre cartas (← →) + contador "X de N"
-- Teclado: ← → navega entre cartas, Esc fecha
-- Layout: imagem + set info (esquerda) | detalhes (direita)
-- Mobile responsivo via `isMobile` state (JS, sem CSS media query)
-- Labels: Coleção, Número, Lançamento, Artista
-- Ataques com ícones de energia (🔥💧🌿⚡🔮👊🌑⚙️🐉⭕🌸)
-- Fraquezas, resistências, custo de recuo
-- Flavor text em itálico com borda laranja
-- Preços BR (mín/méd/máx por variante) + Preços USD/EUR
-- Legalidades (Standard/Expanded/Unlimited)
-- Link "Ver na Liga Pokémon"
-- Seletor de variante com preço antes de adicionar (Normal, Foil, Reverse, Promo, Pokéball)
-- Botões: Fechar | + Adicionar à Coleção
+**Schema observation:**
+- Coluna real é `plano_expira_em`, não `trial_expires_at` (corrigido durante o desenvolvimento)
+- Coluna legado `motivo_suspensao` continua existindo vazia (a nova é `suspensao_motivo`)
 
-**SELECT query inclui:**
-`artist, flavor_text, attacks, weaknesses, resistances, retreat_cost, legalities, subtypes, set_logo, set_symbol, set_series`
+### 2. Painel /admin/financeiro — Mini sistema financeiro ✅
 
-**SQL Functions:**
-- `get_unique_base_pokemon()` → JSON com name + card_count (retorna sem tipos para evitar timeout)
-- `get_unique_pokemon()` → DISTINCT ON(name) (função anterior, mantida)
-- `rebuild_base_pokemon_names()` → UPDATE via regex (timeout em produção, usar script JS)
-- `extract_base_pokemon_names()` → função auxiliar
+**Arquivos novos:**
+- `src/app/admin/financeiro/page.tsx`
+- `src/app/api/admin/financeiro/dashboard/route.ts`
+- `src/app/api/admin/financeiro/despesas-recorrentes/route.ts`
+- `src/app/api/admin/financeiro/despesas-recorrentes/[id]/route.ts`
+- `src/app/api/admin/financeiro/lancamentos/route.ts`
+- `src/app/api/admin/financeiro/lancamentos/[id]/route.ts`
 
-**Scripts no Mac:**
-- `populate-species.ts` → populou 1025 espécies (já rodado)
-- `fix-base-names.ts` → word-boundary matching JS para todos os cards (já rodado)
+**Funcionalidades:**
+- 4 cards macro: Faturamento bruto, Despesas pagas, Resultado, A pagar (com tendência vs mês anterior)
+- Aviso âmbar de contas vencendo nos próximos 3 dias (Opção A — só visual no admin)
+- Aviso MEI quando passa 70% (amarelo) ou 90% (vermelho) do limite anual de R$ 81k
+- 2 gráficos SVG inline: Linha 6 meses (receita vs despesa) + Pizza por categoria
+- CRUD completo de Despesas Recorrentes
+- CRUD + Edit completo de Lançamentos
+- Filtros por tipo, categoria, status
+- Lançamentos com sub-itens (botão ▶ expandindo em "FAQ" pra ver detalhes)
+- Modal unificado pra criar + editar lançamentos
+- Pode adicionar/remover sub-itens em qualquer lançamento manual
+- Validação backend: lançamento com sub-itens recalcula `valor_bruto` automaticamente pela soma
+- Lançamentos `fonte=stripe` (futuros) ficam restritos: apenas observação + recebido editáveis (UI desabilita campos, backend valida)
 
-### 7. Sprites Gen IX DLC — Resolvido ✅
-- Problema: `/api/pokedex/species` retornava só 1000 espécies (limite PostgREST)
-- Fix: busca em 2 lotes paralelos `.range(0,999)` + `.range(1000,1999)`
-- Agora retorna todos 1025 → dex_id corretos → sprites aparecem
+**Categorias fixas:**
+- Despesas: `infra`, `marketing`, `dominio`, `pagamentos`, `impostos`, `outros`
+- Receitas: `assinatura`, `outros`
+
+**Decisões de regime fiscal:**
+- MEI (DAS fixo R$ 80,90/mês cadastrado como despesa recorrente)
+- Sem alíquota % sobre receita
+- Limite R$ 81.000/ano hardcoded com aviso visual
+
+**Stripe handling (preparação):**
+- Tabela `lancamentos` já tem coluna `stripe_payment_intent_id` com UNIQUE constraint
+- Coluna `data_liquidacao` separada de `data_competencia` (D+30)
+- Coluna `taxa` pra registrar a taxa real do Stripe (3,99% + R$ 0,39 BR)
+- Webhook do Stripe ainda **não foi integrado** (próximo passo planejado)
+
+### 3. Item "Lojas" e "Financeiro" no menu admin ✅
+
+**Arquivo modificado:** `src/app/admin/layout.tsx`
+- Adicionados 2 itens no `adminMenu`: `Lojas` e `Financeiro`
+- Ícones inline em SVG stroke (`IconStore` e `IconWalletAdmin`)
+- Bottom nav mobile atualizado também
+
+Menu atual completo: Dashboard, Tickets, Lojas, Usuários, Financeiro
 
 ---
 
 ## Arquivos Modificados Nessa Sessão
 
 ```
-src/app/pokedex/page.tsx                          ← redesign completo, exporta TYPE_COLOR
-src/app/pokedex/CardDetailModal.tsx               ← NOVO componente (fix Turbopack IIFE bug)
-src/app/api/pokedex/route.ts                      ← cache 1h, ?refresh=1, types separado
-src/app/api/pokedex/species/route.ts              ← NOVO — 2 lotes, cache 24h, ?refresh=1
-src/app/minha-colecao/page.tsx                    ← usdEstimado no box azul, flex center
-src/app/dashboard-financeiro/page.tsx             ← pokemon_api_id + câmbio
-src/components/ui/AppLayout.tsx                   ← patrimônio usa pokemon_cards + câmbio
+src/app/admin/layout.tsx                                ← novo menu (+ Lojas, + Financeiro)
+src/app/admin/lojas/page.tsx                            ← NOVO
+src/app/admin/financeiro/page.tsx                       ← NOVO
+src/app/api/admin/lojas/route.ts                        ← NOVO
+src/app/api/admin/lojas/[id]/approve/route.ts           ← NOVO
+src/app/api/admin/lojas/[id]/suspend/route.ts           ← NOVO
+src/app/api/admin/lojas/[id]/toggle-verified/route.ts   ← NOVO
+src/app/api/admin/financeiro/dashboard/route.ts                          ← NOVO
+src/app/api/admin/financeiro/despesas-recorrentes/route.ts               ← NOVO
+src/app/api/admin/financeiro/despesas-recorrentes/[id]/route.ts          ← NOVO
+src/app/api/admin/financeiro/lancamentos/route.ts                        ← NOVO
+src/app/api/admin/financeiro/lancamentos/[id]/route.ts                   ← NOVO
+src/lib/email.ts                                        ← + sendEmailLojaAprovada, + sendEmailLojaSuspensa
 
-Scripts no Mac (/Users/eduardowillian/bynx-scan/):
-  scan-images.ts  ← v4: Liga → ZenRows → download → Supabase Storage (COMPLETO)
-  scan-sets.ts    ← foco em sv3pt5 + sv9 (parou por limite ZenRows)
-  populate-species.ts  ← populou pokemon_species (já rodado)
-  fix-base-names.ts    ← corrigiu base_pokemon_names (já rodado)
+Migrations rodadas no Supabase:
+  003_add_moderacao_fields_to_lojas.sql  ← novas colunas + 2 índices
+  004_financeiro.sql                     ← 2 tabelas + seeds
+  005_lancamentos_detalhes.sql           ← coluna detalhes JSONB + backfill 5 lancs
 ```
 
 ---
 
-## Bugs Corrigidos
+## Bugs Corrigidos Nessa Sessão
 
 | Bug | Causa | Fix |
-|-----|-------|-----|
-| Patrimônio R$0,00 no header | Usava `card_prices` obsoleto | Migrou para `pokemon_cards` |
-| scan-images TypeScript error | `Buffer` não aceito como `body` no fetch | Mudou para `ArrayBuffer` |
-| Pokédex mostrava 122 Pokémon | Limite 1000 rows Supabase | API Route com `get_unique_base_pokemon()` SQL |
-| Gen IX DLC sem sprite | `/api/pokedex/species` cortava em 1000 | 2 lotes paralelos `.range()` |
-| Turbopack IIFE bug | Modal em IIFE causava "Unterminated regexp" | Extraído para `CardDetailModal.tsx` |
-| Artista não aparecia | Faltava `artist` no `.select()` query | Adicionados todos os campos |
-| Pokémon regionais separados | Alolan/Hisuian/Mega não mapeados | SQL UPDATE + fix-base-names.ts |
-| PostgREST 1000 rows limit | `.limit(2000)` não funciona | Usar `.range()` em lotes |
+| --- | --- | --- |
+| `column lojas.trial_expires_at does not exist` em `/admin/lojas` | Coluna real é `plano_expira_em` | Trocado em select da API + tipo da página + label da UI |
+| Botão ▶ não aparecia em `/admin/financeiro` | Migration 005 (coluna `detalhes`) não tinha sido executada no Supabase | Rodou ALTER TABLE + UPDATE (backfill) |
 
 ---
 
 ## Pendências
 
-### ⚠️ scan-sets — Retomar quando tiver crédito
-ZenRows renova em 26/05/2026. Rodar:
-```bash
-cd /Users/eduardowillian/bynx-scan
-while true; do ZENROWS_API_KEY=adad1cb8c25df1ad2b116d98428bc0914be37bea npx ts-node scan-sets.ts; echo "Reiniciando em 10s..."; sleep 10; done
+### ⚠️ Webhook do Stripe — integração com lançamentos
+
+Próximo item a fazer no admin financeiro. Quando assinatura Pro for paga, criar automaticamente:
+
+```ts
+// pseudo
+sb.from('lancamentos').insert({
+  tipo: 'receita',
+  valor_bruto: amount,
+  taxa: stripeFee,           // 3.99% + R$0,39 BR
+  valor_liquido: amount - stripeFee,
+  descricao: `Assinatura ${plano} — ${userEmail}`,
+  categoria: 'assinatura',
+  data_competencia: hoje,
+  data_liquidacao: hoje + 30 dias,
+  recebido: false,
+  fonte: 'stripe',
+  stripe_payment_intent_id: pi_xxx,  // UNIQUE evita duplicar
+  user_id: userId,
+})
 ```
-TARGET_SETS atual: `['sv3pt5', 'sv9']` (151 e Journey Together)
+
+UPSERT por `stripe_payment_intent_id` previne lançamento duplicado se webhook for chamado 2x.
+
+A UI já está pronta pra renderizar com badge roxo "Stripe" e modal restrito.
+
+### ⚠️ scan-sets — Retomar quando tiver crédito ZenRows
+
+ZenRows renova em 26/05/2026. (Sem mudança da sessão 19.)
 
 ### Cache Pokédex — Após mudanças no banco
+
 ```
 https://www.bynx.gg/api/pokedex?refresh=1
 https://www.bynx.gg/api/pokedex/species?refresh=1
 ```
 
 ### A partir de 01/05/2026 — Sistema de Preços
-- Migrar de `card_prices` → `pokemon_cards` na busca
-- Autocomplete por nome na Minha Coleção
-- Pokédex lendo preços direto do Supabase
+
+* Migrar de `card_prices` → `pokemon_cards` na busca
+* Autocomplete por nome na Minha Coleção
+* Pokédex lendo preços direto do Supabase
 
 ---
 
@@ -200,14 +233,24 @@ https://www.bynx.gg/api/pokedex/species?refresh=1
 5. **A partir de 01/05/2026** → melhorias sistema de preços
 6. **Turbopack não aceita IIFE complexos** → extrair para componente separado
 7. **PostgREST limita 1000 rows** → usar `.range()` em lotes para dados grandes
+8. **NOVA — bloco git de instalação** sempre com paths absolutos do Mac do Du:
+   - Origem: `/Users/eduardowillian/Downloads/_____tcg-app/`
+   - Destino: `/Users/eduardowillian/tcg-app/`
+   - Commit message **sem caracteres especiais** (sem R$, sem acento em variáveis técnicas) pra não quebrar shell
 
 ---
 
 ## Key Learnings Dessa Sessão
 
-- **PostgREST hardcap de 1000 rows:** `.limit(2000)` é ignorado — usar `.range(0,999)` + `.range(1000,1999)` em paralelo
-- **Turbopack IIFE bug:** `{selectedCard && (() => { ... })()}` com JSX complexo causa "Unterminated regexp literal" — sempre extrair para componente separado
-- **pokemondb.net hotlink:** bloqueado por `Referer` header — `referrerPolicy="no-referrer"` bypassa
-- **ArrayBuffer vs Buffer:** TypeScript strict mode não aceita `Buffer` como `body` no fetch — usar `ArrayBuffer` retornado direto de `res.arrayBuffer()`
-- **Supabase Storage:** bucket `card-images` público — URL permanente, CDN global, sem dependência da Liga
+* **Schema legado coexiste com schema novo:** tabela `lojas` tem `motivo_suspensao` (legado vazio) **e** `suspensao_motivo` (novo). Sempre confirmar nome real da coluna antes de codar; o briefing pode estar desalinhado com produção.
+* **MEI tem regra simples:** DAS fixo mensal, sem alíquota %. Limite anual R$ 81k. UI deve mostrar % do limite consumido pra usuário planejar virada pra Simples Nacional antes de estourar.
+* **Stripe D+30 importa pra fluxo de caixa real:** registrar 2 datas separadas (`data_competencia` quando vendeu + `data_liquidacao` quando dinheiro caiu) permite ver "faturei hoje" vs "recebi hoje" em telas diferentes.
+* **JSONB pra sub-itens é o sweet spot** quando você quer agrupamento simples sem complicar o schema com tabela filha. Trade-off: sub-itens não são "lançamentos de verdade" (sem filtro/busca individual), mas pra controle interno é suficiente.
+* **Workflow de bloco git único** funciona muito bem: gerar todos os arquivos de uma vez, dar `cp` + `mkdir -p` + `git add . && commit && push` num só comando. Du cola uma vez e está em produção.
+* **`UNIQUE` constraint em coluna de webhook (Stripe Payment Intent ID)** é a melhor proteção contra duplicação por retry — webhook pode ser chamado 2x e o INSERT só passa uma vez.
 
+---
+
+## Footer
+
+Sessão 20 fechou: Admin com 5 áreas funcionando (Dashboard, Tickets, Lojas, Usuários, Financeiro). Próximo grande passo é integrar Stripe webhook com `lancamentos` quando começar a entrar receita real.
