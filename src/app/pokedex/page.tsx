@@ -54,12 +54,17 @@ function cleanPokemonName(name: string): string {
 // Sprite do Pokémon via PokeAPI
 function getPokemonSprite(name: string, dexId: number): string {
   if (dexId <= 0) return ''
-  // Official artwork: melhor qualidade, funciona até #1010
-  // HOME sprites: cobre Gen IX DLC (#1011+)
-  if (dexId >= 1001) {  // Gen IX DLC Pokémon
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexId}.png`
-  }
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`
+  const urlName = name
+    .toLowerCase()
+    .replace(/[\u2019']/g, '')
+    .replace(/\u2640/g, '-f')
+    .replace(/\u2642/g, '-m')
+    .replace(/[éèêë]/g, 'e')
+    .replace(/[.:]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  return `https://img.pokemondb.net/sprites/home/normal/${urlName}.png`
 }
 
 const fmt = (v: any) => v && Number(v) > 0
@@ -405,15 +410,14 @@ export default function Pokedex() {
                           <img
                             src={pokemon.sprite}
                             alt={pokemon.name}
+                            referrerPolicy="no-referrer"
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                             onError={(e) => {
                               const img = e.target as HTMLImageElement
-                              if (img.src.includes('official-artwork') && pokemon.dexId > 0) {
-                                // Fallback: HOME sprite
-                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${pokemon.dexId}.png`
-                              } else if (img.src.includes('/home/') && pokemon.dexId > 0) {
-                                // Fallback: sprite estático básico
-                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.dexId}.png`
+                              // Fallback: PokeAPI official-artwork se pokemondb falhar
+                              if (!img.src.includes('pokemontcg.io') && pokemon.dexId > 0) {
+                                img.referrerPolicy = 'no-referrer'
+                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.dexId}.png`
                               } else {
                                 img.style.display = 'none'
                               }
