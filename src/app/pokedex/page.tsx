@@ -51,20 +51,11 @@ function cleanPokemonName(name: string): string {
     .trim()
 }
 
-// Sprite do Pokémon via PokeAPI
+// Sprite do Pokémon via PokeAPI (cobre todos incluindo Gen IX DLC)
 function getPokemonSprite(name: string, dexId: number): string {
   if (dexId <= 0) return ''
-  const urlName = name
-    .toLowerCase()
-    .replace(/[\u2019']/g, '')
-    .replace(/\u2640/g, '-f')
-    .replace(/\u2642/g, '-m')
-    .replace(/[éèêë]/g, 'e')
-    .replace(/[.:]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim()
-  return `https://img.pokemondb.net/sprites/home/normal/${urlName}.png`
+  // HOME sprites: melhor qualidade, cobre até #1025
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexId}.png`
 }
 
 const fmt = (v: any) => v && Number(v) > 0
@@ -410,14 +401,12 @@ export default function Pokedex() {
                           <img
                             src={pokemon.sprite}
                             alt={pokemon.name}
-                            referrerPolicy="no-referrer"
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                             onError={(e) => {
                               const img = e.target as HTMLImageElement
-                              // Fallback: PokeAPI official-artwork se pokemondb falhar
-                              if (!img.src.includes('pokemontcg.io') && pokemon.dexId > 0) {
-                                img.referrerPolicy = 'no-referrer'
-                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.dexId}.png`
+                              // Fallback: sprite estático (sempre disponível)
+                              if (img.src.includes('/home/') && pokemon.dexId > 0) {
+                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.dexId}.png`
                               } else {
                                 img.style.display = 'none'
                               }
