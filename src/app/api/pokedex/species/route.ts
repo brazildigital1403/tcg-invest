@@ -16,6 +16,7 @@ export async function GET() {
     .from('pokemon_species')
     .select('dex_id, name_en')
     .order('dex_id')
+    .limit(2000)
   cache = { data: data || [], ts: Date.now() }
   return NextResponse.json({ species: data || [] })
 }
