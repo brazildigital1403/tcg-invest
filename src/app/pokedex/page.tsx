@@ -51,20 +51,11 @@ function cleanPokemonName(name: string): string {
     .trim()
 }
 
-// Sprite do Pokémon por nome (PokémonDB — sempre atualizado, inclui DLC Gen IX)
+// Sprite do Pokémon via PokeAPI (cobre todos incluindo Gen IX DLC)
 function getPokemonSprite(name: string, dexId: number): string {
-  // Normaliza nome para URL do PokémonDB
-  const urlName = name
-    .toLowerCase()
-    .replace(/['']/g, '')          // Farfetch'd → farfetchd
-    .replace(/[♀]/g, '-f')        // Nidoran♀ → nidoran-f
-    .replace(/[♂]/g, '-m')        // Nidoran♂ → nidoran-m
-    .replace(/[é]/g, 'e')         // Flabébé → flabebe
-    .replace(/[.:]/g, '')         // Type: Null → type null → type-null
-    .replace(/\s+/g, '-')         // Iron Leaves → iron-leaves
-    .replace(/-+/g, '-')          // evita duplo hífen
-    .trim()
-  return `https://img.pokemondb.net/sprites/home/normal/${urlName}.png`
+  if (dexId <= 0) return ''
+  // HOME sprites: melhor qualidade, cobre até #1025
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexId}.png`
 }
 
 const fmt = (v: any) => v && Number(v) > 0
@@ -413,12 +404,11 @@ export default function Pokedex() {
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                             onError={(e) => {
                               const img = e.target as HTMLImageElement
-                              // Fallback 1: PokeAPI artwork
-                              if (!img.src.includes('pokemontcg') && !img.src.includes('pokeapi') && pokemon.dexId > 0) {
-                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.dexId}.png`
+                              // Fallback: sprite estático (sempre disponível)
+                              if (img.src.includes('/home/') && pokemon.dexId > 0) {
+                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.dexId}.png`
                               } else {
-                                // Fallback 2: imagem da carta
-                                img.src = pokemon.image || ''
+                                img.style.display = 'none'
                               }
                             }}
                           />
