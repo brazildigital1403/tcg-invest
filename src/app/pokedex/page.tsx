@@ -54,11 +54,11 @@ function cleanPokemonName(name: string): string {
 // Sprite do Pokémon via PokeAPI
 function getPokemonSprite(name: string, dexId: number): string {
   if (dexId <= 0) return ''
-  // Gen IX DLC (#1001+): pokemondb ainda não tem — usa PokeAPI direto
+  // Gen I-VIII: pokemondb (alta qualidade) com no-referrer
+  // Gen IX DLC: PokeAPI official-artwork (cobre #1001-#1025)
   if (dexId >= 1001) {
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dexId}.png`
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`
   }
-  // Gen I-VIII: pokemondb (alta qualidade)
   const urlName = name
     .toLowerCase()
     .replace(/[\u2019']/g, '')
@@ -419,10 +419,13 @@ export default function Pokedex() {
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                             onError={(e) => {
                               const img = e.target as HTMLImageElement
-                              // Fallback: PokeAPI official-artwork se pokemondb falhar
-                              if (!img.src.includes('pokemontcg.io') && pokemon.dexId > 0) {
-                                img.referrerPolicy = 'no-referrer'
+                              const src = img.src
+                              if (src.includes('pokemondb') && pokemon.dexId > 0) {
                                 img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.dexId}.png`
+                              } else if (src.includes('official-artwork') && pokemon.dexId > 0) {
+                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${pokemon.dexId}.png`
+                              } else if (src.includes('/home/') && pokemon.dexId > 0) {
+                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.dexId}.png`
                               } else {
                                 img.style.display = 'none'
                               }
