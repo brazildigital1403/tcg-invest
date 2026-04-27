@@ -51,12 +51,20 @@ function cleanPokemonName(name: string): string {
     .trim()
 }
 
-// Sprite oficial do PokeAPI (por nome lowercase)
+// Sprite do Pokémon por nome (PokémonDB — sempre atualizado, inclui DLC Gen IX)
 function getPokemonSprite(name: string, dexId: number): string {
-  if (dexId > 0 && dexId <= 1025) {
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`
-  }
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dexId}.png`
+  // Normaliza nome para URL do PokémonDB
+  const urlName = name
+    .toLowerCase()
+    .replace(/['']/g, '')          // Farfetch'd → farfetchd
+    .replace(/[♀]/g, '-f')        // Nidoran♀ → nidoran-f
+    .replace(/[♂]/g, '-m')        // Nidoran♂ → nidoran-m
+    .replace(/[é]/g, 'e')         // Flabébé → flabebe
+    .replace(/[.:]/g, '')         // Type: Null → type null → type-null
+    .replace(/\s+/g, '-')         // Iron Leaves → iron-leaves
+    .replace(/-+/g, '-')          // evita duplo hífen
+    .trim()
+  return `https://img.pokemondb.net/sprites/home/normal/${urlName}.png`
 }
 
 const fmt = (v: any) => v && Number(v) > 0
@@ -403,7 +411,16 @@ export default function Pokedex() {
                             src={pokemon.sprite}
                             alt={pokemon.name}
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                            onError={(e) => { (e.target as HTMLImageElement).src = pokemon.image || '' }}
+                            onError={(e) => {
+                              const img = e.target as HTMLImageElement
+                              // Fallback 1: PokeAPI artwork
+                              if (!img.src.includes('pokemontcg') && !img.src.includes('pokeapi') && pokemon.dexId > 0) {
+                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.dexId}.png`
+                              } else {
+                                // Fallback 2: imagem da carta
+                                img.src = pokemon.image || ''
+                              }
+                            }}
                           />
                         ) : (
                           <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎴</div>
