@@ -5,6 +5,8 @@ import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────
 
+type DetalheItem = { descricao: string; valor: number }
+
 type Cards = {
   faturamento:    { valor: number; trend: number }
   despesas_pagas: { valor: number; trend: number }
@@ -44,6 +46,7 @@ type Lancamento = {
   recebido: boolean
   fonte: 'manual' | 'stripe' | 'outro'
   observacao: string | null
+  detalhes: DetalheItem[] | null
 }
 
 const CATEGORIAS_DESPESA = ['infra','marketing','dominio','pagamentos','impostos','outros']
@@ -98,6 +101,9 @@ export default function AdminFinanceiroPage() {
   const [loadingDash, setLoadingDash] = useState(true)
   const [busy,    setBusy]    = useState(false)
 
+  // Expansão de linhas com sub-itens
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
   // Modais
   const [showModalRec, setShowModalRec]   = useState(false)
   const [editingRec,   setEditingRec]     = useState<DespesaRecorrente | null>(null)
@@ -144,6 +150,15 @@ export default function AdminFinanceiroPage() {
 
   async function refreshAll() {
     await Promise.all([loadDashboard(), loadRecs(), loadLanc()])
+  }
+
+  function toggleExpand(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   // ─── Ações lançamentos ─────────────────────────────────────────────
@@ -323,14 +338,7 @@ export default function AdminFinanceiroPage() {
                       {d.observacao && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{d.observacao}</div>}
                     </td>
                     <td style={td}>
-                      <span style={{
-                        fontSize: 11, fontWeight: 700,
-                        padding: '3px 8px', borderRadius: 100,
-                        color: CAT_COLORS[d.categoria], background: `${CAT_COLORS[d.categoria]}14`,
-                        border: `1px solid ${CAT_COLORS[d.categoria]}33`,
-                      }}>
-                        {CAT_LABELS[d.categoria]}
-                      </span>
+                      <CatBadge categoria={d.categoria} />
                     </td>
                     <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: '#f0f0f0' }}>
                       {fmtBRL(Number(d.valor_mensal))}
@@ -392,6 +400,7 @@ export default function AdminFinanceiroPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
+                  <th style={{ ...th, width: 28 }}></th>
                   <th style={th}>Data</th>
                   <th style={th}>Descrição</th>
                   <th style={th}>Categoria</th>
@@ -404,44 +413,110 @@ export default function AdminFinanceiroPage() {
                 {lanc.map(l => {
                   const isReceita = l.tipo === 'receita'
                   const ok = isReceita ? l.recebido : l.pago
+                  const temDetalhes = !!(l.detalhes && l.detalhes.length > 0)
+                  const aberto = expandedIds.has(l.id)
                   return (
-                    <tr key={l.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ ...td, color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{fmtData(l.data_competencia)}</td>
-                      <td style={td}>
-                        <div style={{ fontWeight: 600 }}>{l.descricao}</div>
-                        {l.observacao && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{l.observacao}</div>}
-                      </td>
-                      <td style={td}>
-                        <span style={{
-                          fontSize: 11, fontWeight: 700,
-                          padding: '3px 8px', borderRadius: 100,
-                          color: CAT_COLORS[l.categoria], background: `${CAT_COLORS[l.categoria]}14`,
-                          border: `1px solid ${CAT_COLORS[l.categoria]}33`,
+                    <>
+                      <tr key={l.id}
+                        style={{
+                          borderTop: '1px solid rgba(255,255,255,0.05)',
+                          background: aberto ? 'rgba(245,158,11,0.04)' : undefined,
                         }}>
-                          {CAT_LABELS[l.categoria]}
-                        </span>
-                      </td>
-                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: isReceita ? '#22c55e' : '#ef4444' }}>
-                        {isReceita ? '+' : '−'} {fmtBRL(Number(l.valor_bruto))}
-                      </td>
-                      <td style={{ ...td, textAlign: 'center' }}>
-                        <span style={{
-                          fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
-                          padding: '3px 8px', borderRadius: 100,
-                          color: ok ? '#22c55e' : '#f59e0b',
-                          background: ok ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)',
-                          border: `1px solid ${ok ? 'rgba(34,197,94,0.25)' : 'rgba(245,158,11,0.3)'}`,
-                        }}>
-                          {ok ? (isReceita ? 'Recebido' : 'Pago') : 'Pendente'}
-                        </span>
-                      </td>
-                      <td style={{ ...td, textAlign: 'right' }}>
-                        <button onClick={() => marcarPago(l)} disabled={busy} style={btnIcon(ok ? 'rgba(255,255,255,0.5)' : '#22c55e')}>
-                          {ok ? 'Reverter' : isReceita ? 'Receber' : 'Pagar'}
-                        </button>
-                        <button onClick={() => deletarLanc(l)} disabled={busy} style={btnIcon('#ef4444')}>Excluir</button>
-                      </td>
-                    </tr>
+                        <td style={{ ...td, padding: '12px 6px', textAlign: 'center' }}>
+                          {temDetalhes ? (
+                            <button onClick={() => toggleExpand(l.id)}
+                              aria-label={aberto ? 'Recolher' : 'Expandir'}
+                              style={{
+                                background: aberto ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
+                                border: `1px solid ${aberto ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                                color: aberto ? '#f59e0b' : 'rgba(255,255,255,0.6)',
+                                width: 22, height: 22, borderRadius: 6,
+                                cursor: 'pointer', fontSize: 11, fontWeight: 800,
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                fontFamily: 'inherit',
+                                transition: 'transform 0.15s',
+                                transform: aberto ? 'rotate(90deg)' : 'none',
+                              }}>
+                              ▶
+                            </button>
+                          ) : null}
+                        </td>
+                        <td style={{ ...td, color: 'rgba(255,255,255,0.6)', fontVariantNumeric: 'tabular-nums' }}>{fmtData(l.data_competencia)}</td>
+                        <td style={td}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 600 }}>{l.descricao}</span>
+                            {temDetalhes && (
+                              <span style={{
+                                fontSize: 10, fontWeight: 700,
+                                padding: '2px 7px', borderRadius: 100,
+                                color: '#f59e0b', background: 'rgba(245,158,11,0.1)',
+                                border: '1px solid rgba(245,158,11,0.25)',
+                              }}>
+                                {l.detalhes!.length} {l.detalhes!.length === 1 ? 'item' : 'itens'}
+                              </span>
+                            )}
+                          </div>
+                          {l.observacao && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{l.observacao}</div>}
+                        </td>
+                        <td style={td}>
+                          <CatBadge categoria={l.categoria} />
+                        </td>
+                        <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: isReceita ? '#22c55e' : '#ef4444' }}>
+                          {isReceita ? '+' : '−'} {fmtBRL(Number(l.valor_bruto))}
+                        </td>
+                        <td style={{ ...td, textAlign: 'center' }}>
+                          <span style={{
+                            fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
+                            padding: '3px 8px', borderRadius: 100,
+                            color: ok ? '#22c55e' : '#f59e0b',
+                            background: ok ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)',
+                            border: `1px solid ${ok ? 'rgba(34,197,94,0.25)' : 'rgba(245,158,11,0.3)'}`,
+                          }}>
+                            {ok ? (isReceita ? 'Recebido' : 'Pago') : 'Pendente'}
+                          </span>
+                        </td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          <button onClick={() => marcarPago(l)} disabled={busy} style={btnIcon(ok ? 'rgba(255,255,255,0.5)' : '#22c55e')}>
+                            {ok ? 'Reverter' : isReceita ? 'Receber' : 'Pagar'}
+                          </button>
+                          <button onClick={() => deletarLanc(l)} disabled={busy} style={btnIcon('#ef4444')}>Excluir</button>
+                        </td>
+                      </tr>
+
+                      {/* ─── Linha expansível com sub-itens ─── */}
+                      {temDetalhes && aberto && (
+                        <tr key={l.id + '-detail'} style={{ background: 'rgba(245,158,11,0.03)' }}>
+                          <td colSpan={7} style={{ padding: '4px 14px 14px 56px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ ...th, padding: '8px 10px', borderBottom: '1px solid rgba(245,158,11,0.15)' }}>Sub-item</th>
+                                  <th style={{ ...th, padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid rgba(245,158,11,0.15)' }}>Valor</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {l.detalhes!.map((item, i) => (
+                                  <tr key={i}>
+                                    <td style={{ padding: '6px 10px', color: 'rgba(255,255,255,0.75)' }}>{item.descricao}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.75)' }}>
+                                      {fmtBRL(Number(item.valor))}
+                                    </td>
+                                  </tr>
+                                ))}
+                                <tr>
+                                  <td style={{ padding: '8px 10px', borderTop: '1px solid rgba(245,158,11,0.2)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.55)' }}>
+                                    Total ({l.detalhes!.length} {l.detalhes!.length === 1 ? 'item' : 'itens'})
+                                  </td>
+                                  <td style={{ padding: '8px 10px', borderTop: '1px solid rgba(245,158,11,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: '#f59e0b' }}>
+                                    {fmtBRL(Number(l.valor_bruto))}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   )
                 })}
               </tbody>
@@ -513,6 +588,20 @@ function Card({ label, valor, trend, color, trendInvertido, subtitle }: {
   )
 }
 
+function CatBadge({ categoria }: { categoria: string }) {
+  const c = CAT_COLORS[categoria] || 'rgba(255,255,255,0.4)'
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700,
+      padding: '3px 8px', borderRadius: 100,
+      color: c, background: `${c}14`,
+      border: `1px solid ${c}33`,
+    }}>
+      {CAT_LABELS[categoria] || categoria}
+    </span>
+  )
+}
+
 function ChartLinha({ rows }: { rows: { mes: string; receita: number; despesa: number }[] }) {
   const max = Math.max(1, ...rows.map(r => Math.max(r.receita, r.despesa)))
   const W = 600, H = 200, padX = 40, padY = 30
@@ -531,18 +620,14 @@ function ChartLinha({ rows }: { rows: { mes: string; receita: number; despesa: n
         <span style={{ fontSize: 12, color: '#ef4444', fontWeight: 700 }}>● Despesa</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
-        {/* Grid horizontal */}
         {[0, 0.25, 0.5, 0.75, 1].map(p => {
           const y = padY + innerH * p
           return <line key={p} x1={padX} x2={W - padX} y1={y} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
         })}
-        {/* Eixo Y label */}
         <text x={4} y={padY + 4} fill="rgba(255,255,255,0.3)" fontSize="10">{fmtBRL(max)}</text>
         <text x={4} y={H - padY + 4} fill="rgba(255,255,255,0.3)" fontSize="10">R$ 0</text>
-        {/* Linhas */}
         <path d={pathReceita} fill="none" stroke="#22c55e" strokeWidth="2" />
         <path d={pathDespesa} fill="none" stroke="#ef4444" strokeWidth="2" />
-        {/* Pontos */}
         {rows.map((r, i) => (
           <g key={i}>
             <circle cx={padX + i * stepX} cy={padY + innerH - (r.receita / max) * innerH} r="3" fill="#22c55e" />
@@ -689,6 +774,8 @@ function ModalDespesaRec({ editing, onClose, onSaved, showAlert }: {
   )
 }
 
+// ─── Modal Lançamento com sub-itens ─────────────────────────────────
+
 function ModalLancamento({ onClose, onSaved, showAlert }: {
   onClose: () => void
   onSaved: () => Promise<void>
@@ -704,32 +791,75 @@ function ModalLancamento({ onClose, onSaved, showAlert }: {
   const [observacao,setObs]       = useState('')
   const [saving,    setSaving]    = useState(false)
 
+  // ─── Sub-itens ───────────────────────────────────────────────────
+  const [usaSubItens, setUsaSubItens] = useState(false)
+  const [subItens, setSubItens] = useState<DetalheItem[]>([{ descricao: '', valor: 0 }])
+
   const cats = tipo === 'despesa' ? CATEGORIAS_DESPESA : CATEGORIAS_RECEITA
 
-  // Reset categoria quando muda tipo
   useEffect(() => {
     setCategoria(tipo === 'despesa' ? 'infra' : 'assinatura')
   }, [tipo])
 
+  const totalSubItens = subItens.reduce((s, i) => s + (Number(i.valor) || 0), 0)
+
+  function addSubItem() {
+    setSubItens([...subItens, { descricao: '', valor: 0 }])
+  }
+  function updateSubItem(idx: number, field: 'descricao'|'valor', value: string) {
+    const next = [...subItens]
+    if (field === 'valor') {
+      next[idx].valor = parseFloat(value.replace(',', '.')) || 0
+    } else {
+      next[idx].descricao = value
+    }
+    setSubItens(next)
+  }
+  function removeSubItem(idx: number) {
+    if (subItens.length === 1) {
+      setSubItens([{ descricao: '', valor: 0 }])
+      return
+    }
+    setSubItens(subItens.filter((_, i) => i !== idx))
+  }
+
   async function salvar() {
-    const v = parseFloat(valor.replace(',', '.'))
-    if (!Number.isFinite(v) || v < 0) return showAlert('Valor inválido', 'warning')
-    const t = taxa ? parseFloat(taxa.replace(',', '.')) : 0
-    if (!Number.isFinite(t) || t < 0) return showAlert('Taxa inválida', 'warning')
     if (!descricao.trim()) return showAlert('Descrição obrigatória', 'warning')
+
+    let body: any = {
+      tipo, descricao, categoria,
+      data_competencia: dataComp,
+      pago:     tipo === 'despesa' ? pago : undefined,
+      recebido: tipo === 'receita' ? pago : undefined,
+      fonte: 'manual',
+      observacao,
+    }
+
+    if (usaSubItens) {
+      // Valida sub-itens
+      const validos = subItens.filter(i => i.descricao.trim() && Number(i.valor) > 0)
+      if (validos.length === 0) {
+        return showAlert('Adicione pelo menos 1 sub-item válido (descrição + valor)', 'warning')
+      }
+      body.detalhes = validos.map(i => ({ descricao: i.descricao.trim(), valor: Number(i.valor) }))
+      // valor_bruto vem da soma — backend recalcula
+      const t = taxa ? parseFloat(taxa.replace(',', '.')) : 0
+      if (!Number.isFinite(t) || t < 0) return showAlert('Taxa inválida', 'warning')
+      body.taxa = t
+    } else {
+      const v = parseFloat(valor.replace(',', '.'))
+      if (!Number.isFinite(v) || v < 0) return showAlert('Valor inválido', 'warning')
+      const t = taxa ? parseFloat(taxa.replace(',', '.')) : 0
+      if (!Number.isFinite(t) || t < 0) return showAlert('Taxa inválida', 'warning')
+      body.valor_bruto = v
+      body.taxa = t
+    }
 
     setSaving(true)
     const r = await fetch('/api/admin/financeiro/lancamentos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tipo, valor_bruto: v, taxa: t, descricao, categoria,
-        data_competencia: dataComp,
-        pago:     tipo === 'despesa' ? pago : undefined,
-        recebido: tipo === 'receita' ? pago : undefined,
-        fonte: 'manual',
-        observacao,
-      }),
+      body: JSON.stringify(body),
     })
     setSaving(false)
     if (!r.ok) {
@@ -741,7 +871,7 @@ function ModalLancamento({ onClose, onSaved, showAlert }: {
 
   return (
     <div style={overlay} onClick={onClose}>
-      <div style={modalBox} onClick={e => e.stopPropagation()}>
+      <div style={{ ...modalBox, maxWidth: 560 }} onClick={e => e.stopPropagation()}>
         <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 18px', color: '#f0f0f0' }}>Novo lançamento manual</h3>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -749,18 +879,9 @@ function ModalLancamento({ onClose, onSaved, showAlert }: {
           <button onClick={() => setTipo('receita')} style={tabButton(tipo === 'receita', '#22c55e')}>Receita</button>
         </div>
 
-        <Field label="Descrição">
-          <input value={descricao} onChange={e => setDesc(e.target.value)} placeholder="Ex: Pagamento freelancer X" style={inputStyle} />
+        <Field label="Descrição (do lançamento principal)">
+          <input value={descricao} onChange={e => setDesc(e.target.value)} placeholder="Ex: ZenRows abr/2026" style={inputStyle} />
         </Field>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <Field label="Valor bruto (R$)">
-            <input value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" inputMode="decimal" style={inputStyle} />
-          </Field>
-          <Field label={tipo === 'receita' ? 'Taxa (R$)' : 'Outras taxas (R$)'}>
-            <input value={taxa} onChange={e => setTaxa(e.target.value)} placeholder="0,00" inputMode="decimal" style={inputStyle} />
-          </Field>
-        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <Field label="Categoria">
@@ -772,6 +893,105 @@ function ModalLancamento({ onClose, onSaved, showAlert }: {
             <input type="date" value={dataComp} onChange={e => setDataComp(e.target.value)} style={inputStyle} />
           </Field>
         </div>
+
+        {/* ─── Toggle sub-itens ─── */}
+        <div style={{
+          marginTop: 10, marginBottom: 14,
+          padding: '12px 14px', borderRadius: 10,
+          background: usaSubItens ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.03)',
+          border: `1px solid ${usaSubItens ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.08)'}`,
+        }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: usaSubItens ? '#f59e0b' : 'rgba(255,255,255,0.75)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={usaSubItens} onChange={e => setUsaSubItens(e.target.checked)} />
+            Agrupar sub-itens (várias cobranças num só lançamento)
+          </label>
+          {usaSubItens && (
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '6px 0 0 22px' }}>
+              O valor total será calculado automaticamente pela soma dos sub-itens.
+            </p>
+          )}
+        </div>
+
+        {/* ─── Bloco de valor (sem sub-itens) OU bloco de sub-itens ─── */}
+        {!usaSubItens ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Field label="Valor bruto (R$)">
+              <input value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" inputMode="decimal" style={inputStyle} />
+            </Field>
+            <Field label={tipo === 'receita' ? 'Taxa Stripe (R$)' : 'Outras taxas (R$)'}>
+              <input value={taxa} onChange={e => setTaxa(e.target.value)} placeholder="0,00" inputMode="decimal" style={inputStyle} />
+            </Field>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Sub-itens
+              </label>
+              <button onClick={addSubItem} type="button" style={{
+                background: 'rgba(245,158,11,0.1)',
+                border: '1px solid rgba(245,158,11,0.3)',
+                color: '#f59e0b',
+                padding: '4px 10px', borderRadius: 6,
+                fontSize: 11, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                + Adicionar item
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+              {subItens.map((item, idx) => (
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 32px', gap: 6, alignItems: 'center' }}>
+                  <input
+                    value={item.descricao}
+                    onChange={e => updateSubItem(idx, 'descricao', e.target.value)}
+                    placeholder={`Item ${idx + 1}`}
+                    style={{ ...inputStyle, padding: '7px 10px', fontSize: 13 }}
+                  />
+                  <input
+                    value={item.valor || ''}
+                    onChange={e => updateSubItem(idx, 'valor', e.target.value)}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    style={{ ...inputStyle, padding: '7px 10px', fontSize: 13, textAlign: 'right' }}
+                  />
+                  <button onClick={() => removeSubItem(idx)} type="button" style={{
+                    background: 'rgba(239,68,68,0.08)',
+                    border: '1px solid rgba(239,68,68,0.25)',
+                    color: '#ef4444',
+                    width: 32, height: 32, borderRadius: 6,
+                    cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'inherit',
+                  }} aria-label="Remover">
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 12px', borderRadius: 8,
+              background: 'rgba(245,158,11,0.06)',
+              border: '1px solid rgba(245,158,11,0.2)',
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.6)' }}>
+                Total ({subItens.length} {subItens.length === 1 ? 'item' : 'itens'})
+              </span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: '#f59e0b', fontVariantNumeric: 'tabular-nums' }}>
+                {fmtBRL(totalSubItens)}
+              </span>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <Field label={tipo === 'receita' ? 'Taxa Stripe (R$, opcional)' : 'Taxa adicional (R$, opcional)'}>
+                <input value={taxa} onChange={e => setTaxa(e.target.value)} placeholder="0,00" inputMode="decimal" style={inputStyle} />
+              </Field>
+            </div>
+          </div>
+        )}
 
         <Field label="Observação (opcional)">
           <input value={observacao} onChange={e => setObs(e.target.value)} placeholder="..." style={inputStyle} />

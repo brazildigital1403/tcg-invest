@@ -11,14 +11,36 @@ function supabaseAdmin() {
 const CATEGORIAS_TODAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'assinatura', 'outros']
 const CATEGORIAS_DESPESA = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'outros']
 
+// ─── Tipo do sub-item ─────────────────────────────────────────────────
+// detalhes: [{ descricao: string, valor: number }, ...]
+
+function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string; valor: number }[] } | { ok: false; error: string } {
+  if (detalhes === null || detalhes === undefined) return { ok: true, lista: [] }
+  if (!Array.isArray(detalhes)) return { ok: false, error: 'detalhes deve ser um array' }
+
+  const lista: { descricao: string; valor: number }[] = []
+  for (let i = 0; i < detalhes.length; i++) {
+    const d = detalhes[i]
+    if (!d || typeof d !== 'object') return { ok: false, error: `Item ${i + 1}: formato inválido` }
+    const descricao = String(d.descricao || '').trim()
+    if (!descricao) return { ok: false, error: `Item ${i + 1}: descrição obrigatória` }
+    const valor = Number(d.valor)
+    if (!Number.isFinite(valor) || valor < 0) {
+      return { ok: false, error: `Item ${i + 1}: valor inválido` }
+    }
+    lista.push({ descricao, valor: Math.round(valor * 100) / 100 })
+  }
+  return { ok: true, lista }
+}
+
 // GET /api/admin/financeiro/lancamentos?tipo=&categoria=&status=&from=&to=&page=&perPage=
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const tipo      = searchParams.get('tipo')      // 'despesa' | 'receita'
+    const tipo      = searchParams.get('tipo')
     const categoria = searchParams.get('categoria')
-    const status    = searchParams.get('status')    // 'pago' | 'pendente'
-    const from      = searchParams.get('from')      // YYYY-MM-DD
+    const status    = searchParams.get('status')
+    const from      = searchParams.get('from')
     const to        = searchParams.get('to')
     const page      = Math.max(1, Number(searchParams.get('page') || 1))
     const perPage   = Math.min(100, Number(searchParams.get('perPage') || 30))
@@ -60,7 +82,11 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/admin/financeiro/lancamentos
-// Body: { tipo, valor_bruto, taxa?, descricao, categoria, data_competencia, data_liquidacao?, pago?, recebido?, fonte?, observacao? }
+// Body: { tipo, valor_bruto?, taxa?, descricao, categoria, data_competencia, data_liquidacao?, pago?, recebido?, fonte?, observacao?, detalhes? }
+//
+// Regra de soma:
+//   - Se `detalhes` for um array com 1+ itens, valor_bruto vem da SOMA dos itens (ignora valor_bruto enviado)
+//   - Se `detalhes` for vazio/null, valor_bruto é obrigatório no body
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
@@ -70,9 +96,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tipo inválido (despesa|receita)' }, { status: 400 })
     }
 
-    const valorBruto = Number(body.valor_bruto)
-    if (!Number.isFinite(valorBruto) || valorBruto < 0) {
-      return NextResponse.json({ error: 'Valor bruto inválido' }, { status: 400 })
+    // ─── Valida detalhes ───────────────────────────────────────────
+    const det = validarDetalhes(body.detalhes)
+    if (!det.ok) return NextResponse.json({ error: det.error }, { status: 400 })
+
+    // ─── Calcula valor_bruto ──────────────────────────────────────
+    let valorBruto: number
+    if (det.lista.length > 0) {
+      valorBruto = Math.round(det.lista.reduce((s, i) => s + i.valor, 0) * 100) / 100
+    } else {
+      valorBruto = Number(body.valor_bruto)
+      if (!Number.isFinite(valorBruto) || valorBruto < 0) {
+        return NextResponse.json({ error: 'Valor bruto inválido' }, { status: 400 })
+      }
     }
 
     const taxa = body.taxa !== undefined ? Number(body.taxa) : 0
@@ -114,6 +150,7 @@ export async function POST(req: NextRequest) {
       fonte: body.fonte && ['manual','stripe','outro'].includes(body.fonte) ? body.fonte : 'manual',
       despesa_recorrente_id: body.despesa_recorrente_id || null,
       observacao: body.observacao ? String(body.observacao).trim() : null,
+      detalhes:   det.lista.length > 0 ? det.lista : null,
     }
 
     const sb = supabaseAdmin()
