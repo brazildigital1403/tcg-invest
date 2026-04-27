@@ -51,11 +51,15 @@ function cleanPokemonName(name: string): string {
     .trim()
 }
 
-// Sprite do Pokémon via PokeAPI (cobre todos incluindo Gen IX DLC)
+// Sprite do Pokémon via PokeAPI
 function getPokemonSprite(name: string, dexId: number): string {
   if (dexId <= 0) return ''
-  // HOME sprites: melhor qualidade, cobre até #1025
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexId}.png`
+  // Official artwork: melhor qualidade, funciona até #1010
+  // HOME sprites: cobre Gen IX DLC (#1011+)
+  if (dexId >= 1001) {  // Gen IX DLC Pokémon
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${dexId}.png`
+  }
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`
 }
 
 const fmt = (v: any) => v && Number(v) > 0
@@ -404,8 +408,11 @@ export default function Pokedex() {
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                             onError={(e) => {
                               const img = e.target as HTMLImageElement
-                              // Fallback: sprite estático (sempre disponível)
-                              if (img.src.includes('/home/') && pokemon.dexId > 0) {
+                              if (img.src.includes('official-artwork') && pokemon.dexId > 0) {
+                                // Fallback: HOME sprite
+                                img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${pokemon.dexId}.png`
+                              } else if (img.src.includes('/home/') && pokemon.dexId > 0) {
+                                // Fallback: sprite estático básico
                                 img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.dexId}.png`
                               } else {
                                 img.style.display = 'none'
