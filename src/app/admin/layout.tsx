@@ -7,7 +7,6 @@ import { IconDashboard, IconChat, IconAccount, IconLogout } from '@/components/u
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
 // ─── Ícone de loja inline (storefront) ────────────────────────────────────
-// Se você já tem um IconStore/IconGuiaLojas no projeto, pode trocar.
 
 function IconStore({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
   return (
@@ -22,11 +21,25 @@ function IconStore({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: num
   )
 }
 
+// ─── Ícone de carteira/financeiro inline ──────────────────────────────────
+
+function IconWalletAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2.5" y="5.5" width="15" height="11" rx="2" stroke={color} strokeWidth="1.4" />
+      <path d="M2.5 9h15" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="14" cy="12.5" r="1" fill={color} />
+      <path d="M5 5.5V4a1 1 0 0 1 1.3-.95l8 2.5" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 const adminMenu = [
-  { label: 'Dashboard', href: '/admin',         Icon: IconDashboard },
-  { label: 'Tickets',   href: '/admin/tickets', Icon: IconChat      },
-  { label: 'Lojas',     href: '/admin/lojas',   Icon: IconStore     },
-  { label: 'Usuários',  href: '/admin/users',   Icon: IconAccount   },
+  { label: 'Dashboard',  href: '/admin',            Icon: IconDashboard    },
+  { label: 'Tickets',    href: '/admin/tickets',    Icon: IconChat         },
+  { label: 'Lojas',      href: '/admin/lojas',      Icon: IconStore        },
+  { label: 'Usuários',   href: '/admin/users',      Icon: IconAccount      },
+  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin  },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
