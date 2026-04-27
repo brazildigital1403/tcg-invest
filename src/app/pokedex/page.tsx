@@ -93,6 +93,7 @@ export default function Pokedex() {
   // Cartas do Pokémon selecionado
   const [cards, setCards]           = useState<any[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
+  const [selectedCard, setSelectedCard] = useState<any | null>(null)
 
   // Filtros do grid
   const [typeFilter, setTypeFilter] = useState('')
@@ -263,7 +264,13 @@ export default function Pokedex() {
         {view === 'cards' && selectedPokemon && (
           <div>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
+            {(() => {
+              const currentIdx = filteredPokemons.findIndex(p => p.name === selectedPokemon.name)
+              const prevP = currentIdx > 0 ? filteredPokemons[currentIdx - 1] : null
+              const nextP = currentIdx < filteredPokemons.length - 1 ? filteredPokemons[currentIdx + 1] : null
+              return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button
                 onClick={() => { setView('grid'); setSelectedPokemon(null) }}
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', padding: '10px 16px', borderRadius: 12, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit' }}
@@ -290,7 +297,31 @@ export default function Pokedex() {
                   </div>
                 </div>
               </div>
+              </div>
+              {/* Prev / Next */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => prevP && handleSelectPokemon(prevP)}
+                  disabled={!prevP}
+                  title={prevP ? `← ${prevP.name}` : ''}
+                  style={{ background: prevP ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.1)', color: prevP ? '#f0f0f0' : 'rgba(255,255,255,0.2)', padding: '8px 14px', borderRadius: 10, cursor: prevP ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  {prevP ? prevP.name : '—'}
+                </button>
+                <button
+                  onClick={() => nextP && handleSelectPokemon(nextP)}
+                  disabled={!nextP}
+                  title={nextP ? `${nextP.name} →` : ''}
+                  style={{ background: nextP ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.1)', color: nextP ? '#f0f0f0' : 'rgba(255,255,255,0.2)', padding: '8px 14px', borderRadius: 10, cursor: nextP ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+                >
+                  {nextP ? nextP.name : '—'}
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              </div>
             </div>
+              )
+            })()}
 
             {/* Grid de cartas */}
             {loadingCards ? (
@@ -310,13 +341,13 @@ export default function Pokedex() {
                       card={card}
                       mode="select"
                       exchangeRate={exchangeRate}
-                      onSelect={() => handleAddCard(card)}
+                      onSelect={() => setSelectedCard(card)}
                       badge={
                         <button
-                          onClick={e => { e.stopPropagation(); handleAddCard(card) }}
+                          onClick={e => { e.stopPropagation(); setSelectedCard(card) }}
                           style={{ background: 'rgba(245,158,11,0.9)', border: 'none', color: '#000', padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}
                         >
-                          + Coleção
+                          Ver detalhes
                         </button>
                       }
                     />
@@ -481,6 +512,64 @@ export default function Pokedex() {
         @keyframes spin { to { transform: rotate(360deg); } }
         select option { background: #1a1d24; color: #f0f0f0; }
       `}</style>
+
+      {/* ── Modal detalhe da carta ───────────────────────────────────── */}
+      {selectedCard && (
+        <div
+          onClick={() => setSelectedCard(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}
+          >
+            {/* Imagem grande */}
+            {(selectedCard.image_large || selectedCard.image_small) && (
+              <img
+                src={selectedCard.image_large || selectedCard.image_small}
+                alt={selectedCard.name}
+                style={{ width: '100%', borderRadius: 12, marginBottom: 16, display: 'block' }}
+              />
+            )}
+
+            {/* Infos */}
+            <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 4 }}>{selectedCard.name}</h2>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 16 }}>
+              {selectedCard.number && selectedCard.set_total ? `${selectedCard.number}/${selectedCard.set_total} · ` : ''}{selectedCard.set_name}
+              {selectedCard.rarity ? ` · ${selectedCard.rarity}` : ''}
+            </p>
+
+            {/* Preço */}
+            {(() => {
+              const p = selectedCard.price || selectedCard
+              const brl = parseFloat(p.preco_medio || p.preco_normal || 0)
+              const usd = parseFloat(p.price_usd_normal || p.price_usd_holofoil || 0)
+              return (brl > 0 || usd > 0) ? (
+                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', gap: 16 }}>
+                  {brl > 0 && <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>PREÇO BR</p><p style={{ fontSize: 18, fontWeight: 800, color: '#22c55e' }}>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(brl)}</p></div>}
+                  {usd > 0 && <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>USD</p><p style={{ fontSize: 18, fontWeight: 800, color: '#60a5fa' }}>${usd.toFixed(2)}</p></div>}
+                </div>
+              ) : null
+            })()}
+
+            {/* Botões */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setSelectedCard(null)}
+                style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', padding: '11px 0', borderRadius: 12, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Fechar
+              </button>
+              <button
+                onClick={() => { handleAddCard(selectedCard); setSelectedCard(null) }}
+                style={{ flex: 2, background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 0', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                + Adicionar à Coleção
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   )
 }
