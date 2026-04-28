@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -36,6 +37,9 @@ function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string;
 // GET /api/admin/financeiro/lancamentos?tipo=&categoria=&status=&from=&to=&page=&perPage=
 export async function GET(req: NextRequest) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { searchParams } = new URL(req.url)
     const tipo      = searchParams.get('tipo')
     const categoria = searchParams.get('categoria')
@@ -89,6 +93,9 @@ export async function GET(req: NextRequest) {
 //   - Se `detalhes` for vazio/null, valor_bruto é obrigatório no body
 export async function POST(req: NextRequest) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const body = await req.json().catch(() => ({}))
 
     const tipo = String(body.tipo || '')

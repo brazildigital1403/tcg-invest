@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -10,8 +11,11 @@ function supabaseAdmin() {
 
 // Auth: o middleware já garante que só admins chegam aqui
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const sb = supabaseAdmin()
     const now = new Date()
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()

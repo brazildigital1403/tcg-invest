@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -10,8 +11,11 @@ function supabaseAdmin() {
 
 // GET /api/admin/users/[id]/collection
 // Retorna as cartas do usuário com preços calculados
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const sb = supabaseAdmin()
 

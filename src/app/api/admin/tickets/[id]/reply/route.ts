@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendAdminReplyUserEmail } from '@/lib/email'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -13,6 +14,9 @@ function supabaseAdmin() {
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const body = await req.json().catch(() => ({}))
     const message   = String(body.message || '').trim().slice(0, 10000)

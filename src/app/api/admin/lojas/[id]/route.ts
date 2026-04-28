@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { verifyAdminToken, ADMIN_COOKIE } from '@/lib/admin-auth'
+import { requireAdmin } from '@/lib/admin-auth'
 
 /**
  * GET /api/admin/lojas/[id]
@@ -27,11 +27,8 @@ function supabaseAdmin() {
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     // ─── Auth admin ────────────────────────────────────────
-    const token = req.cookies.get(ADMIN_COOKIE)?.value
-    const isAdmin = await verifyAdminToken(token)
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    }
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
 
     const { id: lojaId } = await ctx.params
 

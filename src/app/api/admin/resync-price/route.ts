@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export const maxDuration = 60
 
@@ -24,6 +25,9 @@ function parsePrice(v: string | number | null | undefined): number | null {
 // Se só cardName for passado, busca o link no banco.
 
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY
   if (!SCRAPER_API_KEY) {
     return NextResponse.json({ error: 'SCRAPER_API_KEY não configurado' }, { status: 503 })

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -11,8 +12,11 @@ function supabaseAdmin() {
 // POST /api/admin/lojas/[id]/toggle-verified
 // Alterna flag `verificada`. Não envia email (mudança silenciosa).
 
-export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const sb = supabaseAdmin()
 

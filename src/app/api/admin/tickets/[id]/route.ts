@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendTicketStatusChangedEmail } from '@/lib/email'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -11,8 +12,11 @@ function supabaseAdmin() {
 
 // ─── GET — detalhe completo do ticket (com user e mensagens) ─────────────────
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const sb = supabaseAdmin()
 
@@ -60,6 +64,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const body = await req.json().catch(() => ({}))
     const { status, priority, notify } = body
