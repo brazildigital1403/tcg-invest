@@ -137,136 +137,91 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     ${badge('Pro Trial', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Seu trial Pro expira em 2 dias ⏰')}
-    ${p(`${firstName}, você está usando o Bynx Pro há 5 dias. Faltam apenas <strong style="color:#ef4444;">2 dias</strong> para seu trial terminar.`)}
-    ${p('Para não perder acesso ao patrimônio completo da sua coleção e todas as funcionalidades Pro, assine agora:')}
+    ${p(`${firstName}, você ainda tem 2 dias para curtir tudo do Pro: importação ilimitada, scan com IA, marketplace, separadores e muito mais.`)}
+    ${p('Depois de 7 dias, sua conta volta para o plano Free, mas tudo que você adicionou continua salvo.')}
+    ${btn('Ver planos →', `${APP_URL}/plano`)}
     ${divider()}
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="48%" bgcolor="#1a1c24" style="background-color:#1a1c24;border:1px solid #2d3748;border-radius:8px;padding:16px 12px;text-align:center;">
-          <p style="margin:0 0 6px;font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:0.08em;">MENSAL</p>
-          <p style="margin:0;font-size:26px;font-weight:900;color:#f59e0b;">R$29,90</p>
-          <p style="margin:4px 0 0;font-size:11px;color:#6b7280;">por mês</p>
-        </td>
-        <td width="4%"></td>
-        <td width="48%" bgcolor="#1f1a0a" style="background-color:#1f1a0a;border:2px solid #78350f;border-radius:8px;padding:16px 12px;text-align:center;">
-          <p style="margin:0 0 2px;font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:0.06em;">ANUAL <span style="color:#f59e0b;">· 30% OFF</span></p>
-          <p style="margin:0;font-size:26px;font-weight:900;color:#f59e0b;">R$249</p>
-          <p style="margin:2px 0 0;font-size:11px;color:#6b7280;text-decoration:line-through;">R$358,80/ano</p>
-          <p style="margin:2px 0 0;font-size:11px;color:#9ca3af;">R$20,75/mês</p>
-        </td>
-      </tr>
-    </table>
-    ${btn('Assinar Pro agora →', `${APP_URL}/minha-conta`)}
-    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Precisa de ajuda? Manda uma Pokébola para a gente 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
-  `, 'Seu trial Pro expira em 2 dias. Assine para não perder acesso.')
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Quer continuar no Pro? <a href="${APP_URL}/plano" style="color:#f59e0b;text-decoration:none;">Veja os planos aqui</a>.</p>
+  `, `Seu trial Pro expira em 2 dias`)
 
-  return resend.emails.send({ from: FROM, to, subject: '⏰ Seu trial Pro expira em 2 dias', html })
+  return resend.emails.send({ from: FROM, to, subject: `⏰ Seu trial Pro expira em 2 dias`, html })
 }
 
-// ── 3. Trial expirando — 7º dia (último) ─────────────────────────────────────
+// ── 3. Trial expirando — último dia ──────────────────────────────────────────
 
-export async function sendTrialExpiring7Email(to: string, name: string) {
+export async function sendTrialExpiring1Email(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'Colecionador'
   const html = baseLayout(`
     ${badge('Último dia', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
-    ${h1('Hoje é o último dia do seu trial 🔔')}
-    ${p(`${firstName}, seu período gratuito de 7 dias termina <strong style="color:#ef4444;">hoje</strong>.`)}
-    ${p('A partir de amanhã, sua conta voltará ao plano Free (limite de cartas e sem perfil público). Assine agora para manter acesso completo:')}
-    ${btn('Assinar Pro — R$29,90/mês', `${APP_URL}/minha-conta`)}
-    ${divider()}
-    <table width="100%" cellpadding="0" cellspacing="0">
-      ${['✓ Cartas ilimitadas na sua coleção', '✓ Perfil público compartilhável', '✓ Anúncios ilimitados no Marketplace', '✓ Alertas de valorização', '✓ Separadores de Fichário inclusos'].map(f => `
-        <tr><td style="padding:5px 0;">
-          <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.55);">${f}</p>
-        </td></tr>`).join('')}
-    </table>
-    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Precisa de ajuda? Manda uma Pokébola para a gente 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
-  `, 'Hoje é o último dia do seu Pro trial. Assine para manter acesso completo.')
+    ${h1('Hoje é o último dia do seu Pro trial 🚨')}
+    ${p(`${firstName}, amanhã sua conta volta automaticamente para o plano Free. Você não perde nada que já adicionou — só os recursos Pro ficam bloqueados.`)}
+    ${p('Continue no Pro para manter acesso a importação por link, scan com IA e marketplace.')}
+    ${btn('Continuar no Pro →', `${APP_URL}/plano`)}
+  `, `Hoje é o último dia do seu Pro trial`)
 
-  return resend.emails.send({ from: FROM, to, subject: '🔔 Último dia do seu trial Pro — assine agora', html })
+  return resend.emails.send({ from: FROM, to, subject: `🚨 Último dia de Pro grátis`, html })
 }
 
-// ── 4. Confirmação de compra ──────────────────────────────────────────────────
-
-type PurchaseType = 'pro_mensal' | 'pro_anual' | 'separadores' | 'scan_basico' | 'scan_popular' | 'scan_colecionador'
-
-const PURCHASE_INFO: Record<PurchaseType, { titulo: string; descricao: string; valor: string; icon: string; link: string; linkLabel: string }> = {
-  pro_mensal:        { titulo: 'Plano Pro Mensal ativado!', descricao: 'Sua assinatura Pro mensal está ativa. Aproveite todas as funcionalidades sem limites.', valor: 'R$29,90/mês', icon: '⭐', link: `${APP_URL}/minha-colecao`, linkLabel: 'Ir para minha coleção →' },
-  pro_anual:         { titulo: 'Plano Pro Anual ativado!', descricao: 'Sua assinatura Pro anual está ativa. 12 meses com acesso completo ao Bynx.', valor: 'R$249/ano', icon: '⭐', link: `${APP_URL}/minha-colecao`, linkLabel: 'Ir para minha coleção →' },
-  separadores:       { titulo: 'Separadores desbloqueados!', descricao: 'Você tem acesso vitalício a todos os 1.025 separadores de fichário. Imprima e organize!', valor: 'R$14,90', icon: '🗂️', link: `${APP_URL}/separadores`, linkLabel: 'Acessar Separadores →' },
-  scan_basico:       { titulo: '5 créditos de scan adicionados!', descricao: 'Seus créditos de scan foram adicionados. Use para escanear suas cartas com IA.', valor: 'R$5,90', icon: '📷', link: `${APP_URL}/minha-colecao`, linkLabel: 'Escanear cartas →' },
-  scan_popular:      { titulo: '15 créditos de scan adicionados!', descricao: 'Seus créditos de scan foram adicionados. Use para escanear suas cartas com IA.', valor: 'R$14,90', icon: '📷', link: `${APP_URL}/minha-colecao`, linkLabel: 'Escanear cartas →' },
-  scan_colecionador: { titulo: '40 créditos de scan adicionados!', descricao: 'Seus créditos de scan foram adicionados. Use para escanear suas cartas com IA.', valor: 'R$34,90', icon: '📷', link: `${APP_URL}/minha-colecao`, linkLabel: 'Escanear cartas →' },
-}
-
-export async function sendPurchaseConfirmationEmail(to: string, name: string, type: PurchaseType) {
-  const firstName = name?.split(' ')[0] || 'Colecionador'
-  const info = PURCHASE_INFO[type]
-  const html = baseLayout(`
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:48px;line-height:1;">${info.icon}</div>
-    </div>
-    ${h1(info.titulo)}
-    ${p(`${firstName}, sua compra foi confirmada com sucesso!`)}
-    ${p(info.descricao)}
-    ${divider()}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
-      <tr>
-        <td style="padding:14px 18px 6px;font-size:12px;color:#9ca3af;font-family:Arial,sans-serif;">Produto</td>
-        <td style="padding:14px 18px 6px;font-size:12px;color:#e5e7eb;text-align:right;font-weight:600;font-family:Arial,sans-serif;">${info.titulo.replace('!','')}</td>
-      </tr>
-      <tr>
-        <td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 18px 14px;font-size:12px;color:#9ca3af;font-family:Arial,sans-serif;">Valor</td>
-        <td style="padding:8px 18px 14px;font-size:16px;font-weight:900;color:#f59e0b;text-align:right;font-family:Arial,sans-serif;">${info.valor}</td>
-      </tr>
-    </table>
-    ${btn(info.linkLabel, info.link)}
-    <p style="margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Guarde este email como comprovante. Dúvidas? Manda uma Pokébola 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
-  `, `Compra confirmada: ${info.titulo}`)
-
-  return resend.emails.send({ from: FROM, to, subject: `✅ ${info.titulo} — Bynx`, html })
-}
-// ── 5. SUPORTE — novo ticket (para o admin) ──────────────────────────────────
+// ── 4. SUPORTE — novo ticket criado (para admin) ──────────────────────────────
 
 export async function sendNewTicketAdminEmail(args: {
   to: string
-  ticketId: string
-  subject: string
-  message: string
   userEmail: string
   userName?: string
+  ticketId: string
+  subject: string
+  category: string
+  priority: string
+  message: string
 }) {
   const html = baseLayout(`
     ${badge('Novo Ticket', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
-    ${h1('Novo ticket de suporte')}
-    ${p(`<strong style="color:#f0f0f0;">${args.userName || 'Colecionador'}</strong> (${args.userEmail}) abriu um ticket:`)}
+    ${h1('Um novo ticket foi aberto')}
+    ${p(`<strong style="color:#f0f0f0;">${args.userName || 'Colecionador'}</strong> (${args.userEmail}) abriu o ticket "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>".`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
-      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Assunto</td></tr>
-      <tr><td style="padding:0 18px 14px;font-size:15px;color:#f0f0f0;font-weight:700;font-family:Arial,sans-serif;">${escapeHtml(args.subject)}</td></tr>
+      <tr><td style="padding:12px 16px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Categoria · Prioridade</td></tr>
+      <tr><td style="padding:0 16px 12px;font-size:13px;color:rgba(255,255,255,0.8);font-family:Arial,sans-serif;">${args.category} · <strong style="color:#f59e0b;">${args.priority}</strong></td></tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
-      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Mensagem</td></tr>
-      <tr><td style="padding:0 18px 16px;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+      <tr><td style="padding:12px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
-    ${btn('Responder no painel →', `${APP_URL}/admin/tickets/${args.ticketId}`)}
+    ${btn('Ver no painel admin →', `${APP_URL}/admin/tickets/${args.ticketId}`)}
   `, `Novo ticket: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `[Suporte Bynx] ${args.subject}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: `[Suporte Bynx] Novo ticket: ${args.subject}`, html })
 }
 
-// ── 6. SUPORTE — resposta do usuário (para o admin) ──────────────────────────
+// ── 5. SUPORTE — confirmação de ticket criado (para usuário) ─────────────────
+
+export async function sendTicketCreatedUserEmail(args: {
+  to: string
+  userName?: string
+  ticketId: string
+  subject: string
+}) {
+  const firstName = args.userName?.split(' ')[0] || 'Colecionador'
+  const html = baseLayout(`
+    ${badge('Ticket recebido', '#22c55e', 'rgba(34,197,94,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Recebemos sua mensagem ✅')}
+    ${p(`${firstName}, seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>" foi criado e nossa equipe vai responder em breve.`)}
+    ${p('Costumamos responder em até 24 horas úteis.')}
+    ${btn('Ver meu ticket →', `${APP_URL}/suporte/${args.ticketId}`)}
+  `, `Recebemos seu ticket: ${args.subject}`)
+
+  return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] Ticket recebido: ${args.subject}`, html })
+}
+
+// ── 6. SUPORTE — resposta do usuário (para admin) ────────────────────────────
 
 export async function sendUserReplyAdminEmail(args: {
   to: string
+  userEmail: string
+  userName?: string
   ticketId: string
   subject: string
   message: string
-  userEmail: string
-  userName?: string
 }) {
   const html = baseLayout(`
     ${badge('Nova Resposta', '#60a5fa', 'rgba(96,165,250,0.15)')}
@@ -401,6 +356,112 @@ export async function sendEmailLojaSuspensa(args: {
   `, `Sua loja ${args.nomeLoja} foi suspensa no Bynx`)
 
   return resend.emails.send({ from: FROM, to: args.to, subject: `Sua loja foi suspensa no Bynx`, html })
+}
+
+// ── 11. LOJAS — plano alterado pelo admin (para o owner) ─────────────────────
+
+const PLANO_INFO: Record<string, { label: string; color: string; descricao: string; emoji: string }> = {
+  basico: {
+    label: 'Básico',
+    color: 'rgba(255,255,255,0.7)',
+    emoji: '📋',
+    descricao: 'Listagem gratuita no Guia. Você pode fazer upgrade a qualquer momento para desbloquear fotos, redes sociais e mais visibilidade.',
+  },
+  pro: {
+    label: 'Pro',
+    color: '#60a5fa',
+    emoji: '⭐',
+    descricao: 'Até 5 fotos, redes sociais, especialidades ilimitadas e destaque acima do Básico no Guia.',
+  },
+  premium: {
+    label: 'Premium',
+    color: '#f59e0b',
+    emoji: '👑',
+    descricao: 'Até 10 fotos, eventos e torneios, analytics e rotação no topo da listagem.',
+  },
+}
+
+function fmtDataExpiracao(iso: string | null | undefined): string {
+  if (!iso) return 'sem expiração (permanente)'
+  const d = new Date(iso)
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+export async function sendEmailLojaPlanoAlterado(args: {
+  to: string
+  nomeUser: string
+  nomeLoja: string
+  slug: string
+  planoAnterior: 'basico' | 'pro' | 'premium'
+  planoNovo: 'basico' | 'pro' | 'premium'
+  expiraEm: string | null  // ISO date string ou null para permanente
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const cfgNovo = PLANO_INFO[args.planoNovo]
+  const cfgAnterior = PLANO_INFO[args.planoAnterior]
+  const urlEdicao = `${APP_URL}/minha-loja`
+
+  // Detectar se é upgrade ou downgrade pra ajustar o tom
+  const ordemPlanos: Record<string, number> = { basico: 0, pro: 1, premium: 2 }
+  const isUpgrade = ordemPlanos[args.planoNovo] > ordemPlanos[args.planoAnterior]
+
+  const titulo = isUpgrade
+    ? `Sua loja foi promovida para ${cfgNovo.label}!`
+    : `Plano da sua loja foi atualizado`
+
+  const introducao = isUpgrade
+    ? `${firstName}, ótima notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> agora está no plano <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>! 🎉`
+    : `${firstName}, queremos te avisar que o plano da sua loja <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi alterado de <strong style="color:${cfgAnterior.color};">${cfgAnterior.label}</strong> para <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>.`
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:48px;line-height:1;">${cfgNovo.emoji}</div>
+    </div>
+    ${h1(titulo)}
+    ${p(introducao)}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid ${cfgNovo.color}33;margin-top:16px;">
+      <tr>
+        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+          Plano atual
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 12px;font-size:18px;font-weight:800;color:${cfgNovo.color};font-family:Arial,sans-serif;">
+          ${cfgNovo.label}
+        </td>
+      </tr>
+      <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
+      <tr>
+        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+          Validade
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 14px;font-size:14px;color:rgba(255,255,255,0.8);font-family:Arial,sans-serif;">
+          ${args.planoNovo === 'basico'
+            ? 'Sem expiração'
+            : `Válido até <strong style="color:#f0f0f0;">${fmtDataExpiracao(args.expiraEm)}</strong>`
+          }
+        </td>
+      </tr>
+    </table>
+
+    ${p(`<strong style="color:#f0f0f0;">O que isso significa:</strong> ${cfgNovo.descricao}`)}
+
+    ${btn('Acessar minha loja →', urlEdicao)}
+
+    ${divider()}
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida sobre essa mudança, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+  `, isUpgrade
+    ? `Sua loja ${args.nomeLoja} foi promovida para ${cfgNovo.label}!`
+    : `Plano da loja ${args.nomeLoja} foi atualizado para ${cfgNovo.label}`)
+
+  const subject = isUpgrade
+    ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label} no Bynx!`
+    : `Plano da sua loja foi atualizado para ${cfgNovo.label}`
+
+  return resend.emails.send({ from: FROM, to: args.to, subject, html })
 }
 
 // ── Helper: escapa HTML em mensagens de usuário ──────────────────────────────
