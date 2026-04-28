@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAppModal } from '@/components/ui/useAppModal'
 
@@ -52,6 +52,16 @@ const PLANO_STYLE: Record<Loja['plano'], { label: string; color: string }> = {
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 const fmtDateTime = (iso?: string | null) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
+// Opções de duração no modal de mudança de plano
+const DURACAO_OPCOES: Array<{ value: number | null; label: string }> = [
+  { value: 30,   label: '30 dias' },
+  { value: 60,   label: '60 dias' },
+  { value: 90,   label: '90 dias' },
+  { value: 180,  label: '6 meses' },
+  { value: 365,  label: '1 ano' },
+  { value: null, label: 'Permanente (sem expiração)' },
+]
+
 // ─── Page ────────────────────────────────────────────────────────────────
 
 function LojasView() {
@@ -68,12 +78,34 @@ function LojasView() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy]       = useState(false)
 
-  // Modal de suspender (precisa textarea, useAppModal tem multiline)
+  // Modal de suspender
   const [suspendingLoja, setSuspendingLoja] = useState<Loja | null>(null)
   const [motivo, setMotivo] = useState('')
 
   // Modal de detalhes
   const [detailsLoja, setDetailsLoja] = useState<Loja | null>(null)
+
+  // Modal de mudança de plano
+  const [planoModalLoja, setPlanoModalLoja] = useState<Loja | null>(null)
+  const [planoNovoSelecionado, setPlanoNovoSelecionado] = useState<Loja['plano']>('pro')
+  const [duracaoSelecionada, setDuracaoSelecionada] = useState<number | null>(30)
+
+  // Dropdown Plano (qual loja está com o dropdown aberto)
+  const [planoDropdownLojaId, setPlanoDropdownLojaId] = useState<string | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setPlanoDropdownLojaId(null)
+      }
+    }
+    if (planoDropdownLojaId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [planoDropdownLojaId])
 
   async function load() {
     setLoading(true)
@@ -157,6 +189,38 @@ function LojasView() {
       const e = await res.json().catch(() => ({}))
       return showAlert(e.error || 'Erro ao alterar', 'error')
     }
+    await load()
+  }
+
+  // ─── Plano ────────────────────────────────────────────────────────────
+
+  function abrirModalPlano(loja: Loja, planoNovo: Loja['plano']) {
+    setPlanoModalLoja(loja)
+    setPlanoNovoSelecionado(planoNovo)
+    // Default: 30 dias para Pro/Premium, irrelevante para Basico (sempre permanente)
+    setDuracaoSelecionada(planoNovo === 'basico' ? null : 30)
+    setPlanoDropdownLojaId(null) // fecha dropdown
+  }
+
+  async function confirmarMudancaPlano() {
+    if (!planoModalLoja) return
+    setBusy(true)
+    const res = await fetch(`/api/admin/lojas/${planoModalLoja.id}/plano`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plano: planoNovoSelecionado,
+        // Para basico, sempre permanente (null). Para outros, usa duracaoSelecionada
+        dias: planoNovoSelecionado === 'basico' ? null : duracaoSelecionada,
+      }),
+    })
+    setBusy(false)
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}))
+      return showAlert(e.error || 'Erro ao alterar plano', 'error')
+    }
+    setPlanoModalLoja(null)
+    showAlert(`Plano alterado para ${PLANO_STYLE[planoNovoSelecionado].label}. Email enviado ao owner.`, 'success')
     await load()
   }
 
@@ -283,6 +347,8 @@ function LojasView() {
               const s = STATUS_STYLE[l.status]
               const p = PLANO_STYLE[l.plano]
               const isPending = l.status === 'pendente'
+              const planosDisponiveis = (['basico', 'pro', 'premium'] as Loja['plano'][]).filter(x => x !== l.plano)
+
               return (
                 <div key={l.id} style={{
                   background: isPending ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.03)',
@@ -335,6 +401,11 @@ function LojasView() {
                       <span style={{ fontSize: 11, fontWeight: 700, color: p.color }}>
                         {p.label}
                       </span>
+                      {l.plano_expira_em && l.plano !== 'basico' && (
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>
+                          (expira {fmtDate(l.plano_expira_em)})
+                        </span>
+                      )}
                     </div>
                     <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: '0 0 4px' }}>
                       /{l.slug} · {l.cidade}/{l.estado} · {l.tipo === 'fisica' ? 'Física' : l.tipo === 'online' ? 'Online' : 'Ambas'}
@@ -355,7 +426,7 @@ function LojasView() {
                   </div>
 
                   {/* Ações */}
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', position: 'relative' }}>
                     {(l.status === 'pendente' || l.status === 'suspensa') && (
                       <BtnAction onClick={() => aprovar(l)} busy={busy} color="#22c55e">
                         {l.status === 'suspensa' ? 'Reativar' : 'Aprovar'}
@@ -371,6 +442,63 @@ function LojasView() {
                         {l.verificada ? 'Remover ✓' : 'Verificar'}
                       </BtnAction>
                     )}
+
+                    {/* Dropdown Plano (sempre disponível) */}
+                    <div style={{ position: 'relative' }} ref={planoDropdownLojaId === l.id ? dropdownRef : undefined}>
+                      <BtnAction
+                        onClick={() => setPlanoDropdownLojaId(planoDropdownLojaId === l.id ? null : l.id)}
+                        busy={busy}
+                        color="#60a5fa"
+                      >
+                        Plano ▾
+                      </BtnAction>
+
+                      {planoDropdownLojaId === l.id && (
+                        <div style={{
+                          position: 'absolute',
+                          top: 'calc(100% + 4px)',
+                          right: 0,
+                          background: '#0f1117',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          borderRadius: 10,
+                          padding: 4,
+                          minWidth: 140,
+                          zIndex: 100,
+                          boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 2,
+                        }}>
+                          {planosDisponiveis.map(planoNovo => {
+                            const cfg = PLANO_STYLE[planoNovo]
+                            return (
+                              <button
+                                key={planoNovo}
+                                onClick={() => abrirModalPlano(l, planoNovo)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: cfg.color,
+                                  padding: '8px 12px',
+                                  borderRadius: 6,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  fontFamily: 'inherit',
+                                  textAlign: 'left',
+                                  transition: 'background 0.1s ease',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                              >
+                                → {cfg.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                     <BtnAction onClick={() => setDetailsLoja(l)} busy={busy} color="rgba(255,255,255,0.6)" variant="ghost">
                       Detalhes
                     </BtnAction>
@@ -453,6 +581,95 @@ function LojasView() {
                 fontFamily: 'inherit',
               }}>
                 {busy ? 'Suspendendo...' : 'Suspender'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: mudança de plano ── */}
+      {planoModalLoja && (
+        <div style={overlayStyle} onClick={() => setPlanoModalLoja(null)}>
+          <div style={modalStyle} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px', color: PLANO_STYLE[planoNovoSelecionado].color }}>
+              Alterar plano de "{planoModalLoja.nome}"
+            </h3>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, margin: '0 0 18px' }}>
+              De <strong style={{ color: PLANO_STYLE[planoModalLoja.plano].color }}>{PLANO_STYLE[planoModalLoja.plano].label}</strong> para <strong style={{ color: PLANO_STYLE[planoNovoSelecionado].color }}>{PLANO_STYLE[planoNovoSelecionado].label}</strong>.
+              {' '}O owner receberá um email avisando da mudança.
+            </p>
+
+            {planoNovoSelecionado !== 'basico' ? (
+              <>
+                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, display: 'block' }}>
+                  Duração do plano
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
+                  {DURACAO_OPCOES.map(opt => {
+                    const selected = duracaoSelecionada === opt.value
+                    return (
+                      <button
+                        key={String(opt.value)}
+                        onClick={() => setDuracaoSelecionada(opt.value)}
+                        style={{
+                          background: selected ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${selected ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                          color: selected ? '#f59e0b' : 'rgba(255,255,255,0.65)',
+                          padding: '10px 14px',
+                          borderRadius: 8,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                          textAlign: 'left',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <span>{opt.label}</span>
+                        {selected && <span style={{ fontSize: 16 }}>✓</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (
+              <div style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                marginBottom: 18,
+                fontSize: 12,
+                color: 'rgba(255,255,255,0.55)',
+                lineHeight: 1.5,
+              }}>
+                ℹ️ Plano Básico não tem expiração. A mudança é permanente.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setPlanoModalLoja(null)} style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                color: 'rgba(255,255,255,0.6)',
+                padding: '10px 20px', borderRadius: 10,
+                fontSize: 14, cursor: 'pointer', fontWeight: 500,
+                fontFamily: 'inherit',
+              }}>
+                Cancelar
+              </button>
+              <button onClick={confirmarMudancaPlano} disabled={busy} style={{
+                background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                border: 'none',
+                color: '#000',
+                padding: '10px 24px', borderRadius: 10,
+                fontSize: 14, cursor: busy ? 'not-allowed' : 'pointer', fontWeight: 800,
+                opacity: busy ? 0.5 : 1,
+                fontFamily: 'inherit',
+              }}>
+                {busy ? 'Aplicando...' : 'Confirmar mudança'}
               </button>
             </div>
           </div>
