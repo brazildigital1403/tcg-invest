@@ -715,7 +715,107 @@ Ao tentar rodar o SQL via MCP, Mia finalmente inspecionou a tabela e descobriu:
 
 ---
 
-## 📋 Arquivos modificados (sessão 22 inteira)
+
+## 🔄 Continuação tarde-noite — Saga do Webhook (V1 → V5)
+
+Ao validar o webhook V2 com compra real (cartão `4242 4242 4242 4242` em test mode), descobrimos que o webhook estava deployado e processando (Stripe Dashboard mostrava 200 OK, taxa de erro 0%), **mas o user não ficava Pro**. 5 deploys consecutivos foram necessários até atingir end-to-end funcionando. A saga inteira documentada abaixo serve como case-study das peculiaridades das APIs Stripe modernas E como exemplo do valor do MCP do Vercel pra debug.
+
+### V1 (deployado) — Quebrado em silêncio
+
+Mia propôs SQL pra adicionar `stripe_event_id` em `lancamentos` + UNIQUE INDEX, sem inspecionar schema. Du aprovou e deployou.
+
+**Bug:** coluna inexistente. INSERT falhava em catch silencioso, restante do fluxo (is_pro, créditos, email) não chegava a rodar nas compras de Pro porque outro bug ANTERIOR jogava exceção antes — mas isso só foi descoberto depois.
+
+**Sintoma observado:** webhook respondendo 200 OK, ZERO lançamentos no banco.
+
+### V2 — Reaproveitar schema existente
+
+Antes de aplicar V1 via MCP, Mia finalmente inspecionou a tabela `lancamentos`:
+
+```sql
+SELECT column_name FROM information_schema.columns WHERE table_name = 'lancamentos';
+```
+
+E descobriu que **TUDO já existia há tempos**: `stripe_payment_intent_id` (TEXT, nullable), `user_id` (UUID), e UNIQUE INDEX parcial `lancamentos_stripe_unique`. Toda a infraestrutura de idempotência havia sido planejada por alguém em sessão anterior, mas o webhook nunca foi atualizado pra usar.
+
+**V2 hotfix:** trocar `stripe_event_id` (campo inventado) por `stripe_payment_intent_id` (existente). Popular `user_id` no lançamento (rastreabilidade no admin financeiro).
+
+### Validação V2 — bug oculto revelado
+
+Du fez compra de teste com `bianca1@bianca1.com`. Tela `/pro-ativado` apareceu, mas `is_pro=false` no banco. **O webhook real estava quebrado bem antes do problema do V1.**
+
+**Diagnóstico via MCP do Vercel** (descobrimos hoje que o MCP estava disponível — passo importante porque mudou todo o ritmo de debug):
+
+```
+[webhook] Erro: Invalid time value
+```
+
+`new Date(undefined * 1000).toISOString()` jogava `RangeError`. Caía no catch raiz que só logava e retornava 200 ao Stripe. **Bug existia há semanas e ninguém percebeu** porque catch silencioso enganava o monitoramento.
+
+### V3 — Fix `current_period_end`
+
+**Causa-raiz:** Stripe API `2025-03-31.basil` removeu `subscription.current_period_end` (subscription-level) e moveu pra `subscription.items.data[0].current_period_end` (item-level). Webhook do Stripe usa a versão configurada no Dashboard (no caso, `2026-03-25.dahlia`), não a `apiVersion` hardcoded no SDK.
+
+**V3 hotfix:**
+- Helper `getSubscriptionPeriodEnd()` que tenta `items.data[0]` primeiro e cai pra `subscription.current_period_end` antigo (compatibilidade)
+- **Reorganização defensiva:** try/catch internos por bloco (UPDATE no user, busca de subscription, lançamento financeiro são INDEPENDENTES). Antes: tudo num try único → 1 erro = silêncio total
+- Logs `[webhook] CRITICAL:` em erros pós-pagamento (filtráveis no Vercel pra alerta futuro)
+- Logs `[webhook] Recebido: ...` na entrada — sempre tem rastro
+
+**Validação:** bianca1 ficou Pro corretamente (is_pro, plano, customer_id, subscription_id, pro_expira_em populados). MAS lançamento ainda não foi criado.
+
+### V4 — Fix `invoice.payment_intent` deprecated
+
+Logs `[webhook/financeiro] Sem payment_intent_id — pulando lançamento` revelaram outro deprecation: a partir de `2025-03-31.basil`, Stripe removeu `invoice.payment_intent` direto e introduziu o **Invoice Payment object** com a estrutura `invoice.payments[].payment.payment_intent`.
+
+**V4 hotfix:** novo helper `extrairPaymentIntentDeInvoice()` com 3 caminhos em ordem (novo → API list → legacy).
+
+**Validação:** bianca2 também ficou Pro corretamente, mas lançamento AINDA falhou.
+
+### V5 — `expand` explícito (FINAL)
+
+Pesquisa na doc revelou:
+
+> *"You can access invoice payments in two ways: **By expanding the payments field** on the Invoice resource. By using the Invoice Payment retrieve and list endpoints."*
+
+O campo `payments` é **includable**, NÃO incluído por default no retrieve. V4 não expandiu, portanto array vinha vazio.
+
+**V5 hotfix:**
+- `expand: ['payments.data.payment.payment_intent']` no `stripe.invoices.retrieve()`
+- Logs `[webhook/debug]` em CADA caminho do helper pra diagnóstico cirúrgico
+- Logs do tamanho do array + estrutura do primeiro item em fallback
+
+**Validação final** (compra de `teste@teste2.com`):
+
+```
+| descricao                     | Bynx Pro — assinatura mensal           |
+| valor_bruto                   | R$ 29.90                               |
+| fonte                         | stripe                                 |
+| stripe_payment_intent_id      | pi_3TRJDOAanyB0hdos2pPB6AfM            |
+| recebido                      | true                                   |
+| user.is_pro                   | true                                   |
+| user.pro_expira_em            | 2026-05-28 (1 mês à frente)            |
+```
+
+**End-to-end funcional.** Logs `[webhook/debug] PI extraído via invoice.payments[0]` confirmaram que o caminho principal funcionou — fallbacks ficaram como rede de segurança não usada.
+
+---
+
+## 🛠️ Descoberta de capability — MCP do Vercel
+
+Durante o debug do V2 → V3, Du mencionou: *"pode olhar diretamente o navegador o site Vercel"*. Isso revelou que o **MCP do Vercel estava disponível** — Mia carregou via `tool_search` e descobriu acesso direto a:
+
+- `Vercel:get_runtime_logs` (com filtro de query/level/source/time)
+- `Vercel:list_deployments` (mostra commit message + state + URL)
+- `Vercel:get_deployment_build_logs`
+
+**Impacto:** o ciclo de debug que antes era "Mia pede print → Du tira print → Mia interpreta" virou "Mia consulta direto, valida, propõe fix". Reduziu cada ciclo de ~10min pra ~2min. **Sem o MCP, a saga V1→V5 teria levado 1-2 dias.** Com MCP, ficou em ~1h.
+
+**Implicação pro fluxo de trabalho futuro:** sempre que Mia tiver dúvida sobre estado de produção (banco, deploys, logs), **carregar MCP via `tool_search` antes** de perguntar pra Du. MCPs disponíveis hoje: Supabase, Vercel, Stripe (não testado ainda).
+
+---
+
+## 📋 Arquivos modificados (sessão 22 inteira — versão final)
 
 ```
 # Sessão 22 manhã (auth admin)
@@ -723,19 +823,36 @@ src/lib/admin-auth.ts                                 ← + função requireAdmi
 src/app/api/admin/**/route.ts                         ← + requireAdmin em 19 rotas (28 handlers)
 middleware.ts                                         ← try/catch fail-closed + matcher padronizado
 
-# Sessão 22 tarde (manutenção)
+# Sessão 22 tarde (manutenção + cache + webhook V1/V2)
 package.json                                          ← - puppeteer, + next 16.2.4, + overrides.postcss
 package-lock.json                                     ← regenerado (~1048 deletions)
-src/app/api/stripe/webhook/route.ts                   ← V2: usa stripe_payment_intent_id + user_id
+src/app/api/stripe/webhook/route.ts                   ← V2 (depois V3, V4, V5)
 src/app/api/pokedex/route.ts                          ← unstable_cache + tag 'pokedex'
 src/app/api/pokedex/species/route.ts                  ← unstable_cache + tag 'pokedex'
 src/app/api/admin/pokedex/invalidate/route.ts         ← NOVO: POST com revalidateTag
 
+# Sessão 22 noite (saga do webhook V3 → V5)
+src/app/api/stripe/webhook/route.ts                   ← V3: getSubscriptionPeriodEnd + try/catch isolados + logs CRITICAL
+                                                      ← V4: extrairPaymentIntentDeInvoice (3 caminhos)
+                                                      ← V5: expand explícito + logs [webhook/debug]
+
 # Documentação
-BYNX_MASTER_CONTEXT.md                                ← errata + sessão 22 + 2 regras novas
+BYNX_MASTER_CONTEXT.md                                ← errata + sessão 22 + 3 regras novas
 ```
 
-**Total:** ~24 arquivos modificados, ~3000 linhas adicionadas (a maior parte é package-lock e contexto).
+**Total:** 5 deploys de webhook num único dia. Bynx hoje à noite tem auth admin defense-in-depth, dependências limpas, cache de Pokédex otimizado, e webhook Stripe **finalmente** funcional end-to-end.
+
+---
+
+## 📋 Regras BYNX consolidadas (16 regras + 3)
+
+Regras adicionadas na sessão 22:
+
+| # | Regra |
+|---|---|
+| 17 | **Auth é em camadas — sempre verificar middleware + matcher antes de declarar vulnerabilidade em route handlers.** Olhar uma camada só e concluir é diagnóstico incompleto. |
+| 18 | **Antes de propor SQL/migration, SEMPRE inspecionar schema atual via `Supabase:execute_sql`** com `SELECT FROM information_schema.columns` e `pg_indexes`. Schema do banco evolui sem o código refletir, e propor coluna nova quando já existe equivalente cria redundância e bugs sutis. |
+| 19 | **APIs externas mudam — antes de afirmar que um campo existe, consultar a doc da versão-alvo.** Não confiar em padrões assumidos do training data ou de versões antigas. Stripe API foi a primeira lição (4 hotfixes em 1 dia: `current_period_end`, `invoice.payment_intent`, `expand` requerido, `apiVersion` hardcoded ≠ versão do webhook). Princípio aplica também a: Supabase API, Vercel API, Resend, qualquer SDK. **Quando a chamada for crítica (financeiro, auth, dados sensíveis), validar com `web_search` + doc oficial antes de codar.** |
 
 ---
 
@@ -743,56 +860,71 @@ BYNX_MASTER_CONTEXT.md                                ← errata + sessão 22 + 
 
 ### Imediato
 - 🟢 **Passo 11 — Analytics Premium dashboard** (3-4h) — clicks já em `loja_cliques`
-- 🟡 Validar webhook V2 com compra real (cartão `4242 4242 4242 4242` em test) — verificar lançamento aparecer no admin financeiro
+- 🟡 Limpeza dos logs `[webhook/debug]` num V6 cosmético (depois de 2-3 semanas observando logs em prod)
 
 ### Curto prazo
 - 🔴 Passo 8 — Stripe per-loja (6-10h)
 - 🔵 **01/05/2026 (3 dias):** começa fase de melhorias de preços (Regra 5)
 - 🔵 **26/05/2026 (~1 mês):** ZenRows renova ($227.63), rodar `scan-sets-final.ts`
 
-### Conhecidos
-- ~~Webhook Stripe → `lancamentos`~~ → **RESOLVIDO** na sessão 22 (V2 deployado)
-- ~~Cache Pokédex após mudanças~~ → **RESOLVIDO** na sessão 22 (revalidateTag)
-- Backfill financeiro de compras antigas: webhook V2 só pega cobranças NOVAS. Se quiser linha histórica no admin financeiro, precisa script que puxa eventos passados da Stripe API e insere manualmente. Trabalho separado, não urgente.
+### Cleanup do sandbox Stripe (não urgente)
+- bianca1@bianca1.com tem subscription ativa em test mode (`sub_1TRIuZ...`) sem lançamento financeiro associado
+- bianca2@bianca2.com tem subscription ativa em test mode (`sub_1TRJ4b...`) sem lançamento financeiro associado
+- teste@teste2.com tem subscription ativa em test mode + lançamento corretamente registrado (validation final do V5)
+- **Ação opcional:** cancelar as subscriptions teste no Stripe Dashboard pra limpar o sandbox
+
+### Conhecidos resolvidos
+- ~~Webhook Stripe → `lancamentos`~~ → **RESOLVIDO** sessão 22 (V5)
+- ~~Cache Pokédex após mudanças~~ → **RESOLVIDO** sessão 22 (revalidateTag)
+- ~~17 rotas admin sem auth~~ → **RESOLVIDO** sessão 22 (defense-in-depth, embora não fosse vulnerabilidade real)
+
+### Conhecidos novos
+- **Backfill financeiro de compras antigas:** webhook só pega cobranças NOVAS desde o V5. Bianca1, bianca2 ficaram sem lançamento. Em prod real (live mode), se houver compras antigas pré-fix, precisaria script que puxa eventos da Stripe API e insere manualmente. Não urgente.
+- **Alerta agressivo se webhook financeiro falhar:** lição da saga foi que catch silencioso queimou semanas sem ninguém perceber. V3+V4+V5 já adicionaram logs `CRITICAL:` filtráveis. **Próximo nível:** Sentry/Resend pra email automático ao Du quando aparecer "[webhook] CRITICAL". Anotar como tarefa de **observabilidade** (~1-2h).
 
 ---
 
-## 🔑 Key Learnings — Sessão 22 (consolidado)
+## 🔑 Key Learnings — Sessão 22 (consolidado final)
 
 ### Sobre auth e camadas
+* **"Inseguro no nível X" não significa "inseguro no sistema".** Auth é em camadas e middleware Edge roda antes das route handlers. SEMPRE rastrear a cadeia completa antes de declarar vulnerabilidade. (→ Regra 17)
+* **Defense-in-depth não é desperdício**, mesmo quando descobre-se que a camada superior já protegia.
+* **Fail-closed > fail-open em auth checks.** Try/catch sem fallback bloqueante = atacante pode forçar erros pra bypassar.
 
-* **"Inseguro no nível X" não significa "inseguro no sistema".** Auth é em camadas e middleware Edge roda antes das route handlers. SEMPRE rastrear a cadeia completa antes de declarar vulnerabilidade. Olhar 1 nível e concluir é processo incompleto. (→ Regra 17)
-* **Defense-in-depth não é desperdício**, mesmo quando descobre-se que a camada superior já protegia. Custo de manter é zero; protege contra: regressões futuras no middleware, bugs em mudanças de matcher, execução fora do Vercel (testes locais, scripts), middleware desabilitado por engano.
-* **Fail-closed > fail-open em auth checks.** Try/catch sem fallback bloqueante = atacante pode forçar erros pra bypassar. Quando em dúvida, bloquear.
-* **Bateria de curls em produção é o nível final de validação.** Code review diz "deveria proteger". Curl mostra "está protegendo".
+### Sobre schema e processo
+* **Inspecionar schema ANTES de propor migration salva tempo, evita bugs e descobre convenções existentes.** (→ Regra 18)
+* **Webhook V1 só foi descoberto quando Mia foi rodar SQL via MCP** — o MCP forçou a inspeção que deveria ter sido feita antes.
 
-### Sobre schema do banco e processo
+### Sobre APIs externas (NOVA frente, sessão 22 noite)
+* **Stripe API tem MUITAS mudanças breaking entre versões basil/dahlia.** `current_period_end` movido, `invoice.payment_intent` removido, `expand` agora requerido pra `payments`. (→ Regra 19)
+* **`apiVersion` hardcoded no SDK ≠ versão do webhook.** Webhook usa a versão configurada no Stripe Dashboard. Pode haver mismatch entre como o código manda e como recebe.
+* **Doc oficial é ground truth, não training data.** Em 2 das 5 versões do webhook, o erro veio de Mia assumir comportamento "padrão" sem validar.
 
-* **Inspecionar schema ANTES de propor migration salva tempo, evita bugs e descobre convenções existentes.** (→ Regra 18) O caso webhook V1 foi exemplar: 30s de query SQL teriam revelado que `stripe_payment_intent_id` + UNIQUE INDEX já existiam, evitando 1 ZIP errado, 1 deploy quebrado e 1 hotfix.
-* **Quando webhook falha em catch silencioso, lojista nem sabe.** Webhook V1 ficou ~30min em prod sem ninguém notar porque o caminho crítico (Pro/créditos/email) seguia funcionando. Lição: lançamento financeiro deveria fazer parte do caminho crítico OU ter alerta agressivo (Sentry, email pra Du). Anotado pra evolução futura — não é prioridade agora porque V2 já resolve.
-* **`fixAvailable` do `npm audit` mente.** Disse que `next@16.2.4` resolveria postcss, mas na real o Next ainda traz postcss interno antigo. Validar com `npm install --package-lock-only` antes de afirmar que está resolvido.
-
-### Sobre dependências
-
-* **`puppeteer` em dependencies puxa ~300MB pra cada deploy** mesmo se não importado. Auditar deps de tempos em tempos: `find src scripts -name "*.ts" | xargs grep "import.*nome-do-pacote"` revela uso real.
-* **`overrides` no package.json é a saída quando upstream é lento.** Especialmente útil pra CVEs recentes que ainda não foram absorvidos pelas deps que você usa.
-
-### Sobre cache
-
-* **Cache em memória + serverless = cache fragmentado.** Cada lambda Vercel é processo separado, cada um com cache próprio. Pra dados compartilhados, `unstable_cache` + tags é a saída correta no Next 16.
+### Sobre observabilidade
+* **Catch silencioso é dívida técnica disfarçada.** Webhook V0 ficou semanas quebrado porque catch só logava sem alertar. Anteriormente também: bug do RLS em `pokemon_cards` que era falha silenciosa client-side.
+* **`[webhook] CRITICAL:` é o mínimo. O ideal seria Sentry ou email automático.** Pra fluxo financeiro, monitorar passivamente é gambiarra perigosa.
+* **MCP do Vercel + Supabase mudou completamente a velocidade de debug.** Loop "pede print → tira print → interpreta" virou "consulta direto, decide". Saga V1→V5 levou ~1h, sem MCP teria sido 1-2 dias.
 
 ### Sobre o processo de trabalho
-
-* **Quando descobre erro próprio, contar imediatamente.** Re-skin de "fix" pra "defense-in-depth" só funciona quando é honesto. Webhook V1 quebrado: imediatamente reconhecer e gerar V2, não tentar disfarçar.
-* **Honestidade técnica > parecer competente.** Du está construindo Bynx em produção real, com dinheiro real (Stripe, ZenRows). Esconder ou minimizar erros desinforma decisões importantes.
+* **Quando descobre erro próprio, contar imediatamente** — re-skin de "fix" pra "defense-in-depth" só funciona quando é honesto.
+* **Honestidade técnica > parecer competente.** Cada uma das 5 versões do webhook foi precedida de "errei aqui, foi por isso, vou corrigir". Du nunca ficou sem saber o que tava acontecendo.
+* **Iteração pequena + validação rápida > fix grande + reza pra dar certo.** V3 → V4 → V5 cada um com diff cirúrgico de 5-50 linhas, deploy + teste + log = ciclo de 5min. Solução grande de uma só vez teria múltiplos bugs misturados.
 
 ---
 
 ## Footer
 
-Sessão 22 fechou (dia inteiro): **Defense-in-depth completo na auth admin (28 handlers + middleware fail-closed + matcher padronizado) + 3 itens de manutenção resolvidos (npm audit zerado, webhook Stripe automatizado com idempotência reaproveitando schema existente, cache Pokédex com revalidateTag) + 2 regras novas no contexto + 2 erratas corrigidas (vulnerabilidade admin inexistente + falso positivo de TS narrowing) + 1 erro de processo aberto e corrigido (webhook V1 deployado quebrado por não inspecionar schema antes; hotfix V2 deployado)**.
+Sessão 22 fechada (dia inteiro, ~10h de trabalho):
 
-**Capítulo de segurança e manutenção fechado.** Bynx entra na sessão 23 com auditoria de segurança limpa, dependências sem vulnerabilidades, financeiro automatizado, e cache otimizado pra fase de melhorias de preços que começa em 3 dias.
+**Manhã:** Defense-in-depth completo na auth admin (28 handlers + middleware fail-closed + matcher padronizado) + 1 errata + 1 falso positivo de TS narrowing + Regra 17.
 
-Próxima sessão: **Passo 11 — Analytics Premium dashboard** ou início antecipado das melhorias de preços (Regra 5).
+**Tarde:** 3 itens de manutenção (npm audit zerado, cache Pokédex via revalidateTag, webhook Stripe automatizado) + descoberta de schema existente que evitou migration redundante + Regra 18.
+
+**Noite:** Saga completa do webhook V1 → V5. 4 bugs encontrados em sequência (coluna inventada → API moderna do Stripe `current_period_end` → `invoice.payment_intent` deprecated → `expand` requerido). End-to-end Stripe → admin financeiro funcionando. Descoberta do MCP do Vercel acelerou debug em 10x. Regra 19.
+
+**Bynx hoje:** auth admin com 2 camadas de proteção, dependências sem vulnerabilidades, cache compartilhado entre lambdas, webhook Stripe gerando lançamentos automáticos com idempotência, e contexto histórico atualizado com todas as decisões e erros documentados.
+
+**Próxima sessão (23):** Passo 11 (Analytics Premium dashboard) ou início antecipado das melhorias de preços (Regra 5 começa oficialmente em 3 dias).
+
+**3 regras adicionadas (17, 18, 19), todas focadas em "**verificar antes de afirmar**" — auth, banco, APIs externas. Padrão emergente que talvez vire uma meta-regra na sessão 23.**
 
