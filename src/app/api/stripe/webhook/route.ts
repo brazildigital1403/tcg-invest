@@ -4,9 +4,6 @@ import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 // ─── Mapeamento: planoMeta → descrição amigável ─────────────────────────────
-//
-// O valor sempre vem do Stripe (amount_total / amount_paid em centavos),
-// mas o nome amigável vem daqui pra ficar mais bonito no admin financeiro.
 
 const DESCRICAO_PLANO: Record<string, string> = {
   'pro_mensal':    'Bynx Pro — assinatura mensal',
@@ -18,16 +15,28 @@ const DESCRICAO_PLANO: Record<string, string> = {
   'scan_premium':  'Pacote de Scan — Premium',
 }
 
+// ─── Helper: lê current_period_end da forma COMPATÍVEL com a API Stripe ────
+//
+// A partir da API 2025-03-31.basil, current_period_end e current_period_start
+// foram REMOVIDOS do nível da subscription e movidos pra subscription.items.data[i].
+// Esse helper tenta ambos os caminhos pra ser compatível com qualquer versão
+// da API que o webhook esteja usando (configurada no Stripe Dashboard).
+//
+// Ref: https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end
+
+function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): number | null {
+  // Caminho novo (>= 2025-03-31.basil): item-level
+  const itemEnd = subscription.items?.data?.[0]?.current_period_end as number | undefined
+  if (typeof itemEnd === 'number' && Number.isFinite(itemEnd)) return itemEnd
+
+  // Caminho antigo: subscription-level (caso webhook esteja em versão pré-2025-03-31)
+  const subEnd = (subscription as any).current_period_end as number | undefined
+  if (typeof subEnd === 'number' && Number.isFinite(subEnd)) return subEnd
+
+  return null
+}
+
 // ─── Helper: cria lançamento de receita pra evento Stripe (idempotente) ─────
-//
-// Usa stripe_payment_intent_id como chave UNIQUE (já existe constraint
-// `lancamentos_stripe_unique` na tabela). Se Stripe re-entregar o mesmo
-// payment_intent (retries do webhook), o INSERT falha com 23505 e a gente
-// trata como sucesso silencioso ("já registrado").
-//
-// Nota: se paymentIntentId for null/undefined (raro — Stripe Connect com
-// transferência delayed, ou modos exóticos), pula o registro pra não
-// inserir lançamento sem rastreabilidade.
 
 async function registrarReceitaStripe(
   supabase: SupabaseClient,
@@ -35,7 +44,7 @@ async function registrarReceitaStripe(
     paymentIntentId: string | null | undefined
     valorTotalCentavos: number
     descricao: string
-    dataCompetencia: string  // YYYY-MM-DD
+    dataCompetencia: string
     userId?: string | null
   }
 ): Promise<{ inserted: boolean; reason?: string }> {
@@ -45,7 +54,7 @@ async function registrarReceitaStripe(
   }
 
   const valorBruto = Math.round(params.valorTotalCentavos) / 100
-  const valorLiq   = valorBruto  // taxa Stripe não vem no webhook (vem só na balance_transaction)
+  const valorLiq   = valorBruto
 
   const insert = {
     tipo: 'receita',
@@ -57,7 +66,7 @@ async function registrarReceitaStripe(
     data_competencia: params.dataCompetencia,
     data_liquidacao:  params.dataCompetencia,
     pago: false,
-    recebido: true,    // Stripe já recebeu
+    recebido: true,
     fonte: 'stripe',
     stripe_payment_intent_id: params.paymentIntentId,
     user_id: params.userId || null,
@@ -68,17 +77,12 @@ async function registrarReceitaStripe(
   const { error } = await supabase.from('lancamentos').insert(insert)
 
   if (!error) return { inserted: true }
-
-  // 23505 = unique_violation (payment_intent já registrado). Retry idempotente.
   if (error.code === '23505') {
     console.log(`[webhook/financeiro] PI ${params.paymentIntentId} já registrado (idempotente)`)
     return { inserted: false, reason: 'already_processed' }
   }
 
-  // Outro erro: loga mas NÃO faz o webhook falhar — o lançamento financeiro
-  // é secundário. O importante é o estado do user (Pro, créditos, etc) já
-  // ter sido atualizado antes desta chamada.
-  console.error(`[webhook/financeiro] Erro ao inserir lançamento:`, error.message)
+  console.error(`[webhook/financeiro] CRITICAL: erro ao inserir lançamento de PI ${params.paymentIntentId}:`, error.message)
   return { inserted: false, reason: error.message }
 }
 
@@ -88,14 +92,12 @@ async function extrairPaymentIntentDeSession(
   stripe: Stripe,
   session: Stripe.CheckoutSession
 ): Promise<string | null> {
-  // Modo 'payment' (separadores, scan): payment_intent direto na session
   if (session.payment_intent) {
     return typeof session.payment_intent === 'string'
       ? session.payment_intent
       : session.payment_intent.id
   }
 
-  // Modo 'subscription' (Pro): payment_intent fica na invoice
   if (session.invoice) {
     const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id
     if (!invoiceId) return null
@@ -115,6 +117,15 @@ async function extrairPaymentIntentDeSession(
 }
 
 // ─── Handler principal ──────────────────────────────────────────────────────
+//
+// Estratégia de erros (lição da sessão 22):
+// - try/catch INTERNO em cada operação que pode falhar mas não deve abortar
+//   tudo (UPDATE no user, busca de subscription, lançamento financeiro)
+// - Logs com [webhook] CRITICAL: pra erros DEPOIS do user já ter pago
+// - Webhook sempre retorna 200 ao Stripe pra não causar retries em loop em
+//   erros não-recuperáveis (subscription_id inválido, user inexistente, etc)
+// - Erros recuperáveis (DB indisponível, etc) idealmente retornariam 5xx pra
+//   Stripe re-tentar — mas isso é melhoria futura.
 
 export async function POST(req: NextRequest) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -137,104 +148,142 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  console.log(`[webhook] Recebido: ${event.type} (${event.id})`)
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.CheckoutSession
         const userId = session.metadata?.userId
         const planoMeta = session.metadata?.plano
-        if (!userId) break
+        if (!userId) {
+          console.warn(`[webhook] checkout.session.completed sem userId — ignorando`)
+          break
+        }
 
-        // Créditos de scan — pacotes avulsos
+        // ─── Créditos de scan — pacotes avulsos ───────────────────────
         if (planoMeta?.startsWith('scan_')) {
           const creditos = parseInt(session.metadata?.creditos || '0', 10)
           if (creditos > 0) {
-            // Incrementa créditos existentes com rpc para atomicidade
-            const { data: user } = await supabase
-              .from('users')
-              .select('scan_creditos')
-              .eq('id', userId)
-              .limit(1)
-            const atual = user?.[0]?.scan_creditos || 0
-            await supabase.from('users').update({
-              scan_creditos: atual + creditos,
-            }).eq('id', userId)
-            console.log(`[webhook] +${creditos} créditos de scan para ${userId} (total: ${atual + creditos})`)
-            // Envia email de confirmação
-            const { data: uDataScan } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
-            if (uDataScan?.[0]?.email) {
-              const scanType = (planoMeta as any) || 'scan_popular'
-              await sendPurchaseConfirmationEmail(uDataScan[0].email, uDataScan[0].name || '', scanType).catch(console.error)
+            try {
+              const { data: user } = await supabase
+                .from('users')
+                .select('scan_creditos')
+                .eq('id', userId)
+                .limit(1)
+              const atual = user?.[0]?.scan_creditos || 0
+              await supabase.from('users').update({
+                scan_creditos: atual + creditos,
+              }).eq('id', userId)
+              console.log(`[webhook] +${creditos} créditos de scan para ${userId} (total: ${atual + creditos})`)
+
+              const { data: uDataScan } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
+              if (uDataScan?.[0]?.email) {
+                const scanType = (planoMeta as any) || 'scan_popular'
+                await sendPurchaseConfirmationEmail(uDataScan[0].email, uDataScan[0].name || '', scanType).catch(console.error)
+              }
+            } catch (err: any) {
+              console.error(`[webhook] CRITICAL: falha ao creditar scan para ${userId}:`, err.message)
             }
 
-            // ─── Lançamento financeiro ─────────────────────────────────
+            // Lançamento financeiro (independente do sucesso do update do user)
+            try {
+              const piId = await extrairPaymentIntentDeSession(stripe, session)
+              await registrarReceitaStripe(supabase, {
+                paymentIntentId:    piId,
+                valorTotalCentavos: session.amount_total || 0,
+                descricao:          DESCRICAO_PLANO[planoMeta] || `Pacote de Scan — ${planoMeta}`,
+                dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
+                userId,
+              })
+            } catch (err: any) {
+              console.error(`[webhook] CRITICAL: falha ao registrar receita scan:`, err.message)
+            }
+          }
+          break
+        }
+
+        // ─── Separadores — pagamento único ───────────────────────────
+        if (planoMeta === 'separadores') {
+          try {
+            await supabase.from('users').update({
+              separadores_desbloqueado: true,
+            }).eq('id', userId)
+            console.log(`[webhook] Separadores desbloqueado para ${userId}`)
+
+            const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
+            if (uData?.[0]?.email) {
+              await sendPurchaseConfirmationEmail(uData[0].email, uData[0].name || '', 'separadores').catch(console.error)
+            }
+          } catch (err: any) {
+            console.error(`[webhook] CRITICAL: falha ao desbloquear separadores para ${userId}:`, err.message)
+          }
+
+          try {
             const piId = await extrairPaymentIntentDeSession(stripe, session)
             await registrarReceitaStripe(supabase, {
               paymentIntentId:    piId,
               valorTotalCentavos: session.amount_total || 0,
-              descricao:          DESCRICAO_PLANO[planoMeta] || `Pacote de Scan — ${planoMeta}`,
+              descricao:          DESCRICAO_PLANO['separadores'],
               dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
               userId,
             })
+          } catch (err: any) {
+            console.error(`[webhook] CRITICAL: falha ao registrar receita separadores:`, err.message)
           }
           break
         }
 
-        // Separadores — pagamento único
-        if (planoMeta === 'separadores') {
+        // ─── Pro — assinatura recorrente ─────────────────────────────
+        if (!session.subscription) {
+          console.warn(`[webhook] checkout Pro sem subscription — ignorando`)
+          break
+        }
+
+        try {
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+          const priceId = subscription.items.data[0]?.price.id
+          const plano = priceId === process.env.STRIPE_PRICE_ANUAL ? 'anual' : 'mensal'
+
+          // Lê period_end de forma compatível (item-level ou subscription-level)
+          const periodEnd = getSubscriptionPeriodEnd(subscription)
+          const proExpiraEm = periodEnd ? new Date(periodEnd * 1000).toISOString() : null
+
+          if (!proExpiraEm) {
+            console.error(`[webhook] CRITICAL: subscription ${subscription.id} sem current_period_end válido. items.data[0]:`, JSON.stringify(subscription.items?.data?.[0]))
+          }
+
           await supabase.from('users').update({
-            separadores_desbloqueado: true,
+            is_pro: true,
+            plano,
+            stripe_customer_id: session.customer as string,
+            stripe_subscription_id: session.subscription as string,
+            ...(proExpiraEm ? { pro_expira_em: proExpiraEm } : {}),
           }).eq('id', userId)
-          console.log(`[webhook] Separadores desbloqueado para ${userId}`)
-          // Envia email de confirmação
-          const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
-          if (uData?.[0]?.email) {
-            await sendPurchaseConfirmationEmail(uData[0].email, uData[0].name || '', 'separadores').catch(console.error)
+
+          console.log(`[webhook] Pro ativado para ${userId} — plano ${plano} (expira ${proExpiraEm || 'desconhecido'})`)
+
+          const { data: uDataPro } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
+          if (uDataPro?.[0]?.email) {
+            await sendPurchaseConfirmationEmail(uDataPro[0].email, uDataPro[0].name || '', plano === 'anual' ? 'pro_anual' : 'pro_mensal').catch(console.error)
           }
 
-          // ─── Lançamento financeiro ─────────────────────────────────
-          const piId = await extrairPaymentIntentDeSession(stripe, session)
-          await registrarReceitaStripe(supabase, {
-            paymentIntentId:    piId,
-            valorTotalCentavos: session.amount_total || 0,
-            descricao:          DESCRICAO_PLANO['separadores'],
-            dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
-            userId,
-          })
-          break
+          // Lançamento financeiro
+          try {
+            const piId = await extrairPaymentIntentDeSession(stripe, session)
+            await registrarReceitaStripe(supabase, {
+              paymentIntentId:    piId,
+              valorTotalCentavos: session.amount_total || 0,
+              descricao:          DESCRICAO_PLANO[plano === 'anual' ? 'pro_anual' : 'pro_mensal'],
+              dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
+              userId,
+            })
+          } catch (err: any) {
+            console.error(`[webhook] CRITICAL: falha ao registrar receita Pro:`, err.message)
+          }
+        } catch (err: any) {
+          console.error(`[webhook] CRITICAL: falha ao ativar Pro para ${userId}:`, err.message, err.stack)
         }
-
-        // Pro — assinatura recorrente
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
-        const priceId = subscription.items.data[0]?.price.id
-        const plano = priceId === process.env.STRIPE_PRICE_ANUAL ? 'anual' : 'mensal'
-
-        await supabase.from('users').update({
-          is_pro: true,
-          plano,
-          stripe_customer_id: session.customer as string,
-          stripe_subscription_id: session.subscription as string,
-          pro_expira_em: new Date(subscription.current_period_end * 1000).toISOString(),
-        }).eq('id', userId)
-
-        console.log(`[webhook] Pro ativado para ${userId} — plano ${plano}`)
-        // Envia email de confirmação
-        const { data: uDataPro } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
-        if (uDataPro?.[0]?.email) {
-          await sendPurchaseConfirmationEmail(uDataPro[0].email, uDataPro[0].name || '', plano === 'anual' ? 'pro_anual' : 'pro_mensal').catch(console.error)
-        }
-
-        // ─── Lançamento financeiro (1ª cobrança da assinatura) ──────────
-        // OBS: cobranças subsequentes (renovações) virão pelo evento
-        // 'invoice.payment_succeeded' abaixo. Aqui é só a primeira.
-        const piId = await extrairPaymentIntentDeSession(stripe, session)
-        await registrarReceitaStripe(supabase, {
-          paymentIntentId:    piId,
-          valorTotalCentavos: session.amount_total || 0,
-          descricao:          DESCRICAO_PLANO[plano === 'anual' ? 'pro_anual' : 'pro_mensal'],
-          dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
-          userId,
-        })
         break
       }
 
@@ -242,66 +291,70 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice
         if (!invoice.subscription) break
 
-        const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string)
+        try {
+          const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string)
 
-        await supabase.from('users').update({
-          is_pro: true,
-          pro_expira_em: new Date(subscription.current_period_end * 1000).toISOString(),
-        }).eq('stripe_subscription_id', invoice.subscription)
+          const periodEnd = getSubscriptionPeriodEnd(subscription)
+          const proExpiraEm = periodEnd ? new Date(periodEnd * 1000).toISOString() : null
 
-        // ─── Lançamento financeiro: renovações de Pro ──────────────────
-        //
-        // Stripe dispara DOIS eventos quando alguém assina pela primeira
-        // vez: 'checkout.session.completed' E 'invoice.payment_succeeded'.
-        // O UNIQUE em payment_intent_id garante idempotência no nível do
-        // banco (se entrarem 2x, o 2º falha com 23505), mas pra evitar log
-        // de erro inútil também filtramos billing_reason='subscription_create'.
-        // Renovações vêm com 'subscription_cycle'.
-        if (invoice.billing_reason === 'subscription_create') {
-          break
+          await supabase.from('users').update({
+            is_pro: true,
+            ...(proExpiraEm ? { pro_expira_em: proExpiraEm } : {}),
+          }).eq('stripe_subscription_id', invoice.subscription)
+
+          console.log(`[webhook] Renovação processada — subscription ${invoice.subscription} (expira ${proExpiraEm || 'desconhecido'})`)
+
+          // Pula lançamento na 1ª cobrança (já coberta no checkout.session.completed)
+          if (invoice.billing_reason === 'subscription_create') break
+
+          const priceId  = subscription.items.data[0]?.price.id
+          const planoTag = priceId === process.env.STRIPE_PRICE_ANUAL ? 'pro_anual' : 'pro_mensal'
+
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id')
+            .eq('stripe_subscription_id', invoice.subscription as string)
+            .limit(1)
+
+          const piId = invoice.payment_intent
+            ? (typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent.id)
+            : null
+
+          await registrarReceitaStripe(supabase, {
+            paymentIntentId:    piId,
+            valorTotalCentavos: invoice.amount_paid || invoice.amount_due || 0,
+            descricao:          `${DESCRICAO_PLANO[planoTag]} (renovação)`,
+            dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
+            userId:             userData?.[0]?.id,
+          })
+        } catch (err: any) {
+          console.error(`[webhook] CRITICAL: falha em invoice.payment_succeeded ${invoice.id}:`, err.message, err.stack)
         }
-
-        // Identifica plano pelo price atual + busca user_id
-        const priceId  = subscription.items.data[0]?.price.id
-        const planoTag = priceId === process.env.STRIPE_PRICE_ANUAL ? 'pro_anual' : 'pro_mensal'
-
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id')
-          .eq('stripe_subscription_id', invoice.subscription as string)
-          .limit(1)
-
-        const piId = invoice.payment_intent
-          ? (typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent.id)
-          : null
-
-        await registrarReceitaStripe(supabase, {
-          paymentIntentId:    piId,
-          valorTotalCentavos: invoice.amount_paid || invoice.amount_due || 0,
-          descricao:          `${DESCRICAO_PLANO[planoTag]} (renovação)`,
-          dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
-          userId:             userData?.[0]?.id,
-        })
         break
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription
 
-        await supabase.from('users').update({
-          is_pro: false,
-          plano: 'free',
-          stripe_subscription_id: null,
-          pro_expira_em: null,
-        }).eq('stripe_subscription_id', subscription.id)
+        try {
+          await supabase.from('users').update({
+            is_pro: false,
+            plano: 'free',
+            stripe_subscription_id: null,
+            pro_expira_em: null,
+          }).eq('stripe_subscription_id', subscription.id)
 
-        console.log(`[webhook] Pro cancelado — subscription ${subscription.id}`)
-        // Cancelamento NÃO gera lançamento (não é movimentação financeira).
+          console.log(`[webhook] Pro cancelado — subscription ${subscription.id}`)
+        } catch (err: any) {
+          console.error(`[webhook] CRITICAL: falha ao cancelar Pro ${subscription.id}:`, err.message)
+        }
         break
       }
     }
   } catch (err: any) {
-    console.error('[webhook] Erro:', err.message)
+    // Erros não capturados pelos try/catch internos (improvável agora,
+    // mas mantido como rede de segurança final)
+    console.error(`[webhook] CRITICAL UNHANDLED: ${event.type}:`, err.message, err.stack)
   }
 
   return NextResponse.json({ received: true })
