@@ -3,7 +3,7 @@
 import { CSSProperties, useState, useMemo, useRef } from 'react'
 import { authFetch } from '@/lib/authFetch'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { uploadFotoLoja, deletarFotoLoja } from '@/lib/uploadFoto'
+import { uploadFotoLoja, deletarFotoLoja, uploadLogoLoja, deletarLogoLoja } from '@/lib/uploadFoto'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -35,8 +35,6 @@ interface Props {
   onSaved?: (data: LojaFormData) => void
 }
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
-
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
   'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
@@ -58,15 +56,11 @@ const TIPO_OPCOES: Array<{ value: 'fisica' | 'online' | 'ambas'; label: string }
   { value: 'ambas', label: 'Física + Online' },
 ]
 
-// ─── Limites por plano ────────────────────────────────────────────────────────
-
 const LIMITES = {
   basico:  { fotos: 0,  descricao: 160,  especialidades: 1 },
   pro:     { fotos: 5,  descricao: 9999, especialidades: 99 },
   premium: { fotos: 10, descricao: 9999, especialidades: 99 },
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function slugify(s: string): string {
   return s.toLowerCase()
@@ -77,8 +71,6 @@ function slugify(s: string): string {
     .replace(/-+/g, '-')
     .slice(0, 60)
 }
-
-// ─── Estilos base ─────────────────────────────────────────────────────────────
 
 const LABEL: CSSProperties = {
   fontSize: 11,
@@ -111,8 +103,6 @@ const TEXTAREA: CSSProperties = {
   lineHeight: 1.5,
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────────
-
 export default function FormLoja({ userId: _userId, initialData, isEditMode = false, onSaved }: Props) {
   const { showAlert } = useAppModal()
 
@@ -132,16 +122,18 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
   const [website,        setWebsite]        = useState(initialData?.website        || '')
   const [instagram,      setInstagram]      = useState(initialData?.instagram      || '')
   const [facebook,       setFacebook]       = useState(initialData?.facebook       || '')
-  const [logoUrl,        setLogoUrl]        = useState(initialData?.logo_url       || '')
 
-  // Fotos: state direto, controlado pelo upload
+  // Logo (file upload)
+  const [logoUrl, setLogoUrl] = useState(initialData?.logo_url || '')
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoDeleting, setLogoDeleting] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  // Galeria
   const [fotos, setFotos] = useState<string[]>(initialData?.fotos || [])
-
-  // Estado de upload em série
-  const [uploadingTotal, setUploadingTotal] = useState(0) // total de arquivos sendo subidos
-  const [uploadingDone, setUploadingDone] = useState(0)   // já terminados (sucesso ou erro)
+  const [uploadingTotal, setUploadingTotal] = useState(0)
+  const [uploadingDone, setUploadingDone] = useState(0)
   const isUploading = uploadingTotal > 0 && uploadingDone < uploadingTotal
-
   const [deletandoUrl, setDeletandoUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -170,7 +162,40 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     }
   }
 
-  // ─── Upload em SÉRIE (resolve race condition) ────────────────
+  // ─── Logo ──────────────────────────────────────────────────
+  async function handleLogoUpload(file: File) {
+    if (!isEditMode || !initialData?.id) {
+      showAlert('Salve a loja primeiro para enviar o logo.', 'warning')
+      return
+    }
+    setLogoUploading(true)
+    try {
+      const result = await uploadLogoLoja(initialData.id, file)
+      setLogoUrl(result.url)
+    } catch (err: any) {
+      console.error('[FormLoja] upload logo falhou', err)
+      showAlert(err?.message || 'Erro ao enviar logo.', 'error')
+    } finally {
+      setLogoUploading(false)
+      if (logoInputRef.current) logoInputRef.current.value = ''
+    }
+  }
+
+  async function handleLogoRemove() {
+    if (!initialData?.id || !logoUrl) return
+    setLogoDeleting(true)
+    try {
+      await deletarLogoLoja(initialData.id)
+      setLogoUrl('')
+    } catch (err: any) {
+      console.error('[FormLoja] delete logo falhou', err)
+      showAlert(err?.message || 'Erro ao remover logo.', 'error')
+    } finally {
+      setLogoDeleting(false)
+    }
+  }
+
+  // ─── Galeria ───────────────────────────────────────────────
   async function handleAddFotos(files: FileList) {
     if (!isEditMode || !initialData?.id) {
       showAlert('Salve a loja primeiro para adicionar fotos.', 'warning')
@@ -186,7 +211,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     const arquivos = Array.from(files)
     if (arquivos.length === 0) return
 
-    // ─── Validação de limite na SELEÇÃO ────────
     const slotsDisponiveis = limites.fotos - fotos.length
     if (slotsDisponiveis <= 0) {
       showAlert(`Limite de ${limites.fotos} fotos atingido. Remova alguma para adicionar outra.`, 'warning')
@@ -196,7 +220,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
 
     let aSubir = arquivos
     if (arquivos.length > slotsDisponiveis) {
-      // Avisa e corta
       await new Promise<void>(resolve => {
         showAlert(
           `Você selecionou ${arquivos.length} fotos, mas só há espaço para ${slotsDisponiveis}. As primeiras ${slotsDisponiveis} serão enviadas; as outras serão ignoradas.`,
@@ -206,8 +229,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       aSubir = arquivos.slice(0, slotsDisponiveis)
     }
 
-    // ─── Sobe em SÉRIE (uma de cada vez) ────────
-    // Isso resolve race condition de updates concorrentes no array `fotos`
     setUploadingTotal(aSubir.length)
     setUploadingDone(0)
 
@@ -219,7 +240,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       const file = aSubir[i]
       try {
         const result = await uploadFotoLoja(lojaId, file)
-        // Atualiza com o array MAIS RECENTE vindo do servidor (source of truth)
         setFotos(result.fotos)
         sucessos++
       } catch (err: any) {
@@ -231,16 +251,11 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       }
     }
 
-    // ─── Reset estado de upload ────────
     setUploadingTotal(0)
     setUploadingDone(0)
     if (fileInputRef.current) fileInputRef.current.value = ''
 
-    // ─── Feedback final ────────
-    if (erros === 0) {
-      // Tudo OK, sem alert (o usuário vê os thumbs aparecendo)
-      return
-    }
+    if (erros === 0) return
 
     if (sucessos === 0) {
       showAlert(`Nenhuma foto foi enviada. ${primeiraMensagemErro}`, 'error')
@@ -281,8 +296,9 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     return null
   }
 
-  // OBS: NÃO mandamos `fotos` no payload — fotos são gerenciadas pelos endpoints
-  // /api/lojas/[id]/upload-foto e /api/lojas/[id]/foto que dão append/remove atômico
+  // OBS: NÃO mandamos logo_url nem fotos no payload.
+  // Logo é gerenciado pelo POST/DELETE /api/lojas/[id]/logo
+  // Fotos pelos /api/lojas/[id]/upload-foto e /foto
   function montarPayload() {
     return {
       slug: slugFinal,
@@ -297,13 +313,11 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       website: website.trim() || null,
       instagram: instagram.trim() || null,
       facebook: facebook.trim() || null,
-      logo_url: logoUrl.trim() || null,
     }
   }
 
   function handleApiError(data: any, res: Response, contexto: 'criar' | 'salvar'): void {
     const msg = data?.error || `Erro ao ${contexto} loja. Tente novamente.`
-
     if (res.status === 409 && /slug/i.test(msg)) {
       setSlugError('Este identificador já está em uso. Escolha outro.')
       return
@@ -315,8 +329,8 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     e?.preventDefault()
     setSlugError('')
 
-    if (isUploading) {
-      showAlert('Aguarde o envio das fotos terminar antes de salvar.', 'warning')
+    if (isUploading || logoUploading) {
+      showAlert('Aguarde o envio das imagens terminar antes de salvar.', 'warning')
       return
     }
 
@@ -346,7 +360,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         }
 
         showAlert('Loja atualizada com sucesso!', 'success')
-        onSaved?.({ ...initialData, ...payload, fotos, id: data?.loja?.id || initialData.id } as LojaFormData)
+        onSaved?.({ ...initialData, ...payload, fotos, logo_url: logoUrl, id: data?.loja?.id || initialData.id } as LojaFormData)
 
       } else {
         const res = await authFetch('/api/lojas', {
@@ -377,7 +391,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     }
   }
 
-  // Cálculos derivados pra UI das fotos
   const slotsRestantes = Math.max(0, limites.fotos - fotos.length)
   const podeSubirMais = isEditMode && !!initialData?.id && slotsRestantes > 0 && !isUploading
 
@@ -435,16 +448,76 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
           </p>
         </div>
 
+        {/* ─── LOGO (file upload com crop quadrado) ───────────── */}
         <div>
-          <label style={LABEL}>URL do logo</label>
+          <label style={LABEL}>Logo da loja</label>
+
+          <div style={S.logoWrap}>
+            <div style={S.logoPreview}>
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="Logo da loja" style={S.logoImg} />
+              ) : (
+                <div style={S.logoPlaceholder}>
+                  <span style={{ fontSize: 32, lineHeight: 1, color: 'rgba(245,158,11,0.5)' }}>+</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Sem logo</span>
+                </div>
+              )}
+              {logoUploading && (
+                <div style={S.logoOverlay}>
+                  <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>enviando…</span>
+                </div>
+              )}
+            </div>
+
+            <div style={S.logoActions}>
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoUploading || logoDeleting || !isEditMode || !initialData?.id}
+                style={{
+                  ...S.btnSecondaryInline,
+                  ...((logoUploading || logoDeleting || !isEditMode || !initialData?.id) ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                }}
+              >
+                {logoUrl ? 'Substituir' : 'Enviar logo'}
+              </button>
+
+              {logoUrl && (
+                <button
+                  type="button"
+                  onClick={handleLogoRemove}
+                  disabled={logoUploading || logoDeleting}
+                  style={{
+                    ...S.btnGhostInline,
+                    ...((logoUploading || logoDeleting) ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                  }}
+                >
+                  {logoDeleting ? 'Removendo…' : 'Remover'}
+                </button>
+              )}
+
+              <p style={{ ...S.hintText, marginTop: 8 }}>
+                {!isEditMode || !initialData?.id ? (
+                  <>Salve a loja primeiro para enviar o logo.</>
+                ) : (
+                  <>Imagem quadrada · JPG, PNG ou WebP · será cortada e redimensionada para 400×400 automaticamente.</>
+                )}
+              </p>
+            </div>
+          </div>
+
           <input
-            type="url"
-            value={logoUrl}
-            onChange={e => setLogoUrl(e.target.value)}
-            placeholder="https://..."
-            style={INPUT}
+            ref={logoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={e => {
+              const file = e.target.files?.[0]
+              if (file) handleLogoUpload(file)
+            }}
+            style={{ display: 'none' }}
+            disabled={logoUploading}
           />
-          <p style={S.hintText}>Cole a URL de uma imagem quadrada (upload direto em breve).</p>
         </div>
       </fieldset>
 
@@ -621,7 +694,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
               {isUploading && ` · enviando ${uploadingDone + 1}/${uploadingTotal}…`}
             </label>
 
-            {/* Grid de thumbs */}
             <div style={S.fotosGrid}>
               {fotos.map(url => (
                 <div key={url} style={S.fotoThumb}>
@@ -643,7 +715,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
                 </div>
               ))}
 
-              {/* Placeholder do upload em série (mostra só 1 placeholder, o atual) */}
               {isUploading && (
                 <div style={{ ...S.fotoThumb, ...S.fotoUploading }}>
                   <span style={S.fotoUploadingText}>
@@ -652,7 +723,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
                 </div>
               )}
 
-              {/* Botão de adicionar (se há slots e não está subindo) */}
               {podeSubirMais && (
                 <button
                   type="button"
@@ -667,7 +737,6 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
               )}
             </div>
 
-            {/* Input file invisível */}
             <input
               ref={fileInputRef}
               type="file"
@@ -701,21 +770,21 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         </fieldset>
       )}
 
-      {/* ─── Botão Salvar ─────────────────────────────────────── */}
       <div style={S.actions}>
         <button
           type="submit"
-          disabled={saving || isUploading}
-          style={{ ...S.btnPrimary, ...((saving || isUploading) ? S.btnDisabled : {}) }}
+          disabled={saving || isUploading || logoUploading}
+          style={{ ...S.btnPrimary, ...((saving || isUploading || logoUploading) ? S.btnDisabled : {}) }}
         >
-          {saving ? 'Salvando…' : isUploading ? 'Aguarde envio das fotos…' : (isEditMode ? 'Salvar alterações' : 'Cadastrar loja')}
+          {saving ? 'Salvando…' :
+           isUploading ? 'Aguarde envio das fotos…' :
+           logoUploading ? 'Aguarde envio do logo…' :
+           (isEditMode ? 'Salvar alterações' : 'Cadastrar loja')}
         </button>
       </div>
     </form>
   )
 }
-
-// ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const S: Record<string, CSSProperties> = {
   form: {
@@ -811,7 +880,80 @@ const S: Record<string, CSSProperties> = {
     border: '1px solid rgba(245,158,11,0.35)',
   },
 
-  // ─── Galeria de fotos ───
+  // ─── Logo ───
+  logoWrap: {
+    display: 'flex',
+    gap: 16,
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  logoPreview: {
+    width: 100,
+    height: 100,
+    flexShrink: 0,
+    borderRadius: 14,
+    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    position: 'relative',
+  },
+  logoImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  logoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(245,158,11,0.04)',
+    border: '1px dashed rgba(245,158,11,0.2)',
+    borderRadius: 14,
+  },
+  logoOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'rgba(0,0,0,0.65)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoActions: {
+    flex: 1,
+    minWidth: 200,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  btnSecondaryInline: {
+    background: 'rgba(245,158,11,0.1)',
+    border: '1px solid rgba(245,158,11,0.3)',
+    color: '#f59e0b',
+    fontSize: 13,
+    fontWeight: 600,
+    padding: '8px 16px',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  btnGhostInline: {
+    background: 'transparent',
+    border: '1px solid rgba(255,255,255,0.1)',
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 12,
+    fontWeight: 500,
+    padding: '6px 12px',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+
+  // ─── Galeria ───
   fotosGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
