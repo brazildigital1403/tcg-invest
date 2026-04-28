@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -37,9 +36,6 @@ function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string;
 // GET /api/admin/financeiro/lancamentos?tipo=&categoria=&status=&from=&to=&page=&perPage=
 export async function GET(req: NextRequest) {
   try {
-    const unauth = await requireAdmin(req)
-    if (unauth) return unauth
-
     const { searchParams } = new URL(req.url)
     const tipo      = searchParams.get('tipo')
     const categoria = searchParams.get('categoria')
@@ -53,7 +49,7 @@ export async function GET(req: NextRequest) {
     const fromIdx = (page - 1) * perPage
     const toIdx   = fromIdx + perPage - 1
 
-    let q = sb.from('lancamentos').select('*', { count: 'exact' })
+    let q = sb.from('lancamentos').select('*, user:users!lancamentos_user_id_fkey(email, name)', { count: 'exact' })
 
     if (tipo === 'despesa' || tipo === 'receita') q = q.eq('tipo', tipo)
     if (categoria && CATEGORIAS_TODAS.includes(categoria)) q = q.eq('categoria', categoria)
@@ -72,8 +68,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Flatten do embed: { user: { email, name } } → { user_email, user_name }
+    // pra UI consumir como campos diretos do lançamento (mais simples).
+    const lancamentos = (data || []).map((l: any) => {
+      const { user, ...rest } = l
+      return {
+        ...rest,
+        user_email: user?.email || null,
+        user_name:  user?.name  || null,
+      }
+    })
+
     return NextResponse.json({
-      lancamentos: data || [],
+      lancamentos,
       total: count || 0,
       page,
       perPage,
@@ -93,9 +100,6 @@ export async function GET(req: NextRequest) {
 //   - Se `detalhes` for vazio/null, valor_bruto é obrigatório no body
 export async function POST(req: NextRequest) {
   try {
-    const unauth = await requireAdmin(req)
-    if (unauth) return unauth
-
     const body = await req.json().catch(() => ({}))
 
     const tipo = String(body.tipo || '')

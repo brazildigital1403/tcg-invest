@@ -47,6 +47,8 @@ type Lancamento = {
   fonte: 'manual' | 'stripe' | 'outro'
   observacao: string | null
   detalhes: DetalheItem[] | null
+  user_email: string | null
+  user_name: string | null
 }
 
 const CATEGORIAS_DESPESA = ['infra','marketing','dominio','pagamentos','impostos','outros']
@@ -477,6 +479,11 @@ export default function AdminFinanceiroPage() {
                               </span>
                             )}
                           </div>
+                          {l.user_email && (
+                            <div style={{ fontSize: 11, color: 'rgba(167,139,250,0.85)', marginTop: 2, fontWeight: 500 }}>
+                              Comprador: {l.user_name ? `${l.user_name} · ` : ''}{l.user_email}
+                            </div>
+                          )}
                           {l.observacao && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{l.observacao}</div>}
                         </td>
                         <td style={td}>
