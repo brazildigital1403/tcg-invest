@@ -5,36 +5,40 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
-import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
-import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Estado = 'loading' | 'nao_logado' | 'sem_loja' | 'com_loja'
+type Estado = 'loading' | 'nao_logado' | 'sem_lojas' | 'com_lojas'
 
-interface LojaFull extends LojaFormData {
+interface LojaCard {
   id: string
   slug: string
+  nome: string
+  cidade: string
+  estado: string
+  tipo: 'fisica' | 'online' | 'ambas'
   plano: 'basico' | 'pro' | 'premium'
   status: 'pendente' | 'ativa' | 'suspensa' | 'inativa'
   verificada: boolean | null
-  motivo_suspensao: string | null
-  plano_expira_em: string | null
-  created_at: string
+  logo_url: string | null
+  fotos: string[] | null
+  cliques_30d?: number
+}
+
+const TIPO_LABEL: Record<string, string> = {
+  fisica: 'Física',
+  online: 'Online',
+  ambas: 'Física + Online',
 }
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 
-export default function MinhaLojaPage() {
+export default function MinhasLojasHubPage() {
   const router = useRouter()
-  const { showConfirm, showAlert } = useAppModal()
 
-  const [estado, setEstado]   = useState<Estado>('loading')
-  const [userId, setUserId]   = useState<string | null>(null)
-  const [loja, setLoja]       = useState<LojaFull | null>(null)
-  const [editando, setEditando] = useState(false)
+  const [estado, setEstado] = useState<Estado>('loading')
+  const [lojas, setLojas] = useState<LojaCard[]>([])
 
-  // ─── Load user + loja ────────────────────────────────────────
   useEffect(() => {
     let alive = true
 
@@ -50,81 +54,65 @@ export default function MinhaLojaPage() {
         return
       }
 
-      setUserId(user.id)
-
-      const { data } = await supabase
+      // Busca todas as lojas do user
+      const { data: lojasData, error: lojasErr } = await supabase
         .from('lojas')
-        .select('*')
+        .select('id, slug, nome, cidade, estado, tipo, plano, status, verificada, logo_url, fotos')
         .eq('owner_user_id', user.id)
-        .limit(1)
+        .order('created_at', { ascending: false })
 
       if (!alive) return
 
-      if (data && data.length > 0) {
-        setLoja(data[0] as LojaFull)
-        setEstado('com_loja')
-      } else {
-        setEstado('sem_loja')
+      if (lojasErr) {
+        console.error('[minha-loja hub] erro ao listar lojas', lojasErr)
+        setEstado('sem_lojas')
+        return
       }
+
+      const lista = (lojasData || []) as LojaCard[]
+
+      // Onboarding direto: 0 lojas → /minha-loja/nova
+      if (lista.length === 0) {
+        router.replace('/minha-loja/nova')
+        return
+      }
+
+      // Busca cliques dos últimos 30 dias por loja (analytics preview)
+      const ids = lista.map(l => l.id)
+      const desde30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      try {
+        const { data: cliquesData } = await supabase
+          .from('loja_cliques')
+          .select('loja_id')
+          .in('loja_id', ids)
+          .gte('created_at', desde30d)
+
+        const cliquesPorLoja: Record<string, number> = {}
+        ;(cliquesData || []).forEach((row: any) => {
+          cliquesPorLoja[row.loja_id] = (cliquesPorLoja[row.loja_id] || 0) + 1
+        })
+
+        lista.forEach(loja => {
+          loja.cliques_30d = cliquesPorLoja[loja.id] || 0
+        })
+      } catch {
+        // Falha de analytics não bloqueia a listagem
+        lista.forEach(loja => { loja.cliques_30d = 0 })
+      }
+
+      if (!alive) return
+      setLojas(lista)
+      setEstado('com_lojas')
     }
 
     load()
     return () => { alive = false }
   }, [router])
 
-  // ─── Handlers ────────────────────────────────────────────────
-
-  function onLojaSalva(nova: LojaFormData) {
-    setLoja(prev => ({ ...(prev || {}), ...nova } as LojaFull))
-    setEditando(false)
-    // Se era sem_loja, vira com_loja
-    if (estado === 'sem_loja') setEstado('com_loja')
-  }
-
-  async function desativarLoja() {
-    if (!loja) return
-    const ok = await showConfirm({
-      message: 'Sua loja ficará oculta do Guia e dos mecanismos de busca. Você pode reativar a qualquer momento em "Minha Loja". Confirma?',
-      confirmLabel: 'Desativar',
-      cancelLabel: 'Cancelar',
-      danger: true,
-    })
-    if (!ok) return
-
-    const { error } = await supabase
-      .from('lojas')
-      .update({ status: 'inativa' })
-      .eq('id', loja.id)
-      .eq('owner_user_id', userId!)
-
-    if (error) {
-      showAlert('Erro ao desativar. Tente novamente.', 'error')
-      return
-    }
-    setLoja({ ...loja, status: 'inativa' })
-    showAlert('Loja desativada. Ela não aparece mais no Guia.', 'info')
-  }
-
-  async function reativarLoja() {
-    if (!loja) return
-    // Reativar manda de volta para pendente (admin precisa aprovar de novo)
-    const { error } = await supabase
-      .from('lojas')
-      .update({ status: 'pendente' })
-      .eq('id', loja.id)
-      .eq('owner_user_id', userId!)
-
-    if (error) {
-      showAlert('Erro ao reativar. Tente novamente.', 'error')
-      return
-    }
-    setLoja({ ...loja, status: 'pendente' })
-    showAlert('Loja enviada para nova análise. Avisaremos por email quando aprovada.', 'success')
-  }
-
   // ─── Render ──────────────────────────────────────────────────
 
-  if (estado === 'loading' || estado === 'nao_logado') {
+  if (estado === 'loading' || estado === 'nao_logado' || estado === 'sem_lojas') {
     return (
       <AppLayout>
         <div style={S.loadingWrap}>
@@ -139,296 +127,173 @@ export default function MinhaLojaPage() {
       <div style={S.page}>
         {/* ─── Header ───────────────────────────────────── */}
         <header style={S.header}>
-          <div>
-            <h1 style={S.title}>Minha Loja</h1>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={S.title}>Minhas Lojas</h1>
             <p style={S.subtitle}>
-              {estado === 'sem_loja'
-                ? 'Cadastre sua loja no Guia de Lojistas do Bynx e seja encontrado por milhares de colecionadores.'
-                : 'Gerencie os dados da sua loja no Guia de Lojistas.'}
+              {lojas.length === 1
+                ? 'Gerencie sua loja no Guia de Lojistas.'
+                : `Você administra ${lojas.length} lojas no Guia de Lojistas.`}
             </p>
           </div>
+          <Link href="/minha-loja/nova" style={S.btnPrimary}>
+            + Nova loja
+          </Link>
         </header>
 
-        {/* ─── Estado: sem loja ─────────────────────────── */}
-        {estado === 'sem_loja' && (
-          <>
-            <BannerBeneficios />
-            <FormLoja userId={userId!} onSaved={onLojaSalva} />
-          </>
-        )}
+        {/* ─── Grid de cards ─────────────────────────────── */}
+        <div style={S.lojasGrid}>
+          {lojas.map(loja => (
+            <CardLoja key={loja.id} loja={loja} />
+          ))}
+        </div>
 
-        {/* ─── Estado: com loja ─────────────────────────── */}
-        {estado === 'com_loja' && loja && (
-          <>
-            <StatusCard loja={loja} onDesativar={desativarLoja} onReativar={reativarLoja} />
-            <PlanoCard loja={loja} />
-
-            {/* Formulário só renderiza se estiver editando OU se a loja está ativa/pendente */}
-            {editando ? (
-              <>
-                <div style={S.editHeader}>
-                  <h2 style={S.sectionTitle}>Editar dados da loja</h2>
-                  <button
-                    type="button"
-                    onClick={() => setEditando(false)}
-                    style={S.btnGhost}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-                <FormLoja
-                  userId={userId!}
-                  initialData={loja}
-                  isEditMode
-                  onSaved={onLojaSalva}
-                />
-              </>
-            ) : (
-              loja.status !== 'suspensa' && (
-                <ResumoCard loja={loja} onEditar={() => setEditando(true)} />
-              )
-            )}
-          </>
-        )}
+        {/* ─── Dica ───────────────────────────────────── */}
+        <div style={S.tipBox}>
+          <p style={S.tipText}>
+            💡 <strong>Dica:</strong> cada loja tem seu próprio plano. Você pode ter
+            uma Premium na cidade principal e outras Básico nas filiais.
+          </p>
+        </div>
       </div>
     </AppLayout>
   )
 }
 
-// ─── Sub-componentes ──────────────────────────────────────────────────────────
+// ─── Card de Loja ─────────────────────────────────────────────────────────────
 
-function BannerBeneficios() {
-  return (
-    <div style={S.banner}>
-      <div style={S.bannerBadge}>🎉 Novo cadastro</div>
-      <h3 style={S.bannerTitle}>14 dias de Pro grátis ao cadastrar sua loja</h3>
-      <p style={S.bannerText}>
-        Teste todos os recursos do plano Pro sem compromisso: até 5 fotos, redes sociais,
-        especialidades ilimitadas e destaque na listagem. Ao fim do trial, sua loja
-        continua ativa no plano Básico (gratuito para sempre).
-      </p>
-      <ul style={S.bannerList}>
-        <li>✓ Sem cartão de crédito</li>
-        <li>✓ Cancele quando quiser</li>
-        <li>✓ Loja passa por aprovação do time Bynx antes de aparecer</li>
-      </ul>
-    </div>
-  )
-}
-
-function StatusCard({
-  loja,
-  onDesativar,
-  onReativar,
-}: {
-  loja: LojaFull
-  onDesativar: () => void
-  onReativar: () => void
-}) {
-  const cfg = STATUS_CONFIG[loja.status]
-  const publicUrl = `/lojas/${loja.slug}`
+function CardLoja({ loja }: { loja: LojaCard }) {
+  const cfgStatus = STATUS_CONFIG[loja.status]
+  const cfgPlano = PLANO_CONFIG[loja.plano]
+  const numFotos = (loja.fotos || []).length
+  const cliques = loja.cliques_30d ?? 0
 
   return (
-    <div style={{ ...S.statusCard, borderColor: cfg.borderColor, background: cfg.bg }}>
-      <div style={S.statusHeader}>
-        <div>
-          <span style={{ ...S.statusBadge, color: cfg.color, background: cfg.badgeBg, border: `1px solid ${cfg.borderColor}` }}>
-            {cfg.label}
-          </span>
-          <h3 style={S.statusTitle}>{loja.nome || 'Sua loja'}</h3>
-          <p style={S.statusDescription}>{cfg.description}</p>
-          {loja.status === 'suspensa' && loja.motivo_suspensao && (
-            <p style={S.motivoBox}>
-              <strong>Motivo:</strong> {loja.motivo_suspensao}
-            </p>
-          )}
-        </div>
-      </div>
+    <Link href={`/minha-loja/${loja.id}`} style={S.cardLink}>
+      <article style={{
+        ...S.card,
+        borderColor: loja.status === 'suspensa' ? 'rgba(239,68,68,0.25)' :
+                     loja.status === 'pendente' ? 'rgba(245,158,11,0.25)' :
+                     'rgba(255,255,255,0.08)',
+      }}>
+        {/* Header: logo + nome + verificada */}
+        <div style={S.cardHeader}>
+          <div style={S.cardLogoWrap}>
+            {loja.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={loja.logo_url} alt={loja.nome} style={S.cardLogo} />
+            ) : (
+              <div style={S.cardLogoFallback}>
+                {loja.nome.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
 
-      <div style={S.statusActions}>
-        {loja.status === 'ativa' && (
-          <>
-            <Link href={publicUrl} target="_blank" style={S.btnSecondary}>
-              Ver página pública ↗
-            </Link>
-            <button type="button" onClick={onDesativar} style={S.btnGhost}>
-              Desativar loja
-            </button>
-          </>
-        )}
-        {loja.status === 'pendente' && (
-          <p style={S.hintText}>
-            Você receberá um email assim que a aprovação for concluída (costuma levar até 48h).
-          </p>
-        )}
-        {loja.status === 'inativa' && (
-          <button type="button" onClick={onReativar} style={S.btnPrimary}>
-            Reativar loja
-          </button>
-        )}
-        {loja.status === 'suspensa' && (
-          <Link href="/suporte" style={S.btnPrimary}>
-            Entrar em contato com o suporte
-          </Link>
-        )}
-      </div>
-    </div>
-  )
-}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 style={S.cardNome}>
+              {loja.nome}
+              {loja.verificada && (
+                <span style={S.verificadaBadge} title="Loja verificada">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 2l2.4 2.8 3.6-.4.4 3.6L19 10l-2.6 2 .4 3.6-3.6.4L10 19l-2.4-2.8-3.6.4-.4-3.6L1 10l2.6-2L3.2 4.4 6.8 4 10 1z"
+                      fill="#f59e0b" stroke="#f59e0b" strokeWidth="1.2" strokeLinejoin="round" />
+                    <path d="M6 10l2.5 2.5L14 7" stroke="#0d0f14" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+            </h3>
 
-function PlanoCard({ loja }: { loja: LojaFull }) {
-  const plano = loja.plano || 'basico'
-  const cfg = PLANO_CONFIG[plano]
-  const expiraEm = loja.plano_expira_em ? new Date(loja.plano_expira_em) : null
-  const hoje = new Date()
-  const diasRestantes = expiraEm ? Math.ceil((expiraEm.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) : null
-
-  return (
-    <div style={{ ...S.planoCard, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-      <div style={S.planoHeader}>
-        <div>
-          <span style={S.planoLabel}>Plano atual</span>
-          <h3 style={{ ...S.planoName, color: cfg.color }}>{cfg.label}</h3>
-          {diasRestantes !== null && diasRestantes > 0 && (
-            <p style={S.planoTrial}>
-              {plano === 'pro' && !loja.plano_expira_em ? 'Ativo' : `${diasRestantes} dias restantes`}
-            </p>
-          )}
-        </div>
-        {plano !== 'premium' && (
-          <Link href="/minha-loja/plano" style={S.btnPrimary}>
-            Fazer upgrade →
-          </Link>
-        )}
-      </div>
-      <p style={S.planoDescription}>{cfg.description}</p>
-    </div>
-  )
-}
-
-function ResumoCard({ loja, onEditar }: { loja: LojaFull; onEditar: () => void }) {
-  const campos = [
-    { label: 'Nome', valor: loja.nome },
-    { label: 'Cidade', valor: loja.cidade && loja.estado ? `${loja.cidade}, ${loja.estado}` : null },
-    { label: 'Tipo', valor: loja.tipo ? TIPO_LABEL[loja.tipo] : null },
-    { label: 'Especialidades', valor: loja.especialidades?.length ? loja.especialidades.join(', ') : null },
-    { label: 'WhatsApp', valor: loja.whatsapp },
-    { label: 'Descrição', valor: loja.descricao ? `${loja.descricao.slice(0, 80)}${loja.descricao.length > 80 ? '…' : ''}` : null },
-    { label: 'Logo', valor: loja.logo_url ? 'Sim' : null },
-    { label: 'Fotos', valor: loja.fotos?.length ? `${loja.fotos.length} foto(s)` : null },
-  ]
-
-  const preenchidos = campos.filter(c => c.valor).length
-  const pct = Math.round((preenchidos / campos.length) * 100)
-
-  return (
-    <div style={S.resumoCard}>
-      <div style={S.resumoHeader}>
-        <div style={{ flex: 1 }}>
-          <h2 style={S.sectionTitle}>Dados da loja</h2>
-          <div style={S.progressWrap}>
-            <div style={S.progressTrack}>
-              <div style={{ ...S.progressFill, width: `${pct}%` }} />
+            <div style={S.cardMetaLine}>
+              <span style={{ ...S.planoBadge, color: cfgPlano.color, background: cfgPlano.badgeBg, border: `1px solid ${cfgPlano.border}` }}>
+                {cfgPlano.label}
+              </span>
+              <span style={S.cardLocation}>
+                {loja.cidade}, {loja.estado} · {TIPO_LABEL[loja.tipo]}
+              </span>
             </div>
-            <span style={S.progressText}>{preenchidos}/{campos.length} campos · {pct}%</span>
           </div>
         </div>
-        <button type="button" onClick={onEditar} style={S.btnSecondary}>
-          Editar
-        </button>
-      </div>
 
-      <dl style={S.resumoGrid}>
-        {campos.map(c => (
-          <div key={c.label} style={S.resumoItem}>
-            <dt style={S.resumoLabel}>{c.label}</dt>
-            <dd style={{ ...S.resumoValor, color: c.valor ? '#f0f0f0' : 'rgba(255,255,255,0.25)' }}>
-              {c.valor || '— vazio'}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+        {/* Status + métricas */}
+        <div style={S.cardStats}>
+          <span style={{ ...S.statusBadge, color: cfgStatus.color, background: cfgStatus.badgeBg, border: `1px solid ${cfgStatus.borderColor}` }}>
+            {cfgStatus.label}
+          </span>
+          <span style={S.statSep}>·</span>
+          <span style={S.statText}>
+            {numFotos} foto{numFotos !== 1 ? 's' : ''}
+          </span>
+          <span style={S.statSep}>·</span>
+          <span style={S.statText}>
+            {cliques} clique{cliques !== 1 ? 's' : ''} (30d)
+          </span>
+        </div>
+
+        {/* Footer: editar */}
+        <div style={S.cardFooter}>
+          <span style={S.cardEditarLabel}>Editar →</span>
+        </div>
+      </article>
+    </Link>
   )
 }
 
 // ─── Configs ──────────────────────────────────────────────────────────────────
-
-const TIPO_LABEL: Record<string, string> = {
-  fisica: 'Física',
-  online: 'Online',
-  ambas: 'Física + Online',
-}
 
 const STATUS_CONFIG: Record<string, {
   label: string
   color: string
   badgeBg: string
   borderColor: string
-  bg: string
-  description: string
 }> = {
   pendente: {
     label: 'Em análise',
     color: '#f59e0b',
     badgeBg: 'rgba(245,158,11,0.15)',
-    borderColor: 'rgba(245,158,11,0.25)',
-    bg: 'linear-gradient(180deg, rgba(245,158,11,0.04), rgba(13,15,20,0) 80%)',
-    description: 'Sua loja está sendo analisada pela equipe Bynx. Assim que aprovada, aparece no Guia de Lojas.',
+    borderColor: 'rgba(245,158,11,0.3)',
   },
   ativa: {
     label: 'Ativa',
     color: '#22c55e',
     badgeBg: 'rgba(34,197,94,0.15)',
-    borderColor: 'rgba(34,197,94,0.25)',
-    bg: 'linear-gradient(180deg, rgba(34,197,94,0.04), rgba(13,15,20,0) 80%)',
-    description: 'Sua loja está visível no Guia de Lojas e pode ser encontrada pelos colecionadores.',
+    borderColor: 'rgba(34,197,94,0.3)',
   },
   suspensa: {
     label: 'Suspensa',
     color: '#ef4444',
     badgeBg: 'rgba(239,68,68,0.15)',
-    borderColor: 'rgba(239,68,68,0.25)',
-    bg: 'linear-gradient(180deg, rgba(239,68,68,0.04), rgba(13,15,20,0) 80%)',
-    description: 'Sua loja foi suspensa e não está visível no Guia. Entre em contato com o suporte para regularizar.',
+    borderColor: 'rgba(239,68,68,0.3)',
   },
   inativa: {
     label: 'Inativa',
     color: 'rgba(255,255,255,0.55)',
     badgeBg: 'rgba(255,255,255,0.06)',
     borderColor: 'rgba(255,255,255,0.12)',
-    bg: '#0d0f14',
-    description: 'Sua loja está desativada e oculta do Guia. Você pode reativá-la quando quiser.',
   },
 }
 
 const PLANO_CONFIG: Record<string, {
   label: string
   color: string
-  bg: string
+  badgeBg: string
   border: string
-  description: string
 }> = {
   basico: {
     label: 'Básico',
-    color: 'rgba(255,255,255,0.75)',
-    bg: '#0d0f14',
-    border: 'rgba(255,255,255,0.08)',
-    description: 'Listagem gratuita no Guia. Faça upgrade para desbloquear fotos, redes sociais e mais.',
+    color: 'rgba(255,255,255,0.7)',
+    badgeBg: 'rgba(255,255,255,0.05)',
+    border: 'rgba(255,255,255,0.1)',
   },
   pro: {
     label: 'Pro',
     color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.06)',
-    border: 'rgba(245,158,11,0.2)',
-    description: 'Até 5 fotos, redes sociais, especialidades ilimitadas e destaque acima do Básico.',
+    badgeBg: 'rgba(245,158,11,0.1)',
+    border: 'rgba(245,158,11,0.25)',
   },
   premium: {
     label: 'Premium',
-    color: '#f59e0b',
-    bg: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))',
-    border: 'rgba(245,158,11,0.3)',
-    description: 'Até 10 fotos, eventos e torneios, analytics e rotação no topo da listagem.',
+    color: '#ef4444',
+    badgeBg: 'rgba(239,68,68,0.1)',
+    border: 'rgba(239,68,68,0.25)',
   },
 }
 
@@ -436,15 +301,20 @@ const PLANO_CONFIG: Record<string, {
 
 const S: Record<string, CSSProperties> = {
   page: {
-    maxWidth: 960,
+    maxWidth: 1080,
     margin: '0 auto',
     padding: '24px 20px 64px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 20,
+    gap: 24,
   },
 
   header: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 16,
+    flexWrap: 'wrap',
     paddingBottom: 4,
   },
   title: {
@@ -460,20 +330,6 @@ const S: Record<string, CSSProperties> = {
     margin: '6px 0 0',
     lineHeight: 1.5,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: '#f0f0f0',
-    margin: 0,
-    letterSpacing: '-0.01em',
-  },
-  editHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: -8,
-  },
 
   loadingWrap: {
     minHeight: '60vh',
@@ -486,246 +342,168 @@ const S: Record<string, CSSProperties> = {
     color: 'rgba(255,255,255,0.4)',
   },
 
-  // ─── Banner trial ───────────────────────────────────
-  banner: {
-    background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))',
-    border: '1px solid rgba(245,158,11,0.2)',
-    borderRadius: 16,
-    padding: 24,
-  },
-  bannerBadge: {
-    display: 'inline-block',
-    background: 'rgba(245,158,11,0.15)',
-    color: '#f59e0b',
-    fontSize: 11,
-    fontWeight: 700,
-    padding: '4px 10px',
-    borderRadius: 6,
-    letterSpacing: '0.05em',
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  bannerTitle: {
-    fontSize: 20,
-    fontWeight: 800,
-    color: '#f0f0f0',
-    margin: '0 0 8px',
-    letterSpacing: '-0.02em',
-  },
-  bannerText: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
-    lineHeight: 1.6,
-    margin: 0,
-  },
-  bannerList: {
-    listStyle: 'none',
-    padding: 0,
-    margin: '14px 0 0',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.55)',
+  // Grid de cards
+  lojasGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: 14,
   },
 
-  // ─── Status card ────────────────────────────────────
-  statusCard: {
+  cardLink: {
+    textDecoration: 'none',
+    color: 'inherit',
+    display: 'block',
+  },
+  card: {
     background: '#0d0f14',
     border: '1px solid',
     borderRadius: 14,
-    padding: 20,
-  },
-  statusHeader: {
-    marginBottom: 16,
-  },
-  statusBadge: {
-    display: 'inline-block',
-    fontSize: 11,
-    fontWeight: 700,
-    padding: '4px 10px',
-    borderRadius: 6,
-    letterSpacing: '0.05em',
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  statusTitle: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: '#f0f0f0',
-    margin: '0 0 6px',
-    letterSpacing: '-0.01em',
-  },
-  statusDescription: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.55)',
-    lineHeight: 1.5,
-    margin: 0,
-  },
-  motivoBox: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    background: 'rgba(239,68,68,0.08)',
-    border: '1px solid rgba(239,68,68,0.2)',
-    borderRadius: 8,
-    padding: '10px 12px',
-    margin: '12px 0 0',
-    lineHeight: 1.5,
-  },
-  statusActions: {
+    padding: 18,
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: 10,
+    flexDirection: 'column',
+    gap: 14,
+    transition: 'transform 0.15s ease, border-color 0.15s ease',
+    cursor: 'pointer',
+  },
+  cardHeader: {
+    display: 'flex',
+    gap: 12,
     alignItems: 'center',
   },
-
-  // ─── Plano card ─────────────────────────────────────
-  planoCard: {
-    borderRadius: 14,
-    padding: 20,
+  cardLogoWrap: {
+    width: 52,
+    height: 52,
+    flexShrink: 0,
+    borderRadius: 12,
+    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
   },
-  planoHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-    flexWrap: 'wrap',
-    marginBottom: 10,
-  },
-  planoLabel: {
+  cardLogo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
     display: 'block',
-    fontSize: 11,
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.45)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.07em',
-    marginBottom: 4,
   },
-  planoName: {
+  cardLogoFallback: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    color: '#0d0f14',
     fontSize: 22,
     fontWeight: 800,
-    margin: 0,
-    letterSpacing: '-0.01em',
-  },
-  planoTrial: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    margin: '4px 0 0',
-  },
-  planoDescription: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.55)',
-    lineHeight: 1.5,
-    margin: 0,
-  },
-
-  // ─── Resumo card ────────────────────────────────────
-  resumoCard: {
-    background: '#0d0f14',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 14,
-    padding: 20,
-  },
-  resumoHeader: {
-    display: 'flex',
-    gap: 12,
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  progressWrap: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 10,
+    justifyContent: 'center',
   },
-  progressTrack: {
-    flex: 1,
-    maxWidth: 240,
-    height: 6,
-    background: 'rgba(255,255,255,0.06)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
-    borderRadius: 4,
-    transition: 'width 0.3s ease',
-  },
-  progressText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: 500,
-  },
-  resumoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: 14,
-    margin: 0,
-    padding: 0,
-  },
-  resumoItem: {
-    margin: 0,
-  },
-  resumoLabel: {
-    fontSize: 11,
+  cardNome: {
+    fontSize: 16,
     fontWeight: 700,
-    color: 'rgba(255,255,255,0.4)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    margin: '0 0 4px',
-  },
-  resumoValor: {
-    fontSize: 14,
     color: '#f0f0f0',
     margin: 0,
-    lineHeight: 1.4,
+    letterSpacing: '-0.01em',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  verificadaBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  cardMetaLine: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  cardLocation: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
 
-  // ─── Botões ─────────────────────────────────────────
+  // Plano badge
+  planoBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    padding: '3px 8px',
+    borderRadius: 6,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    flexShrink: 0,
+  },
+
+  // Status + stats
+  cardStats: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+  },
+  statusBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    padding: '3px 8px',
+    borderRadius: 6,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+  },
+  statSep: {
+    color: 'rgba(255,255,255,0.2)',
+  },
+  statText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+  },
+
+  cardFooter: {
+    paddingTop: 8,
+    borderTop: '1px solid rgba(255,255,255,0.05)',
+    display: 'flex',
+    justifyContent: 'flex-end',
+  },
+  cardEditarLabel: {
+    fontSize: 13,
+    color: '#f59e0b',
+    fontWeight: 600,
+  },
+
+  // Botões
   btnPrimary: {
     background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
     border: 'none',
     color: '#000',
     fontSize: 13,
     fontWeight: 700,
-    padding: '10px 20px',
+    padding: '11px 20px',
     borderRadius: 10,
     cursor: 'pointer',
     fontFamily: 'inherit',
     textDecoration: 'none',
     display: 'inline-block',
-  },
-  btnSecondary: {
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    color: '#f0f0f0',
-    fontSize: 13,
-    fontWeight: 600,
-    padding: '10px 18px',
-    borderRadius: 10,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    textDecoration: 'none',
-    display: 'inline-block',
-  },
-  btnGhost: {
-    background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.1)',
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 13,
-    fontWeight: 500,
-    padding: '10px 18px',
-    borderRadius: 10,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
+    flexShrink: 0,
+    letterSpacing: '-0.01em',
   },
 
-  hintText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
+  // Tip
+  tipBox: {
+    background: 'rgba(245,158,11,0.04)',
+    border: '1px solid rgba(245,158,11,0.12)',
+    borderRadius: 10,
+    padding: '12px 16px',
+  },
+  tipText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
     margin: 0,
     lineHeight: 1.5,
   },
