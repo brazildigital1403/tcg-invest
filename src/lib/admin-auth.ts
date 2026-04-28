@@ -3,6 +3,8 @@
 // - Funciona tanto em Node runtime quanto em Edge runtime
 // - Sessão de 7 dias
 
+import { NextRequest, NextResponse } from 'next/server'
+
 export const ADMIN_COOKIE   = 'bynx_admin'
 export const ADMIN_MAX_AGE  = 60 * 60 * 24 * 7 // 7 dias em segundos
 
@@ -75,4 +77,24 @@ export function verifyAdminPassword(input: string): boolean {
     return false
   }
   return constTimeEqual(input, expected)
+}
+
+// ─── Helper de proteção pra rotas admin ──────────────────────────────────────
+// Uso em qualquer route handler:
+//
+//   export async function GET(req: NextRequest) {
+//     const unauth = await requireAdmin(req)
+//     if (unauth) return unauth
+//     // ... resto da lógica
+//   }
+//
+// Retorna NextResponse 401 se inválido, ou null se autorizado.
+
+export async function requireAdmin(req: NextRequest): Promise<NextResponse | null> {
+  const token = req.cookies.get(ADMIN_COOKIE)?.value
+  const isAdmin = await verifyAdminToken(token)
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+  return null
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { verifyAdminToken, ADMIN_COOKIE } from '@/lib/admin-auth'
+import { requireAdmin } from '@/lib/admin-auth'
 import { sendEmailLojaPlanoAlterado } from '@/lib/email'
 
 /**
@@ -9,7 +9,7 @@ import { sendEmailLojaPlanoAlterado } from '@/lib/email'
  * Altera o plano da loja (basico/pro/premium) com data de expiração opcional.
  * Usado para conceder Pro/Premium em negociações fora do Stripe.
  *
- * Auth: cookie `bynx_admin` (HMAC-SHA256), verificado via verifyAdminToken
+ * Auth: cookie `bynx_admin` (HMAC-SHA256), verificado via requireAdmin
  *       do helper @/lib/admin-auth — mesma camada usada pelo /admin/login.
  *
  * Body JSON:
@@ -45,12 +45,9 @@ type Plano = typeof PLANOS_VALIDOS[number]
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    // ─── Auth admin (helper oficial) ───────────────────────
-    const token = req.cookies.get(ADMIN_COOKIE)?.value
-    const isAdmin = await verifyAdminToken(token)
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-    }
+    // ─── Auth admin ────────────────────────────────────────
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
 
     const { id: lojaId } = await ctx.params
 

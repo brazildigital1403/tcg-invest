@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -11,8 +12,11 @@ function supabaseAdmin() {
 const CATEGORIAS_DESPESA = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'outros']
 
 // GET /api/admin/financeiro/despesas-recorrentes
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const sb = supabaseAdmin()
     const { data, error } = await sb
       .from('despesas_recorrentes')
@@ -37,6 +41,9 @@ export async function GET(_req: NextRequest) {
 // Body: { nome, categoria, valor_mensal, dia_vencimento, observacao? }
 export async function POST(req: NextRequest) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const body = await req.json().catch(() => ({}))
     const nome           = String(body.nome || '').trim()
     const categoria      = String(body.categoria || '').trim()

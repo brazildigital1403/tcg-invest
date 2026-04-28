@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -28,8 +29,11 @@ function ymd(d: Date) {
   return d.toISOString().slice(0, 10)
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const sb = supabaseAdmin()
     const now = new Date()
     const startMes = startOfMonth(now)

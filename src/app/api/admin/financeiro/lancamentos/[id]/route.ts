@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -36,6 +37,9 @@ function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string;
 // Regra: lançamentos com fonte='stripe' têm restrições — apenas observação + recebido podem ser alterados.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const body = await req.json().catch(() => ({}))
 
@@ -203,8 +207,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 }
 
 // DELETE /api/admin/financeiro/lancamentos/[id]
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const sb = supabaseAdmin()
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -13,6 +14,9 @@ const CATEGORIAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', '
 // PATCH /api/admin/financeiro/despesas-recorrentes/[id]
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const body = await req.json().catch(() => ({}))
 
@@ -74,8 +78,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 }
 
 // DELETE /api/admin/financeiro/despesas-recorrentes/[id]
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
     const { id } = await ctx.params
     const sb = supabaseAdmin()
 
