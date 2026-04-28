@@ -467,7 +467,7 @@ Quando refiz `email.ts` pra adicionar `sendEmailLojaPlanoAlterado`, parti de sna
 ### Conhecidos
 - Webhook Stripe → `lancamentos` (admin financeiro)
 - Cache Pokédex após mudanças
-- Usuário admin é client-side puro (admin/layout.tsx) — adicionar proteção server-side
+- ~~Usuário admin é client-side puro (admin/layout.tsx) — adicionar proteção server-side~~ → **FALSO POSITIVO** (validado na sessão 22). O `admin/layout.tsx` é `'use client'` mas só por causa do `usePathname` (UI). Quem protege admin é o `middleware.ts` (linhas 35-54) que roda em Edge ANTES das route handlers, redirecionando `/admin/*` sem cookie HMAC pra `/admin/login` (307) e retornando 401 JSON em `/api/admin/*`.
 
 ---
 
@@ -485,3 +485,160 @@ Quando refiz `email.ts` pra adicionar `sendEmailLojaPlanoAlterado`, parti de sna
 ## Footer
 
 Sessão 21 fechou: **Multi-loja completo + edição admin de qualquer loja + email infrastructure robusta + 16 regras consolidadas**. Du agora pode operar qualquer loja como admin sem mexer no código de cada owner. Próxima sessão começa endurecendo a auth admin nas outras 7 APIs e arrancando o Passo 11 (Analytics Premium).
+
+
+---
+---
+
+# Sessão 22 — 28/04/2026
+
+**Foco:** Hardening de auth no painel admin + investigação completa do middleware. Defense-in-depth + correção de premissa errada herdada do contexto.
+
+---
+
+## 📌 Errata sobre o contexto histórico
+
+A pendência registrada na **sessão 21 (linha 381)** — "as outras APIs admin não verificam autenticação nenhuma — qualquer um pode chamar via curl" — e o item de "Conhecidos" na **linha 470** — "Usuário admin é client-side puro (admin/layout.tsx) — adicionar proteção server-side" — eram **factualmente errados** quando confrontados com o código real em produção.
+
+**Realidade descoberta:** o `middleware.ts` (linhas 35-54) já bloqueia `/admin/*` (redirect 307 → /admin/login) e `/api/admin/*` (401 JSON) server-side, em Edge runtime, ANTES das route handlers executarem. O `matcher` cobre `/admin/:path*` e `/api/admin/:path*`. O `admin/layout.tsx` é de fato `'use client'`, mas só por causa do `usePathname` (UI do menu) — nenhum check de auth lá, e nenhum precisava existir.
+
+**Como a Mia descobriu:** ao iniciar o trabalho de "fix", olhou o middleware completo (Regra 14/15 cumprida tarde demais) e percebeu que a vulnerabilidade descrita não existia.
+
+**Como Du validou:** bateria de 17 curls em produção testando matcher (literal, path*, query string, double slash, trailing slash, case), cookies (vazio, sem ponto, HMAC errado, expirado), e fluxo das APIs. **Todos** os tests retornaram 307 ou 401 — zero `200` indevido.
+
+---
+
+## 🎯 Entregas da Sessão 22
+
+### 1. Helper `requireAdmin(req)` em `src/lib/admin-auth.ts`
+
+Função compartilhada que faz o check do cookie HMAC e retorna `NextResponse` 401 ou `null`:
+
+```ts
+export async function requireAdmin(req: NextRequest): Promise<NextResponse | null> {
+  const token = req.cookies.get(ADMIN_COOKIE)?.value
+  const isAdmin = await verifyAdminToken(token)
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+  return null
+}
+```
+
+As 5 funções existentes (`makeAdminToken`, `verifyAdminToken`, `verifyAdminPassword`, `ADMIN_COOKIE`, `ADMIN_MAX_AGE`) preservadas 100% (Regra 16).
+
+### 2. Defense-in-depth nas 19 rotas admin
+
+**17 rotas** que não tinham auth no nível da route handler ganharam 3 linhas no topo de cada handler:
+
+```ts
+const unauth = await requireAdmin(req)
+if (unauth) return unauth
+```
+
+**2 rotas** que já tinham auth inline (`lojas/[id]` GET e `lojas/[id]/plano` POST) foram padronizadas pra usar o mesmo helper.
+
+**Resultado:** dupla camada de proteção (middleware + handler). Se um dia o middleware tiver bug, regressão no matcher, ou for desabilitado por engano, as APIs continuam protegidas. Custo: ~3 linhas/handler, manutenção zero.
+
+### 3. Try/catch fail-closed no bloco admin do middleware
+
+Antes: se `verifyAdminToken` jogasse exceção (env `ADMIN_SECRET` ausente, `crypto.subtle` indisponível, qualquer coisa imprevista), o middleware crashava e o Next devolvia 500. Não era bypass de segurança (request não chegava no handler), mas era UX ruim e logs sujos.
+
+Depois: tudo dentro de try/catch, com fallback **fail-closed** — em qualquer erro, redireciona pra login (páginas) ou retorna 401 (APIs). Função `blockAdmin(req, pathname)` extraída pra ser reusada no fluxo normal e no fallback (DRY).
+
+### 4. Matcher do middleware padronizado
+
+Antes: pra admin tinha só `/admin/:path*` e `/api/admin/:path*`. Pra outras rotas (dashboard-financeiro, minha-colecao, etc) o Du tinha as duas formas (literal + path*).
+
+Depois: admin segue o mesmo padrão das outras. Adicionados `/admin` e `/api/admin` literais.
+
+Os tests confirmaram que `:path*` casa o literal no Next 16, mas a redundância protege contra mudanças futuras no path-to-regexp e mantém consistência.
+
+---
+
+## 🐛 Bugs descobertos durante a sessão
+
+| Bug | Causa | Fix |
+|---|---|---|
+| Pendência inexistente sendo trabalhada | Mia não olhou middleware antes de declarar vulnerabilidade. Regra 14/15/16 cumprida só nas route handlers, não na cadeia completa de auth. | Bateria de 17 curls em produção validou que middleware cobre tudo. Trabalho ressignificado como defense-in-depth. |
+| Indentação errada no patch de 2 rotas que já tinham auth | Regex de substituição inline preservou indent original (8 espaços) ao invés de normalizar pra 4. | Corrigido manualmente em `lojas/[id]/route.ts` e `lojas/[id]/plano/route.ts`. |
+| `unauth` declarado 2x em `dashboard/route.ts` | Patch manual + script aplicaram a mesma transformação. | Removida duplicata via `str_replace`. |
+
+---
+
+## 📋 Arquivos modificados nessa sessão
+
+```
+src/lib/admin-auth.ts                                     ← + função requireAdmin
+src/app/api/admin/financeiro/dashboard/route.ts           ← + requireAdmin
+src/app/api/admin/financeiro/despesas-recorrentes/route.ts          ← + requireAdmin (2 handlers)
+src/app/api/admin/financeiro/despesas-recorrentes/[id]/route.ts     ← + requireAdmin (2 handlers)
+src/app/api/admin/financeiro/lancamentos/route.ts                   ← + requireAdmin (2 handlers)
+src/app/api/admin/financeiro/lancamentos/[id]/route.ts              ← + requireAdmin (2 handlers)
+src/app/api/admin/lojas/route.ts                          ← + requireAdmin
+src/app/api/admin/lojas/[id]/route.ts                     ← inline → requireAdmin (já tinha auth)
+src/app/api/admin/lojas/[id]/approve/route.ts             ← + requireAdmin
+src/app/api/admin/lojas/[id]/suspend/route.ts             ← + requireAdmin
+src/app/api/admin/lojas/[id]/toggle-verified/route.ts     ← + requireAdmin
+src/app/api/admin/lojas/[id]/plano/route.ts               ← inline → requireAdmin (já tinha auth)
+src/app/api/admin/users/route.ts                          ← + requireAdmin
+src/app/api/admin/users/[id]/route.ts                     ← + requireAdmin (3 handlers)
+src/app/api/admin/users/[id]/collection/route.ts          ← + requireAdmin
+src/app/api/admin/tickets/route.ts                        ← + requireAdmin
+src/app/api/admin/tickets/[id]/route.ts                   ← + requireAdmin (2 handlers)
+src/app/api/admin/tickets/[id]/reply/route.ts             ← + requireAdmin
+src/app/api/admin/metrics/route.ts                        ← + NextRequest + requireAdmin
+src/app/api/admin/resync-price/route.ts                   ← + requireAdmin
+
+middleware.ts                                             ← try/catch + matcher padronizado + função blockAdmin
+BYNX_MASTER_CONTEXT.md                                    ← errata linha 470 + sessão 22
+```
+
+**Total:** 21 arquivos. **28 handlers** protegidos. **0 vulnerabilidades reais corrigidas** (já estavam protegidas pelo middleware), **2 hardenings defensivos** aplicados.
+
+---
+
+## 🚀 Próximas pendências (carregar pra sessão 23)
+
+### Imediato
+- 🟢 **Passo 11 — Analytics Premium dashboard** (3-4h) — clicks já gravando em `loja_cliques`
+- 🟡 npm audit (3 vulnerabilidades — 1 moderate, 2 high) — sessão dedicada
+
+### Curto prazo
+- 🔴 Passo 8 — Stripe per-loja (6-10h) — cobrar 1 subscription por loja
+- 🔵 **01/05/2026 (3 dias):** começa fase de melhorias de preços (Regra 5)
+- 🔵 **26/05/2026:** ZenRows renova ($227.63), rodar `scan-sets-final.ts`
+
+### Conhecidos
+- Webhook Stripe → `lancamentos` (admin financeiro)
+- Cache Pokédex após mudanças
+- 2 erros pré-existentes de TS narrowing em `financeiro/lancamentos/route.ts:101` e `financeiro/lancamentos/[id]/route.ts:128` (`Property 'error' does not exist on union`) — Next compila normal mas vale corrigir numa próxima leva
+
+---
+
+## 🔑 Key Learnings — Sessão 22
+
+* **"Inseguro no nível X" não significa "inseguro no sistema".** Auth é em camadas e middleware Edge roda antes das route handlers. SEMPRE rastrear a cadeia completa antes de declarar vulnerabilidade. Olhar 1 nível e concluir é processo incompleto.
+* **Regra 14/15/16 precisa incluir middleware na varredura inicial** quando o trabalho é sobre auth. Atualizar checklist mental: "olhar route handler + helper de auth + middleware + matcher" antes de propor mudanças relacionadas a segurança.
+* **Defense-in-depth não é desperdício**, mesmo quando descobre-se que a camada superior já protegia. Custo de manter é zero (mesmas linhas, mesmas funções), e protege contra: (a) regressões futuras no middleware, (b) bugs em mudanças de matcher, (c) execução fora do Vercel (testes locais, scripts, cron internos), (d) middleware desabilitado por engano em deploy.
+* **Fail-closed > fail-open em auth checks.** Try/catch sem fallback bloqueante = atacante pode forçar erros pra bypassar. Quando em dúvida, bloquear.
+* **Matcher com `:path*` casa zero+ no Next 16** (validado em produção: `/admin` literal retornou 307). Mas adicionar literal explícito é insurance barata e mantém consistência com o resto das rotas.
+* **Bateria de curls em produção é o nível final de validação.** Code review + análise estática diz "deveria proteger". Curl mostra "está protegendo". Pra cada vulnerabilidade que importa, vale rodar a bateria.
+* **Honestidade técnica > parecer competente.** Quando descobri que o trabalho da sessão era sobre vulnerabilidade que não existia, o caminho certo foi parar e contar pro Du. Re-skin de "fix" pra "defense-in-depth" só funciona quando é verdade.
+
+---
+
+## 📋 Regras BYNX consolidadas (16 regras + 1)
+
+A regra que ganhou força nessa sessão:
+
+| # | Regra |
+|---|---|
+| 17 | **Auth é em camadas — sempre verificar middleware + matcher antes de declarar vulnerabilidade em route handlers.** Olhar uma camada só e concluir é diagnóstico incompleto. |
+
+---
+
+## Footer
+
+Sessão 22 fechou: **defense-in-depth na auth admin (28 handlers protegidos) + middleware com fail-closed + matcher padronizado + 1 errata corrigida no contexto histórico**. A "vulnerabilidade" que motivou a sessão se revelou inexistente; o trabalho ficou como hardening preventivo. Bateria de curls em produção validou todas as camadas. Próxima sessão arranca Passo 11 (Analytics Premium).
+

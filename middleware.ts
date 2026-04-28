@@ -32,6 +32,20 @@ function isAppProtected(pathname: string) {
   return APP_PROTECTED.some(p => pathname === p || pathname.startsWith(p + '/'))
 }
 
+// ─── Bloqueia request admin sem cookie (ou com cookie inválido) ─────────────
+// Centralizada pra ser chamada em condições normais E no fallback do try/catch
+// (fail-closed: se algo der errado, NUNCA libera passagem — bloqueia).
+
+function blockAdmin(req: NextRequest, pathname: string): NextResponse {
+  if (pathname.startsWith('/api/admin')) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+  const url = req.nextUrl.clone()
+  url.pathname = '/admin/login'
+  url.searchParams.set('next', pathname)
+  return NextResponse.redirect(url)
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
@@ -39,18 +53,18 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
     if (ADMIN_PUBLIC.includes(pathname)) return NextResponse.next()
 
-    const token = req.cookies.get(ADMIN_COOKIE)?.value
-    const ok    = await verifyAdminToken(token)
-    if (ok) return NextResponse.next()
-
-    if (pathname.startsWith('/api/admin')) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    // Fail-closed: se verifyAdminToken jogar exceção (env ADMIN_SECRET ausente,
+    // crypto.subtle indisponível, etc), bloqueia ao invés de crashar 500.
+    try {
+      const token = req.cookies.get(ADMIN_COOKIE)?.value
+      const ok    = await verifyAdminToken(token)
+      if (ok) return NextResponse.next()
+    } catch (err) {
+      console.error('[middleware] admin auth check failed:', err)
+      // Cai pro blockAdmin abaixo
     }
 
-    const url = req.nextUrl.clone()
-    url.pathname = '/admin/login'
-    url.searchParams.set('next', pathname)
-    return NextResponse.redirect(url)
+    return blockAdmin(req, pathname)
   }
 
   // ─── BLOQUEIO DE USUÁRIO SUSPENSO NO APP ──────────────────────────────
@@ -112,8 +126,12 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
+    // Admin: literal + path* (defesa contra mudanças futuras no path-to-regexp)
+    '/admin',
     '/admin/:path*',
+    '/api/admin',
     '/api/admin/:path*',
+    // App protegido: padrão já era literal + path*
     '/dashboard-financeiro/:path*',
     '/dashboard-financeiro',
     '/minha-colecao/:path*',
