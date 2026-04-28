@@ -87,27 +87,62 @@ async function registrarReceitaStripe(
 }
 
 // ─── Helper: extrai payment_intent_id de uma session/invoice ────────────────
+//
+// Compatível com APIs antigas e novas:
+// - Modo `payment` (separadores, scan): session.payment_intent direto
+// - Modo `subscription` (Pro): vem via invoice. Em 2025-03-31.basil+,
+//   invoice.payment_intent foi REMOVIDO. Agora é invoice.payments[0].payment.payment_intent.
+//   Mantemos fallback pra invoice.payment_intent (versões antigas).
+//
+// Ref: https://docs.stripe.com/changelog/basil/2025-03-31/add-support-for-multiple-partial-payments-on-invoices
+
+async function extrairPaymentIntentDeInvoice(
+  stripe: Stripe,
+  invoice: Stripe.Invoice
+): Promise<string | null> {
+  // Caminho novo (>= 2025-03-31.basil): invoice.payments array
+  const paymentsArr = (invoice as any).payments?.data
+  if (Array.isArray(paymentsArr) && paymentsArr.length > 0) {
+    const first = paymentsArr[0]
+    const pi = first?.payment?.payment_intent
+    if (pi) return typeof pi === 'string' ? pi : pi.id
+  }
+
+  // Fallback API: lista invoice_payments do invoice (caso payments não venha embutido)
+  try {
+    const list = await (stripe as any).invoicePayments?.list?.({ invoice: invoice.id, limit: 1 })
+    const first = list?.data?.[0]
+    const pi = first?.payment?.payment_intent
+    if (pi) return typeof pi === 'string' ? pi : pi.id
+  } catch {
+    // invoicePayments pode não existir em versões mais antigas do SDK; ignora
+  }
+
+  // Caminho antigo (< 2025-03-31.basil): invoice.payment_intent direto
+  const oldPI = (invoice as any).payment_intent
+  if (oldPI) return typeof oldPI === 'string' ? oldPI : oldPI.id
+
+  return null
+}
 
 async function extrairPaymentIntentDeSession(
   stripe: Stripe,
   session: Stripe.CheckoutSession
 ): Promise<string | null> {
+  // Modo payment (sessão tem payment_intent direto)
   if (session.payment_intent) {
     return typeof session.payment_intent === 'string'
       ? session.payment_intent
       : session.payment_intent.id
   }
 
+  // Modo subscription (precisa buscar invoice)
   if (session.invoice) {
     const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id
     if (!invoiceId) return null
     try {
       const invoice = await stripe.invoices.retrieve(invoiceId)
-      if (invoice.payment_intent) {
-        return typeof invoice.payment_intent === 'string'
-          ? invoice.payment_intent
-          : invoice.payment_intent.id
-      }
+      return await extrairPaymentIntentDeInvoice(stripe, invoice)
     } catch (err) {
       console.error('[webhook] Erro ao buscar invoice:', err)
     }
@@ -316,9 +351,7 @@ export async function POST(req: NextRequest) {
             .eq('stripe_subscription_id', invoice.subscription as string)
             .limit(1)
 
-          const piId = invoice.payment_intent
-            ? (typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent.id)
-            : null
+          const piId = await extrairPaymentIntentDeInvoice(stripe, invoice)
 
           await registrarReceitaStripe(supabase, {
             paymentIntentId:    piId,
