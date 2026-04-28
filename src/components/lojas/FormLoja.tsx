@@ -134,9 +134,14 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
   const [facebook,       setFacebook]       = useState(initialData?.facebook       || '')
   const [logoUrl,        setLogoUrl]        = useState(initialData?.logo_url       || '')
 
-  // Fotos — agora é array direto (controlado pelo upload)
+  // Fotos: state direto, controlado pelo upload
   const [fotos, setFotos] = useState<string[]>(initialData?.fotos || [])
-  const [uploadingFotos, setUploadingFotos] = useState(0)
+
+  // Estado de upload em série
+  const [uploadingTotal, setUploadingTotal] = useState(0) // total de arquivos sendo subidos
+  const [uploadingDone, setUploadingDone] = useState(0)   // já terminados (sucesso ou erro)
+  const isUploading = uploadingTotal > 0 && uploadingDone < uploadingTotal
+
   const [deletandoUrl, setDeletandoUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -165,11 +170,15 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     }
   }
 
-  // ─── Upload de fotos ───────────────────────────────────────
-  // Só funciona em modo edit (precisa ter loja id pra subir)
+  // ─── Upload em SÉRIE (resolve race condition) ────────────────
   async function handleAddFotos(files: FileList) {
     if (!isEditMode || !initialData?.id) {
       showAlert('Salve a loja primeiro para adicionar fotos.', 'warning')
+      return
+    }
+
+    if (isUploading) {
+      showAlert('Aguarde o envio atual terminar antes de adicionar mais fotos.', 'warning')
       return
     }
 
@@ -177,32 +186,70 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     const arquivos = Array.from(files)
     if (arquivos.length === 0) return
 
-    const slots = limites.fotos - fotos.length - uploadingFotos
-    if (slots <= 0) {
-      showAlert(`Limite de ${limites.fotos} fotos atingido.`, 'warning')
+    // ─── Validação de limite na SELEÇÃO ────────
+    const slotsDisponiveis = limites.fotos - fotos.length
+    if (slotsDisponiveis <= 0) {
+      showAlert(`Limite de ${limites.fotos} fotos atingido. Remova alguma para adicionar outra.`, 'warning')
+      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
-    const aSubir = arquivos.slice(0, slots)
-    if (arquivos.length > slots) {
-      showAlert(`Apenas ${slots} foto(s) cabem. As demais foram ignoradas.`, 'info')
+
+    let aSubir = arquivos
+    if (arquivos.length > slotsDisponiveis) {
+      // Avisa e corta
+      await new Promise<void>(resolve => {
+        showAlert(
+          `Você selecionou ${arquivos.length} fotos, mas só há espaço para ${slotsDisponiveis}. As primeiras ${slotsDisponiveis} serão enviadas; as outras serão ignoradas.`,
+          'warning'
+        ).then(() => resolve())
+      })
+      aSubir = arquivos.slice(0, slotsDisponiveis)
     }
 
-    setUploadingFotos(prev => prev + aSubir.length)
-    const promises = aSubir.map(async file => {
+    // ─── Sobe em SÉRIE (uma de cada vez) ────────
+    // Isso resolve race condition de updates concorrentes no array `fotos`
+    setUploadingTotal(aSubir.length)
+    setUploadingDone(0)
+
+    let sucessos = 0
+    let erros = 0
+    let primeiraMensagemErro: string | null = null
+
+    for (let i = 0; i < aSubir.length; i++) {
+      const file = aSubir[i]
       try {
         const result = await uploadFotoLoja(lojaId, file)
-        // Atualiza com a lista mais recente vinda do servidor (source of truth)
+        // Atualiza com o array MAIS RECENTE vindo do servidor (source of truth)
         setFotos(result.fotos)
+        sucessos++
       } catch (err: any) {
-        console.error('[FormLoja] upload foto falhou', err)
-        showAlert(err?.message || 'Erro ao enviar foto.', 'error')
+        console.error(`[FormLoja] upload foto ${i + 1}/${aSubir.length} falhou`, err)
+        erros++
+        if (!primeiraMensagemErro) primeiraMensagemErro = err?.message || 'Erro desconhecido'
       } finally {
-        setUploadingFotos(prev => Math.max(0, prev - 1))
+        setUploadingDone(prev => prev + 1)
       }
-    })
-    await Promise.all(promises)
+    }
 
+    // ─── Reset estado de upload ────────
+    setUploadingTotal(0)
+    setUploadingDone(0)
     if (fileInputRef.current) fileInputRef.current.value = ''
+
+    // ─── Feedback final ────────
+    if (erros === 0) {
+      // Tudo OK, sem alert (o usuário vê os thumbs aparecendo)
+      return
+    }
+
+    if (sucessos === 0) {
+      showAlert(`Nenhuma foto foi enviada. ${primeiraMensagemErro}`, 'error')
+    } else {
+      showAlert(
+        `${sucessos} foto(s) enviada(s) com sucesso. ${erros} falharam — ${primeiraMensagemErro}`,
+        'warning'
+      )
+    }
   }
 
   async function handleRemoverFoto(url: string) {
@@ -234,7 +281,8 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     return null
   }
 
-  // Monta payload sem o campo `fotos` — gerenciado pelos endpoints dedicados
+  // OBS: NÃO mandamos `fotos` no payload — fotos são gerenciadas pelos endpoints
+  // /api/lojas/[id]/upload-foto e /api/lojas/[id]/foto que dão append/remove atômico
   function montarPayload() {
     return {
       slug: slugFinal,
@@ -260,13 +308,17 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       setSlugError('Este identificador já está em uso. Escolha outro.')
       return
     }
-
     showAlert(msg, 'error')
   }
 
   async function handleSave(e?: React.FormEvent) {
     e?.preventDefault()
     setSlugError('')
+
+    if (isUploading) {
+      showAlert('Aguarde o envio das fotos terminar antes de salvar.', 'warning')
+      return
+    }
 
     const erro = validar()
     if (erro) {
@@ -326,9 +378,8 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
   }
 
   // Cálculos derivados pra UI das fotos
-  const totalFotosNoMomento = fotos.length + uploadingFotos
-  const slotsRestantes = Math.max(0, limites.fotos - totalFotosNoMomento)
-  const podeSubirMais = isEditMode && !!initialData?.id && slotsRestantes > 0
+  const slotsRestantes = Math.max(0, limites.fotos - fotos.length)
+  const podeSubirMais = isEditMode && !!initialData?.id && slotsRestantes > 0 && !isUploading
 
   return (
     <form onSubmit={handleSave} style={S.form}>
@@ -567,7 +618,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
           <div>
             <label style={LABEL}>
               Galeria · {fotos.length}/{limites.fotos} fotos
-              {uploadingFotos > 0 && ` · enviando ${uploadingFotos}...`}
+              {isUploading && ` · enviando ${uploadingDone + 1}/${uploadingTotal}…`}
             </label>
 
             {/* Grid de thumbs */}
@@ -579,10 +630,10 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
                   <button
                     type="button"
                     onClick={() => handleRemoverFoto(url)}
-                    disabled={deletandoUrl === url}
+                    disabled={deletandoUrl === url || isUploading}
                     style={{
                       ...S.fotoDeleteBtn,
-                      ...(deletandoUrl === url ? { opacity: 0.5, cursor: 'wait' } : {}),
+                      ...((deletandoUrl === url || isUploading) ? { opacity: 0.5, cursor: 'wait' } : {}),
                     }}
                     aria-label="Remover foto"
                     title="Remover foto"
@@ -592,14 +643,16 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
                 </div>
               ))}
 
-              {/* Placeholders enquanto sobe */}
-              {Array.from({ length: uploadingFotos }).map((_, i) => (
-                <div key={`up-${i}`} style={{ ...S.fotoThumb, ...S.fotoUploading }}>
-                  <span style={S.fotoUploadingText}>Enviando...</span>
+              {/* Placeholder do upload em série (mostra só 1 placeholder, o atual) */}
+              {isUploading && (
+                <div style={{ ...S.fotoThumb, ...S.fotoUploading }}>
+                  <span style={S.fotoUploadingText}>
+                    {uploadingDone + 1}/{uploadingTotal}
+                  </span>
                 </div>
-              ))}
+              )}
 
-              {/* Botão de adicionar (se há slots) */}
+              {/* Botão de adicionar (se há slots e não está subindo) */}
               {podeSubirMais && (
                 <button
                   type="button"
@@ -607,7 +660,9 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
                   style={S.fotoAddBtn}
                 >
                   <span style={{ fontSize: 32, lineHeight: 1, color: 'rgba(245,158,11,0.7)' }}>+</span>
-                  <span style={S.fotoAddBtnLabel}>Adicionar foto</span>
+                  <span style={S.fotoAddBtnLabel}>
+                    Adicionar {slotsRestantes > 1 ? `(até ${slotsRestantes})` : 'foto'}
+                  </span>
                 </button>
               )}
             </div>
@@ -620,15 +675,18 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
               multiple
               onChange={e => e.target.files && handleAddFotos(e.target.files)}
               style={{ display: 'none' }}
+              disabled={isUploading}
             />
 
             <p style={S.hintText}>
               {!isEditMode || !initialData?.id ? (
                 <>Salve a loja primeiro para enviar fotos.</>
               ) : fotos.length >= limites.fotos ? (
-                <>Limite de {limites.fotos} fotos atingido no plano {plano === 'premium' ? 'Premium' : 'Pro'}.</>
+                <>Limite de {limites.fotos} fotos atingido no plano {plano === 'premium' ? 'Premium' : 'Pro'}. Remova alguma para adicionar outra.</>
+              ) : isUploading ? (
+                <>Enviando fotos uma de cada vez para garantir consistência. Aguarde…</>
               ) : (
-                <>JPG, PNG ou WebP · até 5MB cada · serão otimizadas automaticamente.</>
+                <>JPG, PNG ou WebP · até 5MB cada · serão otimizadas automaticamente · você pode selecionar várias de uma vez.</>
               )}
             </p>
           </div>
@@ -647,10 +705,10 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       <div style={S.actions}>
         <button
           type="submit"
-          disabled={saving}
-          style={{ ...S.btnPrimary, ...(saving ? S.btnDisabled : {}) }}
+          disabled={saving || isUploading}
+          style={{ ...S.btnPrimary, ...((saving || isUploading) ? S.btnDisabled : {}) }}
         >
-          {saving ? 'Salvando…' : (isEditMode ? 'Salvar alterações' : 'Cadastrar loja')}
+          {saving ? 'Salvando…' : isUploading ? 'Aguarde envio das fotos…' : (isEditMode ? 'Salvar alterações' : 'Cadastrar loja')}
         </button>
       </div>
     </form>
@@ -802,9 +860,9 @@ const S: Record<string, CSSProperties> = {
     border: '1px dashed rgba(245,158,11,0.3)',
   },
   fotoUploadingText: {
-    fontSize: 11,
-    color: 'rgba(245,158,11,0.8)',
-    fontWeight: 600,
+    fontSize: 13,
+    color: 'rgba(245,158,11,0.9)',
+    fontWeight: 700,
   },
   fotoAddBtn: {
     aspectRatio: '4 / 3',
@@ -820,6 +878,8 @@ const S: Record<string, CSSProperties> = {
     gap: 4,
     fontFamily: 'inherit',
     transition: 'all 0.12s ease',
+    padding: 8,
+    textAlign: 'center',
   },
   fotoAddBtnLabel: {
     fontSize: 11,
