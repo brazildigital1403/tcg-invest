@@ -5,8 +5,8 @@ import { randomUUID } from 'crypto'
 /**
  * POST /api/lojas/[id]/upload-foto
  *
- * v2: usa RPC lojas_append_foto pra append atômico (resolve race condition de
- * uploads paralelos do client). O lock FOR UPDATE garante serialização.
+ * v3: corrige leitura do retorno da RPC (campos out_fotos / out_length).
+ * Usa lojas_append_foto pra append atômico com FOR UPDATE.
  *
  * Validações:
  *   - Bearer token + ownership da loja
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const { data: { user }, error: authErr } = await sb.auth.getUser(token)
     if (authErr || !user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
 
-    // ─── Buscar loja (sem ler fotos — RPC vai bloquear e ler) ────
+    // ─── Buscar loja (pra validar plano) ───────────────────
     const { data: lojas, error: lojaErr } = await sb
       .from('lojas')
       .select('id, owner_user_id, plano, plano_expira_em')
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     // ─── APPEND ATÔMICO via RPC ────────────────────────────
     // A RPC faz lock FOR UPDATE da linha + valida limite + dá append atômico.
-    // Isso resolve a race condition de uploads paralelos do client.
+    // Retorna campos `out_fotos` (array completo) e `out_length`.
     const { data: rpcData, error: rpcErr } = await sb.rpc('lojas_append_foto', {
       p_loja_id: lojaId,
       p_owner_id: user.id,
@@ -156,11 +156,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     })
 
     if (rpcErr) {
-      console.error('[upload-foto] erro RPC append', rpcErr)
+      console.error('[upload-foto] erro RPC append', rpcErr.message || rpcErr)
       // Rollback: remove a foto do bucket pra não deixar órfã
       await sb.storage.from('loja-fotos').remove([path]).catch(() => {})
 
-      // Detecta se foi limite atingido
       const msg = rpcErr.message || ''
       if (msg.includes('Limite de')) {
         return NextResponse.json({
@@ -170,7 +169,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ error: 'Erro ao salvar foto na loja' }, { status: 500 })
     }
 
-    const novasFotos = (rpcData?.[0]?.fotos as string[]) || []
+    // ⚠️ A RPC retorna { out_fotos, out_length } — não { fotos }
+    const novasFotos = (rpcData?.[0]?.out_fotos as string[]) || []
 
     return NextResponse.json({ url: publicUrl, fotos: novasFotos }, { status: 200 })
 
