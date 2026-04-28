@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
+import { verifyAdminToken, ADMIN_COOKIE } from '@/lib/admin-auth'
 import { sendEmailLojaPlanoAlterado } from '@/lib/email'
 
 /**
@@ -9,7 +9,8 @@ import { sendEmailLojaPlanoAlterado } from '@/lib/email'
  * Altera o plano da loja (basico/pro/premium) com data de expiração opcional.
  * Usado para conceder Pro/Premium em negociações fora do Stripe.
  *
- * Auth: cookie HMAC `bynx_admin` (mesmo padrão das outras APIs admin).
+ * Auth: cookie `bynx_admin` (HMAC-SHA256), verificado via verifyAdminToken
+ *       do helper @/lib/admin-auth — mesma camada usada pelo /admin/login.
  *
  * Body JSON:
  *   {
@@ -22,12 +23,12 @@ import { sendEmailLojaPlanoAlterado } from '@/lib/email'
  *   - Se `dias` fornecido: seta `plano_expira_em = NOW() + dias`
  *   - Se `dias` null/undefined: seta `plano_expira_em = NULL` (permanente)
  *   - Se mudando para `basico`: força `plano_expira_em = NULL`
- *   - Envia email pro owner avisando da mudança
+ *   - Envia email pro owner avisando da mudança (não bloqueia em caso de erro)
  *
  * Retornos:
- *   - 200 → { ok: true, loja: {...} }
+ *   - 200 → { ok: true, loja, planoAnterior, planoNovo, planoExpiraEm }
  *   - 400 → body inválido
- *   - 401 → não admin
+ *   - 401 → cookie ausente/inválido/expirado
  *   - 404 → loja não encontrada
  *   - 500 → erro interno
  */
@@ -39,36 +40,15 @@ function supabaseAdmin() {
   )
 }
 
-// ─── Auth admin (mesmo padrão do resto do /admin) ─────────────────────────────
-
-const ADMIN_SECRET = process.env.ADMIN_HMAC_SECRET || ''
-
-function verifyAdminCookie(req: NextRequest): boolean {
-  const cookie = req.cookies.get('bynx_admin')?.value
-  if (!cookie || !ADMIN_SECRET) return false
-  try {
-    const [payload, signature] = cookie.split('.')
-    if (!payload || !signature) return false
-    const expected = crypto
-      .createHmac('sha256', ADMIN_SECRET)
-      .update(payload)
-      .digest('hex')
-    if (signature !== expected) return false
-    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'))
-    if (data.exp && data.exp < Date.now()) return false
-    return true
-  } catch {
-    return false
-  }
-}
-
 const PLANOS_VALIDOS = ['basico', 'pro', 'premium'] as const
 type Plano = typeof PLANOS_VALIDOS[number]
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    // ─── Auth ──────────────────────────────────────────────
-    if (!verifyAdminCookie(req)) {
+    // ─── Auth admin (helper oficial) ───────────────────────
+    const token = req.cookies.get(ADMIN_COOKIE)?.value
+    const isAdmin = await verifyAdminToken(token)
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
@@ -134,6 +114,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       .update({
         plano: planoNovo,
         plano_expira_em: planoExpiraEm,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', lojaId)
       .select('id, nome, slug, plano, plano_expira_em, owner_user_id')
@@ -146,7 +127,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const lojaAtualizada = updated?.[0]
 
-    // ─── Buscar dados do owner pra enviar email ────────────
+    // ─── Buscar owner e enviar email (best effort) ─────────
     if (loja.owner_user_id && planoAnterior !== planoNovo) {
       const { data: owners } = await sb
         .from('users')
@@ -167,8 +148,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             expiraEm: planoExpiraEm,
           })
         } catch (emailErr) {
+          // Não bloqueia — update já foi bem sucedido
           console.error('[admin/lojas/plano] erro ao enviar email (não bloqueia)', emailErr)
-          // Não retorna erro — o update foi bem-sucedido
         }
       }
     }
