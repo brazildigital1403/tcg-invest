@@ -628,17 +628,171 @@ BYNX_MASTER_CONTEXT.md                                    ← errata linha 470 +
 
 ---
 
-## 📋 Regras BYNX consolidadas (16 regras + 1)
+## 📋 Regras BYNX consolidadas (16 regras + 2)
 
-A regra que ganhou força nessa sessão:
+Regras adicionadas nessa sessão:
 
 | # | Regra |
 |---|---|
 | 17 | **Auth é em camadas — sempre verificar middleware + matcher antes de declarar vulnerabilidade em route handlers.** Olhar uma camada só e concluir é diagnóstico incompleto. |
+| 18 | **Antes de propor SQL/migration, SEMPRE inspecionar schema atual via `Supabase:execute_sql`** com `SELECT FROM information_schema.columns` e `pg_indexes`. Schema do banco evolui sem o código refletir, e propor coluna nova quando já existe equivalente cria redundância e bugs sutis. Regra 14/15/16 (preservar 100%) se aplica ao banco também, não só ao código. |
+
+---
+
+## 🔧 Continuação da Sessão 22 — Manutenção / Dívida técnica
+
+Após fechar o capítulo de auth, Du escolheu atacar 4 itens de manutenção da fila:
+**(3) npm audit, (4) erros de TS narrowing, (5) Webhook Stripe → lancamentos, (6) Cache Pokédex**.
+
+### Item 4 — DESCARTADO (falso positivo)
+
+Mia havia anotado "2 erros pré-existentes de TS narrowing em `lancamentos/route.ts:101` e `[id]/route.ts:128`" durante a sessão 22 manhã. Ao reabrir pra corrigir, percebeu que **TypeScript faz narrowing perfeitamente** no discriminated union `{ ok: true; lista: [...] } | { ok: false; error: string }`:
+
+```ts
+const det = validarDetalhes(body.detalhes)
+if (!det.ok) return NextResponse.json({ error: det.error }, { status: 400 })
+// Aqui dentro do if, det é { ok: false; error: string } — det.error é válido ✅
+// Depois do return, det é narrowed pra { ok: true; lista: [...] } — det.lista é válido ✅
+```
+
+Os "erros" só apareciam no check standalone da Mia (sem `tsconfig` do projeto), não no build real. **Nada a corrigir.** Próxima vez, validar o erro num `npx tsc -p .` real antes de catalogar.
+
+### Item 3 — npm audit zerado
+
+**3 vulnerabilidades antes:**
+- `basic-ftp` (high) — transitiva via puppeteer
+- `next` 16.2.2 (high) — DoS em Server Components
+- `postcss` <8.5.10 (moderate) — XSS via `</style>` (CVE 2026-41305, publicado 20/04)
+
+**Investigação revelou:** `puppeteer` estava em **dependencies** (prod, não dev), mas nenhum `import` de puppeteer existe no código. Nome de rota `preco-puppeteer` é legado — usa `fetch` com headers de browser, não puppeteer. **Lixo de dependência puxando ~300MB pra cada deploy.**
+
+**Solução em 3 frentes:**
+1. Remover `puppeteer` do package.json → mata `basic-ftp` (transitiva)
+2. Bump `next` 16.2.2 → 16.2.4 (minor, fix de DoS)
+3. `"overrides": { "postcss": "^8.5.10" }` no package.json → força versão segura (Next 16.2.4 ainda traz postcss 8.4.31 interno; CVE é recente, Next ainda não atualizou)
+
+**Resultado:** `found 0 vulnerabilities` + `1048 deletions` no package-lock + build mais rápido no Vercel.
+
+### Item 6 — Cache Pokédex via revalidateTag
+
+**Estado anterior:** cache em memória por instância serverless, TTL 1h, sem invalidação ativa. Cada lambda do Vercel tinha cache próprio (fragmentação) — após scan/edição, prod ficava até 1h mostrando dados antigos POR INSTÂNCIA.
+
+**Refactor:**
+- `src/app/api/pokedex/route.ts`: `unstable_cache` com tag `'pokedex'`, revalidate fallback de 3600s
+- `src/app/api/pokedex/species/route.ts`: mesma tag, TTL 24h
+- `src/app/api/admin/pokedex/invalidate/route.ts`: `POST` que chama `revalidateTag('pokedex')`, protegido com `requireAdmin`
+
+**Benefício:** cache compartilhado entre todas as lambdas (Vercel infra), invalidação ativa via 1 click no admin (futuro botão), e infra pronta pra Regra 5 (melhorias de preços começam 01/05/2026 — vão querer invalidar Pokédex automaticamente após scans).
+
+### Item 5 — Webhook Stripe → lancamentos (V1 quebrado, V2 hotfixado)
+
+**O erro de processo do dia.** Mia propôs criar coluna `stripe_event_id` em `lancamentos` + UNIQUE INDEX parcial pra idempotência, sem antes inspecionar o schema atual da tabela. Du aprovou, ZIP foi enviado, deploy feito, **webhook V1 entrou em produção quebrado em silêncio**: tentava inserir em coluna inexistente, falhava no catch que só logava (não quebrava o caminho crítico de `is_pro`/créditos/email).
+
+Ao tentar rodar o SQL via MCP, Mia finalmente inspecionou a tabela e descobriu:
+
+```
+- Coluna `stripe_payment_intent_id` (TEXT, nullable) — JÁ EXISTIA
+- Coluna `user_id` (UUID, nullable) — JÁ EXISTIA
+- UNIQUE INDEX parcial `lancamentos_stripe_unique` em stripe_payment_intent_id WHERE not null — JÁ EXISTIA
+```
+
+**Toda a infraestrutura de idempotência já estava pronta.** Alguém em sessão anterior planejou e nunca implementou o uso. A "pendência" era literalmente "fazer o webhook USAR essas colunas".
+
+**Hotfix V2 (deployado e validado):**
+- Usa `stripe_payment_intent_id` existente (não cria coluna nova)
+- Função `extrairPaymentIntentDeSession()` que pega PI direto (modo `payment` — separadores/scan) ou via fetch da invoice (modo `subscription` — Pro)
+- Popula `user_id` no lançamento (rastreabilidade no admin financeiro)
+- Idempotência via `lancamentos_stripe_unique` existente (23505 → log silencioso)
+- Pula registro se PI for null (evita lançamento órfão)
+- Filtra `billing_reason='subscription_create'` em invoice.payment_succeeded (já coberto em checkout.session.completed)
+- Cancelamento NÃO gera lançamento (não é movimentação financeira)
+
+**SQL `001_lancamentos_stripe_event_id.sql` foi descartado** — coluna não foi adicionada, schema do banco intacto.
+
+### Nova lição interna (Regra 18 acima)
+
+**SEMPRE** inspecionar schema antes de propor migration. Custo: 1 query SQL via MCP. Benefício: evita criar redundância, descobrir convenções existentes, e em caso ideal **descobre que o trabalho já foi metade-feito** — como aqui, onde a infra de idempotência existia há tempos sem ninguém saber.
+
+---
+
+## 📋 Arquivos modificados (sessão 22 inteira)
+
+```
+# Sessão 22 manhã (auth admin)
+src/lib/admin-auth.ts                                 ← + função requireAdmin
+src/app/api/admin/**/route.ts                         ← + requireAdmin em 19 rotas (28 handlers)
+middleware.ts                                         ← try/catch fail-closed + matcher padronizado
+
+# Sessão 22 tarde (manutenção)
+package.json                                          ← - puppeteer, + next 16.2.4, + overrides.postcss
+package-lock.json                                     ← regenerado (~1048 deletions)
+src/app/api/stripe/webhook/route.ts                   ← V2: usa stripe_payment_intent_id + user_id
+src/app/api/pokedex/route.ts                          ← unstable_cache + tag 'pokedex'
+src/app/api/pokedex/species/route.ts                  ← unstable_cache + tag 'pokedex'
+src/app/api/admin/pokedex/invalidate/route.ts         ← NOVO: POST com revalidateTag
+
+# Documentação
+BYNX_MASTER_CONTEXT.md                                ← errata + sessão 22 + 2 regras novas
+```
+
+**Total:** ~24 arquivos modificados, ~3000 linhas adicionadas (a maior parte é package-lock e contexto).
+
+---
+
+## 🚀 Pendências carregadas pra sessão 23
+
+### Imediato
+- 🟢 **Passo 11 — Analytics Premium dashboard** (3-4h) — clicks já em `loja_cliques`
+- 🟡 Validar webhook V2 com compra real (cartão `4242 4242 4242 4242` em test) — verificar lançamento aparecer no admin financeiro
+
+### Curto prazo
+- 🔴 Passo 8 — Stripe per-loja (6-10h)
+- 🔵 **01/05/2026 (3 dias):** começa fase de melhorias de preços (Regra 5)
+- 🔵 **26/05/2026 (~1 mês):** ZenRows renova ($227.63), rodar `scan-sets-final.ts`
+
+### Conhecidos
+- ~~Webhook Stripe → `lancamentos`~~ → **RESOLVIDO** na sessão 22 (V2 deployado)
+- ~~Cache Pokédex após mudanças~~ → **RESOLVIDO** na sessão 22 (revalidateTag)
+- Backfill financeiro de compras antigas: webhook V2 só pega cobranças NOVAS. Se quiser linha histórica no admin financeiro, precisa script que puxa eventos passados da Stripe API e insere manualmente. Trabalho separado, não urgente.
+
+---
+
+## 🔑 Key Learnings — Sessão 22 (consolidado)
+
+### Sobre auth e camadas
+
+* **"Inseguro no nível X" não significa "inseguro no sistema".** Auth é em camadas e middleware Edge roda antes das route handlers. SEMPRE rastrear a cadeia completa antes de declarar vulnerabilidade. Olhar 1 nível e concluir é processo incompleto. (→ Regra 17)
+* **Defense-in-depth não é desperdício**, mesmo quando descobre-se que a camada superior já protegia. Custo de manter é zero; protege contra: regressões futuras no middleware, bugs em mudanças de matcher, execução fora do Vercel (testes locais, scripts), middleware desabilitado por engano.
+* **Fail-closed > fail-open em auth checks.** Try/catch sem fallback bloqueante = atacante pode forçar erros pra bypassar. Quando em dúvida, bloquear.
+* **Bateria de curls em produção é o nível final de validação.** Code review diz "deveria proteger". Curl mostra "está protegendo".
+
+### Sobre schema do banco e processo
+
+* **Inspecionar schema ANTES de propor migration salva tempo, evita bugs e descobre convenções existentes.** (→ Regra 18) O caso webhook V1 foi exemplar: 30s de query SQL teriam revelado que `stripe_payment_intent_id` + UNIQUE INDEX já existiam, evitando 1 ZIP errado, 1 deploy quebrado e 1 hotfix.
+* **Quando webhook falha em catch silencioso, lojista nem sabe.** Webhook V1 ficou ~30min em prod sem ninguém notar porque o caminho crítico (Pro/créditos/email) seguia funcionando. Lição: lançamento financeiro deveria fazer parte do caminho crítico OU ter alerta agressivo (Sentry, email pra Du). Anotado pra evolução futura — não é prioridade agora porque V2 já resolve.
+* **`fixAvailable` do `npm audit` mente.** Disse que `next@16.2.4` resolveria postcss, mas na real o Next ainda traz postcss interno antigo. Validar com `npm install --package-lock-only` antes de afirmar que está resolvido.
+
+### Sobre dependências
+
+* **`puppeteer` em dependencies puxa ~300MB pra cada deploy** mesmo se não importado. Auditar deps de tempos em tempos: `find src scripts -name "*.ts" | xargs grep "import.*nome-do-pacote"` revela uso real.
+* **`overrides` no package.json é a saída quando upstream é lento.** Especialmente útil pra CVEs recentes que ainda não foram absorvidos pelas deps que você usa.
+
+### Sobre cache
+
+* **Cache em memória + serverless = cache fragmentado.** Cada lambda Vercel é processo separado, cada um com cache próprio. Pra dados compartilhados, `unstable_cache` + tags é a saída correta no Next 16.
+
+### Sobre o processo de trabalho
+
+* **Quando descobre erro próprio, contar imediatamente.** Re-skin de "fix" pra "defense-in-depth" só funciona quando é honesto. Webhook V1 quebrado: imediatamente reconhecer e gerar V2, não tentar disfarçar.
+* **Honestidade técnica > parecer competente.** Du está construindo Bynx em produção real, com dinheiro real (Stripe, ZenRows). Esconder ou minimizar erros desinforma decisões importantes.
 
 ---
 
 ## Footer
 
-Sessão 22 fechou: **defense-in-depth na auth admin (28 handlers protegidos) + middleware com fail-closed + matcher padronizado + 1 errata corrigida no contexto histórico**. A "vulnerabilidade" que motivou a sessão se revelou inexistente; o trabalho ficou como hardening preventivo. Bateria de curls em produção validou todas as camadas. Próxima sessão arranca Passo 11 (Analytics Premium).
+Sessão 22 fechou (dia inteiro): **Defense-in-depth completo na auth admin (28 handlers + middleware fail-closed + matcher padronizado) + 3 itens de manutenção resolvidos (npm audit zerado, webhook Stripe automatizado com idempotência reaproveitando schema existente, cache Pokédex com revalidateTag) + 2 regras novas no contexto + 2 erratas corrigidas (vulnerabilidade admin inexistente + falso positivo de TS narrowing) + 1 erro de processo aberto e corrigido (webhook V1 deployado quebrado por não inspecionar schema antes; hotfix V2 deployado)**.
+
+**Capítulo de segurança e manutenção fechado.** Bynx entra na sessão 23 com auditoria de segurança limpa, dependências sem vulnerabilidades, financeiro automatizado, e cache otimizado pra fase de melhorias de preços que começa em 3 dias.
+
+Próxima sessão: **Passo 11 — Analytics Premium dashboard** ou início antecipado das melhorias de preços (Regra 5).
 
