@@ -100,28 +100,43 @@ async function extrairPaymentIntentDeInvoice(
   stripe: Stripe,
   invoice: Stripe.Invoice
 ): Promise<string | null> {
-  // Caminho novo (>= 2025-03-31.basil): invoice.payments array
+  // Caminho novo (>= 2025-03-31.basil): invoice.payments array (precisa expand)
   const paymentsArr = (invoice as any).payments?.data
   if (Array.isArray(paymentsArr) && paymentsArr.length > 0) {
     const first = paymentsArr[0]
     const pi = first?.payment?.payment_intent
-    if (pi) return typeof pi === 'string' ? pi : pi.id
+    if (pi) {
+      const piId = typeof pi === 'string' ? pi : pi.id
+      console.log(`[webhook/debug] PI extraído via invoice.payments[0]: ${piId}`)
+      return piId
+    }
+    // Pode ser que payments[0] tenha payment.payment_intent como objeto não-expandido
+    console.log(`[webhook/debug] invoice.payments[0] estrutura:`, JSON.stringify(first).slice(0, 300))
   }
 
-  // Fallback API: lista invoice_payments do invoice (caso payments não venha embutido)
+  // Fallback: lista invoice_payments via API (caso o expand falhe ou venha vazio)
   try {
     const list = await (stripe as any).invoicePayments?.list?.({ invoice: invoice.id, limit: 1 })
     const first = list?.data?.[0]
     const pi = first?.payment?.payment_intent
-    if (pi) return typeof pi === 'string' ? pi : pi.id
-  } catch {
-    // invoicePayments pode não existir em versões mais antigas do SDK; ignora
+    if (pi) {
+      const piId = typeof pi === 'string' ? pi : pi.id
+      console.log(`[webhook/debug] PI extraído via invoicePayments.list: ${piId}`)
+      return piId
+    }
+  } catch (err: any) {
+    console.log(`[webhook/debug] invoicePayments.list falhou:`, err?.message || 'sem mensagem')
   }
 
   // Caminho antigo (< 2025-03-31.basil): invoice.payment_intent direto
   const oldPI = (invoice as any).payment_intent
-  if (oldPI) return typeof oldPI === 'string' ? oldPI : oldPI.id
+  if (oldPI) {
+    const piId = typeof oldPI === 'string' ? oldPI : oldPI.id
+    console.log(`[webhook/debug] PI extraído via invoice.payment_intent (legacy): ${piId}`)
+    return piId
+  }
 
+  console.warn(`[webhook/debug] Nenhum caminho funcionou pra invoice ${invoice.id}. payments.data:`, JSON.stringify((invoice as any).payments?.data || []))
   return null
 }
 
@@ -136,12 +151,17 @@ async function extrairPaymentIntentDeSession(
       : session.payment_intent.id
   }
 
-  // Modo subscription (precisa buscar invoice)
+  // Modo subscription (precisa buscar invoice com expand explícito)
   if (session.invoice) {
     const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice.id
     if (!invoiceId) return null
     try {
-      const invoice = await stripe.invoices.retrieve(invoiceId)
+      // CRÍTICO: 'payments' não vem por padrão no retrieve — precisa expandir
+      // explicitamente (doc: https://docs.stripe.com/api/invoice-payment)
+      const invoice = await stripe.invoices.retrieve(invoiceId, {
+        expand: ['payments.data.payment.payment_intent'],
+      } as any)
+      console.log(`[webhook/debug] invoice ${invoiceId} payments.data length:`, (invoice as any).payments?.data?.length ?? 'undefined')
       return await extrairPaymentIntentDeInvoice(stripe, invoice)
     } catch (err) {
       console.error('[webhook] Erro ao buscar invoice:', err)
