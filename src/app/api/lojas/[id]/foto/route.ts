@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 /**
  * DELETE /api/lojas/[id]/foto
@@ -45,14 +46,14 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   try {
     const { id: lojaId } = await ctx.params
 
-    // ─── Auth ──────────────────────────────────────────────
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
-    const sb = supabaseAdmin()
-    const { data: { user }, error: authErr } = await sb.auth.getUser(token)
-    if (authErr || !user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
+    // ─── Auth (owner OU admin) ─────────────────────────────
+    const auth = await autenticarOwnerOuAdmin(
+      req,
+      lojaId,
+      'id, owner_user_id, fotos'
+    )
+    if ('error' in auth) return auth.error
+    const { sb, loja } = auth
 
     // ─── Body ──────────────────────────────────────────────
     let body: { url?: string }
@@ -64,24 +65,6 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
 
     const url = body.url?.trim()
     if (!url) return NextResponse.json({ error: 'Campo "url" obrigatório' }, { status: 400 })
-
-    // ─── Buscar loja ───────────────────────────────────────
-    const { data: lojas, error: lojaErr } = await sb
-      .from('lojas')
-      .select('id, owner_user_id, fotos')
-      .eq('id', lojaId)
-      .limit(1)
-
-    if (lojaErr) {
-      console.error('[delete-foto] erro ao buscar loja', lojaErr)
-      return NextResponse.json({ error: 'Erro ao buscar loja' }, { status: 500 })
-    }
-
-    const loja = lojas?.[0]
-    if (!loja) return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 })
-    if (loja.owner_user_id !== user.id) {
-      return NextResponse.json({ error: 'Você não é o dono desta loja' }, { status: 403 })
-    }
 
     // ─── Verifica que a URL pertence à loja ────────────────
     const fotosAtuais: string[] = Array.isArray(loja.fotos) ? loja.fotos : []

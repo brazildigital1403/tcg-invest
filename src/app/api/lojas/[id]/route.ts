@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 /**
  * Endpoints da loja individual (owner-only).
@@ -57,34 +58,10 @@ function supabaseAdmin() {
   )
 }
 
+// authenticateOwner: agora aceita admin OU owner via helper compartilhado.
+// Mantém a mesma interface de retorno por compatibilidade.
 async function authenticateOwner(req: NextRequest, lojaId: string) {
-  const authHeader = req.headers.get('authorization')
-  const token = authHeader?.replace('Bearer ', '')
-  if (!token) return { error: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
-
-  const sb = supabaseAdmin()
-  const { data: { user }, error: authErr } = await sb.auth.getUser(token)
-  if (authErr || !user) return { error: NextResponse.json({ error: 'Token inválido' }, { status: 401 }) }
-
-  const { data: lojas, error: lojaErr } = await sb
-    .from('lojas')
-    .select('*')
-    .eq('id', lojaId)
-    .limit(1)
-
-  if (lojaErr) {
-    console.error('[api/lojas/[id]] erro ao buscar loja', lojaErr)
-    return { error: NextResponse.json({ error: 'Erro ao buscar loja' }, { status: 500 }) }
-  }
-
-  const loja = lojas?.[0]
-  if (!loja) return { error: NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 }) }
-
-  if (loja.owner_user_id !== user.id) {
-    return { error: NextResponse.json({ error: 'Você não é o dono desta loja' }, { status: 403 }) }
-  }
-
-  return { user, loja, sb }
+  return autenticarOwnerOuAdmin(req, lojaId, '*')
 }
 
 // ─── PATCH ───────────────────────────────────────────────────────────────────
@@ -95,7 +72,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     const auth = await authenticateOwner(req, id)
     if ('error' in auth) return auth.error
-    const { loja, sb } = auth
+    const { loja, sb, isAdmin } = auth
 
     let body: Record<string, any>
     try {
@@ -160,8 +137,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       }
     }
 
-    // Status — só permite transições válidas pelo owner
-    if (payload.status !== undefined) {
+    // Status — owner tem transições restritas; admin não usa este endpoint pra
+    // mudar status (tem APIs próprias /approve, /suspend), mas se mandar, deixamos
+    if (payload.status !== undefined && !isAdmin) {
       const allowed = USER_STATUS_TRANSITIONS[loja.status] || []
       if (!allowed.includes(payload.status)) {
         return NextResponse.json({
@@ -199,7 +177,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
 
     const auth = await authenticateOwner(req, id)
     if ('error' in auth) return auth.error
-    const { loja, sb } = auth
+    const { loja, sb, isAdmin } = auth
 
     // Se já tá inativa, no-op (idempotente)
     if (loja.status === 'inativa') {
@@ -207,7 +185,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     }
 
     // Suspensa não pode ser desativada pelo owner (só admin gerencia)
-    if (loja.status === 'suspensa') {
+    if (loja.status === 'suspensa' && !isAdmin) {
       return NextResponse.json({
         error: 'Loja suspensa não pode ser alterada pelo owner. Contate o suporte.',
       }, { status: 403 })

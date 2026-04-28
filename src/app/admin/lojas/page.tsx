@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, Suspense, useRef } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAppModal } from '@/components/ui/useAppModal'
 
@@ -358,42 +359,20 @@ function LojasView() {
                   alignItems: 'flex-start',
                   flexWrap: 'wrap',
                 }}>
-                  {/* Logo (clicável → abre página pública em nova aba) */}
-                  <a
-                    href={`/lojas/${l.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={`Abrir ${l.nome} em nova aba`}
-                    style={{
-                      flexShrink: 0,
-                      display: 'block',
-                      borderRadius: 10,
-                      transition: 'transform 0.12s ease, box-shadow 0.12s ease',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'scale(1.04)'
-                      e.currentTarget.style.boxShadow = '0 4px 16px rgba(245,158,11,0.25)'
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'scale(1)'
-                      e.currentTarget.style.boxShadow = 'none'
-                    }}
-                  >
-                    {l.logo_url ? (
-                      <img src={l.logo_url} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', display: 'block', background: 'rgba(255,255,255,0.04)' }} />
-                    ) : (
-                      <div style={{
-                        width: 56, height: 56, borderRadius: 10,
-                        background: 'rgba(255,255,255,0.04)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 22, fontWeight: 800,
-                        color: 'rgba(255,255,255,0.3)',
-                      }}>
-                        {l.nome.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </a>
+                  {/* Logo */}
+                  {l.logo_url ? (
+                    <img src={l.logo_url} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flexShrink: 0, background: 'rgba(255,255,255,0.04)' }} />
+                  ) : (
+                    <div style={{
+                      width: 56, height: 56, borderRadius: 10, flexShrink: 0,
+                      background: 'rgba(255,255,255,0.04)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 22, fontWeight: 800,
+                      color: 'rgba(255,255,255,0.3)',
+                    }}>
+                      {l.nome.charAt(0).toUpperCase()}
+                    </div>
+                  )}
 
                   {/* Info principal */}
                   <div style={{ flex: 1, minWidth: 200 }}>
@@ -520,6 +499,26 @@ function LojasView() {
                         </div>
                       )}
                     </div>
+
+                    <Link
+                      href={`/admin/lojas/${l.id}/editar`}
+                      style={{
+                        background: 'rgba(168,85,247,0.10)',
+                        border: '1px solid rgba(168,85,247,0.35)',
+                        color: '#a855f7',
+                        padding: '6px 12px',
+                        borderRadius: 8,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      ✏️ Editar
+                    </Link>
 
                     <BtnAction onClick={() => setDetailsLoja(l)} busy={busy} color="rgba(255,255,255,0.6)" variant="ghost">
                       Detalhes
