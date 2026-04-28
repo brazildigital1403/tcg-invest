@@ -815,6 +815,47 @@ Durante o debug do V2 → V3, Du mencionou: *"pode olhar diretamente o navegador
 
 ---
 
+## 🔧 Fix tardio — Comprador visível no admin financeiro
+
+Após o V5 funcionar e gerar o primeiro lançamento Stripe (`teste@teste2.com`, R$ 29,90), Du percebeu um detalhe ao abrir `/admin/financeiro`: a linha aparecia, mas **não dizia QUEM tinha comprado**. O webhook estava populando `lancamentos.user_id` corretamente, mas:
+
+1. **API do admin** (`/api/admin/financeiro/lancamentos` GET) fazia `select('*')` puro — retornava só o UUID do user_id sem joinar com `users`
+2. **UI** não tinha nem coluna nem render pra mostrar usuário
+
+**Fix em 2 arquivos:**
+
+- **`src/app/api/admin/financeiro/lancamentos/route.ts`:** trocar `select('*')` por embed Supabase usando a FK existente:
+  ```ts
+  .select('*, user:users!lancamentos_user_id_fkey(email, name)', { count: 'exact' })
+  ```
+  Depois flatten do embed: `{ user: { email, name } }` → campos diretos `user_email` e `user_name` no objeto retornado. UI consome simples.
+
+- **`src/app/admin/financeiro/page.tsx`:** + 2 campos no type `Lancamento` + render condicional abaixo da descrição:
+  ```tsx
+  {l.user_email && (
+    <div style={{ fontSize: 11, color: 'rgba(167,139,250,0.85)', marginTop: 2 }}>
+      Comprador: {l.user_name ? `${l.user_name} · ` : ''}{l.user_email}
+    </div>
+  )}
+  ```
+
+**Decisão de design:** mostrei inline (abaixo da descrição, junto com a observação) ao invés de criar 8ª coluna na tabela. Razões:
+- Lançamentos manuais (infra/marketing/dominio) não têm comprador → coluna ficaria vazia em 90% dos casos
+- Tabela já tem 7 colunas; 8ª pode quebrar em mobile
+- Cor roxa combina com o badge `[Stripe]` que já é roxo (mesma família visual)
+- `{l.user_email && ...}` esconde a linha quando não tem user, mantendo limpo
+
+**Confirmação prévia da FK** (Regra 18 cumprida):
+```sql
+SELECT * FROM information_schema.table_constraints
+WHERE constraint_type='FOREIGN KEY' AND table_name='lancamentos';
+-- → lancamentos_user_id_fkey: user_id → users.id ✓
+```
+
+**Lição:** ao popular um campo novo no banco (sessão 22 noite, V2: `user_id` no lançamento), **sempre validar que a UI consome o dado também**. Funcionalidade backend completa ≠ funcionalidade entregue. Du só percebeu o gap ao USAR a feature, não ao testá-la tecnicamente.
+
+---
+
 ## 📋 Arquivos modificados (sessão 22 inteira — versão final)
 
 ```
@@ -836,11 +877,15 @@ src/app/api/stripe/webhook/route.ts                   ← V3: getSubscriptionPer
                                                       ← V4: extrairPaymentIntentDeInvoice (3 caminhos)
                                                       ← V5: expand explícito + logs [webhook/debug]
 
+# Sessão 22 fim de dia (fix tardio — comprador visível)
+src/app/api/admin/financeiro/lancamentos/route.ts     ← embed users!fk + flatten user_email/user_name
+src/app/admin/financeiro/page.tsx                     ← + 2 campos no type + render "Comprador: ..." abaixo da descrição
+
 # Documentação
 BYNX_MASTER_CONTEXT.md                                ← errata + sessão 22 + 3 regras novas
 ```
 
-**Total:** 5 deploys de webhook num único dia. Bynx hoje à noite tem auth admin defense-in-depth, dependências limpas, cache de Pokédex otimizado, e webhook Stripe **finalmente** funcional end-to-end.
+**Total:** 5 deploys de webhook + 1 deploy de fix UI (comprador) num único dia. Bynx hoje à noite tem auth admin defense-in-depth, dependências limpas, cache de Pokédex otimizado, webhook Stripe **finalmente** funcional end-to-end, e admin financeiro mostrando quem comprou cada item.
 
 ---
 
@@ -922,7 +967,9 @@ Sessão 22 fechada (dia inteiro, ~10h de trabalho):
 
 **Noite:** Saga completa do webhook V1 → V5. 4 bugs encontrados em sequência (coluna inventada → API moderna do Stripe `current_period_end` → `invoice.payment_intent` deprecated → `expand` requerido). End-to-end Stripe → admin financeiro funcionando. Descoberta do MCP do Vercel acelerou debug em 10x. Regra 19.
 
-**Bynx hoje:** auth admin com 2 camadas de proteção, dependências sem vulnerabilidades, cache compartilhado entre lambdas, webhook Stripe gerando lançamentos automáticos com idempotência, e contexto histórico atualizado com todas as decisões e erros documentados.
+**Fim de dia:** Fix tardio do "comprador invisível" no admin financeiro (UI não consumia o `user_id` que o webhook V5 já populava). Embed Supabase com FK + render condicional roxo abaixo da descrição. Lição emergente: funcionalidade backend completa ≠ funcionalidade entregue — sempre validar consumo na UI também.
+
+**Bynx hoje:** auth admin com 2 camadas de proteção, dependências sem vulnerabilidades, cache compartilhado entre lambdas, webhook Stripe gerando lançamentos automáticos com idempotência, admin financeiro mostrando quem comprou cada item, e contexto histórico atualizado com todas as decisões e erros documentados.
 
 **Próxima sessão (23):** Passo 11 (Analytics Premium dashboard) ou início antecipado das melhorias de preços (Regra 5 começa oficialmente em 3 dias).
 
