@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 /**
  * /api/lojas/[id]/logo
@@ -68,32 +69,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   try {
     const { id: lojaId } = await ctx.params
 
-    // ─── Auth ──────────────────────────────────────────────
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
-    const sb = supabaseAdmin()
-    const { data: { user }, error: authErr } = await sb.auth.getUser(token)
-    if (authErr || !user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
-
-    // ─── Buscar loja (e logo atual pra apagar depois) ───────
-    const { data: lojas, error: lojaErr } = await sb
-      .from('lojas')
-      .select('id, owner_user_id, logo_url')
-      .eq('id', lojaId)
-      .limit(1)
-
-    if (lojaErr) {
-      console.error('[logo POST] erro ao buscar loja', lojaErr)
-      return NextResponse.json({ error: 'Erro ao buscar loja' }, { status: 500 })
-    }
-
-    const loja = lojas?.[0]
-    if (!loja) return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 })
-    if (loja.owner_user_id !== user.id) {
-      return NextResponse.json({ error: 'Você não é o dono desta loja' }, { status: 403 })
-    }
+    // ─── Auth (owner OU admin) ─────────────────────────────
+    const auth = await autenticarOwnerOuAdmin(
+      req,
+      lojaId,
+      'id, owner_user_id, logo_url'
+    )
+    if ('error' in auth) return auth.error
+    const { sb, loja, user, isAdmin } = auth
 
     // ─── Parse multipart ────────────────────────────────────
     let formData: FormData
@@ -147,11 +130,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       .getPublicUrl(path)
 
     // ─── Atualiza logo_url da loja ─────────────────────────
-    const { error: updateErr } = await sb
+    // Owner: força where ownership como segurança extra. Admin: só por id.
+    let updateQuery = sb
       .from('lojas')
       .update({ logo_url: publicUrl })
       .eq('id', lojaId)
-      .eq('owner_user_id', user.id)
+    if (!isAdmin) {
+      updateQuery = updateQuery.eq('owner_user_id', user!.id)
+    }
+    const { error: updateErr } = await updateQuery
 
     if (updateErr) {
       console.error('[logo POST] erro ao atualizar logo_url', updateErr)
@@ -184,39 +171,25 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   try {
     const { id: lojaId } = await ctx.params
 
-    // ─── Auth ──────────────────────────────────────────────
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
-    const sb = supabaseAdmin()
-    const { data: { user }, error: authErr } = await sb.auth.getUser(token)
-    if (authErr || !user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
-
-    // ─── Buscar loja (pra pegar logo atual) ────────────────
-    const { data: lojas, error: lojaErr } = await sb
-      .from('lojas')
-      .select('id, owner_user_id, logo_url')
-      .eq('id', lojaId)
-      .limit(1)
-
-    if (lojaErr) {
-      console.error('[logo DELETE] erro ao buscar loja', lojaErr)
-      return NextResponse.json({ error: 'Erro ao buscar loja' }, { status: 500 })
-    }
-
-    const loja = lojas?.[0]
-    if (!loja) return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 })
-    if (loja.owner_user_id !== user.id) {
-      return NextResponse.json({ error: 'Você não é o dono desta loja' }, { status: 403 })
-    }
+    // ─── Auth (owner OU admin) ─────────────────────────────
+    const auth = await autenticarOwnerOuAdmin(
+      req,
+      lojaId,
+      'id, owner_user_id, logo_url'
+    )
+    if ('error' in auth) return auth.error
+    const { sb, loja, user, isAdmin } = auth
 
     // ─── Limpa logo_url ────────────────────────────────────
-    const { error: updateErr } = await sb
+    // Owner: força where ownership. Admin: só por id.
+    let updateQuery = sb
       .from('lojas')
       .update({ logo_url: null })
       .eq('id', lojaId)
-      .eq('owner_user_id', user.id)
+    if (!isAdmin) {
+      updateQuery = updateQuery.eq('owner_user_id', user!.id)
+    }
+    const { error: updateErr } = await updateQuery
 
     if (updateErr) {
       console.error('[logo DELETE] erro ao limpar logo_url', updateErr)

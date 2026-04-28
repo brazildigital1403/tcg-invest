@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 /**
  * POST /api/lojas/[id]/upload-foto
@@ -58,38 +59,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   try {
     const { id: lojaId } = await ctx.params
 
-    // ─── Auth ──────────────────────────────────────────────
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    if (!token) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
-    const sb = supabaseAdmin()
-    const { data: { user }, error: authErr } = await sb.auth.getUser(token)
-    if (authErr || !user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
-
-    // ─── Buscar loja (pra validar plano) ───────────────────
-    const { data: lojas, error: lojaErr } = await sb
-      .from('lojas')
-      .select('id, owner_user_id, plano, plano_expira_em')
-      .eq('id', lojaId)
-      .limit(1)
-
-    if (lojaErr) {
-      console.error('[upload-foto] erro ao buscar loja', lojaErr)
-      return NextResponse.json({ error: 'Erro ao buscar loja' }, { status: 500 })
-    }
-
-    const loja = lojas?.[0]
-    if (!loja) return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 })
-    if (loja.owner_user_id !== user.id) {
-      return NextResponse.json({ error: 'Você não é o dono desta loja' }, { status: 403 })
-    }
+    // ─── Auth (owner OU admin) ─────────────────────────────
+    const auth = await autenticarOwnerOuAdmin(
+      req,
+      lojaId,
+      'id, owner_user_id, plano, plano_expira_em'
+    )
+    if ('error' in auth) return auth.error
+    const { sb, loja, user, isAdmin } = auth
 
     // ─── Validar plano ─────────────────────────────────────
+    // Admin pula validação de plano (pode adicionar fotos em qualquer loja).
+    // Owner respeita o limite do plano efetivo.
     const plano = planoEfetivo(loja)
-    const limite = LIMITES_FOTOS_POR_PLANO[plano] ?? 0
+    const limite = isAdmin
+      ? 999  // admin sem limite prático
+      : (LIMITES_FOTOS_POR_PLANO[plano] ?? 0)
 
-    if (limite === 0) {
+    if (!isAdmin && limite === 0) {
       return NextResponse.json({
         error: 'Seu plano atual não permite fotos. Faça upgrade para Pro ou Premium.',
       }, { status: 403 })
@@ -148,9 +135,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // ─── APPEND ATÔMICO via RPC ────────────────────────────
     // A RPC faz lock FOR UPDATE da linha + valida limite + dá append atômico.
     // Retorna campos `out_fotos` (array completo) e `out_length`.
+    //
+    // Como a RPC valida ownership internamente (WHERE owner_user_id = p_owner_id),
+    // quando admin opera, passamos o owner_user_id REAL da loja em vez do user.id.
+    const ownerIdParaRPC = isAdmin ? loja.owner_user_id : user!.id
     const { data: rpcData, error: rpcErr } = await sb.rpc('lojas_append_foto', {
       p_loja_id: lojaId,
-      p_owner_id: user.id,
+      p_owner_id: ownerIdParaRPC,
       p_url: publicUrl,
       p_max_fotos: limite,
     })
