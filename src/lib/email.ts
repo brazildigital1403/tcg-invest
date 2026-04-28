@@ -464,6 +464,129 @@ export async function sendEmailLojaPlanoAlterado(args: {
   return resend.emails.send({ from: FROM, to: args.to, subject, html })
 }
 
+// ── 12. PURCHASE — confirmação de compra (após webhook Stripe) ───────────────
+
+/**
+ * Confirmação de compra. Chamada pelo webhook Stripe após `checkout.session.completed`.
+ *
+ * Tipos suportados:
+ *   - 'pro_mensal'   → assinatura Pro mensal ativada
+ *   - 'pro_anual'    → assinatura Pro anual ativada
+ *   - 'separadores'  → pacote de separadores PDF desbloqueado
+ *   - 'scan_*'       → qualquer pacote de créditos de scan (ex: scan_popular, scan_starter, scan_pro)
+ *   - default        → fallback genérico
+ */
+export async function sendPurchaseConfirmationEmail(
+  to: string,
+  name: string,
+  tipo: string
+) {
+  const firstName = name?.split(' ')[0] || 'Colecionador'
+
+  let badgeLabel: string
+  let badgeColor: string
+  let badgeBg: string
+  let titulo: string
+  let intro: string
+  let detalhes: string
+  let ctaLabel: string
+  let ctaHref: string
+  let preheader: string
+  let subject: string
+
+  if (tipo === 'pro_mensal' || tipo === 'pro_anual') {
+    const plano = tipo === 'pro_anual' ? 'anual' : 'mensal'
+    badgeLabel = 'Pro Ativado'
+    badgeColor = '#f59e0b'
+    badgeBg = 'rgba(245,158,11,0.15)'
+    titulo = `Bem-vindo ao Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}! ⭐`
+    intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}</strong> foi ativada com sucesso. Obrigado por apoiar o Bynx!`
+    detalhes = `
+      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Importação ilimitada por link da LigaPokemon</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Scan de cartas com IA</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🛒 Marketplace completo (compra e venda)</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🗂️ Separadores de fichário em PDF</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📊 Estatísticas e ranking exclusivos</p>
+    `
+    ctaLabel = 'Acessar minha conta'
+    ctaHref = `${APP_URL}/minha-colecao`
+    preheader = `Sua assinatura Pro ${plano === 'anual' ? 'Anual' : 'Mensal'} foi ativada.`
+    subject = `⭐ Bem-vindo ao Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}!`
+
+  } else if (tipo === 'separadores') {
+    badgeLabel = 'Separadores Desbloqueados'
+    badgeColor = '#22c55e'
+    badgeBg = 'rgba(34,197,94,0.15)'
+    titulo = 'Separadores liberados! 🗂️'
+    intro = `${firstName}, sua compra dos <strong style="color:#22c55e;">Separadores de Fichário</strong> foi confirmada e o recurso já está liberado na sua conta.`
+    detalhes = `
+      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">🎨 Layouts profissionais prontos pra imprimir</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📄 Geração em PDF de alta qualidade</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">♾️ Quantos separadores quiser, pra sempre</p>
+    `
+    ctaLabel = 'Acessar separadores'
+    ctaHref = `${APP_URL}/separadores`
+    preheader = 'Seus separadores de fichário já estão liberados.'
+    subject = '🗂️ Seus separadores foram liberados no Bynx!'
+
+  } else if (tipo.startsWith('scan_')) {
+    badgeLabel = 'Créditos Adicionados'
+    badgeColor = '#60a5fa'
+    badgeBg = 'rgba(96,165,250,0.15)'
+    titulo = 'Créditos de scan adicionados! 📷'
+    intro = `${firstName}, sua compra de créditos de scan foi confirmada e os créditos já estão disponíveis na sua conta.`
+    detalhes = `
+      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Cada scan reconhece uma carta automaticamente via IA</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">⚡ Use pela câmera ou enviando uma foto</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">♾️ Os créditos não expiram</p>
+    `
+    ctaLabel = 'Começar a escanear'
+    ctaHref = `${APP_URL}/minha-colecao`
+    preheader = 'Seus créditos de scan já estão disponíveis.'
+    subject = '📷 Seus créditos de scan estão disponíveis!'
+
+  } else {
+    // Fallback genérico — não deveria acontecer em produção, mas é seguro
+    badgeLabel = 'Compra Confirmada'
+    badgeColor = '#22c55e'
+    badgeBg = 'rgba(34,197,94,0.15)'
+    titulo = 'Compra confirmada! ✅'
+    intro = `${firstName}, sua compra foi confirmada com sucesso.`
+    detalhes = ''
+    ctaLabel = 'Acessar minha conta'
+    ctaHref = `${APP_URL}/minha-colecao`
+    preheader = 'Sua compra foi confirmada.'
+    subject = '✅ Sua compra foi confirmada no Bynx'
+  }
+
+  const html = baseLayout(`
+    ${badge(badgeLabel, badgeColor, badgeBg)}
+    <div style="height:16px;"></div>
+    ${h1(titulo)}
+    ${p(intro)}
+    ${detalhes ? `${divider()}<table width="100%" cellpadding="0" cellspacing="0"><tr><td>${detalhes}</td></tr></table>` : ''}
+    ${btn(ctaLabel, ctaHref)}
+    ${divider()}
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+  `, preheader)
+
+  return resend.emails.send({ from: FROM, to, subject, html })
+}
+
+// ── 13. TRIAL — alias de sendTrialExpiring1Email ─────────────────────────────
+
+/**
+ * Alias semântico. O cron-trial-emails chama esta função quando `daysLeft === 1`
+ * (último dia do trial de 7 dias). É exatamente o mesmo email que o
+ * `sendTrialExpiring1Email` envia ("1 dia restante" = "7º dia do trial" = último dia).
+ *
+ * Mantido como wrapper pra não duplicar HTML e garantir que ambos os nomes
+ * usados no codebase funcionem.
+ */
+export async function sendTrialExpiring7Email(to: string, name: string) {
+  return sendTrialExpiring1Email(to, name)
+}
+
 // ── Helper: escapa HTML em mensagens de usuário ──────────────────────────────
 
 function escapeHtml(s: string): string {
