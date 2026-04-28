@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
+import AnalyticsCard from '@/components/lojas/AnalyticsCard'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -196,6 +197,9 @@ export default function MinhaLojaEditarPage({
         {/* ─── Status + Plano ───────────────────────────── */}
         <StatusCard loja={loja} onDesativar={desativarLoja} onReativar={reativarLoja} />
         <PlanoCard loja={loja} />
+
+        {/* ─── Analytics (Premium / teaser pros outros) ─── */}
+        <AnalyticsCard lojaId={loja.id} plano={loja.plano || 'basico'} />
 
         {/* ─── Form ou Resumo ──────────────────────────── */}
         {editando ? (
