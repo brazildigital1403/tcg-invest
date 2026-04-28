@@ -18,7 +18,7 @@ import { createClient } from '@supabase/supabase-js'
  *   verificada    = false
  *
  * Regras:
- *   - 1 loja ativa/pendente/suspensa por user (inativas não contam)
+ *   - User pode ter MÚLTIPLAS lojas (limite ilimitado)
  *   - Slug único globalmente
  *   - Slug deve casar com /^[a-z0-9]+(-[a-z0-9]+)*$/ (3-50 chars)
  *
@@ -26,7 +26,7 @@ import { createClient } from '@supabase/supabase-js'
  *   201 → { loja }
  *   400 → body inválido / slug inválido / campos obrigatórios faltando
  *   401 → sem token ou token inválido
- *   409 → slug já existe OU user já tem loja ativa
+ *   409 → slug já existe
  *   500 → erro interno
  */
 
@@ -108,25 +108,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Especialidades deve ser um array com ao menos 1 jogo' }, { status: 400 })
     }
 
-    // ─── Verifica se user já tem loja ativa ───────────────
-    const { data: existingLojas, error: existingErr } = await sb
-      .from('lojas')
-      .select('id, status')
-      .eq('owner_user_id', user.id)
-      .in('status', ['ativa', 'pendente', 'suspensa'])
-      .limit(1)
-
-    if (existingErr) {
-      console.error('[api/lojas POST] erro ao checar lojas existentes', existingErr)
-      return NextResponse.json({ error: 'Erro ao verificar lojas existentes' }, { status: 500 })
-    }
-    if (existingLojas && existingLojas.length > 0) {
-      return NextResponse.json({
-        error: 'Você já tem uma loja ativa. Desative a atual antes de criar uma nova.',
-      }, { status: 409 })
-    }
-
     // ─── Verifica unicidade do slug ───────────────────────
+    // OBS: User pode ter múltiplas lojas. NÃO bloqueamos por owner_user_id.
     const { data: slugCheck } = await sb
       .from('lojas')
       .select('id')
