@@ -2,6 +2,7 @@
 
 import type { CSSProperties, ReactNode, AnchorHTMLAttributes } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { trackLojaClique } from '@/lib/analytics'
 
 type TipoClique = 'whatsapp' | 'instagram' | 'facebook' | 'website' | 'maps'
 
@@ -34,6 +35,10 @@ interface Props extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'onClick'>
 
 export default function TrackedLink({ lojaId, tipo, href, children, ...rest }: Props) {
   async function handleClick() {
+    // GTM/GA4 — dispara primeiro (síncrono, instantâneo) pra garantir que vá
+    // mesmo se a navegação for super rápida e abortar o fetch abaixo
+    trackLojaClique(lojaId, tipo)
+
     // Fire-and-forget. NÃO aguardamos nada antes do browser seguir o link.
     try {
       const { data: { session } } = await supabase.auth.getSession()

@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState } from 'react'
 import { IconWarning, IconLink, IconTrendingUp, IconTrendingDown, IconDashboard, IconMarketplace, IconShield, IconWallet, IconCheck, IconClose, IconEye, IconEyeOff, IconKey, IconFire, IconCollection, IconChart } from '@/components/ui/Icons'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { trackProUpgradeInitiated } from '@/lib/analytics'
 import PublicHeader from '@/components/ui/PublicHeader'
 
 // ─── Validadores ─────────────────────────────────────────────────────────────
@@ -409,6 +410,7 @@ export default function Home() {
     // Se já logado e escolheu Pro → vai direto para Stripe
     if (user && plano !== 'free') {
       try {
+        trackProUpgradeInitiated(plano)
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -474,6 +476,7 @@ export default function Home() {
           // Redireciona conforme plano escolhido
           if (pendingPlan && pendingPlan !== 'free') {
             try {
+              trackProUpgradeInitiated(pendingPlan)
               const res = await fetch('/api/stripe/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -521,54 +524,6 @@ export default function Home() {
         }
       `}</style>
 
-      {/* JSON-LD: FAQPage — rich snippets no Google */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: [
-              {
-                "@type": "Question",
-                name: "Precisa de cartão de crédito para começar?",
-                acceptedAnswer: { "@type": "Answer", text: "Não. O plano gratuito é 100% gratuito e os 7 dias de Pro são liberados na hora, sem cartão. Você cria a conta com e-mail e já organiza sua coleção." }
-              },
-              {
-                "@type": "Question",
-                name: "Como adiciono minhas cartas no Bynx?",
-                acceptedAnswer: { "@type": "Answer", text: "Tem dois caminhos: busca pelo nome na Pokédex de 22 mil+ cartas, ou Scan com IA — aponta a câmera, a carta é reconhecida e entra na coleção." }
-              },
-              {
-                "@type": "Question",
-                name: "O Bynx funciona com cartas em português, inglês e japonês?",
-                acceptedAnswer: { "@type": "Answer", text: "Sim. O Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga. Os preços são exibidos em reais (R$) atualizados." }
-              },
-              {
-                "@type": "Question",
-                name: "Como o Bynx sabe o preço das cartas Pokémon?",
-                acceptedAnswer: { "@type": "Answer", text: "O Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante (Normal, Holo, Reverse Holo, Foil, Promo) e exibidos como mínimo, médio e máximo." }
-              },
-              {
-                "@type": "Question",
-                name: "Qual a diferença entre Normal, Holo, Reverse, Foil e Promo?",
-                acceptedAnswer: { "@type": "Answer", text: "Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. O Bynx separa cada variante para você ter o valor exato da carta que tem na mão." }
-              },
-              {
-                "@type": "Question",
-                name: "O Bynx vende minhas cartas Pokémon pra mim?",
-                acceptedAnswer: { "@type": "Answer", text: "Não. O Marketplace conecta você direto com outros colecionadores via WhatsApp. Você cria o anúncio, recebe interessados, negocia e fecha. O Bynx é a vitrine; o trade é com você." }
-              },
-              {
-                "@type": "Question",
-                name: "Tenho uma loja de TCG. Posso aparecer no Bynx?",
-                acceptedAnswer: { "@type": "Answer", text: "Sim. O Guia de Lojas Bynx é gratuito pra cadastrar e tem opções Pro e Premium para destaque, fotos, redes sociais e analytics dos seus visitantes." }
-              },
-            ]
-          })
-        }}
-      />
-
       <PublicHeader landingScrollTargets={{ howRef, pricingRef }} />
 
       {/* HERO */}
@@ -578,16 +533,16 @@ export default function Home() {
         <div style={{ position: 'absolute', top: '40%', left: '20%', width: 300, height: 300, background: 'radial-gradient(ellipse, rgba(239,68,68,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 100, padding: '6px 16px', fontSize: 13, color: '#f59e0b', marginBottom: 32, fontWeight: 500 }}>
-          ✦ A plataforma brasileira de coleções de Pokémon TCG
+          ✦ Sua ferramenta de organização para colecionadores de TCG
         </div>
 
         <h1 style={{ fontSize: 'clamp(40px, 7vw, 80px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05, marginBottom: 24, maxWidth: 900 }}>
-          Quanto vale sua coleção<br />
-          <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Pokémon hoje?</span>
+          Sua coleção Pokémon<br />
+          <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>organizada de verdade.</span>
         </h1>
 
-        <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.55)', maxWidth: 620, lineHeight: 1.6, marginBottom: 24 }}>
-          Você tem cartas guardadas há anos. Já trocou e ficou com a dúvida — <em style={{ color: 'rgba(255,255,255,0.75)', fontStyle: 'normal' }}>"será que vendi por menos do que valia?"</em>. O Bynx mostra o preço real em reais, atualizado, organizado, pra você decidir com base no que importa.
+        <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)', maxWidth: 560, lineHeight: 1.6, marginBottom: 24 }}>
+          Cole o link da sua carta, escolha a variante (Normal, Foil, Promo) e veja os preços de referência do mercado organizados na sua coleção pessoal.
         </p>
         {/* Trial badge */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 100, padding: '8px 20px', marginBottom: 40 }}>
@@ -635,25 +590,24 @@ export default function Home() {
           {/* Cards mockup com imagens reais */}
           <div className="lp-mockup-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             {[
-              { name: 'Mew Star', variante: 'Holo', medio: 'R$ 19.000,00', badge: '#f59e0b', img: 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/liga-08B-Mew_20Star_20_14_2F29_.jpg' },
-              { name: 'Captain Pikachu', variante: 'Special Illustration', medio: 'R$ 7.900,00', badge: '#a855f7', img: 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/liga-CBB1C-Captain_20Pikachu_20_Special_2.jpg' },
-              { name: 'Umbreon ex', variante: 'Special Illustration', medio: 'R$ 5.313,06', badge: '#a855f7', img: 'https://images.pokemontcg.io/sv8pt5/161.png' },
-              { name: 'Charizard', variante: 'Rare Secret', medio: 'R$ 2.825,99', badge: '#f59e0b', img: 'https://images.pokemontcg.io/ecard3/146.png' },
+              { name: 'Mega Charizard X ex', variante: 'Foil', medio: 'R$ 1.955,86', badge: '#f59e0b', img: 'https://repositorio.sbrauble.com/arquivos/in/pokemon_bkp/cd/738/6924ac1ff1bb1-8t6ug-w0jnu-6386cdd1635c69bcd3f1e8f5ea9c84f1.jpg' },
+              { name: 'Mega Lucario ex', variante: 'Normal', medio: 'R$ 1.491,16', badge: '#6b7280', img: 'https://repositorio.sbrauble.com/arquivos/in/pokemon_bkp/cd/730/68d6d9f43ca1d-0ix3o-6t79y-bda68739bd4cf82472222621b2fdd599.jpg' },
+              { name: 'Pikachu ex', variante: 'Normal', medio: 'R$ 22.900,00', badge: '#6b7280', img: 'https://repositorio.sbrauble.com/arquivos/in/pokemon_bkp/cd/742/693733302feb0-4n8de-8xsfc-723befacbf6c75de8818e5186aa60264.jpg' },
+              { name: 'Mega Gengar ex', variante: 'Normal', medio: 'R$ 3.239,34', badge: '#6b7280', img: 'https://repositorio.sbrauble.com/arquivos/in/pokemon_bkp/cd/754/697cf2d0eccd2-a5opg-h5lnm-9a3cbb1b17fb0c24b5f4da3defde2c8b.jpg' },
             ].map((c) => (
               <div key={c.name} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12 }}>
                 <div style={{ width: '100%', paddingBottom: '140%', borderRadius: 8, marginBottom: 10, position: 'relative', overflow: 'hidden' }}>
                   <img
                     src={c.img}
                     alt={`Carta Pokémon TCG ${c.name} - ${c.variante}`}
-                    loading="lazy"
                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                   />
                 </div>
                 <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, lineHeight: 1.3 }}>{c.name}</p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
-                  <span style={{ fontSize: 9, background: c.badge + '22', color: c.badge, padding: '2px 6px', borderRadius: 6, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>{c.variante}</span>
-                  <span style={{ fontSize: 11, color: '#60a5fa', fontWeight: 700, whiteSpace: 'nowrap' }}>{c.medio}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 10, background: c.badge + '22', color: c.badge, padding: '2px 6px', borderRadius: 6, fontWeight: 600 }}>{c.variante}</span>
+                  <span style={{ fontSize: 11, color: '#60a5fa', fontWeight: 700 }}>{c.medio}</span>
                 </div>
               </div>
             ))}
@@ -661,60 +615,32 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SOCIAL PROOF — números reais do catálogo */}
+      {/* SOCIAL PROOF */}
       <section style={{ padding: '56px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 40, textTransform: 'uppercase', letterSpacing: '0.1em' }}>O maior catálogo Pokémon TCG em português</p>
-        <div className="lp-stats-row" style={{ display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 40, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Feito para colecionadores de Pokémon TCG</p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
           {[
-            { num: '22.000+', label: 'cartas catalogadas' },
-            { num: '240+', label: 'coleções (sets) cobertas' },
-            { num: 'BRL', label: 'preços em reais, atualizados' },
-            { num: '100%', label: 'foco no Brasil' },
+            { icon: '✦', label: 'Coleção Básica', sub: '1999' },
+            { icon: '✦', label: 'Scarlet & Violet', sub: 'atual' },
+            { icon: '✦', label: 'Mega Evolution', sub: '2025' },
+            { icon: '✦', label: 'Sword & Shield', sub: 'clássico' },
+            { icon: '✦', label: 'Sun & Moon', sub: 'clássico' },
           ].map((s) => (
             <div key={s.label} style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 32, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.03em' }}>{s.num}</p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 2 }}>{s.label}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.sub}</p>
             </div>
           ))}
         </div>
-      </section>
-
-      {/* DOR — "Você já passou por isso?" */}
-      <section aria-label="Cenários comuns do colecionador" style={{ padding: '90px 24px', maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 56 }}>
-          <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Quem coleciona, conhece</p>
-          <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 12 }}>Você já passou por isso?</h2>
-          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.45)', maxWidth: 640, margin: '0 auto', lineHeight: 1.6 }}>
-            Toda hora aparece um momento desses. Quanto custa não ter resposta na hora?
-          </p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+        <div className="lp-stats-row" style={{ marginTop: 48, display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
           {[
-            {
-              emoji: '🤝',
-              title: 'Vai pra liga e vai trocar',
-              desc: 'Você sabe o valor real das cartas que vai pôr na mesa? Ou troca no chute e descobre depois que perdeu R$ 200 no negócio?'
-            },
-            {
-              emoji: '📦',
-              title: 'Acabou de abrir um booster',
-              desc: 'Veio uma carta legal. Vale guardar? Trocar agora? Foil ou Reverse — qual delas vale mais?'
-            },
-            {
-              emoji: '💬',
-              title: 'Recebeu oferta no zap',
-              desc: '"Te dou R$ 80 nessa." É justo? Tá te passando a perna? Sem referência clara, você decide no susto.'
-            },
-            {
-              emoji: '📋',
-              title: 'Tem coleção numa planilha',
-              desc: 'Desatualizada há meses. Você nem sabe se sua coleção subiu ou caiu R$ 500 esse mês.'
-            },
-          ].map((c) => (
-            <div key={c.title} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 28 }}>
-              <div style={{ fontSize: 32, marginBottom: 14 }} aria-hidden="true">{c.emoji}</div>
-              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, letterSpacing: '-0.02em' }}>{c.title}</h3>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>{c.desc}</p>
+            { num: '46', label: 'cartas na coleção beta' },
+            { num: 'R$ 25k+', label: 'em preços monitorados' },
+            { num: '100%', label: 'foco no mercado BR' },
+          ].map((s) => (
+            <div key={s.label} style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 28, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.03em' }}>{s.num}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -726,48 +652,41 @@ export default function Home() {
           <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Como funciona</p>
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em' }}>Simples como deve ser</h2>
         </div>
-        <div className="lp-how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+        <div className="lp-how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           {[
-            { num: '01', Icon: IconCollection, title: 'Adicione suas cartas', desc: 'Busque pelo nome da carta e o Bynx encontra na nossa Pokédex de 22 mil+ cartas. Em 2 cliques tá na sua coleção.' },
-            { num: '02', Icon: IconFire, title: 'Ou use o Scan', desc: 'Aponta a câmera, a IA reconhece a carta e adiciona automaticamente. Pra quem tem coleção grande e não quer digitar tudo.' },
-            { num: '03', Icon: IconChart, title: 'Acompanhe o valor', desc: 'Preços por variante em reais (Normal, Holo, Reverse, Foil, Promo). Mínimo, médio e máximo de mercado, sempre atualizados.' },
-            { num: '04', Icon: IconWallet, title: 'Decida com clareza', desc: 'Coleção valorizou ou caiu? Carta tá no preço justo? Você tem todos os números antes de fazer trade, vender ou comprar.' },
+            { num: '01', Icon: IconLink, title: 'Você cola o link da sua carta', desc: 'Acesse a LigaPokemon, copie o link da sua carta e cole no Bynx. Os preços de referência por variante são carregados para você organizar sua coleção.' },
+            { num: '02', Icon: IconChart, title: 'Você escolhe a variante', desc: 'Diga se a sua carta é Normal, Foil ou Promo. O Bynx exibe os preços de referência por variante para você acompanhar sua coleção.' },
+            { num: '03', Icon: IconWallet, title: 'Veja sua coleção organizada', desc: 'Mínimo, médio e máximo de referência da sua coleção. Uma visão clara para você tomar suas próprias decisões de negociação.' },
           ].map((s) => (
-            <div key={s.num} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 28, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 16, right: 16, fontSize: 36, opacity: 0.06, fontWeight: 900 }} aria-hidden="true">{s.num}</div>
-              <s.Icon size={32} color='rgba(245,158,11,0.8)' style={{marginBottom:14}} />
-              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, letterSpacing: '-0.02em' }}>{s.title}</h3>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>{s.desc}</p>
+            <div key={s.num} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 32, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: 20, right: 20, fontSize: 40, opacity: 0.06, fontWeight: 900 }}>{s.num}</div>
+              <s.Icon size={36} color='rgba(245,158,11,0.8)' style={{marginBottom:16}} />
+              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, letterSpacing: '-0.02em' }}>{s.title}</h3>
+              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>{s.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* DIFERENCIAIS */}
-      <section style={{ padding: '90px 24px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <section style={{ padding: '80px 24px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recursos</p>
-            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 12 }}>Tudo que você precisa, num só lugar</h2>
-            <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.45)', maxWidth: 640, margin: '0 auto', lineHeight: 1.6 }}>
-              De colecionador de fim de semana a quem leva trade a sério.
-            </p>
+            <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 42px)', fontWeight: 800, letterSpacing: '-0.03em' }}>O que nos diferencia</h2>
           </div>
-          <div className="lp-feat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          <div className="lp-feat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             {[
-              { Icon: IconCollection, title: 'Pokédex completa', desc: '22.000+ cartas em 240+ coleções. Busca por nome, autocomplete inteligente, filtro por tipo e raridade.' },
-              { Icon: IconFire, title: 'Scan com IA', desc: 'Aponta a câmera e adiciona a carta na coleção. Sem digitar nome, sem catar link.' },
-              { Icon: IconChart, title: 'Preços por variante', desc: 'Normal, Holo, Reverse, Foil e Promo separados. Cada variante tem preço próprio em reais.' },
-              { Icon: IconWallet, title: 'Painel de portfólio', desc: 'Mínimo, médio e máximo da sua coleção. Acompanhamento mês a mês.' },
-              { Icon: IconTrendingUp, title: 'Histórico de preços', desc: 'Carta valorizou ou caiu nos últimos 6 meses? Você vê o gráfico antes de decidir.' },
-              { Icon: IconMarketplace, title: 'Marketplace', desc: 'Anuncie suas cartas e converse direto via WhatsApp com outros colecionadores. O contato é entre vocês.' },
-              { Icon: IconDashboard, title: 'Guia de Lojas BR', desc: 'Encontre lojas físicas de TCG perto de você. Endereço, redes sociais, especialidades — tudo num só lugar.' },
-              { Icon: IconShield, title: 'Privado e seguro', desc: 'Sua coleção é só sua. Autenticação séria, dados isolados, nunca compartilhados.' },
+              { Icon: IconCollection, title: 'Preços por variante', desc: 'Normal, Foil e Promo separados. O valor certo para a carta que você tem.' },
+              { Icon: IconTrendingUp, title: 'Painel da sua coleção', desc: 'Mínimo, médio e máximo de referência. Informação organizada para suas decisões.' },
+              { Icon: IconDashboard, title: 'Organização por link', desc: 'Cole o link da sua carta e o Bynx organiza os dados na sua coleção pessoal.' },
+              { Icon: IconTrendingDown, title: 'Histórico de referência', desc: 'Veja como os preços de referência da sua coleção variaram ao longo do tempo.' },
+              { Icon: IconMarketplace, title: 'Marketplace entre colecionadores', desc: 'Anuncie suas cartas e conecte-se com outros colecionadores. A negociação é entre vocês.' },
+              { Icon: IconShield, title: 'Seus dados seguros', desc: 'Autenticação segura. Só você vê sua coleção.' },
             ].map((f) => (
               <div key={f.title} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-                <f.Icon size={26} color='rgba(245,158,11,0.7)' style={{marginBottom:12}} />
-                <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.01em' }}>{f.title}</h3>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.55 }}>{f.desc}</p>
+                <f.Icon size={28} color='rgba(245,158,11,0.7)' style={{marginBottom:12}} />
+                <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{f.title}</h4>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>{f.desc}</p>
               </div>
             ))}
           </div>
@@ -905,31 +824,27 @@ export default function Home() {
           {[
             {
               q: 'Precisa de cartão de crédito para começar?',
-              a: 'Não. O plano gratuito é 100% gratuito e os 7 dias de Pro são liberados na hora, sem cartão. Você cria a conta com e-mail e já organiza sua coleção.'
+              a: 'Não! O plano gratuito é 100% gratuito, sem cartão de crédito. Você só precisa de um e-mail para criar sua conta e começar a organizar sua coleção agora mesmo.'
             },
             {
-              q: 'Como adiciono minhas cartas?',
-              a: 'Tem dois caminhos: (1) busca pelo nome — a Pokédex do Bynx tem 22 mil+ cartas catalogadas, é só achar e adicionar; (2) Scan com IA — aponta a câmera, a carta é reconhecida e entra na sua coleção. Você escolhe o que for mais rápido pra você.'
+              q: 'Funciona com cartas em português do Brasil?',
+              a: 'Sim! O Bynx é totalmente focado no mercado brasileiro. Os preços vêm direto da LigaPokemon.com.br, o maior marketplace de TCG do Brasil, com valores em reais (R$).'
             },
             {
-              q: 'Funciona com cartas em português, inglês e japonês?',
-              a: 'Sim. O Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga. Os preços são exibidos em reais (R$) atualizados.'
+              q: 'Como importo minhas cartas?',
+              a: 'Simples: acesse a página da sua carta na LigaPokemon, copie o link e cole no Bynx. Em segundos, os preços (Normal, Foil, Promo) são importados automaticamente.'
             },
             {
-              q: 'Como o Bynx sabe o preço das cartas?',
-              a: 'O Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante (Normal, Holo, Reverse Holo, Foil, Promo) e exibidos como mínimo, médio e máximo — para você ter uma faixa real de mercado, não um único número.'
+              q: 'Os preços são atualizados automaticamente?',
+              a: 'Você tem autonomia para atualizar manualmente a qualquer momento clicando em "Atualizar preço" em cada carta, sempre que quiser ter o valor mais recente da sua coleção.'
             },
             {
-              q: 'Qual a diferença entre Normal, Holo, Reverse, Foil e Promo?',
-              a: 'Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Promos são ainda mais específicas. O Bynx separa cada variante para você ter o valor exato da carta que tem na mão, não uma média genérica.'
+              q: 'Qual a diferença entre Normal, Foil e Promo?',
+              a: 'Cada variante tem um preço diferente no mercado. Uma carta Foil pode valer 10x mais que a Normal. O Bynx rastreia cada variante separadamente para você ter o valor exato da carta que possui.'
             },
             {
-              q: 'O Bynx vende minhas cartas pra mim?',
-              a: 'Não. O Marketplace do Bynx conecta você direto com outros colecionadores via WhatsApp. Você cria o anúncio, recebe interessados, negocia e fecha o trade do jeito que quiser. O Bynx é a vitrine; o trade é com você.'
-            },
-            {
-              q: 'Tenho uma loja de TCG. Posso aparecer no Bynx?',
-              a: 'Sim. O Guia de Lojas Bynx é gratuito pra cadastrar (plano Básico) e tem opções Pro e Premium para destaque, fotos, redes sociais e analytics dos seus visitantes. Acesse a área "Minha Loja" depois de criar sua conta.'
+              q: 'O Bynx vende minhas cartas para mim?',
+              a: 'Não! O Marketplace integrado permite que você crie anúncios e negocie diretamente com outros colecionadores. O contato final é feito via WhatsApp, simples e seguro entre colecionadores. O Bynx é apenas o organizador da sua coleção.'
             },
           ].map((item, i) => (
             <FaqItem key={i} q={item.q} a={item.a} />
@@ -937,33 +852,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── BLOCO LOJISTA — captura lead de loja ── */}
-      <section aria-label="Para lojas de TCG" style={{ padding: '40px 24px', maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ background: 'linear-gradient(135deg, rgba(96,165,250,0.06), rgba(168,85,247,0.04))', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 20, padding: '36px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 340px' }}>
-            <p style={{ fontSize: 12, color: '#60a5fa', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Para lojistas</p>
-            <h2 style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>
-              Tem loja de TCG? Apareça no <span style={{ color: '#60a5fa' }}>Guia Bynx</span>.
-            </h2>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, margin: 0 }}>
-              Cadastro grátis. Colecionadores BR encontram sua loja por endereço, especialidade e redes sociais. Pro e Premium destacam você no topo, com analytics dos visitantes.
-            </p>
-          </div>
-          <a
-            href="/lojas"
-            style={{ background: 'linear-gradient(135deg, #60a5fa, #a855f7)', border: 'none', color: '#000', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
-          >
-            Ver o Guia →
-          </a>
-        </div>
-      </section>
-
       {/* ── DEPOIMENTO ── */}
       <section style={{ padding: '60px 24px', maxWidth: 720, margin: '0 auto' }}>
         <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 24, padding: '40px 48px', position: 'relative' }}>
-          <span style={{ position: 'absolute', top: 24, left: 32, fontSize: 48, color: 'rgba(245,158,11,0.3)', fontFamily: 'Georgia, serif', lineHeight: 1 }} aria-hidden="true">"</span>
+          <span style={{ position: 'absolute', top: 24, left: 32, fontSize: 48, color: 'rgba(245,158,11,0.3)', fontFamily: 'Georgia, serif', lineHeight: 1 }}>"</span>
           <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', marginBottom: 24, paddingTop: 16 }}>
-            Antes do Bynx, eu trocava carta no chute. Depois de organizar minha coleção e ver o valor real de cada variante, parei de perder dinheiro nos trades. Agora chego na liga sabendo exatamente o que tenho.
+            Eu não sabia o quanto minha coleção valia de verdade. Depois de importar tudo no Bynx, descobri que tenho mais de R$ 2.000 em cartas. Agora acompanho o mercado toda semana e sei exatamente quando é hora de vender.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#000', flexShrink: 0 }}>
@@ -971,7 +865,7 @@ export default function Home() {
             </div>
             <div>
               <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>Eduardo Silva</p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Colecionador · São Paulo, SP</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Colecionador · São Paulo, SP · Usuário beta</p>
             </div>
           </div>
         </div>
