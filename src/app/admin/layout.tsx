@@ -21,6 +21,17 @@ function IconStore({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: num
   )
 }
 
+// ─── Ícone de marketplace inline (tag/etiqueta) ───────────────────────────
+
+function IconMarketplaceAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 2.5L17.5 10L10 17.5L2.5 10V2.5H10Z" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="6.5" cy="6.5" r="1.2" stroke={color} strokeWidth="1.4"/>
+    </svg>
+  )
+}
+
 // ─── Ícone de carteira/financeiro inline ──────────────────────────────────
 
 function IconWalletAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
@@ -35,11 +46,12 @@ function IconWalletAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size
 }
 
 const adminMenu = [
-  { label: 'Dashboard',  href: '/admin',            Icon: IconDashboard    },
-  { label: 'Tickets',    href: '/admin/tickets',    Icon: IconChat         },
-  { label: 'Lojas',      href: '/admin/lojas',      Icon: IconStore        },
-  { label: 'Usuários',   href: '/admin/users',      Icon: IconAccount      },
-  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin  },
+  { label: 'Dashboard',   href: '/admin',             Icon: IconDashboard          },
+  { label: 'Tickets',     href: '/admin/tickets',     Icon: IconChat               },
+  { label: 'Lojas',       href: '/admin/lojas',       Icon: IconStore              },
+  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin   },
+  { label: 'Usuários',    href: '/admin/users',       Icon: IconAccount            },
+  { label: 'Financeiro',  href: '/admin/financeiro',  Icon: IconWalletAdmin        },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
