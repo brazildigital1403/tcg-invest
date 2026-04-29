@@ -24,17 +24,19 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://bynx.gg"),
 
   title: {
-    default: "Bynx — Organize e valorize sua coleção Pokémon TCG",
+    default: "Bynx — Quanto vale sua coleção Pokémon TCG hoje?",
     template: "%s | Bynx",
   },
   description:
-    "O app brasileiro para colecionadores de Pokémon TCG. Importe cartas por link, acompanhe preços em tempo real, veja o valor do seu portfólio e negocie com segurança no Marketplace.",
+    "A plataforma brasileira para colecionadores de Pokémon TCG. Adicione cartas em segundos, acompanhe preços por variante em reais, use o scan com IA e negocie no Marketplace. Pokédex com 22.000+ cartas em 240+ coleções.",
 
   keywords: [
-    "Pokémon TCG", "cartas Pokémon", "coleção Pokémon", "portfolio Pokémon",
-    "preço carta Pokémon", "marketplace Pokémon TCG", "LigaPokemon",
-    "Bynx", "gerenciar coleção Pokémon", "investimento Pokémon",
-    "vender carta Pokémon", "comprar carta Pokémon", "Pokémon card tracker",
+    "Pokémon TCG", "cartas Pokémon", "coleção Pokémon", "preço carta Pokémon",
+    "valor coleção Pokémon", "quanto vale carta Pokémon", "cotação Pokémon",
+    "marketplace Pokémon TCG", "Pokémon TCG Brasil", "carta Pokémon em reais",
+    "Pokédex Pokémon TCG", "scan carta Pokémon", "guia de lojas TCG",
+    "Bynx", "organizar coleção Pokémon", "investir em cartas Pokémon",
+    "vender carta Pokémon", "comprar carta Pokémon", "Pokémon card tracker BR",
   ],
 
   authors: [{ name: "Bynx", url: "https://bynx.gg" }],
@@ -49,15 +51,15 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     url: "https://bynx.gg",
     siteName: "Bynx",
-    title: "Bynx — Organize e valorize sua coleção Pokémon TCG",
+    title: "Bynx — Quanto vale sua coleção Pokémon TCG hoje?",
     description:
-      "Importe cartas por link da LigaPokemon, acompanhe preços Normal/Foil/Promo em tempo real e negocie com segurança. Gratuito para as primeiras 15 cartas.",
+      "Adicione suas cartas pela Pokédex ou pelo scan com IA. Acompanhe preços em reais por variante (Normal, Holo, Reverse, Foil, Promo) e negocie no Marketplace. 7 dias de Pro grátis.",
     images: [
       {
         url: "https://bynx.gg/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Bynx — Portfólio financeiro para colecionadores de Pokémon TCG",
+        alt: "Bynx — Plataforma brasileira para colecionadores de Pokémon TCG",
       },
     ],
   },
@@ -67,9 +69,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     site: "@bynxgg",
     creator: "@bynxgg",
-    title: "Bynx — Organize e valorize sua coleção Pokémon TCG",
+    title: "Bynx — Quanto vale sua coleção Pokémon TCG hoje?",
     description:
-      "Importe cartas por link, acompanhe preços em tempo real e negocie com segurança no Marketplace. Grátis!",
+      "A plataforma brasileira de coleções Pokémon TCG. Pokédex de 22 mil+ cartas, scan com IA, preços em reais e Marketplace. 7 dias Pro grátis.",
     images: ["https://bynx.gg/og-image.jpg"],
   },
 
@@ -132,7 +134,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               name: "Bynx",
               url: "https://bynx.gg",
               logo: "https://bynx.gg/logo_BYNX.png",
-              description: "Plataforma brasileira para colecionadores de Pokémon TCG organizarem e valorizarem suas coleções.",
+              description: "Plataforma brasileira para colecionadores de Pokémon TCG organizarem suas coleções, acompanharem preços em reais e negociarem no Marketplace.",
               sameAs: [
                 "https://instagram.com/bynxgg",
                 "https://twitter.com/bynxgg",
@@ -145,7 +147,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }),
           }}
         />
-        {/* Structured Data — WebApplication */}
+
+        {/* Structured Data — WebSite com SearchAction (sitelinks search box no Google) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Bynx",
+              url: "https://bynx.gg",
+              inLanguage: "pt-BR",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: "https://bynx.gg/pokedex?q={search_term_string}",
+                },
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
+
+        {/* Structured Data — WebApplication (catálogo + planos) */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -155,24 +180,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               name: "Bynx",
               url: "https://bynx.gg",
               applicationCategory: "LifestyleApplication",
+              applicationSubCategory: "Trading Card Game Collection Management",
               operatingSystem: "Web, iOS, Android",
+              inLanguage: "pt-BR",
               offers: [
                 {
                   "@type": "Offer",
                   price: "0",
                   priceCurrency: "BRL",
                   name: "Plano Gratuito",
-                  description: "Até 15 cartas gratuitamente",
+                  description: "Acesso à Pokédex e organização básica da coleção",
                 },
                 {
                   "@type": "Offer",
                   price: "29.90",
                   priceCurrency: "BRL",
-                  name: "Plano Pro",
-                  description: "Cartas ilimitadas e todas as funcionalidades",
+                  name: "Plano Pro Mensal",
+                  description: "Cartas ilimitadas, scan com IA, histórico de preços e marketplace",
+                },
+                {
+                  "@type": "Offer",
+                  price: "249.00",
+                  priceCurrency: "BRL",
+                  name: "Plano Pro Anual",
+                  description: "Pro com desconto anual",
                 },
               ],
-              description: "O app brasileiro para colecionadores de Pokémon TCG. Importe cartas por link, acompanhe preços em tempo real e negocie com segurança.",
+              description: "Plataforma brasileira de coleções Pokémon TCG. Pokédex com 22 mil+ cartas, scan com IA, preços em reais por variante e marketplace.",
             }),
           }}
         />

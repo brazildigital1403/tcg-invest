@@ -1,7 +1,7 @@
 {
-  "name": "Bynx — Pokémon TCG Portfolio",
+  "name": "Bynx — Pokémon TCG Brasil",
   "short_name": "Bynx",
-  "description": "Organize e valorize sua coleção Pokémon TCG com inteligência",
+  "description": "A plataforma brasileira de coleções Pokémon TCG. Pokédex, scan com IA, preços em reais e marketplace.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#080a0f",
