@@ -1058,3 +1058,148 @@ Pedido do Du com 3 frentes:
 * **Honestidade nas métricas é prova social.** 8 users e 3 lojas seriam "early stage" mentido como "comunidade ativa". 22.861 cartas catalogadas é prova HONESTA do produto. Catálogo robusto > adoção forçada.
 * **SEO é trabalho em camadas, não 3 meta tags.** 7 frentes mapeadas: metadata, OG, JSON-LD (4 tipos), sitemap dinâmico, robots dinâmico, manifest, semântica HTML. FAQPage inline é maior ganho de rich snippet.
 
+
+---
+
+## 📅 Sessão 24 (29/04/2026) — GTM + GA4 + Eventos Custom
+
+### Google Tag Manager ✅
+1 arquivo modificado: `src/app/layout.tsx`
+- Import `Script` do `next/script`
+- Constante `GTM_ID` com fallback `GTM-N94DLM4H` (configurável via `NEXT_PUBLIC_GTM_ID`)
+- `<Script strategy="afterInteractive">` no `<head>` com snippet GTM
+- `<noscript>` GTM logo após `<body>`
+
+**Validação em produção:** Du confirmou no console `dataLayer` populando com 3 eventos automáticos (`gtm.js`, `gtm.dom`, `gtm.load`). URL do script confirmou `GTM-N94DLM4H`.
+
+**Por que `next/script` em vez de `<script>` literal:**
+- `afterInteractive` carrega cedo mas não bloqueia render (Lighthouse agradece)
+- Hidratação correta sem warnings
+- Deduplicação automática
+
+### Google Analytics 4 ✅
+**Measurement ID confirmado:** `G-1DRTZH1KVH`
+
+Configuração feita pelo Du no painel:
+- Propriedade GA4 criada
+- Stream Web → URL `https://bynx.gg`
+- Tag "Google Tag" criada dentro do GTM apontando pro `G-1DRTZH1KVH`
+- Trigger: Initialization - All Pages
+- Container publicado
+
+**Validação em produção:** Du tirou print de requisição POST pra `google-analytics.com/g/collect?v=2&tid=G-1DRTZH1KVH&en=page_view` retornando 204 No Content. Confirma GA4 funcionando.
+
+**Detalhe interessante:** Du configurou no painel GA4 os 5 event parameters (signup_completed, first_card_added, pro_upgrade_initiated/completed, loja_clique) ANTES de termos disparado eles no código — visíveis na URL como `&ep.signup_completed=&ep.first_card_added=...`. Isso adianta a base pra fase 3.
+
+### Eventos Custom — Helper + 9 patches cirúrgicos ✅
+**Decisão de escopo:** Helper centralizado + 5 pontos cirúrgicos (não os 3 fáceis primeiro). `signup_completed` = primeira inserção em user_cards (proxy útil de activation, não vanity metric de cadastro). Payload lean (sem event_category/event_label do GA3).
+
+**1 arquivo novo + 9 patches:**
+
+| Arquivo | Mudança |
+|---|---|
+| `src/lib/analytics.ts` (NOVO, 88 linhas) | 5 funções tipadas, SSR-safe, fail-safe |
+| `src/components/lojas/TrackedLink.tsx` | `trackLojaClique` síncrono ANTES do fetch |
+| `src/app/page.tsx` (2x) | `trackProUpgradeInitiated` antes do checkout |
+| `src/app/minha-conta/page.tsx` | `trackProUpgradeInitiated` em `handleCheckout` (NÃO em `handleComprarExtras` que é scan/separadores) |
+| `src/app/pro-ativado/page.tsx` | `trackProUpgradeCompleted` no useEffect com `[plano]` deps |
+| `src/app/marketplace/page.tsx` | `trackFirstCardAdded` após insert |
+| `src/app/pokedex/page.tsx` | `trackFirstCardAdded` só quando insert deu certo (sem error) |
+| `src/components/dashboard/AddCardModal.tsx` | `trackFirstCardAdded` após insert sem erro |
+| `src/components/marketplace/NegociacoesTab.tsx` | `trackFirstCardAdded` após insert |
+| `src/components/ui/ScanModal.tsx` | `trackFirstCardAdded` só quando carta é nova (insert, não update) |
+
+**Decisões de design do helper:**
+- **Idempotência via localStorage** — flag `bynx_first_card_${userId}` evita duplicação. `trackFirstCardAdded` também dispara `signup_completed` como proxy de activation.
+- **Lean payload** — `{event, user_id}` ou `{event, plano}` sem entulho do GA3.
+- **SSR-safe** — `typeof window !== 'undefined'` em tudo.
+- **Fail-safe** — `try/catch` engolido. Tracking nunca quebra UX.
+- **`trackLojaClique` ANTES do fetch** — síncrono. Garante ir pro dataLayer antes do navegador iniciar navegação que pode abortar tracking.
+- **`pro_upgrade_completed` no client** — webhook é server-side, não tem dataLayer. Disparar no mount de `/pro-ativado` é o ponto certo.
+
+**Deploy:** commit `2adf813f` (`feat(analytics): 5 eventos custom GTM/GA4...`) confirmado READY em produção via `Vercel:list_deployments`.
+
+**Validação em produção:**
+Du clicou em "Assinar Pro Mensal", voltou pro tab, e o `dataLayer` mostrou:
+```
+{ event: 'pro_upgrade_initiated', plano: 'mensal', gtm.uniqueEventId: 6 }
+```
+
+Code-side **100% comprovado funcionando**.
+
+### 🚧 [PENDING — não bloqueante] Fase 2 GTM
+Pra os eventos chegarem no GA4 (não só no dataLayer), falta configuração no painel GTM. Du decidiu pausar essa frente e retomar em sessão futura. **Estado atual:** evento empurrado pro dataLayer, mas GTM ainda não tem tag GA4 Event capturando eles.
+
+**Roteiro pra próxima sessão de GTM/GA4:**
+
+1. **Criar 4 variáveis Data Layer no GTM:**
+   - `dlv - plano` → DLV name `plano`
+   - `dlv - user_id` → DLV name `user_id`
+   - `dlv - loja_id` → DLV name `loja_id`
+   - `dlv - tipo` → DLV name `tipo`
+
+2. **Limpar tag Google Configuration:** Du adicionou os 5 event parameters como padrão na tag Configuration (visíveis vazios em todo page_view). Remover de lá — esses params só devem ir nos eventos específicos.
+
+3. **Criar 5 triggers Custom Event** (1 por evento)
+
+4. **Criar 5 tags GA4 Event** com mapeamento:
+
+| Tag | Event Parameters |
+|---|---|
+| `pro_upgrade_initiated` | `plano` → `{{dlv - plano}}` |
+| `pro_upgrade_completed` | `plano` → `{{dlv - plano}}` |
+| `loja_clique` | `loja_id` → `{{dlv - loja_id}}` + `tipo` → `{{dlv - tipo}}` |
+| `first_card_added` | `user_id` → `{{dlv - user_id}}` |
+| `signup_completed` | `user_id` → `{{dlv - user_id}}` |
+
+5. **Submit/Publish** no GTM (sem isso nada vai pra produção)
+
+6. **Custom Definitions no GA4 Admin** (opcional, mas necessário pra ver nos relatórios):
+   - Plano (event param: plano, scope: Event)
+   - Loja ID (event param: loja_id, scope: Event)
+   - Tipo Clique (event param: tipo, scope: Event)
+   - User ID Custom (event param: user_id, scope: Event)
+
+**Estimativa:** 30-45min de painel pra completar tudo + validação.
+
+### 🔑 Lições — Sessão 24
+
+* **`next/script` > `<script>` literal no Next App Router.** Não é só estilo: `strategy="afterInteractive"` tira o GTM do caminho crítico de render. Lighthouse score importa pra SEO.
+* **Distinguir entre "container instalado" vs "tag funcionando".** GTM é cofre vazio; GA4 é uma das ferramentas dentro. Confusão comum quando o painel do GA4 diz "tag não detectada" — ele procura `G-XXX`, não `GTM-XXX`. Documentar essa distinção em onboarding futuro.
+* **`x-vercel-cache: HIT` ≠ deploy ausente.** Quando validei o HTML servido pra ver se eventos custom apareciam, o cache enganou (HTML não roda JS, não dá pra ver dataLayer pelo HTML). Tive que usar **MCP Vercel:list_deployments** pra confirmar que commit `2adf813f` deployou. Segui pelo browser pra validação real.
+* **Teste mais robusto pra eventos com redirect:** o **caminho 3** (clicar em link de loja, que abre em outra aba) é melhor que clicar em "Assinar Pro" (que troca contexto pro Stripe). Quando contexto muda, `dataLayer` fica inacessível porque você está em outro domínio. Vale como padrão pra próximas validações: sempre escolher um teste sem redirect cross-origin.
+* **Spy de `dataLayer.push` é ouro pra debug.** Quando dúvida se código está chamando push, cola no console:
+  ```js
+  const original = window.dataLayer.push.bind(window.dataLayer);
+  window.dataLayer.push = function(...args) {
+    console.log('🎯 PUSH:', JSON.stringify(args[0]));
+    return original(...args);
+  };
+  ```
+  Imprime tudo na hora, antes de qualquer redirect.
+* **Erro do user `dataLayer is not defined` ≠ código não funcionou.** Quando vi esse erro, era contexto do iframe Stripe, não da Bynx. DevTools às vezes troca contexto silenciosamente.
+
+### 🚀 Pendências carregadas pra próximas sessões
+
+**Fase 2 — GTM/GA4 (30-45min painel):**
+- 🟡 Configurar 4 variáveis Data Layer + 5 triggers + 5 tags GA4 Event no GTM
+- 🟡 Limpar event parameters da tag Google Configuration
+- 🟡 Submit/Publish no GTM
+- 🟡 Criar 4 Custom Definitions no GA4 Admin
+- 🟡 Validar Network depois de publicar (ver `&ep.plano=mensal` na URL do collect)
+
+**SEO — fase 2 (continuação do relançamento):**
+- 🟢 **Google Search Console** — adicionar bynx.gg, verificar ownership (pode usar verificação via GTM em 30s), submeter sitemap
+- 🟢 **Bing Webmaster Tools** — equivalente
+- 🟡 **Lighthouse audit** após o deploy (alvo: 90+ em todas as métricas)
+- 🟡 **Verificar OG image** (`https://bynx.gg/og-image.jpg`) — confirmar 1200x630
+- 🟡 **Página dedicada `/para-lojas`** (sub-landing pra persona lojista, mais profundidade) — anotada como melhoria futura
+
+**Resto da fila:**
+- 🟡 Cleanup sandbox Stripe (~5min) — cancelar subscriptions teste de bianca1, bianca2, teste@teste2
+- 🟡 Alerta proativo `[webhook] CRITICAL` (~1-2h) — Sentry/email
+- 🟡 V6 cosmético removendo logs `[webhook/debug]` (em 2-3 semanas)
+- 🔵 **01/05/2026 (em 2 dias):** Melhorias de preços (Regra 5)
+- 🔵 **26/05/2026:** ZenRows renova ($227.63), rodar `scan-sets-final.ts`
+- 🔴 Passo 8 — Stripe per-loja (6-10h) — provavelmente junho
+
