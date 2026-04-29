@@ -975,3 +975,86 @@ Sessão 22 fechada (dia inteiro, ~10h de trabalho):
 
 **3 regras adicionadas (17, 18, 19), todas focadas em "**verificar antes de afirmar**" — auth, banco, APIs externas. Padrão emergente que talvez vire uma meta-regra na sessão 23.**
 
+
+---
+
+## 📅 Sessão 23 (29/04/2026 madrugada) — Passo 11 + Landing Relançamento
+
+### Passo 11 — Analytics Premium dashboard ✅
+3 arquivos entregues e testados em produção:
+- `src/app/api/lojas/[id]/analytics/route.ts` — GET com gating (402 + `requires_upgrade` se não-premium), agrega cliques por tipo/dia/usuário, períodos 7/30/90 dias
+- `src/components/lojas/AnalyticsCard.tsx` — componente client com 2 modos: teaser borrado + CTA upgrade (não-premium) ou dashboard completo (premium) com 5 KPIs por tipo, Line chart (chart.js + react-chartjs-2), stats logado/anônimo
+- Patch em `src/app/minha-loja/[id]/page.tsx` — +4 linhas (import + `<AnalyticsCard>` entre PlanoCard e Form/Resumo)
+
+**Validação em prod:** Du tem 3 lojas (básica, pro, premium) — todas funcionaram. Logs Vercel: 5 GETs ao endpoint, 0 erros 4xx/5xx. **Gating client-side funcionando perfeitamente** — lojas básica/pro nem chegam a chamar a API (0 requests 402), só renderizam o teaser.
+
+**Decisões de design:**
+- Analytics = exclusivo do plano `premium` (descrição do plano confirmava: "analytics e rotação no topo")
+- Defense-in-depth: client esconde, mas server gateia também
+- `porTipo` sempre completo (5 tipos mesmo com 0) e `porDia` preenchido com zeros (gráfico contínuo)
+
+### Landing Page — Relançamento estratégico 🚀
+Pedido do Du com 3 frentes:
+1. Refletir muitas novidades implementadas
+2. Remover dependência de LigaPokemon
+3. Estudar abordagens de venda baseadas em podcast (NA - ROI Hunters #334)
+4. SEO completo para lançamento próximo
+
+**Estudo do podcast** — princípios extraídos e aplicados na landing:
+1. **Materializar perda, não pressão** → Hero com headline pergunta + 4 cenários de dor
+2. **Confiança > tudo** → Números reais (22k+ cartas, 240+ sets), sem mentir adoção (8 users ainda)
+3. **Frequência > Alcance** → copy focada em quem realmente entende, não em maximizar visitantes
+4. **5 macro etapas com microcommits** → Hero → Dor → Solução → Prova → CTA
+5. **Domina mercado atual antes de diversificar** → Lojista entra como bloco de captura no final, não rouba palco
+6. **Need states (ocasiões de uso)** → "Vou pra liga e...", "Abri booster e...", "Recebi oferta no zap..."
+7. **CRM = aprofundar no cliente** → Linguagem TCG Pokémon BR (trade, liga, Holo/Reverse/Foil, booster, set)
+
+**Decisão de tom:** Headline opção A — *"Quanto vale sua coleção Pokémon hoje?"* (pergunta direta) com subhead reconhecendo dor + reposicionando Bynx como resposta literal.
+
+**5 arquivos entregues + 2 deletados:**
+- `src/app/page.tsx` — landing nova (Hero + 4 dores + Como funciona reescrito sem Liga + 8 features atuais + bloco lojista + FAQ atualizado + JSON-LD FAQPage inline)
+- `src/app/layout.tsx` — metadata sem Liga + JSON-LD WebSite SearchAction + WebApplication com 3 planos
+- `src/app/sitemap.ts` (NOVO) — substitui `public/sitemap.xml`, lista lojas ativas dinamicamente do Supabase
+- `src/app/robots.ts` (NOVO) — substitui `public/robots.txt`
+- `public/manifest.json` — description ajustada
+- DELETADOS: `public/sitemap.xml` e `public/robots.txt`
+
+**Linguagem usada na landing:**
+- Termos do nicho: trade, liga, booster, set, Holo, Reverse, Foil, Promo, Special Illustration
+- Cartas no mockup: Mew Star (R$19k), Captain Pikachu (R$7.9k), Umbreon ex (R$5.3k), Charizard Skyridge (R$2.8k) — todas com imagens próprias (Supabase Storage + pokemontcg.io oficial), ZERO dependência da Liga
+
+### 📊 SEO — ganhos concretos do relançamento
+
+| Frente | Antes | Depois |
+|---|---|---|
+| FAQPage rich snippet (Google) | ❌ | ✅ 7 perguntas estruturadas |
+| WebSite SearchAction (sitelinks search box) | ❌ | ✅ Pode ativar |
+| Sitemap | Estático, 5 URLs fixas | Dinâmico, lojas BR puxadas do banco |
+| Robots | Estático | Dinâmico, atualizado |
+| Menções a "LigaPokemon" | 5 ocorrências | 0 |
+
+### 🚀 Pendências carregadas pra próxima sessão (24)
+
+**SEO — fase 2 (continuação do relançamento):**
+- 🟢 **Google Analytics 4** — instalar tag (não está no projeto ainda)
+- 🟢 **Google Search Console** — adicionar bynx.gg, verificar ownership, submeter sitemap
+- 🟢 **Bing Webmaster Tools** — equivalente Bing
+- 🟡 **Lighthouse audit** após o deploy (alvo: 90+ em todas as métricas)
+- 🟡 **Verificar OG image** (`https://bynx.gg/og-image.jpg`) — confirmar 1200x630
+- 🟡 **Página dedicada `/para-lojas`** (sub-landing pra persona lojista, mais profundidade) — anotada como melhoria futura
+
+**Resto da fila (sem mudanças):**
+- 🟡 Cleanup sandbox Stripe (~5min) — cancelar subscriptions teste de bianca1, bianca2, teste@teste2
+- 🟡 Alerta proativo `[webhook] CRITICAL` (~1-2h) — Sentry/email
+- 🟡 V6 cosmético removendo logs `[webhook/debug]` (em 2-3 semanas)
+- 🔵 **01/05/2026 (em 2 dias):** Melhorias de preços (Regra 5)
+- 🔵 **26/05/2026:** ZenRows renova ($227.63), rodar `scan-sets-final.ts`
+- 🔴 Passo 8 — Stripe per-loja (6-10h) — provavelmente junho
+
+### 🔑 Lições — Sessão 23
+
+* **Estratégia ANTES de código.** Du pediu landing com base em podcast de vendas. Ler o podcast inteiro + diagnosticar landing atual + apresentar 5 camadas de estratégia + 3 perguntas pra Du decidir → tudo isso ANTES de tocar em arquivo. Resultado: code-fit perfeito, zero retrabalho de tom.
+* **Decidir com convicção quando o cliente pede.** Du pediu "qual sua recomendação?" — entreguei opção A com justificativa, ao invés de cair em "depende". Quando há pergunta clara, há resposta clara.
+* **Honestidade nas métricas é prova social.** 8 users e 3 lojas seriam "early stage" mentido como "comunidade ativa". 22.861 cartas catalogadas é prova HONESTA do produto. Catálogo robusto > adoção forçada.
+* **SEO é trabalho em camadas, não 3 meta tags.** 7 frentes mapeadas: metadata, OG, JSON-LD (4 tipos), sitemap dinâmico, robots dinâmico, manifest, semântica HTML. FAQPage inline é maior ganho de rich snippet.
+
