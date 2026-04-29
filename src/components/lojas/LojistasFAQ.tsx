@@ -6,6 +6,21 @@ import { CSSProperties, useState } from 'react'
 
 const FAQ_ITEMS: { pergunta: string; resposta: string }[] = [
   {
+    pergunta: 'Vou aparecer pra colecionador da minha cidade?',
+    resposta:
+      'Sim, e essa é a graça do Bynx. Quando alguém pesquisa "loja Pokémon [sua cidade]" no guia, você aparece. O filtro tá em cima de estado e cidade — ou seja, quem é da sua área te encontra primeiro. Lojas Pro aparecem acima das Básico; Premium aparece em rotação no topo.',
+  },
+  {
+    pergunta: 'Qual a diferença entre Pro e Premium?',
+    resposta:
+      'O Pro (R$ 39/mês) já te tira do plano Básico: até 5 fotos, redes sociais, descrição sem limite, badge Pro no card e prioridade na listagem. O Premium (R$ 89/mês) adiciona o que diferencia loja grande de loja pequena: 10 fotos, eventos e torneios ilimitados, card 1.5x maior, rotação no topo, analytics de visualizações e cliques no WhatsApp, e SEO customizável. Se você organiza eventos ou quer dado pra decidir, vai de Premium.',
+  },
+  {
+    pergunta: 'Como funciona a divulgação de eventos e torneios?',
+    resposta:
+      'Exclusivo do Premium. Você publica eventos (ligas, torneios, prereleases, drafts) direto no perfil da sua loja. Eles aparecem no card do guia como "Próxima liga: dd/mm" e ficam visíveis pra qualquer colecionador que olha sua página. Quem nunca foi na sua casa de torneios descobre o evento e aparece.',
+  },
+  {
     pergunta: 'Preciso ter CNPJ pra cadastrar minha loja?',
     resposta:
       'Não é obrigatório, mas é fortemente recomendado. Lojas com CNPJ ativo têm prioridade na aprovação e na obtenção do selo verificado. Lojas pessoa física também podem se cadastrar, mas passam por uma análise mais cuidadosa.',
@@ -38,7 +53,7 @@ const FAQ_ITEMS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Como funciona a moderação e o selo verificado?',
     resposta:
-      'Toda loja nova passa por moderação pra evitar cadastros falsos, duplicatas ou conteúdo impróprio. O selo verificado (⭐ âmbar) é concedido manualmente pela equipe Bynx pra lojas com CNPJ ativo, operação comprovada (site, redes sociais com seguidores, reviews no Google) e pelo menos 3 meses cadastradas no Bynx.',
+      'Toda loja nova passa por moderação pra evitar cadastros falsos, duplicatas ou conteúdo impróprio. O selo verificado (⭐ azul) é concedido manualmente pela equipe Bynx pra lojas com CNPJ ativo, operação comprovada (site, redes sociais com seguidores, reviews no Google) e pelo menos 3 meses cadastradas no Bynx.',
   },
   {
     pergunta: 'Posso usar o Bynx pra vender cartas online pelo meu WhatsApp?',
@@ -111,8 +126,8 @@ const S: Record<string, CSSProperties> = {
     gap: 12,
   },
   itemOpen: {
-    border: '1px solid rgba(245,158,11,0.25)',
-    background: 'linear-gradient(180deg, rgba(245,158,11,0.03), rgba(13,15,20,1) 80%)',
+    border: '1px solid rgba(96,165,250,0.25)',
+    background: 'linear-gradient(180deg, rgba(96,165,250,0.03), rgba(13,15,20,1) 80%)',
   },
   itemQuestion: {
     fontSize: 15,
@@ -128,7 +143,7 @@ const S: Record<string, CSSProperties> = {
   icon: {
     flexShrink: 0,
     transition: 'transform 0.2s ease',
-    color: 'rgba(245,158,11,0.8)',
+    color: 'rgba(96,165,250,0.8)',
   },
   itemAnswer: {
     fontSize: 14,
