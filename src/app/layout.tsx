@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { DM_Sans } from "next/font/google"
+import Script from "next/script"
 import "./globals.css"
 import { ModalProvider } from "@/components/ui/useAppModal"
 
@@ -8,6 +9,11 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
   display: 'swap',
 })
+
+// ─── Google Tag Manager ───────────────────────────────────────────────────────
+// ID configurável via env. Fallback pra GTM-N94DLM4H (container Bynx em produção).
+// Em previews/dev pode ser sobrescrito por NEXT_PUBLIC_GTM_ID.
+const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || "GTM-N94DLM4H"
 
 // ─── Viewport ─────────────────────────────────────────────────────────────────
 
@@ -124,6 +130,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${dmSans.variable} h-full antialiased`}>
       <head>
+        {/* Google Tag Manager — carregado o mais cedo possível, sem bloquear render */}
+        <Script
+          id="gtm-script"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+              new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+              j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+              'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+              })(window,document,'script','dataLayer','${GTM_ID}');
+            `,
+          }}
+        />
+
         {/* Structured Data — Organization */}
         <script
           type="application/ld+json"
@@ -212,6 +233,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* Google Tag Manager (noscript) — fallback pra browsers sem JS */}
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
+
         <ModalProvider>
           {children}
         </ModalProvider>
