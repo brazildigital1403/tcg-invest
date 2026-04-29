@@ -43,7 +43,7 @@ const FAQ_ITEMS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Posso ter mais de uma loja cadastrada?',
     resposta:
-      'Hoje cada conta Bynx pode ter uma loja vinculada. Se você tem múltiplas lojas físicas da mesma marca (matriz e filiais), recomendamos cadastrar a principal e listar os endereços das filiais na descrição. Suporte para múltiplas lojas na mesma conta está no nosso roadmap.',
+      'Sim. Você pode cadastrar quantas lojas quiser na mesma conta — cada uma com seu próprio plano (Básico, Pro ou Premium) e cobrança separada. Útil pra quem tem matriz e filiais, lojas de cidades diferentes, ou marcas diferentes sob a mesma operação. Cada loja tem sua URL única, suas fotos, suas redes sociais e seu próprio painel.',
   },
   {
     pergunta: 'As fotos precisam ser profissionais?',
