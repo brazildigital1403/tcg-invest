@@ -283,10 +283,13 @@ export default function Marketplace() {
       setUserWhatsapp(profile?.whatsapp || null)
     }
 
-    // Busca anúncios
+    // Busca anúncios — exclui anúncios moderados (removidos pelo admin)
+    // RLS-safe: filtro client-side garante que mesmo se RLS falhar,
+    // anúncios moderados não aparecem na vitrine pública.
     const { data } = await supabase
       .from('marketplace')
       .select('*')
+      .is('removido_em', null)
       .order('created_at', { ascending: false })
 
     const listings = data || []
