@@ -5,6 +5,7 @@ import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, Ico
 import { supabase } from '@/lib/supabaseClient'
 import { criarNotificacao } from '@/lib/notificacoes'
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
+import { trackFirstCardAdded } from '@/lib/analytics'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
@@ -117,6 +118,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
       card_link: card.card_link || null,
       variante: card.variante || 'normal',
     })
+    trackFirstCardAdded(userId)
 
     // Remove da coleção do vendedor
     await supabase.from('user_cards').delete()

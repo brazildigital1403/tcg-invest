@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
+import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
 import CardItem from '@/components/ui/CardItem'
@@ -282,6 +283,7 @@ export default function Pokedex() {
     else {
       showAlert(`${card.name} adicionada! ✓`, 'success')
       setOwnedNames(prev => new Set([...prev, cleanPokemonName(card.name)]))
+      trackFirstCardAdded(userId)
     }
   }
 

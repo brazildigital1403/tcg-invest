@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { IconSearch } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
+import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 interface Props {
@@ -142,6 +143,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         setAdding(false)
         return
       }
+      trackFirstCardAdded(authData.user.id)
     }
 
     setAdding(false)

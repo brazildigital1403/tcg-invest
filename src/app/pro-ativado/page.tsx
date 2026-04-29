@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { trackProUpgradeCompleted } from '@/lib/analytics'
 
 const PERKS = [
   { icon: '♾️', label: 'Cartas ilimitadas' },
@@ -22,7 +23,9 @@ function ProAtivadoContent() {
 
   useEffect(() => {
     setTimeout(() => setShow(true), 100)
-  }, [])
+    // GTM/GA4: dispara conversão final (webhook é server-side, não dá pra disparar dataLayer dele)
+    trackProUpgradeCompleted(plano as 'mensal' | 'anual')
+  }, [plano])
 
   return (
     <div style={{

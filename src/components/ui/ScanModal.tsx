@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { IconCamera, IconScan, IconClose, IconWarning } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
+import { trackFirstCardAdded } from '@/lib/analytics'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 } as const
@@ -284,6 +285,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           card_link: null,
           rarity: null,
         })
+        trackFirstCardAdded(user.id)
       }
       added++
     }

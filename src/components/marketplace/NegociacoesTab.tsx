@@ -5,6 +5,7 @@ import { IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, I
 import { supabase } from '@/lib/supabaseClient'
 import AvaliacaoModal from './AvaliacaoModal'
 import { criarNotificacao } from '@/lib/notificacoes'
+import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -155,6 +156,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
       card_image: card.card_image || null, card_link: card.card_link || null,
       variante: card.variante || 'normal',
     })
+    trackFirstCardAdded(uid)
 
     // Remove da coleção do vendedor
     await supabase.from('user_cards')
