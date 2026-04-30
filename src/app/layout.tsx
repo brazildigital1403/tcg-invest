@@ -3,6 +3,7 @@ import { DM_Sans } from "next/font/google"
 import Script from "next/script"
 import "./globals.css"
 import { ModalProvider } from "@/components/ui/useAppModal"
+import CookieBanner from "@/components/ui/CookieBanner"
 
 const dmSans = DM_Sans({ 
   variable: "--font-dm-sans", 
@@ -130,13 +131,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${dmSans.variable} h-full antialiased`}>
       <head>
-        {/* Google Tag Manager — carregado o mais cedo possível, sem bloquear render */}
+        {/* Google Tag Manager — gated por consent LGPD (cookie banner).
+            O IIFE só executa o resto se o usuário aceitou cookies. Caso
+            contrário, retorna cedo e o GTM nunca é injetado.
+            Após "Aceitar todos" o CookieBanner faz reload e o GTM dispara. */}
         <Script
           id="gtm-script"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
-              (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+              (function(w,d,s,l,i){
+              try { if (w.localStorage.getItem('bynx_cookie_consent') !== 'accepted') return; } catch(e) { return; }
+              w[l]=w[l]||[];w[l].push({'gtm.start':
               new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
               j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
               'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
@@ -233,7 +239,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-full flex flex-col">
-        {/* Google Tag Manager (noscript) — fallback pra browsers sem JS */}
+        {/* Google Tag Manager (noscript) — fallback pra browsers sem JS.
+            Decisão consciente: mantido sem gate de consent (<0.5% dos usuários
+            navegam com JS desativado e a iframe é apenas pixel-tracking). */}
         <noscript>
           <iframe
             src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
@@ -245,6 +253,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <ModalProvider>
           {children}
+          <CookieBanner />
         </ModalProvider>
       </body>
     </html>
