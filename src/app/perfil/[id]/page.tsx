@@ -87,23 +87,30 @@ export default function PerfilPage() {
         .from('user_cards').select('*', { count: 'exact', head: true }).eq('user_id', uid)
 
       // Cartas com preços — para showcase e patrimônio
+      // R6: usamos pokemon_api_id como chave de lookup em pokemon_cards (canonical).
       const { data: cards } = await supabase
-        .from('user_cards').select('card_name, variante, quantity, card_image, set_name').eq('user_id', uid)
+        .from('user_cards')
+        .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id')
+        .eq('user_id', uid)
 
       if (cards && cards.length > 0) {
-        const names = cards.map(c => c.card_name?.trim()).filter(Boolean)
-        const { data: prices } = await supabase
-          .from('card_prices')
-          .select('card_name, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio, preco_foil_max, preco_promo_max, preco_reverse_max, preco_pokeball_max, preco_max')
-          .in('card_name', names)
+        const ids = [...new Set(
+          (cards.map(c => c.pokemon_api_id).filter(Boolean)) as string[]
+        )]
 
-        const priceMap: Record<string, any> = {}
-        prices?.forEach(p => { priceMap[p.card_name?.trim()] = p })
+        let priceMap: Record<string, any> = {}
+        if (ids.length > 0) {
+          const { data: prices } = await supabase
+            .from('pokemon_cards')
+            .select('id, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio, preco_foil_max, preco_promo_max, preco_reverse_max, preco_pokeball_max, preco_max')
+            .in('id', ids)
+          prices?.forEach(p => { priceMap[p.id] = p })
+        }
 
         // Patrimônio
         let total = 0
         for (const card of cards) {
-          const p = priceMap[card.card_name?.trim()]
+          const p = card.pokemon_api_id ? priceMap[card.pokemon_api_id] : null
           if (!p) continue
           total += getPrecoVariante(p, card.variante || 'normal') * (card.quantity || 1)
         }
@@ -111,7 +118,7 @@ export default function PerfilPage() {
 
         // Showcase: 6 cartas mais caras pelo maior valor
         const withPrices = cards.map(c => {
-          const p = priceMap[c.card_name?.trim()]
+          const p = c.pokemon_api_id ? priceMap[c.pokemon_api_id] : null
           const varMax = c.variante === 'foil'     ? (p?.preco_foil_max     || p?.preco_max || 0)
             : c.variante === 'promo'    ? (p?.preco_promo_max    || p?.preco_max || 0)
             : c.variante === 'reverse'  ? (p?.preco_reverse_max  || p?.preco_max || 0)
