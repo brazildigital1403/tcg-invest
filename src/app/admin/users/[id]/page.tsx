@@ -62,7 +62,9 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   const [user, setUser]       = useState<User | null>(null)
   const [stats, setStats]     = useState<Stats | null>(null)
 
-  const [tab, setTab] = useState<'info' | 'collection' | 'resync'>('info')
+  // R6 Commit 3: aba 'resync' removida (endpoint /api/admin/resync-price foi deletado).
+  // Refactor futuro: criar nova aba "Re-scan ZenRows" que dispara scan sob demanda.
+  const [tab, setTab] = useState<'info' | 'collection'>('info')
 
   const [editing, setEditing] = useState(false)
   const [editName, setEditName]       = useState('')
@@ -74,9 +76,6 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   const [loadingCol, setLoadingCol] = useState(false)
 
   const [busy, setBusy] = useState(false)
-
-  const [resyncCardName, setResyncCardName] = useState('')
-  const [resyncResult, setResyncResult]     = useState<any>(null)
 
   async function load() {
     const res = await fetch(`/api/admin/users/${id}`)
@@ -233,24 +232,6 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
     setTimeout(() => router.push('/admin/users'), 1500)
   }
 
-  // ─── Resync de preços ─────────────────────────────────────────────────────
-
-  async function doResync() {
-    if (!resyncCardName.trim()) return showAlert('Informe o nome exato da carta.', 'warning')
-    setBusy(true)
-    setResyncResult(null)
-    const res = await fetch('/api/admin/resync-price', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cardName: resyncCardName.trim() }),
-    })
-    setBusy(false)
-    const d = await res.json()
-    if (!res.ok) return showAlert(d.error || 'Erro ao ressincronizar.', 'error')
-    setResyncResult(d)
-    showAlert(`Preços atualizados para "${d.cardName}".`, 'success')
-  }
-
   // ─── Render ───────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -379,7 +360,6 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <TabButton active={tab === 'info'}       onClick={() => setTab('info')}>Dados & Ações</TabButton>
         <TabButton active={tab === 'collection'} onClick={() => { setTab('collection'); loadCollection() }}>Coleção</TabButton>
-        <TabButton active={tab === 'resync'}     onClick={() => setTab('resync')}>Resync de preços</TabButton>
       </div>
 
       {/* ── Aba: Info & Ações ── */}
@@ -537,64 +517,6 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      {/* ── Aba: Resync ── */}
-      {tab === 'resync' && (
-        <div style={surface}>
-          <h3 style={sectionTitle}>Forçar atualização de preço</h3>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, marginBottom: 20 }}>
-            Ressincroniza os preços de uma carta específica com a LigaPokemon, sem esperar o cron das 3h. Útil quando um usuário reporta preço desatualizado.
-          </p>
-
-          <label style={labelStyle}>Nome exato da carta</label>
-          <input
-            value={resyncCardName}
-            onChange={e => setResyncCardName(e.target.value)}
-            placeholder="Ex: Charizard ex (SVP 131)"
-            style={{
-              width: '100%',
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 10, padding: '12px 14px',
-              color: '#f0f0f0', fontSize: 14,
-              outline: 'none', boxSizing: 'border-box',
-              fontFamily: 'inherit', marginBottom: 14,
-            }}
-          />
-
-          <button onClick={doResync} disabled={busy || !resyncCardName.trim()} style={{
-            background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-            border: 'none', color: '#000',
-            padding: '10px 22px', borderRadius: 10,
-            fontSize: 13, fontWeight: 800,
-            cursor: (busy || !resyncCardName.trim()) ? 'not-allowed' : 'pointer',
-            opacity: (busy || !resyncCardName.trim()) ? 0.5 : 1,
-            fontFamily: 'inherit',
-          }}>
-            {busy ? 'Ressincronizando...' : 'Forçar atualização'}
-          </button>
-
-          {resyncResult && (
-            <div style={{
-              marginTop: 22, padding: 16,
-              background: 'rgba(34,197,94,0.05)',
-              border: '1px solid rgba(34,197,94,0.25)',
-              borderRadius: 10,
-            }}>
-              <p style={{ fontSize: 12, fontWeight: 800, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>
-                ✓ Atualizado: {resyncResult.cardName}
-              </p>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace' }}>
-                {Object.entries(resyncResult.variantes || {}).map(([k, v]: [string, any]) => (
-                  <div key={k} style={{ marginBottom: 4 }}>
-                    <strong style={{ color: '#f59e0b' }}>{k}:</strong> min {fmtBRL(v.min)} · médio {fmtBRL(v.medio)} · max {fmtBRL(v.max)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       <style>{`
         @media (max-width: 768px) {
           .user-grid {
@@ -622,14 +544,6 @@ const sectionTitle: React.CSSProperties = {
   textTransform: 'uppercase', letterSpacing: '0.1em',
   color: 'rgba(255,255,255,0.5)',
   margin: '0 0 16px',
-}
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: 'rgba(255,255,255,0.4)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.07em',
-  marginBottom: 6, display: 'block',
 }
 
 const thTbl: React.CSSProperties = {
