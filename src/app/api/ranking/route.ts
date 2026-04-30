@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// R6 Commit 3: este endpoint agora é pure-read de pokemon_cards (canonical).
+// Chamada ao /api/preco-puppeteer e upsert em card_prices foram removidos.
+//
+// GET /api/ranking?name=...
+
 export async function GET(req: Request) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
+
   const { searchParams } = new URL(req.url)
   const cardName = searchParams.get('name')
 
@@ -14,7 +20,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: 'OK - sem nome (rota chamada sem parâmetro)' })
   }
 
-  // 🔎 CACHE — R6: lookup em pokemon_cards (canonical) por nome.
+  // ── Lookup em pokemon_cards ──────────────────────────────────────────────
   // Atenção: pokemon_cards.name não é único (mesma carta em vários sets), por
   // isso usamos .limit(1) — primeiro match vence.
   const { data: cachedRows } = await supabase
@@ -39,42 +45,9 @@ export async function GET(req: Request) {
     })
   }
 
-  // ─── ⚠️ LEGACY abaixo — chamada ao puppeteer + upsert em card_prices ───
-  // R6 Commit 3 vai remover este bloco. pokemon_cards já é populado via
-  // ZenRows; se cair aqui é carta que não está catalogada.
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-
-    const puppeteerRes = await fetch(
-      `${baseUrl}/api/preco-puppeteer?name=${encodeURIComponent(cardName)}`
-    )
-
-    const data = await puppeteerRes.json()
-
-    if (!data || data.error) {
-      return NextResponse.json({ error: 'Erro ao buscar via puppeteer' })
-    }
-
-    // 💾 salvar no banco (cache)
-    await supabase.from('card_prices').upsert([
-      {
-        card_name: data.name,
-        number: data.number,
-        tipo: data.tipo,
-        edicao: data.edicao,
-        raridade: data.raridade,
-        artista: data.artista,
-        preco_normal: data.precoNormal,
-        preco_foil: data.precoFoil,
-        updated_at: new Date().toISOString(),
-      },
-    ], { onConflict: 'card_name' })
-
-    return NextResponse.json({
-      ...data,
-      source: 'puppeteer',
-    })
-  } catch (error) {
-    return NextResponse.json({ error: 'Erro ao buscar dados' })
-  }
+  return NextResponse.json({
+    error: 'Carta não encontrada na base.',
+    name: cardName,
+    source: 'not-found',
+  }, { status: 404 })
 }

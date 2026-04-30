@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// R6 Commit 3: este endpoint agora é pure-read de pokemon_cards (canonical).
+// Scraping LigaPokemon + upsert em card_prices foram removidos —
+// pokemon_cards é populado via ZenRows nos scripts scan-*.
+//
+// GET /api/preco?name=...
+
 export async function GET(req: Request) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-  // ✅ Verificação de autenticação
+  // ── Auth ─────────────────────────────────────────────────────────────────
   const authHeader = req.headers.get('authorization')
   const token = authHeader?.replace('Bearer ', '')
-
   if (!token) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
@@ -18,24 +19,26 @@ export async function GET(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
-
   const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
-
   if (authError || !user) {
     return NextResponse.json({ error: 'Sessão inválida' }, { status: 401 })
   }
 
+  // ── Query ────────────────────────────────────────────────────────────────
   const { searchParams } = new URL(req.url)
   const cardName = searchParams.get('name')
-
   if (!cardName) {
-    return NextResponse.json({ error: 'Nome não enviado' })
+    return NextResponse.json({ error: 'Nome não enviado' }, { status: 400 })
   }
 
-  // 🔎 CACHE — R6: lookup em pokemon_cards (canonical) por nome.
+  // ── Lookup em pokemon_cards ──────────────────────────────────────────────
   // Atenção: pokemon_cards.name não é único (mesma carta em vários sets), por
-  // isso usamos .limit(1) — primeiro match vence (comportamento equivalente
-  // ao card_prices.card_name UNIQUE anterior).
+  // isso usamos .limit(1) — primeiro match vence.
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
   const { data: cachedRows } = await supabase
     .from('pokemon_cards')
     .select('id, name, number, rarity, artist, set_name, set_series, types, preco_normal, preco_foil')
@@ -58,103 +61,9 @@ export async function GET(req: Request) {
     })
   }
 
-  // ─── ⚠️ LEGACY abaixo — scraping da LigaPokemon + upsert em card_prices ───
-  // R6 Commit 3 vai remover este bloco inteiro. Hoje em dia, pokemon_cards
-  // já é populado via ZenRows, então o cache acima cobre praticamente tudo.
-  // Se cair aqui, é carta que não está em pokemon_cards — vai virar 404
-  // controlado depois do Commit 3.
-  try {
-    const res = await fetch(`https://www.ligapokemon.com.br/?view=cards/card&card=${encodeURIComponent(cardName)}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'text/html',
-      },
-    })
-
-    const html = await res.text()
-
-    // Nome
-    const nameMatch = html.match(/class="item-name">\s*([^<]+)\s*</)
-    const fullName = nameMatch ? nameMatch[1].trim() : null
-
-    const numberMatch = fullName?.match(/\(([^)]+)\)/)
-    const number = numberMatch ? numberMatch[1] : null
-
-    const numberParam = number ? number.split('/')[0] : ''
-
-    const finalUrl = `https://www.ligapokemon.com.br/?view=cards/card&card=${encodeURIComponent(cardName)}&num=${numberParam}`
-
-    const resFull = await fetch(finalUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'text/html',
-      },
-    })
-
-    const htmlFull = await resFull.text()
-    console.log('DEBUG extras_n:', htmlFull.includes('extras_n'))
-    console.log('DEBUG price-min:', htmlFull.includes('price-min'))
-
-    if (!htmlFull.includes('extras_n') && !htmlFull.includes('price-min')) {
-      return NextResponse.json({
-        name: fullName,
-        number,
-        tipo: null, // ✅ variável ainda não foi extraída neste ponto
-        edicao: null,
-        raridade: null,
-        artista: null,
-        precoNormal: null,
-        precoFoil: null,
-        source: 'no-html-prices',
-        message: 'LigaPokemon não entrega preços no HTML. Precisamos usar API interna ou outra fonte.'
-      })
-    }
-
-    const tipoMatch = htmlFull.match(/<span class="title">Tipo<\/span>\s*<span>([^<]+)<\/span>/)
-    const tipo = tipoMatch ? tipoMatch[1].trim() : null
-
-    const edicaoMatch = htmlFull.match(/cards-details-edition">.*?>([^<]+)</)
-    const edicao = edicaoMatch ? edicaoMatch[1].trim() : null
-
-    const raridadeMatch = htmlFull.match(/cards-details-rarity">.*?>([^<]+)</)
-    const raridade = raridadeMatch ? raridadeMatch[1].trim() : null
-
-    const artistaMatch = htmlFull.match(/cards-details-artist">([^<]+)</)
-    const artista = artistaMatch ? artistaMatch[1].trim() : null
-
-    // Preços
-    const normalMatch = htmlFull.match(/extras_n[\s\S]*?price-min[^>]*>\s*R\$\s?([\d.,]+)/i)
-    const precoNormal = normalMatch ? normalMatch[1] : null
-
-    const foilMatch = htmlFull.match(/extras_f[\s\S]*?price-min[^>]*>\s*R\$\s?([\d.,]+)/i)
-    const precoFoil = foilMatch ? foilMatch[1] : null
-
-    await supabase.from('card_prices').upsert([
-      {
-        card_name: fullName,
-        number,
-        tipo,
-        edicao,
-        raridade,
-        artista,
-        preco_normal: precoNormal ? precoNormal.replace(',', '.') : null,
-        preco_foil: precoFoil ? precoFoil.replace(',', '.') : null,
-        updated_at: new Date().toISOString(),
-      },
-    ], { onConflict: 'card_name' })
-
-    return NextResponse.json({
-      name: fullName,
-      number,
-      tipo,
-      edicao,
-      raridade,
-      artista,
-      precoNormal,
-      precoFoil,
-      source: 'scraping',
-    })
-  } catch (error) {
-    return NextResponse.json({ error: 'Erro ao buscar dados' })
-  }
+  return NextResponse.json({
+    error: 'Carta não encontrada na base.',
+    name: cardName,
+    source: 'not-found',
+  }, { status: 404 })
 }
