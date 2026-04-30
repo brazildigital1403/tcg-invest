@@ -43,16 +43,6 @@ function getGen(n: number) {
   return GEN_RANGES.find(([, min, max]) => n >= min && n <= max)?.[0] || '?'
 }
 
-// Extrai nome base do Pokémon (remove sufixos TCG)
-function cleanPokemonName(name: string): string {
-  return name
-    .replace(/\s+(ex|EX|GX|V|VMAX|VSTAR|VUNION|e|E|SP|GL|C|FB|4|G|δ|☆|δ Delta Species|Star|Prime|Legend|LV\.X|LEGEND|TAG TEAM|&)$/g, '')
-    .replace(/\s+(ex|EX|GX|V|VMAX|VSTAR)$/g, '')
-    .replace(/^(M|Dark|Team Rocket's|Rocket's|N's|Giovanni's|Brock's|Misty's|Lt\. Surge's|Erika's|Sabrina's|Blaine's|Giovanni's|Koga's|Ancient|Origin Forme|Galarian|Hisuian|Alolan|Paldean|Shadow)\s+/i, '')
-    .replace(/\s+(ex|EX|GX|V|VMAX|VSTAR|BREAK|Prime|Legend)$/gi, '')
-    .trim()
-}
-
 // Sprite do Pokémon via PokeAPI
 function getPokemonSprite(name: string, dexId: number): string {
   if (dexId <= 0) return ''
@@ -113,7 +103,11 @@ export default function Pokedex() {
   const [typeFilter, setTypeFilter] = useState('')
   const [genFilter, setGenFilter]   = useState('')
 
-  // Cartas do usuário (para indicar quais ele tem)
+  // Pokémons capturados (nomes-base derivados de pokemon_cards.base_pokemon_names).
+  // Era um Set populado por cleanPokemonName(card_name) — abandonado por ser
+  // frágil (não cobria 'Mega', sufixos com (número), Tag Team, etc).
+  // Agora é populado via JOIN com pokemon_cards, que tem o array oficial
+  // já normalizado pela API do Pokémon TCG.
   const [ownedNames, setOwnedNames] = useState<Set<string>>(new Set())
   const [isPro, setIsPro]           = useState(false)
   const [userId, setUserId]         = useState<string | null>(null)
@@ -151,13 +145,36 @@ export default function Pokedex() {
         setUserId(authData.user.id)
         const { isPro: pro, isTrial } = await getUserPlan(authData.user.id)
         setIsPro(pro || isTrial)
-        const { data: uc } = await supabase.from('user_cards').select('card_name').eq('user_id', authData.user.id)
-        setOwnedNames(new Set((uc || []).map((c: any) => cleanPokemonName(c.card_name))))
+        await loadOwnedPokemons(authData.user.id)
       }
       await loadPokemons()
     }
     init()
   }, [])
+
+  // ── Carrega nomes-base dos Pokémons que o user "capturou" ──────────────────
+  // Faz JOIN entre user_cards.pokemon_api_id ↔ pokemon_cards.id e extrai
+  // base_pokemon_names. Cobre todos os casos especiais (Mega, Tag Team,
+  // formas regionais, sufixos com número) sem depender de regex no client.
+
+  async function loadOwnedPokemons(uid: string) {
+    const { data, error } = await supabase
+      .from('user_cards')
+      .select('pokemon_cards!inner(base_pokemon_names)')
+      .eq('user_id', uid)
+
+    if (error) {
+      console.error('[pokedex] erro ao carregar capturados:', error.message)
+      return
+    }
+
+    const set = new Set<string>()
+    for (const row of (data as any[]) || []) {
+      const names: string[] = row.pokemon_cards?.base_pokemon_names || []
+      for (const name of names) set.add(name)
+    }
+    setOwnedNames(set)
+  }
 
   // ── Carrega lista única de Pokémon ──────────────────────────────────────────
 
@@ -285,7 +302,14 @@ export default function Pokedex() {
     else if (error) showAlert('Erro ao adicionar carta.', 'error')
     else {
       showAlert(`${card.name} adicionada! ✓`, 'success')
-      setOwnedNames(prev => new Set([...prev, cleanPokemonName(card.name)]))
+      // Adiciona os nomes-base da carta (pode ser 1 nome ou vários no caso
+      // de Tag Team). Usa base_pokemon_names do próprio card (não regex).
+      setOwnedNames(prev => {
+        const next = new Set(prev)
+        const baseNames: string[] = card.base_pokemon_names || []
+        for (const n of baseNames) next.add(n)
+        return next
+      })
       trackFirstCardAdded(userId)
     }
   }
