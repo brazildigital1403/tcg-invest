@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
@@ -77,6 +77,9 @@ function getPokemonSprite(name: string, dexId: number): string {
 const fmt = (v: any) => v && Number(v) > 0
   ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
   : null
+
+// Formata número grande com separador de milhar pt-BR
+const fmtNum = (n: number) => new Intl.NumberFormat('pt-BR').format(n)
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
@@ -296,6 +299,19 @@ export default function Pokedex() {
     return matchSearch && matchType && matchGen
   })
 
+  // ── Stat de capturados (reativa aos filtros) ───────────────────────────────
+  // Usa a mesma lógica do badge "tenho" do grid: ownedNames.has(p.name).
+  // useMemo evita recalcular a cada render quando filtros não mudaram.
+
+  const capturados = useMemo(
+    () => filteredPokemons.filter(p => ownedNames.has(p.name)).length,
+    [filteredPokemons, ownedNames]
+  )
+  const totalNoFiltro    = filteredPokemons.length
+  const temFiltroAtivo   = !!(search || typeFilter || genFilter)
+  const completou        = totalNoFiltro > 0 && capturados === totalNoFiltro
+  const stagiou          = userId !== null  // só mostra a stat se logou
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -403,14 +419,55 @@ export default function Pokedex() {
         {/* ── Vista 1: Grid de Pokémon ───────────────────────────────── */}
         {view === 'grid' && (
           <div>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            {/* Header com stat hero (capturados) à direita */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
               <div>
                 <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 2 }}>Pokédex</h1>
                 <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
-                  {loading ? 'Carregando...' : `${filteredPokemons.length} Pokémon com cartas TCG`}
+                  {loading ? 'Carregando...' : `${fmtNum(filteredPokemons.length)} Pokémon com cartas TCG`}
                 </p>
               </div>
+
+              {/* ── Stat hero: capturados ─────────────────────────────────── */}
+              {stagiou && !loading && pokemons.length > 0 && (
+                <div style={{
+                  textAlign: 'right',
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{
+                      fontSize: 28, fontWeight: 800,
+                      letterSpacing: '-0.02em', lineHeight: 1,
+                      color: completou ? '#22c55e' : '#f59e0b',
+                    }}>
+                      {fmtNum(capturados)}
+                    </span>
+                    <span style={{
+                      fontSize: 14, fontWeight: 600,
+                      color: 'rgba(255,255,255,0.3)',
+                    }}>
+                      / {fmtNum(totalNoFiltro)}
+                    </span>
+                  </div>
+                  <p style={{
+                    fontSize: 10, fontWeight: 700,
+                    color: completou ? '#22c55e' : 'rgba(255,255,255,0.4)',
+                    textTransform: 'uppercase', letterSpacing: '0.08em',
+                    margin: 0,
+                  }}>
+                    {completou
+                      ? (temFiltroAtivo ? '✦ Completo!' : '✦ Pokédex completa!')
+                      : capturados === 1
+                        ? 'Capturado'
+                        : 'Capturados'}
+                    {temFiltroAtivo && !completou && (
+                      <span style={{ color: 'rgba(255,255,255,0.25)', fontWeight: 500, marginLeft: 6 }}>
+                        no filtro
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Filtros */}
