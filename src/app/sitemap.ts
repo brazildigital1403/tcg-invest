@@ -41,6 +41,22 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 0.85,
   },
   {
+    // Landing B2B — captação de lojistas. Conteúdo estável, muda por
+    // reposicionamento de produto (não por dado dinâmico).
+    url: `${BASE}/para-lojistas`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.85,
+  },
+  {
+    // Landing de produto pago (Separadores de Fichário). Renderiza preview
+    // de 9 Pokémons + CTA mesmo deslogada — indexável, tipo App Store listing.
+    url: `${BASE}/separadores`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.8,
+  },
+  {
     url: `${BASE}/login`,
     lastModified: new Date(),
     changeFrequency: 'yearly',
