@@ -1,122 +1,213 @@
-# BYNX — Master Context
+# BYNX — Master Context (Sessão 19 — 27/04/2026)
 
-> **Última atualização:** 30 de abril de 2026 (sessão 25, fechamento)
-> **Próxima sessão:** 26 — frente imediata é bug `full_name` em /api/admin/tickets, depois migração de preços R6
-
----
-
-## 🧭 Quem somos
-
-- **Du** — founder/dev, único responsável por produto e código
-- **Mia** — instância de Claude que trabalha como par técnico do Du
-- **Bynx** — plataforma BR de Pokémon TCG (bynx.gg). Pokédex 22.861 cartas, scan IA, preços em reais por variante, marketplace, painel de lojistas B2B
-- **Stack:** Next.js 16.2.4 + React 19 (Turbopack), Supabase `hvkcwfcvizrvhkerupfc`, Vercel `prj_X1CUMTLMwTL77trWqZdDdmBI9PRC` (team `team_FK9fHseL9hy5mbNR6c0Q8JuK`), Node 24.x
-- **Repo:** `brazildigital1403/tcg-invest` (público, .env nunca commitado)
-- **Analytics:** GTM `GTM-N94DLM4H`, GA4 `G-1DRTZH1KVH` (gated por cookie consent LGPD desde sessão 25)
-- **Stripe:** sandbox limpo, webhook V5 estável
-- **User teste:** eduardo, ID `122267ef-5aeb-4fd0-a9c0-616bfca068bd`, admin `eduardo@brazildigital.ag`
-- **Pastas Mac:** origem ZIPs `/Users/eduardowillian/Downloads/_____tcg-app/` (5 underscores), repo local `/Users/eduardowillian/tcg-app/`
+**Stack:** Next.js 16.2.2, Supabase hvkcwfcvizrvhkerupfc, Vercel prj_X1CUMTLMwTL77trWqZdDdmBI9PRC / team_FK9fHseL9hy5mbNR6c0Q8JuK
+**Repo:** brazildigital1403/tcg-invest (main) | **Domínio:** bynx.gg
 
 ---
 
-## 📜 Regras Bynx (operacionais)
+## Estado Atual (fim da sessão 19)
 
-- **R3** Paths espelham repo (`src/app/...`)
-- **R4** Bloco git único (`add+commit+push` encadeados com `&&`)
-- **R5** SEMPRE arquivo 100% completo, NUNCA diff
-- **R6** Migração de preços `card_prices`→`pokemon_cards` a partir de 01/05/2026
-- **R7** CardItem é padrão (`src/components/ui/CardItem.tsx`)
-- **R8** Paths absolutos do Mac
-- **R9** Fim de sessão → gerar BYNX_MASTER_CONTEXT.md
-- **R17** Auth admin em camadas (HMAC cookie + middleware + `requireAdmin()`)
-- **R18** Inspecionar schema antes de SQL
-- **R19** Validar versão de API antes de codar
-- **R20** Sempre buscar arquivo da versão mais recente em produção ANTES de qualquer modificação. Web_fetch GitHub raw OU pedir Du anexar do Mac
-- **R21 (NOVA, sessão 25 confirmada):** antes de fazer JOIN via supabase-js (`select('outra_tabela!inner(...)')`), verificar `information_schema.table_constraints` pra confirmar que a FK existe — JOIN sem FK retorna `[]` silenciosamente. Causa do bug Mega Charizard na sessão 24.
-- **R22 (NOVA, sessão 25):** quando `web_fetch` em GitHub raw falhar com `PERMISSIONS_ERROR`, **pedir Du anexar arquivo do Mac diretamente**. Não tentar reconstruir o arquivo de memória (Regra 20 já cobria, mas a tool de fetch não é confiável em todas as sessões).
+### Banco de Dados
+```
+pokemon_cards:   22.861+ cartas
+  com preço BRL: crescendo (scans em andamento)
+  com imagem:    2.624 Liga-only no Supabase Storage (100% completo!)
+  liga-only:     2.624 cartas
 
----
+pokemon_species: 1.025 espécies (PokeAPI)
+  - Farfetch'd (83), Sirfetch'd (865) adicionados manualmente
+  - Todos Gen IX DLC #1001-#1025 presentes
 
-## 🚢 Sessão 25 — entregas
+pokemon_cards.base_pokemon_names text[]:
+  - Populada via SQL + fix-base-names.ts
+  - Farfetch'd, Flabébé, Type: Null corrigidos manualmente
+  - Buried Fossil → NULL (não é Pokémon)
+  - Prefixos: Alolan, Hisuian, Shining, Light, Dark, Mega etc. → nome base
+  - TAG TEAM "Garchomp & Giratina-GX" → ["Garchomp","Giratina"] ✅
+  - "Ash-Greninja" → ["Greninja"] ✅
 
-**Frente única: Cookie Banner LGPD.** Pendência da sessão 24 (tools caíram no meio) — refeita do zero com tools normais.
+user_cards: constraint UNIQUE (user_id, pokemon_api_id)
 
-### 1 deploy READY:
-- `4168d77` — `feat(lgpd): cookie banner com gate de consent no GTM` — deploy `dpl_DGR9qeHdVE3LmRmjkj1MqSJzgkBk`
+Bucket Supabase Storage: card-images (público)
+  URL: https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/
+  Status: 2.624/2.624 imagens Liga salvas (100% completo)
+```
 
-### Arquivos entregues (zip `bynx-cookie-banner-v25.zip`):
-- **NOVO** `src/components/ui/CookieBanner.tsx` (190 linhas) — soft banner rodapé, 2 botões (Aceitar todos / Apenas essenciais), localStorage `bynx_cookie_consent`
-- **EDIT** `src/app/layout.tsx` (261 linhas) — 3 mudanças cirúrgicas:
-  1. `+import CookieBanner from "@/components/ui/CookieBanner"`
-  2. Gate IIFE no `<Script>` do GTM: `try { if (w.localStorage.getItem('bynx_cookie_consent') !== 'accepted') return; } catch(e) { return; }`
-  3. `<CookieBanner />` antes do `</ModalProvider>`
+### ZenRows Status
+```
+Plano: Startup
+Usado: $208.01 de $227.63 (91%)
+Renova: 26/05/2026
+Restante: ~$19
 
-### Validação em produção (5 cenários todos ✅):
-1. Anônimo sem consent → banner aparece, GTM bloqueado, localStorage `null` ✓
-2. Aceitar todos → reload, GTM passa a carregar (`gtm.js` 200 OK + `js?id=G-1DRTZH1KV…` GA4 + `collect?v=2…` beacon), localStorage `accepted` ✓
-3. Apenas essenciais → banner some sem reload, GTM continua bloqueado, localStorage `rejected` ✓
-4. Hard refresh → banner não volta ✓
-5. Limpar localStorage → banner volta ✓
-
-### Decisões técnicas registradas:
-- Soft banner no rodapé (não modal central)
-- 2 botões (não picker granular tipo Cookiebot)
-- Reload no aceite (`window.location.reload()`) — necessário pq GTM checa localStorage no início do `<Script>`
-- `<noscript>` do GTM mantido SEM gate (decisão consciente, <0.5% dos usuários sem JS)
-- `mounted` state no banner pra evitar hydration mismatch (localStorage é client-only)
-- `try/catch` no localStorage cobre Safari modo privado: default conservador é GTM bloqueado
+scan-images: ✅ COMPLETO — todas as 2.624 cartas Liga têm imagem
+scan-sets:   ⚠️ Parou por limite — 151 (sv3pt5) e Journey Together (sv9) ainda abaixo de 50%
+```
 
 ---
 
-## 🎯 Pendências (priorizadas pra lançamento)
+## O Que Foi Feito Nessa Sessão
 
-### Alta — pré-lançamento bloqueador
-- 🟡 **Bug `full_name` em `src/app/api/admin/tickets/route.ts:51`** — coluna não existe mais (renomeada pra `name`), quebra listagem de tickets no admin. Cirúrgico, 15-30min. **Próxima frente da sessão 26.**
-- 🔴 **01/05/2026 (hoje sexta) — Migração de preços (R6):** card_prices→pokemon_cards, autocomplete por nome, Pokédex Supabase, remover dependência Liga link. 6-10h multi-sessão. Maior frente do roadmap.
-- 🟡 **Fase 2 GTM/GA4 painel** (~30-45min, sem código) — 4 variáveis Data Layer + 5 triggers Custom Event + 5 tags GA4 Event + Custom Definitions. Sem isso os 5 eventos custom (`loja_clique`, `pro_upgrade_initiated/completed`, `first_card_added`, `signup_completed`) ficam disparando no `dataLayer` mas não chegam em GA4.
-- 🟢 **SEO Fase 2:** Search Console (verificação via GTM), Bing Webmaster Tools, Lighthouse audit (alvo 90+). 1-2h.
+### 1. scan-images v4 — Supabase Storage ✅ COMPLETO
+- Bucket `card-images` criado no Supabase Storage (público)
+- Script modificado: Liga → ZenRows → download → upload → URL permanente
+- Fix TypeScript: `Buffer` → `ArrayBuffer` para compatibilidade com `fetch(body)`
+- **2.624 imagens salvas permanentemente** — nunca mais dependemos da Liga para imagens
 
-### Média — pós-lançamento
-- 🟡 Alerta proativo `[webhook] CRITICAL` (Sentry/email) — 1-2h
-- 🟡 V6 cosmético removendo logs `[webhook/debug]` (em 2-3 semanas)
-- 🟡 Métricas avançadas Admin (conversão trial→Pro, tempo resposta tickets) — 2-3h
+### 2. scan-sets — Foco nos sets abaixo de 50%
+- TARGET_SETS atualizado para apenas os 9 sets abaixo de 50%
+- Depois restringido para apenas `sv3pt5` (151) e `sv9` (Journey Together)
+- Parou por limite ZenRows antes de completar — retomará quando possível
 
-### Baixa
-- 🔵 26/05/2026 — ZenRows renova ($227.63), rodar `scan-sets-final.ts`
-- 🔴 Junho — Passo 8 Stripe per-loja (6-10h)
+### 3. AppLayout — Patrimônio no Header ✅
+- Migrado de `card_prices` (obsoleto) para `pokemon_cards`
+- Usa `pokemon_api_id` → lookup direto
+- Fallback `card_link` → `liga_link`
+- BRL → USD×câmbio → EUR×câmbio
+
+### 4. Dashboard Financeiro ✅
+- Reescrito para usar `pokemon_api_id` + `card_link` + fallback por nome
+- Câmbio via `/api/exchange-rate` (AwesomeAPI)
+- `getBestVal()`: BRL > USD×câmbio > EUR×câmbio
+- Ranking corretamente ordenado por valor
+
+### 5. Minha Coleção — Box Azul com Estimativa USD ✅
+- Calcula `usdEstimado` para cartas sem preço BRL
+- Mostra no box azul (Valor Médio): `+ R$ XXX estimado`
+- Boxes verde e amarelo centralizados verticalmente com `justifyContent: center`
+
+### 6. Pokédex — Redesign Completo ✅
+
+**Arquitetura:**
+- `/api/pokedex/route.ts` → `get_unique_base_pokemon()` SQL → cache 1h + `?refresh=1`
+- `/api/pokedex/species/route.ts` → `pokemon_species` em 2 lotes (fix limite 1000 PostgREST) → cache 24h + `?refresh=1`
+- `src/app/pokedex/page.tsx` → grid de Pokémon + vista de cartas
+- `src/app/pokedex/CardDetailModal.tsx` → componente separado (fix Turbopack IIFE bug)
+
+**Funcionalidades:**
+- Vista 1: Grid de Pokémon (~8 por linha desktop), ordenado pela Pokédex nacional
+- Sprites: pokemondb.net (Gen I-VIII) + PokeAPI official-artwork (Gen IX DLC #1001+)
+- `referrerPolicy="no-referrer"` no `<img>` para bypassa hotlink do pokemondb
+- Fallback: oficial-artwork → básico → esconde
+- Filtros: busca por nome, geração (I-IX), tipo
+- Badge dourado nos Pokémon que o usuário já tem na coleção
+- Gen IX DLC: sprites via PokeAPI (pokemondb não tem ainda)
+
+**Vista 2 — Cartas do Pokémon:**
+- Busca por `base_pokemon_names @> [pokemon.name]` (array contains)
+- Botões Anterior/Próximo Pokémon no header
+- Click na carta → abre CardDetailModal (NÃO adiciona direto)
+
+**CardDetailModal:**
+- Nav entre cartas (← →) + contador "X de N"
+- Teclado: ← → navega entre cartas, Esc fecha
+- Layout: imagem + set info (esquerda) | detalhes (direita)
+- Mobile responsivo via `isMobile` state (JS, sem CSS media query)
+- Labels: Coleção, Número, Lançamento, Artista
+- Ataques com ícones de energia (🔥💧🌿⚡🔮👊🌑⚙️🐉⭕🌸)
+- Fraquezas, resistências, custo de recuo
+- Flavor text em itálico com borda laranja
+- Preços BR (mín/méd/máx por variante) + Preços USD/EUR
+- Legalidades (Standard/Expanded/Unlimited)
+- Link "Ver na Liga Pokémon"
+- Seletor de variante com preço antes de adicionar (Normal, Foil, Reverse, Promo, Pokéball)
+- Botões: Fechar | + Adicionar à Coleção
+
+**SELECT query inclui:**
+`artist, flavor_text, attacks, weaknesses, resistances, retreat_cost, legalities, subtypes, set_logo, set_symbol, set_series`
+
+**SQL Functions:**
+- `get_unique_base_pokemon()` → JSON com name + card_count (retorna sem tipos para evitar timeout)
+- `get_unique_pokemon()` → DISTINCT ON(name) (função anterior, mantida)
+- `rebuild_base_pokemon_names()` → UPDATE via regex (timeout em produção, usar script JS)
+- `extract_base_pokemon_names()` → função auxiliar
+
+**Scripts no Mac:**
+- `populate-species.ts` → populou 1025 espécies (já rodado)
+- `fix-base-names.ts` → word-boundary matching JS para todos os cards (já rodado)
+
+### 7. Sprites Gen IX DLC — Resolvido ✅
+- Problema: `/api/pokedex/species` retornava só 1000 espécies (limite PostgREST)
+- Fix: busca em 2 lotes paralelos `.range(0,999)` + `.range(1000,1999)`
+- Agora retorna todos 1025 → dex_id corretos → sprites aparecem
 
 ---
 
-## 🧠 Aprendizados-chave da sessão 25
+## Arquivos Modificados Nessa Sessão
 
-1. **Backup local complementa Vercel.** Vercel guarda deploys mas não substitui backup do código local + `.env`. Ritual de backup periódico (zip do `/Users/eduardowillian/tcg-app/` excluindo `node_modules` e `.next`) recomendado.
+```
+src/app/pokedex/page.tsx                          ← redesign completo, exporta TYPE_COLOR
+src/app/pokedex/CardDetailModal.tsx               ← NOVO componente (fix Turbopack IIFE bug)
+src/app/api/pokedex/route.ts                      ← cache 1h, ?refresh=1, types separado
+src/app/api/pokedex/species/route.ts              ← NOVO — 2 lotes, cache 24h, ?refresh=1
+src/app/minha-colecao/page.tsx                    ← usdEstimado no box azul, flex center
+src/app/dashboard-financeiro/page.tsx             ← pokemon_api_id + câmbio
+src/components/ui/AppLayout.tsx                   ← patrimônio usa pokemon_cards + câmbio
 
-2. **`web_fetch` em GitHub raw pode bloquear com `PERMISSIONS_ERROR` mesmo em URLs públicas.** Isso aconteceu na abertura da sessão 25 ao tentar puxar `layout.tsx`. Fallback correto: pedir Du anexar diretamente do Mac. **Regra R22 nasce daí.**
-
-3. **Cookie banner com gate de consent no GTM funciona ponta a ponta.** O padrão IIFE-com-checagem-de-localStorage é mais simples que adapter de Consent Mode v2 do Google e suficiente pra LGPD. Para GDPR (futuro EU expansion) seria diferente — Consent Mode v2 com granularidade analytics/ads/personalization seria necessário.
-
-4. **`Cache-Control: private, max-age=900` no `gtm.js`** é comportamento padrão do Google. Browser cacheia 15min por usuário. Não confundir com cache de SSR do Vercel.
-
-5. **Validação cliente-side só dá pra fazer com browser.** Runtime logs do Vercel (`get_runtime_logs`) só pegam erros server-side. Cookie banner, hydration, localStorage — tudo isso só se valida com olho no browser real, conforme aprendido na sessão 24.
-
----
-
-## 🛠️ Stack & ferramentas
-
-- **Supabase MCP** — usado ativamente pra queries, migrations, validação de schema
-- **Vercel MCP** — usado pra `list_deployments`, `get_runtime_logs`, validação de deploy
-- **ZenRows** — Startup plan, renovação 26/05
-- **Liga Pokémon** — fonte de preços BR, formato URL `?view=cards/search&card=ed%3D{CODE}`
-- **bynx.gg** — domínio principal, robots ok, sitemap dinâmico, **cookie banner LGPD ativo**
+Scripts no Mac (/Users/eduardowillian/bynx-scan/):
+  scan-images.ts  ← v4: Liga → ZenRows → download → Supabase Storage (COMPLETO)
+  scan-sets.ts    ← foco em sv3pt5 + sv9 (parou por limite ZenRows)
+  populate-species.ts  ← populou pokemon_species (já rodado)
+  fix-base-names.ts    ← corrigiu base_pokemon_names (já rodado)
+```
 
 ---
 
-## 📦 Estado de produção (snapshot 30/abr/2026, 22:00 BRT)
+## Bugs Corrigidos
 
-- Último deploy: `dpl_DGR9qeHdVE3LmRmjkj1MqSJzgkBk` (commit `4168d77`) — READY
-- Branch local = `origin/main` = produção (verificado via `git status` + `git fetch`)
-- Runtime errors últimas 24h: **0**
-- Cookie banner LGPD: **ativo e validado em produção**
-- GTM/GA4: carregando após consent, beacon `collect` chegando
+| Bug | Causa | Fix |
+|-----|-------|-----|
+| Patrimônio R$0,00 no header | Usava `card_prices` obsoleto | Migrou para `pokemon_cards` |
+| scan-images TypeScript error | `Buffer` não aceito como `body` no fetch | Mudou para `ArrayBuffer` |
+| Pokédex mostrava 122 Pokémon | Limite 1000 rows Supabase | API Route com `get_unique_base_pokemon()` SQL |
+| Gen IX DLC sem sprite | `/api/pokedex/species` cortava em 1000 | 2 lotes paralelos `.range()` |
+| Turbopack IIFE bug | Modal em IIFE causava "Unterminated regexp" | Extraído para `CardDetailModal.tsx` |
+| Artista não aparecia | Faltava `artist` no `.select()` query | Adicionados todos os campos |
+| Pokémon regionais separados | Alolan/Hisuian/Mega não mapeados | SQL UPDATE + fix-base-names.ts |
+| PostgREST 1000 rows limit | `.limit(2000)` não funciona | Usar `.range()` em lotes |
 
-**Plataforma está funcional em produção.** Falta polimento técnico (frentes da seção 🎯) pra estar pronta pra divulgação pública agressiva.
+---
+
+## Pendências
+
+### ⚠️ scan-sets — Retomar quando tiver crédito
+ZenRows renova em 26/05/2026. Rodar:
+```bash
+cd /Users/eduardowillian/bynx-scan
+while true; do ZENROWS_API_KEY=adad1cb8c25df1ad2b116d98428bc0914be37bea npx ts-node scan-sets.ts; echo "Reiniciando em 10s..."; sleep 10; done
+```
+TARGET_SETS atual: `['sv3pt5', 'sv9']` (151 e Journey Together)
+
+### Cache Pokédex — Após mudanças no banco
+```
+https://www.bynx.gg/api/pokedex?refresh=1
+https://www.bynx.gg/api/pokedex/species?refresh=1
+```
+
+### A partir de 01/05/2026 — Sistema de Preços
+- Migrar de `card_prices` → `pokemon_cards` na busca
+- Autocomplete por nome na Minha Coleção
+- Pokédex lendo preços direto do Supabase
+
+---
+
+## Regras BYNX (Memória)
+
+1. **BYNX_MASTER_CONTEXT.md** ao final do dia — commit + push
+2. **Código 100% completo** sempre — nunca diffs ou snippets
+3. **Git em bloco único** com `&&` — Du cola uma vez só
+4. **CardItem é o componente padrão** — `src/components/ui/CardItem.tsx`
+5. **A partir de 01/05/2026** → melhorias sistema de preços
+6. **Turbopack não aceita IIFE complexos** → extrair para componente separado
+7. **PostgREST limita 1000 rows** → usar `.range()` em lotes para dados grandes
+
+---
+
+## Key Learnings Dessa Sessão
+
+- **PostgREST hardcap de 1000 rows:** `.limit(2000)` é ignorado — usar `.range(0,999)` + `.range(1000,1999)` em paralelo
+- **Turbopack IIFE bug:** `{selectedCard && (() => { ... })()}` com JSX complexo causa "Unterminated regexp literal" — sempre extrair para componente separado
+- **pokemondb.net hotlink:** bloqueado por `Referer` header — `referrerPolicy="no-referrer"` bypassa
+- **ArrayBuffer vs Buffer:** TypeScript strict mode não aceita `Buffer` como `body` no fetch — usar `ArrayBuffer` retornado direto de `res.arrayBuffer()`
+- **Supabase Storage:** bucket `card-images` público — URL permanente, CDN global, sem dependência da Liga
+
