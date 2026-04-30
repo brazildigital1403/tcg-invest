@@ -109,6 +109,11 @@ export default function Pokedex() {
   // Agora é populado via JOIN com pokemon_cards, que tem o array oficial
   // já normalizado pela API do Pokémon TCG.
   const [ownedNames, setOwnedNames] = useState<Set<string>>(new Set())
+
+  // IDs exatos de cartas que o user tem (vista 2 — destaca a carta específica
+  // que ele já cadastrou na coleção, não todas as cartas do mesmo Pokémon).
+  const [ownedCardIds, setOwnedCardIds] = useState<Set<string>>(new Set())
+
   const [isPro, setIsPro]           = useState(false)
   const [userId, setUserId]         = useState<string | null>(null)
 
@@ -152,15 +157,21 @@ export default function Pokedex() {
     init()
   }, [])
 
-  // ── Carrega nomes-base dos Pokémons que o user "capturou" ──────────────────
-  // Faz JOIN entre user_cards.pokemon_api_id ↔ pokemon_cards.id e extrai
-  // base_pokemon_names. Cobre todos os casos especiais (Mega, Tag Team,
-  // formas regionais, sufixos com número) sem depender de regex no client.
+  // ── Carrega nomes-base + IDs exatos das cartas que o user tem ─────────────
+  // Faz JOIN entre user_cards.pokemon_api_id ↔ pokemon_cards.id
+  //
+  // Popula 2 Sets:
+  //   ownedNames     → nomes-base ('Charizard', 'Pidgeot') — usado na vista 1
+  //   ownedCardIds   → IDs exatos ('me2-125', 'sv4-3')      — usado na vista 2
+  //
+  // Por que JOIN em vez de regex no client: o banco já tem base_pokemon_names
+  // normalizado pela API oficial. Cobre Mega, Tag Team, formas regionais,
+  // sufixos com número — sem regex frágil.
 
   async function loadOwnedPokemons(uid: string) {
     const { data, error } = await supabase
       .from('user_cards')
-      .select('pokemon_cards!inner(base_pokemon_names)')
+      .select('pokemon_api_id, pokemon_cards!inner(base_pokemon_names)')
       .eq('user_id', uid)
 
     if (error) {
@@ -168,12 +179,15 @@ export default function Pokedex() {
       return
     }
 
-    const set = new Set<string>()
+    const namesSet = new Set<string>()
+    const idsSet   = new Set<string>()
     for (const row of (data as any[]) || []) {
+      if (row.pokemon_api_id) idsSet.add(row.pokemon_api_id)
       const names: string[] = row.pokemon_cards?.base_pokemon_names || []
-      for (const name of names) set.add(name)
+      for (const name of names) namesSet.add(name)
     }
-    setOwnedNames(set)
+    setOwnedNames(namesSet)
+    setOwnedCardIds(idsSet)
   }
 
   // ── Carrega lista única de Pokémon ──────────────────────────────────────────
@@ -310,6 +324,8 @@ export default function Pokedex() {
         for (const n of baseNames) next.add(n)
         return next
       })
+      // Marca a CARTA EXATA como capturada (usa o id da pokemon_cards)
+      setOwnedCardIds(prev => new Set(prev).add(card.id))
       trackFirstCardAdded(userId)
     }
   }
@@ -417,24 +433,52 @@ export default function Pokedex() {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-                {cards.map(card => (
-                  <div key={card.id} style={{ position: 'relative' }}>
-                    <CardItem
-                      card={card}
-                      mode="select"
-                      exchangeRate={exchangeRate}
-                      onSelect={() => { setSelectedCard(card); setSelectedCardIndex(cards.indexOf(card)); setSelectedVariante(pickBestVariante(card)) }}
-                      badge={
-                        <button
-                          onClick={e => { e.stopPropagation(); setSelectedCard(card) }}
-                          style={{ background: 'rgba(245,158,11,0.9)', border: 'none', color: '#000', padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}
-                        >
-                          Ver detalhes
-                        </button>
-                      }
-                    />
-                  </div>
-                ))}
+                {cards.map(card => {
+                  const owned = ownedCardIds.has(card.id)
+                  return (
+                    <div
+                      key={card.id}
+                      style={{
+                        position: 'relative',
+                        background: owned ? 'rgba(245,158,11,0.06)' : 'transparent',
+                        border: owned ? '1px solid rgba(245,158,11,0.25)' : '1px solid transparent',
+                        borderRadius: 16,
+                        padding: 6,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {/* Badge "tenho essa carta" — canto superior direito.
+                          zIndex 3 fica acima do badge "Ver detalhes" do CardItem. */}
+                      {owned && (
+                        <div style={{
+                          position: 'absolute', top: 12, right: 12, zIndex: 3,
+                          width: 22, height: 22, borderRadius: '50%',
+                          background: '#f59e0b',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      )}
+                      <CardItem
+                        card={card}
+                        mode="select"
+                        exchangeRate={exchangeRate}
+                        onSelect={() => { setSelectedCard(card); setSelectedCardIndex(cards.indexOf(card)); setSelectedVariante(pickBestVariante(card)) }}
+                        badge={
+                          <button
+                            onClick={e => { e.stopPropagation(); setSelectedCard(card) }}
+                            style={{ background: 'rgba(245,158,11,0.9)', border: 'none', color: '#000', padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}
+                          >
+                            Ver detalhes
+                          </button>
+                        }
+                      />
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
