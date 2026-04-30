@@ -32,16 +32,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       return NextResponse.json({ cards: [], total_value: 0, total_cards: 0 })
     }
 
-    // Busca preços
-    const names = [...new Set(cards.map((c: any) => c.card_name?.trim()).filter(Boolean))]
-    const { data: prices } = await sb
-      .from('card_prices')
-      .select('card_name, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
-      .in('card_name', names)
+    // R6: busca preços por pokemon_api_id (canonical) em pokemon_cards.
+    const ids = [...new Set(
+      cards.map((c: any) => c.pokemon_api_id).filter(Boolean) as string[]
+    )]
 
     const priceMap: Record<string, any> = {}
-    for (const p of prices || []) {
-      priceMap[p.card_name?.trim()] = p
+    if (ids.length > 0) {
+      const { data: prices } = await sb
+        .from('pokemon_cards')
+        .select('id, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
+        .in('id', ids)
+      for (const p of prices || []) {
+        priceMap[p.id] = p
+      }
     }
 
     const CAMPOS: Record<string, string> = {
@@ -54,7 +58,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     let totalValue = 0
     const enriched = cards.map((card: any) => {
-      const p = priceMap[card.card_name?.trim()]
+      const p = card.pokemon_api_id ? priceMap[card.pokemon_api_id] : null
       let preco = 0
       if (p) {
         let v = card.variante || 'normal'

@@ -14,27 +14,34 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: 'OK - sem nome (rota chamada sem parâmetro)' })
   }
 
-  // 🔎 CACHE
-  const { data: cached } = await supabase
-    .from('card_prices')
-    .select('*')
-    .eq('card_name', cardName)
-    .single()
+  // 🔎 CACHE — R6: lookup em pokemon_cards (canonical) por nome.
+  // Atenção: pokemon_cards.name não é único (mesma carta em vários sets), por
+  // isso usamos .limit(1) — primeiro match vence.
+  const { data: cachedRows } = await supabase
+    .from('pokemon_cards')
+    .select('id, name, number, rarity, artist, set_name, set_series, types, preco_normal, preco_foil')
+    .eq('name', cardName)
+    .limit(1)
+
+  const cached = cachedRows?.[0]
 
   if (cached) {
     return NextResponse.json({
-      name: cached.card_name,
+      name: cached.name,
       number: cached.number,
-      tipo: cached.tipo,
-      edicao: cached.edicao,
-      raridade: cached.raridade,
-      artista: cached.artista,
+      tipo: Array.isArray(cached.types) ? cached.types.join(', ') : null,
+      edicao: cached.set_name,
+      raridade: cached.rarity,
+      artista: cached.artist,
       precoNormal: cached.preco_normal,
       precoFoil: cached.preco_foil,
       source: 'cache',
     })
   }
 
+  // ─── ⚠️ LEGACY abaixo — chamada ao puppeteer + upsert em card_prices ───
+  // R6 Commit 3 vai remover este bloco. pokemon_cards já é populado via
+  // ZenRows; se cair aqui é carta que não está catalogada.
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 

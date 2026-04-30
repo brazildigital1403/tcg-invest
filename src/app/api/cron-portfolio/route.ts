@@ -22,9 +22,10 @@ export async function GET(req: NextRequest) {
 
   try {
     // Busca todos os usuários únicos com cartas
+    // R6: trazemos pokemon_api_id pra usar como chave de lookup em pokemon_cards.
     const { data: allCards } = await supabase
       .from('user_cards')
-      .select('user_id, card_name, variante, quantity')
+      .select('user_id, pokemon_api_id, variante, quantity')
 
     if (!allCards || allCards.length === 0) {
       return NextResponse.json({ message: 'Nenhuma carta', snapshots: 0 })
@@ -41,19 +42,23 @@ export async function GET(req: NextRequest) {
     const today = new Date().toISOString().slice(0, 10)
 
     for (const [userId, cards] of Object.entries(byUser)) {
-      const names = [...new Set(cards.map(c => c.card_name?.trim()).filter(Boolean))]
+      // R6: busca preços por pokemon_api_id (canonical) em pokemon_cards.
+      const ids = [...new Set(
+        cards.map(c => c.pokemon_api_id).filter(Boolean) as string[]
+      )]
 
-      const { data: prices } = await supabase
-        .from('card_prices')
-        .select('card_name, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
-        .in('card_name', names)
-
-      const priceMap: Record<string, any> = {}
-      prices?.forEach(p => { priceMap[p.card_name?.trim()] = p })
+      let priceMap: Record<string, any> = {}
+      if (ids.length > 0) {
+        const { data: prices } = await supabase
+          .from('pokemon_cards')
+          .select('id, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
+          .in('id', ids)
+        prices?.forEach(p => { priceMap[p.id] = p })
+      }
 
       let total = 0
       for (const card of cards) {
-        const p = priceMap[card.card_name?.trim()]
+        const p = card.pokemon_api_id ? priceMap[card.pokemon_api_id] : null
         if (!p) continue
         const v = card.variante || 'normal'
         let campo = CAMPOS[v] || 'preco_medio'
