@@ -1,7 +1,7 @@
 # BYNX — Master Context
 
-> **Última atualização:** 30 de abril de 2026 (sessão 24, fechamento)
-> **Próxima sessão:** 25 — frente imediata é fechar o cookie banner LGPD
+> **Última atualização:** 30 de abril de 2026 (sessão 25, fechamento)
+> **Próxima sessão:** 26 — frente imediata é bug `full_name` em /api/admin/tickets, depois migração de preços R6
 
 ---
 
@@ -12,7 +12,7 @@
 - **Bynx** — plataforma BR de Pokémon TCG (bynx.gg). Pokédex 22.861 cartas, scan IA, preços em reais por variante, marketplace, painel de lojistas B2B
 - **Stack:** Next.js 16.2.4 + React 19 (Turbopack), Supabase `hvkcwfcvizrvhkerupfc`, Vercel `prj_X1CUMTLMwTL77trWqZdDdmBI9PRC` (team `team_FK9fHseL9hy5mbNR6c0Q8JuK`), Node 24.x
 - **Repo:** `brazildigital1403/tcg-invest` (público, .env nunca commitado)
-- **Analytics:** GTM `GTM-N94DLM4H`, GA4 `G-1DRTZH1KVH`
+- **Analytics:** GTM `GTM-N94DLM4H`, GA4 `G-1DRTZH1KVH` (gated por cookie consent LGPD desde sessão 25)
 - **Stripe:** sandbox limpo, webhook V5 estável
 - **User teste:** eduardo, ID `122267ef-5aeb-4fd0-a9c0-616bfca068bd`, admin `eduardo@brazildigital.ag`
 - **Pastas Mac:** origem ZIPs `/Users/eduardowillian/Downloads/_____tcg-app/` (5 underscores), repo local `/Users/eduardowillian/tcg-app/`
@@ -32,94 +32,72 @@
 - **R18** Inspecionar schema antes de SQL
 - **R19** Validar versão de API antes de codar
 - **R20** Sempre buscar arquivo da versão mais recente em produção ANTES de qualquer modificação. Web_fetch GitHub raw OU pedir Du anexar do Mac
-
-**Candidata R21 (sessão 25 confirmar):** antes de fazer JOIN via supabase-js (`select('outra_tabela!inner(...)')`), verificar `information_schema.table_constraints` pra confirmar que a FK existe — JOIN sem FK retorna `[]` silenciosamente. Causa do bug Mega Charizard.
-
----
-
-## 🚢 Sessão 24 — entregas
-
-13 deploys, todos READY:
-
-1. `c3c6bf0d` — GTM-N94DLM4H instalado via next/script
-2. `2adf813f` — analytics.ts + 5 eventos custom (loja_clique, pro_upgrade_initiated/completed, first_card_added, signup_completed)
-3. `cc1453b6` — context provisional GTM
-4. `6b300258` — 🆘 RECUPERAÇÃO landing (incidente: zip antigo sobrescreveu relançamento da sessão 23)
-5. `6e12d298` — /para-lojistas v1
-6. `00354ba5` — /para-lojistas final B2B + paleta azul/roxo + FAQ multi-loja
-7. `2ac19436` — master context atualizado (provisório)
-8. `481e24c2` — moderação Marketplace soft-delete (`removido_em`, `removido_motivo`, `removido_por`)
-9. `4bba0d08` — sitemap fix (/para-lojistas + /separadores)
-10. `3134f7c8` — Pokédex stat hero capturados reativa aos filtros
-11. `38c32299` — fix Pokédex capturados via base_pokemon_names + FK migration `user_cards_fk_pokemon_cards`
-12. (após FK) — Marcação de carta exata na vista 2 da Pokédex (borda + badge laranja por carta)
-13. (último) — Termos + Privacidade atualizados (data 30/abr, B2B, moderação, GTM/GA4, LGPD <13 anos)
-
-### Schema migrations aplicadas
-
-- `marketplace_moderation_soft_delete` — `removido_em timestamp`, `removido_motivo text`, `removido_por uuid REFERENCES users(id) ON DELETE SET NULL`, índice parcial
-- `user_cards_fk_pokemon_cards` — FK `user_cards.pokemon_api_id → pokemon_cards.id ON DELETE SET NULL`
-
-### Documentos legais (estado final)
-
-- **Termos** (184 linhas, 30/abr/2026): §3.1 idade mínima LGPD <13, §4 planos consumer (R$29,90/R$249), **§4.1 Lojistas (NOVA)** — Básico grátis, Pro R$39, Premium R$89, beta 27 vagas, multi-loja, aprovação 48h. §5.1 Moderação ativa
-- **Privacidade** (243 linhas, 30/abr/2026): §2.1 add data nascimento + marketing opcional, **§2.4 Lojistas B2B (NOVA)**, §4 add Google GTM/GA4 + ZenRows, **§8 Cookies reescrito** com 8.1 essenciais / 8.2 analíticos GA4 com opt-out / 8.3 sem publicidade
-
-### Arquivos da Pokédex (estado: 699 linhas)
-
-- Stat hero reativa (`useMemo`, `fmtNum`, `capturados`, `totalNoFiltro`, `temFiltroAtivo`, `completou`, `stagiou`)
-- `loadOwnedPokemons(uid)` faz JOIN `.select('pokemon_api_id, pokemon_cards!inner(base_pokemon_names)')` — popula `ownedNames` (Set de nomes-base) + `ownedCardIds` (Set de IDs exatos)
-- Vista 2: wrapper visual ao redor do `<CardItem>` com borda laranja `rgba(245,158,11,0.25)`, fundo `rgba(245,158,11,0.06)`, badge ✓ 22px no canto superior direito (zIndex 3)
-- `handleAddCard` atualiza ambos os Sets na hora
+- **R21 (NOVA, sessão 25 confirmada):** antes de fazer JOIN via supabase-js (`select('outra_tabela!inner(...)')`), verificar `information_schema.table_constraints` pra confirmar que a FK existe — JOIN sem FK retorna `[]` silenciosamente. Causa do bug Mega Charizard na sessão 24.
+- **R22 (NOVA, sessão 25):** quando `web_fetch` em GitHub raw falhar com `PERMISSIONS_ERROR`, **pedir Du anexar arquivo do Mac diretamente**. Não tentar reconstruir o arquivo de memória (Regra 20 já cobria, mas a tool de fetch não é confiável em todas as sessões).
 
 ---
 
-## 🍪 FRENTE PENDENTE — Cookie Banner LGPD (PRÓXIMA SESSÃO PRIORIZA)
+## 🚢 Sessão 25 — entregas
 
-Decisões já tomadas pelo Du (não precisa perguntar de novo):
+**Frente única: Cookie Banner LGPD.** Pendência da sessão 24 (tools caíram no meio) — refeita do zero com tools normais.
 
-- **Estilo:** Soft banner no rodapé (Opção A) — não modal central
-- **Botões:** 2 botões (Aceitar todos + Apenas essenciais)
-- **Persistência:** `localStorage 'bynx_cookie_consent' = 'accepted' | 'rejected'`
-- **Reload ao aceitar:** sim, `window.location.reload()` é o caminho
-- **Noscript do GTM:** mantém sem bloqueio (decisão consciente, <0.5% usuários)
+### 1 deploy READY:
+- `4168d77` — `feat(lgpd): cookie banner com gate de consent no GTM` — deploy `dpl_DGR9qeHdVE3LmRmjkj1MqSJzgkBk`
 
-Código completo dos 2 arquivos foi entregue no chat (`CookieBanner.tsx` 173 linhas + `layout.tsx` modificado 258 linhas). **A entrega ficou no chat porque as ferramentas de filesystem da Mia caíram no meio da sessão.** Du não chegou a aplicar no Mac antes de fechar a sessão.
+### Arquivos entregues (zip `bynx-cookie-banner-v25.zip`):
+- **NOVO** `src/components/ui/CookieBanner.tsx` (190 linhas) — soft banner rodapé, 2 botões (Aceitar todos / Apenas essenciais), localStorage `bynx_cookie_consent`
+- **EDIT** `src/app/layout.tsx` (261 linhas) — 3 mudanças cirúrgicas:
+  1. `+import CookieBanner from "@/components/ui/CookieBanner"`
+  2. Gate IIFE no `<Script>` do GTM: `try { if (w.localStorage.getItem('bynx_cookie_consent') !== 'accepted') return; } catch(e) { return; }`
+  3. `<CookieBanner />` antes do `</ModalProvider>`
 
-**Status no início da sessão 25:** zero do cookie banner aplicado. Recomeçar do zero é OK — a próxima Mia tem tools normais e pode entregar o zip direito.
+### Validação em produção (5 cenários todos ✅):
+1. Anônimo sem consent → banner aparece, GTM bloqueado, localStorage `null` ✓
+2. Aceitar todos → reload, GTM passa a carregar (`gtm.js` 200 OK + `js?id=G-1DRTZH1KV…` GA4 + `collect?v=2…` beacon), localStorage `accepted` ✓
+3. Apenas essenciais → banner some sem reload, GTM continua bloqueado, localStorage `rejected` ✓
+4. Hard refresh → banner não volta ✓
+5. Limpar localStorage → banner volta ✓
+
+### Decisões técnicas registradas:
+- Soft banner no rodapé (não modal central)
+- 2 botões (não picker granular tipo Cookiebot)
+- Reload no aceite (`window.location.reload()`) — necessário pq GTM checa localStorage no início do `<Script>`
+- `<noscript>` do GTM mantido SEM gate (decisão consciente, <0.5% dos usuários sem JS)
+- `mounted` state no banner pra evitar hydration mismatch (localStorage é client-only)
+- `try/catch` no localStorage cobre Safari modo privado: default conservador é GTM bloqueado
 
 ---
 
-## 🎯 Outras pendências (priorizadas)
+## 🎯 Pendências (priorizadas pra lançamento)
 
-### Alta
-- 🔴 **01/05/2026 (sexta) — Migração de preços (R6)**: card_prices→pokemon_cards, autocomplete por nome, Pokédex Supabase, remover dependência Liga link
-- 🟡 Bug `full_name` em `src/app/api/admin/tickets/route.ts` linha 51 (provável erro 500 listando tickets — coluna não existe no schema atual)
+### Alta — pré-lançamento bloqueador
+- 🟡 **Bug `full_name` em `src/app/api/admin/tickets/route.ts:51`** — coluna não existe mais (renomeada pra `name`), quebra listagem de tickets no admin. Cirúrgico, 15-30min. **Próxima frente da sessão 26.**
+- 🔴 **01/05/2026 (hoje sexta) — Migração de preços (R6):** card_prices→pokemon_cards, autocomplete por nome, Pokédex Supabase, remover dependência Liga link. 6-10h multi-sessão. Maior frente do roadmap.
+- 🟡 **Fase 2 GTM/GA4 painel** (~30-45min, sem código) — 4 variáveis Data Layer + 5 triggers Custom Event + 5 tags GA4 Event + Custom Definitions. Sem isso os 5 eventos custom (`loja_clique`, `pro_upgrade_initiated/completed`, `first_card_added`, `signup_completed`) ficam disparando no `dataLayer` mas não chegam em GA4.
+- 🟢 **SEO Fase 2:** Search Console (verificação via GTM), Bing Webmaster Tools, Lighthouse audit (alvo 90+). 1-2h.
 
-### Média
-- 🟡 Fase 2 GTM/GA4 painel (~30-45min): criar 4 variáveis Data Layer, 5 triggers Custom Event, 5 tags GA4 Event, Custom Definitions
-- 🟢 SEO Fase 2: Search Console (verificação via GTM), Bing Webmaster Tools, Lighthouse audit (alvo 90+)
-- 🟡 Alerta proativo `[webhook] CRITICAL` (Sentry/email)
+### Média — pós-lançamento
+- 🟡 Alerta proativo `[webhook] CRITICAL` (Sentry/email) — 1-2h
 - 🟡 V6 cosmético removendo logs `[webhook/debug]` (em 2-3 semanas)
+- 🟡 Métricas avançadas Admin (conversão trial→Pro, tempo resposta tickets) — 2-3h
 
 ### Baixa
 - 🔵 26/05/2026 — ZenRows renova ($227.63), rodar `scan-sets-final.ts`
 - 🔴 Junho — Passo 8 Stripe per-loja (6-10h)
-- 🟡 Métricas avançadas Admin (conversão trial→Pro, tempo resposta tickets)
 
 ---
 
-## 🧠 Aprendizados-chave da sessão 24
+## 🧠 Aprendizados-chave da sessão 25
 
-1. **GitHub raw com cache stale induz alucinação:** o conteúdo retornado por `web_fetch` em `https://raw.githubusercontent.com/...` foi várias vezes uma versão **antiga** do arquivo, mesmo com Vercel mostrando deploy do commit certo. **Sempre validar via terminal** (`git log -1 src/file.tsx`, `grep -c`) antes de assumir reverter. Pedir Du anexar do Mac é mais seguro.
+1. **Backup local complementa Vercel.** Vercel guarda deploys mas não substitui backup do código local + `.env`. Ritual de backup periódico (zip do `/Users/eduardowillian/tcg-app/` excluindo `node_modules` e `.next`) recomendado.
 
-2. **JOIN supabase-js silencioso sem FK:** `select('outra_tabela!inner(...)')` retorna `[]` silenciosamente se a FK não estiver declarada em `information_schema.table_constraints`. Causa raiz do bug "Mega Charizard X ex" não aparecer capturado. Migration `user_cards_fk_pokemon_cards` consertou.
+2. **`web_fetch` em GitHub raw pode bloquear com `PERMISSIONS_ERROR` mesmo em URLs públicas.** Isso aconteceu na abertura da sessão 25 ao tentar puxar `layout.tsx`. Fallback correto: pedir Du anexar diretamente do Mac. **Regra R22 nasce daí.**
 
-3. **`cleanPokemonName` regex era frágil:** não cobria `Mega`, `(número)`, prefixos `Team Rocket's`. Substituída por JOIN com `pokemon_cards.base_pokemon_names` (fonte oficial da API Pokémon TCG).
+3. **Cookie banner com gate de consent no GTM funciona ponta a ponta.** O padrão IIFE-com-checagem-de-localStorage é mais simples que adapter de Consent Mode v2 do Google e suficiente pra LGPD. Para GDPR (futuro EU expansion) seria diferente — Consent Mode v2 com granularidade analytics/ads/personalization seria necessário.
 
-4. **Repo público é seguro:** validado via terminal — `.env` nunca commitado, 20 matches em src/ são `process.env.SUPABASE_SERVICE_KEY!` (correto, não vazamento), zero `sk_live_/whsec_/JWT` hardcoded.
+4. **`Cache-Control: private, max-age=900` no `gtm.js`** é comportamento padrão do Google. Browser cacheia 15min por usuário. Não confundir com cache de SSR do Vercel.
 
-5. **Tools podem cair no meio da sessão:** as tools de filesystem da Mia (`create_file`, `bash_tool`, `present_files`) caíram durante a frente do cookie banner. Recurso: colar código completo no chat. Não-ideal mas funciona. **Próxima Mia: começar nova sessão revalida o ambiente.**
+5. **Validação cliente-side só dá pra fazer com browser.** Runtime logs do Vercel (`get_runtime_logs`) só pegam erros server-side. Cookie banner, hydration, localStorage — tudo isso só se valida com olho no browser real, conforme aprendido na sessão 24.
 
 ---
 
@@ -129,4 +107,16 @@ Código completo dos 2 arquivos foi entregue no chat (`CookieBanner.tsx` 173 lin
 - **Vercel MCP** — usado pra `list_deployments`, `get_runtime_logs`, validação de deploy
 - **ZenRows** — Startup plan, renovação 26/05
 - **Liga Pokémon** — fonte de preços BR, formato URL `?view=cards/search&card=ed%3D{CODE}`
-- **bynx.gg** — domínio principal, robots ok, sitemap dinâmico
+- **bynx.gg** — domínio principal, robots ok, sitemap dinâmico, **cookie banner LGPD ativo**
+
+---
+
+## 📦 Estado de produção (snapshot 30/abr/2026, 22:00 BRT)
+
+- Último deploy: `dpl_DGR9qeHdVE3LmRmjkj1MqSJzgkBk` (commit `4168d77`) — READY
+- Branch local = `origin/main` = produção (verificado via `git status` + `git fetch`)
+- Runtime errors últimas 24h: **0**
+- Cookie banner LGPD: **ativo e validado em produção**
+- GTM/GA4: carregando após consent, beacon `collect` chegando
+
+**Plataforma está funcional em produção.** Falta polimento técnico (frentes da seção 🎯) pra estar pronta pra divulgação pública agressiva.
