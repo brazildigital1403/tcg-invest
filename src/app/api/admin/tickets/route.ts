@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
     if (userIds.length > 0) {
       const { data: users } = await sb
         .from('users')
-        .select('id, email, name, full_name')
+        .select('id, email, name')
         .in('id', userIds)
       for (const u of users || []) {
-        userMap[u.id] = { email: u.email, name: u.full_name || u.name || '' }
+        userMap[u.id] = { email: u.email, name: u.name || '' }
       }
     }
 
