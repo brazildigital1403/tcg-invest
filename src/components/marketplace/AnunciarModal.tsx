@@ -268,10 +268,19 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
   const [loading, setLoading]   = useState(false)
 
   async function handleSelectCard(card: any) {
-    // Busca preço de mercado da carta
-    const { data: priceData } = await supabase
-      .from('card_prices').select('preco_medio').eq('card_name', card.card_name).single()
-    setPrecoMercado(priceData?.preco_medio || 0)
+    // R6: busca preço de mercado por pokemon_api_id em pokemon_cards (canonical).
+    // Se a carta legacy não tiver pokemon_api_id, não bloqueia o anúncio — só
+    // o preço-âncora vira 0 e o vendedor digita manualmente.
+    if (card.pokemon_api_id) {
+      const { data: priceData } = await supabase
+        .from('pokemon_cards')
+        .select('preco_medio')
+        .eq('id', card.pokemon_api_id)
+        .maybeSingle()
+      setPrecoMercado(priceData?.preco_medio || 0)
+    } else {
+      setPrecoMercado(0)
+    }
     setCartaSel(card)
     setStep('detalhes')
   }

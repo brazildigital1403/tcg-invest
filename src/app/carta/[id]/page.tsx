@@ -34,46 +34,23 @@ export default function CartaPage() {
       const data = await res.json()
       setCard(data.data || null)
 
-      // Busca preço no Supabase — múltiplas estratégias
-      if (data.data?.name) {
+      // R6: o `id` da rota é o mesmo `id` (PK) de pokemon_cards.
+      // Lookup direto, 1 query, sem fallbacks ilike frágeis.
+      if (data.data?.id) {
         const { createClient } = await import('@supabase/supabase-js')
         const sb = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         )
-        const cardName = data.data.name
 
-        // 1. Busca exata pelo nome
-        let { data: priceData } = await sb
-          .from('card_prices')
-          .select('*')
-          .eq('card_name', cardName)
-          .limit(1)
-          .single()
-
-        // 2. Se não achou, busca parcial (ilike)
-        if (!priceData) {
-          const { data: partial } = await sb
-            .from('card_prices')
-            .select('*')
-            .ilike('card_name', `%${cardName.split(' ').slice(0,2).join(' ')}%`)
-            .limit(1)
-            .single()
-          priceData = partial
-        }
-
-        // 3. Também busca o link da carta nas user_cards para mostrar link da liga
-        const { data: userCard } = await sb
-          .from('user_cards')
-          .select('card_link')
-          .ilike('card_name', `%${cardName.split(' ')[0]}%`)
-          .not('card_link', 'is', null)
-          .limit(1)
-          .single()
+        const { data: priceData } = await sb
+          .from('pokemon_cards')
+          .select('preco_min, preco_medio, preco_max, liga_link')
+          .eq('id', data.data.id)
+          .maybeSingle()
 
         setPrice(priceData)
-        if (userCard?.card_link) setCardLink(userCard.card_link)
-
+        if (priceData?.liga_link) setCardLink(priceData.liga_link)
       }
       setLoading(false)
     }
@@ -166,7 +143,7 @@ export default function CartaPage() {
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
                 Preço na LigaPokemon
               </p>
-              {price ? (
+              {price && (price.preco_min || price.preco_medio || price.preco_max) ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   {[
                     { label: 'Mínimo', value: price.preco_min, color: '#22c55e' },
