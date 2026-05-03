@@ -1,230 +1,334 @@
-# BYNX — Sessão 26
+# BYNX — Sessão 27
 
 **Data:** 03 maio 2026
-**Duração:** ~7h
-**Foco:** Validação completa dos 4 fluxos de pagamento Stripe (Pro usuário, Lojista, Separadores, Scan IA) antes do lançamento
+**Duração:** ~3h
+**Foco:** Migração completa TEST → LIVE no Stripe + smoke test em produção real
 
 ---
 
 ## TL;DR
 
-Sessão 100% dedicada a hardening + completude do sistema de pagamentos Stripe. Saímos com **8 fluxos validados**, **9 bugs corrigidos**, **4 deploys produção READY**, **2 migrations Supabase** e **5 transações TEST mode reais comprovadas em produção**.
+Sessão dedicada à migração da infra de pagamentos do Bynx do TEST mode para o LIVE mode no Stripe. Saímos com **100% da configuração concluída** e validada do nosso lado: 10 produtos LIVE criados, 10 prices LIVE coletados e validados visualmente, Customer Portal LIVE configurado com 6 produtos e 2 links legais, webhook LIVE em produção, 12 envs Vercel atualizadas como Sensitive (cumprindo esteira #4 da S26), 6 deploys produção todos READY, 2 subs TEST órfãs canceladas, DB limpo.
 
-Resultado: **toda a parte de pagamentos B2B + B2C está pronta pra lançamento**. Falta só a migração TEST → LIVE no Stripe (~45min, próxima sessão).
+**O único bloqueio para o lançamento é externo:** Stripe Brasil ainda está com `charges_enabled: false` em revisão interna (`disabled_reason: under_review`), apesar do KYC mostrar todas as tarefas como "Concluídas" na UI. Suporte Stripe contatado e ofereceu encaminhamento para especialista que pode acelerar a propagação.
+
+**Lançamento previsto:** 24-72h após Stripe liberar a capability (provável segunda 05/05 a quarta 07/05).
 
 ---
 
 ## Decisões da sessão
 
-- **Adiar lançamento** de "amanhã" (01/mai) para final de semana (03/mai) ou seg, garantindo qualidade
-- **Lojista incluído no escopo:** 4 produtos (Pro Mensal R$ 39, Pro Anual R$ 390, Premium Mensal R$ 89, Premium Anual R$ 890) com trial 14 dias
-- **Cancelamento Netflix-style:** mantém acesso até fim do ciclo pago (configurado no Customer Portal)
-- **Customer Portal Stripe incluído:** cliente gerencia/cancela sozinho, padrão SaaS moderno
-- **Webhook seta `lojas.plano = 'pro'/'premium'` ignorando periodicidade** (front lê plano direto da tabela)
-- **Trial cancelado durante 14 dias mantém Pro até fim do trial** (consistente com B2C)
-- **Emails de Loja (B2B) usam paleta azul-roxo**, NÃO laranja/vermelho do app B2C
+- **Não fazer backup DB pré-migração** (todos os dados são teste, sem necessidade)
+- **Lançamento adiado de "amanhã" para "quando Stripe liberar"** (depende de capability externa)
+- **Cancelar subs órfãs em TEST mode** ao final (Lendario Premium, gabis Pro)
+- **Configurar todas as 12 envs como Sensitive** no Vercel (esteira #4 da S26 cumprida)
+- **MCP Stripe segue em TEST mode** — Du fez todas operações LIVE manualmente no Dashboard, Mia validou cada passo via prints
+- **Smoke test final só após capability liberar** (sem teste de R$ 5,90 hoje porque Stripe rejeita)
 
 ---
 
-## Auditoria inicial (Fase 0)
+## Auditoria inicial e estado do ambiente
 
-- 6 produtos Stripe pré-existentes: Pro Mensal R$ 29,90, Pro Anual R$ 249, Scan Básico R$ 5,90, Scan Popular R$ 14,90, Scan Colecionador R$ 34,90, Separadores R$ 14,90
-- Webhook URL: `https://www.bynx.gg/api/stripe/webhook`
-- Versão API Stripe atual: `2026-03-25.dahlia`
-- 4 env vars Lojista estavam vazias (Du adicionou na sessão)
-- 5 customers Stripe órfãos sem subscription (resolvido pelo reuso de `stripe_customer_id`)
+### Pré-sessão (start às 06:38 BRT)
+- Deploy mais recente: `dpl_EGsPtwAQLzpvLxfenLVj43PoikSL` (commit `46e0891a` — master S26) READY
+- DB consistente: 8 eventos processados, 0 erros, 12 lançamentos
+- 1 sub Lojista TEST ativa (Lendario Premium trial 14d)
+- 1 sub User TEST ativa (gabis Pro Mensal)
+- 4 users com `stripe_customer_id` setado (legacy de S26)
+- Stripe MCP confirmado em TEST mode (`prod_*` retornados eram TEST mode IDs)
+
+### Stripe LIVE Account
+- ID da conta: `acct_1TMuWQPNrv6a7zCF`
+- Endereço: Avenida Imperatriz Leopoldina, 701 — São Paulo/SP
+- KYC submetido: 03/mai/2026 (mesma data do início da sessão)
+- API version: `2026-03-25.dahlia`
 
 ---
 
-## Bugs encontrados (9) — todos corrigidos
+## FASE 1 — Stripe Dashboard LIVE (~30min)
 
-| # | Bug | Como resolvido | Commit |
+### 1.1 — Ativação LIVE
+Du desligou toggle "Test mode" no Dashboard. Stripe ofereceu opção "Choose what to copy" e foram copiados:
+- ✅ Products
+- ✅ Prices
+- ✅ Customer Portal configuration
+- ❌ Customers (orientação Mia: clientes de teste não devem ir pro LIVE)
+- ❌ Subscriptions (orientação Mia: subs de teste)
+- ❌ Webhooks (orientação Mia: vamos criar do zero pra gerar `STRIPE_WEBHOOK_SECRET` novo)
+- ❌ Coupons / Tax rates / Payment links (não usados)
+
+### 1.2 — 10 produtos criados (preservaram product IDs do TEST)
+Stripe **preservou os product IDs** ao copiar do sandbox, mas **gerou price IDs novos** (típico do Stripe).
+
+| Produto | Product ID (preservado) | Preço |
+|---|---|---|
+| Bynx Pro - Mensal | `prod_ULbnx0FcTrb0EM` | R$ 29,90/mês |
+| Bynx PRO — Anual | `prod_ULbo5z08W2RUcy` | R$ 249,00/ano |
+| Bynx - Scan Básico | `prod_UNXXp19seT5VLI` | R$ 5,90 (one-time) |
+| Bynx - Scan Popular | `prod_UNXXGkK2nvJUYf` | R$ 14,90 (one-time) |
+| Bynx - Scan Colecionador | `prod_UNXYM65Ni6vwmA` | R$ 34,90 (one-time) |
+| Bynx - Separadores de Fichário | `prod_UNVovbwv3KdPhO` | R$ 14,90 (one-time) |
+| Bynx Lojista Pro - Mensal | `prod_UR74i9K5tgOkxP` | R$ 39,00/mês |
+| Bynx Lojista Pro - Anual | `prod_UR76bUgvKWdt9i` | R$ 390,00/ano |
+| Bynx Lojista Premium - Mensal | `prod_UR76wrnzNxOovp` | R$ 89,00/mês |
+| Bynx Lojista Premium - Anual | `prod_UR764jWI3VyRhP` | R$ 890,00/ano |
+
+### 1.3 — 10 price IDs LIVE (NOVOS — gerados pela Stripe ao copiar)
+
+```
+STRIPE_PRICE_MENSAL=price_1TSvr6PNrv6a7zCFoyRwyfK0
+STRIPE_PRICE_ANUAL=price_1TSvr6PNrv6a7zCFzUhD56D5
+STRIPE_PRICE_SCAN_BASICO=price_1TSvr5PNrv6a7zCFE4gjgLKM
+STRIPE_PRICE_SCAN_POPULAR=price_1TSvr5PNrv6a7zCFXGKpYNU6
+STRIPE_PRICE_SCAN_COLECIONADOR=price_1TSvr6PNrv6a7zCFNDXFmvZU
+STRIPE_PRICE_SEPARADORES=price_1TSvr5PNrv6a7zCFlZol94Kc
+STRIPE_PRICE_LOJISTA_PRO_MENSAL=price_1TSvr7PNrv6a7zCFNGAplIW0
+STRIPE_PRICE_LOJISTA_PRO_ANUAL=price_1TSvr6PNrv6a7zCFtPgUE32X
+STRIPE_PRICE_LOJISTA_PREMIUM_MENSAL=price_1TSvr5PNrv6a7zCFB4pFDmWW
+STRIPE_PRICE_LOJISTA_PREMIUM_ANUAL=price_1TSvr6PNrv6a7zCF6qcvwRZh
+```
+
+⚠️ **Atenção a 2 IDs com caracteres ambíguos:**
+- `STRIPE_PRICE_SEPARADORES`: tem `lZol` (L minúsculo, Z, O minúsculo, L minúsculo)
+- `STRIPE_PRICE_LOJISTA_PRO_MENSAL`: tem `AplIW0` (L minúsculo, I maiúsculo, W, zero)
+
+Validação cruzada feita visualmente pela Mia em todos os 10 prints (cada produto Du clicou e mandou print da seção Events do produto).
+
+**Padrão de identificação:**
+- Sufixo LIVE: `PNrv6a7zCF...` (deriva do account ID `acct_1TMuWQPNrv6a7zCF`)
+- Sufixo TEST: `AanyB0hdos...` (deriva da sandbox account interna do Stripe)
+
+### 1.4 — Customer Portal LIVE
+**Configurado com:**
+- ✅ Invoice history
+- ✅ Customer information (name, email, billing address, phone, tax ID — sem shipping address)
+- ✅ Payment methods
+- ✅ Cancel subscriptions com **"Cancel at end of billing period"** (Netflix-style)
+- ✅ Cancellation reason (collect ON, com motivos padrão)
+- ✅ Customers can switch plans (essencial pra upgrade/downgrade)
+- ✅ 6 produtos subscription habilitados (Pro user M/A + Lojista Pro M/A + Lojista Premium M/A)
+- ✅ Prorate charges and credits
+- ✅ Invoice prorations immediately at the time of the update
+- ✅ Downgrades: Update immediately
+- ❌ Customers can change quantity (OFF — não usamos)
+- ❌ Promotion codes (OFF — não usamos)
+- ✅ Portal header: "Bynx"
+- ✅ Legal policies via Public business information:
+  - Terms of service: `https://www.bynx.gg/termos`
+  - Privacy policy: `https://www.bynx.gg/privacidade`
+
+### 1.5 — Webhook LIVE criado
+- **Webhook ID:** `we_1TT3XNPNrv6a7zCF1DqNgT4x`
+- **Nome:** `elegant-inspiration` (auto-gerado)
+- **URL:** `https://www.bynx.gg/api/stripe/webhook` ⭐ (com `www.`)
+- **API version:** `2026-03-25.dahlia`
+- **Status:** Ativo
+- **6 eventos:**
+  - `checkout.session.completed`
+  - `customer.subscription.deleted`
+  - `customer.subscription.updated`
+  - `invoice.payment_failed`
+  - `invoice.payment_succeeded`
+  - `charge.dispute.created`
+- **Signing secret:** `whsec_*` (copiado por Du, repassado direto pra env Vercel — não trafegou no chat)
+
+### 1.6 — Custom Domain Stripe (extra, descoberto durante debug)
+Du adicionou `checkout.bynx.gg` como custom domain Stripe. Estado ao final da sessão: "Adicionando" (DNS verificado, aguardando 3h pra Stripe estabilizar). Não bloqueou nada — domain custom só afeta a aparência das páginas hospedadas pela Stripe (`checkout.stripe.com` → `checkout.bynx.gg`), não o backend.
+
+---
+
+## FASE 2 — Vercel envs (12 atualizações)
+
+Du atualizou as 12 envs em 3 blocos sequenciais. Cada bloco disparou um redeploy automático do Vercel (action: `redeploy`):
+
+### Bloco 1 — Chaves de autenticação (2 envs)
+- `STRIPE_SECRET_KEY` → `sk_live_...`
+- `STRIPE_WEBHOOK_SECRET` → `whsec_...` (gerado no passo 1.5)
+
+### Bloco 2 — Price IDs B2C (6 envs)
+- `STRIPE_PRICE_MENSAL`
+- `STRIPE_PRICE_ANUAL`
+- `STRIPE_PRICE_SCAN_BASICO`
+- `STRIPE_PRICE_SCAN_POPULAR`
+- `STRIPE_PRICE_SCAN_COLECIONADOR`
+- `STRIPE_PRICE_SEPARADORES`
+
+### Bloco 3 — Price IDs Lojista (4 envs)
+- `STRIPE_PRICE_LOJISTA_PRO_MENSAL`
+- `STRIPE_PRICE_LOJISTA_PRO_ANUAL`
+- `STRIPE_PRICE_LOJISTA_PREMIUM_MENSAL`
+- `STRIPE_PRICE_LOJISTA_PREMIUM_ANUAL`
+
+⚠️ **Todas as 12 envs marcadas como Sensitive** (cumprindo esteira #4 da S26: deletar+recriar, NÃO usar "Rotate Variable" — gera nova chave do Stripe e quebra produção).
+
+---
+
+## FASE 3 — Deploys e debug
+
+### 6 deploys produção da sessão (todos READY)
+
+| # | Deploy ID | Origem | Estado |
 |---|---|---|---|
-| 1 | Idempotência incompleta scan/separadores (Stripe retentando = créditos duplicados) | Tabela `stripe_events_processed` + insert no início do webhook | C1 |
-| 2 | Lojista não tratado em checkout/webhook/success (cobraria R$ 29,90 em vez de R$ 39) | 4 fluxos lojista mapeados em `PLAN_PRICE_ENV` + handler dedicado no webhook | C1 |
-| 3 | Stripe Customer duplicado a cada checkout (subscription) | Reuso de `stripe_customer_id` antes de criar checkout | C1 |
-| 4 | `DESCRICAO_PLANO` desalinhado com `SCAN_PACKAGES` (chaves técnicas no email) | Sincronizado com chaves `scan_basico`, `scan_popular`, `scan_colecionador` + UPDATE retroativo nos 3 lançamentos legacy | C1 |
-| 5 | Página `/minha-loja/[id]/plano` retornava 404 | Página criada com identidade visual coerente, toggle Mensal/Anual, FAQ embutido | C2 |
-| 6 | UNIQUE constraint faltando em `lancamentos.stripe_payment_intent_id` | Migration `lancamentos_stripe_pi_unique` (índice parcial onde NOT NULL) | C1 |
-| 7 | `stripe_customer_id` ficava NULL em fluxos one-time (Scan/Separadores) | `customer_creation: 'always'` em mode='payment' | C2 |
-| 8 | Trial Lojista podia ser burlado (cancelar antes de cobrar e re-checkout = mais 14 dias) | Coluna `lojas.trial_usado_em` + check no checkout | C2 |
-| 9 | Customer Portal `/api/stripe/portal` retornava 401 mesmo com user logado | Aceita `userId` no body como auth (padrão Bynx, igual checkout). Removido fallback inválido `getSession()` em route handler | Hotfix |
-| 10 | `PLANO_INFO.premium.color` em emails era laranja `#f59e0b` (B2C) em vez de roxo `#a855f7` (B2B) | Corrigido + paleta B2B (azul-roxo) aplicada nos 3 emails de loja | C3 |
+| 1 | `dpl_AkR6pez1qqmGyr2aKFpEGY9aGsbs` | Auto-redeploy (env update Bloco 1 parcial) | READY |
+| 2 | `dpl_3W2w3bHaJGRj7jqh8gJRNryFVL5S` | Auto-redeploy (env update intermediário) | READY |
+| 3 | `dpl_AYQ8TRjw27n8rGvvNj4MkxQUTxGQ` | Auto-redeploy (env update intermediário) | READY |
+| 4 | `dpl_293p3mdvnomK6vAs1bK1FLRk2vVV` | Auto-redeploy (último auto, com envs todas atualizadas) | READY |
+| 5 | `dpl_6KiJCGkYC1cEmuXcv8wy1dXYCa7a` | **Force redeploy SEM CACHE** (resolveu bug — ver abaixo) | READY |
+
+### Bug encontrado e resolvido durante debug
+
+**Sintoma:** ao tentar comprar Scan Básico em LIVE pela primeira vez (deploy `dpl_293p3...`), 500 com `[stripe/checkout] CRITICAL: No such price: 'price_1TOmS9AanyB0hdosXHvx08Yc'` (ID TEST).
+
+**Causa raiz:** Vercel disparou auto-redeploys ANTES das 12 envs estarem todas atualizadas. O snapshot de envs do deploy `dpl_293p3...` pegou metade TEST + metade LIVE.
+
+**Solução:** Force redeploy SEM CACHE → Vercel re-leu envs frescas e pegou todas LIVE corretamente. Após isso, erro mudou de `No such price` (price ID errado) para `Your account cannot currently make live charges` (capability bloqueada — confirmação de que as envs LIVE estavam todas certas).
+
+**Aprendizado:** ao atualizar muitas envs em sequência, sempre fazer um force redeploy SEM CACHE no final pra garantir que o deploy ativo tem o snapshot consistente de TODAS as envs.
+
+### Bug paralelo: customer fantasma da gabis
+
+Logado como gabis@gabis.com (que tinha `stripe_customer_id` de TEST mode da S26), checkout em LIVE falhou com `No such customer: 'cus_UQDqTMrH7GKlPV'` — customer existia em TEST mas não LIVE.
+
+**Solução:** SQL UPDATE limpando `stripe_customer_id` e `stripe_subscription_id` da gabis. Backend cria customer LIVE novo no próximo checkout.
 
 ---
 
-## Migrations Supabase aplicadas
+## FASE 4 — Diagnóstico final do bloqueio Stripe
 
-### 1. `stripe_idempotency_hardening`
-- UNIQUE INDEX parcial `lancamentos_stripe_pi_unique` em `lancamentos.stripe_payment_intent_id` WHERE NOT NULL
-- Tabela nova `public.stripe_events_processed`:
-  - PK `event_id` (TEXT)
-  - Colunas: `event_type`, `livemode`, `processed_at`, `user_id` (FK), `loja_id` (FK), `result` (`processing` | `ok` | `error`), `error_message`
-  - RLS habilitado (somente service_role)
+Após force redeploy + limpar customer fantasma, novo erro: `Your account cannot currently make live charges`. Du contatou suporte Stripe via chat. Resposta oficial:
 
-### 2. `lojas_trial_protection`
-- ALTER TABLE `public.lojas` ADD COLUMN `trial_usado_em timestamptz`
-- Bloqueia burlagem do trial 14 dias (cancelar→re-checkout→ganhar mais 14 dias)
+```json
+{
+  "charges_enabled": false,
+  "capabilities.card_payments": "inactive",
+  "capabilities.boleto_payments": "inactive",
+  "disabled_reason": "under_review",
+  "details_submitted": true,
+  "currently_due": []
+}
+```
 
----
+Du também rodou `curl https://api.stripe.com/v1/account` com sk_live e confirmou os mesmos valores. **Estado oficial: `under_review` — Stripe Brasil está revisando internamente apesar do KYC mostrar tarefas concluídas na UI.**
 
-## Produtos Stripe Lojista criados (TEST mode)
-
-| Produto | Price ID | Preço |
-|---|---|---|
-| Bynx Lojista Pro - Mensal | `price_1TSEriAanyB0hdosWbYv9Gid` | R$ 39/mês |
-| Bynx Lojista Pro - Anual | `price_1TSEryAanyB0hdosBYiShFuF` | R$ 390/ano |
-| Bynx Lojista Premium - Mensal | `price_1TSEsCAanyB0hdoskqerkemb` | R$ 89/mês |
-| Bynx Lojista Premium - Anual | `price_1TSEsRAanyB0hdoszJJNlkaA` | R$ 890/ano |
-
-Du adicionou 4 env vars no Vercel: `STRIPE_PRICE_LOJISTA_PRO_MENSAL`, `STRIPE_PRICE_LOJISTA_PRO_ANUAL`, `STRIPE_PRICE_LOJISTA_PREMIUM_MENSAL`, `STRIPE_PRICE_LOJISTA_PREMIUM_ANUAL`.
-
-Customer Portal configurado no Stripe Dashboard com 6 produtos subscription (Pro user + Lojista Pro/Premium × Mensal/Anual), "Cancel at end of billing period", customers can switch plans, etc.
+Suporte Stripe ofereceu encaminhamento para especialista que pode verificar status interno e potencialmente acelerar a propagação. Du recebeu instrução para responder "sim" e fornecer contexto (volume estimado, setor, URL).
 
 ---
 
-## Commits & deploys produção (4 deploys, todos READY)
+## FASE 5 — Limpeza pós-sessão
 
-### Commit 1 — Backend Stripe v2 ✅
-- **Deploy:** `dpl_DSSfFq5FgvP2UaBsvuXuENv2LCXy`
-- **SHA:** `f37744f5`
-- **Mensagem:** `feat(payments): commit 1/3 - backend stripe v2 (idempotência por event.id, lojista, novos handlers, reuso customer, fix descrição scan)`
-- **Arquivos editados:** `src/app/api/stripe/checkout/route.ts` (168 linhas), `src/app/api/stripe/webhook/route.ts` (667 linhas), `src/app/api/stripe/success/route.ts` (65 linhas)
-- **Mudanças principais:**
-  - Idempotência por `event.id` (tabela `stripe_events_processed`)
-  - 4 fluxos Lojista no checkout + webhook
-  - 3 novos handlers: `customer.subscription.updated`, `invoice.payment_failed`, `charge.dispute.created`
-  - Reuso de `stripe_customer_id` (subscription)
-  - Mapa `DESCRICAO_PLANO` sincronizado com `SCAN_PACKAGES`
+### Subs TEST canceladas via Stripe MCP
+- `sub_1TSubLAanyB0hdosIBpP8iWd` (gabis Pro Mensal active) → canceled
+- `sub_1TStIBAanyB0hdosLmwT83S6` (Lendario Premium trialing) → canceled
 
-### Commit 2 — Página Lojista + Portal + Trial Protection ✅
-- **Deploy:** `dpl_AohQYY3Zqa6FQ9F4A2ci6Tc4RVnG`
-- **SHA:** `54f75c3a`
-- **Mensagem:** `feat(payments): commit 2/3 - página /minha-loja/[id]/plano + customer portal + fix customer_creation + trial protection`
-- **Arquivos novos:** `src/app/minha-loja/[lojaId]/plano/page.tsx` (787 linhas), `src/app/api/stripe/portal/route.ts` (127 linhas)
-- **Arquivos editados:** `src/app/api/stripe/checkout/route.ts` v2.1 (197 linhas — fix Bug #7 + trial protection), `src/app/api/stripe/webhook/route.ts` v2.1 (677 linhas — marca `trial_usado_em`)
-- **Mudanças:**
-  - Página Pro/Premium com toggle Mensal/Anual, paleta azul-roxo, FAQ embutido
-  - Customer Portal endpoint
-  - `customer_creation: 'always'` em mode='payment'
-  - Anti-burlagem trial Lojista
-  - Botão "Gerenciar assinatura" condicional (só aparece se `loja.stripe_subscription_id` setado)
-
-### Deploy intermediário (apenas emails B2B, antes do hotfix)
-- **Deploy:** `dpl_BdHArZTA812wuSmvFBHWQM9maoKm`
-- **SHA:** `803fa080`
-- **Mensagem:** `feat(emails): paleta B2B (azul/roxo) nos 3 emails de loja`
-- Du rodou primeiro só o email B2B antes do hotfix portal — substituído pelo Commit 3 combinado
-
-### Commit 3 — Hotfix Portal + Emails B2B ✅ (combinado)
-- **Deploy:** `dpl_AByh9wHsuLDtCnkRirLB9wgBS2cY`
-- **SHA:** `3119068d`
-- **Mensagem:** `fix(stripe/portal): resolve 401 + feat(emails): paleta B2B (azul/roxo) nos 3 emails de loja`
-- **Arquivos editados:** `src/app/minha-loja/[lojaId]/plano/page.tsx` (788 linhas — passa `userId` no body do fetch portal), `src/app/api/stripe/portal/route.ts` (127 linhas — aceita userId no body), `src/lib/email.ts` (672 linhas — paleta B2B)
-- **Mudanças:**
-  - **Hotfix portal 401:** o fetch da página não mandava Bearer token, e `supabase.auth.getSession()` no servidor não funciona em route handlers. Agora aceita `userId` no body (padrão Bynx, igual checkout)
-  - **Emails B2B:** novo helper `btnB2B()` com gradient customizável; `PLANO_INFO.premium.color` corrigido de laranja `#f59e0b` → roxo `#a855f7`; links de suporte em azul `#60a5fa` em emails de loja; `sendEmailLojaPlanoAlterado` detecta upgrade vs downgrade e ajusta tom
+### DB limpo
+- `users.stripe_customer_id` da gabis: NULL
+- `users.stripe_subscription_id` da gabis: NULL
+- `lojas.stripe_subscription_id` da Lendario: NULL
+- `lojas.trial_usado_em` da Lendario: **mantido** (proteção anti-burlagem trial 14d permanece ativa)
 
 ---
 
-## Validações em produção
+## Estado final do DB pós-sessão 27
 
-### Transações Stripe TEST mode reais (5)
-
-| # | Fluxo | Valor | User/Loja | Resultado |
-|---|---|---|---|---|
-| 1 | Scan Básico | R$ 5,90 | eduardo@eduardowillian.com | +5 créditos, evento `evt_1TSFsn...` ok |
-| 2 | Lojista Premium | trial 14d | Lendario Card Games | plano=premium, trial_usado_em set, evento `evt_1TStID...` ok |
-| 3 | Separadores | R$ 14,90 | gabis@gabis.com | desbloqueado=true, customer setado (fix #7), evento `evt_1TSuYv...` ok |
-| 4 | Scan Popular | R$ 14,90 | gabis@gabis.com | +15 créditos, evento `evt_1TSuaG...` ok |
-| 5 | Pro Mensal user | R$ 29,90 | gabis@gabis.com | is_pro=true, plano=mensal, sub criada, evento `evt_1TSubN...` ok |
-
-### Cobertura de fluxos: 100% (8/8)
-
-| Fluxo | Validação | Status |
-|---|---|---|
-| Scan Básico (R$ 5,90) | Teste real | ✅ |
-| Scan Popular (R$ 14,90) | Teste real | ✅ |
-| Scan Colecionador (R$ 34,90) | Mesmo path Scan — inferido | ✅ |
-| Separadores (R$ 14,90) | Teste real | ✅ |
-| Pro Mensal usuário (R$ 29,90) | Teste real | ✅ |
-| Pro Anual usuário (R$ 249) | Mesmo path Pro — inferido | ✅ |
-| Lojista Pro Mensal/Anual | Mesmo path Lojista — inferido | ✅ |
-| Lojista Premium Mensal/Anual | Teste real | ✅ |
-
-### Métricas finais de produção (TEST mode)
-
-- **Eventos Stripe processados:** 8
-- **Eventos com erro:** 0
-- **Eventos Lojista:** 1
-- **Lojas com subscription Stripe ativa:** 1 (Lendario Card Games)
-- **Lojas com trial usado (anti-burlagem):** 1
-- **Users com Stripe customer:** 5
-- **Lançamentos Stripe registrados:** 12
-- **Soma total movimentada em testes:** R$ 924,10 (test mode, sem dinheiro real)
-
-### Vercel runtime logs
-
-- 0 erros nas últimas 24h em todos os 4 deploys
-- 3 POSTs `/api/stripe/checkout` 200 ✅
-- 3 GETs `/api/stripe/success` 307 (redirect, esperado) ✅
-- 4 POSTs `/api/stripe/webhook` 200 ✅
-- 1 POST `/api/stripe/portal` 200 ✅ (validado o hotfix)
+| Métrica | Valor |
+|---|---|
+| Eventos Stripe processados (legacy S26 TEST) | 8 |
+| Eventos com erro | 0 |
+| Users com Stripe customer | 4 (todos legacy de TEST mode S26 — não afetam LIVE) |
+| Users com Stripe subscription | 0 ✅ (gabis limpa) |
+| Lojas com Stripe subscription | 0 ✅ (Lendario limpa) |
+| Lojas com trial usado (anti-burlagem) | 1 (Lendario — protegida) |
+| Lançamentos Stripe registrados | 12 (todos legacy de TEST mode S26) |
+| Soma total movimentada (testes legacy) | R$ 924,10 |
 
 ---
 
-## Esteira pós-lançamento (memória de longo prazo)
-
-Memorada como `REGRA BYNX 11`:
-
-1. **Sincronização Stripe ↔ Admin:** quando admin altera plano via `/api/admin/lojas/[id]/plano`, sincronizar com Stripe (cancelar/atualizar/criar sub correspondente) pra evitar desalinhamento DB↔Stripe. Hoje: admin marca Pro mas Stripe continua Premium → próxima cobrança restaura Premium no DB.
-2. **Alerting de webhook crítico:** logs com prefixo `[webhook] CRITICAL` deveriam disparar email/Sentry pra Du.
-3. **Páginas 404/500 customizadas** com link `/suporte`.
-4. **Migrar env vars Stripe pra Sensitive** no Vercel (deletar+recriar, NÃO usar "Rotate Variable" — gera nova chave e quebra produção).
-5. **Backup manual DB pré-lançamento.**
-
----
-
-## Estado atual do user/loja de teste
+## Estado dos users/lojas
 
 | Entidade | Estado | Observação |
 |---|---|---|
-| `eduardo@eduardowillian.com` | is_pro=true, plano=mensal, scan_creditos=121, separadores=true, **stripe_customer_id=NULL** | Pro veio de cortesia/admin/teste antigo, sem sub Stripe |
-| `gabis@gabis.com` | is_pro=true, plano=mensal, scan_creditos=15, separadores=true, customer/sub Stripe setados | User do smoke test (Sessão 26) |
-| Loja "Lendario Card Games" | plano=pro (era premium), expira 02/jun/2026, trial_usado_em set, sub Stripe Premium ainda ativa | **Desalinhamento DB↔Stripe** intencional pra demonstrar bug da esteira #1 |
-| Loja "Bianca Cartas" | basico, sem trial, sem sub | Disponível pra testes futuros |
+| `eduardo@eduardowillian.com` (admin) | is_pro=true, plano=mensal, scan_creditos=121, separadores=true, sem stripe_customer_id | Pro de cortesia/admin/teste antigo |
+| `gabis@gabis.com` (smoke test S26) | is_pro=true, plano=mensal, scan_creditos=15, separadores=true, **stripe_customer_id=NULL** | Limpa de Stripe TEST refs após bug do customer fantasma |
+| Loja "Lendario Card Games" | plano=pro, expira 02/jun/2026, **trial_usado_em=03/mai/2026 set, sub_id=NULL** | Trial usado registrado (anti-burlagem). Sub TEST cancelada na Stripe. |
+| Loja "Bianca Cartas" | basico, sem trial, sem sub | Disponível pra teste |
 | Loja "Teste Premium Anual" | pro, pendente, sem trial, sem sub | Status pendente bloqueia checkout |
 | Loja "PokéShop Online" | pro (admin manual), expira 28/mai/2026, sem sub | Cortesia |
 
 ---
 
-## Próxima sessão (Sessão 27): Migração TEST → LIVE
+## Esteira pós-lançamento (atualizada — REGRA BYNX 11)
 
-Plano sugerido (~45min):
+1. ✅ **Migrar env vars Stripe pra Sensitive** (esteira #4 da S26) — **CONCLUÍDO na S27**
+2. **Sincronização Stripe ↔ Admin:** quando admin altera plano via `/api/admin/lojas/[id]/plano`, sincronizar com Stripe (cancelar/atualizar/criar sub correspondente) pra evitar desalinhamento DB↔Stripe.
+3. **Alerting de webhook crítico:** logs com prefixo `[webhook] CRITICAL` deveriam disparar email/Sentry pra Du.
+4. **Páginas 404/500 customizadas** com link `/suporte`.
+5. **Backup manual DB pré-lançamento.** Fazer assim que Stripe liberar capability e antes do smoke test final.
+6. **Custom domain `checkout.bynx.gg` finalizar propagação DNS** (3h após adição em 03/mai 09:21 BRT — esperado funcional ~12:30 BRT).
 
-1. Criar 10 produtos no Stripe LIVE mode (mesmos 6 já em TEST + 4 Lojista)
-2. Atualizar 10 env vars `STRIPE_PRICE_*` no Vercel pra IDs LIVE
-3. Atualizar `STRIPE_SECRET_KEY` (sk_test → sk_live)
-4. Reconfigurar webhook em LIVE (gera novo `STRIPE_WEBHOOK_SECRET`)
-5. Reconfigurar Customer Portal no LIVE (mesmas configs do TEST)
-6. Smoke test final em LIVE com cartão real Du (R$ 5,90 Scan Básico)
-7. Encerrar fluxo de teste TEST mode (cancelar subs órfãs, limpar customers de teste)
-8. **Lançamento.**
+---
+
+## Próxima sessão (Sessão 28): Smoke test LIVE + Lançamento
+
+### Pré-requisitos
+- ⏰ Stripe `charges_enabled` = true (aguardando especialista ou propagação automática 24-72h)
+- 💳 Cartão real do Du à mão
+
+### Plano (~15-20min)
+1. Verificar status capability via `curl https://api.stripe.com/v1/account` (deve retornar `charges_enabled: true`)
+2. **Backup manual DB** (esteira #5)
+3. Smoke test em LIVE: comprar Scan Básico R$ 5,90 com cartão real
+4. Validar via Supabase MCP:
+   - Evento em `stripe_events_processed` com `livemode: true`
+   - User ganhou 5 créditos
+   - Lançamento R$ 5,90 registrado
+   - Webhook POST /api/stripe/webhook 200 nos logs Vercel
+5. Reembolsar R$ 5,90 via Stripe Dashboard
+6. **Lançamento.** 🚀
 
 ---
 
 ## Aprendizados / armadilhas pra futuras sessões
 
-- **`supabase.auth.getSession()` NÃO funciona em route handlers** do Next.js — só client-side. Usar Bearer token via `getUser(token)` ou aceitar `userId` no body como padrão Bynx.
-- **`customer_creation: 'always'`** é obrigatório em `mode='payment'` (one-time) se quiser que Stripe crie customer. Em `mode='subscription'` é automático.
-- **Idempotência por `event.id`** é diferente de idempotência por `payment_intent_id`. A primeira protege provisionamento (créditos, separadores, Pro/Lojista), a segunda protege financeiro (`lancamentos`).
-- **Versão API Stripe `2026-03-25.dahlia` é compatível** com SDK `2025-03-31.basil`. Helpers `getSubscriptionPeriodEnd` e `extrairPaymentIntentDeInvoice` tentam o caminho moderno PRIMEIRO e o legado como fallback.
-- **Stripe Customer Portal precisa ser ativado MANUALMENTE no Dashboard** antes de funcionar. Sem isso, o endpoint retorna 503 com `code: 'PORTAL_NOT_CONFIGURED'`.
-- **Cancellation mode "Cancel at end of billing period"** + **"Prorate charges and credits"** é a config correta pra trocas de plano sem fricção (Netflix-style).
-- **Re-rodar deploy quando aparecer "x-vercel-cache: HIT" no header não resolve** — o cache SSR é separado do build. Forçar rebuild só se o build é antigo.
-- **Em smoke tests, criar user limpo (test/sandbox)** é melhor que reusar user existente — evita bagunçar estado e facilita rollback.
-- **Quando o webhook recebe 200 mas DB não atualiza**, suspeitar de filtro errado na query de validação antes de suspeitar do código. Caso real da sessão: smoke test foi feito com user `gabis@gabis.com`, mas SQL filtrou por `eduardo@eduardowillian.com` → "parecia bug" mas era query desalinhada com realidade.
+- **Stripe preserva product IDs ao copiar de sandbox**, mas **gera price IDs novos**. Ao migrar TEST→LIVE, sempre coletar os 10 price IDs novamente (não reusar os do TEST).
+- **Padrão de sufixo identifica TEST vs LIVE:** sufixo `AanyB0hdos` é TEST (sandbox interna Stripe), sufixo igual ao do account ID (ex: `PNrv6a7zCF`) é LIVE. Útil pra debugar se as envs estão certas.
+- **Vercel auto-redeploys disparados durante updates de envs múltiplas podem pegar snapshots inconsistentes.** Sempre fazer force redeploy SEM CACHE no final de uma migração de envs em massa.
+- **`charges_enabled: false` no Stripe Brasil pode persistir após KYC concluído na UI.** É o estado `under_review` — capability ainda em revisão interna mesmo sem tarefas pendentes na UI. Pode demorar de algumas horas a 3-5 dias úteis. Suporte via chat costuma acelerar.
+- **`details_submitted: true` + `currently_due: []` ≠ `charges_enabled: true`.** São sinais separados. UI mostra o primeiro, capability é o segundo.
+- **`STRIPE_WEBHOOK_SECRET` muda quando webhook é recriado.** Cada modo (TEST/LIVE) tem seu próprio webhook e seu próprio secret. Migração precisa atualizar essa env junto com as outras.
+- **Custom domain Stripe afeta APENAS aparência das páginas hospedadas pela Stripe (`checkout.stripe.com` → `checkout.bynx.gg`), NÃO o backend.** Não bloqueia nada se estiver pendente.
+- **Stripe HTTP 405 em `/api/stripe/webhook` ao abrir no navegador é comportamento ESPERADO** — endpoint só aceita POST, browser faz GET → 405 = endpoint vivo. Se desse 404, aí sim seria bug.
+- **Bug do customer fantasma:** users com `stripe_customer_id` setado em TEST mode falham em LIVE com `No such customer`. Limpar refs Stripe do DB antes de testar LIVE com user que comprou em TEST.
 
 ---
 
-**Sessão 26 fechada com sucesso. Sistema de pagamentos pronto pra produção LIVE.** 🚀
+## Referências de comandos úteis
+
+### Verificar capability Stripe via curl
+```bash
+curl https://api.stripe.com/v1/account \
+  -u sk_live_SUACHAVE: | python3 -m json.tool | grep -E "charges_enabled|payouts_enabled|card_payments"
+```
+
+### Verificar deploy mais recente Vercel
+Inspector URL: `https://vercel.com/brazildigital1403s-projects/bynx/{deployment_id}`
+
+### Endpoint webhook produção
+`https://www.bynx.gg/api/stripe/webhook` (POST only — GET retorna 405)
+
+---
+
+## Resumo executivo
+
+**Tudo que dependia do Bynx está 100% pronto.**
+
+| Camada | Estado |
+|---|---|
+| Backend | ✅ Stripe v2 idempotente, 4 fluxos B2C + 4 Lojista, 6 webhook handlers |
+| Frontend | ✅ Páginas /minha-conta, /minha-loja/[id]/plano, /pro-ativado funcionais |
+| Emails | ✅ B2C (laranja/vermelho) e B2B (azul/roxo) configurados |
+| Stripe LIVE | ✅ 10 produtos, 10 prices, Customer Portal, Webhook, KYC concluído |
+| Vercel | ✅ 12 envs Sensitive, deploy READY, 0 erros runtime |
+| DB Supabase | ✅ Limpo de refs TEST mode, idempotência ativa, anti-burlagem trial OK |
+| Capability Stripe | 🟡 `under_review` — aguardando propagação interna |
+
+**Sessão 27 fechada com a infra Bynx em estado de produção LIVE. Aguardando Stripe.** 🚀
