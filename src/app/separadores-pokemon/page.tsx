@@ -227,7 +227,7 @@ export default function SeparadoresPokemonPage() {
                   <path d="M16.5 6.5L8 15l-4.5-4.5" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <span>
-                  <strong style={{ color: '#f0f0f0' }}>Download imediato</strong> · Imprima quantas vezes quiser · 7 dias de garantia
+                  <strong style={{ color: '#f0f0f0' }}>Download imediato</strong> · Imprima quantas vezes quiser · Sem assinatura
                 </span>
               </div>
             </div>
@@ -248,18 +248,24 @@ export default function SeparadoresPokemonPage() {
 
                 <div style={S.previewGrid}>
                   {[
-                    { id: 1, name: 'Bulbasaur', color: '#22c55e' },
-                    { id: 2, name: 'Ivysaur',   color: '#22c55e' },
-                    { id: 3, name: 'Venusaur',  color: '#22c55e' },
-                    { id: 4, name: 'Charmander', color: '#ef4444' },
-                    { id: 5, name: 'Charmeleon', color: '#ef4444' },
-                    { id: 6, name: 'Charizard',  color: '#ef4444' },
-                    { id: 7, name: 'Squirtle',   color: '#60a5fa' },
-                    { id: 8, name: 'Wartortle',  color: '#60a5fa' },
-                    { id: 9, name: 'Blastoise',  color: '#60a5fa' },
+                    { id: 1, name: 'Bulbasaur' },
+                    { id: 2, name: 'Ivysaur' },
+                    { id: 3, name: 'Venusaur' },
+                    { id: 4, name: 'Charmander' },
+                    { id: 5, name: 'Charmeleon' },
+                    { id: 6, name: 'Charizard' },
+                    { id: 7, name: 'Squirtle' },
+                    { id: 8, name: 'Wartortle' },
+                    { id: 9, name: 'Blastoise' },
                   ].map(p => (
                     <div key={p.id} style={S.previewCell}>
-                      <div style={{ ...S.previewCellDot, background: p.color }} />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${p.id}.png`}
+                        alt={p.name}
+                        loading="lazy"
+                        style={S.previewCellImg}
+                      />
                       <div style={S.previewCellNum}>#{String(p.id).padStart(3, '0')}</div>
                       <div style={S.previewCellName}>{p.name}</div>
                     </div>
@@ -345,7 +351,23 @@ export default function SeparadoresPokemonPage() {
                   <div style={S.genCardBody}>
                     <div style={S.genCardRegion}>{gen.region}</div>
                     <div style={S.genCardCount}>{gen.to - gen.from + 1} Pokémons</div>
-                    <div style={S.genCardExamples}>{gen.examples}</div>
+
+                    <div style={S.genCardTop}>
+                      {gen.top.map(p => (
+                        <div key={p.id} style={S.genCardPokemon}>
+                          <div style={{ ...S.genCardPokemonImgWrap, background: `${gen.color}10`, borderColor: `${gen.color}30` }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${p.id}.png`}
+                              alt={p.name}
+                              loading="lazy"
+                              style={S.genCardPokemonImg}
+                            />
+                          </div>
+                          <div style={S.genCardPokemonName}>{p.name}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <div style={{ ...S.genCardBar, background: gen.color }} />
                 </div>
@@ -411,15 +433,6 @@ export default function SeparadoresPokemonPage() {
               <Link href="/cadastro?next=/separadores" style={S.priceCta}>
                 Comprar agora — R$ 14,90
               </Link>
-
-              <div style={S.priceGuarantee}>
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8L10 2z" stroke="#22c55e" strokeWidth="1.5" strokeLinejoin="round" />
-                </svg>
-                <span>
-                  <strong style={{ color: '#f0f0f0' }}>Garantia de 7 dias.</strong> Não gostou? Devolvemos seu dinheiro, sem perguntas.
-                </span>
-              </div>
             </div>
           </div>
         </section>
@@ -515,7 +528,7 @@ function FeatureLine({ children }: { children: React.ReactNode }) {
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   return (
-    <details style={S.faqItem}>
+    <details name="bynx-faq" style={S.faqItem}>
       <summary className="sp-faq-summary" style={S.faqSummary}>
         {question}
         <svg className="sp-faq-chevron" width="14" height="14" viewBox="0 0 20 20" fill="none" style={S.faqChevron}>
@@ -530,15 +543,42 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 // ─── Dados ────────────────────────────────────────────────────────────────────
 
 const GENERATIONS = [
-  { short: 'GEN 1', region: 'Kanto',  from: 1,    to: 151,  color: '#ef4444', examples: 'Pikachu, Charizard, Mewtwo' },
-  { short: 'GEN 2', region: 'Johto',  from: 152,  to: 251,  color: '#f59e0b', examples: 'Lugia, Ho-Oh, Tyranitar' },
-  { short: 'GEN 3', region: 'Hoenn',  from: 252,  to: 386,  color: '#22c55e', examples: 'Rayquaza, Blaziken, Gardevoir' },
-  { short: 'GEN 4', region: 'Sinnoh', from: 387,  to: 493,  color: '#3b82f6', examples: 'Lucario, Garchomp, Arceus' },
-  { short: 'GEN 5', region: 'Unova',  from: 494,  to: 649,  color: '#a855f7', examples: 'Reshiram, Zekrom, Hydreigon' },
-  { short: 'GEN 6', region: 'Kalos',  from: 650,  to: 721,  color: '#06b6d4', examples: 'Greninja, Sylveon, Xerneas' },
-  { short: 'GEN 7', region: 'Alola',  from: 722,  to: 809,  color: '#f97316', examples: 'Decidueye, Lunala, Necrozma' },
-  { short: 'GEN 8', region: 'Galar',  from: 810,  to: 905,  color: '#dc2626', examples: 'Cinderace, Zacian, Eternatus' },
-  { short: 'GEN 9', region: 'Paldea', from: 906,  to: 1025, color: '#84cc16', examples: 'Koraidon, Miraidon, Pecharunt' },
+  {
+    short: 'GEN 1', region: 'Kanto',  from: 1,    to: 151,  color: '#ef4444',
+    top: [{ id: 25, name: 'Pikachu' }, { id: 6, name: 'Charizard' }, { id: 150, name: 'Mewtwo' }],
+  },
+  {
+    short: 'GEN 2', region: 'Johto',  from: 152,  to: 251,  color: '#f59e0b',
+    top: [{ id: 249, name: 'Lugia' }, { id: 250, name: 'Ho-Oh' }, { id: 248, name: 'Tyranitar' }],
+  },
+  {
+    short: 'GEN 3', region: 'Hoenn',  from: 252,  to: 386,  color: '#22c55e',
+    top: [{ id: 384, name: 'Rayquaza' }, { id: 257, name: 'Blaziken' }, { id: 282, name: 'Gardevoir' }],
+  },
+  {
+    short: 'GEN 4', region: 'Sinnoh', from: 387,  to: 493,  color: '#3b82f6',
+    top: [{ id: 448, name: 'Lucario' }, { id: 445, name: 'Garchomp' }, { id: 493, name: 'Arceus' }],
+  },
+  {
+    short: 'GEN 5', region: 'Unova',  from: 494,  to: 649,  color: '#a855f7',
+    top: [{ id: 643, name: 'Reshiram' }, { id: 644, name: 'Zekrom' }, { id: 635, name: 'Hydreigon' }],
+  },
+  {
+    short: 'GEN 6', region: 'Kalos',  from: 650,  to: 721,  color: '#06b6d4',
+    top: [{ id: 658, name: 'Greninja' }, { id: 700, name: 'Sylveon' }, { id: 716, name: 'Xerneas' }],
+  },
+  {
+    short: 'GEN 7', region: 'Alola',  from: 722,  to: 809,  color: '#f97316',
+    top: [{ id: 724, name: 'Decidueye' }, { id: 792, name: 'Lunala' }, { id: 800, name: 'Necrozma' }],
+  },
+  {
+    short: 'GEN 8', region: 'Galar',  from: 810,  to: 905,  color: '#dc2626',
+    top: [{ id: 815, name: 'Cinderace' }, { id: 888, name: 'Zacian' }, { id: 890, name: 'Eternatus' }],
+  },
+  {
+    short: 'GEN 9', region: 'Paldea', from: 906,  to: 1025, color: '#84cc16',
+    top: [{ id: 1007, name: 'Koraidon' }, { id: 1008, name: 'Miraidon' }, { id: 1025, name: 'Pecharunt' }],
+  },
 ]
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
@@ -719,11 +759,12 @@ const S: Record<string, CSSProperties> = {
     gap: 3,
     position: 'relative',
   },
-  previewCellDot: {
-    width: 24,
-    height: 24,
-    borderRadius: '50%',
+  previewCellImg: {
+    width: 56,
+    height: 56,
+    objectFit: 'contain',
     marginBottom: 2,
+    imageRendering: 'auto' as CSSProperties['imageRendering'],
   },
   previewCellNum: {
     fontSize: 9,
@@ -934,13 +975,41 @@ const S: Record<string, CSSProperties> = {
   genCardCount: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.5)',
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  genCardExamples: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
-    fontStyle: 'italic',
-    lineHeight: 1.5,
+  genCardTop: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 8,
+  },
+  genCardPokemon: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 6,
+  },
+  genCardPokemonImgWrap: {
+    width: '100%',
+    aspectRatio: '1 / 1',
+    borderRadius: 10,
+    border: '1px solid',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 6,
+  },
+  genCardPokemonImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain' as CSSProperties['objectFit'],
+  },
+  genCardPokemonName: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    letterSpacing: '-0.01em',
+    lineHeight: 1.3,
   },
   genCardBar: {
     height: 3,
@@ -1075,17 +1144,6 @@ const S: Record<string, CSSProperties> = {
     width: '100%',
     boxSizing: 'border-box',
     textAlign: 'center',
-  },
-  priceGuarantee: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 18,
-    lineHeight: 1.4,
-    position: 'relative',
   },
 
   // ─── FAQ ─────────────────────────────────────────────

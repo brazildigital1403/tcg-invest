@@ -138,6 +138,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             <Link href="/lojas" style={S.navLinkAnchor}>
               🏪 Guia de Lojas
             </Link>
+            <Link href="/separadores-pokemon" style={S.navLinkAnchor}>
+              📒 Separadores
+            </Link>
             <Link href="/para-lojistas" style={S.navLinkAnchor}>
               Para lojistas
             </Link>
@@ -220,6 +223,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
 
             <Link href="/lojas" onClick={closeMobile} style={S.mobileMenuItemLink}>
               🏪 Guia de Lojas
+            </Link>
+            <Link href="/separadores-pokemon" onClick={closeMobile} style={S.mobileMenuItemLink}>
+              📒 Separadores
             </Link>
             <Link href="/para-lojistas" onClick={closeMobile} style={S.mobileMenuItemLink}>
               Para lojistas
