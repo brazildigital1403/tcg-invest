@@ -5,6 +5,21 @@ const FROM = 'Bynx <noreply@bynx.gg>'
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 
+// ── Paletas ──────────────────────────────────────────────────────────────────
+//
+// Cores oficiais por contexto:
+// - B2C (app principal — usuário Pro, Scan, Separadores, Trials, Tickets):
+//     gradient laranja-vermelho '#f59e0b → #ef4444'
+// - B2B (Loja — aprovação, suspensão, mudança de plano, ativação assinatura):
+//     gradient base azul-roxo '#60a5fa → #a855f7' (Pro)
+//     gradient premium '#a855f7 → #ec4899'
+//
+// Cores de link em emails B2B usam azul `#60a5fa` em vez de laranja.
+
+const B2B_GRADIENT_PRO     = 'linear-gradient(135deg,#60a5fa,#a855f7)'
+const B2B_GRADIENT_PREMIUM = 'linear-gradient(135deg,#a855f7,#ec4899)'
+const B2B_LINK_COLOR       = '#60a5fa'
+
 // ── Layout base ───────────────────────────────────────────────────────────────
 
 function baseLayout(content: string, preheader = '') {
@@ -78,6 +93,8 @@ function baseLayout(content: string, preheader = '') {
 </html>`
 }
 
+// ── Botão B2C (laranja-vermelho) — app principal ─────────────────────────────
+
 function btn(label: string, href: string, color = '#f59e0b') {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px auto 0;">
     <tr>
@@ -85,6 +102,28 @@ function btn(label: string, href: string, color = '#f59e0b') {
         <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="25%" stroke="f" fillcolor="#f59e0b"><w:anchorlock/><center style="color:#000000;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${label}</center></v:roundrect><![endif]-->
         <!--[if !mso]><!-->
         <a href="${href}" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#ef4444);border-radius:12px;color:#000;font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap;padding:14px 32px;font-family:Arial,sans-serif;">${label}</a>
+        <!--<![endif]-->
+      </td>
+    </tr>
+  </table>`
+}
+
+// ── Botão B2B (gradiente customizável) — emails de Loja ──────────────────────
+//
+// Uso:
+//   btnB2B('Acessar minha loja', '...')                          → gradiente Pro azul→roxo (default)
+//   btnB2B('Acessar minha loja', '...', B2B_GRADIENT_PREMIUM)    → gradiente Premium roxo→pink
+//   btnB2B('Acessar minha loja', '...', 'linear-gradient(...)')  → custom gradient
+//
+// MSO fallback: cor sólida do meio do gradient (#a855f7 default, #c027b9 premium).
+
+function btnB2B(label: string, href: string, gradient: string = B2B_GRADIENT_PRO, msoSolidColor: string = '#8b5cf6') {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px auto 0;">
+    <tr>
+      <td align="center" bgcolor="${msoSolidColor}" style="background-color:${msoSolidColor};border-radius:12px;mso-padding-alt:0;">
+        <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="25%" stroke="f" fillcolor="${msoSolidColor}"><w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${label}</center></v:roundrect><![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${href}" style="display:inline-block;background:${gradient};border-radius:12px;color:#fff;font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap;padding:14px 32px;font-family:Arial,sans-serif;">${label}</a>
         <!--<![endif]-->
       </td>
     </tr>
@@ -294,6 +333,12 @@ export async function sendTicketStatusChangedEmail(args: {
   return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] ${info.label}: ${args.subject}`, html })
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// EMAILS B2B — LOJAS
+// Usam paleta azul-roxo: gradient `#60a5fa → #a855f7` (Pro) ou `#a855f7 → #ec4899` (Premium).
+// Links de contato em azul `#60a5fa` em vez de laranja.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── 9. LOJAS — loja aprovada (para o owner) ──────────────────────────────────
 
 export async function sendEmailLojaAprovada(args: {
@@ -315,22 +360,25 @@ export async function sendEmailLojaAprovada(args: {
     ${divider()}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
       <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Página pública</td></tr>
-      <tr><td style="padding:0 18px 12px;font-size:13px;font-family:Arial,sans-serif;"><a href="${urlPublica}" style="color:#f59e0b;text-decoration:none;word-break:break-all;">${urlPublica}</a></td></tr>
+      <tr><td style="padding:0 18px 12px;font-size:13px;font-family:Arial,sans-serif;"><a href="${urlPublica}" style="color:${B2B_LINK_COLOR};text-decoration:none;word-break:break-all;">${urlPublica}</a></td></tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Painel de edição</td></tr>
-      <tr><td style="padding:0 18px 14px;font-size:13px;font-family:Arial,sans-serif;"><a href="${urlEdicao}" style="color:#f59e0b;text-decoration:none;">${urlEdicao}</a></td></tr>
+      <tr><td style="padding:0 18px 14px;font-size:13px;font-family:Arial,sans-serif;"><a href="${urlEdicao}" style="color:${B2B_LINK_COLOR};text-decoration:none;">${urlEdicao}</a></td></tr>
     </table>
-    ${btn('Abrir minha loja →', urlEdicao)}
+    ${btnB2B('Abrir minha loja →', urlEdicao)}
     ${divider()}
-    ${p('<strong style="color:#f59e0b;">⭐ Seu trial Pro de 14 dias começou agora.</strong> Aproveita pra colocar fotos, redes sociais e deixar tudo bonito antes dos clientes chegarem.')}
+    ${p('<strong style="color:#60a5fa;">⭐ Seu trial Pro de 14 dias começou agora.</strong> Aproveita pra colocar fotos, redes sociais e deixar tudo bonito antes dos clientes chegarem.')}
     ${p('Depois dos 14 dias, você escolhe se quer continuar no <strong style="color:#f0f0f0;">Pro (R$ 39/mês)</strong> ou voltar pro <strong style="color:#f0f0f0;">Básico (grátis)</strong>.')}
-    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
 
   return resend.emails.send({ from: FROM, to: args.to, subject: `🎉 Sua loja foi aprovada no Bynx!`, html })
 }
 
 // ── 10. LOJAS — loja suspensa (para o owner) ─────────────────────────────────
+//
+// Mantém vermelho como cor de alerta (universal). Só os links de contato
+// usam azul B2B em vez de laranja, pra coerência com o restante dos emails de loja.
 
 export async function sendEmailLojaSuspensa(args: {
   to: string
@@ -352,30 +400,60 @@ export async function sendEmailLojaSuspensa(args: {
     ${divider()}
     ${p('Enquanto suspensa, sua loja <strong style="color:#ef4444;">não aparece</strong> no guia público. Para contestar ou pedir a reativação, é só responder este email explicando o que mudou.')}
     ${p('Nossa equipe analisa todos os pedidos e responde em até 48 horas úteis.')}
-    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi suspensa no Bynx`)
 
   return resend.emails.send({ from: FROM, to: args.to, subject: `Sua loja foi suspensa no Bynx`, html })
 }
 
-// ── 11. LOJAS — plano alterado pelo admin (para o owner) ─────────────────────
+// ── 11. LOJAS — plano alterado (para o owner) ────────────────────────────────
+//
+// Disparado por:
+//   - Admin via /api/admin/lojas/[id]/plano (concessão manual)
+//   - Webhook Stripe via checkout.session.completed (assinatura comprada)
+//
+// Cores agora são B2B-coerentes:
+//   - Pro:     `#60a5fa` (azul) — gradient `#60a5fa → #a855f7`
+//   - Premium: `#a855f7` (roxo) — gradient `#a855f7 → #ec4899`
+//   - Básico:  cinza neutro
 
-const PLANO_INFO: Record<string, { label: string; color: string; descricao: string; emoji: string }> = {
+const PLANO_INFO: Record<string, {
+  label: string
+  color: string
+  bgColor: string
+  borderColor: string
+  gradient: string
+  msoSolid: string
+  descricao: string
+  emoji: string
+}> = {
   basico: {
     label: 'Básico',
     color: 'rgba(255,255,255,0.7)',
+    bgColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    gradient: 'linear-gradient(135deg,#9ca3af,#6b7280)',
+    msoSolid: '#6b7280',
     emoji: '📋',
     descricao: 'Listagem gratuita no Guia. Você pode fazer upgrade a qualquer momento para desbloquear fotos, redes sociais e mais visibilidade.',
   },
   pro: {
     label: 'Pro',
     color: '#60a5fa',
+    bgColor: 'rgba(96,165,250,0.10)',
+    borderColor: 'rgba(96,165,250,0.30)',
+    gradient: B2B_GRADIENT_PRO,
+    msoSolid: '#7c83f8',
     emoji: '⭐',
     descricao: 'Até 5 fotos, redes sociais, especialidades ilimitadas e destaque acima do Básico no Guia.',
   },
   premium: {
     label: 'Premium',
-    color: '#f59e0b',
+    color: '#a855f7',
+    bgColor: 'rgba(168,85,247,0.10)',
+    borderColor: 'rgba(168,85,247,0.30)',
+    gradient: B2B_GRADIENT_PREMIUM,
+    msoSolid: '#c47ce0',
     emoji: '👑',
     descricao: 'Até 10 fotos, eventos e torneios, analytics e rotação no topo da listagem.',
   },
@@ -420,7 +498,7 @@ export async function sendEmailLojaPlanoAlterado(args: {
     ${h1(titulo)}
     ${p(introducao)}
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid ${cfgNovo.color}33;margin-top:16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid ${cfgNovo.borderColor};margin-top:16px;">
       <tr>
         <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
           Plano atual
@@ -449,10 +527,10 @@ export async function sendEmailLojaPlanoAlterado(args: {
 
     ${p(`<strong style="color:#f0f0f0;">O que isso significa:</strong> ${cfgNovo.descricao}`)}
 
-    ${btn('Acessar minha loja →', urlEdicao)}
+    ${btnB2B('Acessar minha loja →', urlEdicao, cfgNovo.gradient, cfgNovo.msoSolid)}
 
     ${divider()}
-    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida sobre essa mudança, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida sobre essa mudança, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, isUpgrade
     ? `Sua loja ${args.nomeLoja} foi promovida para ${cfgNovo.label}!`
     : `Plano da loja ${args.nomeLoja} foi atualizado para ${cfgNovo.label}`)
@@ -465,17 +543,15 @@ export async function sendEmailLojaPlanoAlterado(args: {
 }
 
 // ── 12. PURCHASE — confirmação de compra (após webhook Stripe) ───────────────
+//
+// Mantém paleta B2C (laranja-vermelho): cobre fluxos B2C apenas:
+//   - 'pro_mensal'   → assinatura Pro mensal ativada
+//   - 'pro_anual'    → assinatura Pro anual ativada
+//   - 'separadores'  → pacote de separadores PDF desbloqueado
+//   - 'scan_*'       → qualquer pacote de créditos de scan
+//
+// Fluxos B2B (Lojista) NÃO chamam essa função — usam sendEmailLojaPlanoAlterado.
 
-/**
- * Confirmação de compra. Chamada pelo webhook Stripe após `checkout.session.completed`.
- *
- * Tipos suportados:
- *   - 'pro_mensal'   → assinatura Pro mensal ativada
- *   - 'pro_anual'    → assinatura Pro anual ativada
- *   - 'separadores'  → pacote de separadores PDF desbloqueado
- *   - 'scan_*'       → qualquer pacote de créditos de scan (ex: scan_popular, scan_starter, scan_pro)
- *   - default        → fallback genérico
- */
 export async function sendPurchaseConfirmationEmail(
   to: string,
   name: string,
