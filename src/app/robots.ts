@@ -21,6 +21,9 @@ export default function robots(): MetadataRoute.Robots {
           '/marketplace',
           '/lojas',
           '/perfil/',
+          '/para-lojistas',
+          '/separadores',
+          '/separadores-pokemon',
         ],
         disallow: [
           '/minha-colecao',

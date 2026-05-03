@@ -49,8 +49,19 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 0.85,
   },
   {
-    // Landing de produto pago (Separadores de Fichário). Renderiza preview
-    // de 9 Pokémons + CTA mesmo deslogada — indexável, tipo App Store listing.
+    // Landing SEO/Ads — Separadores Pokémon TCG. Página pública e
+    // indexável focada em ranquear "separadores fichario pokemon" e
+    // direcionar tráfego pago (Google Ads, Meta Ads). Funil: ver → cadastrar
+    // → comprar produto avulso R$ 14,90.
+    url: `${BASE}/separadores-pokemon`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.85,
+  },
+  {
+    // Página de produto pago (gerador interno de Separadores). Renderiza
+    // preview de 9 Pokémons + CTA mesmo deslogada — indexável, tipo App
+    // Store listing.
     url: `${BASE}/separadores`,
     lastModified: new Date(),
     changeFrequency: 'monthly',
