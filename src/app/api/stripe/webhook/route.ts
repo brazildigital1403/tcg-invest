@@ -1,6 +1,11 @@
 // src/app/api/stripe/webhook/route.ts
 //
-// R7-PAY Commit 1 — Refatoração 30/abril/2026
+// R7-PAY Commit 2 — 30/abril/2026 (v2.1)
+//
+// Mudança vs v2 (Commit 1):
+// - Marca lojas.trial_usado_em quando subscription.status === 'trialing' no
+//   checkout.session.completed. Impede que cliente cancele e re-crie trial
+//   indefinidamente. Validação no /api/stripe/checkout antes de criar a session.
 //
 // Mudanças vs v1:
 // 1. Idempotência por event.id (tabela stripe_events_processed)
@@ -387,11 +392,16 @@ export async function POST(req: NextRequest) {
               .limit(1)
             const planoAnterior = (lojaAtual?.[0]?.plano || 'basico') as 'basico' | 'pro' | 'premium'
 
+            // Se a sub veio com trial ativo (subscription.status === 'trialing'),
+            // marca trial_usado_em pra impedir re-uso futuro do trial nessa loja.
+            const consumiuTrial = (subscription as any).status === 'trialing'
+
             await supabase.from('lojas').update({
               plano: tier,
               ...(expiraEm ? { plano_expira_em: expiraEm } : {}),
               stripe_customer_id: session.customer as string,
               stripe_subscription_id: session.subscription as string,
+              ...(consumiuTrial ? { trial_usado_em: new Date().toISOString() } : {}),
             }).eq('id', lojaId)
 
             console.log(`[webhook] Lojista ${tier} ativado pra loja ${lojaId} (expira ${expiraEm || '?'})`)
