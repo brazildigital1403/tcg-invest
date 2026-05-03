@@ -264,6 +264,11 @@ export default function Home() {
   const [showPlanStep, setShowPlanStep] = useState(false) // step 0: escolha do plano
   const [loading, setLoading] = useState(false)
   const [pendingPlan, setPendingPlan] = useState<'free' | 'mensal' | 'anual' | null>(null)
+  // Destino pós-cadastro/login. Lido do query param ?next= e usado pra redirecionar
+  // o usuário pra rota original após autenticar. Permite que landings externas
+  // (ex: /separadores-pokemon, /para-lojistas) levem o user de volta pro fluxo
+  // pretendido sem precisar de páginas de cadastro próprias.
+  const [pendingNext, setPendingNext] = useState<string | null>(null)
 
   // Campos
   const [name, setName] = useState('')
@@ -354,29 +359,64 @@ export default function Home() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  // ─── Lê query param ?auth=signup e abre modal antigo em fluxo de signup ──
-  // Usado pelo AuthModal (botão "Criar conta") e por outras páginas que
-  // queiram direcionar usuários pro funil completo de cadastro.
+  // ─── Lê query params ?auth= e ?next= ────────────────────────────────────
+  // ?auth=signup    → abre modal em fluxo de signup com escolha de plano
+  // ?auth=login     → abre modal em fluxo de login
+  // ?next=/rota     → após cadastro/login, redireciona pra essa rota (em vez
+  //                   do dashboard padrão). Validamos que começa com '/' e
+  //                   não é protocolo-relativo ('//') pra evitar open redirect.
+  //
+  // Caso especial: se o user JÁ ESTÁ LOGADO e a URL tem ?next=, redireciona
+  // direto sem abrir modal (evita modal de signup esquisito pra quem já tem
+  // conta, comum em fluxos como "Cadastrar minha loja grátis" da /para-lojistas).
   useEffect(() => {
     if (typeof window === 'undefined') return
+
     const params = new URLSearchParams(window.location.search)
     const authParam = params.get('auth')
-    if (authParam === 'signup') {
-      setIsLogin(false)
-      setShowPlanStep(true)   // começa pela escolha de plano
-      setShowAuthModal(true)
-      // Remove o query param da URL sem recarregar
-      const url = new URL(window.location.href)
-      url.searchParams.delete('auth')
-      window.history.replaceState({}, '', url.toString())
-    } else if (authParam === 'login') {
-      setIsLogin(true)
-      setShowAuthModal(true)
-      const url = new URL(window.location.href)
-      url.searchParams.delete('auth')
-      window.history.replaceState({}, '', url.toString())
+    const nextParam = params.get('next')
+    const validNext =
+      nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')
+        ? nextParam
+        : null
+
+    // Função pra limpar params da URL sem recarregar
+    const cleanUrl = () => {
+      if (authParam || nextParam) {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('auth')
+        url.searchParams.delete('next')
+        window.history.replaceState({}, '', url.toString())
+      }
     }
-  }, [])
+
+    // Checa session de forma assíncrona pra decidir o fluxo
+    supabase.auth.getSession().then(({ data }) => {
+      const isLogged = !!data.session?.user
+
+      // Se já está logado e tem next, vai direto (sem modal)
+      if (isLogged && validNext) {
+        cleanUrl()
+        router.replace(validNext)
+        return
+      }
+
+      // Não está logado: salva o next pra usar pós-cadastro/login
+      if (validNext) setPendingNext(validNext)
+
+      // Abre o modal conforme o auth param
+      if (authParam === 'signup') {
+        setIsLogin(false)
+        setShowPlanStep(true)
+        setShowAuthModal(true)
+      } else if (authParam === 'login') {
+        setIsLogin(true)
+        setShowAuthModal(true)
+      }
+
+      cleanUrl()
+    })
+  }, [router])
 
   // ─── Escuta eventos customizados disparados pelo PublicHeader ──────────
   // 'bynx:open-signup' — clicou em "Criar conta" em algum lugar (abre modal em signup com plano)
@@ -421,9 +461,11 @@ export default function Home() {
       } catch { }
       return
     }
-    // Se já logado e free → vai para dashboard
+    // Se já logado e free → vai para destino pendente OU dashboard
     if (user && plano === 'free') {
-      router.push('/dashboard-financeiro')
+      const dest = pendingNext || '/dashboard-financeiro'
+      setPendingNext(null)
+      router.push(dest)
       return
     }
     // Não logado → abre modal
@@ -455,7 +497,9 @@ export default function Home() {
           return
         }
         setShowAuthModal(false)
-        router.push('/dashboard-financeiro')
+        const loginDest = pendingNext || '/dashboard-financeiro'
+        setPendingNext(null)
+        router.push(loginDest)
       } else {
         const { data, error } = await supabase.auth.signUp({
           email, password,
@@ -486,7 +530,10 @@ export default function Home() {
               if (checkoutData.url) { window.location.href = checkoutData.url; return }
             } catch { }
           }
-          router.push('/dashboard-financeiro')
+          // Plano free OU falha no checkout Stripe: vai pra destino pendente OU dashboard
+          const signupDest = pendingNext || '/dashboard-financeiro'
+          setPendingNext(null)
+          router.push(signupDest)
         }
       }
     } catch (err: any) {
