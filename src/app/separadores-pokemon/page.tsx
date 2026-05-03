@@ -214,7 +214,7 @@ export default function SeparadoresPokemonPage() {
               </p>
 
               <div className="sp-hero-ctas" style={S.heroCtas}>
-                <Link href="/cadastro?next=/separadores" style={S.ctaPrimary}>
+                <Link href="/?auth=signup&next=/separadores" style={S.ctaPrimary}>
                   Comprar agora — R$ 14,90
                 </Link>
                 <Link href="#como-funciona" style={S.ctaSecondary}>
@@ -430,7 +430,7 @@ export default function SeparadoresPokemonPage() {
                 <FeatureLine>Download imediato após o pagamento</FeatureLine>
               </ul>
 
-              <Link href="/cadastro?next=/separadores" style={S.priceCta}>
+              <Link href="/?auth=signup&next=/separadores" style={S.priceCta}>
                 Comprar agora — R$ 14,90
               </Link>
             </div>
@@ -466,7 +466,7 @@ export default function SeparadoresPokemonPage() {
               </p>
 
               <div className="sp-final-ctas" style={S.finalCtas}>
-                <Link href="/cadastro?next=/separadores" style={S.ctaPrimary}>
+                <Link href="/?auth=signup&next=/separadores" style={S.ctaPrimary}>
                   Comprar agora — R$ 14,90
                 </Link>
                 <Link href="/" style={S.ctaSecondary}>

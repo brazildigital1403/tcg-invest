@@ -50,7 +50,10 @@ export default function MinhasLojasHubPage() {
 
       if (!user) {
         setEstado('nao_logado')
-        router.replace('/?next=/minha-loja')
+        // Redireciona pra modal de signup da home, com next direto pra criar
+        // a primeira loja. Sem o ?auth=signup, o usuário caía na landing
+        // sem feedback nenhum (o ?next= sozinho não dispara o modal).
+        router.replace('/?auth=signup&next=/minha-loja/nova')
         return
       }
 
