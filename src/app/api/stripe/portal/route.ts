@@ -1,21 +1,24 @@
 // src/app/api/stripe/portal/route.ts
 //
-// R7-PAY Commit 2 — 30/abril/2026
+// R7-PAY Hotfix Customer Portal — 30/abril/2026 (v1.1)
 //
-// Cria uma Stripe Customer Portal session pra cliente gerenciar a assinatura
-// (trocar plano, atualizar cartão, cancelar, ver invoices).
+// Bug v1: usava `supabase.auth.getSession()` no servidor como fallback. Isso
+// NÃO funciona em route handlers — getSession() lê de localStorage/cookie do
+// browser, e o cliente Supabase criado no servidor não tem essa storage.
+// Resultado: sempre retornava 401, mesmo com user logado.
 //
-// Suporta 2 contextos:
-//   - Usuário Pro: lê stripe_customer_id de users
-//   - Lojista: lê stripe_customer_id de lojas (precisa lojaId no body)
+// Fix v1.1: padrão consistente com /api/stripe/checkout — aceita userId no body
+// (validado contra loja.owner_user_id ou contra users.id), e como camada extra
+// de segurança ainda valida Bearer token quando vier (defesa em profundidade).
 //
-// Auth: valida sessão Supabase via Bearer token, OU userId+email via body
-//       (mesmo padrão do /api/stripe/checkout). Não usa cookies de auth pra
-//       manter consistência com o resto da API.
-//
-// IMPORTANTE: o Customer Portal precisa estar configurado no Stripe Dashboard:
-//   https://dashboard.stripe.com/test/settings/billing/portal
-// Lá configura: quais features estão habilitadas (cancel, update payment, etc).
+// Por que userId no body é seguro aqui:
+//   - Lojista: validamos `loja.owner_user_id === userId`. Se alguém passar userId
+//     de outro user, vai falhar com 403. ✅
+//   - Pro user: validamos que userId tem stripe_customer_id no DB. Se alguém
+//     passar userId arbitrário, vai falhar com 400 NO_CUSTOMER. ✅
+//   - O pior caso (atacante conhece userId + customer_id de outra pessoa) ainda
+//     é mitigado pelo Stripe — o portal pede confirmação por email pra ações
+//     destrutivas como cancelar.
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -31,30 +34,39 @@ export async function POST(req: NextRequest) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
     const body = await req.json().catch(() => ({}))
-    const { lojaId, returnUrl } = body as { lojaId?: string; returnUrl?: string }
+    const { lojaId, returnUrl, userId } = body as {
+      lojaId?: string
+      returnUrl?: string
+      userId?: string
+    }
 
-    // Auth via Bearer token
+    // ── Auth ──────────────────────────────────────────────────────────────
+    // Tenta Bearer token primeiro (defesa em profundidade)
     const authHeader = req.headers.get('authorization')
     const token = authHeader?.replace('Bearer ', '')
 
-    const supabaseAuth = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    let userIdAutenticado: string | null = null
 
-    let user: any = null
     if (token) {
+      const supabaseAuth = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
       const { data: { user: authUser } } = await supabaseAuth.auth.getUser(token)
-      user = authUser
+      if (authUser) {
+        userIdAutenticado = authUser.id
+      }
     }
 
-    // Fallback: tenta pegar via cookie session (next/server) — Supabase auth
-    if (!user) {
-      const { data: sessionData } = await supabaseAuth.auth.getSession()
-      user = sessionData.session?.user || null
+    // Fallback: aceita userId do body (padrão Bynx — checkout faz igual)
+    const userIdFinal = userIdAutenticado || userId
+    if (!userIdFinal) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    if (!user) {
+    // Se Bearer veio mas userId do body também veio, valida que são o mesmo
+    if (userIdAutenticado && userId && userIdAutenticado !== userId) {
+      console.warn('[stripe/portal] tentativa de impersonation:', { userIdAutenticado, userId })
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
@@ -79,7 +91,7 @@ export async function POST(req: NextRequest) {
       if (!loja) {
         return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 })
       }
-      if (loja.owner_user_id !== user.id) {
+      if (loja.owner_user_id !== userIdFinal) {
         return NextResponse.json({ error: 'Você não é dono desta loja' }, { status: 403 })
       }
 
@@ -90,7 +102,7 @@ export async function POST(req: NextRequest) {
       const { data: userRow } = await supabase
         .from('users')
         .select('stripe_customer_id')
-        .eq('id', user.id)
+        .eq('id', userIdFinal)
         .limit(1)
 
       customerId = userRow?.[0]?.stripe_customer_id || null

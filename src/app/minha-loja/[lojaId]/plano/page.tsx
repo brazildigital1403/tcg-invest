@@ -201,6 +201,7 @@ export default function PlanoLojaPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lojaId: loja.id,
+          userId: user.id,
           returnUrl: `${window.location.origin}/minha-loja/${loja.id}/plano`,
         }),
       })
