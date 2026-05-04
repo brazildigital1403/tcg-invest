@@ -1,13 +1,35 @@
+// src/app/api/sync-card-sets/route.ts
+//
+// S29 Security Fix #4 — adicionar Bearer auth.
+//
+// Antes: aceitava `user_id` em query param sem validação → IDOR (qualquer
+// um chamava /api/sync-card-sets?user_id=ANY drenando ScraperAPI credits
+// do Du e usando service_key pra modificar dados de qualquer user).
+//
+// Agora: exige Bearer token. O userId é inferido do JWT — só processa as
+// cartas do próprio caller.
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const userId = searchParams.get('user_id')
-  if (!userId) return NextResponse.json({ error: 'user_id required' }, { status: 400 })
+  // ── Auth ────────────────────────────────────────────────────────────
+  const authHeader = req.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
+  if (authError || !user) return NextResponse.json({ error: 'Sessão inválida' }, { status: 401 })
+
+  const userId = user.id
+
+  // ── Setup ───────────────────────────────────────────────────────────
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_KEY!
@@ -16,7 +38,7 @@ export async function GET(req: NextRequest) {
   const SCRAPER_KEY = process.env.SCRAPER_API_KEY
   if (!SCRAPER_KEY) return NextResponse.json({ error: 'SCRAPER_API_KEY missing' }, { status: 503 })
 
-  // Busca cartas sem set_name mas com card_link
+  // ── Busca cartas sem set_name mas com card_link ─────────────────────
   const { data: cards } = await supabase
     .from('user_cards')
     .select('id, card_name, card_link')

@@ -164,7 +164,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               logo: "https://bynx.gg/logo_BYNX.png",
               description: "Plataforma brasileira para colecionadores de Pokémon TCG organizarem suas coleções, acompanharem preços em reais e negociarem no Marketplace.",
               sameAs: [
-                "https://instagram.com/bynxgg",
+                "https://instagram.com/bynx.gg",
                 "https://twitter.com/bynxgg",
               ],
               contactPoint: {

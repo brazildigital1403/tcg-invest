@@ -56,8 +56,9 @@ export default function PerfilPage() {
     if (!id) return
     async function load() {
       // Suporta username OU UUID
+      // S29: lê de public_users (view sem PII) em vez da tabela `users` direto.
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-      const query = supabase.from('users').select('id, name, city, whatsapp, created_at, username')
+      const query = supabase.from('public_users').select('id, name, city, whatsapp, created_at, username')
       const { data: userData } = isUUID
         ? await query.eq('id', id).single()
         : await query.eq('username', id).single()

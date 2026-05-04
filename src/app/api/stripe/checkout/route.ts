@@ -1,16 +1,17 @@
 // src/app/api/stripe/checkout/route.ts
 //
-// R7-PAY Commit 2 — 30/abril/2026
+// S29 Security Fix #5 — userId/userEmail vêm do JWT, não do body.
 //
-// Mudanças vs v2 (Commit 1):
-// - Fix Bug #7: customer_creation: 'always' em mode='payment' pra Stripe criar
-//   o customer automaticamente em compras one-time (Scan e Separadores).
-//   Sem isso, scan_creditos ficava sem stripe_customer_id no DB.
-// - Proteção de trial Lojista: se loja já consumiu trial (trial_usado_em set),
-//   o checkout cria sub SEM trial_period_days → cobrança imediata.
-//   Webhook seta trial_usado_em quando trial é ativado.
-// - Validação extra: se loja já tem subscription ativa, NÃO cria nova checkout
-//   session → redireciona pra portal de gerenciamento.
+// Antes: aceitava `userId` e `userEmail` no body sem validar JWT → atacante
+// criava checkout em nome de qualquer userId, com qualquer email. Mitigado
+// parcialmente pelo webhook usar metadata, mas:
+//   - Permitia phishing ("ganhei Pro pra você, clica aqui")
+//   - Desalinhamento entre Stripe customer (email do atacante) e DB (userId
+//     da vítima)
+//   - Now que está LIVE, transações fantasmas são possíveis
+//
+// Agora: exige Bearer token. userId = user.id do JWT. userEmail = user.email
+// do JWT. Body só carrega `plano` e `lojaId` (opcional).
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -49,16 +50,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Stripe não configurado no servidor' }, { status: 503 })
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
-    const body = await req.json().catch(() => ({}))
-    const { plano, userId, userEmail, lojaId } = body as {
-      plano?: string; userId?: string; userEmail?: string; lojaId?: string
+    // ── Auth: extrai user do JWT ──────────────────────────────────────────
+    const authHeader = req.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+
+    const supabaseAuth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token)
+    if (authError || !user || !user.email) {
+      return NextResponse.json({ error: 'Sessão inválida' }, { status: 401 })
     }
 
-    // ── Validações básicas ────────────────────────────────────────────────────
-    if (!userId || !userEmail) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
+    const userId    = user.id
+    const userEmail = user.email
+
+    // ── Body: apenas plano + lojaId ───────────────────────────────────────
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
+    const body = await req.json().catch(() => ({}))
+    const { plano, lojaId } = body as { plano?: string; lojaId?: string }
+
     if (!plano || typeof plano !== 'string') {
       return NextResponse.json({ error: 'Plano não informado' }, { status: 400 })
     }

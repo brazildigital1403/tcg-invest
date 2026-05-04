@@ -214,14 +214,30 @@ export default function Home() {
     if (user && plano !== 'free') {
       try {
         trackProUpgradeInitiated(plano)
+        // S29: pega session pra Bearer token. userId/email não vão mais no body.
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          openSignup({ plan: plano })
+          return
+        }
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plano, userId: user.id, userEmail: user.email }),
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ plano }),
         })
         const data = await res.json()
+        if (!res.ok) {
+          alert(data.error || 'Erro ao iniciar checkout. Tente novamente.')
+          return
+        }
         if (data.url) window.location.href = data.url
-      } catch { }
+        else alert('Erro inesperado. Tente novamente.')
+      } catch {
+        alert('Erro de rede. Verifique sua conexão.')
+      }
       return
     }
     // Logado + free → vai pro dashboard

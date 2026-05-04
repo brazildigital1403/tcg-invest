@@ -276,10 +276,20 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
           if (pendingPlan && pendingPlan !== 'free') {
             try {
               trackProUpgradeInitiated(pendingPlan)
+              // S29: precisa pegar session ATUAL pro Bearer token
+              // (auth.signUp já loga o user automaticamente).
+              const { data: { session } } = await supabase.auth.getSession()
+              if (!session?.access_token) {
+                router.push(next || '/dashboard-financeiro')
+                return
+              }
               const res = await fetch('/api/stripe/checkout', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ plano: pendingPlan, userId: data.user.id, userEmail: email }),
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ plano: pendingPlan }),
               })
               const checkoutData = await res.json()
               if (checkoutData.url) { window.location.href = checkoutData.url; return }
