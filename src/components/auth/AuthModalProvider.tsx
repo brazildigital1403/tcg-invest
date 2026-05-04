@@ -8,21 +8,19 @@
  *
  *   1. URL com ?auth=signup ou ?auth=login (e opcional ?next=/rota)
  *      → Funciona em qualquer rota. Limpa o query param após detectar.
+ *      → IMPORTANTE: o leitor da URL (useSearchParams) está em sub-componente
+ *        wrapped em <Suspense> pra não quebrar prerender de páginas estáticas
+ *        como /_not-found (Next.js 16 exige Suspense ao redor de hooks que
+ *        forcem CSR no layout).
  *
  *   2. Hook useAuthModal() expondo openSignup/openLogin/closeModal
  *      → Pra components que precisam abrir o modal programaticamente.
  *
  *   3. CustomEvents window 'bynx:open-signup' / 'bynx:open-login'
  *      → Compatibilidade com PublicHeader e código legacy.
- *
- * Diferença vs antes: o modal era renderizado dentro de src/app/page.tsx (home).
- * Os CTAs das landings tinham que redirecionar pra home (`/?auth=signup&next=...`)
- * pra abrir o modal — quebrando o contexto pro user. Agora o modal vive no
- * layout, então CTAs nas landings podem ser relativos (`?auth=signup&next=...`)
- * e o modal abre SOBRE a landing atual.
  */
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, Suspense, useCallback, useContext, useEffect, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AuthModal from './AuthModal'
@@ -55,7 +53,6 @@ export function useAuthModal(): AuthModalContextValue {
   const ctx = useContext(AuthModalContext)
   if (!ctx) {
     // Fallback no-op pra não quebrar SSR / componentes fora do Provider.
-    // Em prática isso não deve acontecer, mas evita crash em dev.
     return {
       openSignup: () => {},
       openLogin: () => {},
@@ -81,12 +78,68 @@ function sanitizeNext(raw: string | null | undefined): string | null {
   return raw
 }
 
-// ─── Provider ────────────────────────────────────────────────────────────────
+// ─── Listener de URL (isolado em Suspense) ───────────────────────────────────
+// Componente separado SOMENTE pra usar useSearchParams() dentro de <Suspense>
+// no Provider. Necessário pra Next.js 16 não quebrar prerender de páginas
+// estáticas (/_not-found, /404 etc) que herdam o layout root.
+//
+// Não renderiza nada — só executa side effect de detectar ?auth= na URL.
 
-export default function AuthModalProvider({ children }: { children: React.ReactNode }) {
+interface URLAuthListenerProps {
+  openSignup: (opts?: OpenSignupOpts) => void
+  openLogin: (opts?: OpenLoginOpts) => void
+}
+
+function URLAuthListener({ openSignup, openLogin }: URLAuthListenerProps) {
   const pathname = usePathname() || '/'
   const searchParams = useSearchParams()
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!searchParams) return
+
+    const authParam = searchParams.get('auth')
+    const nextParam = searchParams.get('next')
+
+    if (authParam !== 'signup' && authParam !== 'login') return
+
+    const validNext = sanitizeNext(nextParam)
+
+    // Limpa os params da URL sem reload (mantém pathname e outros params)
+    const cleanUrl = () => {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('auth')
+      url.searchParams.delete('next')
+      window.history.replaceState({}, '', url.toString())
+    }
+
+    // Se já logado E tem next → redireciona direto sem modal
+    supabase.auth.getSession().then(({ data }) => {
+      const isLogged = !!data.session?.user
+
+      if (isLogged && validNext) {
+        cleanUrl()
+        window.location.href = validNext
+        return
+      }
+
+      // Não logado → abre modal
+      if (authParam === 'signup') {
+        openSignup({ next: validNext })
+      } else {
+        openLogin({ next: validNext })
+      }
+      cleanUrl()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, pathname])
+
+  return null
+}
+
+// ─── Provider ────────────────────────────────────────────────────────────────
+
+export default function AuthModalProvider({ children }: { children: React.ReactNode }) {
   // Estado do modal
   const [isOpen, setIsOpen] = useState(false)
   const [mode, setMode] = useState<'signup' | 'login'>('signup')
@@ -113,52 +166,10 @@ export default function AuthModalProvider({ children }: { children: React.ReactN
     setIsOpen(false)
   }, [])
 
-  // ─── Trigger 1: querystring ?auth=signup|login + ?next= ──────────────
-  // Roda no mount E quando os search params mudam (navegação SPA).
-  // Se user já está logado e tem next, redireciona direto sem modal.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (!searchParams) return
-
-    const authParam = searchParams.get('auth')
-    const nextParam = searchParams.get('next')
-
-    if (authParam !== 'signup' && authParam !== 'login') return
-
-    const validNext = sanitizeNext(nextParam)
-
-    // Limpa os params da URL sem reload (mantém pathname e outros params)
-    const cleanUrl = () => {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('auth')
-      url.searchParams.delete('next')
-      window.history.replaceState({}, '', url.toString())
-    }
-
-    // Se já logado E tem next → redireciona direto
-    supabase.auth.getSession().then(({ data }) => {
-      const isLogged = !!data.session?.user
-
-      if (isLogged && validNext) {
-        cleanUrl()
-        window.location.href = validNext
-        return
-      }
-
-      // Não logado → abre modal
-      if (authParam === 'signup') {
-        openSignup({ next: validNext })
-      } else {
-        openLogin({ next: validNext })
-      }
-      cleanUrl()
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, pathname])
-
   // ─── Trigger 2: events legacy do PublicHeader ────────────────────────
   // PublicHeader dispara 'bynx:open-login' quando o user clica em "Entrar"
   // estando em página NÃO landing. Mantemos compat pra não quebrar o header.
+  // Não usa useSearchParams então pode ficar fora do Suspense.
   useEffect(() => {
     if (typeof window === 'undefined') return
 
@@ -188,7 +199,14 @@ export default function AuthModalProvider({ children }: { children: React.ReactN
 
   return (
     <AuthModalContext.Provider value={value}>
+      {/* URL listener wrapped em Suspense — Next.js 16 exige isso ao redor
+          de qualquer hook que force CSR (useSearchParams) em um layout root. */}
+      <Suspense fallback={null}>
+        <URLAuthListener openSignup={openSignup} openLogin={openLogin} />
+      </Suspense>
+
       {children}
+
       <AuthModal
         open={isOpen}
         onClose={closeModal}
