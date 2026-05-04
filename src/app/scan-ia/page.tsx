@@ -212,17 +212,20 @@ const faqSchema = {
 }
 
 // ─── Estilos ─────────────────────────────────────────────────────────────────
+//
+// PALETA: 100% B2C laranja-vermelho (consistente com pokedex-pokemon-tcg,
+// colecionadores e separadores-pokemon). Sem accents tech (roxo/cyan).
+//   ORANGE = '#f59e0b'
+//   RED    = '#ef4444'
+//   BRAND_GRADIENT = laranja → vermelho
 
 const BG_DARK = '#080a0f'
 const BG_CARD = 'rgba(255,255,255,0.03)'
 const BORDER = 'rgba(255,255,255,0.08)'
-const ACCENT_ORANGE = '#f59e0b'
-const ACCENT_RED = '#ef4444'
-const ACCENT_TECH = '#8b5cf6' // roxo pra detalhes de IA/tech
-const ACCENT_TECH2 = '#06b6d4' // cyan pra accents secundários
+const ORANGE = '#f59e0b'
+const RED = '#ef4444'
 
 const BRAND_GRADIENT = 'linear-gradient(135deg, #f59e0b, #ef4444)'
-const TECH_GRADIENT = 'linear-gradient(135deg, #8b5cf6, #06b6d4)'
 
 const S = {
   page: {
@@ -232,12 +235,13 @@ const S = {
     minHeight: '100vh',
     overflowX: 'hidden' as const,
   },
+  container: { maxWidth: 1280, margin: '0 auto' },
 
   // ─── HERO ──────────────────────────────────────────────────────────────
   hero: {
     position: 'relative' as const,
     padding: '88px 32px 64px',
-    background: `radial-gradient(ellipsis at 20% 0%, rgba(139,92,246,0.12) 0%, transparent 55%), radial-gradient(ellipsis at 80% 30%, rgba(245,158,11,0.10) 0%, transparent 50%), ${BG_DARK}`,
+    background: `radial-gradient(ellipsis at 20% 0%, rgba(245,158,11,0.12) 0%, transparent 55%), radial-gradient(ellipsis at 80% 30%, rgba(239,68,68,0.10) 0%, transparent 50%), ${BG_DARK}`,
     overflow: 'hidden' as const,
   },
   heroInner: {
@@ -252,18 +256,18 @@ const S = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    background: 'rgba(139,92,246,0.10)',
-    border: '1px solid rgba(139,92,246,0.30)',
+    background: 'rgba(245,158,11,0.10)',
+    border: '1px solid rgba(245,158,11,0.30)',
     borderRadius: 100,
     padding: '6px 14px',
     fontSize: 12,
     fontWeight: 600,
-    color: '#c4b5fd',
+    color: '#fcd34d',
     marginBottom: 20,
     letterSpacing: '0.02em',
   },
   heroTitle: {
-    fontSize: 56,
+    fontSize: 'clamp(34px, 4.5vw, 56px)',
     fontWeight: 900,
     letterSpacing: '-0.04em',
     lineHeight: 1.05,
@@ -271,11 +275,6 @@ const S = {
   },
   heroTitleAccent: {
     background: BRAND_GRADIENT,
-    WebkitBackgroundClip: 'text' as const,
-    WebkitTextFillColor: 'transparent' as const,
-  },
-  heroTitleTech: {
-    background: TECH_GRADIENT,
     WebkitBackgroundClip: 'text' as const,
     WebkitTextFillColor: 'transparent' as const,
   },
@@ -305,7 +304,6 @@ const S = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    transition: 'transform 0.15s, box-shadow 0.15s',
     boxShadow: '0 8px 24px rgba(245,158,11,0.25)',
   },
   ctaSecondary: {
@@ -330,14 +328,14 @@ const S = {
   },
   heroTrustItem: { display: 'flex', alignItems: 'center', gap: 6 },
 
-  // ─── HERO MOCKUP ──────────────────────────────────────────────────────
+  // ─── HERO MOCKUP (B2C laranja agora) ──────────────────────────────────
   heroMockup: {
     position: 'relative' as const,
     background: 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))',
-    border: '1px solid rgba(139,92,246,0.30)',
+    border: '1px solid rgba(245,158,11,0.30)',
     borderRadius: 24,
     padding: 24,
-    boxShadow: '0 30px 80px -30px rgba(139,92,246,0.40), 0 0 0 1px rgba(139,92,246,0.15) inset',
+    boxShadow: '0 30px 80px -30px rgba(245,158,11,0.40), 0 0 0 1px rgba(245,158,11,0.15) inset',
   },
   mockupHeader: {
     display: 'flex',
@@ -350,8 +348,8 @@ const S = {
   mockupHeaderLeft: { display: 'flex', alignItems: 'center', gap: 10 },
   mockupCameraBadge: {
     width: 28, height: 28, borderRadius: 8,
-    background: 'rgba(139,92,246,0.15)',
-    border: '1px solid rgba(139,92,246,0.4)',
+    background: 'rgba(245,158,11,0.15)',
+    border: '1px solid rgba(245,158,11,0.40)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 14,
   },
@@ -380,7 +378,6 @@ const S = {
     background: 'rgba(255,255,255,0.02)',
     border: `1px solid ${BORDER}`,
     borderRadius: 12,
-    transition: 'background 0.2s',
   },
   recognizedImg: {
     width: 44,
@@ -419,12 +416,12 @@ const S = {
     textAlign: 'center' as const,
   },
 
-  // ─── STATS ──────────────────────────────────────────────────────────────
+  // ─── STATS (B2C laranja agora) ─────────────────────────────────────────
   statsSection: {
     padding: '56px 32px',
     borderTop: `1px solid ${BORDER}`,
     borderBottom: `1px solid ${BORDER}`,
-    background: 'linear-gradient(180deg, rgba(139,92,246,0.03), transparent)',
+    background: 'linear-gradient(180deg, rgba(245,158,11,0.03), transparent)',
   },
   statsInner: {
     maxWidth: 1280,
@@ -433,14 +430,12 @@ const S = {
     gridTemplateColumns: 'repeat(4, 1fr)',
     gap: 24,
   },
-  statBox: {
-    textAlign: 'center' as const,
-  },
+  statBox: { textAlign: 'center' as const },
   statNumber: {
     fontSize: 38,
     fontWeight: 900,
     letterSpacing: '-0.03em',
-    background: TECH_GRADIENT,
+    background: BRAND_GRADIENT,
     WebkitBackgroundClip: 'text' as const,
     WebkitTextFillColor: 'transparent' as const,
     marginBottom: 6,
@@ -459,39 +454,45 @@ const S = {
     borderTop: `1px solid ${BORDER}`,
     borderBottom: `1px solid ${BORDER}`,
   },
-  sectionInner: { maxWidth: 1280, margin: '0 auto' },
 
-  sectionLabel: {
-    display: 'inline-block',
+  // ─── SECTION HEADER (centralizado, igual pokedex-pokemon-tcg) ──────────
+  sectionHeader: {
+    textAlign: 'center' as const,
+    marginBottom: 56,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+  },
+  eyebrow: {
     fontSize: 12,
     fontWeight: 700,
-    color: ACCENT_ORANGE,
+    color: ORANGE,
+    letterSpacing: '0.10em',
     textTransform: 'uppercase' as const,
-    letterSpacing: '0.12em',
-    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 40,
+    fontSize: 'clamp(28px, 3.6vw, 40px)',
     fontWeight: 800,
     letterSpacing: '-0.03em',
-    lineHeight: 1.1,
-    marginBottom: 16,
-    maxWidth: 720,
+    lineHeight: 1.15,
+    maxWidth: 760,
+    margin: 0,
+    color: '#f0f0f0',
   },
   sectionSubtitle: {
-    fontSize: 17,
+    fontSize: 16,
     color: 'rgba(255,255,255,0.55)',
     lineHeight: 1.6,
     maxWidth: 720,
-    marginBottom: 48,
+    margin: 0,
   },
 
-  // ─── DEMO STEPS ────────────────────────────────────────────────────────
+  // ─── DEMO STEPS (B2C laranja agora) ───────────────────────────────────
   stepsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: 24,
-    marginTop: 16,
   },
   stepCard: {
     background: BG_CARD,
@@ -508,18 +509,18 @@ const S = {
     fontSize: 64,
     fontWeight: 900,
     letterSpacing: '-0.05em',
-    background: TECH_GRADIENT,
+    background: BRAND_GRADIENT,
     WebkitBackgroundClip: 'text' as const,
     WebkitTextFillColor: 'transparent' as const,
-    opacity: 0.18,
+    opacity: 0.20,
     lineHeight: 1,
   },
   stepIcon: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    background: 'rgba(139,92,246,0.10)',
-    border: '1px solid rgba(139,92,246,0.25)',
+    background: 'rgba(245,158,11,0.10)',
+    border: '1px solid rgba(245,158,11,0.25)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -533,34 +534,32 @@ const S = {
     paddingTop: 14,
     borderTop: `1px solid ${BORDER}`,
     fontSize: 12,
-    color: ACCENT_TECH2,
+    color: ORANGE,
     fontWeight: 600,
   },
 
-  // ─── TECH CARDS ────────────────────────────────────────────────────────
+  // ─── TECH CARDS (B2C laranja agora) ───────────────────────────────────
   techGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: 20,
-    marginTop: 16,
   },
   techCard: {
     background: BG_CARD,
     border: `1px solid ${BORDER}`,
     borderRadius: 16,
     padding: 24,
-    transition: 'border-color 0.2s, transform 0.2s',
   },
   techCardHighlight: {
-    background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(6,182,212,0.05))',
-    border: '1px solid rgba(139,92,246,0.30)',
+    background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.05))',
+    border: '1px solid rgba(245,158,11,0.30)',
   },
   techIcon: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    background: 'rgba(139,92,246,0.12)',
-    border: '1px solid rgba(139,92,246,0.30)',
+    background: 'rgba(245,158,11,0.12)',
+    border: '1px solid rgba(245,158,11,0.30)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -575,7 +574,6 @@ const S = {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: 20,
-    marginTop: 16,
   },
   personaCard: {
     background: BG_CARD,
@@ -590,7 +588,7 @@ const S = {
     display: 'inline-block',
     fontSize: 11,
     fontWeight: 700,
-    color: ACCENT_ORANGE,
+    color: ORANGE,
     background: 'rgba(245,158,11,0.10)',
     border: '1px solid rgba(245,158,11,0.25)',
     borderRadius: 6,
@@ -605,7 +603,7 @@ const S = {
     fontStyle: 'italic' as const,
     color: 'rgba(255,255,255,0.45)',
     paddingLeft: 14,
-    borderLeft: `2px solid ${ACCENT_ORANGE}`,
+    borderLeft: `2px solid ${ORANGE}`,
     lineHeight: 1.6,
   },
 
@@ -615,7 +613,6 @@ const S = {
     border: `1px solid ${BORDER}`,
     borderRadius: 16,
     overflow: 'hidden' as const,
-    marginTop: 16,
   },
   compTable: {
     width: '100%',
@@ -640,7 +637,7 @@ const S = {
     textAlign: 'left' as const,
     fontSize: 13,
     fontWeight: 800,
-    color: ACCENT_ORANGE,
+    color: ORANGE,
     background: 'rgba(245,158,11,0.06)',
     letterSpacing: '0.02em',
   },
@@ -671,7 +668,7 @@ const S = {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: 24,
-    marginTop: 32,
+    marginTop: 8,
   },
   pkgCard: {
     background: BG_CARD,
@@ -679,7 +676,7 @@ const S = {
     borderRadius: 20,
     padding: 32,
     position: 'relative' as const,
-    transition: 'transform 0.2s',
+    textAlign: 'center' as const,
   },
   pkgCardPopular: {
     background: 'linear-gradient(180deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))',
@@ -737,6 +734,7 @@ const S = {
     fontSize: 13,
     color: 'rgba(255,255,255,0.7)',
     lineHeight: 1.9,
+    textAlign: 'left' as const,
   },
   pkgFeatureLi: {
     display: 'flex',
@@ -769,7 +767,6 @@ const S = {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
     gap: 16,
-    marginTop: 32,
   },
   guaranteeCard: {
     background: BG_CARD,
@@ -785,7 +782,7 @@ const S = {
   // ─── FAQ ──────────────────────────────────────────────────────────────
   faqWrap: {
     maxWidth: 800,
-    margin: '32px auto 0',
+    margin: '0 auto',
   },
   faqItem: {
     background: BG_CARD,
@@ -813,16 +810,16 @@ const S = {
     lineHeight: 1.7,
   },
 
-  // ─── CTA FINAL ────────────────────────────────────────────────────────
+  // ─── CTA FINAL (B2C laranja agora) ────────────────────────────────────
   finalSection: {
     padding: '120px 32px',
-    background: `radial-gradient(ellipsis at center, rgba(139,92,246,0.10) 0%, transparent 60%), ${BG_DARK}`,
+    background: `radial-gradient(ellipsis at center, rgba(245,158,11,0.10) 0%, transparent 60%), ${BG_DARK}`,
     textAlign: 'center' as const,
     borderTop: `1px solid ${BORDER}`,
   },
   finalInner: { maxWidth: 720, margin: '0 auto' },
   finalTitle: {
-    fontSize: 48,
+    fontSize: 'clamp(32px, 4.2vw, 48px)',
     fontWeight: 900,
     letterSpacing: '-0.03em',
     lineHeight: 1.1,
@@ -842,7 +839,27 @@ const S = {
   },
 } as const
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── SectionHeader (componente centralizado, igual outras landings) ──────────
+
+function SectionHeader({
+  eyebrow,
+  title,
+  subtitle,
+}: {
+  eyebrow: string
+  title: React.ReactNode
+  subtitle?: string
+}) {
+  return (
+    <div style={S.sectionHeader}>
+      <span style={S.eyebrow}>{eyebrow}</span>
+      <h2 style={S.sectionTitle}>{title}</h2>
+      {subtitle && <p style={S.sectionSubtitle}>{subtitle}</p>}
+    </div>
+  )
+}
+
+// ─── Component principal ─────────────────────────────────────────────────────
 
 export default function ScanIaLanding() {
   return (
@@ -878,9 +895,6 @@ export default function ScanIaLanding() {
         }
         @media (max-width: 768px) {
           .scan-hero         { padding: 56px 20px 40px !important; }
-          .scan-hero-title   { font-size: 38px !important; }
-          .scan-section-title{ font-size: 30px !important; }
-          .scan-final-title  { font-size: 34px !important; }
           .scan-stats-grid   { grid-template-columns: repeat(2, 1fr) !important; gap: 24px !important; }
           .scan-tech-grid    { grid-template-columns: 1fr !important; }
           .scan-pkg-grid     { grid-template-columns: 1fr !important; }
@@ -895,7 +909,7 @@ export default function ScanIaLanding() {
       `}</style>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* 1. HERO                                                              */}
+      {/* 1. HERO (assimétrico — copy esquerda, mockup direita)                */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="scan-hero" style={S.hero}>
         <div className="scan-hero-inner" style={S.heroInner}>
@@ -905,7 +919,7 @@ export default function ScanIaLanding() {
               <span>🤖</span> Powered by Claude Opus 4.5 · Anthropic
             </span>
 
-            <h1 className="scan-hero-title" style={S.heroTitle}>
+            <h1 style={S.heroTitle}>
               Aponte. A IA reconhece.{' '}
               <span style={S.heroTitleAccent}>A coleção atualiza.</span>
             </h1>
@@ -928,13 +942,13 @@ export default function ScanIaLanding() {
 
             <div style={S.heroTrust}>
               <span style={S.heroTrustItem}>
-                <span style={{ color: ACCENT_TECH2, fontWeight: 700 }}>✓</span> Multi-card por foto
+                <span style={{ color: ORANGE, fontWeight: 700 }}>✓</span> Multi-card por foto
               </span>
               <span style={S.heroTrustItem}>
-                <span style={{ color: ACCENT_TECH2, fontWeight: 700 }}>✓</span> PT · EN · JP
+                <span style={{ color: ORANGE, fontWeight: 700 }}>✓</span> PT · EN · JP
               </span>
               <span style={S.heroTrustItem}>
-                <span style={{ color: ACCENT_TECH2, fontWeight: 700 }}>✓</span> Preço R$ instantâneo
+                <span style={{ color: ORANGE, fontWeight: 700 }}>✓</span> Preço R$ instantâneo
               </span>
             </div>
           </div>
@@ -952,7 +966,6 @@ export default function ScanIaLanding() {
               </div>
             </div>
 
-            {/* Cartas reconhecidas */}
             <div style={S.recognizedRow}>
               <img
                 src="https://images.pokemontcg.io/sv8/199.png"
@@ -1039,16 +1052,12 @@ export default function ScanIaLanding() {
       {/* 3. DEMO 3 PASSOS                                                     */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="scan-section" style={S.section}>
-        <div style={S.sectionInner}>
-          <span style={S.sectionLabel}>Como funciona</span>
-          <h2 className="scan-section-title" style={S.sectionTitle}>
-            Três passos.{' '}
-            <span style={S.heroTitleTech}>Sem digitar uma palavra.</span>
-          </h2>
-          <p style={S.sectionSubtitle}>
-            Você não precisa saber o nome em japonês. Não precisa decorar o número da carta.
-            Não precisa procurar set. A IA faz tudo.
-          </p>
+        <div style={S.container}>
+          <SectionHeader
+            eyebrow="Como funciona"
+            title={<>Três passos. <span style={S.heroTitleAccent}>Sem digitar uma palavra.</span></>}
+            subtitle="Você não precisa saber o nome em japonês. Não precisa decorar o número da carta. Não precisa procurar set. A IA faz tudo."
+          />
 
           <div className="scan-steps-grid" style={S.stepsGrid}>
             <div style={S.stepCard}>
@@ -1091,16 +1100,12 @@ export default function ScanIaLanding() {
       {/* 4. POR DENTRO DA TECNOLOGIA                                           */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="scan-section" style={S.sectionDark}>
-        <div style={S.sectionInner}>
-          <span style={{ ...S.sectionLabel, color: ACCENT_TECH }}>Por dentro da tecnologia</span>
-          <h2 className="scan-section-title" style={S.sectionTitle}>
-            A IA mais avançada do mercado,{' '}
-            <span style={S.heroTitleTech}>treinada pra TCG brasileiro.</span>
-          </h2>
-          <p style={S.sectionSubtitle}>
-            Não é um algoritmo qualquer. É o modelo de visão de ponta da Anthropic, integrado com
-            a Pokédex Bynx e cruzado com preços de marketplaces brasileiros em tempo real.
-          </p>
+        <div style={S.container}>
+          <SectionHeader
+            eyebrow="Por dentro da tecnologia"
+            title={<>A IA mais avançada do mercado, <span style={S.heroTitleAccent}>treinada pra TCG brasileiro.</span></>}
+            subtitle="Não é um algoritmo qualquer. É o modelo de visão de ponta da Anthropic, integrado com a Pokédex Bynx e cruzado com preços de marketplaces brasileiros em tempo real."
+          />
 
           <div className="scan-tech-grid" style={S.techGrid}>
             <div style={{ ...S.techCard, ...S.techCardHighlight }}>
@@ -1164,15 +1169,12 @@ export default function ScanIaLanding() {
       {/* 5. CASOS DE USO (3 PERSONAS)                                          */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="scan-section" style={S.section}>
-        <div style={S.sectionInner}>
-          <span style={S.sectionLabel}>Quem usa</span>
-          <h2 className="scan-section-title" style={S.sectionTitle}>
-            Pra quem perdeu paciência{' '}
-            <span style={S.heroTitleAccent}>com cadastro manual.</span>
-          </h2>
-          <p style={S.sectionSubtitle}>
-            Três tipos de colecionador que economizam horas todo mês usando o Scan IA.
-          </p>
+        <div style={S.container}>
+          <SectionHeader
+            eyebrow="Quem usa"
+            title={<>Pra quem perdeu paciência <span style={S.heroTitleAccent}>com cadastro manual.</span></>}
+            subtitle="Três tipos de colecionador que economizam horas todo mês usando o Scan IA."
+          />
 
           <div className="scan-personas-grid" style={S.personasGrid}>
             <div style={S.personaCard}>
@@ -1221,16 +1223,12 @@ export default function ScanIaLanding() {
       {/* 6. COMPARATIVO                                                        */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="scan-section" style={S.sectionDark}>
-        <div style={S.sectionInner}>
-          <span style={S.sectionLabel}>Comparativo</span>
-          <h2 className="scan-section-title" style={S.sectionTitle}>
-            Por que ninguém mais{' '}
-            <span style={S.heroTitleAccent}>chega perto.</span>
-          </h2>
-          <p style={S.sectionSubtitle}>
-            Outras soluções existem, mas nenhuma combina IA de ponta + multilíngue + preço R$ + mobile-first
-            em uma plataforma brasileira.
-          </p>
+        <div style={S.container}>
+          <SectionHeader
+            eyebrow="Comparativo"
+            title={<>Por que ninguém mais <span style={S.heroTitleAccent}>chega perto.</span></>}
+            subtitle="Outras soluções existem, mas nenhuma combina IA de ponta + multilíngue + preço R$ + mobile-first em uma plataforma brasileira."
+          />
 
           <div className="scan-comp-table-wrap" style={S.compTableWrap}>
             <table className="scan-comp-table" style={S.compTable}>
@@ -1317,16 +1315,12 @@ export default function ScanIaLanding() {
       {/* 7. PACOTES DE PREÇOS                                                  */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section id="pacotes" className="scan-section" style={S.section}>
-        <div style={S.sectionInner}>
-          <span style={S.sectionLabel}>Pacotes</span>
-          <h2 className="scan-section-title" style={S.sectionTitle}>
-            Pague pelo que usar.{' '}
-            <span style={S.heroTitleAccent}>Sem assinatura.</span>
-          </h2>
-          <p style={S.sectionSubtitle}>
-            Os créditos não expiram. Compra uma vez, usa quando quiser. Cada foto consome 1
-            crédito — independente de quantas cartas a IA identificar nela.
-          </p>
+        <div style={S.container}>
+          <SectionHeader
+            eyebrow="Pacotes"
+            title={<>Pague pelo que usar. <span style={S.heroTitleAccent}>Sem assinatura.</span></>}
+            subtitle="Os créditos não expiram. Compra uma vez, usa quando quiser. Cada foto consome 1 crédito — independente de quantas cartas a IA identificar nela."
+          />
 
           <div className="scan-pkg-grid" style={S.pkgGrid}>
             {/* Básico */}
@@ -1398,12 +1392,11 @@ export default function ScanIaLanding() {
       {/* 8. GARANTIAS                                                          */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="scan-section" style={S.sectionDark}>
-        <div style={S.sectionInner}>
-          <span style={S.sectionLabel}>Garantias</span>
-          <h2 className="scan-section-title" style={S.sectionTitle}>
-            Sem pegadinhas.{' '}
-            <span style={S.heroTitleAccent}>Sem letra miúda.</span>
-          </h2>
+        <div style={S.container}>
+          <SectionHeader
+            eyebrow="Garantias"
+            title={<>Sem pegadinhas. <span style={S.heroTitleAccent}>Sem letra miúda.</span></>}
+          />
 
           <div className="scan-guarantees-grid" style={S.guaranteesGrid}>
             <div style={S.guaranteeCard}>
@@ -1442,12 +1435,11 @@ export default function ScanIaLanding() {
       {/* 9. FAQ                                                                */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="scan-section" style={S.section}>
-        <div style={S.sectionInner}>
-          <span style={S.sectionLabel}>FAQ</span>
-          <h2 className="scan-section-title" style={S.sectionTitle}>
-            Perguntas que{' '}
-            <span style={S.heroTitleAccent}>todo mundo faz.</span>
-          </h2>
+        <div style={S.container}>
+          <SectionHeader
+            eyebrow="FAQ"
+            title={<>Perguntas que <span style={S.heroTitleAccent}>todo mundo faz.</span></>}
+          />
 
           <div style={S.faqWrap}>
             {[
@@ -1495,7 +1487,7 @@ export default function ScanIaLanding() {
               <details key={idx} name="scan-faq" style={S.faqItem}>
                 <summary style={S.faqSummary}>
                   <span>{item.q}</span>
-                  <span style={{ color: ACCENT_ORANGE, fontWeight: 800, fontSize: 20 }}>+</span>
+                  <span style={{ color: ORANGE, fontWeight: 800, fontSize: 20 }}>+</span>
                 </summary>
                 <p style={S.faqAnswer}>{item.a}</p>
               </details>
@@ -1512,7 +1504,7 @@ export default function ScanIaLanding() {
           <span style={S.heroBadge}>
             <span>🚀</span> Junte-se à nova geração de colecionadores
           </span>
-          <h2 className="scan-final-title" style={S.finalTitle}>
+          <h2 style={S.finalTitle}>
             Pare de digitar.{' '}
             <span style={S.heroTitleAccent}>Comece a apontar.</span>
           </h2>
