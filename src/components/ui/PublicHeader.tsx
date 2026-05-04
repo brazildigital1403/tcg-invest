@@ -166,6 +166,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             <Link href="/pokedex-pokemon-tcg" style={navLinkStyle('/pokedex-pokemon-tcg')}>
               Pokédex
             </Link>
+            <Link href="/scan-ia" style={navLinkStyle('/scan-ia')}>
+              Scan IA
+            </Link>
             <Link href="/separadores-pokemon" style={navLinkStyle('/separadores-pokemon')}>
               Separadores
             </Link>
@@ -257,6 +260,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             </Link>
             <Link href="/pokedex-pokemon-tcg" onClick={closeMobile} style={mobileLinkStyle('/pokedex-pokemon-tcg')}>
               Pokédex
+            </Link>
+            <Link href="/scan-ia" onClick={closeMobile} style={mobileLinkStyle('/scan-ia')}>
+              Scan IA
             </Link>
             <Link href="/separadores-pokemon" onClick={closeMobile} style={mobileLinkStyle('/separadores-pokemon')}>
               Separadores
