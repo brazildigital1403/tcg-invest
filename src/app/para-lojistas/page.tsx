@@ -80,7 +80,7 @@ export default function ParaLojistasPage() {
               </p>
 
               <div className="pl-hero-ctas" style={S.heroCtas}>
-                <Link href="/?auth=signup&next=/minha-loja/nova" style={S.ctaPrimary}>
+                <Link href="?auth=signup&next=/minha-loja/nova" style={S.ctaPrimary}>
                   Cadastrar minha loja grátis
                 </Link>
                 <Link href="/lojas" style={S.ctaSecondary}>
@@ -305,7 +305,7 @@ export default function ParaLojistasPage() {
                   <FeatureItem>Descrição de até 160 caracteres</FeatureItem>
                   <FeatureItem muted>Sem fotos, redes sociais, eventos</FeatureItem>
                 </ul>
-                <Link href="/?auth=signup&next=/minha-loja/nova" style={S.planCta}>Começar grátis</Link>
+                <Link href="?auth=signup&next=/minha-loja/nova" style={S.planCta}>Começar grátis</Link>
               </div>
 
               {/* PRO */}
@@ -332,7 +332,7 @@ export default function ParaLojistasPage() {
                   <FeatureItem>Badge <strong>Pro</strong> no card</FeatureItem>
                   <FeatureItem>Aparece acima das lojas Básico</FeatureItem>
                 </ul>
-                <Link href="/?auth=signup&next=/minha-loja/nova" style={{ ...S.planCta, ...S.planCtaPrimary }}>
+                <Link href="?auth=signup&next=/minha-loja/nova" style={{ ...S.planCta, ...S.planCtaPrimary }}>
                   Começar 14 dias grátis
                 </Link>
               </div>
@@ -361,7 +361,7 @@ export default function ParaLojistasPage() {
                   <FeatureItem>Analytics: views e cliques no WhatsApp</FeatureItem>
                   <FeatureItem>SEO customizável por loja</FeatureItem>
                 </ul>
-                <Link href="/?auth=signup&next=/minha-loja/nova" style={{ ...S.planCta, ...S.planCtaPremium }}>
+                <Link href="?auth=signup&next=/minha-loja/nova" style={{ ...S.planCta, ...S.planCtaPremium }}>
                   Começar 14 dias grátis
                 </Link>
               </div>
@@ -453,7 +453,7 @@ export default function ParaLojistasPage() {
                 Sem cartão, sem pegadinha. Quando essas 27 vagas acabarem, fecha.
               </p>
               <div className="pl-final-ctas" style={{ ...S.heroCtas, justifyContent: 'center' }}>
-                <Link href="/?auth=signup&next=/minha-loja/nova" style={S.ctaPrimary}>
+                <Link href="?auth=signup&next=/minha-loja/nova" style={S.ctaPrimary}>
                   Garantir minha vaga
                 </Link>
                 <Link href="/lojas" style={S.ctaSecondary}>

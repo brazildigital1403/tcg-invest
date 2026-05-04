@@ -3,6 +3,7 @@ import { DM_Sans } from "next/font/google"
 import Script from "next/script"
 import "./globals.css"
 import { ModalProvider } from "@/components/ui/useAppModal"
+import AuthModalProvider from "@/components/auth/AuthModalProvider"
 import CookieBanner from "@/components/ui/CookieBanner"
 
 const dmSans = DM_Sans({ 
@@ -252,8 +253,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </noscript>
 
         <ModalProvider>
-          {children}
-          <CookieBanner />
+          <AuthModalProvider>
+            {children}
+            <CookieBanner />
+          </AuthModalProvider>
         </ModalProvider>
       </body>
     </html>
