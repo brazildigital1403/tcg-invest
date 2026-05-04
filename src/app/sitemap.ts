@@ -69,6 +69,17 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 0.85,
   },
   {
+    // Landing SEO/Ads — Pokédex Pokémon TCG. Captura keyword exata
+    // "pokédex pokemon tcg" no domínio. Apresenta o catálogo de 22.861
+    // cartas com comparativo competitivo, top sets, raridades, top cartas
+    // valiosas em R$ e glossário do colecionador. Funil B2C: ver -> /pokedex
+    // (consulta livre) -> cadastro -> coleção.
+    url: `${BASE}/pokedex-pokemon-tcg`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.85,
+  },
+  {
     // Página de produto pago (gerador interno de Separadores). Renderiza
     // preview de 9 Pokémons + CTA mesmo deslogada — indexável, tipo App
     // Store listing.

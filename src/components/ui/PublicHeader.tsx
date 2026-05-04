@@ -141,6 +141,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             <Link href="/colecionadores" style={S.navLinkAnchor}>
               🎴 Colecionadores
             </Link>
+            <Link href="/pokedex-pokemon-tcg" style={S.navLinkAnchor}>
+              🔍 Pokédex
+            </Link>
             <Link href="/separadores-pokemon" style={S.navLinkAnchor}>
               📒 Separadores
             </Link>
@@ -229,6 +232,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             </Link>
             <Link href="/colecionadores" onClick={closeMobile} style={S.mobileMenuItemLink}>
               🎴 Colecionadores
+            </Link>
+            <Link href="/pokedex-pokemon-tcg" onClick={closeMobile} style={S.mobileMenuItemLink}>
+              🔍 Pokédex
             </Link>
             <Link href="/separadores-pokemon" onClick={closeMobile} style={S.mobileMenuItemLink}>
               📒 Separadores
