@@ -80,6 +80,17 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 0.85,
   },
   {
+    // Landing SEO/Ads — Scan IA Pokémon TCG. Captura keywords "scanner
+    // carta pokemon", "identificar carta pokemon foto", "ia reconhecer
+    // pokemon tcg". Posiciona o Bynx como solução brasileira inovadora
+    // (Claude Opus 4.5, multi-card, multilíngue PT/EN/JP). Funil:
+    // ver -> cadastro -> compra de pacote pré-pago de scans (R$ 5,90 / 14,90 / 34,90).
+    url: `${BASE}/scan-ia`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.85,
+  },
+  {
     // Página de produto pago (gerador interno de Separadores). Renderiza
     // preview de 9 Pokémons + CTA mesmo deslogada — indexável, tipo App
     // Store listing.
