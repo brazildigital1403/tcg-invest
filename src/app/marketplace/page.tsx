@@ -299,8 +299,9 @@ export default function Marketplace() {
     let sellerMap: Record<string, any> = {}
 
     if (sellerIds.length > 0) {
+      // S29: lê de public_users (campos públicos) em vez de users.
       const { data: sellers } = await supabase
-        .from('users')
+        .from('public_users')
         .select('id, name, whatsapp, city')
         .in('id', sellerIds)
 
@@ -315,8 +316,9 @@ export default function Marketplace() {
     let buyerMap: Record<string, any> = {}
 
     if (buyerIds.length > 0) {
+      // S29: lê de public_users (campos públicos) em vez de users.
       const { data: buyers } = await supabase
-        .from('users')
+        .from('public_users')
         .select('id, name, whatsapp, city')
         .in('id', buyerIds)
 

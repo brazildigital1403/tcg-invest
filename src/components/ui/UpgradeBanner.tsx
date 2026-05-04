@@ -36,14 +36,23 @@ export default function UpgradeBanner({ tipo }: Props) {
   async function handleCheckout(plano: 'mensal' | 'anual') {
     setLoading(plano)
     try {
-      const { data: authData } = await supabase.auth.getUser()
-      if (!authData.user) { alert('Faça login para continuar'); setLoading(null); return }
+      // S29: pega session pra Bearer token. userId/email não vão mais no body.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { alert('Faça login para continuar'); setLoading(null); return }
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plano, userId: authData.user.id, userEmail: authData.user.email }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ plano }),
       })
       const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || 'Erro ao iniciar checkout. Tente novamente.')
+        setLoading(null)
+        return
+      }
       if (data.url) window.location.href = data.url
       else alert('Erro ao iniciar checkout. Tente novamente.')
     } catch {

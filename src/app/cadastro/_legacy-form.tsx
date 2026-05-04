@@ -98,11 +98,17 @@ export default function Cadastro() {
       return
     }
 
-    fetch('/api/email/welcome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id }),
-    }).catch(() => {})
+    // S29: pega session pra Bearer token (welcome agora exige auth).
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      fetch('/api/email/welcome', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      }).catch(() => {})
+    }
 
     window.location.href = '/dashboard-financeiro'
   }

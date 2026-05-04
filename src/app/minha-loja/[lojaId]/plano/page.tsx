@@ -158,13 +158,22 @@ export default function PlanoLojaPage() {
         return
       }
 
+      // S29: pega session pra Bearer token. userId/email não vão mais no body.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        await showAlert('Sessão expirada. Faça login novamente.', 'error')
+        setBusy(null)
+        return
+      }
+
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           plano: planoMeta,
-          userId: user.id,
-          userEmail: user.email,
           lojaId: loja.id,
         }),
       })
@@ -196,12 +205,23 @@ export default function PlanoLojaPage() {
         return
       }
 
+      // S29: Bearer token. userId do body é mantido como fallback (a API
+      // valida que Bearer === body.userId pra prevenir impersonation).
+      const { data: { session: portalSession } } = await supabase.auth.getSession()
+      if (!portalSession?.access_token) {
+        await showAlert('Sessão expirada. Faça login novamente.', 'error')
+        setBusy(null)
+        return
+      }
+
       const res = await fetch('/api/stripe/portal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${portalSession.access_token}`,
+        },
         body: JSON.stringify({
           lojaId: loja.id,
-          userId: user.id,
           returnUrl: `${window.location.origin}/minha-loja/${loja.id}/plano`,
         }),
       })

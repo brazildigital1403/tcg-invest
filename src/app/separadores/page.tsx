@@ -100,13 +100,17 @@ export default function SeparadoresPage() {
   async function handleComprar() {
     setComprando(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/'; return }
+      // S29: pega session pra Bearer token. userId/email não vão mais no body.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { window.location.href = '/'; return }
 
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plano: 'separadores', userId: user.id, userEmail: user.email }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ plano: 'separadores' }),
       })
       const { url } = await res.json()
       if (url) window.location.href = url

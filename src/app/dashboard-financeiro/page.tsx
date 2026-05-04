@@ -142,7 +142,8 @@ export default function DashboardFinanceiro() {
         ].filter(Boolean))]
         let usersMap: Record<string, any> = {}
         if (userIds.length > 0) {
-          const { data: usersData } = await supabase.from('users').select('id, name, city').in('id', userIds)
+          // S29: lê de public_users (campos públicos) em vez de users.
+          const { data: usersData } = await supabase.from('public_users').select('id, name, city').in('id', userIds)
           usersMap = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc }, {})
         }
         const txnsEnriched = (txns || []).map(t => ({

@@ -133,13 +133,16 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
   async function handleComprarCreditos(pacote: string) {
     setComprando(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: userData } = await supabase.from('users').select('email').eq('id', user.id).limit(1)
+      // S29: pega session pra Bearer token. userId/email não vão mais no body.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { setComprando(false); return }
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plano: pacote, userId: user.id, userEmail: userData?.[0]?.email || user.email }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ plano: pacote }),
       })
       const data = await res.json()
       if (data.url) window.location.href = data.url
@@ -153,16 +156,9 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
     if (!preview) return
     if (creditos === 0) { setError('Sem créditos de scan.'); return }
 
-    // ── Verifica saldo de créditos ─────────────────────────────────────────
+    // ── Verifica saldo via auth + JWT ──────────────────────────────────────
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setError('Sessão expirada. Faça login novamente.'); return }
-
-    const { data: userData } = await supabase.from('users').select('scan_creditos').eq('id', user.id).limit(1)
-    const saldo = userData?.[0]?.scan_creditos ?? 0
-    if (saldo <= 0) {
-      setError('Sem créditos de scan. Compre um pacote para continuar.')
-      return
-    }
 
     setStep('scanning')
     setError(null)
@@ -186,8 +182,19 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
 
       const data = await res.json()
 
+      // S29: 402 = sem créditos (servidor checa e debita atomicamente).
+      if (res.status === 402) {
+        setError('Sem créditos de scan. Compre um pacote para continuar.')
+        setCreditos(0)
+        setStep('capture')
+        return
+      }
       if (!res.ok) throw new Error(data.error || 'Erro ao escanear')
       if (!data.cards?.length) {
+        // Servidor já debitou e fez rollback se preciso. Atualiza UI com saldo retornado.
+        if (typeof data.scan_creditos_restantes === 'number') {
+          setCreditos(data.scan_creditos_restantes)
+        }
         setError('Nenhuma carta identificada. Tente uma foto mais clara e próxima das cartas.')
         setStep('capture')
         return
@@ -196,9 +203,11 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       setCards(data.cards.map((c: any) => ({ ...c, selected: true })))
       setStep('confirm')
 
-      // Debita 1 crédito após scan bem-sucedido
-      await supabase.from('users').update({ scan_creditos: saldo - 1 }).eq('id', user.id)
-      setCreditos(saldo - 1)
+      // S29: o servidor já debitou 1 crédito atomicamente via RPC.
+      // Apenas atualizamos a UI com o saldo retornado. SEM update direto em users.
+      if (typeof data.scan_creditos_restantes === 'number') {
+        setCreditos(data.scan_creditos_restantes)
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao processar imagem')
       setStep('capture')

@@ -168,15 +168,29 @@ export default function MinhaConta() {
   async function handleComprarExtras(plano: string) {
     setLoadingCompra(plano)
     try {
-      const { data: authData } = await supabase.auth.getUser()
-      if (!authData.user) return
+      // S29: pega session pra Bearer token. userId/email não vão mais no body.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        showAlert('Sessão expirada. Faça login novamente.', 'error')
+        setLoadingCompra(null)
+        return
+      }
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plano, userId: authData.user.id, userEmail: authData.user.email }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ plano }),
       })
       const data = await res.json()
+      if (!res.ok) {
+        showAlert(data.error || 'Erro ao processar pagamento. Tente novamente.', 'error')
+        setLoadingCompra(null)
+        return
+      }
       if (data.url) window.location.href = data.url
+      else showAlert('Erro inesperado. Tente novamente.', 'error')
     } catch {
       showAlert('Erro ao processar pagamento. Tente novamente.', 'error')
     }
@@ -188,15 +202,28 @@ export default function MinhaConta() {
   async function handleCheckout(plano: 'mensal' | 'anual') {
     setLoadingCheckout(plano)
     try {
-      const { data: authData } = await supabase.auth.getUser()
-      if (!authData.user) return
+      // S29: pega session pra Bearer token. userId/email não vão mais no body.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        showAlert('Sessão expirada. Faça login novamente.', 'error')
+        setLoadingCheckout(null)
+        return
+      }
       trackProUpgradeInitiated(plano)
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plano, userId: authData.user.id, userEmail: authData.user.email }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ plano }),
       })
       const data = await res.json()
+      if (!res.ok) {
+        showAlert(data.error || 'Erro ao iniciar checkout. Tente novamente.', 'error')
+        setLoadingCheckout(null)
+        return
+      }
       if (data.url) window.location.href = data.url
       else showAlert('Erro ao iniciar checkout. Tente novamente.', 'error')
     } catch {
@@ -244,8 +271,9 @@ export default function MinhaConta() {
 
     // Verifica se username já está em uso por outro usuário
     if (usernameChanged) {
+      // S29: lê de public_users (RLS de users só permite ler próprio).
       const { data: existing } = await supabase
-        .from('users').select('id').eq('username', uSlug).neq('id', user.id).single()
+        .from('public_users').select('id').eq('username', uSlug).neq('id', user.id).single()
       if (existing) {
         setSaving(false)
         showAlert('Este username já está em uso. Escolha outro — cada perfil é único no Bynx!', 'error')
