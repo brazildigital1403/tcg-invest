@@ -210,8 +210,8 @@ export default function PokedexPokemonTcgPage() {
           .pdx-stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; }
           .pdx-anatomy-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
           .pdx-anatomy-card { margin: 0 auto; }
-          .pdx-anatomy-callouts { display: flex !important; flex-direction: column; gap: 8px; }
-          .pdx-anatomy-callouts > div { position: static !important; transform: none !important; }
+          .pdx-spec-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .pdx-anatomy-dossie { grid-column: auto !important; padding: 0 !important; }
           .pdx-comparativo-table { font-size: 12px !important; }
           .pdx-comparativo-table th, .pdx-comparativo-table td { padding: 8px 6px !important; }
           .pdx-comparativo-table th:nth-child(n+3), .pdx-comparativo-table td:nth-child(n+3) {
@@ -420,7 +420,7 @@ export default function PokedexPokemonTcgPage() {
             />
 
             <div className="pdx-anatomy-grid" style={S.anatomyGrid}>
-              {/* Carta + callouts */}
+              {/* Esquerda: carta destacada */}
               <div style={S.anatomyVisual}>
                 <div className="pdx-anatomy-card" style={S.anatomyCard}>
                   <img
@@ -430,19 +430,20 @@ export default function PokedexPokemonTcgPage() {
                     style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 20px 40px rgba(245,158,11,0.2))' }}
                   />
                 </div>
-
-                <div className="pdx-anatomy-callouts">
-                  <CalloutBadge style={{ top: '8%', left: '-24%' }} label="Nome (PT/EN)" value="Umbreon ex" />
-                  <CalloutBadge style={{ top: '24%', right: '-26%' }} label="Set" value="Prismatic Evolutions" />
-                  <CalloutBadge style={{ top: '46%', left: '-22%' }} label="Raridade" value="Special Illustration" highlight />
-                  <CalloutBadge style={{ top: '60%', right: '-24%' }} label="Número" value="161/131" />
-                  <CalloutBadge style={{ bottom: '18%', left: '-22%' }} label="Preço médio (BRL)" value="R$ 4.570" />
-                  <CalloutBadge style={{ bottom: '4%', right: '-22%' }} label="Variante" value="Foil" />
-                </div>
               </div>
 
-              {/* Texto de apoio */}
-              <div style={S.anatomyText}>
+              {/* Direita: grid 3x2 de specs (estável em qualquer viewport) */}
+              <div className="pdx-spec-grid" style={S.specGrid}>
+                <SpecCard label="Nome (PT/EN)" value="Umbreon ex" />
+                <SpecCard label="Set" value="Prismatic Evolutions" />
+                <SpecCard label="Raridade" value="Special Illustration" highlight />
+                <SpecCard label="Número" value="161/131" />
+                <SpecCard label="Preço médio (BRL)" value="R$ 4.570" highlight />
+                <SpecCard label="Variante" value="Foil" />
+              </div>
+
+              {/* Dossiê: largura completa abaixo, evita conflito com specs ao lado */}
+              <div className="pdx-anatomy-dossie" style={S.anatomyDossie}>
                 <h3 style={S.anatomyTitle}>Cada carta é um dossiê.</h3>
                 <ul style={S.anatomyList}>
                   <li style={S.anatomyItem}>
@@ -881,11 +882,11 @@ function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: s
   )
 }
 
-function CalloutBadge({ style, label, value, highlight }: { style: CSSProperties; label: string; value: string; highlight?: boolean }) {
+function SpecCard({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div style={{ ...S.calloutBadge, ...(highlight ? S.calloutBadgeHighlight : {}), ...style }}>
-      <div style={S.calloutLabel}>{label}</div>
-      <div style={S.calloutValue}>{value}</div>
+    <div style={{ ...S.specCard, ...(highlight ? S.specCardHighlight : {}) }}>
+      <div style={S.specLabel}>{label}</div>
+      <div style={{ ...S.specValue, ...(highlight ? S.specValueHighlight : {}) }}>{value}</div>
     </div>
   )
 }
@@ -1231,16 +1232,18 @@ const S: Record<string, CSSProperties> = {
   },
 
   // ─── ANATOMIA ──────────────────────────────────────
+  // Layout: grid 2-col (carta à esquerda + specs à direita), com o
+  // bloco "dossiê" ocupando largura completa abaixo. Sem position
+  // absolute — robusto em qualquer viewport.
   anatomyGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: 64,
+    gap: 48,
     alignItems: 'center',
     maxWidth: 1080,
     margin: '0 auto',
   },
   anatomyVisual: {
-    position: 'relative',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1248,29 +1251,78 @@ const S: Record<string, CSSProperties> = {
   anatomyCard: {
     width: 240,
     aspectRatio: '5/7',
-    position: 'relative',
-    zIndex: 1,
   },
-  anatomyText: { display: 'flex', flexDirection: 'column', gap: 16 },
+  // Grid 3x2 de specs ao lado da carta (desktop) / 2x3 em mobile
+  specGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gridAutoRows: 'minmax(72px, auto)',
+    gap: 10,
+  },
+  specCard: {
+    background: '#0d0f14',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    padding: '12px 14px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 4,
+    minWidth: 0, // permite truncate em containers flex/grid
+  },
+  specCardHighlight: {
+    border: '1px solid rgba(245,158,11,0.4)',
+    background: 'linear-gradient(180deg, rgba(245,158,11,0.08), rgba(13,15,20,1))',
+  },
+  specLabel: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.45)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    fontWeight: 700,
+  },
+  specValue: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: '#f0f0f0',
+    lineHeight: 1.3,
+    letterSpacing: '-0.01em',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  specValueHighlight: {
+    color: '#f59e0b',
+  },
+  // Dossiê ocupa largura completa abaixo (não mais coluna lateral)
+  anatomyDossie: {
+    gridColumn: '1 / -1',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+    paddingTop: 24,
+    borderTop: '1px solid rgba(255,255,255,0.06)',
+    marginTop: 24,
+  },
   anatomyTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 800,
     letterSpacing: '-0.025em',
     margin: 0,
     color: '#f0f0f0',
+    textAlign: 'center',
   },
   anatomyList: {
     listStyle: 'none',
     padding: 0,
     margin: 0,
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
     gap: 12,
   },
   anatomyItem: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.7)',
-    lineHeight: 1.65,
+    lineHeight: 1.6,
     paddingLeft: 16,
     borderLeft: '2px solid rgba(245,158,11,0.3)',
   },
@@ -1280,34 +1332,7 @@ const S: Record<string, CSSProperties> = {
     fontStyle: 'italic',
     margin: 0,
     marginTop: 8,
-  },
-  calloutBadge: {
-    position: 'absolute',
-    background: '#0d0f14',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 8,
-    padding: '8px 12px',
-    minWidth: 110,
-    boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
-    zIndex: 2,
-  },
-  calloutBadgeHighlight: {
-    border: '1px solid rgba(245,158,11,0.4)',
-    background: 'linear-gradient(180deg, rgba(245,158,11,0.08), rgba(13,15,20,1))',
-  },
-  calloutLabel: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.4)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    fontWeight: 600,
-    marginBottom: 2,
-  },
-  calloutValue: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: '#f0f0f0',
-    whiteSpace: 'nowrap',
+    textAlign: 'center',
   },
 
   // ─── COMPARATIVO ───────────────────────────────────
