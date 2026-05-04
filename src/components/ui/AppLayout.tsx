@@ -95,6 +95,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [temLoja, setTemLoja] = useState<boolean | null>(null)
   const [exploreMode, setExploreMode] = useState(false)
 
+  // Detecção de auth pra guest mode em /pokedex e /separadores.
+  // Quando user NÃO está logado e está navegando em uma dessas rotas
+  // (vindas das landings via "Explorar Pokédex" / "Explorar Separadores"),
+  // dimamos os outros links do menu pra deixar claro que são exclusivos
+  // de quem tem conta. O cadastro continua acessível pelos CTAs da página.
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setIsLoggedIn(!!data.session?.user)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session?.user)
+    })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  // Rotas acessíveis sem login (exploração via landings).
+  // Quando o user deslogado está em uma delas, dimamos os outros links no menu.
+  const GUEST_ALLOWED_HREFS = new Set<string>(['/pokedex', '/separadores'])
+  const isGuestExploreRoute = GUEST_ALLOWED_HREFS.has(pathname || '')
+  const guestExploring = isLoggedIn === false && isGuestExploreRoute
+
   // Load explore mode do localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -435,15 +458,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
             {menu.map(item => {
               const active = pathname === item.href
+              const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
               return (
-                <Link key={item.href} href={item.href} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
-                  fontSize: 14, fontWeight: active ? 700 : 400,
-                  color: active ? '#fff' : 'rgba(255,255,255,0.45)',
-                  background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
-                  borderLeft: active ? '2px solid #f59e0b' : '2px solid transparent',
-                }}>
+                <Link key={item.href} href={item.href}
+                  aria-disabled={dimmed || undefined}
+                  tabIndex={dimmed ? -1 : undefined}
+                  onClick={dimmed ? (e) => e.preventDefault() : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
+                    fontSize: 14, fontWeight: active ? 700 : 400,
+                    color: active ? '#fff' : 'rgba(255,255,255,0.45)',
+                    background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
+                    borderLeft: active ? '2px solid #f59e0b' : '2px solid transparent',
+                    opacity: dimmed ? 0.1 : 1,
+                    pointerEvents: dimmed ? 'none' : 'auto',
+                    cursor: dimmed ? 'not-allowed' : 'pointer',
+                    transition: 'opacity 0.2s',
+                  }}>
                   <item.Icon size={16} color={active ? "#f59e0b" : "rgba(255,255,255,0.45)"} />
                   {item.full}
                 </Link>
@@ -609,15 +641,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }}>
           {menu.map(item => {
             const active = pathname === item.href
+            const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
             return (
-              <Link key={item.href} href={item.href} style={{
-                flex: '0 0 auto', minWidth: 64,
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
-                textDecoration: 'none',
-                color: active ? '#f59e0b' : 'rgba(255,255,255,0.35)',
-                borderTop: active ? '2px solid #f59e0b' : '2px solid transparent',
-              }}>
+              <Link key={item.href} href={item.href}
+                aria-disabled={dimmed || undefined}
+                tabIndex={dimmed ? -1 : undefined}
+                onClick={dimmed ? (e) => e.preventDefault() : undefined}
+                style={{
+                  flex: '0 0 auto', minWidth: 64,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
+                  textDecoration: 'none',
+                  color: active ? '#f59e0b' : 'rgba(255,255,255,0.35)',
+                  borderTop: active ? '2px solid #f59e0b' : '2px solid transparent',
+                  opacity: dimmed ? 0.1 : 1,
+                  pointerEvents: dimmed ? 'none' : 'auto',
+                  transition: 'opacity 0.2s',
+                }}>
                 <item.Icon size={19} color={active ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />
                 <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
                   {item.name}
@@ -656,9 +696,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
                 {menu.map(item => {
                   const active = pathname === item.href
+                  const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
                   return (
                     <Link key={item.href} href={item.href}
-                      onClick={() => setDrawerOpen(false)}
+                      aria-disabled={dimmed || undefined}
+                      tabIndex={dimmed ? -1 : undefined}
+                      onClick={dimmed ? (e) => e.preventDefault() : () => setDrawerOpen(false)}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 12,
                         padding: '12px 14px', borderRadius: 12, textDecoration: 'none',
@@ -666,6 +709,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         color: active ? '#fff' : 'rgba(255,255,255,0.5)',
                         background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
                         border: active ? '1px solid rgba(245,158,11,0.2)' : '1px solid transparent',
+                        opacity: dimmed ? 0.1 : 1,
+                        pointerEvents: dimmed ? 'none' : 'auto',
+                        cursor: dimmed ? 'not-allowed' : 'pointer',
+                        transition: 'opacity 0.2s',
                       }}>
                       <item.Icon size={20} color={active ? '#fff' : 'rgba(255,255,255,0.5)'} />
                       {item.full}
