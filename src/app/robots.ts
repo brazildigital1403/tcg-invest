@@ -25,6 +25,7 @@ export default function robots(): MetadataRoute.Robots {
           '/separadores',
           '/separadores-pokemon',
           '/colecionadores',
+          '/pokedex-pokemon-tcg',
         ],
         disallow: [
           '/minha-colecao',
