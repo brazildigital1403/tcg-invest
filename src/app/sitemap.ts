@@ -59,6 +59,16 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 0.85,
   },
   {
+    // Landing SEO/Ads — funil B2C pra colecionador BR. Apresenta o app
+    // pra quem busca "colecionar pokemon brasil", "app coleção pokemon",
+    // "organizar coleção pokemon". Pokédex de 22.861 cartas, 1.025 Pokémons,
+    // preços em reais. CTAs apontam pra cadastro com next=/minha-colecao.
+    url: `${BASE}/colecionadores`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.85,
+  },
+  {
     // Página de produto pago (gerador interno de Separadores). Renderiza
     // preview de 9 Pokémons + CTA mesmo deslogada — indexável, tipo App
     // Store listing.
