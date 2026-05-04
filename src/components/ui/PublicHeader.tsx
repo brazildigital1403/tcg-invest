@@ -2,7 +2,7 @@
 
 import { useEffect, useState, CSSProperties, RefObject } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
 /**
@@ -42,8 +42,30 @@ interface Props {
 
 export default function PublicHeader({ landingScrollTargets }: Props = {}) {
   const router = useRouter()
+  const pathname = usePathname() || '/'
   const [logado, setLogado] = useState<boolean | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Detecta se um link de nav corresponde à rota atual.
+  // /lojas considera /lojas/[slug] também ativo (subrota).
+  function isActive(href: string): boolean {
+    if (href === '/lojas') return pathname === '/lojas' || pathname.startsWith('/lojas/')
+    return pathname === href
+  }
+
+  // Aplica destaque (bold + cor) ao link ativo.
+  // Usa S.navLinkAnchorActive como overlay sobre S.navLinkAnchor.
+  function navLinkStyle(href: string): CSSProperties {
+    return isActive(href)
+      ? { ...S.navLinkAnchor, ...S.navLinkAnchorActive }
+      : S.navLinkAnchor
+  }
+
+  function mobileLinkStyle(href: string): CSSProperties {
+    return isActive(href)
+      ? { ...S.mobileMenuItemLink, ...S.mobileMenuItemLinkActive }
+      : S.mobileMenuItemLink
+  }
 
   useEffect(() => {
     let alive = true
@@ -135,19 +157,19 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             )}
 
             {/* Links universais */}
-            <Link href="/lojas" style={S.navLinkAnchor}>
-              🏪 Guia de Lojas
+            <Link href="/lojas" style={navLinkStyle('/lojas')}>
+              Guia de Lojas
             </Link>
-            <Link href="/colecionadores" style={S.navLinkAnchor}>
-              🎴 Colecionadores
+            <Link href="/colecionadores" style={navLinkStyle('/colecionadores')}>
+              Colecionadores
             </Link>
-            <Link href="/pokedex-pokemon-tcg" style={S.navLinkAnchor}>
-              🔍 Pokédex
+            <Link href="/pokedex-pokemon-tcg" style={navLinkStyle('/pokedex-pokemon-tcg')}>
+              Pokédex
             </Link>
-            <Link href="/separadores-pokemon" style={S.navLinkAnchor}>
-              📒 Separadores
+            <Link href="/separadores-pokemon" style={navLinkStyle('/separadores-pokemon')}>
+              Separadores
             </Link>
-            <Link href="/para-lojistas" style={S.navLinkAnchor}>
+            <Link href="/para-lojistas" style={navLinkStyle('/para-lojistas')}>
               Para lojistas
             </Link>
 
@@ -227,19 +249,19 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
               </>
             )}
 
-            <Link href="/lojas" onClick={closeMobile} style={S.mobileMenuItemLink}>
-              🏪 Guia de Lojas
+            <Link href="/lojas" onClick={closeMobile} style={mobileLinkStyle('/lojas')}>
+              Guia de Lojas
             </Link>
-            <Link href="/colecionadores" onClick={closeMobile} style={S.mobileMenuItemLink}>
-              🎴 Colecionadores
+            <Link href="/colecionadores" onClick={closeMobile} style={mobileLinkStyle('/colecionadores')}>
+              Colecionadores
             </Link>
-            <Link href="/pokedex-pokemon-tcg" onClick={closeMobile} style={S.mobileMenuItemLink}>
-              🔍 Pokédex
+            <Link href="/pokedex-pokemon-tcg" onClick={closeMobile} style={mobileLinkStyle('/pokedex-pokemon-tcg')}>
+              Pokédex
             </Link>
-            <Link href="/separadores-pokemon" onClick={closeMobile} style={S.mobileMenuItemLink}>
-              📒 Separadores
+            <Link href="/separadores-pokemon" onClick={closeMobile} style={mobileLinkStyle('/separadores-pokemon')}>
+              Separadores
             </Link>
-            <Link href="/para-lojistas" onClick={closeMobile} style={S.mobileMenuItemLink}>
+            <Link href="/para-lojistas" onClick={closeMobile} style={mobileLinkStyle('/para-lojistas')}>
               Para lojistas
             </Link>
           </div>
@@ -304,6 +326,14 @@ const S: Record<string, CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 5,
+  },
+  // Aplicado quando o link bate com a rota atual.
+  // Cor laranja + bold deixam claro onde o user está sem precisar
+  // de underline ou borda lateral. Mantém o layout estável (mesma
+  // altura/largura), só muda peso e cor do texto.
+  navLinkAnchorActive: {
+    color: '#f59e0b',
+    fontWeight: 700,
   },
   ctaPrimary: {
     background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
@@ -385,5 +415,11 @@ const S: Record<string, CSSProperties> = {
     padding: '10px 0',
     fontWeight: 500,
     display: 'block',
+  },
+  // Mesma lógica do desktop: laranja + bold quando o link
+  // bate com a rota atual.
+  mobileMenuItemLinkActive: {
+    color: '#f59e0b',
+    fontWeight: 700,
   },
 }
