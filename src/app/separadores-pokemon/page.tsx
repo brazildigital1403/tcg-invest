@@ -217,8 +217,8 @@ export default function SeparadoresPokemonPage() {
                 <Link href="?auth=signup&next=/separadores" style={S.ctaPrimary}>
                   Comprar agora — R$ 14,90
                 </Link>
-                <Link href="#como-funciona" style={S.ctaSecondary}>
-                  Como funciona →
+                <Link href="/separadores" style={S.ctaSecondary}>
+                  Explorar Separadores →
                 </Link>
               </div>
 
@@ -469,8 +469,8 @@ export default function SeparadoresPokemonPage() {
                 <Link href="?auth=signup&next=/separadores" style={S.ctaPrimary}>
                   Comprar agora — R$ 14,90
                 </Link>
-                <Link href="/" style={S.ctaSecondary}>
-                  Conhecer o Bynx →
+                <Link href="/separadores" style={S.ctaSecondary}>
+                  Explorar Separadores →
                 </Link>
               </div>
             </div>
