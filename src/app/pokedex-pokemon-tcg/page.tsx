@@ -181,7 +181,7 @@ const faqSchema = {
       name: 'Quais são as cartas mais valiosas do Bynx hoje?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'No mercado BR, as cartas mais valiosas catalogadas no Bynx incluem Mew Star da Holon Phantoms (R$ 19.000), Umbreon ex Prismatic Evolutions (R$ 4.570), Mew ex Paldean Fates (R$ 2.144), Reshiram e Charizard (R$ 1.800), Pikachu ex Surging Sparks (R$ 1.500) e Charizard-V CPA (R$ 1.398). Cartas vintage como as Star da era Holon e Special Illustration Rares modernas dominam o topo.',
+        text: 'No mercado BR, as cartas mais valiosas catalogadas no Bynx incluem Umbreon ex Prismatic Evolutions (R$ 4.570), Mew ex Paldean Fates (R$ 2.144), Pikachu ex Surging Sparks (R$ 1.500), Flareon ex (R$ 1.399), Vaporeon ex (R$ 1.299) e Salamence ex Journey Together (R$ 1.299). Special Illustration Rares modernas — especialmente o trio Eeveelutions de Prismatic Evolutions — dominam o topo do mercado brasileiro.',
       },
     },
   ],
@@ -304,7 +304,7 @@ export default function PokedexPokemonTcgPage() {
                 <Link href="/pokedex" style={S.ctaPrimary}>
                   Explorar Pokédex →
                 </Link>
-                <Link href="/?auth=signup&next=/pokedex" style={S.ctaSecondary}>
+                <Link href="?auth=signup&next=/pokedex" style={S.ctaSecondary}>
                   Criar conta grátis
                 </Link>
               </div>
@@ -567,21 +567,17 @@ export default function PokedexPokemonTcgPage() {
 
             <div className="pdx-cards-grid" style={S.topCardsGrid}>
               {[
-                { name: 'Mew Star', desc: 'Holon Phantoms · Vintage', price: 'R$ 19.000', img: null, fallback: '⭐', rank: 1 },
-                { name: 'Umbreon ex', desc: 'Prismatic Evolutions · Special Illustration', price: 'R$ 4.570', img: 'https://images.pokemontcg.io/sv8pt5/161.png', rank: 2 },
-                { name: 'Mew ex', desc: 'Paldean Fates · Special Illustration', price: 'R$ 2.144', img: 'https://images.pokemontcg.io/sv4pt5/232.png', rank: 3 },
-                { name: 'Pikachu ex', desc: 'Surging Sparks · Special Illustration', price: 'R$ 1.500', img: 'https://images.pokemontcg.io/sv8/238.png', rank: 4 },
-                { name: 'Flareon ex', desc: 'Prismatic Evolutions · Special Illustration', price: 'R$ 1.399', img: 'https://images.pokemontcg.io/sv8pt5/146.png', rank: 5 },
-                { name: 'Charizard-V', desc: 'Liga BR — CPA · Promo', price: 'R$ 1.398', img: null, fallback: '🔥', rank: 6 },
+                { name: 'Umbreon ex', desc: 'Prismatic Evolutions · Special Illustration', price: 'R$ 4.570', img: 'https://images.pokemontcg.io/sv8pt5/161.png', rank: 1 },
+                { name: 'Mew ex', desc: 'Paldean Fates · Special Illustration', price: 'R$ 2.144', img: 'https://images.pokemontcg.io/sv4pt5/232.png', rank: 2 },
+                { name: 'Pikachu ex', desc: 'Surging Sparks · Special Illustration', price: 'R$ 1.500', img: 'https://images.pokemontcg.io/sv8/238.png', rank: 3 },
+                { name: 'Flareon ex', desc: 'Prismatic Evolutions · Special Illustration', price: 'R$ 1.399', img: 'https://images.pokemontcg.io/sv8pt5/146.png', rank: 4 },
+                { name: 'Vaporeon ex', desc: 'Prismatic Evolutions · Special Illustration', price: 'R$ 1.299', img: 'https://images.pokemontcg.io/sv8pt5/149.png', rank: 5 },
+                { name: 'Salamence ex', desc: 'Journey Together · Special Illustration', price: 'R$ 1.299', img: 'https://images.pokemontcg.io/sv9/187.png', rank: 6 },
               ].map((c) => (
                 <div key={c.name + c.rank} style={S.topCard}>
                   <span style={S.topCardRank}>#{c.rank}</span>
                   <div style={S.topCardImg}>
-                    {c.img ? (
-                      <img src={c.img} alt={c.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <div style={S.topCardFallback}>{c.fallback}</div>
-                    )}
+                    <img src={c.img} alt={c.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   </div>
                   <div style={S.topCardName}>{c.name}</div>
                   <div style={S.topCardDesc}>{c.desc}</div>
@@ -823,7 +819,7 @@ export default function PokedexPokemonTcgPage() {
                 },
                 {
                   q: 'Quais são as cartas mais valiosas do Bynx hoje?',
-                  a: 'No mercado BR, as cartas mais valiosas catalogadas no Bynx incluem Mew Star da Holon Phantoms (R$ 19.000), Umbreon ex Prismatic Evolutions (R$ 4.570), Mew ex Paldean Fates (R$ 2.144), Reshiram e Charizard (R$ 1.800), Pikachu ex Surging Sparks (R$ 1.500) e Charizard-V CPA (R$ 1.398). Cartas vintage como as Star da era Holon e Special Illustration Rares modernas dominam o topo.',
+                  a: 'No mercado BR, as cartas mais valiosas catalogadas no Bynx incluem Umbreon ex Prismatic Evolutions (R$ 4.570), Mew ex Paldean Fates (R$ 2.144), Pikachu ex Surging Sparks (R$ 1.500), Flareon ex (R$ 1.399), Vaporeon ex (R$ 1.299) e Salamence ex Journey Together (R$ 1.299). Special Illustration Rares modernas — especialmente o trio Eeveelutions de Prismatic Evolutions — dominam o topo do mercado brasileiro.',
                 },
               ].map((item, i) => (
                 <details key={i} name="bynx-pdx-faq" style={S.faqItem}>
@@ -853,7 +849,7 @@ export default function PokedexPokemonTcgPage() {
                 <Link href="/pokedex" style={S.ctaPrimary}>
                   Explorar Pokédex →
                 </Link>
-                <Link href="/?auth=signup&next=/minha-colecao" style={S.ctaSecondary}>
+                <Link href="?auth=signup&next=/minha-colecao" style={S.ctaSecondary}>
                   Criar conta grátis
                 </Link>
                 <Link href="/colecionadores" style={S.ctaTertiary}>

@@ -227,7 +227,7 @@ export default function ColecionadoresPage() {
               </p>
 
               <div className="col-hero-ctas" style={S.heroCtas}>
-                <Link href="/?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
+                <Link href="?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
                   Começar grátis →
                 </Link>
                 <Link href="/pokedex" style={S.ctaSecondary}>
@@ -411,7 +411,7 @@ export default function ColecionadoresPage() {
                 <p style={S.profileDesc}>
                   É a versão BR do que existe lá fora — só que melhor adaptado pro nosso jeito: links pro WhatsApp, badge "verificado" e modo privado pra quem não quer expor patrimônio.
                 </p>
-                <Link href="/?auth=signup&next=/minha-conta" style={S.ctaInline}>
+                <Link href="?auth=signup&next=/minha-conta" style={S.ctaInline}>
                   Criar meu perfil grátis →
                 </Link>
               </div>
@@ -486,7 +486,7 @@ export default function ColecionadoresPage() {
                   <PlanFeature>3 anúncios no Marketplace</PlanFeature>
                   <PlanFeature muted>Scan com IA, perfil público, exportar</PlanFeature>
                 </ul>
-                <Link href="/?auth=signup&next=/minha-colecao" style={S.planCtaSecondary}>
+                <Link href="?auth=signup&next=/minha-colecao" style={S.planCtaSecondary}>
                   Começar grátis
                 </Link>
               </div>
@@ -507,7 +507,7 @@ export default function ColecionadoresPage() {
                   <PlanFeature>Exportar CSV</PlanFeature>
                   <PlanFeature>Marketplace ilimitado</PlanFeature>
                 </ul>
-                <Link href="/?auth=signup&next=/minha-colecao" style={S.planCtaPrimary}>
+                <Link href="?auth=signup&next=/minha-colecao" style={S.planCtaPrimary}>
                   Começar 7 dias grátis
                 </Link>
               </div>
@@ -525,7 +525,7 @@ export default function ColecionadoresPage() {
                   <PlanFeature>Acesso antecipado a novidades</PlanFeature>
                   <PlanFeature>Renovação com 20% off no 2º ano</PlanFeature>
                 </ul>
-                <Link href="/?auth=signup&next=/minha-colecao" style={S.planCtaSecondary}>
+                <Link href="?auth=signup&next=/minha-colecao" style={S.planCtaSecondary}>
                   Começar 7 dias grátis
                 </Link>
               </div>
@@ -596,7 +596,7 @@ export default function ColecionadoresPage() {
                 Depois disso, plano gratuito com 6 cartas pra sempre — ou Pro a partir de R$ 29,90/mês.
               </p>
               <div className="col-final-ctas" style={S.heroCtas}>
-                <Link href="/?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
+                <Link href="?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
                   Começar grátis →
                 </Link>
                 <Link href="/pokedex" style={S.ctaSecondary}>
