@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, IconHistory, IconCollection, IconChat, IconBox, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { criarNotificacao } from '@/lib/notificacoes'
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
+import { getUserPlan } from '@/lib/isPro'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
@@ -304,14 +306,46 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
 }
 
 // ─── Página principal ─────────────────────────────────────────────────────────
+//
+// S29 UX v3 — REGRA 24: useSearchParams em Next.js 16+ pode quebrar build
+// estático sem Suspense. Por isso o componente real (MarketplaceInner)
+// roda dentro de um Suspense boundary no default export.
 
-export default function Marketplace() {
+function MarketplaceInner() {
   const { showAlert, showConfirm, showPrompt } = useAppModal()
-  const [tab, setTab] = useState<'vitrine' | 'meus' | 'negociacoes'>('vitrine')
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // S29 UX v3: persistir tab em URL (?tab=meus|negociacoes).
+  // Permite F5 manter a aba e compartilhar links com aba já selecionada.
+  // Default é 'vitrine' se param ausente ou inválido.
+  const initialTab = (() => {
+    const t = searchParams?.get('tab')
+    return (t === 'meus' || t === 'negociacoes') ? t : 'vitrine'
+  })()
+
+  const [tab, setTabState] = useState<'vitrine' | 'meus' | 'negociacoes'>(initialTab)
+
+  // Wrapper de setTab que ATUALIZA A URL pra refletir a aba selecionada,
+  // sem causar reload nem perder o scroll position (replace, não push).
+  function setTab(novoTab: 'vitrine' | 'meus' | 'negociacoes') {
+    setTabState(novoTab)
+    const params = new URLSearchParams(searchParams?.toString() || '')
+    if (novoTab === 'vitrine') {
+      params.delete('tab')  // URL limpa pra default
+    } else {
+      params.set('tab', novoTab)
+    }
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
+
   const [totalAnuncios, setTotalAnuncios] = useState(0)
   const [listings, setListings] = useState<any[]>([])
   const [userId, setUserId]     = useState<string | null>(null)
   const [userWhatsapp, setUserWhatsapp] = useState<string | null>(null)
+  const [isPro, setIsPro] = useState(false)
   const [loading, setLoading]   = useState(true)
   const [showAnunciarModal, setShowAnunciarModal] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState('')
@@ -331,6 +365,11 @@ export default function Marketplace() {
       // S29: lê próprio whatsapp/city de users (RLS auth.uid()=id permite)
       const { data: profile } = await supabase.from('users').select('whatsapp, city').eq('id', uid).single()
       setUserWhatsapp(profile?.whatsapp || null)
+
+      // S29: detecta se user é Pro/trial pra esconder banners de upgrade.
+      // getUserPlan considera is_pro + pro_expira_em + trial_expires_at.
+      const planInfo = await getUserPlan(uid)
+      setIsPro(planInfo.isPro)
     }
 
     // Busca anúncios — exclui anúncios moderados (removidos pelo admin)
@@ -380,15 +419,25 @@ export default function Marketplace() {
     }
 
     // S29 UX v2: enrich com preço de mercado canonical pra calcular badges.
-    // Faz match por card_name (legacy) — quando todas cartas tiverem
-    // pokemon_api_id no marketplace, dá pra otimizar com .in('id', ids).
-    const cardNames = [...new Set(listings.map((c: any) => c.card_name).filter(Boolean))]
+    //
+    // BUG ANTERIOR: o `.in('name', cardNames)` pedia match EXATO. Mas no
+    // marketplace o card_name vem como "Charmander (017/034)" enquanto em
+    // pokemon_cards vem só "Charmander" — então quase nenhum match acontecia
+    // e os badges 💎/🔥 nunca apareciam.
+    //
+    // FIX: extrai o nome-base removendo o sufixo "(NNN/NNN)" antes do match.
+    const stripCardNumber = (name: string) =>
+      name.replace(/\s*\([^)]*\)\s*$/, '').trim()
+
+    const baseNames = [...new Set(
+      listings.map((c: any) => c.card_name ? stripCardNumber(c.card_name) : null).filter(Boolean)
+    )]
     let priceMap: Record<string, number> = {}
-    if (cardNames.length > 0) {
+    if (baseNames.length > 0) {
       const { data: pokemons } = await supabase
         .from('pokemon_cards')
         .select('name, preco_medio')
-        .in('name', cardNames)
+        .in('name', baseNames)
       priceMap = (pokemons || []).reduce((acc: any, p: any) => {
         // Mantém maior preco_medio se houver duplicatas (variantes)
         if (!acc[p.name] || (p.preco_medio || 0) > acc[p.name]) {
@@ -406,7 +455,7 @@ export default function Marketplace() {
       buyer_name: buyerMap[c.buyer_id]?.name,
       buyer_whatsapp: buyerMap[c.buyer_id]?.whatsapp,
       buyer_city: buyerMap[c.buyer_id]?.city,
-      preco_mercado: priceMap[c.card_name] || 0,
+      preco_mercado: c.card_name ? (priceMap[stripCardNumber(c.card_name)] || 0) : 0,
     }))
 
     setListings(enriched)
@@ -745,8 +794,8 @@ export default function Marketplace() {
                   ))}
                 </div>
 
-                {/* Banner upgrade após 3 anúncios */}
-                {totalAnuncios >= LIMITE_FREE_MKTPLACE && (
+                {/* Banner upgrade após 3 anúncios — apenas pra users free */}
+                {!isPro && totalAnuncios >= LIMITE_FREE_MKTPLACE && (
                   <UpgradeBanner tipo="marketplace" />
                 )}
               </>
@@ -792,5 +841,24 @@ export default function Marketplace() {
         />
       )}
     </AppLayout>
+  )
+}
+
+// ─── Wrapper Suspense ─────────────────────────────────────────────────────────
+// REGRA 24 (Next.js 16+): useSearchParams em client component pode quebrar
+// prerender se não estiver dentro de Suspense boundary. Mantém compatibilidade
+// com build SSG enquanto garantimos que F5 mantém a aba ativa.
+
+export default function Marketplace() {
+  return (
+    <Suspense fallback={
+      <AppLayout>
+        <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
+          Carregando marketplace...
+        </div>
+      </AppLayout>
+    }>
+      <MarketplaceInner />
+    </Suspense>
   )
 }
