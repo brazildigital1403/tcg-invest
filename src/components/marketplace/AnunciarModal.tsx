@@ -5,6 +5,16 @@ import { IconSearch, IconClose, IconRocket } from '@/components/ui/Icons'
 import CardItem from '@/components/ui/CardItem'
 import { supabase } from '@/lib/supabaseClient'
 
+// ─── Types ─────────────────────────────────────────────────────────────────
+
+interface Props {
+  userId: string
+  onClose: () => void
+  onAdded: () => void
+}
+
+// ─── Estilos ───────────────────────────────────────────────────────────────
+
 const BRAND   = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const BOX: React.CSSProperties = {
   background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)',
@@ -38,8 +48,22 @@ const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
 // ─── Step 1 — Escolher carta ────────────────────────────────────────────────
+//
+// S29 fix: o sub-componente recebe `cartaSel` por prop. Antes, o JSX da linha 112
+// referenciava `cartaSel` que era state do componente pai (AnunciarModal),
+// quebrando o build minificado em produção (`ReferenceError: cartaSel is not
+// defined`). O bug era pré-existente e só era flagrante em prod com user_cards
+// suficientes pra renderizar muitos `<CardItem>` em sequência via `.map`.
 
-function EscolherCarta({ userId, onSelect }: { userId: string; onSelect: (c: any) => void }) {
+function EscolherCarta({
+  userId,
+  cartaSel,
+  onSelect,
+}: {
+  userId: string
+  cartaSel: any | null
+  onSelect: (c: any) => void
+}) {
   const [cards, setCards]     = useState<any[]>([])
   const [search, setSearch]   = useState('')
   const [loading, setLoading] = useState(true)
@@ -325,7 +349,7 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
 
         <div style={{ flex: 1, overflow: 'hidden' }}>
           {step === 'escolher'
-            ? <EscolherCarta userId={userId} onSelect={handleSelectCard} />
+            ? <EscolherCarta userId={userId} cartaSel={cartaSel} onSelect={handleSelectCard} />
             : <DetalhesAnuncio card={cartaSel} precoMercado={precoMercado} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} />
           }
         </div>
