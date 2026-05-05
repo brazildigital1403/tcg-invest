@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { IconRocket, IconWarning, IconCheck } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
+import { getUserPlan } from '@/lib/isPro'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -12,22 +13,40 @@ interface Props {
 export default function UpgradeBanner({ tipo }: Props) {
   const [loading, setLoading] = useState<string | null>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
+  const [shouldRender, setShouldRender] = useState<boolean | null>(null)
 
   useEffect(() => {
-    async function checkTrial() {
+    // S29 fix: auto-proteção. Mesmo se o caller esquecer de checar isPro,
+    // o componente NUNCA renderiza pra users Pro/trial. Defesa em camadas:
+    // 1) caller deve filtrar (`!isPro && limit_atingido`)
+    // 2) este componente filtra de novo se o caller falhar
+    async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase.from('users').select('trial_expires_at, is_pro').eq('id', user.id).single()
-      if (data && !data.is_pro && data.trial_expires_at) {
-        const expiry = new Date(data.trial_expires_at)
-        if (expiry > new Date()) {
-          const days = Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-          setTrialDaysLeft(days)
-        }
+      if (!user) {
+        // Sem user logado, não faz sentido mostrar upgrade — esconde também
+        setShouldRender(false)
+        return
       }
+
+      const planInfo = await getUserPlan(user.id)
+      // Se já é Pro (pago ou trial ativo), NÃO renderiza nada
+      if (planInfo.isPro) {
+        setShouldRender(false)
+        return
+      }
+
+      // Se tem trial vai expirar em <=2 dias, mostra alerta urgente
+      if (planInfo.trialDaysLeft > 0 && planInfo.trialDaysLeft <= 2) {
+        setTrialDaysLeft(planInfo.trialDaysLeft)
+      }
+      setShouldRender(true)
     }
-    checkTrial()
+    init()
   }, [])
+
+  // Loading state — não renderiza pra evitar flash de banner pra Pro
+  if (shouldRender === null) return null
+  if (!shouldRender) return null
 
   const msg = tipo === 'cartas'
     ? 'Você atingiu o limite de 6 cartas do plano Gratuito.'
