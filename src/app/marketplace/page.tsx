@@ -317,20 +317,16 @@ function MarketplaceInner() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // S29 UX v3: persistir tab em URL (?tab=meus|negociacoes).
-  // Permite F5 manter a aba e compartilhar links com aba já selecionada.
-  // Default é 'vitrine' se param ausente ou inválido.
-  const initialTab = (() => {
-    const t = searchParams?.get('tab')
-    return (t === 'meus' || t === 'negociacoes') ? t : 'vitrine'
-  })()
+  // S29 UX v4: persistir tab em URL (?tab=meus|negociacoes).
+  // FIX vs v3: URL é a ÚNICA fonte de verdade. Não usa useState.
+  // O bug anterior era que useState mantinha state local que podia dessincar
+  // do searchParams. Agora `tab` é derivado direto da URL a cada render.
+  // Single source of truth = sem possibilidade de bug de sincronização.
+  const tabParam = searchParams?.get('tab')
+  const tab: 'vitrine' | 'meus' | 'negociacoes' =
+    (tabParam === 'meus' || tabParam === 'negociacoes') ? tabParam : 'vitrine'
 
-  const [tab, setTabState] = useState<'vitrine' | 'meus' | 'negociacoes'>(initialTab)
-
-  // Wrapper de setTab que ATUALIZA A URL pra refletir a aba selecionada,
-  // sem causar reload nem perder o scroll position (replace, não push).
   function setTab(novoTab: 'vitrine' | 'meus' | 'negociacoes') {
-    setTabState(novoTab)
     const params = new URLSearchParams(searchParams?.toString() || '')
     if (novoTab === 'vitrine') {
       params.delete('tab')  // URL limpa pra default

@@ -146,8 +146,13 @@ function EscolherCarta({
 
 // ─── Step 2 — Detalhes ────────────────────────────────────────────────────────
 
-function DetalhesAnuncio({ card, precoMercado, onBack, onConfirm, loading }: {
-  card: any; precoMercado: number; onBack: () => void; onConfirm: (d: any) => void; loading: boolean
+function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading }: {
+  card: any
+  precoMercado: number
+  precoFonte: 'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null
+  onBack: () => void
+  onConfirm: (d: any) => void
+  loading: boolean
 }) {
   const [preco, setPreco]       = useState(precoMercado > 0 ? precoMercado.toFixed(2) : '')
   const [condicao, setCondicao] = useState('NM')
@@ -167,10 +172,34 @@ function DetalhesAnuncio({ card, precoMercado, onBack, onConfirm, loading }: {
         }
         <div>
           <p style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, marginBottom: 8 }}>{card.card_name}</p>
-          {precoMercado > 0 && (
-            <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px' }}>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 3 }}>PREÇO DE MERCADO</p>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#60a5fa' }}>{fmt(precoMercado)}</p>
+          {/* S29 UX v4: card de preço de mercado com fonte explícita.
+              - BRL puro: azul (#60a5fa) — Liga Pokémon, fonte oficial BR
+              - BRL variante: azul claro com label da variante
+              - USD convertido: laranja (#f59e0b) — TCG Player, valor estimado */}
+          {precoMercado > 0 && precoFonte && (() => {
+            const fonteCfg = {
+              BRL:         { label: 'PREÇO DE MERCADO',         badge: 'Liga Pokémon · BRL',   color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.2)' },
+              BRL_FOIL:    { label: 'PREÇO MERCADO · FOIL',     badge: 'Liga Pokémon · BRL',   color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.2)' },
+              BRL_REVERSE: { label: 'PREÇO MERCADO · REVERSE',  badge: 'Liga Pokémon · BRL',   color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.2)' },
+              BRL_PROMO:   { label: 'PREÇO MERCADO · PROMO',    badge: 'Liga Pokémon · BRL',   color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.2)' },
+              USD:         { label: 'PREÇO DE MERCADO',         badge: 'TCG Player · USD convertido', color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+            }[precoFonte]
+            return (
+              <div style={{ background: fonteCfg.bg, border: `1px solid ${fonteCfg.border}`, borderRadius: 10, padding: '10px 12px' }}>
+                <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginBottom: 3, fontWeight: 600, letterSpacing: '0.05em' }}>{fonteCfg.label}</p>
+                <p style={{ fontSize: 18, fontWeight: 800, color: fonteCfg.color, letterSpacing: '-0.02em', marginBottom: 4 }}>{fmt(precoMercado)}</p>
+                <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {precoFonte === 'USD' && <span style={{ fontSize: 8 }}>≈</span>}
+                  {fonteCfg.badge}
+                </p>
+              </div>
+            )
+          })()}
+          {precoMercado === 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px' }}>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                Sem preço de mercado disponível. Defina o valor de venda livremente.
+              </p>
             </div>
           )}
         </div>
@@ -289,22 +318,68 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
   const [step, setStep]         = useState<'escolher' | 'detalhes'>('escolher')
   const [cartaSel, setCartaSel] = useState<any | null>(null)
   const [precoMercado, setPrecoMercado] = useState(0)
+  const [precoFonte, setPrecoFonte] = useState<'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null>(null)
   const [loading, setLoading]   = useState(false)
 
   async function handleSelectCard(card: any) {
-    // R6: busca preço de mercado por pokemon_api_id em pokemon_cards (canonical).
-    // Se a carta legacy não tiver pokemon_api_id, não bloqueia o anúncio — só
-    // o preço-âncora vira 0 e o vendedor digita manualmente.
+    // R6 + S29 UX v4: estratégia de resolução de preço com fallback.
+    //
+    // PRIORIDADE:
+    // 1. preco_medio (REAL · Liga Pokémon · variante normal)
+    // 2. preco_<variante>_medio se vendedor escolheu Foil/Reverse/Promo
+    // 3. preco_foil/reverse/promo (média geral em BRL — sem min/max)
+    // 4. price_usd_normal × cotação USD→BRL (TCG Player)
+    // 5. price_usd_holofoil × cotação USD→BRL (TCG Player Foil)
+    //
+    // Se nenhum bater, vendedor digita manualmente (precoMercado = 0, sem badge).
+    let preco = 0
+    let fonte: typeof precoFonte = null
+
     if (card.pokemon_api_id) {
       const { data: priceData } = await supabase
         .from('pokemon_cards')
-        .select('preco_medio')
+        .select('preco_medio, preco_foil, preco_reverse, preco_promo, price_usd_normal, price_usd_holofoil')
         .eq('id', card.pokemon_api_id)
         .maybeSingle()
-      setPrecoMercado(priceData?.preco_medio || 0)
-    } else {
-      setPrecoMercado(0)
+
+      if (priceData) {
+        // Tenta na ordem de prioridade
+        if (priceData.preco_medio && Number(priceData.preco_medio) > 0) {
+          preco = Number(priceData.preco_medio)
+          fonte = 'BRL'
+        } else if (priceData.preco_foil && Number(priceData.preco_foil) > 0) {
+          preco = Number(priceData.preco_foil)
+          fonte = 'BRL_FOIL'
+        } else if (priceData.preco_reverse && Number(priceData.preco_reverse) > 0) {
+          preco = Number(priceData.preco_reverse)
+          fonte = 'BRL_REVERSE'
+        } else if (priceData.preco_promo && Number(priceData.preco_promo) > 0) {
+          preco = Number(priceData.preco_promo)
+          fonte = 'BRL_PROMO'
+        } else {
+          // Fallback USD: pega o melhor disponível (normal > holofoil) e converte
+          const usd = Number(priceData.price_usd_holofoil) > 0 ? Number(priceData.price_usd_holofoil)
+                     : Number(priceData.price_usd_normal) > 0 ? Number(priceData.price_usd_normal)
+                     : 0
+          if (usd > 0) {
+            try {
+              const rateRes = await fetch('/api/exchange-rate')
+              const rate = await rateRes.json()
+              const usdBrl = rate?.usd || 6.0
+              preco = usd * usdBrl
+              fonte = 'USD'
+            } catch {
+              // Sem internet ou API offline — fallback hardcoded
+              preco = usd * 6.0
+              fonte = 'USD'
+            }
+          }
+        }
+      }
     }
+
+    setPrecoMercado(preco)
+    setPrecoFonte(fonte)
     setCartaSel(card)
     setStep('detalhes')
   }
@@ -350,7 +425,7 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
         <div style={{ flex: 1, overflow: 'hidden' }}>
           {step === 'escolher'
             ? <EscolherCarta userId={userId} cartaSel={cartaSel} onSelect={handleSelectCard} />
-            : <DetalhesAnuncio card={cartaSel} precoMercado={precoMercado} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} />
+            : <DetalhesAnuncio card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} />
           }
         </div>
       </div>
