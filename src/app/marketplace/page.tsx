@@ -170,6 +170,37 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
         <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', color: '#f0f0f0' }}>
           {variante}
         </span>
+
+        {/* S29 UX v2: badges contextuais sobrepostos. Mostrados apenas em
+            anúncios disponíveis (não distrai em status finais).
+            - 💎 Bom preço: > 10% abaixo do preço médio de mercado
+            - 🔥 Imperdível: > 25% abaixo do mercado
+            - ⚡ Novo: criado nas últimas 24h
+            Combina com `preco_mercado` enriched do canonical. */}
+        {(card.status || 'disponivel') === 'disponivel' && (() => {
+          const badges: Array<{ label: string; bg: string; color: string }> = []
+          const isNovo = card.created_at && (Date.now() - new Date(card.created_at).getTime()) < 24 * 60 * 60 * 1000
+          if (isNovo) badges.push({ label: '⚡ Novo', bg: 'rgba(96,165,250,0.85)', color: '#0a0e16' })
+
+          if (card.preco_mercado > 0 && card.price > 0) {
+            const desconto = (card.preco_mercado - card.price) / card.preco_mercado
+            if (desconto >= 0.25) badges.push({ label: '🔥 Imperdível', bg: 'rgba(239,68,68,0.85)', color: '#fff' })
+            else if (desconto >= 0.10) badges.push({ label: '💎 Bom preço', bg: 'rgba(34,197,94,0.85)', color: '#0a0e16' })
+          }
+
+          if (badges.length === 0) return null
+          return (
+            <div style={{ position: 'absolute', bottom: 8, left: 8, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+              {badges.map((b, i) => (
+                <span key={i} style={{
+                  fontSize: 10, fontWeight: 700, padding: '3px 7px', borderRadius: 6,
+                  background: b.bg, color: b.color, backdropFilter: 'blur(4px)',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                }}>{b.label}</span>
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Info */}
@@ -190,9 +221,26 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
         </div>
 
         {/* Preço */}
-        <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: '#f59e0b' }}>
-          {fmt(card.price)}
-        </p>
+        <div>
+          <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: '#f59e0b' }}>
+            {fmt(card.price)}
+          </p>
+          {/* S29 UX v2: comparação vs mercado se preço canonical disponível */}
+          {card.preco_mercado > 0 && card.price > 0 && (() => {
+            const diff = ((card.price - card.preco_mercado) / card.preco_mercado) * 100
+            const cor = diff <= -10 ? '#22c55e' : diff >= 10 ? '#ef4444' : 'rgba(255,255,255,0.4)'
+            const label = Math.abs(diff) < 1
+              ? `≈ no preço de mercado`
+              : diff < 0
+                ? `${Math.abs(diff).toFixed(0)}% abaixo do mercado`
+                : `${diff.toFixed(0)}% acima do mercado`
+            return (
+              <p style={{ fontSize: 10, color: cor, marginTop: 2, fontWeight: 600 }}>
+                {label}
+              </p>
+            )
+          })()}
+        </div>
 
         {/* Ações por papel e status */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
@@ -266,11 +314,12 @@ export default function Marketplace() {
   const [userWhatsapp, setUserWhatsapp] = useState<string | null>(null)
   const [loading, setLoading]   = useState(true)
   const [showAnunciarModal, setShowAnunciarModal] = useState(false)
-  const [filtroStatus, setFiltroStatus] = useState('disponivel')
+  const [filtroStatus, setFiltroStatus] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroCondicao, setFiltroCondicao] = useState('')
+  const [showFiltrosAvancados, setShowFiltrosAvancados] = useState(false)
   const [busca, setBusca]       = useState('')
-  const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior'>('recente')
+  const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior' | 'desconto'>('recente')
 
   async function loadData() {
     setLoading(true)
@@ -279,6 +328,7 @@ export default function Marketplace() {
     setUserId(uid)
 
     if (uid) {
+      // S29: lê próprio whatsapp/city de users (RLS auth.uid()=id permite)
       const { data: profile } = await supabase.from('users').select('whatsapp, city').eq('id', uid).single()
       setUserWhatsapp(profile?.whatsapp || null)
     }
@@ -295,11 +345,12 @@ export default function Marketplace() {
     const listings = data || []
 
     // Busca dados dos vendedores separadamente
+    // S29: lê de public_users (sellers são outros users — RLS bloqueia leitura
+    // direta de users.* pra terceiros).
     const sellerIds = [...new Set(listings.map((c: any) => c.user_id).filter(Boolean))]
     let sellerMap: Record<string, any> = {}
 
     if (sellerIds.length > 0) {
-      // S29: lê de public_users (campos públicos) em vez de users.
       const { data: sellers } = await supabase
         .from('public_users')
         .select('id, name, whatsapp, city')
@@ -312,11 +363,11 @@ export default function Marketplace() {
     }
 
     // Enrich com dados de vendedor E comprador
+    // S29: idem — buyers são outros users.
     const buyerIds = [...new Set(listings.map((c: any) => c.buyer_id).filter(Boolean))]
     let buyerMap: Record<string, any> = {}
 
     if (buyerIds.length > 0) {
-      // S29: lê de public_users (campos públicos) em vez de users.
       const { data: buyers } = await supabase
         .from('public_users')
         .select('id, name, whatsapp, city')
@@ -324,6 +375,25 @@ export default function Marketplace() {
 
       buyerMap = (buyers || []).reduce((acc: any, s: any) => {
         acc[s.id] = s
+        return acc
+      }, {})
+    }
+
+    // S29 UX v2: enrich com preço de mercado canonical pra calcular badges.
+    // Faz match por card_name (legacy) — quando todas cartas tiverem
+    // pokemon_api_id no marketplace, dá pra otimizar com .in('id', ids).
+    const cardNames = [...new Set(listings.map((c: any) => c.card_name).filter(Boolean))]
+    let priceMap: Record<string, number> = {}
+    if (cardNames.length > 0) {
+      const { data: pokemons } = await supabase
+        .from('pokemon_cards')
+        .select('name, preco_medio')
+        .in('name', cardNames)
+      priceMap = (pokemons || []).reduce((acc: any, p: any) => {
+        // Mantém maior preco_medio se houver duplicatas (variantes)
+        if (!acc[p.name] || (p.preco_medio || 0) > acc[p.name]) {
+          acc[p.name] = p.preco_medio || 0
+        }
         return acc
       }, {})
     }
@@ -336,6 +406,7 @@ export default function Marketplace() {
       buyer_name: buyerMap[c.buyer_id]?.name,
       buyer_whatsapp: buyerMap[c.buyer_id]?.whatsapp,
       buyer_city: buyerMap[c.buyer_id]?.city,
+      preco_mercado: priceMap[c.card_name] || 0,
     }))
 
     setListings(enriched)
@@ -364,6 +435,9 @@ export default function Marketplace() {
   const vitrine = listings.filter(c => {
     if (c.user_id === userId) return false // não mostra seus próprios na vitrine
     const status = c.status || 'disponivel' // trata null como disponivel
+    // S29 UX v2: marketplace agora mostra TODOS os anúncios por default,
+    // exceto os já concluídos/cancelados (que poluem a vitrine).
+    if (['concluido', 'cancelado'].includes(status)) return false
     if (filtroStatus && status !== filtroStatus) return false
     if (filtroVariante && c.variante !== filtroVariante) return false
     if (filtroCondicao && c.condicao !== filtroCondicao) return false
@@ -372,6 +446,12 @@ export default function Marketplace() {
   }).sort((a, b) => {
     if (ordenacao === 'menor') return (a.price || 0) - (b.price || 0)
     if (ordenacao === 'maior') return (b.price || 0) - (a.price || 0)
+    if (ordenacao === 'desconto') {
+      // Maior desconto vs preço de mercado primeiro (cartas com mercado conhecido)
+      const dA = a.preco_mercado > 0 ? (a.preco_mercado - (a.price || 0)) / a.preco_mercado : -1
+      const dB = b.preco_mercado > 0 ? (b.preco_mercado - (b.price || 0)) / b.preco_mercado : -1
+      return dB - dA
+    }
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   })
 
@@ -392,7 +472,17 @@ export default function Marketplace() {
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Marketplace</h1>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
-              {listings.filter(c => c.status === 'disponivel').length} anúncio(s) disponível(is)
+              {(() => {
+                // S29 UX v2: contador com breakdown legível
+                const ativos = listings.filter(c =>
+                  c.user_id !== userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel')
+                )
+                const disp = ativos.filter(c => (c.status || 'disponivel') === 'disponivel').length
+                const neg  = ativos.filter(c => ['reservado', 'em_negociacao', 'enviado'].includes(c.status || '')).length
+                if (ativos.length === 0) return 'Nenhum anúncio ativo no momento'
+                if (neg === 0) return `${disp} ${disp === 1 ? 'carta disponível' : 'cartas disponíveis'}`
+                return `${disp} ${disp === 1 ? 'disponível' : 'disponíveis'} · ${neg} em negociação`
+              })()}
             </p>
           </div>
           <button
@@ -435,41 +525,163 @@ export default function Marketplace() {
         {/* ── VITRINE ── */}
         {tab === 'vitrine' && (
           <>
-            {/* Filtros */}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-              <div style={{ position: 'relative' }}>
-              <IconSearch size={14} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+            {/* S29 UX v2: filtros redesenhados.
+                - Hero search ocupando largura total
+                - Chips horizontais de status (visualmente claros)
+                - Ordenação como dropdown único
+                - Variante/Condição atrás de "+ Filtros" pra reduzir noise */}
+
+            {/* Linha 1: Busca + Ordenação */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }} className="mkt-filtros-row1">
+              <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
+                <IconSearch size={15} color="rgba(255,255,255,0.35)" style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)' }} />
                 <input
                   value={busca} onChange={e => setBusca(e.target.value)}
-                  placeholder="Buscar carta..."
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 12px 9px 32px', color: '#f0f0f0', fontSize: 13, outline: 'none', width: 180, fontFamily: 'inherit' }}
+                  placeholder="Buscar carta — ex: Charizard, Pikachu, Mewtwo..."
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '11px 14px 11px 38px', color: '#f0f0f0', fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.45)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
+                {busca && (
+                  <button onClick={() => setBusca('')}
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    aria-label="Limpar busca"
+                  >×</button>
+                )}
               </div>
-              {[
-                { value: filtroVariante, onChange: setFiltroVariante, opts: [['', 'Variante'], ...VARIANTES.map(v => [v.key, v.label])] },
-                { value: filtroCondicao, onChange: setFiltroCondicao, opts: [['', 'Condição'], ...['NM','LP','MP','HP','D'].map(c => [c, `${c} · ${CONDICAO_DESC[c]}`])] },
-                { value: filtroStatus,   onChange: setFiltroStatus,   opts: [['disponivel', 'Disponíveis'], ['reservado', 'Reservados'], ['enviado', 'Enviados'], ['', 'Todos']] },
-              ].map((f, i) => (
-                <select key={i} value={f.value} onChange={e => f.onChange(e.target.value)}
-                  style={{ background: f.value ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${f.value ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '9px 12px', color: f.value ? '#f59e0b' : 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', outline: 'none' }}>
-                  {f.opts.map(([v, l]) => <option key={v} value={v} style={{ background: '#0d0f14' }}>{l}</option>)}
-                </select>
-              ))}
 
-              {/* Ordenação */}
-              <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-                {([['recente', 'Recente'], ['menor', '↑ Menor preço'], ['maior', '↓ Maior preço']] as const).map(([key, label]) => (
-                  <button key={key} onClick={() => setOrdenacao(key)}
-                    style={{ fontSize: 11, fontWeight: 600, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', border: 'none', fontFamily: 'inherit',
-                      background: ordenacao === key ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
-                      color: ordenacao === key ? '#f59e0b' : 'rgba(255,255,255,0.4)',
-                      outline: ordenacao === key ? '1px solid rgba(245,158,11,0.3)' : 'none',
-                    }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as any)}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '11px 14px', color: 'rgba(255,255,255,0.85)', fontSize: 13, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', minWidth: 200 }}
+              >
+                <option value="recente"  style={{ background: '#0d0f14' }}>Mais recentes primeiro</option>
+                <option value="menor"    style={{ background: '#0d0f14' }}>Menor preço primeiro</option>
+                <option value="maior"    style={{ background: '#0d0f14' }}>Maior preço primeiro</option>
+                <option value="desconto" style={{ background: '#0d0f14' }}>Maior desconto vs mercado</option>
+              </select>
             </div>
+
+            {/* Linha 2: Chips de status + botão "+ Filtros" */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }} className="mkt-filtros-row2">
+              {([
+                ['',              'Todos'],
+                ['disponivel',    'Disponíveis'],
+                ['reservado',     'Em negociação'],
+                ['em_negociacao', 'Em negociação avançada'],
+                ['enviado',       'Em envio'],
+              ] as const).filter(([key]) => {
+                // Esconde chip "Em negociação avançada" se não houver itens
+                if (key === 'em_negociacao') {
+                  return listings.some(c => c.status === 'em_negociacao' && c.user_id !== userId)
+                }
+                if (key === 'enviado') {
+                  return listings.some(c => c.status === 'enviado' && c.user_id !== userId)
+                }
+                return true
+              }).map(([key, label]) => {
+                const ativo = filtroStatus === key
+                const count = key === ''
+                  ? listings.filter(c => c.user_id !== userId && !['concluido','cancelado'].includes(c.status || 'disponivel')).length
+                  : listings.filter(c => c.user_id !== userId && (c.status || 'disponivel') === key).length
+                return (
+                  <button key={key} onClick={() => setFiltroStatus(key)}
+                    style={{
+                      padding: '7px 14px', borderRadius: 100, border: 'none', cursor: 'pointer',
+                      fontFamily: 'inherit', fontSize: 13, fontWeight: ativo ? 700 : 500,
+                      background: ativo ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)',
+                      color: ativo ? '#f59e0b' : 'rgba(255,255,255,0.55)',
+                      outline: ativo ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                      transition: 'all 0.15s',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    {label}
+                    <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>{count}</span>
+                  </button>
+                )
+              })}
+
+              <button
+                onClick={() => setShowFiltrosAvancados(v => !v)}
+                style={{
+                  marginLeft: 'auto',
+                  padding: '7px 12px', borderRadius: 100, border: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 12,
+                  background: (filtroVariante || filtroCondicao) ? 'rgba(96,165,250,0.12)' : 'rgba(255,255,255,0.04)',
+                  color: (filtroVariante || filtroCondicao) ? '#60a5fa' : 'rgba(255,255,255,0.5)',
+                  outline: (filtroVariante || filtroCondicao) ? '1px solid rgba(96,165,250,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                  fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {showFiltrosAvancados ? '−' : '+'} Filtros
+                {(filtroVariante || filtroCondicao) && (
+                  <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(96,165,250,0.25)', color: '#60a5fa', padding: '1px 6px', borderRadius: 100 }}>
+                    {[filtroVariante, filtroCondicao].filter(Boolean).length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Filtros avançados — colapsáveis */}
+            {showFiltrosAvancados && (
+              <div style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 18,
+                display: 'flex',
+                gap: 16,
+                flexWrap: 'wrap',
+              }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6, fontWeight: 600 }}>Variante</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {[['', 'Todas'], ...VARIANTES.map(v => [v.key, v.label])].map(([key, label]) => {
+                      const ativo = filtroVariante === key
+                      return (
+                        <button key={key} onClick={() => setFiltroVariante(key)}
+                          style={{
+                            padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                            fontSize: 12, fontWeight: ativo ? 700 : 500,
+                            background: ativo ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)',
+                            color: ativo ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                            outline: ativo ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                          }}
+                        >{label}</button>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6, fontWeight: 600 }}>Condição</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {[['', 'Todas'], ...['NM','LP','MP','HP','D'].map(c => [c, c])].map(([key, label]) => {
+                      const ativo = filtroCondicao === key
+                      return (
+                        <button key={key} onClick={() => setFiltroCondicao(key)}
+                          style={{
+                            padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                            fontSize: 12, fontWeight: ativo ? 700 : 500,
+                            background: ativo ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)',
+                            color: ativo ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                            outline: ativo ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                          }}
+                        >{label}</button>
+                      )
+                    })}
+                  </div>
+                </div>
+                {(filtroVariante || filtroCondicao) && (
+                  <button onClick={() => { setFiltroVariante(''); setFiltroCondicao('') }}
+                    style={{ alignSelf: 'flex-end', padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, background: 'rgba(239,68,68,0.08)', color: '#ef4444', outline: '1px solid rgba(239,68,68,0.2)', fontWeight: 600 }}
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+            )}
 
             {loading ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="mkt-grid">
@@ -480,8 +692,18 @@ export default function Marketplace() {
             ) : vitrine.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
                 <IconMarketplace size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:16}} />
-                <p style={{ fontSize: 15 }}>Nenhum anúncio disponível no momento.</p>
-                <p style={{ fontSize: 13, marginTop: 8 }}>Seja o primeiro a anunciar uma carta!</p>
+                <p style={{ fontSize: 15 }}>
+                  {(busca || filtroStatus || filtroVariante || filtroCondicao)
+                    ? 'Nenhum anúncio com esses filtros.'
+                    : 'Nenhum anúncio disponível no momento.'}
+                </p>
+                <p style={{ fontSize: 13, marginTop: 8 }}>
+                  {(busca || filtroStatus || filtroVariante || filtroCondicao)
+                    ? <button onClick={() => { setBusca(''); setFiltroStatus(''); setFiltroVariante(''); setFiltroCondicao('') }}
+                        style={{ background: 'transparent', border: 'none', color: '#f59e0b', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textDecoration: 'underline' }}
+                      >Limpar filtros</button>
+                    : 'Seja o primeiro a anunciar uma carta!'}
+                </p>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="mkt-grid">
@@ -552,6 +774,10 @@ export default function Marketplace() {
           .mkt-neg-row { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
           .mkt-neg-row .mkt-neg-actions { width: 100% !important; justify-content: flex-start !important; }
           .mkt-card-img { width: 70px !important; height: 98px !important; }
+          .mkt-filtros-row1 { flex-direction: column !important; }
+          .mkt-filtros-row1 select { width: 100% !important; }
+          .mkt-filtros-row2 { gap: 6px !important; }
+          .mkt-filtros-row2 button { font-size: 12px !important; padding: 6px 10px !important; }
         }
         @media (max-width: 400px) {
           .mkt-grid { grid-template-columns: 1fr 1fr !important; }
