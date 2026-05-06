@@ -67,6 +67,7 @@ function EscolherCarta({
   const [cards, setCards]     = useState<any[]>([])
   const [search, setSearch]   = useState('')
   const [loading, setLoading] = useState(true)
+  const [usdRate, setUsdRate] = useState(6.0)
 
   useEffect(() => {
     async function load() {
@@ -76,7 +77,41 @@ function EscolherCarta({
         .from('marketplace').select('card_name').eq('user_id', userId)
         .in('status', ['disponivel', 'reservado', 'em_negociacao', 'enviado'])
       const nomeAnunciados = new Set((anunciadas || []).map((a: any) => a.card_name))
-      setCards((userCards || []).map((c: any) => ({ ...c, jaAnunciada: nomeAnunciados.has(c.card_name) })))
+
+      // S29 UX v5: batch query pra pegar preços de mercado de todas as cartas.
+      // Mostra preço (BRL ou USD convertido) embaixo de cada carta na grid via
+      // o próprio CardItem (que já tem renderização com cores canonical:
+      // laranja pra BRL, azul pra USD convertido).
+      // Usa pokemon_api_id quando disponível pra ser preciso (1 pokemon_card por carta).
+      const apiIds = [...new Set((userCards || []).map((c: any) => c.pokemon_api_id).filter(Boolean))]
+      let priceMap: Record<string, any> = {}
+      if (apiIds.length > 0) {
+        // Seleciona TODOS os campos de preço pra CardItem renderizar variantes corretamente
+        const { data: prices } = await supabase
+          .from('pokemon_cards')
+          .select('id, preco_normal, preco_min, preco_medio, preco_max, preco_foil, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil')
+          .in('id', apiIds)
+        priceMap = (prices || []).reduce((acc: any, p: any) => {
+          acc[p.id] = p
+          return acc
+        }, {})
+      }
+
+      // Busca cotação USD-BRL pra fallback
+      try {
+        const rateRes = await fetch('/api/exchange-rate')
+        const rate = await rateRes.json()
+        setUsdRate(rate?.usd || 6.0)
+      } catch { /* mantém default 6.0 */ }
+
+      // Anexa _priceData (objeto inteiro de pokemon_cards) em cada user_card.
+      // O CardItem usa a prop `price` pra renderizar valores com cores canonical.
+      const enriched = (userCards || []).map((c: any) => ({
+        ...c,
+        jaAnunciada: nomeAnunciados.has(c.card_name),
+        _priceData: c.pokemon_api_id ? (priceMap[c.pokemon_api_id] || null) : null,
+      }))
+      setCards(enriched)
       setLoading(false)
     }
     load()
@@ -98,6 +133,7 @@ function EscolherCarta({
         </div>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
           {filtered.length} carta{filtered.length !== 1 ? 's' : ''} · clique para selecionar
+
         </p>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
@@ -134,6 +170,8 @@ function EscolherCarta({
                   card={card}
                   mode="select"
                   selected={cartaSel?.id === card.id}
+                  price={card._priceData}
+                  exchangeRate={{ usd: usdRate, eur: 6.5 }}
                 />
               </div>
             ))}
@@ -172,17 +210,18 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
         }
         <div>
           <p style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, marginBottom: 8 }}>{card.card_name}</p>
-          {/* S29 UX v4: card de preço de mercado com fonte explícita.
-              - BRL puro: azul (#60a5fa) — Liga Pokémon, fonte oficial BR
-              - BRL variante: azul claro com label da variante
-              - USD convertido: laranja (#f59e0b) — TCG Player, valor estimado */}
+          {/* S29 UX v5: card de preço de mercado com fonte explícita.
+              Cores seguem padrão canonical (CardItem em /minha-colecao e /pokedex):
+              - BRL puro: laranja (#f59e0b) — Liga Pokémon, fonte oficial BR
+              - BRL variante: laranja com label da variante
+              - USD convertido: azul (#60a5fa) — TCG Player, valor estimado */}
           {precoMercado > 0 && precoFonte && (() => {
             const fonteCfg = {
-              BRL:         { label: 'PREÇO DE MERCADO',         badge: 'Liga Pokémon · BRL',   color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.2)' },
-              BRL_FOIL:    { label: 'PREÇO MERCADO · FOIL',     badge: 'Liga Pokémon · BRL',   color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.2)' },
-              BRL_REVERSE: { label: 'PREÇO MERCADO · REVERSE',  badge: 'Liga Pokémon · BRL',   color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.2)' },
-              BRL_PROMO:   { label: 'PREÇO MERCADO · PROMO',    badge: 'Liga Pokémon · BRL',   color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.2)' },
-              USD:         { label: 'PREÇO DE MERCADO',         badge: 'TCG Player · USD convertido', color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL:         { label: 'PREÇO DE MERCADO',         badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL_FOIL:    { label: 'PREÇO MERCADO · FOIL',     badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL_REVERSE: { label: 'PREÇO MERCADO · REVERSE',  badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL_PROMO:   { label: 'PREÇO MERCADO · PROMO',    badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              USD:         { label: 'PREÇO DE MERCADO',         badge: 'TCG Player · USD convertido', color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.25)' },
             }[precoFonte]
             return (
               <div style={{ background: fonteCfg.bg, border: `1px solid ${fonteCfg.border}`, borderRadius: 10, padding: '10px 12px' }}>

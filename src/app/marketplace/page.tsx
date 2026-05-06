@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, IconHistory, IconCollection, IconChat, IconBox, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { criarNotificacao } from '@/lib/notificacoes'
@@ -313,28 +312,40 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
 
 function MarketplaceInner() {
   const { showAlert, showConfirm, showPrompt } = useAppModal()
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
 
-  // S29 UX v4: persistir tab em URL (?tab=meus|negociacoes).
-  // FIX vs v3: URL é a ÚNICA fonte de verdade. Não usa useState.
-  // O bug anterior era que useState mantinha state local que podia dessincar
-  // do searchParams. Agora `tab` é derivado direto da URL a cada render.
-  // Single source of truth = sem possibilidade de bug de sincronização.
-  const tabParam = searchParams?.get('tab')
-  const tab: 'vitrine' | 'meus' | 'negociacoes' =
-    (tabParam === 'meus' || tabParam === 'negociacoes') ? tabParam : 'vitrine'
+  // S29 UX v5: solução definitiva pra bug do F5 reset.
+  // Em vez de depender de useSearchParams (que tinha bug de re-render
+  // após router.replace em Next.js 16), usamos window.history.replaceState
+  // direto pra atualizar a URL silenciosamente, e useState pra UI.
+  // - Init lê da URL (F5 mantém aba)
+  // - setTab atualiza state E url
+  // - back/forward do navegador funciona via popstate listener
+  const [tab, setTabState] = useState<'vitrine' | 'meus' | 'negociacoes'>(() => {
+    if (typeof window === 'undefined') return 'vitrine'
+    const t = new URL(window.location.href).searchParams.get('tab')
+    return (t === 'meus' || t === 'negociacoes') ? t : 'vitrine'
+  })
+
+  // Listener pra back/forward do navegador
+  useEffect(() => {
+    function handlePopState() {
+      const t = new URL(window.location.href).searchParams.get('tab')
+      setTabState((t === 'meus' || t === 'negociacoes') ? t : 'vitrine')
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   function setTab(novoTab: 'vitrine' | 'meus' | 'negociacoes') {
-    const params = new URLSearchParams(searchParams?.toString() || '')
+    setTabState(novoTab)
+    // Atualiza URL silenciosamente sem trigger do router Next.js
+    const url = new URL(window.location.href)
     if (novoTab === 'vitrine') {
-      params.delete('tab')  // URL limpa pra default
+      url.searchParams.delete('tab')
     } else {
-      params.set('tab', novoTab)
+      url.searchParams.set('tab', novoTab)
     }
-    const qs = params.toString()
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+    window.history.replaceState({}, '', url.toString())
   }
 
   const [totalAnuncios, setTotalAnuncios] = useState(0)
@@ -840,21 +851,10 @@ function MarketplaceInner() {
   )
 }
 
-// ─── Wrapper Suspense ─────────────────────────────────────────────────────────
-// REGRA 24 (Next.js 16+): useSearchParams em client component pode quebrar
-// prerender se não estiver dentro de Suspense boundary. Mantém compatibilidade
-// com build SSG enquanto garantimos que F5 mantém a aba ativa.
+// S29 UX v5: removido o wrapper Suspense da v3/v4 porque agora não usamos
+// useSearchParams (REGRA 24 não se aplica a window.history direto).
+// MarketplaceInner virou o default export.
 
 export default function Marketplace() {
-  return (
-    <Suspense fallback={
-      <AppLayout>
-        <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
-          Carregando marketplace...
-        </div>
-      </AppLayout>
-    }>
-      <MarketplaceInner />
-    </Suspense>
-  )
+  return <MarketplaceInner />
 }
