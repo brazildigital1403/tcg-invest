@@ -326,8 +326,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             ) : (
               notifs.map(n => {
-                const color = n.type === 'valorizacao' ? '#22c55e' : n.type === 'desvalorizacao' ? '#ef4444' : n.type === 'marketplace' ? '#f59e0b' : '#60a5fa'
-                const bg = n.type === 'valorizacao' ? 'rgba(34,197,94,0.06)' : n.type === 'desvalorizacao' ? 'rgba(239,68,68,0.06)' : n.type === 'marketplace' ? 'rgba(245,158,11,0.06)' : 'rgba(96,165,250,0.06)'
+                const color = n.type === 'valorizacao' ? '#22c55e' : n.type === 'desvalorizacao' ? '#ef4444' : '#60a5fa'
+                const bg = n.type === 'valorizacao' ? 'rgba(34,197,94,0.06)' : n.type === 'desvalorizacao' ? 'rgba(239,68,68,0.06)' : 'rgba(96,165,250,0.06)'
                 return (
                   <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: bg }}>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>

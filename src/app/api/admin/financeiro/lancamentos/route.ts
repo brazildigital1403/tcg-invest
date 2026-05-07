@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
   return createClient(
@@ -35,6 +36,12 @@ function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string;
 
 // GET /api/admin/financeiro/lancamentos?tipo=&categoria=&status=&from=&to=&page=&perPage=
 export async function GET(req: NextRequest) {
+  // S29 FIX (auditoria admin): defesa em camadas. Middleware já protege
+  // /api/admin/*, mas chamar requireAdmin diretamente blinda contra
+  // bypass de middleware ou misconfig do matcher no futuro.
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   try {
     const { searchParams } = new URL(req.url)
     const tipo      = searchParams.get('tipo')
@@ -99,6 +106,10 @@ export async function GET(req: NextRequest) {
 //   - Se `detalhes` for um array com 1+ itens, valor_bruto vem da SOMA dos itens (ignora valor_bruto enviado)
 //   - Se `detalhes` for vazio/null, valor_bruto é obrigatório no body
 export async function POST(req: NextRequest) {
+  // S29 FIX (auditoria admin): defesa em camadas
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   try {
     const body = await req.json().catch(() => ({}))
 

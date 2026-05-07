@@ -32,7 +32,12 @@ export async function GET(req: NextRequest) {
       .range(from, to)
 
     if (q) {
-      query = query.or(`email.ilike.%${q}%,name.ilike.%${q}%,username.ilike.%${q}%`)
+      // S29 FIX (auditoria admin): sanitizar input pra evitar query injection.
+      // Permite apenas alfanuméricos, espaço, ponto, @ (email), hífen, underscore.
+      const safeQ = q.replace(/[^a-zA-Z0-9 @._\-\u00C0-\u017F]/g, '').trim().slice(0, 100)
+      if (safeQ) {
+        query = query.or(`email.ilike.%${safeQ}%,name.ilike.%${safeQ}%,username.ilike.%${safeQ}%`)
+      }
     }
 
     const nowISO = new Date().toISOString()

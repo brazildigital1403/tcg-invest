@@ -98,3 +98,76 @@ export async function requireAdmin(req: NextRequest): Promise<NextResponse | nul
   }
   return null
 }
+
+// ─── Rate limit anti brute force pra /admin/login ────────────────────────────
+//
+// Implementação in-memory simples. Limitação: NÃO persiste entre instâncias
+// serverless (cada cold start zera o Map). Pra Bynx que tem 1 admin único e
+// volume baixo de logins, é defesa suficiente como first line.
+//
+// Pra escalar (múltiplos admins, ataque distribuído), TODO migrar pra Upstash
+// Redis ou similar — mas por ora o middleware Vercel + delay de 400ms já
+// torna brute force significativamente caro pra atacante.
+//
+// Configuração: 5 tentativas em janela de 15 minutos por IP.
+//   - 6ª tentativa retorna 429 com Retry-After
+//   - Sucesso reseta o contador (não punir admin legítimo)
+//   - Janela rolling: cada nova tentativa estende a janela em 15 min
+
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000  // 15 minutos
+const RATE_LIMIT_MAX_ATTEMPTS = 5
+
+interface AttemptRecord {
+  count: number
+  firstAt: number
+}
+
+const loginAttempts = new Map<string, AttemptRecord>()
+
+export function checkLoginRateLimit(ip: string): { allowed: boolean; retryAfterSec?: number } {
+  const now = Date.now()
+  const record = loginAttempts.get(ip)
+
+  // Sem registro ou janela expirada → permite
+  if (!record || now - record.firstAt > RATE_LIMIT_WINDOW_MS) {
+    return { allowed: true }
+  }
+
+  // Excedeu o limite → bloqueia
+  if (record.count >= RATE_LIMIT_MAX_ATTEMPTS) {
+    const retryAfterSec = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - record.firstAt)) / 1000)
+    return { allowed: false, retryAfterSec: Math.max(retryAfterSec, 1) }
+  }
+
+  return { allowed: true }
+}
+
+export function recordLoginAttempt(ip: string, success: boolean): void {
+  const now = Date.now()
+
+  // Sucesso → limpa o IP do tracking (admin legítimo não deve ser punido)
+  if (success) {
+    loginAttempts.delete(ip)
+    return
+  }
+
+  const record = loginAttempts.get(ip)
+  if (!record || now - record.firstAt > RATE_LIMIT_WINDOW_MS) {
+    // Inicia nova janela
+    loginAttempts.set(ip, { count: 1, firstAt: now })
+    return
+  }
+
+  // Incrementa dentro da janela atual
+  record.count++
+
+  // Cleanup oportunista: se Map crescer muito, remove entradas expiradas.
+  // Threshold conservador pra não pagar custo a cada call.
+  if (loginAttempts.size > 1000) {
+    for (const [key, val] of loginAttempts.entries()) {
+      if (now - val.firstAt > RATE_LIMIT_WINDOW_MS) {
+        loginAttempts.delete(key)
+      }
+    }
+  }
+}
