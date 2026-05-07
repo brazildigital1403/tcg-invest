@@ -13,6 +13,11 @@ interface ScannedCard {
   set?: string
   hp?: string
   selected: boolean
+  // S29 UX v6: campos derivados do enrich em pokemon_cards
+  _image?: string | null
+  _preco?: number
+  _fonte?: 'BRL' | 'USD' | null
+  _matched?: boolean
 }
 
 interface Props {
@@ -46,19 +51,36 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
   const streamRef = useRef<MediaStream | null>(null)
 
   // ── Câmera ──────────────────────────────────────────────────────────────────
+  //
+  // S29 FIX (race condition câmera preta em Chrome/Safari):
+  //
+  // ANTES (bug): startCamera tentava setar `videoRef.current.srcObject` ANTES
+  // de `setCameraActive(true)`. Mas o <video> só é renderizado quando
+  // cameraActive=true → videoRef.current era null → srcObject NUNCA setado
+  // → câmera abria mas tela ficava preta.
+  //
+  // AGORA (fix): startCamera só pega o stream e ativa o estado. Um useEffect
+  // reage a cameraActive=true e atribui srcObject quando o <video> já montou.
+
+  useEffect(() => {
+    if (cameraActive && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current
+      videoRef.current.play().catch(err => {
+        console.error('[ScanModal] video.play() failed:', err)
+      })
+    }
+  }, [cameraActive])
 
   async function startCamera() {
+    setError(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
-      }
-      setCameraActive(true)
-    } catch {
+      setCameraActive(true) // useEffect cuida do srcObject quando <video> montar
+    } catch (err) {
+      console.error('[ScanModal] getUserMedia failed:', err)
       setError('Não foi possível acessar a câmera. Tente fazer upload de uma foto.')
     }
   }
@@ -200,7 +222,68 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         return
       }
 
-      setCards(data.cards.map((c: any) => ({ ...c, selected: true })))
+      // S29 UX v6: enrich resposta com imagem + preço de pokemon_cards.
+      // O scan-cards retorna { name, number, set, hp } mas SEM foto/preço.
+      // Aqui fazemos batch query pra mostrar visual rico no step de confirmação.
+      //
+      // Estratégia de match:
+      // 1. Tenta exact: name + number (ex: "Charmander" + "020/217")
+      // 2. Se não bater, tenta só name (qualquer carta com esse nome)
+      // 3. Se ainda nada, mostra sem imagem (caso degradado)
+      const scannedCards = data.cards.map((c: any) => ({ ...c, selected: true }))
+      const cardNames = [...new Set(scannedCards.map((c: any) => c.name).filter(Boolean))]
+
+      let pokemonMap: Record<string, any[]> = {}
+      let usdRate = 6.0
+      if (cardNames.length > 0) {
+        const { data: pokemons } = await supabase
+          .from('pokemon_cards')
+          .select('id, name, number, image_small, image_large, preco_medio, preco_foil, preco_reverse, preco_promo, price_usd_normal, price_usd_holofoil')
+          .in('name', cardNames)
+        // Agrupa por name pra fazer match local
+        for (const p of (pokemons || [])) {
+          if (!pokemonMap[p.name]) pokemonMap[p.name] = []
+          pokemonMap[p.name].push(p)
+        }
+      }
+
+      // Busca cotação USD-BRL pra fallback de preço quando só tem USD
+      try {
+        const rateRes = await fetch('/api/exchange-rate')
+        const rate = await rateRes.json()
+        usdRate = rate?.usd || 6.0
+      } catch { /* mantém default 6.0 */ }
+
+      // Resolve preço com mesma estratégia do AnunciarModal (5 níveis de fallback)
+      function resolvePrecoMercado(p: any): { valor: number; fonte: 'BRL' | 'USD' | null } {
+        if (!p) return { valor: 0, fonte: null }
+        const candidatosBRL = [p.preco_medio, p.preco_foil, p.preco_reverse, p.preco_promo]
+          .map(Number).filter(v => v > 0)
+        if (candidatosBRL.length > 0) return { valor: candidatosBRL[0], fonte: 'BRL' }
+        const usd = Number(p.price_usd_holofoil) > 0 ? Number(p.price_usd_holofoil)
+                   : Number(p.price_usd_normal) > 0 ? Number(p.price_usd_normal)
+                   : 0
+        if (usd > 0) return { valor: usd * usdRate, fonte: 'USD' }
+        return { valor: 0, fonte: null }
+      }
+
+      // Anexa _image, _preco e _fonte em cada carta scaneada
+      const enriched = scannedCards.map((c: any) => {
+        const candidates = pokemonMap[c.name] || []
+        // Tenta match com number primeiro, depois fallback pra qualquer
+        const exact = c.number ? candidates.find((p: any) => p.number === c.number) : null
+        const matched = exact || candidates[0] || null
+        const { valor, fonte } = resolvePrecoMercado(matched)
+        return {
+          ...c,
+          _image: matched?.image_small || matched?.image_large || null,
+          _preco: valor,
+          _fonte: fonte,
+          _matched: !!matched,
+        }
+      })
+
+      setCards(enriched)
       setStep('confirm')
 
       // S29: o servidor já debitou 1 crédito atomicamente via RPC.
@@ -371,7 +454,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                 </div>
               ) : cameraActive ? (
                 <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
-                  <video ref={videoRef} style={{ width: '100%', maxHeight: 300, objectFit: 'cover' }} playsInline muted />
+                  <video ref={videoRef} style={{ width: '100%', maxHeight: 300, objectFit: 'cover' }} autoPlay playsInline muted />
                   <div style={{ position: 'absolute', inset: 0, border: '3px solid rgba(245,158,11,0.4)', borderRadius: 12, pointerEvents: 'none' }}>
                     {/* Guias de enquadramento */}
                     <div style={{ position: 'absolute', top: '10%', left: '10%', width: 24, height: 24, borderTop: '2px solid #f59e0b', borderLeft: '2px solid #f59e0b' }} />
@@ -575,36 +658,93 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                 Confirme as cartas identificadas. Desmarque as que estiverem incorretas.
               </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
-                {cards.map((card, i) => (
-                  <label key={i} style={{
-                    ...SURFACE, padding: '12px 16px',
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    cursor: 'pointer', opacity: card.selected ? 1 : 0.45,
-                    transition: 'opacity 0.15s',
-                    background: card.selected ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.02)',
-                    border: `1px solid ${card.selected ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.06)'}`,
-                  }}>
-                    <input type="checkbox" checked={card.selected}
-                      onChange={() => setCards(prev => prev.map((c, j) => j === i ? { ...c, selected: !c.selected } : c))}
-                      style={{ width: 18, height: 18, accentColor: '#f59e0b', cursor: 'pointer', flexShrink: 0 }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>
-                        {card.name}{card.number ? ` (${card.number})` : ''}
-                      </p>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                        {[card.set, card.hp ? `HP ${card.hp}` : null].filter(Boolean).join(' · ') || 'Set não identificado'}
-                      </p>
-                    </div>
-                    <svg width='18' height='18' viewBox='0 0 20 20' fill='none'>{card.selected ? <><rect x='2' y='2' width='16' height='16' rx='3' fill='rgba(245,158,11,0.15)' stroke='rgba(245,158,11,0.6)' strokeWidth='1.3'/><path d='M5 10l3.5 3.5L15 7' stroke='#f59e0b' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round'/></> : <rect x='2' y='2' width='16' height='16' rx='3' stroke='rgba(255,255,255,0.2)' strokeWidth='1.3' fill='none'/>}</svg>
-                  </label>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
+                {cards.map((card, i) => {
+                  // S29 UX v6: cores do preço seguem padrão canonical
+                  // (BRL = laranja Liga Pokémon, USD = azul TCG Player convertido)
+                  const precoColor = card._fonte === 'BRL' ? '#f59e0b'
+                                   : card._fonte === 'USD' ? '#60a5fa'
+                                   : 'rgba(255,255,255,0.3)'
+                  const precoLabel = card._fonte === 'BRL' ? 'Liga'
+                                   : card._fonte === 'USD' ? '≈ USD'
+                                   : null
+                  const precoFmt = card._preco && card._preco > 0
+                    ? card._preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                    : null
+                  return (
+                    <label key={i} style={{
+                      ...SURFACE, padding: '10px 14px',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      cursor: 'pointer', opacity: card.selected ? 1 : 0.45,
+                      transition: 'opacity 0.15s',
+                      background: card.selected ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${card.selected ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                    }}>
+                      <input type="checkbox" checked={card.selected}
+                        onChange={() => setCards(prev => prev.map((c, j) => j === i ? { ...c, selected: !c.selected } : c))}
+                        style={{ width: 18, height: 18, accentColor: '#f59e0b', cursor: 'pointer', flexShrink: 0 }}
+                      />
+
+                      {/* Foto da carta (ou placeholder se não tem match) */}
+                      {card._image ? (
+                        <img src={card._image} alt={card.name} loading="lazy"
+                          style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 5, flexShrink: 0, background: 'rgba(255,255,255,0.04)' }}
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                        />
+                      ) : (
+                        <div style={{ width: 44, height: 60, borderRadius: 5, background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.1)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <IconCamera size={16} color="rgba(255,255,255,0.2)" />
+                        </div>
+                      )}
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>
+                          {card.name}{card.number ? ` (${card.number})` : ''}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                          {[card.set, card.hp ? `HP ${card.hp}` : null].filter(Boolean).join(' · ') || 'Set não identificado'}
+                        </p>
+                        {precoFmt && (
+                          <p style={{ fontSize: 12, fontWeight: 700, color: precoColor, marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {precoFmt}
+                            {precoLabel && <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>· {precoLabel}</span>}
+                          </p>
+                        )}
+                      </div>
+
+                      <svg width='18' height='18' viewBox='0 0 20 20' fill='none' style={{ flexShrink: 0 }}>{card.selected ? <><rect x='2' y='2' width='16' height='16' rx='3' fill='rgba(245,158,11,0.15)' stroke='rgba(245,158,11,0.6)' strokeWidth='1.3'/><path d='M5 10l3.5 3.5L15 7' stroke='#f59e0b' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round'/></> : <rect x='2' y='2' width='16' height='16' rx='3' stroke='rgba(255,255,255,0.2)' strokeWidth='1.3' fill='none'/>}</svg>
+                    </label>
+                  )
+                })}
               </div>
 
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>
-                ℹ️ Cartas adicionadas sem imagem — vincule o link depois para buscar preços
-              </p>
+              {/* S29 UX v6: substitui texto legacy "vincule o link depois para
+                  buscar preços" — fluxo descontinuado. Agora mostra status real
+                  do match com pokemon_cards (X de Y vinculadas ao catálogo). */}
+              {(() => {
+                const matched = cards.filter(c => c._matched).length
+                const total = cards.length
+                if (matched === total) {
+                  return (
+                    <p style={{ fontSize: 12, color: 'rgba(34,197,94,0.7)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="rgba(34,197,94,0.7)" strokeWidth="1.3"/><path d="M6 10l3 3 5-6" stroke="rgba(34,197,94,0.9)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Todas as {total} cartas foram vinculadas ao catálogo Bynx
+                    </p>
+                  )
+                }
+                if (matched > 0) {
+                  return (
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+                      {matched} de {total} carta{total !== 1 ? 's' : ''} vinculada{matched !== 1 ? 's' : ''} ao catálogo · as demais entram sem preço
+                    </p>
+                  )
+                }
+                return (
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
+                    Cartas não encontradas no catálogo Bynx · entrarão sem preço de mercado
+                  </p>
+                )
+              })()}
             </div>
           )}
 
@@ -622,7 +762,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                   <svg width="56" height="56" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="rgba(34,197,94,0.5)" strokeWidth="1.3"/><path d="M6 10l3 3 5-6" stroke="rgba(34,197,94,0.8)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   <p style={{ fontSize: 18, fontWeight: 800 }}>{addedCount} carta{addedCount !== 1 ? 's' : ''} adicionada{addedCount !== 1 ? 's' : ''}!</p>
                   <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center' }}>
-                    Agora vincule os links da LigaPokemon para buscar os preços reais.
+                    Vinculadas automaticamente ao catálogo Bynx com preço e imagem.
                   </p>
                   <button onClick={onClose}
                     style={{ background: BRAND, border: 'none', color: '#000', padding: '13px 32px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
