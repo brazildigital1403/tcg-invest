@@ -45,7 +45,14 @@ export async function GET(req: NextRequest) {
     if (verificada === 'true')  query = query.eq('verificada', true)
     if (verificada === 'false') query = query.eq('verificada', false)
     if (q) {
-      query = query.or(`nome.ilike.%${q}%,slug.ilike.%${q}%,cidade.ilike.%${q}%`)
+      // S29 FIX (auditoria admin): sanitizar input pra evitar query injection
+      // no PostgREST. Sem isso, q="x,foo.eq.y" poderia injetar filtros extras.
+      // Permite apenas alfanuméricos, espaço, hífen e ponto. Outros caracteres
+      // são removidos antes da interpolação.
+      const safeQ = q.replace(/[^a-zA-Z0-9 \-.\u00C0-\u017F]/g, '').trim().slice(0, 100)
+      if (safeQ) {
+        query = query.or(`nome.ilike.%${safeQ}%,slug.ilike.%${safeQ}%,cidade.ilike.%${safeQ}%`)
+      }
     }
 
     // Ordenação: pendentes primeiro (lexicográfica funciona: 'pendente' < 'suspensa')
