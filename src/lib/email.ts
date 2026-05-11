@@ -670,3 +670,171 @@ function escapeHtml(s: string): string {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)
   )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SNIPPET INDIQUE E GANHE — adicionar AO FINAL do email.ts existente.
+// Mantém código existente intacto. Reusa baseLayout, btn, h1, p, divider, badge.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 14. INDIQUE E GANHE — referral ativada (pro indicador) ───────────────────
+
+export async function sendReferralActivatedEmail(args: {
+  to: string
+  name: string
+  pointsAwarded: number
+  newBalance: number
+}) {
+  const firstName = args.name?.split(' ')[0] || 'Colecionador'
+  const html = baseLayout(`
+    ${badge('Indicação Ativada', '#22c55e', 'rgba(34,197,94,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1(`Você ganhou ${args.pointsAwarded} pontos! 🎉`)}
+    ${p(`${firstName}, alguém que você indicou completou o cadastro, confirmou o email e começou a usar o Bynx de verdade. Você ganhou <strong style="color:#22c55e;">+${args.pointsAwarded} pontos</strong>!`)}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(34,197,94,0.25);margin-top:16px;">
+      <tr>
+        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+          Saldo de pontos
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 14px;font-size:24px;font-weight:800;color:#22c55e;font-family:Arial,sans-serif;">
+          ${args.newBalance.toLocaleString('pt-BR')} pts
+        </td>
+      </tr>
+    </table>
+
+    ${p('Use seus pontos pra desbloquear dias de Pro, créditos de scan, separadores em PDF e prêmios físicos no marketplace de recompensas.')}
+
+    ${btn('Ver minhas recompensas →', `${APP_URL}/recompensas`)}
+
+    ${divider()}
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
+      Continue indicando: cada nova indicação ativada vale ainda mais pontos, até o cap de 100 pts. Se ela virar Pro, você ganha <strong style="color:#f59e0b;">+200 pts extras</strong>! 🔥
+    </p>
+  `, `Você ganhou ${args.pointsAwarded} pontos por indicar alguém!`)
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: `🎉 +${args.pointsAwarded} pts! Sua indicação ativou no Bynx`,
+    html,
+  })
+}
+
+// ── 15. INDIQUE E GANHE — referral engajada (virou Pro) ──────────────────────
+
+export async function sendReferralEngagedEmail(args: {
+  to: string
+  name: string
+  newBalance: number
+}) {
+  const firstName = args.name?.split(' ')[0] || 'Colecionador'
+  const POINTS = 200
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:48px;line-height:1;">🚀</div>
+    </div>
+    ${h1('Sua indicação virou Pro!')}
+    ${p(`${firstName}, BOA notícia em dose dupla: alguém que você indicou assinou o Bynx Pro. Você ganhou <strong style="color:#f59e0b;">+${POINTS} pontos</strong> de bônus!`)}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(245,158,11,0.3);margin-top:16px;">
+      <tr>
+        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+          Bônus por engajamento
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 12px;font-size:24px;font-weight:800;color:#f59e0b;font-family:Arial,sans-serif;">
+          +${POINTS} pts
+        </td>
+      </tr>
+      <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
+      <tr>
+        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+          Saldo total
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 14px;font-size:18px;font-weight:800;color:#f0f0f0;font-family:Arial,sans-serif;">
+          ${args.newBalance.toLocaleString('pt-BR')} pts
+        </td>
+      </tr>
+    </table>
+
+    ${btn('Ver recompensas disponíveis →', `${APP_URL}/recompensas`)}
+
+    ${divider()}
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
+      Top 3 do mês ganham <strong style="color:#f59e0b;">prêmios físicos exclusivos</strong>. Continua na sua jornada — quem sabe esse mês não é o seu? 🏆
+    </p>
+  `, `+${POINTS} pts! Sua indicação virou Pro no Bynx`)
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: `🚀 +${POINTS} pts! Sua indicação virou Pro`,
+    html,
+  })
+}
+
+// ── 16. INDIQUE E GANHE — confirmação de resgate ─────────────────────────────
+
+export async function sendRedemptionConfirmedEmail(args: {
+  to: string
+  name: string
+  rewardTitle: string
+  costPoints: number
+  newBalance: number
+  redemptionId: string
+  fulfillmentInstructions?: string
+}) {
+  const firstName = args.name?.split(' ')[0] || 'Colecionador'
+  const html = baseLayout(`
+    ${badge('Resgate Confirmado', '#22c55e', 'rgba(34,197,94,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Recompensa resgatada com sucesso! ✅')}
+    ${p(`${firstName}, seu resgate de <strong style="color:#f0f0f0;">${escapeHtml(args.rewardTitle)}</strong> foi confirmado.`)}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
+      <tr>
+        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+          Pontos gastos
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 12px;font-size:18px;font-weight:800;color:#ef4444;font-family:Arial,sans-serif;">
+          -${args.costPoints.toLocaleString('pt-BR')} pts
+        </td>
+      </tr>
+      <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
+      <tr>
+        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+          Saldo restante
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 18px 14px;font-size:18px;font-weight:800;color:#22c55e;font-family:Arial,sans-serif;">
+          ${args.newBalance.toLocaleString('pt-BR')} pts
+        </td>
+      </tr>
+    </table>
+
+    ${args.fulfillmentInstructions ? p(args.fulfillmentInstructions) : p('Sua recompensa já está ativa na sua conta. Aproveite! 🎴')}
+
+    ${btn('Acessar minha conta', `${APP_URL}/minha-colecao`)}
+
+    ${divider()}
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
+      Código do resgate: <code style="color:#9ca3af;font-family:'SF Mono',Monaco,monospace;">${args.redemptionId.slice(0, 8)}</code> · Qualquer dúvida, é só responder este email. 📬
+    </p>
+  `, `Resgate confirmado: ${args.rewardTitle}`)
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: `✅ Resgate confirmado: ${args.rewardTitle}`,
+    html,
+  })
+}
