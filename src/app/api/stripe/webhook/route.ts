@@ -24,7 +24,7 @@
 // 5. Renovação detecta se sub é de user ou de loja (busca em ambas as tabelas).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado } from '@/lib/email'
+import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
@@ -468,6 +468,31 @@ export async function POST(req: NextRequest) {
           const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
           if (uData?.[0]?.email) {
             await sendPurchaseConfirmationEmail(uData[0].email, uData[0].name || '', plano === 'anual' ? 'pro_anual' : 'pro_mensal').catch(console.error)
+          }
+
+          // ── Indique e Ganhe: marca referral como 'engajado' (+200 pts ao referrer) ──
+          try {
+            const { data: engagedResult } = await supabase.rpc('mark_referral_engaged', {
+              p_user_id: userId,
+            })
+
+            if (engagedResult?.engaged && engagedResult?.referrer_user_id) {
+              const { data: refData } = await supabase
+                .from('users')
+                .select('email, name, points_balance')
+                .eq('id', engagedResult.referrer_user_id)
+                .limit(1)
+
+              if (refData?.[0]?.email) {
+                await sendReferralEngagedEmail({
+                  to: refData[0].email,
+                  name: refData[0].name || '',
+                  newBalance: refData[0].points_balance || 0,
+                }).catch(console.error)
+              }
+            }
+          } catch (err: any) {
+            console.error(`[webhook] mark_referral_engaged falhou (não crítico):`, err?.message)
           }
 
           const piId = await extrairPaymentIntentDeSession(stripe, session)

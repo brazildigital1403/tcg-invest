@@ -26,11 +26,18 @@
  *   ?auth=login
  */
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { trackProUpgradeInitiated } from '@/lib/analytics'
 import { IconWarning, IconClose, IconEye, IconEyeOff } from '@/components/ui/Icons'
+import {
+  captureRefCodeFromURL,
+  readStoredRefCode,
+  clearStoredRefCode,
+  getFingerprint,
+  isDisposableEmail,
+} from '@/lib/referrals'
 
 // ─── Validadores ─────────────────────────────────────────────────────────────
 
@@ -155,6 +162,14 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
   const [erros, setErros] = useState<Record<string, string>>({})
   const [serverError, setServerError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [refCode, setRefCode] = useState<string | null>(null)
+
+// Captura ?ref= da URL no mount
+useEffect(() => {
+  const captured = captureRefCodeFromURL() || readStoredRefCode()
+  if (captured) setRefCode(captured)
+}, [])
+  
 
   // ─── Resets quando o modal reabre ──────────────────────────────────────
   // Quando `open` muda de false → true, reseta tudo pro estado inicial
@@ -202,8 +217,11 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
       if (wDigits.length < 10)
         e.whatsapp = 'WhatsApp incompleto (DDD + número)'
     }
-    if (!validarEmail(email))
+    if (!validarEmail(email)) {
       e.email = 'E-mail inválido'
+    } else if (!isLogin && isDisposableEmail(email)) {
+      e.email = 'Use um e-mail real (descartáveis bloqueados)'
+    }
     if (password.length < 6)
       e.password = 'Senha deve ter pelo menos 6 caracteres'
     return e
@@ -268,6 +286,35 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
         if (data.user) {
           const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
           await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito })
+
+          // ── Indique e Ganhe: associa ref_code se houver (fire & forget) ────
+          if (refCode) {
+            try {
+              const { data: { session } } = await supabase.auth.getSession()
+              if (session?.access_token) {
+                const fingerprint = getFingerprint()
+                fetch('/api/referrals/attach', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({ ref_code: refCode, fingerprint }),
+                }).then(() => clearStoredRefCode()).catch(() => {})
+              }
+            } catch { /* não bloqueia signup */ }
+          }
+
+          // ── Indique e Ganhe: dispara check-activation no login ─────────────
+          try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.access_token) {
+              fetch('/api/referrals/check-activation', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              }).catch(() => {})
+            }
+          } catch {}
 
           setServerError('')
           onClose()
