@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase.rpc('get_referral_stats')
 
     if (error) {
-      console.error('[referrals/me] RPC error:', error.message)
-      return NextResponse.json({ ok: false, error: 'rpc_error' }, { status: 500 })
+      console.error('[referrals/me] RPC error:', error.message, error.details, error.hint, error.code)
+      return NextResponse.json({ ok: false, error: 'rpc_error', detail: error.message }, { status: 500 })
     }
 
     return NextResponse.json(data || { ok: false, error: 'no_data' })
