@@ -27,6 +27,7 @@ export default function robots(): MetadataRoute.Robots {
           '/colecionadores',
           '/pokedex-pokemon-tcg',
           '/scan-ia',
+          '/ranking',
         ],
         disallow: [
           '/minha-colecao',
@@ -37,6 +38,8 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
           '/reset-password',
           '/suporte',
+          '/indique-e-ganhe',
+          '/recompensas',
         ],
       },
     ],

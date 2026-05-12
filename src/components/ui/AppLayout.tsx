@@ -51,6 +51,17 @@ function IconExplorar({ size = 20, color = 'currentColor' }: { size?: number; co
   )
 }
 
+// Ícone "Indique e Ganhe" — caixa de presente com laço
+function IconGift({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <rect x='2.5' y='7' width='15' height='10' rx='1.5' stroke={color} strokeWidth='1.4' />
+      <path d='M2 11h16M10 7v10' stroke={color} strokeWidth='1.4' />
+      <path d='M10 7c-2 0-3.5-1-3.5-2.5S7.5 2 9 2c.7 0 1 1 1 2.5M10 7c2 0 3.5-1 3.5-2.5S12.5 2 11 2c-.7 0-1 1-1 2.5' stroke={color} strokeWidth='1.4' strokeLinejoin='round' />
+    </svg>
+  )
+}
+
 import { marcarTodasLidas } from '@/lib/notificacoes'
 
 const BRAND  = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -74,6 +85,7 @@ const ITEM_COLECAO:      MenuItem = { name: 'Coleção',     full: 'Minha Coleç
 const ITEM_POKEDEX:      MenuItem = { name: 'Pokédex',     full: 'Pokédex',        href: '/pokedex',              Icon: IconPokedex }
 const ITEM_MARKETPLACE:  MenuItem = { name: 'Marketplace', full: 'Marketplace',    href: '/marketplace',          Icon: IconMarketplace }
 const ITEM_SEPARADORES:  MenuItem = { name: 'Separadores', full: 'Separadores',    href: '/separadores',          Icon: IconSeparador }
+const ITEM_INDIQUE:      MenuItem = { name: 'Indique',     full: 'Indique e Ganhe',href: '/indique-e-ganhe',      Icon: IconGift }
 const ITEM_CONTA:        MenuItem = { name: 'Conta',       full: 'Minha Conta',    href: '/minha-conta',          Icon: IconAccount }
 const ITEM_MINHA_LOJA:   MenuItem = { name: 'Loja',        full: 'Minha Loja',     href: '/minha-loja',           Icon: IconMinhaLoja }
 const ITEM_GUIA_LOJAS:   MenuItem = { name: 'Guia',        full: 'Guia de Lojas',  href: '/lojas',                Icon: IconGuiaLojas }
@@ -132,7 +144,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     // Enquanto não sabemos o perfil, usa menu de colecionador (estado padrão)
     if (temLoja === null || temCartas === null) {
-      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
+      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
     }
 
     // Lojista puro (sem cartas, com loja, sem explore mode) → menu enxuto
@@ -143,7 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // Demais perfis: menu completo, com Minha Loja se aplicável
     const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
-    base.push(ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE)
+    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE)
     return base
   }, [temLoja, temCartas, isLojistaPuro])
 
