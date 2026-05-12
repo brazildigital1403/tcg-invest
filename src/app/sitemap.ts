@@ -100,6 +100,16 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 0.8,
   },
   {
+    // Ranking público de Indique e Ganhe. Atualizado mensalmente, mostra
+    // top 20 indicadores com prêmios em R$ pros Top 3. Social proof do
+    // programa de viralização. Pública pra qualquer visitante ver, sem
+    // exigir login. Funil: ver ranking → "como participar?" → cadastro.
+    url: `${BASE}/ranking`,
+    lastModified: new Date(),
+    changeFrequency: 'daily',
+    priority: 0.7,
+  },
+  {
     url: `${BASE}/login`,
     lastModified: new Date(),
     changeFrequency: 'yearly',

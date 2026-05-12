@@ -172,6 +172,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             <Link href="/separadores-pokemon" style={navLinkStyle('/separadores-pokemon')}>
               Separadores
             </Link>
+            <Link href="/ranking" style={navLinkStyle('/ranking')}>
+              Ranking
+            </Link>
             <Link href="/para-lojistas" style={navLinkStyle('/para-lojistas')}>
               Para lojistas
             </Link>
@@ -267,6 +270,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             <Link href="/separadores-pokemon" onClick={closeMobile} style={mobileLinkStyle('/separadores-pokemon')}>
               Separadores
             </Link>
+            <Link href="/ranking" onClick={closeMobile} style={mobileLinkStyle('/ranking')}>
+              Ranking
+            </Link>
             <Link href="/para-lojistas" onClick={closeMobile} style={mobileLinkStyle('/para-lojistas')}>
               Para lojistas
             </Link>
@@ -314,7 +320,7 @@ const S: Record<string, CSSProperties> = {
   // ─── Nav desktop ───
   navDesktop: {
     alignItems: 'center',
-    gap: 28,
+    gap: 24,
   },
   navLink: {
     background: 'none',
