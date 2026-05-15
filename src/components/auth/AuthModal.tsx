@@ -316,6 +316,17 @@ useEffect(() => {
             }
           } catch {}
 
+          // ── Welcome email: dispara boas-vindas (fire & forget) ─────────────
+          try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.access_token) {
+              fetch('/api/email/welcome', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              }).catch(() => {})
+            }
+          } catch {}
+
           setServerError('')
           onClose()
 
