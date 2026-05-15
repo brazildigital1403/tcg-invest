@@ -164,7 +164,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
       {/* ── PROMPT ── */}
       {state.open && state.kind === 'prompt' && (() => {
         const o = state.promptOpts!
-        const isLink = o.placeholder?.includes('ligapokemon') || o.placeholder?.includes('http')
+        const isLink = o.placeholder?.includes('http')
         return (
           <div style={OVERLAY}>
             <div style={BOX} onClick={e => e.stopPropagation()}>
@@ -186,8 +186,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
                   <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{flexShrink:0}}><path d="M10 2a6 6 0 014.5 10l-1 1.5H6.5L5.5 12A6 6 0 0110 2z" stroke="rgba(245,158,11,0.8)" strokeWidth="1.3"/><path d="M7.5 16.5h5" stroke="rgba(245,158,11,0.6)" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
-                      Abra a carta na LigaPokemon, copie o link da barra de endereço e cole aqui.
-                      Para várias cartas, cole uma por linha.
+                      Cole o link da carta aqui. Para várias cartas de uma vez, cole uma por linha.
                     </p>
                   </div>
                 )}

@@ -7,10 +7,10 @@ const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const STEPS = [
   {
     id: 'import',
-    icon: '🔗',
-    title: 'Importe sua primeira carta',
-    desc: 'Copie o link de qualquer carta da LigaPokemon e cole no Bynx. Importamos imagem e preços automaticamente.',
-    cta: 'Importar carta →',
+    icon: '📚',
+    title: 'Adicione sua primeira carta',
+    desc: 'Adicione cartas pela busca por nome ou número, ou escaneie com IA. Importamos imagem e preços automaticamente.',
+    cta: 'Adicionar carta →',
     href: '/minha-colecao',
   },
   {

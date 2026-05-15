@@ -141,7 +141,7 @@ export default function CartaPage() {
             {/* Preços */}
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-                Preço na LigaPokemon
+                Preço de mercado
               </p>
               {price && (price.preco_min || price.preco_medio || price.preco_max) ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
@@ -162,7 +162,7 @@ export default function CartaPage() {
                     Preço ainda não cadastrado.
                   </p>
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', lineHeight: 1.5 }}>
-                    <Link href="/" style={{ color: '#f59e0b', textDecoration: 'none' }}>Entre no Bynx</Link> e importe essa carta pelo link da LigaPokemon para registrar o preço.
+                    <Link href="/" style={{ color: '#f59e0b', textDecoration: 'none' }}>Entre no Bynx</Link> e adicione essa carta na sua coleção pra acompanhar a evolução do preço.
                   </p>
                 </div>
               )}
@@ -182,7 +182,7 @@ export default function CartaPage() {
               {cardLink && (
                 <a href={cardLink} target="_blank" rel="noopener"
                   style={{ padding: '13px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  LigaPokemon
+                  Link de origem
                 </a>
               )}
             </div>
