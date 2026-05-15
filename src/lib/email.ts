@@ -155,14 +155,14 @@ export async function sendWelcomeEmail(to: string, name: string) {
     ${p('Sua conta foi criada com sucesso. Você ganhou <strong style="color:#f59e0b;">7 dias de Pro grátis</strong> para explorar tudo que o Bynx tem a oferecer.')}
     ${divider()}
     <table width="100%" cellpadding="0" cellspacing="0">
-      ${['📦 Importe suas cartas por link da LigaPokemon', '📊 Veja o valor real do seu fichário em tempo real', '📷 Escaneie cartas com IA (câmera ou foto)', '🛒 Compre e venda no Marketplace com segurança', '🗂️ Imprima separadores para organizar seu fichário'].map(f => `
+      ${['📚 Catalogue suas cartas — busca por nome ou número', '📷 Scan IA — adicione cartas direto pela foto', '📊 Dashboard em BRL — min, médio e máx em tempo real', '📈 Histórico de preços — veja a evolução do mercado', '🛒 Marketplace brasileiro — compre e venda com segurança', '🎁 Indique e Ganhe — recompensas mensais indicando amigos'].map(f => `
         <tr><td style="padding:6px 0;">
           <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">${f}</p>
         </td></tr>`).join('')}
     </table>
     ${btn('Acessar minha conta', `${APP_URL}/minha-colecao`)}
     ${divider()}
-    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Nosso time está pronto para ajudar. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${APP_URL}/faq" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Bem-vindo ao Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`)
 
   return resend.emails.send({ from: FROM, to, subject: `Bem-vindo ao Bynx, ${firstName}! 🎉`, html })
