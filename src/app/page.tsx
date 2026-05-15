@@ -728,7 +728,7 @@ export default function Home() {
           Veja como funciona
         </h2>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15, marginBottom: 32 }}>
-          Do link colado à coleção organizada
+          Sua coleção em tempo real
         </p>
 
         {/* Container do mockup animado */}
@@ -784,7 +784,7 @@ export default function Home() {
                   <div style={{ fontSize:20, fontWeight:800, letterSpacing:'-0.03em', marginBottom:2 }}>Minha Coleção</div>
                   <div style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>47 cartas · R$2.847,00</div>
                 </div>
-                <div style={{ background:'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius:10, padding:'8px 16px', fontSize:13, fontWeight:700, color:'#000' }}>+ Importar por link</div>
+                <div style={{ background:'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius:10, padding:'8px 16px', fontSize:13, fontWeight:700, color:'#000' }}>+ Adicionar carta</div>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
                 {[
