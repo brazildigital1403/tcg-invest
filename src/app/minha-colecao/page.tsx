@@ -505,6 +505,9 @@ export default function MinhaColecao() {
     return <AppLayout><div className="p-6">Carregando coleção...</div></AppLayout>
   }
 
+  // ✅ Total real de cartas (soma de quantities, não count de tipos)
+  const totalQty = cards.reduce((s, c) => s + (c.quantity || 1), 0)
+
   // ✅ Totais da carteira baseados na VARIANTE selecionada de cada carta
   const totais = cards.reduce((acc, c) => {
     const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
@@ -615,13 +618,13 @@ export default function MinhaColecao() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
-              {!isPro && totalCartas >= LIMITE_FREE ? (
+              {!isPro && totalQty >= LIMITE_FREE ? (
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
-                  Limite atingido ({totalCartas}/{limiteDisplay})
+                  Limite atingido ({totalQty}/{limiteDisplay})
                 </span>
               ) : (
                 <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  {totalCartas}/{limiteDisplay} cartas
+                  {totalQty}/{limiteDisplay} cartas
                 </span>
               )}
             </div>
@@ -641,8 +644,8 @@ export default function MinhaColecao() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
               {filteredCards.length !== cards.length
-                ? `${filteredCards.length} de ${cards.length} carta${cards.length !== 1 ? 's' : ''}`
-                : `${cards.length} carta${cards.length !== 1 ? 's' : ''} na coleção`}
+                ? `${filteredCards.length} de ${cards.length} tipo${cards.length !== 1 ? 's' : ''} (${totalQty} carta${totalQty !== 1 ? 's' : ''})`
+                : `${totalQty} carta${totalQty !== 1 ? 's' : ''} na coleção`}
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {userId && (
