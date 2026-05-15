@@ -635,6 +635,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </a>
             </div>
 
+            {/* Links de navegação */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 14, marginTop: 4 }}>
+              <a href="mailto:suporte@bynx.gg" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 12, transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>Fale conosco</a>
+              <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+              <a href="/faq" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 12, transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>FAQ</a>
+              <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+              <a href="/privacidade" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 12, transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>Privacidade</a>
+              <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+              <a href="/termos" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 12, transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>Termos de uso</a>
+            </div>
+
             {/* Copyright */}
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>
               © 2026 Bynx · Feito para colecionadores brasileiros de Pokémon TCG

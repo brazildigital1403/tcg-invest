@@ -920,6 +920,8 @@ export default function Home() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
           <button onClick={() => setShowContactModal(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 13, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>Fale conosco</button>
           <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+          <a href="/faq" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}>FAQ</a>
+          <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
           <a href="/privacidade" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}>Privacidade</a>
           <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
           <a href="/termos" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}>Termos de uso</a>
