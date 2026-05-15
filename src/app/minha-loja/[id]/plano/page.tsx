@@ -81,10 +81,10 @@ const fmtDate = (iso: string | null) => {
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function PlanoLojaPage() {
-  const params = useParams<{ lojaId: string }>()
+  const params = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const lojaId = params.lojaId
+  const lojaId = params.id
   const { showAlert } = useAppModal()
 
   const [loja, setLoja] = useState<Loja | null>(null)
