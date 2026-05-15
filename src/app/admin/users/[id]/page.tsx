@@ -14,6 +14,7 @@ type User = {
   cpf: string | null
   city: string | null
   whatsapp: string | null
+  data_nascimento: string | null
   is_pro: boolean
   plano: string | null
   plano_efetivo: 'pro' | 'trial' | 'free'
@@ -50,6 +51,18 @@ const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string;
 const fmtBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 const fmtDate = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 const fmtDateTime = (iso?: string | null) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+
+// Calcula idade a partir de data_nascimento (YYYY-MM-DD ou ISO)
+const calcIdade = (dob?: string | null): string => {
+  if (!dob) return '—'
+  const birth = new Date(dob)
+  if (isNaN(birth.getTime())) return '—'
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const m = now.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--
+  return `${age} anos`
+}
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -413,6 +426,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
                 <InfoRow label="Username" value={user.username ? `@${user.username}` : '—'} />
                 <InfoRow label="Cidade"   value={user.city || '—'} />
                 <InfoRow label="WhatsApp" value={user.whatsapp || '—'} />
+                <InfoRow label="Idade"    value={calcIdade(user.data_nascimento)} />
                 <InfoRow label="CPF"      value={user.cpf ? '****' + user.cpf.slice(-4) : '—'} mono />
               </>
             ) : (
