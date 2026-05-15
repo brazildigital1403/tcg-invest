@@ -87,7 +87,7 @@ export default function DashboardFinanceiro() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [rankingWithVariation, setRankingWithVariation] = useState<any[]>([])
   const [priceHistory, setPriceHistory] = useState<any[]>([])
-  const [selectedCard, setSelectedCard] = useState<string | null>(null)
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
   const [selectedCardPrice, setSelectedCardPrice] = useState<any>(null)
   const [cardImage, setCardImage] = useState<string | null>(null)
   const [userCards, setUserCards] = useState<any[]>([])
@@ -255,7 +255,7 @@ export default function DashboardFinanceiro() {
         const { data: profile } = await supabase.from('users').select('name').eq('id', uid).single()
         if (profile?.name) setUserName(profile.name)
         if (cards && cards.length > 0) {
-          setSelectedCard(cards[0].card_name)
+          setSelectedCardId(cards[0].id)
         }
       } catch (e) { console.error(e) }
       setLoading(false)
@@ -264,29 +264,50 @@ export default function DashboardFinanceiro() {
   }, [])
 
   useEffect(() => {
-    if (!selectedCard) return
+    if (!selectedCardId) return
     async function loadHistory() {
-      const res = await authFetch(`/api/historico?name=${encodeURIComponent(selectedCard!)}`)
-      const data = await res.json()
-      setPriceHistory(data.history || [])
-      try {
-        const cleanN = selectedCard!.replace(/\s*\([^)]*\)\s*$/, '').trim()
-        const { data: prices } = await supabase.from('pokemon_cards').select('*').ilike('name', cleanN).limit(1)
-        setSelectedCardPrice(prices?.[0] ? { ...prices[0], card_name: prices[0].name } : null)
-      } catch { setSelectedCardPrice(null) }
+      // 1. Pegar o user_card específico da coleção
+      const userCard = userCards.find(c => c.id === selectedCardId)
+      if (!userCard) return
+
+      // 2. Buscar preço/dados via pokemon_api_id (match preciso, não por nome)
+      const apiId = userCard.pokemon_api_id
+      if (apiId) {
+        const { data: prices } = await supabase
+          .from('pokemon_cards')
+          .select('*')
+          .eq('id', apiId)
+          .maybeSingle()
+        setSelectedCardPrice(prices ? { ...prices, card_name: prices.name } : null)
+
+        // 3. Histórico real via price_history (tabela nova com trigger)
+        const { data: history } = await supabase
+          .from('price_history')
+          .select('preco_normal, preco_medio, preco_foil, preco_max, recorded_at')
+          .eq('card_id', apiId)
+          .order('recorded_at', { ascending: true })
+          .limit(90)
+
+        setPriceHistory((history || []).map(h => ({
+          date: new Date(h.recorded_at).toISOString().split('T')[0],
+          preco_medio: h.preco_medio,
+          normal: h.preco_normal,
+          foil: h.preco_foil,
+        })))
+      } else {
+        // Fallback pra cards legacy sem pokemon_api_id
+        setSelectedCardPrice(null)
+        setPriceHistory([])
+      }
     }
     loadHistory()
-  }, [selectedCard])
+  }, [selectedCardId, userCards])
 
   useEffect(() => {
-    if (!selectedCard) return
-    async function fetchImage() {
-      const found = userCards.find(c => c.card_name === selectedCard)
-      if (found?.card_image) { setCardImage(found.card_image); return }
-      setCardImage(null)
-    }
-    fetchImage()
-  }, [selectedCard, userCards])
+    if (!selectedCardId) return
+    const found = userCards.find(c => c.id === selectedCardId)
+    setCardImage(found?.card_image || null)
+  }, [selectedCardId, userCards])
 
   const saldo = stats.totalVendas - stats.totalCompras
   const variation = getVariation(priceHistory)
@@ -456,7 +477,7 @@ export default function DashboardFinanceiro() {
                       : new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
                     )
                     .map(c => {
-                      const isSelected = selectedCard === c.card_name
+                      const isSelected = selectedCardId === c.id
                       const varLabels: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
                       const vLabel = varLabels[c.variante || 'normal'] || 'Normal'
                       const varColors: Record<string, string> = { normal: '#60a5fa', foil: '#f59e0b', promo: '#a78bfa', reverse: '#34d399', pokeball: '#fb923c' }
@@ -468,7 +489,7 @@ export default function DashboardFinanceiro() {
                       return (
                         <button
                           key={c.id}
-                          onClick={() => setSelectedCard(c.card_name)}
+                          onClick={() => setSelectedCardId(c.id)}
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             width: '100%', padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
@@ -519,20 +540,23 @@ export default function DashboardFinanceiro() {
               </div>
 
               {/* Carta selecionada */}
-              {selectedCard && (
+              {selectedCardId && (() => {
+                const selectedUserCard = userCards.find(c => c.id === selectedCardId)
+                if (!selectedUserCard) return null
+                return (
                 <div style={{ marginBottom: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12 }}>
                   {/* Linha superior: imagem + nome + preços */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                     {cardImage ? (
-                      <img src={cardImage} alt={selectedCard} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+                      <img src={cardImage} alt={selectedUserCard.card_name} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
                     ) : (
                       <div style={{ width: 44, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🃏</div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedCard}</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUserCard.card_name}</p>
                       {selectedCardPrice ? (() => {
                         // Usa a variante salva no user_cards para esta carta
-                        const cardVariante = userCards.find(c => c.card_name === selectedCard)?.variante || 'normal'
+                        const cardVariante = selectedUserCard.variante || 'normal'
                         const variantLabel: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
                         const precos = cardVariante === 'foil'
                           ? { min: selectedCardPrice.preco_foil_min, medio: selectedCardPrice.preco_foil_medio, max: selectedCardPrice.preco_foil_max }
@@ -556,12 +580,13 @@ export default function DashboardFinanceiro() {
                           </>
                         )
                       })() : (
-                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Sem dados — clique em Atualizar</p>
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Sem dados de preço disponíveis</p>
                       )}
                     </div>
                   </div>
                 </div>
-              )}
+                )
+              })()}
 
               {/* Gráfico histórico */}
               {priceHistory.length > 0 ? (
@@ -573,8 +598,8 @@ export default function DashboardFinanceiro() {
                       <div key={i} style={{ width: 16, height: h, background: '#f59e0b', borderRadius: '3px 3px 0 0' }} />
                     ))}
                   </div>
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Histórico aparece após atualizar o preço</p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>Clique em "Atualizar" na carta selecionada</p>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Histórico ainda sendo coletado</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>Dados aparecem em até 24h após o primeiro scan diário</p>
                 </div>
               )}
             </div>
