@@ -195,7 +195,7 @@ export async function sendTrialExpiring1Email(to: string, name: string) {
     <div style="height:16px;"></div>
     ${h1('Hoje é o último dia do seu Pro trial 🚨')}
     ${p(`${firstName}, amanhã sua conta volta automaticamente para o plano Free. Você não perde nada que já adicionou — só os recursos Pro ficam bloqueados.`)}
-    ${p('Continue no Pro para manter acesso a importação por link, scan com IA e marketplace.')}
+    ${p('Continue no Pro para manter acesso a cartas ilimitadas, scan com IA e marketplace.')}
     ${btn('Continuar no Pro →', `${APP_URL}/plano`)}
   `, `Hoje é o último dia do seu Pro trial`)
 
@@ -578,7 +578,7 @@ export async function sendPurchaseConfirmationEmail(
     titulo = `Bem-vindo ao Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}! ⭐`
     intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}</strong> foi ativada com sucesso. Obrigado por apoiar o Bynx!`
     detalhes = `
-      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Importação ilimitada por link da LigaPokemon</p>
+      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Cartas ilimitadas na sua coleção</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Scan de cartas com IA</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🛒 Marketplace completo (compra e venda)</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🗂️ Separadores de fichário em PDF</p>
