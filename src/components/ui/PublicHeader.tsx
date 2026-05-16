@@ -287,10 +287,8 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
 
 const S: Record<string, CSSProperties> = {
   header: {
-    position: 'fixed',
+    position: 'sticky',
     top: 0,
-    left: 0,
-    right: 0,
     zIndex: 100,
     backdropFilter: 'blur(16px)',
     background: 'rgba(8,10,15,0.9)',
