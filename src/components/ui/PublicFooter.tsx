@@ -29,6 +29,7 @@ export default function PublicFooter({ hideTopBorder = false }: Props) {
   return (
     <footer
       style={{
+        background: '#080a0f',
         borderTop: hideTopBorder ? 'none' : '1px solid rgba(255,255,255,0.06)',
         padding: '40px 24px',
         textAlign: 'center',
