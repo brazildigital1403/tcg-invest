@@ -162,6 +162,11 @@ export default function ColecionadoresPage() {
           .col-personas-grid { grid-template-columns: 1fr !important; }
           .col-tools-grid { grid-template-columns: 1fr !important; }
           .col-plans-grid { grid-template-columns: 1fr !important; }
+          .col-profile-card {
+            grid-template-columns: 1fr !important;
+            padding: 32px 24px !important;
+            gap: 32px !important;
+          }
           .col-final-ctas {
             flex-direction: column !important;
             align-items: stretch !important;
@@ -398,7 +403,7 @@ export default function ColecionadoresPage() {
         {/* ─── PERFIL PÚBLICO — destaque ───────────────── */}
         <section style={S.section}>
           <div style={S.container}>
-            <div style={S.profileCard}>
+            <div className="col-profile-card" style={S.profileCard}>
               <div style={S.profileText}>
                 <span style={S.eyebrow}>Compartilhe</span>
                 <h2 style={S.profileTitle}>
