@@ -52,6 +52,15 @@ function stepKey(userId: string, stepId: string) {
 export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
   const [done, setDone] = useState<Record<string, boolean>>({})
   const [closing, setClosing] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detecta mobile (≤768px)
+  useEffect(() => {
+    function checkMobile() { setIsMobile(window.innerWidth <= 768) }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     const state: Record<string, boolean> = {}
@@ -91,21 +100,25 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
         background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'center', padding: isMobile ? 0 : 20,
         opacity: closing ? 0 : 1, transition: 'opacity 0.2s ease',
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 480,
+          background: '#0d0f14', border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)',
+          borderRadius: isMobile ? 0 : 20,
+          padding: 0,
+          width: '100%', maxWidth: isMobile ? '100%' : 480,
+          height: isMobile ? '100vh' : 'auto', maxHeight: isMobile ? '100vh' : '90vh',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
           fontFamily: "'DM Sans', system-ui, sans-serif",
           transform: closing ? 'scale(0.97)' : 'scale(1)', transition: 'transform 0.2s ease',
         }}
       >
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 0, padding: isMobile ? '20px 20px 16px' : '32px 28px 16px', flexShrink: 0, borderBottom: isMobile ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <div>
               <p style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>✦ Primeiros passos</p>
@@ -134,29 +147,29 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
         </div>
 
         {/* Steps */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px 20px' : '8px 28px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {STEPS.map(step => {
             const isDone = done[step.id]
             return (
               <div key={step.id} style={{
                 background: isDone ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.03)',
                 border: `1px solid ${isDone ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.07)'}`,
-                borderRadius: 14, padding: '14px 16px',
-                display: 'flex', alignItems: 'center', gap: 14, transition: 'all 0.3s',
+                borderRadius: 14, padding: isMobile ? '12px 14px' : '14px 16px',
+                display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 14, transition: 'all 0.3s',
               }}>
                 <div style={{
-                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                  width: isMobile ? 32 : 36, height: isMobile ? 32 : 36, borderRadius: 10, flexShrink: 0,
                   background: isDone ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
                   border: `1px solid ${isDone ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: isDone ? 16 : 18, color: isDone ? '#22c55e' : 'inherit',
+                  fontSize: isDone ? (isMobile ? 14 : 16) : (isMobile ? 16 : 18), color: isDone ? '#22c55e' : 'inherit',
                   transition: 'all 0.3s',
                 }}>
                   {isDone ? '✓' : step.icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{
-                    fontSize: 14, fontWeight: 700,
+                    fontSize: isMobile ? 13 : 14, fontWeight: 700,
                     color: isDone ? 'rgba(255,255,255,0.4)' : '#f0f0f0',
                     marginBottom: isDone ? 0 : 2,
                     textDecoration: isDone ? 'line-through' : 'none',
@@ -164,7 +177,7 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
                   }}>
                     {step.title}
                   </p>
-                  {!isDone && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', lineHeight: 1.4 }}>{step.desc}</p>}
+                  {!isDone && <p style={{ fontSize: isMobile ? 11 : 12, color: 'rgba(255,255,255,0.35)', lineHeight: 1.4 }}>{step.desc}</p>}
                 </div>
                 {!isDone && (
                   <a
@@ -172,8 +185,8 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
                     onClick={() => markDone(step.id)}
                     style={{
                       background: BRAND, border: 'none', color: '#000',
-                      padding: '8px 14px', borderRadius: 10,
-                      fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                      padding: isMobile ? '7px 11px' : '8px 14px', borderRadius: 10,
+                      fontWeight: 700, fontSize: isMobile ? 11 : 12, cursor: 'pointer',
                       textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
                     }}
                   >
@@ -186,21 +199,23 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
         </div>
 
         {/* Rodapé */}
-        {allComplete ? (
-          <button
-            onClick={() => { onAllDone() }}
-            style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            🎉 Começar a usar o Bynx!
-          </button>
-        ) : (
-          <button
-            onClick={handleClose}
-            style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.35)', padding: '11px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            Continuar depois
-          </button>
-        )}
+        <div style={{ padding: isMobile ? '16px 20px' : '0 28px 32px', flexShrink: 0, borderTop: isMobile ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+          {allComplete ? (
+            <button
+              onClick={() => { onAllDone() }}
+              style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              🎉 Começar a usar o Bynx!
+            </button>
+          ) : (
+            <button
+              onClick={handleClose}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.35)', padding: '11px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Continuar depois
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
