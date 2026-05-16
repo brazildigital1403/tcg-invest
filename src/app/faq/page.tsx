@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
+import PublicFooter from '@/components/ui/PublicFooter'
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
@@ -276,6 +277,7 @@ export default function FAQPage() {
           }
         `}</style>
       </main>
+      <PublicFooter />
     </>
   )
 }
