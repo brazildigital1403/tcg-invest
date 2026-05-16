@@ -350,7 +350,66 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                 <p style={{ fontSize: 13, color: TEXT_MUTED }}>Clique em uma carta para ver detalhes</p>
               </div>
             ) : (
-              <div style={{ padding: 16 }}>
+              <div style={{ padding: isMobile ? 12 : 16 }}>
+
+                {/* ── MOBILE: HEADER COMPACTO (thumb 80px + info ao lado) ── */}
+                {isMobile && (
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 14, alignItems: 'flex-start' }}>
+                    {/* Thumb */}
+                    <div style={{ width: 80, flexShrink: 0 }}>
+                      {preview.image_large || preview.image_small ? (
+                        <img
+                          src={preview.image_large || preview.image_small}
+                          alt={preview.name}
+                          style={{ width: '100%', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}
+                        />
+                      ) : (
+                        <div style={{ width: '100%', paddingBottom: '140%', position: 'relative', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 1.3 }}>Sem<br/>imagem</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Info à direita */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2, lineHeight: 1.2 }}>{preview.name}</p>
+                      <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 8, lineHeight: 1.3 }}>
+                        #{preview.number} · {preview.set_name}
+                      </p>
+                      {(() => {
+                        const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
+                        const best = getBestPrice(preview)
+                        const variant = variantMap[preview.id] || 'normal'
+                        const variantPrice = preview[`preco_${variant}`]
+
+                        if (hasBRL && variantPrice > 0) {
+                          return (
+                            <p style={{ fontSize: 14, fontWeight: 700, color: '#f59e0b', margin: 0 }}>
+                              💰 {fmtBRL(variantPrice)}
+                            </p>
+                          )
+                        } else if (best) {
+                          return (
+                            <p style={{ fontSize: 14, fontWeight: 700, color: '#60a5fa', margin: 0 }}>
+                              ≈ {fmtBRL(best.valor)}
+                            </p>
+                          )
+                        } else {
+                          return (
+                            <p style={{ fontSize: 11, color: TEXT_MUTED, margin: 0 }}>
+                              Preço indisponível
+                            </p>
+                          )
+                        }
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── DESKTOP: HEADER COMPLETO (imagem grande + nome + badges + bloco preços) ── */}
+                {!isMobile && (
+                <>
                 {preview.image_large || preview.image_small ? (
                   <img
                     src={preview.image_large || preview.image_small}
@@ -452,6 +511,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     }
                   })()}
                 </div>
+                </>
+                )}
 
                 {/* Variante */}
                 <div style={{ marginBottom: 12 }}>
@@ -481,8 +542,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   </div>
                 </div>
 
-                {/* Artista */}
-                {preview.artist && (
+                {/* Artista (oculto em mobile) */}
+                {!isMobile && preview.artist && (
                   <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 10, textAlign: 'center' }}>
                     Ilustrado por {preview.artist}
                   </p>
