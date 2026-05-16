@@ -207,7 +207,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               autoFocus
               value={searchTerm}
               onChange={e => handleSearch(e.target.value)}
-              placeholder="Ex: Charizard, 151, Charmander 4, 4/165, SWSH261..."
+              placeholder="Ex: Charizard · PAF 109 · 4/165 · 4, 15, 23..."
               style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: isMobile ? 16 : 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
@@ -258,7 +258,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   <rect x="2" y="3" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                   <rect x="5" y="1" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                 </svg>
-                <p style={{ fontSize: 14 }}>Busque por nome, número, ou código (ex: SWSH261)</p>
+                <p style={{ fontSize: 14 }}>Busque por nome, número, código do set ou múltiplos itens</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 8, lineHeight: 1.6 }}>
+                  Ex: <strong style={{ color: '#f59e0b' }}>Charizard</strong> · <strong style={{ color: '#f59e0b' }}>PAF 109</strong> · <strong style={{ color: '#f59e0b' }}>4/165</strong> · <strong style={{ color: '#f59e0b' }}>4, 15, 23</strong>
+                </p>
                 <p style={{ fontSize: 12, opacity: 0.6 }}>Ex: Charizard, Pikachu, Mewtwo, Blastoise...</p>
               </div>
             )}
