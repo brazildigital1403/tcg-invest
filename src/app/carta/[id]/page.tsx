@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { IconWallet, IconMarketplace, IconLink, IconTag, IconWhatsApp } from '@/components/ui/Icons'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import PublicFooter from '@/components/ui/PublicFooter'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -218,6 +219,7 @@ export default function CartaPage() {
         </div>
 
       </main>
+      <PublicFooter />
     </div>
   )
 }

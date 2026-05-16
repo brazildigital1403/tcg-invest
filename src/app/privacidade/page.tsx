@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import PublicFooter from '@/components/ui/PublicFooter'
 
 export const metadata = {
   title: 'Política de Privacidade — Bynx',
@@ -219,6 +220,7 @@ export default function PrivacidadePage() {
           <Link href="/termos" style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>Termos de Uso →</Link>
         </div>
       </div>
+      <PublicFooter />
     </div>
   )
 }
