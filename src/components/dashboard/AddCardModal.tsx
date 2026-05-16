@@ -406,6 +406,15 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                           )
                         }
                       })()}
+
+                      {/* QUANTIDADE inline — dentro do header preview (mobile only) */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                        <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
+                          style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: '#f0f0f0', minWidth: 22, textAlign: 'center' }}>{qtyMap[preview.id] || 1}</span>
+                        <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: (prev[preview.id] || 1) + 1 }))}
+                          style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -533,9 +542,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   </div>
                 </div>
 
-                {/* Quantidade */}
-                <div style={{ marginBottom: 12, display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'stretch', gap: isMobile ? 10 : 6 }}>
-                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: isMobile ? 0 : 6, flexShrink: 0, minWidth: isMobile ? 64 : 'auto' }}>Quantidade</p>
+                {/* Quantidade (oculto em mobile — já está inline no preview header acima) */}
+                {!isMobile && (
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Quantidade</p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
                       style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
@@ -544,6 +554,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                   </div>
                 </div>
+                )}
 
                 {/* Artista (oculto em mobile) */}
                 {!isMobile && preview.artist && (
