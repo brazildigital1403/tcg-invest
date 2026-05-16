@@ -79,6 +79,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   }
 
   // ── Busca no banco local ────────────────────────────────────────────────────
+  // Smart search via RPC PostgreSQL: aceita texto puro, número puro, código de promo,
+  // texto+número ("Charmander 4"), e número/total ("4/165"). Detalhes na função
+  // smart_search_cards no Supabase.
 
   async function handleSearch(value: string) {
     setSearchTerm(value)
@@ -87,9 +90,12 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true)
       try {
-        const res = await fetch(`/api/cards/search?q=${encodeURIComponent(value)}&limit=48`)
-        const data = await res.json()
-        setSearchResults(data?.cards || [])
+        const { data, error } = await supabase.rpc('smart_search_cards', {
+          q: value,
+          limit_n: 48,
+        })
+        if (error) throw error
+        setSearchResults(data || [])
       } catch { setSearchResults([]) }
       setIsSearching(false)
     }, 350)
@@ -181,7 +187,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             <div>
               <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: '#f0f0f0' }}>Adicionar carta</p>
               <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 1 }}>
-                {filtered.length > 0 ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}` : 'Digite o nome da carta para buscar'}
+                {filtered.length > 0 ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}` : 'Busque por nome ou número'}
                 {selectedCards.length > 0 && (
                   <> · <span style={{ color: '#f59e0b', fontWeight: 600 }}>{selectedCards.length} carta{selectedCards.length !== 1 ? 's' : ''} selecionada{selectedCards.length !== 1 ? 's' : ''}</span></>
                 )}
@@ -201,7 +207,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               autoFocus
               value={searchTerm}
               onChange={e => handleSearch(e.target.value)}
-              placeholder="Ex: Charizard ex, Pikachu, Mewtwo V..."
+              placeholder="Ex: Charizard, 151, Charmander 4, 4/165, SWSH261..."
               style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: isMobile ? 16 : 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
@@ -252,7 +258,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   <rect x="2" y="3" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                   <rect x="5" y="1" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                 </svg>
-                <p style={{ fontSize: 14 }}>Digite o nome de uma carta para buscar</p>
+                <p style={{ fontSize: 14 }}>Busque por nome, número, ou código (ex: SWSH261)</p>
                 <p style={{ fontSize: 12, opacity: 0.6 }}>Ex: Charizard, Pikachu, Mewtwo, Blastoise...</p>
               </div>
             )}
