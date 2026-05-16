@@ -50,7 +50,16 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [variantMap, setVariantMap]       = useState<Record<string, string>>({})
   const [qtyMap, setQtyMap]               = useState<Record<string, number>>({})
   const [adding, setAdding]               = useState(false)
+  const [isMobile, setIsMobile]           = useState(false)
   const searchTimeout = useRef<any>(null)
+
+  // ── Detecta mobile (≤768px) e escuta resize ────────────────────────────────
+  useEffect(() => {
+    function checkMobile() { setIsMobile(window.innerWidth <= 768) }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // ── Busca taxa de câmbio ao abrir ─────────────────────────────────────────
   useEffect(() => {
@@ -160,8 +169,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 1000, maxHeight: '90vh', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 0 : 24 }}>
+      <div style={{ width: '100%', maxWidth: isMobile ? '100%' : 1000, maxHeight: isMobile ? '100vh' : '90vh', height: isMobile ? '100vh' : 'auto', background: '#0d0f14', border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: isMobile ? 0 : 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
         {/* HEADER */}
         <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -229,7 +238,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         </div>
 
         {/* CONTENT */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: 'hidden' }}>
 
           {/* Grid de resultados */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
@@ -246,7 +255,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             )}
 
             {isSearching && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(4,1fr)', gap: 12 }}>
                 {[...Array(8)].map((_, i) => (
                   <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, overflow: 'hidden' }}>
                     <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)' }} />
@@ -260,7 +269,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             )}
 
             {!isSearching && filtered.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(4,1fr)', gap: 12 }}>
                 {filtered.map(card => {
                   const isSelected  = !!selectedCards.find(c => c.id === card.id)
                   const isPreviewed = preview?.id === card.id
@@ -332,7 +341,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           </div>
 
           {/* PREVIEW */}
-          <div style={{ width: 260, borderLeft: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto', flexShrink: 0 }}>
+          {/* Em mobile, esconde completamente quando vazio (sem carta selecionada) */}
+          {!(isMobile && !preview) && (
+          <div style={{ width: isMobile ? '100%' : 260, borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.07)', borderTop: isMobile ? '1px solid rgba(255,255,255,0.07)' : 'none', overflowY: 'auto', flexShrink: 0, maxHeight: isMobile ? '50vh' : 'auto' }}>
             {!preview ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, padding: 24, textAlign: 'center' }}>
                 <svg width="40" height="40" viewBox="0 0 20 20" fill="none" style={{opacity:0.2}}><path d="M10 2v9M7 5V4a1 1 0 012 0v1M13 6V4a1 1 0 012 0v5l1 2v2a4 4 0 01-4 4H9a4 4 0 01-4-4v-3l1-1V6a1 1 0 012 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -479,6 +490,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* FOOTER */}
