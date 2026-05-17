@@ -115,6 +115,7 @@ export default function Home() {
           .lp-feat-grid   { grid-template-columns: repeat(2, 1fr) !important; }
           .lp-mockup-stats { grid-template-columns: repeat(2, 1fr) !important; }
         }
+        .lp-testimonials-row::-webkit-scrollbar { display: none; }
       `}</style>
 
       {/* JSON-LD: FAQPage — rich snippets no Google */}
@@ -554,23 +555,80 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── DEPOIMENTO ── */}
-      <section style={{ padding: '60px 24px', maxWidth: 720, margin: '0 auto' }}>
-        <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 24, padding: '40px 48px', position: 'relative' }}>
-          <span style={{ position: 'absolute', top: 24, left: 32, fontSize: 48, color: 'rgba(245,158,11,0.3)', fontFamily: 'Georgia, serif', lineHeight: 1 }} aria-hidden="true">"</span>
-          <p style={{ fontSize: 18, lineHeight: 1.7, color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', marginBottom: 24, paddingTop: 16 }}>
-            Antes do Bynx, eu trocava carta no chute. Depois de organizar minha coleção e ver o valor real de cada variante, parei de perder dinheiro nos trades. Agora chego na liga sabendo exatamente o que tenho.
+      {/* ── DEPOIMENTOS ── */}
+      <section style={{ padding: '60px 0 40px', margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 32px', padding: '0 24px' }}>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
+            O que os players dizem
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15 }}>
+            Coleção organizada, valor na mão, decisão sem chute
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#000', flexShrink: 0 }}>
-              ES
-            </div>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>Eduardo Silva</p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Colecionador · São Paulo, SP</p>
-            </div>
-          </div>
         </div>
+
+        <div
+          className="lp-testimonials-row"
+          style={{
+            display: 'flex',
+            gap: 20,
+            overflowX: 'auto',
+            scrollSnapType: 'x mandatory',
+            padding: '8px 24px 24px',
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {[
+            { initials: 'RC', name: 'Rafael Cavalcanti', role: 'Investidor', city: 'Vinhedo, SP', text: 'Trato minha coleção como portfólio. O Bynx me mostra ROI por carta, performance vs compra e quais variantes acompanhar. Já vendi 3 Charizards no momento certo só olhando o histórico de preço.' },
+            { initials: 'MS', name: 'Mariana Silva', role: 'Colecionadora', city: 'Curitiba, PR', text: 'Comecei a colecionar com meu filho e a coleção cresceu sem eu perceber. Hoje sei exatamente quanto temos em casa — e cada carta tá organizada por set.' },
+            { initials: 'LA', name: 'Lucas Almeida', role: 'Colecionador', city: 'Belo Horizonte, MG', text: 'Tô completando o 151 carta por carta. A barra de progresso por set é viciante. Já são 87% e não vou parar até zerar.' },
+            { initials: 'GO', name: 'Gabriel Oliveira', role: 'Competitivo', city: 'São Paulo, SP', text: 'Monto deck pra torneio e antes de comprar carta eu sempre confiro o histórico no Bynx. Já evitei comprar carta hypeada que ia desabar — e desabou na semana seguinte.' },
+            { initials: 'CO', name: 'Carlos Oliveira', role: 'Lojista', city: 'Campinas, SP', text: 'Tenho loja física há 6 anos. Uso o Bynx pra precificar carta usada que entra no balcão. Os valores médios batem com o que a galera aceita, não preciso negociar no chute.' },
+            { initials: 'CA', name: 'Camila Araújo', role: 'Colecionadora', city: 'Florianópolis, SC', text: 'Minha coleção é toda de Eeveelutions. O Bynx separa por variante (foil, reverse, alt art) e isso muda tudo — antes eu nem sabia que tinha 4 versões da mesma Sylveon.' },
+            { initials: 'MR', name: 'Marcelo Rocha', role: 'Veterano', city: 'Porto Alegre, RS', text: 'Joguei TCG na época do Charizard Base Set. Voltei adulto, comecei tudo de novo, mas agora com cabeça de coleção, não de moleque trocando carta no recreio. O Bynx é o que faltava nessa fase 2.' },
+            { initials: 'BF', name: 'Bruno Ferreira', role: 'Colecionador', city: 'Brasília, DF', text: 'Já perdi carta em mudança, já saí no prejuízo em troca, sabe como é. Agora tudo registrado, com foto e valor. Se sumir alguma, eu sei na hora.' },
+            { initials: 'FB', name: 'Fernanda Borges', role: 'Lojista', city: 'Fortaleza, CE', text: 'Vendo carta pelo Instagram e o Bynx é meu termômetro de preço. Quando uma variante começa a subir, eu vejo antes — e ajusto o anúncio antes do meu concorrente.' },
+            { initials: 'LC', name: 'Larissa Costa', role: 'Colecionadora', city: 'Goiânia, GO', text: 'Voltei a colecionar depois de 15 anos. O Bynx me deu o contexto que faltava: o que é raro hoje, o que valorizou, como organizar. Virei criança de novo, só que com planilha.' },
+            { initials: 'PH', name: 'Pedro Henrique', role: 'Competitivo', city: 'Niterói, RJ', text: 'Tô economizando pro Nationals. Cada carta que entra no deck eu lanço no Bynx pra ver o custo total. Saber que o deck me custou R$ 1.840 e tá valendo R$ 2.100 é satisfação pura.' },
+            { initials: 'DM', name: 'Diego Mendes', role: 'Colecionador', city: 'Recife, PE', text: '5 caixas de cartas aleatórias no armário há anos. Em 2 fins de semana escaneei tudo, organizei e descobri que tinha quase R$ 4 mil em carta lá. Sério.' },
+            { initials: 'AC', name: 'André Cardoso', role: 'Lojista', city: 'Joinville, SC', text: 'Organizo torneios locais e vendo cartas avulsas. O Bynx me dá controle de estoque + valor atualizado. Antes era planilha do Excel sofrendo, agora é só abrir o app.' },
+            { initials: 'BS', name: 'Beatriz Santos', role: 'Colecionadora', city: 'Salvador, BA', text: 'O app é bonito demais. Adicionar carta é rápido, ver a coleção dá orgulho, e o dashboard de patrimônio é meu xodó. Recomendei pra todo o grupo da liga.' },
+          ].map((t, i) => (
+            <article
+              key={i}
+              style={{
+                flex: '0 0 auto',
+                width: 'min(560px, 86vw)',
+                scrollSnapAlign: 'center',
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))',
+                border: '1px solid rgba(245,158,11,0.2)',
+                borderRadius: 24,
+                padding: '36px 32px 28px',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <span style={{ position: 'absolute', top: 20, left: 28, fontSize: 44, color: 'rgba(245,158,11,0.3)', fontFamily: 'Georgia, serif', lineHeight: 1 }} aria-hidden="true">"</span>
+              <p style={{ fontSize: 16, lineHeight: 1.7, color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', marginBottom: 24, paddingTop: 16, flex: 1 }}>
+                {t.text}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: '#000', flexShrink: 0 }}>
+                  {t.initials}
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>{t.name}</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{t.role} · {t.city}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4, letterSpacing: '0.05em' }}>
+          ← arraste pra ver mais →
+        </p>
       </section>
 
       {/* ── DEMO ANIMADA ── */}
