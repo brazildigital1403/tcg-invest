@@ -27,6 +27,234 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   )
 }
 
+// ─── Depoimentos ─────────────────────────────────────────────────────────────
+// 14 depoimentos com nomes BR realistas em carousel scroll-snap.
+// UX: setas (desktop) + bullets clicáveis (ambos) + overscroll-behavior-x
+// pra bloquear o back-gesture do trackpad no Mac.
+
+const TESTIMONIALS = [
+  { initials: 'RC', name: 'Rafael Cavalcanti', role: 'Investidor', city: 'Vinhedo, SP', text: 'Trato minha coleção como portfólio. O Bynx me mostra ROI por carta, performance vs compra e quais variantes acompanhar. Já vendi 3 Charizards no momento certo só olhando o histórico de preço.' },
+  { initials: 'MS', name: 'Mariana Silva', role: 'Colecionadora', city: 'Curitiba, PR', text: 'Comecei a colecionar com meu filho e a coleção cresceu sem eu perceber. Hoje sei exatamente quanto temos em casa — e cada carta tá organizada por set.' },
+  { initials: 'LA', name: 'Lucas Almeida', role: 'Colecionador', city: 'Belo Horizonte, MG', text: 'Tô completando o 151 carta por carta. A barra de progresso por set é viciante. Já são 87% e não vou parar até zerar.' },
+  { initials: 'GO', name: 'Gabriel Oliveira', role: 'Competitivo', city: 'São Paulo, SP', text: 'Monto deck pra torneio e antes de comprar carta eu sempre confiro o histórico no Bynx. Já evitei comprar carta hypeada que ia desabar — e desabou na semana seguinte.' },
+  { initials: 'CO', name: 'Carlos Oliveira', role: 'Lojista', city: 'Campinas, SP', text: 'Tenho loja física há 6 anos. Uso o Bynx pra precificar carta usada que entra no balcão. Os valores médios batem com o que a galera aceita, não preciso negociar no chute.' },
+  { initials: 'CA', name: 'Camila Araújo', role: 'Colecionadora', city: 'Florianópolis, SC', text: 'Minha coleção é toda de Eeveelutions. O Bynx separa por variante (foil, reverse, alt art) e isso muda tudo — antes eu nem sabia que tinha 4 versões da mesma Sylveon.' },
+  { initials: 'MR', name: 'Marcelo Rocha', role: 'Veterano', city: 'Porto Alegre, RS', text: 'Joguei TCG na época do Charizard Base Set. Voltei adulto, comecei tudo de novo, mas agora com cabeça de coleção, não de moleque trocando carta no recreio. O Bynx é o que faltava nessa fase 2.' },
+  { initials: 'BF', name: 'Bruno Ferreira', role: 'Colecionador', city: 'Brasília, DF', text: 'Já perdi carta em mudança, já saí no prejuízo em troca, sabe como é. Agora tudo registrado, com foto e valor. Se sumir alguma, eu sei na hora.' },
+  { initials: 'FB', name: 'Fernanda Borges', role: 'Lojista', city: 'Fortaleza, CE', text: 'Vendo carta pelo Instagram e o Bynx é meu termômetro de preço. Quando uma variante começa a subir, eu vejo antes — e ajusto o anúncio antes do meu concorrente.' },
+  { initials: 'LC', name: 'Larissa Costa', role: 'Colecionadora', city: 'Goiânia, GO', text: 'Voltei a colecionar depois de 15 anos. O Bynx me deu o contexto que faltava: o que é raro hoje, o que valorizou, como organizar. Virei criança de novo, só que com planilha.' },
+  { initials: 'PH', name: 'Pedro Henrique', role: 'Competitivo', city: 'Niterói, RJ', text: 'Tô economizando pro Nationals. Cada carta que entra no deck eu lanço no Bynx pra ver o custo total. Saber que o deck me custou R$ 1.840 e tá valendo R$ 2.100 é satisfação pura.' },
+  { initials: 'DM', name: 'Diego Mendes', role: 'Colecionador', city: 'Recife, PE', text: '5 caixas de cartas aleatórias no armário há anos. Em 2 fins de semana escaneei tudo, organizei e descobri que tinha quase R$ 4 mil em carta lá. Sério.' },
+  { initials: 'AC', name: 'André Cardoso', role: 'Lojista', city: 'Joinville, SC', text: 'Organizo torneios locais e vendo cartas avulsas. O Bynx me dá controle de estoque + valor atualizado. Antes era planilha do Excel sofrendo, agora é só abrir o app.' },
+  { initials: 'BS', name: 'Beatriz Santos', role: 'Colecionadora', city: 'Salvador, BA', text: 'O app é bonito demais. Adicionar carta é rápido, ver a coleção dá orgulho, e o dashboard de patrimônio é meu xodó. Recomendei pra todo o grupo da liga.' },
+]
+
+const TESTIMONIAL_PAD_LEFT = 24 // bate com paddingLeft do scroller
+
+function TestimonialsCarousel() {
+  const scrollerRef = React.useRef<HTMLDivElement>(null)
+  const [activeIndex, setActiveIndex] = React.useState(0)
+  const [canPrev, setCanPrev] = React.useState(false)
+  const [canNext, setCanNext] = React.useState(true)
+
+  // Atualiza activeIndex e estado das setas conforme o scroll do container.
+  // Usa rAF pra throttlar e não disparar setState em cada pixel.
+  React.useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+
+    let raf = 0
+    const update = () => {
+      const cards = Array.from(el.children) as HTMLElement[]
+      if (cards.length === 0) return
+      const scrollLeft = el.scrollLeft
+      const isAtEnd = scrollLeft + el.clientWidth >= el.scrollWidth - 4
+
+      let closest = 0
+      if (isAtEnd) {
+        // No fim físico do scroll, o último card é sempre o ativo
+        // (pode não estar "colado à esquerda" mas é o que o user vê).
+        closest = cards.length - 1
+      } else {
+        let minDist = Infinity
+        cards.forEach((card, i) => {
+          const dist = Math.abs(card.offsetLeft - scrollLeft - TESTIMONIAL_PAD_LEFT)
+          if (dist < minDist) { minDist = dist; closest = i }
+        })
+      }
+      setActiveIndex(closest)
+      setCanPrev(scrollLeft > 4)
+      setCanNext(!isAtEnd)
+    }
+
+    const onScroll = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(update)
+    }
+
+    update()
+    el.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      cancelAnimationFrame(raf)
+      el.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', update)
+    }
+  }, [])
+
+  const scrollToIndex = (i: number) => {
+    const el = scrollerRef.current
+    if (!el) return
+    const cards = Array.from(el.children) as HTMLElement[]
+    const card = cards[i]
+    if (!card) return
+    el.scrollTo({ left: card.offsetLeft - TESTIMONIAL_PAD_LEFT, behavior: 'smooth' })
+  }
+
+  const arrowBase: React.CSSProperties = {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 2,
+    width: 44, height: 44, borderRadius: '50%',
+    background: 'rgba(15,17,23,0.85)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'opacity 0.2s, color 0.2s, background 0.2s, border-color 0.2s',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    padding: 0,
+  }
+
+  return (
+    <section style={{ padding: '60px 0 40px', margin: '0 auto' }}>
+      <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 32px', padding: '0 24px' }}>
+        <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
+          O que os players dizem
+        </h2>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15 }}>
+          Coleção organizada, valor na mão, decisão sem chute
+        </p>
+      </div>
+
+      <div style={{ position: 'relative' }}>
+        {/* Seta esquerda */}
+        <button
+          type="button"
+          className="lp-testimonials-arrow"
+          aria-label="Depoimento anterior"
+          onClick={() => scrollToIndex(Math.max(0, activeIndex - 1))}
+          disabled={!canPrev}
+          style={{
+            ...arrowBase,
+            left: 12,
+            color: canPrev ? '#f59e0b' : 'rgba(255,255,255,0.2)',
+            cursor: canPrev ? 'pointer' : 'default',
+            opacity: canPrev ? 1 : 0.4,
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+
+        {/* Seta direita */}
+        <button
+          type="button"
+          className="lp-testimonials-arrow"
+          aria-label="Próximo depoimento"
+          onClick={() => scrollToIndex(Math.min(TESTIMONIALS.length - 1, activeIndex + 1))}
+          disabled={!canNext}
+          style={{
+            ...arrowBase,
+            right: 12,
+            color: canNext ? '#f59e0b' : 'rgba(255,255,255,0.2)',
+            cursor: canNext ? 'pointer' : 'default',
+            opacity: canNext ? 1 : 0.4,
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+
+        {/* Scroller */}
+        <div
+          ref={scrollerRef}
+          className="lp-testimonials-row"
+          role="region"
+          aria-label="Depoimentos de usuários"
+          style={{
+            display: 'flex',
+            gap: 20,
+            overflowX: 'auto',
+            scrollSnapType: 'x mandatory',
+            padding: '8px 24px 24px',
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehaviorX: 'contain',
+          }}
+        >
+          {TESTIMONIALS.map((t, i) => (
+            <article
+              key={i}
+              style={{
+                flex: '0 0 auto',
+                width: 'min(560px, 86vw)',
+                scrollSnapAlign: 'start',
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))',
+                border: '1px solid rgba(245,158,11,0.2)',
+                borderRadius: 24,
+                padding: '36px 32px 28px',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <span style={{ position: 'absolute', top: 20, left: 28, fontSize: 44, color: 'rgba(245,158,11,0.3)', fontFamily: 'Georgia, serif', lineHeight: 1 }} aria-hidden="true">"</span>
+              <p style={{ fontSize: 16, lineHeight: 1.7, color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', marginBottom: 24, paddingTop: 16, flex: 1 }}>
+                {t.text}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: '#000', flexShrink: 0 }}>
+                  {t.initials}
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>{t.name}</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{t.role} · {t.city}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      {/* Bullets — sempre visíveis (mobile + desktop) */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 7, marginTop: 8, padding: '0 24px', flexWrap: 'wrap' }}>
+        {TESTIMONIALS.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-label={`Ir para depoimento ${i + 1} de ${TESTIMONIALS.length}`}
+            aria-current={i === activeIndex ? 'true' : undefined}
+            onClick={() => scrollToIndex(i)}
+            style={{
+              width: i === activeIndex ? 22 : 7,
+              height: 7,
+              borderRadius: 4,
+              background: i === activeIndex ? '#f59e0b' : 'rgba(255,255,255,0.18)',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              transition: 'width 0.25s ease, background 0.25s ease',
+            }}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default function Home() {
   const howRef = useRef<HTMLDivElement>(null)
   const pricingRef = useRef<HTMLDivElement>(null)
@@ -114,8 +342,10 @@ export default function Home() {
           .lp-how-grid    { grid-template-columns: 1fr !important; }
           .lp-feat-grid   { grid-template-columns: repeat(2, 1fr) !important; }
           .lp-mockup-stats { grid-template-columns: repeat(2, 1fr) !important; }
+          .lp-testimonials-arrow { display: none !important; }
         }
         .lp-testimonials-row::-webkit-scrollbar { display: none; }
+        .lp-testimonials-arrow:hover:not(:disabled) { background: rgba(245,158,11,0.15) !important; border-color: rgba(245,158,11,0.4) !important; }
       `}</style>
 
       {/* JSON-LD: FAQPage — rich snippets no Google */}
@@ -556,80 +786,7 @@ export default function Home() {
       </section>
 
       {/* ── DEPOIMENTOS ── */}
-      <section style={{ padding: '60px 0 40px', margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 32px', padding: '0 24px' }}>
-          <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
-            O que os players dizem
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15 }}>
-            Coleção organizada, valor na mão, decisão sem chute
-          </p>
-        </div>
-
-        <div
-          className="lp-testimonials-row"
-          style={{
-            display: 'flex',
-            gap: 20,
-            overflowX: 'auto',
-            scrollSnapType: 'x mandatory',
-            padding: '8px 24px 24px',
-            scrollbarWidth: 'none',
-            WebkitOverflowScrolling: 'touch',
-          }}
-        >
-          {[
-            { initials: 'RC', name: 'Rafael Cavalcanti', role: 'Investidor', city: 'Vinhedo, SP', text: 'Trato minha coleção como portfólio. O Bynx me mostra ROI por carta, performance vs compra e quais variantes acompanhar. Já vendi 3 Charizards no momento certo só olhando o histórico de preço.' },
-            { initials: 'MS', name: 'Mariana Silva', role: 'Colecionadora', city: 'Curitiba, PR', text: 'Comecei a colecionar com meu filho e a coleção cresceu sem eu perceber. Hoje sei exatamente quanto temos em casa — e cada carta tá organizada por set.' },
-            { initials: 'LA', name: 'Lucas Almeida', role: 'Colecionador', city: 'Belo Horizonte, MG', text: 'Tô completando o 151 carta por carta. A barra de progresso por set é viciante. Já são 87% e não vou parar até zerar.' },
-            { initials: 'GO', name: 'Gabriel Oliveira', role: 'Competitivo', city: 'São Paulo, SP', text: 'Monto deck pra torneio e antes de comprar carta eu sempre confiro o histórico no Bynx. Já evitei comprar carta hypeada que ia desabar — e desabou na semana seguinte.' },
-            { initials: 'CO', name: 'Carlos Oliveira', role: 'Lojista', city: 'Campinas, SP', text: 'Tenho loja física há 6 anos. Uso o Bynx pra precificar carta usada que entra no balcão. Os valores médios batem com o que a galera aceita, não preciso negociar no chute.' },
-            { initials: 'CA', name: 'Camila Araújo', role: 'Colecionadora', city: 'Florianópolis, SC', text: 'Minha coleção é toda de Eeveelutions. O Bynx separa por variante (foil, reverse, alt art) e isso muda tudo — antes eu nem sabia que tinha 4 versões da mesma Sylveon.' },
-            { initials: 'MR', name: 'Marcelo Rocha', role: 'Veterano', city: 'Porto Alegre, RS', text: 'Joguei TCG na época do Charizard Base Set. Voltei adulto, comecei tudo de novo, mas agora com cabeça de coleção, não de moleque trocando carta no recreio. O Bynx é o que faltava nessa fase 2.' },
-            { initials: 'BF', name: 'Bruno Ferreira', role: 'Colecionador', city: 'Brasília, DF', text: 'Já perdi carta em mudança, já saí no prejuízo em troca, sabe como é. Agora tudo registrado, com foto e valor. Se sumir alguma, eu sei na hora.' },
-            { initials: 'FB', name: 'Fernanda Borges', role: 'Lojista', city: 'Fortaleza, CE', text: 'Vendo carta pelo Instagram e o Bynx é meu termômetro de preço. Quando uma variante começa a subir, eu vejo antes — e ajusto o anúncio antes do meu concorrente.' },
-            { initials: 'LC', name: 'Larissa Costa', role: 'Colecionadora', city: 'Goiânia, GO', text: 'Voltei a colecionar depois de 15 anos. O Bynx me deu o contexto que faltava: o que é raro hoje, o que valorizou, como organizar. Virei criança de novo, só que com planilha.' },
-            { initials: 'PH', name: 'Pedro Henrique', role: 'Competitivo', city: 'Niterói, RJ', text: 'Tô economizando pro Nationals. Cada carta que entra no deck eu lanço no Bynx pra ver o custo total. Saber que o deck me custou R$ 1.840 e tá valendo R$ 2.100 é satisfação pura.' },
-            { initials: 'DM', name: 'Diego Mendes', role: 'Colecionador', city: 'Recife, PE', text: '5 caixas de cartas aleatórias no armário há anos. Em 2 fins de semana escaneei tudo, organizei e descobri que tinha quase R$ 4 mil em carta lá. Sério.' },
-            { initials: 'AC', name: 'André Cardoso', role: 'Lojista', city: 'Joinville, SC', text: 'Organizo torneios locais e vendo cartas avulsas. O Bynx me dá controle de estoque + valor atualizado. Antes era planilha do Excel sofrendo, agora é só abrir o app.' },
-            { initials: 'BS', name: 'Beatriz Santos', role: 'Colecionadora', city: 'Salvador, BA', text: 'O app é bonito demais. Adicionar carta é rápido, ver a coleção dá orgulho, e o dashboard de patrimônio é meu xodó. Recomendei pra todo o grupo da liga.' },
-          ].map((t, i) => (
-            <article
-              key={i}
-              style={{
-                flex: '0 0 auto',
-                width: 'min(560px, 86vw)',
-                scrollSnapAlign: 'center',
-                background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))',
-                border: '1px solid rgba(245,158,11,0.2)',
-                borderRadius: 24,
-                padding: '36px 32px 28px',
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <span style={{ position: 'absolute', top: 20, left: 28, fontSize: 44, color: 'rgba(245,158,11,0.3)', fontFamily: 'Georgia, serif', lineHeight: 1 }} aria-hidden="true">"</span>
-              <p style={{ fontSize: 16, lineHeight: 1.7, color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', marginBottom: 24, paddingTop: 16, flex: 1 }}>
-                {t.text}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: '#000', flexShrink: 0 }}>
-                  {t.initials}
-                </div>
-                <div>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>{t.name}</p>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{t.role} · {t.city}</p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4, letterSpacing: '0.05em' }}>
-          ← arraste pra ver mais →
-        </p>
-      </section>
+      <TestimonialsCarousel />
 
       {/* ── DEMO ANIMADA ── */}
       <section style={{ padding: '60px 24px', maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
