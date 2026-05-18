@@ -17,6 +17,10 @@ type User = {
   scan_creditos: number | null
   is_suspended: boolean
   created_at: string
+  // S32: novos campos enriquecidos pela API
+  last_sign_in_at: string | null
+  collection_count: number
+  anuncios_count: number
 }
 
 const FILTER_TABS = [
@@ -35,6 +39,29 @@ const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string;
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// S32: tempo relativo legível pro "Último acesso" — "agora", "há 23min", "hoje 14h",
+// "ontem", "há 3d", "há 2mes", "há 1a". Optimizado pra varredura visual rápida.
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  if (isNaN(date.getTime())) return '—'
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  if (diffMs < 0) return 'agora'
+  const diffMin = Math.floor(diffMs / 60_000)
+  const diffH   = Math.floor(diffMs / 3_600_000)
+  const diffD   = Math.floor(diffMs / 86_400_000)
+  if (diffMin < 1)   return 'agora'
+  if (diffMin < 60)  return `há ${diffMin}m`
+  if (diffH < 24 && date.toDateString() === now.toDateString()) {
+    return `hoje ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+  }
+  if (diffD === 1)   return 'ontem'
+  if (diffD < 30)    return `há ${diffD}d`
+  if (diffD < 365)   return `há ${Math.floor(diffD / 30)}mes`
+  return `há ${Math.floor(diffD / 365)}a`
 }
 
 function UsersView() {
@@ -72,7 +99,7 @@ function UsersView() {
   }
 
   return (
-    <div style={{ padding: '32px 24px', maxWidth: 1200, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div style={{ padding: '32px 24px', maxWidth: 1380, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px', color: '#f0f0f0' }}>
@@ -158,14 +185,17 @@ function UsersView() {
             background: 'rgba(255,255,255,0.02)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 14,
-            overflow: 'hidden',
+            overflow: 'auto',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1100 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
                   <th style={th}>Usuário</th>
                   <th style={{ ...th, textAlign: 'center' }}>Plano</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Créditos scan</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Coleção</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Anúncios</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Créditos</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Último acesso</th>
                   <th style={{ ...th, textAlign: 'right' }}>Cadastro</th>
                   <th style={{ ...th, width: 60 }}></th>
                 </tr>
@@ -181,7 +211,7 @@ function UsersView() {
                       <td style={td}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                            <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 240 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
                               {u.display_name || u.email}
                             </p>
                             {u.is_suspended && (
@@ -198,7 +228,7 @@ function UsersView() {
                             )}
                           </div>
                           {u.display_name && (
-                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 280 }}>
+                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
                               {u.email}
                             </p>
                           )}
@@ -215,10 +245,19 @@ function UsersView() {
                           {p.label}{u.plano_efetivo === 'trial' && u.trial_days_left ? ` · ${u.trial_days_left}d` : ''}
                         </span>
                       </td>
+                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.collection_count > 0 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)' }}>
+                        {u.collection_count.toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.anuncios_count > 0 ? '#60a5fa' : 'rgba(255,255,255,0.25)', fontWeight: u.anuncios_count > 0 ? 700 : 400 }}>
+                        {u.anuncios_count.toLocaleString('pt-BR')}
+                      </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.7)' }}>
                         {u.scan_creditos ?? 0}
                       </td>
-                      <td style={{ ...td, textAlign: 'right', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+                      <td style={{ ...td, textAlign: 'right', color: u.last_sign_in_at ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {formatRelativeTime(u.last_sign_in_at)}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', color: 'rgba(255,255,255,0.5)', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {formatDate(u.created_at)}
                       </td>
                       <td style={{ ...td, textAlign: 'right' }}>
@@ -273,13 +312,14 @@ function UsersView() {
 }
 
 const th: React.CSSProperties = {
-  padding: '12px 16px',
+  padding: '12px 14px',
   fontSize: 10, fontWeight: 800,
   color: 'rgba(255,255,255,0.45)',
   textTransform: 'uppercase', letterSpacing: '0.08em',
   textAlign: 'left',
+  whiteSpace: 'nowrap',
 }
-const td: React.CSSProperties = { padding: '12px 16px', verticalAlign: 'middle' }
+const td: React.CSSProperties = { padding: '12px 14px', verticalAlign: 'middle' }
 
 const pgBtn = (disabled: boolean): React.CSSProperties => ({
   background: 'rgba(255,255,255,0.04)',
