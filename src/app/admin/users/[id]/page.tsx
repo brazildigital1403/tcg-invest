@@ -26,9 +26,17 @@ type User = {
   suspended_at: string | null
   suspended_reason: string | null
   created_at: string
+  // S32: enriquecido pela API
+  last_sign_in_at: string | null
 }
 
-type Stats = { total_cards: number; total_tickets: number }
+type Stats = {
+  total_cards: number
+  total_tickets: number
+  // S32: novos contadores
+  total_anuncios: number
+  total_compras: number
+}
 
 type CollectionCard = {
   id: string
@@ -40,6 +48,36 @@ type CollectionCard = {
   set_name: string | null
   preco_unitario: number
   valor_total: number
+}
+
+// S32: anúncios postados pelo usuário (ativos, vendidos, removidos)
+type Anuncio = {
+  id: string
+  card_name: string
+  card_image: string | null
+  card_link: string | null
+  price: number
+  status: string
+  variante: string
+  condicao: string
+  descricao: string | null
+  created_at: string
+  removido_em: string | null
+  removido_motivo: string | null
+  buyer_id: string | null
+  is_removido: boolean
+  is_vendido: boolean
+}
+
+// S32: compras feitas pelo usuário (transactions onde foi o comprador)
+type Compra = {
+  id: string
+  seller_id: string | null
+  seller_name: string | null
+  seller_email: string | null
+  card_name: string
+  price: number
+  created_at: string
 }
 
 const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string; bg: string; border: string }> = {
@@ -64,6 +102,28 @@ const calcIdade = (dob?: string | null): string => {
   return `${age} anos`
 }
 
+// S32: tempo relativo legível pro "Último acesso"
+const fmtRelative = (iso?: string | null): string => {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  if (isNaN(date.getTime())) return '—'
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  if (diffMs < 0) return 'agora'
+  const diffMin = Math.floor(diffMs / 60_000)
+  const diffH   = Math.floor(diffMs / 3_600_000)
+  const diffD   = Math.floor(diffMs / 86_400_000)
+  if (diffMin < 1)   return 'agora'
+  if (diffMin < 60)  return `há ${diffMin}min`
+  if (diffH < 24 && date.toDateString() === now.toDateString()) {
+    return `hoje ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+  }
+  if (diffD === 1)   return 'ontem'
+  if (diffD < 30)    return `há ${diffD}d`
+  if (diffD < 365)   return `há ${Math.floor(diffD / 30)}mes`
+  return `há ${Math.floor(diffD / 365)}a`
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function AdminUserDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -77,7 +137,8 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
 
   // R6 Commit 3: aba 'resync' removida (endpoint /api/admin/resync-price foi deletado).
   // Refactor futuro: criar nova aba "Re-scan ZenRows" que dispara scan sob demanda.
-  const [tab, setTab] = useState<'info' | 'collection'>('info')
+  // S32: adicionadas abas 'anuncios' e 'compras'
+  const [tab, setTab] = useState<'info' | 'collection' | 'anuncios' | 'compras'>('info')
 
   const [editing, setEditing] = useState(false)
   const [editName, setEditName]       = useState('')
@@ -87,6 +148,13 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
 
   const [collection, setCollection] = useState<{ cards: CollectionCard[]; total_cards: number; total_value: number } | null>(null)
   const [loadingCol, setLoadingCol] = useState(false)
+
+  // S32: states pras novas abas
+  const [anuncios, setAnuncios] = useState<{ anuncios: Anuncio[]; total: number; ativos: number; vendidos: number; removidos: number } | null>(null)
+  const [loadingAnuncios, setLoadingAnuncios] = useState(false)
+
+  const [compras, setCompras] = useState<{ compras: Compra[]; total: number; total_gasto: number } | null>(null)
+  const [loadingCompras, setLoadingCompras] = useState(false)
 
   const [busy, setBusy] = useState(false)
 
@@ -112,6 +180,27 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
     if (!res.ok) return
     const d = await res.json()
     setCollection(d)
+  }
+
+  // S32: fetch on-demand de anúncios e compras (igual padrão da coleção)
+  async function loadAnuncios() {
+    if (anuncios) return
+    setLoadingAnuncios(true)
+    const res = await fetch(`/api/admin/users/${id}/anuncios`)
+    setLoadingAnuncios(false)
+    if (!res.ok) return
+    const d = await res.json()
+    setAnuncios(d)
+  }
+
+  async function loadCompras() {
+    if (compras) return
+    setLoadingCompras(true)
+    const res = await fetch(`/api/admin/users/${id}/compras`)
+    setLoadingCompras(false)
+    if (!res.ok) return
+    const d = await res.json()
+    setCompras(d)
   }
 
   // ─── Ações ────────────────────────────────────────────────────────────────
@@ -363,8 +452,11 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
 
         <div style={{ display: 'flex', gap: 24, marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
           <MiniStat label="Cartas na coleção" value={stats?.total_cards?.toLocaleString('pt-BR') ?? '—'} />
+          <MiniStat label="Anúncios ativos"   value={stats?.total_anuncios?.toString() || '0'} />
+          <MiniStat label="Compras"           value={stats?.total_compras?.toString()  || '0'} />
           <MiniStat label="Créditos de scan"  value={user.scan_creditos?.toString() || '0'} />
           <MiniStat label="Tickets abertos"   value={stats?.total_tickets?.toString() || '0'} />
+          <MiniStat label="Último acesso"     value={fmtRelative(user.last_sign_in_at)} />
           <MiniStat label="Membro desde"      value={fmtDate(user.created_at)} />
         </div>
       </div>
@@ -373,6 +465,8 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <TabButton active={tab === 'info'}       onClick={() => setTab('info')}>Dados & Ações</TabButton>
         <TabButton active={tab === 'collection'} onClick={() => { setTab('collection'); loadCollection() }}>Coleção</TabButton>
+        <TabButton active={tab === 'anuncios'}   onClick={() => { setTab('anuncios');   loadAnuncios()   }}>Anúncios</TabButton>
+        <TabButton active={tab === 'compras'}    onClick={() => { setTab('compras');    loadCompras()    }}>Compras</TabButton>
       </div>
 
       {/* ── Aba: Info & Ações ── */}
@@ -521,6 +615,149 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
                         <td style={{ ...tdTbl, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{c.variante || 'normal'}</td>
                         <td style={{ ...tdTbl, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.7)' }}>{fmtBRL(c.preco_unitario)}</td>
                         <td style={{ ...tdTbl, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#f59e0b', fontWeight: 700 }}>{fmtBRL(c.valor_total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Aba: Anúncios ── */}
+      {tab === 'anuncios' && (
+        <div style={surface}>
+          {loadingAnuncios ? (
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Carregando anúncios...</p>
+          ) : !anuncios || anuncios.anuncios.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Este usuário nunca postou anúncios.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 24, marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+                <MiniStat label="Total"     value={anuncios.total.toString()} />
+                <MiniStat label="Ativos"    value={anuncios.ativos.toString()}    highlight />
+                <MiniStat label="Vendidos"  value={anuncios.vendidos.toString()}  />
+                <MiniStat label="Removidos" value={anuncios.removidos.toString()} />
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th style={thTbl}>Carta</th>
+                      <th style={{ ...thTbl, textAlign: 'center' }}>Variante</th>
+                      <th style={{ ...thTbl, textAlign: 'center' }}>Cond.</th>
+                      <th style={{ ...thTbl, textAlign: 'right' }}>Preço</th>
+                      <th style={{ ...thTbl, textAlign: 'center' }}>Status</th>
+                      <th style={{ ...thTbl, textAlign: 'right' }}>Postado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {anuncios.anuncios.map(a => {
+                      const statusInfo = a.is_removido
+                        ? { label: 'Removido', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' }
+                        : a.is_vendido
+                        ? { label: 'Vendido', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.3)' }
+                        : { label: 'Ativo', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', border: 'rgba(96,165,250,0.3)' }
+                      return (
+                        <tr key={a.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', opacity: a.is_removido ? 0.55 : 1 }}>
+                          <td style={tdTbl}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                              {a.card_image && <img src={a.card_image} alt="" style={{ width: 28, height: 39, borderRadius: 3, objectFit: 'cover', flexShrink: 0 }} />}
+                              <div style={{ minWidth: 0 }}>
+                                <p style={{ fontSize: 13, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>
+                                  {a.card_name}
+                                </p>
+                                {a.is_removido && a.removido_motivo && (
+                                  <p style={{ fontSize: 11, color: '#ef4444', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }} title={a.removido_motivo}>
+                                    Motivo: {a.removido_motivo}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ ...tdTbl, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{a.variante || 'normal'}</td>
+                          <td style={{ ...tdTbl, textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>{a.condicao || '—'}</td>
+                          <td style={{ ...tdTbl, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#f59e0b', fontWeight: 700 }}>{fmtBRL(a.price)}</td>
+                          <td style={{ ...tdTbl, textAlign: 'center' }}>
+                            <span style={{
+                              fontSize: 10, fontWeight: 800,
+                              padding: '3px 8px', borderRadius: 100,
+                              color: statusInfo.color, background: statusInfo.bg,
+                              border: `1px solid ${statusInfo.border}`,
+                              textTransform: 'uppercase', letterSpacing: '0.08em',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {statusInfo.label}
+                            </span>
+                          </td>
+                          <td style={{ ...tdTbl, textAlign: 'right', color: 'rgba(255,255,255,0.5)', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Aba: Compras ── */}
+      {tab === 'compras' && (
+        <div style={surface}>
+          {loadingCompras ? (
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Carregando compras...</p>
+          ) : !compras || compras.compras.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Este usuário ainda não fez compras.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 24, marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+                <MiniStat label="Total de compras" value={compras.total.toString()} />
+                <MiniStat label="Total gasto"      value={fmtBRL(compras.total_gasto)} highlight />
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th style={thTbl}>Carta</th>
+                      <th style={thTbl}>Vendedor</th>
+                      <th style={{ ...thTbl, textAlign: 'right' }}>Preço</th>
+                      <th style={{ ...thTbl, textAlign: 'right' }}>Data</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {compras.compras.map(c => (
+                      <tr key={c.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <td style={tdTbl}>
+                          <p style={{ fontSize: 13, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>
+                            {c.card_name || '—'}
+                          </p>
+                        </td>
+                        <td style={tdTbl}>
+                          {c.seller_id ? (
+                            <Link href={`/admin/users/${c.seller_id}`} style={{ textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
+                              <p style={{ fontSize: 13, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                                {c.seller_name || c.seller_email || '—'}
+                              </p>
+                              {c.seller_name && c.seller_email && (
+                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                                  {c.seller_email}
+                                </p>
+                              )}
+                            </Link>
+                          ) : (
+                            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ ...tdTbl, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#f59e0b', fontWeight: 700 }}>{fmtBRL(c.price)}</td>
+                        <td style={{ ...tdTbl, textAlign: 'right', color: 'rgba(255,255,255,0.5)', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDateTime(c.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>

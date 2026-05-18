@@ -58,6 +58,40 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // S32: enriquecer com last_sign_in_at (auth.users via RPC) + coleção + anúncios ativos.
+    // 3 queries paralelas — adicionam 1 round-trip total, sem N+1.
+    const userIds = (data || []).map(u => u.id)
+
+    const lastSignInMap = new Map<string, string | null>()
+    const collectionMap = new Map<string, number>()
+    const anuncioMap    = new Map<string, number>()
+
+    if (userIds.length > 0) {
+      const [authRes, cardsRes, adsRes] = await Promise.all([
+        sb.rpc('admin_get_users_last_sign_in', { user_ids: userIds }),
+        sb.from('user_cards')
+          .select('user_id, quantity')
+          .in('user_id', userIds),
+        sb.from('marketplace')
+          .select('user_id')
+          .in('user_id', userIds)
+          .eq('status', 'disponivel')
+          .is('removido_em', null),
+      ])
+
+      for (const r of (authRes.data as Array<{ id: string; last_sign_in_at: string | null }>) || []) {
+        lastSignInMap.set(r.id, r.last_sign_in_at)
+      }
+      for (const c of (cardsRes.data || []) as Array<{ user_id: string | null; quantity: number | null }>) {
+        if (!c.user_id) continue
+        collectionMap.set(c.user_id, (collectionMap.get(c.user_id) || 0) + (Number(c.quantity) || 0))
+      }
+      for (const a of (adsRes.data || []) as Array<{ user_id: string | null }>) {
+        if (!a.user_id) continue
+        anuncioMap.set(a.user_id, (anuncioMap.get(a.user_id) || 0) + 1)
+      }
+    }
+
     const now = Date.now()
     const users = (data || []).map(u => {
       const trialMs = u.trial_expires_at ? new Date(u.trial_expires_at).getTime() : 0
@@ -68,6 +102,9 @@ export async function GET(req: NextRequest) {
         plano_efetivo: u.is_pro ? 'pro' : isTrial ? 'trial' : 'free',
         trial_days_left: isTrial ? Math.ceil((trialMs - now) / 86_400_000) : 0,
         is_suspended: !!u.suspended_at,
+        last_sign_in_at:  lastSignInMap.get(u.id) || null,
+        collection_count: collectionMap.get(u.id) || 0,
+        anuncios_count:   anuncioMap.get(u.id)    || 0,
       }
     })
 

@@ -35,10 +35,29 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const isTrial = !user.is_pro && trialMs > now
     const planoEfetivo = user.is_pro ? 'pro' : isTrial ? 'trial' : 'free'
 
-    const [{ count: totalCards }, { count: totalTickets }] = await Promise.all([
+    // S32: adicionado last_sign_in_at (RPC auth.users) + total_anuncios + total_compras.
+    // 5 queries paralelas — 1 round-trip único.
+    const [
+      { count: totalCards },
+      { count: totalTickets },
+      { count: totalAnuncios },
+      { count: totalCompras },
+      authRes,
+    ] = await Promise.all([
       sb.from('user_cards').select('id', { count: 'exact', head: true }).eq('user_id', id),
       sb.from('tickets').select('id', { count: 'exact', head: true }).eq('user_id', id),
+      sb.from('marketplace')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', id)
+        .is('removido_em', null),
+      sb.from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('buyer_id', id),
+      sb.rpc('admin_get_users_last_sign_in', { user_ids: [id] }),
     ])
+
+    const lastSignInAt =
+      (authRes.data as Array<{ id: string; last_sign_in_at: string | null }> | null)?.[0]?.last_sign_in_at || null
 
     return NextResponse.json({
       user: {
@@ -47,10 +66,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         plano_efetivo: planoEfetivo,
         trial_days_left: isTrial ? Math.ceil((trialMs - now) / 86_400_000) : 0,
         is_suspended: !!user.suspended_at,
+        last_sign_in_at: lastSignInAt,
       },
       stats: {
-        total_cards:   totalCards   || 0,
-        total_tickets: totalTickets || 0,
+        total_cards:    totalCards    || 0,
+        total_tickets:  totalTickets  || 0,
+        total_anuncios: totalAnuncios || 0,
+        total_compras:  totalCompras  || 0,
       },
     })
   } catch (err: any) {
