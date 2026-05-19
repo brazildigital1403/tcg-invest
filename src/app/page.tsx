@@ -132,7 +132,7 @@ function TestimonialsCarousel() {
         <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
           O que os players dizem
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15 }}>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>
           Coleção organizada, valor na mão, decisão sem chute
         </p>
       </div>
@@ -221,7 +221,7 @@ function TestimonialsCarousel() {
                 </div>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0' }}>{t.name}</p>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{t.role} · {t.city}</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{t.role} · {t.city}</p>
                 </div>
               </div>
             </article>
@@ -230,7 +230,7 @@ function TestimonialsCarousel() {
       </div>
 
       {/* Bullets — sempre visíveis (mobile + desktop) */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 7, marginTop: 8, padding: '0 24px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 8, padding: '0 24px', flexWrap: 'wrap' }}>
         {TESTIMONIALS.map((_, i) => (
           <button
             key={i}
@@ -239,16 +239,31 @@ function TestimonialsCarousel() {
             aria-current={i === activeIndex ? 'true' : undefined}
             onClick={() => scrollToIndex(i)}
             style={{
-              width: i === activeIndex ? 22 : 7,
-              height: 7,
-              borderRadius: 4,
-              background: i === activeIndex ? '#f59e0b' : 'rgba(255,255,255,0.18)',
+              // S32 a11y: touch target minimo 24x24 (Lighthouse). Bullet visual = <span> dentro.
+              width: i === activeIndex ? 32 : 24,
+              height: 24,
+              background: 'transparent',
               border: 'none',
               padding: 0,
               cursor: 'pointer',
-              transition: 'width 0.25s ease, background 0.25s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'width 0.25s ease',
             }}
-          />
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                display: 'block',
+                width: i === activeIndex ? 22 : 7,
+                height: 7,
+                borderRadius: 4,
+                background: i === activeIndex ? '#f59e0b' : 'rgba(255,255,255,0.18)',
+                transition: 'width 0.25s ease, background 0.25s ease',
+              }}
+            />
+          </button>
         ))}
       </div>
     </section>
@@ -420,7 +435,7 @@ export default function Home() {
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 100, padding: '8px 20px', marginBottom: 40 }}>
           <span style={{ fontSize: 16 }}>⭐</span>
           <span style={{ fontSize: 14, fontWeight: 600, color: '#f59e0b' }}>7 dias de Pro grátis</span>
-          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>· sem cartão de crédito</span>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>· sem cartão de crédito</span>
         </div>
 
         <div className="lp-hero-btns" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 80 }}>
@@ -454,7 +469,7 @@ export default function Home() {
               { label: 'Máximo da Carteira', value: 'R$ 52.879,20', color: '#f59e0b' },
             ].map((s) => (
               <div key={s.label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>{s.label}</p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>{s.label}</p>
                 <p style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</p>
               </div>
             ))}
@@ -479,7 +494,7 @@ export default function Home() {
                 </div>
                 <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, lineHeight: 1.3 }}>{c.name}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
-                  <span style={{ fontSize: 9, background: c.badge + '22', color: c.badge, padding: '2px 6px', borderRadius: 6, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>{c.variante}</span>
+                  <span style={{ fontSize: 9, background: c.badge + '22', color: c.badge === '#a855f7' ? '#e9d5ff' : c.badge, padding: '2px 6px', borderRadius: 6, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>{c.variante}</span>
                   <span style={{ fontSize: 11, color: '#60a5fa', fontWeight: 700, whiteSpace: 'nowrap' }}>{c.medio}</span>
                 </div>
               </div>
@@ -490,7 +505,7 @@ export default function Home() {
 
       {/* SOCIAL PROOF — números reais do catálogo */}
       <section style={{ padding: '56px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 40, textTransform: 'uppercase', letterSpacing: '0.1em' }}>O maior catálogo Pokémon TCG em português</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 40, textTransform: 'uppercase', letterSpacing: '0.1em' }}>O maior catálogo Pokémon TCG em português</p>
         <div className="lp-stats-row" style={{ display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
           {[
             { num: '22.000+', label: 'cartas catalogadas' },
@@ -500,7 +515,7 @@ export default function Home() {
           ].map((s) => (
             <div key={s.label} style={{ textAlign: 'center' }}>
               <p style={{ fontSize: 32, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.03em' }}>{s.num}</p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -511,7 +526,7 @@ export default function Home() {
         <div style={{ textAlign: 'center', marginBottom: 56 }}>
           <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Quem coleciona, conhece</p>
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 12 }}>Você já passou por isso?</h2>
-          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.45)', maxWidth: 640, margin: '0 auto', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', maxWidth: 640, margin: '0 auto', lineHeight: 1.6 }}>
             Toda hora aparece um momento desses. Quanto custa não ter resposta na hora?
           </p>
         </div>
@@ -564,7 +579,7 @@ export default function Home() {
               <div style={{ position: 'absolute', top: 16, right: 16, fontSize: 36, opacity: 0.06, fontWeight: 900 }} aria-hidden="true">{s.num}</div>
               <s.Icon size={32} color='rgba(245,158,11,0.8)' style={{marginBottom:14}} />
               <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, letterSpacing: '-0.02em' }}>{s.title}</h3>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>{s.desc}</p>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>{s.desc}</p>
             </div>
           ))}
         </div>
@@ -576,7 +591,7 @@ export default function Home() {
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recursos</p>
             <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 12 }}>Tudo que você precisa, num só lugar</h2>
-            <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.45)', maxWidth: 640, margin: '0 auto', lineHeight: 1.6 }}>
+            <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', maxWidth: 640, margin: '0 auto', lineHeight: 1.6 }}>
               De colecionador de fim de semana a quem leva trade a sério.
             </p>
           </div>
@@ -594,7 +609,7 @@ export default function Home() {
               <div key={f.title} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
                 <f.Icon size={26} color='rgba(245,158,11,0.7)' style={{marginBottom:12}} />
                 <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.01em' }}>{f.title}</h3>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.55 }}>{f.desc}</p>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.55 }}>{f.desc}</p>
               </div>
             ))}
           </div>
@@ -605,18 +620,18 @@ export default function Home() {
       <section ref={pricingRef} style={{ padding: '100px 24px', maxWidth: 1000, margin: '0 auto', textAlign: 'center' }}>
         <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Planos</p>
         <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 16 }}>Comece grátis, desbloqueie mais quando quiser</h2>
-        <p style={{ color: 'rgba(255,255,255,0.4)', marginBottom: 56, fontSize: 16 }}>Sem cartão de crédito para começar.</p>
+        <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 56, fontSize: 16 }}>Sem cartão de crédito para começar.</p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, textAlign: 'left' }}>
 
           {/* Plano Free */}
           <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '32px 28px' }}>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Grátis</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Grátis</p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
               <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em' }}>R$ 0</span>
             </div>
             <div style={{ marginBottom: 28 }}>
-              <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 4 }}>Para começar a organizar</p>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 4 }}>Para começar a organizar</p>
               <p style={{ color: '#f59e0b', fontSize: 12, fontWeight: 700 }}>⭐ Inclui 7 dias de Pro grátis</p>
             </div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -634,7 +649,7 @@ export default function Home() {
               ].map(f => (
                 <div key={f.txt} style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: f.ok ? 1 : 0.35 }}>
                   <span style={{ color: f.ok ? '#22c55e' : '#6b7280', fontSize: 13, flexShrink: 0 }}>{f.ok ? <IconCheck size={13} color='#22c55e' /> : <svg width='13' height='13' viewBox='0 0 20 20' fill='none'><path d='M5 5l10 10M15 5L5 15' stroke='#6b7280' strokeWidth='1.6' strokeLinecap='round'/></svg>}</span>
-                  <span style={{ fontSize: 13, color: f.ok ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.4)' }}>{f.txt}</span>
+                  <span style={{ fontSize: 13, color: f.ok ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.6)' }}>{f.txt}</span>
                 </div>
               ))}
             </div>
@@ -644,7 +659,7 @@ export default function Home() {
             >
               ⭐ Começar com 7 dias Pro grátis
             </button>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 10 }}>Após o trial: plano gratuito com 6 cartas</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 10 }}>Após o trial: plano gratuito com 6 cartas</p>
           </div>
 
           {/* Pro Mensal */}
@@ -652,9 +667,9 @@ export default function Home() {
             <p style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pro · Mensal</p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 6 }}>
               <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 29</span>
-              <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.45)', letterSpacing: '-0.02em' }}>,90<span style={{ fontSize: 13 }}>/mês</span></span>
+              <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.65)', letterSpacing: '-0.02em' }}>,90<span style={{ fontSize: 13 }}>/mês</span></span>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28 }}>Cancele quando quiser · sem fidelidade</p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 28 }}>Cancele quando quiser · sem fidelidade</p>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 'Cartas ilimitadas',
@@ -691,7 +706,7 @@ export default function Home() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 4 }}>
               <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 249</span>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 4 }}>R$ 20,75/mês · cobrado anualmente</p>
+            <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, marginBottom: 4 }}>R$ 20,75/mês · cobrado anualmente</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
               <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, textDecoration: 'line-through' }}>R$358,80/ano</span>
               <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 100 }}>Economize R$109,80</span>
@@ -725,7 +740,7 @@ export default function Home() {
         <h2 style={{ fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em', textAlign: 'center', marginBottom: 8 }}>
           Perguntas frequentes
         </h2>
-        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 15, marginBottom: 48 }}>
+        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 15, marginBottom: 48 }}>
           Tudo que você precisa saber antes de começar
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -793,7 +808,7 @@ export default function Home() {
         <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
           Veja como funciona
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15, marginBottom: 32 }}>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, marginBottom: 32 }}>
           Sua coleção em tempo real
         </p>
 
@@ -805,7 +820,7 @@ export default function Home() {
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(239,68,68,0.6)' }} />
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(245,158,11,0.6)' }} />
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(34,197,94,0.6)' }} />
-            <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: 6, padding: '4px 12px', marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'left' }}>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: 6, padding: '4px 12px', marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,0.55)', textAlign: 'left' }}>
               bynx.gg/dashboard-financeiro
             </div>
           </div>
@@ -815,21 +830,21 @@ export default function Home() {
 
             {/* ── Cena 1: Dashboard com patrimônio ── */}
             <div style={{ position: 'absolute', inset: 0, padding: '24px 28px', animation: 'bynx-scene1 12s ease-in-out infinite' }}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Patrimônio total da coleção</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Patrimônio total da coleção</div>
               <div style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 20, animation: 'bynx-countup 3s ease-out 0.5s both' }}>
                 R$ 2.847,00
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
                 {[{l:'Cartas',v:'47'},{l:'Saldo',v:'+R$340',c:'#22c55e'},{l:'Performance',v:'+13,6%',c:'#22c55e'},{l:'Compras',v:'R$2.507'}].map((s,i)=>(
                   <div key={i} style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:10, padding:'10px 12px' }}>
-                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.35)', marginBottom:4 }}>{s.l}</div>
+                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.6)', marginBottom:4 }}>{s.l}</div>
                     <div style={{ fontSize:15, fontWeight:700, color: s.c || '#f0f0f0' }}>{s.v}</div>
                   </div>
                 ))}
               </div>
               {/* Mini gráfico simulado */}
               <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'14px 16px' }}>
-                <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:12 }}>Histórico de preço — Charizard ex</div>
+                <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)', marginBottom:12 }}>Histórico de preço — Charizard ex</div>
                 <svg viewBox="0 0 400 80" style={{ width:'100%', height:80 }}>
                   <defs>
                     <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
@@ -848,7 +863,7 @@ export default function Home() {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
                 <div>
                   <div style={{ fontSize:20, fontWeight:800, letterSpacing:'-0.03em', marginBottom:2 }}>Minha Coleção</div>
-                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>47 cartas · R$2.847,00</div>
+                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.6)' }}>47 cartas · R$2.847,00</div>
                 </div>
                 <div style={{ background:'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius:10, padding:'8px 16px', fontSize:13, fontWeight:700, color:'#000' }}>+ Adicionar carta</div>
               </div>
@@ -870,7 +885,7 @@ export default function Home() {
                       <div style={{ display:'none', alignItems:'center', justifyContent:'center', width:'100%', height:'100%', fontSize:24 }}>{c.fb}</div>
                     </div>
                     <div style={{ fontSize:11, fontWeight:700, color:'#f0f0f0', marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name}</div>
-                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.35)', marginBottom:4 }}>{c.set} · {c.var}</div>
+                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.6)', marginBottom:4 }}>{c.set} · {c.var}</div>
                     <div style={{ fontSize:13, fontWeight:800, color: c.foil ? '#f59e0b' : '#f0f0f0' }}>{c.price}</div>
                   </div>
                 ))}
@@ -882,7 +897,7 @@ export default function Home() {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
                 <div>
                   <div style={{ fontSize:20, fontWeight:800, letterSpacing:'-0.03em', marginBottom:2 }}>Marketplace</div>
-                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>128 anúncios disponíveis</div>
+                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.6)' }}>128 anúncios disponíveis</div>
                 </div>
                 <div style={{ background:'linear-gradient(135deg,#f59e0b,#ef4444)', borderRadius:10, padding:'8px 16px', fontSize:13, fontWeight:700, color:'#000' }}>+ Anunciar carta</div>
               </div>
@@ -904,7 +919,7 @@ export default function Home() {
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:700, marginBottom:2 }}>{l.name}</div>
-                      <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>{l.set} · {l.seller} · {l.city}</div>
+                      <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)' }}>{l.set} · {l.seller} · {l.city}</div>
                     </div>
                     <div style={{ textAlign:'right', flexShrink:0 }}>
                       <div style={{ fontSize:15, fontWeight:800, color:'#f59e0b', marginBottom:2 }}>{l.price}</div>
@@ -971,7 +986,7 @@ export default function Home() {
         <h2 style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 800, letterSpacing: '-0.04em', marginBottom: 20, position: 'relative' }}>
           Sua coleção merece<br />estar organizada.
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 17, marginBottom: 12, position: 'relative' }}>Comece a organizar grátis. Sem cartão de crédito.</p>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 17, marginBottom: 12, position: 'relative' }}>Comece a organizar grátis. Sem cartão de crédito.</p>
         <p style={{ color: '#f59e0b', fontSize: 14, fontWeight: 600, marginBottom: 40, position: 'relative' }}>⭐ 7 dias de Pro incluídos no cadastro gratuito</p>
         <button
           onClick={() => handleClickPlan('free')}
