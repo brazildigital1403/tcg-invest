@@ -414,7 +414,7 @@ useEffect(() => {
                   <span style={{ fontSize: 15, fontWeight: 700 }}>Começar grátis</span>
                   <span style={{ fontSize: 18, fontWeight: 900 }}>R$ 0</span>
                 </div>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>7 dias de Pro completo · depois 6 cartas grátis para sempre</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>7 dias de Pro completo · depois plano gratuito ilimitado pra sempre</p>
               </button>
 
               <button onClick={() => { setPendingPlan('mensal'); setShowPlanStep(false) }}

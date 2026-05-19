@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient'
 
-export const LIMITE_FREE      = 6
+export const LIMITE_FREE      = Infinity  // S33: cartas ilimitadas no free (alinhamento Collectr/TCGplayer)
 export const LIMITE_FREE_MKTPLACE = 3
 
 // Verifica se o usuário tem trial ativo

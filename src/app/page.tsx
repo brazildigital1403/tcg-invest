@@ -636,11 +636,10 @@ export default function Home() {
             </div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                { txt: '6 cartas na coleção', ok: true },
+                { txt: 'Cartas ilimitadas', ok: true },
                 { txt: '3 anúncios no Marketplace', ok: true },
                 { txt: 'Pokédex completa', ok: true },
                 { txt: 'Dashboard financeiro', ok: true },
-                { txt: 'Cartas ilimitadas', ok: false },
                 { txt: 'Perfil público', ok: false },
                 { txt: 'Exportar CSV', ok: false },
                 { txt: 'Anúncios ilimitados', ok: false },
@@ -659,7 +658,7 @@ export default function Home() {
             >
               ⭐ Começar com 7 dias Pro grátis
             </button>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 10 }}>Após o trial: plano gratuito com 6 cartas</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 10 }}>Após o trial: cartas ilimitadas pra sempre, sem Scan IA e features Pro</p>
           </div>
 
           {/* Pro Mensal */}
