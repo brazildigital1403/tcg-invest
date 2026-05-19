@@ -49,7 +49,7 @@ export default function UpgradeBanner({ tipo }: Props) {
   if (!shouldRender) return null
 
   const msg = tipo === 'cartas'
-    ? 'Você atingiu o limite de 6 cartas do plano Gratuito.'
+    ? 'Desbloqueie Scan com IA, Analytics avançado e demais superpoderes Pro.'
     : 'Você atingiu o limite de 3 anúncios ativos do plano Gratuito.'
 
   async function handleCheckout(plano: 'mensal' | 'anual') {

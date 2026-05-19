@@ -617,11 +617,10 @@ export default function MinhaConta() {
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>O que está incluído no Free</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   {[
-                    { txt: '6 cartas na coleção', ok: true },
+                    { txt: 'Cartas ilimitadas', ok: true },
                     { txt: '3 anúncios no Marketplace', ok: true },
                     { txt: 'Pokédex completa', ok: true },
                     { txt: 'Dashboard financeiro', ok: true },
-                    { txt: 'Cartas ilimitadas', ok: false },
                     { txt: 'Perfil público', ok: false },
                     { txt: 'Exportar CSV', ok: false },
                     { txt: 'Anúncios ilimitados', ok: false },

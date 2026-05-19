@@ -66,7 +66,7 @@ export default function TermosPage() {
         </Section>
 
         <Section title="4. Planos e Pagamentos (Colecionadores)">
-          <P><strong style={{ color: '#f59e0b' }}>Plano Gratuito (Free):</strong> Permite o cadastro de até 6 cartas na coleção e 3 anúncios no Marketplace, com acesso às funcionalidades básicas da plataforma.</P>
+          <P><strong style={{ color: '#f59e0b' }}>Plano Gratuito (Free):</strong> Permite o cadastro ilimitado de cartas na coleção e até 3 anúncios ativos no Marketplace, com acesso às funcionalidades básicas da plataforma.</P>
           <P><strong style={{ color: '#f59e0b' }}>Trial Pro:</strong> Ao criar uma conta, o usuário recebe 7 (sete) dias de acesso gratuito ao plano Pro para avaliação. Findo o período, o acesso retorna automaticamente ao plano Free, salvo assinatura.</P>
           <P><strong style={{ color: '#f59e0b' }}>Plano Pro Mensal:</strong> R$ 29,90 (vinte e nove reais e noventa centavos) por mês, com renovação automática. Libera funcionalidades ilimitadas, incluindo cartas e anúncios sem limite, scan com IA, histórico completo de preços e dashboard avançado.</P>
           <P><strong style={{ color: '#f59e0b' }}>Plano Pro Anual:</strong> R$ 249,00 (duzentos e quarenta e nove reais) por ano, equivalente a um desconto significativo sobre o valor mensal. Mesma cobertura do Pro Mensal.</P>

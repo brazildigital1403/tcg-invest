@@ -84,7 +84,7 @@ const faqSchema = {
       name: 'O Bynx é grátis?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim, o plano gratuito é 100% gratuito e permite organizar até 6 cartas. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar todas as funcionalidades sem precisar de cartão de crédito.',
+        text: 'Sim, o plano gratuito é 100% gratuito e permite organizar cartas ilimitadas. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
       },
     },
     {
@@ -485,7 +485,7 @@ export default function ColecionadoresPage() {
                 <div style={S.planPrice}>R$ 0</div>
                 <p style={S.planTagline}>Pra começar a organizar.</p>
                 <ul style={S.planFeatures}>
-                  <PlanFeature>6 cartas na coleção</PlanFeature>
+                  <PlanFeature>Cartas ilimitadas</PlanFeature>
                   <PlanFeature>Pokédex completa</PlanFeature>
                   <PlanFeature>Dashboard financeiro</PlanFeature>
                   <PlanFeature>3 anúncios no Marketplace</PlanFeature>
@@ -550,7 +550,7 @@ export default function ColecionadoresPage() {
               {[
                 {
                   q: 'O Bynx é grátis?',
-                  a: 'Sim. O plano gratuito é 100% gratuito e permite organizar até 6 cartas. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar tudo, sem precisar de cartão de crédito.',
+                  a: 'Sim. O plano gratuito é 100% gratuito e permite organizar cartas ilimitadas. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
                 },
                 {
                   q: 'Funciona com cartas em português, inglês e japonês?',
@@ -598,7 +598,7 @@ export default function ColecionadoresPage() {
               </h2>
               <p style={S.finalSubtitle}>
                 7 dias de Pro grátis pra testar. Sem cartão, sem pegadinha.
-                Depois disso, plano gratuito com 6 cartas pra sempre — ou Pro a partir de R$ 29,90/mês.
+                Depois disso, plano gratuito com cartas ilimitadas pra sempre — ou Pro a partir de R$ 29,90/mês.
               </p>
               <div className="col-final-ctas" style={S.heroCtas}>
                 <Link href="?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
