@@ -5,6 +5,29 @@ const FROM = 'Bynx <noreply@bynx.gg>'
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 
+// ── Helper: adiciona UTM params em links de email ────────────────────────────
+// Padrao: ?utm_source=email&utm_medium=<nurture|transactional>&utm_campaign=<X>&utm_content=<Y>
+// Uso: addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'cta-button')
+
+const UTM_NURTURE_CAMPAIGNS = new Set([
+  'welcome', 'trial-2d', 'trial-1d', 'referral-activated', 'referral-engaged',
+])
+
+function addUtm(href: string, campaign: string, content?: string): string {
+  try {
+    const url = new URL(href)
+    const medium = UTM_NURTURE_CAMPAIGNS.has(campaign) ? 'nurture' : 'transactional'
+    url.searchParams.set('utm_source', 'email')
+    url.searchParams.set('utm_medium', medium)
+    url.searchParams.set('utm_campaign', campaign)
+    if (content) url.searchParams.set('utm_content', content)
+    return url.toString()
+  } catch {
+    return href  // fallback se URL invalida
+  }
+}
+
+
 // ── Paletas ──────────────────────────────────────────────────────────────────
 //
 // Cores oficiais por contexto:
@@ -160,9 +183,9 @@ export async function sendWelcomeEmail(to: string, name: string) {
           <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">${f}</p>
         </td></tr>`).join('')}
     </table>
-    ${btn('Acessar minha conta', `${APP_URL}/minha-colecao`)}
+    ${btn('Acessar minha conta', addUtm(`${APP_URL}/minha-colecao`, 'welcome', 'cta-button'))}
     ${divider()}
-    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${APP_URL}/faq" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${addUtm(`${APP_URL}/faq`, 'welcome', 'link-faq')}" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Bem-vindo ao Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`)
 
   return resend.emails.send({ from: FROM, to, subject: `Bem-vindo ao Bynx, ${firstName}! 🎉`, html })
@@ -178,9 +201,9 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     ${h1('Seu trial Pro expira em 2 dias ⏰')}
     ${p(`${firstName}, você ainda tem 2 dias para curtir tudo do Pro: importação ilimitada, scan com IA, marketplace, separadores e muito mais.`)}
     ${p('Depois de 7 dias, sua conta volta para o plano Free, mas tudo que você adicionou continua salvo.')}
-    ${btn('Ver planos →', `${APP_URL}/plano`)}
+    ${btn('Ver planos →', addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'cta-button'))}
     ${divider()}
-    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Quer continuar no Pro? <a href="${APP_URL}/plano" style="color:#f59e0b;text-decoration:none;">Veja os planos aqui</a>.</p>
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Quer continuar no Pro? <a href="${addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'link-veja-planos')}" style="color:#f59e0b;text-decoration:none;">Veja os planos aqui</a>.</p>
   `, `Seu trial Pro expira em 2 dias`)
 
   return resend.emails.send({ from: FROM, to, subject: `⏰ Seu trial Pro expira em 2 dias`, html })
@@ -196,7 +219,7 @@ export async function sendTrialExpiring1Email(to: string, name: string) {
     ${h1('Hoje é o último dia do seu Pro trial 🚨')}
     ${p(`${firstName}, amanhã sua conta volta automaticamente para o plano Free. Você não perde nada que já adicionou — só os recursos Pro ficam bloqueados.`)}
     ${p('Continue no Pro para manter acesso a cartas ilimitadas, scan com IA e marketplace.')}
-    ${btn('Continuar no Pro →', `${APP_URL}/plano`)}
+    ${btn('Continuar no Pro →', addUtm(`${APP_URL}/minha-conta`, 'trial-1d', 'cta-button'))}
   `, `Hoje é o último dia do seu Pro trial`)
 
   return resend.emails.send({ from: FROM, to, subject: `🚨 Último dia de Pro grátis`, html })
@@ -225,7 +248,7 @@ export async function sendNewTicketAdminEmail(args: {
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
-    ${btn('Ver no painel admin →', `${APP_URL}/admin/tickets/${args.ticketId}`)}
+    ${btn('Ver no painel admin →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-new-admin', 'cta-button'))}
   `, `Novo ticket: ${args.subject}`)
 
   return resend.emails.send({ from: FROM, to: args.to, subject: `[Suporte Bynx] Novo ticket: ${args.subject}`, html })
@@ -246,7 +269,7 @@ export async function sendTicketCreatedUserEmail(args: {
     ${h1('Recebemos sua mensagem ✅')}
     ${p(`${firstName}, seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>" foi criado e nossa equipe vai responder em breve.`)}
     ${p('Costumamos responder em até 24 horas úteis.')}
-    ${btn('Ver meu ticket →', `${APP_URL}/suporte/${args.ticketId}`)}
+    ${btn('Ver meu ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-created-user', 'cta-button'))}
   `, `Recebemos seu ticket: ${args.subject}`)
 
   return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] Ticket recebido: ${args.subject}`, html })
@@ -270,7 +293,7 @@ export async function sendUserReplyAdminEmail(args: {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
       <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
-    ${btn('Responder no painel →', `${APP_URL}/admin/tickets/${args.ticketId}`)}
+    ${btn('Responder no painel →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-user-reply', 'cta-button'))}
   `, `Nova resposta: ${args.subject}`)
 
   return resend.emails.send({ from: FROM, to: args.to, subject: `[Suporte Bynx] Resposta: ${args.subject}`, html })
@@ -294,7 +317,7 @@ export async function sendAdminReplyUserEmail(args: {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
       <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
-    ${btn('Ver conversa completa →', `${APP_URL}/suporte/${args.ticketId}`)}
+    ${btn('Ver conversa completa →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-admin-reply', 'cta-button'))}
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Para responder, basta abrir a conversa no botão acima. Você também pode responder este email, mas o caminho mais rápido é pelo app. 📬</p>
   `, `Resposta para seu ticket: ${args.subject}`)
@@ -327,7 +350,7 @@ export async function sendTicketStatusChangedEmail(args: {
     ${h1(`Ticket ${info.label.toLowerCase()}`)}
     ${p(`${firstName}, o status do seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>" foi atualizado para <strong style="color:${info.color};">${info.label}</strong>.`)}
     ${args.status === 'resolved' ? p('Se ainda tiver dúvidas ou o problema voltar, é só responder o ticket — ele reabre automaticamente.') : ''}
-    ${btn('Ver ticket →', `${APP_URL}/suporte/${args.ticketId}`)}
+    ${btn('Ver ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-status-changed', 'cta-button'))}
   `, `Seu ticket agora está ${info.label.toLowerCase()}`)
 
   return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] ${info.label}: ${args.subject}`, html })
@@ -360,12 +383,12 @@ export async function sendEmailLojaAprovada(args: {
     ${divider()}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
       <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Página pública</td></tr>
-      <tr><td style="padding:0 18px 12px;font-size:13px;font-family:Arial,sans-serif;"><a href="${urlPublica}" style="color:${B2B_LINK_COLOR};text-decoration:none;word-break:break-all;">${urlPublica}</a></td></tr>
+      <tr><td style="padding:0 18px 12px;font-size:13px;font-family:Arial,sans-serif;"><a href="${addUtm(urlPublica, 'loja-approved', 'link-publica')}" style="color:${B2B_LINK_COLOR};text-decoration:none;word-break:break-all;">${urlPublica}</a></td></tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
       <tr><td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Painel de edição</td></tr>
-      <tr><td style="padding:0 18px 14px;font-size:13px;font-family:Arial,sans-serif;"><a href="${urlEdicao}" style="color:${B2B_LINK_COLOR};text-decoration:none;">${urlEdicao}</a></td></tr>
+      <tr><td style="padding:0 18px 14px;font-size:13px;font-family:Arial,sans-serif;"><a href="${addUtm(urlEdicao, 'loja-approved', 'link-edicao')}" style="color:${B2B_LINK_COLOR};text-decoration:none;">${urlEdicao}</a></td></tr>
     </table>
-    ${btnB2B('Abrir minha loja →', urlEdicao)}
+    ${btnB2B('Abrir minha loja →', addUtm(urlEdicao, 'loja-approved', 'cta-button'))}
     ${divider()}
     ${p('<strong style="color:#60a5fa;">⭐ Seu trial Pro de 14 dias começou agora.</strong> Aproveita pra colocar fotos, redes sociais e deixar tudo bonito antes dos clientes chegarem.')}
     ${p('Depois dos 14 dias, você escolhe se quer continuar no <strong style="color:#f0f0f0;">Pro (R$ 39/mês)</strong> ou voltar pro <strong style="color:#f0f0f0;">Básico (grátis)</strong>.')}
@@ -527,7 +550,7 @@ export async function sendEmailLojaPlanoAlterado(args: {
 
     ${p(`<strong style="color:#f0f0f0;">O que isso significa:</strong> ${cfgNovo.descricao}`)}
 
-    ${btnB2B('Acessar minha loja →', urlEdicao, cfgNovo.gradient, cfgNovo.msoSolid)}
+    ${btnB2B('Acessar minha loja →', addUtm(urlEdicao, 'loja-plano-changed', 'cta-button'), cfgNovo.gradient, cfgNovo.msoSolid)}
 
     ${divider()}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida sobre essa mudança, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
@@ -641,7 +664,7 @@ export async function sendPurchaseConfirmationEmail(
     ${h1(titulo)}
     ${p(intro)}
     ${detalhes ? `${divider()}<table width="100%" cellpadding="0" cellspacing="0"><tr><td>${detalhes}</td></tr></table>` : ''}
-    ${btn(ctaLabel, ctaHref)}
+    ${btn(ctaLabel, addUtm(ctaHref, `purchase-${tipo}`, 'cta-button'))}
     ${divider()}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, preheader)
@@ -706,7 +729,7 @@ export async function sendReferralActivatedEmail(args: {
 
     ${p('Use seus pontos pra desbloquear dias de Pro, créditos de scan, separadores em PDF e prêmios físicos no marketplace de recompensas.')}
 
-    ${btn('Ver minhas recompensas →', `${APP_URL}/recompensas`)}
+    ${btn('Ver minhas recompensas →', addUtm(`${APP_URL}/recompensas`, 'referral-activated', 'cta-button'))}
 
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
@@ -763,7 +786,7 @@ export async function sendReferralEngagedEmail(args: {
       </tr>
     </table>
 
-    ${btn('Ver recompensas disponíveis →', `${APP_URL}/recompensas`)}
+    ${btn('Ver recompensas disponíveis →', addUtm(`${APP_URL}/recompensas`, 'referral-engaged', 'cta-button'))}
 
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
@@ -823,7 +846,7 @@ export async function sendRedemptionConfirmedEmail(args: {
 
     ${args.fulfillmentInstructions ? p(args.fulfillmentInstructions) : p('Sua recompensa já está ativa na sua conta. Aproveite! 🎴')}
 
-    ${btn('Acessar minha conta', `${APP_URL}/minha-colecao`)}
+    ${btn('Acessar minha conta', addUtm(`${APP_URL}/minha-colecao`, 'redemption-confirmed', 'cta-button'))}
 
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
