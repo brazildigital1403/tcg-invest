@@ -1,6 +1,17 @@
 import type { MetadataRoute } from 'next'
 import { createClient } from '@supabase/supabase-js'
+import type { MetadataRoute } from 'next'
+import { createClient } from '@supabase/supabase-js'
 
+/**
+ * Regenera o sitemap 1x/dia (86400s). Sem isso, o sitemap fica cacheado
+ * no build e novas lojas/cartas só aparecem após próximo deploy.
+ */
+export const revalidate = 86400
+
+const BASE = 'https://bynx.gg'
+
+// ... resto do arquivo intacto
 /**
  * Sitemap dinâmico do Next 13+.
  *
