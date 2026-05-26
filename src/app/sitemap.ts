@@ -1,26 +1,19 @@
 import type { MetadataRoute } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import type { MetadataRoute } from 'next'
-import { createClient } from '@supabase/supabase-js'
 
-/**
- * Regenera o sitemap 1x/dia (86400s). Sem isso, o sitemap fica cacheado
- * no build e novas lojas/cartas só aparecem após próximo deploy.
- */
-export const revalidate = 86400
-
-const BASE = 'https://bynx.gg'
-
-// ... resto do arquivo intacto
 /**
  * Sitemap dinâmico do Next 13+.
  *
  * - Substitui o /public/sitemap.xml estático
  * - Lista páginas estáticas + lojas ativas + cartas individuais
- * - É regenerado a cada build (ou no run-time, dependendo da config)
+ * - Revalida a cada 24h (1x/dia) — equilíbrio fresh vs custo
  *
  * Acessível em: https://bynx.gg/sitemap.xml
  */
+
+// Regenera o sitemap 1x/dia (86400s). Sem isso, o sitemap fica cacheado
+// no build e novas lojas/cartas só aparecem após próximo deploy.
+export const revalidate = 86400
 
 const BASE = 'https://bynx.gg'
 
@@ -81,40 +74,28 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
   },
   {
     // Landing SEO/Ads — Pokédex Pokémon TCG. Captura keyword exata
-    // "pokédex pokemon tcg" no domínio. Apresenta o catálogo de 22.861
-    // cartas com comparativo competitivo, top sets, raridades, top cartas
-    // valiosas em R$ e glossário do colecionador. Funil B2C: ver -> /pokedex
-    // (consulta livre) -> cadastro -> coleção.
+    // "pokédex pokemon tcg" no domínio.
     url: `${BASE}/pokedex-pokemon-tcg`,
     lastModified: new Date(),
     changeFrequency: 'monthly',
     priority: 0.85,
   },
   {
-    // Landing SEO/Ads — Scan IA Pokémon TCG. Captura keywords "scanner
-    // carta pokemon", "identificar carta pokemon foto", "ia reconhecer
-    // pokemon tcg". Posiciona o Bynx como solução brasileira inovadora
-    // (Claude Opus 4.5, multi-card, multilíngue PT/EN/JP). Funil:
-    // ver -> cadastro -> compra de pacote pré-pago de scans (R$ 5,90 / 14,90 / 34,90).
+    // Landing SEO/Ads — Scan IA Pokémon TCG.
     url: `${BASE}/scan-ia`,
     lastModified: new Date(),
     changeFrequency: 'monthly',
     priority: 0.85,
   },
   {
-    // Página de produto pago (gerador interno de Separadores). Renderiza
-    // preview de 9 Pokémons + CTA mesmo deslogada — indexável, tipo App
-    // Store listing.
+    // Página de produto pago (gerador interno de Separadores).
     url: `${BASE}/separadores`,
     lastModified: new Date(),
     changeFrequency: 'monthly',
     priority: 0.8,
   },
   {
-    // Ranking público de Indique e Ganhe. Atualizado mensalmente, mostra
-    // top 20 indicadores com prêmios em R$ pros Top 3. Social proof do
-    // programa de viralização. Pública pra qualquer visitante ver, sem
-    // exigir login. Funil: ver ranking → "como participar?" → cadastro.
+    // Ranking público de Indique e Ganhe. Atualizado mensalmente.
     url: `${BASE}/ranking`,
     lastModified: new Date(),
     changeFrequency: 'daily',
