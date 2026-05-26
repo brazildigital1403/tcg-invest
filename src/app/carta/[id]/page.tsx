@@ -23,7 +23,6 @@ export default function CartaPage() {
   const [price, setPrice]   = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [cardLink, setCardLink] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -44,14 +43,16 @@ export default function CartaPage() {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         )
 
+        // S34: removido `liga_link` do select. Pagina e publica e indexada
+        // pelo Google (sitemap.xml), expor link externo da Liga = risco
+        // SEO/juridico. Mantemos so os precos.
         const { data: priceData } = await sb
           .from('pokemon_cards')
-          .select('preco_min, preco_medio, preco_max, liga_link')
+          .select('preco_min, preco_medio, preco_max')
           .eq('id', data.data.id)
           .maybeSingle()
 
         setPrice(priceData)
-        if (priceData?.liga_link) setCardLink(priceData.liga_link)
       }
       setLoading(false)
     }
@@ -180,12 +181,6 @@ export default function CartaPage() {
               >
                 {copied ? 'Copiado!' : 'Copiar link'}
               </button>
-              {cardLink && (
-                <a href={cardLink} target="_blank" rel="noopener"
-                  style={{ padding: '13px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  Link de origem
-                </a>
-              )}
             </div>
           </div>
         </div>
