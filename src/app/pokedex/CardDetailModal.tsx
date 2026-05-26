@@ -67,6 +67,8 @@ export default function CardDetailModal({
         <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection: isMobile ? 'column' : 'row' }}>
 
           {/* Coluna esquerda */}
+          {/* S34: removido botao "Ver na Liga Pokemon" — pagina /pokedex e publica
+              e indexavel pelo Google, expor link externo a Liga = risco SEO/juridico */}
           <div style={{ padding:20, background:'rgba(255,255,255,0.02)', borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)', borderBottom: isMobile ? '1px solid rgba(255,255,255,0.06)' : 'none', display:'flex', flexDirection:'row', flexWrap:'wrap', alignItems:'flex-start', gap:12, overflowY:'auto', maxHeight: isMobile ? 220 : undefined, flexShrink:0 }}>
             {(c.image_large || c.image_small) && (
               <img src={c.image_large || c.image_small} alt={c.name} referrerPolicy="no-referrer" style={{ width:140, maxWidth:'40vw', borderRadius:12, flexShrink:0 }} />
@@ -90,13 +92,6 @@ export default function CardDetailModal({
                 </div>
               ))}
             </div>
-            {c.liga_link && (
-              <a href={c.liga_link} target="_blank" rel="noopener noreferrer"
-                style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'rgba(96,165,250,0.8)', textDecoration:'none', padding:'6px 10px', background:'rgba(96,165,250,0.08)', borderRadius:8, border:'1px solid rgba(96,165,250,0.15)', width:'100%', justifyContent:'center' }}>
-                <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M11 3h6v6m0-6L10 10M7 5H4a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Ver na Liga Pokémon
-              </a>
-            )}
           </div>
 
           {/* Coluna direita */}
@@ -155,9 +150,11 @@ export default function CardDetailModal({
             )}
 
             {/* Preços BR */}
+            {/* S34: removido sufixo "(Liga Pokemon)" — pagina e publica e indexavel,
+                expor marca externa = risco SEO/juridico */}
             {VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).length > 0 && (
               <div>
-                <p style={{ fontSize:10, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Preços BR (Liga Pokémon)</p>
+                <p style={{ fontSize:10, color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Preços BR</p>
                 <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                   {VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).map(v => (
                     <div key={v.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(34,197,94,0.05)', borderRadius:8, padding:'6px 10px', border:'1px solid rgba(34,197,94,0.1)' }}>

@@ -279,7 +279,7 @@ export default function Pokedex() {
         id, name, number, set_id, set_name, set_total, set_series, set_release_date,
         set_logo, set_symbol, rarity, types, subtypes, hp, supertype,
         artist, flavor_text, attacks, weaknesses, resistances, retreat_cost, legalities,
-        image_small, image_large, liga_link, base_pokemon_names,
+        image_small, image_large, base_pokemon_names,
         preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball,
         preco_min, preco_medio, preco_max,
         preco_foil_min, preco_foil_medio, preco_foil_max,
