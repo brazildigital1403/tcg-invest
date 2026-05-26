@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
  * Sitemap dinâmico do Next 13+.
  *
  * - Substitui o /public/sitemap.xml estático
- * - Lista páginas estáticas + lojas ativas dinamicamente do Supabase
+ * - Lista páginas estáticas + lojas ativas + cartas individuais
  * - É regenerado a cada build (ou no run-time, dependendo da config)
  *
  * Acessível em: https://bynx.gg/sitemap.xml
@@ -123,38 +123,73 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
   },
 ]
 
+// ─── Helper: ID de carta seguro pra URL ──────────────────────────────────────
+// Filtra cartas com chars problemáticos (% encoded, espaços, parênteses)
+// que gerariam URLs quebradas no sitemap. ~16 cartas malformadas no banco.
+const isIdSafeForUrl = (id: string | null | undefined): id is string =>
+  !!id && !/[%(),\s]/.test(id)
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const dynamicRoutes: MetadataRoute.Sitemap = []
 
-  // ─── Lojas ativas ───────────────────────────────────────────────────────────
-  // Tenta buscar lojas do Supabase. Se falhar (ex: env vars no build), apenas
-  // não inclui — o sitemap continua com as rotas estáticas.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  // Se env vars indisponíveis no build, fallback silencioso (só estáticas)
+  if (!supabaseUrl || !supabaseAnon) {
+    console.warn('[sitemap] env vars Supabase ausentes — só rotas estáticas')
+    return STATIC_ROUTES
+  }
+
+  const sb = createClient(supabaseUrl, supabaseAnon)
+
+  // ─── Lojas ativas ──────────────────────────────────────────────────────────
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const { data: lojas } = await sb
+      .from('lojas')
+      .select('slug, updated_at')
+      .eq('status', 'ativa')
+      .limit(1000)
 
-    if (supabaseUrl && supabaseAnon) {
-      const sb = createClient(supabaseUrl, supabaseAnon)
-      const { data: lojas } = await sb
-        .from('lojas')
-        .select('slug, updated_at')
-        .eq('status', 'ativa')
-        .limit(1000)
-
-      for (const loja of lojas || []) {
-        if (loja.slug) {
-          dynamicRoutes.push({
-            url: `${BASE}/lojas/${loja.slug}`,
-            lastModified: loja.updated_at ? new Date(loja.updated_at) : new Date(),
-            changeFrequency: 'weekly',
-            priority: 0.6,
-          })
-        }
+    for (const loja of lojas || []) {
+      if (loja.slug) {
+        dynamicRoutes.push({
+          url: `${BASE}/lojas/${loja.slug}`,
+          lastModified: loja.updated_at ? new Date(loja.updated_at) : new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.6,
+        })
       }
     }
   } catch (err) {
-    // Falha silenciosa: sitemap continua com rotas estáticas
     console.error('[sitemap] erro ao buscar lojas dinâmicas:', err)
+  }
+
+  // ─── Cartas individuais ────────────────────────────────────────────────────
+  // 22.983 cartas no banco. Cada carta = página long-tail rica (preços,
+  // variantes, set, raridade). Maior win de SEO orgânico do Bynx.
+  // Filtra IDs com chars problemáticos (~16 cartas malformadas).
+  try {
+    const { data: cartas } = await sb
+      .from('pokemon_cards')
+      .select('id, liga_updated_at')
+      .neq('excluded_from_scan', true)
+      .limit(50000)
+
+    for (const carta of cartas || []) {
+      if (isIdSafeForUrl(carta.id)) {
+        dynamicRoutes.push({
+          url: `${BASE}/carta/${carta.id}`,
+          lastModified: carta.liga_updated_at
+            ? new Date(carta.liga_updated_at)
+            : new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.5,
+        })
+      }
+    }
+  } catch (err) {
+    console.error('[sitemap] erro ao buscar cartas dinâmicas:', err)
   }
 
   return [...STATIC_ROUTES, ...dynamicRoutes]
