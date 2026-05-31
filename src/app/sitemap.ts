@@ -5,10 +5,14 @@ import { createClient } from '@supabase/supabase-js'
  * Sitemap dinâmico do Next 13+.
  *
  * - Substitui o /public/sitemap.xml estático
- * - Lista páginas estáticas + lojas ativas + cartas individuais
+ * - Lista páginas estáticas + lojas ativas + cartas individuais + SETS
  * - Revalida a cada 24h (1x/dia) — equilíbrio fresh vs custo
  *
  * Acessível em: https://bynx.gg/sitemap.xml
+ *
+ * S38: adicionadas páginas de set (~312 URLs). Cada set vira página
+ * SEO-rica que ranqueia long-tail PT-BR ("destinos de paldea",
+ * "fenda paradoxal cartas", "coroa estelar lista", etc).
  */
 
 // Regenera o sitemap 1x/dia (86400s). Sem isso, o sitemap fica cacheado
@@ -65,7 +69,7 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
   {
     // Landing SEO/Ads — funil B2C pra colecionador BR. Apresenta o app
     // pra quem busca "colecionar pokemon brasil", "app coleção pokemon",
-    // "organizar coleção pokemon". Pokédex de 22.861 cartas, 1.025 Pokémons,
+    // "organizar coleção pokemon". Pokédex de 24.000+ cartas, 1.025 Pokémons,
     // preços em reais. CTAs apontam pra cadastro com next=/minha-colecao.
     url: `${BASE}/colecionadores`,
     lastModified: new Date(),
@@ -157,8 +161,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error('[sitemap] erro ao buscar lojas dinâmicas:', err)
   }
 
+  // ─── Sets (S38) ────────────────────────────────────────────────────────────
+  // Páginas de set são SEO-rich (long-tail PT-BR como "destinos de paldea",
+  // "coroa estelar", "fenda paradoxal"). Cobre ambos:
+  //  - Sets oficiais Pokemon TCG (em pokemon_sets, 243 rows)
+  //  - Sets Liga-only (em pokemon_cards com set_name "Liga BR — XXX")
+  // União dos set_id distintos.
+  try {
+    const { data: setsRows } = await sb
+      .from('pokemon_cards')
+      .select('set_id')
+      .not('set_id', 'is', null)
+      .limit(50000)
+
+    const uniqueSetIds = Array.from(
+      new Set(
+        (setsRows || [])
+          .map((r) => r.set_id as string)
+          .filter((id) => id && isIdSafeForUrl(id)),
+      ),
+    )
+
+    for (const setId of uniqueSetIds) {
+      dynamicRoutes.push({
+        url: `${BASE}/set/${setId}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.7,
+      })
+    }
+  } catch (err) {
+    console.error('[sitemap] erro ao buscar sets dinâmicos:', err)
+  }
+
   // ─── Cartas individuais ────────────────────────────────────────────────────
-  // 22.983 cartas no banco. Cada carta = página long-tail rica (preços,
+  // 24.472 cartas no banco (S38). Cada carta = página long-tail rica (preços,
   // variantes, set, raridade). Maior win de SEO orgânico do Bynx.
   // Filtra IDs com chars problemáticos (~16 cartas malformadas).
   try {
