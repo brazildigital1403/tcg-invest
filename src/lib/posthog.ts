@@ -22,8 +22,11 @@
  *   login. Visitantes anônimos NÃO geram perfis (economiza event budget
  *   + ajuda LGPD).
  *
- * - `capture_pageview: 'history_change'` → pageviews automáticos em SPA
- *   navigation. Sem isso o PostHog só capturaria a primeira página.
+ * - `capture_pageview: false` → DESABILITAMOS o auto-capture do PostHog.
+ *   Por quê: estávamos disparando $pageview DUPLICADO (auto-capture +
+ *   nosso componente manual `PostHogPageView.tsx`). Pra Next.js App Router
+ *   a recomendação oficial do PostHog é DESLIGAR o auto-capture e usar
+ *   o componente manual que escuta `usePathname()` + `useSearchParams()`.
  *
  * - `session_recording.maskAllInputs: true` → mascara TODOS inputs por
  *   padrão. Use `data-ph-mask` no elemento pra mascarar texto extra.
@@ -53,7 +56,11 @@ export function initPostHog() {
 
     person_profiles: 'identified_only',
 
-    capture_pageview: 'history_change',
+    // Auto-capture DESLIGADO. Quem dispara $pageview é o componente
+    // manual `src/app/PostHogPageView.tsx`, que escuta mudanças de
+    // rota do App Router (Next.js 15+). Sem isso, $pageview seria
+    // disparado em dobro.
+    capture_pageview: false,
     capture_pageleave: true,
 
     // LGPD: não captura por padrão até user dar consent via CookieBanner.
