@@ -1,41 +1,120 @@
 /**
- * src/lib/analytics.ts
+ * Analytics — Helper centralizado de tracking.
  *
- * Wrapper unificado de analytics (PostHog + Sentry).
+ * Bynx tem 2 stacks de analytics que COEXISTEM:
  *
- * Por quê:
- * - **Type-safety**: eventos definidos como discriminated union, autocompletar
- *   no editor pra nome do evento + propriedades obrigatórias.
- * - **Single source of truth**: lista oficial de eventos do Bynx aqui.
- *   Adicionar evento? Adiciona aqui primeiro. Não tem `track("any_string")`.
- * - **Sentry integration**: identifyUser também seta usuário no Sentry pra
- *   stack traces virem com email/id do user.
+ * 1. GTM / GA4 (legado) — eventos de marketing/funil
+ *    Funções: trackFirstCardAdded, trackProUpgradeInitiated,
+ *             trackProUpgradeCompleted, trackLojaClique
+ *    Mecanismo: window.dataLayer.push (SSR-safe, fail-safe)
  *
- * Uso:
+ * 2. PostHog + Sentry (S39) — product analytics + error tracking
+ *    Funções: track(), identifyUser(), resetUser(), setUserProperties()
+ *    Mecanismo: posthog-js (PostHog) + @sentry/nextjs (Sentry)
  *
- *   import { track, identifyUser, resetUser } from '@/lib/analytics'
+ * AMBOS coexistem propositalmente:
+ * - GTM/GA4 alimentam Google Ads, Tag Manager, audiências
+ * - PostHog/Sentry alimentam funil, retention, replays e error tracking
  *
- *   // Após signup:
- *   identifyUser(user.id, { email: user.email, plan: 'free' })
- *   track({ name: 'user_signed_up', properties: { method: 'email' } })
+ * Notas comuns:
+ * - SSR-safe: TODAS as funções checam typeof window !== 'undefined'
+ * - Falhas silenciosas: tracking nunca pode quebrar a UX
+ * - Eventos GTM batem com parâmetros já criados no container Bynx
+ *   (ep.signup_completed, ep.first_card_added, ep.pro_upgrade_initiated,
+ *   ep.pro_upgrade_completed, ep.loja_clique).
  *
- *   // Add à coleção:
- *   track({
- *     name: 'card_added_to_collection',
- *     properties: { card_id: 'sv4-122', set_id: 'sv4', quantity: 1, value_brl: 0.88 }
- *   })
- *
- *   // Logout:
- *   resetUser()
+ * Este arquivo NÃO usa 'use client' diretamente — pode ser importado
+ * tanto em Server Components quanto em Client Components. Em SSR as
+ * funções viram no-op silenciosamente.
  */
-
-'use client'
 
 import * as Sentry from '@sentry/nextjs'
 import { posthog } from './posthog'
 
-// ─── Eventos do Bynx (22 eventos chave) ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// PARTE 1: GTM / GA4 (LEGADO — preservado intacto)
+// ═══════════════════════════════════════════════════════════════
 
+declare global {
+  interface Window {
+    dataLayer?: Record<string, unknown>[]
+  }
+}
+
+type EventName =
+  | 'signup_completed'
+  | 'first_card_added'
+  | 'pro_upgrade_initiated'
+  | 'pro_upgrade_completed'
+  | 'loja_clique'
+
+// ─── Push genérico (fail-safe, SSR-safe) ────────────────────────────────────
+
+function push(event: EventName, params: Record<string, unknown> = {}): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.dataLayer = window.dataLayer || []
+    window.dataLayer.push({ event, ...params })
+  } catch {
+    // Tracking nunca quebra UX — silent fail
+  }
+}
+
+// ─── Eventos públicos GTM/GA4 ───────────────────────────────────────────────
+
+/**
+ * Dispara quando um user adiciona a PRIMEIRA carta na coleção.
+ * Usa flag em localStorage pra garantir disparo único por user/browser.
+ *
+ * Edge case: se o user limpar localStorage, pode disparar de novo.
+ * Pra GA4 isso é tolerável (apenas adiciona ~1 evento extra raríssimo).
+ */
+export function trackFirstCardAdded(userId: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    const flagKey = `bynx_first_card_${userId}`
+    if (localStorage.getItem(flagKey)) return // já disparou pra esse user
+    localStorage.setItem(flagKey, '1')
+    push('first_card_added', { user_id: userId })
+    push('signup_completed', { user_id: userId }) // proxy: 1ª carta = onboarding completo
+  } catch {
+    // Silent fail
+  }
+}
+
+/**
+ * Dispara quando user clica em "Assinar Pro" — antes do redirect pro Stripe.
+ */
+export function trackProUpgradeInitiated(plano: 'mensal' | 'anual'): void {
+  push('pro_upgrade_initiated', { plano })
+}
+
+/**
+ * Dispara na página /pro-ativado, no mount.
+ * Webhook é server-side — não dá pra disparar dataLayer dele.
+ */
+export function trackProUpgradeCompleted(plano: 'mensal' | 'anual'): void {
+  push('pro_upgrade_completed', { plano })
+}
+
+/**
+ * Dispara quando user clica num link rastreado de uma loja
+ * (whatsapp, instagram, facebook, website, maps).
+ */
+export function trackLojaClique(lojaId: string, tipo: string): void {
+  push('loja_clique', { loja_id: lojaId, tipo })
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PARTE 2: PostHog + Sentry (S39 — Product Analytics & Errors)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Catálogo de eventos do Bynx pro PostHog.
+ *
+ * Discriminated union: TypeScript valida que `properties` bate com `name`.
+ * Pra adicionar evento novo, expanda este type e use track({ name, properties }).
+ */
 export type BynxEvent =
   // Auth (3)
   | {
@@ -119,22 +198,24 @@ export type BynxEvent =
     }
   | { name: 'checkout_abandoned'; properties: { step: string } }
 
-// ─── Funções públicas ──────────────────────────────────────────────────────
-
 /**
- * Captura um evento custom do Bynx.
+ * Captura um evento custom do Bynx no PostHog.
+ *
  * Type-safe: nome + propriedades validados em tempo de compilação.
+ *
+ * Exemplo:
+ *   track({ name: 'card_added_to_collection',
+ *           properties: { card_id: 'sv4-122', set_id: 'sv4', quantity: 1 } })
  */
 export function track<T extends BynxEvent>(event: T): void {
   if (typeof window === 'undefined') return
-  // posthog-js aceita Record<string, any> nas propriedades; nosso union é o que tipa
   posthog?.capture(event.name, event.properties as Record<string, unknown>)
 }
 
 /**
  * Identifica o user logado. Chamar UMA vez quando user faz login/signup.
  *
- * Sentry também recebe o user pra erros virem associados.
+ * Sentry também recebe o user pra erros virem associados ao perfil.
  *
  * @param userId - ID do user no Supabase (UUID)
  * @param properties - email, name, plan etc. para perfilar
@@ -176,7 +257,7 @@ export function resetUser(): void {
 }
 
 /**
- * Helper opcional pra atualizar propriedades de uma pessoa SEM disparar evento.
+ * Atualiza propriedades de uma pessoa SEM disparar evento.
  *
  * Útil pra atualizar plan, MRR etc. após upgrade.
  */
