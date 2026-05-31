@@ -6,9 +6,10 @@ import { ModalProvider } from "@/components/ui/useAppModal"
 import AuthModalProvider from "@/components/auth/AuthModalProvider"
 import ContactModalProvider from "@/components/ui/ContactModalProvider"
 import CookieBanner from "@/components/ui/CookieBanner"
+import { Providers } from "./providers"
 
-const dmSans = DM_Sans({ 
-  variable: "--font-dm-sans", 
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   display: 'swap',
 })
@@ -253,14 +254,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         </noscript>
 
-        <ContactModalProvider>
-          <ModalProvider>
-            <AuthModalProvider>
-              {children}
-              <CookieBanner />
-            </AuthModalProvider>
-          </ModalProvider>
-        </ContactModalProvider>
+        {/* S39: Providers wrapper (PostHog client-side init + $pageview tracking).
+            Envolve TODA a árvore pra que qualquer componente possa usar
+            track()/identifyUser()/resetUser() do '@/lib/analytics'. */}
+        <Providers>
+          <ContactModalProvider>
+            <ModalProvider>
+              <AuthModalProvider>
+                {children}
+                <CookieBanner />
+              </AuthModalProvider>
+            </ModalProvider>
+          </ContactModalProvider>
+        </Providers>
       </body>
     </html>
   )

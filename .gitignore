@@ -44,3 +44,6 @@ next-env.d.ts
 
 # Backups de patches
 *.bak.*
+
+# Sentry Config File
+.env.sentry-build-plugin
