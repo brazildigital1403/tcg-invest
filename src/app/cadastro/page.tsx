@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { permanentRedirect } from 'next/navigation'
 
 /**
  * Rota /cadastro — redirect server-side pra modal de signup da home.
@@ -17,7 +17,12 @@ import { redirect } from 'next/navigation'
  *   /cadastro?next=/X            → /?auth=signup&next=/X
  *   /cadastro?plano=mensal       → /?auth=signup&plano=mensal (futuro)
  *
- * O redirect é HTTP 307 (temporary), preservando query string original.
+ * S39 (fix redirects GSC): trocado `redirect` (HTTP 307 temporário) por
+ * `permanentRedirect` (HTTP 308 permanente). Pro Google Search Console,
+ * 307 sinaliza "movimento temporário" e ele continua tentando indexar
+ * /cadastro como página própria, marcando como "Página com redirecionamento"
+ * no relatório de cobertura. Com 308, Google consolida o sinal SEO em
+ * /?auth=signup permanentemente e remove /cadastro do índice.
  */
 export default function CadastroPage({
   searchParams,
@@ -33,5 +38,5 @@ export default function CadastroPage({
     if (typeof value === 'string') params.set(key, value)
   }
 
-  redirect(`/?${params.toString()}`)
+  permanentRedirect(`/?${params.toString()}`)
 }

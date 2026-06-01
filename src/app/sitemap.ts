@@ -25,6 +25,12 @@ import { createClient } from '@supabase/supabase-js'
  * essas URLs via links internos. Pra prevenir indexação efetiva, considerar
  * adicionar `robots: { index: false }` no metadata dessas páginas ou
  * dar canonical próprio (próxima etapa S40).
+ *
+ * S39 (fix redirects GSC): isIdSafeForUrl agora usa whitelist em vez de
+ * blacklist (ver comentário inline na função). Resolvia caso real onde
+ * cartas Unown com IDs `ex10-!` e `ex10-?` vazavam pro sitemap e Google
+ * marcava `/carta/ex10-?` (parseado como `/carta/ex10-`) como "Página
+ * com redirecionamento" no GSC.
  */
 
 // Regenera o sitemap 1x/dia (86400s). Sem isso, o sitemap fica cacheado
@@ -119,10 +125,24 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
 ]
 
 // ─── Helper: ID de carta seguro pra URL ──────────────────────────────────────
-// Filtra cartas com chars problemáticos (% encoded, espaços, parênteses)
-// que gerariam URLs quebradas no sitemap. ~16 cartas malformadas no banco.
+//
+// S39 (fix redirects GSC): whitelist ASCII-safe em vez de blacklist.
+//
+// Antes: !/[%(),\s]/ — filtrava apenas %, (, ), , e whitespace.
+// Não bloqueava chars de URL problemáticos como `!`, `?`, `&`, `=`, `#`,
+// `*`, `'`, `"`, `<`, `>`, `[`, `]`, `{`, `}`, etc.
+//
+// Caso real: cartas Unown com IDs `ex10-!` e `ex10-?` vazavam pro sitemap.
+// Google parseava `/carta/ex10-?` como `/carta/ex10-` (perdendo o `?` como
+// query string), marcava como "Página com redirecionamento" no GSC.
+//
+// Agora aceita SOMENTE alfanumérico ASCII + hífen + underscore (regex padrão
+// pra slug seguro). Equivalente ao filtro do GitHub/Stripe/etc pra IDs URL.
+//
+// IDs que passam: `ex10-1`, `swsh12-100`, `liga-CCC-Charizard--02-25-`
+// IDs que NÃO passam: `ex10-!`, `ex10-?`, `liga-07A-Energia%20de%20Raio`
 const isIdSafeForUrl = (id: string | null | undefined): id is string =>
-  !!id && !/[%(),\s]/.test(id)
+  !!id && /^[a-zA-Z0-9_-]+$/.test(id)
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const dynamicRoutes: MetadataRoute.Sitemap = []
@@ -196,7 +216,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ─── Cartas individuais ────────────────────────────────────────────────────
   // 24.472 cartas no banco (S38). Cada carta = página long-tail rica (preços,
   // variantes, set, raridade). Maior win de SEO orgânico do Bynx.
-  // Filtra IDs com chars problemáticos (~16 cartas malformadas).
+  // Filtra IDs com chars problemáticos via isIdSafeForUrl (whitelist ASCII).
   try {
     const { data: cartas } = await sb
       .from('pokemon_cards')
