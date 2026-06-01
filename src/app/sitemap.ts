@@ -13,6 +13,18 @@ import { createClient } from '@supabase/supabase-js'
  * S38: adicionadas páginas de set (~312 URLs). Cada set vira página
  * SEO-rica que ranqueia long-tail PT-BR ("destinos de paldea",
  * "fenda paradoxal cartas", "coroa estelar lista", etc).
+ *
+ * S39: removidas 3 URLs internas do sitemap por terem canonical errado
+ * apontando pra home (caso "Página alternativa com tag canônica adequada"
+ * no GSC). São páginas de app/auth sem `generateMetadata` próprio:
+ *   - /separadores (gerador interno; landing pública é /separadores-pokemon)
+ *   - /login (form efêmero)
+ *   - /cadastro (form efêmero)
+ *
+ * Cuidado: REMOVER do sitemap NÃO impede o Googlebot de rastrear/indexar
+ * essas URLs via links internos. Pra prevenir indexação efetiva, considerar
+ * adicionar `robots: { index: false }` no metadata dessas páginas ou
+ * dar canonical próprio (próxima etapa S40).
  */
 
 // Regenera o sitemap 1x/dia (86400s). Sem isso, o sitemap fica cacheado
@@ -92,31 +104,18 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 0.85,
   },
   {
-    // Página de produto pago (gerador interno de Separadores).
-    url: `${BASE}/separadores`,
-    lastModified: new Date(),
-    changeFrequency: 'monthly',
-    priority: 0.8,
-  },
-  {
     // Ranking público de Indique e Ganhe. Atualizado mensalmente.
     url: `${BASE}/ranking`,
     lastModified: new Date(),
     changeFrequency: 'daily',
     priority: 0.7,
   },
-  {
-    url: `${BASE}/login`,
-    lastModified: new Date(),
-    changeFrequency: 'yearly',
-    priority: 0.3,
-  },
-  {
-    url: `${BASE}/cadastro`,
-    lastModified: new Date(),
-    changeFrequency: 'yearly',
-    priority: 0.4,
-  },
+  // S39: removidas do sitemap por canonical errado apontando pra home.
+  // Estas URLs continuam funcionais pra users — só não são mais
+  // submetidas pro Google indexar:
+  //   - /separadores (app interno - landing pública é /separadores-pokemon)
+  //   - /login (form efêmero)
+  //   - /cadastro (form efêmero)
 ]
 
 // ─── Helper: ID de carta seguro pra URL ──────────────────────────────────────
