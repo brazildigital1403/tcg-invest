@@ -108,7 +108,7 @@ const faqSchema = {
       name: 'Posso compartilhar minha coleção?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim, no plano Pro você ganha um perfil público com URL própria (bynx.gg/perfil/seu-nome). Compartilhe nas redes sociais, em grupos de WhatsApp ou com outros colecionadores. Você controla o que aparece — pode esconder valores, por exemplo.',
+        text: 'Sim — e agora o perfil público é grátis pra todo mundo. Você ganha uma URL própria (bynx.gg/perfil/seu-nome) pra compartilhar nas redes sociais, em grupos de WhatsApp ou com outros colecionadores. Você controla o que aparece — pode esconder valores, por exemplo.',
       },
     },
     {
@@ -394,7 +394,7 @@ export default function ColecionadoresPage() {
               <ToolCard
                 icon={<IconShare />}
                 title="Perfil público"
-                desc="URL própria pra compartilhar (bynx.gg/perfil/voce). Mostre o que você coleciona — ou esconda os valores se preferir. Pro plan."
+                desc="URL própria pra compartilhar (bynx.gg/perfil/voce). Mostre o que você coleciona — ou esconda os valores se preferir. Grátis pra todos."
               />
             </div>
           </div>
@@ -411,7 +411,7 @@ export default function ColecionadoresPage() {
                   <span style={S.heroTitleAccent}>sua vitrine.</span>
                 </h2>
                 <p style={S.profileDesc}>
-                  Cada conta Pro ganha um perfil público com URL própria. Mostre suas cartas, suas raridades, sua jornada como colecionador. Ou esconda valores e exiba só a coleção — você decide.
+                  Toda conta ganha um perfil público com URL própria — de graça. Mostre suas cartas, suas raridades, sua jornada como colecionador. Ou esconda valores e exiba só a coleção — você decide.
                 </p>
                 <p style={S.profileDesc}>
                   É a versão BR do que existe lá fora — só que melhor adaptado pro nosso jeito: links pro WhatsApp, badge "verificado" e modo privado pra quem não quer expor patrimônio.
@@ -489,7 +489,8 @@ export default function ColecionadoresPage() {
                   <PlanFeature>Pokédex completa</PlanFeature>
                   <PlanFeature>Dashboard financeiro</PlanFeature>
                   <PlanFeature>3 anúncios no Marketplace</PlanFeature>
-                  <PlanFeature muted>Scan com IA, perfil público, exportar</PlanFeature>
+                  <PlanFeature>Perfil público</PlanFeature>
+                  <PlanFeature muted>Scan com IA, exportar</PlanFeature>
                 </ul>
                 <Link href="?auth=signup&next=/minha-colecao" style={S.planCtaSecondary}>
                   Começar grátis
@@ -562,7 +563,7 @@ export default function ColecionadoresPage() {
                 },
                 {
                   q: 'Posso compartilhar minha coleção?',
-                  a: 'Sim. No plano Pro você ganha um perfil público com URL própria (bynx.gg/perfil/seu-nome). Compartilhe nas redes, em grupos de WhatsApp ou com outros colecionadores. Você controla o que aparece — pode esconder valores, por exemplo.',
+                  a: 'Sim — e agora é grátis pra todo mundo. Você ganha um perfil público com URL própria (bynx.gg/perfil/seu-nome) pra compartilhar nas redes, em grupos de WhatsApp ou com outros colecionadores. Você controla o que aparece — pode esconder valores, por exemplo.',
                 },
                 {
                   q: 'O scan com IA realmente funciona?',
