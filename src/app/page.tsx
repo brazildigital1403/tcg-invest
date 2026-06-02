@@ -637,10 +637,10 @@ export default function Home() {
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 { txt: 'Cartas ilimitadas', ok: true },
+                { txt: 'Perfil público', ok: true },
                 { txt: '3 anúncios no Marketplace', ok: true },
                 { txt: 'Pokédex completa', ok: true },
                 { txt: 'Dashboard financeiro', ok: true },
-                { txt: 'Perfil público', ok: false },
                 { txt: 'Exportar CSV', ok: false },
                 { txt: 'Anúncios ilimitados', ok: false },
                 { txt: 'Scan com IA', ok: false },
@@ -671,11 +671,9 @@ export default function Home() {
             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 28 }}>Cancele quando quiser · sem fidelidade</p>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                'Cartas ilimitadas',
                 'Anúncios ilimitados',
                 'Pokédex completa',
                 'Dashboard financeiro completo',
-                'Perfil público compartilhável',
                 'Exportar CSV',
                 'Marketplace sem limites',
                 'Badge Pro no perfil',
