@@ -93,9 +93,10 @@ export default function PerfilPage() {
         .order('created_at', { ascending: false })
       setListings(listingsData || [])
 
-      // Vendas
-      const { data: vendas } = await supabase
-        .from('transactions').select('id, price').eq('seller_id', uid)
+      // Vendas concluidas — via RPC SECURITY DEFINER (conta sem expor transacoes).
+      // S40: leitura direta de transactions e bloqueada por RLS pra terceiros;
+      // a RPC devolve so o numero (perfil publico ou proprio dono).
+      const { data: vendasCount } = await supabase.rpc('vendas_concluidas_count', { uid })
 
       // Total cartas
       const { count: totalCartas } = await supabase
@@ -150,7 +151,7 @@ export default function PerfilPage() {
       setStats({
         cartas: totalCartas || 0,
         anuncios: (listingsData || []).length,
-        vendas: (vendas || []).length,
+        vendas: vendasCount || 0,
       })
 
       // Histórico de patrimônio
