@@ -6,7 +6,7 @@ import Link from 'next/link'
 type Metrics = {
   tickets: { open: number; in_progress: number; resolved: number; last7: number }
   users:   { total: number; new7d: number; pro: number; trial: number }
-  cards:   { total: number; catalogValue: number }
+  cards:   { total: number; catalogValue: number; registeredValue: number }
   topCards: { card_name: string; variante: string | null; preco_medio: number; owner_name: string; owner_username: string | null }[]
   topCollectors: { name: string; username: string | null; total_cartas: number }[]
 }
@@ -75,35 +75,40 @@ export default function AdminDashboard() {
       {/* ── Conteúdo ── */}
       <SectionTitle>Conteúdo</SectionTitle>
       <Grid>
-        <Card label="Cartas cadastradas" value={m?.cards.total?.toLocaleString('pt-BR')} color="#f59e0b" />
-        <Card label="Valor do catálogo"  value={m ? fmtBRL(m.cards.catalogValue) : undefined} color="#22c55e" />
+        <Card label="Cartas cadastradas"           value={m?.cards.total?.toLocaleString('pt-BR')} color="#f59e0b" />
+        <Card label="Valor das cartas cadastradas"  value={m ? fmtBRL(m.cards.registeredValue) : undefined} color="#22c55e" />
+        <Card label="Valor do catálogo"             value={m ? fmtBRL(m.cards.catalogValue) : undefined} color="#60a5fa" />
       </Grid>
 
-      {/* Top 10 cartas mais valiosas (com dono) */}
-      <SectionTitle>Top 10 cartas mais valiosas (por dono)</SectionTitle>
-      <RankList
-        rows={m?.topCards?.map((c, i) => ({
-          rank: i + 1,
-          main: c.card_name + (c.variante && c.variante !== 'normal' ? ` · ${c.variante}` : ''),
-          sub: c.owner_username ? `@${c.owner_username} · ${c.owner_name}` : c.owner_name,
-          href: c.owner_username ? `/perfil/${c.owner_username}` : undefined,
-          right: fmtBRL(c.preco_medio),
-          rightColor: '#22c55e',
-        }))}
-      />
-
-      {/* Top 10 colecionadores */}
-      <SectionTitle>Top 10 colecionadores (por nº de cartas)</SectionTitle>
-      <RankList
-        rows={m?.topCollectors?.map((c, i) => ({
-          rank: i + 1,
-          main: c.name,
-          sub: c.username ? `@${c.username}` : '—',
-          href: c.username ? `/perfil/${c.username}` : undefined,
-          right: `${Number(c.total_cartas).toLocaleString('pt-BR')} cartas`,
-          rightColor: '#f59e0b',
-        }))}
-      />
+      {/* Top 10 lado a lado no desktop, empilhado no mobile */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 24, alignItems: 'start' }}>
+        <div>
+          <SectionTitle>Top 10 cartas mais valiosas (por dono)</SectionTitle>
+          <RankList
+            rows={m?.topCards?.map((c, i) => ({
+              rank: i + 1,
+              main: c.card_name + (c.variante && c.variante !== 'normal' ? ` · ${c.variante}` : ''),
+              sub: c.owner_username ? `@${c.owner_username} · ${c.owner_name}` : c.owner_name,
+              href: c.owner_username ? `/perfil/${c.owner_username}` : undefined,
+              right: fmtBRL(c.preco_medio),
+              rightColor: '#22c55e',
+            }))}
+          />
+        </div>
+        <div>
+          <SectionTitle>Top 10 colecionadores (por nº de cartas)</SectionTitle>
+          <RankList
+            rows={m?.topCollectors?.map((c, i) => ({
+              rank: i + 1,
+              main: c.name,
+              sub: c.username ? `@${c.username}` : '—',
+              href: c.username ? `/perfil/${c.username}` : undefined,
+              right: `${Number(c.total_cartas).toLocaleString('pt-BR')} cartas`,
+              rightColor: '#f59e0b',
+            }))}
+          />
+        </div>
+      </div>
 
       <div style={{ marginTop: 32, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Link href="/admin/tickets" style={btnPrimary}>Gerenciar tickets</Link>
