@@ -51,6 +51,8 @@ export default function PerfilPage() {
   const [stats, setStats]         = useState({ cartas: 0, anuncios: 0, vendas: 0 })
   const [loading, setLoading]     = useState(true)
   const [notFound, setNotFound]   = useState(false)
+  const [isPrivate, setIsPrivate] = useState(false)
+  const [isOwnerPreview, setIsOwnerPreview] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -58,12 +60,24 @@ export default function PerfilPage() {
       // Suporta username OU UUID
       // S29: lê de public_users (view sem PII) em vez da tabela `users` direto.
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-      const query = supabase.from('public_users').select('id, name, city, whatsapp, created_at, username')
+      const query = supabase.from('public_users').select('id, name, city, created_at, username, perfil_publico, perfil_ocultar_valores')
       const { data: userData } = isUUID
         ? await query.eq('id', id).single()
         : await query.eq('username', id).single()
 
       if (!userData) { setNotFound(true); setLoading(false); return }
+
+      // S40: perfil privado. Menores de 18 e quem optou por privado ficam
+      // ocultos pra terceiros. O proprio dono ve o perfil (com banner de aviso).
+      if (userData.perfil_publico === false) {
+        const { data: authData } = await supabase.auth.getUser()
+        if (authData?.user?.id !== userData.id) {
+          setIsPrivate(true)
+          setLoading(false)
+          return
+        }
+        setIsOwnerPreview(true)
+      }
 
       // Redireciona UUID → username se disponível (no browser)
       if (isUUID && userData.username && typeof window !== 'undefined') {
@@ -199,6 +213,10 @@ export default function PerfilPage() {
     ? new Date(user.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     : ''
 
+  // S40: quando o dono opta por esconder valores, ocultamos patrimonio,
+  // historico e precos do showcase (cartas continuam visiveis).
+  const ocultarValores = !!user?.perfil_ocultar_valores
+
   if (loading) return (
     <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <p>Carregando perfil...</p>
@@ -209,6 +227,15 @@ export default function PerfilPage() {
     <div style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontFamily: "'DM Sans', system-ui, sans-serif", gap: 16 }}>
       <svg width="48" height="48" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="rgba(255,255,255,0.15)" strokeWidth="1.2"/><path d="M7 12.5c.7-.8 1.8-1.5 3-1.5s2.3.7 3 1.5" stroke="rgba(255,255,255,0.15)" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7.5" cy="8.5" r="1" fill="rgba(255,255,255,0.2)"/><circle cx="12.5" cy="8.5" r="1" fill="rgba(255,255,255,0.2)"/></svg>
       <p style={{ fontSize: 18 }}>Perfil não encontrado</p>
+      <Link href="/" style={{ color: '#f59e0b', textDecoration: 'none', fontSize: 14 }}>← Voltar ao início</Link>
+    </div>
+  )
+
+  if (isPrivate) return (
+    <div style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontFamily: "'DM Sans', system-ui, sans-serif", gap: 16, padding: 24, textAlign: 'center' }}>
+      <IconShield size={48} color='rgba(255,255,255,0.2)' />
+      <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.55)' }}>Este perfil é privado</p>
+      <p style={{ fontSize: 14, maxWidth: 360, lineHeight: 1.5 }}>O dono optou por não exibir publicamente esta coleção.</p>
       <Link href="/" style={{ color: '#f59e0b', textDecoration: 'none', fontSize: 14 }}>← Voltar ao início</Link>
     </div>
   )
@@ -228,6 +255,14 @@ export default function PerfilPage() {
 
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px 80px' }}>
 
+        {/* ── BANNER PERFIL PRIVADO (so o dono ve) ── */}
+        {isOwnerPreview && (
+          <div style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#93c5fd', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconShield size={14} color='currentColor' />
+            <span>Este perfil está <strong style={{ color: '#bfdbfe' }}>privado</strong> — só você o vê. Ative o compartilhamento em Minha Conta.</span>
+          </div>
+        )}
+
         {/* ── HERO ── */}
         <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 24, padding: '28px 32px', display: 'flex', alignItems: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
           {/* Avatar */}
@@ -245,7 +280,7 @@ export default function PerfilPage() {
           </div>
 
           {/* Patrimônio */}
-          {patrimonio > 0 && (
+          {patrimonio > 0 && !ocultarValores && (
             <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', padding: '14px 20px', borderRadius: 14, textAlign: 'right', flexShrink: 0 }}>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Coleção estimada</p>
               <p style={{ fontSize: 22, fontWeight: 800, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>{fmt(patrimonio)}</p>
@@ -254,7 +289,7 @@ export default function PerfilPage() {
         </div>
 
         {/* ── PATRIMÔNIO HISTÓRICO ── */}
-        {portfolioHistory.length >= 2 && (() => {
+        {portfolioHistory.length >= 2 && !ocultarValores && (() => {
           const values = portfolioHistory.map(h => Number(h.valor))
           const minVal = Math.min(...values)
           const maxVal = Math.max(...values)
@@ -366,7 +401,7 @@ export default function PerfilPage() {
                       <p style={{ fontSize: 11, fontWeight: 600, color: '#f0f0f0', lineHeight: 1.3, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.card_name}</p>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 8, background: `${vColor}18`, color: vColor, border: `1px solid ${vColor}40` }}>{vLabel}</span>
-                        {card.maxValue > 0 && (
+                        {card.maxValue > 0 && !ocultarValores && (
                           <span style={{ fontSize: 12, fontWeight: 800, color: '#f59e0b' }}>{fmt(card.maxValue)}</span>
                         )}
                       </div>

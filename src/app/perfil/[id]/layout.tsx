@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     const { data: byUsername } = await supabaseAdmin
       .from('users')
-      .select('id, name, username')
+      .select('id, name, username, perfil_publico')
       .eq('username', id)
       .maybeSingle()
 
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     } else {
       const { data: byId } = await supabaseAdmin
         .from('users')
-        .select('id, name, username')
+        .select('id, name, username, perfil_publico')
         .eq('id', id)
         .maybeSingle()
       user = byId
@@ -39,6 +39,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       return {
         title: 'Perfil não encontrado — Bynx',
         description: 'Este perfil não existe ou foi removido.',
+      }
+    }
+
+    // S40: perfil privado -> noindex + metadata neutra (nao vaza nome/colecao
+    // pra busca). Menores de 18 e quem optou por privado caem aqui.
+    if (user.perfil_publico === false) {
+      return {
+        title: 'Perfil privado — Bynx',
+        description: 'Este perfil não está disponível publicamente.',
+        robots: { index: false, follow: false },
       }
     }
 
