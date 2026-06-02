@@ -31,6 +31,41 @@ function formatarData(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
+// S40: idade a partir de data_nascimento (null = desconhecida = tratada como adulto)
+function calcIdade(nasc?: string | null): number | null {
+  if (!nasc) return null
+  const d = new Date(nasc)
+  if (isNaN(d.getTime())) return null
+  const hoje = new Date()
+  let idade = hoje.getFullYear() - d.getFullYear()
+  const m = hoje.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && hoje.getDate() < d.getDate())) idade--
+  return idade
+}
+
+// S40: switch on/off reutilizavel pros toggles de privacidade do perfil
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={() => { if (!disabled) onChange(!checked) }}
+      aria-pressed={checked}
+      style={{
+        width: 44, height: 26, borderRadius: 100, flexShrink: 0, padding: 0,
+        background: checked ? 'linear-gradient(135deg,#f59e0b,#ef4444)' : 'rgba(255,255,255,0.12)',
+        border: 'none', position: 'relative', cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1, transition: 'background 0.2s',
+      }}
+    >
+      <span style={{
+        position: 'absolute', top: 3, left: checked ? 21 : 3,
+        width: 20, height: 20, borderRadius: '50%', background: '#fff',
+        transition: 'left 0.2s',
+      }} />
+    </button>
+  )
+}
+
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 
 const SURFACE: React.CSSProperties = {
@@ -110,6 +145,10 @@ export default function MinhaConta() {
   const [whatsapp, setWhatsapp] = useState('')
   const [city, setCity] = useState('')
 
+  // S40: privacidade do perfil publico
+  const [perfilPublico, setPerfilPublico] = useState(true)
+  const [perfilOcultarValores, setPerfilOcultarValores] = useState(false)
+
   // ── Load ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -133,6 +172,8 @@ export default function MinhaConta() {
         setUsernameChangedAt(profile.username_changed_at || null)
         setWhatsapp(profile.whatsapp || '')
         setCity(profile.city || '')
+        setPerfilPublico(profile.perfil_publico ?? true)
+        setPerfilOcultarValores(profile.perfil_ocultar_valores ?? false)
       }
 
       // Contagem de cartas
@@ -303,6 +344,22 @@ export default function MinhaConta() {
 
   // ── Alterar senha ──────────────────────────────────────────────────────────
 
+  // S40: salva na hora os toggles de privacidade do perfil (update otimista).
+  async function updatePerfilFlag(campo: 'perfil_publico' | 'perfil_ocultar_valores', valor: boolean) {
+    if (campo === 'perfil_publico') setPerfilPublico(valor)
+    else setPerfilOcultarValores(valor)
+
+    const { error } = await supabase.from('users').update({ [campo]: valor }).eq('id', user.id)
+    if (error) {
+      // reverte em caso de erro
+      if (campo === 'perfil_publico') setPerfilPublico(!valor)
+      else setPerfilOcultarValores(!valor)
+      showAlert('Erro ao salvar preferencia. Tente novamente.', 'error')
+    } else {
+      setUserData((prev: any) => ({ ...prev, [campo]: valor }))
+    }
+  }
+
   async function handleChangePassword() {
     const confirmed = await showConfirm({
       message: 'Enviaremos um link de alteração de senha para o seu e-mail cadastrado.',
@@ -351,7 +408,9 @@ export default function MinhaConta() {
 
   const planoFree = !isPro && !isTrial
   const isPaidPro = isPro && !isTrial  // Pro pago (não trial)
-  const LIMITE_FREE = 6 // plano Free
+  // S40: menor de 18 -> perfil forcado privado (LGPD). NULL = adulto.
+  const idade = calcIdade(userData?.data_nascimento)
+  const isMenor = idade !== null && idade < 18
 
   return (
     <AppLayout>
@@ -400,18 +459,56 @@ export default function MinhaConta() {
             </div>
             <button
               onClick={() => {
-                if (planoFree) { showAlert('O Perfil Público é exclusivo do plano Pro. Faça upgrade para compartilhar sua coleção!', 'warning'); return }
+                if (!perfilPublico) { showAlert('Ative o "Perfil público" na seção abaixo para compartilhar seu link.', 'info'); return }
                 const url = `${window.location.origin}/perfil/${userData?.username || user?.id}`
                 navigator.clipboard?.writeText(url)
                   .then(() => showAlert('Link do perfil copiado!', 'success'))
                   .catch(() => showAlert(url, 'info'))
               }}
-              title={planoFree ? 'Disponível no plano Pro' : ''}
-              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${planoFree ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'}`, color: planoFree ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.5)', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: planoFree ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+              title={perfilPublico ? 'Copiar link do perfil' : 'Ative o perfil público para compartilhar'}
+              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${perfilPublico ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)'}`, color: perfilPublico ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
             >
-              <>{planoFree ? <IconShield size={13} color='currentColor' style={{marginRight:5}} /> : <IconLink size={13} color='currentColor' style={{marginRight:5}} />}{planoFree ? 'Perfil Público (Pro)' : 'Compartilhar perfil'}</>
+              <IconLink size={13} color='currentColor' style={{marginRight:5}} />Compartilhar perfil
             </button>
           </div>
+        </div>
+
+        {/* ── PERFIL PÚBLICO ── */}
+        <div style={SURFACE}>
+          <p style={SECTION_TITLE}><IconShare size={13} color='currentColor' style={{marginRight:6,verticalAlign:'middle'}} />Perfil público</p>
+
+          {isMenor ? (
+            <div style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <IconShield size={16} color='#60a5fa' style={{ flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
+                Perfis de usuários menores de 18 anos são mantidos <strong style={{ color: '#93c5fd' }}>privados</strong> por padrão, conforme nossa Política de Privacidade e a LGPD.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {/* Toggle: perfil público */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 3 }}>Perfil público</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                    Deixa sua coleção visível em <span style={{ color: 'rgba(255,255,255,0.6)' }}>bynx.gg/perfil/{username || 'seuusername'}</span> pra qualquer pessoa.
+                  </p>
+                </div>
+                <Toggle checked={perfilPublico} onChange={v => updatePerfilFlag('perfil_publico', v)} />
+              </div>
+
+              {/* Toggle: esconder valores */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, opacity: perfilPublico ? 1 : 0.4 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 3 }}>Esconder valores</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                    Oculta o valor estimado da coleção, o histórico de patrimônio e os preços no seu perfil público.
+                  </p>
+                </div>
+                <Toggle checked={perfilOcultarValores} disabled={!perfilPublico} onChange={v => updatePerfilFlag('perfil_ocultar_valores', v)} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── DADOS PESSOAIS ── */}
@@ -586,30 +683,20 @@ export default function MinhaConta() {
           {planoFree ? (
             <>
               {/* Plano atual + barra de uso */}
+              {/* Plano atual + contagem (S40: carta e ilimitada, sem medidor de limite) */}
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Plano Free</p>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Gratuito · sem data de expiração</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Gratuito · cartas ilimitadas · sem expiração</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Cartas</p>
-                    <p style={{ fontSize: 18, fontWeight: 800, color: cardCount >= LIMITE_FREE ? '#ef4444' : '#f59e0b' }}>
-                      {cardCount}<span style={{ fontSize: 12, fontWeight: 400, color: 'rgba(255,255,255,0.3)' }}>/{LIMITE_FREE}</span>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Na coleção</p>
+                    <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>
+                      {cardCount}<span style={{ fontSize: 12, fontWeight: 400, color: 'rgba(255,255,255,0.3)' }}> carta{cardCount !== 1 ? 's' : ''}</span>
                     </p>
                   </div>
                 </div>
-                <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 100, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${Math.min((cardCount / LIMITE_FREE) * 100, 100)}%`,
-                    background: cardCount >= LIMITE_FREE ? 'linear-gradient(90deg,#ef4444,#dc2626)' : 'linear-gradient(90deg,#f59e0b,#ef4444)',
-                    borderRadius: 100, transition: 'width 0.5s ease',
-                  }} />
-                </div>
-                {cardCount >= LIMITE_FREE && (
-                  <p style={{ fontSize: 11, color: '#ef4444', marginTop: 6, display:'flex', alignItems:'center', gap:3 }}><IconWarning size={10} color='currentColor' />Limite atingido — faça upgrade para continuar</p>
-                )}
               </div>
 
               {/* Limitações do Free */}
@@ -621,7 +708,7 @@ export default function MinhaConta() {
                     { txt: '3 anúncios no Marketplace', ok: true },
                     { txt: 'Pokédex completa', ok: true },
                     { txt: 'Dashboard financeiro', ok: true },
-                    { txt: 'Perfil público', ok: false },
+                    { txt: 'Perfil público', ok: true },
                     { txt: 'Exportar CSV', ok: false },
                     { txt: 'Anúncios ilimitados', ok: false },
                   ].map(f => (
@@ -925,7 +1012,7 @@ export default function MinhaConta() {
 
             {/* Benefícios */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 20 }} className="mc-upgrade-grid">
-              {['Cartas ilimitadas', 'Perfil público', 'Marketplace ilimitado', 'Alertas de preço', 'Scan com IA', 'Exportar CSV', 'Separadores de Fichário'].map(b => (
+              {['Marketplace ilimitado', 'Alertas de preço', 'Scan com IA', 'Exportar CSV', 'Separadores de Fichário'].map(b => (
                 <p key={b} style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ color: '#22c55e', fontSize: 10 }}>✓</span> {b}
                 </p>
