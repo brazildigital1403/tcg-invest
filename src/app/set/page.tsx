@@ -15,8 +15,8 @@
  * 4. UX: user explora visualmente toda a biblioteca
  *
  * Cobre AMBOS os tipos:
- * - Sets oficiais (245): com series, logo, release_date, name_pt
- * - Sets Liga-only (63): agrupados em "Liga BR — Coleções Brasileiras"
+ * - Sets oficiais: com series, logo, release_date, name_pt
+ * - Sets especiais/Liga-only: agrupados em "Coleções Especiais & Promos"
  */
 
 import type { Metadata } from 'next'
@@ -24,9 +24,9 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 
-// ISR: regenera cada 24h. Hub é estável (sets raramente mudam), mas valores
-// agregados podem variar — 24h equilibra freshness vs custo.
-export const revalidate = 86400
+// ISR: regenera a cada 1h. Como o catálogo cresce (scan contínuo), os agregados
+// do topo (sets/cartas/valor) precisam refletir mudanças sem esperar 24h.
+export const revalidate = 3600
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -74,7 +74,7 @@ const SERIES_PT: Record<string, string> = {
   NP: 'NP Series',
   WCD: 'World Championship Decks',
   Other: 'Outras Edições',
-  'Liga BR': 'Liga BR — Coleções Brasileiras',
+  Especiais: 'Coleções Especiais & Promos',
 }
 
 // ─── Fetch ─────────────────────────────────────────────────────────────────
@@ -93,29 +93,19 @@ async function fetchAllSets(): Promise<SeriesGroup[]> {
     )
     .order('release_date', { ascending: false, nullsFirst: false })
 
-  // 2. Stats por set_id (de pokemon_cards) — uma única query
-  // Limit 30k garante cobertura de todas as ~25k cartas
-  const { data: cardStats } = await sb
-    .from('pokemon_cards')
-    .select('set_id, set_name, preco_medio, id')
-    .not('set_id', 'is', null)
-    .limit(30000)
+  // 2. Stats por set_id agregados NO BANCO (RPC) — sem cap de linhas, escala com o catálogo
+  const { data: cardStats } = await sb.rpc('set_index_stats')
 
-  // Agrega stats por set_id
   const statsBySetId = new Map<
     string,
     { cardsCount: number; totalValueBrl: number; firstSetName?: string }
   >()
-  for (const c of cardStats || []) {
-    const setId = c.set_id as string
-    const prev = statsBySetId.get(setId) || {
-      cardsCount: 0,
-      totalValueBrl: 0,
-      firstSetName: c.set_name as string | undefined,
-    }
-    prev.cardsCount += 1
-    prev.totalValueBrl += Number(c.preco_medio) || 0
-    statsBySetId.set(setId, prev)
+  for (const c of (cardStats as any[]) || []) {
+    statsBySetId.set(c.set_id as string, {
+      cardsCount: Number(c.cards_count) || 0,
+      totalValueBrl: Number(c.total_value_brl) || 0,
+      firstSetName: (c.sample_set_name as string | null) || undefined,
+    })
   }
 
   // 3. Mapa de officialSet por id pra lookup O(1)
@@ -148,18 +138,21 @@ async function fetchAllSets(): Promise<SeriesGroup[]> {
         totalValueBrl: stats.totalValueBrl,
       })
     } else {
-      // Set Liga-only (sem row em pokemon_sets)
-      const isLigaOnly = !!stats.firstSetName?.startsWith('Liga BR')
+      // Sem row em pokemon_sets = coleção especial / Liga-only
+      const cleanName =
+        stats.firstSetName && !stats.firstSetName.startsWith('Liga BR')
+          ? stats.firstSetName
+          : `Set ${setId.toUpperCase()}`
       allSummaries.push({
         id: setId,
-        name: stats.firstSetName || `Set ${setId.toUpperCase()}`,
+        name: cleanName,
         namePt: null,
-        series: isLigaOnly ? 'Liga BR' : 'Other',
+        series: 'Especiais',
         releaseYear: null,
         releaseDate: null,
         printedTotal: null,
         logoUrl: null,
-        isLigaOnly,
+        isLigaOnly: true,
         cardsCount: stats.cardsCount,
         totalValueBrl: stats.totalValueBrl,
       })
@@ -201,10 +194,10 @@ async function fetchAllSets(): Promise<SeriesGroup[]> {
     })
   }
 
-  // 7. Sort grupos: Liga BR sempre no final, resto por release mais recente
+  // 7. Sort grupos: Especiais sempre no final, resto por release mais recente
   const groups = Array.from(groupsMap.values()).sort((a, b) => {
-    if (a.series === 'Liga BR') return 1
-    if (b.series === 'Liga BR') return -1
+    if (a.series === 'Especiais') return 1
+    if (b.series === 'Especiais') return -1
     if (!a.latestRelease && !b.latestRelease) return 0
     if (!a.latestRelease) return 1
     if (!b.latestRelease) return -1
@@ -228,16 +221,18 @@ export async function generateMetadata(): Promise<Metadata> {
   // Stats globais pro título dinâmico
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  let totalSets = 308
-  let totalCards = 24332
+  let totalSets = 690
+  let totalCards = 54000
 
   if (supabaseUrl && supabaseAnon) {
     try {
       const sb = createClient(supabaseUrl, supabaseAnon)
-      const { count: cardCount } = await sb
-        .from('pokemon_cards')
-        .select('id', { count: 'exact', head: true })
-      if (cardCount) totalCards = cardCount
+      const { data: stats } = await sb.rpc('set_index_stats')
+      const rows = (stats as any[]) || []
+      if (rows.length) {
+        totalSets = rows.length
+        totalCards = rows.reduce((s, r) => s + (Number(r.cards_count) || 0), 0)
+      }
     } catch {
       // fallback nos defaults
     }
