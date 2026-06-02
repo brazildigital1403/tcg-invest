@@ -60,6 +60,23 @@ export async function GET(req: NextRequest) {
       console.error('[admin/metrics] cards count failed:', e?.message)
     }
 
+    // ─── Catálogo: valor total + tops (S40) ────────────────────────────────
+    let catalogValue = 0
+    let topCards: any[] = []
+    let topCollectors: any[] = []
+    try {
+      const [cv, tc, tcoll] = await Promise.all([
+        sb.rpc('admin_catalog_total_value'),
+        sb.rpc('admin_top_owned_cards', { lim: 10 }),
+        sb.rpc('admin_top_collectors', { lim: 10 }),
+      ])
+      catalogValue  = Number(cv.data) || 0
+      topCards      = Array.isArray(tc.data) ? tc.data : []
+      topCollectors = Array.isArray(tcoll.data) ? tcoll.data : []
+    } catch (e: any) {
+      console.error('[admin/metrics] catalog aggregates failed:', e?.message)
+    }
+
     return NextResponse.json({
       tickets: {
         open:        openTk.count  || 0,
@@ -73,7 +90,9 @@ export async function GET(req: NextRequest) {
         pro:    proUsers,
         trial:  trialUsers,
       },
-      cards: { total: totalCards },
+      cards: { total: totalCards, catalogValue },
+      topCards,
+      topCollectors,
     })
   } catch (err: any) {
     console.error('[admin/metrics]', err?.message)

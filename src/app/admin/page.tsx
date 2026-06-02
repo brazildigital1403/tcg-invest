@@ -6,8 +6,13 @@ import Link from 'next/link'
 type Metrics = {
   tickets: { open: number; in_progress: number; resolved: number; last7: number }
   users:   { total: number; new7d: number; pro: number; trial: number }
-  cards:   { total: number }
+  cards:   { total: number; catalogValue: number }
+  topCards: { card_name: string; variante: string | null; preco_medio: number; owner_name: string; owner_username: string | null }[]
+  topCollectors: { name: string; username: string | null; total_cartas: number }[]
 }
+
+const fmtBRL = (n: number) =>
+  (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export default function AdminDashboard() {
   const [m, setM] = useState<Metrics | null>(null)
@@ -71,7 +76,34 @@ export default function AdminDashboard() {
       <SectionTitle>Conteúdo</SectionTitle>
       <Grid>
         <Card label="Cartas cadastradas" value={m?.cards.total?.toLocaleString('pt-BR')} color="#f59e0b" />
+        <Card label="Valor do catálogo"  value={m ? fmtBRL(m.cards.catalogValue) : undefined} color="#22c55e" />
       </Grid>
+
+      {/* Top 10 cartas mais valiosas (com dono) */}
+      <SectionTitle>Top 10 cartas mais valiosas (por dono)</SectionTitle>
+      <RankList
+        rows={m?.topCards?.map((c, i) => ({
+          rank: i + 1,
+          main: c.card_name + (c.variante && c.variante !== 'normal' ? ` · ${c.variante}` : ''),
+          sub: c.owner_username ? `@${c.owner_username} · ${c.owner_name}` : c.owner_name,
+          href: c.owner_username ? `/perfil/${c.owner_username}` : undefined,
+          right: fmtBRL(c.preco_medio),
+          rightColor: '#22c55e',
+        }))}
+      />
+
+      {/* Top 10 colecionadores */}
+      <SectionTitle>Top 10 colecionadores (por nº de cartas)</SectionTitle>
+      <RankList
+        rows={m?.topCollectors?.map((c, i) => ({
+          rank: i + 1,
+          main: c.name,
+          sub: c.username ? `@${c.username}` : '—',
+          href: c.username ? `/perfil/${c.username}` : undefined,
+          right: `${Number(c.total_cartas).toLocaleString('pt-BR')} cartas`,
+          rightColor: '#f59e0b',
+        }))}
+      />
 
       <div style={{ marginTop: 32, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Link href="/admin/tickets" style={btnPrimary}>Gerenciar tickets</Link>
@@ -141,6 +173,36 @@ function Card({ label, value, color, href }: { label: string; value: any; color:
     </div>
   )
   return href ? <Link href={href} style={{ textDecoration: 'none' }}>{inner}</Link> : inner
+}
+
+type RankRowData = { rank: number; main: string; sub: string; right: string; rightColor: string; href?: string }
+
+function RankList({ rows }: { rows?: RankRowData[] }) {
+  const wrap = (txt: string) => (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '18px 20px', fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{txt}</div>
+  )
+  if (!rows) return wrap('Carregando…')
+  if (rows.length === 0) return wrap('Sem dados ainda.')
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden' }}>
+      {rows.map((r, i) => {
+        const inner = (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px', borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.05)' }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.35)', width: 22, flexShrink: 0 }}>{r.rank}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 14, color: '#f0f0f0', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.main}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{r.sub}</p>
+            </div>
+            <span style={{ fontSize: 14, fontWeight: 800, color: r.rightColor, flexShrink: 0 }}>{r.right}</span>
+          </div>
+        )
+        return r.href
+          ? <Link key={i} href={r.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block' }}>{inner}</Link>
+          : <div key={i}>{inner}</div>
+      })}
+    </div>
+  )
 }
 
 const btnPrimary: React.CSSProperties = {
