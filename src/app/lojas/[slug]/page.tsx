@@ -15,10 +15,18 @@ export const dynamic = 'force-dynamic'
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Evento {
-  titulo?: string
-  data?: string
-  descricao?: string
-  link?: string
+  id: string
+  titulo: string
+  tipo: string
+  data_inicio: string
+  data_fim: string | null
+  recorrencia: string
+  recorrencia_fim: string | null
+  local: string | null
+  descricao: string | null
+  link: string | null
+  banner: string | null
+  status: string
 }
 
 interface Loja {
@@ -40,7 +48,7 @@ interface Loja {
   verificada: boolean | null
   logo_url: string | null
   fotos: string[] | null
-  eventos: Evento[] | null
+  // eventos: campo jsonb legado (dormente). Eventos agora vêm da tabela loja_eventos.
   meta_title: string | null
   meta_description: string | null
 }
@@ -135,13 +143,59 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-function formatarData(d?: string): string {
-  if (!d) return ''
-  try {
-    return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  } catch {
-    return d
+const TIPO_LABELS: Record<string, string> = {
+  torneio: 'Torneio',
+  liga: 'Liga',
+  pre_lancamento: 'Pré-lançamento',
+  encontro: 'Encontro',
+  outro: 'Evento',
+}
+
+function rotuloQuando(ev: Evento): string {
+  const d = new Date(ev.data_inicio)
+  if (isNaN(d.getTime())) return ''
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (!ev.recorrencia || ev.recorrencia === 'nenhuma') {
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) + `, ${hora}`
   }
+  const dia = d.toLocaleDateString('pt-BR', { weekday: 'long' })
+  if (ev.recorrencia === 'semanal') return `Toda ${dia}, ${hora}`
+  if (ev.recorrencia === 'quinzenal') return `Quinzenal · ${dia}, ${hora}`
+  if (ev.recorrencia === 'mensal') return `Mensal · dia ${d.getDate()}, ${hora}`
+  return hora
+}
+
+// Eventos publicados da loja (tabela loja_eventos; RLS permite leitura anônima
+// só de status='publicado'). Mantém recorrentes em andamento + pontuais futuros.
+async function buscarEventos(lojaId: string): Promise<Evento[]> {
+  const { data } = await supabase
+    .from('loja_eventos')
+    .select('*')
+    .eq('loja_id', lojaId)
+    .eq('status', 'publicado')
+    .order('data_inicio', { ascending: true })
+
+  const linhas = (data as Evento[]) || []
+  const agora = Date.now()
+  const inicioHoje = new Date()
+  inicioHoje.setHours(0, 0, 0, 0)
+
+  const relevantes = linhas.filter((e) => {
+    if (e.recorrencia && e.recorrencia !== 'nenhuma') {
+      return !e.recorrencia_fim || new Date(e.recorrencia_fim).getTime() >= agora
+    }
+    const fim = e.data_fim || e.data_inicio
+    return new Date(fim).getTime() >= inicioHoje.getTime()
+  })
+
+  relevantes.sort((a, b) => {
+    const ra = a.recorrencia && a.recorrencia !== 'nenhuma' ? 0 : 1
+    const rb = b.recorrencia && b.recorrencia !== 'nenhuma' ? 0 : 1
+    if (ra !== rb) return ra - rb
+    return new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime()
+  })
+
+  return relevantes
 }
 
 // ─── Página ───────────────────────────────────────────────────────────────────
@@ -158,7 +212,7 @@ export default async function LojaPage(
   const nome           = loja.nome || 'Loja sem nome'
   const especialidades = loja.especialidades || []
   const fotos          = loja.fotos || []
-  const eventos        = loja.eventos || []
+  const eventos        = await buscarEventos(loja.id)
   const cidade         = loja.cidade || ''
   const estado         = loja.estado || ''
   const tipo           = loja.tipo || 'online'
@@ -321,10 +375,16 @@ export default async function LojaPage(
           <section style={S.card}>
             <h2 style={S.sectionTitle}>Eventos e torneios</h2>
             <div style={S.eventosList}>
-              {eventos.map((evento, i) => (
-                <div key={i} style={S.eventoCard}>
+              {eventos.map((evento) => (
+                <div key={evento.id} style={S.eventoCard}>
+                  {evento.banner && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={evento.banner} alt="" style={S.eventoBanner} />
+                  )}
+                  <span style={S.eventoTipo}>{TIPO_LABELS[evento.tipo] || 'Evento'}</span>
                   {evento.titulo && <h3 style={S.eventoTitulo}>{evento.titulo}</h3>}
-                  {evento.data && <p style={S.eventoData}>{formatarData(evento.data)}</p>}
+                  <p style={S.eventoData}>{rotuloQuando(evento)}</p>
+                  {evento.local && <p style={S.eventoLocal}>📍 {evento.local}</p>}
                   {evento.descricao && <p style={S.eventoDescricao}>{evento.descricao}</p>}
                   {evento.link && (
                     <a href={normalizarUrlSocial(evento.link) || '#'} target="_blank" rel="noopener noreferrer" style={S.eventoLink}>
@@ -607,6 +667,32 @@ const S: Record<string, CSSProperties> = {
     color: '#f59e0b',
     fontWeight: 600,
     textDecoration: 'none',
+  },
+  eventoBanner: {
+    width: '100%',
+    maxHeight: 160,
+    objectFit: 'cover',
+    borderRadius: 8,
+    marginBottom: 10,
+    display: 'block',
+  },
+  eventoTipo: {
+    display: 'inline-block',
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    color: '#f59e0b',
+    background: 'rgba(245,158,11,0.12)',
+    border: '1px solid rgba(245,158,11,0.3)',
+    padding: '2px 8px',
+    borderRadius: 100,
+    marginBottom: 6,
+  },
+  eventoLocal: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    margin: '0 0 6px',
   },
 
   backWrap: {
