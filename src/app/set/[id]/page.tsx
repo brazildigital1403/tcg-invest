@@ -4,10 +4,10 @@
  * SERVER COMPONENT (S38: SEO Fase 2 — Páginas de Set).
  *
  * Cria uma página indexável por SET de Pokémon TCG. Cobre dois tipos:
- *  1. Sets oficiais (245): IDs como `sv4`, `base1`, `swsh1` — pegam metadata
+ *  1. Sets oficiais: IDs como `sv4`, `base1`, `swsh1` — pegam metadata
  *     de pokemon_sets (logo, name_pt, series, release_date).
- *  2. Sets Liga-only (67): IDs como `paf`, `mep`, `par` — fallback usa o
- *     set_name das próprias cartas (ex: "Liga BR — PAF").
+ *  2. Sets especiais/Liga-only: IDs como `paf`, `mep`, `par` — fallback usa
+ *     o set_name das próprias cartas (já com nome completo, ex: "Black & White").
  *
  * SEO bem feito por set:
  * - Title: "Fenda Paradoxal (Paradox Rift) (2023) — 266 cartas | Bynx"
@@ -27,9 +27,9 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 
-// ISR: regenera cada 24h. Set é estável (cartas raramente mudam), mas
-// preços agregados sim — 24h é equilíbrio entre freshness e custo.
-export const revalidate = 86400
+// ISR: regenera a cada 1h. Após o rename dos sets, os títulos precisam
+// refletir o nome novo sem esperar 24h; preços/contagens também mudam.
+export const revalidate = 3600
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ async function fetchSetData(
 
   // Determina natureza do set
   const firstSetName = cards[0]?.set_name
-  const isLigaOnly = !officialSet && !!firstSetName?.startsWith('Liga BR')
+  const isLigaOnly = !officialSet
 
   // Calcula valor total catalogado
   const totalValueBrl = cards.reduce(
@@ -119,7 +119,10 @@ async function fetchSetData(
       }
     : {
         id,
-        name: firstSetName || `Set ${id.toUpperCase()}`,
+        name:
+          firstSetName && !firstSetName.startsWith('Liga BR')
+            ? firstSetName
+            : `Set ${id.toUpperCase()}`,
         namePt: null,
         series: null,
         printedTotal: null,
@@ -378,7 +381,7 @@ export default async function SetPage({
                 {set.cardsCount} cartas
                 {set.series ? ` · ${set.series}` : ''}
                 {set.releaseDate ? ` · ${set.releaseDate.slice(0, 4)}` : ''}
-                {set.isLigaOnly ? ' · Cartas exclusivas Liga BR' : ''}
+                {set.isLigaOnly ? ' · Coleção especial' : ''}
               </p>
               {set.totalValueBrl > 0 && (
                 <p

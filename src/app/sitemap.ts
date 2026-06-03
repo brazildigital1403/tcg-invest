@@ -160,26 +160,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error('[sitemap] erro ao buscar lojas dinâmicas:', err)
   }
 
-  // ─── Sets (S38) ────────────────────────────────────────────────────────────
+  // ─── Sets ────────────────────────────────────────────────────────────────
   // Páginas de set são SEO-rich (long-tail PT-BR como "destinos de paldea",
-  // "coroa estelar", "fenda paradoxal"). Cobre ambos:
-  //  - Sets oficiais Pokemon TCG (em pokemon_sets, 243 rows)
-  //  - Sets Liga-only (em pokemon_cards com set_name "Liga BR — XXX")
-  // União dos set_id distintos.
+  // "coroa estelar", "fenda paradoxal"). Cobre ambos os tipos:
+  //  - Sets oficiais Pokemon TCG (em pokemon_sets)
+  //  - Sets especiais/Liga-only (sem row em pokemon_sets)
+  // set_index_stats() já retorna os set_id distintos agregados no banco
+  // (sem cap de linhas — escala com o catálogo).
   try {
-    const { data: setsRows } = await sb
-      .from('pokemon_cards')
-      .select('set_id')
-      .not('set_id', 'is', null)
-      .limit(50000)
+    const { data: setsRows } = await sb.rpc('set_index_stats')
 
-    const uniqueSetIds = Array.from(
-      new Set(
-        (setsRows || [])
-          .map((r) => r.set_id as string)
-          .filter((id) => id && isIdSafeForUrl(id)),
-      ),
-    )
+    const uniqueSetIds = ((setsRows as Array<{ set_id: string }>) || [])
+      .map((r) => r.set_id)
+      .filter((id) => id && isIdSafeForUrl(id))
 
     for (const setId of uniqueSetIds) {
       dynamicRoutes.push({
@@ -194,7 +187,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // ─── Cartas individuais ────────────────────────────────────────────────────
-  // 24.472 cartas no banco (S38). Cada carta = página long-tail rica (preços,
+  // ~55 mil cartas no banco. Cada carta = página long-tail rica (preços,
   // variantes, set, raridade). Maior win de SEO orgânico do Bynx.
   // Filtra IDs com chars problemáticos (~16 cartas malformadas).
   try {
@@ -202,7 +195,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from('pokemon_cards')
       .select('id, liga_updated_at')
       .neq('excluded_from_scan', true)
-      .limit(50000)
+      .limit(100000)
 
     for (const carta of cartas || []) {
       if (isIdSafeForUrl(carta.id)) {
