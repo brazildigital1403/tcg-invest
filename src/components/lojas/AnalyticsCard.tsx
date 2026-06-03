@@ -23,20 +23,28 @@ interface AnalyticsData {
   porTipo: Record<string, number>
   porDia: { data: string; cliques: number }[]
   porUsuario: { logados: number; anonimos: number }
+  porOrigem?: { origem: string; total: number }[]
   periodoDias: number
-  plano: 'premium'
-}
-
-interface UpgradeRequired {
-  error: string
-  requires_upgrade: true
-  plano_atual: 'basico' | 'pro'
+  desde?: string | null
+  ate?: string | null
+  tipoFiltro?: string | null
+  plano: string
+  isAdmin?: boolean
 }
 
 interface Props {
   lojaId: string
   plano: 'basico' | 'pro' | 'premium'
+  /**
+   * Modo admin: usado dentro do painel admin (modal Detalhes).
+   * - Bypassa o gate de premium (vê analytics de qualquer loja)
+   * - Autentica via cookie HMAC (sem Bearer)
+   * - Habilita período "Tudo", filtro por tipo e seção "Origem dos cliques"
+   */
+  admin?: boolean
 }
+
+type Periodo = number | 'all'
 
 const TIPO_LABELS: Record<string, { label: string; color: string; icon: string }> = {
   whatsapp:  { label: 'WhatsApp',  color: '#22c55e', icon: '💬' },
@@ -46,25 +54,29 @@ const TIPO_LABELS: Record<string, { label: string; color: string; icon: string }
   maps:      { label: 'Maps',      color: '#ef4444', icon: '📍' },
 }
 
-const PERIODOS = [
-  { dias: 7,  label: '7 dias' },
-  { dias: 30, label: '30 dias' },
-  { dias: 90, label: '90 dias' },
+const PERIODOS: { v: Periodo; label: string }[] = [
+  { v: 7,  label: '7 dias' },
+  { v: 30, label: '30 dias' },
+  { v: 90, label: '90 dias' },
 ]
 
 // ─── Componente ───────────────────────────────────────────────────────────
 
-export default function AnalyticsCard({ lojaId, plano }: Props) {
-  const [days, setDays] = useState<number>(30)
+export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
+  const [periodo, setPeriodo] = useState<Periodo>(admin ? 'all' : 30)
+  const [tipoFiltro, setTipoFiltro] = useState<string | null>(null)
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Gating no client: se NÃO é premium, não chama a API (evita request 402)
-  const isPremium = plano === 'premium'
+  // Gating no client: owner não-premium vê teaser. Admin nunca é gated.
+  const showTeaser = !admin && plano !== 'premium'
+
+  // Períodos disponíveis: owner mantém 7/30/90; admin ganha "Tudo".
+  const periodos = admin ? [...PERIODOS, { v: 'all' as Periodo, label: 'Tudo' }] : PERIODOS
 
   useEffect(() => {
-    if (!isPremium) {
+    if (showTeaser) {
       setLoading(false)
       return
     }
@@ -74,19 +86,29 @@ export default function AnalyticsCard({ lojaId, plano }: Props) {
       setLoading(true)
       setError(null)
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const token = session?.access_token
-        if (!token) {
-          if (alive) {
-            setError('Sessão expirada. Recarregue a página.')
-            setLoading(false)
+        const qs = new URLSearchParams()
+        if (periodo === 'all') qs.set('range', 'all')
+        else qs.set('days', String(periodo))
+        if (tipoFiltro) qs.set('tipo', tipoFiltro)
+        const url = `/api/lojas/${lojaId}/analytics?${qs.toString()}`
+
+        let res: Response
+        if (admin) {
+          // Admin: cookie HMAC (bynx_admin) vai junto em same-origin
+          res = await fetch(url, { credentials: 'same-origin' })
+        } else {
+          const { data: { session } } = await supabase.auth.getSession()
+          const token = session?.access_token
+          if (!token) {
+            if (alive) {
+              setError('Sessão expirada. Recarregue a página.')
+              setLoading(false)
+            }
+            return
           }
-          return
+          res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
         }
 
-        const res = await fetch(`/api/lojas/${lojaId}/analytics?days=${days}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
         const json = await res.json()
         if (!alive) return
 
@@ -104,10 +126,10 @@ export default function AnalyticsCard({ lojaId, plano }: Props) {
 
     load()
     return () => { alive = false }
-  }, [lojaId, days, isPremium])
+  }, [lojaId, periodo, tipoFiltro, admin, showTeaser])
 
-  // ─── Render: não-premium (teaser borrado + CTA) ───────────────────────
-  if (!isPremium) {
+  // ─── Render: não-premium (teaser borrado + CTA) — só owner ────────────
+  if (showTeaser) {
     return (
       <div style={S.card}>
         <div style={S.header}>
@@ -184,10 +206,17 @@ export default function AnalyticsCard({ lojaId, plano }: Props) {
     )
   }
 
-  // ─── Render: premium dashboard ────────────────────────────────────────
+  // ─── Render: dashboard ────────────────────────────────────────────────
   const totalLogados = data.porUsuario.logados
   const totalAnonimos = data.porUsuario.anonimos
   const pctLogados = data.total > 0 ? Math.round((totalLogados / data.total) * 100) : 0
+
+  const filtroLabel = tipoFiltro ? TIPO_LABELS[tipoFiltro]?.label : null
+  const subtitle =
+    (periodo === 'all'
+      ? `${data.total} clique${data.total !== 1 ? 's' : ''} no total`
+      : `${data.total} clique${data.total !== 1 ? 's' : ''} nos últimos ${data.periodoDias} dias`) +
+    (filtroLabel ? ` · filtrando ${filtroLabel}` : '')
 
   // Chart data
   const chartData = {
@@ -254,16 +283,16 @@ export default function AnalyticsCard({ lojaId, plano }: Props) {
       <div style={S.header}>
         <div>
           <h2 style={S.title}>Analytics</h2>
-          <p style={S.subtitle}>{data.total} clique{data.total !== 1 ? 's' : ''} nos últimos {data.periodoDias} dias</p>
+          <p style={S.subtitle}>{subtitle}</p>
         </div>
         <div style={S.periodoSelect}>
-          {PERIODOS.map(p => (
+          {periodos.map(p => (
             <button
-              key={p.dias}
-              onClick={() => setDays(p.dias)}
+              key={String(p.v)}
+              onClick={() => setPeriodo(p.v)}
               style={{
                 ...S.periodoBtn,
-                ...(days === p.dias ? S.periodoBtnAtivo : {}),
+                ...(periodo === p.v ? S.periodoBtnAtivo : {}),
               }}
             >
               {p.label}
@@ -272,12 +301,23 @@ export default function AnalyticsCard({ lojaId, plano }: Props) {
         </div>
       </div>
 
-      {/* KPIs por tipo de CTA */}
+      {/* KPIs por tipo de CTA. No admin, clicáveis = filtro. */}
       <div style={S.kpiGrid}>
         {Object.entries(TIPO_LABELS).map(([key, info]) => {
           const valor = data.porTipo[key] || 0
+          const ativo = tipoFiltro === key
           return (
-            <div key={key} style={S.kpiCard}>
+            <div
+              key={key}
+              onClick={admin ? () => setTipoFiltro(ativo ? null : key) : undefined}
+              role={admin ? 'button' : undefined}
+              title={admin ? (ativo ? 'Remover filtro' : `Filtrar por ${info.label}`) : undefined}
+              style={{
+                ...S.kpiCard,
+                ...(admin ? S.kpiClickable : {}),
+                ...(ativo ? { borderColor: info.color, background: 'rgba(255,255,255,0.05)' } : {}),
+              }}
+            >
               <div style={S.kpiIcon}>{info.icon}</div>
               <div style={{ ...S.kpiValue, color: valor > 0 ? info.color : 'rgba(255,255,255,0.3)' }}>
                 {valor}
@@ -288,18 +328,24 @@ export default function AnalyticsCard({ lojaId, plano }: Props) {
         })}
       </div>
 
+      {admin && tipoFiltro && (
+        <button onClick={() => setTipoFiltro(null)} style={S.limparFiltro}>
+          ✕ Limpar filtro ({filtroLabel})
+        </button>
+      )}
+
       {/* Gráfico temporal */}
       <div style={S.chartWrap}>
         {data.total === 0 ? (
           <div style={S.emptyChart}>
-            Nenhum clique registrado nos últimos {data.periodoDias} dias.
+            Nenhum clique registrado no período.
           </div>
         ) : (
           <Line data={chartData} options={chartOptions} />
         )}
       </div>
 
-      {/* Stats de origem */}
+      {/* Logados vs anônimos */}
       {data.total > 0 && (
         <div style={S.statsRow}>
           <div style={S.statItem}>
@@ -315,6 +361,27 @@ export default function AnalyticsCard({ lojaId, plano }: Props) {
               {totalAnonimos} <span style={S.statPct}>({100 - pctLogados}%)</span>
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Origem dos cliques (só admin) — agregado por domínio, SEM IP */}
+      {admin && data.porOrigem && data.porOrigem.length > 0 && (
+        <div style={S.origemWrap}>
+          <div style={S.origemHead}>
+            Origem dos cliques <span style={S.origemHint}>(agregado, sem IP)</span>
+          </div>
+          {data.porOrigem.slice(0, 12).map(o => {
+            const pct = data.total > 0 ? Math.round((o.total / data.total) * 100) : 0
+            return (
+              <div key={o.origem} style={S.origemRow}>
+                <span style={S.origemNome} title={o.origem}>{o.origem}</span>
+                <div style={S.origemBarTrack}>
+                  <div style={{ ...S.origemBarFill, width: `${pct}%` }} />
+                </div>
+                <span style={S.origemVal}>{o.total}</span>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -370,6 +437,7 @@ const S: Record<string, CSSProperties> = {
     background: 'rgba(255,255,255,0.04)',
     padding: 3,
     borderRadius: 10,
+    flexWrap: 'wrap',
   },
   periodoBtn: {
     background: 'transparent',
@@ -403,6 +471,10 @@ const S: Record<string, CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
+    transition: 'all 0.15s',
+  },
+  kpiClickable: {
+    cursor: 'pointer',
   },
   kpiIcon: {
     fontSize: 20,
@@ -420,6 +492,19 @@ const S: Record<string, CSSProperties> = {
     fontWeight: 600,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
+  },
+  limparFiltro: {
+    alignSelf: 'flex-start',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    fontWeight: 600,
+    padding: '6px 12px',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    marginTop: -8,
   },
 
   // Chart
@@ -477,6 +562,66 @@ const S: Record<string, CSSProperties> = {
   statDivider: {
     width: 1,
     background: 'rgba(255,255,255,0.05)',
+  },
+
+  // Origem (admin)
+  origemWrap: {
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+  },
+  origemHead: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: 'rgba(255,255,255,0.7)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+  origemHint: {
+    fontSize: 10,
+    fontWeight: 600,
+    color: 'rgba(255,255,255,0.3)',
+    textTransform: 'none',
+    letterSpacing: 0,
+  },
+  origemRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+  },
+  origemNome: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    width: 130,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  origemBarTrack: {
+    flex: 1,
+    height: 6,
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: 100,
+    overflow: 'hidden',
+  },
+  origemBarFill: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
+    borderRadius: 100,
+  },
+  origemVal: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: '#f0f0f0',
+    width: 32,
+    textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums',
+    flexShrink: 0,
   },
 
   // Loading / erro

@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAppModal } from '@/components/ui/useAppModal'
+import AnalyticsCard from '@/components/lojas/AnalyticsCard'
 
 type Loja = {
   id: string
@@ -781,6 +782,11 @@ function LojasView() {
               }}>
                 Fechar
               </button>
+            </div>
+
+            {/* Analytics da loja — admin vê de qualquer plano (bypassa o gate premium) */}
+            <div style={{ marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 20 }}>
+              <AnalyticsCard admin lojaId={detailsLoja.id} plano={detailsLoja.plano} />
             </div>
           </div>
         </div>
