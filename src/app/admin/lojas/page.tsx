@@ -546,6 +546,26 @@ function LojasView() {
                     <BtnAction onClick={() => setDetailsLoja(l)} busy={busy} color="rgba(255,255,255,0.6)" variant="ghost">
                       Detalhes
                     </BtnAction>
+
+                    <Link
+                      href={`/admin/lojas/${l.id}/eventos`}
+                      style={{
+                        background: 'rgba(245,158,11,0.10)',
+                        border: '1px solid rgba(245,158,11,0.35)',
+                        color: '#f59e0b',
+                        padding: '6px 12px',
+                        borderRadius: 8,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      📅 Eventos
+                    </Link>
                   </div>
                 </div>
               )
