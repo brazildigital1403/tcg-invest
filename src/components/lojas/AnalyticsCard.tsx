@@ -364,8 +364,8 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
         </div>
       )}
 
-      {/* Origem dos cliques (só admin) — agregado por domínio, SEM IP */}
-      {admin && data.porOrigem && data.porOrigem.length > 0 && (
+      {/* Origem dos cliques (lojista premium + admin) — agregado por domínio, SEM IP */}
+      {data.porOrigem && data.porOrigem.length > 0 && (
         <div style={S.origemWrap}>
           <div style={S.origemHead}>
             Origem dos cliques <span style={S.origemHint}>(agregado, sem IP)</span>
