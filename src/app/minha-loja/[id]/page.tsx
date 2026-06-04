@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
 import AnalyticsCard from '@/components/lojas/AnalyticsCard'
+import EventosManager from '@/components/lojas/EventosManager'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -200,6 +201,14 @@ export default function MinhaLojaEditarPage({
 
         {/* ─── Analytics (Premium / teaser pros outros) ─── */}
         <AnalyticsCard lojaId={loja.id} plano={loja.plano || 'basico'} />
+
+        {/* ─── Eventos da loja ──────────────────────────── */}
+        <EventosManager
+          lojaId={loja.id}
+          sub="Divulgue torneios, ligas e encontros na sua página pública."
+          nota={loja.plano === 'premium' ? undefined : 'Eventos aparecem na sua página pública apenas no plano Premium — mas você já pode cadastrá-los para quando fizer o upgrade.'}
+        />
+
 
         {/* ─── Form ou Resumo ──────────────────────────── */}
         {editando ? (
