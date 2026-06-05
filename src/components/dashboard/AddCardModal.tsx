@@ -54,6 +54,12 @@ function cardNumberLabel(card: any): string {
   return ''
 }
 
+// Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
+function setLabel(s?: string | null): string {
+  if (!s) return ''
+  return s.replace(/^Liga BR\s*[—-]\s*/i, 'Set ').replace(/^Liga BR\b/i, 'Set')
+}
+
 export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const { showAlert } = useAppModal()
 
@@ -393,7 +399,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                               <path d="M2 50h96M50 2a48 48 0 0 1 0 96" stroke="currentColor" strokeWidth="4"/>
                               <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
                             </svg>
-                            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 1.3 }}>Liga BR</p>
+                            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 1.3 }}>Set</p>
                           </div>
                         )}
                       </div>
@@ -401,7 +407,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       <div style={{ padding: '8px 10px' }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.name}</p>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>{(() => { const n = cardNumberLabel(card); return n ? n + ' · ' : '' })()}{card.set_name?.slice(0, 12)}</p>
+                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>{(() => { const n = cardNumberLabel(card); return n ? n + ' · ' : '' })()}{setLabel(card.set_name).slice(0, 12)}</p>
                           {cardType && <span style={{ fontSize: 9, color: typeColor, fontWeight: 700 }}>{cardType}</span>}
                         </div>
                       </div>
@@ -454,7 +460,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2, lineHeight: 1.2 }}>{preview.name}</p>
                       <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 8, lineHeight: 1.3 }}>
-                        {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{preview.set_name}
+                        {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name)}
                       </p>
                       {(() => {
                         const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
@@ -512,14 +518,14 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                         <path d="M2 50h96M50 2a48 48 0 0 1 0 96" stroke="currentColor" strokeWidth="4"/>
                         <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
                       </svg>
-                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Carta Liga BR<br/>Sem imagem disponível</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Set<br/>Sem imagem disponível</p>
                     </div>
                   </div>
                 )}
 
                 <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2 }}>{preview.name}</p>
                 <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 12 }}>
-                  {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{preview.set_name} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
+                  {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name)} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
                 </p>
 
                 {/* Badges */}

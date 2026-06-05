@@ -7,6 +7,13 @@
 
 import { ReactNode } from 'react'
 
+// Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
+// "Liga BR — MEP" -> "Set MEP" ; "Liga BR" -> "Set" ; demais nomes inalterados
+function setLabel(s?: string | null): string {
+  if (!s) return ''
+  return s.replace(/^Liga BR\s*[—-]\s*/i, 'Set ').replace(/^Liga BR\b/i, 'Set')
+}
+
 export interface CardPrice {
   preco_normal?: any
   preco_min?: any
@@ -123,14 +130,17 @@ export default function CardItem({
   const variante = varianteProp || card.variante || 'normal'
   const image    = card.card_image || card.image_large || card.image_small
   const name     = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || card.name || '—'
-  // Formata número no padrão Liga: "091/124"
+  const setName  = setLabel(card.set_name)
+  // Numero impresso: "(NNN/TTT)" do nome original (cartas Liga) tem prioridade;
+  // senao monta de number + total. Nunca exibe o id interno "liga-...".
+  const _printed = String(card.card_name || card.name || '').match(/\((\d+)\/(\d+)\)/)
   const rawNum   = card.number || card.card_id?.split('/')?.[0]
   const total    = card.price?.set_total || card.set_total
-  const number   = rawNum && total
-    ? `${String(rawNum).padStart(3, '0')}/${total}`
-    : rawNum
-    ? rawNum
-    : card.card_id
+  const number   = _printed
+    ? `${_printed[1]}/${_printed[2]}`
+    : (rawNum && !String(rawNum).toLowerCase().startsWith('liga'))
+      ? (total ? `${String(rawNum).padStart(String(total).length, '0')}/${total}` : String(rawNum))
+      : ''
   const rColor   = rarityColor(card.rarity || '')
   const price    = card.price
 
@@ -202,7 +212,7 @@ export default function CardItem({
                 <path d="M2 50h96" stroke="currentColor" strokeWidth="4"/>
                 <circle cx="50" cy="50" r="14" fill="currentColor" stroke="rgba(15,17,20,1)" strokeWidth="4"/>
               </svg>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', fontWeight: 600 }}>Liga BR</p>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', fontWeight: 600 }}>Set</p>
             </div>
           </div>
         )}
@@ -242,9 +252,9 @@ export default function CardItem({
         {/* Nome + número */}
         <div>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', lineHeight: 1.3, marginBottom: 1 }}>{name}</p>
-          {(number || card.set_name) && (
+          {(number || setName) && (
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
-              {number ? number : ''}{number && card.set_name ? ' · ' : ''}{card.set_name || ''}
+              {number ? number : ''}{number && setName ? ' · ' : ''}{setName}
             </p>
           )}
         </div>
