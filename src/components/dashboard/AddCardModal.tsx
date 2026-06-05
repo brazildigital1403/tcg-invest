@@ -37,6 +37,23 @@ const fmtBRL = (v: number | null | undefined) =>
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
     : null
 
+// Numero/total no formato impresso (ex: 051/217). Prioriza o "(NNN/TTT)" do
+// nome (cartas Liga), senao monta de number + set_total com zero a esquerda
+// ate a largura do total. Vazio se nao houver numero.
+function cardNumberLabel(card: any): string {
+  if (!card) return ''
+  const m = String(card.name || '').match(/\((\d+)\/(\d+)\)/)
+  if (m) return `${m[1]}/${m[2]}`
+  if (card.number && card.set_total) {
+    const num = String(card.number)
+    const tot = String(card.set_total)
+    const padded = /^\d+$/.test(num) ? num.padStart(tot.length, '0') : num
+    return `${padded}/${tot}`
+  }
+  if (card.number) return String(card.number)
+  return ''
+}
+
 export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const { showAlert } = useAppModal()
 
@@ -170,7 +187,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
       const number   = card.number || ''
       const total    = card.set_total ? `/${card.set_total}` : ''
-      const cardName = number ? `${card.name} (${number}${total})` : card.name
+      const numFmt   = (number && /^\d+$/.test(String(number)) && card.set_total)
+        ? String(number).padStart(String(card.set_total).length, '0')
+        : number
+      const cardName = number ? `${card.name} (${numFmt}${total})` : card.name
       const variante = variantMap[card.id] || 'normal'
       const quantity = qtyMap[card.id] || 1
 
@@ -246,7 +266,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               autoFocus
               value={searchTerm}
               onChange={e => handleSearch(e.target.value)}
-              placeholder="Ex: Charizard · PAF 109 · 4/165 · 4, 15, 23..."
+              placeholder="Ex: Charizard · 051/217 · Pikachu Ascended Heroes · Pikachu 2019..."
               style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: isMobile ? 16 : 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
@@ -297,11 +317,12 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   <rect x="2" y="3" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                   <rect x="5" y="1" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                 </svg>
-                <p style={{ fontSize: 14 }}>Busque por nome, número, código do set ou múltiplos itens</p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 8, lineHeight: 1.6 }}>
-                  Ex: <strong style={{ color: '#f59e0b' }}>Charizard</strong> · <strong style={{ color: '#f59e0b' }}>PAF 109</strong> · <strong style={{ color: '#f59e0b' }}>4/165</strong> · <strong style={{ color: '#f59e0b' }}>4, 15, 23</strong>
+                <p style={{ fontSize: 14 }}>Busque por nome, número, set, ano ou múltiplos itens</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 8, lineHeight: 1.9 }}>
+                  <strong style={{ color: '#f59e0b' }}>Charizard</strong> · <strong style={{ color: '#f59e0b' }}>051/217</strong> · <strong style={{ color: '#f59e0b' }}>PAF 109</strong><br/>
+                  <strong style={{ color: '#f59e0b' }}>Pikachu Ascended Heroes</strong> · <strong style={{ color: '#f59e0b' }}>Ascended Heroes</strong><br/>
+                  <strong style={{ color: '#f59e0b' }}>Pikachu 2019</strong> · <strong style={{ color: '#f59e0b' }}>4, 15, 23</strong>
                 </p>
-                <p style={{ fontSize: 12, opacity: 0.6 }}>Ex: Charizard, Pikachu, Mewtwo, Blastoise...</p>
               </div>
             )}
 
@@ -380,7 +401,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       <div style={{ padding: '8px 10px' }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.name}</p>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>#{card.number} · {card.set_name?.slice(0, 12)}</p>
+                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>{(() => { const n = cardNumberLabel(card); return n ? n + ' · ' : '' })()}{card.set_name?.slice(0, 12)}</p>
                           {cardType && <span style={{ fontSize: 9, color: typeColor, fontWeight: 700 }}>{cardType}</span>}
                         </div>
                       </div>
@@ -433,7 +454,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2, lineHeight: 1.2 }}>{preview.name}</p>
                       <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 8, lineHeight: 1.3 }}>
-                        #{preview.number} · {preview.set_name}
+                        {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{preview.set_name}
                       </p>
                       {(() => {
                         const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
@@ -498,7 +519,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
                 <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2 }}>{preview.name}</p>
                 <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 12 }}>
-                  #{preview.number} · {preview.set_name} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
+                  {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{preview.set_name} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
                 </p>
 
                 {/* Badges */}
