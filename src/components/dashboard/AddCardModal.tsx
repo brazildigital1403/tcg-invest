@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type UIEvent } from 'react'
 import { IconSearch } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
@@ -15,6 +15,7 @@ interface Props {
 
 const BRAND     = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const TEXT_MUTED = 'rgba(255,255,255,0.4)'
+const PAGE_SIZE = 60   // resultados por pagina (scroll infinito)
 
 const typeColors: Record<string, string> = {
   Fire: '#ef4444', Water: '#60a5fa', Grass: '#22c55e',
@@ -51,7 +52,11 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [qtyMap, setQtyMap]               = useState<Record<string, number>>({})
   const [adding, setAdding]               = useState(false)
   const [isMobile, setIsMobile]           = useState(false)
+  const [offset, setOffset]               = useState(0)
+  const [hasMore, setHasMore]             = useState(false)
+  const [loadingMore, setLoadingMore]     = useState(false)
   const searchTimeout = useRef<any>(null)
+  const resultsRef    = useRef<HTMLDivElement>(null)
 
   // ── Detecta mobile (≤768px) e escuta resize ────────────────────────────────
   useEffect(() => {
@@ -86,19 +91,53 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   async function handleSearch(value: string) {
     setSearchTerm(value)
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
-    if (!value.trim()) { setSearchResults([]); return }
+    if (!value.trim()) { setSearchResults([]); setOffset(0); setHasMore(false); return }
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true)
       try {
         const { data, error } = await supabase.rpc('smart_search_cards', {
           q: value,
-          limit_n: 48,
+          limit_n: PAGE_SIZE,
+          offset_n: 0,
         })
         if (error) throw error
-        setSearchResults(data || [])
-      } catch { setSearchResults([]) }
+        const rows = data || []
+        setSearchResults(rows)
+        setOffset(rows.length)
+        setHasMore(rows.length === PAGE_SIZE)
+        if (resultsRef.current) resultsRef.current.scrollTop = 0
+      } catch { setSearchResults([]); setOffset(0); setHasMore(false) }
       setIsSearching(false)
     }, 350)
+  }
+
+  // ── Carrega proxima pagina (scroll infinito) ────────────────────────────────
+  async function loadMore() {
+    if (loadingMore || !hasMore || !searchTerm.trim()) return
+    setLoadingMore(true)
+    try {
+      const { data, error } = await supabase.rpc('smart_search_cards', {
+        q: searchTerm,
+        limit_n: PAGE_SIZE,
+        offset_n: offset,
+      })
+      if (error) throw error
+      const rows = data || []
+      setSearchResults(prev => {
+        const seen = new Set(prev.map((c: any) => c.id))
+        const novos = rows.filter((c: any) => !seen.has(c.id))
+        return [...prev, ...novos]
+      })
+      setOffset(prev => prev + rows.length)
+      setHasMore(rows.length === PAGE_SIZE)
+    } catch { setHasMore(false) }
+    setLoadingMore(false)
+  }
+
+  function handleResultsScroll(e: UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    // dispara quando faltam <300px pro fim
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) loadMore()
   }
 
   // ── Selecionar carta ────────────────────────────────────────────────────────
@@ -187,7 +226,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             <div>
               <p style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: '#f0f0f0' }}>Adicionar carta</p>
               <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 1 }}>
-                {filtered.length > 0 ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}` : 'Busque por nome ou número'}
+                {filtered.length > 0 ? `${filtered.length}${hasMore ? '+' : ''} resultado${filtered.length !== 1 ? 's' : ''}` : 'Busque por nome ou número'}
                 {selectedCards.length > 0 && (
                   <> · <span style={{ color: '#f59e0b', fontWeight: 600 }}>{selectedCards.length} carta{selectedCards.length !== 1 ? 's' : ''} selecionada{selectedCards.length !== 1 ? 's' : ''}</span></>
                 )}
@@ -250,7 +289,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: 'hidden' }}>
 
           {/* Grid de resultados */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '12px' : '16px 20px' }}>
+          <div ref={resultsRef} onScroll={handleResultsScroll} style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '12px' : '16px 20px' }}>
 
             {!isSearching && searchResults.length === 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: TEXT_MUTED }}>
@@ -349,6 +388,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   )
                 })}
               </div>
+            )}
+
+            {!isSearching && loadingMore && (
+              <div style={{ textAlign: 'center', padding: 16, color: TEXT_MUTED, fontSize: 12 }}>Carregando mais...</div>
+            )}
+            {!isSearching && !hasMore && !loadingMore && filtered.length > 0 && (
+              <div style={{ textAlign: 'center', padding: 12, color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>Fim dos resultados</div>
             )}
           </div>
 
