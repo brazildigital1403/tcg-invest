@@ -19,6 +19,7 @@ type User = {
   created_at: string
   // S32: novos campos enriquecidos pela API
   last_sign_in_at: string | null
+  last_seen_at: string | null
   collection_count: number
   anuncios_count: number
 }
@@ -187,7 +188,7 @@ function UsersView() {
             borderRadius: 14,
             overflow: 'auto',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1100 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1240 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
                   <th style={th}>Usuário</th>
@@ -196,6 +197,7 @@ function UsersView() {
                   <th style={{ ...th, textAlign: 'right' }}>Anúncios</th>
                   <th style={{ ...th, textAlign: 'right' }}>Créditos</th>
                   <th style={{ ...th, textAlign: 'right' }}>Último acesso</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Última atividade</th>
                   <th style={{ ...th, textAlign: 'right' }}>Cadastro</th>
                   <th style={{ ...th, width: 60 }}></th>
                 </tr>
@@ -256,6 +258,9 @@ function UsersView() {
                       </td>
                       <td style={{ ...td, textAlign: 'right', color: u.last_sign_in_at ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {formatRelativeTime(u.last_sign_in_at)}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', color: u.last_seen_at ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {formatRelativeTime(u.last_seen_at)}
                       </td>
                       <td style={{ ...td, textAlign: 'right', color: 'rgba(255,255,255,0.5)', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {formatDate(u.created_at)}

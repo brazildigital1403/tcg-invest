@@ -32,6 +32,13 @@ function isAppProtected(pathname: string) {
   return APP_PROTECTED.some(p => pathname === p || pathname.startsWith(p + '/'))
 }
 
+// ─── Heartbeat de "ultima atividade" ────────────────────────────────────────
+// Grava users.last_seen_at quando o usuario navega numa area logada, com
+// throttle via cookie (escreve no maximo 1x a cada SEEN_TTL_SEC por navegador)
+// pra nao bater no banco a cada request. Distinto de last_sign_in_at (login).
+const SEEN_COOKIE  = 'bynx_seen'
+const SEEN_TTL_SEC = 600 // 10 min
+
 // ─── Bloqueia request admin sem cookie (ou com cookie inválido) ─────────────
 // Centralizada pra ser chamada em condições normais E no fallback do try/catch
 // (fail-closed: se algo der errado, NUNCA libera passagem — bloqueia).
@@ -114,6 +121,30 @@ export async function middleware(req: NextRequest) {
         const response = NextResponse.redirect(url)
         response.cookies.delete(authCookie.name)
         return response
+      }
+
+      // ─── Heartbeat: marca ultima atividade (throttle 10min via cookie) ────
+      // So escreve quando o cookie de throttle nao existe. Reusa o client
+      // service role ja criado acima. Falha de update nunca quebra navegacao.
+      if (!req.cookies.get(SEEN_COOKIE)) {
+        try {
+          await supabase
+            .from('users')
+            .update({ last_seen_at: new Date().toISOString() })
+            .eq('id', userId)
+        } catch (e) {
+          console.error('[middleware] last_seen update failed:', e)
+        }
+        // Seta o cookie independente do resultado (evita martelar o banco em
+        // caso de falha persistente — re-tenta no maximo a cada 10min).
+        const res = NextResponse.next()
+        res.cookies.set(SEEN_COOKIE, '1', {
+          maxAge: SEEN_TTL_SEC,
+          httpOnly: true,
+          sameSite: 'lax',
+          path: '/',
+        })
+        return res
       }
     } catch (err) {
       // Em caso de qualquer erro no parsing, deixa passar (não queremos quebrar login)

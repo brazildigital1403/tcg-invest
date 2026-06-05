@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     let query = sb
       .from('users')
-      .select('id, email, name, username, city, whatsapp, is_pro, plano, trial_expires_at, pro_expira_em, scan_creditos, suspended_at, created_at', { count: 'exact' })
+      .select('id, email, name, username, city, whatsapp, is_pro, plano, trial_expires_at, pro_expira_em, scan_creditos, suspended_at, created_at, last_seen_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to)
 

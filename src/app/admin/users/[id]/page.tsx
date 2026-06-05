@@ -28,6 +28,7 @@ type User = {
   created_at: string
   // S32: enriquecido pela API
   last_sign_in_at: string | null
+  last_seen_at: string | null
 }
 
 type Stats = {
@@ -457,6 +458,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
           <MiniStat label="Créditos de scan"  value={user.scan_creditos?.toString() || '0'} />
           <MiniStat label="Tickets abertos"   value={stats?.total_tickets?.toString() || '0'} />
           <MiniStat label="Último acesso"     value={fmtRelative(user.last_sign_in_at)} />
+          <MiniStat label="Última atividade"  value={fmtRelative(user.last_seen_at)} />
           <MiniStat label="Membro desde"      value={fmtDate(user.created_at)} />
         </div>
       </div>
