@@ -136,7 +136,10 @@ async function fetchAllSets(): Promise<SeriesGroup[]> {
         id: setId,
         name: official.name,
         namePt: official.name_pt,
-        series: official.series || 'Other',
+        series:
+          official.series === 'Liga BR'
+            ? 'Especiais'
+            : official.series || 'Other',
         releaseYear: official.release_date
           ? String(official.release_date).slice(0, 4)
           : null,

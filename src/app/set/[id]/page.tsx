@@ -109,7 +109,10 @@ async function fetchSetData(
         id: officialSet.id,
         name: officialSet.name,
         namePt: officialSet.name_pt,
-        series: officialSet.series,
+        series:
+          officialSet.series === 'Liga BR'
+            ? 'Coleções Especiais & Promos'
+            : officialSet.series,
         printedTotal: officialSet.printed_total,
         releaseDate: officialSet.release_date,
         logoUrl: officialSet.logo_url,
