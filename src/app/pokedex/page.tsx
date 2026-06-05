@@ -291,7 +291,7 @@ export default function Pokedex() {
       .contains('base_pokemon_names', [pokemon.name])
       .eq('supertype', 'Pokémon')
       .order('set_release_date', { ascending: false })
-      .limit(200)
+      .limit(1000)
 
     setCards((data || []).map(c => ({ ...c, price: c })))
     setLoadingCards(false)
