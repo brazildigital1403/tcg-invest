@@ -82,7 +82,10 @@ const SERIES_PT: Record<string, string> = {
 async function fetchAllSets(): Promise<SeriesGroup[]> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseAnon) return []
+  if (!supabaseUrl || !supabaseAnon) {
+    // Sem credenciais nao da pra montar a pagina — falhar alto em vez de servir vazio
+    throw new Error('Supabase env vars ausentes em /set')
+  }
   const sb = createClient(supabaseUrl, supabaseAnon)
 
   // 1. Sets oficiais (com row em pokemon_sets)
@@ -94,7 +97,14 @@ async function fetchAllSets(): Promise<SeriesGroup[]> {
     .order('release_date', { ascending: false, nullsFirst: false })
 
   // 2. Stats por set_id agregados NO BANCO (RPC) — sem cap de linhas, escala com o catálogo
-  const { data: cardStats } = await sb.rpc('set_index_stats')
+  const { data: cardStats, error: statsError } = await sb.rpc('set_index_stats')
+
+  // Resiliencia: se o RPC falhar (ex.: timeout do statement_timeout), NUNCA gerar/cachear
+  // uma pagina vazia. Lancar aqui faz o Next manter a ultima versao boa no cache
+  // (ISR stale-while-revalidate) em vez de servir a grade sem nenhum set.
+  if (statsError || cardStats == null) {
+    throw new Error(`set_index_stats indisponivel: ${statsError?.message ?? 'retorno nulo'}`)
+  }
 
   const statsBySetId = new Map<
     string,
