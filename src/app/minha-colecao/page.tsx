@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { setLabel } from '@/lib/setLabel'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { getUserPlan } from '@/lib/isPro'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
@@ -115,7 +116,7 @@ export default function MinhaColecao() {
           return [
             c.card_name?.replace(/\s*\([^)]*\)/, '').trim() || '',
             numMatch?.[1] || '',
-            c.set_name || '',
+            setLabel(c.set_name) || '',
             variante.charAt(0).toUpperCase() + variante.slice(1),
             c.rarity || '',
             qty,

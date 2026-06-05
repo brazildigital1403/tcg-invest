@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
+import { setLabel } from '@/lib/setLabel'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -191,7 +192,7 @@ export default function PerfilPage() {
             // Tenta match por name_pt primeiro, depois por name
             const setInfo = allSetsData.find(s => s.name_pt === name || s.name === name)
             return {
-              name,
+              name: setLabel(name),
               collected: setMap[name],
               total: setInfo?.total || setInfo?.printed_total || null,
               logo_url: setInfo?.logo_url || null,
