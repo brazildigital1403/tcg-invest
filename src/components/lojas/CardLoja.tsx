@@ -70,7 +70,7 @@ export default function CardLoja({ loja }: { loja: LojaCard }) {
               <span style={S.verifiedBadge} title="Loja verificada pelo Bynx">
                 {/* SVG inline (independe de Icons.tsx) */}
                 <svg width="10" height="10" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path d="M4 10l4.5 4.5L16 6" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M4 10l4.5 4.5L16 6" stroke="#1877F2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </span>
             )}
@@ -217,8 +217,8 @@ const S: Record<string, CSSProperties> = {
     width: 18,
     height: 18,
     borderRadius: '50%',
-    background: 'rgba(245,158,11,0.15)',
-    border: '1px solid rgba(245,158,11,0.3)',
+    background: 'rgba(24,119,242,0.15)',
+    border: '1px solid rgba(24,119,242,0.3)',
     flexShrink: 0,
   },
   location: {
