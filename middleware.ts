@@ -39,10 +39,22 @@ function isAppProtected(pathname: string) {
 const SEEN_COOKIE  = 'bynx_seen'
 const SEEN_TTL_SEC = 600 // 10 min
 
+// ─── Decode base64 (inclui base64url) -> JSON, UTF-8-safe ────────────────────
+// O cookie de sessao do Supabase vem em base64 (prefixo "base64-") e pode ter
+// nomes com acento (user_metadata). atob sozinho corrompe UTF-8; aqui passamos
+// pelos bytes + TextDecoder. Tambem normaliza base64url (-/_) e padding (JWT).
+function b64ToJson(b64: string): any {
+  let s = b64.replace(/-/g, '+').replace(/_/g, '/')
+  const pad = s.length % 4
+  if (pad) s += '='.repeat(4 - pad)
+  const bin = atob(s)
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0))
+  return JSON.parse(new TextDecoder().decode(bytes))
+}
+
 // ─── Bloqueia request admin sem cookie (ou com cookie inválido) ─────────────
 // Centralizada pra ser chamada em condições normais E no fallback do try/catch
 // (fail-closed: se algo der errado, NUNCA libera passagem — bloqueia).
-
 function blockAdmin(req: NextRequest, pathname: string): NextResponse {
   if (pathname.startsWith('/api/admin')) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
@@ -74,38 +86,48 @@ export async function middleware(req: NextRequest) {
     return blockAdmin(req, pathname)
   }
 
-  // ─── BLOQUEIO DE USUÁRIO SUSPENSO NO APP ──────────────────────────────
+  // ─── BLOQUEIO DE USUÁRIO SUSPENSO + HEARTBEAT NO APP ──────────────────
   if (isAppProtected(pathname)) {
-    // Procura cookie de sessão do Supabase (ex: sb-hvkcwfcvizrvhkerupfc-auth-token)
+    // Reune cookies de auth do Supabase. O @supabase/ssr DIVIDE o cookie em
+    // pedacos quando passa do limite (~3.6KB): sb-<ref>-auth-token.0, .1, ...
+    // BUG ANTIGO: so achava o nome exato terminando em '-auth-token' e ignorava
+    // os chunked, entao o bloco nunca rodava (heartbeat e suspensao off em
+    // silencio). Agora aceita unico OU fatiado e remonta na ordem.
     const allCookies = req.cookies.getAll()
-    const authCookie = allCookies.find(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
-    if (!authCookie) return NextResponse.next()
+    const authParts = allCookies
+      .filter(c => /^sb-.+-auth-token(\.\d+)?$/.test(c.name))
+      .sort((a, b) => {
+        const ai = Number(a.name.split('.').pop())
+        const bi = Number(b.name.split('.').pop())
+        return (Number.isNaN(ai) ? -1 : ai) - (Number.isNaN(bi) ? -1 : bi)
+      })
+    if (authParts.length === 0) return NextResponse.next()
 
     try {
-      // O cookie contém JSON com access_token
+      const rawValue = authParts.map(c => c.value).join('')
+
       let parsed: any = null
-      const val = authCookie.value
-      if (val.startsWith('base64-')) {
-        // Formato novo com prefixo base64-
-        const decoded = atob(val.slice('base64-'.length))
-        parsed = JSON.parse(decoded)
-      } else if (val.startsWith('[') || val.startsWith('{')) {
-        parsed = JSON.parse(val)
+      if (rawValue.startsWith('base64-')) {
+        parsed = b64ToJson(rawValue.slice('base64-'.length))
+      } else if (rawValue.startsWith('[') || rawValue.startsWith('{')) {
+        parsed = JSON.parse(rawValue)
       }
 
       const accessToken = Array.isArray(parsed) ? parsed[0] : parsed?.access_token
       if (!accessToken) return NextResponse.next()
 
-      // Decodifica JWT (só lê o payload, não valida — o Supabase já faz isso)
-      const payload = JSON.parse(atob(accessToken.split('.')[1]))
+      // Decodifica payload do JWT (so le o sub; o Supabase ja valida o token)
+      const payload = b64ToJson(accessToken.split('.')[1])
       const userId = payload.sub
       if (!userId) return NextResponse.next()
 
-      // Checa suspensão no banco (service role)
+      // Client service role (bypassa RLS)
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_KEY!
       )
+
+      // ─── Checa suspensão ────────────────────────────────────────────────
       const { data } = await supabase
         .from('users')
         .select('suspended_at')
@@ -113,28 +135,31 @@ export async function middleware(req: NextRequest) {
         .limit(1)
 
       if (data?.[0]?.suspended_at) {
-        // Redireciona pra landing com flag de suspensão
         const url = req.nextUrl.clone()
         url.pathname = '/'
         url.searchParams.set('suspended', '1')
-        // Também limpa o cookie de auth
         const response = NextResponse.redirect(url)
-        response.cookies.delete(authCookie.name)
+        // Limpa TODOS os chunks do cookie de auth
+        for (const c of authParts) response.cookies.delete(c.name)
         return response
       }
 
       // ─── Heartbeat: marca ultima atividade (throttle 10min via cookie) ────
-      // So escreve quando o cookie de throttle nao existe. Reusa o client
-      // service role ja criado acima. Falha de update nunca quebra navegacao.
+      // Reusa o client service role. Verifica o resultado: erro OU 0 linhas
+      // afetadas viram log (antes era cego). Falha nunca quebra navegacao.
       if (!req.cookies.get(SEEN_COOKIE)) {
-        try {
-          await supabase
-            .from('users')
-            .update({ last_seen_at: new Date().toISOString() })
-            .eq('id', userId)
-        } catch (e) {
-          console.error('[middleware] last_seen update failed:', e)
+        const { data: upData, error: upErr } = await supabase
+          .from('users')
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq('id', userId)
+          .select('id')
+
+        if (upErr) {
+          console.error('[middleware] last_seen update error:', upErr.message)
+        } else if (!upData || upData.length === 0) {
+          console.error('[middleware] last_seen afetou 0 linhas para', userId)
         }
+
         // Seta o cookie independente do resultado (evita martelar o banco em
         // caso de falha persistente — re-tenta no maximo a cada 10min).
         const res = NextResponse.next()
@@ -147,8 +172,8 @@ export async function middleware(req: NextRequest) {
         return res
       }
     } catch (err) {
-      // Em caso de qualquer erro no parsing, deixa passar (não queremos quebrar login)
-      console.error('[middleware] suspended check failed:', err)
+      // Qualquer erro no parsing/checagem: deixa passar (nao quebrar navegacao)
+      console.error('[middleware] app protected check failed:', err)
     }
   }
 

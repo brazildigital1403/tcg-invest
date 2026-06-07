@@ -22,6 +22,9 @@ type User = {
   last_seen_at: string | null
   collection_count: number
   anuncios_count: number
+  // S40: contagem de tickets
+  tickets_total: number
+  tickets_open: number
 }
 
 const FILTER_TABS = [
@@ -188,13 +191,14 @@ function UsersView() {
             borderRadius: 14,
             overflow: 'auto',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1240 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1340 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
                   <th style={th}>Usuário</th>
                   <th style={{ ...th, textAlign: 'center' }}>Plano</th>
                   <th style={{ ...th, textAlign: 'right' }}>Coleção</th>
                   <th style={{ ...th, textAlign: 'right' }}>Anúncios</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Tickets</th>
                   <th style={{ ...th, textAlign: 'right' }}>Créditos</th>
                   <th style={{ ...th, textAlign: 'right' }}>Último acesso</th>
                   <th style={{ ...th, textAlign: 'right' }}>Última atividade</th>
@@ -252,6 +256,18 @@ function UsersView() {
                       </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.anuncios_count > 0 ? '#60a5fa' : 'rgba(255,255,255,0.25)', fontWeight: u.anuncios_count > 0 ? 700 : 400 }}>
                         {u.anuncios_count.toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: 12 }}>
+                        {u.tickets_total === 0 ? (
+                          <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>
+                        ) : (
+                          <span>
+                            <span style={{ color: u.tickets_open > 0 ? '#f59e0b' : 'rgba(255,255,255,0.55)', fontWeight: u.tickets_open > 0 ? 700 : 400 }}>
+                              {u.tickets_open}
+                            </span>
+                            <span style={{ color: 'rgba(255,255,255,0.3)' }}> / {u.tickets_total}</span>
+                          </span>
+                        )}
                       </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.7)' }}>
                         {u.scan_creditos ?? 0}
