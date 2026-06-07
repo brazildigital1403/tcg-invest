@@ -297,6 +297,42 @@ export default function PastaDetalhe() {
     return <AppLayout><div className="p-6">Carregando pasta...</div></AppLayout>
   }
 
+  // S40: pasta travada no Free -> tela de upsell, sem acesso ao conteudo
+  if (!isPro && meta?.locked) {
+    return (
+      <AppLayout>
+        <div className="p-6" style={{ maxWidth: 560, margin: '0 auto' }}>
+          <Link href="/minha-colecao/pastas" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', marginBottom: 16 }}>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Pastas
+          </Link>
+          <div style={{ textAlign: 'center', padding: '48px 24px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 18 }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>🔒</div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>{meta.nome}</h1>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, maxWidth: 380, margin: '0 auto 20px' }}>
+              No plano Free só 1 pasta fica ativa por vez. Torne esta a sua pasta ativa, ou desbloqueie todas com o Pro.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={async () => {
+                  const { data, error } = await supabase.rpc('set_pasta_ativa', { p_pasta_id: id })
+                  if (error || !data) { showAlert('Nao foi possivel ativar essa pasta. Tente novamente.', 'error'); return }
+                  window.location.reload()
+                }}
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', color: '#f0f0f0', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Tornar esta a ativa
+              </button>
+              <Link href="/minha-conta" style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#000', padding: '11px 22px', borderRadius: 12, fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>
+                Fazer upgrade →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
   return (
     <AppLayout>
       <div className="p-6">
