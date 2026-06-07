@@ -1,70 +1,123 @@
-import { CSSProperties } from 'react'
+import { CSSProperties, cache } from 'react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { createClient } from '@supabase/supabase-js'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 
-// ─── SEO ──────────────────────────────────────────────────────────────────────
+// ─── ISR ────────────────────────────────────────────────────────────────────
+// Revalida os numeros do catalogo 1x por hora. Stats (cartas, sets, valor) vem
+// da RPC landing_stats() — mesma logica de valor do hub /set, entao os numeros
+// batem em todo o site.
+export const revalidate = 3600
 
-export const metadata: Metadata = {
-  title:
-    'Colecionar Pokémon TCG no Brasil — Bynx | Pokédex completa, preços em reais e ferramentas pra colecionador',
-  description:
-    'A casa do colecionador brasileiro de Pokémon TCG. 22.861 cartas catalogadas, 1.025 Pokémons de Bulbasaur a Pecharunt, preços em reais por variante, scan com IA e perfil público. 7 dias de Pro grátis sem cartão.',
-  keywords: [
-    'colecionar pokemon brasil', 'app coleção pokemon', 'organizar coleção pokemon',
-    'pokémon tcg brasil', 'app pokemon tcg', 'pokédex completa pokemon',
-    'preço carta pokemon brasil', 'valor coleção pokemon', 'rastrear coleção pokemon',
-    'scan carta pokemon ia', 'perfil colecionador pokemon', 'compartilhar coleção pokemon',
-    'binder pokemon online', 'inventário pokemon tcg', 'planilha coleção pokemon',
-    'aplicativo colecionador pokemon brasileiro', 'cartas pokémon em reais',
-  ],
-  openGraph: {
-    title: 'Colecionar Pokémon TCG no Brasil — Bynx',
-    description:
-      '22.861 cartas catalogadas, 1.025 Pokémons, preços em reais por variante. A casa do colecionador BR. 7 dias de Pro grátis.',
-    url: 'https://bynx.gg/colecionadores',
-    siteName: 'Bynx',
-    locale: 'pt_BR',
-    type: 'website',
-    images: [
-      {
-        url: 'https://bynx.gg/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Bynx — A plataforma do colecionador brasileiro de Pokémon TCG',
-      },
+// ─── Stats dinamicos do catalogo ──────────────────────────────────────────────
+
+type LandingStats = {
+  total_cards: number
+  total_sets: number
+  total_value_brl: number
+}
+
+// Fallback se a RPC falhar (ex.: blip de rede em build-time). Numeros reais de
+// jun/2026 — o deploy NUNCA quebra por causa disso (licao da pagina /set).
+const STATS_FALLBACK: LandingStats = {
+  total_cards: 67327,
+  total_sets: 865,
+  total_value_brl: 5844775.81,
+}
+
+// cache() memoiza dentro do mesmo render: generateMetadata + a pagina usam o
+// MESMO resultado, entao roda 1 query so por revalidacao.
+const getLandingStats = cache(async (): Promise<LandingStats> => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return STATS_FALLBACK
+
+  const sb = createClient(url, key, { auth: { persistSession: false } })
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { data, error } = await sb.rpc('landing_stats')
+      if (error) throw error
+      const row = Array.isArray(data) ? data[0] : data
+      if (row && row.total_cards != null) {
+        return {
+          total_cards: Number(row.total_cards),
+          total_sets: Number(row.total_sets),
+          total_value_brl: Number(row.total_value_brl),
+        }
+      }
+      throw new Error('landing_stats retornou vazio')
+    } catch (err) {
+      if (attempt === 3) {
+        console.error('[colecionadores] landing_stats falhou, usando fallback:', err)
+        return STATS_FALLBACK
+      }
+      await new Promise((r) => setTimeout(r, attempt * 800))
+    }
+  }
+  return STATS_FALLBACK
+})
+
+// Formatadores pt-BR
+const fmtInt = (n: number) => n.toLocaleString('pt-BR') // 67.327
+const fmtBRL = (n: number) =>
+  Math.floor(n).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0,
+  }) // R$ 5.844.775
+
+// ─── SEO (dinamico) ─────────────────────────────────────────────────────────
+
+export async function generateMetadata(): Promise<Metadata> {
+  const stats = await getLandingStats()
+  const cartas = fmtInt(stats.total_cards)
+
+  return {
+    title:
+      'Colecionar Pokémon TCG no Brasil — Bynx | Pokédex completa, preços em reais e ferramentas pra colecionador',
+    description: `A casa do colecionador brasileiro de Pokémon TCG. ${cartas} cartas catalogadas, 1.025 Pokémons de Bulbasaur a Pecharunt, preços em reais por variante, scan com IA e perfil público. 7 dias de Pro grátis sem cartão.`,
+    keywords: [
+      'colecionar pokemon brasil', 'app coleção pokemon', 'organizar coleção pokemon',
+      'pokémon tcg brasil', 'app pokemon tcg', 'pokédex completa pokemon',
+      'preço carta pokemon brasil', 'valor coleção pokemon', 'rastrear coleção pokemon',
+      'scan carta pokemon ia', 'perfil colecionador pokemon', 'compartilhar coleção pokemon',
+      'binder pokemon online', 'inventário pokemon tcg', 'planilha coleção pokemon',
+      'aplicativo colecionador pokemon brasileiro', 'cartas pokémon em reais',
     ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Bynx — A plataforma do colecionador BR de Pokémon TCG',
-    description:
-      '22.861 cartas, 1.025 Pokémons, preços em reais. 7 dias de Pro grátis.',
-    images: ['https://bynx.gg/og-image.jpg'],
-  },
-  alternates: {
-    canonical: 'https://bynx.gg/colecionadores',
-  },
+    openGraph: {
+      title: 'Colecionar Pokémon TCG no Brasil — Bynx',
+      description: `${cartas} cartas catalogadas, 1.025 Pokémons, preços em reais por variante. A casa do colecionador BR. 7 dias de Pro grátis.`,
+      url: 'https://bynx.gg/colecionadores',
+      siteName: 'Bynx',
+      locale: 'pt_BR',
+      type: 'website',
+      images: [
+        {
+          url: 'https://bynx.gg/og-image.jpg',
+          width: 1200,
+          height: 630,
+          alt: 'Bynx — A plataforma do colecionador brasileiro de Pokémon TCG',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Bynx — A plataforma do colecionador BR de Pokémon TCG',
+      description: `${cartas} cartas, 1.025 Pokémons, preços em reais. 7 dias de Pro grátis.`,
+      images: ['https://bynx.gg/og-image.jpg'],
+    },
+    alternates: {
+      canonical: 'https://bynx.gg/colecionadores',
+    },
+  }
 }
 
-// ─── JSON-LD: WebPage + BreadcrumbList + FAQPage ─────────────────────────────
-//
-// Diferente de /separadores-pokemon (Product schema com Offer), esta landing
-// é institucional/funil e usa WebPage + FAQPage. BreadcrumbList ajuda o Google
-// a entender a hierarquia (Home → Para Colecionadores).
-
-const webPageSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebPage',
-  name: 'Colecionar Pokémon TCG no Brasil — Bynx',
-  description:
-    'A casa do colecionador brasileiro de Pokémon TCG. Pokédex de 22.861 cartas, 1.025 Pokémons, preços em reais e ferramentas pra organizar a coleção.',
-  url: 'https://bynx.gg/colecionadores',
-  inLanguage: 'pt-BR',
-  isPartOf: { '@type': 'WebSite', name: 'Bynx', url: 'https://bynx.gg' },
-  primaryImageOfPage: 'https://bynx.gg/og-image.jpg',
-}
+// ─── JSON-LD: BreadcrumbList + FAQPage (sem numeros, ficam estaticos) ─────────
+// WebPage schema tem o numero de cartas, entao e montado dentro do componente
+// com o valor dinamico.
 
 const breadcrumbSchema = {
   '@context': 'https://schema.org',
@@ -140,7 +193,23 @@ const faqSchema = {
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 
-export default function ColecionadoresPage() {
+export default async function ColecionadoresPage() {
+  const stats = await getLandingStats()
+  const cartasFmt = fmtInt(stats.total_cards) // 67.327
+  const setsFmt = fmtInt(stats.total_sets)    // 865
+  const valorFmt = fmtBRL(stats.total_value_brl) // R$ 5.844.775
+
+  const webPageSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: 'Colecionar Pokémon TCG no Brasil — Bynx',
+    description: `A casa do colecionador brasileiro de Pokémon TCG. Pokédex de ${cartasFmt} cartas, 1.025 Pokémons, preços em reais e ferramentas pra organizar a coleção.`,
+    url: 'https://bynx.gg/colecionadores',
+    inLanguage: 'pt-BR',
+    isPartOf: { '@type': 'WebSite', name: 'Bynx', url: 'https://bynx.gg' },
+    primaryImageOfPage: 'https://bynx.gg/og-image.jpg',
+  }
+
   return (
     <div style={S.page}>
       {/* CSS responsivo */}
@@ -227,7 +296,7 @@ export default function ColecionadoresPage() {
 
               <p style={S.heroSubtitle}>
                 O Bynx é onde colecionadores brasileiros catalogam, valoram e compartilham suas cartas Pokémon TCG.{' '}
-                <strong style={{ color: '#f0f0f0' }}>22.861 cartas</strong>,{' '}
+                <strong style={{ color: '#f0f0f0' }}>{cartasFmt} cartas</strong>,{' '}
                 <strong style={{ color: '#f0f0f0' }}>1.025 Pokémons</strong>, preços em reais por variante. Sem caça-níquel, sem pop-up, sem inglês embolado.
               </p>
 
@@ -310,13 +379,14 @@ export default function ColecionadoresPage() {
             <p style={S.statsLabel}>O maior catálogo Pokémon TCG em português</p>
             <div style={S.statsGrid}>
               {[
-                { num: '22.861', label: 'cartas catalogadas' },
+                { num: cartasFmt, label: 'cartas catalogadas' },
                 { num: '1.025', label: 'Pokémons de Kanto a Paldea' },
-                { num: '236', label: 'sets cobertos' },
+                { num: setsFmt, label: 'sets cobertos' },
+                { num: valorFmt, label: 'valor catalogado', small: true },
                 { num: '100%', label: 'preços em reais' },
               ].map((s) => (
                 <div key={s.label} style={S.stat}>
-                  <div style={S.statNum}>{s.num}</div>
+                  <div style={{ ...S.statNum, ...(s.small ? S.statNumSmall : {}) }}>{s.num}</div>
                   <div style={S.statLabel}>{s.label}</div>
                 </div>
               ))}
@@ -368,7 +438,7 @@ export default function ColecionadoresPage() {
             <div className="col-tools-grid" style={S.toolsGrid}>
               <ToolCard
                 icon={<IconPokedex />}
-                title="Pokédex de 22.861 cartas"
+                title={`Pokédex de ${cartasFmt} cartas`}
                 desc="Catálogo completo dos sets internacionais (TCG global) e das edições brasileiras Liga Pokémon. Busca por nome com autocomplete. Filtro por tipo, raridade e geração."
               />
               <ToolCard
@@ -987,9 +1057,9 @@ const S: Record<string, CSSProperties> = {
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: 32,
-    maxWidth: 1000,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gap: 28,
+    maxWidth: 1160,
     margin: '0 auto',
   },
   stat: {
@@ -1005,6 +1075,10 @@ const S: Record<string, CSSProperties> = {
     backgroundClip: 'text',
     lineHeight: 1,
     marginBottom: 8,
+    whiteSpace: 'nowrap',
+  },
+  statNumSmall: {
+    fontSize: 'clamp(20px, 2.4vw, 28px)',
   },
   statLabel: {
     fontSize: 13,
