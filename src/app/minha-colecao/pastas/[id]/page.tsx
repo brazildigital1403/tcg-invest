@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
@@ -11,7 +11,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { IconSearch, IconClose } from '@/components/ui/Icons'
 
 const LIMITE_CARTAS_FREE = 100
-const PAGE_SIZE = 9
+const PAGE = 9
 
 const fmtBRL = (v: any) => {
   const num = Number(v)
@@ -34,6 +34,7 @@ type PastaCard = {
   quantity: number
   pokemon_api_id: string | null
   unit: number
+  posicao: number
   added_at: string
 }
 
@@ -73,7 +74,12 @@ export default function PastaDetalhe() {
   async function loadCards() {
     const { data, error } = await supabase.rpc('pasta_detalhe', { p_pasta_id: id })
     if (error) { console.error('[pasta] pasta_detalhe error:', error.message); setCards([]); return }
-    setCards((data || []).map((c: any) => ({ ...c, unit: Number(c.unit) || 0, quantity: Number(c.quantity) || 1 })))
+    setCards((data || []).map((c: any, i: number) => ({
+      ...c,
+      unit: Number(c.unit) || 0,
+      quantity: Number(c.quantity) || 1,
+      posicao: c.posicao == null ? i : Number(c.posicao),
+    })))
   }
 
   async function load() {
@@ -104,16 +110,12 @@ export default function PastaDetalhe() {
 
   useEffect(() => { if (id) load() }, [id])
 
-  // Stats client-side a partir das cartas
+  // Stats client-side
   const qtd = cards.length
   const patrimonio = cards.reduce((s, c) => s + c.unit * (c.quantity || 1), 0)
   const maisCara = cards.reduce<PastaCard | null>((max, c) => (!max || c.unit > max.unit ? c : max), null)
 
   const filtered = cards.filter(c => !search || c.card_name?.toLowerCase().includes(search.toLowerCase()))
-
-  // Fichário: agrupa em páginas de 9
-  const paginas: PastaCard[][] = []
-  for (let i = 0; i < filtered.length; i += PAGE_SIZE) paginas.push(filtered.slice(i, i + PAGE_SIZE))
 
   async function setView(mode: 'grid' | 'lista' | 'pasta') {
     setViewMode(mode)
@@ -160,11 +162,23 @@ export default function PastaDetalhe() {
       showAlert(`No plano Free cada Pasta tem até ${LIMITE_CARTAS_FREE} cartas. Faça upgrade para o Pro e tenha pastas ilimitadas.`, 'warning')
       return false
     }
-    const rows = selectedIds.map(uc => ({ pasta_id: id, user_card_id: uc }))
+    const maxPos = cards.reduce((m, c) => Math.max(m, c.posicao ?? -1), -1)
+    const rows = selectedIds.map((uc, i) => ({ pasta_id: id, user_card_id: uc, posicao: maxPos + 1 + i }))
     const { error } = await supabase.from('pasta_cards').insert(rows)
     if (error) { showAlert('Erro ao adicionar cartas.', 'error'); return false }
     await loadCards()
     return true
+  }
+
+  // Reordenar (fichário): updates = [{id, pos}]
+  async function handleMove(updates: { id: string; pos: number }[]) {
+    if (updates.length === 0) return
+    setCards(prev => prev.map(c => {
+      const u = updates.find(x => x.id === c.user_card_id)
+      return u ? { ...c, posicao: u.pos } : c
+    }))
+    const { error } = await supabase.rpc('reordenar_pasta', { p_pasta_id: id, p_itens: updates.map(u => ({ id: u.id, pos: u.pos })) })
+    if (error) { showAlert('Erro ao salvar a organização.', 'error'); await loadCards() }
   }
 
   if (loading) {
@@ -227,7 +241,7 @@ export default function PastaDetalhe() {
             Adicionar cartas
           </button>
 
-          {cards.length > 0 && (
+          {cards.length > 0 && viewMode !== 'pasta' && (
             <div style={{ position: 'relative', flex: 1, minWidth: 160, maxWidth: 320 }}>
               <IconSearch size={14} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }} />
               <input
@@ -308,43 +322,12 @@ export default function PastaDetalhe() {
           </div>
         )}
 
-        {/* FICHÁRIO (páginas 3x3) */}
-        {viewMode === 'pasta' && filtered.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {paginas.map((pagina, pi) => (
-              <div key={pi}>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Página {pi + 1}</p>
-                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                  {Array.from({ length: PAGE_SIZE }).map((_, slot) => {
-                    const c = pagina[slot]
-                    if (!c) {
-                      return <div key={`empty-${pi}-${slot}`} style={{ aspectRatio: '63/88', borderRadius: 8, border: '1.5px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.015)' }} />
-                    }
-                    return (
-                      <div key={c.user_card_id} title={c.card_name} style={{ position: 'relative', aspectRatio: '63/88', borderRadius: 8, overflow: 'hidden', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        {c.card_image
-                          ? <img src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                          : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 28 }}>🃏</div>}
-                        {c.quantity > 1 && (
-                          <span style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'rgba(0,0,0,0.7)', color: '#fff' }}>x{c.quantity}</span>
-                        )}
-                        <button
-                          onClick={() => handleRemoveFromPasta(c.user_card_id)}
-                          title="Remover da pasta"
-                          style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 7, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.85)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <IconClose size={12} />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* FICHÁRIO (álbum) */}
+        {viewMode === 'pasta' && (
+          <Binder cards={cards} onMove={handleMove} onRemove={handleRemoveFromPasta} />
         )}
 
-        {filtered.length === 0 && cards.length > 0 && (
+        {filtered.length === 0 && cards.length > 0 && viewMode !== 'pasta' && (
           <div style={{ textAlign: 'center', padding: '50px 24px', color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>Nenhuma carta encontrada nesta pasta.</div>
         )}
       </div>
@@ -360,6 +343,222 @@ export default function PastaDetalhe() {
         />
       )}
     </AppLayout>
+  )
+}
+
+/* ───────────────────────── Fichário (álbum físico) ───────────────────────── */
+function Binder({
+  cards, onMove, onRemove,
+}: {
+  cards: PastaCard[]
+  onMove: (updates: { id: string; pos: number }[]) => void
+  onRemove: (ucId: string) => void
+}) {
+  const [isMobile, setIsMobile] = useState(false)
+  const [spread, setSpread] = useState(0)
+  const [extraSpreads, setExtraSpreads] = useState(0)
+  const [ghost, setGhost] = useState<{ x: number; y: number; card: PastaCard } | null>(null)
+  const [overPos, setOverPos] = useState<number | null>(null)
+  const dragRef = useRef<{ ucId: string; fromPos: number } | null>(null)
+  const byPosRef = useRef<Map<number, PastaCard>>(new Map())
+  const flipDirRef = useRef<'next' | 'prev'>('next')
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const f = () => setIsMobile(mq.matches)
+    f()
+    mq.addEventListener('change', f)
+    return () => mq.removeEventListener('change', f)
+  }, [])
+
+  const pagesPerView = isMobile ? 1 : 2
+
+  // Mapa bolso -> carta
+  const byPos = new Map<number, PastaCard>()
+  cards.forEach(c => { if (c.posicao != null) byPos.set(c.posicao, c) })
+  byPosRef.current = byPos
+
+  const maxPos = cards.reduce((m, c) => Math.max(m, c.posicao ?? -1), -1)
+  const lastCardPage = maxPos >= 0 ? Math.floor(maxPos / PAGE) : -1
+  const baseSpreads = maxPos >= 0 ? Math.floor(lastCardPage / pagesPerView) + 1 : 1
+  const totalSpreads = Math.max(1, baseSpreads + extraSpreads)
+
+  // Clamp do spread atual
+  useEffect(() => {
+    if (spread > totalSpreads - 1) setSpread(Math.max(0, totalSpreads - 1))
+  }, [totalSpreads]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function go(dir: 1 | -1) {
+    setSpread(s => {
+      const next = s + dir
+      if (next < 0 || next > totalSpreads - 1) return s
+      flipDirRef.current = dir === 1 ? 'next' : 'prev'
+      return next
+    })
+  }
+
+  // Teclado ← →
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') go(1)
+      else if (e.key === 'ArrowLeft') go(-1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [totalSpreads]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Drag & drop por pointer (mouse + toque) ──
+  function startDrag(e: React.PointerEvent, card: PastaCard) {
+    e.preventDefault()
+    dragRef.current = { ucId: card.user_card_id, fromPos: card.posicao }
+    setGhost({ x: e.clientX, y: e.clientY, card })
+
+    const onPointerMove = (ev: PointerEvent) => {
+      setGhost(g => g ? { ...g, x: ev.clientX, y: ev.clientY } : g)
+      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
+      const pocket = el?.closest('[data-pocket]') as HTMLElement | null
+      setOverPos(pocket ? Number(pocket.getAttribute('data-pocket')) : null)
+    }
+    const onPointerUp = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      const drag = dragRef.current
+      dragRef.current = null
+      setGhost(null)
+      setOverPos(null)
+      if (!drag) return
+      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
+      const pocket = el?.closest('[data-pocket]') as HTMLElement | null
+      if (!pocket) return
+      const targetPos = Number(pocket.getAttribute('data-pocket'))
+      if (Number.isNaN(targetPos) || targetPos === drag.fromPos) return
+      const occupant = byPosRef.current.get(targetPos)
+      const updates = [{ id: drag.ucId, pos: targetPos }]
+      if (occupant && occupant.user_card_id !== drag.ucId) {
+        updates.push({ id: occupant.user_card_id, pos: drag.fromPos })
+      }
+      onMove(updates)
+    }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+  }
+
+  const pagesToShow: number[] = []
+  for (let k = 0; k < pagesPerView; k++) pagesToShow.push(spread * pagesPerView + k)
+
+  return (
+    <div>
+      <style>{`
+        @keyframes binderNext { from { opacity: 0.35; transform: translateX(46px) rotateY(-10deg) } to { opacity: 1; transform: none } }
+        @keyframes binderPrev { from { opacity: 0.35; transform: translateX(-46px) rotateY(10deg) } to { opacity: 1; transform: none } }
+      `}</style>
+
+      {/* Controles */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Arraste as cartas para organizar — solte sobre outra para trocar de lugar.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => go(-1)} disabled={spread <= 0}
+            style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: spread <= 0 ? 'rgba(255,255,255,0.2)' : '#f0f0f0', cursor: spread <= 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', minWidth: 70, textAlign: 'center' }}>Abertura {spread + 1}/{totalSpreads}</span>
+          <button onClick={() => go(1)} disabled={spread >= totalSpreads - 1}
+            style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: spread >= totalSpreads - 1 ? 'rgba(255,255,255,0.2)' : '#f0f0f0', cursor: spread >= totalSpreads - 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button onClick={() => { setExtraSpreads(e => e + 1); setSpread(totalSpreads); }}
+            style={{ marginLeft: 4, padding: '8px 12px', borderRadius: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>+ Página</button>
+        </div>
+      </div>
+
+      {/* Álbum aberto */}
+      <div style={{ perspective: 1600 }}>
+        <div
+          key={spread}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: pagesPerView === 2 ? '1fr 1fr' : '1fr',
+            gap: pagesPerView === 2 ? 0 : 16,
+            maxWidth: pagesPerView === 2 ? 760 : 380,
+            margin: '0 auto',
+            animation: `${flipDirRef.current === 'prev' ? 'binderPrev' : 'binderNext'} 0.35s ease`,
+          }}
+        >
+          {pagesToShow.map((pg, idx) => (
+            <div
+              key={pg}
+              style={{
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015))',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: pagesPerView === 2 ? (idx === 0 ? '14px 4px 4px 14px' : '4px 14px 14px 4px') : 14,
+                padding: 12,
+                boxShadow: pagesPerView === 2
+                  ? (idx === 0 ? 'inset -10px 0 16px -12px rgba(0,0,0,0.7)' : 'inset 10px 0 16px -12px rgba(0,0,0,0.7)')
+                  : 'none',
+              }}
+            >
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Página {pg + 1}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {Array.from({ length: PAGE }).map((_, slot) => {
+                  const globalIndex = pg * PAGE + slot
+                  const card = byPos.get(globalIndex)
+                  const isOver = overPos === globalIndex
+                  const isDragged = dragRef.current?.ucId === card?.user_card_id && !!card
+                  return (
+                    <div
+                      key={globalIndex}
+                      data-pocket={globalIndex}
+                      style={{
+                        position: 'relative',
+                        aspectRatio: '63/88',
+                        borderRadius: 8,
+                        background: card ? '#0d0f14' : 'rgba(255,255,255,0.015)',
+                        border: isOver ? '2px solid #f59e0b' : card ? '1px solid rgba(255,255,255,0.1)' : '1.5px dashed rgba(255,255,255,0.08)',
+                        overflow: 'hidden',
+                        opacity: isDragged ? 0.35 : 1,
+                        transition: 'border-color 0.1s',
+                      }}
+                    >
+                      {card && (
+                        <div
+                          onPointerDown={(e) => startDrag(e, card)}
+                          title={card.card_name}
+                          style={{ width: '100%', height: '100%', cursor: 'grab', touchAction: 'none' }}
+                        >
+                          {card.card_image
+                            ? <img src={card.card_image} alt={card.card_name} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }} />
+                            : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 24 }}>🃏</div>}
+                          {card.quantity > 1 && (
+                            <span style={{ position: 'absolute', bottom: 5, left: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(0,0,0,0.7)', color: '#fff' }}>x{card.quantity}</span>
+                          )}
+                          <button
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => onRemove(card.user_card_id)}
+                            title="Remover da pasta"
+                            style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 6, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.85)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <IconClose size={11} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Ghost que segue o dedo/mouse */}
+      {ghost && (
+        <div style={{ position: 'fixed', left: ghost.x, top: ghost.y, transform: 'translate(-50%, -50%) rotate(-4deg)', width: 92, aspectRatio: '63/88', zIndex: 9999, pointerEvents: 'none', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', border: '1px solid rgba(245,158,11,0.6)' }}>
+          {ghost.card.card_image
+            ? <img src={ghost.card.card_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#0d0f14' }} />
+            : <div style={{ width: '100%', height: '100%', background: '#0d0f14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🃏</div>}
+        </div>
+      )}
+    </div>
   )
 }
 
