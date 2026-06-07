@@ -181,6 +181,111 @@ export default function PastaDetalhe() {
     if (error) { showAlert('Erro ao salvar a organização.', 'error'); await loadCards() }
   }
 
+  function handleExportPDF() {
+    if (!isPro) {
+      showAlert('Exportar PDF é exclusivo do plano Pro. Acesse Minha Conta para fazer upgrade.', 'warning')
+      return
+    }
+    if (!meta) return
+
+    const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    const date = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    const ordered = [...cards].sort((a, b) => (a.posicao ?? 0) - (b.posicao ?? 0))
+    const totalCartas = ordered.reduce((a, c) => a + (c.quantity || 1), 0)
+
+    const cells = ordered.map(c => {
+      const nome = esc(c.card_name.replace(/\s*\([^)]*\)/, ''))
+      const v = esc(VARIANTE_LABEL[c.variante] || c.variante)
+      const preco = c.unit > 0 ? fmt(c.unit) : '—'
+      return `<div class="card">
+        ${c.card_image ? `<img src="${esc(c.card_image)}" />` : `<div class="ph">🃏</div>`}
+        <div class="meta">
+          <div class="nm">${nome}</div>
+          <div class="sub"><span class="badge">${v}</span>${c.quantity > 1 ? ` · x${c.quantity}` : ''}</div>
+          <div class="pr">${preco}</div>
+        </div>
+      </div>`
+    }).join('')
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Bynx — ${esc(meta.nome)}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; color: #111; padding: 36px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 3px solid #f59e0b; }
+  .brand { font-size: 13px; font-weight: 800; color: #f59e0b; letter-spacing: 0.04em; text-transform: uppercase; }
+  .title { font-size: 26px; font-weight: 900; color: #111; letter-spacing: -0.03em; margin-top: 2px; }
+  .subtitle { font-size: 12px; color: #888; margin-top: 4px; }
+  .right { text-align: right; }
+  .right .v { font-size: 22px; font-weight: 900; color: #f59e0b; }
+  .right .l { font-size: 11px; color: #888; }
+  .cover { width: 100%; height: 150px; object-fit: cover; border-radius: 10px; margin-bottom: 18px; border: 1px solid #eee; }
+  .stats { display: flex; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+  .stat { background: #f9f9f9; border: 1px solid #eee; border-radius: 10px; padding: 12px 18px; }
+  .stat .l { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+  .stat .v { font-size: 18px; font-weight: 800; color: #111; }
+  .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .card { break-inside: avoid; border: 1px solid #eee; border-radius: 8px; overflow: hidden; background: #fff; }
+  .card img { width: 100%; aspect-ratio: 63/88; object-fit: contain; background: #f5f5f5; display: block; }
+  .card .ph { width: 100%; aspect-ratio: 63/88; background: #f5f5f5; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  .card .meta { padding: 6px 8px; }
+  .card .nm { font-size: 11px; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .sub { font-size: 9px; color: #999; margin: 2px 0; }
+  .card .badge { display: inline-block; font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 8px; background: #f59e0b22; color: #b45309; }
+  .card .pr { font-size: 12px; font-weight: 800; color: #2563eb; }
+  .footer { margin-top: 28px; text-align: center; font-size: 10px; color: #bbb; border-top: 1px solid #eee; padding-top: 14px; }
+  @media print { body { padding: 18px; } .card { box-shadow: none; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="brand">Bynx · Pasta</div>
+      <div class="title">${esc(meta.nome)}</div>
+      <div class="subtitle">${meta.descricao ? esc(meta.descricao) + ' · ' : ''}${date}</div>
+    </div>
+    <div class="right">
+      <div class="v">${fmt(patrimonio)}</div>
+      <div class="l">Valor estimado (médio)</div>
+    </div>
+  </div>
+
+  ${meta.imagem_url ? `<img class="cover" src="${esc(meta.imagem_url)}" />` : ''}
+
+  <div class="stats">
+    <div class="stat"><div class="l">Tipos de carta</div><div class="v">${ordered.length}</div></div>
+    <div class="stat"><div class="l">Total de cartas</div><div class="v">${totalCartas}</div></div>
+    <div class="stat"><div class="l">Mais valiosa</div><div class="v" style="font-size:13px">${maisCara ? esc(maisCara.card_name.replace(/\s*\([^)]*\)/, '')) : '—'}</div></div>
+  </div>
+
+  <div class="cards">${cells}</div>
+
+  <div class="footer">Gerado pelo Bynx · bynx.gg · ${date}</div>
+
+  <script>
+    (function(){
+      var imgs = Array.prototype.slice.call(document.images);
+      var done = false;
+      function fire(){ if(done) return; done = true; try { window.focus(); } catch(e){} window.print(); }
+      if (!imgs.length) { setTimeout(fire, 300); return; }
+      var n = 0; function chk(){ n++; if (n >= imgs.length) fire(); }
+      imgs.forEach(function(im){ if (im.complete) chk(); else { im.onload = chk; im.onerror = chk; } });
+      setTimeout(fire, 3000);
+    })();
+  </script>
+</body>
+</html>`
+
+    const win = window.open('', '_blank')
+    if (!win) { showAlert('Permita popups para exportar o PDF.', 'warning'); return }
+    win.document.write(html)
+    win.document.close()
+  }
+
   if (loading) {
     return <AppLayout><div className="p-6">Carregando pasta...</div></AppLayout>
   }
@@ -215,6 +320,7 @@ export default function PastaDetalhe() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button onClick={() => setOpenEdit(true)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Editar</button>
+            <button onClick={handleExportPDF} title={!isPro ? 'Disponível no plano Pro' : 'Exportar PDF da pasta'} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>PDF</button>
             <button onClick={handleDelete} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Excluir</button>
           </div>
         </div>
