@@ -145,7 +145,7 @@ const faqSchema = {
       name: 'Funciona com cartas em português, inglês e japonês?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. O Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga Pokémon. Os preços são exibidos em reais (R$) atualizados.',
+        text: 'Sim. O Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras. Os preços são exibidos em reais (R$) atualizados.',
       },
     },
     {
