@@ -1,75 +1,149 @@
-import { CSSProperties } from 'react'
+import { CSSProperties, cache } from 'react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { createClient } from '@supabase/supabase-js'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 
-// ─── SEO ──────────────────────────────────────────────────────────────────────
+// ─── ISR ────────────────────────────────────────────────────────────────────
+export const revalidate = 3600
 
-export const metadata: Metadata = {
-  title:
-    'Pokédex Pokémon TCG — Bynx | 22.861 cartas, 1.025 Pokémons, preços em reais',
-  description:
-    'A Pokédex mais completa do Brasil pra colecionador de Pokémon TCG. 22.861 cartas catalogadas, 1.025 Pokémons de Bulbasaur a Pecharunt, 236 sets, 38 tipos de raridade e preços em reais por variante. 25+ anos de TCG cobertos, da Base Set (1999) ao Mega Evolution (2026).',
-  keywords: [
-    'pokedex pokemon tcg', 'pokedex completa pokemon', 'buscar carta pokemon',
-    'catálogo pokemon tcg brasil', 'pokedex em português', 'lista cartas pokemon',
-    'preço carta pokemon brasil', 'pokémon tcg 9 gerações', 'raridade carta pokemon',
-    'set pokemon tcg lista', 'banco de dados pokemon tcg', 'pokédex brasileira pokemon',
-    'cartas pokemon em reais', 'pokemon tcg português', 'identificar carta pokemon',
-    'valor cartas pokemon', 'enciclopédia pokemon tcg', 'pokemon tcg banco completo',
-    'umbreon ex prismatic evolutions', 'charizard pokemon preço',
+// ─── Dados dinamicos (RPC pokedex_landing_data) ───────────────────────────────
+
+type PokedexData = {
+  stats: { total_cards: number; total_sets: number; total_rarities: number; total_series: number }
+  raridades: Record<string, number>
+  sets_recentes: { name: string; rel: string; cards: number; logo: string | null }[]
+  top_valiosas: Record<string, number>
+}
+
+// Fallback (numeros reais jun/2026) — deploy nunca quebra por blip de rede.
+const FALLBACK: PokedexData = {
+  stats: { total_cards: 67327, total_sets: 865, total_rarities: 38, total_series: 17 },
+  raridades: {
+    Common: 5289, Uncommon: 4862, Rare: 2551, 'Rare Holo': 1617, Promo: 1255,
+    'Rare Ultra': 798, 'Illustration Rare': 481, 'Special Illustration Rare': 216, 'Hyper Rare': 74,
+  },
+  sets_recentes: [
+    { name: 'Chaos Rising', rel: '2026/05/22', cards: 122, logo: 'https://images.scrydex.com/pokemon/me4-logo/logo' },
+    { name: 'Perfect Order', rel: '2026/03/27', cards: 124, logo: 'https://images.scrydex.com/pokemon/me3-logo/logo' },
+    { name: 'Ascended Heroes', rel: '2026/01/30', cards: 295, logo: 'https://images.scrydex.com/pokemon/me2pt5-logo/logo' },
+    { name: 'Phantasmal Flames', rel: '2025/11/14', cards: 130, logo: 'https://images.pokemontcg.io/me2/logo.png' },
+    { name: 'Mega Evolution', rel: '2025/09/26', cards: 188, logo: 'https://images.pokemontcg.io/me1/logo.png' },
+    { name: 'White Flare', rel: '2025/07/18', cards: 173, logo: 'https://images.pokemontcg.io/rsv10pt5/logo.png' },
+    { name: 'Black Bolt', rel: '2025/07/18', cards: 172, logo: 'https://images.pokemontcg.io/zsv10pt5/logo.png' },
+    { name: 'Destined Rivals', rel: '2025/05/30', cards: 244, logo: 'https://images.pokemontcg.io/sv10/logo.png' },
+    { name: 'Journey Together', rel: '2025/03/28', cards: 190, logo: 'https://images.pokemontcg.io/sv9/logo.png' },
   ],
-  openGraph: {
-    title: 'Pokédex Pokémon TCG — Bynx | 22.861 cartas em reais',
-    description:
-      'A Pokédex mais completa do Brasil. 22.861 cartas, 1.025 Pokémons, 236 sets, preços em reais por variante. Da Base Set (1999) ao Mega Evolution (2026).',
-    url: 'https://bynx.gg/pokedex-pokemon-tcg',
-    siteName: 'Bynx',
-    locale: 'pt_BR',
-    type: 'website',
-    images: [
-      {
-        url: 'https://bynx.gg/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Pokédex Pokémon TCG — Bynx',
-      },
+  top_valiosas: {
+    'sv8pt5-161': 4925.2, 'sv4pt5-232': 2133, 'sv8-238': 1670.29,
+    'sv8pt5-146': 1399.9, 'sv8pt5-149': 1299.9, 'sv9-187': 613.27,
+  },
+}
+
+// cache() memoiza no mesmo render (generateMetadata + pagina = 1 query)
+const getPokedexData = cache(async (): Promise<PokedexData> => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return FALLBACK
+
+  const sb = createClient(url, key, { auth: { persistSession: false } })
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { data, error } = await sb.rpc('pokedex_landing_data')
+      if (error) throw error
+      if (data && data.stats && data.stats.total_cards) return data as PokedexData
+      throw new Error('pokedex_landing_data retornou vazio')
+    } catch (err) {
+      if (attempt === 3) {
+        console.error('[pokedex-pokemon-tcg] landing data falhou, usando fallback:', err)
+        return FALLBACK
+      }
+      await new Promise((r) => setTimeout(r, attempt * 800))
+    }
+  }
+  return FALLBACK
+})
+
+// ─── Formatadores ─────────────────────────────────────────────────────────────
+const fmtInt = (n: number) => n.toLocaleString('pt-BR')
+const fmtBRL = (n: number) => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+function fmtMesAno(rel: string) {
+  const parts = (rel || '').split('/')
+  const ano = parts[0] || ''
+  const mes = MESES[(parseInt(parts[1], 10) || 1) - 1] || ''
+  return `${mes}/${ano}`
+}
+function anoDe(rel: string) {
+  return (rel || '').split('/')[0] || ''
+}
+
+// ─── Metadados curados das cartas/raridades (texto editorial; numeros vem da RPC) ─
+
+const TOP_META: { id: string; name: string; desc: string; img: string }[] = [
+  { id: 'sv8pt5-161', name: 'Umbreon ex', desc: 'Prismatic Evolutions · Special Illustration', img: 'https://images.pokemontcg.io/sv8pt5/161.png' },
+  { id: 'sv4pt5-232', name: 'Mew ex', desc: 'Paldean Fates · Special Illustration', img: 'https://images.pokemontcg.io/sv4pt5/232.png' },
+  { id: 'sv8-238', name: 'Pikachu ex', desc: 'Surging Sparks · Special Illustration', img: 'https://images.pokemontcg.io/sv8/238.png' },
+  { id: 'sv8pt5-146', name: 'Flareon ex', desc: 'Prismatic Evolutions · Special Illustration', img: 'https://images.pokemontcg.io/sv8pt5/146.png' },
+  { id: 'sv8pt5-149', name: 'Vaporeon ex', desc: 'Prismatic Evolutions · Special Illustration', img: 'https://images.pokemontcg.io/sv8pt5/149.png' },
+  { id: 'sv9-187', name: 'Salamence ex', desc: 'Journey Together · Special Illustration', img: 'https://images.pokemontcg.io/sv9/187.png' },
+]
+
+const RARITY_META: { name: string; dbKey: string; color: string; desc: string; symbol: string }[] = [
+  { name: 'Common', dbKey: 'Common', color: '#9ca3af', desc: 'Carta básica, sem brilho. Encontrada em todos os boosters.', symbol: '●' },
+  { name: 'Uncommon', dbKey: 'Uncommon', color: '#22c55e', desc: 'Diamante simples. 1/3 das cartas de um booster, em média.', symbol: '◆' },
+  { name: 'Rare', dbKey: 'Rare', color: '#3b82f6', desc: 'Estrela preta. Última carta de um booster comum.', symbol: '★' },
+  { name: 'Rare Holo', dbKey: 'Rare Holo', color: '#a855f7', desc: 'Estrela preta + brilho holográfico no corpo da carta.', symbol: '✦' },
+  { name: 'Promo', dbKey: 'Promo', color: '#f59e0b', desc: 'Distribuição limitada — eventos, McDonalds, Black Star Promo.', symbol: '◈' },
+  { name: 'Rare Ultra', dbKey: 'Rare Ultra', color: '#ec4899', desc: 'Carta inteira holográfica. EX, GX, V, VMAX, VSTAR, ex.', symbol: '✶' },
+  { name: 'Illustration Rare', dbKey: 'Illustration Rare', color: '#f97316', desc: 'Arte estendida, cobrindo borda. Era moderna.', symbol: '✺' },
+  { name: 'Special Illustration', dbKey: 'Special Illustration Rare', color: '#ef4444', desc: 'A jóia da era moderna. Umbreon ex Prismatic é exemplo.', symbol: '✷' },
+  { name: 'Hyper Rare', dbKey: 'Hyper Rare', color: '#fbbf24', desc: 'Borda dourada/rainbow. As mais raras nos boosters atuais.', symbol: '✸' },
+]
+
+// ─── SEO (dinamico) ─────────────────────────────────────────────────────────
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { stats } = await getPokedexData()
+  const cartas = fmtInt(stats.total_cards)
+  const sets = fmtInt(stats.total_sets)
+
+  return {
+    title: `Pokédex Pokémon TCG — Bynx | ${cartas} cartas, 1.025 Pokémons, preços em reais`,
+    description: `A Pokédex mais completa do Brasil pra colecionador de Pokémon TCG. ${cartas} cartas catalogadas, 1.025 Pokémons de Bulbasaur a Pecharunt, ${sets} sets, ${fmtInt(stats.total_rarities)} tipos de raridade e preços em reais por variante. 25+ anos de TCG cobertos, da Base Set (1999) ao Mega Evolution (2026).`,
+    keywords: [
+      'pokedex pokemon tcg', 'pokedex completa pokemon', 'buscar carta pokemon',
+      'catálogo pokemon tcg brasil', 'pokedex em português', 'lista cartas pokemon',
+      'preço carta pokemon brasil', 'pokémon tcg 9 gerações', 'raridade carta pokemon',
+      'set pokemon tcg lista', 'banco de dados pokemon tcg', 'pokédex brasileira pokemon',
+      'cartas pokemon em reais', 'pokemon tcg português', 'identificar carta pokemon',
+      'valor cartas pokemon', 'enciclopédia pokemon tcg', 'pokemon tcg banco completo',
+      'umbreon ex prismatic evolutions', 'charizard pokemon preço',
     ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Pokédex Pokémon TCG — Bynx',
-    description:
-      '22.861 cartas, 1.025 Pokémons, 236 sets, preços em reais por variante.',
-    images: ['https://bynx.gg/og-image.jpg'],
-  },
-  alternates: {
-    canonical: 'https://bynx.gg/pokedex-pokemon-tcg',
-  },
+    openGraph: {
+      title: `Pokédex Pokémon TCG — Bynx | ${cartas} cartas em reais`,
+      description: `A Pokédex mais completa do Brasil. ${cartas} cartas, 1.025 Pokémons, ${sets} sets, preços em reais por variante. Da Base Set (1999) ao Mega Evolution (2026).`,
+      url: 'https://bynx.gg/pokedex-pokemon-tcg',
+      siteName: 'Bynx',
+      locale: 'pt_BR',
+      type: 'website',
+      images: [
+        { url: 'https://bynx.gg/og-image.jpg', width: 1200, height: 630, alt: 'Pokédex Pokémon TCG — Bynx' },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Pokédex Pokémon TCG — Bynx',
+      description: `${cartas} cartas, 1.025 Pokémons, ${sets} sets, preços em reais por variante.`,
+      images: ['https://bynx.gg/og-image.jpg'],
+    },
+    alternates: { canonical: 'https://bynx.gg/pokedex-pokemon-tcg' },
+  }
 }
 
-// ─── JSON-LD: WebPage + BreadcrumbList + FAQPage + ItemList ────────────────────
-//
-// 4 schemas pra rich results agressivos no Google.
-// ItemList captura os 9 sets icônicos como lista estruturada (carrossel rico).
-
-const webPageSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebPage',
-  name: 'Pokédex Pokémon TCG — Bynx',
-  description:
-    'A Pokédex mais completa do Brasil pra Pokémon TCG. 22.861 cartas, 1.025 Pokémons, 236 sets, preços em reais por variante.',
-  url: 'https://bynx.gg/pokedex-pokemon-tcg',
-  inLanguage: 'pt-BR',
-  isPartOf: { '@type': 'WebSite', name: 'Bynx', url: 'https://bynx.gg' },
-  primaryImageOfPage: 'https://bynx.gg/og-image.jpg',
-  about: {
-    '@type': 'Thing',
-    name: 'Pokémon Trading Card Game',
-    description: 'Jogo de cartas colecionáveis Pokémon, lançado em 1996 no Japão',
-  },
-}
+// ─── JSON-LD estatico (sem numeros) ──────────────────────────────────────────
 
 const breadcrumbSchema = {
   '@context': 'https://schema.org',
@@ -80,116 +154,114 @@ const breadcrumbSchema = {
   ],
 }
 
-const itemListSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'ItemList',
-  name: 'Sets Pokémon TCG mais recentes',
-  description: 'Os sets mais recentes do Pokémon TCG catalogados na Pokédex Bynx',
-  itemListOrder: 'https://schema.org/ItemListOrderDescending',
-  numberOfItems: 9,
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Perfect Order', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-    { '@type': 'ListItem', position: 2, name: 'Ascended Heroes', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-    { '@type': 'ListItem', position: 3, name: 'Phantasmal Flames', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-    { '@type': 'ListItem', position: 4, name: 'Mega Evolution', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-    { '@type': 'ListItem', position: 5, name: 'Black Bolt', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-    { '@type': 'ListItem', position: 6, name: 'White Flare', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-    { '@type': 'ListItem', position: 7, name: 'Destined Rivals', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-    { '@type': 'ListItem', position: 8, name: 'Journey Together', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-    { '@type': 'ListItem', position: 9, name: 'Prismatic Evolutions', url: 'https://bynx.gg/pokedex-pokemon-tcg' },
-  ],
-}
-
-const faqSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: [
-    {
-      '@type': 'Question',
-      name: 'O que é a Pokédex do Bynx?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'A Pokédex do Bynx é o catálogo mais completo do Pokémon TCG em português brasileiro. São 22.861 cartas catalogadas, organizadas por set, raridade, geração e variante (Normal, Holo, Reverse, Foil, Promo). Cada carta tem preço em reais (mínimo, médio e máximo) atualizado continuamente. A busca é em português e funciona com nomes parciais — digite "char" e aparece Charizard, Charmander, Charmeleon.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Quantas cartas Pokémon TCG existem ao todo?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'O Pokémon TCG completou mais de 25 anos de história (lançado em 1996 no Japão, 1999 nos EUA) e tem mais de 22.000 cartas únicas oficialmente lançadas em sets internacionais. O Bynx tem 22.861 cartas catalogadas, cobrindo da Base Set (1999) até os sets mais recentes como Perfect Order (2026) e Ascended Heroes. Isso inclui sets em inglês, japonês, espanhol e francês — quando há tradução oficial.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Como o Bynx organiza as 9 gerações de Pokémon?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'O Bynx cobre as 9 gerações de Pokémon (Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea) através de 17 séries de TCG: Base, Gym, Neo, E-Card, EX, Diamond & Pearl, Platinum, HeartGold & SoulSilver, Black & White, XY, Sun & Moon, Sword & Shield, Scarlet & Violet, Mega Evolution, e séries especiais como Pop e Trainer Galleries. Cada série tem múltiplos sets — só Sword & Shield, por exemplo, tem 25 sets.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'A Pokédex do Bynx é gratuita?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Sim. A consulta à Pokédex é 100% gratuita pra qualquer pessoa, sem precisar de cadastro. Você pode buscar cartas, ver preços em reais por variante, conferir raridade e set, ver o histórico de cartas raras. Adicionar à coleção e ter perfil público também são grátis. Recursos como scan com IA e exportar dados ficam no plano Pro (com 7 dias grátis pra novos usuários).',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Como a Pokédex do Bynx se compara com TCGPlayer e pokemon.com?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'TCGPlayer tem o maior catálogo do mundo, mas é 100% em inglês, preços em dólar e foco no mercado americano. Pokemon.com é a fonte oficial mas só lista cartas (sem preços). LigaPokémon tem dados em português mas interface datada e busca limitada. O Bynx combina o melhor: catálogo completo (22.861 cartas), preços em reais por variante atualizados continuamente, busca em português, mobile-first, scan com IA e marketplace BR — tudo no mesmo lugar.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'O que são as variantes de uma carta Pokémon?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Cada carta Pokémon TCG pode ter várias variantes com preços muito diferentes: Normal (versão padrão), Holo (com brilho holográfico no Pokémon), Reverse Holo (brilho na borda em vez do Pokémon), Foil/Promo (versões especiais), e variantes premium como Pokeball Pattern e Master Ball Pattern. Uma Charizard Holo pode valer 5x mais que a versão Normal. O Bynx mostra preço separado pra cada variante — você sabe exatamente quanto vale a sua.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Quais são os tipos de raridade no Pokémon TCG?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'O Pokémon TCG tem 38 tipos de raridade catalogados no Bynx. Os principais: Common (5.251 cartas), Uncommon (4.836), Rare (2.539), Rare Holo (1.617), Promo (1.255), Rare Ultra (798), Illustration Rare (470), Special Illustration Rare (210), Hyper Rare (74). Raridades modernas como Special Illustration Rare e Hyper Rare são as mais buscadas — Umbreon ex Prismatic Evolutions, por exemplo, vale mais de R$ 4.500 em média no Brasil.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Como o Bynx atualiza os preços das cartas?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Os preços vêm de coleta contínua de marketplaces brasileiros do Pokémon TCG. Pra cada carta, o Bynx mostra preço mínimo, médio e máximo de mercado, separado por variante. A atualização é automatizada e diária. Diferente de sites americanos que mostram USD convertido, os preços do Bynx são em reais reais — o que você efetivamente paga no Brasil.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Posso buscar cartas pelo número do set?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Sim. A busca da Pokédex aceita busca por nome (em português ou inglês), por número da carta no set (ex: "Pikachu 25/102"), por set, por raridade, por geração e por tipo do Pokémon. Você pode filtrar por múltiplos critérios ao mesmo tempo: "todos os Charizard tipo Fogo da geração Sword & Shield", por exemplo.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Quais são as cartas mais valiosas do Bynx hoje?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'No mercado BR, as cartas mais valiosas catalogadas no Bynx incluem Umbreon ex Prismatic Evolutions (R$ 4.570), Mew ex Paldean Fates (R$ 2.144), Pikachu ex Surging Sparks (R$ 1.500), Flareon ex (R$ 1.399), Vaporeon ex (R$ 1.299) e Salamence ex Journey Together (R$ 1.299). Special Illustration Rares modernas — especialmente o trio Eeveelutions de Prismatic Evolutions — dominam o topo do mercado brasileiro.',
-      },
-    },
-  ],
-}
-
 // ─── Página ───────────────────────────────────────────────────────────────────
 
-export default function PokedexPokemonTcgPage() {
+export default async function PokedexPokemonTcgPage() {
+  const data = await getPokedexData()
+  const { stats } = data
+  const cartasFmt = fmtInt(stats.total_cards)
+  const setsFmt = fmtInt(stats.total_sets)
+  const rc = (k: string) => fmtInt(data.raridades[k] ?? 0)
+
+  // Top valiosas: 6 curadas + preco ao vivo, reordenadas por preco desc, rank recalculado
+  const topValiosas = TOP_META
+    .map((c) => ({ ...c, preco: data.top_valiosas[c.id] ?? 0 }))
+    .sort((a, b) => b.preco - a.preco)
+    .map((c, i) => ({ ...c, rank: i + 1 }))
+
+  // Sets recentes: #1 ganha o selo "Novíssimo"
+  const setsRecentes = data.sets_recentes.map((s, i) => ({
+    ...s,
+    date: fmtMesAno(s.rel),
+    highlight: i === 0 ? 'Novíssimo' : undefined,
+  }))
+
+  const umbreon = fmtBRL(data.top_valiosas['sv8pt5-161'] ?? 4925)
+  const novo0 = data.sets_recentes[0]
+  const novo1 = data.sets_recentes[1]
+
+  // FAQ — itens dinamicos (a mesma fonte alimenta o acordeao visivel e o JSON-LD)
+  const faqItems = [
+    {
+      q: 'O que é a Pokédex do Bynx?',
+      a: `A Pokédex do Bynx é o catálogo mais completo do Pokémon TCG em português brasileiro. São ${cartasFmt} cartas catalogadas, organizadas por set, raridade, geração e variante (Normal, Holo, Reverse, Foil, Promo). Cada carta tem preço em reais (mínimo, médio e máximo) atualizado continuamente. A busca é em português e funciona com nomes parciais — digite "char" e aparece Charizard, Charmander, Charmeleon.`,
+    },
+    {
+      q: 'Quantas cartas Pokémon TCG existem ao todo?',
+      a: `O Pokémon TCG completou mais de 25 anos de história (lançado em 1996 no Japão, 1999 nos EUA) e tem mais de 22.000 cartas únicas oficialmente lançadas. O Bynx tem ${cartasFmt} cartas catalogadas, cobrindo da Base Set (1999) até os sets mais recentes como ${novo0?.name} (${anoDe(novo0?.rel || '')}) e ${novo1?.name}. Isso inclui sets em inglês, japonês, espanhol e francês — quando há tradução oficial.`,
+    },
+    {
+      q: 'Como o Bynx organiza as 9 gerações de Pokémon?',
+      a: 'O Bynx cobre as 9 gerações de Pokémon (Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea) através de 17 séries de TCG: Base, Gym, Neo, E-Card, EX, Diamond & Pearl, Platinum, HeartGold & SoulSilver, Black & White, XY, Sun & Moon, Sword & Shield, Scarlet & Violet, Mega Evolution, e séries especiais como POP e Trainer Galleries. Cada série tem múltiplos sets — só Sword & Shield, por exemplo, tem 25 sets.',
+    },
+    {
+      q: 'A Pokédex do Bynx é gratuita?',
+      a: 'Sim. A consulta à Pokédex é 100% gratuita pra qualquer pessoa, sem precisar de cadastro. Você pode buscar cartas, ver preços em reais por variante, conferir raridade e set. Adicionar à coleção e ter perfil público também são grátis. Recursos como scan com IA e exportar dados ficam no plano Pro (com 7 dias grátis pra novos usuários).',
+    },
+    {
+      q: 'Como a Pokédex do Bynx se compara com TCGPlayer e pokemon.com?',
+      a: `TCGPlayer tem o maior catálogo do mundo, mas é 100% em inglês, preços em dólar e foco no mercado americano. Pokemon.com é a fonte oficial mas só lista cartas (sem preços). LigaPokémon tem dados em português mas interface datada e busca limitada. O Bynx combina o melhor: catálogo completo (${cartasFmt} cartas), preços em reais por variante atualizados continuamente, busca em português, mobile-first, scan com IA e marketplace BR — tudo no mesmo lugar.`,
+    },
+    {
+      q: 'O que são as variantes de uma carta Pokémon?',
+      a: 'Cada carta Pokémon TCG pode ter várias variantes com preços muito diferentes: Normal (versão padrão), Holo (com brilho holográfico no Pokémon), Reverse Holo (brilho na borda em vez do Pokémon), Foil/Promo (versões especiais), e variantes premium como Pokeball Pattern e Master Ball Pattern. Uma Charizard Holo pode valer 5x mais que a versão Normal. O Bynx mostra preço separado pra cada variante — você sabe exatamente quanto vale a sua.',
+    },
+    {
+      q: 'Quais são os tipos de raridade no Pokémon TCG?',
+      a: `O Pokémon TCG tem ${fmtInt(stats.total_rarities)} tipos de raridade catalogados no Bynx. Os principais: Common (${rc('Common')} cartas), Uncommon (${rc('Uncommon')}), Rare (${rc('Rare')}), Rare Holo (${rc('Rare Holo')}), Promo (${rc('Promo')}), Rare Ultra (${rc('Rare Ultra')}), Illustration Rare (${rc('Illustration Rare')}), Special Illustration Rare (${rc('Special Illustration Rare')}), Hyper Rare (${rc('Hyper Rare')}). Raridades modernas como Special Illustration Rare e Hyper Rare são as mais buscadas — Umbreon ex Prismatic Evolutions, por exemplo, vale cerca de ${umbreon} em média no Brasil.`,
+    },
+    {
+      q: 'Como o Bynx atualiza os preços das cartas?',
+      a: 'Os preços vêm de coleta contínua de marketplaces brasileiros do Pokémon TCG. Pra cada carta, o Bynx mostra preço mínimo, médio e máximo de mercado, separado por variante. A atualização é automatizada e diária. Diferente de sites americanos que mostram USD convertido, os preços do Bynx são em reais reais — o que você efetivamente paga no Brasil.',
+    },
+    {
+      q: 'Posso buscar cartas pelo número do set?',
+      a: 'Sim. A busca da Pokédex aceita busca por nome (em português ou inglês), por número da carta no set (ex: "Pikachu 25/102"), por set, por raridade, por geração e por tipo do Pokémon. Você pode filtrar por múltiplos critérios ao mesmo tempo.',
+    },
+    {
+      q: 'Quais são as cartas mais valiosas do Bynx hoje?',
+      a: `No mercado BR, as cartas mais valiosas catalogadas no Bynx incluem ${topValiosas.map((c) => `${c.name} ${c.desc.split(' · ')[0]} (${fmtBRL(c.preco)})`).join(', ')}. Special Illustration Rares modernas — especialmente o trio Eeveelutions de Prismatic Evolutions — dominam o topo do mercado brasileiro.`,
+    },
+  ]
+
+  const webPageSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: 'Pokédex Pokémon TCG — Bynx',
+    description: `A Pokédex mais completa do Brasil pra Pokémon TCG. ${cartasFmt} cartas, 1.025 Pokémons, ${setsFmt} sets, preços em reais por variante.`,
+    url: 'https://bynx.gg/pokedex-pokemon-tcg',
+    inLanguage: 'pt-BR',
+    isPartOf: { '@type': 'WebSite', name: 'Bynx', url: 'https://bynx.gg' },
+    primaryImageOfPage: 'https://bynx.gg/og-image.jpg',
+    about: {
+      '@type': 'Thing',
+      name: 'Pokémon Trading Card Game',
+      description: 'Jogo de cartas colecionáveis Pokémon, lançado em 1996 no Japão',
+    },
+  }
+
+  const itemListSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Sets Pokémon TCG mais recentes',
+    description: 'Os sets mais recentes do Pokémon TCG catalogados na Pokédex Bynx',
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    numberOfItems: setsRecentes.length,
+    itemListElement: setsRecentes.map((s, i) => ({
+      '@type': 'ListItem', position: i + 1, name: s.name, url: 'https://bynx.gg/pokedex-pokemon-tcg',
+    })),
+  }
+
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqItems.map((it) => ({
+      '@type': 'Question',
+      name: it.q,
+      acceptedAnswer: { '@type': 'Answer', text: it.a },
+    })),
+  }
+
   return (
     <div style={S.page}>
       {/* CSS responsivo + animações */}
@@ -229,7 +301,6 @@ export default function PokedexPokemonTcgPage() {
           .pdx-series-timeline > div { padding: 12px 14px !important; }
         }
 
-        /* FAQ accordion */
         details[name="bynx-pdx-faq"] > summary {
           list-style: none;
           cursor: pointer;
@@ -241,7 +312,6 @@ export default function PokedexPokemonTcgPage() {
           transform: rotate(45deg);
         }
 
-        /* Pulso suave no badge "ao vivo" */
         @keyframes pdx-pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.6; transform: scale(1.4); }
@@ -250,12 +320,10 @@ export default function PokedexPokemonTcgPage() {
           animation: pdx-pulse 2s ease-in-out infinite;
         }
 
-        /* Highlight hover nas linhas do comparativo */
         .pdx-comparativo-table tbody tr:hover {
           background: rgba(245,158,11,0.04);
         }
 
-        /* Scroll smooth no glossário */
         .pdx-glossary-grid > div {
           transition: transform 0.2s ease, border-color 0.2s ease;
         }
@@ -281,7 +349,6 @@ export default function PokedexPokemonTcgPage() {
           <div style={S.heroGlow3} />
 
           <div className="pdx-hero-grid" style={S.heroGrid}>
-            {/* Coluna esquerda */}
             <div style={S.heroLeft}>
               <span style={S.heroBadge}>
                 <span style={S.heroBadgeDot} className="pdx-live-dot" />
@@ -295,9 +362,9 @@ export default function PokedexPokemonTcgPage() {
               </h1>
 
               <p style={S.heroSubtitle}>
-                <strong style={{ color: '#f0f0f0' }}>22.861 cartas</strong>,{' '}
+                <strong style={{ color: '#f0f0f0' }}>{cartasFmt} cartas</strong>,{' '}
                 <strong style={{ color: '#f0f0f0' }}>1.025 Pokémons</strong>,{' '}
-                <strong style={{ color: '#f0f0f0' }}>236 sets</strong> e preços em reais por variante. Da Base Set de 1999 ao Mega Evolution de 2026 — tudo em português, mobile-first, sem dólar convertido na correria.
+                <strong style={{ color: '#f0f0f0' }}>{setsFmt} sets</strong> e preços em reais por variante. Da Base Set de 1999 ao Mega Evolution de 2026 — tudo em português, mobile-first, sem dólar convertido na correria.
               </p>
 
               <div className="pdx-hero-ctas" style={S.heroCtas}>
@@ -322,7 +389,6 @@ export default function PokedexPokemonTcgPage() {
               </div>
             </div>
 
-            {/* Coluna direita: mockup interativo da Pokédex */}
             <div className="pdx-hero-mockup" style={S.heroMockup}>
               <div style={S.mockupBrowser}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444' }} />
@@ -332,7 +398,6 @@ export default function PokedexPokemonTcgPage() {
               </div>
 
               <div style={S.mockupBody}>
-                {/* Search input mockup */}
                 <div style={S.mockupSearchBox}>
                   <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
                     <circle cx="9" cy="9" r="6" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
@@ -342,7 +407,6 @@ export default function PokedexPokemonTcgPage() {
                   <span style={S.mockupSearchCount}>87 resultados</span>
                 </div>
 
-                {/* Filtros */}
                 <div style={S.mockupFilters}>
                   <span style={{ ...S.mockupFilter, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', borderColor: 'rgba(245,158,11,0.3)' }}>
                     Tipo: Fogo
@@ -351,7 +415,6 @@ export default function PokedexPokemonTcgPage() {
                   <span style={S.mockupFilter}>Geração: Todas</span>
                 </div>
 
-                {/* Grid 2x2 de cartas reais */}
                 <div style={S.mockupCardsGrid}>
                   {[
                     { name: 'Charizard ex', set: '199/197', img: 'https://images.pokemontcg.io/sv3pt5/199.png', price: 'R$ 245', variant: 'Special Illustration', rarityColor: '#a855f7' },
@@ -392,11 +455,11 @@ export default function PokedexPokemonTcgPage() {
             <p style={S.statsLabel}>O catálogo Pokémon TCG mais completo em português</p>
             <div className="pdx-stats-grid" style={S.statsGrid}>
               {[
-                { num: '22.861', label: 'cartas catalogadas' },
+                { num: cartasFmt, label: 'cartas catalogadas' },
                 { num: '1.025', label: 'Pokémons (Bulbasaur → Pecharunt)' },
-                { num: '236', label: 'sets cobertos' },
-                { num: '38', label: 'tipos de raridade' },
-                { num: '17', label: 'séries TCG (Base → Mega Evolution)' },
+                { num: setsFmt, label: 'sets cobertos' },
+                { num: fmtInt(stats.total_rarities), label: 'tipos de raridade' },
+                { num: fmtInt(stats.total_series), label: 'séries TCG (Base → Mega Evolution)' },
                 { num: '25+', label: 'anos de história TCG' },
                 { num: '4', label: 'idiomas (PT, EN, JP, ES)' },
                 { num: '100%', label: 'preços em reais' },
@@ -420,7 +483,6 @@ export default function PokedexPokemonTcgPage() {
             />
 
             <div className="pdx-anatomy-grid" style={S.anatomyGrid}>
-              {/* Esquerda: carta destacada */}
               <div style={S.anatomyVisual}>
                 <div className="pdx-anatomy-card" style={S.anatomyCard}>
                   <img
@@ -432,17 +494,15 @@ export default function PokedexPokemonTcgPage() {
                 </div>
               </div>
 
-              {/* Direita: grid 3x2 de specs (estável em qualquer viewport) */}
               <div className="pdx-spec-grid" style={S.specGrid}>
                 <SpecCard label="Nome (PT/EN)" value="Umbreon ex" />
                 <SpecCard label="Set" value="Prismatic Evolutions" />
                 <SpecCard label="Raridade" value="Special Illustration" highlight />
                 <SpecCard label="Número" value="161/131" />
-                <SpecCard label="Preço médio (BRL)" value="R$ 4.570" highlight />
+                <SpecCard label="Preço médio (BRL)" value={umbreon} highlight />
                 <SpecCard label="Variante" value="Foil" />
               </div>
 
-              {/* Dossiê: largura completa abaixo, evita conflito com specs ao lado */}
               <div className="pdx-anatomy-dossie" style={S.anatomyDossie}>
                 <h3 style={S.anatomyTitle}>Cada carta é um dossiê.</h3>
                 <ul style={S.anatomyList}>
@@ -453,7 +513,7 @@ export default function PokedexPokemonTcgPage() {
                     <strong style={{ color: '#f59e0b' }}>Set + geração:</strong> qual coleção pertence, série TCG e data de lançamento.
                   </li>
                   <li style={S.anatomyItem}>
-                    <strong style={{ color: '#f59e0b' }}>Raridade exata:</strong> 38 tipos catalogados — Common, Holo, Reverse, Promo, Special Illustration, Hyper Rare e mais.
+                    <strong style={{ color: '#f59e0b' }}>Raridade exata:</strong> {fmtInt(stats.total_rarities)} tipos catalogados — Common, Holo, Reverse, Promo, Special Illustration, Hyper Rare e mais.
                   </li>
                   <li style={S.anatomyItem}>
                     <strong style={{ color: '#f59e0b' }}>Preço por variante:</strong> mínimo, médio e máximo em R$, separados pra Normal, Holo, Reverse, Foil, Promo e Pokeball Pattern.
@@ -473,7 +533,7 @@ export default function PokedexPokemonTcgPage() {
           </div>
         </section>
 
-        {/* ─── COMPARATIVO BRUTAL ─────────────────────── */}
+        {/* ─── COMPARATIVO ────────────────────────────── */}
         <section style={S.sectionDark}>
           <div style={S.container}>
             <SectionHeader
@@ -516,7 +576,7 @@ export default function PokedexPokemonTcgPage() {
           </div>
         </section>
 
-        {/* ─── TOP 9 SETS RECENTES ────────────────────── */}
+        {/* ─── TOP 9 SETS RECENTES (dinamico) ─────────── */}
         <section style={S.section}>
           <div style={S.container}>
             <SectionHeader
@@ -526,21 +586,13 @@ export default function PokedexPokemonTcgPage() {
             />
 
             <div className="pdx-sets-grid" style={S.setsGrid}>
-              {[
-                { name: 'Perfect Order', date: 'Mar/2026', cards: 124, logo: 'https://images.scrydex.com/pokemon/me3-logo/logo', highlight: 'Novíssimo' },
-                { name: 'Ascended Heroes', date: 'Jan/2026', cards: 295, logo: 'https://images.scrydex.com/pokemon/me2pt5-logo/logo' },
-                { name: 'Phantasmal Flames', date: 'Nov/2025', cards: 130, logo: 'https://images.pokemontcg.io/me2/logo.png' },
-                { name: 'Mega Evolution', date: 'Set/2025', cards: 188, logo: 'https://images.pokemontcg.io/me1/logo.png' },
-                { name: 'Black Bolt', date: 'Jul/2025', cards: 172, logo: 'https://images.pokemontcg.io/zsv10pt5/logo.png' },
-                { name: 'White Flare', date: 'Jul/2025', cards: 173, logo: 'https://images.pokemontcg.io/rsv10pt5/logo.png' },
-                { name: 'Destined Rivals', date: 'Mai/2025', cards: 244, logo: 'https://images.pokemontcg.io/sv10/logo.png' },
-                { name: 'Journey Together', date: 'Mar/2025', cards: 190, logo: 'https://images.pokemontcg.io/sv9/logo.png' },
-                { name: 'Prismatic Evolutions', date: 'Jan/2025', cards: 180, logo: 'https://images.pokemontcg.io/sv8pt5/logo.png', highlight: 'Cult' },
-              ].map((s) => (
+              {setsRecentes.map((s) => (
                 <div key={s.name} style={S.setCard}>
                   {s.highlight && <span style={S.setBadge}>{s.highlight}</span>}
                   <div style={S.setLogoWrap}>
-                    <img src={s.logo} alt={`Logo do set ${s.name}`} loading="lazy" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    {s.logo && (
+                      <img src={s.logo} alt={`Logo do set ${s.name}`} loading="lazy" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    )}
                   </div>
                   <div>
                     <div style={S.setName}>{s.name}</div>
@@ -556,7 +608,7 @@ export default function PokedexPokemonTcgPage() {
           </div>
         </section>
 
-        {/* ─── TOP 5 CARTAS VALIOSAS BR ───────────────── */}
+        {/* ─── TOP CARTAS VALIOSAS BR (preco ao vivo) ─── */}
         <section style={S.sectionDark}>
           <div style={S.container}>
             <SectionHeader
@@ -566,22 +618,15 @@ export default function PokedexPokemonTcgPage() {
             />
 
             <div className="pdx-cards-grid" style={S.topCardsGrid}>
-              {[
-                { name: 'Umbreon ex', desc: 'Prismatic Evolutions · Special Illustration', price: 'R$ 4.570', img: 'https://images.pokemontcg.io/sv8pt5/161.png', rank: 1 },
-                { name: 'Mew ex', desc: 'Paldean Fates · Special Illustration', price: 'R$ 2.144', img: 'https://images.pokemontcg.io/sv4pt5/232.png', rank: 2 },
-                { name: 'Pikachu ex', desc: 'Surging Sparks · Special Illustration', price: 'R$ 1.500', img: 'https://images.pokemontcg.io/sv8/238.png', rank: 3 },
-                { name: 'Flareon ex', desc: 'Prismatic Evolutions · Special Illustration', price: 'R$ 1.399', img: 'https://images.pokemontcg.io/sv8pt5/146.png', rank: 4 },
-                { name: 'Vaporeon ex', desc: 'Prismatic Evolutions · Special Illustration', price: 'R$ 1.299', img: 'https://images.pokemontcg.io/sv8pt5/149.png', rank: 5 },
-                { name: 'Salamence ex', desc: 'Journey Together · Special Illustration', price: 'R$ 1.299', img: 'https://images.pokemontcg.io/sv9/187.png', rank: 6 },
-              ].map((c) => (
-                <div key={c.name + c.rank} style={S.topCard}>
+              {topValiosas.map((c) => (
+                <div key={c.id} style={S.topCard}>
                   <span style={S.topCardRank}>#{c.rank}</span>
                   <div style={S.topCardImg}>
                     <img src={c.img} alt={c.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   </div>
                   <div style={S.topCardName}>{c.name}</div>
                   <div style={S.topCardDesc}>{c.desc}</div>
-                  <div style={S.topCardPrice}>{c.price}</div>
+                  <div style={S.topCardPrice}>{fmtBRL(c.preco)}</div>
                 </div>
               ))}
             </div>
@@ -592,27 +637,17 @@ export default function PokedexPokemonTcgPage() {
           </div>
         </section>
 
-        {/* ─── SHOWCASE DE RARIDADES ──────────────────── */}
+        {/* ─── SHOWCASE DE RARIDADES (contagem ao vivo) ─ */}
         <section style={S.section}>
           <div style={S.container}>
             <SectionHeader
               eyebrow="Raridades"
               title="Da Common à Hyper Rare — todas catalogadas."
-              subtitle="Pokémon TCG tem 38 tipos de raridade. O Bynx mostra a raridade exata de cada carta, com cor diferente, ícone e exemplos visuais."
+              subtitle={`Pokémon TCG tem ${fmtInt(stats.total_rarities)} tipos de raridade. O Bynx mostra a raridade exata de cada carta, com cor diferente, ícone e exemplos visuais.`}
             />
 
             <div className="pdx-rarity-grid" style={S.rarityGrid}>
-              {[
-                { name: 'Common', count: 5251, color: '#9ca3af', desc: 'Carta básica, sem brilho. Encontrada em todos os boosters.', symbol: '●' },
-                { name: 'Uncommon', count: 4836, color: '#22c55e', desc: 'Diamante simples. 1/3 das cartas de um booster, em média.', symbol: '◆' },
-                { name: 'Rare', count: 2539, color: '#3b82f6', desc: 'Estrela preta. Última carta de um booster comum.', symbol: '★' },
-                { name: 'Rare Holo', count: 1617, color: '#a855f7', desc: 'Estrela preta + brilho holográfico no corpo da carta.', symbol: '✦' },
-                { name: 'Promo', count: 1255, color: '#f59e0b', desc: 'Distribuição limitada — eventos, McDonalds, Black Star Promo.', symbol: '◈' },
-                { name: 'Rare Ultra', count: 798, color: '#ec4899', desc: 'Carta inteira holográfica. EX, GX, V, VMAX, VSTAR, ex.', symbol: '✶' },
-                { name: 'Illustration Rare', count: 470, color: '#f97316', desc: 'Arte estendida, cobrindo borda. Era moderna.', symbol: '✺' },
-                { name: 'Special Illustration', count: 210, color: '#ef4444', desc: 'A jóia da era moderna. Umbreon ex Prismatic é exemplo.', symbol: '✷' },
-                { name: 'Hyper Rare', count: 74, color: '#fbbf24', desc: 'Borda dourada/rainbow. As mais raras nos boosters atuais.', symbol: '✸' },
-              ].map((r) => (
+              {RARITY_META.map((r) => (
                 <div key={r.name} style={{ ...S.rarityCard, borderColor: r.color + '30' }}>
                   <div style={{ ...S.raritySymbol, background: r.color + '15', color: r.color, borderColor: r.color + '40' }}>
                     {r.symbol}
@@ -620,7 +655,7 @@ export default function PokedexPokemonTcgPage() {
                   <div style={{ flex: 1 }}>
                     <div style={S.rarityHeader}>
                       <div style={{ ...S.rarityName, color: r.color }}>{r.name}</div>
-                      <div style={S.rarityCount}>{r.count.toLocaleString('pt-BR')}</div>
+                      <div style={S.rarityCount}>{rc(r.dbKey)}</div>
                     </div>
                     <div style={S.rarityDesc}>{r.desc}</div>
                   </div>
@@ -629,12 +664,12 @@ export default function PokedexPokemonTcgPage() {
             </div>
 
             <p style={S.rarityNote}>
-              + 29 outras raridades catalogadas: Rainbow, Secret, BREAK, Prism Star, ACE SPEC, Trainer Gallery, Radiant, Amazing, Mega Hyper Rare e mais.
+              + {Math.max(stats.total_rarities - RARITY_META.length, 0)} outras raridades catalogadas: Rainbow, Secret, BREAK, Prism Star, ACE SPEC, Trainer Gallery, Radiant, Amazing, Mega Hyper Rare e mais.
             </p>
           </div>
         </section>
 
-        {/* ─── 17 SÉRIES TCG ──────────────────────────── */}
+        {/* ─── 17 SÉRIES TCG (estatico — rotulos editoriais) ─ */}
         <section style={S.sectionDark}>
           <div style={S.container}>
             <SectionHeader
@@ -645,7 +680,7 @@ export default function PokedexPokemonTcgPage() {
 
             <div className="pdx-series-timeline" style={S.seriesTimeline}>
               {[
-                { name: 'Mega Evolution', years: '2025 — 2026', cards: 737, sets: 4, current: true },
+                { name: 'Mega Evolution', years: '2025 — 2026', cards: 859, sets: 5, current: true },
                 { name: 'Scarlet & Violet', years: '2023 — 2025', cards: 3630, sets: 18, recent: true },
                 { name: 'Sword & Shield', years: '2020 — 2023', cards: 3667, sets: 25 },
                 { name: 'Sun & Moon', years: '2017 — 2019', cards: 2973, sets: 18 },
@@ -771,7 +806,7 @@ export default function PokedexPokemonTcgPage() {
           </div>
         </section>
 
-        {/* ─── FAQ ─────────────────────────────────────── */}
+        {/* ─── FAQ (dinamico) ──────────────────────────── */}
         <section style={S.section}>
           <div style={{ ...S.container, maxWidth: 820 }}>
             <SectionHeader
@@ -780,48 +815,7 @@ export default function PokedexPokemonTcgPage() {
             />
 
             <div style={S.faqList}>
-              {[
-                {
-                  q: 'O que é a Pokédex do Bynx?',
-                  a: 'A Pokédex do Bynx é o catálogo mais completo do Pokémon TCG em português brasileiro. São 22.861 cartas catalogadas, organizadas por set, raridade, geração e variante (Normal, Holo, Reverse, Foil, Promo). Cada carta tem preço em reais (mínimo, médio e máximo) atualizado continuamente. A busca é em português e funciona com nomes parciais — digite "char" e aparece Charizard, Charmander, Charmeleon.',
-                },
-                {
-                  q: 'Quantas cartas Pokémon TCG existem ao todo?',
-                  a: 'O Pokémon TCG completou mais de 25 anos de história (lançado em 1996 no Japão, 1999 nos EUA) e tem mais de 22.000 cartas únicas oficialmente lançadas. O Bynx tem 22.861 cartas catalogadas, cobrindo da Base Set (1999) até os sets mais recentes como Perfect Order (2026) e Ascended Heroes. Isso inclui sets em inglês, japonês, espanhol e francês — quando há tradução oficial.',
-                },
-                {
-                  q: 'Como o Bynx organiza as 9 gerações de Pokémon?',
-                  a: 'O Bynx cobre as 9 gerações de Pokémon (Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea) através de 17 séries de TCG: Base, Gym, Neo, E-Card, EX, Diamond & Pearl, Platinum, HeartGold & SoulSilver, Black & White, XY, Sun & Moon, Sword & Shield, Scarlet & Violet, Mega Evolution, e séries especiais como POP e Trainer Galleries. Cada série tem múltiplos sets — só Sword & Shield, por exemplo, tem 25 sets.',
-                },
-                {
-                  q: 'A Pokédex do Bynx é gratuita?',
-                  a: 'Sim. A consulta à Pokédex é 100% gratuita pra qualquer pessoa, sem precisar de cadastro. Você pode buscar cartas, ver preços em reais por variante, conferir raridade e set. Adicionar à coleção e ter perfil público também são grátis. Recursos como scan com IA e exportar dados ficam no plano Pro (com 7 dias grátis pra novos usuários).',
-                },
-                {
-                  q: 'Como a Pokédex do Bynx se compara com TCGPlayer e pokemon.com?',
-                  a: 'TCGPlayer tem o maior catálogo do mundo, mas é 100% em inglês, preços em dólar e foco no mercado americano. Pokemon.com é a fonte oficial mas só lista cartas (sem preços). LigaPokémon tem dados em português mas interface datada e busca limitada. O Bynx combina o melhor: catálogo completo (22.861 cartas), preços em reais por variante atualizados continuamente, busca em português, mobile-first, scan com IA e marketplace BR — tudo no mesmo lugar.',
-                },
-                {
-                  q: 'O que são as variantes de uma carta Pokémon?',
-                  a: 'Cada carta Pokémon TCG pode ter várias variantes com preços muito diferentes: Normal (versão padrão), Holo (com brilho holográfico no Pokémon), Reverse Holo (brilho na borda em vez do Pokémon), Foil/Promo (versões especiais), e variantes premium como Pokeball Pattern e Master Ball Pattern. Uma Charizard Holo pode valer 5x mais que a versão Normal. O Bynx mostra preço separado pra cada variante — você sabe exatamente quanto vale a sua.',
-                },
-                {
-                  q: 'Quais são os tipos de raridade no Pokémon TCG?',
-                  a: 'O Pokémon TCG tem 38 tipos de raridade catalogados no Bynx. Os principais: Common (5.251 cartas), Uncommon (4.836), Rare (2.539), Rare Holo (1.617), Promo (1.255), Rare Ultra (798), Illustration Rare (470), Special Illustration Rare (210), Hyper Rare (74). Raridades modernas como Special Illustration Rare e Hyper Rare são as mais buscadas — Umbreon ex Prismatic Evolutions, por exemplo, vale mais de R$ 4.500 em média no Brasil.',
-                },
-                {
-                  q: 'Como o Bynx atualiza os preços das cartas?',
-                  a: 'Os preços vêm de coleta contínua de marketplaces brasileiros do Pokémon TCG. Pra cada carta, o Bynx mostra preço mínimo, médio e máximo de mercado, separado por variante. A atualização é automatizada e diária. Diferente de sites americanos que mostram USD convertido, os preços do Bynx são em reais reais — o que você efetivamente paga no Brasil.',
-                },
-                {
-                  q: 'Posso buscar cartas pelo número do set?',
-                  a: 'Sim. A busca da Pokédex aceita busca por nome (em português ou inglês), por número da carta no set (ex: "Pikachu 25/102"), por set, por raridade, por geração e por tipo do Pokémon. Você pode filtrar por múltiplos critérios ao mesmo tempo.',
-                },
-                {
-                  q: 'Quais são as cartas mais valiosas do Bynx hoje?',
-                  a: 'No mercado BR, as cartas mais valiosas catalogadas no Bynx incluem Umbreon ex Prismatic Evolutions (R$ 4.570), Mew ex Paldean Fates (R$ 2.144), Pikachu ex Surging Sparks (R$ 1.500), Flareon ex (R$ 1.399), Vaporeon ex (R$ 1.299) e Salamence ex Journey Together (R$ 1.299). Special Illustration Rares modernas — especialmente o trio Eeveelutions de Prismatic Evolutions — dominam o topo do mercado brasileiro.',
-                },
-              ].map((item, i) => (
+              {faqItems.map((item, i) => (
                 <details key={i} name="bynx-pdx-faq" style={S.faqItem}>
                   <summary style={S.faqSummary}>
                     <span style={{ fontSize: 15, fontWeight: 600, color: '#f0f0f0' }}>{item.q}</span>
@@ -842,7 +836,7 @@ export default function PokedexPokemonTcgPage() {
                 A Pokédex tá pronta. Bora explorar?
               </h2>
               <p style={S.finalSubtitle}>
-                22.861 cartas, 1.025 Pokémons, 236 sets e preços em reais. Sem cadastro pra consultar — mas se quiser organizar sua coleção,{' '}
+                {cartasFmt} cartas, 1.025 Pokémons, {setsFmt} sets e preços em reais. Sem cadastro pra consultar — mas se quiser organizar sua coleção,{' '}
                 <strong style={{ color: '#f0f0f0' }}>7 dias de Pro grátis</strong> pra começar.
               </p>
               <div className="pdx-final-ctas" style={S.finalCtas}>
@@ -924,7 +918,6 @@ const S: Record<string, CSSProperties> = {
     padding: '0 24px',
   },
 
-  // ─── HERO ──────────────────────────────────────────
   hero: {
     position: 'relative',
     padding: '88px 24px 112px',
@@ -1043,7 +1036,6 @@ const S: Record<string, CSSProperties> = {
   },
   heroTrustItem: { display: 'inline-flex', alignItems: 'center', gap: 6 },
 
-  // ─── HERO MOCKUP ───────────────────────────────────
   heroMockup: { position: 'relative', width: '100%' },
   mockupBrowser: {
     background: 'rgba(255,255,255,0.04)',
@@ -1145,7 +1137,6 @@ const S: Record<string, CSSProperties> = {
   mockupPrice: { fontSize: 11, fontWeight: 800, color: '#f59e0b' },
   mockupFooter: { marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' },
 
-  // ─── STATS ─────────────────────────────────────────
   statsSection: {
     padding: '64px 24px',
     borderTop: '1px solid rgba(255,255,255,0.06)',
@@ -1187,7 +1178,6 @@ const S: Record<string, CSSProperties> = {
     lineHeight: 1.4,
   },
 
-  // ─── SEÇÕES GENÉRICAS ──────────────────────────────
   section: { padding: '96px 0' },
   sectionDark: {
     padding: '96px 0',
@@ -1227,10 +1217,6 @@ const S: Record<string, CSSProperties> = {
     margin: 0,
   },
 
-  // ─── ANATOMIA ──────────────────────────────────────
-  // Layout: grid 2-col (carta à esquerda + specs à direita), com o
-  // bloco "dossiê" ocupando largura completa abaixo. Sem position
-  // absolute — robusto em qualquer viewport.
   anatomyGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
@@ -1248,7 +1234,6 @@ const S: Record<string, CSSProperties> = {
     width: 240,
     aspectRatio: '5/7',
   },
-  // Grid 3x2 de specs ao lado da carta (desktop) / 2x3 em mobile
   specGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
@@ -1264,7 +1249,7 @@ const S: Record<string, CSSProperties> = {
     flexDirection: 'column',
     justifyContent: 'center',
     gap: 4,
-    minWidth: 0, // permite truncate em containers flex/grid
+    minWidth: 0,
   },
   specCardHighlight: {
     border: '1px solid rgba(245,158,11,0.4)',
@@ -1289,7 +1274,6 @@ const S: Record<string, CSSProperties> = {
   specValueHighlight: {
     color: '#f59e0b',
   },
-  // Dossiê ocupa largura completa abaixo (não mais coluna lateral)
   anatomyDossie: {
     gridColumn: '1 / -1',
     display: 'flex',
@@ -1331,7 +1315,6 @@ const S: Record<string, CSSProperties> = {
     textAlign: 'center',
   },
 
-  // ─── COMPARATIVO ───────────────────────────────────
   comparativoWrap: {
     overflowX: 'auto',
     borderRadius: 16,
@@ -1380,7 +1363,6 @@ const S: Record<string, CSSProperties> = {
     borderTop: '1px solid rgba(255,255,255,0.04)',
   },
 
-  // ─── SETS GRID ─────────────────────────────────────
   setsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
@@ -1433,7 +1415,6 @@ const S: Record<string, CSSProperties> = {
     color: 'rgba(255,255,255,0.5)',
   },
 
-  // ─── TOP CARDS ─────────────────────────────────────
   topCardsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
@@ -1509,7 +1490,6 @@ const S: Record<string, CSSProperties> = {
     marginRight: 'auto',
   },
 
-  // ─── RARIDADES ─────────────────────────────────────
   rarityGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
@@ -1566,7 +1546,6 @@ const S: Record<string, CSSProperties> = {
     marginTop: 24,
   },
 
-  // ─── SÉRIES TIMELINE ───────────────────────────────
   seriesTimeline: {
     display: 'flex',
     flexDirection: 'column',
@@ -1652,7 +1631,6 @@ const S: Record<string, CSSProperties> = {
     marginTop: 24,
   },
 
-  // ─── BUSCA INTELIGENTE ─────────────────────────────
   searchMockup: {
     maxWidth: 540,
     margin: '0 auto',
@@ -1694,7 +1672,6 @@ const S: Record<string, CSSProperties> = {
     lineHeight: 1.6,
   },
 
-  // ─── GLOSSÁRIO ─────────────────────────────────────
   glossaryGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
@@ -1719,7 +1696,6 @@ const S: Record<string, CSSProperties> = {
     lineHeight: 1.55,
   },
 
-  // ─── FAQ ───────────────────────────────────────────
   faqList: { display: 'flex', flexDirection: 'column', gap: 8 },
   faqItem: {
     background: '#0d0f14',
@@ -1748,7 +1724,6 @@ const S: Record<string, CSSProperties> = {
     margin: 0,
   },
 
-  // ─── CTA FINAL ─────────────────────────────────────
   finalSection: {
     padding: '96px 0',
     background:
