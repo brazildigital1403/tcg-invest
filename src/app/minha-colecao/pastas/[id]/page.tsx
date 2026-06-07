@@ -166,7 +166,14 @@ export default function PastaDetalhe() {
     const maxPos = cards.reduce((m, c) => Math.max(m, c.posicao ?? -1), -1)
     const rows = selectedIds.map((uc, i) => ({ pasta_id: id, user_card_id: uc, posicao: maxPos + 1 + i }))
     const { error } = await supabase.from('pasta_cards').insert(rows)
-    if (error) { showAlert('Erro ao adicionar cartas.', 'error'); return false }
+    if (error) {
+      if (String(error.message || '').includes('PRO_REQUIRED_CARTAS')) {
+        showAlert(`No plano Free cada Pasta tem até ${LIMITE_CARTAS_FREE} cartas. Faça upgrade para o Pro e tenha pastas ilimitadas.`, 'warning')
+      } else {
+        showAlert('Erro ao adicionar cartas.', 'error')
+      }
+      return false
+    }
     await loadCards()
     return true
   }
@@ -320,7 +327,7 @@ export default function PastaDetalhe() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button onClick={() => setOpenEdit(true)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Editar</button>
-            <button onClick={handleExportPDF} title={!isPro ? 'Disponível no plano Pro' : 'Exportar PDF da pasta'} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>PDF</button>
+            <button onClick={handleExportPDF} title={!isPro ? 'Disponível no plano Pro' : 'Exportar PDF da pasta'} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>{!isPro && <span style={{ fontSize: 11 }}>🔒</span>}PDF</button>
             <button onClick={handleDelete} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Excluir</button>
           </div>
         </div>

@@ -87,7 +87,12 @@ export default function PastaFormModal({
       onSaved(pastaId)
     } catch (err: any) {
       console.error('[pasta form] save error:', err?.message || err)
-      showAlert('Erro ao salvar a Pasta. Tente novamente.', 'error')
+      const msg = String(err?.message || '')
+      if (msg.includes('PRO_REQUIRED_PASTAS')) {
+        showAlert('No plano Free voce pode ter 1 Pasta. Faca upgrade para o Pro e tenha pastas ilimitadas.', 'warning')
+      } else {
+        showAlert('Erro ao salvar a Pasta. Tente novamente.', 'error')
+      }
     } finally {
       setSaving(false)
     }
