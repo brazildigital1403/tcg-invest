@@ -133,7 +133,7 @@ async function fetchAllSets(): Promise<SeriesGroup[]> {
     throw err
   }
 
-  const statsBySetId = new Map
+  const statsBySetId = new Map<
     string,
     { cardsCount: number; totalValueBrl: number; firstSetName?: string }
   >()
