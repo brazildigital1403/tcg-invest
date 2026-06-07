@@ -148,6 +148,7 @@ export default function MinhaConta() {
   // S40: privacidade do perfil publico
   const [perfilPublico, setPerfilPublico] = useState(true)
   const [perfilOcultarValores, setPerfilOcultarValores] = useState(false)
+  const [perfilMostrarPastas, setPerfilMostrarPastas] = useState(true)
 
   // ── Load ────────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ export default function MinhaConta() {
         setCity(profile.city || '')
         setPerfilPublico(profile.perfil_publico ?? true)
         setPerfilOcultarValores(profile.perfil_ocultar_valores ?? false)
+        setPerfilMostrarPastas(profile.perfil_mostrar_pastas ?? true)
       }
 
       // Contagem de cartas
@@ -345,15 +347,17 @@ export default function MinhaConta() {
   // ── Alterar senha ──────────────────────────────────────────────────────────
 
   // S40: salva na hora os toggles de privacidade do perfil (update otimista).
-  async function updatePerfilFlag(campo: 'perfil_publico' | 'perfil_ocultar_valores', valor: boolean) {
-    if (campo === 'perfil_publico') setPerfilPublico(valor)
-    else setPerfilOcultarValores(valor)
+  async function updatePerfilFlag(campo: 'perfil_publico' | 'perfil_ocultar_valores' | 'perfil_mostrar_pastas', valor: boolean) {
+    const setters: Record<string, (v: boolean) => void> = {
+      perfil_publico: setPerfilPublico,
+      perfil_ocultar_valores: setPerfilOcultarValores,
+      perfil_mostrar_pastas: setPerfilMostrarPastas,
+    }
+    setters[campo]?.(valor)
 
     const { error } = await supabase.from('users').update({ [campo]: valor }).eq('id', user.id)
     if (error) {
-      // reverte em caso de erro
-      if (campo === 'perfil_publico') setPerfilPublico(!valor)
-      else setPerfilOcultarValores(!valor)
+      setters[campo]?.(!valor)
       showAlert('Erro ao salvar preferencia. Tente novamente.', 'error')
     } else {
       setUserData((prev: any) => ({ ...prev, [campo]: valor }))
@@ -506,6 +510,16 @@ export default function MinhaConta() {
                   </p>
                 </div>
                 <Toggle checked={perfilOcultarValores} disabled={!perfilPublico} onChange={v => updatePerfilFlag('perfil_ocultar_valores', v)} />
+              </div>
+              {/* Toggle: mostrar pastas no perfil */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, opacity: perfilPublico ? 1 : 0.4 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 3 }}>Mostrar minhas pastas</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                    Exibe suas pastas (coleções organizadas) no seu perfil público, logo após as cartas mais valiosas.
+                  </p>
+                </div>
+                <Toggle checked={perfilMostrarPastas} disabled={!perfilPublico} onChange={v => updatePerfilFlag('perfil_mostrar_pastas', v)} />
               </div>
             </div>
           )}

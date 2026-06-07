@@ -46,6 +46,7 @@ export default function PerfilPage() {
   const [user, setUser]           = useState<any>(null)
   const [listings, setListings]   = useState<any[]>([])
   const [showcase, setShowcase]   = useState<any[]>([])
+  const [pastas, setPastas]       = useState<any[]>([])
   const [patrimonio, setPatrimonio] = useState(0)
   const [portfolioHistory, setPortfolioHistory] = useState<any[]>([])
   const [setProgress, setSetProgress] = useState<any[]>([])
@@ -205,7 +206,9 @@ export default function PerfilPage() {
           setSetProgress(progress)
         }
       }
-
+      // Pastas publicas (Fase 3)
+      const { data: pastasData } = await supabase.rpc('perfil_pastas_publicas', { p_id: id })
+      setPastas(pastasData || [])
       setLoading(false)
     }
     load()
@@ -414,7 +417,33 @@ export default function PerfilPage() {
             </div>
           </div>
         )}
-
+        {/* ── PASTAS ── */}
+        {pastas.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width='14' height='14' viewBox='0 0 20 20' fill='none'><path d='M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/></svg>Pastas
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+              {pastas.map((p: any) => (
+                <Link key={p.id} href={`/perfil/${id}/pasta/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', ...SURFACE, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'transform 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-4px)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.transform = ''}
+                >
+                  <div style={{ height: 110, background: p.imagem_url ? `center/cover no-repeat url(${p.imagem_url})` : 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.18))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {!p.imagem_url && <span style={{ fontSize: 34, fontWeight: 900, color: 'rgba(255,255,255,0.25)' }}>{(p.nome || '?').charAt(0).toUpperCase()}</span>}
+                  </div>
+                  <div style={{ padding: 14, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <p style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nome}</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{p.qtd_cartas} carta{Number(p.qtd_cartas) !== 1 ? 's' : ''}</p>
+                    {!ocultarValores && p.patrimonio != null && Number(p.patrimonio) > 0 && (
+                      <p style={{ fontSize: 16, fontWeight: 800, color: '#60a5fa', marginTop: 'auto' }}>{fmt(Number(p.patrimonio))}</p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
         {/* ── PROGRESSO POR COLEÇÃO ── */}
         {setProgress.length > 0 && (
           <div style={{ marginBottom: 32 }}>
