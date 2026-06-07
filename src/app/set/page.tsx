@@ -79,6 +79,26 @@ const SERIES_PT: Record<string, string> = {
 
 // ─── Fetch ─────────────────────────────────────────────────────────────────
 
+// Chama a RPC de stats com algumas tentativas. O supabase-js devolve falha de
+// rede em `error` (ex.: "TypeError: fetch failed") — como e transitoria, uma
+// nova tentativa quase sempre passa. Evita derrubar build/runtime por blip.
+async function fetchStatsWithRetry(
+  sb: ReturnType<typeof createClient>,
+  attempts = 3,
+): Promise<any[]> {
+  let lastErr: string | null = null
+  for (let i = 0; i < attempts; i++) {
+    const { data, error } = await sb.rpc('set_index_stats')
+    if (!error && data != null) return data as any[]
+    lastErr = error?.message ?? 'retorno nulo'
+    if (i < attempts - 1) {
+      // backoff curto: 0.8s, 1.6s
+      await new Promise((r) => setTimeout(r, 800 * (i + 1)))
+    }
+  }
+  throw new Error(`set_index_stats indisponivel: ${lastErr}`)
+}
+
 async function fetchAllSets(): Promise<SeriesGroup[]> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -96,17 +116,24 @@ async function fetchAllSets(): Promise<SeriesGroup[]> {
     )
     .order('release_date', { ascending: false, nullsFirst: false })
 
-  // 2. Stats por set_id agregados NO BANCO (RPC) — sem cap de linhas, escala com o catálogo
-  const { data: cardStats, error: statsError } = await sb.rpc('set_index_stats')
-
-  // Resiliencia: se o RPC falhar (ex.: timeout do statement_timeout), NUNCA gerar/cachear
-  // uma pagina vazia. Lancar aqui faz o Next manter a ultima versao boa no cache
-  // (ISR stale-while-revalidate) em vez de servir a grade sem nenhum set.
-  if (statsError || cardStats == null) {
-    throw new Error(`set_index_stats indisponivel: ${statsError?.message ?? 'retorno nulo'}`)
+  // 2. Stats por set_id agregados NO BANCO (RPC) — sem cap de linhas, escala com o catálogo.
+  //    Com retry pra absorver blip de rede do fetch ("TypeError: fetch failed").
+  let cardStats: any[]
+  try {
+    cardStats = await fetchStatsWithRetry(sb)
+  } catch (err) {
+    // Em BUILD-TIME (prerender): NAO derrubar o deploy inteiro por uma falha de
+    // rede transitoria. Renderiza fallback vazio; o ISR (revalidate) reconstroi
+    // a pagina cheia na primeira regeneracao. Em RUNTIME: relanca pra manter a
+    // ultima versao boa no cache (stale-while-revalidate, nunca cacheia vazio).
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.error('[/set] build: set_index_stats indisponivel, fallback vazio:', err)
+      return []
+    }
+    throw err
   }
 
-  const statsBySetId = new Map<
+  const statsBySetId = new Map
     string,
     { cardsCount: number; totalValueBrl: number; firstSetName?: string }
   >()
