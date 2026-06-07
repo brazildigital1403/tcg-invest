@@ -9,6 +9,7 @@ import { getUserPlan } from '@/lib/isPro'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconSearch, IconClose } from '@/components/ui/Icons'
+import PastaFormModal from '@/components/pastas/PastaFormModal'
 
 const LIMITE_CARTAS_FREE = 100
 const PAGE = 9
@@ -42,6 +43,7 @@ type PastaMeta = {
   id: string
   nome: string
   descricao: string | null
+  imagem_url: string | null
   view_mode: string
   locked: boolean
   publico: boolean
@@ -60,7 +62,7 @@ type InvCard = {
 export default function PastaDetalhe() {
   const params = useParams()
   const id = String(params?.id || '')
-  const { showAlert, showPrompt, showConfirm } = useAppModal()
+  const { showAlert, showConfirm } = useAppModal()
 
   const [meta, setMeta] = useState<PastaMeta | null>(null)
   const [cards, setCards] = useState<PastaCard[]>([])
@@ -70,6 +72,7 @@ export default function PastaDetalhe() {
   const [viewMode, setViewMode] = useState<'grid' | 'lista' | 'pasta'>('grid')
   const [search, setSearch] = useState('')
   const [openPicker, setOpenPicker] = useState(false)
+  const [openEdit, setOpenEdit] = useState(false)
 
   async function loadCards() {
     const { data, error } = await supabase.rpc('pasta_detalhe', { p_pasta_id: id })
@@ -80,6 +83,15 @@ export default function PastaDetalhe() {
       quantity: Number(c.quantity) || 1,
       posicao: c.posicao == null ? i : Number(c.posicao),
     })))
+  }
+
+  async function reloadMeta() {
+    const { data: m } = await supabase
+      .from('pastas')
+      .select('id, nome, descricao, imagem_url, view_mode, locked, publico')
+      .eq('id', id)
+      .single()
+    if (m) setMeta(m as PastaMeta)
   }
 
   async function load() {
@@ -93,7 +105,7 @@ export default function PastaDetalhe() {
 
       const { data: m, error: me } = await supabase
         .from('pastas')
-        .select('id, nome, descricao, view_mode, locked, publico')
+        .select('id, nome, descricao, imagem_url, view_mode, locked, publico')
         .eq('id', id)
         .single()
       if (me || !m) { showAlert('Pasta não encontrada.', 'error'); window.location.href = '/minha-colecao/pastas'; return }
@@ -120,17 +132,6 @@ export default function PastaDetalhe() {
   async function setView(mode: 'grid' | 'lista' | 'pasta') {
     setViewMode(mode)
     await supabase.from('pastas').update({ view_mode: mode }).eq('id', id)
-  }
-
-  async function handleRename() {
-    if (!meta) return
-    const nome = await showPrompt({ message: 'Renomear Pasta', placeholder: meta.nome })
-    if (!nome) return
-    const t = nome.trim()
-    if (t.length < 1 || t.length > 60) { showAlert('O nome precisa ter entre 1 e 60 caracteres.', 'error'); return }
-    const { error } = await supabase.from('pastas').update({ nome: t }).eq('id', id)
-    if (error) { showAlert('Erro ao renomear.', 'error'); return }
-    setMeta({ ...meta, nome: t })
   }
 
   async function handleDelete() {
@@ -170,7 +171,6 @@ export default function PastaDetalhe() {
     return true
   }
 
-  // Reordenar (fichário): updates = [{id, pos}]
   async function handleMove(updates: { id: string; pos: number }[]) {
     if (updates.length === 0) return
     setCards(prev => prev.map(c => {
@@ -195,6 +195,13 @@ export default function PastaDetalhe() {
           Pastas
         </Link>
 
+        {/* Capa */}
+        {meta?.imagem_url && (
+          <div style={{ width: '100%', height: 170, borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.08)' }}>
+            <img src={meta.imagem_url} alt={meta.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        )}
+
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
           <div style={{ minWidth: 0 }}>
@@ -207,7 +214,7 @@ export default function PastaDetalhe() {
             {meta?.descricao && <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{meta.descricao}</p>}
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button onClick={handleRename} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Renomear</button>
+            <button onClick={() => setOpenEdit(true)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Editar</button>
             <button onClick={handleDelete} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Excluir</button>
           </div>
         </div>
@@ -342,6 +349,16 @@ export default function PastaDetalhe() {
           onAdd={async (ids) => { const ok = await handleAddCards(ids); if (ok) setOpenPicker(false) }}
         />
       )}
+
+      {openEdit && userId && meta && (
+        <PastaFormModal
+          userId={userId}
+          mode="edit"
+          pasta={{ id: meta.id, nome: meta.nome, descricao: meta.descricao, imagem_url: meta.imagem_url }}
+          onClose={() => setOpenEdit(false)}
+          onSaved={() => { reloadMeta(); setOpenEdit(false) }}
+        />
+      )}
     </AppLayout>
   )
 }
@@ -373,7 +390,6 @@ function Binder({
 
   const pagesPerView = isMobile ? 1 : 2
 
-  // Mapa bolso -> carta
   const byPos = new Map<number, PastaCard>()
   cards.forEach(c => { if (c.posicao != null) byPos.set(c.posicao, c) })
   byPosRef.current = byPos
@@ -383,7 +399,6 @@ function Binder({
   const baseSpreads = maxPos >= 0 ? Math.floor(lastCardPage / pagesPerView) + 1 : 1
   const totalSpreads = Math.max(1, baseSpreads + extraSpreads)
 
-  // Clamp do spread atual
   useEffect(() => {
     if (spread > totalSpreads - 1) setSpread(Math.max(0, totalSpreads - 1))
   }, [totalSpreads]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -397,7 +412,6 @@ function Binder({
     })
   }
 
-  // Teclado ← →
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') go(1)
@@ -407,7 +421,6 @@ function Binder({
     return () => window.removeEventListener('keydown', onKey)
   }, [totalSpreads]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Drag & drop por pointer (mouse + toque) ──
   function startDrag(e: React.PointerEvent, card: PastaCard) {
     e.preventDefault()
     dragRef.current = { ucId: card.user_card_id, fromPos: card.posicao }
@@ -453,7 +466,6 @@ function Binder({
         @keyframes binderPrev { from { opacity: 0.35; transform: translateX(-46px) rotateY(10deg) } to { opacity: 1; transform: none } }
       `}</style>
 
-      {/* Controles */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Arraste as cartas para organizar — solte sobre outra para trocar de lugar.</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -471,7 +483,6 @@ function Binder({
         </div>
       </div>
 
-      {/* Álbum aberto */}
       <div style={{ perspective: 1600 }}>
         <div
           key={spread}
@@ -550,7 +561,6 @@ function Binder({
         </div>
       </div>
 
-      {/* Ghost que segue o dedo/mouse */}
       {ghost && (
         <div style={{ position: 'fixed', left: ghost.x, top: ghost.y, transform: 'translate(-50%, -50%) rotate(-4deg)', width: 92, aspectRatio: '63/88', zIndex: 9999, pointerEvents: 'none', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', border: '1px solid rgba(245,158,11,0.6)' }}>
           {ghost.card.card_image
@@ -608,7 +618,6 @@ function AddCardsModal({
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#0d0f14', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 18, width: '100%', maxWidth: 560, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <p style={{ fontSize: 16, fontWeight: 700 }}>Adicionar cartas</p>
@@ -617,13 +626,11 @@ function AddCardsModal({
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, width: 30, height: 30, color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconClose size={14} /></button>
         </div>
 
-        {/* Busca */}
         <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
           <IconSearch size={14} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 31, top: '50%', transform: 'translateY(-50%)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar na coleção..." style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px 8px 30px', color: '#f0f0f0', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
 
-        {/* Lista */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
           {loading && <p style={{ padding: 24, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Carregando coleção...</p>}
           {!loading && inv.length === 0 && <p style={{ padding: 24, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Todas as suas cartas já estão nesta pasta (ou sua coleção está vazia).</p>}
@@ -647,7 +654,6 @@ function AddCardsModal({
           })}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{selected.size} selecionada{selected.size !== 1 ? 's' : ''}</span>
           <button

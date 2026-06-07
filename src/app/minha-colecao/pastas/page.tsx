@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
+import PastaFormModal from '@/components/pastas/PastaFormModal'
 
 const LIMITE_PASTAS_FREE = 1
 
@@ -34,12 +35,12 @@ type Pasta = {
 }
 
 export default function PastasIndex() {
-  const { showAlert, showPrompt } = useAppModal()
+  const { showAlert } = useAppModal()
   const [pastas, setPastas] = useState<Pasta[]>([])
   const [isPro, setIsPro] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
+  const [openCreate, setOpenCreate] = useState(false)
 
   async function load() {
     try {
@@ -73,27 +74,13 @@ export default function PastasIndex() {
 
   const ativas = pastas.filter(p => !p.locked)
 
-  async function handleCreate() {
-    if (!userId || creating) return
+  function handleCreateClick() {
+    if (!userId) return
     if (!isPro && ativas.length >= LIMITE_PASTAS_FREE) {
       showAlert('No plano Free voce pode ter 1 Pasta. Faca upgrade para o Pro e tenha pastas ilimitadas.', 'warning')
       return
     }
-    const nome = await showPrompt({ message: 'Nome da nova Pasta', placeholder: 'Ex: Charizards, Base Set, Favoritas...' })
-    if (!nome) return
-    const nomeTrim = nome.trim()
-    if (nomeTrim.length < 1 || nomeTrim.length > 60) {
-      showAlert('O nome precisa ter entre 1 e 60 caracteres.', 'error'); return
-    }
-    setCreating(true)
-    const { data, error } = await supabase
-      .from('pastas')
-      .insert({ user_id: userId, nome: nomeTrim })
-      .select('id')
-      .single()
-    setCreating(false)
-    if (error || !data) { showAlert('Erro ao criar a Pasta. Tente novamente.', 'error'); return }
-    window.location.href = `/minha-colecao/pastas/${data.id}`
+    setOpenCreate(true)
   }
 
   if (loading) {
@@ -119,9 +106,8 @@ export default function PastasIndex() {
             </span>
           </div>
           <button
-            onClick={handleCreate}
-            disabled={creating}
-            style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: creating ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', opacity: creating ? 0.7 : 1 }}
+            onClick={handleCreateClick}
+            style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)' }}
           >
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
             Criar Pasta
@@ -184,6 +170,15 @@ export default function PastasIndex() {
           ))}
         </div>
       </div>
+
+      {openCreate && userId && (
+        <PastaFormModal
+          userId={userId}
+          mode="create"
+          onClose={() => setOpenCreate(false)}
+          onSaved={(newId) => { window.location.href = `/minha-colecao/pastas/${newId}` }}
+        />
+      )}
     </AppLayout>
   )
 }
