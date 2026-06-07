@@ -11,6 +11,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { IconSearch, IconClose } from '@/components/ui/Icons'
 
 const LIMITE_CARTAS_FREE = 100
+const PAGE_SIZE = 9
 
 const fmtBRL = (v: any) => {
   const num = Number(v)
@@ -65,7 +66,7 @@ export default function PastaDetalhe() {
   const [isPro, setIsPro] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<'grid' | 'lista'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'lista' | 'pasta'>('grid')
   const [search, setSearch] = useState('')
   const [openPicker, setOpenPicker] = useState(false)
 
@@ -91,7 +92,7 @@ export default function PastaDetalhe() {
         .single()
       if (me || !m) { showAlert('Pasta não encontrada.', 'error'); window.location.href = '/minha-colecao/pastas'; return }
       setMeta(m as PastaMeta)
-      setViewMode(m.view_mode === 'lista' ? 'lista' : 'grid')
+      setViewMode(m.view_mode === 'lista' ? 'lista' : m.view_mode === 'pasta' ? 'pasta' : 'grid')
 
       await loadCards()
     } catch (err: any) {
@@ -110,7 +111,11 @@ export default function PastaDetalhe() {
 
   const filtered = cards.filter(c => !search || c.card_name?.toLowerCase().includes(search.toLowerCase()))
 
-  async function setView(mode: 'grid' | 'lista') {
+  // Fichário: agrupa em páginas de 9
+  const paginas: PastaCard[][] = []
+  for (let i = 0; i < filtered.length; i += PAGE_SIZE) paginas.push(filtered.slice(i, i + PAGE_SIZE))
+
+  async function setView(mode: 'grid' | 'lista' | 'pasta') {
     setViewMode(mode)
     await supabase.from('pastas').update({ view_mode: mode }).eq('id', id)
   }
@@ -234,10 +239,11 @@ export default function PastaDetalhe() {
             </div>
           )}
 
-          {/* Toggle grid/lista */}
+          {/* Toggle grade / lista / fichário */}
           <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 3 }}>
             <button onClick={() => setView('grid')} style={{ background: viewMode === 'grid' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: viewMode === 'grid' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Grade</button>
             <button onClick={() => setView('lista')} style={{ background: viewMode === 'lista' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: viewMode === 'lista' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Lista</button>
+            <button onClick={() => setView('pasta')} style={{ background: viewMode === 'pasta' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: viewMode === 'pasta' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Fichário</button>
           </div>
         </div>
 
@@ -297,6 +303,42 @@ export default function PastaDetalhe() {
                 <button onClick={() => handleRemoveFromPasta(c.user_card_id)} title="Remover da pasta" style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <IconClose size={13} />
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* FICHÁRIO (páginas 3x3) */}
+        {viewMode === 'pasta' && filtered.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {paginas.map((pagina, pi) => (
+              <div key={pi}>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Página {pi + 1}</p>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  {Array.from({ length: PAGE_SIZE }).map((_, slot) => {
+                    const c = pagina[slot]
+                    if (!c) {
+                      return <div key={`empty-${pi}-${slot}`} style={{ aspectRatio: '63/88', borderRadius: 8, border: '1.5px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.015)' }} />
+                    }
+                    return (
+                      <div key={c.user_card_id} title={c.card_name} style={{ position: 'relative', aspectRatio: '63/88', borderRadius: 8, overflow: 'hidden', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        {c.card_image
+                          ? <img src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                          : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 28 }}>🃏</div>}
+                        {c.quantity > 1 && (
+                          <span style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'rgba(0,0,0,0.7)', color: '#fff' }}>x{c.quantity}</span>
+                        )}
+                        <button
+                          onClick={() => handleRemoveFromPasta(c.user_card_id)}
+                          title="Remover da pasta"
+                          style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 7, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.85)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <IconClose size={12} />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             ))}
           </div>
