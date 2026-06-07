@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { setLabel } from '@/lib/setLabel'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
@@ -649,6 +650,14 @@ export default function MinhaColecao() {
                 : `${totalQty} carta${totalQty !== 1 ? 's' : ''} na coleção`}
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {userId && (
+                <Link
+                  href="/minha-colecao/pastas"
+                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                >
+                  🗂️ Pastas
+                </Link>
+              )}
               {userId && (
                 <button
                   onClick={() => setOpenScanModal(true)}
