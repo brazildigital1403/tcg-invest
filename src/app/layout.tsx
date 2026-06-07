@@ -6,6 +6,7 @@ import { ModalProvider } from "@/components/ui/useAppModal"
 import AuthModalProvider from "@/components/auth/AuthModalProvider"
 import ContactModalProvider from "@/components/ui/ContactModalProvider"
 import CookieBanner from "@/components/ui/CookieBanner"
+import Heartbeat from "@/components/Heartbeat"
 import { Providers } from "./providers"
 
 const dmSans = DM_Sans({
@@ -263,6 +264,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <AuthModalProvider>
                 {children}
                 <CookieBanner />
+                <Heartbeat />
               </AuthModalProvider>
             </ModalProvider>
           </ContactModalProvider>
