@@ -268,7 +268,7 @@ function UsersView() {
             borderRadius: 14,
             overflow: 'auto',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1440 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1180 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
                   {thSort('Usuário', 'name', 'left')}
@@ -295,7 +295,7 @@ function UsersView() {
                       <td style={td}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                            <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
                               {u.display_name || u.email}
                             </p>
                             {u.is_suspended && (
@@ -312,7 +312,7 @@ function UsersView() {
                             )}
                           </div>
                           {u.display_name && (
-                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
                               {u.email}
                             </p>
                           )}
@@ -414,14 +414,14 @@ function UsersView() {
 }
 
 const th: React.CSSProperties = {
-  padding: '12px 14px',
+  padding: '11px 10px',
   fontSize: 10, fontWeight: 800,
   color: 'rgba(255,255,255,0.45)',
   textTransform: 'uppercase', letterSpacing: '0.08em',
   textAlign: 'left',
   whiteSpace: 'nowrap',
 }
-const td: React.CSSProperties = { padding: '12px 14px', verticalAlign: 'middle' }
+const td: React.CSSProperties = { padding: '11px 10px', verticalAlign: 'middle' }
 
 const pgBtn = (disabled: boolean): React.CSSProperties => ({
   background: 'rgba(255,255,255,0.04)',
