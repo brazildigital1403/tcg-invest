@@ -960,7 +960,7 @@ export default function MinhaColecao() {
 
         {cards.length === 0 && (
           <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
-            <p style={{ fontSize: 48, marginBottom: 16 }}>🃏</p>
+            <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{ display: 'block', margin: '0 auto 16px' }}><rect x="3" y="5" width="10" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M7 5V4a2 2 0 012-2h6a2 2 0 012 2v9a2 2 0 01-2 2h-1" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
             <p style={{ fontSize: 16 }}>Você ainda não adicionou cartas.</p>
             <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "+ Buscar carta" para adicionar sua primeira carta</p>
           </div>
