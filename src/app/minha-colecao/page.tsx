@@ -900,7 +900,11 @@ export default function MinhaColecao() {
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.2)' }}>Tente outros filtros ou limpe a busca</p>
           </div>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+        <style>{`
+          .colecao-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+          @media (max-width: 768px) { .colecao-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+        `}</style>
+        <div className="colecao-grid">
           {filteredCards.map((c) => (
             <CardItem
               key={c.id}
