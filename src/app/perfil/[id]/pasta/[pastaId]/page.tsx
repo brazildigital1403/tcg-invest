@@ -28,7 +28,7 @@ export default function PastaPublica() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [view, setView] = useState<'grid' | 'pasta'>('grid')
+  const [view, setView] = useState<'grid' | 'pasta'>('pasta')
 
   useEffect(() => {
     if (!pastaId) return
@@ -36,7 +36,7 @@ export default function PastaPublica() {
       const { data: res } = await supabase.rpc('pasta_publica', { p_pasta_id: pastaId })
       if (!res) { setNotFound(true); setLoading(false); return }
       setData(res)
-      setView(res?.pasta?.view_mode === 'pasta' ? 'pasta' : 'grid')
+      setView(res?.pasta?.view_mode === 'grid' ? 'grid' : 'pasta')
       if (typeof document !== 'undefined' && res?.pasta?.nome) {
         document.title = `${res.pasta.nome} · ${res.owner?.name || 'Bynx'} · Bynx`
       }
@@ -112,8 +112,8 @@ export default function PastaPublica() {
         {/* Toggle Grade / Fichário */}
         {cards.length > 0 && (
           <div style={{ display: 'flex', gap: 4, marginBottom: 18, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 3, width: 'fit-content' }}>
-            <button onClick={() => setView('grid')} style={{ background: view === 'grid' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: view === 'grid' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 14px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Grade</button>
             <button onClick={() => setView('pasta')} style={{ background: view === 'pasta' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: view === 'pasta' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 14px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Fichário</button>
+            <button onClick={() => setView('grid')} style={{ background: view === 'grid' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: view === 'grid' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 14px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Grade</button>
           </div>
         )}
 

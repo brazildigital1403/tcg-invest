@@ -69,7 +69,7 @@ export default function PastaDetalhe() {
   const [isPro, setIsPro] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<'grid' | 'lista' | 'pasta'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'lista' | 'pasta'>('pasta')
   const [search, setSearch] = useState('')
   const [openPicker, setOpenPicker] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
@@ -110,7 +110,7 @@ export default function PastaDetalhe() {
         .single()
       if (me || !m) { showAlert('Pasta não encontrada.', 'error'); window.location.href = '/minha-colecao/pastas'; return }
       setMeta(m as PastaMeta)
-      setViewMode(m.view_mode === 'lista' ? 'lista' : m.view_mode === 'pasta' ? 'pasta' : 'grid')
+      setViewMode(m.view_mode === 'grid' ? 'grid' : m.view_mode === 'lista' ? 'lista' : 'pasta')
 
       await loadCards()
     } catch (err: any) {
@@ -411,9 +411,9 @@ export default function PastaDetalhe() {
 
           {/* Toggle grade / lista / fichário */}
           <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 3 }}>
+            <button onClick={() => setView('pasta')} style={{ background: viewMode === 'pasta' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: viewMode === 'pasta' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Fichário</button>
             <button onClick={() => setView('grid')} style={{ background: viewMode === 'grid' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: viewMode === 'grid' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Grade</button>
             <button onClick={() => setView('lista')} style={{ background: viewMode === 'lista' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: viewMode === 'lista' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Lista</button>
-            <button onClick={() => setView('pasta')} style={{ background: viewMode === 'pasta' ? 'rgba(245,158,11,0.15)' : 'transparent', border: 'none', color: viewMode === 'pasta' ? '#f59e0b' : 'rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Fichário</button>
           </div>
         </div>
 

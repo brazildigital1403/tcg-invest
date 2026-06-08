@@ -121,7 +121,7 @@ export default function PastaFormModal({
                 <img src={preview} alt="capa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
-                  <p style={{ fontSize: 26, marginBottom: 4 }}>🖼️</p>
+                  <svg width="30" height="30" viewBox="0 0 20 20" fill="none" style={{ marginBottom: 6 }}><rect x="3" y="4.5" width="14" height="11" rx="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="7.3" cy="8.3" r="1.3" stroke="currentColor" strokeWidth="1.2"/><path d="M4 14.5l3.5-3 2.5 2 2.5-2.5L17 13.5" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round"/></svg>
                   <p style={{ fontSize: 13 }}>Escolher imagem</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>JPG, PNG ou WEBP · até 5 MB</p>
                 </div>

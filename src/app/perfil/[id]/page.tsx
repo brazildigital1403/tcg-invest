@@ -247,6 +247,7 @@ export default function PerfilPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: BG, color: '#f0f0f0', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <style>{`.perfil-scroll::-webkit-scrollbar{display:none}.perfil-scroll{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
       {/* HEADER */}
       <header style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,10,15,0.97)', position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
@@ -381,12 +382,12 @@ export default function PerfilPage() {
             <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
               <svg width='14' height='14' viewBox='0 0 20 20' fill='none'><path d='M5 3h10l-2 7H7L5 3z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 10l-2 7h10l-2-7' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M8 17h4' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>Cartas mais valiosas
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 14 }}>
+            <div className="perfil-scroll" style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 6 }}>
               {showcase.map((card, i) => {
                 const vColor = VARIANTE_COLOR[card.variante || 'normal'] || '#60a5fa'
                 const vLabel = VARIANTE_LABEL[card.variante || 'normal'] || 'Normal'
                 return (
-                  <div key={card.card_name + i} style={{ ...SURFACE, overflow: 'hidden', position: 'relative', transition: 'transform 0.15s' }}
+                  <div key={card.card_name + i} style={{ ...SURFACE, flex: '0 0 150px', overflow: 'hidden', position: 'relative', transition: 'transform 0.15s' }}
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'}
                     onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = ''}
                   >
@@ -423,9 +424,9 @@ export default function PerfilPage() {
             <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
               <svg width='14' height='14' viewBox='0 0 20 20' fill='none'><path d='M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/></svg>Pastas
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+            <div className="perfil-scroll" style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 6 }}>
               {pastas.map((p: any) => (
-                <Link key={p.id} href={`/perfil/${id}/pasta/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', ...SURFACE, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'transform 0.15s' }}
+                <Link key={p.id} href={`/perfil/${id}/pasta/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', ...SURFACE, flex: '0 0 240px', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'transform 0.15s' }}
                   onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-4px)'}
                   onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.transform = ''}
                 >
