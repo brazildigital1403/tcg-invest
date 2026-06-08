@@ -70,6 +70,7 @@ export default function MinhaColecao() {
   const [totalCartas, setTotalCartas] = useState(0)
   const [isPro, setIsPro] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [pastasTopo, setPastasTopo] = useState<any>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [openScanModal, setOpenScanModal] = useState(false)
   const limiteDisplay = isPro ? '∞' : String(LIMITE_FREE)
@@ -286,6 +287,9 @@ export default function MinhaColecao() {
       setUserId(userData.user.id)
       const { isPro: pro, isTrial: trial } = await getUserPlan(userData.user.id)
       setIsPro(pro || trial)
+
+      // S40: Pastas em destaque no topo da colecao (hero + grade)
+      supabase.rpc('pastas_colecao_topo').then(({ data: pt }) => setPastasTopo(pt || null))
 
       const { data } = await supabase
         .from('user_cards')
@@ -740,6 +744,78 @@ export default function MinhaColecao() {
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Melhor cenário de venda</p>
           </div>
         </div>
+
+        {/* ── PASTAS EM DESTAQUE (hero + grade) ── */}
+        {pastasTopo?.hero && (
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>
+                Pastas
+              </h2>
+              <Link href="/minha-colecao/pastas" style={{ fontSize: 13, color: '#f59e0b', textDecoration: 'none' }}>Ver todas →</Link>
+            </div>
+
+            {/* HERO */}
+            <Link
+              href={`/minha-colecao/pastas/${pastasTopo.hero.id}`}
+              style={{
+                textDecoration: 'none', color: 'inherit', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
+                border: '1px solid rgba(245,158,11,0.22)', borderRadius: 18, padding: 18,
+                marginBottom: (pastasTopo.outras?.length ? 14 : 0),
+                background: pastasTopo.hero.imagem_url
+                  ? `linear-gradient(90deg, rgba(8,10,15,0.94), rgba(8,10,15,0.55)), center/cover no-repeat url(${pastasTopo.hero.imagem_url})`
+                  : 'linear-gradient(135deg, rgba(245,158,11,0.10), rgba(239,68,68,0.06))',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <span style={{ display: 'inline-block', background: 'rgba(245,158,11,0.18)', color: '#f59e0b', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 7, marginBottom: 10 }}>★ Em destaque</span>
+                <p style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 4 }}>{pastasTopo.hero.nome}</p>
+                {pastasTopo.hero.descricao && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginBottom: 12 }}>{pastasTopo.hero.descricao}</p>}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, padding: '5px 10px', borderRadius: 8 }}>🃏 {pastasTopo.hero.qtd} carta{Number(pastasTopo.hero.qtd) !== 1 ? 's' : ''}</span>
+                  {fmt(pastasTopo.hero.patrimonio) && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)', color: '#60a5fa', fontWeight: 700, fontSize: 12, padding: '5px 10px', borderRadius: 8 }}>{fmt(pastasTopo.hero.patrimonio)}</span>}
+                  {pastasTopo.hero.top_cards?.[0]?.nome && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, padding: '5px 10px', borderRadius: 8, maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏆 {String(pastasTopo.hero.top_cards[0].nome).replace(/\s*\([^)]*\)/, '')}</span>}
+                </div>
+              </div>
+              {pastasTopo.hero.top_cards?.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {pastasTopo.hero.top_cards.slice(0, 3).map((tc: any, i: number) => (
+                    <div key={i} style={{ width: 64, aspectRatio: '63/88', borderRadius: 8, overflow: 'hidden', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.14)' }}>
+                      {tc.img ? <img src={tc.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Link>
+
+            {/* OUTRAS PASTAS */}
+            {pastasTopo.outras?.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
+                {pastasTopo.outras.slice(0, 6).map((p: any) => (
+                  <Link
+                    key={p.id}
+                    href={p.locked ? '/minha-colecao/pastas' : `/minha-colecao/pastas/${p.id}`}
+                    style={{ textDecoration: 'none', color: 'inherit', position: 'relative', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                  >
+                    <div style={{ height: 64, background: p.imagem_url ? `center/cover no-repeat url(${p.imagem_url})` : 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.18))' }} />
+                    <div style={{ padding: '10px 12px' }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nome}</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.qtd} carta{Number(p.qtd) !== 1 ? 's' : ''}</p>
+                      {fmt(p.patrimonio) && <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', marginTop: 2 }}>{fmt(p.patrimonio)}</p>}
+                    </div>
+                    {p.locked && (
+                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,10,15,0.55)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        <span style={{ fontSize: 18 }}>🔒</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>Desbloquear no Pro</span>
+                      </div>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Busca + filtros — 1 linha única, após boxes */}
         {cards.length > 0 && (
