@@ -764,7 +764,7 @@ export default function MinhaColecao() {
                 border: '1px solid rgba(245,158,11,0.22)', borderRadius: 18, padding: 18,
                 marginBottom: (pastasTopo.outras?.length ? 14 : 0),
                 background: pastasTopo.hero.imagem_url
-                  ? `linear-gradient(90deg, rgba(8,10,15,0.94), rgba(8,10,15,0.55)), center/cover no-repeat url(${pastasTopo.hero.imagem_url})`
+                  ? `linear-gradient(90deg, rgba(8,10,15,0.97), rgba(8,10,15,0.84)), center/cover no-repeat url(${pastasTopo.hero.imagem_url})`
                   : 'linear-gradient(135deg, rgba(245,158,11,0.10), rgba(239,68,68,0.06))',
               }}
             >
@@ -791,10 +791,18 @@ export default function MinhaColecao() {
 
             {/* OUTRAS PASTAS */}
             {pastasTopo.outras?.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
+              <>
+                <style>{`
+                  .pastas-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; }
+                  .pastas-track::-webkit-scrollbar { display: none; }
+                  .pastas-card { flex: 1; min-width: 170px; scroll-snap-align: start; }
+                  @media (max-width: 768px) { .pastas-card { flex: 0 0 auto; min-width: 62vw; } }
+                `}</style>
+                <div className="pastas-track">
                 {pastasTopo.outras.slice(0, 6).map((p: any) => (
                   <Link
                     key={p.id}
+                    className="pastas-card"
                     href={p.locked ? '/minha-colecao/pastas' : `/minha-colecao/pastas/${p.id}`}
                     style={{ textDecoration: 'none', color: 'inherit', position: 'relative', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
                   >
@@ -812,7 +820,8 @@ export default function MinhaColecao() {
                     )}
                   </Link>
                 ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}
