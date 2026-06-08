@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
@@ -41,6 +41,18 @@ const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string;
   free:  { label: 'Free',  color: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)' },
 }
 
+type SortKey =
+  | 'name' | 'plano' | 'collection_count' | 'anuncios_count' | 'tickets'
+  | 'scan_creditos' | 'last_sign_in_at' | 'last_seen_at' | 'created_at'
+
+const SORT_LABELS: Record<SortKey, string> = {
+  name: 'usuário', plano: 'plano', collection_count: 'coleção', anuncios_count: 'anúncios',
+  tickets: 'tickets', scan_creditos: 'créditos', last_sign_in_at: 'último acesso',
+  last_seen_at: 'última atividade', created_at: 'cadastro',
+}
+
+const PER_PAGE = 50
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
@@ -75,16 +87,17 @@ function UsersView() {
   const [users, setUsers]   = useState<User[] | null>(null)
   const [total, setTotal]   = useState(0)
   const [page, setPage]     = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [sortBy, setSortBy]   = useState<SortKey>('created_at')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   async function load() {
     setLoading(true)
     const p = new URLSearchParams()
     if (filter) p.set('filter', filter)
     if (q.trim()) p.set('q', q.trim())
-    p.set('page', String(page))
-    p.set('perPage', '50')
+    p.set('page', '1')
+    p.set('perPage', '1000')
 
     const res = await fetch(`/api/admin/users?${p}`)
     setLoading(false)
@@ -92,14 +105,77 @@ function UsersView() {
     const d = await res.json()
     setUsers(d.users || [])
     setTotal(d.total || 0)
-    setTotalPages(d.totalPages || 1)
   }
 
-  useEffect(() => { load() /* eslint-disable-next-line */ }, [filter, page])
+  useEffect(() => { load() /* eslint-disable-next-line */ }, [filter])
 
   function handleSearch() {
     setPage(1)
     load()
+  }
+
+  const sortedUsers = useMemo(() => {
+    if (!users) return []
+    const dir = sortDir === 'asc' ? 1 : -1
+    const rank: Record<User['plano_efetivo'], number> = { pro: 2, trial: 1, free: 0 }
+    const dateVal = (v: string | null) => (v ? new Date(v).getTime() : null)
+    const arr = [...users]
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case 'name': {
+          const av = (a.display_name || a.email || '').toLowerCase()
+          const bv = (b.display_name || b.email || '').toLowerCase()
+          return (av < bv ? -1 : av > bv ? 1 : 0) * dir
+        }
+        case 'plano':
+          return (rank[a.plano_efetivo] - rank[b.plano_efetivo]) * dir
+        case 'tickets':
+          return ((a.tickets_open - b.tickets_open) || (a.tickets_total - b.tickets_total)) * dir
+        case 'last_sign_in_at':
+        case 'last_seen_at':
+        case 'created_at': {
+          const at = dateVal(a[sortBy]); const bt = dateVal(b[sortBy])
+          if (at === null && bt === null) return 0
+          if (at === null) return 1   // nulos sempre por último
+          if (bt === null) return -1
+          return (at - bt) * dir
+        }
+        default: {
+          const av = Number((a as Record<string, unknown>)[sortBy] ?? 0)
+          const bv = Number((b as Record<string, unknown>)[sortBy] ?? 0)
+          return (av - bv) * dir
+        }
+      }
+    })
+    return arr
+  }, [users, sortBy, sortDir])
+
+  const totalPagesC = Math.max(1, Math.ceil(sortedUsers.length / PER_PAGE))
+  const pageClamped = Math.min(page, totalPagesC)
+  const pageUsers   = sortedUsers.slice((pageClamped - 1) * PER_PAGE, pageClamped * PER_PAGE)
+
+  function toggleSort(col: SortKey) {
+    if (col === sortBy) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortBy(col); setSortDir(col === 'name' ? 'asc' : 'desc') }
+    setPage(1)
+  }
+
+  function caret(col: SortKey) {
+    const active = sortBy === col
+    const c = active ? '#f59e0b' : 'rgba(255,255,255,0.25)'
+    const d = !active ? 'M6 8l4-4 4 4M6 12l4 4 4-4' : sortDir === 'asc' ? 'M5 12l5-5 5 5' : 'M5 8l5 5 5-5'
+    return <svg width="9" height="9" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d={d} stroke={c} strokeWidth={active ? 2 : 1.4} strokeLinecap="round" strokeLinejoin="round" /></svg>
+  }
+
+  function thSort(label: string, col: SortKey, align: 'left' | 'center' | 'right' = 'left') {
+    const active = sortBy === col
+    return (
+      <th style={{ ...th, textAlign: align, cursor: 'pointer', userSelect: 'none', color: active ? '#f59e0b' : th.color }} onClick={() => toggleSort(col)}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start', width: '100%' }}>
+          {label}{caret(col)}
+        </span>
+      </th>
+    )
   }
 
   return (
@@ -110,7 +186,7 @@ function UsersView() {
           Usuários
         </h1>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-          {total.toLocaleString('pt-BR')} usuário{total === 1 ? '' : 's'} · ordenados por cadastro mais recente
+          {total.toLocaleString('pt-BR')} usuário{total === 1 ? '' : 's'} · ordenado por {SORT_LABELS[sortBy]} ({sortDir === 'asc' ? 'crescente' : 'decrescente'})
         </p>
       </div>
 
@@ -194,20 +270,20 @@ function UsersView() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1340 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                  <th style={th}>Usuário</th>
-                  <th style={{ ...th, textAlign: 'center' }}>Plano</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Coleção</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Anúncios</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Tickets</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Créditos</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Último acesso</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Última atividade</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Cadastro</th>
+                  {thSort('Usuário', 'name', 'left')}
+                  {thSort('Plano', 'plano', 'center')}
+                  {thSort('Coleção', 'collection_count', 'right')}
+                  {thSort('Anúncios', 'anuncios_count', 'right')}
+                  {thSort('Tickets', 'tickets', 'right')}
+                  {thSort('Créditos', 'scan_creditos', 'right')}
+                  {thSort('Último acesso', 'last_sign_in_at', 'right')}
+                  {thSort('Última atividade', 'last_seen_at', 'right')}
+                  {thSort('Cadastro', 'created_at', 'right')}
                   <th style={{ ...th, width: 60 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => {
+                {pageUsers.map(u => {
                   const p = PLANO_STYLE[u.plano_efetivo]
                   return (
                     <tr key={u.id} style={{
@@ -304,22 +380,22 @@ function UsersView() {
           </div>
 
           {/* ── Paginação ── */}
-          {totalPages > 1 && (
+          {totalPagesC > 1 && (
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', alignItems: 'center', marginTop: 20 }}>
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                style={pgBtn(page === 1)}
+                disabled={pageClamped === 1}
+                style={pgBtn(pageClamped === 1)}
               >
                 ← Anterior
               </button>
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', minWidth: 80, textAlign: 'center' }}>
-                Página {page} de {totalPages}
+                Página {pageClamped} de {totalPagesC}
               </span>
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                style={pgBtn(page >= totalPages)}
+                onClick={() => setPage(p => Math.min(totalPagesC, p + 1))}
+                disabled={pageClamped >= totalPagesC}
+                style={pgBtn(pageClamped >= totalPagesC)}
               >
                 Próxima →
               </button>

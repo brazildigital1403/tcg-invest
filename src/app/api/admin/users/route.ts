@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const q       = searchParams.get('q')?.trim().toLowerCase()
     const page    = Math.max(1, Number(searchParams.get('page')    || 1))
-    const perPage = Math.min(100, Number(searchParams.get('perPage') || 50))
+    const perPage = Math.min(2000, Number(searchParams.get('perPage') || 50))
     const filter  = searchParams.get('filter')
 
     const sb = supabaseAdmin()
