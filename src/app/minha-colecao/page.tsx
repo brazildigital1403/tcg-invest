@@ -659,7 +659,8 @@ export default function MinhaColecao() {
                   href="/minha-colecao/pastas"
                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
                 >
-                  🗂️ Pastas
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>
+                  Pastas
                 </Link>
               )}
               {userId && (
@@ -667,6 +668,7 @@ export default function MinhaColecao() {
                   onClick={() => setOpenScanModal(true)}
                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
                 >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 7V5a1 1 0 011-1h2M16 7V5a1 1 0 00-1-1h-2M4 13v2a1 1 0 001 1h2M16 13v2a1 1 0 01-1 1h-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M3 10h14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
                   Escanear foto
                 </button>
               )}
@@ -677,14 +679,16 @@ export default function MinhaColecao() {
                     title={!isPro ? 'Disponível no plano Pro' : 'Exportar como planilha'}
                     style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '11px 16px', borderRadius: 12, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
                   >
-                    {isPro ? 'CSV' : 'CSV'}
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M3 8h14M3 13h14M8 3v14" stroke="currentColor" strokeWidth="1.2"/></svg>
+                    CSV
                   </button>
                   <button
                     onClick={handleExportPDF}
                     title={!isPro ? 'Disponível no plano Pro' : 'Exportar relatório PDF'}
                     style={{ background: isPro ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isPro ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`, color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: isPro ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
                   >
-                    {isPro ? 'PDF' : 'PDF'}
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 3h6l4 4v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M11 3v4h4" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M7 11h6M7 14h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                    PDF
                   </button>
                 </>
               )}
