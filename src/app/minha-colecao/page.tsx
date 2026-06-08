@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { setLabel } from '@/lib/setLabel'
@@ -13,6 +14,7 @@ import ScanModal from '@/components/ui/ScanModal'
 import { IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 import CardItem from '@/components/ui/CardItem'
+import PastaFormModal from '@/components/pastas/PastaFormModal'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -70,6 +72,8 @@ export default function MinhaColecao() {
   const [totalCartas, setTotalCartas] = useState(0)
   const [isPro, setIsPro] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [criarPasta, setCriarPasta] = useState(false)
+  const router = useRouter()
   const [pastasTopo, setPastasTopo] = useState<any>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [openScanModal, setOpenScanModal] = useState(false)
@@ -830,6 +834,61 @@ export default function MinhaColecao() {
           </div>
         )}
 
+        {/* ── PASTAS: vitrine quando o usuario ainda nao tem nenhuma ── */}
+        {userId && pastasTopo && pastasTopo.total === 0 && (
+          <div style={{ marginBottom: 28 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>
+              Pastas
+            </h2>
+
+            <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', alignItems: 'center', border: '1px solid rgba(245,158,11,0.22)', borderRadius: 18, padding: 20, background: 'linear-gradient(135deg, rgba(245,158,11,0.10), rgba(239,68,68,0.06))' }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <p style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: 6 }}>Monte seu álbum digital de cartas</p>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, marginBottom: 16 }}>Crie pastas, organize do seu jeito e visualize como um fichário de verdade.</p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style={{ color: '#f59e0b', flexShrink: 0 }}><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    Separe por coleção, tipo ou raridade
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style={{ color: '#60a5fa', flexShrink: 0 }}><path d="M4 4h12v12H4z" stroke="currentColor" strokeWidth="1.5"/><path d="M4 8h12M8 4v12" stroke="currentColor" strokeWidth="1.2"/></svg>
+                    Veja o patrimônio de cada pasta
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style={{ color: '#22c55e', flexShrink: 0 }}><circle cx="6" cy="10" r="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="14" cy="5" r="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="14" cy="15" r="2" stroke="currentColor" strokeWidth="1.4"/><path d="M7.7 9l4.6-2.6M7.7 11l4.6 2.6" stroke="currentColor" strokeWidth="1.3"/></svg>
+                    Deixe pública e mostre no seu perfil
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setCriarPasta(true)}
+                  style={{ fontSize: 13, fontWeight: 800, color: '#000', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', padding: '11px 22px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  Criar primeira pasta
+                </button>
+              </div>
+
+              <div style={{ flex: '0 0 180px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7 }}>
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'linear-gradient(135deg, rgba(245,158,11,0.4), rgba(239,68,68,0.3))' }} />
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'rgba(255,255,255,0.06)', border: '1px dashed rgba(255,255,255,0.15)' }} />
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'linear-gradient(135deg, rgba(96,165,250,0.4), rgba(168,85,247,0.3))' }} />
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'rgba(255,255,255,0.06)', border: '1px dashed rgba(255,255,255,0.15)' }} />
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'linear-gradient(135deg, rgba(34,197,94,0.4), rgba(245,158,11,0.3))' }} />
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'rgba(255,255,255,0.06)', border: '1px dashed rgba(255,255,255,0.15)' }} />
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'rgba(255,255,255,0.06)', border: '1px dashed rgba(255,255,255,0.15)' }} />
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'linear-gradient(135deg, rgba(168,85,247,0.4), rgba(96,165,250,0.3))' }} />
+                  <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'rgba(255,255,255,0.06)', border: '1px dashed rgba(255,255,255,0.15)' }} />
+                </div>
+                <p style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 9 }}>visualização fichário</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Busca + filtros — 1 linha única, após boxes */}
         {cards.length > 0 && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
@@ -947,6 +1006,15 @@ export default function MinhaColecao() {
           userId={userId}
           onClose={() => setOpenScanModal(false)}
           onAdded={() => { setOpenScanModal(false); window.location.reload() }}
+        />
+      )}
+
+      {criarPasta && userId && (
+        <PastaFormModal
+          userId={userId}
+          mode="create"
+          onClose={() => setCriarPasta(false)}
+          onSaved={(id) => { setCriarPasta(false); router.push(`/minha-colecao/pastas/${id}`) }}
         />
       )}
     </AppLayout>
