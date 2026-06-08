@@ -68,9 +68,10 @@ export async function GET(req: NextRequest) {
     const anuncioMap      = new Map<string, number>()
     const ticketsTotalMap = new Map<string, number>()
     const ticketsOpenMap  = new Map<string, number>()
+    const pastasMap       = new Map<string, number>()
 
     if (userIds.length > 0) {
-      const [authRes, cardsRes, adsRes, ticketsRes] = await Promise.all([
+      const [authRes, cardsRes, adsRes, ticketsRes, pastasRes] = await Promise.all([
         sb.rpc('admin_get_users_last_sign_in', { user_ids: userIds }),
         sb.from('user_cards')
           .select('user_id, quantity')
@@ -82,6 +83,9 @@ export async function GET(req: NextRequest) {
           .is('removido_em', null),
         sb.from('tickets')
           .select('user_id, status')
+          .in('user_id', userIds),
+        sb.from('pastas')
+          .select('user_id')
           .in('user_id', userIds),
       ])
 
@@ -103,6 +107,10 @@ export async function GET(req: NextRequest) {
           ticketsOpenMap.set(t.user_id, (ticketsOpenMap.get(t.user_id) || 0) + 1)
         }
       }
+      for (const pf of (pastasRes.data || []) as Array<{ user_id: string | null }>) {
+        if (!pf.user_id) continue
+        pastasMap.set(pf.user_id, (pastasMap.get(pf.user_id) || 0) + 1)
+      }
     }
 
     const now = Date.now()
@@ -118,6 +126,7 @@ export async function GET(req: NextRequest) {
         last_sign_in_at:  lastSignInMap.get(u.id) || null,
         collection_count: collectionMap.get(u.id) || 0,
         anuncios_count:   anuncioMap.get(u.id)    || 0,
+        pastas_count:     pastasMap.get(u.id)      || 0,
         tickets_total:    ticketsTotalMap.get(u.id) || 0,
         tickets_open:     ticketsOpenMap.get(u.id)  || 0,
       }

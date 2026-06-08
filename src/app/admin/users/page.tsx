@@ -22,6 +22,7 @@ type User = {
   last_seen_at: string | null
   collection_count: number
   anuncios_count: number
+  pastas_count: number
   // S40: contagem de tickets
   tickets_total: number
   tickets_open: number
@@ -42,11 +43,11 @@ const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string;
 }
 
 type SortKey =
-  | 'name' | 'plano' | 'collection_count' | 'anuncios_count' | 'tickets'
+  | 'name' | 'plano' | 'collection_count' | 'pastas_count' | 'anuncios_count' | 'tickets'
   | 'scan_creditos' | 'last_sign_in_at' | 'last_seen_at' | 'created_at'
 
 const SORT_LABELS: Record<SortKey, string> = {
-  name: 'usuário', plano: 'plano', collection_count: 'coleção', anuncios_count: 'anúncios',
+  name: 'usuário', plano: 'plano', collection_count: 'cartas', pastas_count: 'pastas', anuncios_count: 'anúncios',
   tickets: 'tickets', scan_creditos: 'créditos', last_sign_in_at: 'último acesso',
   last_seen_at: 'última atividade', created_at: 'cadastro',
 }
@@ -267,12 +268,13 @@ function UsersView() {
             borderRadius: 14,
             overflow: 'auto',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1340 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1440 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
                   {thSort('Usuário', 'name', 'left')}
                   {thSort('Plano', 'plano', 'center')}
-                  {thSort('Coleção', 'collection_count', 'right')}
+                  {thSort('Cartas', 'collection_count', 'right')}
+                  {thSort('Pastas', 'pastas_count', 'right')}
                   {thSort('Anúncios', 'anuncios_count', 'right')}
                   {thSort('Tickets', 'tickets', 'right')}
                   {thSort('Créditos', 'scan_creditos', 'right')}
@@ -329,6 +331,9 @@ function UsersView() {
                       </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.collection_count > 0 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)' }}>
                         {u.collection_count.toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.pastas_count > 0 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)' }}>
+                        {u.pastas_count.toLocaleString('pt-BR')}
                       </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.anuncios_count > 0 ? '#60a5fa' : 'rgba(255,255,255,0.25)', fontWeight: u.anuncios_count > 0 ? 700 : 400 }}>
                         {u.anuncios_count.toLocaleString('pt-BR')}
