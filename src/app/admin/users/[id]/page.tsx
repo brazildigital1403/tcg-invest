@@ -81,6 +81,24 @@ type Compra = {
   created_at: string
 }
 
+type Pasta = {
+  id: string
+  nome: string
+  descricao: string | null
+  imagem_url: string | null
+  publico: boolean
+  destaque: boolean
+  locked: boolean
+  view_mode: string | null
+  ordem: number
+  created_at: string
+  updated_at: string
+  qtd_cartas: number
+  patrimonio: number
+  carta_mais_cara_nome: string | null
+  carta_mais_cara_valor: number
+}
+
 const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string; bg: string; border: string }> = {
   pro:   { label: 'Pro',   color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.28)' },
   trial: { label: 'Trial', color: '#60a5fa', bg: 'rgba(96,165,250,0.10)', border: 'rgba(96,165,250,0.28)' },
@@ -139,7 +157,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   // R6 Commit 3: aba 'resync' removida (endpoint /api/admin/resync-price foi deletado).
   // Refactor futuro: criar nova aba "Re-scan ZenRows" que dispara scan sob demanda.
   // S32: adicionadas abas 'anuncios' e 'compras'
-  const [tab, setTab] = useState<'info' | 'collection' | 'anuncios' | 'compras'>('info')
+  const [tab, setTab] = useState<'info' | 'collection' | 'pastas' | 'anuncios' | 'compras'>('info')
 
   const [editing, setEditing] = useState(false)
   const [editName, setEditName]       = useState('')
@@ -156,6 +174,10 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
 
   const [compras, setCompras] = useState<{ compras: Compra[]; total: number; total_gasto: number } | null>(null)
   const [loadingCompras, setLoadingCompras] = useState(false)
+
+  // Pastas do usuário (aba Pastas) — carregada sob demanda
+  const [pastas, setPastas] = useState<{ pastas: Pasta[]; total: number; total_cards: number; total_value: number } | null>(null)
+  const [loadingPastas, setLoadingPastas] = useState(false)
 
   const [busy, setBusy] = useState(false)
 
@@ -202,6 +224,16 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
     if (!res.ok) return
     const d = await res.json()
     setCompras(d)
+  }
+
+  async function loadPastas() {
+    if (pastas) return
+    setLoadingPastas(true)
+    const res = await fetch(`/api/admin/users/${id}/pastas`)
+    setLoadingPastas(false)
+    if (!res.ok) return
+    const d = await res.json()
+    setPastas(d)
   }
 
   // ─── Ações ────────────────────────────────────────────────────────────────
@@ -466,7 +498,8 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
       {/* ── Abas ── */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <TabButton active={tab === 'info'}       onClick={() => setTab('info')}>Dados & Ações</TabButton>
-        <TabButton active={tab === 'collection'} onClick={() => { setTab('collection'); loadCollection() }}>Coleção</TabButton>
+        <TabButton active={tab === 'collection'} onClick={() => { setTab('collection'); loadCollection() }}>Cartas</TabButton>
+        <TabButton active={tab === 'pastas'}     onClick={() => { setTab('pastas');     loadPastas()     }}>Pastas</TabButton>
         <TabButton active={tab === 'anuncios'}   onClick={() => { setTab('anuncios');   loadAnuncios()   }}>Anúncios</TabButton>
         <TabButton active={tab === 'compras'}    onClick={() => { setTab('compras');    loadCompras()    }}>Compras</TabButton>
       </div>
@@ -621,6 +654,49 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Aba: Pastas ── */}
+      {tab === 'pastas' && (
+        <div style={surface}>
+          {loadingPastas ? (
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Carregando pastas...</p>
+          ) : !pastas || pastas.pastas.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Este usuário não tem pastas.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 24, marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+                <MiniStat label="Total de pastas"  value={pastas.total.toLocaleString('pt-BR')} />
+                <MiniStat label="Cartas em pastas" value={pastas.total_cards.toLocaleString('pt-BR')} />
+                <MiniStat label="Valor estimado"   value={fmtBRL(pastas.total_value)} highlight />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+                {pastas.pastas.map(p => (
+                  <div key={p.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ height: 96, background: p.imagem_url ? `center/cover no-repeat url(${p.imagem_url})` : 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.18))', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                      {!p.imagem_url && <span style={{ fontSize: 30, fontWeight: 900, color: 'rgba(255,255,255,0.25)' }}>{(p.nome || '?').charAt(0).toUpperCase()}</span>}
+                      <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 'calc(100% - 16px)' }}>
+                        {p.destaque && <span style={badgePasta('#f59e0b')}>Destaque</span>}
+                        {p.locked && <span style={badgePasta('#ef4444')}>Bloqueada</span>}
+                        <span style={badgePasta(p.publico ? '#22c55e' : 'rgba(255,255,255,0.45)')}>{p.publico ? 'Pública' : 'Privada'}</span>
+                      </div>
+                    </div>
+                    <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nome}</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+                        {Number(p.qtd_cartas).toLocaleString('pt-BR')} carta{Number(p.qtd_cartas) !== 1 ? 's' : ''}
+                      </p>
+                      <p style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b', margin: '2px 0 0' }}>{fmtBRL(Number(p.patrimonio))}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -807,6 +883,14 @@ const thTbl: React.CSSProperties = {
   textAlign: 'left',
 }
 const tdTbl: React.CSSProperties = { padding: '10px 14px', verticalAlign: 'middle' }
+
+const badgePasta = (color: string): React.CSSProperties => ({
+  fontSize: 9, fontWeight: 800,
+  padding: '2px 7px', borderRadius: 100,
+  color: '#000', background: color,
+  textTransform: 'uppercase', letterSpacing: '0.04em',
+  whiteSpace: 'nowrap',
+})
 
 // ─── Componentes auxiliares ──────────────────────────────────────────────────
 
