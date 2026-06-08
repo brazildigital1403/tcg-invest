@@ -217,19 +217,19 @@ export default function CardItem({
           </div>
         )}
 
-        {/* Badge de preço flutuante */}
-        <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
-          {(curPrices.med || estimate) && (
-            <div style={{ background: estimate && !curPrices.med ? 'rgba(96,165,250,0.9)' : 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>
-              {estimate && !curPrices.med ? '~' : ''}{fmt(curPrices.med || estimate?.valor)}
-            </div>
-          )}
+        {/* Badge de preço flutuante (preço a direita pra nao tampar o numero da carta) */}
+        <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
           {qty > 1 && (
             <div style={{ background: 'rgba(245,158,11,0.9)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 7px', fontSize: 11, fontWeight: 800, color: '#000' }}>
               ×{qty}
             </div>
           )}
           {badge}
+          {(curPrices.med || estimate) && (
+            <div style={{ background: estimate && !curPrices.med ? 'rgba(96,165,250,0.9)' : 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>
+              {estimate && !curPrices.med ? '~' : ''}{fmt(curPrices.med || estimate?.valor)}
+            </div>
+          )}
         </div>
 
         {/* Check de seleção */}
@@ -261,9 +261,9 @@ export default function CardItem({
 
         {/* Seletor de variante com preços — só em modo collection */}
         {mode !== 'readonly' && availableVariants.length > 0 && (
-          <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid rgba(255,255,255,0.06)' }}>
             {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px', padding: '4px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px', minWidth: 230, padding: '4px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipo</span>
               {['Mín','Méd','Máx'].map(l => (
                 <span key={l} style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</span>
@@ -277,7 +277,7 @@ export default function CardItem({
                   key={v.key}
                   onClick={(e) => { e.stopPropagation(); onVarianteChange?.(v.key) }}
                   style={{
-                    width: '100%', display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px',
+                    width: '100%', minWidth: 230, display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px',
                     padding: '7px 8px', cursor: 'pointer',
                     background: isActive ? `${v.color}15` : 'transparent',
                     border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)',

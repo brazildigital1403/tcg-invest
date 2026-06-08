@@ -842,18 +842,28 @@ export default function MinhaColecao() {
               />
             </div>
 
+            <style>{`
+              .mc-select {
+                -webkit-appearance: none; -moz-appearance: none; appearance: none;
+                background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 8l5 5 5-5' stroke='white' stroke-opacity='0.5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+                background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
+                padding-right: 30px !important;
+              }
+              .mc-select option { color: #f0f0f0; background: #0d0f14; }
+            `}</style>
+
             {/* Raridade */}
             {raridades.length > 0 && (
-              <select value={filtroRaridade} onChange={e => setFiltroRaridade(e.target.value)}
-                style={{ background: filtroRaridade ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroRaridade ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroRaridade ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+              <select value={filtroRaridade} onChange={e => setFiltroRaridade(e.target.value)} className="mc-select"
+                style={{ backgroundColor: filtroRaridade ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroRaridade ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroRaridade ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
                 <option value="" style={{ background: '#0d0f14' }}>Raridade</option>
                 {raridades.map(r => <option key={r} value={r} style={{ background: '#0d0f14' }}>{r}</option>)}
               </select>
             )}
 
             {/* Variante */}
-            <select value={filtroVariante} onChange={e => setFiltroVariante(e.target.value)}
-              style={{ background: filtroVariante ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroVariante ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroVariante ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+            <select value={filtroVariante} onChange={e => setFiltroVariante(e.target.value)} className="mc-select"
+              style={{ backgroundColor: filtroVariante ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroVariante ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroVariante ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
               <option value="" style={{ background: '#0d0f14' }}>Variante</option>
               <option value="normal" style={{ background: '#0d0f14' }}>Normal</option>
               <option value="foil" style={{ background: '#0d0f14' }}>Foil</option>
@@ -863,8 +873,8 @@ export default function MinhaColecao() {
             </select>
 
             {/* Ordenação — select único igual à Pokédex */}
-            <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as any)}
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+            <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as any)} className="mc-select"
+              style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
               <option value="numero" style={{ background: '#0d0f14' }}>Nº ↑</option>
               <option value="numero_desc" style={{ background: '#0d0f14' }}>Nº ↓</option>
               <option value="az" style={{ background: '#0d0f14' }}>Nome A→Z</option>
