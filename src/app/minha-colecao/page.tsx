@@ -799,7 +799,7 @@ export default function MinhaColecao() {
                   @media (max-width: 768px) { .pastas-card { flex: 0 0 auto; min-width: 62vw; } }
                 `}</style>
                 <div className="pastas-track">
-                {pastasTopo.outras.slice(0, 6).map((p: any) => (
+                {pastasTopo.outras.slice(0, 4).map((p: any) => (
                   <Link
                     key={p.id}
                     className="pastas-card"
