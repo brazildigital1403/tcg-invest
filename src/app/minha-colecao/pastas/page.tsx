@@ -134,7 +134,7 @@ export default function PastasIndex() {
         {/* Vazio */}
         {pastas.length === 0 && (
           <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
-            <p style={{ fontSize: 48, marginBottom: 16 }}>🗂️</p>
+            <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{ display: 'block', margin: '0 auto 16px' }}><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
             <p style={{ fontSize: 16 }}>Você ainda não tem pastas.</p>
             <p style={{ fontSize: 13, marginTop: 8 }}>Crie uma pasta e adicione cartas da sua coleção.</p>
           </div>
