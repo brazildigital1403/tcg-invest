@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       try {
         const { data: uData } = await sb
           .from('users')
-          .select('email, name, full_name')
+          .select('email, name')
           .eq('id', user.id)
           .limit(1)
         const userRow = uData?.[0]
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           subject:   tickets[0].subject,
           message,
           userEmail: userRow?.email || user.email || '(sem email)',
-          userName:  userRow?.full_name || userRow?.name,
+          userName:  userRow?.name,
         })
       } catch (e: any) {
         console.error('[tickets/reply POST] admin email failed:', e?.message)

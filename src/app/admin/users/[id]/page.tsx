@@ -289,6 +289,17 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
     await doAction('add_scan_credits', amount, `+${amount} créditos de scan adicionados.`)
   }
 
+  async function sendProEmail() {
+    const ok = await showConfirm({ message: `Enviar o e-mail de boas-vindas PRO para ${user?.email}?` })
+    if (!ok) return
+    setBusy(true)
+    const res = await fetch(`/api/admin/users/${id}/send-pro-email`, { method: 'POST' })
+    setBusy(false)
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) return showAlert(d.error || 'Erro ao enviar e-mail.', 'error')
+    showAlert(`E-mail PRO enviado para ${d.to || user?.email}.`, 'success')
+  }
+
   // ─── A3: Editar dados ─────────────────────────────────────────────────────
 
   async function saveEdit() {
@@ -583,6 +594,9 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
             <ActionButton label="Conceder Pro"    onClick={grantPro}    color="#f59e0b" busy={busy} />
             {user.is_pro && (
               <ActionButton label="Revogar Pro"   onClick={revokePro}   color="#ef4444" busy={busy} variant="outline" />
+            )}
+            {user.is_pro && (
+              <ActionButton label="Enviar e-mail PRO" onClick={sendProEmail} color="#22c55e" busy={busy} variant="outline" />
             )}
             <ActionButton label="Estender trial"  onClick={extendTrial} color="#60a5fa" busy={busy} variant="outline" />
             <ActionButton label="+ Créditos scan" onClick={addCredits}  color="#22c55e" busy={busy} variant="outline" />

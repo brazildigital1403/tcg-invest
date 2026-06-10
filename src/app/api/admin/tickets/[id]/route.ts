@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     // Info do usuário
     const { data: users } = await sb
       .from('users')
-      .select('id, email, name, full_name, city, whatsapp, is_pro, plano, trial_expires_at, created_at')
+      .select('id, email, name, city, whatsapp, is_pro, plano, trial_expires_at, created_at')
       .eq('id', ticket.user_id)
       .limit(1)
     const userInfo = users?.[0] || null
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       ticket: {
         ...ticket,
         user_email: userInfo?.email || null,
-        user_name:  userInfo?.full_name || userInfo?.name || null,
+        user_name:  userInfo?.name || null,
         user_info:  userInfo,
       },
       messages: messages || [],
@@ -98,14 +98,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       try {
         const { data: users } = await sb
           .from('users')
-          .select('email, name, full_name')
+          .select('email, name')
           .eq('id', updated[0].user_id)
           .limit(1)
         const u = users?.[0]
         if (u?.email) {
           await sendTicketStatusChangedEmail({
             to:       u.email,
-            userName: u.full_name || u.name,
+            userName: u.name,
             ticketId: id,
             subject:  updated[0].subject,
             status:   patch.status,

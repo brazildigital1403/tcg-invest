@@ -60,14 +60,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     try {
       const { data: users } = await sb
         .from('users')
-        .select('email, name, full_name')
+        .select('email, name')
         .eq('id', ticket.user_id)
         .limit(1)
       const u = users?.[0]
       if (u?.email) {
         await sendAdminReplyUserEmail({
           to:       u.email,
-          userName: u.full_name || u.name,
+          userName: u.name,
           ticketId: id,
           subject:  ticket.subject,
           message,
