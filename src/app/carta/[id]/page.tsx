@@ -50,6 +50,26 @@ type NormalizedCard = {
   precoMax: number | null
 }
 
+// ─── Helper: normaliza attacks (pode vir como array da API TCG, ou como
+// string JSON serializada vinda do Supabase/Bynx). Garante sempre array|null. ─
+function normalizeAttacks(
+  raw: unknown,
+): Array<{ name: string; text?: string; damage?: string }> | null {
+  if (!raw) return null
+  if (Array.isArray(raw)) {
+    return raw as Array<{ name: string; text?: string; damage?: string }>
+  }
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : null
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
 // ─── Fetch de dados (server-side, com cache ISR) ──────────────────────────
 
 async function fetchCardData(id: string): Promise<NormalizedCard | null> {
@@ -100,7 +120,7 @@ async function fetchCardData(id: string): Promise<NormalizedCard | null> {
     types: tcg?.types || bynx?.types || [],
     imageSmall: tcg?.images?.small || bynx?.image_small || null,
     imageLarge: tcg?.images?.large || bynx?.image_large || null,
-    attacks: tcg?.attacks || bynx?.attacks || null,
+    attacks: normalizeAttacks(tcg?.attacks || bynx?.attacks),
     precoMin: bynx?.preco_min ? Number(bynx.preco_min) : null,
     precoMedio: bynx?.preco_medio ? Number(bynx.preco_medio) : null,
     precoMax: bynx?.preco_max ? Number(bynx.preco_max) : null,
