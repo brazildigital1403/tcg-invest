@@ -1,13 +1,13 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { IconDashboard, IconChat, IconAccount, IconLogout } from '@/components/ui/Icons'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
-// ─── Ícone de loja inline (storefront) ────────────────────────────────────
-
+// Icone de loja inline (storefront)
 function IconStore({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -21,8 +21,7 @@ function IconStore({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: num
   )
 }
 
-// ─── Ícone de marketplace inline (tag/etiqueta) ───────────────────────────
-
+// Icone de marketplace inline (tag/etiqueta)
 function IconMarketplaceAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -32,8 +31,7 @@ function IconMarketplaceAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: {
   )
 }
 
-// ─── Ícone de carteira/financeiro inline ──────────────────────────────────
-
+// Icone de carteira/financeiro inline
 function IconWalletAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -45,17 +43,42 @@ function IconWalletAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size
   )
 }
 
+// Icone de cartas faltando/erros inline (carta + alerta)
+function IconCardAlert({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2.5" y="4" width="11" height="13" rx="2" stroke={color} strokeWidth="1.4"/>
+      <path d="M5.5 8h5M5.5 11h3.5" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="15" cy="6.5" r="3" fill="#0b0c10" stroke={color} strokeWidth="1.4"/>
+      <path d="M15 5.3v1.5" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="15" cy="8.1" r="0.5" fill={color}/>
+    </svg>
+  )
+}
+
 const adminMenu = [
-  { label: 'Dashboard',   href: '/admin',             Icon: IconDashboard          },
-  { label: 'Tickets',     href: '/admin/tickets',     Icon: IconChat               },
-  { label: 'Lojas',       href: '/admin/lojas',       Icon: IconStore              },
-  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin   },
-  { label: 'Usuários',    href: '/admin/users',       Icon: IconAccount            },
-  { label: 'Financeiro',  href: '/admin/financeiro',  Icon: IconWalletAdmin        },
+  { label: 'Dashboard', href: '/admin', Icon: IconDashboard },
+  { label: 'Tickets', href: '/admin/tickets', Icon: IconChat },
+  { label: 'Cartas', href: '/admin/card-requests', Icon: IconCardAlert },
+  { label: 'Lojas', href: '/admin/lojas', Icon: IconStore },
+  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin },
+  { label: 'Usuários', href: '/admin/users', Icon: IconAccount },
+  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const [pendingCards, setPendingCards] = useState(0)
+
+  useEffect(() => {
+    if (pathname === '/admin/login') return
+    let alive = true
+    fetch('/api/admin/card-requests?count=1')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d) setPendingCards(d.pendente || 0) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [pathname])
 
   if (pathname === '/admin/login') return <>{children}</>
 
@@ -119,10 +142,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .adm-content { flex: 1; overflow-x: hidden; }
 
         @media (max-width: 768px) {
-          .adm-sidebar        { display: none !important; }
-          .adm-header-logo    { display: flex !important; }
-          .adm-bottom-nav     { display: flex !important; }
-          .adm-content        { padding-bottom: 80px; }
+          .adm-sidebar { display: none !important; }
+          .adm-header-logo { display: flex !important; }
+          .adm-bottom-nav { display: flex !important; }
+          .adm-content { padding-bottom: 80px; }
         }
       `}</style>
 
@@ -158,6 +181,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 }}>
                   <item.Icon size={16} color={active ? '#f59e0b' : 'rgba(255,255,255,0.45)'} />
                   {item.label}
+                  {item.href === '/admin/card-requests' && pendingCards > 0 && (
+                    <span style={{ marginLeft: 'auto', background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 999, minWidth: 18, textAlign: 'center' }}>{pendingCards}</span>
+                  )}
                 </Link>
               )
             })}
@@ -242,12 +268,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               : pathname.startsWith(item.href)
             return (
               <Link key={item.href} href={item.href} style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
                 textDecoration: 'none',
                 color: active ? '#f59e0b' : 'rgba(255,255,255,0.35)',
                 borderTop: active ? '2px solid #f59e0b' : '2px solid transparent',
               }}>
+                {item.href === '/admin/card-requests' && pendingCards > 0 && (
+                  <span style={{ position: 'absolute', top: 4, left: '50%', marginLeft: 4, background: '#ef4444', color: '#fff', fontSize: 8, fontWeight: 800, padding: '0 5px', borderRadius: 999, lineHeight: '14px', minWidth: 14, textAlign: 'center' }}>{pendingCards}</span>
+                )}
                 <item.Icon size={19} color={active ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />
                 <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, whiteSpace: 'nowrap' }}>
                   {item.label}
