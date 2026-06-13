@@ -41,9 +41,23 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const autoLogged = useRef<Set<string>>(new Set())
+  const lastSearchedRef = useRef<string>('')
 
   const termoTrim = (termo || '').trim()
-  const semResultado = !isSearching && termoTrim.length >= 3 && resultados.length === 0
+
+  // Marca qual termo foi EFETIVAMENTE buscado (quando a busca dispara).
+  // Evita logar durante a janela de debounce (antes da busca rodar).
+  useEffect(() => {
+    if (isSearching) lastSearchedRef.current = termoTrim
+  }, [isSearching, termoTrim])
+
+  // So considera "sem resultado" quando a busca de fato rodou pra ESTE termo
+  // exato e voltou vazia (nao durante o debounce).
+  const semResultado =
+    !isSearching &&
+    termoTrim.length >= 3 &&
+    resultados.length === 0 &&
+    lastSearchedRef.current === termoTrim
 
   // Quando o usuario clica numa carta, sugere modo "erro"
   useEffect(() => {
