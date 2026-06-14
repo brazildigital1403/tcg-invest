@@ -56,26 +56,28 @@ function IconCardAlert({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?:
   )
 }
 
-const adminMenu = [
+type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean }
+
+const adminMenu: MenuItem[] = [
   { label: 'Dashboard', href: '/admin', Icon: IconDashboard },
-  { label: 'Tickets', href: '/admin/tickets', Icon: IconChat },
-  { label: 'Cartas', href: '/admin/card-requests', Icon: IconCardAlert },
-  { label: 'Lojas', href: '/admin/lojas', Icon: IconStore },
-  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin },
-  { label: 'Usuários', href: '/admin/users', Icon: IconAccount },
-  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin },
+  { label: 'Tickets', href: '/admin/tickets', Icon: IconChat, countKey: 'tickets' },
+  { label: 'Cartas', href: '/admin/card-requests', Icon: IconCardAlert, countKey: 'cartas', attention: true },
+  { label: 'Lojas', href: '/admin/lojas', Icon: IconStore, countKey: 'lojas' },
+  { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, countKey: 'marketplace' },
+  { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },
+  { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [pendingCards, setPendingCards] = useState(0)
+  const [counts, setCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
     if (pathname === '/admin/login') return
     let alive = true
-    fetch('/api/admin/card-requests?count=1')
+    fetch('/api/admin/counts')
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (alive && d) setPendingCards(d.pendente || 0) })
+      .then(d => { if (alive && d) setCounts(d) })
       .catch(() => {})
     return () => { alive = false }
   }, [pathname])
@@ -170,6 +172,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               const active = item.href === '/admin'
                 ? pathname === '/admin'
                 : pathname.startsWith(item.href)
+              const badge = item.countKey ? (counts[item.countKey] || 0) : 0
               return (
                 <Link key={item.href} href={item.href} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
@@ -181,8 +184,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 }}>
                   <item.Icon size={16} color={active ? '#f59e0b' : 'rgba(255,255,255,0.45)'} />
                   {item.label}
-                  {item.href === '/admin/card-requests' && pendingCards > 0 && (
-                    <span style={{ marginLeft: 'auto', background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 999, minWidth: 18, textAlign: 'center' }}>{pendingCards}</span>
+                  {badge > 0 && (
+                    <span style={{ marginLeft: 'auto', background: item.attention ? '#ef4444' : 'rgba(255,255,255,0.1)', color: item.attention ? '#fff' : 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 999, minWidth: 18, textAlign: 'center' }}>{badge}</span>
                   )}
                 </Link>
               )
@@ -266,6 +269,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const active = item.href === '/admin'
               ? pathname === '/admin'
               : pathname.startsWith(item.href)
+            const badge = item.countKey ? (counts[item.countKey] || 0) : 0
             return (
               <Link key={item.href} href={item.href} style={{
                 flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -274,8 +278,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 color: active ? '#f59e0b' : 'rgba(255,255,255,0.35)',
                 borderTop: active ? '2px solid #f59e0b' : '2px solid transparent',
               }}>
-                {item.href === '/admin/card-requests' && pendingCards > 0 && (
-                  <span style={{ position: 'absolute', top: 4, left: '50%', marginLeft: 4, background: '#ef4444', color: '#fff', fontSize: 8, fontWeight: 800, padding: '0 5px', borderRadius: 999, lineHeight: '14px', minWidth: 14, textAlign: 'center' }}>{pendingCards}</span>
+                {badge > 0 && (
+                  <span style={{ position: 'absolute', top: 4, left: '50%', marginLeft: 4, background: item.attention ? '#ef4444' : 'rgba(255,255,255,0.28)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '0 5px', borderRadius: 999, lineHeight: '14px', minWidth: 14, textAlign: 'center' }}>{badge}</span>
                 )}
                 <item.Icon size={19} color={active ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />
                 <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, whiteSpace: 'nowrap' }}>
