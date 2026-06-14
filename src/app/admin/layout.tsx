@@ -56,6 +56,17 @@ function IconCardAlert({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?:
   )
 }
 
+// Chevron para recolher/expandir
+function IconChevron({ collapsed, color = 'rgba(255,255,255,0.55)' }: { collapsed: boolean; color?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {collapsed
+        ? <path d="M7 4l6 6-6 6" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        : <path d="M13 4l-6 6 6 6" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>}
+    </svg>
+  )
+}
+
 type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean }
 
 const adminMenu: MenuItem[] = [
@@ -71,6 +82,11 @@ const adminMenu: MenuItem[] = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [counts, setCounts] = useState<Record<string, number>>({})
+  const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem('adm-sidebar-collapsed') === '1') } catch {}
+  }, [])
 
   useEffect(() => {
     if (pathname === '/admin/login') return
@@ -83,6 +99,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [pathname])
 
   if (pathname === '/admin/login') return <>{children}</>
+
+  function toggleSidebar() {
+    setCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem('adm-sidebar-collapsed', next ? '1' : '0') } catch {}
+      return next
+    })
+  }
 
   async function handleLogout() {
     await fetch('/api/admin/logout', { method: 'POST' })
@@ -104,17 +128,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
 
         .adm-sidebar {
-          width: 220px;
           flex-shrink: 0;
           background: rgba(255,255,255,0.02);
           border-right: 1px solid rgba(255,255,255,0.08);
           display: flex;
           flex-direction: column;
-          padding: 20px 12px;
           position: sticky;
           top: 0;
           height: 100vh;
           overflow-y: auto;
+          overflow-x: hidden;
+          transition: width 0.15s ease, padding 0.15s ease;
         }
 
         .adm-main {
@@ -153,66 +177,87 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <div className="adm-root">
 
-        <aside className="adm-sidebar">
-          <Link href="/admin" style={{ textDecoration: 'none', marginBottom: 6 }}>
-            <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain', display: 'block' }} />
-          </Link>
-          <div style={{
-            fontSize: 10, fontWeight: 800,
-            letterSpacing: '0.14em', textTransform: 'uppercase',
-            background: BRAND,
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            marginBottom: 24, paddingLeft: 2,
-          }}>
-            Painel Admin
+        <aside className="adm-sidebar" style={{ width: collapsed ? 64 : 220, minWidth: collapsed ? 64 : 220, padding: collapsed ? '20px 8px' : '20px 12px' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 8, marginBottom: collapsed ? 16 : 6, minHeight: 30 }}>
+            {!collapsed && (
+              <Link href="/admin" style={{ textDecoration: 'none' }}>
+                <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain', display: 'block' }} />
+              </Link>
+            )}
+            <button onClick={toggleSidebar} title={collapsed ? 'Expandir menu' : 'Recolher menu'} style={{
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+              width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+            }}>
+              <IconChevron collapsed={collapsed} />
+            </button>
           </div>
 
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+          {!collapsed && (
+            <div style={{
+              fontSize: 10, fontWeight: 800,
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              background: BRAND,
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              marginBottom: 24, paddingLeft: 2,
+            }}>
+              Painel Admin
+            </div>
+          )}
+
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, marginTop: collapsed ? 4 : 0 }}>
             {adminMenu.map(item => {
               const active = item.href === '/admin'
                 ? pathname === '/admin'
                 : pathname.startsWith(item.href)
               const badge = item.countKey ? (counts[item.countKey] || 0) : 0
               return (
-                <Link key={item.href} href={item.href} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
+                <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined} style={{
+                  display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
+                  justifyContent: collapsed ? 'center' : 'flex-start',
+                  padding: collapsed ? '11px 0' : '10px 12px', borderRadius: 10, textDecoration: 'none',
                   fontSize: 14, fontWeight: active ? 700 : 400,
                   color: active ? '#fff' : 'rgba(255,255,255,0.45)',
                   background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
                   borderLeft: active ? '2px solid #f59e0b' : '2px solid transparent',
+                  position: 'relative',
                 }}>
                   <item.Icon size={16} color={active ? '#f59e0b' : 'rgba(255,255,255,0.45)'} />
-                  {item.label}
-                  {badge > 0 && (
+                  {!collapsed && item.label}
+                  {badge > 0 && (collapsed ? (
+                    <span style={{ position: 'absolute', top: 5, right: 7, background: item.attention ? '#ef4444' : 'rgba(255,255,255,0.4)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '0 4px', borderRadius: 999, lineHeight: '13px', minWidth: 13, textAlign: 'center' }}>{badge > 9 ? '9+' : badge}</span>
+                  ) : (
                     <span style={{ marginLeft: 'auto', background: item.attention ? '#ef4444' : 'rgba(255,255,255,0.1)', color: item.attention ? '#fff' : 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 999, minWidth: 18, textAlign: 'center' }}>{badge}</span>
-                  )}
+                  ))}
                 </Link>
               )
             })}
           </nav>
 
-          <Link href="/dashboard-financeiro" style={{
+          <Link href="/dashboard-financeiro" title={collapsed ? 'Voltar ao app' : undefined} style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 12px', borderRadius: 10,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            padding: collapsed ? '10px 0' : '10px 12px', borderRadius: 10,
             textDecoration: 'none',
             color: 'rgba(255,255,255,0.4)',
             fontSize: 13, fontWeight: 500,
             marginBottom: 4,
           }}>
-            ← Voltar ao app
+            {collapsed ? '←' : '← Voltar ao app'}
           </Link>
 
-          <button onClick={handleLogout}
+          <button onClick={handleLogout} title={collapsed ? 'Sair do admin' : undefined}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 12px', borderRadius: 10,
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              padding: collapsed ? '10px 0' : '10px 12px', borderRadius: 10,
               background: 'none', border: 'none',
               color: 'rgba(255,255,255,0.3)',
               fontSize: 14, cursor: 'pointer',
               fontFamily: 'inherit', textAlign: 'left',
             }}>
-            <IconLogout size={15} color="rgba(255,255,255,0.3)" /> Sair do admin
+            <IconLogout size={15} color="rgba(255,255,255,0.3)" /> {!collapsed && 'Sair do admin'}
           </button>
         </aside>
 
