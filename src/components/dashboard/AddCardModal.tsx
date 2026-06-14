@@ -38,9 +38,6 @@ const fmtBRL = (v: number | null | undefined) =>
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
     : null
 
-// Numero/total no formato impresso (ex: 051/217). Prioriza o "(NNN/TTT)" do
-// nome (cartas Liga), senao monta de number + set_total com zero a esquerda
-// ate a largura do total. Vazio se nao houver numero.
 function cardNumberLabel(card: any): string {
   if (!card) return ''
   const m = String(card.name || '').match(/\((\d+)\/(\d+)\)/)
@@ -55,7 +52,6 @@ function cardNumberLabel(card: any): string {
   return ''
 }
 
-// Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
 function setLabel(s?: string | null): string {
   if (!s) return ''
   return s.replace(/^Liga BR\s*[—-]\s*/i, 'Set ').replace(/^Liga BR\b/i, 'Set')
@@ -82,7 +78,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const searchTimeout = useRef<any>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Detecta mobile (<=768px) e escuta resize
   useEffect(() => {
     function checkMobile() { setIsMobile(window.innerWidth <= 768) }
     checkMobile()
@@ -90,7 +85,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Busca taxa de cambio ao abrir
   useEffect(() => {
     fetch('/api/exchange-rate')
       .then(r => r.json())
@@ -98,7 +92,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       .catch(() => {})
   }, [])
 
-  // Calcula melhor preco disponivel
   function getBestPrice(card: any): { valor: number; tipo: 'brl' | 'usd' | 'eur' } | null {
     if (card.preco_normal > 0) return { valor: card.preco_normal, tipo: 'brl' }
     if (card.price_usd_normal > 0) return { valor: card.price_usd_normal * exchangeRate.usd, tipo: 'usd' }
@@ -107,7 +100,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     return null
   }
 
-  // Busca no banco local via RPC smart_search_cards
   async function handleSearch(value: string) {
     setSearchTerm(value)
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
@@ -131,7 +123,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     }, 350)
   }
 
-  // Carrega proxima pagina (scroll infinito)
   async function loadMore() {
     if (loadingMore || !hasMore || !searchTerm.trim()) return
     setLoadingMore(true)
@@ -156,11 +147,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
   function handleResultsScroll(e: UIEvent<HTMLDivElement>) {
     const el = e.currentTarget
-    // dispara quando faltam <300px pro fim
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) loadMore()
   }
 
-  // Selecionar carta
   function handleCardClick(card: any) {
     setPreview(card)
     setSelectedCards(prev =>
@@ -170,7 +159,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     )
   }
 
-  // Adicionar
   async function handleAdd() {
     if (!userId || !selectedCards.length) return
     setAdding(true)
@@ -226,15 +214,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     onAdded()
   }
 
-  // Resultados filtrados
   const filtered = searchResults
     .filter(c => !typeFilter || (c.types || []).includes(typeFilter))
     .filter(c => !rarityFilter || c.rarity === rarityFilter)
 
-  // Render
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 0 : 24 }}>
-      <div style={{ width: '100%', maxWidth: isMobile ? '100%' : 1000, maxHeight: isMobile ? '100vh' : '90vh', height: isMobile ? '100vh' : 'auto', background: '#0d0f14', border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: isMobile ? 0 : 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <div style={{ width: '100%', maxWidth: isMobile ? '100%' : 1000, maxHeight: isMobile ? '100dvh' : '90vh', height: isMobile ? '100dvh' : 'auto', background: '#0d0f14', border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: isMobile ? 0 : 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
         {/* HEADER */}
         <div style={{ padding: isMobile ? '16px 16px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -262,11 +248,11 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           <div style={{ position: 'relative', marginBottom: 12 }}>
             <IconSearch size={16} color={TEXT_MUTED} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
             <input
-              autoFocus
+              autoFocus={!isMobile}
               value={searchTerm}
               onChange={e => handleSearch(e.target.value)}
               placeholder="Ex: Charizard · 051/217 · Pikachu Ascended Heroes · Pikachu 2019..."
-              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: isMobile ? 16 : 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
@@ -281,7 +267,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               { value: rarityFilter, onChange: setRarityFilter, opts: ['', 'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Ultra', 'Rare Secret'], labels: ['Raridade', 'Comum', 'Incomum', 'Rara', 'Rara Holo', 'Ultra Rara', 'Secreta'] },
             ].map((f, i) => (
               <select key={i} value={f.value} onChange={e => f.onChange(e.target.value)}
-                style={{ fontSize: isMobile ? 16 : 12, background: f.value ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${f.value ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, padding: '6px 10px', color: f.value ? '#f59e0b' : TEXT_MUTED, cursor: 'pointer' }}>
+                style={{ fontSize: 16, background: f.value ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${f.value ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, padding: '6px 10px', color: f.value ? '#f59e0b' : TEXT_MUTED, cursor: 'pointer' }}>
                 {f.opts.map((o, j) => <option key={o} value={o} style={{ background: '#0d0f14', color: '#f0f0f0' }}>{f.labels[j]}</option>)}
               </select>
             ))}
@@ -311,15 +297,15 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           <div ref={resultsRef} onScroll={handleResultsScroll} style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '12px' : '16px 20px' }}>
 
             {!isSearching && searchResults.length === 0 && !searchTerm.trim() && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: TEXT_MUTED }}>
-                <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{opacity:0.3}}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 24, paddingBottom: 4, gap: 10, color: TEXT_MUTED }}>
+                <svg width="40" height="40" viewBox="0 0 20 20" fill="none" style={{opacity:0.3}}>
                   <rect x="2" y="3" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                   <rect x="5" y="1" width="11" height="15" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                 </svg>
-                <p style={{ fontSize: 14 }}>Busque por nome, numero, set, ano ou multiplos itens</p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 8, lineHeight: 1.9 }}>
+                <p style={{ fontSize: 13, textAlign: 'center' }}>Busque por nome, numero, set, ano ou multiplos itens</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center', lineHeight: 1.8 }}>
                   <strong style={{ color: '#f59e0b' }}>Charizard</strong> · <strong style={{ color: '#f59e0b' }}>051/217</strong> · <strong style={{ color: '#f59e0b' }}>PAF 109</strong><br/>
-                  <strong style={{ color: '#f59e0b' }}>Pikachu Ascended Heroes</strong> · <strong style={{ color: '#f59e0b' }}>Ascended Heroes</strong><br/>
+                  <strong style={{ color: '#f59e0b' }}>Pikachu Ascended Heroes</strong><br/>
                   <strong style={{ color: '#f59e0b' }}>Pikachu 2019</strong> · <strong style={{ color: '#f59e0b' }}>4, 15, 23</strong>
                 </p>
               </div>
@@ -365,7 +351,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                         </div>
                       )}
 
-                      {/* Badge de preco — BRL real ou estimado via cambio */}
                       {(() => {
                         const best = getBestPrice(card)
                         if (!best) return null
@@ -428,7 +413,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           </div>
 
           {/* PREVIEW */}
-          {/* Em mobile, esconde completamente quando vazio (sem carta selecionada) */}
           {!(isMobile && !preview) && (
             <div style={{ width: isMobile ? '100%' : 260, borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.07)', borderTop: isMobile ? '1px solid rgba(255,255,255,0.07)' : 'none', overflowY: 'auto', flexShrink: 0, maxHeight: isMobile ? '50vh' : 'auto' }}>
               {!preview ? (
@@ -439,7 +423,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               ) : (
                 <div style={{ padding: isMobile ? 12 : 16 }}>
 
-                  {/* MOBILE: HEADER COMPACTO (thumb 80px + info ao lado) */}
                   {isMobile && (
                     <div style={{ display: 'flex', gap: 12, marginBottom: 14, alignItems: 'flex-start' }}>
                       <div style={{ width: 80, flexShrink: 0 }}>
@@ -489,7 +472,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                           }
                         })()}
 
-                        {/* QUANTIDADE inline — dentro do header preview (mobile only) */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
                           <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
                             style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
@@ -501,7 +483,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     </div>
                   )}
 
-                  {/* DESKTOP: HEADER COMPLETO (imagem grande + nome + badges + bloco precos) */}
                   {!isMobile && (
                     <>
                       {preview.image_large || preview.image_small ? (
@@ -528,7 +509,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                         {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name)} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
                       </p>
 
-                      {/* Badges */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                         {(preview.types || []).map((t: string) => (
                           <span key={t} style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: (typeColors[t] || '#6b7280') + '22', color: typeColors[t] || '#6b7280' }}>{t}</span>
@@ -543,7 +523,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                         )}
                       </div>
 
-                      {/* Precos — BRL real ou estimado via cambio */}
                       <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
                         <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💰 Preço de mercado</p>
                         {(() => {
@@ -606,7 +585,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     </>
                   )}
 
-                  {/* Variante */}
                   <div style={{ marginBottom: 12, display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'stretch', gap: isMobile ? 10 : 6 }}>
                     <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: isMobile ? 0 : 6, flexShrink: 0, minWidth: isMobile ? 64 : 'auto' }}>Variante</p>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: isMobile ? 1 : 'none' }}>
@@ -622,7 +600,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     </div>
                   </div>
 
-                  {/* Quantidade (oculto em mobile — ja esta inline no preview header acima) */}
                   {!isMobile && (
                     <div style={{ marginBottom: 12 }}>
                       <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Quantidade</p>
@@ -636,7 +613,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     </div>
                   )}
 
-                  {/* Artista (oculto em mobile) */}
                   {!isMobile && preview.artist && (
                     <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 10, textAlign: 'center' }}>
                       Ilustrado por {preview.artist}
@@ -650,20 +626,19 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
         {/* FOOTER */}
         <div style={{ padding: isMobile ? '10px 16px' : '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: isMobile ? 'stretch' : 'space-between', alignItems: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.01)', gap: isMobile ? 8 : 12 }}>
-          {/* Texto "X cartas selecionadas" so aparece no DESKTOP (em mobile foi pro header) */}
           {!isMobile && (
             <p style={{ fontSize: 13, color: selectedCards.length > 0 ? '#f59e0b' : TEXT_MUTED, fontWeight: selectedCards.length > 0 ? 600 : 400 }}>
               {selectedCards.length === 0 ? 'Nenhuma carta selecionada' : `${selectedCards.length} carta${selectedCards.length !== 1 ? 's' : ''} selecionada${selectedCards.length !== 1 ? 's' : ''}`}
             </p>
           )}
           <div style={{ display: 'flex', gap: isMobile ? 8 : 10, flex: isMobile ? 1 : 'none' }}>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, padding: isMobile ? '9px 14px' : '10px 20px', borderRadius: 10, fontSize: isMobile ? 13 : 13, cursor: 'pointer', fontWeight: 500, flex: isMobile ? 1 : 'none' }}>
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, padding: isMobile ? '11px 14px' : '10px 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, flex: isMobile ? 1 : 'none' }}>
               Cancelar
             </button>
             <button
               onClick={handleAdd}
               disabled={selectedCards.length === 0 || adding}
-              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, padding: isMobile ? '9px 14px' : '10px 24px', borderRadius: 10, fontSize: isMobile ? 13 : 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none' }}
+              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, padding: isMobile ? '11px 14px' : '10px 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none' }}
             >
               {adding ? 'Adicionando...' : `Adicionar ${selectedCards.length > 0 ? `(${selectedCards.length})` : ''} →`}
             </button>
