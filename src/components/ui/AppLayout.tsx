@@ -62,11 +62,23 @@ function IconGift({ size = 20, color = 'currentColor' }: { size?: number; color?
   )
 }
 
+// Chevron recolher/expandir sidebar
+function IconChevron({ collapsed, color = 'rgba(255,255,255,0.55)' }: { collapsed: boolean; color?: string }) {
+  return (
+    <svg width='14' height='14' viewBox='0 0 20 20' fill='none'>
+      {collapsed
+        ? <path d='M7 4l6 6-6 6' stroke={color} strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' />
+        : <path d='M13 4l-6 6 6 6' stroke={color} strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' />}
+    </svg>
+  )
+}
+
 import { marcarTodasLidas } from '@/lib/notificacoes'
 
-const BRAND  = 'linear-gradient(135deg, #f59e0b, #ef4444)'
-const BG     = '#080a0f'
+const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
+const BG = '#080a0f'
 const EXPLORE_KEY = 'bynx_explore_mode'
+const SIDEBAR_KEY = 'bynx_sidebar_collapsed'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -80,38 +92,34 @@ type MenuItem = {
   Icon: (props: { size?: number; color?: string }) => JSX.Element
 }
 
-const ITEM_DASHBOARD:    MenuItem = { name: 'Dashboard',   full: 'Dashboard',      href: '/dashboard-financeiro', Icon: IconDashboard }
-const ITEM_COLECAO:      MenuItem = { name: 'Coleção',     full: 'Minha Coleção', href: '/minha-colecao',       Icon: IconCollection }
-const ITEM_POKEDEX:      MenuItem = { name: 'Pokédex',     full: 'Pokédex',        href: '/pokedex',              Icon: IconPokedex }
-const ITEM_MARKETPLACE:  MenuItem = { name: 'Marketplace', full: 'Marketplace',    href: '/marketplace',          Icon: IconMarketplace }
-const ITEM_SEPARADORES:  MenuItem = { name: 'Separadores', full: 'Separadores',    href: '/separadores',          Icon: IconSeparador }
-const ITEM_INDIQUE:      MenuItem = { name: 'Indique',     full: 'Indique e Ganhe',href: '/indique-e-ganhe',      Icon: IconGift }
-const ITEM_CONTA:        MenuItem = { name: 'Conta',       full: 'Minha Conta',    href: '/minha-conta',          Icon: IconAccount }
-const ITEM_MINHA_LOJA:   MenuItem = { name: 'Loja',        full: 'Minha Loja',     href: '/minha-loja',           Icon: IconMinhaLoja }
-const ITEM_GUIA_LOJAS:   MenuItem = { name: 'Guia',        full: 'Guia de Lojas',  href: '/lojas',                Icon: IconGuiaLojas }
-const ITEM_SUPORTE:      MenuItem = { name: 'Suporte',     full: 'Suporte',        href: '/suporte',              Icon: IconChat }
+const ITEM_DASHBOARD: MenuItem = { name: 'Dashboard', full: 'Dashboard', href: '/dashboard-financeiro', Icon: IconDashboard }
+const ITEM_COLECAO: MenuItem = { name: 'Coleção', full: 'Minha Coleção', href: '/minha-colecao', Icon: IconCollection }
+const ITEM_POKEDEX: MenuItem = { name: 'Pokédex', full: 'Pokédex', href: '/pokedex', Icon: IconPokedex }
+const ITEM_MARKETPLACE: MenuItem = { name: 'Marketplace', full: 'Marketplace', href: '/marketplace', Icon: IconMarketplace }
+const ITEM_SEPARADORES: MenuItem = { name: 'Separadores', full: 'Separadores', href: '/separadores', Icon: IconSeparador }
+const ITEM_INDIQUE: MenuItem = { name: 'Indique', full: 'Indique e Ganhe', href: '/indique-e-ganhe', Icon: IconGift }
+const ITEM_CONTA: MenuItem = { name: 'Conta', full: 'Minha Conta', href: '/minha-conta', Icon: IconAccount }
+const ITEM_MINHA_LOJA: MenuItem = { name: 'Loja', full: 'Minha Loja', href: '/minha-loja', Icon: IconMinhaLoja }
+const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas }
+const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat }
 
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const pathname  = usePathname()
+  const pathname = usePathname()
   const [patrimonio, setPatrimonio] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifs, setNotifs] = useState<any[]>([])
   const [notifOpen, setNotifOpen] = useState(false)
   const notifScrollRef = useRef<HTMLDivElement>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   // Detecção adaptativa do perfil
   const [temCartas, setTemCartas] = useState<boolean | null>(null)
   const [temLoja, setTemLoja] = useState<boolean | null>(null)
   const [exploreMode, setExploreMode] = useState(false)
 
-  // Detecção de auth pra guest mode em /pokedex e /separadores.
-  // Quando user NÃO está logado e está navegando em uma dessas rotas
-  // (vindas das landings via "Explorar Pokédex" / "Explorar Separadores"),
-  // dimamos os outros links do menu pra deixar claro que são exclusivos
-  // de quem tem conta. O cadastro continua acessível pelos CTAs da página.
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -124,8 +132,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  // Rotas acessíveis sem login (exploração via landings).
-  // Quando o user deslogado está em uma delas, dimamos os outros links no menu.
   const GUEST_ALLOWED_HREFS = new Set<string>(['/pokedex', '/separadores'])
   const isGuestExploreRoute = GUEST_ALLOWED_HREFS.has(pathname || '')
   const guestExploring = isLoggedIn === false && isGuestExploreRoute
@@ -136,36 +142,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setExploreMode(localStorage.getItem(EXPLORE_KEY) === '1')
   }, [])
 
+  // Load estado da sidebar (recolhida ou nao) do localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setCollapsed(localStorage.getItem(SIDEBAR_KEY) === '1')
+  }, [])
+
+  function toggleSidebar() {
+    setCollapsed(prev => {
+      const next = !prev
+      try { if (typeof window !== 'undefined') localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0') } catch {}
+      return next
+    })
+  }
+
   // Determina o perfil
-  const isLojistaPuro    = temLoja === true && temCartas === false && !exploreMode
+  const isLojistaPuro = temLoja === true && temCartas === false && !exploreMode
   const isLojistaExplore = temLoja === true && temCartas === false && exploreMode
 
   // Monta menu adaptativo
   const menu = useMemo<MenuItem[]>(() => {
-    // Enquanto não sabemos o perfil, usa menu de colecionador (estado padrão)
     if (temLoja === null || temCartas === null) {
       return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
     }
-
-    // Lojista puro (sem cartas, com loja, sem explore mode) → menu enxuto
     if (isLojistaPuro) {
       return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE]
     }
-
-    // Demais perfis: menu completo, com Minha Loja se aplicável
     const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE)
     return base
   }, [temLoja, temCartas, isLojistaPuro])
 
-  // Logo destino: lojista puro vai pra /minha-loja, demais pra /dashboard-financeiro
   const logoHref = isLojistaPuro ? '/minha-loja' : '/dashboard-financeiro'
-
-  // Patrimônio escondido pra lojista puro (não tem cartas)
   const mostrarPatrimonio = !isLojistaPuro
 
-  // Toggle explore mode
   function toggleExploreMode() {
     const novo = !exploreMode
     setExploreMode(novo)
@@ -173,13 +184,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       if (novo) localStorage.setItem(EXPLORE_KEY, '1')
       else localStorage.removeItem(EXPLORE_KEY)
     }
-    // Se desligou explore mode estando em página colecionador, redireciona pra /minha-loja
     if (!novo && temLoja && !temCartas) {
       window.location.href = '/minha-loja'
     }
   }
 
-  // Scroll nativo não-passivo — captura wheel antes do browser propagar para a página
   useEffect(() => {
     const el = notifScrollRef.current
     if (!el || !notifOpen) return
@@ -197,7 +206,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const { data: authData } = await supabase.auth.getUser()
       if (!authData.user) return
 
-      // ─── Detecta perfil (cartas + lojas) ─────────────────────────
       const [{ data: cardsCheck }, { data: lojasCheck }] = await Promise.all([
         supabase.from('user_cards').select('id', { head: false }).eq('user_id', authData.user.id).limit(1),
         supabase.from('lojas').select('id').eq('owner_user_id', authData.user.id).limit(1),
@@ -207,7 +215,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setTemCartas(_temCartas)
       setTemLoja(_temLoja)
 
-      // ─── Cálculo de patrimônio (só se tem cartas) ────────────────
       if (!_temCartas) {
         setPatrimonio(0)
       } else {
@@ -217,7 +224,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         if (!cards || cards.length === 0) {
           setPatrimonio(0)
         } else {
-          // Câmbio para estimativas
           let usdRate = 6.0, eurRate = 6.5
           try {
             const er = await fetch('/api/exchange-rate').then(r => r.json())
@@ -229,14 +235,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           const priceById: any = {}
           const priceByLink: any = {}
 
-          // 1. Por pokemon_api_id
           const apiIds = [...new Set(cards.map((c: any) => c.pokemon_api_id).filter(Boolean))]
           if (apiIds.length > 0) {
             const { data: byId } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('id', apiIds)
             ;(byId || []).forEach((p: any) => { priceById[p.id] = p })
           }
 
-          // 2. Por liga_link
           const links = [...new Set(cards.map((c: any) => c.card_link).filter(Boolean))]
           if (links.length > 0) {
             const { data: byLink } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('liga_link', links)
@@ -255,7 +259,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             if (!p) continue
             const qty = (card as any).quantity || 1
             const v = card.variante || 'normal'
-            // BRL primeiro, depois USD, depois EUR
             let val = parseFloat(p[CAMPOS[v]] || p.preco_medio || 0)
             if (!val) {
               const usd = Math.max(parseFloat(p.price_usd_holofoil || 0), parseFloat(p.price_usd_normal || 0))
@@ -267,7 +270,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Verifica trial
       const { data: userData } = await supabase
         .from('users').select('is_pro, trial_expires_at').eq('id', authData.user.id).single()
       if (userData && !userData.is_pro && userData.trial_expires_at) {
@@ -278,7 +280,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Carrega notificações não lidas
       const { data: notifsData } = await supabase
         .from('notifications')
         .select('*')
@@ -303,10 +304,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* ── CSS ── */}
       {notifOpen && <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />}
 
-      {/* ── Painel de notificações — FORA do header para evitar stacking context ── */}
       {notifOpen && (
         <div style={{ position: 'fixed', top: 60, right: 12, width: 'min(340px, calc(100vw - 24px))', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 76px)', overflow: 'hidden' }}
           onClick={e => e.stopPropagation()}
@@ -370,7 +369,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           font-family: 'DM Sans', system-ui, sans-serif;
         }
 
-        /* ── SIDEBAR — desktop ── */
         .tcg-sidebar {
           width: 220px;
           flex-shrink: 0;
@@ -383,6 +381,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           top: 0;
           height: 100vh;
           overflow-y: auto;
+          overflow-x: hidden;
+          transition: width 0.15s ease, padding 0.15s ease;
         }
 
         .tcg-main-col {
@@ -393,7 +393,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           overflow-x: hidden;
         }
 
-        /* ── HEADER ── */
         .tcg-header {
           display: flex;
           align-items: center;
@@ -411,17 +410,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         .tcg-header-logo { display: none; }
         .tcg-header-menu-btn { display: none; }
 
-        /* ── CONTENT ── */
         .tcg-content {
           flex: 1;
           padding: 24px;
           overflow-x: hidden;
         }
 
-        /* ── BOTTOM NAV — mobile ── */
         .tcg-bottom-nav { display: none; }
 
-        /* ── DRAWER — mobile ── */
         .tcg-drawer-overlay {
           display: none;
           position: fixed;
@@ -447,25 +443,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
         .tcg-drawer.open { transform: translateX(0); }
 
-        /* ── MOBILE ── */
         @media (max-width: 768px) {
-          .tcg-sidebar          { display: none !important; }
-          .tcg-header-logo      { display: flex !important; }
-          .tcg-header-menu-btn  { display: flex !important; }
-          .tcg-header-account   { display: none !important; }
-          .tcg-content          { padding: 16px 12px 100px; }
-          .tcg-bottom-nav       { display: flex !important; }
-          .tcg-drawer-overlay   { display: block; }
+          .tcg-sidebar { display: none !important; }
+          .tcg-header-logo { display: flex !important; }
+          .tcg-header-menu-btn { display: flex !important; }
+          .tcg-header-account { display: none !important; }
+          .tcg-content { padding: 16px 12px 100px; }
+          .tcg-bottom-nav { display: flex !important; }
+          .tcg-drawer-overlay { display: block; }
         }
       `}</style>
 
       <div className="tcg-root">
 
         {/* ── SIDEBAR desktop ── */}
-        <aside className="tcg-sidebar">
-          <Link href={logoHref} style={{ textDecoration: 'none', marginBottom: 28 }}>
-            <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 32, width: 'auto', objectFit: 'contain', display: 'block' }} />
-          </Link>
+        <aside className="tcg-sidebar" style={{ width: collapsed ? 64 : 220, minWidth: collapsed ? 64 : 220, padding: collapsed ? '20px 8px' : '20px 12px' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 8, marginBottom: collapsed ? 22 : 28, minHeight: 32 }}>
+            {!collapsed && (
+              <Link href={logoHref} style={{ textDecoration: 'none' }}>
+                <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 32, width: 'auto', objectFit: 'contain', display: 'block' }} />
+              </Link>
+            )}
+            <button onClick={toggleSidebar} title={collapsed ? 'Expandir menu' : 'Recolher menu'} style={{
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+              width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+            }}>
+              <IconChevron collapsed={collapsed} />
+            </button>
+          </div>
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
             {menu.map(item => {
@@ -476,9 +483,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   aria-disabled={dimmed || undefined}
                   tabIndex={dimmed ? -1 : undefined}
                   onClick={dimmed ? (e) => e.preventDefault() : undefined}
+                  title={collapsed ? item.full : undefined}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
+                    display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    padding: collapsed ? '11px 0' : '10px 12px', borderRadius: 10, textDecoration: 'none',
                     fontSize: 14, fontWeight: active ? 700 : 400,
                     color: active ? '#fff' : 'rgba(255,255,255,0.45)',
                     background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
@@ -489,7 +498,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     transition: 'opacity 0.2s',
                   }}>
                   <item.Icon size={16} color={active ? "#f59e0b" : "rgba(255,255,255,0.45)"} />
-                  {item.full}
+                  {!collapsed && item.full}
                 </Link>
               )
             })}
@@ -497,37 +506,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Botão Explorar como colecionador (somente lojista puro) */}
           {temLoja && !temCartas && !exploreMode && (
-            <button onClick={toggleExploreMode}
+            <button onClick={toggleExploreMode} title={collapsed ? 'Explorar como colecionador' : undefined}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '10px 12px', borderRadius: 10,
+                display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 8,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                padding: collapsed ? '10px 0' : '10px 12px', borderRadius: 10,
                 background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
                 color: '#f59e0b', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 marginBottom: 8, fontFamily: 'inherit',
               }}>
               <IconExplorar size={14} color="#f59e0b" />
-              Explorar como colecionador
+              {!collapsed && 'Explorar como colecionador'}
             </button>
           )}
 
           {/* Botão Voltar à minha loja (lojista em explore mode) */}
           {isLojistaExplore && (
-            <button onClick={toggleExploreMode}
+            <button onClick={toggleExploreMode} title={collapsed ? 'Voltar para minha loja' : undefined}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '10px 12px', borderRadius: 10,
+                display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 8,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                padding: collapsed ? '10px 0' : '10px 12px', borderRadius: 10,
                 background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)',
                 color: '#60a5fa', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 marginBottom: 8, fontFamily: 'inherit',
               }}>
               <IconMinhaLoja size={14} color="#60a5fa" />
-              Voltar para minha loja
+              {!collapsed && 'Voltar para minha loja'}
             </button>
           )}
 
-          <button onClick={handleLogout}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 14, cursor: 'pointer' }}>
-            <IconLogout size={15} color="rgba(255,255,255,0.3)" /> Sair
+          <button onClick={handleLogout} title={collapsed ? 'Sair' : undefined}
+            style={{ display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 8, justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '10px 0' : '10px 12px', borderRadius: 10, background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 14, cursor: 'pointer' }}>
+            <IconLogout size={15} color="rgba(255,255,255,0.3)" /> {!collapsed && 'Sair'}
           </button>
         </aside>
 
@@ -536,7 +547,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* HEADER */}
           <header className="tcg-header">
-            {/* Hamburguer — mobile */}
             <button className="tcg-header-menu-btn" onClick={() => setDrawerOpen(true)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'none', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
               <span style={{ display: 'block', width: 22, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
@@ -544,12 +554,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <span style={{ display: 'block', width: 22, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
             </button>
 
-            {/* Logo — mobile */}
             <div className="tcg-header-logo" style={{ display: 'none', alignItems: 'center', gap: 8, flex: 1 }}>
               <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
             </div>
 
-            {/* Banner explore mode (lojista puro vendo dashboard de colecionador) */}
             {isLojistaExplore && (
               <div style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', borderRadius: 8, padding: '4px 10px', flexShrink: 0 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: '#60a5fa', whiteSpace: 'nowrap' }}>
@@ -558,7 +566,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
 
-            {/* Trial badge */}
             {trialDaysLeft !== null && (
               <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '4px 10px', flexShrink: 0 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', whiteSpace: 'nowrap' }}>
@@ -567,7 +574,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
 
-            {/* Patrimônio (oculto pra lojista puro) */}
             {mostrarPatrimonio && (
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 1 }}>Patrimônio</p>
@@ -577,20 +583,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
 
-          {/* Sino de notificações */}
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setNotifOpen(v => !v)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-{notifs.length > 0 ? <IconBellDot size={22} color="rgba(255,255,255,0.8)" /> : <IconBell size={22} color="rgba(255,255,255,0.8)" />}
+                {notifs.length > 0 ? <IconBellDot size={22} color="rgba(255,255,255,0.8)" /> : <IconBell size={22} color="rgba(255,255,255,0.8)" />}
                 {notifs.length > 0 && (
                   <span style={{ position: 'absolute', top: 0, right: 0, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #080a0f' }}>
                     {notifs.length > 9 ? '9+' : notifs.length}
                   </span>
                 )}
               </button>
-
             </div>
 
           </header>
@@ -610,10 +614,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             flexWrap: 'wrap',
             gap: 16,
           }}>
-            {/* Logo */}
             <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 24, width: 'auto', objectFit: 'contain', opacity: 0.7 }} />
 
-            {/* Social icons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <a href="https://instagram.com/bynx.gg" target="_blank" rel="noopener noreferrer"
                 style={{ color: 'rgba(255,255,255,0.35)', transition: 'color 0.15s', display: 'flex' }}
@@ -635,7 +637,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </a>
             </div>
 
-            {/* Links de navegação */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 14, marginTop: 4 }}>
               <a href="mailto:suporte@bynx.gg" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 12, transition: 'color 0.15s' }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
@@ -654,7 +655,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>Termos de uso</a>
             </div>
 
-            {/* Copyright */}
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>
               © 2026 Bynx · Feito para colecionadores brasileiros de Pokémon TCG
             </p>
@@ -702,7 +702,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {drawerOpen && (
           <div className="tcg-drawer-overlay" onClick={() => setDrawerOpen(false)}>
             <div className="tcg-drawer open" onClick={e => e.stopPropagation()}>
-              {/* Header drawer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
@@ -713,7 +712,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
 
-              {/* Patrimônio no drawer (oculto pra lojista puro) */}
               {mostrarPatrimonio && (
                 <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
                   <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Patrimônio</p>
@@ -723,7 +721,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
               )}
 
-              {/* Nav links */}
               <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
                 {menu.map(item => {
                   const active = pathname === item.href
@@ -753,7 +750,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 })}
               </nav>
 
-              {/* Botão explore mode no drawer */}
               {temLoja && !temCartas && !exploreMode && (
                 <button onClick={() => { toggleExploreMode(); setDrawerOpen(false) }}
                   style={{
@@ -781,7 +777,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </button>
               )}
 
-              {/* Sair */}
               <button onClick={handleLogout}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', marginTop: 8, borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: '#ef4444', fontSize: 14, cursor: 'pointer', width: '100%' }}>
                 <IconLogout size={16} color="#ef4444" /> Sair da conta
