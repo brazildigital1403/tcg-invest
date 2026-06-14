@@ -18,6 +18,11 @@ const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const TEXT_MUTED = 'rgba(255,255,255,0.4)'
 const PAGE_SIZE = 60 // resultados por pagina (scroll infinito)
 
+const CONDICOES = ['NM', 'LP', 'MP', 'HP'] as const
+const CONDICAO_CORES: Record<string, string> = {
+  NM: '#22c55e', LP: '#60a5fa', MP: '#f59e0b', HP: '#ef4444',
+}
+
 const typeColors: Record<string, string> = {
   Fire: '#ef4444', Water: '#60a5fa', Grass: '#22c55e',
   Lightning: '#f59e0b', Psychic: '#a855f7', Fighting: '#f97316',
@@ -27,10 +32,10 @@ const typeColors: Record<string, string> = {
 
 const rarityIcon = (r: string) => {
   if (!r) return ''
-  if (r.includes('Rare Holo') || r.includes('Rare Secret')) return '✦'
-  if (r.includes('Rare')) return '◆'
-  if (r.includes('Uncommon')) return '◇'
-  return '○'
+  if (r.includes('Rare Holo') || r.includes('Rare Secret')) return '\u2726'
+  if (r.includes('Rare')) return '\u25c6'
+  if (r.includes('Uncommon')) return '\u25c7'
+  return '\u25cb'
 }
 
 const fmtBRL = (v: number | null | undefined) =>
@@ -54,7 +59,7 @@ function cardNumberLabel(card: any): string {
 
 function setLabel(s?: string | null): string {
   if (!s) return ''
-  return s.replace(/^Liga BR\s*[—-]\s*/i, 'Set ').replace(/^Liga BR\b/i, 'Set')
+  return s.replace(/^Liga BR\s*[\u2014-]\s*/i, 'Set ').replace(/^Liga BR\b/i, 'Set')
 }
 
 export default function AddCardModal({ userId, onClose, onAdded }: Props) {
@@ -70,6 +75,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [rarityFilter, setRarityFilter] = useState('')
   const [variantMap, setVariantMap] = useState<Record<string, string>>({})
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({})
+  const [condMap, setCondMap] = useState<Record<string, string>>({})
+  const [splitMap, setSplitMap] = useState<Record<string, Record<string, number>>>({})
+  const [splitOn, setSplitOn] = useState<Record<string, boolean>>({})
+  const [isPro, setIsPro] = useState(false)
   const [adding, setAdding] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [offset, setOffset] = useState(0)
@@ -90,6 +99,14 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       .then(r => r.json())
       .then(d => setExchangeRate({ usd: d.usd || 6.0, eur: d.eur || 6.5 }))
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data?.user?.id) return
+      supabase.from('users').select('is_pro').eq('id', data.user.id).single()
+        .then(({ data: u }) => setIsPro(!!u?.is_pro))
+    })
   }, [])
 
   function getBestPrice(card: any): { valor: number; tipo: 'brl' | 'usd' | 'eur' } | null {
@@ -159,6 +176,28 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     )
   }
 
+  function toggleSplit(id: string) {
+    const on = !splitOn[id]
+    if (on && !splitMap[id]) {
+      setSplitMap(m => ({ ...m, [id]: { NM: qtyMap[id] || 1 } }))
+    }
+    setSplitOn(prev => ({ ...prev, [id]: on }))
+  }
+
+  function bumpSplit(id: string, c: string, d: number) {
+    setSplitMap(prev => {
+      const cur = { ...(prev[id] || {}) }
+      const next = Math.max(0, (cur[c] || 0) + d)
+      if (next === 0) { delete cur[c] } else { cur[c] = next }
+      return { ...prev, [id]: cur }
+    })
+  }
+
+  function splitTotal(id: string): number {
+    const sp = splitMap[id] || {}
+    return Object.values(sp).reduce((a: number, n) => a + Number(n), 0)
+  }
+
   async function handleAdd() {
     if (!userId || !selectedCards.length) return
     setAdding(true)
@@ -181,7 +220,23 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         : number
       const cardName = number ? `${card.name} (${numFmt}${total})` : card.name
       const variante = variantMap[card.id] || 'normal'
-      const quantity = qtyMap[card.id] || 1
+
+      const usandoSplit = isPro && splitOn[card.id]
+      let quantity = qtyMap[card.id] || 1
+      let condicoes: Record<string, number> | null = null
+
+      if (usandoSplit) {
+        const sp = splitMap[card.id] || {}
+        const entries = Object.entries(sp).filter(([, n]) => Number(n) > 0)
+        const soma = entries.reduce((a, [, n]) => a + Number(n), 0)
+        if (soma > 0) {
+          condicoes = entries.reduce((acc, [k, n]) => { acc[k] = Number(n); return acc }, {} as Record<string, number>)
+          quantity = soma
+        }
+      } else {
+        const c = condMap[card.id]
+        if (c) condicoes = { [c]: quantity }
+      }
 
       const { error: insertError } = await supabase.from('user_cards').insert({
         user_id: authData.user.id,
@@ -193,6 +248,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         rarity: card.rarity || null,
         variante,
         quantity,
+        condicoes,
         set_name: card.set_name || null,
       })
 
@@ -218,6 +274,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     .filter(c => !typeFilter || (c.types || []).includes(typeFilter))
     .filter(c => !rarityFilter || c.rarity === rarityFilter)
 
+  const stepBtn: React.CSSProperties = { width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, lineHeight: 1 }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 0 : 24 }}>
       <div style={{ width: '100%', maxWidth: isMobile ? '100%' : 1000, maxHeight: isMobile ? '100dvh' : '90vh', height: isMobile ? '100dvh' : 'auto', background: '#0d0f14', border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: isMobile ? 0 : 24, boxShadow: '0 32px 100px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -233,7 +291,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 1 }}>
                 {filtered.length > 0 ? `${filtered.length}${hasMore ? '+' : ''} resultado${filtered.length !== 1 ? 's' : ''}` : 'Busque por nome ou numero'}
                 {selectedCards.length > 0 && (
-                  <> · <span style={{ color: '#f59e0b', fontWeight: 600 }}>{selectedCards.length} carta{selectedCards.length !== 1 ? 's' : ''} selecionada{selectedCards.length !== 1 ? 's' : ''}</span></>
+                  <> \u00b7 <span style={{ color: '#f59e0b', fontWeight: 600 }}>{selectedCards.length} carta{selectedCards.length !== 1 ? 's' : ''} selecionada{selectedCards.length !== 1 ? 's' : ''}</span></>
                 )}
               </p>
             </div>
@@ -251,7 +309,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               autoFocus={!isMobile}
               value={searchTerm}
               onChange={e => handleSearch(e.target.value)}
-              placeholder="Ex: Charizard · 051/217 · Pikachu Ascended Heroes · Pikachu 2019..."
+              placeholder="Ex: Charizard \u00b7 051/217 \u00b7 Pikachu Ascended Heroes \u00b7 Pikachu 2019..."
               style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
@@ -263,7 +321,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {[
-              { value: typeFilter, onChange: setTypeFilter, opts: ['', 'Fire', 'Water', 'Grass', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Dragon', 'Colorless'], labels: ['Tipo', 'Fogo', 'Água', 'Planta', 'Elétrico', 'Psíquico', 'Lutador', 'Trevas', 'Metal', 'Dragão', 'Incolor'] },
+              { value: typeFilter, onChange: setTypeFilter, opts: ['', 'Fire', 'Water', 'Grass', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Dragon', 'Colorless'], labels: ['Tipo', 'Fogo', '\u00c1gua', 'Planta', 'El\u00e9trico', 'Ps\u00edquico', 'Lutador', 'Trevas', 'Metal', 'Drag\u00e3o', 'Incolor'] },
               { value: rarityFilter, onChange: setRarityFilter, opts: ['', 'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Ultra', 'Rare Secret'], labels: ['Raridade', 'Comum', 'Incomum', 'Rara', 'Rara Holo', 'Ultra Rara', 'Secreta'] },
             ].map((f, i) => (
               <select key={i} value={f.value} onChange={e => f.onChange(e.target.value)}
@@ -304,9 +362,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                 </svg>
                 <p style={{ fontSize: 13, textAlign: 'center' }}>Busque por nome, numero, set, ano ou multiplos itens</p>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center', lineHeight: 1.8 }}>
-                  <strong style={{ color: '#f59e0b' }}>Charizard</strong> · <strong style={{ color: '#f59e0b' }}>051/217</strong> · <strong style={{ color: '#f59e0b' }}>PAF 109</strong><br/>
+                  <strong style={{ color: '#f59e0b' }}>Charizard</strong> \u00b7 <strong style={{ color: '#f59e0b' }}>051/217</strong> \u00b7 <strong style={{ color: '#f59e0b' }}>PAF 109</strong><br/>
                   <strong style={{ color: '#f59e0b' }}>Pikachu Ascended Heroes</strong><br/>
-                  <strong style={{ color: '#f59e0b' }}>Pikachu 2019</strong> · <strong style={{ color: '#f59e0b' }}>4, 15, 23</strong>
+                  <strong style={{ color: '#f59e0b' }}>Pikachu 2019</strong> \u00b7 <strong style={{ color: '#f59e0b' }}>4, 15, 23</strong>
                 </p>
               </div>
             )}
@@ -385,7 +443,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       <div style={{ padding: '8px 10px' }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.name}</p>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>{(() => { const n = cardNumberLabel(card); return n ? n + ' · ' : '' })()}{setLabel(card.set_name).slice(0, 12)}</p>
+                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>{(() => { const n = cardNumberLabel(card); return n ? n + ' \u00b7 ' : '' })()}{setLabel(card.set_name).slice(0, 12)}</p>
                           {cardType && <span style={{ fontSize: 9, color: typeColor, fontWeight: 700 }}>{cardType}</span>}
                         </div>
                       </div>
@@ -443,7 +501,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2, lineHeight: 1.2 }}>{preview.name}</p>
                         <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 8, lineHeight: 1.3 }}>
-                          {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name)}
+                          {(() => { const n = cardNumberLabel(preview); return n ? n + ' \u00b7 ' : '' })()}{setLabel(preview.set_name)}
                         </p>
                         {(() => {
                           const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
@@ -454,13 +512,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                           if (hasBRL && variantPrice > 0) {
                             return (
                               <p style={{ fontSize: 14, fontWeight: 700, color: '#f59e0b', margin: 0 }}>
-                                💰 {fmtBRL(variantPrice)}
+                                {fmtBRL(variantPrice)}
                               </p>
                             )
                           } else if (best) {
                             return (
                               <p style={{ fontSize: 14, fontWeight: 700, color: '#60a5fa', margin: 0 }}>
-                                ≈ {fmtBRL(best.valor)}
+                                \u2248 {fmtBRL(best.valor)}
                               </p>
                             )
                           } else {
@@ -474,7 +532,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
                           <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
-                            style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
+                            style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>\u2212</button>
                           <span style={{ fontSize: 15, fontWeight: 700, color: '#f0f0f0', minWidth: 22, textAlign: 'center' }}>{qtyMap[preview.id] || 1}</span>
                           <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: (prev[preview.id] || 1) + 1 }))}
                             style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
@@ -506,7 +564,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
                       <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2 }}>{preview.name}</p>
                       <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 12 }}>
-                        {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name)} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
+                        {(() => { const n = cardNumberLabel(preview); return n ? n + ' \u00b7 ' : '' })()}{setLabel(preview.set_name)} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
                       </p>
 
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
@@ -524,7 +582,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       </div>
 
                       <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
-                        <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💰 Preço de mercado</p>
+                        <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Preco de mercado</p>
                         {(() => {
                           const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
                           const best = getBestPrice(preview)
@@ -560,8 +618,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                             )
                           } else if (best) {
                             const srcLabel = best.tipo === 'usd'
-                              ? `USD × R$${exchangeRate.usd.toFixed(2)}`
-                              : `EUR × R$${exchangeRate.eur.toFixed(2)}`
+                              ? `USD \u00d7 R$${exchangeRate.usd.toFixed(2)}`
+                              : `EUR \u00d7 R$${exchangeRate.eur.toFixed(2)}`
                             return (
                               <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -569,14 +627,14 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                                   <span style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>~{fmtBRL(best.valor)}</span>
                                 </div>
                                 <p style={{ fontSize: 9, color: 'rgba(96,165,250,0.6)', fontStyle: 'italic' }}>
-                                  Calculado via {srcLabel} • Preço BR em breve
+                                  Calculado via {srcLabel} \u2022 Preco BR em breve
                                 </p>
                               </div>
                             )
                           } else {
                             return (
                               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>
-                                Preço ainda não disponível
+                                Preco ainda nao disponivel
                               </p>
                             )
                           }
@@ -600,12 +658,73 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     </div>
                   </div>
 
-                  {!isMobile && (
+                  {/* CONDICAO */}
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Condicao</p>
+
+                    {!(isPro && splitOn[preview.id]) && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {['', ...CONDICOES].map(c => {
+                          const isActive = (condMap[preview.id] || '') === c
+                          const cor = c ? CONDICAO_CORES[c] : 'rgba(255,255,255,0.4)'
+                          return (
+                            <button key={c || 'na'} onClick={() => setCondMap(prev => ({ ...prev, [preview.id]: c }))}
+                              style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, border: `1px solid ${isActive ? cor : 'rgba(255,255,255,0.1)'}`, background: isActive ? cor + '1a' : 'rgba(255,255,255,0.03)', color: isActive ? cor : TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit', fontWeight: isActive ? 700 : 400 }}>
+                              {c || '\u2014'}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {isPro ? (
+                      <>
+                        <button onClick={() => toggleSplit(preview.id)}
+                          style={{ marginTop: 8, fontSize: 11, color: splitOn[preview.id] ? '#f59e0b' : 'rgba(255,255,255,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 14, height: 14, borderRadius: 4, border: `1px solid ${splitOn[preview.id] ? '#f59e0b' : 'rgba(255,255,255,0.25)'}`, background: splitOn[preview.id] ? 'rgba(245,158,11,0.15)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {splitOn[preview.id] && <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#f59e0b" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          </span>
+                          Dividir por condicao (copia a copia)
+                        </button>
+
+                        {splitOn[preview.id] && (
+                          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: 10 }}>
+                            {CONDICOES.map(c => {
+                              const n = (splitMap[preview.id]?.[c]) || 0
+                              const cor = CONDICAO_CORES[c]
+                              return (
+                                <div key={c} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: cor, background: cor + '1a', padding: '2px 8px', borderRadius: 6 }}>{c}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <button onClick={() => bumpSplit(preview.id, c, -1)} style={stepBtn}>\u2212</button>
+                                    <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: 'center', color: '#f0f0f0' }}>{n}</span>
+                                    <button onClick={() => bumpSplit(preview.id, c, 1)} style={stepBtn}>+</button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                              <span style={{ color: TEXT_MUTED }}>Total</span>
+                              <span style={{ color: '#f59e0b', fontWeight: 700 }}>{splitTotal(preview.id)} copia{splitTotal(preview.id) !== 1 ? 's' : ''}</span>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <button onClick={() => { window.location.href = '/minha-conta' }}
+                        style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4"/><path d="M7 9V6.5a3 3 0 016 0V9" stroke="currentColor" strokeWidth="1.4"/></svg>
+                        Dividir por condicao e PRO
+                      </button>
+                    )}
+                  </div>
+
+                  {!isMobile && !(isPro && splitOn[preview.id]) && (
                     <div style={{ marginBottom: 12 }}>
                       <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Quantidade</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
-                          style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                          style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>\u2212</button>
                         <span style={{ fontSize: 16, fontWeight: 700, color: '#f0f0f0', minWidth: 24, textAlign: 'center' }}>{qtyMap[preview.id] || 1}</span>
                         <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: (prev[preview.id] || 1) + 1 }))}
                           style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
@@ -640,7 +759,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               disabled={selectedCards.length === 0 || adding}
               style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, padding: isMobile ? '11px 14px' : '10px 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none' }}
             >
-              {adding ? 'Adicionando...' : `Adicionar ${selectedCards.length > 0 ? `(${selectedCards.length})` : ''} →`}
+              {adding ? 'Adicionando...' : `Adicionar ${selectedCards.length > 0 ? `(${selectedCards.length})` : ''} \u2192`}
             </button>
           </div>
         </div>
