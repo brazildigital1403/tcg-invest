@@ -45,6 +45,10 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
 
   const termoTrim = (termo || '').trim()
 
+  // So loga auto quando o termo PARECE um nome (>=3 letras seguidas).
+  // Mata o ruido de digitacao de numero ("199/", "135/13", "021/165", "0/086").
+  const pareceNome = /[a-zA-ZÀ-ÿ]{3,}/.test(termoTrim)
+
   // Marca qual termo foi EFETIVAMENTE buscado (quando a busca dispara).
   // Evita logar durante a janela de debounce (antes da busca rodar).
   useEffect(() => {
@@ -71,9 +75,10 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [termoTrim, tipo])
 
-  // Log passivo de busca-zero (origem='auto'), 1x por termo por sessao
+  // Log passivo de busca-zero (origem='auto'), 1x por termo por sessao.
+  // So loga se o termo parece nome (gate anti-ruido de numero).
   useEffect(() => {
-    if (!userId || !semResultado) return
+    if (!userId || !semResultado || !pareceNome) return
     const key = termoTrim.toLowerCase()
     if (autoLogged.current.has(key)) return
     autoLogged.current.add(key)
@@ -81,7 +86,7 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
       .from('card_requests')
       .insert({ tipo: 'faltando', nome: termoTrim, termo_busca: termoTrim, origem: 'auto', user_id: userId })
       .then(() => {}, () => {})
-  }, [semResultado, termoTrim, userId])
+  }, [semResultado, pareceNome, termoTrim, userId])
 
   async function handleSubmit() {
     if (!userId) { await showAlert('Faca login para reportar.', 'warning'); return }
