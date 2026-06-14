@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
-import { authFetch } from '@/lib/authFetch'
 import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
 import OnboardingModal from '@/components/ui/OnboardingModal'
@@ -25,18 +24,6 @@ const getVariation = (history: any[]) => {
   const last = Number(history[history.length - 1].preco_medio || history[history.length - 1].normal || 0)
   if (!first) return 0
   return ((last - first) / first) * 100
-}
-
-const getCardVariation = async (cardName: string) => {
-  try {
-    const res = await authFetch(`/api/historico?name=${encodeURIComponent(cardName)}`)
-    const data = await res.json()
-    if (!data.history || data.history.length < 2) return 0
-    const first = Number(data.history[0].preco_medio || data.history[0].normal || 0)
-    const last = Number(data.history[data.history.length - 1].preco_medio || data.history[data.history.length - 1].normal || 0)
-    if (!first) return 0
-    return ((last - first) / first) * 100
-  } catch { return 0 }
 }
 
 async function matchPokemonApiId(cardName: string, cardNumber?: string) {
@@ -128,7 +115,7 @@ export default function DashboardFinanceiro() {
 
         const { isPro: pro, isTrial: trial } = await getUserPlan(uid)
         setIsPro(pro || trial)
-        setIsTrial(trial)  // trial já indica trial, independente de isPro
+        setIsTrial(trial) // trial já indica trial, independente de isPro
         const { data: txns } = await supabase
           .from('transactions')
           .select('*')
@@ -168,7 +155,7 @@ export default function DashboardFinanceiro() {
 
         const PRICE_SELECT = 'id, name, number, set_total, liga_link, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil'
 
-        const priceById: any   = {}
+        const priceById: any = {}
         const priceByLink: any = {}
 
         // 1. Lookup por pokemon_api_id (mais preciso)
@@ -237,10 +224,30 @@ export default function DashboardFinanceiro() {
           }
         }
 
-        // Ranking com variação (async)
-        const withVariation = await Promise.all(enrichedCards.map(async c => ({
-          ...c, variation: await getCardVariation(c.card_name)
-        })))
+        // ── Variação por carta — 1 QUERY BATCH em price_history (em vez de N chamadas /api/historico) ──
+        const rankIds = [...new Set(enrichedCards.map((c: any) => c.id).filter(Boolean))]
+        const variationById: Record<string, number> = {}
+        if (rankIds.length > 0) {
+          const { data: hist } = await supabase
+            .from('price_history')
+            .select('card_id, preco_medio, preco_normal, recorded_at')
+            .in('card_id', rankIds)
+            .order('recorded_at', { ascending: true })
+          const byCard: Record<string, any[]> = {}
+          for (const h of hist || []) {
+            if (!h.card_id) continue
+            if (!byCard[h.card_id]) byCard[h.card_id] = []
+            byCard[h.card_id].push(h)
+          }
+          for (const cid of Object.keys(byCard)) {
+            const rows = byCard[cid]
+            if (rows.length < 2) continue
+            const first = Number(rows[0].preco_medio || rows[0].preco_normal || 0)
+            const last = Number(rows[rows.length - 1].preco_medio || rows[rows.length - 1].preco_normal || 0)
+            if (first > 0) variationById[cid] = ((last - first) / first) * 100
+          }
+        }
+        const withVariation = enrichedCards.map((c: any) => ({ ...c, variation: variationById[c.id] || 0 }))
         withVariation.sort((a, b) => b.precoVariante - a.precoVariante)
         setRankingWithVariation(withVariation)
         setStats({ totalCompras: compras, totalVendas: vendas, quantidade: cards?.length || 0, valorColecao: valorTotal })
@@ -359,7 +366,6 @@ export default function DashboardFinanceiro() {
           <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
         </div>
       )}
-
 
       <style>{`
         @media (max-width: 768px) {
@@ -535,7 +541,7 @@ export default function DashboardFinanceiro() {
                           </div>
                         </button>
                       )
-                  })}
+                    })}
                 </div>
               </div>
 
@@ -544,47 +550,47 @@ export default function DashboardFinanceiro() {
                 const selectedUserCard = userCards.find(c => c.id === selectedCardId)
                 if (!selectedUserCard) return null
                 return (
-                <div style={{ marginBottom: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12 }}>
-                  {/* Linha superior: imagem + nome + preços */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    {cardImage ? (
-                      <img src={cardImage} alt={selectedUserCard.card_name} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 44, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🃏</div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUserCard.card_name}</p>
-                      {selectedCardPrice ? (() => {
-                        // Usa a variante salva no user_cards para esta carta
-                        const cardVariante = selectedUserCard.variante || 'normal'
-                        const variantLabel: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
-                        const precos = cardVariante === 'foil'
-                          ? { min: selectedCardPrice.preco_foil_min, medio: selectedCardPrice.preco_foil_medio, max: selectedCardPrice.preco_foil_max }
-                          : cardVariante === 'promo'
-                          ? { min: selectedCardPrice.preco_promo_min, medio: selectedCardPrice.preco_promo_medio, max: selectedCardPrice.preco_promo_max }
-                          : cardVariante === 'reverse'
-                          ? { min: selectedCardPrice.preco_reverse_min, medio: selectedCardPrice.preco_reverse_medio, max: selectedCardPrice.preco_reverse_max }
-                          : cardVariante === 'pokeball'
-                          ? { min: selectedCardPrice.preco_pokeball_min, medio: selectedCardPrice.preco_pokeball_medio, max: selectedCardPrice.preco_pokeball_max }
-                          : { min: selectedCardPrice.preco_min, medio: selectedCardPrice.preco_medio, max: selectedCardPrice.preco_max }
-                        return (
-                          <>
-                            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>
-                              Variante: <strong style={{ color: '#f59e0b' }}>{variantLabel[cardVariante] || cardVariante}</strong>
-                            </p>
-                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                              <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(precos.min)}</p></div>
-                              <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(precos.medio)}</p></div>
-                              <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(precos.max)}</p></div>
-                            </div>
-                          </>
-                        )
-                      })() : (
-                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Sem dados de preço disponíveis</p>
+                  <div style={{ marginBottom: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12 }}>
+                    {/* Linha superior: imagem + nome + preços */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                      {cardImage ? (
+                        <img src={cardImage} alt={selectedUserCard.card_name} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 44, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🃏</div>
                       )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUserCard.card_name}</p>
+                        {selectedCardPrice ? (() => {
+                          // Usa a variante salva no user_cards para esta carta
+                          const cardVariante = selectedUserCard.variante || 'normal'
+                          const variantLabel: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
+                          const precos = cardVariante === 'foil'
+                            ? { min: selectedCardPrice.preco_foil_min, medio: selectedCardPrice.preco_foil_medio, max: selectedCardPrice.preco_foil_max }
+                            : cardVariante === 'promo'
+                            ? { min: selectedCardPrice.preco_promo_min, medio: selectedCardPrice.preco_promo_medio, max: selectedCardPrice.preco_promo_max }
+                            : cardVariante === 'reverse'
+                            ? { min: selectedCardPrice.preco_reverse_min, medio: selectedCardPrice.preco_reverse_medio, max: selectedCardPrice.preco_reverse_max }
+                            : cardVariante === 'pokeball'
+                            ? { min: selectedCardPrice.preco_pokeball_min, medio: selectedCardPrice.preco_pokeball_medio, max: selectedCardPrice.preco_pokeball_max }
+                            : { min: selectedCardPrice.preco_min, medio: selectedCardPrice.preco_medio, max: selectedCardPrice.preco_max }
+                          return (
+                            <>
+                              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>
+                                Variante: <strong style={{ color: '#f59e0b' }}>{variantLabel[cardVariante] || cardVariante}</strong>
+                              </p>
+                              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(precos.min)}</p></div>
+                                <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(precos.medio)}</p></div>
+                                <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(precos.max)}</p></div>
+                              </div>
+                            </>
+                          )
+                        })() : (
+                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Sem dados de preço disponíveis</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
                 )
               })()}
 
@@ -616,9 +622,9 @@ export default function DashboardFinanceiro() {
               ) : (
                 transactions.slice(0, 8).map(t => {
                   const isCompra = t.buyer_id === userId
-                  const contato  = isCompra ? t.seller_name : t.buyer_name
-                  const cidade   = isCompra ? t.seller_city : t.buyer_city
-                  const data     = t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : ''
+                  const contato = isCompra ? t.seller_name : t.buyer_name
+                  const cidade = isCompra ? t.seller_city : t.buyer_city
+                  const data = t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : ''
                   return (
                     <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                       {/* Ícone */}
