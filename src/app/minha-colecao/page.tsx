@@ -82,6 +82,7 @@ export default function MinhaColecao() {
   const [search, setSearch] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
+  const [filtroCondicao, setFiltroCondicao] = useState('')
   const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc'>('recente')
   const [loading, setLoading] = useState(true)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
@@ -550,7 +551,8 @@ export default function MinhaColecao() {
     const matchSearch = !search || c.card_name?.toLowerCase().includes(search.toLowerCase())
     const matchVariante = !filtroVariante || (c.variante || 'normal') === filtroVariante
     const matchRaridade = !filtroRaridade || c.rarity === filtroRaridade
-    return matchSearch && matchVariante && matchRaridade
+    const matchCondicao = !filtroCondicao || !!(c.condicoes && (c.condicoes[filtroCondicao] || 0) > 0)
+    return matchSearch && matchVariante && matchRaridade && matchCondicao
   }).sort((a, b) => {
     switch (ordenacao) {
       case 'az':      return (a.card_name || '').localeCompare(b.card_name || '')
@@ -934,6 +936,16 @@ export default function MinhaColecao() {
               <option value="promo" style={{ background: '#0d0f14' }}>Promo</option>
               <option value="reverse" style={{ background: '#0d0f14' }}>Reverse Foil</option>
               <option value="pokeball" style={{ background: '#0d0f14' }}>Pokeball Foil</option>
+            </select>
+
+            {/* Condição */}
+            <select value={filtroCondicao} onChange={e => setFiltroCondicao(e.target.value)} className="mc-select"
+              style={{ backgroundColor: filtroCondicao ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroCondicao ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroCondicao ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+              <option value="" style={{ background: '#0d0f14' }}>Condição</option>
+              <option value="NM" style={{ background: '#0d0f14' }}>NM</option>
+              <option value="LP" style={{ background: '#0d0f14' }}>LP</option>
+              <option value="MP" style={{ background: '#0d0f14' }}>MP</option>
+              <option value="HP" style={{ background: '#0d0f14' }}>HP</option>
             </select>
 
             {/* Ordenação — select único igual à Pokédex */}
