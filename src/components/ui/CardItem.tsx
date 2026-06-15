@@ -95,6 +95,13 @@ const fmt = (v: any): string | null => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
 }
 
+// Valor compacto sem simbolo (mini-tabela de precos, evita encavalar valores expressivos)
+const fmtC = (v: any): string | null => {
+  const num = n(v)
+  if (!num) return null
+  return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num)
+}
+
 const rarityColor = (r: string) => {
   if (!r) return null
   if (r.includes('Secret') || r.includes('Special') || r.includes('Hyper')) return '#f59e0b'
@@ -272,7 +279,7 @@ export default function CardItem({
         {mode !== 'readonly' && availableVariants.length > 0 && (
           <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid rgba(255,255,255,0.06)' }}>
             {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px', minWidth: 230, padding: '4px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 56px 56px', minWidth: 242, padding: '4px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipo</span>
               {['Mín','Méd','Máx'].map(l => (
                 <span key={l} style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</span>
@@ -286,8 +293,8 @@ export default function CardItem({
                   key={v.key}
                   onClick={(e) => { e.stopPropagation(); onVarianteChange?.(v.key) }}
                   style={{
-                    width: '100%', minWidth: 230, display: 'grid', gridTemplateColumns: '1fr 52px 52px 52px',
-                    padding: '7px 8px', cursor: 'pointer',
+                    width: '100%', minWidth: 242, display: 'grid', gridTemplateColumns: '1fr 56px 56px 56px',
+                    padding: '7px 6px', cursor: 'pointer',
                     background: isActive ? `${v.color}15` : 'transparent',
                     border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)',
                     transition: 'background 0.15s', alignItems: 'center', fontFamily: 'inherit',
@@ -297,9 +304,9 @@ export default function CardItem({
                     <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: isActive ? v.color : 'rgba(255,255,255,0.1)', boxShadow: isActive ? `0 0 6px ${v.color}` : 'none', transition: 'all 0.15s' }} />
                     <span style={{ fontSize: 10, color: isActive ? v.color : 'rgba(255,255,255,0.4)', fontWeight: isActive ? 700 : 500 }}>{v.label}</span>
                   </span>
-                  <span style={{ fontSize: 10, color: isActive ? '#22c55e' : 'rgba(255,255,255,0.25)', fontWeight: isActive ? 700 : 400, textAlign: 'center' }}>{fmt(min) || '—'}</span>
-                  <span style={{ fontSize: 10, color: isActive ? v.color : 'rgba(255,255,255,0.3)', fontWeight: isActive ? 800 : 400, textAlign: 'center' }}>{fmt(med) || '—'}</span>
-                  <span style={{ fontSize: 10, color: isActive ? '#f59e0b' : 'rgba(255,255,255,0.25)', fontWeight: isActive ? 700 : 400, textAlign: 'center' }}>{fmt(max) || '—'}</span>
+                  <span style={{ fontSize: 10, color: isActive ? '#22c55e' : 'rgba(255,255,255,0.25)', fontWeight: isActive ? 700 : 400, textAlign: 'center', whiteSpace: 'nowrap' }}>{fmtC(min) || '—'}</span>
+                  <span style={{ fontSize: 10, color: isActive ? v.color : 'rgba(255,255,255,0.3)', fontWeight: isActive ? 800 : 400, textAlign: 'center', whiteSpace: 'nowrap' }}>{fmtC(med) || '—'}</span>
+                  <span style={{ fontSize: 10, color: isActive ? '#f59e0b' : 'rgba(255,255,255,0.25)', fontWeight: isActive ? 700 : 400, textAlign: 'center', whiteSpace: 'nowrap' }}>{fmtC(max) || '—'}</span>
                 </button>
               )
             })}
