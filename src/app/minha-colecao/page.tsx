@@ -83,7 +83,7 @@ export default function MinhaColecao() {
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
   const [filtroCondicao, setFiltroCondicao] = useState('')
-  const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc'>('recente')
+  const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc' | 'valor_asc' | 'valor_desc'>('recente')
   const [loading, setLoading] = useState(true)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
   const [exchangeRate, setExchangeRate] = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
@@ -572,6 +572,11 @@ export default function MinhaColecao() {
         }
         return getNum(b.card_name) - getNum(a.card_name)
       }
+      case 'valor_desc':
+      case 'valor_asc': {
+        const valMedio = (c: any) => getVariantePrices(c.price, getVarianteEfetiva(c.price, c.variante || 'normal')).medio || 0
+        return ordenacao === 'valor_asc' ? valMedio(a) - valMedio(b) : valMedio(b) - valMedio(a)
+      }
       default: return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     }
   })
@@ -957,12 +962,14 @@ export default function MinhaColecao() {
               <option value="za" style={{ background: '#0d0f14' }}>Nome Z→A</option>
               <option value="recente" style={{ background: '#0d0f14' }}>Mais recente</option>
               <option value="antiga" style={{ background: '#0d0f14' }}>Mais antiga</option>
+              <option value="valor_desc" style={{ background: '#0d0f14' }}>Maior valor</option>
+              <option value="valor_asc" style={{ background: '#0d0f14' }}>Menor valor</option>
             </select>
 
             {/* Limpar filtros */}
-            {(search || filtroVariante || filtroRaridade) && (
+            {(search || filtroVariante || filtroRaridade || filtroCondicao) && (
               <button
-                onClick={() => { setSearch(''); setFiltroVariante(''); setFiltroRaridade('') }}
+                onClick={() => { setSearch(''); setFiltroVariante(''); setFiltroRaridade(''); setFiltroCondicao('') }}
                 style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
               >
                 Limpar
