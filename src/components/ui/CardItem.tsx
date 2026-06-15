@@ -45,18 +45,19 @@ export interface CardPrice {
 export interface CardItemData {
   id: string
   card_name?: string
-  name?: string          // pokemon_cards format
+  name?: string // pokemon_cards format
   card_id?: string
-  number?: string        // pokemon_cards format
+  number?: string // pokemon_cards format
   card_image?: string
-  image_small?: string   // pokemon_cards format
+  image_small?: string // pokemon_cards format
   image_large?: string
   rarity?: string
   set_name?: string
   set_total?: number | string
   quantity?: number
   variante?: string
-  price?: CardPrice      // joined price data
+  condicoes?: Record<string, number> | null
+  price?: CardPrice // joined price data
 }
 
 interface CardItemProps {
@@ -75,6 +76,8 @@ interface CardItemProps {
   onRemove?: () => void
   // Extra badge ou ação
   badge?: ReactNode
+  // Slot extra no rodapé do card (ex: editor de condição)
+  footerSlot?: ReactNode
   // Câmbio para estimativas USD/EUR
   exchangeRate?: { usd: number; eur: number }
 }
@@ -101,13 +104,13 @@ const rarityColor = (r: string) => {
 }
 
 const VARIANTS = [
-  { key: 'normal',   label: 'Normal',   color: '#f0f0f0',
+  { key: 'normal', label: 'Normal', color: '#f0f0f0',
     priceKey: (p: CardPrice) => ({ min: n(p.preco_min), med: n(p.preco_medio), max: n(p.preco_max) }) },
-  { key: 'foil',     label: 'Foil',     color: '#f59e0b',
+  { key: 'foil', label: 'Foil', color: '#f59e0b',
     priceKey: (p: CardPrice) => ({ min: n(p.preco_foil_min), med: n(p.preco_foil_medio), max: n(p.preco_foil_max) }) },
-  { key: 'promo',    label: 'Promo',    color: '#a855f7',
+  { key: 'promo', label: 'Promo', color: '#a855f7',
     priceKey: (p: CardPrice) => ({ min: n(p.preco_promo_min), med: n(p.preco_promo_medio), max: n(p.preco_promo_max) }) },
-  { key: 'reverse',  label: 'Reverse',  color: '#60a5fa',
+  { key: 'reverse', label: 'Reverse', color: '#60a5fa',
     priceKey: (p: CardPrice) => ({ min: n(p.preco_reverse_min), med: n(p.preco_reverse_medio), max: n(p.preco_reverse_max) }) },
   { key: 'pokeball', label: 'Pokeball', color: '#22c55e',
     priceKey: (p: CardPrice) => ({ min: n(p.preco_pokeball_min), med: n(p.preco_pokeball_medio), max: n(p.preco_pokeball_max) }) },
@@ -125,24 +128,25 @@ export default function CardItem({
   onSelect,
   onRemove,
   badge,
+  footerSlot,
   exchangeRate = { usd: 6.0, eur: 6.5 },
 }: CardItemProps) {
   const variante = varianteProp || card.variante || 'normal'
-  const image    = card.card_image || card.image_large || card.image_small
-  const name     = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || card.name || '—'
-  const setName  = setLabel(card.set_name)
+  const image = card.card_image || card.image_large || card.image_small
+  const name = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || card.name || '—'
+  const setName = setLabel(card.set_name)
   // Numero impresso: "(NNN/TTT)" do nome original (cartas Liga) tem prioridade;
   // senao monta de number + total. Nunca exibe o id interno "liga-...".
   const _printed = String(card.card_name || card.name || '').match(/\((\d+)\/(\d+)\)/)
-  const rawNum   = card.number || card.card_id?.split('/')?.[0]
-  const total    = card.price?.set_total || card.set_total
-  const number   = _printed
+  const rawNum = card.number || card.card_id?.split('/')?.[0]
+  const total = card.price?.set_total || card.set_total
+  const number = _printed
     ? `${_printed[1]}/${_printed[2]}`
     : (rawNum && !String(rawNum).toLowerCase().startsWith('liga'))
       ? (total ? `${String(rawNum).padStart(String(total).length, '0')}/${total}` : String(rawNum))
       : ''
-  const rColor   = rarityColor(card.rarity || '')
-  const price    = card.price
+  const rColor = rarityColor(card.rarity || '')
+  const price = card.price
 
   // Variantes com preço disponível
   const availableVariants = price
@@ -159,12 +163,12 @@ export default function CardItem({
     const brl = variantPrice?.med
     if (brl) return null // tem BRL, não precisa de estimativa
 
-    const usdFoil  = n(price.price_usd_holofoil)
-    const usdNorm  = n(price.price_usd_normal)
-    const usdRev   = n(price.price_usd_reverse)
+    const usdFoil = n(price.price_usd_holofoil)
+    const usdNorm = n(price.price_usd_normal)
+    const usdRev = n(price.price_usd_reverse)
     let usdVal = 0
-    if (variante === 'foil' && usdFoil)          usdVal = usdFoil
-    else if (variante === 'reverse' && usdRev)    usdVal = usdRev
+    if (variante === 'foil' && usdFoil) usdVal = usdFoil
+    else if (variante === 'reverse' && usdRev) usdVal = usdRev
     else usdVal = Math.max(usdNorm || 0, usdFoil || 0)
     if (usdVal > 0) return { valor: usdVal * exchangeRate.usd, tipo: 'USD' }
 
@@ -174,9 +178,9 @@ export default function CardItem({
     return null
   }
 
-  const estimate  = getBestEstimate()
+  const estimate = getBestEstimate()
   const curVariant = VARIANTS.find(v => v.key === variante)
-  const curPrices  = curVariant && price ? curVariant.priceKey(price) : { min: null, med: null, max: null }
+  const curPrices = curVariant && price ? curVariant.priceKey(price) : { min: null, med: null, max: null }
   const isValuable = (curPrices.med || estimate?.valor || 0) > 100
   const qty = card.quantity || 1
 
@@ -327,6 +331,11 @@ export default function CardItem({
               </button>
             )}
           </div>
+        )}
+
+        {/* Slot extra (ex: editor de condição) */}
+        {footerSlot && (
+          <div style={{ marginTop: 2 }}>{footerSlot}</div>
         )}
       </div>
     </div>
