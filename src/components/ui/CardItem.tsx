@@ -263,6 +263,11 @@ export default function CardItem({
           )}
         </div>
 
+        {/* Condição (slot) — logo abaixo do número/coleção */}
+        {footerSlot && (
+          <div>{footerSlot}</div>
+        )}
+
         {/* Seletor de variante com preços — só em modo collection */}
         {mode !== 'readonly' && availableVariants.length > 0 && (
           <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -331,11 +336,6 @@ export default function CardItem({
               </button>
             )}
           </div>
-        )}
-
-        {/* Slot extra (ex: editor de condição) */}
-        {footerSlot && (
-          <div style={{ marginTop: 2 }}>{footerSlot}</div>
         )}
       </div>
     </div>
