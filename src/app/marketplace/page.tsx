@@ -33,6 +33,10 @@ const CONDICAO_DESC: Record<string, string> = {
   HP: 'Heavily Played', D: 'Damaged',
 }
 
+const CONDICAO_COR: Record<string, string> = {
+  NM: '#22c55e', LP: '#84cc16', MP: '#f59e0b', HP: '#f97316', D: '#ef4444',
+}
+
 const VARIANTES = [
   { key: 'normal', label: 'Normal' },
   { key: 'foil',   label: 'Foil'   },
@@ -212,9 +216,15 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
         <div>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>{card.card_name}</p>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-              {CONDICAO_DESC[card.condicao] || card.condicao || 'NM'}
-            </span>
+            {(() => {
+              const cond = String(card.condicao || 'NM').toUpperCase()
+              const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
+              return (
+                <span title={CONDICAO_DESC[cond] || cond} style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.02em', color: cor, background: cor + '1f', border: '1px solid ' + cor + '55', padding: '2px 7px', borderRadius: 6 }}>
+                  {cond}
+                </span>
+              )
+            })()}
             {card.seller_city && (
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>· {card.seller_city}</span>
             )}
