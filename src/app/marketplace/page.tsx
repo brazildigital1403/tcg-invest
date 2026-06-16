@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, IconHistory, IconCollection, IconChat, IconBox, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { criarNotificacao } from '@/lib/notificacoes'
+import { authFetch } from '@/lib/authFetch'
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
 import { getUserPlan } from '@/lib/isPro'
 import { trackFirstCardAdded } from '@/lib/analytics'
@@ -93,6 +94,23 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
   const st       = STATUS_CFG[card.status || 'disponivel'] || STATUS_CFG.disponivel
   const variante = VARIANTES.find(v => v.key === card.variante)?.label || 'Normal'
 
+  async function contatarVendedor(jaRegistrouInteresse: boolean) {
+    try {
+      const resp = await authFetch(`/api/marketplace/${card.id}/contato`)
+      const dados = await resp.json().catch(() => ({}))
+      if (resp.ok && dados.whatsapp) {
+        const msg = encodeURIComponent(`Olá! Tenho interesse na carta *${card.card_name}* anunciada no Bynx por ${fmt(card.price)}. Podemos negociar?`)
+        window.open(`https://wa.me/55${dados.whatsapp}?text=${msg}`, '_blank')
+        return
+      }
+    } catch { /* cai no fallback abaixo */ }
+    if (jaRegistrouInteresse) {
+      showAlert('Interesse registrado! O vendedor será notificado.', 'success')
+    } else {
+      showAlert('Não foi possível abrir o contato agora. Tente novamente.', 'warning')
+    }
+  }
+
   async function handleInteresse() {
     if (!userId) { showAlert('Você precisa estar logado.', 'error'); return }
     if (isMeu)   { showAlert('Você não pode comprar sua própria carta.', 'warning'); return }
@@ -121,14 +139,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
       { marketplace_id: card.id, card_name: card.card_name }
     )
 
-    // Mostra contato do vendedor
-    const tel = card.seller_whatsapp?.replace(/\D/g, '')
-    if (tel) {
-      const msg = encodeURIComponent(`Olá! Vi seu anúncio no Bynx e tenho interesse na carta *${card.card_name}* por ${fmt(card.price)}. Podemos negociar?`)
-      window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank')
-    } else {
-      showAlert('Interesse registrado! O vendedor será notificado.', 'success')
-    }
+    await contatarVendedor(true)
     onAction()
   }
 
@@ -314,14 +325,14 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           )}
 
           {/* WhatsApp do vendedor — aparece após demonstrar interesse */}
-          {isBuyer && card.seller_whatsapp && (card.status === 'reservado' || card.status === 'em_negociacao') && (
-            <a
-              href={`https://wa.me/55${card.seller_whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(`Olá! Tenho interesse na carta ${card.card_name} anunciada no Bynx por ${fmt(card.price)}.`)}`}
-              target="_blank" rel="noopener noreferrer"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
+          {isBuyer && (card.status === 'reservado' || card.status === 'em_negociacao') && (
+            <button
+              type="button"
+              onClick={() => contatarVendedor(false)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              WhatsApp
-            </a>
+              WhatsApp do vendedor
+            </button>
           )}
 
           {/* Comprador: aguardando */}
