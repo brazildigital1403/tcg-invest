@@ -300,7 +300,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
         </div>
 
         {/* Vendedor */}
-        <a href={`/perfil/${card.user_id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 11, borderTop: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none' }}>
+        <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 11, borderTop: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none' }}>
           <span style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>
             {iniciais(card.seller_name)}
           </span>

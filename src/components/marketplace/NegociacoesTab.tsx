@@ -276,7 +276,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
               <div>
                 <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0' }}>
                   {role === 'comprador' ? 'Vendedor: ' : 'Comprador: '}
-                  <a href={`/perfil/${contatoId}`} style={{ color: '#f0f0f0', textDecoration: 'none', borderBottom: '1px solid rgba(245,158,11,0.5)' }}>{nomeContato || 'Usuário'} →</a>
+                  <a href={`/perfil/${contatoId}`} target="_blank" rel="noopener noreferrer" style={{ color: '#f0f0f0', textDecoration: 'none', borderBottom: '1px solid rgba(245,158,11,0.5)' }}>{nomeContato || 'Usuário'} →</a>
                 </p>
                 {cidadeContato && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display:'flex', alignItems:'center', gap:3 }}><svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z' stroke='currentColor' strokeWidth='1.3'/><circle cx='10' cy='7' r='2' stroke='currentColor' strokeWidth='1.3'/></svg> {cidadeContato}</p>}
               </div>
@@ -425,7 +425,7 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
             {items.length}
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14 }}>
           {items.map(card => (
             <NegociacaoCard key={card.id} card={card} role={role} onAction={onAction} userId={userId || ''} />
           ))}
@@ -445,7 +445,7 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
           <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
             Histórico ({historico.length})
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14, opacity: 0.5 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14, opacity: 0.5 }}>
             {historico.map(card => (
               <NegociacaoCard
                 key={card.id}

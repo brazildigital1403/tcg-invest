@@ -8,7 +8,7 @@ function supabaseAdmin() {
   )
 }
 
-const STATUS_EM_NEGOCIACAO = ['reservado', 'em_negociacao', 'enviado']
+const STATUS_EM_NEGOCIACAO = ['reservado', 'em_negociacao', 'enviado', 'concluido']
 
 /**
  * GET /api/marketplace/[id]/contato
