@@ -7,6 +7,7 @@ import AvaliacaoModal from './AvaliacaoModal'
 import { criarNotificacao } from '@/lib/notificacoes'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { authFetch } from '@/lib/authFetch'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,26 @@ function Timeline({ steps, currentStatus }: { steps: typeof STEPS_COMPRADOR; cur
 
 // ─── Card de negociação ───────────────────────────────────────────────────────
 
+function tempoRelativo(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  if (isNaN(ms)) return ''
+  const min = Math.floor(ms / 60000)
+  if (min < 1) return 'agora mesmo'
+  if (min < 60) return `há ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `há ${h} h`
+  const d = Math.floor(h / 24)
+  if (d === 1) return 'há 1 dia'
+  if (d < 7) return `há ${d} dias`
+  const sem = Math.floor(d / 7)
+  if (d < 30) return sem === 1 ? 'há 1 semana' : `há ${sem} semanas`
+  const meses = Math.floor(d / 30)
+  if (d < 365) return meses === 1 ? 'há 1 mês' : `há ${meses} meses`
+  const anos = Math.floor(d / 365)
+  return anos === 1 ? 'há 1 ano' : `há ${anos} anos`
+}
+
 function NegociacaoCard({ card, role, onAction, userId }: {
   card: any
   role: 'comprador' | 'vendedor'
@@ -101,17 +122,23 @@ function NegociacaoCard({ card, role, onAction, userId }: {
   const status = card.status || 'reservado'
   const steps  = role === 'comprador' ? STEPS_COMPRADOR : STEPS_VENDEDOR
 
-  const whatsapp = role === 'comprador' ? card.seller_whatsapp : card.buyer_whatsapp
   const nomeContato = role === 'comprador' ? card.seller_name : card.buyer_name
   const cidadeContato = role === 'comprador' ? card.seller_city : card.buyer_city
+  const contatoId = role === 'comprador' ? card.user_id : card.buyer_id
 
-  function abrirWhatsApp() {
-    if (!whatsapp) return
-    const tel = whatsapp.replace(/\D/g, '')
-    const msg = role === 'comprador'
-      ? `Olá! Tenho interesse na carta *${card.card_name}* por ${fmt(card.price)} anunciada no Bynx.`
-      : `Olá! Você demonstrou interesse na minha carta *${card.card_name}* por ${fmt(card.price)} no Bynx.`
-    window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`, '_blank')
+  async function abrirWhatsApp() {
+    try {
+      const resp = await authFetch(`/api/marketplace/${card.id}/contato`)
+      const dados = await resp.json().catch(() => ({}))
+      if (resp.ok && dados.whatsapp) {
+        const msg = role === 'comprador'
+          ? `Olá! Tenho interesse na carta *${card.card_name}* por ${fmt(card.price)} anunciada no Bynx.`
+          : `Olá! Você demonstrou interesse na minha carta *${card.card_name}* por ${fmt(card.price)} no Bynx.`
+        window.open(`https://wa.me/55${dados.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank')
+        return
+      }
+    } catch { /* cai no fallback */ }
+    showAlert('Não foi possível abrir o contato agora. Tente novamente.', 'warning')
   }
 
   async function handleConfirmarEnvio() {
@@ -234,8 +261,14 @@ function NegociacaoCard({ card, role, onAction, userId }: {
             {fmt(card.price)}
           </p>
 
+          {card.created_at && (
+            <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.34)', marginBottom: 10 }}>
+              🕐 anunciado {tempoRelativo(card.created_at)}
+            </p>
+          )}
+
           {/* Contato */}
-          {(nomeContato || whatsapp) && (
+          {(nomeContato || contatoId) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#000', flexShrink: 0 }}>
                 {nomeContato?.[0]?.toUpperCase() || '?'}
@@ -243,11 +276,11 @@ function NegociacaoCard({ card, role, onAction, userId }: {
               <div>
                 <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0' }}>
                   {role === 'comprador' ? 'Vendedor: ' : 'Comprador: '}
-                  {nomeContato || 'Usuário'}
+                  <a href={`/perfil/${contatoId}`} style={{ color: '#f0f0f0', textDecoration: 'none', borderBottom: '1px solid rgba(245,158,11,0.5)' }}>{nomeContato || 'Usuário'} →</a>
                 </p>
                 {cidadeContato && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display:'flex', alignItems:'center', gap:3 }}><svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z' stroke='currentColor' strokeWidth='1.3'/><circle cx='10' cy='7' r='2' stroke='currentColor' strokeWidth='1.3'/></svg> {cidadeContato}</p>}
               </div>
-              {whatsapp && (
+              {contatoId && (
                 <button onClick={abrirWhatsApp}
                   style={{ marginLeft: 'auto', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                   <IconWhatsApp size={14} color="currentColor" />
