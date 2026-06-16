@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { IconSearch, IconClose, IconRocket } from '@/components/ui/Icons'
 import CardItem from '@/components/ui/CardItem'
+import MarketplaceFotosInput from './MarketplaceFotosInput'
 import { supabase } from '@/lib/supabaseClient'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -184,18 +185,21 @@ function EscolherCarta({
 
 // ─── Step 2 — Detalhes ────────────────────────────────────────────────────────
 
-function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading }: {
+function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading, userId, isPro }: {
   card: any
   precoMercado: number
   precoFonte: 'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null
   onBack: () => void
   onConfirm: (d: any) => void
   loading: boolean
+  userId: string
+  isPro: boolean
 }) {
   const [preco, setPreco]       = useState(precoMercado > 0 ? precoMercado.toFixed(2) : '')
   const [condicao, setCondicao] = useState('NM')
   const [variante, setVariante] = useState(card.variante || 'normal')
   const [descricao, setDescricao] = useState('')
+  const [fotos, setFotos] = useState<string[]>([])
 
   const precoNum = parseFloat(String(preco).replace(',', '.')) || 0
   const diff = precoMercado > 0 && precoNum > 0 ? ((precoNum - precoMercado) / precoMercado * 100) : null
@@ -314,6 +318,9 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
           />
         </div>
 
+        {/* Fotos reais (PRO) */}
+        <MarketplaceFotosInput userId={userId} isPro={isPro} fotos={fotos} setFotos={setFotos} />
+
         {/* Resumo */}
         {precoNum > 0 && (
           <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.07), rgba(239,68,68,0.05))', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 14, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -333,7 +340,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
             ← Voltar
           </button>
           <button
-            onClick={() => onConfirm({ preco: precoNum, condicao, variante, descricao })}
+            onClick={() => onConfirm({ preco: precoNum, condicao, variante, descricao, fotos })}
             disabled={precoNum <= 0 || loading}
             style={{
               flex: 1, background: precoNum > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none',
@@ -359,6 +366,11 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
   const [precoMercado, setPrecoMercado] = useState(0)
   const [precoFonte, setPrecoFonte] = useState<'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null>(null)
   const [loading, setLoading]   = useState(false)
+
+  const [isPro, setIsPro] = useState(false)
+  useEffect(() => {
+    supabase.from('users').select('is_pro').eq('id', userId).single().then(({ data }) => setIsPro(!!(data as any)?.is_pro))
+  }, [userId])
 
   async function handleSelectCard(card: any) {
     // R6 + S29 UX v4: estratégia de resolução de preço com fallback.
@@ -430,7 +442,7 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
       user_id: userId, card_name: cartaSel.card_name,
       card_image: cartaSel.card_image || null, card_link: cartaSel.card_link || null,
       variante: dados.variante, price: dados.preco,
-      condicao: dados.condicao, descricao: dados.descricao || null, status: 'disponivel',
+      condicao: dados.condicao, descricao: dados.descricao || null, fotos: dados.fotos && dados.fotos.length ? dados.fotos : null, status: 'disponivel',
     })
     setLoading(false)
     onAdded()
@@ -464,7 +476,7 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
         <div style={{ flex: 1, overflow: 'hidden' }}>
           {step === 'escolher'
             ? <EscolherCarta userId={userId} cartaSel={cartaSel} onSelect={handleSelectCard} />
-            : <DetalhesAnuncio card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} />
+            : <DetalhesAnuncio userId={userId} isPro={isPro} card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} />
           }
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { authFetch } from './authFetch'
+import { supabase } from '@/lib/supabaseClient'
 
 /**
  * Helpers de upload de fotos e logo de loja.
@@ -134,6 +135,35 @@ function validateFile(file: File): void {
 /**
  * Faz upload de uma foto pra galeria da loja.
  */
+// ─── Marketplace (fotos reais do anuncio, recurso PRO) ──────────────────
+
+const MARKETPLACE_BUCKET = 'marketplace-fotos'
+export const MARKETPLACE_FOTOS_MAX = 4
+
+export async function uploadFotoMarketplace(userId: string, file: File): Promise<string> {
+  validateFile(file)
+  const blob = await compressToWebP(file, FOTO_MAX_DIMENSION, FOTO_QUALITY)
+  if (blob.size > TAMANHO_MAX_OUTPUT) {
+    throw new Error('Não foi possível comprimir a imagem o suficiente. Tente uma foto menor.')
+  }
+  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`
+  const { error } = await supabase.storage.from(MARKETPLACE_BUCKET).upload(path, blob, {
+    contentType: 'image/webp',
+    upsert: false,
+  })
+  if (error) throw new Error(error.message || 'Erro ao enviar foto. Tente novamente.')
+  const { data } = supabase.storage.from(MARKETPLACE_BUCKET).getPublicUrl(path)
+  return data.publicUrl
+}
+
+export async function deletarFotoMarketplace(publicUrl: string): Promise<void> {
+  const marker = `/${MARKETPLACE_BUCKET}/`
+  const i = publicUrl.indexOf(marker)
+  if (i === -1) return
+  const path = publicUrl.slice(i + marker.length)
+  await supabase.storage.from(MARKETPLACE_BUCKET).remove([path])
+}
+
 export async function uploadFotoLoja(lojaId: string, file: File): Promise<UploadFotoResult> {
   validateFile(file)
   const blob = await compressToWebP(file, FOTO_MAX_DIMENSION, FOTO_QUALITY)
