@@ -459,7 +459,7 @@ function MarketplaceInner() {
     if (sellerIds.length > 0) {
       const { data: sellers } = await supabase
         .from('public_users')
-        .select('id, name, whatsapp, city')
+        .select('id, name, city')
         .in('id', sellerIds)
 
       sellerMap = (sellers || []).reduce((acc: any, s: any) => {
@@ -476,7 +476,7 @@ function MarketplaceInner() {
     if (buyerIds.length > 0) {
       const { data: buyers } = await supabase
         .from('public_users')
-        .select('id, name, whatsapp, city')
+        .select('id, name, city')
         .in('id', buyerIds)
 
       buyerMap = (buyers || []).reduce((acc: any, s: any) => {
