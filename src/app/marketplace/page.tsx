@@ -37,6 +37,41 @@ const CONDICAO_COR: Record<string, string> = {
   NM: '#22c55e', LP: '#84cc16', MP: '#f59e0b', HP: '#f97316', D: '#ef4444',
 }
 
+function tempoRelativo(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  if (isNaN(ms)) return ''
+  const min = Math.floor(ms / 60000)
+  if (min < 1) return 'agora mesmo'
+  if (min < 60) return `há ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `há ${h} h`
+  const d = Math.floor(h / 24)
+  if (d === 1) return 'há 1 dia'
+  if (d < 7) return `há ${d} dias`
+  const sem = Math.floor(d / 7)
+  if (d < 30) return sem === 1 ? 'há 1 semana' : `há ${sem} semanas`
+  const meses = Math.floor(d / 30)
+  if (d < 365) return meses === 1 ? 'há 1 mês' : `há ${meses} meses`
+  const anos = Math.floor(d / 365)
+  return anos === 1 ? 'há 1 ano' : `há ${anos} anos`
+}
+
+const AVATAR_CORES = ['#f59e0b', '#ef4444', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6', '#f97316']
+function corDoNome(s: string | null | undefined): string {
+  const str = s || '?'
+  let h = 0
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0
+  return AVATAR_CORES[h % AVATAR_CORES.length]
+}
+function iniciais(nome: string | null | undefined): string {
+  const n = (nome || '').trim()
+  if (!n) return '?'
+  const p = n.split(/\s+/)
+  if (p.length === 1) return p[0].slice(0, 2).toUpperCase()
+  return (p[0][0] + p[p.length - 1][0]).toUpperCase()
+}
+
 const VARIANTES = [
   { key: 'normal', label: 'Normal' },
   { key: 'foil',   label: 'Foil'   },
@@ -225,9 +260,6 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
                 </span>
               )
             })()}
-            {card.seller_city && (
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>· {card.seller_city}</span>
-            )}
           </div>
           {card.descricao && (
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 4, lineHeight: 1.4 }}>{card.descricao}</p>
@@ -255,6 +287,21 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
             )
           })()}
         </div>
+
+        {/* Vendedor */}
+        <a href={`/perfil/${card.user_id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 11, borderTop: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none' }}>
+          <span style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>
+            {iniciais(card.seller_name)}
+          </span>
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#e8e8e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {card.seller_name || 'Vendedor'}
+            </span>
+            <span style={{ display: 'block', fontSize: 10.5, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+              {[card.seller_city && `📍 ${card.seller_city}`, card.created_at && `🕐 ${tempoRelativo(card.created_at)}`].filter(Boolean).join(' · ')}
+            </span>
+          </span>
+        </a>
 
         {/* Ações por papel e status */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
