@@ -12,6 +12,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AnunciarModal from '@/components/marketplace/AnunciarModal'
 import NegociacoesTab from '@/components/marketplace/NegociacoesTab'
+import MarketplaceFotosGaleria from '@/components/marketplace/MarketplaceFotosGaleria'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -153,7 +154,9 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
     }}>
       {/* Imagem */}
       <div style={{ position: 'relative' }}>
-        {card.card_image ? (
+        {card.fotos && card.fotos.length ? (
+          <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
+        ) : card.card_image ? (
           <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden') }}
           />
