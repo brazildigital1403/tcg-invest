@@ -159,7 +159,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script
           id="adsense-loader"
           async
-          strategy="afterInteractive"
+          strategy="beforeInteractive"
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9762668656363196"
           crossOrigin="anonymous"
         />
