@@ -23,6 +23,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import CardClient from './CardClient'
+import AdSlot from '@/components/ui/AdSlot'
 
 // ─── ISR: revalida cada 24h ───────────────────────────────────────────────
 // Preço dinâmico mas estável; 24h equilibra freshness vs custo Vercel.
@@ -288,6 +289,11 @@ export default async function CartaPage({
 
       {/* UI interativa (client) — recebe data pré-fetched, sem loading state */}
       <CardClient card={card} />
+
+      {/* Anuncio in-article (AdSense) - entre a carta e as cartas relacionadas */}
+      <div style={{ maxWidth: 760, margin: '8px auto 32px', padding: '0 16px' }}>
+        <AdSlot slot="8406341305" layout="in-article" format="fluid" />
+      </div>
     </>
   )
 }
