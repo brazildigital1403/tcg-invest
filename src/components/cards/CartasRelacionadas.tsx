@@ -24,9 +24,7 @@ export default function CartasRelacionadas({
   if (!hasSet && !hasPoke) return null
 
   return (
-    <section
-      style={{ width: '100%', maxWidth: 1000, alignSelf: 'center', padding: '8px 16px 56px' }}
-    >
+    <section style={{ width: '100%', padding: '4px 0 0' }}>
       {hasSet && (
         <RelBlock
           title={setName ? `Mais cartas de ${setName}` : 'Mais cartas deste set'}
@@ -45,13 +43,24 @@ export default function CartasRelacionadas({
 
 function RelBlock({ title, cards }: { title: string; cards: MiniCard[] }) {
   return (
-    <div style={{ marginTop: 32 }}>
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px', color: '#0f1115' }}>{title}</h2>
+    <div style={{ marginTop: 30, paddingTop: 26, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+      <h2
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.5)',
+          margin: '0 0 16px',
+        }}
+      >
+        {title}
+      </h2>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(118px, 1fr))',
-          gap: 14,
+          gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))',
+          gap: 12,
         }}
       >
         {cards.map((c) => (
@@ -62,13 +71,13 @@ function RelBlock({ title, cards }: { title: string; cards: MiniCard[] }) {
           >
             <div
               style={{
-                border: '1px solid #e5e7eb',
+                border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: 10,
                 overflow: 'hidden',
-                background: '#fff',
+                background: 'rgba(255,255,255,0.03)',
               }}
             >
-              <div style={{ aspectRatio: '63 / 88', background: '#f3f4f6' }}>
+              <div style={{ aspectRatio: '63 / 88', background: 'rgba(255,255,255,0.02)' }}>
                 {c.image_small && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -79,12 +88,12 @@ function RelBlock({ title, cards }: { title: string; cards: MiniCard[] }) {
                   />
                 )}
               </div>
-              <div style={{ padding: '8px 8px 10px' }}>
+              <div style={{ padding: '7px 8px 9px' }}>
                 <div
                   style={{
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: 600,
-                    color: '#111827',
+                    color: 'rgba(255,255,255,0.9)',
                     lineHeight: 1.2,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -93,7 +102,16 @@ function RelBlock({ title, cards }: { title: string; cards: MiniCard[] }) {
                 >
                   {c.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                <div
+                  style={{
+                    fontSize: 10.5,
+                    color: 'rgba(255,255,255,0.4)',
+                    marginTop: 2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {c.set_name}
                   {c.number ? ` \u00b7 #${c.number}` : ''}
                 </div>

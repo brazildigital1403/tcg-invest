@@ -325,20 +325,21 @@ export default async function CartaPage({
       />
 
       {/* UI interativa (client) — recebe data pré-fetched, sem loading state */}
-      <CardClient card={card} />
+      {/* CardClient renderiza ad + relacionadas via children: tema dark, acima do rodape */}
+      <CardClient card={card}>
+        {/* Anuncio in-article (AdSense) */}
+        <div style={{ margin: '8px 0 4px' }}>
+          <AdSlot slot="8406341305" layout="in-article" format="fluid" />
+        </div>
 
-      {/* Anuncio in-article (AdSense) - entre a carta e as cartas relacionadas */}
-      <div style={{ width: '100%', maxWidth: 760, alignSelf: 'center', margin: '8px 0 32px', padding: '0 16px' }}>
-        <AdSlot slot="8406341305" layout="in-article" format="fluid" />
-      </div>
-
-      {/* Cartas relacionadas (SEO / link building) - links crawlaveis, server-rendered */}
-      <CartasRelacionadas
-        sameSet={related.same_set}
-        samePokemon={related.same_pokemon}
-        setName={card.setName}
-        pokemonName={related.pokemon_name}
-      />
+        {/* Cartas relacionadas (SEO / link building) - links crawlaveis, server-rendered */}
+        <CartasRelacionadas
+          sameSet={related.same_set}
+          samePokemon={related.same_pokemon}
+          setName={card.setName}
+          pokemonName={related.pokemon_name}
+        />
+      </CardClient>
     </>
   )
 }

@@ -13,7 +13,7 @@
  * interativa (botão Copiar link). Sem loading state, sem fetch client.
  */
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 
@@ -56,9 +56,10 @@ type CardProps = {
     precoMedio: number | null
     precoMax: number | null
   }
+  children?: ReactNode
 }
 
-export default function CardClient({ card }: CardProps) {
+export default function CardClient({ card, children }: CardProps) {
   const [copied, setCopied] = useState(false)
 
   const color = TYPE_COLORS[card.types[0]] || '#f59e0b'
@@ -420,6 +421,8 @@ export default function CardClient({ card }: CardProps) {
             </div>
           </div>
         )}
+
+        {children}
 
         {/* Footer CTA */}
         <div
