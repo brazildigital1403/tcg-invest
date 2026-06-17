@@ -16,6 +16,10 @@ import {
  * Blocos seguintes: só cartas (paginadas por .range, ordenadas por id).
  *
  * Next 16: params é uma Promise. A URL chega como "0.xml" -> tiramos o .xml.
+ *
+ * S41: sets vêm de sitemap_set_ids() (SELECT DISTINCT set_id, ~400ms via anon).
+ * A antiga set_index_stats() fazia aggregate pesado (SUM/MIN) e estourava o
+ * statement_timeout do role anon (erro 57014), zerando os sets no sitemap.
  */
 export const revalidate = 86400
 
@@ -45,11 +49,12 @@ export async function GET(
     if (sb) {
       // Lojas ativas
       try {
-        const { data: lojas } = await sb
+        const { data: lojas, error: lojasErr } = await sb
           .from('lojas')
           .select('slug, updated_at')
           .eq('status', 'ativa')
           .limit(1000)
+        if (lojasErr) console.error('[sitemap] erro lojas:', lojasErr)
         for (const loja of lojas || []) {
           if (loja.slug) {
             entries.push({
@@ -66,9 +71,10 @@ export async function GET(
         console.error('[sitemap] erro ao buscar lojas:', err)
       }
 
-      // Sets (set_index_stats retorna os set_id distintos do catálogo)
+      // Sets (sitemap_set_ids retorna os set_id distintos do catálogo, leve)
       try {
-        const { data: setsRows } = await sb.rpc('set_index_stats')
+        const { data: setsRows, error: setsErr } = await sb.rpc('sitemap_set_ids')
+        if (setsErr) console.error('[sitemap] erro sets rpc:', setsErr)
         const setIds = ((setsRows as Array<{ set_id: string }>) || [])
           .map((r) => r.set_id)
           .filter((sid) => sid && isIdSafeForUrl(sid))
@@ -91,12 +97,13 @@ export async function GET(
     const from = chunkIndex * CARD_CHUNK
     const to = from + CARD_CHUNK - 1
     try {
-      const { data: cartas } = await sb
+      const { data: cartas, error: cartasErr } = await sb
         .from('pokemon_cards')
         .select('id, liga_updated_at')
         .neq('excluded_from_scan', true)
         .order('id', { ascending: true })
         .range(from, to)
+      if (cartasErr) console.error('[sitemap] erro cartas:', cartasErr)
       for (const carta of cartas || []) {
         if (isIdSafeForUrl(carta.id)) {
           entries.push({
