@@ -16,6 +16,7 @@
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
+import PromoBanner from '@/components/ui/PromoBanner'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', {
@@ -421,6 +422,9 @@ export default function CardClient({ card, children }: CardProps) {
             </div>
           </div>
         )}
+
+        {/* Banner promocional Bynx (copy rotativa a cada F5) - logo apos os ATAQUES */}
+        <PromoBanner />
 
         {children}
 
