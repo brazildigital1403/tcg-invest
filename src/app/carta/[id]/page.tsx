@@ -291,7 +291,7 @@ export default async function CartaPage({
       <CardClient card={card} />
 
       {/* Anuncio in-article (AdSense) - entre a carta e as cartas relacionadas */}
-      <div style={{ maxWidth: 760, margin: '8px auto 32px', padding: '0 16px' }}>
+      <div style={{ width: '100%', maxWidth: 760, alignSelf: 'center', margin: '8px 0 32px', padding: '0 16px' }}>
         <AdSlot slot="8406341305" layout="in-article" format="fluid" />
       </div>
     </>

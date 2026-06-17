@@ -32,16 +32,34 @@ export default function AdSlot({
   className,
   style,
 }: AdSlotProps) {
+  const insRef = useRef<HTMLModElement | null>(null)
   const pushed = useRef(false)
 
   useEffect(() => {
-    if (pushed.current) return
-    pushed.current = true
-    try {
-      (window.adsbygoogle = window.adsbygoogle || []).push({})
-    } catch {
-      // adsbygoogle ainda nao carregou; o proximo push reaproveita a fila
+    const el = insRef.current
+    if (!el) return
+
+    const tryPush = (): boolean => {
+      if (pushed.current) return true
+      // AdSense lanca "No slot size for availableWidth=0" se a largura for 0
+      if (el.offsetWidth === 0) return false
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({})
+        pushed.current = true
+      } catch {
+        // adsbygoogle ainda nao carregou; sera reprocessado
+      }
+      return true
     }
+
+    if (tryPush()) return
+
+    // largura ainda 0 (layout nao estabilizou): espera ter largura real
+    const ro = new ResizeObserver(() => {
+      if (tryPush()) ro.disconnect()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [])
 
   const insProps: Record<string, string> = {
@@ -54,8 +72,9 @@ export default function AdSlot({
 
   return (
     <ins
+      ref={insRef}
       className={`adsbygoogle${className ? ' ' + className : ''}`}
-      style={{ display: 'block', textAlign: 'center', ...style }}
+      style={{ display: 'block', width: '100%', textAlign: 'center', ...style }}
       {...insProps}
     />
   )
