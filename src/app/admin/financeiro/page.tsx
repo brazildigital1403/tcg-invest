@@ -5,7 +5,8 @@ import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────
 
-type DetalheItem = { descricao: string; valor: number }
+type DetalheItem = { descricao: string; valor: number; taxa: number }
+type SubItemForm = { descricao: string; valor: string; taxa: string }
 
 type Cards = {
   faturamento:    { valor: number; trend: number }
@@ -523,6 +524,7 @@ export default function AdminFinanceiroPage() {
                                 <tr>
                                   <th style={{ ...th, padding: '8px 10px', borderBottom: '1px solid rgba(245,158,11,0.15)' }}>Sub-item</th>
                                   <th style={{ ...th, padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid rgba(245,158,11,0.15)' }}>Valor</th>
+                                  <th style={{ ...th, padding: '8px 10px', textAlign: 'right', borderBottom: '1px solid rgba(245,158,11,0.15)' }}>Taxa</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -532,6 +534,9 @@ export default function AdminFinanceiroPage() {
                                     <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.75)' }}>
                                       {fmtBRL(Number(item.valor))}
                                     </td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.55)' }}>
+                                      {fmtBRL(Number((item as any).taxa) || 0)}
+                                    </td>
                                   </tr>
                                 ))}
                                 <tr>
@@ -540,6 +545,9 @@ export default function AdminFinanceiroPage() {
                                   </td>
                                   <td style={{ padding: '8px 10px', borderTop: '1px solid rgba(245,158,11,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: '#f59e0b' }}>
                                     {fmtBRL(Number(l.valor_bruto))}
+                                  </td>
+                                  <td style={{ padding: '8px 10px', borderTop: '1px solid rgba(245,158,11,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: '#f97316' }}>
+                                    {fmtBRL(l.detalhes!.reduce((s, it) => s + (Number((it as any).taxa) || 0), 0))}
                                   </td>
                                 </tr>
                               </tbody>
@@ -830,12 +838,12 @@ function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
   const [saving,    setSaving]    = useState(false)
 
   // Sub-itens
-  const inicialDetalhes = editing?.detalhes && editing.detalhes.length > 0
-    ? editing.detalhes.map(d => ({ descricao: d.descricao, valor: Number(d.valor) }))
-    : [{ descricao: '', valor: 0 }]
+  const inicialDetalhes: SubItemForm[] = editing?.detalhes && editing.detalhes.length > 0
+    ? editing.detalhes.map(d => ({ descricao: d.descricao, valor: String(d.valor), taxa: (d as any).taxa != null ? String((d as any).taxa) : '' }))
+    : [{ descricao: '', valor: '', taxa: '' }]
 
   const [usaSubItens, setUsaSubItens] = useState(!!(editing?.detalhes && editing.detalhes.length > 0))
-  const [subItens,    setSubItens]    = useState<DetalheItem[]>(inicialDetalhes)
+  const [subItens,    setSubItens]    = useState<SubItemForm[]>(inicialDetalhes)
 
   const cats = tipo === 'despesa' ? CATEGORIAS_DESPESA : CATEGORIAS_RECEITA
 
@@ -849,28 +857,27 @@ function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
   // Quando muda toggle de sub-itens, reseta lista pra ter algo
   useEffect(() => {
     if (usaSubItens && subItens.length === 0) {
-      setSubItens([{ descricao: '', valor: 0 }])
+      setSubItens([{ descricao: '', valor: '', taxa: '' }])
     }
     // eslint-disable-next-line
   }, [usaSubItens])
 
-  const totalSubItens = subItens.reduce((s, i) => s + (Number(i.valor) || 0), 0)
+  const parseNum = (v: string) => parseFloat(String(v).replace(',', '.')) || 0
+  const totalSubItens = subItens.reduce((s, i) => s + parseNum(i.valor), 0)
+  const totalTaxasSubItens = subItens.reduce((s, i) => s + parseNum(i.taxa), 0)
+  const liquidoSubItens = totalSubItens - totalTaxasSubItens
 
   function addSubItem() {
-    setSubItens([...subItens, { descricao: '', valor: 0 }])
+    setSubItens([...subItens, { descricao: '', valor: '', taxa: '' }])
   }
-  function updateSubItem(idx: number, field: 'descricao'|'valor', value: string) {
+  function updateSubItem(idx: number, field: 'descricao' | 'valor' | 'taxa', value: string) {
     const next = [...subItens]
-    if (field === 'valor') {
-      next[idx].valor = parseFloat(value.replace(',', '.')) || 0
-    } else {
-      next[idx].descricao = value
-    }
+    next[idx] = { ...next[idx], [field]: value }
     setSubItens(next)
   }
   function removeSubItem(idx: number) {
     if (subItens.length === 1) {
-      setSubItens([{ descricao: '', valor: 0 }])
+      setSubItens([{ descricao: '', valor: '', taxa: '' }])
       return
     }
     setSubItens(subItens.filter((_, i) => i !== idx))
@@ -924,14 +931,13 @@ function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
 
     if (usaSubItens) {
       // Valida sub-itens
-      const validos = subItens.filter(i => i.descricao.trim() && Number(i.valor) > 0)
+      const validos = subItens.filter(i => i.descricao.trim() && parseNum(i.valor) > 0)
       if (validos.length === 0) {
         return showAlert('Adicione pelo menos 1 sub-item válido (descrição + valor)', 'warning')
       }
-      body.detalhes = validos.map(i => ({ descricao: i.descricao.trim(), valor: Number(i.valor) }))
-      const t = taxa ? parseFloat(taxa.replace(',', '.')) : 0
-      if (!Number.isFinite(t) || t < 0) return showAlert('Taxa inválida', 'warning')
-      body.taxa = t
+      body.detalhes = validos.map(i => ({ descricao: i.descricao.trim(), valor: parseNum(i.valor), taxa: parseNum(i.taxa) }))
+      if (validos.some(i => parseNum(i.taxa) < 0)) return showAlert('Taxa inválida', 'warning')
+      body.taxa = Math.round(validos.reduce((s, i) => s + parseNum(i.taxa), 0) * 100) / 100
     } else {
       const v = parseFloat(valor.replace(',', '.'))
       if (!Number.isFinite(v) || v < 0) return showAlert('Valor inválido — informe um valor válido antes de salvar', 'warning')
@@ -1071,8 +1077,14 @@ function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 104px 104px 30px', gap: 6, padding: '0 2px 2px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)' }}>Descrição</span>
+                <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)', textAlign: 'right' }}>Valor (R$)</span>
+                <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)', textAlign: 'right' }}>Taxa (R$)</span>
+                <span></span>
+              </div>
               {subItens.map((item, idx) => (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 32px', gap: 6, alignItems: 'center' }}>
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 104px 104px 30px', gap: 6, alignItems: 'center' }}>
                   <input
                     value={item.descricao}
                     onChange={e => updateSubItem(idx, 'descricao', e.target.value)}
@@ -1080,8 +1092,15 @@ function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
                     style={{ ...inputStyle, padding: '7px 10px', fontSize: 13 }}
                   />
                   <input
-                    value={item.valor || ''}
+                    value={item.valor}
                     onChange={e => updateSubItem(idx, 'valor', e.target.value)}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    style={{ ...inputStyle, padding: '7px 10px', fontSize: 13, textAlign: 'right' }}
+                  />
+                  <input
+                    value={item.taxa}
+                    onChange={e => updateSubItem(idx, 'taxa', e.target.value)}
                     placeholder="0,00"
                     inputMode="decimal"
                     style={{ ...inputStyle, padding: '7px 10px', fontSize: 13, textAlign: 'right' }}
@@ -1102,17 +1121,22 @@ function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
             </div>
 
             <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '10px 12px', borderRadius: 8,
               background: 'rgba(245,158,11,0.06)',
               border: '1px solid rgba(245,158,11,0.2)',
             }}>
-              <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.6)' }}>
-                Total ({subItens.length} {subItens.length === 1 ? 'item' : 'itens'})
-              </span>
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#f59e0b', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtBRL(totalSubItens)}
-              </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>
+                <span>Bruto ({subItens.length} {subItens.length === 1 ? 'item' : 'itens'})</span>
+                <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{fmtBRL(totalSubItens)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+                <span>Taxas</span>
+                <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: '#f97316' }}>- {fmtBRL(totalTaxasSubItens)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 7, paddingTop: 9, borderTop: '1px solid rgba(245,158,11,0.2)' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.6)' }}>Líquido</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(liquidoSubItens)}</span>
+              </div>
             </div>
 
             <div style={{ marginTop: 10 }}>

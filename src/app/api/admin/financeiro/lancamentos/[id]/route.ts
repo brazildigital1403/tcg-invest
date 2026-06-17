@@ -11,11 +11,11 @@ function supabaseAdmin() {
 
 const CATEGORIAS_TODAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'assinatura', 'outros']
 
-function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string; valor: number }[] } | { ok: false; error: string } {
+function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string; valor: number; taxa: number }[] } | { ok: false; error: string } {
   if (detalhes === null) return { ok: true, lista: [] }
   if (!Array.isArray(detalhes)) return { ok: false, error: 'detalhes deve ser um array' }
 
-  const lista: { descricao: string; valor: number }[] = []
+  const lista: { descricao: string; valor: number; taxa: number }[] = []
   for (let i = 0; i < detalhes.length; i++) {
     const d = detalhes[i]
     if (!d || typeof d !== 'object') return { ok: false, error: `Item ${i + 1}: formato inválido` }
@@ -25,7 +25,11 @@ function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string;
     if (!Number.isFinite(valor) || valor < 0) {
       return { ok: false, error: `Item ${i + 1}: valor inválido` }
     }
-    lista.push({ descricao, valor: Math.round(valor * 100) / 100 })
+    const taxa = Number(d.taxa) || 0
+    if (!Number.isFinite(taxa) || taxa < 0) {
+      return { ok: false, error: `Item ${i + 1}: taxa inválida` }
+    }
+    lista.push({ descricao, valor: Math.round(valor * 100) / 100, taxa: Math.round(taxa * 100) / 100 })
   }
   return { ok: true, lista }
 }
@@ -131,7 +135,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
       if (det.lista.length > 0) {
         const novoBruto = Math.round(det.lista.reduce((s, i) => s + i.valor, 0) * 100) / 100
-        const novaTaxa  = body.taxa !== undefined ? Number(body.taxa) : Number(atual.taxa)
+        const novaTaxa  = Math.round(det.lista.reduce((s, i) => s + (i.taxa || 0), 0) * 100) / 100
         if (!Number.isFinite(novaTaxa) || novaTaxa < 0) {
           return NextResponse.json({ error: 'Taxa inválida' }, { status: 400 })
         }

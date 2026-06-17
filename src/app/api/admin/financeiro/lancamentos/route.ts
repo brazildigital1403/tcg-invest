@@ -15,11 +15,11 @@ const CATEGORIAS_DESPESA = ['infra', 'marketing', 'dominio', 'pagamentos', 'impo
 // ─── Tipo do sub-item ─────────────────────────────────────────────────
 // detalhes: [{ descricao: string, valor: number }, ...]
 
-function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string; valor: number }[] } | { ok: false; error: string } {
+function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string; valor: number; taxa: number }[] } | { ok: false; error: string } {
   if (detalhes === null || detalhes === undefined) return { ok: true, lista: [] }
   if (!Array.isArray(detalhes)) return { ok: false, error: 'detalhes deve ser um array' }
 
-  const lista: { descricao: string; valor: number }[] = []
+  const lista: { descricao: string; valor: number; taxa: number }[] = []
   for (let i = 0; i < detalhes.length; i++) {
     const d = detalhes[i]
     if (!d || typeof d !== 'object') return { ok: false, error: `Item ${i + 1}: formato inválido` }
@@ -29,7 +29,11 @@ function validarDetalhes(detalhes: any): { ok: true; lista: { descricao: string;
     if (!Number.isFinite(valor) || valor < 0) {
       return { ok: false, error: `Item ${i + 1}: valor inválido` }
     }
-    lista.push({ descricao, valor: Math.round(valor * 100) / 100 })
+    const taxa = Number(d.taxa) || 0
+    if (!Number.isFinite(taxa) || taxa < 0) {
+      return { ok: false, error: `Item ${i + 1}: taxa inválida` }
+    }
+    lista.push({ descricao, valor: Math.round(valor * 100) / 100, taxa: Math.round(taxa * 100) / 100 })
   }
   return { ok: true, lista }
 }
@@ -133,7 +137,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const taxa = body.taxa !== undefined ? Number(body.taxa) : 0
+    const taxa = det.lista.length > 0
+      ? Math.round(det.lista.reduce((s, i) => s + (i.taxa || 0), 0) * 100) / 100
+      : (body.taxa !== undefined ? Number(body.taxa) : 0)
     if (!Number.isFinite(taxa) || taxa < 0) {
       return NextResponse.json({ error: 'Taxa inválida' }, { status: 400 })
     }
