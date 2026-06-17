@@ -24,6 +24,7 @@ import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import CardClient from './CardClient'
 import AdSlot from '@/components/ui/AdSlot'
+import CartasRelacionadas from '@/components/cards/CartasRelacionadas'
 
 // ─── ISR: revalida cada 24h ───────────────────────────────────────────────
 // Preço dinâmico mas estável; 24h equilibra freshness vs custo Vercel.
@@ -125,6 +126,40 @@ async function fetchCardData(id: string): Promise<NormalizedCard | null> {
     precoMin: bynx?.preco_min ? Number(bynx.preco_min) : null,
     precoMedio: bynx?.preco_medio ? Number(bynx.preco_medio) : null,
     precoMax: bynx?.preco_max ? Number(bynx.preco_max) : null,
+  }
+}
+
+// --- Cartas relacionadas (link building / SEO) ---
+type MiniCard = {
+  id: string
+  name: string
+  number: string | null
+  image_small: string | null
+  set_name: string | null
+}
+type RelatedCards = {
+  pokemon_name: string | null
+  same_set: MiniCard[]
+  same_pokemon: MiniCard[]
+}
+
+async function fetchRelatedCards(id: string): Promise<RelatedCards> {
+  const empty: RelatedCards = { pokemon_name: null, same_set: [], same_pokemon: [] }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnon) return empty
+  try {
+    const sb = createClient(supabaseUrl, supabaseAnon)
+    const { data, error } = await sb.rpc('get_related_cards', { p_id: id, p_limit: 8 })
+    if (error || !data) return empty
+    const d = data as { pokemon_name?: string | null; same_set?: MiniCard[]; same_pokemon?: MiniCard[] }
+    return {
+      pokemon_name: d.pokemon_name ?? null,
+      same_set: Array.isArray(d.same_set) ? d.same_set : [],
+      same_pokemon: Array.isArray(d.same_pokemon) ? d.same_pokemon : [],
+    }
+  } catch {
+    return empty
   }
 }
 
@@ -275,6 +310,8 @@ export default async function CartaPage({
     ],
   }
 
+  const related = await fetchRelatedCards(id)
+
   return (
     <>
       {/* JSON-LD invisível pro user, lido pelo Googlebot */}
@@ -294,6 +331,14 @@ export default async function CartaPage({
       <div style={{ width: '100%', maxWidth: 760, alignSelf: 'center', margin: '8px 0 32px', padding: '0 16px' }}>
         <AdSlot slot="8406341305" layout="in-article" format="fluid" />
       </div>
+
+      {/* Cartas relacionadas (SEO / link building) - links crawlaveis, server-rendered */}
+      <CartasRelacionadas
+        sameSet={related.same_set}
+        samePokemon={related.same_pokemon}
+        setName={card.setName}
+        pokemonName={related.pokemon_name}
+      />
     </>
   )
 }
