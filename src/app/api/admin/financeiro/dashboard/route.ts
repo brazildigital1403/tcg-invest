@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
         .gte('data_competencia', ymd(startMes))
         .lte('data_competencia', ymd(endMes)),
       sb.from('lancamentos')
-        .select('tipo, valor_bruto, valor_liquido, pago')
+        .select('tipo, valor_bruto, valor_liquido, taxa, pago')
         .gte('data_competencia', ymd(startMesAnt))
         .lte('data_competencia', ymd(endMesAnt)),
     ])
@@ -74,9 +74,9 @@ export async function GET(req: NextRequest) {
         faturamentoBruto += Number(l.valor_bruto)
         stripeFee        += Number(l.taxa)
       } else {
-        if (l.pago) despesasPagas += Number(l.valor_bruto)
+        if (l.pago) despesasPagas += Number(l.valor_bruto) + Number(l.taxa)
         else {
-          despesasAPagar += Number(l.valor_bruto)
+          despesasAPagar += Number(l.valor_bruto) + Number(l.taxa)
           despesasAPagarCount++
         }
       }
@@ -85,11 +85,22 @@ export async function GET(req: NextRequest) {
     // Resultado do mês = (faturamento bruto - taxas) - despesas pagas
     const resultado = (faturamentoBruto - stripeFee) - despesasPagas
 
+    // Saldo do projeto (todos os tempos): despesas (bruto+taxa) - receitas (liquido)
+    const { data: lancAll } = await sb.from('lancamentos')
+      .select('tipo, valor_bruto, valor_liquido, taxa')
+    let despesaTotalAll = 0
+    let receitaLiqAll = 0
+    for (const l of lancAll || []) {
+      if (l.tipo === 'receita') receitaLiqAll += Number(l.valor_liquido)
+      else despesaTotalAll += Number(l.valor_bruto) + Number(l.taxa)
+    }
+    const saldoProjeto = Math.round((despesaTotalAll - receitaLiqAll) * 100) / 100
+
     // ─── Tendência vs mês anterior ─────────────────────────────────
     let fatMesAnt = 0, despMesAnt = 0
     for (const l of lancMesAnt) {
       if (l.tipo === 'receita')           fatMesAnt  += Number(l.valor_bruto)
-      else if (l.pago)                    despMesAnt += Number(l.valor_bruto)
+      else if (l.pago)                    despMesAnt += Number(l.valor_bruto) + Number(l.taxa)
     }
     const trend = (atual: number, anterior: number) => {
       if (anterior === 0) return atual > 0 ? 100 : 0
@@ -173,6 +184,9 @@ export async function GET(req: NextRequest) {
         a_pagar: {
           valor: despesasAPagar,
           count: despesasAPagarCount,
+        },
+        saldo_projeto: {
+          valor: saldoProjeto,
         },
       },
       mei: {

@@ -13,6 +13,7 @@ type Cards = {
   despesas_pagas: { valor: number; trend: number }
   resultado:      { valor: number; trend: number }
   a_pagar:        { valor: number; count: number }
+  saldo_projeto:  { valor: number }
 }
 
 type DashboardData = {
@@ -302,6 +303,7 @@ export default function AdminFinanceiroPage() {
             <Card label="Despesas pagas"    valor={data.cards.despesas_pagas.valor} trend={data.cards.despesas_pagas.trend} color="#ef4444" trendInvertido />
             <Card label="Resultado"         valor={data.cards.resultado.valor}      trend={data.cards.resultado.trend}      color={data.cards.resultado.valor >= 0 ? '#22c55e' : '#ef4444'} />
             <Card label="A pagar"           valor={data.cards.a_pagar.valor}        trend={null} color="#f59e0b" subtitle={`${data.cards.a_pagar.count} ${data.cards.a_pagar.count === 1 ? 'conta' : 'contas'} pendente${data.cards.a_pagar.count === 1 ? '' : 's'}`} />
+            <Card label="Saldo do projeto" valor={data.cards.saldo_projeto.valor} trend={null} color={data.cards.saldo_projeto.valor > 0 ? '#ef4444' : '#22c55e'} subtitle="despesas − receitas · total" />
           </div>
 
           {/* ── Gráficos ── */}
@@ -491,7 +493,7 @@ export default function AdminFinanceiroPage() {
                           <CatBadge categoria={l.categoria} />
                         </td>
                         <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: isReceita ? '#22c55e' : '#ef4444' }}>
-                          {isReceita ? '+' : '−'} {fmtBRL(Number(l.valor_bruto))}
+                          {isReceita ? '+' : '−'} {fmtBRL(isReceita ? Number(l.valor_bruto) : Number(l.valor_bruto) + Number(l.taxa))}
                         </td>
                         <td style={{ ...td, textAlign: 'center' }}>
                           <span style={{
