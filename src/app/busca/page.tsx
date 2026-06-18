@@ -48,14 +48,14 @@ export async function generateMetadata({
   const termo = (q || '').trim()
   if (termo) {
     return {
-      title: `Busca: ${termo} - Pokemon TCG | Bynx`,
+      title: `Busca: ${termo} - Pokemon TCG`,
       description: `Resultados para "${termo}": cartas Pokemon TCG e precos em reais no Bynx.`,
       alternates: { canonical: 'https://bynx.gg/busca' },
       robots: { index: false, follow: true },
     }
   }
   return {
-    title: 'Buscar cartas Pokemon TCG e precos em reais | Bynx',
+    title: 'Buscar cartas Pokemon TCG e precos em reais',
     description:
       'Busque qualquer Pokemon ou carta e veja o preco real em reais. Mais de 69 mil cartas catalogadas no Bynx.',
     alternates: { canonical: 'https://bynx.gg/busca' },
