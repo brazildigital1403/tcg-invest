@@ -261,6 +261,7 @@ export default async function PokemonHubPage({
   // ─── Schemas ──────────────────────────────────────────────────────────
   const breadcrumbItems = [
     { name: 'Início', href: '/' },
+    { name: 'Pokémon', href: '/pokemon' },
     { name: hub.name, href: `/pokemon/${hub.slug}` },
   ]
   const breadcrumbSchema = {

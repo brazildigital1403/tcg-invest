@@ -32,6 +32,7 @@ export type StaticRoute = {
 export const STATIC_ROUTES: StaticRoute[] = [
   { path: '/', changeFrequency: 'weekly', priority: 1.0 },
   { path: '/pokedex', changeFrequency: 'weekly', priority: 0.9 },
+  { path: '/pokemon', changeFrequency: 'weekly', priority: 0.85 },
   { path: '/marketplace', changeFrequency: 'daily', priority: 0.9 },
   { path: '/lojas', changeFrequency: 'daily', priority: 0.85 },
   { path: '/para-lojistas', changeFrequency: 'monthly', priority: 0.85 },
