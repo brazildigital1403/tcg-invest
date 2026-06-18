@@ -27,6 +27,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 import AdSlot from '@/components/ui/AdSlot'
+import Breadcrumb from '@/components/ui/Breadcrumb'
 
 // ISR: regenera a cada 1h. Após o rename dos sets, os títulos precisam
 // refletir o nome novo sem esperar 24h; preços/contagens também mudam.
@@ -245,30 +246,22 @@ export default async function SetPage({
     },
   }
 
-  // BreadcrumbList: Bynx > Pokédex > {Set}
+  // Trilha (breadcrumb): Inicio > Pokedex > Set
+  const breadcrumbItems: { name: string; href: string }[] = [
+    { name: 'Início', href: '/' },
+    { name: 'Pokédex', href: '/pokedex' },
+    { name: set.namePt || set.name, href: `/set/${set.id}` },
+  ]
+
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'Bynx',
-        item: 'https://bynx.gg',
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'Pokédex',
-        item: 'https://bynx.gg/pokedex',
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: set.namePt || set.name,
-        item: `https://bynx.gg/set/${set.id}`,
-      },
-    ],
+    itemListElement: breadcrumbItems.map((it, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: it.name,
+      item: `https://bynx.gg${it.href}`,
+    })),
   }
 
   return (
@@ -328,6 +321,7 @@ export default async function SetPage({
         </header>
 
         <main style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px 80px' }}>
+          <Breadcrumb items={breadcrumbItems} />
           {/* Hero do set */}
           <div
             style={{
