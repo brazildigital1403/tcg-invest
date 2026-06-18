@@ -74,6 +74,8 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
   }
 
   const hasPrice = card.precoMin || card.precoMedio || card.precoMax
+  const numLabel = card.number ? (card.setTotal ? card.number + '/' + card.setTotal : '#' + card.number) : ''
+  const imgAlt = 'Carta ' + card.name + (numLabel ? ' ' + numLabel : '') + (card.setName ? ' do set ' + card.setName : '') + ' — Pokémon TCG | Bynx'
 
   return (
     <div
@@ -137,7 +139,7 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
           <div style={{ flex: '0 0 auto' }}>
             <img
               src={card.imageLarge || card.imageSmall || '/og-image.jpg'}
-              alt={card.name}
+              alt={imgAlt}
               style={{
                 width: 260,
                 borderRadius: 16,

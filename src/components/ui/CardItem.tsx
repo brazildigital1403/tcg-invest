@@ -153,6 +153,7 @@ export default function CardItem({
       ? (total ? `${String(rawNum).padStart(String(total).length, '0')}/${total}` : String(rawNum))
       : ''
   const rColor = rarityColor(card.rarity || '')
+  const imgAlt = name + (number ? ' ' + number : '') + (setName ? ' — ' + setName : '')
   const price = card.price
 
   // Variantes com preço disponível
@@ -209,7 +210,7 @@ export default function CardItem({
         {image ? (
           <img
             src={image}
-            alt={name}
+            alt={imgAlt}
             loading="lazy"
             decoding="async"
             style={{ width: '100%', display: 'block', borderRadius: '18px 18px 0 0' }}

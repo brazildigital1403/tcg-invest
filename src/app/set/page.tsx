@@ -628,7 +628,7 @@ export default async function SetIndexPage() {
                       {set.logoUrl ? (
                         <img
                           src={set.logoUrl}
-                          alt={set.name}
+                          alt={'Logo do set ' + (set.namePt || set.name)}
                           loading="lazy"
                           style={{
                             maxHeight: 60,

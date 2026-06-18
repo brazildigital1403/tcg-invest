@@ -337,7 +337,7 @@ export default async function SetPage({
             {set.logoUrl && (
               <img
                 src={set.logoUrl}
-                alt={set.name}
+                alt={'Logo do set ' + (set.namePt || set.name) + ' — Pokémon TCG'}
                 style={{
                   height: 80,
                   maxWidth: 200,
@@ -427,7 +427,7 @@ export default async function SetPage({
                 {card.image_small ? (
                   <img
                     src={card.image_small}
-                    alt={card.name}
+                    alt={card.name + (card.number ? ' ' + card.number + (set.printedTotal ? '/' + set.printedTotal : '') : '') + ' — ' + (set.namePt || set.name)}
                     loading="lazy"
                     style={{
                       width: '100%',

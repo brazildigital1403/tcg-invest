@@ -82,7 +82,7 @@ function RelBlock({ title, cards }: { title: string; cards: MiniCard[] }) {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={c.image_small}
-                    alt={c.name}
+                    alt={c.name + (c.number ? ' ' + c.number : '') + (c.set_name ? ' — ' + c.set_name : '')}
                     loading="lazy"
                     style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                   />
