@@ -17,6 +17,7 @@ import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 import PromoBanner from '@/components/ui/PromoBanner'
+import Breadcrumb from '@/components/ui/Breadcrumb'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', {
@@ -57,10 +58,11 @@ type CardProps = {
     precoMedio: number | null
     precoMax: number | null
   }
+  breadcrumb?: { name: string; href: string }[]
   children?: ReactNode
 }
 
-export default function CardClient({ card, children }: CardProps) {
+export default function CardClient({ card, children, breadcrumb }: CardProps) {
   const [copied, setCopied] = useState(false)
 
   const color = TYPE_COLORS[card.types[0]] || '#f59e0b'
@@ -120,6 +122,7 @@ export default function CardClient({ card, children }: CardProps) {
       </header>
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '32px 20px 80px' }}>
+        <Breadcrumb items={breadcrumb || []} />
         {/* Card hero */}
         <div
           style={{

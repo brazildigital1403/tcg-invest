@@ -38,6 +38,7 @@ type NormalizedCard = {
   name: string
   number: string | null
   setName: string | null
+  setId: string | null
   setTotal: number | null
   setReleaseYear: string | null
   rarity: string | null
@@ -112,6 +113,7 @@ async function fetchCardData(id: string): Promise<NormalizedCard | null> {
     name: tcg?.name || bynx?.name || 'Carta',
     number: tcg?.number || bynx?.number || null,
     setName: tcg?.set?.name || bynx?.set_name || null,
+    setId: bynx?.set_id || tcg?.set?.id || null,
     setTotal: tcg?.set?.printedTotal || bynx?.set_total || null,
     setReleaseYear:
       tcg?.set?.releaseDate?.slice(0, 4) ||
@@ -285,29 +287,25 @@ export default async function CartaPage({
   }
 
   // BreadcrumbList: ajuda navegação no Google + UX
+  // Trilha (breadcrumb): Inicio > Pokedex > [Set] > Carta
+  const breadcrumbItems: { name: string; href: string }[] = [
+    { name: 'Início', href: '/' },
+    { name: 'Pokédex', href: '/pokedex' },
+  ]
+  if (card.setName && card.setId) {
+    breadcrumbItems.push({ name: card.setName, href: `/set/${card.setId}` })
+  }
+  breadcrumbItems.push({ name: card.name, href: `/carta/${card.id}` })
+
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'Bynx',
-        item: 'https://bynx.gg',
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'Pokédex',
-        item: 'https://bynx.gg/pokedex',
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: card.name,
-        item: `https://bynx.gg/carta/${card.id}`,
-      },
-    ],
+    itemListElement: breadcrumbItems.map((it, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: it.name,
+      item: `https://bynx.gg${it.href}`,
+    })),
   }
 
   const related = await fetchRelatedCards(id)
@@ -326,7 +324,7 @@ export default async function CartaPage({
 
       {/* UI interativa (client) — recebe data pré-fetched, sem loading state */}
       {/* CardClient renderiza ad + relacionadas via children: tema dark, acima do rodape */}
-      <CardClient card={card}>
+      <CardClient card={card} breadcrumb={breadcrumbItems}>
         {/* Anuncio in-article (AdSense) */}
         <div style={{ margin: '8px 0 4px' }}>
           <AdSlot slot="8406341305" layout="in-article" format="fluid" />
