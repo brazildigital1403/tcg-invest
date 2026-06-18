@@ -18,6 +18,7 @@ import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 import PromoBanner from '@/components/ui/PromoBanner'
 import Breadcrumb from '@/components/ui/Breadcrumb'
+import PriceHistory from '@/components/ui/PriceHistory'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', {
@@ -365,7 +366,9 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
           </div>
         </div>
 
-        {/* Ataques */}
+        <PriceHistory cardId={card.id} />
+
+      {/* Ataques */}
         {card.attacks && card.attacks.length > 0 && (
           <div style={{ marginBottom: 24 }}>
             <p
