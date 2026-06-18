@@ -43,24 +43,6 @@ function slugifyName(s: string): string {
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '')
 }
-import Link from 'next/link'
-
-function slugifyName(s: string): string {
-  return s
-    .replace(/♀/g, '-f')
-    .replace(/♂/g, '-m')
-    .toLowerCase()
-    .replace(/[áàâãä]/g, 'a')
-    .replace(/[éèêë]/g, 'e')
-    .replace(/[íìîï]/g, 'i')
-    .replace(/[óòôõö]/g, 'o')
-    .replace(/[úùûü]/g, 'u')
-    .replace(/ç/g, 'c')
-    .replace(/[^a-z0-9 -]/g, '')
-    .replace(/ +/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
 
 // ─── ISR: revalida cada 24h ───────────────────────────────────────────────
 // Preço dinâmico mas estável; 24h equilibra freshness vs custo Vercel.
@@ -367,21 +349,6 @@ export default async function CartaPage({
         </div>
 
         {/* Cartas relacionadas (SEO / link building) - links crawlaveis, server-rendered */}
-        {related.pokemon_name && (
-  <div style={{ margin: '4px 0 22px' }}>
-    <Link
-      href={`/pokemon/${slugifyName(related.pokemon_name)}`}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 8,
-        background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
-        color: '#f59e0b', fontWeight: 700, fontSize: 14,
-        padding: '12px 20px', borderRadius: 12, textDecoration: 'none',
-      }}
-    >
-      Ver todas as cartas de {related.pokemon_name} &rarr;
-    </Link>
-  </div>
-)}
         {related.pokemon_name && (
   <div style={{ margin: '4px 0 22px' }}>
     <Link
