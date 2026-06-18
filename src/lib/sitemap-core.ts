@@ -126,3 +126,19 @@ export const SITEMAP_HEADERS = {
   'Content-Type': 'application/xml; charset=utf-8',
   'Cache-Control': 'public, max-age=0, s-maxage=86400, stale-while-revalidate=43200',
 }
+
+// --- Slugs de Pokemon (hubs /pokemon/[name]) ---
+export async function getPokemonSlugs(sb: SupabaseClient): Promise<string[]> {
+  const { data, error } = await sb
+    .from('pokemon_pokedex')
+    .select('slug')
+    .order('cards_count', { ascending: false })
+    .limit(2000)
+  if (error) {
+    console.error('[sitemap] erro ao buscar slugs de pokemon:', error)
+    return []
+  }
+  return (data || [])
+    .map((r: { slug: string }) => r.slug)
+    .filter((x): x is string => !!x)
+}

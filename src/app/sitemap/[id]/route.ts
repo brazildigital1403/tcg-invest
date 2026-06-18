@@ -4,6 +4,7 @@ import {
   SITEMAP_HEADERS,
   STATIC_ROUTES,
   getSupabase,
+  getPokemonSlugs,
   isIdSafeForUrl,
   urlsetXml,
   type UrlEntry,
@@ -89,6 +90,23 @@ export async function GET(
       } catch (err) {
         console.error('[sitemap] erro ao buscar sets:', err)
       }
+    }
+  }
+
+  // Hubs de Pokemon (/pokemon/[name]) - somente no bloco 0
+  if (chunkIndex === 0 && sb) {
+    try {
+      const slugs = await getPokemonSlugs(sb)
+      for (const slug of slugs) {
+        entries.push({
+          loc: `${BASE}/pokemon/${slug}`,
+          lastmod: now,
+          changefreq: 'weekly',
+          priority: 0.7,
+        })
+      }
+    } catch (err) {
+      console.error('[sitemap] erro ao buscar pokemon:', err)
     }
   }
 
