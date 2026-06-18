@@ -8,6 +8,7 @@ import { trackProUpgradeInitiated } from '@/lib/analytics'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
+import HomeDiscovery from '@/components/ui/HomeDiscovery'
 
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = React.useState(false)
@@ -412,6 +413,7 @@ export default function Home() {
       />
 
       <PublicHeader landingScrollTargets={{ howRef, pricingRef }} />
+      <HomeDiscovery />
 
       {/* HERO */}
       <section style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '120px 24px 80px', position: 'relative', overflow: 'hidden' }}>
