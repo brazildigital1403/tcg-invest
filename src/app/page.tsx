@@ -8,7 +8,8 @@ import { trackProUpgradeInitiated } from '@/lib/analytics'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
-import HomeDiscovery from '@/components/ui/HomeDiscovery'
+import HomeSearchBand from '@/components/ui/HomeSearchBand'
+import HomeVitrines from '@/components/ui/HomeVitrines'
 
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = React.useState(false)
@@ -413,7 +414,6 @@ export default function Home() {
       />
 
       <PublicHeader landingScrollTargets={{ howRef, pricingRef }} />
-      <HomeDiscovery />
 
       {/* HERO */}
       <section style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '120px 24px 80px', position: 'relative', overflow: 'hidden' }}>
@@ -421,16 +421,13 @@ export default function Home() {
         <div style={{ position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)', width: 600, height: 400, background: 'radial-gradient(ellipse, rgba(245,158,11,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: '40%', left: '20%', width: 300, height: 300, background: 'radial-gradient(ellipse, rgba(239,68,68,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 100, padding: '6px 16px', fontSize: 13, color: '#f59e0b', marginBottom: 32, fontWeight: 500 }}>
-          ✦ A plataforma brasileira de coleções de Pokémon TCG
-        </div>
 
         <h1 style={{ fontSize: 'clamp(40px, 7vw, 80px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05, marginBottom: 24, maxWidth: 900 }}>
           Quanto vale sua coleção<br />
           <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Pokémon hoje?</span>
         </h1>
 
-        <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.55)', maxWidth: 620, lineHeight: 1.6, marginBottom: 24 }}>
+        <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.55)', maxWidth: '100%', lineHeight: 1.6, marginBottom: 24 }}>
           Você tem cartas guardadas há anos. Já trocou e ficou com a dúvida — <em style={{ color: 'rgba(255,255,255,0.75)', fontStyle: 'normal' }}>"será que vendi por menos do que valia?"</em>. O Bynx mostra o preço real em reais, atualizado, organizado, pra você decidir com base no que importa.
         </p>
         {/* Trial badge */}
@@ -454,6 +451,8 @@ export default function Home() {
             Ver como funciona
           </button>
         </div>
+
+        <HomeSearchBand />
 
         {/* Dashboard mockup */}
         <div style={{ width: '100%', maxWidth: 860, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '24px', boxShadow: '0 40px 100px rgba(0,0,0,0.5)' }}>
@@ -505,13 +504,15 @@ export default function Home() {
         </div>
       </section>
 
+      <HomeVitrines />
+
       {/* SOCIAL PROOF — números reais do catálogo */}
       <section style={{ padding: '56px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 40, textTransform: 'uppercase', letterSpacing: '0.1em' }}>O maior catálogo Pokémon TCG em português</p>
         <div className="lp-stats-row" style={{ display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
           {[
-            { num: '22.000+', label: 'cartas catalogadas' },
-            { num: '240+', label: 'coleções (sets) cobertas' },
+            { num: '69.000+', label: 'cartas catalogadas' },
+            { num: '865', label: 'coleções (sets) cobertas' },
             { num: 'BRL', label: 'preços em reais, atualizados' },
             { num: '100%', label: 'foco no Brasil' },
           ].map((s) => (
