@@ -21,6 +21,7 @@ import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 import AdSlot from '@/components/ui/AdSlot'
 import Breadcrumb from '@/components/ui/Breadcrumb'
+import PriceHistory from '@/components/ui/PriceHistory'
 
 export const revalidate = 3600
 
@@ -520,7 +521,15 @@ export default async function PokemonHubPage({
 
           {/* Anúncio display */}
           <div style={{ maxWidth: 970, margin: '26px auto 8px', padding: '0 4px' }}>
-            <AdSlot slot="2769741949" format="auto" responsive />
+            {hub.top_card_id && (
+          <section style={{ marginBottom: 36 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 4 }}>Evolução de preço</h2>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 14 }}>A carta mais valiosa de {hub.name} ao longo do tempo.</p>
+            <PriceHistory cardId={hub.top_card_id} />
+          </section>
+        )}
+
+        <AdSlot slot="2769741949" format="auto" responsive />
           </div>
 
           {/* A jornada */}
