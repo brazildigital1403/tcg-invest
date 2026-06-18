@@ -401,6 +401,17 @@ const S: Record<string, CSSProperties> = {
 
   // ─── Menu mobile expandido ───
   mobileMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    zIndex: 99,
+    background: 'rgba(8,10,15,0.98)',
+    backdropFilter: 'blur(16px)',
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 24px 48px rgba(0,0,0,0.55)',
+    maxHeight: 'calc(100vh - 60px)',
+    overflowY: 'auto',
     borderTop: '1px solid rgba(255,255,255,0.08)',
     padding: '12px 20px 16px',
     display: 'flex',

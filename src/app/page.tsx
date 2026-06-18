@@ -351,6 +351,11 @@ export default function Home() {
       {/* CSS responsivo landing */}
       <style>{`
         @media (max-width: 768px) {
+  .lp-hero { padding-top: 40px !important; padding-bottom: 48px !important; min-height: auto !important; }
+  .lp-hero > h1 { font-size: clamp(30px, 8.5vw, 46px) !important; margin-bottom: 16px !important; }
+  .lp-hero > p { font-size: 16px !important; line-height: 1.55 !important; margin-bottom: 20px !important; }
+  .lp-mockup { padding: 16px !important; }
+  .lp-mockup-stats { gap: 10px !important; }
           .lp-hero-btns   { flex-direction: column !important; align-items: stretch !important; }
           .lp-mockup-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .lp-stats-row   { flex-wrap: wrap !important; gap: 24px !important; }
@@ -361,7 +366,8 @@ export default function Home() {
           .lp-mockup-stats { grid-template-columns: repeat(2, 1fr) !important; }
           .lp-testimonials-arrow { display: none !important; }
         }
-        .lp-testimonials-row::-webkit-scrollbar { display: none; }
+        .lp-testimonials-row { scroll-padding-left: 24px; scroll-padding-right: 24px; }
+.lp-testimonials-row::-webkit-scrollbar { display: none; }
         .lp-testimonials-arrow:hover:not(:disabled) { background: rgba(245,158,11,0.15) !important; border-color: rgba(245,158,11,0.4) !important; }
       `}</style>
 
