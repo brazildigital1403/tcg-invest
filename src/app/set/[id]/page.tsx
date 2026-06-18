@@ -249,7 +249,7 @@ export default async function SetPage({
   // Trilha (breadcrumb): Inicio > Pokedex > Set
   const breadcrumbItems: { name: string; href: string }[] = [
     { name: 'Início', href: '/' },
-    { name: 'Pokédex', href: '/pokedex' },
+    { name: 'Sets', href: '/set' },
     { name: set.namePt || set.name, href: `/set/${set.id}` },
   ]
 

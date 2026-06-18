@@ -290,7 +290,7 @@ export default async function CartaPage({
   // Trilha (breadcrumb): Inicio > Pokedex > [Set] > Carta
   const breadcrumbItems: { name: string; href: string }[] = [
     { name: 'Início', href: '/' },
-    { name: 'Pokédex', href: '/pokedex' },
+    { name: 'Sets', href: '/set' },
   ]
   if (card.setName && card.setId) {
     breadcrumbItems.push({ name: card.setName, href: `/set/${card.setId}` })
