@@ -427,7 +427,7 @@ export default function Home() {
           <span style={{ background: 'linear-gradient(90deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Pokémon hoje?</span>
         </h1>
 
-        <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.55)', maxWidth: '100%', lineHeight: 1.6, marginBottom: 24 }}>
+        <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.55)', maxWidth: 1180, lineHeight: 1.6, marginBottom: 24 }}>
           Você tem cartas guardadas há anos. Já trocou e ficou com a dúvida — <em style={{ color: 'rgba(255,255,255,0.75)', fontStyle: 'normal' }}>"será que vendi por menos do que valia?"</em>. O Bynx mostra o preço real em reais, atualizado, organizado, pra você decidir com base no que importa.
         </p>
         {/* Trial badge */}
