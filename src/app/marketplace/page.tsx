@@ -512,10 +512,11 @@ function MarketplaceInner() {
     )]
     let priceMap: Record<string, number> = {}
     if (baseNames.length > 0) {
-      const { data: pokemons } = await supabase
-        .from('pokemon_cards')
-        .select('name, preco_medio')
-        .in('name', baseNames)
+      const pokemons = await fetch('/api/cards/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: baseNames }),
+      }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
       priceMap = (pokemons || []).reduce((acc: any, p: any) => {
         // Mantém maior preco_medio se houver duplicatas (variantes)
         if (!acc[p.name] || (p.preco_medio || 0) > acc[p.name]) {
