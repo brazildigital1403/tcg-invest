@@ -11,6 +11,7 @@ import { createClient } from '@supabase/supabase-js'
  * de loja é pública.
  *
  * HARDENING (S42):
+ *   - Guard de formato UUID: id malformado (probing/bot) → 404 limpo, sem tocar o banco.
  *   - user_id NUNCA vem de header do cliente (x-user-id era spoofável) → sempre null.
  *     (Atribuição confiável de logado exigiria verificar o token — fica como follow-up.)
  *   - Rate-limit por IP em memória (gate de rajada) → 429 em loop.
@@ -24,7 +25,7 @@ import { createClient } from '@supabase/supabase-js'
  * Retornos:
  *   201 → { success: true }            (clique registrado ou deduplicado)
  *   400 → body inválido / tipo inválido
- *   404 → loja não encontrada ou não está ativa
+ *   404 → loja não encontrada, inativa ou id malformado
  *   429 → rate-limit por IP estourado
  *   500 → erro interno (silenciado no frontend — nunca bloquear UX)
  *
@@ -34,6 +35,9 @@ import { createClient } from '@supabase/supabase-js'
 
 const TIPOS_VALIDOS = ['whatsapp', 'instagram', 'facebook', 'website', 'maps'] as const
 type TipoClique = typeof TIPOS_VALIDOS[number]
+
+// Formato UUID canônico — lojas.id é uuid. Id fora desse formato nem chega ao banco.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // ─── Rate-limit em memória (gate de rajada por IP) ─────────────────────────
 // S42: corta loops óbvios. Em serverless é POR-INSTÂNCIA (não global), então é
@@ -75,6 +79,12 @@ function supabaseAdmin() {
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id: lojaId } = await ctx.params
+
+    // ─── Guard de formato UUID ─────────────────────────────
+    // Id malformado (probing/bot) → 404 limpo, sem erro de uuid no banco nem log.
+    if (!UUID_RE.test(lojaId)) {
+      return NextResponse.json({ error: 'Loja não encontrada ou inativa' }, { status: 404 })
+    }
 
     // ─── IP (usado no rate-limit e no dedup) ───────────────
     const ip =
