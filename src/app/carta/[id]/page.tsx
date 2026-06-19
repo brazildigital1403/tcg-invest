@@ -20,7 +20,7 @@
  */
 
 import type { Metadata } from 'next'
-import { createClient } from '@supabase/supabase-js'
+import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
 import CardClient from './CardClient'
 import AdSlot from '@/components/ui/AdSlot'
@@ -105,10 +105,8 @@ async function fetchCardData(id: string): Promise<NormalizedCard | null> {
 
   // Tentativa 2: Supabase (preços + dados de Liga-only)
   let bynx: any = null
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (supabaseUrl && supabaseAnon) {
-    const sb = createClient(supabaseUrl, supabaseAnon)
+  const sb = getServiceSupabase()
+  if (sb) {
     const { data } = await sb
       .from('pokemon_cards')
       .select(
@@ -165,11 +163,9 @@ type RelatedCards = {
 
 async function fetchRelatedCards(id: string): Promise<RelatedCards> {
   const empty: RelatedCards = { pokemon_name: null, same_set: [], same_pokemon: [] }
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseAnon) return empty
+  const sb = getServiceSupabase()
+  if (!sb) return empty
   try {
-    const sb = createClient(supabaseUrl, supabaseAnon)
     const { data, error } = await sb.rpc('get_related_cards', { p_id: id, p_limit: 8 })
     if (error || !data) return empty
     const d = data as { pokemon_name?: string | null; same_set?: MiniCard[]; same_pokemon?: MiniCard[] }

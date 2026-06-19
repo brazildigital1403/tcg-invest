@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getServiceSupabase } from '@/lib/supabaseServer'
 
 // R6 Commit 3: este endpoint agora é pure-read de pokemon_cards (canonical).
 // Chamada ao /api/preco-puppeteer e upsert em card_prices foram removidos.
@@ -7,10 +7,10 @@ import { createClient } from '@supabase/supabase-js'
 // GET /api/ranking?name=...
 
 export async function GET(req: Request) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = getServiceSupabase()
+  if (!supabase) {
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+  }
 
   const { searchParams } = new URL(req.url)
   const cardName = searchParams.get('name')

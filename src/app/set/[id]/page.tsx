@@ -22,7 +22,7 @@
  */
 
 import type { Metadata } from 'next'
-import { createClient } from '@supabase/supabase-js'
+import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
@@ -62,12 +62,10 @@ type CardLite = {
 async function fetchSetData(
   id: string,
 ): Promise<{ set: SetData | null; cards: CardLite[] }> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseAnon) {
+  const sb = getServiceSupabase()
+  if (!sb) {
     return { set: null, cards: [] }
   }
-  const sb = createClient(supabaseUrl, supabaseAnon)
 
   // 1. Tenta buscar metadata em pokemon_sets (sets oficiais)
   const { data: officialSet } = await sb

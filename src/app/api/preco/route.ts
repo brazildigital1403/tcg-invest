@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getServiceSupabase } from '@/lib/supabaseServer'
 
 // R6 Commit 3: este endpoint agora é pure-read de pokemon_cards (canonical).
 // Scraping LigaPokemon + upsert em card_prices foram removidos —
@@ -34,10 +35,10 @@ export async function GET(req: Request) {
   // ── Lookup em pokemon_cards ──────────────────────────────────────────────
   // Atenção: pokemon_cards.name não é único (mesma carta em vários sets), por
   // isso usamos .limit(1) — primeiro match vence.
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = getServiceSupabase()
+  if (!supabase) {
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+  }
 
   const { data: cachedRows } = await supabase
     .from('pokemon_cards')
