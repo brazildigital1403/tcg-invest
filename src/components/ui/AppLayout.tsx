@@ -230,20 +230,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             usdRate = er.usd || 6.0; eurRate = er.eur || 6.5
           } catch {}
 
-          const PRICE_SELECT = 'id, liga_link, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio, price_usd_normal, price_usd_holofoil, price_eur_normal, price_eur_holofoil'
-
           const priceById: any = {}
           const priceByLink: any = {}
 
           const apiIds = [...new Set(cards.map((c: any) => c.pokemon_api_id).filter(Boolean))]
           if (apiIds.length > 0) {
-            const { data: byId } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('id', apiIds)
+            const byId = await fetch('/api/cards/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: apiIds }) }).then(r => r.json()).then(d => d.cards || []).catch(() => [])
             ;(byId || []).forEach((p: any) => { priceById[p.id] = p })
           }
 
           const links = [...new Set(cards.map((c: any) => c.card_link).filter(Boolean))]
           if (links.length > 0) {
-            const { data: byLink } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('liga_link', links)
+            const byLink = await fetch('/api/cards/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ liga_links: links }) }).then(r => r.json()).then(d => d.cards || []).catch(() => [])
             ;(byLink || []).forEach((p: any) => { if (p.liga_link) priceByLink[p.liga_link] = p })
           }
 

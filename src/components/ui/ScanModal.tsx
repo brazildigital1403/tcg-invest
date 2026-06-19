@@ -236,10 +236,11 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       let pokemonMap: Record<string, any[]> = {}
       let usdRate = 6.0
       if (cardNames.length > 0) {
-        const { data: pokemons } = await supabase
-          .from('pokemon_cards')
-          .select('id, name, number, image_small, image_large, preco_medio, preco_foil, preco_reverse, preco_promo, price_usd_normal, price_usd_holofoil')
-          .in('name', cardNames)
+        const pokemons = await fetch('/api/cards/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: cardNames }),
+        }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
         // Agrupa por name pra fazer match local
         for (const p of (pokemons || [])) {
           if (!pokemonMap[p.name]) pokemonMap[p.name] = []
