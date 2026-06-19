@@ -369,6 +369,19 @@ export default function Home() {
         .lp-testimonials-row { scroll-padding-left: 24px; scroll-padding-right: 24px; }
 .lp-testimonials-row::-webkit-scrollbar { display: none; }
         .lp-testimonials-arrow:hover:not(:disabled) { background: rgba(245,158,11,0.15) !important; border-color: rgba(245,158,11,0.4) !important; }
+        .lp-anual-fire { box-shadow: 0 0 30px rgba(255,110,0,0.20); }
+        .lp-anual-fire::before { content: ''; position: absolute; inset: -2px; border-radius: 22px; padding: 2px; background: linear-gradient(120deg, #b3460a, #ff8c1a, #ffd24a, #ff6a00, #b3460a); background-size: 300% 300%; animation: bynxFireFlow 4s ease infinite; -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+        .lp-fire-embers { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+        .lp-fire-embers span { position: absolute; bottom: 18px; width: 3px; height: 3px; border-radius: 50%; background: #ffb86b; box-shadow: 0 0 6px 1px rgba(255,140,0,0.85); opacity: 0; animation: bynxEmber 3.4s linear infinite; }
+        .lp-fire-embers span:nth-child(1) { left: 24%; animation-delay: 0s; }
+        .lp-fire-embers span:nth-child(2) { left: 54%; animation-delay: 1.2s; }
+        .lp-fire-embers span:nth-child(3) { left: 78%; animation-delay: 2.3s; }
+        .lp-lojistas-shimmer { position: relative; overflow: hidden; box-shadow: 0 0 30px rgba(109,90,255,0.16); }
+        .lp-lojistas-shimmer::after { content: ''; position: absolute; top: 0; left: -60%; width: 55%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.14), transparent); transform: skewX(-18deg); animation: bynxSweep 3.6s ease-in-out infinite; pointer-events: none; z-index: 2; }
+        @keyframes bynxFireFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        @keyframes bynxEmber { 0% { transform: translateY(0) scale(1); opacity: 0; } 15% { opacity: 0.9; } 100% { transform: translateY(-150px) scale(0.3); opacity: 0; } }
+        @keyframes bynxSweep { 0% { left: -60%; } 55%, 100% { left: 135%; } }
+        @media (prefers-reduced-motion: reduce) { .lp-anual-fire::before, .lp-fire-embers span, .lp-lojistas-shimmer::after { animation: none !important; } }
       `}</style>
 
       {/* JSON-LD: FAQPage — rich snippets no Google */}
@@ -704,7 +717,8 @@ export default function Home() {
           </div>
 
           {/* Pro Anual — destaque */}
-          <div style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 20, padding: '32px 28px', position: 'relative' }}>
+          <div className="lp-anual-fire" style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 20, padding: '32px 28px', position: 'relative' }}>
+            <div className="lp-fire-embers" aria-hidden="true"><span /><span /><span /></div>
             <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 10, fontWeight: 800, padding: '4px 14px', borderRadius: 100, whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
               MELHOR VALOR · 30% OFF
             </div>
@@ -787,7 +801,7 @@ export default function Home() {
 
       {/* ── BLOCO LOJISTA — captura lead de loja ── */}
       <section aria-label="Para lojas de TCG" style={{ padding: '40px 24px', maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ background: 'linear-gradient(135deg, rgba(96,165,250,0.06), rgba(168,85,247,0.04))', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 20, padding: '36px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+        <div className="lp-lojistas-shimmer" style={{ background: 'linear-gradient(135deg, rgba(96,165,250,0.06), rgba(168,85,247,0.04))', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 20, padding: '36px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 340px' }}>
             <p style={{ fontSize: 12, color: '#60a5fa', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Para lojistas</p>
             <h2 style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>
