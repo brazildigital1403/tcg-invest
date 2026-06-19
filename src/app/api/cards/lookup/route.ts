@@ -16,7 +16,7 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
  *   - exige a lista de ids/nomes (nao da pra "dumpar tudo" como no PostgREST cru)
  *
  * Body JSON (qualquer combinacao):
- *   { ids?: string[], liga_links?: string[], names?: string[], name_pt?: string[], full?: boolean }
+ *   { ids?: string[], liga_links?: string[], names?: string[], full?: boolean }
  *
  * Retorno:
  *   200 -> { cards: Card[] }   (uniao deduplicada por id)
@@ -29,8 +29,9 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
  */
 
 // Superset do PRICE_SELECT dos componentes + campos de display/meta.
+// (name_pt NAO existe em pokemon_cards - e de pokemon_sets/pokedex.)
 const CARD_FIELDS =
-  'id, name, name_pt, number, set_id, set_name, set_total, set_series, ' +
+  'id, name, number, set_id, set_name, set_total, set_series, ' +
   'image_small, image_large, liga_link, supertype, rarity, base_pokemon_names, ' +
   'preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, ' +
   'preco_min, preco_medio, preco_max, ' +
@@ -122,10 +123,9 @@ export async function POST(req: NextRequest) {
     const ids = asArr(body.ids)
     const ligaLinks = asArr(body.liga_links)
     const names = asArr(body.names)
-    const namesPt = asArr(body.name_pt)
     const full = body.full === true
 
-    const total = ids.length + ligaLinks.length + names.length + namesPt.length
+    const total = ids.length + ligaLinks.length + names.length
     if (total === 0) return NextResponse.json({ cards: [] }, { status: 200 })
     if (total > MAX_VALUES) {
       return NextResponse.json({ error: 'Valores demais', max: MAX_VALUES }, { status: 400 })
@@ -136,16 +136,15 @@ export async function POST(req: NextRequest) {
 
     const fields = full ? '*' : CARD_FIELDS
 
-    const [byId, byLink, byName, byNamePt] = await Promise.all([
+    const [byId, byLink, byName] = await Promise.all([
       fetchBy(sb, 'id', ids, fields),
       fetchBy(sb, 'liga_link', ligaLinks, fields),
       fetchBy(sb, 'name', names, fields),
-      fetchBy(sb, 'name_pt', namesPt, fields),
     ])
 
     // União deduplicada por id
     const map = new Map<string, any>()
-    for (const row of [...byId, ...byLink, ...byName, ...byNamePt]) {
+    for (const row of [...byId, ...byLink, ...byName]) {
       if (row && row.id != null) map.set(row.id, row)
     }
 
