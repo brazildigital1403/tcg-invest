@@ -153,7 +153,7 @@ export default function DashboardFinanceiro() {
           exchangeRate = { usd: er.usd || 6.0, eur: er.eur || 6.5 }
         } catch {}
 
-        const PRICE_SELECT = 'id, name, number, set_total, liga_link, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil'
+
 
         const priceById: any = {}
         const priceByLink: any = {}
@@ -161,14 +161,14 @@ export default function DashboardFinanceiro() {
         // 1. Lookup por pokemon_api_id (mais preciso)
         const apiIds = [...new Set((cards || []).map((c: any) => c.pokemon_api_id).filter(Boolean))]
         if (apiIds.length > 0) {
-          const { data: byId } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('id', apiIds)
+          const byId = await fetch('/api/cards/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: apiIds }) }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
           ;(byId || []).forEach((p: any) => { priceById[p.id] = p })
         }
 
         // 2. Lookup por liga_link
         const allLinks = [...new Set((cards || []).map((c: any) => c.card_link).filter(Boolean))]
         if (allLinks.length > 0) {
-          const { data: byLink } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('liga_link', allLinks)
+          const byLink = await fetch('/api/cards/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ liga_links: allLinks }) }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
           ;(byLink || []).forEach((p: any) => { if (p.liga_link) priceByLink[p.liga_link] = p })
         }
 
@@ -180,7 +180,7 @@ export default function DashboardFinanceiro() {
           const cleanPT = (n: string) => { const s = (n||'').replace(/\s*\([^)]*\)\s*$/,'').trim(); return s.includes(' / ')?(s.split(' / ')[0]?.trim()||s):s }
           const names = [...new Set(legacy.flatMap((c: any) => [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)))].slice(0, 50)
           if (names.length > 0) {
-            const { data: byName } = await supabase.from('pokemon_cards').select(PRICE_SELECT).in('name', names).limit(200)
+            const byName = await fetch('/api/cards/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names }) }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
             ;(byName || []).forEach((p: any) => { if (!priceByName[p.name?.trim()]) priceByName[p.name?.trim()] = p })
           }
           const cleanEN2 = (n: string) => { const s = (n||'').replace(/\s*\([^)]*\)\s*$/,'').trim(); return s.includes(' / ')?(s.split(' / ').pop()?.trim()||s):s }
@@ -280,11 +280,11 @@ export default function DashboardFinanceiro() {
       // 2. Buscar preço/dados via pokemon_api_id (match preciso, não por nome)
       const apiId = userCard.pokemon_api_id
       if (apiId) {
-        const { data: prices } = await supabase
-          .from('pokemon_cards')
-          .select('*')
-          .eq('id', apiId)
-          .maybeSingle()
+        const prices = await fetch('/api/cards/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [apiId], full: true }),
+        }).then((r) => r.json()).then((d) => (d.cards && d.cards[0]) || null).catch(() => null)
         setSelectedCardPrice(prices ? { ...prices, card_name: prices.name } : null)
 
         // 3. Histórico real via price_history (tabela nova com trigger)
