@@ -118,10 +118,11 @@ export default function PerfilPage() {
 
         let priceMap: Record<string, any> = {}
         if (ids.length > 0) {
-          const { data: prices } = await supabase
-            .from('pokemon_cards')
-            .select('id, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio, preco_foil_max, preco_promo_max, preco_reverse_max, preco_pokeball_max, preco_max')
-            .in('id', ids)
+          const prices = await fetch('/api/cards/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids }),
+          }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
           prices?.forEach(p => { priceMap[p.id] = p })
         }
 

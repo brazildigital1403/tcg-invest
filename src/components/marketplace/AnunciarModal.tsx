@@ -88,10 +88,11 @@ function EscolherCarta({
       let priceMap: Record<string, any> = {}
       if (apiIds.length > 0) {
         // Seleciona TODOS os campos de preço pra CardItem renderizar variantes corretamente
-        const { data: prices } = await supabase
-          .from('pokemon_cards')
-          .select('id, preco_normal, preco_min, preco_medio, preco_max, preco_foil, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil')
-          .in('id', apiIds)
+        const prices = await fetch('/api/cards/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: apiIds }),
+        }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
         priceMap = (prices || []).reduce((acc: any, p: any) => {
           acc[p.id] = p
           return acc
@@ -387,11 +388,11 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
     let fonte: typeof precoFonte = null
 
     if (card.pokemon_api_id) {
-      const { data: priceData } = await supabase
-        .from('pokemon_cards')
-        .select('preco_medio, preco_foil, preco_reverse, preco_promo, price_usd_normal, price_usd_holofoil')
-        .eq('id', card.pokemon_api_id)
-        .maybeSingle()
+      const priceData = await fetch('/api/cards/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [card.pokemon_api_id] }),
+      }).then((r) => r.json()).then((d) => (d.cards && d.cards[0]) || null).catch(() => null)
 
       if (priceData) {
         // Tenta na ordem de prioridade
