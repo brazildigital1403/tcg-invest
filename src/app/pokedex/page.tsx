@@ -169,10 +169,7 @@ export default function Pokedex() {
   // sufixos com número — sem regex frágil.
 
   async function loadOwnedPokemons(uid: string) {
-    const { data, error } = await supabase
-      .from('user_cards')
-      .select('pokemon_api_id, pokemon_cards!inner(base_pokemon_names)')
-      .eq('user_id', uid)
+    const { data, error } = await supabase.rpc('get_owned_pokemon_names')
 
     if (error) {
       console.error('[pokedex] erro ao carregar capturados:', error.message)
@@ -183,7 +180,7 @@ export default function Pokedex() {
     const idsSet   = new Set<string>()
     for (const row of (data as any[]) || []) {
       if (row.pokemon_api_id) idsSet.add(row.pokemon_api_id)
-      const names: string[] = row.pokemon_cards?.base_pokemon_names || []
+      const names: string[] = row.base_pokemon_names || []
       for (const name of names) namesSet.add(name)
     }
     setOwnedNames(namesSet)
@@ -273,25 +270,11 @@ export default function Pokedex() {
     setLoadingCards(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
 
-    const { data } = await supabase
-      .from('pokemon_cards')
-      .select(`
-        id, name, number, set_id, set_name, set_total, set_series, set_release_date,
-        set_logo, set_symbol, rarity, types, subtypes, hp, supertype,
-        artist, flavor_text, attacks, weaknesses, resistances, retreat_cost, legalities,
-        image_small, image_large, base_pokemon_names,
-        preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball,
-        preco_min, preco_medio, preco_max,
-        preco_foil_min, preco_foil_medio, preco_foil_max,
-        preco_promo_min, preco_promo_medio, preco_promo_max,
-        preco_reverse_min, preco_reverse_medio, preco_reverse_max,
-        price_usd_normal, price_usd_holofoil, price_usd_reverse,
-        price_eur_normal, price_eur_holofoil
-      `)
-      .contains('base_pokemon_names', [pokemon.name])
-      .eq('supertype', 'Pokémon')
-      .order('set_release_date', { ascending: false })
-      .limit(1000)
+    const data = await fetch('/api/pokedex/browse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pokemon: pokemon.name }),
+    }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
 
     setCards((data || []).map(c => ({ ...c, price: c })))
     setLoadingCards(false)
