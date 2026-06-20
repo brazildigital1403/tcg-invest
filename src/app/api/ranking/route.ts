@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     .from('pokemon_cards')
     .select('id, name, number, rarity, artist, set_name, set_series, types, preco_normal, preco_foil')
     .eq('name', cardName)
+    .neq('is_canary', true)
     .limit(1)
 
   const cached = cachedRows?.[0]

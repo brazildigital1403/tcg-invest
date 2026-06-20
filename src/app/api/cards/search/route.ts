@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
       `)
       .ilike('name', `%${q}%`)
       .is('image_small', null)
+      .neq('is_canary', true)
       .limit(remaining)
 
     if (existingIds.length > 0) {

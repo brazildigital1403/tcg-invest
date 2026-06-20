@@ -119,6 +119,7 @@ export async function GET(
         .from('pokemon_cards')
         .select('id, liga_updated_at')
         .neq('excluded_from_scan', true)
+        .neq('is_canary', true)
         .order('id', { ascending: true })
         .range(from, to)
       if (cartasErr) console.error('[sitemap] erro cartas:', cartasErr)

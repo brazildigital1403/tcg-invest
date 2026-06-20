@@ -90,7 +90,7 @@ async function fetchBy(
   for (let i = 0; i < values.length; i += CHUNK) chunks.push(values.slice(i, i + CHUNK))
   const results = await Promise.all(
     chunks.map(async (chunk) => {
-      const { data, error } = await sb.from('pokemon_cards').select(fields).in(column, chunk)
+      const { data, error } = await sb.from('pokemon_cards').select(fields).in(column, chunk).neq('is_canary', true)
       if (error) throw error
       return data || []
     }),

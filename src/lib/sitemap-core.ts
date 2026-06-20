@@ -111,6 +111,7 @@ export async function countEligibleCards(sb: SupabaseClient): Promise<number> {
     .from('pokemon_cards')
     .select('id', { count: 'exact', head: true })
     .neq('excluded_from_scan', true)
+    .neq('is_canary', true)
   if (error) {
     console.error('[sitemap] erro ao contar cartas:', error)
     return 0
