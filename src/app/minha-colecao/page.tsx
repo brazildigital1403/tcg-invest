@@ -305,7 +305,7 @@ export default function MinhaColecao() {
 
       const cardsData = data || []
 
-      const PRICE_SELECT = 'id, name, number, set_total, liga_link, preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, price_usd_normal, price_usd_holofoil, price_usd_reverse, price_eur_normal, price_eur_holofoil'
+
 
       const priceById: any   = {}
       const priceByLink: any = {}
@@ -313,20 +313,22 @@ export default function MinhaColecao() {
       // ── 1. Lookup por pokemon_api_id (novo AddCardModal — mais preciso) ──
       const apiIds = [...new Set(cardsData.map((c: any) => c.pokemon_api_id).filter(Boolean))]
       if (apiIds.length > 0) {
-        const { data: byId } = await supabase
-          .from('pokemon_cards')
-          .select(PRICE_SELECT)
-          .in('id', apiIds)
+        const byId = await fetch('/api/cards/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: apiIds }),
+        }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
         ;(byId || []).forEach((p: any) => { priceById[p.id] = p })
       }
 
       // ── 2. Lookup por liga_link (cartas antigas importadas por link) ──
       const allLinks = [...new Set(cardsData.map((c: any) => c.card_link).filter(Boolean))]
       if (allLinks.length > 0) {
-        const { data: byLink } = await supabase
-          .from('pokemon_cards')
-          .select(PRICE_SELECT)
-          .in('liga_link', allLinks)
+        const byLink = await fetch('/api/cards/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ liga_links: allLinks }),
+        }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
         ;(byLink || []).forEach((p: any) => {
           if (p.liga_link) priceByLink[p.liga_link] = p
         })
@@ -349,8 +351,11 @@ export default function MinhaColecao() {
           [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)
         ))].slice(0, 50)
         if (names.length > 0) {
-          const { data: byName } = await supabase
-            .from('pokemon_cards').select(PRICE_SELECT).in('name', names).limit(500)
+          const byName = await fetch('/api/cards/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ names }),
+          }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
           ;(byName || []).forEach((p: any) => {
             const k = p.name?.trim()
             if (!priceByName[k]) priceByName[k] = p
