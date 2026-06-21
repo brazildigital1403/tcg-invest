@@ -51,3 +51,7 @@ next-env.d.ts
 BYNX_MASTER_CONTEXT.md
 BYNX_SEO_HUB_DEEP_DIVE.md
 BYNX_SCAN_DEEP_DIVE.md
+
+BYNX_MASTER_v7.md
+BYNX_MASTER*.md
+docs/features/
