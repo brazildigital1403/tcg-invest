@@ -24,7 +24,7 @@
 // 5. Renovação detecta se sub é de user ou de loja (busca em ambas as tabelas).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail } from '@/lib/email'
+import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
@@ -670,7 +670,23 @@ export async function POST(req: NextRequest) {
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
         console.error(`[webhook] CRITICAL: payment_failed — invoice ${invoice.id} sub ${invoice.subscription} customer ${invoice.customer} amount ${invoice.amount_due}`)
-        // TODO: enviar email avisando cliente pra atualizar cartão
+        try {
+          if (invoice.subscription) {
+            const { data: u } = await supabase
+              .from('users')
+              .select('email, name')
+              .eq('stripe_subscription_id', invoice.subscription as string)
+              .limit(1)
+            if (u?.[0]?.email) {
+              await sendPaymentFailedEmail(u[0].email, u[0].name || '').catch(console.error)
+              console.log(`[webhook] dunning enviado para ${u[0].email}`)
+            } else {
+              console.warn(`[webhook] payment_failed sem user para sub ${invoice.subscription}`)
+            }
+          }
+        } catch (err: any) {
+          console.error(`[webhook] falha enviando dunning:`, err?.message)
+        }
         break
       }
 
@@ -681,7 +697,24 @@ export async function POST(req: NextRequest) {
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute
         console.error(`[webhook] CRITICAL DISPUTE: charge ${dispute.charge} reason ${dispute.reason} amount ${dispute.amount} status ${dispute.status}`)
-        // TODO: notificar admin via email
+        try {
+          if (process.env.ADMIN_EMAIL) {
+            await sendDisputeAdminEmail({
+              to: process.env.ADMIN_EMAIL,
+              charge: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id || '',
+              reason: dispute.reason || 'unknown',
+              amount: dispute.amount || 0,
+              currency: dispute.currency || 'brl',
+              status: dispute.status || 'needs_response',
+              customer: typeof (dispute as any).customer === 'string' ? (dispute as any).customer : null,
+            }).catch(console.error)
+            console.log(`[webhook] alerta de chargeback enviado para admin`)
+          } else {
+            console.warn(`[webhook] ADMIN_EMAIL nao configurado -- alerta de dispute nao enviado`)
+          }
+        } catch (err: any) {
+          console.error(`[webhook] falha enviando alerta de dispute:`, err?.message)
+        }
         break
       }
     }
