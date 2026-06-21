@@ -861,3 +861,53 @@ export async function sendRedemptionConfirmedEmail(args: {
     html,
   })
 }
+
+// ── PAGAMENTO — renovacao falhou (dunning, para usuario) ─────────────────────
+
+export async function sendPaymentFailedEmail(to: string, name: string) {
+  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const html = baseLayout(`
+    ${badge('Ação necessária', '#ef4444', 'rgba(239,68,68,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Não conseguimos renovar seu Pro 💳')}
+    ${p(`${firstName}, a cobrança da sua assinatura Bynx Pro foi recusada — geralmente é cartão expirado, sem saldo ou bloqueio do banco.`)}
+    ${p('Fique tranquilo: seu acesso Pro continua ativo enquanto tentamos cobrar de novo nos próximos dias. Para não perder o acesso, atualize sua forma de pagamento.')}
+    ${btn('Atualizar pagamento →', addUtm(`${APP_URL}/minha-conta`, 'payment-failed', 'cta-button'))}
+    ${divider()}
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Já atualizou? Pode ignorar este email — a próxima tentativa de cobrança resolve sozinha.</p>
+  `, `Atualize seu pagamento para manter o Pro ativo`)
+
+  return resend.emails.send({ from: FROM, to, subject: `💳 Não conseguimos renovar seu Bynx Pro`, html })
+}
+
+// ── PAGAMENTO — chargeback aberto (alerta para admin) ────────────────────────
+
+export async function sendDisputeAdminEmail(args: {
+  to: string
+  charge: string
+  reason: string
+  amount: number
+  currency: string
+  status: string
+  customer?: string | null
+}) {
+  const valor = (args.amount / 100).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: (args.currency || 'brl').toUpperCase(),
+  })
+  const html = baseLayout(`
+    ${badge('Chargeback', '#ef4444', 'rgba(239,68,68,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Disputa aberta no Stripe ⚠️')}
+    ${p('Um cliente abriu uma disputa (chargeback) junto ao banco. Responda o quanto antes no Stripe para não perder o valor mais a multa de disputa.')}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
+      <tr><td style="padding:12px 16px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Valor · Motivo · Status</td></tr>
+      <tr><td style="padding:0 16px 12px;font-size:14px;color:rgba(255,255,255,0.85);font-family:Arial,sans-serif;"><strong style="color:#f59e0b;">${valor}</strong> · ${escapeHtml(args.reason)} · ${escapeHtml(args.status)}</td></tr>
+      <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
+      <tr><td style="padding:12px 16px;font-size:12px;color:rgba(255,255,255,0.6);font-family:Arial,sans-serif;">charge ${escapeHtml(args.charge)}${args.customer ? ` · customer ${escapeHtml(args.customer)}` : ''}</td></tr>
+    </table>
+    ${btn('Abrir disputas no Stripe →', 'https://dashboard.stripe.com/disputes')}
+  `, `Chargeback aberto: ${valor}`)
+
+  return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx] ALERTA: chargeback aberto (${valor})`, html })
+}

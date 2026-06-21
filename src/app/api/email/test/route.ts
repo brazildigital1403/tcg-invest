@@ -4,16 +4,17 @@ import {
   sendTrialExpiring5Email,
   sendTrialExpiring7Email,
   sendPurchaseConfirmationEmail,
+  sendPaymentFailedEmail,
+  sendDisputeAdminEmail,
 } from '@/lib/email'
 
-// Rota de teste — dispara todos os templates para um email específico
-// Uso: GET /api/email/test?email=seu@email.com&secret=CRON_SECRET
+// Rota de teste — dispara templates para um email especifico
+// Uso: GET /api/email/test?email=seu@email.com&secret=CRON_SECRET&template=all
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get('secret')
   const to = req.nextUrl.searchParams.get('email')
   const template = req.nextUrl.searchParams.get('template') || 'all'
 
-  // Validação
   if (secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -27,37 +28,47 @@ export async function GET(req: NextRequest) {
   try {
     if (template === 'all' || template === 'welcome') {
       await sendWelcomeEmail(to, nome)
-      results.welcome = '✅ enviado'
+      results.welcome = 'enviado'
     }
-
     if (template === 'all' || template === 'trial5') {
       await sendTrialExpiring5Email(to, nome)
-      results.trial5 = '✅ enviado'
+      results.trial5 = 'enviado'
     }
-
     if (template === 'all' || template === 'trial7') {
       await sendTrialExpiring7Email(to, nome)
-      results.trial7 = '✅ enviado'
+      results.trial7 = 'enviado'
     }
-
     if (template === 'all' || template === 'pro_mensal') {
       await sendPurchaseConfirmationEmail(to, nome, 'pro_mensal')
-      results.pro_mensal = '✅ enviado'
+      results.pro_mensal = 'enviado'
     }
-
     if (template === 'all' || template === 'pro_anual') {
       await sendPurchaseConfirmationEmail(to, nome, 'pro_anual')
-      results.pro_anual = '✅ enviado'
+      results.pro_anual = 'enviado'
     }
-
     if (template === 'all' || template === 'separadores') {
       await sendPurchaseConfirmationEmail(to, nome, 'separadores')
-      results.separadores = '✅ enviado'
+      results.separadores = 'enviado'
     }
-
     if (template === 'all' || template === 'scan_popular') {
       await sendPurchaseConfirmationEmail(to, nome, 'scan_popular')
-      results.scan_popular = '✅ enviado'
+      results.scan_popular = 'enviado'
+    }
+    if (template === 'all' || template === 'payment_failed') {
+      await sendPaymentFailedEmail(to, nome)
+      results.payment_failed = 'enviado'
+    }
+    if (template === 'all' || template === 'dispute') {
+      await sendDisputeAdminEmail({
+        to,
+        charge: 'ch_TESTE123456',
+        reason: 'fraudulent',
+        amount: 2990,
+        currency: 'brl',
+        status: 'needs_response',
+        customer: 'cus_TESTE',
+      })
+      results.dispute = 'enviado'
     }
 
     return NextResponse.json({ ok: true, to, results })
