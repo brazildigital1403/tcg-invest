@@ -47,3 +47,7 @@ next-env.d.ts
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+BYNX_MASTER_CONTEXT.md
+BYNX_SEO_HUB_DEEP_DIVE.md
+BYNX_SCAN_DEEP_DIVE.md
