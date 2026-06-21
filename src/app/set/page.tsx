@@ -364,7 +364,7 @@ export default async function SetIndexPage() {
       {
         '@type': 'ListItem',
         position: 1,
-        name: 'Bynx',
+        name: 'Início',
         item: 'https://bynx.gg',
       },
       {
