@@ -167,7 +167,7 @@ export default function MasterSetSheetPage() {
 
           .print-page {
             width: 210mm !important;
-            height: 297mm !important;
+            min-height: 291mm !important;
             page-break-after: always !important;
             break-after: page !important;
             display: grid !important;
