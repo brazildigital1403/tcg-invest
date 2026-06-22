@@ -136,7 +136,6 @@ const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/supor
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 const ITEM_MASTER_SETS: MenuItem = { name: 'Master Sets', full: 'Master Sets', href: '/master-sets', Icon: IconMasterSets, group: 'imprimir' }
-const ITEM_ACOMPANHANDO: MenuItem = { name: 'Acompanhando', full: 'Acompanhando', href: '/acompanhando', Icon: IconBell, group: 'colecao' }
 
 const GROUP_ORDER: { key: GroupKey; label: string }[] = [
   { key: 'colecao', label: 'Minha coleção' },
@@ -206,12 +205,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Monta menu adaptativo
   const menu = useMemo<MenuItem[]>(() => {
     if (temLoja === null || temCartas === null) {
-      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
+      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
     }
     if (isLojistaPuro) {
       return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE]
     }
-    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
+    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE)
     return base
