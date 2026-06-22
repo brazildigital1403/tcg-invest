@@ -600,13 +600,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* HEADER */}
           <header className="tcg-header">
-            <button className="tcg-header-menu-btn" onClick={() => setDrawerOpen(true)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'none', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
-              <span style={{ display: 'block', width: 22, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
-              <span style={{ display: 'block', width: 22, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
-              <span style={{ display: 'block', width: 22, height: 2, background: '#f0f0f0', borderRadius: 2 }} />
-            </button>
-
             <div className="tcg-header-logo" style={{ display: 'none', alignItems: 'center', gap: 8, flex: 1 }}>
               <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
             </div>
