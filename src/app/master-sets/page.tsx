@@ -180,10 +180,10 @@ export default function MasterSetsPage() {
 
         <div style={{ marginTop: 18, border: '1px dashed rgba(255,255,255,0.18)', borderRadius: 16, padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>Nao achou o set que quer?</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Sets antigos, japoneses ou especiais. Nos avise e a gente prioriza.</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>Não encontrou o set que procura?</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Pode ser um set antigo, japonês ou especial — envie sua sugestão e nós priorizamos os mais pedidos.</div>
           </div>
-          <button onClick={() => { setModalOpen(true); setEnviado(false) }} style={{ fontSize: 13, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '9px 16px', cursor: 'pointer' }}>Pedir um master set</button>
+          <button onClick={() => { setModalOpen(true); setEnviado(false) }} style={{ fontSize: 13, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '9px 16px', cursor: 'pointer' }}>Pedir um Master Set</button>
         </div>
       </div>
 
@@ -193,14 +193,14 @@ export default function MasterSetsPage() {
             {enviado ? (
               <div style={{ textAlign: 'center', padding: '12px 0' }}>
                 <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 6 }}>Pedido recebido!</div>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginBottom: 18 }}>Obrigado. A gente avalia e prioriza os mais pedidos.</div>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginBottom: 18 }}>Pedido recebido! Avaliamos todas as sugestões e priorizamos os sets mais pedidos.</div>
                 <button onClick={() => setModalOpen(false)} style={{ fontSize: 14, fontWeight: 600, color: '#000', background: GRAD, border: 'none', borderRadius: 10, padding: '10px 20px', cursor: 'pointer' }}>Fechar</button>
               </div>
             ) : (
               <>
-                <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Pedir um master set</div>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>Qual set voce quer ver aqui? (nome, lingua, edicao)</div>
-                <textarea value={pedido} onChange={(e) => setPedido(e.target.value)} maxLength={500} rows={4} placeholder="Ex.: Evolving Skies em japones, Base Set 1999..." style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: 12, color: '#fff', fontSize: 14, resize: 'vertical', boxSizing: 'border-box' }} />
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Pedir um Master Set</div>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>Qual Master Set você gostaria de ver aqui? Informe nome, língua e edição.</div>
+                <textarea value={pedido} onChange={(e) => setPedido(e.target.value)} maxLength={500} rows={4} placeholder="Ex.: Evolving Skies em japonês, Base Set de 1999..." style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: 12, color: '#fff', fontSize: 14, resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 14 }}>
                   <button onClick={() => setModalOpen(false)} style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', background: 'transparent', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '9px 16px', cursor: 'pointer' }}>Cancelar</button>
                   <button onClick={enviarPedido} disabled={enviando || pedido.trim().length < 2} style={{ fontSize: 13, fontWeight: 600, color: '#000', background: GRAD, border: 'none', borderRadius: 10, padding: '9px 18px', cursor: enviando ? 'wait' : 'pointer', opacity: (enviando || pedido.trim().length < 2) ? 0.5 : 1 }}>{enviando ? 'Enviando...' : 'Enviar pedido'}</button>
