@@ -350,6 +350,7 @@ export default function Home() {
 
       {/* CSS responsivo landing */}
       <style>{`
+        .lp-dor-grid { grid-template-columns: repeat(4, 1fr); }
         @media (max-width: 768px) {
   .lp-hero { padding-top: 40px !important; padding-bottom: 48px !important; min-height: auto !important; }
   .lp-hero > h1 { font-size: clamp(30px, 8.5vw, 46px) !important; margin-bottom: 16px !important; }
@@ -361,9 +362,11 @@ export default function Home() {
           .lp-stats-row   { flex-wrap: wrap !important; gap: 24px !important; }
           .lp-sets-row    { gap: 24px !important; flex-wrap: wrap !important; }
           .lp-plans-grid  { grid-template-columns: 1fr !important; }
-          .lp-how-grid    { grid-template-columns: 1fr !important; }
+          .lp-how-grid    { grid-template-columns: repeat(2, 1fr) !important; }
+          .lp-dor-grid { grid-template-columns: 1fr 1fr !important; }
           .lp-feat-grid   { grid-template-columns: repeat(2, 1fr) !important; }
-          .lp-mockup-stats { grid-template-columns: repeat(2, 1fr) !important; }
+          .lp-mockup-stats { display: flex !important; flex-wrap: nowrap; overflow-x: auto; gap: 10px !important; }
+          .lp-mockup-stats > div { flex: 0 0 46%; }
           .lp-testimonials-arrow { display: none !important; }
         }
         .lp-testimonials-row { scroll-padding-left: 24px; scroll-padding-right: 24px; }
@@ -552,7 +555,7 @@ export default function Home() {
             Toda hora aparece um momento desses. Quanto custa não ter resposta na hora?
           </p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+        <div className="lp-dor-grid" style={{ display: 'grid', gap: 16 }}>
           {[
             {
               emoji: '🤝',

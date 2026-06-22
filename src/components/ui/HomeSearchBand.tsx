@@ -48,6 +48,12 @@ export default function HomeSearchBand() {
   return (
     <div style={{ width: '100%', maxWidth: 660, margin: '0 auto 56px', textAlign: 'center' }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }} />
+      <style>{`
+        .hsb-chips { display:flex; flex-wrap:nowrap; gap:8px; justify-content:center; margin:16px auto 0; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+        .hsb-chips::-webkit-scrollbar { display:none; }
+        .hsb-chip { flex:0 0 auto; white-space:nowrap; font-size:13px; color:rgba(255,255,255,0.7); background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); padding:7px 14px; border-radius:999px; text-decoration:none; }
+        @media (max-width:680px){ .hsb-chips { justify-content:flex-start; } }
+      `}</style>
 
       <h2 style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 10 }}>
         Busque qualquer <span style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Pokémon ou carta</span>
@@ -91,9 +97,9 @@ export default function HomeSearchBand() {
         )}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', margin: '16px auto 0' }}>
+      <div className="hsb-chips">
         {CHIPS.map((c) => (
-          <Link key={c} href={`/pokemon/${c.toLowerCase()}`} style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', padding: '7px 14px', borderRadius: 999, textDecoration: 'none' }}>{c}</Link>
+          <Link key={c} href={`/pokemon/${c.toLowerCase()}`} className="hsb-chip">{c}</Link>
         ))}
       </div>
     </div>

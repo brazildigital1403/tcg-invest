@@ -7,7 +7,7 @@
  *  - Esquerda: a carta mais valiosa em destaque (nº1) + nº2/nº3 atras (profundidade).
  *  - Direita: painel de mercado ao vivo em ranking, com abas Em alta / Em queda
  *    (toggle 7/30 dias) e Mais valiosas. Le get_price_movers + get_top_cards.
- * No mobile as colunas empilham (espacamento e tamanhos ajustados via media query).
+ * No mobile as colunas empilham (espacamento/tamanhos/fontes ajustados via media query).
  */
 
 import { useState, useEffect } from 'react'
@@ -27,7 +27,8 @@ function cleanName(raw: string | null): string {
   if (!raw) return ''
   return raw
     .replace(/&amp;/g, '&').replace(/&gt;/g, '>').replace(/&lt;/g, '<')
-    .replace(/\s*\(\d+\/\d+\)\s*$/, '').trim()
+    .replace(/\s*\([^)]*\/[^)]*\)\s*$/, '')
+    .trim()
 }
 
 function IconTrend({ up }: { up: boolean }) {
@@ -102,6 +103,10 @@ export default function HomeVitrines() {
         .hv-row { display:flex; align-items:center; gap:12px; padding:10px 4px; text-decoration:none; color:inherit; border-radius:9px; }
         .hv-row + .hv-row { border-top:1px solid rgba(255,255,255,0.05); }
         .hv-row:hover { background:rgba(255,255,255,0.025); }
+        .hv-info { flex:1; min-width:0; }
+        .hv-nm { display:block; font-size:13.5px; font-weight:700; color:#f0f0f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .hv-st { display:block; font-size:11px; color:rgba(255,255,255,0.4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .hv-price { font-size:13.5px; font-weight:800; color:#f59e0b; text-align:right; flex:0 0 auto; white-space:nowrap; }
         @media (max-width:860px){
           .hv-sec { padding:30px 18px 44px; }
           .hv-split { grid-template-columns:1fr; gap:22px; }
@@ -110,6 +115,10 @@ export default function HomeVitrines() {
           .hv-imgB { width:108px; }
           .hv-backL { transform:translate(-50%,-50%) translateX(-70px) translateY(8px) rotate(-13deg); }
           .hv-backR { transform:translate(-50%,-50%) translateX(70px) translateY(8px) rotate(13deg); }
+          .hv-row { gap:9px; }
+          .hv-nm { font-size:13px; }
+          .hv-st { font-size:10.5px; }
+          .hv-price { font-size:12.5px; }
         }
       `}</style>
 
@@ -169,18 +178,18 @@ export default function HomeVitrines() {
                 <span style={{ width: 30, height: 42, borderRadius: 4, background: '#11151f', flex: '0 0 auto', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {r.image_small && <img src={r.image_small} alt={r.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: '#f0f0f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
-                  <span style={{ display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.set_name || ''}</span>
+                <span className="hv-info">
+                  <span className="hv-nm">{r.name}</span>
+                  <span className="hv-st">{r.set_name || ''}</span>
                 </span>
-                {r.price != null && <span style={{ fontSize: 13.5, fontWeight: 800, color: '#f59e0b', textAlign: 'right', flex: '0 0 auto', whiteSpace: 'nowrap' }}>{brl(Number(r.price))}</span>}
+                {r.price != null && <span className="hv-price">{brl(Number(r.price))}</span>}
                 {r.pct != null && <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6, color: '#fff', width: 60, textAlign: 'center', flex: '0 0 auto', background: r.pct > 0 ? '#16a34a' : '#dc2626' }}>{pctFmt(Number(r.pct))}</span>}
               </Link>
             ))}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <Link href="/ranking" style={{ fontSize: 12.5, fontWeight: 700, color: '#f59e0b', textDecoration: 'none' }}>Ver ranking completo →</Link>
+            <Link href="/pokedex-pokemon-tcg" style={{ fontSize: 12.5, fontWeight: 700, color: '#f59e0b', textDecoration: 'none' }}>Explorar todas as cartas →</Link>
           </div>
         </div>
 
