@@ -211,13 +211,22 @@ export async function generateMetadata({
       : ` #${card.number}`
     : ''
   const setStr = card.setName ? ` — ${card.setName}` : ''
-  const title = `${card.name}${numStr}${setStr}`
-
-  // Description com preço (CTR↑ no Google) ou fallback
   const precoStr = formatBRL(card.precoMedio)
+
+  // Title com preco em R$ no SERP (diferencial Bynx). Guarda de tamanho:
+  // nome+numero+preco sempre; set so entra se couber (~50 chars antes de " | Bynx.gg").
+  let title: string
+  if (precoStr) {
+    const baseComPreco = `${card.name}${numStr} — ${precoStr}`
+    const restante = 50 - baseComPreco.length
+    const sufixoSet = card.setName ? ` | ${card.setName}` : ''
+    title = sufixoSet && sufixoSet.length <= restante ? baseComPreco + sufixoSet : baseComPreco
+  } else {
+    title = `${card.name}${numStr}${setStr}`
+  }
   const description = precoStr
-    ? `${card.name}${numStr} de ${card.setName || 'Pokémon TCG'} custa em média ${precoStr} no Bynx. Veja variantes (Normal, Holo, Reverse, Foil), histórico de preços e adicione à sua coleção brasileira.`
-    : `${card.name}${numStr}${card.setName ? ` de ${card.setName}` : ''}. Veja variantes, ataques, raridade e adicione à sua coleção Pokémon TCG no Bynx — preços em reais.`
+    ? `Quanto vale ${card.name}${numStr} de ${card.setName || 'Pokémon TCG'}? Preço médio ${precoStr}, atualizado em reais no Bynx. Veja a faixa (mín–máx), as variantes e acompanhe na sua coleção.`
+    : `Quanto vale ${card.name}${numStr}${card.setName ? ` de ${card.setName}` : ''}? Veja o preço em reais, variantes, raridade e ataques, e acompanhe na sua coleção Pokémon TCG no Bynx.`
 
   const ogImage = card.imageLarge || card.imageSmall || 'https://bynx.gg/og-image.jpg'
 
@@ -228,7 +237,7 @@ export async function generateMetadata({
       canonical: `https://bynx.gg/carta/${id}`,
     },
     openGraph: {
-      title: `${title} | Bynx`,
+      title: `${title} | Bynx.gg`,
       description,
       url: `https://bynx.gg/carta/${id}`,
       type: 'website',
@@ -247,7 +256,7 @@ export async function generateMetadata({
       card: 'summary_large_image',
       site: '@bynxgg',
       creator: '@bynxgg',
-      title: `${title} | Bynx`,
+      title: `${title} | Bynx.gg`,
       description,
       images: [ogImage],
     },
@@ -296,6 +305,7 @@ export default async function CartaPage({
       highPrice: card.precoMax ?? card.precoMedio,
       offerCount: 1,
       availability: 'https://schema.org/InStock',
+      priceValidUntil: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10),
       url: `https://bynx.gg/carta/${card.id}`,
     }
   }

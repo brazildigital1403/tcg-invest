@@ -35,8 +35,8 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://bynx.gg"),
 
   title: {
-    default: "Bynx — Quanto vale sua coleção Pokémon TCG hoje?",
-    template: "%s | Bynx",
+    default: "Bynx.gg — Quanto vale sua coleção Pokémon TCG hoje?",
+    template: "%s | Bynx.gg",
   },
   description:
     "A plataforma brasileira para colecionadores de Pokémon TCG. Adicione cartas em segundos, acompanhe preços por variante em reais, use o scan com IA e negocie no Marketplace. Pokédex com 22.000+ cartas em 240+ coleções.",
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     url: "https://bynx.gg",
     siteName: "Bynx",
-    title: "Bynx — Quanto vale sua coleção Pokémon TCG hoje?",
+    title: "Bynx.gg — Quanto vale sua coleção Pokémon TCG hoje?",
     description:
       "Adicione suas cartas pela Pokédex ou pelo scan com IA. Acompanhe preços em reais por variante (Normal, Holo, Reverse, Foil, Promo) e negocie no Marketplace. 7 dias de Pro grátis.",
     images: [
@@ -80,7 +80,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     site: "@bynxgg",
     creator: "@bynxgg",
-    title: "Bynx — Quanto vale sua coleção Pokémon TCG hoje?",
+    title: "Bynx.gg — Quanto vale sua coleção Pokémon TCG hoje?",
     description:
       "A plataforma brasileira de coleções Pokémon TCG. Pokédex de 22 mil+ cartas, scan com IA, preços em reais e Marketplace. 7 dias Pro grátis.",
     images: ["https://bynx.gg/og-image.jpg"],
