@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient'
 interface MasterSet {
   set_id: string
   nome: string
+  name_pt: string | null
   series: string
   release_date: string
   preco_centavos: number
@@ -140,8 +141,9 @@ export default function MasterSetsPage() {
                     <SetLogo url={s.logo_url} nome={s.nome} />
                   </div>
                   <div style={{ textAlign: 'center', marginBottom: 12 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.nome}</div>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{s.total_cartas} cartas</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name_pt || s.nome}</div>
+                    {s.name_pt && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.nome}</div>}
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{s.total_cartas} cartas{s.release_date ? ` · ${s.release_date.slice(0, 4)}` : ''}</div>
                   </div>
 
                   {s.owned_cartas > 0 && (

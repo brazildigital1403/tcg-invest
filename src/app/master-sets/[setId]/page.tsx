@@ -310,6 +310,10 @@ export default function MasterSetSheetPage() {
   )
 }
 
+function leadNum(numero: string): string {
+  const m = numero.match(/^\d+/); return m ? m[0] : numero
+}
+
 function fmtNum(numero: string, total: number): string {
   return /^\d+$/.test(numero) ? `${numero.padStart(3, '0')}/${total}` : numero
 }
@@ -337,7 +341,7 @@ function MSPocket({ card, modo, total }: { card: Card; modo: 'imagem' | 'economi
         <img src={card.image_small as string} alt={card.nome} onError={() => setImgErr(true)} style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: owned ? 0.35 : 0.9, padding: '16% 6% 20%' }} />
       ) : (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20% 8%', opacity: owned ? 0.4 : 0.85 }}>
-          <span style={{ fontSize: 'min(8vw,34px)', fontWeight: 800, color: '#b4b2a9', lineHeight: 1 }}>{card.numero}</span>
+          <span style={{ fontSize: 'min(8vw,34px)', fontWeight: 800, color: '#b4b2a9', lineHeight: 1 }}>{leadNum(card.numero)}</span>
         </div>
       )}
 
