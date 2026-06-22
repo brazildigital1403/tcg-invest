@@ -182,7 +182,7 @@ export default function SeparadoresPage() {
           /* ── Uma página A4 por bloco de 9 cartas ── */
           .print-page {
             width: 210mm !important;
-            height: 297mm !important;
+            min-height: 291mm !important;
             page-break-after: always !important;
             break-after: page !important;
             display: grid !important;
