@@ -11,6 +11,7 @@ interface Detail {
   series: string
   total_cartas: number
   total_paginas: number
+  printed_total: number
   owned_cartas: number
   unlocked: boolean
   via_anual: boolean
@@ -294,7 +295,7 @@ export default function MasterSetSheetPage() {
           <div className={locked ? 'print-blocked' : undefined} style={{ marginTop: 18 }}>
             {pages.map((page, pi) => (
               <div key={pi} className="print-page" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, padding: 16, marginBottom: 18, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12 }}>
-                {page.map((c) => <MSPocket key={c.card_id} card={c} modo={modo} />)}
+                {page.map((c) => <MSPocket key={c.card_id} card={c} modo={modo} total={detail.printed_total || detail.total_cartas} />)}
               </div>
             ))}
             {pages.length === 0 && (
@@ -309,14 +310,18 @@ export default function MasterSetSheetPage() {
   )
 }
 
-function MSPocket({ card, modo }: { card: Card; modo: 'imagem' | 'economia' }) {
+function fmtNum(numero: string, total: number): string {
+  return /^\d+$/.test(numero) ? `${numero.padStart(3, '0')}/${total}` : numero
+}
+
+function MSPocket({ card, modo, total }: { card: Card; modo: 'imagem' | 'economia'; total: number }) {
   const [imgErr, setImgErr] = useState(false)
   const owned = card.owned
   const mostraImg = modo === 'imagem' && !!card.image_small && !imgErr
 
   return (
     <div className="ms-pocket" style={{ position: 'relative', background: '#fff', border: owned ? '1.5px solid #639922' : '1.5px dashed #c9c7bf', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column', aspectRatio: '63 / 88' }}>
-      <div style={{ position: 'absolute', top: '4%', left: '5%', fontSize: 'min(2.4vw,11px)', fontWeight: 800, color: '#2c2c2a', zIndex: 2, lineHeight: 1 }}>{card.numero}</div>
+      <div style={{ position: 'absolute', top: '4%', left: '5%', fontSize: 'min(2.4vw,11px)', fontWeight: 800, color: '#2c2c2a', zIndex: 2, lineHeight: 1 }}>{fmtNum(card.numero, total)}</div>
 
       <div className="ms-bynx" style={{ position: 'absolute', top: '3%', right: '4%', width: 'min(4vw,18px)', height: 'min(4vw,18px)', borderRadius: '50%', overflow: 'hidden', zIndex: 3 }}>
         <img src="/bynx_perfil.png" alt="" onError={(e: any) => { e.currentTarget.src = '/favicon.png' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
