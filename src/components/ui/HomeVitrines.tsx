@@ -7,7 +7,8 @@
  *  - Esquerda: a carta mais valiosa em destaque (nº1) + nº2/nº3 atras (profundidade).
  *  - Direita: painel de mercado ao vivo em ranking, com abas Em alta / Em queda
  *    (toggle 7/30 dias) e Mais valiosas. Le get_price_movers + get_top_cards.
- * No mobile as colunas empilham (espacamento/tamanhos/fontes ajustados via media query).
+ * No mobile as colunas empilham. Grids usam minmax(0,1fr) + overflow:hidden no painel
+ * para que linhas com nome longo cortem (ellipsis) em vez de esticar o box pra direita.
  */
 
 import { useState, useEffect } from 'react'
@@ -89,9 +90,10 @@ export default function HomeVitrines() {
   return (
     <section className="hv-sec">
       <style>{`
-        .hv-sec { max-width:1180px; margin:0 auto; padding:44px 24px 56px; }
-        .hv-split { display:grid; grid-template-columns:1fr 2fr; gap:30px; align-items:center; }
+        .hv-sec { max-width:1180px; margin:0 auto; padding:44px 24px 56px; overflow-x:clip; }
+        .hv-split { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:30px; align-items:center; }
         .hv-tab { font:inherit; font-size:13px; font-weight:700; padding:8px 14px; border-radius:10px; border:1px solid transparent; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+        .hv-panel { background:#0a0d14; border:1px solid rgba(255,255,255,0.07); border-radius:18px; padding:20px 18px; min-width:0; overflow:hidden; }
         .hv-showcase { position:relative; min-height:250px; display:flex; align-items:center; justify-content:center; }
         .hv-showcase::before { content:''; position:absolute; top:46%; left:50%; transform:translate(-50%,-50%); width:270px; height:270px; background:radial-gradient(circle, rgba(245,158,11,0.16), transparent 68%); pointer-events:none; }
         .hv-imgF { width:150px; height:auto; display:block; border-radius:11px; border:1px solid rgba(255,255,255,0.14); }
@@ -103,13 +105,14 @@ export default function HomeVitrines() {
         .hv-row { display:flex; align-items:center; gap:12px; padding:10px 4px; text-decoration:none; color:inherit; border-radius:9px; }
         .hv-row + .hv-row { border-top:1px solid rgba(255,255,255,0.05); }
         .hv-row:hover { background:rgba(255,255,255,0.025); }
-        .hv-info { flex:1; min-width:0; }
+        .hv-info { flex:1 1 auto; min-width:0; overflow:hidden; }
         .hv-nm { display:block; font-size:13.5px; font-weight:700; color:#f0f0f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .hv-st { display:block; font-size:11px; color:rgba(255,255,255,0.4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .hv-price { font-size:13.5px; font-weight:800; color:#f59e0b; text-align:right; flex:0 0 auto; white-space:nowrap; }
+        .hv-badge { font-size:11px; font-weight:800; padding:3px 8px; border-radius:6px; color:#fff; width:60px; text-align:center; flex:0 0 auto; white-space:nowrap; }
         @media (max-width:860px){
-          .hv-sec { padding:30px 18px 44px; }
-          .hv-split { grid-template-columns:1fr; gap:22px; }
+          .hv-sec { padding:30px 16px 44px; }
+          .hv-split { grid-template-columns:minmax(0,1fr); gap:22px; }
           .hv-showcase { min-height:214px; }
           .hv-imgF { width:138px; }
           .hv-imgB { width:108px; }
@@ -119,6 +122,7 @@ export default function HomeVitrines() {
           .hv-nm { font-size:13px; }
           .hv-st { font-size:10.5px; }
           .hv-price { font-size:12.5px; }
+          .hv-badge { width:auto; min-width:46px; font-size:10px; padding:3px 6px; }
         }
       `}</style>
 
@@ -146,7 +150,7 @@ export default function HomeVitrines() {
         </div>
 
         {/* ── Coluna 2: mercado ── */}
-        <div style={{ background: '#0a0d14', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 18, padding: '20px 18px' }}>
+        <div className="hv-panel">
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 7 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px rgba(34,197,94,0.8)' }} /> Dados ao vivo · em reais
           </div>
@@ -183,7 +187,7 @@ export default function HomeVitrines() {
                   <span className="hv-st">{r.set_name || ''}</span>
                 </span>
                 {r.price != null && <span className="hv-price">{brl(Number(r.price))}</span>}
-                {r.pct != null && <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6, color: '#fff', width: 60, textAlign: 'center', flex: '0 0 auto', background: r.pct > 0 ? '#16a34a' : '#dc2626' }}>{pctFmt(Number(r.pct))}</span>}
+                {r.pct != null && <span className="hv-badge" style={{ background: r.pct > 0 ? '#16a34a' : '#dc2626' }}>{pctFmt(Number(r.pct))}</span>}
               </Link>
             ))}
           </div>

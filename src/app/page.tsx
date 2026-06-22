@@ -358,7 +358,7 @@ export default function Home() {
   .lp-mockup { padding: 16px !important; }
   .lp-mockup-stats { gap: 10px !important; }
           .lp-hero-btns   { flex-direction: column !important; align-items: stretch !important; }
-          .lp-mockup-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .lp-mockup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           .lp-stats-row   { flex-wrap: wrap !important; gap: 24px !important; }
           .lp-sets-row    { gap: 24px !important; flex-wrap: wrap !important; }
           .lp-plans-grid  { grid-template-columns: 1fr !important; }
