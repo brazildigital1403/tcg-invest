@@ -67,10 +67,10 @@ export async function POST(req: NextRequest) {
     const userId    = user.id
     const userEmail = user.email
 
-    // ── Body: apenas plano + lojaId ───────────────────────────────────────
+    // ── Body: plano + lojaId + setId ──────────────────────────────────────
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
     const body = await req.json().catch(() => ({}))
-    const { plano, lojaId } = body as { plano?: string; lojaId?: string }
+    const { plano, lojaId, setId } = body as { plano?: string; lojaId?: string; setId?: string }
 
     if (!plano || typeof plano !== 'string') {
       return NextResponse.json({ error: 'Plano não informado' }, { status: 400 })
@@ -150,6 +150,64 @@ export async function POST(req: NextRequest) {
         metadata: { userId, plano, creditos: String(pkg.creditos) },
         success_url: `${APP}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url:  `${APP}/minha-colecao`,
+      })
+      return NextResponse.json({ url: session.url })
+    }
+
+    // ── Fluxo: Master Set (one-time, por set) ─────────────────────────────────
+    if (plano === 'master_set') {
+      if (!setId || typeof setId !== 'string') {
+        return NextResponse.json({ error: 'setId obrigatório para master set' }, { status: 400 })
+      }
+      const priceId = process.env.STRIPE_PRICE_MASTER_SET
+      if (!priceId) {
+        console.error('[stripe/checkout] env vazia: STRIPE_PRICE_MASTER_SET')
+        return NextResponse.json({ error: 'Master set não configurado' }, { status: 503 })
+      }
+
+      // Valida que o set existe e está ativo
+      const { data: msRow } = await supabase
+        .from('master_sets')
+        .select('set_id, ativo')
+        .eq('set_id', setId)
+        .limit(1)
+      if (!msRow?.[0] || !msRow[0].ativo) {
+        return NextResponse.json({ error: 'Master set inválido' }, { status: 404 })
+      }
+
+      // Já desbloqueou avulso antes?
+      const { data: jaTem } = await supabase
+        .from('user_master_sets')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('set_id', setId)
+        .limit(1)
+      if (jaTem?.[0]) {
+        return NextResponse.json({ error: 'Você já desbloqueou este master set', code: 'ALREADY_OWNED' }, { status: 400 })
+      }
+
+      // Plano anual já inclui todos
+      const { data: uPlano } = await supabase
+        .from('users')
+        .select('is_pro, plano, pro_expira_em')
+        .eq('id', userId)
+        .limit(1)
+      const u0 = uPlano?.[0]
+      const anualAtivo = !!u0 && u0.is_pro && u0.plano === 'anual' && (!u0.pro_expira_em || new Date(u0.pro_expira_em) > new Date())
+      if (anualAtivo) {
+        return NextResponse.json({ error: 'Seu plano anual já inclui todos os master sets', code: 'INCLUDED_ANNUAL' }, { status: 400 })
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        locale: 'pt-BR',
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        ...customerParam,
+        ...(existingCustomerId ? {} : { customer_creation: 'always' as const }),
+        metadata: { userId, plano: 'master_set', setId },
+        success_url: `${APP}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url:  `${APP}/master-sets`,
       })
       return NextResponse.json({ url: session.url })
     }

@@ -357,6 +357,45 @@ export async function POST(req: NextRequest) {
           break
         }
 
+        // ─── MASTER SET (one-time, por set) ─────────────────
+        if (planoMeta === 'master_set') {
+          const setId = session.metadata?.setId
+          if (!setId) {
+            console.warn(`[webhook] master_set sem setId — ignorando`)
+            break
+          }
+          const piId = await extrairPaymentIntentDeSession(stripe, session)
+          try {
+            await supabase.from('user_master_sets').upsert({
+              user_id: userId,
+              set_id: setId,
+              source: 'stripe',
+              stripe_payment_intent_id: piId || null,
+            }, { onConflict: 'user_id,set_id' })
+            await supabase.from('users').update({
+              stripe_customer_id: session.customer as string || null,
+            }).eq('id', userId)
+            console.log(`[webhook] Master set ${setId} desbloqueado para ${userId}`)
+          } catch (err: any) {
+            console.error(`[webhook] CRITICAL: falha desbloqueando master set ${setId} para ${userId}:`, err.message)
+          }
+
+          try {
+            const { data: msRow } = await supabase.from('master_sets').select('nome').eq('set_id', setId).limit(1)
+            const nomeSet = msRow?.[0]?.nome || setId
+            await registrarReceitaStripe(supabase, {
+              paymentIntentId:    piId,
+              valorTotalCentavos: session.amount_total || 0,
+              descricao:          `Master Set — ${nomeSet}`,
+              dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
+              userId,
+            })
+          } catch (err: any) {
+            console.error(`[webhook] CRITICAL: falha registrando receita master set:`, err.message)
+          }
+          break
+        }
+
         // ─── LOJISTA (subscription com trial 14 dias) ───────────────────
         if (planoMeta.startsWith('lojista_')) {
           if (!lojaId) {

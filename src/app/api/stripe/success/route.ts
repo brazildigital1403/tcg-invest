@@ -44,6 +44,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${APP}/separadores?desbloqueado=1`)
     }
 
+    // ─── Master Set ────────────────────────────────────────────────────
+    if (plano === 'master_set') {
+      const setId = session.metadata?.setId
+      return NextResponse.redirect(setId ? `${APP}/master-sets/${setId}?desbloqueado=1` : `${APP}/master-sets`)
+    }
+
     // ─── Lojista ───────────────────────────────────────────────────────
     if (plano.startsWith('lojista_')) {
       const lojaId = session.metadata?.lojaId
