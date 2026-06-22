@@ -194,6 +194,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         break
       }
 
+      // Liberar / bloquear Separadores de Fichario (cortesia admin)
+      case 'set_separadores': {
+        patch.separadores_desbloqueado = !!value
+        break
+      }
+
       default:
         return NextResponse.json({ error: 'Ação inválida' }, { status: 400 })
     }

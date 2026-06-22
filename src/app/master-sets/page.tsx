@@ -105,9 +105,9 @@ export default function MasterSetsPage() {
     <AppLayout>
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px 80px' }}>
         <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', margin: 0 }}>Master sets</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', margin: 0 }}>Master Sets</h1>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: '6px 0 0' }}>
-            Complete sets inteiros no seu fichario. Clique num set pra ver a amostra, imprima a folha e va preenchendo os bolsos.
+            Complete qualquer Master Set com a ajuda da Bynx. As cartas que você já tem vêm marcadas automaticamente — clique para ver a amostra, imprima no tamanho exato da carta e vá preenchendo apenas o que falta. Do primeiro ao último bolso, a Bynx te ajuda!
           </p>
         </div>
 

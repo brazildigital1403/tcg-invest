@@ -29,6 +29,7 @@ type User = {
   // S32: enriquecido pela API
   last_sign_in_at: string | null
   last_seen_at: string | null
+  separadores_desbloqueado: boolean
 }
 
 type Stats = {
@@ -287,6 +288,19 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
     const amount = parseInt(input)
     if (!amount || amount < 1 || amount > 1000) return showAlert('Informe um número entre 1 e 1000.', 'warning')
     await doAction('add_scan_credits', amount, `+${amount} créditos de scan adicionados.`)
+  }
+
+  async function toggleSeparadores() {
+    const liberar = !user?.separadores_desbloqueado
+    const ok = await showConfirm({
+      message: liberar
+        ? `Liberar os Separadores de Fichário (cortesia) para ${user?.email}?`
+        : `Bloquear os Separadores de Fichário de ${user?.email}?`,
+      danger: !liberar,
+      confirmLabel: liberar ? 'Liberar' : 'Bloquear',
+    })
+    if (!ok) return
+    await doAction('set_separadores', liberar, liberar ? 'Separadores liberados.' : 'Separadores bloqueados.')
   }
 
   async function sendProEmail() {
@@ -600,6 +614,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
             )}
             <ActionButton label="Estender trial"  onClick={extendTrial} color="#60a5fa" busy={busy} variant="outline" />
             <ActionButton label="+ Créditos scan" onClick={addCredits}  color="#22c55e" busy={busy} variant="outline" />
+            <ActionButton label={user.separadores_desbloqueado ? 'Bloquear separadores' : 'Liberar separadores'} onClick={toggleSeparadores} color="#f59e0b" busy={busy} variant="outline" />
 
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '16px 0', paddingTop: 16 }}>
               <h3 style={{ ...sectionTitle, fontSize: 10, marginBottom: 10 }}>⚠️ Zona perigosa</h3>
