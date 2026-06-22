@@ -2,7 +2,7 @@ import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 
 export const metadata = {
-  title: 'Política de Privacidade — Bynx',
+  title: 'Política de Privacidade',
   description: 'Saiba como o Bynx coleta, usa e protege seus dados pessoais conforme a LGPD.',
 }
 

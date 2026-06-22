@@ -160,6 +160,13 @@ export default function ContactModal({ onClose }: Props) {
           </div>
         )}
 
+        <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+            Prefere e-mail direto?{' '}
+            <a href="mailto:suporte@bynx.gg" style={{ color: '#f59e0b', textDecoration: 'none' }}>suporte@bynx.gg</a>
+          </p>
+        </div>
+
       </div>
     </div>
   )

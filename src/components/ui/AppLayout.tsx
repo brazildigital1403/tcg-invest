@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount,
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
@@ -147,6 +148,7 @@ const TAB_SHORT: Record<string, string> = { '/dashboard-financeiro': 'Início', 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { openContactModal } = useContactModal()
   const [patrimonio, setPatrimonio] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifs, setNotifs] = useState<any[]>([])
@@ -684,9 +686,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 14, marginTop: 4 }}>
-              <a href="mailto:suporte@bynx.gg" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 12, transition: 'color 0.15s' }}
+              <button onClick={openContactModal} style={{ background: 'none', border: 'none', padding: 0, color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'color 0.15s' }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>Fale conosco</a>
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}>Fale conosco</button>
               <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
               <a href="/faq" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 12, transition: 'color 0.15s' }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}

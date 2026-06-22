@@ -2,7 +2,7 @@ import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 
 export const metadata = {
-  title: 'Termos de Uso — Bynx',
+  title: 'Termos de Uso',
   description: 'Termos e condições de uso da plataforma Bynx.',
 }
 

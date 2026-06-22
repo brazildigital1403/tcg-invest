@@ -6,7 +6,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = {
-  title: 'Perguntas Frequentes (FAQ) · Bynx',
+  title: 'Perguntas Frequentes (FAQ)',
   description:
     'Tire suas dúvidas sobre o Bynx: como adicionar cartas, scanner por foto, marketplace, programa Indique e Ganhe, planos e mais. Respostas claras pra colecionadores brasileiros de Pokémon TCG.',
   alternates: { canonical: 'https://bynx.gg/faq' },
