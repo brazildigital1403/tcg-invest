@@ -129,7 +129,7 @@ function TestimonialsCarousel() {
   }
 
   return (
-    <section style={{ padding: '60px 0 40px', margin: '0 auto' }}>
+    <section className="lp-bleed" style={{ padding: '60px 0 40px', margin: '0 auto' }}>
       <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 32px', padding: '0 24px' }}>
         <h2 style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
           O que os players dizem
@@ -346,12 +346,13 @@ export default function Home() {
   }
 
   return (
-    <div style={{ fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", background: '#080a0f', color: '#f0f0f0', minHeight: '100vh' }}>
+    <div className="lp-root" style={{ fontFamily: "'DM Sans', 'Sora', system-ui, sans-serif", background: '#080a0f', color: '#f0f0f0', minHeight: '100vh' }}>
 
       {/* CSS responsivo landing */}
       <style>{`
         .lp-dor-grid { grid-template-columns: repeat(4, 1fr); }
         @media (max-width: 768px) {
+  .lp-root > section:not(.lp-bleed) { padding-left: 16px !important; padding-right: 16px !important; }
   .lp-hero { padding-top: 40px !important; padding-bottom: 48px !important; min-height: auto !important; }
   .lp-hero > h1 { font-size: clamp(30px, 8.5vw, 46px) !important; margin-bottom: 16px !important; }
   .lp-hero > p { font-size: 16px !important; line-height: 1.55 !important; margin-bottom: 20px !important; }
