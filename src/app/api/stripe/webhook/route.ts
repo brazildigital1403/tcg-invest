@@ -24,7 +24,7 @@
 // 5. Renovação detecta se sub é de user ou de loja (busca em ambas as tabelas).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail } from '@/lib/email'
+import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
@@ -392,6 +392,19 @@ export async function POST(req: NextRequest) {
             })
           } catch (err: any) {
             console.error(`[webhook] CRITICAL: falha registrando receita master set:`, err.message)
+          }
+
+          try {
+            const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
+            if (uData?.[0]?.email) {
+              const { data: psRow } = await supabase.from('pokemon_sets').select('name_pt, name').eq('id', setId).limit(1)
+              const { data: msRow2 } = await supabase.from('master_sets').select('nome').eq('set_id', setId).limit(1)
+              const nomeExibicao = psRow?.[0]?.name_pt || msRow2?.[0]?.nome || setId
+              await sendMasterSetUnlockedEmail(uData[0].email, uData[0].name || '', nomeExibicao, setId).catch(console.error)
+              console.log(`[webhook] email master set enviado para ${uData[0].email}`)
+            }
+          } catch (err: any) {
+            console.error(`[webhook] falha enviando email master set:`, err.message)
           }
           break
         }

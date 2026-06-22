@@ -171,6 +171,31 @@ function badge(text: string, color: string, bg: string) {
 
 // ── 1. Email de boas-vindas ────────────────────────────────────────────────────
 
+// ── Master Set desbloqueado (compra a-la-carte) ──────────────────────────────
+
+export async function sendMasterSetUnlockedEmail(to: string, name: string, setName: string, setId: string) {
+  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const printUrl = addUtm(`${APP_URL}/master-sets/${setId}`, 'master-set-unlocked', 'cta-button')
+  const html = baseLayout(`
+    ${badge('Master Set liberado', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1(`Seu Master Set chegou, ${firstName}! 🗂️`)}
+    ${p(`O <strong style="color:#f59e0b;">${setName}</strong> foi desbloqueado na sua conta. Agora é só abrir as folhas de fichário, marcar o que você já tem e imprimir pra completar o set.`)}
+    ${divider()}
+    <table width="100%" cellpadding="0" cellspacing="0">
+      ${['🗂️ Folhas de 9 bolsos no tamanho exato da carta', '✅ Cartas que você já tem aparecem marcadas', '🖨️ Modo imagem ou econômico (número + nome)', '🔎 Filtro "só o que falta" pra focar nos buracos'].map(f => `
+        <tr><td style="padding:6px 0;">
+          <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">${f}</p>
+        </td></tr>`).join('')}
+    </table>
+    ${btn('Abrir e imprimir →', printUrl)}
+    ${divider()}
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Acesso vitalício — esse Master Set fica liberado na sua conta pra sempre. Dúvidas? Fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+  `, `Seu Master Set ${setName} foi desbloqueado — imprima as folhas de fichário.`)
+
+  return resend.emails.send({ from: FROM, to, subject: `🗂️ Master Set liberado: ${setName}`, html })
+}
+
 export async function sendWelcomeEmail(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'Colecionador'
   const html = baseLayout(`
