@@ -19,6 +19,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import PromoBanner from '@/components/ui/PromoBanner'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import PriceHistory from '@/components/ui/PriceHistory'
+import WatchButton from '@/components/ui/WatchButton'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', {
@@ -365,6 +366,8 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
             </div>
           </div>
         </div>
+
+        <WatchButton cardId={card.id} full />
 
         <PriceHistory cardId={card.id} />
 

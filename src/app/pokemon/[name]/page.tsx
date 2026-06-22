@@ -22,6 +22,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import AdSlot from '@/components/ui/AdSlot'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import PriceHistory from '@/components/ui/PriceHistory'
+import WatchButton from '@/components/ui/WatchButton'
 
 export const revalidate = 3600
 
@@ -495,21 +496,7 @@ export default async function PokemonHubPage({
                 >
                   Tenho um {hub.name} →
                 </Link>
-                <Link
-                  href="/"
-                  style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    color: 'rgba(255,255,255,0.75)',
-                    fontWeight: 600,
-                    fontSize: 14,
-                    padding: '12px 22px',
-                    borderRadius: 11,
-                    textDecoration: 'none',
-                  }}
-                >
-                  🔔 Acompanhar preço
-                </Link>
+                {hub.top_card_id && <WatchButton cardId={hub.top_card_id} />}
               </div>
             </div>
           </div>
