@@ -62,6 +62,32 @@ function IconGift({ size = 20, color = 'currentColor' }: { size?: number; color?
   )
 }
 
+function IconMasterSets({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <rect x='2.5' y='2.5' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+      <rect x='8' y='2.5' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+      <rect x='13.5' y='2.5' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+      <rect x='2.5' y='8' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+      <rect x='8' y='8' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+      <rect x='13.5' y='8' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+      <rect x='2.5' y='13.5' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+      <rect x='8' y='13.5' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+      <rect x='13.5' y='13.5' width='4' height='4' rx='1' stroke={color} strokeWidth='1.4' />
+    </svg>
+  )
+}
+
+function IconMais({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <circle cx='4' cy='10' r='1.6' fill={color} />
+      <circle cx='10' cy='10' r='1.6' fill={color} />
+      <circle cx='16' cy='10' r='1.6' fill={color} />
+    </svg>
+  )
+}
+
 // Chevron recolher/expandir sidebar
 function IconChevron({ collapsed, color = 'rgba(255,255,255,0.55)' }: { collapsed: boolean; color?: string }) {
   return (
@@ -85,25 +111,39 @@ const fmt = (v: number) =>
 
 // ─── Definições de itens de menu ────────────────────────────────────────────
 
+type GroupKey = 'colecao' | 'explorar' | 'imprimir' | 'conta'
+
 type MenuItem = {
   name: string
   full: string
   href: string
   Icon: (props: { size?: number; color?: string }) => JSX.Element
+  group: GroupKey
 }
 
-const ITEM_DASHBOARD: MenuItem = { name: 'Dashboard', full: 'Dashboard', href: '/dashboard-financeiro', Icon: IconDashboard }
-const ITEM_COLECAO: MenuItem = { name: 'Coleção', full: 'Minha Coleção', href: '/minha-colecao', Icon: IconCollection }
-const ITEM_POKEDEX: MenuItem = { name: 'Pokédex', full: 'Pokédex', href: '/pokedex', Icon: IconPokedex }
-const ITEM_MARKETPLACE: MenuItem = { name: 'Marketplace', full: 'Marketplace', href: '/marketplace', Icon: IconMarketplace }
-const ITEM_SEPARADORES: MenuItem = { name: 'Separadores', full: 'Separadores', href: '/separadores', Icon: IconSeparador }
-const ITEM_INDIQUE: MenuItem = { name: 'Indique', full: 'Indique e Ganhe', href: '/indique-e-ganhe', Icon: IconGift }
-const ITEM_CONTA: MenuItem = { name: 'Conta', full: 'Minha Conta', href: '/minha-conta', Icon: IconAccount }
-const ITEM_MINHA_LOJA: MenuItem = { name: 'Loja', full: 'Minha Loja', href: '/minha-loja', Icon: IconMinhaLoja }
-const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas }
-const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat }
+const ITEM_DASHBOARD: MenuItem = { name: 'Dashboard', full: 'Dashboard', href: '/dashboard-financeiro', Icon: IconDashboard, group: 'colecao' }
+const ITEM_COLECAO: MenuItem = { name: 'Coleção', full: 'Minha Coleção', href: '/minha-colecao', Icon: IconCollection, group: 'colecao' }
+const ITEM_POKEDEX: MenuItem = { name: 'Pokédex', full: 'Pokédex', href: '/pokedex', Icon: IconPokedex, group: 'explorar' }
+const ITEM_MARKETPLACE: MenuItem = { name: 'Marketplace', full: 'Marketplace', href: '/marketplace', Icon: IconMarketplace, group: 'explorar' }
+const ITEM_SEPARADORES: MenuItem = { name: 'Separadores', full: 'Separadores', href: '/separadores', Icon: IconSeparador, group: 'imprimir' }
+const ITEM_INDIQUE: MenuItem = { name: 'Indique', full: 'Indique e Ganhe', href: '/indique-e-ganhe', Icon: IconGift, group: 'conta' }
+const ITEM_CONTA: MenuItem = { name: 'Conta', full: 'Minha Conta', href: '/minha-conta', Icon: IconAccount, group: 'conta' }
+const ITEM_MINHA_LOJA: MenuItem = { name: 'Loja', full: 'Minha Loja', href: '/minha-loja', Icon: IconMinhaLoja, group: 'conta' }
+const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas, group: 'explorar' }
+const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat, group: 'conta' }
 
 // ─── Componente ─────────────────────────────────────────────────────────────
+
+const ITEM_MASTER_SETS: MenuItem = { name: 'Master Sets', full: 'Master Sets', href: '/master-sets', Icon: IconMasterSets, group: 'imprimir' }
+
+const GROUP_ORDER: { key: GroupKey; label: string }[] = [
+  { key: 'colecao', label: 'Minha coleção' },
+  { key: 'explorar', label: 'Explorar' },
+  { key: 'imprimir', label: 'Imprimir' },
+  { key: 'conta', label: 'Conta' },
+]
+const BOTTOM_TAB_HREFS = ['/dashboard-financeiro', '/minha-colecao', '/marketplace', '/pokedex']
+const TAB_SHORT: Record<string, string> = { '/dashboard-financeiro': 'Início', '/marketplace': 'Mercado' }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -163,16 +203,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Monta menu adaptativo
   const menu = useMemo<MenuItem[]>(() => {
     if (temLoja === null || temCartas === null) {
-      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
+      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
     }
     if (isLojistaPuro) {
       return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE]
     }
-    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES]
+    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE)
     return base
   }, [temLoja, temCartas, isLojistaPuro])
+
+  const primaryTabs = useMemo<MenuItem[]>(() => {
+    const inBottom = BOTTOM_TAB_HREFS.map(h => menu.find(m => m.href === h)).filter(Boolean) as MenuItem[]
+    return inBottom.length >= 3 ? inBottom : menu.slice(0, 4)
+  }, [menu])
+  const maisItems = useMemo<MenuItem[]>(() => menu.filter(m => !primaryTabs.includes(m)), [menu, primaryTabs])
 
   const logoHref = isLojistaPuro ? '/minha-loja' : '/dashboard-financeiro'
   const mostrarPatrimonio = !isLojistaPuro
@@ -473,7 +519,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-            {menu.map(item => {
+            {GROUP_ORDER.map(g => {
+              const gItems = menu.filter(m => m.group === g.key)
+              if (gItems.length === 0) return null
+              return (
+                <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {!collapsed && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.32)', letterSpacing: '0.04em', margin: '11px 0 2px', paddingLeft: 12 }}>{g.label}</div>}
+                  {gItems.map(item => {
               const active = pathname === item.href
               const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
               return (
@@ -498,6 +550,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <item.Icon size={16} color={active ? "#f59e0b" : "rgba(255,255,255,0.45)"} />
                   {!collapsed && item.full}
                 </Link>
+              )
+                  })}
+                </div>
               )
             })}
           </nav>
@@ -666,9 +721,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           background: 'rgba(8,10,15,0.98)',
           borderTop: '1px solid rgba(255,255,255,0.1)',
           alignItems: 'stretch',
-          overflowX: 'auto',
         }}>
-          {menu.map(item => {
+          {primaryTabs.map(item => {
             const active = pathname === item.href
             const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
             return (
@@ -677,7 +731,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 tabIndex={dimmed ? -1 : undefined}
                 onClick={dimmed ? (e) => e.preventDefault() : undefined}
                 style={{
-                  flex: '0 0 auto', minWidth: 64,
+                  flex: 1, minWidth: 0,
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
                   textDecoration: 'none',
@@ -688,12 +742,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   transition: 'opacity 0.2s',
                 }}>
                 <item.Icon size={19} color={active ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />
-                <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
-                  {item.name}
+                <span style={{ fontSize: 10, fontWeight: active ? 700 : 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
+                  {TAB_SHORT[item.href] || item.name}
                 </span>
               </Link>
             )
           })}
+          {maisItems.length > 0 && (
+            <button onClick={() => setDrawerOpen(true)}
+              style={{
+                flex: 1, minWidth: 0, background: 'none', border: 'none', fontFamily: 'inherit',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: 3, padding: '8px 4px 10px', cursor: 'pointer',
+                color: drawerOpen ? '#f59e0b' : 'rgba(255,255,255,0.35)',
+                borderTop: drawerOpen ? '2px solid #f59e0b' : '2px solid transparent',
+              }}>
+              <IconMais size={19} color={drawerOpen ? '#f59e0b' : 'rgba(255,255,255,0.35)'} />
+              <span style={{ fontSize: 10, letterSpacing: '0.01em' }}>Mais</span>
+            </button>
+          )}
         </nav>
 
         {/* ── DRAWER mobile ── */}
@@ -720,7 +787,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
 
               <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                {menu.map(item => {
+                {GROUP_ORDER.map(g => {
+                  const gItems = maisItems.filter(m => m.group === g.key)
+                  if (gItems.length === 0) return null
+                  return (
+                    <div key={g.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.32)', letterSpacing: '0.04em', margin: '10px 0 2px', paddingLeft: 6 }}>{g.label}</div>
+                      {gItems.map(item => {
                   const active = pathname === item.href
                   const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
                   return (
@@ -744,6 +817,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       {item.full}
                       {active && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />}
                     </Link>
+                  )
+                      })}
+                    </div>
                   )
                 })}
               </nav>
