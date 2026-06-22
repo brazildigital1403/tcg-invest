@@ -7,7 +7,7 @@
  *  - Esquerda: a carta mais valiosa em destaque (nº1) + nº2/nº3 atras (profundidade).
  *  - Direita: painel de mercado ao vivo em ranking, com abas Em alta / Em queda
  *    (toggle 7/30 dias) e Mais valiosas. Le get_price_movers + get_top_cards.
- * No mobile as colunas empilham.
+ * No mobile as colunas empilham (espacamento e tamanhos ajustados via media query).
  */
 
 import { useState, useEffect } from 'react'
@@ -80,25 +80,37 @@ export default function HomeVitrines() {
     </button>
   )
 
-  const cardImg = (src: string | null, alt: string, w: number) =>
+  const cardImg = (src: string | null, alt: string, cls: string) =>
     src
-      ? <img src={src} alt={alt} loading="lazy" style={{ width: w, height: 'auto', display: 'block', borderRadius: 11, border: '1px solid rgba(255,255,255,0.14)' }} />
-      : <div style={{ width: w, height: w * 1.4, borderRadius: 11, border: '1px solid rgba(255,255,255,0.14)', background: '#11151f' }} />
+      ? <img src={src} alt={alt} loading="lazy" className={cls} />
+      : <div className={`${cls} hv-ph`} />
 
   return (
-    <section style={{ maxWidth: 1180, margin: '0 auto', padding: '44px 24px 0' }}>
+    <section className="hv-sec">
       <style>{`
+        .hv-sec { max-width:1180px; margin:0 auto; padding:44px 24px 56px; }
         .hv-split { display:grid; grid-template-columns:1fr 2fr; gap:30px; align-items:center; }
         .hv-tab { font:inherit; font-size:13px; font-weight:700; padding:8px 14px; border-radius:10px; border:1px solid transparent; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
-        .hv-showcase { position:relative; min-height:300px; display:flex; align-items:center; justify-content:center; }
-        .hv-showcase::before { content:''; position:absolute; top:44%; left:50%; transform:translate(-50%,-50%); width:280px; height:280px; background:radial-gradient(circle, rgba(245,158,11,0.16), transparent 68%); pointer-events:none; }
+        .hv-showcase { position:relative; min-height:250px; display:flex; align-items:center; justify-content:center; }
+        .hv-showcase::before { content:''; position:absolute; top:46%; left:50%; transform:translate(-50%,-50%); width:270px; height:270px; background:radial-gradient(circle, rgba(245,158,11,0.16), transparent 68%); pointer-events:none; }
+        .hv-imgF { width:150px; height:auto; display:block; border-radius:11px; border:1px solid rgba(255,255,255,0.14); }
+        .hv-imgB { width:122px; height:auto; display:block; border-radius:11px; border:1px solid rgba(255,255,255,0.14); }
+        .hv-ph { aspect-ratio:5 / 7; background:#11151f; }
         .hv-front { position:relative; z-index:3; transform:rotate(-3deg); text-decoration:none; }
         .hv-backL { position:absolute; top:50%; left:50%; z-index:1; transform:translate(-50%,-50%) translateX(-84px) translateY(10px) rotate(-13deg); opacity:0.72; }
         .hv-backR { position:absolute; top:50%; left:50%; z-index:1; transform:translate(-50%,-50%) translateX(84px) translateY(10px) rotate(13deg); opacity:0.72; }
         .hv-row { display:flex; align-items:center; gap:12px; padding:10px 4px; text-decoration:none; color:inherit; border-radius:9px; }
         .hv-row + .hv-row { border-top:1px solid rgba(255,255,255,0.05); }
         .hv-row:hover { background:rgba(255,255,255,0.025); }
-        @media (max-width:860px){ .hv-split{ grid-template-columns:1fr !important; gap:34px; } .hv-showcase{ min-height:280px !important; } }
+        @media (max-width:860px){
+          .hv-sec { padding:30px 18px 44px; }
+          .hv-split { grid-template-columns:1fr; gap:22px; }
+          .hv-showcase { min-height:214px; }
+          .hv-imgF { width:138px; }
+          .hv-imgB { width:108px; }
+          .hv-backL { transform:translate(-50%,-50%) translateX(-70px) translateY(8px) rotate(-13deg); }
+          .hv-backR { transform:translate(-50%,-50%) translateX(70px) translateY(8px) rotate(13deg); }
+        }
       `}</style>
 
       <div className="hv-split">
@@ -106,19 +118,19 @@ export default function HomeVitrines() {
         {/* ── Coluna 1: cartas ── */}
         <div>
           <div className="hv-showcase">
-            {backL && <div className="hv-backL">{cardImg(backL.image_small, cleanName(backL.name), 124)}</div>}
-            {backR && <div className="hv-backR">{cardImg(backR.image_small, cleanName(backR.name), 124)}</div>}
+            {backL && <div className="hv-backL">{cardImg(backL.image_small, cleanName(backL.name), 'hv-imgB')}</div>}
+            {backR && <div className="hv-backR">{cardImg(backR.image_small, cleanName(backR.name), 'hv-imgB')}</div>}
             {front && (
               <Link href={`/carta/${front.id}`} className="hv-front" style={{ filter: 'drop-shadow(0 0 30px rgba(245,158,11,0.3))' }}>
                 <span style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%) rotate(-3deg)', zIndex: 4, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 9.5, fontWeight: 900, letterSpacing: '0.05em', padding: '4px 11px', borderRadius: 20, whiteSpace: 'nowrap', boxShadow: '0 4px 14px rgba(245,158,11,0.4)' }}>★ MAIS VALIOSA</span>
-                {cardImg(front.image_small, cleanName(front.name), 152)}
+                {cardImg(front.image_small, cleanName(front.name), 'hv-imgF')}
                 {front.preco_medio != null && (
                   <span style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%) rotate(-3deg)', zIndex: 4, background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(245,158,11,0.5)', color: '#f59e0b', fontSize: 12, fontWeight: 800, padding: '4px 12px', borderRadius: 8, whiteSpace: 'nowrap' }}>{brl(Number(front.preco_medio))}</span>
                 )}
               </Link>
             )}
           </div>
-          <div style={{ textAlign: 'center', marginTop: 8 }}>
+          <div style={{ textAlign: 'center', marginTop: 6 }}>
             <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'rgba(245,158,11,0.85)' }}>Destaque do dia</div>
             <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.62)', marginTop: 3 }}>A carta mais valiosa do Brasil agora</div>
           </div>
