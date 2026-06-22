@@ -138,37 +138,62 @@ export default function MasterSetSheetPage() {
   return (
     <AppLayout>
       <style>{`
-        @page { size: A4 portrait; margin: 0; }
         @media print {
-          .no-print { display: none !important; }
-          body { background: #fff !important; }
-          .ms-print-page {
+          .no-print, .tcg-sidebar, .tcg-header, .tcg-bottom-nav,
+          footer, header, nav, aside { display: none !important; }
+
+          html, body {
+            background: white !important;
+            margin: 0 !important; padding: 0 !important;
+            width: 210mm !important;
+            overflow: visible !important;
+          }
+          .tcg-root, .tcg-main-col, .tcg-content {
+            display: block !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+          }
+          .tcg-content > div {
+            max-width: 210mm !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            width: 210mm !important;
+          }
+
+          .print-page {
+            width: 210mm !important;
+            height: 297mm !important;
+            page-break-after: always !important;
+            break-after: page !important;
             display: grid !important;
             grid-template-columns: repeat(3, 63mm) !important;
             grid-template-rows: repeat(3, 88mm) !important;
-            justify-content: center !important;
-            align-content: center !important;
-            gap: 2mm !important;
-            width: 210mm !important;
-            height: 297mm !important;
+            gap: 3mm !important;
+            padding: 7.5mm 7.5mm 13.5mm !important;
+            box-sizing: border-box !important;
+            background: white !important;
             margin: 0 !important;
-            padding: 0 !important;
-            background: #fff !important;
             border: none !important;
             border-radius: 0 !important;
-            page-break-after: always !important;
-            break-after: page !important;
           }
-          .ms-print-page:last-child { page-break-after: auto !important; break-after: auto !important; }
+          .print-page:last-child { page-break-after: auto !important; break-after: auto !important; }
+          .print-page, .print-page * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
           .ms-pocket {
             width: 63mm !important;
             height: 88mm !important;
             aspect-ratio: auto !important;
-            box-shadow: none !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
-          .ms-bynx { width: 5mm !important; height: 5mm !important; }
+          .ms-bynx { width: 5mm !important; height: 5mm !important; top: 1.5mm !important; right: 1.5mm !important; }
+
           .print-blocked * { display: none !important; }
           .print-blocked::before {
             display: block !important;
@@ -176,29 +201,30 @@ export default function MasterSetSheetPage() {
             font-size: 14pt; text-align: center; margin-top: 120mm; color: #000;
           }
         }
+        @page { size: A4 portrait; margin: 0; }
       `}</style>
 
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 16px 80px' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(16px,4vw,32px) clamp(12px,4vw,24px)' }}>
 
-        <button onClick={() => router.push('/master-sets')} className="no-print" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', padding: 0, marginBottom: 14 }}>
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M12 4l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          Voltar aos master sets
-        </button>
+        <div className="no-print">
+          <button onClick={() => router.push('/master-sets')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', padding: 0, marginBottom: 14 }}>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M12 4l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            Voltar aos master sets
+          </button>
 
-        {loading ? (
-          <div className="no-print" style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: 60 }}>Carregando...</div>
-        ) : erro ? (
-          <div className="no-print" style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 60 }}>{erro}</div>
-        ) : detail && (
-          <>
-            {sucesso && (
-              <div className="no-print" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 12, padding: '12px 16px', marginBottom: 18, color: '#22c55e', fontSize: 14 }}>
-                <strong>Master set desbloqueado!</strong> Ja pode imprimir a folha completa.
-              </div>
-            )}
+          {loading ? (
+            <div style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: 60 }}>Carregando...</div>
+          ) : erro ? (
+            <div style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 60 }}>{erro}</div>
+          ) : detail && (
+            <>
+              {sucesso && (
+                <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 12, padding: '12px 16px', marginBottom: 18, color: '#22c55e', fontSize: 14 }}>
+                  <strong>Master set desbloqueado!</strong> Ja pode imprimir a folha completa.
+                </div>
+              )}
 
-            <div className="no-print" style={{ marginBottom: 18 }}>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: 0 }}>{detail.nome}</h1>
+              <h1 style={{ fontSize: 'clamp(18px,5vw,24px)', fontWeight: 800, letterSpacing: '-0.03em', color: '#fff', margin: 0 }}>{detail.nome}</h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{detail.total_cartas} cartas · {detail.total_paginas} paginas</span>
                 {detail.owned_cartas > 0 && (
@@ -208,9 +234,9 @@ export default function MasterSetSheetPage() {
                 )}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
-                {!locked && (
-                  <>
+              {!locked && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
                     <button onClick={() => setSoFalta(v => !v)} style={{ fontSize: 13, fontWeight: 600, color: soFalta ? '#000' : '#fff', background: soFalta ? GRAD : 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '8px 14px', cursor: 'pointer' }}>
                       So o que falta
                     </button>
@@ -219,40 +245,64 @@ export default function MasterSetSheetPage() {
                       <button onClick={() => setModo('economia')} style={{ fontSize: 12, fontWeight: 600, color: modo === 'economia' ? '#000' : 'rgba(255,255,255,0.6)', background: modo === 'economia' ? GRAD : 'transparent', border: 'none', padding: '8px 12px', cursor: 'pointer' }}>Economia de tinta</button>
                     </div>
                     <button onClick={() => window.print()} style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: '#000', background: GRAD, border: 'none', borderRadius: 10, padding: '9px 18px', cursor: 'pointer' }}>Imprimir</button>
-                  </>
-                )}
-              </div>
-            </div>
+                  </div>
 
-            {locked && (
-              <div className="no-print" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 22, marginBottom: 22 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Pagina 1 liberada como amostra.</div>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>Desbloqueie pra imprimir as {detail.total_paginas} paginas completas, com a sua colecao ja marcada.</div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button onClick={comprar} disabled={comprando} style={{ fontSize: 14, fontWeight: 700, color: '#000', background: GRAD, border: 'none', borderRadius: 10, padding: '11px 20px', cursor: comprando ? 'wait' : 'pointer', opacity: comprando ? 0.6 : 1 }}>
-                    {comprando ? '...' : `Desbloquear por ${precoFmt(detail.preco_centavos)}`}
-                  </button>
-                  <button onClick={assinarAnual} style={{ fontSize: 13, fontWeight: 600, color: '#fbbf24', background: 'transparent', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '11px 18px', cursor: 'pointer' }}>
-                    Ou libere todos no plano anual
-                  </button>
-                </div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 12 }}>Compra unica, vitalicia. O plano anual inclui todos os master sets enquanto estiver ativo.</div>
-              </div>
-            )}
+                  <div style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 10, padding: '9px 14px', fontSize: 12, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                      <circle cx="10" cy="10" r="7.5" stroke="#f59e0b" strokeWidth="1.3" />
+                      <path d="M10 9v5M10 7v.5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round" />
+                    </svg>
+                    <span>
+                      <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Ao imprimir, selecione:</strong>{' '}
+                      <strong style={{ color: 'rgba(255,255,255,0.65)' }}>Sem margens</strong>{', tamanho '}
+                      <strong style={{ color: 'rgba(255,255,255,0.65)' }}>A4</strong>{', escala '}
+                      <strong style={{ color: 'rgba(255,255,255,0.65)' }}>100%</strong>.
+                    </span>
+                  </div>
+                </>
+              )}
 
-            <div className={locked ? 'print-blocked' : undefined}>
-              {pages.map((page, pi) => (
-                <div key={pi} className="ms-print-page" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, padding: 16, marginBottom: 18, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12 }}>
-                  {page.map((c) => <MSPocket key={c.card_id} card={c} modo={modo} />)}
-                </div>
-              ))}
-              {pages.length === 0 && (
-                <div className="no-print" style={{ textAlign: 'center', padding: 50, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
-                  {soFalta ? 'Voce ja tem todas as cartas deste set!' : 'Nenhuma carta encontrada.'}
+              {locked && (
+                <div className="sep-banner" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 16, padding: 'clamp(16px,4vw,28px) clamp(16px,4vw,32px)', margin: '20px 0 4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+                  <div style={{ minWidth: 220, flex: 1 }}>
+                    <p style={{ fontSize: 'clamp(15px,4vw,18px)', fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+                      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="4" y="9" width="12" height="9" rx="2" stroke="#f59e0b" strokeWidth="1.4" /><path d="M7 9V6a3 3 0 016 0v3" stroke="#f59e0b" strokeWidth="1.4" strokeLinecap="round" /></svg>
+                      Preview — 9 cartas de amostra
+                    </p>
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                      Desbloqueie o master set <strong style={{ color: '#f59e0b' }}>{detail.nome}</strong> ({detail.total_cartas} cartas) por apenas <strong style={{ color: '#f59e0b' }}>{precoFmt(detail.preco_centavos)} uma unica vez</strong>. Acesso vitalicio, com a sua colecao ja marcada.
+                    </p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
+                      ✓ {detail.total_cartas} cartas · ✓ Sua colecao marcada · ✓ Para sempre · ✓ Impressao ilimitada
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                    <button onClick={comprar} disabled={comprando} style={{ background: GRAD, border: 'none', borderRadius: 12, padding: '14px 28px', color: '#000', fontWeight: 800, fontSize: 15, cursor: comprando ? 'wait' : 'pointer', opacity: comprando ? 0.7 : 1 }}>
+                      {comprando ? 'Aguarde...' : `Desbloquear por ${precoFmt(detail.preco_centavos)}`}
+                    </button>
+                    <button onClick={assinarAnual} style={{ background: 'transparent', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 12, padding: '10px 28px', color: '#fbbf24', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                      Ou libere todos no plano anual
+                    </button>
+                  </div>
                 </div>
               )}
-            </div>
-          </>
+            </>
+          )}
+        </div>
+
+        {!loading && !erro && detail && (
+          <div className={locked ? 'print-blocked' : undefined} style={{ marginTop: 18 }}>
+            {pages.map((page, pi) => (
+              <div key={pi} className="print-page" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, padding: 16, marginBottom: 18, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12 }}>
+                {page.map((c) => <MSPocket key={c.card_id} card={c} modo={modo} />)}
+              </div>
+            ))}
+            {pages.length === 0 && (
+              <div className="no-print" style={{ textAlign: 'center', padding: 50, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+                {soFalta ? 'Voce ja tem todas as cartas deste set!' : 'Nenhuma carta encontrada.'}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </AppLayout>

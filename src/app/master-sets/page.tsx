@@ -40,7 +40,6 @@ export default function MasterSetsPage() {
   const router = useRouter()
   const [sets, setSets] = useState<MasterSet[]>([])
   const [loading, setLoading] = useState(true)
-  const [comprando, setComprando] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [pedido, setPedido] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -64,26 +63,6 @@ export default function MasterSetsPage() {
   useEffect(() => { carregar() }, [carregar])
 
   const precoFmt = (c: number) => `R$ ${(c / 100).toFixed(2).replace('.', ',')}`
-
-  async function comprar(setId: string) {
-    setComprando(setId)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) { router.push('/'); return }
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ plano: 'master_set', setId }),
-      })
-      const json = await res.json()
-      if (json.url) { window.location.href = json.url; return }
-      if (json.code === 'ALREADY_OWNED' || json.code === 'INCLUDED_ANNUAL') { router.push(`/master-sets/${setId}`); return }
-      alert(json.error || 'Nao foi possivel iniciar a compra.')
-    } catch {
-      alert('Erro ao iniciar a compra.')
-    }
-    setComprando(null)
-  }
 
   async function assinarAnual() {
     try {
@@ -127,13 +106,26 @@ export default function MasterSetsPage() {
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', margin: 0 }}>Master sets</h1>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: '6px 0 0' }}>
-            Complete sets inteiros no seu fichario. Imprima a folha e va preenchendo os bolsos.
+            Complete sets inteiros no seu fichario. Clique num set pra ver a amostra, imprima a folha e va preenchendo os bolsos.
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 14, padding: '12px 16px', marginBottom: 20 }}>
-          <span style={{ fontSize: 14, color: '#fbbf24' }}>O plano anual desbloqueia <strong>todos</strong> os master sets.</span>
-          <button onClick={assinarAnual} style={{ fontSize: 13, fontWeight: 600, color: '#fbbf24', background: 'transparent', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '8px 14px', cursor: 'pointer' }}>Ver plano anual</button>
+        <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 16, padding: 'clamp(16px,4vw,28px) clamp(16px,4vw,32px)', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 220, flex: 1 }}>
+            <p style={{ fontSize: 'clamp(15px,4vw,18px)', fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="#f59e0b" strokeWidth="1.4" /><path d="M3 8h14M3 12.5h14M8 3v14M12.5 3v14" stroke="#f59e0b" strokeWidth="1.2" /></svg>
+              Plano anual — todos os master sets
+            </p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+              Libere <strong style={{ color: '#f59e0b' }}>todos os master sets</strong> de uma vez com o plano anual. Ou compre avulso por <strong style={{ color: '#f59e0b' }}>R$9,99 cada</strong>, vitalicio.
+            </p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
+              ✓ Todos os sets · ✓ Novos sets ja inclusos · ✓ Sua colecao marcada · ✓ Impressao ilimitada
+            </p>
+          </div>
+          <button onClick={assinarAnual} style={{ background: GRAD, border: 'none', borderRadius: 12, padding: '14px 28px', color: '#000', fontWeight: 800, fontSize: 15, cursor: 'pointer', flexShrink: 0 }}>
+            Ver plano anual
+          </button>
         </div>
 
         {loading ? (
@@ -143,7 +135,7 @@ export default function MasterSetsPage() {
             {sets.map((s) => {
               const pct = s.total_cartas > 0 ? Math.round((s.owned_cartas / s.total_cartas) * 100) : 0
               return (
-                <div key={s.set_id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column' }}>
+                <button key={s.set_id} onClick={() => router.push(`/master-sets/${s.set_id}`)} style={{ textAlign: 'left', width: '100%', font: 'inherit', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
                   <div style={{ height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
                     <SetLogo url={s.logo_url} nome={s.nome} />
                   </div>
@@ -169,18 +161,16 @@ export default function MasterSetsPage() {
                         <span style={{ fontSize: 11, fontWeight: 600, color: s.via_anual ? '#fbbf24' : '#22c55e', background: s.via_anual ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)', padding: '3px 8px', borderRadius: 8 }}>
                           {s.via_anual ? 'Incluso no anual' : 'Desbloqueado'}
                         </span>
-                        <button onClick={() => router.push(`/master-sets/${s.set_id}`)} style={{ fontSize: 12, fontWeight: 600, color: '#000', background: GRAD, border: 'none', borderRadius: 10, padding: '8px 14px', cursor: 'pointer' }}>Imprimir</button>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#000', background: GRAD, borderRadius: 10, padding: '8px 14px' }}>Abrir</span>
                       </>
                     ) : (
                       <>
                         <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{precoFmt(s.preco_centavos)}</span>
-                        <button onClick={() => comprar(s.set_id)} disabled={comprando === s.set_id} style={{ fontSize: 12, fontWeight: 600, color: '#000', background: GRAD, border: 'none', borderRadius: 10, padding: '8px 14px', cursor: comprando === s.set_id ? 'wait' : 'pointer', opacity: comprando === s.set_id ? 0.6 : 1 }}>
-                          {comprando === s.set_id ? '...' : 'Desbloquear'}
-                        </button>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#000', background: GRAD, borderRadius: 10, padding: '8px 14px' }}>Ver amostra</span>
                       </>
                     )}
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
