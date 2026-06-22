@@ -73,7 +73,7 @@ export default function HomeVitrines() {
                   <Link key={m.card_id} href={`/carta/${m.card_id}`} style={{ flex: '0 0 168px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ position: 'relative', background: '#0c0f17', padding: '14px 14px 8px', display: 'flex', justifyContent: 'center' }}>
                       {m.image_small && <img src={m.image_small} alt={m.name} loading="lazy" style={{ width: 120, height: 167, objectFit: 'contain', borderRadius: 6 }} />}
-                      <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 11.5, fontWeight: 800, padding: '3px 8px', borderRadius: 20, background: grp.up ? 'rgba(34,197,94,0.16)' : 'rgba(239,68,68,0.16)', border: `1px solid ${grp.up ? 'rgba(34,197,94,0.45)' : 'rgba(239,68,68,0.45)'}`, color: grp.color }}>
+                      <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 11.5, fontWeight: 800, padding: '3px 9px', borderRadius: 20, background: grp.up ? '#16a34a' : '#dc2626', color: '#fff' }}>
                         {m.pct != null ? pctFmt(Number(m.pct)) : ''}
                       </span>
                     </div>
