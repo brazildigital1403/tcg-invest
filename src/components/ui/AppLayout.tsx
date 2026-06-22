@@ -92,17 +92,6 @@ type MenuItem = {
   Icon: (props: { size?: number; color?: string }) => JSX.Element
 }
 
-function IconMasterSets({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <rect x="3" y="3" width="14" height="14" rx="2" stroke={color} strokeWidth="1.4" />
-      <path d="M3 8h14M3 12.5h14M8 3v14M12.5 3v14" stroke={color} strokeWidth="1.2" />
-    </svg>
-  )
-}
-
-const ITEM_MASTER_SETS: MenuItem = { name: 'Master Sets', full: 'Master Sets', href: '/master-sets', Icon: IconMasterSets }
-
 const ITEM_DASHBOARD: MenuItem = { name: 'Dashboard', full: 'Dashboard', href: '/dashboard-financeiro', Icon: IconDashboard }
 const ITEM_COLECAO: MenuItem = { name: 'Coleção', full: 'Minha Coleção', href: '/minha-colecao', Icon: IconCollection }
 const ITEM_POKEDEX: MenuItem = { name: 'Pokédex', full: 'Pokédex', href: '/pokedex', Icon: IconPokedex }
@@ -143,7 +132,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  const GUEST_ALLOWED_HREFS = new Set<string>(['/pokedex', '/separadores', '/master-sets'])
+  const GUEST_ALLOWED_HREFS = new Set<string>(['/pokedex', '/separadores'])
   const isGuestExploreRoute = GUEST_ALLOWED_HREFS.has(pathname || '')
   const guestExploring = isLoggedIn === false && isGuestExploreRoute
 
@@ -174,12 +163,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Monta menu adaptativo
   const menu = useMemo<MenuItem[]>(() => {
     if (temLoja === null || temCartas === null) {
-      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
+      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
     }
     if (isLojistaPuro) {
       return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE]
     }
-    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
+    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE)
     return base

@@ -15,18 +15,25 @@ interface MasterSet {
   owned_cartas: number
   unlocked: boolean
   via_anual: boolean
+  logo_url: string | null
 }
 
 const GRAD = 'linear-gradient(135deg,#f59e0b,#ef4444)'
 
 function PocketIcon() {
   return (
-    <div style={{ width: 42, height: 42, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 3, padding: 8, flexShrink: 0 }}>
+    <div style={{ width: 42, height: 42, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 3, padding: 8 }}>
       {Array.from({ length: 9 }).map((_, i) => (
         <div key={i} style={{ borderRadius: 2, background: 'rgba(245,158,11,0.5)' }} />
       ))}
     </div>
   )
+}
+
+function SetLogo({ url, nome }: { url: string | null; nome: string }) {
+  const [err, setErr] = useState(false)
+  if (!url || err) return <PocketIcon />
+  return <img src={url} alt={nome} onError={() => setErr(true)} style={{ maxHeight: 48, maxWidth: '85%', objectFit: 'contain' }} />
 }
 
 export default function MasterSetsPage() {
@@ -137,12 +144,12 @@ export default function MasterSetsPage() {
               const pct = s.total_cartas > 0 ? Math.round((s.owned_cartas / s.total_cartas) * 100) : 0
               return (
                 <div key={s.set_id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
-                    <PocketIcon />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.nome}</div>
-                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{s.total_cartas} cartas</div>
-                    </div>
+                  <div style={{ height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                    <SetLogo url={s.logo_url} nome={s.nome} />
+                  </div>
+                  <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.nome}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{s.total_cartas} cartas</div>
                   </div>
 
                   {s.owned_cartas > 0 && (
