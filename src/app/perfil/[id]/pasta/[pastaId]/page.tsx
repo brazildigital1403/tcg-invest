@@ -68,7 +68,7 @@ export default function PastaPublica() {
     <div style={{ minHeight: '100vh', background: BG, color: '#f0f0f0', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
       {/* HEADER */}
-      <header style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,10,15,0.97)', position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
+      <header className="bx-gutter" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,10,15,0.97)', position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
           <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
         </Link>
@@ -77,7 +77,7 @@ export default function PastaPublica() {
         </Link>
       </header>
 
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '28px 20px 80px' }}>
+      <main className="bx-gutter" style={{ maxWidth: 960, margin: '0 auto', padding: '28px 20px 80px' }}>
 
         {/* Voltar ao perfil */}
         <Link href={`/perfil/${id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', marginBottom: 16 }}>

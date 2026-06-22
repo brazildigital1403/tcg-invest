@@ -251,7 +251,7 @@ export default function PerfilPage() {
       <style>{`.perfil-scroll::-webkit-scrollbar{display:none}.perfil-scroll{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
       {/* HEADER */}
-      <header style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,10,15,0.97)', position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
+      <header className="bx-gutter" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,10,15,0.97)', position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
           <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
         </Link>
@@ -260,7 +260,7 @@ export default function PerfilPage() {
         </Link>
       </header>
 
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px 80px' }}>
+      <main className="bx-gutter" style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px 80px' }}>
 
         {/* ── BANNER PERFIL PRIVADO (so o dono ve) ── */}
         {isOwnerPreview && (

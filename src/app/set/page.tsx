@@ -396,7 +396,7 @@ export default async function SetIndexPage() {
         }}
       >
         {/* Header */}
-        <header
+        <header className="bx-gutter"
           style={{
             borderBottom: '1px solid rgba(255,255,255,0.08)',
             padding: '14px 24px',
@@ -432,7 +432,7 @@ export default async function SetIndexPage() {
           </Link>
         </header>
 
-        <main style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 20px 80px' }}>
+        <main className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 20px 80px' }}>
           {/* Hero */}
           <div
             style={{

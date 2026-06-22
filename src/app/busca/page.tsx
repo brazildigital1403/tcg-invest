@@ -80,7 +80,7 @@ export default async function BuscaPage({
 
   return (
     <div style={{ minHeight: '100vh', background: '#080a0f', color: '#f0f0f0', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <header style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,10,15,0.95)', position: 'sticky', top: 0, zIndex: 10 }}>
+      <header className="bx-gutter" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,10,15,0.95)', position: 'sticky', top: 0, zIndex: 10 }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
           <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
         </Link>
@@ -89,7 +89,7 @@ export default async function BuscaPage({
         </Link>
       </header>
 
-      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px 80px' }}>
+      <main className="bx-gutter" style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px 80px' }}>
         <Breadcrumb items={breadcrumbItems} />
 
         <h1 style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.03em', margin: '20px 0 18px' }}>

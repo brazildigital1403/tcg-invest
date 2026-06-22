@@ -24,3 +24,10 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* Respiro lateral padrao do site (Bynx): 24px desktop / 16px mobile */
+.bx-gutter { padding-left: 24px !important; padding-right: 24px !important; }
+@media (max-width: 768px) {
+  .bx-gutter { padding-left: 16px !important; padding-right: 16px !important; }
+}

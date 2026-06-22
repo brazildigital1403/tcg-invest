@@ -282,7 +282,7 @@ export default async function SetPage({
         }}
       >
         {/* Header */}
-        <header
+        <header className="bx-gutter"
           style={{
             borderBottom: '1px solid rgba(255,255,255,0.08)',
             padding: '14px 24px',
@@ -318,7 +318,7 @@ export default async function SetPage({
           </Link>
         </header>
 
-        <main style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px 80px' }}>
+        <main className="bx-gutter" style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px 80px' }}>
           <Breadcrumb items={breadcrumbItems} />
           {/* Hero do set */}
           <div

@@ -494,7 +494,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           .tcg-header-logo { display: flex !important; }
           .tcg-header-menu-btn { display: flex !important; }
           .tcg-header-account { display: none !important; }
-          .tcg-content { padding: 16px 12px 100px; }
+          .tcg-content { padding: 16px 16px 100px; }
           .tcg-bottom-nav { display: flex !important; }
           .tcg-drawer-overlay { display: block; }
         }
