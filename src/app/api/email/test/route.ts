@@ -6,6 +6,7 @@ import {
   sendPurchaseConfirmationEmail,
   sendPaymentFailedEmail,
   sendDisputeAdminEmail,
+  sendMasterSetUnlockedEmail,
 } from '@/lib/email'
 
 // Rota de teste — dispara templates para um email especifico
@@ -69,6 +70,10 @@ export async function GET(req: NextRequest) {
         customer: 'cus_TESTE',
       })
       results.dispute = 'enviado'
+    }
+    if (template === 'all' || template === 'master_set') {
+      await sendMasterSetUnlockedEmail(to, nome, 'Caos Ascendente', 'cri')
+      results.master_set = 'enviado'
     }
 
     return NextResponse.json({ ok: true, to, results })
