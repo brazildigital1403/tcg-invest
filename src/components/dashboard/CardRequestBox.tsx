@@ -76,22 +76,28 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
   }, [termoTrim, tipo])
 
   // Log passivo de busca-zero (origem='auto'), 1x por termo por sessao.
-  // So loga se o termo parece nome (gate anti-ruido de numero).
+  // So loga se o termo parece nome (gate anti-ruido de numero) E o usuario
+  // PAROU de digitar por ~2,5s naquele termo sem resultado. Isso mata o ruido
+  // de digitacao incremental: "Cha" -> "Chari" -> "Chariz" nunca logam (o
+  // cleanup limpa o timer a cada tecla); so o termo final, quando assenta, loga.
   useEffect(() => {
     if (!userId || !semResultado || !pareceNome) return
     const key = termoTrim.toLowerCase()
     if (autoLogged.current.has(key)) return
-    autoLogged.current.add(key)
-    supabase
-      .from('card_requests')
-      .insert({ tipo: 'faltando', nome: termoTrim, termo_busca: termoTrim, origem: 'auto', user_id: userId })
-      .then(() => {}, () => {})
+    const t = setTimeout(() => {
+      autoLogged.current.add(key)
+      supabase
+        .from('card_requests')
+        .insert({ tipo: 'faltando', nome: termoTrim, termo_busca: termoTrim, origem: 'auto', user_id: userId })
+        .then(() => {}, () => {})
+    }, 2500)
+    return () => clearTimeout(t)
   }, [semResultado, pareceNome, termoTrim, userId])
 
   async function handleSubmit() {
-    if (!userId) { await showAlert('Faca login para reportar.', 'warning'); return }
+    if (!userId) { await showAlert('Faça login para reportar.', 'warning'); return }
     if (tipo === 'faltando' && !nome.trim() && !numero.trim()) {
-      await showAlert('Informe ao menos o nome ou o numero da carta.', 'warning'); return
+      await showAlert('Informe ao menos o nome ou o número da carta.', 'warning'); return
     }
     if (tipo === 'erro' && !cartaSelecionada && !nome.trim()) {
       await showAlert('Clique na carta com erro acima, ou informe o nome.', 'warning'); return
@@ -124,7 +130,7 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
 
     const { error } = await supabase.from('card_requests').insert(payload)
     setEnviando(false)
-    if (error) { await showAlert('Nao foi possivel enviar. Tente novamente.', 'error'); return }
+    if (error) { await showAlert('Não foi possível enviar. Tente novamente.', 'error'); return }
 
     setEnviado(true)
     setDescricao(''); setNumero(''); setColecao('')
@@ -137,8 +143,8 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
     return (
       <div style={{ margin: '18px 4px 8px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 14, padding: '18px 16px', textAlign: 'center' }}>
         <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
-        <p style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', margin: 0 }}>Recebido! Valeu por avisar.</p>
-        <p style={{ fontSize: 12, color: TEXT_MUTED, margin: '6px 0 0' }}>A gente revisa e te avisa por e-mail quando a carta for adicionada ou corrigida.</p>
+        <p style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', margin: 0 }}>Recebido! Obrigado por avisar.</p>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, margin: '6px 0 0' }}>Vamos revisar e avisamos por e-mail quando a carta for adicionada ou corrigida.</p>
         <button onClick={() => setEnviado(false)} style={{ marginTop: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: TEXT_MUTED, fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Reportar outra</button>
       </div>
     )
@@ -147,10 +153,10 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
   return (
     <div style={{ margin: '18px 4px 8px', background: 'rgba(245,158,11,0.04)', border: `1px solid ${semResultado ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.25)'}`, borderRadius: 14, padding: 16 }}>
       <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', margin: '0 0 3px' }}>
-        {semResultado ? `Nao achamos "${termoTrim}" 🔎` : 'Achou algo errado — ou nao achou? 🛠️'}
+        {semResultado ? `Não encontramos "${termoTrim}" 🔎` : 'Encontrou algo errado — ou não encontrou? 🛠️'}
       </p>
       <p style={{ fontSize: 12, color: TEXT_MUTED, margin: '0 0 12px', lineHeight: 1.5 }}>
-        {semResultado ? 'Avisa a gente que a gente cataloga pra voce.' : 'Reporta uma carta faltando ou um erro (nome, valor, imagem) numa carta que existe.'}
+        {semResultado ? 'Avise-nos e nós catalogamos para você.' : 'Reporte uma carta faltando ou um erro (nome, valor, imagem) em uma carta que existe.'}
       </p>
 
       <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, padding: 3, marginBottom: 4 }}>
@@ -169,12 +175,12 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
               <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Mega Absol ex" style={inputStyle} />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={label}>Numero</p>
+              <p style={label}>Número</p>
               <input value={numero} onChange={e => setNumero(e.target.value)} placeholder="086/132" style={inputStyle} />
             </div>
           </div>
-          <p style={label}>Colecao (opcional)</p>
-          <input value={colecao} onChange={e => setColecao(e.target.value)} placeholder="Ex: Megaevolucao" style={inputStyle} />
+          <p style={label}>Coleção (opcional)</p>
+          <input value={colecao} onChange={e => setColecao(e.target.value)} placeholder="Ex: Megaevolução" style={inputStyle} />
         </>
       ) : (
         <>
@@ -188,7 +194,7 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
           ) : (
             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Clique na carta acima, ou digite o nome" style={inputStyle} />
           )}
-          <p style={label}>O que esta errado?</p>
+          <p style={label}>O que está errado?</p>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {ERRO_TIPOS.map(et => {
               const on = erroTipo === et.value
@@ -202,11 +208,11 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
         </>
       )}
 
-      <p style={label}>{tipo === 'erro' ? 'Descreva o erro' : 'Observacao (opcional)'}</p>
-      <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2} placeholder={tipo === 'erro' ? 'Ex: o preco esta bem acima do mercado real...' : 'Algum detalhe que ajude a achar a carta'} style={{ ...inputStyle, resize: 'vertical', minHeight: 44 }} />
+      <p style={label}>{tipo === 'erro' ? 'Descreva o erro' : 'Observação (opcional)'}</p>
+      <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2} placeholder={tipo === 'erro' ? 'Ex: o preço está bem acima do mercado real...' : 'Algum detalhe que ajude a encontrar a carta'} style={{ ...inputStyle, resize: 'vertical', minHeight: 44 }} />
 
       <div style={{ display: 'flex', alignItems: 'center', marginTop: 12 }}>
-        {!userId && <span style={{ fontSize: 11, color: TEXT_MUTED }}>Faca login para reportar</span>}
+        {!userId && <span style={{ fontSize: 11, color: TEXT_MUTED }}>Faça login para reportar</span>}
         <button onClick={handleSubmit} disabled={enviando || !userId} style={{ marginLeft: 'auto', background: userId ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: userId ? '#000' : TEXT_MUTED, fontWeight: 700, fontSize: 13, padding: '9px 18px', borderRadius: 9, cursor: userId ? 'pointer' : 'default', opacity: enviando ? 0.7 : 1, fontFamily: 'inherit' }}>
           {enviando ? 'Enviando...' : 'Reportar'}
         </button>
