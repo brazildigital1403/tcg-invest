@@ -277,7 +277,7 @@ export default function PlanoLojaPage() {
         </Link>
 
         {/* ── Hero ────────────────────────────────── */}
-        <header style={S.hero}>
+        <header className="bx-gutter" style={S.hero}>
           <h1 style={S.title}>Escolha o plano da {loja.nome}</h1>
           <p style={S.subtitle}>
             Plano atual:{' '}

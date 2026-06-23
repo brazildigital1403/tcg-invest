@@ -14,7 +14,7 @@ export default function SobrePage() {
     <div style={{ background: '#080a0f', minHeight: '100vh', fontFamily: "'DM Sans', system-ui, sans-serif", color: '#f0f0f0' }}>
 
       {/* Header simples */}
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="bx-gutter" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
           <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto' }} />
         </Link>
@@ -24,7 +24,7 @@ export default function SobrePage() {
       </div>
 
       {/* Conteudo */}
-      <div style={{ maxWidth: 780, margin: '0 auto', padding: '60px 24px 100px' }}>
+      <div className="bx-gutter" style={{ maxWidth: 780, margin: '0 auto', padding: '60px 24px 100px' }}>
 
         <p style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>A Bynx</p>
         <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.04em', marginBottom: 16 }}>Quem somos</h1>

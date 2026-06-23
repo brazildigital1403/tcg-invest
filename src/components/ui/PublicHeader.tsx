@@ -127,7 +127,7 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
       `}</style>
 
       <header style={S.header}>
-        <div style={S.inner}>
+        <div className="bx-gutter" style={S.inner}>
           {/* Logo — clicável, volta pra landing */}
           <Link href="/" style={S.logoLink} onClick={closeMobile}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
