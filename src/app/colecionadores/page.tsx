@@ -276,7 +276,7 @@ export default async function ColecionadoresPage() {
 
       <main>
         {/* ─── HERO ───────────────────────────────────── */}
-        <section className="col-hero" style={S.hero}>
+        <section className="col-hero bx-gutter" style={S.hero}>
           {/* Glows decorativos */}
           <div style={S.heroGlow1} />
           <div style={S.heroGlow2} />
@@ -375,7 +375,7 @@ export default async function ColecionadoresPage() {
 
         {/* ─── STATS ──────────────────────────────────── */}
         <section style={S.statsSection}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <p style={S.statsLabel}>O maior catálogo Pokémon TCG em português</p>
             <div style={S.statsGrid}>
               {[
@@ -396,7 +396,7 @@ export default async function ColecionadoresPage() {
 
         {/* ─── PERSONAS ───────────────────────────────── */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Pra quem é"
               title="Você é desse tipo de colecionador?"
@@ -428,7 +428,7 @@ export default async function ColecionadoresPage() {
 
         {/* ─── FERRAMENTAS ────────────────────────────── */}
         <section style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Ferramentas"
               title="Tudo que falta na planilha do Excel."
@@ -472,7 +472,7 @@ export default async function ColecionadoresPage() {
 
         {/* ─── PERFIL PÚBLICO — destaque ───────────────── */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <div className="col-profile-card" style={S.profileCard}>
               <div style={S.profileText}>
                 <span style={S.eyebrow}>Compartilhe</span>
@@ -541,7 +541,7 @@ export default async function ColecionadoresPage() {
 
         {/* ─── PLANOS ─────────────────────────────────── */}
         <section style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Planos"
               title="Comece grátis. Cresça quando quiser."
@@ -662,7 +662,7 @@ export default async function ColecionadoresPage() {
 
         {/* ─── CTA FINAL ─────────────────────────────── */}
         <section style={S.finalSection}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <div style={S.finalCta}>
               <h2 style={S.finalTitle}>
                 Sua coleção merece estar organizada.

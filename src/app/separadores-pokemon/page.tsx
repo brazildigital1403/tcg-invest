@@ -192,7 +192,7 @@ export default function SeparadoresPokemonPage() {
 
       <main>
         {/* ─── HERO ─────────────────────────────────────────────────────── */}
-        <section className="sp-hero" style={S.hero}>
+        <section className="sp-hero bx-gutter" style={S.hero}>
           <div className="sp-hero-inner" style={S.heroInner}>
             <div style={S.heroLeft}>
               <span style={S.heroBadge}>
@@ -282,7 +282,7 @@ export default function SeparadoresPokemonPage() {
 
         {/* ─── MÉTRICAS ─────────────────────────────────────────────────── */}
         <section style={S.metricsSection}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <div style={S.metricsGrid}>
               <div style={S.metric}>
                 <div style={S.metricValue}>1.025</div>
@@ -306,7 +306,7 @@ export default function SeparadoresPokemonPage() {
 
         {/* ─── COMO FUNCIONA ───────────────────────────────────────────── */}
         <section className="sp-section" id="como-funciona" style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Como funciona"
               title="3 passos. Em menos de 5 minutos sua coleção tá organizada."
@@ -334,7 +334,7 @@ export default function SeparadoresPokemonPage() {
 
         {/* ─── GALERIA DAS 9 GERAÇÕES ──────────────────────────────────── */}
         <section className="sp-section" style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="As 9 gerações"
               title="De Bulbasaur a Pecharunt — todos os Pokémons cobertos."
@@ -378,7 +378,7 @@ export default function SeparadoresPokemonPage() {
 
         {/* ─── PRA QUEM É ──────────────────────────────────────────────── */}
         <section className="sp-section" style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Pra quem é"
               title="Você se vê em alguma dessas?"
@@ -406,7 +406,7 @@ export default function SeparadoresPokemonPage() {
 
         {/* ─── PREÇO + GARANTIA ────────────────────────────────────────── */}
         <section className="sp-section" style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <div style={S.priceCard}>
               <div style={S.priceCardGlow} />
 
@@ -439,7 +439,7 @@ export default function SeparadoresPokemonPage() {
 
         {/* ─── FAQ ─────────────────────────────────────────────────────── */}
         <section className="sp-section" style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Dúvidas frequentes"
               title="As respostas que todo mundo quer saber."
@@ -455,7 +455,7 @@ export default function SeparadoresPokemonPage() {
 
         {/* ─── CTA FINAL ───────────────────────────────────────────────── */}
         <section style={S.finalCtaSection}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <div style={S.finalCta}>
               <h2 style={S.finalCtaTitle}>
                 Sua coleção merece ficar bonita.

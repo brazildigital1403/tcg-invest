@@ -106,7 +106,7 @@ export default async function LojasPage(
       <div style={{ height: 62 }} />
 
       {/* ─── Hero ───────────────────────────────────────────────── */}
-      <section style={S.hero}>
+      <section className="bx-gutter" style={S.hero}>
         <h1 style={S.heroTitle}>Guia de Lojas</h1>
         <p style={S.heroSubtitle}>
           Encontre lojas de TCG do Brasil. Físicas e online, com especialidade em Pokémon, Magic, Yu-Gi-Oh e mais.
@@ -122,7 +122,7 @@ export default async function LojasPage(
       />
 
       {/* ─── Resultados ─────────────────────────────────────────── */}
-      <section style={S.resultsSection}>
+      <section className="bx-gutter" style={S.resultsSection}>
         {error && (
           <div style={S.errorBox}>
             Erro ao carregar lojas. Tente recarregar a página.
@@ -155,7 +155,7 @@ export default async function LojasPage(
       </section>
 
       {/* ─── CTA Lojista ────────────────────────────────────────── */}
-      <section style={S.ctaSection}>
+      <section className="bx-gutter" style={S.ctaSection}>
         <div style={S.ctaBox}>
           <h2 style={S.ctaTitle}>Tem uma loja de TCG?</h2>
           <p style={S.ctaSubtitle}>

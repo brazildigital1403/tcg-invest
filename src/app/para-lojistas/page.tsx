@@ -61,7 +61,7 @@ export default function ParaLojistasPage() {
 
       <main>
         {/* ─── HERO ───────────────────────────────────────── */}
-        <section className="pl-hero" style={S.hero}>
+        <section className="pl-hero bx-gutter" style={S.hero}>
           <div className="pl-hero-inner" style={S.heroInner}>
             <div style={S.heroLeft}>
               <span style={S.heroBadge}>
@@ -145,7 +145,7 @@ export default function ParaLojistasPage() {
 
         {/* ─── MÉTRICAS ─────────────────────────────────────── */}
         <section style={S.metricsSection}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <div style={S.metricsGrid}>
               <div style={S.metric}>
                 <div style={S.metricValue}>22.000+</div>
@@ -169,7 +169,7 @@ export default function ParaLojistasPage() {
 
         {/* ─── PRA QUEM É ──────────────────────────────────── */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Pra quem é"
               title="Se você tem essas dores, é pra você."
@@ -223,7 +223,7 @@ export default function ParaLojistasPage() {
 
         {/* ─── COMO FUNCIONA ──────────────────────────────── */}
         <section style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Como funciona"
               title="Da inscrição ao primeiro cliente, em 3 passos."
@@ -251,7 +251,7 @@ export default function ParaLojistasPage() {
 
         {/* ─── ROI / VALE A PENA? ─────────────────────────── */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Vale a pena?"
               title="A matemática é direta."
@@ -279,7 +279,7 @@ export default function ParaLojistasPage() {
 
         {/* ─── PLANOS ─────────────────────────────────────── */}
         <section style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Planos"
               title="Comece grátis. Cresça no seu ritmo."
@@ -376,7 +376,7 @@ export default function ParaLojistasPage() {
 
         {/* ─── BENEFÍCIOS VISUAIS ──────────────────────── */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Como aparece"
               title="O que o colecionador vê quando encontra sua loja."
@@ -443,7 +443,7 @@ export default function ParaLojistasPage() {
 
         {/* ─── CTA FINAL ──────────────────────────────── */}
         <section style={S.finalCtaSection}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <div style={S.finalCta}>
               <h2 style={S.finalCtaTitle}>
                 27 vagas restantes do beta fechado.

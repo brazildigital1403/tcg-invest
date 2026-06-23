@@ -911,7 +911,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 1. HERO (assimétrico — copy esquerda, mockup direita)                */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-hero" style={S.hero}>
+      <section className="scan-hero bx-gutter" style={S.hero}>
         <div className="scan-hero-inner" style={S.heroInner}>
           {/* Esquerda: copy */}
           <div>
@@ -1027,7 +1027,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 2. STATS                                                              */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-stats" style={S.statsSection}>
+      <section className="scan-stats bx-gutter" style={S.statsSection}>
         <div className="scan-stats-grid" style={S.statsInner}>
           <div style={S.statBox}>
             <div style={S.statNumber}>22.861</div>
@@ -1051,7 +1051,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 3. DEMO 3 PASSOS                                                     */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-section" style={S.section}>
+      <section className="scan-section bx-gutter" style={S.section}>
         <div style={S.container}>
           <SectionHeader
             eyebrow="Como funciona"
@@ -1099,7 +1099,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 4. POR DENTRO DA TECNOLOGIA                                           */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-section" style={S.sectionDark}>
+      <section className="scan-section bx-gutter" style={S.sectionDark}>
         <div style={S.container}>
           <SectionHeader
             eyebrow="Por dentro da tecnologia"
@@ -1168,7 +1168,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 5. CASOS DE USO (3 PERSONAS)                                          */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-section" style={S.section}>
+      <section className="scan-section bx-gutter" style={S.section}>
         <div style={S.container}>
           <SectionHeader
             eyebrow="Quem usa"
@@ -1222,7 +1222,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 6. COMPARATIVO                                                        */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-section" style={S.sectionDark}>
+      <section className="scan-section bx-gutter" style={S.sectionDark}>
         <div style={S.container}>
           <SectionHeader
             eyebrow="Comparativo"
@@ -1314,7 +1314,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 7. PACOTES DE PREÇOS                                                  */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section id="pacotes" className="scan-section" style={S.section}>
+      <section id="pacotes" className="scan-section bx-gutter" style={S.section}>
         <div style={S.container}>
           <SectionHeader
             eyebrow="Pacotes"
@@ -1391,7 +1391,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 8. GARANTIAS                                                          */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-section" style={S.sectionDark}>
+      <section className="scan-section bx-gutter" style={S.sectionDark}>
         <div style={S.container}>
           <SectionHeader
             eyebrow="Garantias"
@@ -1434,7 +1434,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 9. FAQ                                                                */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-section" style={S.section}>
+      <section className="scan-section bx-gutter" style={S.section}>
         <div style={S.container}>
           <SectionHeader
             eyebrow="FAQ"

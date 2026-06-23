@@ -343,7 +343,7 @@ export default async function PokedexPokemonTcgPage() {
 
       <main>
         {/* ─── HERO ───────────────────────────────────── */}
-        <section className="pdx-hero" style={S.hero}>
+        <section className="pdx-hero bx-gutter" style={S.hero}>
           <div style={S.heroGlow1} />
           <div style={S.heroGlow2} />
           <div style={S.heroGlow3} />
@@ -451,7 +451,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── STATS PROFUNDAS ────────────────────────── */}
         <section style={S.statsSection}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <p style={S.statsLabel}>O catálogo Pokémon TCG mais completo em português</p>
             <div className="pdx-stats-grid" style={S.statsGrid}>
               {[
@@ -475,7 +475,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── ANATOMIA DE UMA CARTA ──────────────────── */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Anatomia"
               title="Tudo que a Pokédex te conta sobre uma carta."
@@ -535,7 +535,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── COMPARATIVO ────────────────────────────── */}
         <section style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Comparativo"
               title="Bynx vs o resto do mundo."
@@ -578,7 +578,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── TOP 9 SETS RECENTES (dinamico) ─────────── */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Sets recentes"
               title="Os 9 sets mais novos do TCG, todos cobertos."
@@ -610,7 +610,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── TOP CARTAS VALIOSAS BR (preco ao vivo) ─── */}
         <section style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Top valiosas"
               title="As cartas mais caras catalogadas em reais."
@@ -639,7 +639,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── SHOWCASE DE RARIDADES (contagem ao vivo) ─ */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Raridades"
               title="Da Common à Hyper Rare — todas catalogadas."
@@ -671,7 +671,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── 17 SÉRIES TCG (estatico — rotulos editoriais) ─ */}
         <section style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="25+ anos de TCG"
               title="Da Base Set ao Mega Evolution."
@@ -725,7 +725,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── BUSCA INTELIGENTE ──────────────────────── */}
         <section style={S.section}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Busca inteligente"
               title="Digite 3 letras. Encontre a carta certa."
@@ -772,7 +772,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── GLOSSÁRIO ──────────────────────────────── */}
         <section style={S.sectionDark}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <SectionHeader
               eyebrow="Glossário"
               title="O que significa cada termo no Pokémon TCG."
@@ -830,7 +830,7 @@ export default async function PokedexPokemonTcgPage() {
 
         {/* ─── CTA FINAL ──────────────────────────────── */}
         <section style={S.finalSection}>
-          <div style={S.container}>
+          <div className="bx-gutter" style={S.container}>
             <div style={S.finalCta}>
               <h2 style={S.finalTitle}>
                 A Pokédex tá pronta. Bora explorar?
