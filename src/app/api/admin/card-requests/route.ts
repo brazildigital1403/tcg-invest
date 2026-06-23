@@ -156,7 +156,6 @@ export async function POST(req: NextRequest) {
         porUser[uid].cartas[cid] = {
           nome: card?.name || a.nome || 'Carta',
           set: card?.set_name || a.colecao || null,
-          idioma: a.idioma || null,
           preco: card?.preco_min ?? null,
         }
       }

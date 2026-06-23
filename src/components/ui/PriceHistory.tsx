@@ -72,7 +72,7 @@ export default function PriceHistory({ cardId }: { cardId: string }) {
   return (
     <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '16px 20px', marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Historico de preco</p>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Histórico de preço</p>
         {showToggle && (
           <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: 3 }}>
             {RANGES.map((r) => (
@@ -84,11 +84,11 @@ export default function PriceHistory({ cardId }: { cardId: string }) {
 
       {single ? (
         pts.length === 0 ? (
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '8px 0' }}>Sem registros nesse periodo.</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '8px 0' }}>Sem registros nesse período.</p>
         ) : (
           <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
             <p style={{ fontSize: 26, fontWeight: 900, color: '#60a5fa', letterSpacing: '-0.02em' }}>{fmtFull(Number(pts[0].preco_medio))}</p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 6, lineHeight: 1.5 }}>Registrado em {fmtDate(pts[0].snapshot_date)}. O historico passa a ser salvo todo dia &mdash; volte em breve para ver a evolucao do preco.</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 6, lineHeight: 1.5 }}>Registrado em {fmtDate(pts[0].snapshot_date)}. O histórico passa a ser salvo todos os dias &mdash; volte em breve para acompanhar a evolução do preço.</p>
           </div>
         )
       ) : (
@@ -114,7 +114,7 @@ export default function PriceHistory({ cardId }: { cardId: string }) {
                 <tr style={{ color: 'rgba(255,255,255,0.35)' }}>
                   <th style={{ textAlign: 'left', fontWeight: 600, padding: '4px 0' }}>Data</th>
                   <th style={{ textAlign: 'right', fontWeight: 600, padding: '4px 8px' }}>Min</th>
-                  <th style={{ textAlign: 'right', fontWeight: 600, padding: '4px 8px' }}>Medio</th>
+                  <th style={{ textAlign: 'right', fontWeight: 600, padding: '4px 8px' }}>Médio</th>
                   <th style={{ textAlign: 'right', fontWeight: 600, padding: '4px 0' }}>Max</th>
                 </tr>
               </thead>
