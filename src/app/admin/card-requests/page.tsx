@@ -46,6 +46,7 @@ export default function AdminCardRequestsPage() {
   const [fOrigem, setFOrigem] = useState('')
   const [q, setQ] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
+  const [notifying, setNotifying] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -63,6 +64,23 @@ export default function AdminCardRequestsPage() {
   }, [fStatus, fTipo, fOrigem, q])
 
   useEffect(() => { load() }, [load])
+
+  async function enviarResumo() {
+    if (!confirm('Enviar e-mail-resumo para os usuarios com cartas marcadas como Adicionada e ainda nao avisadas? Cada usuario recebe um unico e-mail com todas as cartas dele.')) return
+    setNotifying(true)
+    try {
+      const r = await fetch('/api/admin/card-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const d = await r.json()
+      if (d.ok) alert(`${d.emails} e-mail(s) enviado(s) para ${d.usuarios} usuario(s) - ${d.cartas} carta(s).`)
+      else alert(d.error || 'Falha ao enviar.')
+      await load()
+    } catch { alert('Erro ao enviar resumo.') }
+    setNotifying(false)
+  }
 
   const dup: Record<string, Set<string>> = {}
   for (const r of reqs) {
@@ -104,11 +122,15 @@ export default function AdminCardRequestsPage() {
 
   return (
     <div style={{ padding: '20px 20px 60px', maxWidth: 1280, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f0f0f0', margin: 0 }}>Cartas faltando / erros</h1>
         <span style={{ fontSize: 13, color: MUTED }}>{loading ? 'carregando...' : `${reqs.length} pedido${reqs.length !== 1 ? 's' : ''}`}</span>
+        <button onClick={enviarResumo} disabled={notifying}
+          style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, padding: '9px 16px', borderRadius: 8, cursor: notifying ? 'default' : 'pointer', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', border: 'none', opacity: notifying ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+          {notifying ? 'Enviando...' : 'Enviar resumo (e-mail)'}
+        </button>
       </div>
-      <p style={{ fontSize: 13, color: MUTED, margin: '0 0 18px' }}>Reportes dos usuarios. Ao marcar <strong style={{ color: '#22c55e' }}>Adicionada</strong>, o usuario recebe e-mail automatico.</p>
+      <p style={{ fontSize: 13, color: MUTED, margin: '0 0 18px' }}>Marque cada carta como <strong style={{ color: '#22c55e' }}>Adicionada</strong> conforme catalogar. Depois clique em <strong style={{ color: GOLD }}>Enviar resumo</strong>: cada usuario recebe UM unico e-mail com todas as cartas dele (nunca um e-mail por carta).</p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
         <FilterRow value={fStatus} set={setFStatus} opts={[{ v: '', label: 'Todos' }, ...STATUS_OPTS.map(s => ({ v: s.v, label: s.label }))]} />

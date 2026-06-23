@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/admin-auth'
-import { sendCardRequestResolvedEmail } from '@/lib/emailCardRequest'
+import { sendCardRequestBatchEmail } from '@/lib/emailCardRequest'
 
 function supabaseAdmin() {
   return createClient(
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     const cardIds = [...new Set((rows || []).map(r => r.card_id).filter(Boolean))] as string[]
     const cardMap: Record<string, any> = {}
     if (cardIds.length) {
-      const { data: cards } = await sb.from('pokemon_cards').select('id, name, number, set_name, image_small').in('id', cardIds)
+      const { data: cards } = await sb.from('pokemon_cards').select('id, name, number, set_name, image_small, preco_min').in('id', cardIds)
       for (const c of cards || []) cardMap[c.id] = c
     }
 
@@ -92,57 +92,107 @@ export async function PATCH(req: NextRequest) {
 
     const sb = supabaseAdmin()
 
-    const { data: alvos, error: loadErr } = await sb
-      .from('card_requests')
-      .select('id, tipo, nome, numero, colecao, card_id, erro_tipo, user_id, status, notificado')
-      .in('id', ids)
-    if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 })
-
     const patch: any = {}
     if (status) patch.status = status
     if (notas_admin !== undefined) patch.notas_admin = notas_admin
     if (card_id !== undefined) patch.card_id = card_id || null
     if (status === 'adicionada' || status === 'rejeitada') patch.resolved_at = new Date().toISOString()
 
-    const aNotificar = status === 'adicionada'
-      ? (alvos || []).filter(a => !a.notificado && a.user_id)
-      : []
-
     const { error: upErr } = await sb.from('card_requests').update(patch).in('id', ids)
     if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
-    let emailsEnviados = 0
-    if (aNotificar.length) {
-      const uids = [...new Set(aNotificar.map(a => a.user_id))] as string[]
-      const { data: users } = await sb.from('users').select('id, email, name').in('id', uids)
-      const umap: Record<string, { email: string; name: string }> = {}
-      for (const u of users || []) umap[u.id] = { email: u.email, name: u.name || '' }
+    return NextResponse.json({ ok: true, updated: ids.length })
+  } catch (err: any) {
+    console.error('[admin/card-requests PATCH]', err?.message)
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+  }
+}
 
-      for (const a of aNotificar) {
-        const u = umap[a.user_id!]
-        if (!u?.email) continue
-        try {
-          await sendCardRequestResolvedEmail({
-            to: u.email,
-            name: u.name || '',
-            tipo: a.tipo,
-            nome: a.nome,
-            numero: a.numero,
-            colecao: a.colecao,
-            cardId: card_id || a.card_id,
-            erroTipo: a.erro_tipo,
-          })
-          emailsEnviados++
-          await sb.from('card_requests').update({ notificado: true }).eq('id', a.id)
-        } catch (e: any) {
-          console.error('[admin/card-requests email]', e?.message)
+export async function POST(req: NextRequest) {
+  try {
+    const unauth = await requireAdmin(req)
+    if (unauth) return unauth
+
+    const body = await req.json().catch(() => ({}))
+    const dry = !!body.dry
+
+    const sb = supabaseAdmin()
+
+    const { data: alvos, error } = await sb
+      .from('card_requests')
+      .select('id, user_id, card_id, nome, numero, colecao, idioma, notificado')
+      .eq('status', 'adicionada')
+      .not('user_id', 'is', null)
+      .not('card_id', 'is', null)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    const pend = (alvos || []).filter(a => !a.notificado)
+    if (pend.length === 0) {
+      return NextResponse.json({ ok: true, usuarios: 0, cartas: 0, emails: 0 })
+    }
+
+    const cardIds = [...new Set(pend.map(a => a.card_id).filter(Boolean))] as string[]
+    const cardMap: Record<string, any> = {}
+    if (cardIds.length) {
+      const { data: cards } = await sb.from('pokemon_cards').select('id, name, set_name, preco_min').in('id', cardIds)
+      for (const c of cards || []) cardMap[c.id] = c
+    }
+
+    const uids = [...new Set(pend.map(a => a.user_id))] as string[]
+    const umap: Record<string, { email: string; name: string }> = {}
+    if (uids.length) {
+      const { data: users } = await sb.from('users').select('id, email, name').in('id', uids)
+      for (const u of users || []) umap[u.id] = { email: u.email, name: u.name || '' }
+    }
+
+    const porUser: Record<string, { ids: string[]; cartas: Record<string, any> }> = {}
+    for (const a of pend) {
+      const uid = a.user_id as string
+      if (!porUser[uid]) porUser[uid] = { ids: [], cartas: {} }
+      porUser[uid].ids.push(a.id)
+      const cid = a.card_id as string
+      if (!porUser[uid].cartas[cid]) {
+        const card = cardMap[cid]
+        porUser[uid].cartas[cid] = {
+          nome: card?.name || a.nome || 'Carta',
+          set: card?.set_name || a.colecao || null,
+          idioma: a.idioma || null,
+          preco: card?.preco_min ?? null,
         }
       }
     }
 
-    return NextResponse.json({ ok: true, updated: ids.length, emails: emailsEnviados })
+    const comEmail = Object.keys(porUser).filter(uid => umap[uid]?.email)
+
+    if (dry) {
+      return NextResponse.json({
+        ok: true, dry: true,
+        usuarios: comEmail.length,
+        cartas: pend.length,
+        semEmail: Object.keys(porUser).length - comEmail.length,
+      })
+    }
+
+    let emails = 0
+    let usuarios = 0
+    for (const uid of Object.keys(porUser)) {
+      const u = umap[uid]
+      const grp = porUser[uid]
+      const cartas = Object.values(grp.cartas)
+      if (!u?.email || cartas.length === 0) continue
+      try {
+        await sendCardRequestBatchEmail({ to: u.email, name: u.name || '', cartas })
+        emails++
+        usuarios++
+        await sb.from('card_requests').update({ notificado: true }).in('id', grp.ids)
+      } catch (e: any) {
+        console.error('[admin/card-requests POST notify]', e?.message)
+      }
+    }
+
+    return NextResponse.json({ ok: true, usuarios, cartas: pend.length, emails })
   } catch (err: any) {
-    console.error('[admin/card-requests PATCH]', err?.message)
+    console.error('[admin/card-requests POST]', err?.message)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
