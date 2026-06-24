@@ -1,10 +1,16 @@
 import { supabase } from './supabaseClient'
+import { resolvePlan, type PlanCaps, type PlanTier } from './plan'
 
-export async function getUserPlan(userId: string): Promise<{ 
+// getUserPlan: continua devolvendo os 4 campos historicos (isPro, plano, isTrial,
+// trialDaysLeft) pra nao quebrar nenhum call site existente, e agora ADICIONA
+// `tier` + `caps` (capabilities resolvidas via lib/plan.ts).
+export async function getUserPlan(userId: string): Promise<{
   isPro: boolean
   plano: string
   isTrial: boolean
   trialDaysLeft: number
+  tier: PlanTier
+  caps: PlanCaps
 }> {
   try {
     const { data, error } = await supabase
@@ -13,29 +19,24 @@ export async function getUserPlan(userId: string): Promise<{
       .eq('id', userId)
       .maybeSingle()
 
-    if (error || !data) return { isPro: false, plano: 'free', isTrial: false, trialDaysLeft: 0 }
-
-    // Verifica se é Pro pago
-    if (data.is_pro) {
-      if (data.pro_expira_em && new Date(data.pro_expira_em) < new Date()) {
-        return { isPro: false, plano: 'free', isTrial: false, trialDaysLeft: 0 }
-      }
-      return { isPro: true, plano: data.plano || 'mensal', isTrial: false, trialDaysLeft: 0 }
+    if (error || !data) {
+      const r = resolvePlan(null)
+      return { isPro: false, plano: 'free', isTrial: false, trialDaysLeft: 0, tier: r.tier, caps: r.caps }
     }
 
-    // Verifica trial ativo
-    if (data.trial_expires_at) {
-      const trialExpiry = new Date(data.trial_expires_at)
-      const now = new Date()
-      if (trialExpiry > now) {
-        const msLeft = trialExpiry.getTime() - now.getTime()
-        const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24))
-        return { isPro: true, plano: 'trial', isTrial: true, trialDaysLeft: daysLeft }
-      }
+    const r = resolvePlan(data as any)
+    // mantem o campo `plano` compativel: 'trial' quando em trial, senao o tier canonico
+    const plano = r.isTrial ? 'trial' : r.tier
+    return {
+      isPro: r.isPro,
+      plano,
+      isTrial: r.isTrial,
+      trialDaysLeft: r.trialDaysLeft,
+      tier: r.tier,
+      caps: r.caps,
     }
-
-    return { isPro: false, plano: 'free', isTrial: false, trialDaysLeft: 0 }
   } catch {
-    return { isPro: false, plano: 'free', isTrial: false, trialDaysLeft: 0 }
+    const r = resolvePlan(null)
+    return { isPro: false, plano: 'free', isTrial: false, trialDaysLeft: 0, tier: r.tier, caps: r.caps }
   }
 }
