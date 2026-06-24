@@ -28,6 +28,7 @@ const SCAN_PACKAGES: Record<string, { priceEnv: string; creditos: number }> = {
 const PLAN_PRICE_ENV: Record<string, string> = {
   // ── Plano usuário ──
   mensal:                  'STRIPE_PRICE_MENSAL',
+  plus:                    'STRIPE_PRICE_PLUS',
   anual:                   'STRIPE_PRICE_ANUAL',
   separadores:             'STRIPE_PRICE_SEPARADORES',
   // ── Plano lojista ──

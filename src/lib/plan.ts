@@ -95,19 +95,23 @@ export function resolvePlan(row: {
   trial_expires_at?: string | null
 } | null | undefined): ResolvedPlan {
   const now = Date.now()
+  const tier = normalizeTier(row?.plano)
+  const expirou = row?.pro_expira_em ? new Date(row.pro_expira_em).getTime() < now : false
 
-  // 1) Assinatura paga ativa
-  if (row?.is_pro) {
-    const expirou = row.pro_expira_em ? new Date(row.pro_expira_em).getTime() < now : false
-    if (!expirou) {
-      const t = normalizeTier(row.plano)
-      const tier: PlanTier = t === 'free' ? 'pro' : t // is_pro sem plano valido -> trata como pro
-      const caps = getPlanCaps(tier)
-      return { caps, tier, isTrial: false, trialDaysLeft: 0, isPaid: true, isPro: caps.isPro }
-    }
+  // 1) Plano pago ativo (plus, pro, pro_anual) e nao expirado.
+  //    Plus e pago com is_pro=false -> por isso a chave e o `plano`, nao o is_pro.
+  if (tier !== 'free' && !expirou) {
+    const caps = getPlanCaps(tier)
+    return { caps, tier, isTrial: false, trialDaysLeft: 0, isPaid: true, isPro: caps.isPro }
   }
 
-  // 2) Trial reverso ativo -> Pro completo
+  // 2) Compat: is_pro=true sem plano canonico (grant manual antigo) -> trata como pro
+  if (row?.is_pro && !expirou && tier === 'free') {
+    const caps = getPlanCaps('pro')
+    return { caps, tier: 'pro', isTrial: false, trialDaysLeft: 0, isPaid: true, isPro: true }
+  }
+
+  // 3) Trial reverso ativo -> Pro completo
   if (row?.trial_expires_at) {
     const exp = new Date(row.trial_expires_at).getTime()
     if (exp > now) {
@@ -117,7 +121,7 @@ export function resolvePlan(row: {
     }
   }
 
-  // 3) Free
+  // 4) Free
   const caps = getPlanCaps('free')
   return { caps, tier: 'free', isTrial: false, trialDaysLeft: 0, isPaid: false, isPro: false }
 }

@@ -669,6 +669,23 @@ export async function sendPurchaseConfirmationEmail(
     preheader = 'Seus créditos de scan já estão disponíveis.'
     subject = '📷 Seus créditos de scan estão disponíveis!'
 
+  } else if (tipo === 'plus') {
+    badgeLabel = 'Plus Ativado'
+    badgeColor = '#f59e0b'
+    badgeBg = 'rgba(245,158,11,0.15)'
+    titulo = 'Bem-vindo ao Bynx Plus! ✨'
+    intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Plus</strong> foi ativada com sucesso. Obrigado por apoiar o Bynx!`
+    detalhes = `
+      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Até 500 cartas na sua coleção</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📊 Dashboard completo</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🛒 Marketplace ilimitado</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🔍 Pokédex completa + pastas ilimitadas</p>
+    `
+    ctaLabel = 'Acessar minha conta'
+    ctaHref = `${APP_URL}/minha-colecao`
+    preheader = 'Sua assinatura Plus foi ativada.'
+    subject = '✨ Bem-vindo ao Bynx Plus!'
+
   } else {
     // Fallback genérico — não deveria acontecer em produção, mas é seguro
     badgeLabel = 'Compra Confirmada'

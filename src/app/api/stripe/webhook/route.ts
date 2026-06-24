@@ -31,6 +31,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 // ─── Mapas de descrição (sincronizados com checkout/SCAN_PACKAGES) ──────────
 
 const DESCRICAO_PLANO: Record<string, string> = {
+  'plus':                    'Bynx Plus — assinatura mensal',
   'pro_mensal':              'Bynx Pro — assinatura mensal',
   'pro_anual':               'Bynx Pro — assinatura anual',
   'separadores':             'Separadores Customizados',
@@ -498,7 +499,8 @@ export async function POST(req: NextRequest) {
         try {
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
           const priceId = subscription.items.data[0]?.price.id
-          const plano = priceId === process.env.STRIPE_PRICE_ANUAL ? 'anual' : 'mensal'
+          const isPlus = priceId === process.env.STRIPE_PRICE_PLUS
+          const plano = isPlus ? 'plus' : (priceId === process.env.STRIPE_PRICE_ANUAL ? 'anual' : 'mensal')
 
           const periodEnd = getSubscriptionPeriodEnd(subscription)
           const proExpiraEm = periodEnd ? new Date(periodEnd * 1000).toISOString() : null
@@ -508,7 +510,7 @@ export async function POST(req: NextRequest) {
           }
 
           await supabase.from('users').update({
-            is_pro: true,
+            is_pro: !isPlus,
             plano,
             stripe_customer_id: session.customer as string,
             stripe_subscription_id: session.subscription as string,
@@ -519,7 +521,7 @@ export async function POST(req: NextRequest) {
 
           const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
           if (uData?.[0]?.email) {
-            await sendPurchaseConfirmationEmail(uData[0].email, uData[0].name || '', plano === 'anual' ? 'pro_anual' : 'pro_mensal').catch(console.error)
+            await sendPurchaseConfirmationEmail(uData[0].email, uData[0].name || '', isPlus ? 'plus' : (plano === 'anual' ? 'pro_anual' : 'pro_mensal')).catch(console.error)
           }
 
           // ── Indique e Ganhe: marca referral como 'engajado' (+200 pts ao referrer) ──
@@ -551,7 +553,7 @@ export async function POST(req: NextRequest) {
           await registrarReceitaStripe(supabase, {
             paymentIntentId:    piId,
             valorTotalCentavos: session.amount_total || 0,
-            descricao:          DESCRICAO_PLANO[plano === 'anual' ? 'pro_anual' : 'pro_mensal'],
+            descricao:          DESCRICAO_PLANO[isPlus ? 'plus' : (plano === 'anual' ? 'pro_anual' : 'pro_mensal')],
             dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
             userId,
           })
@@ -614,9 +616,11 @@ export async function POST(req: NextRequest) {
             break
           }
 
-          // ─── Renovação Pro usuário ───
+          // ─── Renovação Pro/Plus usuário ───
+          const isPlusUser = priceId === process.env.STRIPE_PRICE_PLUS
           await supabase.from('users').update({
-            is_pro: true,
+            is_pro: !isPlusUser,
+            ...(isPlusUser ? { plano: 'plus' } : {}),
             ...(novaExpiraEm ? { pro_expira_em: novaExpiraEm } : {}),
           }).eq('stripe_subscription_id', invoice.subscription)
 
@@ -624,7 +628,7 @@ export async function POST(req: NextRequest) {
 
           if (invoice.billing_reason === 'subscription_create') break
 
-          const planoTag = priceId === process.env.STRIPE_PRICE_ANUAL ? 'pro_anual' : 'pro_mensal'
+          const planoTag = isPlusUser ? 'plus' : (priceId === process.env.STRIPE_PRICE_ANUAL ? 'pro_anual' : 'pro_mensal')
 
           const { data: userData } = await supabase
             .from('users')
@@ -667,6 +671,13 @@ export async function POST(req: NextRequest) {
               ...(novaExpiraEm ? { plano_expira_em: novaExpiraEm } : {}),
             }).eq('stripe_subscription_id', subscription.id)
             console.log(`[webhook] Lojista atualizado pra ${lojistaTier} — sub ${subscription.id}`)
+          } else if (priceId === process.env.STRIPE_PRICE_PLUS) {
+            await supabase.from('users').update({
+              is_pro: false,
+              plano: 'plus',
+              ...(novaExpiraEm ? { pro_expira_em: novaExpiraEm } : {}),
+            }).eq('stripe_subscription_id', subscription.id)
+            console.log(`[webhook] Plus user atualizado — sub ${subscription.id}`)
           } else if (priceId === process.env.STRIPE_PRICE_MENSAL || priceId === process.env.STRIPE_PRICE_ANUAL) {
             const novoPlano = priceId === process.env.STRIPE_PRICE_ANUAL ? 'anual' : 'mensal'
             await supabase.from('users').update({
