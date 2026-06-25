@@ -8,6 +8,7 @@ import { trackProUpgradeInitiated } from '@/lib/analytics'
 import { IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink, IconCamera, IconCollection as IconBinder } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { ENFORCEMENT_ATIVO, LIMITE_FREE } from '@/lib/checkCardLimit'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -706,9 +707,15 @@ export default function MinhaConta() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Na coleção</p>
-                    <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>
+                    <p style={{ fontSize: 18, fontWeight: 800, color: ENFORCEMENT_ATIVO && cardCount > LIMITE_FREE ? '#ef4444' : '#f59e0b' }}>
                       {cardCount}<span style={{ fontSize: 12, fontWeight: 400, color: 'rgba(255,255,255,0.3)' }}> carta{cardCount !== 1 ? 's' : ''}</span>
                     </p>
+                    {ENFORCEMENT_ATIVO && cardCount > LIMITE_FREE && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 100, padding: '2px 8px', marginTop: 4 }}>
+                        <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="#ef4444" strokeWidth="1.3"/><path d="M10 6v5M10 14v.5" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/></svg>
+                        acima do limite
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
