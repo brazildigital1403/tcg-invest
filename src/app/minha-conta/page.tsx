@@ -242,7 +242,7 @@ export default function MinhaConta() {
 
   // ── Salvar dados pessoais ───────────────────────────────────────────────────
 
-  async function handleCheckout(plano: 'mensal' | 'anual') {
+  async function handleCheckout(plano: 'plus' | 'mensal' | 'anual') {
     setLoadingCheckout(plano)
     try {
       // S29: pega session pra Bearer token. userId/email não vão mais no body.
@@ -702,7 +702,7 @@ export default function MinhaConta() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Plano Free</p>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Gratuito · cartas ilimitadas · sem expiração</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Gratuito · até 100 cartas · sem expiração</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Na coleção</p>
@@ -718,13 +718,13 @@ export default function MinhaConta() {
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>O que está incluído no Free</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   {[
-                    { txt: 'Cartas ilimitadas', ok: true },
-                    { txt: '3 anúncios no Marketplace', ok: true },
-                    { txt: 'Pokédex completa', ok: true },
-                    { txt: 'Dashboard financeiro', ok: true },
+                    { txt: 'Até 100 cartas', ok: true },
                     { txt: 'Perfil público', ok: true },
-                    { txt: 'Exportar CSV', ok: false },
-                    { txt: 'Anúncios ilimitados', ok: false },
+                    { txt: '3 anúncios no Marketplace', ok: true },
+                    { txt: 'Pokédex básica', ok: true },
+                    { txt: 'Dashboard financeiro', ok: false },
+                    { txt: 'Scan com IA', ok: false },
+                    { txt: 'Exportar CSV/PDF', ok: false },
                   ].map(f => (
                     <p key={f.txt} style={{ fontSize: 12, color: f.ok ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ color: f.ok ? '#22c55e' : '#ef4444', fontSize: 10 }}>{f.ok ? <IconCheck size={10} color='currentColor' /> : <IconClose size={10} color='currentColor' />}</span> {f.txt}
@@ -734,8 +734,22 @@ export default function MinhaConta() {
               </div>
 
               {/* Cards de upgrade — Mensal e Anual lado a lado */}
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Fazer upgrade para Pro</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="mc-2col">
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Fazer upgrade</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }} className="mc-2col">
+
+                {/* Plus */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '18px 16px' }}>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>Plus</p>
+                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, color: '#f0f0f0' }}>R$ 14,90</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por mês · até 500 cartas</p>
+                  <button
+                    onClick={() => handleCheckout('plus')}
+                    disabled={!!loadingCheckout}
+                    style={{ width: '100%', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: loadingCheckout ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loadingCheckout === 'plus' ? 0.7 : 1 }}
+                  >
+                    {loadingCheckout === 'plus' ? 'Aguarde...' : 'Assinar Plus →'}
+                  </button>
+                </div>
 
                 {/* Pro Mensal */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '18px 16px' }}>
