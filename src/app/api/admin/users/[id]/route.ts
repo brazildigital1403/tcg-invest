@@ -121,6 +121,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       // ─── Revogar Pro ──────────────────────────────────────────────────────
       case 'revoke_pro': {
         patch.is_pro = false
+        patch.plano = 'free'
         patch.pro_expira_em = null
         break
       }

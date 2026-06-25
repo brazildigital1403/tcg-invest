@@ -96,17 +96,22 @@ export function resolvePlan(row: {
 } | null | undefined): ResolvedPlan {
   const now = Date.now()
   const tier = normalizeTier(row?.plano)
-  const expirou = row?.pro_expira_em ? new Date(row.pro_expira_em).getTime() < now : false
+  const hasExpiry = !!row?.pro_expira_em
+  const proValido = hasExpiry ? new Date(row!.pro_expira_em as string).getTime() > now : false
+  // Assinatura ativa: COM expiry vale a data (Stripe sempre seta, inclusive Plus, que
+  // tem is_pro=false); SEM expiry vale a flag is_pro (grant manual via admin). Assim,
+  // plano "sujo" (ex.: 'mensal' sem expiry e sem is_pro, deixado por revoke incompleto)
+  // NAO conta como pago.
+  const assinaturaAtiva = hasExpiry ? proValido : !!row?.is_pro
 
-  // 1) Plano pago ativo (plus, pro, pro_anual) e nao expirado.
-  //    Plus e pago com is_pro=false -> por isso a chave e o `plano`, nao o is_pro.
-  if (tier !== 'free' && !expirou) {
+  // 1) Plano pago ativo (plus, pro, pro_anual)
+  if (tier !== 'free' && assinaturaAtiva) {
     const caps = getPlanCaps(tier)
     return { caps, tier, isTrial: false, trialDaysLeft: 0, isPaid: true, isPro: caps.isPro }
   }
 
-  // 2) Compat: is_pro=true sem plano canonico (grant manual antigo) -> trata como pro
-  if (row?.is_pro && !expirou && tier === 'free') {
+  // 2) Compat: is_pro marcado mas plano nao-canonico (free/null) -> trata como pro
+  if (assinaturaAtiva && !!row?.is_pro && tier === 'free') {
     const caps = getPlanCaps('pro')
     return { caps, tier: 'pro', isTrial: false, trialDaysLeft: 0, isPaid: true, isPro: true }
   }
