@@ -23,7 +23,6 @@ import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
 import CardClient from './CardClient'
-import AdSlot from '@/components/ui/AdSlot'
 import CartasRelacionadas from '@/components/cards/CartasRelacionadas'
 import Link from 'next/link'
 
@@ -349,11 +348,6 @@ export default async function CartaPage({
       {/* UI interativa (client) — recebe data pré-fetched, sem loading state */}
       {/* CardClient renderiza ad + relacionadas via children: tema dark, acima do rodape */}
       <CardClient card={card} breadcrumb={breadcrumbItems}>
-        {/* Anuncio in-article (AdSense) */}
-        <div style={{ margin: '8px 0 4px' }}>
-          <AdSlot slot="8406341305" layout="in-article" format="fluid" />
-        </div>
-
         {/* Cartas relacionadas (SEO / link building) - links crawlaveis, server-rendered */}
         {related.pokemon_name && (
   <div style={{ margin: '4px 0 22px' }}>

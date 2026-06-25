@@ -11,7 +11,7 @@
  *  - get_pokemon_hub(slug)       -> cabeçalho (tipo, dex, contagens, faixa de preço, carta top)
  *  - get_pokemon_hub_cards(slug) -> todas as cartas ordenadas por data/preço
  *
- * Mesmo UI do site: header, Breadcrumb, AdSlot, PublicFooter, card no estilo /set.
+ * Mesmo UI do site: header, Breadcrumb, PublicFooter, card no estilo /set.
  */
 
 import type { Metadata } from 'next'
@@ -19,7 +19,6 @@ import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
-import AdSlot from '@/components/ui/AdSlot'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import PriceHistory from '@/components/ui/PriceHistory'
 import WatchButton from '@/components/ui/WatchButton'
@@ -515,8 +514,6 @@ export default async function PokemonHubPage({
             <PriceHistory cardId={hub.top_card_id} />
           </section>
         )}
-
-        <AdSlot slot="2769741949" format="auto" responsive />
           </div>
 
           {/* A jornada */}

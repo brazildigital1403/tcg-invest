@@ -12,7 +12,6 @@ import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
-import AdSlot from '@/components/ui/AdSlot'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 
 export const revalidate = 3600
@@ -181,10 +180,6 @@ export default async function PokemonIndexPage() {
             O Bynx cataloga {all.length} Pokémon no Pokémon TCG, da Geração 1 (Kanto) até a 9 (Paldea). Escolha um Pokémon
             para ver todas as suas cartas atravessando as eras, a faixa de preço em reais e a carta mais valiosa.
           </p>
-
-          <div style={{ maxWidth: 970, margin: '24px auto 8px', padding: '0 4px' }}>
-            <AdSlot slot="2769741949" format="auto" responsive />
-          </div>
 
           {grupos.map((g) => (
             <section key={g.nome} style={{ marginTop: 34 }}>

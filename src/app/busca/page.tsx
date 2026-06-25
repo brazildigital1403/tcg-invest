@@ -5,7 +5,6 @@ import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
-import AdSlot from '@/components/ui/AdSlot'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 
 export const dynamic = 'force-dynamic'
@@ -167,9 +166,6 @@ export default async function BuscaPage({
           </section>
         )}
 
-        <div style={{ maxWidth: 970, margin: '20px auto 0', padding: '0 4px' }}>
-          <AdSlot slot="2769741949" format="auto" responsive />
-        </div>
       </main>
       <PublicFooter />
     </div>

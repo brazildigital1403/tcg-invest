@@ -155,13 +155,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
 
-        {/* Google AdSense - loader (Metodo 0: verificacao de propriedade + exibicao de anuncios). NAO gated por consent: o robo de verificacao precisa ver o script. */}
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9762668656363196"
-          crossOrigin="anonymous"
-        />
-
         {/* Structured Data — Organization */}
         <script
           type="application/ld+json"

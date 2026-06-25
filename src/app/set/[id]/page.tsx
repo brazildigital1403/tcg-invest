@@ -26,7 +26,6 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
-import AdSlot from '@/components/ui/AdSlot'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 
 // ISR: regenera a cada 1h. Após o rename dos sets, os títulos precisam
@@ -392,11 +391,6 @@ export default async function SetPage({
                 </p>
               )}
             </div>
-          </div>
-
-          {/* Anuncio display (AdSense) - topo da grade, leaderboard responsivo */}
-          <div style={{ maxWidth: 970, margin: '0 auto 22px', padding: '0 4px' }}>
-            <AdSlot slot="2769741949" format="auto" responsive />
           </div>
 
           {/* Grid de cartas */}
