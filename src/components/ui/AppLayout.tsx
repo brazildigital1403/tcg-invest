@@ -5,13 +5,14 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { resolvePlan } from '@/lib/plan'
-import { ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
+import { ENFORCEMENT_ATIVO, MURO_POSTRIAL_ATIVO, LIMITE_FREE, checkCardLimit } from '@/lib/checkCardLimit'
 import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount,
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
   IconChat,
 } from '@/components/ui/Icons'
+import MuroPosTrial from '@/components/ui/MuroPosTrial'
 
 // ─── Ícones inline (Separador + 3 dos lojistas) ─────────────────────────────
 
@@ -157,6 +158,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [notifOpen, setNotifOpen] = useState(false)
   const notifScrollRef = useRef<HTMLDivElement>(null)
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
+  const [muroCartas, setMuroCartas] = useState<number | null>(null)
   const [collapsed, setCollapsed] = useState(false)
 
   // Detecção adaptativa do perfil
@@ -325,8 +327,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const { data: userData } = await supabase
         .from('users').select('is_pro, trial_expires_at, plano, pro_expira_em').eq('id', authData.user.id).single()
       if (userData) {
-        const { caps } = resolvePlan(userData as any)
+        const { caps, tier } = resolvePlan(userData as any)
         setPodeDashboard(caps.podeDashboard)
+
+        // Muro pos-trial: free que terminou o trial e passou do limite free de cartas.
+        if (MURO_POSTRIAL_ATIVO && tier === 'free'
+            && userData.trial_expires_at
+            && new Date(userData.trial_expires_at).getTime() < Date.now()) {
+          const { total } = await checkCardLimit(authData.user.id)
+          if (total > LIMITE_FREE) setMuroCartas(total)
+        }
       }
       if (userData && !userData.is_pro && userData.trial_expires_at) {
         const expiry = new Date(userData.trial_expires_at)
@@ -360,6 +370,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {muroCartas !== null && <MuroPosTrial cardCount={muroCartas} />}
+
       {notifOpen && <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />}
 
       {notifOpen && (

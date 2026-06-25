@@ -6,6 +6,9 @@ import { resolvePlan } from './plan'
 // sem mexer em ninguem ate o momento do rollout.
 export const ENFORCEMENT_ATIVO = process.env.NEXT_PUBLIC_ENFORCEMENT_ATIVO === '1'
 
+// Flag do muro pos-trial (loss-framing semi-bloqueante). '1' = ligado no rollout.
+export const MURO_POSTRIAL_ATIVO = process.env.NEXT_PUBLIC_MURO_POSTRIAL_ATIVO === '1'
+
 // Mantidos por compat de imports antigos (telas que ainda exibem texto).
 export const LIMITE_FREE          = 100
 export const LIMITE_FREE_MKTPLACE = 3
