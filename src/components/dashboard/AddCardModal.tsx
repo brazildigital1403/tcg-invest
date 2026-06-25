@@ -7,6 +7,7 @@ import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import CardRequestBox from './CardRequestBox'
+import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
 
 interface Props {
   userId: string | null
@@ -80,6 +81,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [splitOn, setSplitOn] = useState<Record<string, boolean>>({})
   const [isPro, setIsPro] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [showLimite, setShowLimite] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -206,9 +208,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (!authData?.user?.id) { setAdding(false); return }
 
     for (const card of selectedCards) {
-      const { bloqueado, limite } = await checkCardLimit(userId)
+      const { bloqueado } = await checkCardLimit(userId)
       if (bloqueado) {
-        await showAlert(`Voce atingiu o limite de ${limite} cartas do seu plano. Faca upgrade para adicionar mais.`, 'warning')
+        setShowLimite(true)
         setAdding(false)
         return
       }
@@ -765,6 +767,12 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         </div>
 
       </div>
+      {showLimite && (
+        <ModalLimiteCartas
+          onClose={() => setShowLimite(false)}
+          onUpgrade={() => { window.location.href = '/minha-conta' }}
+        />
+      )}
     </div>
   )
 }
