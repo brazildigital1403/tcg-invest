@@ -10,6 +10,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import CardItem from '@/components/ui/CardItem'
 import CardDetailModal from './CardDetailModal'
 import ModalUpgradePokedex from '@/components/ui/ModalUpgradePokedex'
+import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -118,6 +119,7 @@ export default function Pokedex() {
   const [isPro, setIsPro]           = useState(false)
   const [pokedexCompleta, setPokedexCompleta] = useState(false)
   const [upgradePokemon, setUpgradePokemon] = useState<string | null>(null)
+  const [showLimite, setShowLimite] = useState(false)
   const [userId, setUserId]         = useState<string | null>(null)
 
   // Exchange rate
@@ -293,8 +295,8 @@ export default function Pokedex() {
   async function handleAddCard(card: any) {
     if (!userId) { showAlert('Faça login para adicionar cartas.', 'warning'); return }
     if (!isPro) {
-      const { bloqueado, limite } = await checkCardLimit(userId)
-      if (bloqueado) { showAlert(`Limite de ${limite} cartas do seu plano atingido. Faça upgrade!`, 'warning'); return }
+      const { bloqueado } = await checkCardLimit(userId)
+      if (bloqueado) { setShowLimite(true); return }
     }
     const variante = card._variante || selectedVariante || 'normal'
     const { error } = await supabase.from('user_cards').insert({
@@ -689,6 +691,12 @@ export default function Pokedex() {
         <ModalUpgradePokedex
           pokemonName={upgradePokemon}
           onClose={() => setUpgradePokemon(null)}
+          onUpgrade={() => { window.location.href = '/minha-conta' }}
+        />
+      )}
+      {showLimite && (
+        <ModalLimiteCartas
+          onClose={() => setShowLimite(false)}
           onUpgrade={() => { window.location.href = '/minha-conta' }}
         />
       )}
