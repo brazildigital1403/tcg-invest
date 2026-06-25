@@ -77,7 +77,7 @@ const TIERS: Tier[] = [
   },
   {
     key: 'pro_anual', nome: 'Pro Anual', save: 'Economize 30%',
-    num: '249', per: '/ano', note: '≈ 20,75/mês · ~3 meses grátis',
+    num: '249', cents: ',00', per: '/ano', note: '≈ 20,75/mês · ~3 meses grátis',
     feats: [
       { t: 'Tudo do Pro, e mais:', pre: true },
       { t: <><b>Master Sets liberados</b></>, ok: true },
@@ -170,7 +170,7 @@ const COLS: { key: PlanoTier; nome: string; preco: string; btn: 'ghost' | 'soft'
   { key: 'free', nome: 'Grátis', preco: 'Grátis', btn: 'ghost', cta: 'Começar' },
   { key: 'plus', nome: 'Plus', preco: '14,90/mês', btn: 'soft', cta: 'Plus' },
   { key: 'pro', nome: 'Pro', preco: '29,90/mês', btn: 'fill', cta: 'Pro' },
-  { key: 'pro_anual', nome: 'Anual', preco: '249/ano', btn: 'soft', cta: 'Anual' },
+  { key: 'pro_anual', nome: 'Anual', preco: '249,00/ano', btn: 'soft', cta: 'Anual' },
 ]
 
 export function TabelaPlanos({ onSelectPlan, ctaHref }: Props) {
