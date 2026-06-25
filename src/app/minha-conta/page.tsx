@@ -464,16 +464,14 @@ export default function MinhaConta() {
             </div>
             <button
               onClick={() => {
-                if (!perfilPublico) { showAlert('Ative o "Perfil público" na seção abaixo para compartilhar seu link.', 'info'); return }
+                if (!perfilPublico) { showAlert('Ative o "Perfil público" na seção abaixo para ver seu perfil.', 'info'); return }
                 const url = `${window.location.origin}/perfil/${userData?.username || user?.id}`
-                navigator.clipboard?.writeText(url)
-                  .then(() => showAlert('Link do perfil copiado!', 'success'))
-                  .catch(() => showAlert(url, 'info'))
+                window.open(url, '_blank', 'noopener,noreferrer')
               }}
-              title={perfilPublico ? 'Copiar link do perfil' : 'Ative o perfil público para compartilhar'}
+              title={perfilPublico ? 'Abrir meu perfil em nova aba' : 'Ative o perfil público para ver'}
               style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${perfilPublico ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)'}`, color: perfilPublico ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
             >
-              <IconLink size={13} color='currentColor' style={{marginRight:5}} />Compartilhar perfil
+              <IconLink size={13} color='currentColor' style={{marginRight:5}} />Ver Meu Perfil
             </button>
           </div>
         </div>
