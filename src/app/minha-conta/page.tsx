@@ -740,7 +740,7 @@ export default function MinhaConta() {
                 {/* Plus */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '18px 16px' }}>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>Plus</p>
-                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, color: '#f0f0f0' }}>R$ 14,90</p>
+                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, color: '#f0f0f0' }}>14,90</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por mês · até 500 cartas</p>
                   <button
                     onClick={() => handleCheckout('plus')}
@@ -754,7 +754,7 @@ export default function MinhaConta() {
                 {/* Pro Mensal */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '18px 16px' }}>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>Pro Mensal</p>
-                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 29,90</p>
+                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>29,90</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por mês · cancele quando quiser</p>
                   <button
                     onClick={() => handleCheckout('mensal')}
@@ -771,8 +771,8 @@ export default function MinhaConta() {
                     2 MESES GRÁTIS
                   </div>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>Pro Anual</p>
-                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 249</p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por ano · R$ 14,91/mês</p>
+                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>249</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por ano · 20,75/mês</p>
                   <button
                     onClick={() => handleCheckout('anual')}
                     disabled={!!loadingCheckout}
@@ -997,22 +997,22 @@ export default function MinhaConta() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <div>
                     <p style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b', marginBottom: 2 }}>Pro Anual</p>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>R$20,75/mês · cobrado anualmente</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>20,75/mês · cobrado anualmente</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through' }}>R$358,80</p>
-                    <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>R$249</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through' }}>358,80</p>
+                    <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>249</p>
                   </div>
                 </div>
                 <div style={{ marginBottom: 14 }}>
-                  <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 100 }}>✓ Você economiza R$109,80/ano</span>
+                  <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 100 }}>✓ Você economiza 109,80/ano</span>
                 </div>
                 <button
                   onClick={() => { setShowUpgradeModal(false); handleCheckout('anual') }}
                   disabled={loadingCheckout === 'anual'}
                   style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(245,158,11,0.3)' }}
                 >
-                  {loadingCheckout === 'anual' ? 'Aguarde...' : 'Assinar por R$249/ano →'}
+                  {loadingCheckout === 'anual' ? 'Aguarde...' : 'Assinar por 249/ano →'}
                 </button>
               </div>
 
@@ -1024,7 +1024,7 @@ export default function MinhaConta() {
                     <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Cancele quando quiser</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>R$29,90</p>
+                    <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>29,90</p>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>por mês</p>
                   </div>
                 </div>
@@ -1033,7 +1033,7 @@ export default function MinhaConta() {
                   disabled={loadingCheckout === 'mensal'}
                   style={{ width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', color: '#f0f0f0', padding: '12px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
                 >
-                  {loadingCheckout === 'mensal' ? 'Aguarde...' : 'Assinar por R$29,90/mês'}
+                  {loadingCheckout === 'mensal' ? 'Aguarde...' : 'Assinar por 29,90/mês'}
                 </button>
               </div>
             </div>
