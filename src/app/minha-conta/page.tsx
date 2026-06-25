@@ -771,7 +771,7 @@ export default function MinhaConta() {
                     2 MESES GRÁTIS
                   </div>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>Pro Anual</p>
-                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>249</p>
+                  <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>249,00</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>por ano · 20,75/mês</p>
                   <button
                     onClick={() => handleCheckout('anual')}
@@ -868,7 +868,7 @@ export default function MinhaConta() {
                 disabled={loadingCompra === 'separadores'}
                 style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: loadingCompra ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', opacity: loadingCompra === 'separadores' ? 0.7 : 1 }}
               >
-                {loadingCompra === 'separadores' ? 'Aguarde...' : 'Desbloquear — R$14,90'}
+                {loadingCompra === 'separadores' ? 'Aguarde...' : 'Desbloquear — 14,90'}
               </button>
             )}
           </div>
@@ -895,9 +895,9 @@ export default function MinhaConta() {
             {/* Pacotes */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }} className="mc-scan-grid">
               {[
-                { plano: 'scan_basico',       label: '5 scans',  preco: 'R$5,90',  unit: 'R$1,18/scan' },
-                { plano: 'scan_popular',      label: '15 scans', preco: 'R$14,90', unit: 'R$0,99/scan', popular: true },
-                { plano: 'scan_colecionador', label: '40 scans', preco: 'R$34,90', unit: 'R$0,87/scan' },
+                { plano: 'scan_basico',       label: '5 scans',  preco: '5,90',  unit: '1,18/scan' },
+                { plano: 'scan_popular',      label: '15 scans', preco: '14,90', unit: '0,99/scan', popular: true },
+                { plano: 'scan_colecionador', label: '40 scans', preco: '34,90', unit: '0,87/scan' },
               ].map(pkg => (
                 <button
                   key={pkg.plano}
@@ -1001,7 +1001,7 @@ export default function MinhaConta() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textDecoration: 'line-through' }}>358,80</p>
-                    <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>249</p>
+                    <p style={{ fontSize: 26, fontWeight: 900, color: '#f0f0f0', lineHeight: 1 }}>249,00</p>
                   </div>
                 </div>
                 <div style={{ marginBottom: 14 }}>
@@ -1012,7 +1012,7 @@ export default function MinhaConta() {
                   disabled={loadingCheckout === 'anual'}
                   style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(245,158,11,0.3)' }}
                 >
-                  {loadingCheckout === 'anual' ? 'Aguarde...' : 'Assinar por 249/ano →'}
+                  {loadingCheckout === 'anual' ? 'Aguarde...' : 'Assinar por 249,00/ano →'}
                 </button>
               </div>
 
