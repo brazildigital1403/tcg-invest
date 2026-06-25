@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { setLabel } from '@/lib/setLabel'
-import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
+import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
 import { getUserPlan } from '@/lib/isPro'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
@@ -72,13 +72,14 @@ export default function MinhaColecao() {
   const [cards, setCards] = useState<any[]>([])
   const [totalCartas, setTotalCartas] = useState(0)
   const [isPro, setIsPro] = useState(false)
+  const [limiteCartas, setLimiteCartas] = useState<number>(Infinity)
   const [userId, setUserId] = useState<string | null>(null)
   const [criarPasta, setCriarPasta] = useState(false)
   const router = useRouter()
   const [pastasTopo, setPastasTopo] = useState<any>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [openScanModal, setOpenScanModal] = useState(false)
-  const limiteDisplay = isPro ? '∞' : String(LIMITE_FREE)
+  const limiteDisplay = (!ENFORCEMENT_ATIVO || limiteCartas === Infinity) ? '∞' : String(limiteCartas)
   const [search, setSearch] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
@@ -291,8 +292,9 @@ export default function MinhaColecao() {
       if (!userData?.user) { window.location.href = '/login'; return }
 
       setUserId(userData.user.id)
-      const { isPro: pro, isTrial: trial } = await getUserPlan(userData.user.id)
+      const { isPro: pro, isTrial: trial, caps } = await getUserPlan(userData.user.id)
       setIsPro(pro || trial)
+      setLimiteCartas(caps.limiteCartas)
 
       // S40: Pastas em destaque no topo da colecao (hero + grade)
       supabase.rpc('pastas_colecao_topo').then(({ data: pt }) => setPastasTopo(pt || null))
@@ -641,13 +643,13 @@ export default function MinhaColecao() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
-              {!isPro && totalQty >= LIMITE_FREE ? (
+              {ENFORCEMENT_ATIVO && cards.length >= limiteCartas ? (
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
-                  Limite atingido ({totalQty}/{limiteDisplay})
+                  Limite atingido ({cards.length}/{limiteDisplay})
                 </span>
               ) : (
                 <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  {totalQty}/{limiteDisplay} cartas
+                  {cards.length}/{limiteDisplay} cartas
                 </span>
               )}
             </div>

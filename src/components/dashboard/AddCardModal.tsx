@@ -206,9 +206,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (!authData?.user?.id) { setAdding(false); return }
 
     for (const card of selectedCards) {
-      const { bloqueado } = await checkCardLimit(userId)
+      const { bloqueado, limite } = await checkCardLimit(userId)
       if (bloqueado) {
-        await showAlert(`Voce atingiu o limite de ${LIMITE_FREE} cartas. Acesse Minha Conta para fazer upgrade.`, 'warning')
+        await showAlert(`Voce atingiu o limite de ${limite} cartas do seu plano. Faca upgrade para adicionar mais.`, 'warning')
         setAdding(false)
         return
       }

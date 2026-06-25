@@ -1,46 +1,54 @@
 import { supabase } from './supabaseClient'
+import { resolvePlan } from './plan'
 
-export const LIMITE_FREE      = Infinity  // S33: cartas ilimitadas no free (alinhamento Collectr/TCGplayer)
+// Flag de enforcement: quando '1', os limites por tier valem (rollout coordenado).
+// Sem ela, o limite de cartas fica "infinito" (comportamento atual) -> o codigo sobe
+// sem mexer em ninguem ate o momento do rollout.
+export const ENFORCEMENT_ATIVO = process.env.NEXT_PUBLIC_ENFORCEMENT_ATIVO === '1'
+
+// Mantidos por compat de imports antigos (telas que ainda exibem texto).
+export const LIMITE_FREE          = 100
 export const LIMITE_FREE_MKTPLACE = 3
 
-// Verifica se o usuário tem trial ativo
-async function hasTrial(userId: string): Promise<boolean> {
+async function fetchPlanRow(userId: string) {
   const { data } = await supabase
     .from('users')
-    .select('trial_expires_at, is_pro')
+    .select('is_pro, plano, pro_expira_em, trial_expires_at')
     .eq('id', userId)
-    .single()
-  if (!data) return false
-  if (data.is_pro) return true
-  if (data.trial_expires_at && new Date(data.trial_expires_at) > new Date()) return true
-  return false
+    .maybeSingle()
+  return data
 }
 
-// Verifica limite de cartas — trial = sem limite
-export async function checkCardLimit(userId: string): Promise<{ bloqueado: boolean; total: number }> {
-  const trial = await hasTrial(userId)
-  if (trial) return { bloqueado: false, total: 0 }
-
+// Limite de cartas por tier. Conta ENTRADAS DISTINTAS (linhas de user_cards),
+// nao a soma de quantidade. Free 100 / Plus 500 / Pro e Anual ilimitado.
+export async function checkCardLimit(userId: string): Promise<{ bloqueado: boolean; total: number; limite: number }> {
   const { count } = await supabase
     .from('user_cards')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-
   const total = count || 0
-  return { bloqueado: total >= LIMITE_FREE, total }
+
+  if (!ENFORCEMENT_ATIVO) return { bloqueado: false, total, limite: Infinity }
+
+  const row = await fetchPlanRow(userId)
+  const { caps } = resolvePlan(row as any)
+  const limite = caps.limiteCartas
+  return { bloqueado: total >= limite, total, limite }
 }
 
-// Verifica limite de marketplace — trial = sem limite
-export async function checkMarketplaceLimit(userId: string): Promise<{ bloqueado: boolean; total: number }> {
-  const trial = await hasTrial(userId)
-  if (trial) return { bloqueado: false, total: 0 }
-
+// Limite de anuncios no marketplace por tier (Free 3 / Plus+ ilimitado).
+// NAO depende da flag: o limite de 3 do Free ja vale hoje; aqui so passa a respeitar
+// os caps (pra o Plus ganhar ilimitado quando existir).
+export async function checkMarketplaceLimit(userId: string): Promise<{ bloqueado: boolean; total: number; limite: number }> {
   const { count } = await supabase
     .from('marketplace')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .not('status', 'in', '("cancelado","concluido")')
-
   const total = count || 0
-  return { bloqueado: total >= LIMITE_FREE_MKTPLACE, total }
+
+  const row = await fetchPlanRow(userId)
+  const { caps } = resolvePlan(row as any)
+  const limite = caps.limiteAnuncios
+  return { bloqueado: total >= limite, total, limite }
 }

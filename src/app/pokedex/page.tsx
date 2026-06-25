@@ -285,8 +285,8 @@ export default function Pokedex() {
   async function handleAddCard(card: any) {
     if (!userId) { showAlert('Faça login para adicionar cartas.', 'warning'); return }
     if (!isPro) {
-      const { bloqueado } = await checkCardLimit(userId)
-      if (bloqueado) { showAlert(`Limite de ${LIMITE_FREE} cartas atingido. Faça upgrade!`, 'warning'); return }
+      const { bloqueado, limite } = await checkCardLimit(userId)
+      if (bloqueado) { showAlert(`Limite de ${limite} cartas do seu plano atingido. Faça upgrade!`, 'warning'); return }
     }
     const variante = card._variante || selectedVariante || 'normal'
     const { error } = await supabase.from('user_cards').insert({
