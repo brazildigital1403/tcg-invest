@@ -9,6 +9,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
 import CardItem from '@/components/ui/CardItem'
 import CardDetailModal from './CardDetailModal'
+import ModalUpgradePokedex from '@/components/ui/ModalUpgradePokedex'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -116,6 +117,7 @@ export default function Pokedex() {
 
   const [isPro, setIsPro]           = useState(false)
   const [pokedexCompleta, setPokedexCompleta] = useState(false)
+  const [upgradePokemon, setUpgradePokemon] = useState<string | null>(null)
   const [userId, setUserId]         = useState<string | null>(null)
 
   // Exchange rate
@@ -268,7 +270,7 @@ export default function Pokedex() {
 
   async function handleSelectPokemon(pokemon: any) {
     if (ENFORCEMENT_ATIVO && !pokedexCompleta) {
-      showAlert('Ver as cartas e os detalhes de cada Pokémon é um recurso dos planos pagos. Faça upgrade para desbloquear a Pokédex completa.', 'warning')
+      setUpgradePokemon(pokemon?.name || 'Pokémon')
       return
     }
     setSelectedPokemon(pokemon)
@@ -680,6 +682,14 @@ export default function Pokedex() {
           onNavigate={(card, idx) => { setSelectedCard(card); setSelectedCardIndex(idx); setSelectedVariante(pickBestVariante(card)) }}
           onAdd={(card) => { handleAddCard(card); setSelectedCard(null) }}
           isMobile={isMobile}
+        />
+      )}
+
+      {upgradePokemon && (
+        <ModalUpgradePokedex
+          pokemonName={upgradePokemon}
+          onClose={() => setUpgradePokemon(null)}
+          onUpgrade={() => { window.location.href = '/minha-conta' }}
         />
       )}
 
