@@ -370,7 +370,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {muroCartas !== null && <MuroPosTrial cardCount={muroCartas} />}
+      {muroCartas !== null && !(pathname || '').startsWith('/minha-conta') && <MuroPosTrial cardCount={muroCartas} />}
 
       {notifOpen && <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />}
 
