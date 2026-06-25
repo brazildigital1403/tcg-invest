@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import MuroPosTrial from './MuroPosTrial'
 import { supabase } from '@/lib/supabaseClient'
 import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
@@ -350,6 +351,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <MuroPosTrial />
       {notifOpen && <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />}
 
       {notifOpen && (
