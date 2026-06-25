@@ -53,7 +53,7 @@ export default function MuroPosTrial({ cardCount }: { cardCount: number }) {
         <div style={{
           width: 54, height: 54, borderRadius: '50%',
           background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
         }}>
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
             <path d="M4 7l8-4 8 4v6c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z" stroke="#f59e0b" strokeWidth="1.6" strokeLinejoin="round"/>
@@ -64,7 +64,7 @@ export default function MuroPosTrial({ cardCount }: { cardCount: number }) {
           Seus 7 dias de Pro acabaram
         </div>
         <div style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.2, marginBottom: 8, letterSpacing: '-0.01em', color: '#f5f5f5' }}>
-          Você guardou {cardCount} cartas no Bynx.
+          Você guardou {cardCount} cartas na Bynx
         </div>
         <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.55, marginBottom: 16 }}>
           Não perca o controle da sua coleção. Continue com tudo desbloqueado e o valor em reais sempre na sua mão.
@@ -77,9 +77,11 @@ export default function MuroPosTrial({ cardCount }: { cardCount: number }) {
           </div>
         ))}
 
-        <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', padding: '6px 12px', borderRadius: 100, margin: '8px 0 18px' }}>
-          A partir de 14,90/mês no Plus
-        </span>
+        <div style={{ textAlign: 'center', margin: '20px 0 18px' }}>
+          <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', padding: '6px 12px', borderRadius: 100 }}>
+            A partir de 14,90/mês no Plus
+          </span>
+        </div>
 
         <a href="/minha-conta" style={{
           display: 'block', width: '100%', textAlign: 'center', boxSizing: 'border-box',
