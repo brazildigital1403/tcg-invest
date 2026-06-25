@@ -6,6 +6,7 @@ export type PlanoTier = 'free' | 'plus' | 'pro' | 'pro_anual'
 
 interface Props {
   onSelectPlan?: (tier: PlanoTier) => void
+  ctaHref?: string
   loggedIn?: boolean
 }
 
@@ -91,14 +92,14 @@ function btnStyle(kind: 'ghost' | 'soft' | 'fill'): React.CSSProperties {
   const base: React.CSSProperties = {
     display: 'block', width: '100%', textAlign: 'center', padding: '12px',
     borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer',
-    border: '1px solid transparent', fontFamily: 'inherit',
+    border: '1px solid transparent', fontFamily: 'inherit', boxSizing: 'border-box', textDecoration: 'none',
   }
   if (kind === 'ghost') return { ...base, background: 'rgba(255,255,255,0.05)', borderColor: C.line, color: 'rgba(255,255,255,0.7)' }
   if (kind === 'soft') return { ...base, background: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.3)', color: C.amber }
   return { ...base, background: `linear-gradient(90deg,${C.amber},${C.red})`, color: '#1a1205' }
 }
 
-export function CardsPlanos({ onSelectPlan, loggedIn }: Props) {
+export function CardsPlanos({ onSelectPlan, ctaHref, loggedIn }: Props) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(232px, 1fr))', gap: 14, textAlign: 'left' }}>
       {TIERS.map(t => {
@@ -137,7 +138,9 @@ export function CardsPlanos({ onSelectPlan, loggedIn }: Props) {
                 </li>
               ))}
             </ul>
-            <button onClick={() => onSelectPlan?.(t.key)} style={btnStyle(t.btn)}>{ctaLabel}</button>
+            {ctaHref
+              ? <a href={ctaHref} style={btnStyle(t.btn)}>{ctaLabel}</a>
+              : <button onClick={() => onSelectPlan?.(t.key)} style={btnStyle(t.btn)}>{ctaLabel}</button>}
           </div>
         )
       })}
@@ -170,7 +173,7 @@ const COLS: { key: PlanoTier; nome: string; preco: string; btn: 'ghost' | 'soft'
   { key: 'pro_anual', nome: 'Anual', preco: '249/ano', btn: 'soft', cta: 'Anual' },
 ]
 
-export function TabelaPlanos({ onSelectPlan }: Props) {
+export function TabelaPlanos({ onSelectPlan, ctaHref }: Props) {
   const featCol = 2 // Pro
   const cell: React.CSSProperties = { padding: '13px 14px', textAlign: 'center', fontSize: 13, borderBottom: `1px solid ${C.line}` }
   const featBg = 'rgba(245,158,11,.06)'
@@ -201,7 +204,9 @@ export function TabelaPlanos({ onSelectPlan }: Props) {
             <td style={{ ...cell, borderBottom: 'none' }}></td>
             {COLS.map((c, i) => (
               <td key={c.key} style={{ ...cell, borderBottom: 'none', background: i === featCol ? featBg : 'transparent' }}>
-                <button onClick={() => onSelectPlan?.(c.key)} style={{ ...btnStyle(c.btn), fontSize: 12, padding: '9px' }}>{c.cta}</button>
+                {ctaHref
+                  ? <a href={ctaHref} style={{ ...btnStyle(c.btn), fontSize: 12, padding: '9px' }}>{c.cta}</a>
+                  : <button onClick={() => onSelectPlan?.(c.key)} style={{ ...btnStyle(c.btn), fontSize: 12, padding: '9px' }}>{c.cta}</button>}
               </td>
             ))}
           </tr>

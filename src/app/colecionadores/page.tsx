@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
+import { CardsPlanos } from '@/components/ui/PlanosBlocos'
 
 // ─── ISR ────────────────────────────────────────────────────────────────────
 // Revalida os numeros do catalogo 1x por hora. Stats (cartas, sets, valor) vem
@@ -548,64 +549,7 @@ export default async function ColecionadoresPage() {
               subtitle="Sem fidelidade. Cancele a qualquer momento."
             />
 
-            <div className="col-plans-grid" style={S.plansGrid}>
-              {/* Free */}
-              <div style={S.planCard}>
-                <h3 style={S.planName}>Grátis</h3>
-                <div style={S.planPrice}>R$ 0</div>
-                <p style={S.planTagline}>Pra começar a organizar.</p>
-                <ul style={S.planFeatures}>
-                  <PlanFeature>Cartas ilimitadas</PlanFeature>
-                  <PlanFeature>Pokédex completa</PlanFeature>
-                  <PlanFeature>Dashboard financeiro</PlanFeature>
-                  <PlanFeature>3 anúncios no Marketplace</PlanFeature>
-                  <PlanFeature>Perfil público</PlanFeature>
-                  <PlanFeature muted>Scan com IA, exportar</PlanFeature>
-                </ul>
-                <Link href="?auth=signup&next=/minha-colecao" style={S.planCtaSecondary}>
-                  Começar grátis
-                </Link>
-              </div>
-
-              {/* Pro Mensal — destaque */}
-              <div style={{ ...S.planCard, ...S.planCardHighlight }}>
-                <span style={S.planHighlightBadge}>Recomendado</span>
-                <h3 style={{ ...S.planName, color: '#f59e0b' }}>Pro Mensal</h3>
-                <div style={S.planPrice}>
-                  R$ 29,90<span style={S.planPriceUnit}>/mês</span>
-                </div>
-                <p style={S.planTagline}>Pra quem leva coleção a sério.</p>
-                <ul style={S.planFeatures}>
-                  <PlanFeature highlight>Cartas ilimitadas</PlanFeature>
-                  <PlanFeature>Scan com IA (créditos mensais)</PlanFeature>
-                  <PlanFeature>Perfil público compartilhável</PlanFeature>
-                  <PlanFeature>Histórico de preços</PlanFeature>
-                  <PlanFeature>Exportar CSV</PlanFeature>
-                  <PlanFeature>Marketplace ilimitado</PlanFeature>
-                </ul>
-                <Link href="?auth=signup&next=/minha-colecao" style={S.planCtaPrimary}>
-                  Começar 7 dias grátis
-                </Link>
-              </div>
-
-              {/* Pro Anual */}
-              <div style={S.planCard}>
-                <h3 style={S.planName}>Pro Anual</h3>
-                <div style={S.planPrice}>
-                  R$ 249<span style={S.planPriceUnit}>/ano</span>
-                </div>
-                <p style={S.planTagline}>R$ 20,75/mês · economize R$ 109,80.</p>
-                <ul style={S.planFeatures}>
-                  <PlanFeature highlight>Tudo do Pro Mensal</PlanFeature>
-                  <PlanFeature>Suporte prioritário</PlanFeature>
-                  <PlanFeature>Acesso antecipado a novidades</PlanFeature>
-                  <PlanFeature>Renovação com 20% off no 2º ano</PlanFeature>
-                </ul>
-                <Link href="?auth=signup&next=/minha-colecao" style={S.planCtaSecondary}>
-                  Começar 7 dias grátis
-                </Link>
-              </div>
-            </div>
+            <CardsPlanos ctaHref="?auth=signup&next=/minha-colecao" />
           </div>
         </section>
 
