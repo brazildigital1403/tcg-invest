@@ -200,7 +200,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     })
   }
 
-  const [podeDashboard, setPodeDashboard] = useState(true)
+  const [podeDashboard, setPodeDashboard] = useState<boolean | null>(null)
 
   // Determina o perfil
   const isLojistaPuro = temLoja === true && temCartas === false && !exploreMode
@@ -208,7 +208,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Monta menu adaptativo
   const menu = useMemo<MenuItem[]>(() => {
-    const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && !podeDashboard) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
+    const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
       return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE])
     }
@@ -227,7 +227,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [menu])
   const maisItems = useMemo<MenuItem[]>(() => menu.filter(m => !primaryTabs.includes(m)), [menu, primaryTabs])
 
-  const logoHref = isLojistaPuro ? '/minha-loja' : (ENFORCEMENT_ATIVO && !podeDashboard) ? '/minha-colecao' : '/dashboard-financeiro'
+  const logoHref = isLojistaPuro ? '/minha-loja' : (ENFORCEMENT_ATIVO && podeDashboard !== true) ? '/minha-colecao' : '/dashboard-financeiro'
   const mostrarPatrimonio = !isLojistaPuro
 
   function toggleExploreMode() {
