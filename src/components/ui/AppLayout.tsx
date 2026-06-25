@@ -226,6 +226,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return inBottom.length >= 3 ? inBottom : menu.slice(0, 4)
   }, [menu])
   const maisItems = useMemo<MenuItem[]>(() => menu.filter(m => !primaryTabs.includes(m)), [menu, primaryTabs])
+  const menuPronto = temLoja !== null && temCartas !== null && (!ENFORCEMENT_ATIVO || podeDashboard !== null)
 
   const logoHref = isLojistaPuro ? '/minha-loja' : (ENFORCEMENT_ATIVO && podeDashboard !== true) ? '/minha-colecao' : '/dashboard-financeiro'
   const mostrarPatrimonio = !isLojistaPuro
@@ -530,7 +531,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-            {GROUP_ORDER.map(g => {
+            {!menuPronto && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}>
+                {[0, 1, 2, 3, 4].map(i => (
+                  <div key={i} style={{ height: 38, borderRadius: 10, background: 'rgba(255,255,255,0.04)' }} />
+                ))}
+              </div>
+            )}
+            {menuPronto && GROUP_ORDER.map(g => {
               const gItems = menu.filter(m => m.group === g.key)
               if (gItems.length === 0) return null
               return (
