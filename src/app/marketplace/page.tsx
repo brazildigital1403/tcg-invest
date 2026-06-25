@@ -12,6 +12,7 @@ import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AnunciarModal from '@/components/marketplace/AnunciarModal'
+import ModalLimiteAnuncios from '@/components/ui/ModalLimiteAnuncios'
 import NegociacoesTab from '@/components/marketplace/NegociacoesTab'
 import MarketplaceFotosGaleria from '@/components/marketplace/MarketplaceFotosGaleria'
 
@@ -427,6 +428,7 @@ function MarketplaceInner() {
   const [limiteAnuncios, setLimiteAnuncios] = useState<number>(LIMITE_FREE_MKTPLACE)
   const [loading, setLoading]   = useState(true)
   const [showAnunciarModal, setShowAnunciarModal] = useState(false)
+  const [showLimiteAnuncios, setShowLimiteAnuncios] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroCondicao, setFiltroCondicao] = useState('')
@@ -554,7 +556,7 @@ function MarketplaceInner() {
     if (!userId) { showAlert('Você precisa estar logado.', 'error'); return }
     const { bloqueado } = await checkMarketplaceLimit(userId)
     if (bloqueado) {
-      showAlert(`Você atingiu o limite de ${LIMITE_FREE_MKTPLACE} anúncios. Acesse Minha Conta para fazer upgrade.`, 'warning')
+      setShowLimiteAnuncios(true)
       return
     }
     setShowAnunciarModal(true)
@@ -919,6 +921,12 @@ function MarketplaceInner() {
           userId={userId}
           onClose={() => setShowAnunciarModal(false)}
           onAdded={() => { setShowAnunciarModal(false); loadData() }}
+        />
+      )}
+      {showLimiteAnuncios && (
+        <ModalLimiteAnuncios
+          onClose={() => setShowLimiteAnuncios(false)}
+          onUpgrade={() => { window.location.href = '/minha-conta' }}
         />
       )}
     </AppLayout>
