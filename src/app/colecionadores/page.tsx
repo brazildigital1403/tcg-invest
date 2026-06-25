@@ -138,7 +138,7 @@ const faqSchema = {
       name: 'O Bynx é grátis?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim, o plano gratuito é 100% gratuito e permite organizar cartas ilimitadas. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
+        text: 'Sim, o plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
       },
     },
     {
@@ -565,7 +565,7 @@ export default async function ColecionadoresPage() {
               {[
                 {
                   q: 'O Bynx é grátis?',
-                  a: 'Sim. O plano gratuito é 100% gratuito e permite organizar cartas ilimitadas. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
+                  a: 'Sim. O plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
                 },
                 {
                   q: 'Funciona com cartas em português, inglês e japonês?',
@@ -613,7 +613,7 @@ export default async function ColecionadoresPage() {
               </h2>
               <p style={S.finalSubtitle}>
                 7 dias de Pro grátis pra testar. Sem cartão, sem pegadinha.
-                Depois disso, plano gratuito com cartas ilimitadas pra sempre — ou Pro a partir de R$ 29,90/mês.
+                Depois disso, plano gratuito pra sempre, até 100 cartas — ou Plus/Pro quando precisar de mais.
               </p>
               <div className="col-final-ctas" style={S.heroCtas}>
                 <Link href="?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
