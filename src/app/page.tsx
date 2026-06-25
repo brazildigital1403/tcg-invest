@@ -10,6 +10,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import HomeSearchBand from '@/components/ui/HomeSearchBand'
 import HomeVitrines from '@/components/ui/HomeVitrines'
+import { CardsPlanos, TabelaPlanos } from '@/components/ui/PlanosBlocos'
 
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = React.useState(false)
@@ -305,7 +306,7 @@ export default function Home() {
   // Abre modal global ou redireciona conforme estado de auth + plano escolhido.
   // Toda lógica de modal (form, validação, escolha de plano, Stripe pós-cadastro)
   // foi extraída pro AuthModalProvider em src/components/auth/AuthModalProvider.tsx.
-  async function handleClickPlan(plano: 'free' | 'mensal' | 'anual') {
+  async function handleClickPlan(plano: 'free' | 'plus' | 'mensal' | 'anual') {
     // Logado + Pro → Stripe Checkout direto
     if (user && plano !== 'free') {
       try {
@@ -643,118 +644,14 @@ export default function Home() {
       </section>
 
       {/* PLANOS */}
-      <section ref={pricingRef} style={{ padding: '100px 24px', maxWidth: 1000, margin: '0 auto', textAlign: 'center' }}>
+      <section ref={pricingRef} style={{ padding: '100px 24px', maxWidth: 1120, margin: '0 auto', textAlign: 'center' }}>
         <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Planos</p>
         <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 16 }}>Comece grátis, desbloqueie mais quando quiser</h2>
         <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 56, fontSize: 16 }}>Sem cartão de crédito para começar.</p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, textAlign: 'left' }}>
-
-          {/* Plano Free */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '32px 28px' }}>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Grátis</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
-              <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em' }}>R$ 0</span>
-            </div>
-            <div style={{ marginBottom: 28 }}>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 4 }}>Para começar a organizar</p>
-              <p style={{ color: '#f59e0b', fontSize: 12, fontWeight: 700 }}>⭐ Inclui 7 dias de Pro grátis</p>
-            </div>
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[
-                { txt: 'Cartas ilimitadas', ok: true },
-                { txt: 'Perfil público', ok: true },
-                { txt: '3 anúncios no Marketplace', ok: true },
-                { txt: 'Pokédex completa', ok: true },
-                { txt: 'Dashboard financeiro', ok: true },
-                { txt: 'Exportar CSV', ok: false },
-                { txt: 'Anúncios ilimitados', ok: false },
-                { txt: 'Scan com IA', ok: false },
-                { txt: 'Separadores de Fichário', ok: false },
-              ].map(f => (
-                <div key={f.txt} style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: f.ok ? 1 : 0.35 }}>
-                  <span style={{ color: f.ok ? '#22c55e' : '#6b7280', fontSize: 13, flexShrink: 0 }}>{f.ok ? <IconCheck size={13} color='#22c55e' /> : <svg width='13' height='13' viewBox='0 0 20 20' fill='none'><path d='M5 5l10 10M15 5L5 15' stroke='#6b7280' strokeWidth='1.6' strokeLinecap='round'/></svg>}</span>
-                  <span style={{ fontSize: 13, color: f.ok ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.6)' }}>{f.txt}</span>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => handleClickPlan('free')}
-              style={{ width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', padding: '13px', borderRadius: 12, fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}
-            >
-              ⭐ Começar com 7 dias Pro grátis
-            </button>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 10 }}>Após o trial: cartas ilimitadas pra sempre, sem Scan IA e features Pro</p>
-          </div>
-
-          {/* Pro Mensal */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '32px 28px' }}>
-            <p style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pro · Mensal</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 6 }}>
-              <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 29</span>
-              <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.65)', letterSpacing: '-0.02em' }}>,90<span style={{ fontSize: 13 }}>/mês</span></span>
-            </div>
-            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 28 }}>Cancele quando quiser · sem fidelidade</p>
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[
-                'Anúncios ilimitados',
-                'Pokédex completa',
-                'Dashboard financeiro completo',
-                'Exportar CSV',
-                'Marketplace sem limites',
-                'Badge Pro no perfil',
-                'Scan com IA (créditos disponíveis)',
-                'Separadores de Fichário (disponíveis)',
-              ].map(f => (
-                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <IconCheck size={13} color='#f59e0b' />
-                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{f}</span>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => handleClickPlan('mensal')}
-              style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}
-            >
-              {user ? 'Assinar Pro Mensal →' : 'Começar com Pro Mensal →'}
-            </button>
-          </div>
-
-          {/* Pro Anual — destaque */}
-          <div className="lp-anual-fire" style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 20, padding: '32px 28px', position: 'relative' }}>
-            <div className="lp-fire-embers" aria-hidden="true"><span /><span /><span /></div>
-            <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 10, fontWeight: 800, padding: '4px 14px', borderRadius: 100, whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
-              MELHOR VALOR · 30% OFF
-            </div>
-            <p style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pro · Anual</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 4 }}>
-              <span style={{ fontSize: 44, fontWeight: 900, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 249</span>
-            </div>
-            <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, marginBottom: 4 }}>R$ 20,75/mês · cobrado anualmente</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
-              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, textDecoration: 'line-through' }}>R$358,80/ano</span>
-              <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 100 }}>Economize R$109,80</span>
-            </div>
-            <div style={{ borderTop: '1px solid rgba(245,158,11,0.15)', paddingTop: 20, marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[
-                'Tudo do Pro Mensal',
-                'Economize R$109,80 por ano',
-                'Prioridade no suporte',
-                'Acesso antecipado a novidades',
-              ].map(f => (
-                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <IconCheck size={13} color='#f59e0b' />
-                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>{f}</span>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => handleClickPlan('anual')}
-              style={{ width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', boxShadow: '0 0 30px rgba(245,158,11,0.25)' }}
-            >
-              {user ? 'Assinar Pro Anual →' : 'Começar com Pro Anual →'}
-            </button>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+          <CardsPlanos onSelectPlan={(t) => handleClickPlan(t === 'pro' ? 'mensal' : t === 'pro_anual' ? 'anual' : t)} />
+          <TabelaPlanos onSelectPlan={(t) => handleClickPlan(t === 'pro' ? 'mensal' : t === 'pro_anual' ? 'anual' : t)} />
         </div>
       </section>
 
