@@ -33,9 +33,12 @@ const SCAN_PKGS = [
   { plano: 'scan_colecionador', scans: 40, preco: 'R$34,90', unit: 'R$0,87/scan' },
 ]
 
+type ScanStatus = { scans_mes: number; mensal_usados: number; mensal_disp: number; avulso: number; total: number; reset: string | null }
+
 export default function ScanModal({ userId, onClose, onAdded }: Props) {
   const [step, setStep] = useState<'capture' | 'scanning' | 'confirm' | 'adding'>('capture')
   const [creditos, setCreditos] = useState<number | null>(null)
+  const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null)
   const [comprando, setComprando] = useState(false)
   const [selectedPackage, setSelectedPackage] = useState<string>('scan_popular')
   const [preview, setPreview] = useState<string | null>(null)
@@ -142,15 +145,15 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
 
   // ── Carrega créditos disponíveis ─────────────────────────────────────────────
 
-  useEffect(() => {
-    async function loadCreditos() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase.from('users').select('scan_creditos').eq('id', user.id).limit(1)
-      setCreditos(data?.[0]?.scan_creditos ?? 0)
-    }
-    loadCreditos()
+  const refreshStatus = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.rpc('get_scan_status', { p_user_id: user.id })
+    const st = data as ScanStatus | null
+    if (st) { setScanStatus(st); setCreditos(st.total) } else { setCreditos(0) }
   }, [])
+
+  useEffect(() => { void refreshStatus() }, [refreshStatus])
 
   async function handleComprarCreditos(pacote: string) {
     setComprando(true)
@@ -217,6 +220,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         if (typeof data.scan_creditos_restantes === 'number') {
           setCreditos(data.scan_creditos_restantes)
         }
+        void refreshStatus()
         setError('Nenhuma carta identificada. Tente uma foto mais clara e próxima das cartas.')
         setStep('capture')
         return
@@ -292,6 +296,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       if (typeof data.scan_creditos_restantes === 'number') {
         setCreditos(data.scan_creditos_restantes)
       }
+      void refreshStatus()
     } catch (err: any) {
       setError(err.message || 'Erro ao processar imagem')
       setStep('capture')
@@ -548,15 +553,35 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                   <div style={{
                     background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
                     borderRadius: 10, padding: '10px 14px',
-                    display: 'flex', alignItems: 'center', gap: 8,
+                    display: 'flex', flexDirection: 'column', gap: 6,
                   }}>
-                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-                      <circle cx="10" cy="10" r="7.5" stroke="#f59e0b" strokeWidth="1.3"/>
-                      <path d="M10 6v5M10 13v.5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/>
-                    </svg>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
-                      <strong style={{ color: '#f59e0b' }}>{creditos}</strong> crédito{creditos !== 1 ? 's' : ''} disponível{creditos !== 1 ? 'is' : ''}
-                    </span>
+                    {scanStatus && scanStatus.scans_mes > 0 ? (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                            <circle cx="10" cy="10" r="7.5" stroke="#f59e0b" strokeWidth="1.3"/>
+                            <path d="M10 6v5M10 13v.5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/>
+                          </svg>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                            <strong style={{ color: '#f59e0b' }}>{scanStatus.mensal_disp}</strong> de {scanStatus.scans_mes} scans este mês
+                            {scanStatus.avulso > 0 && <> {'·'} <strong style={{ color: '#f59e0b' }}>{scanStatus.avulso}</strong> avulso{scanStatus.avulso !== 1 ? 's' : ''}</>}
+                          </span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 100, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 100, background: 'linear-gradient(90deg,#f59e0b,#ef4444)', width: `${Math.round((scanStatus.mensal_disp / Math.max(1, scanStatus.scans_mes)) * 100)}%` }} />
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                          <circle cx="10" cy="10" r="7.5" stroke="#f59e0b" strokeWidth="1.3"/>
+                          <path d="M10 6v5M10 13v.5" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/>
+                        </svg>
+                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                          <strong style={{ color: '#f59e0b' }}>{creditos}</strong> crédito{creditos !== 1 ? 's' : ''} disponível{creditos !== 1 ? 'is' : ''}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -622,6 +647,23 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                         </button>
                       )
                     })()}
+
+                    {/* Upsell Pro inline — so para quem nao tem mensais (free/plus) */}
+                    {scanStatus && scanStatus.scans_mes === 0 && (
+                      <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5, margin: '0 0 8px' }}>
+                          Ou assine o <strong style={{ color: '#f59e0b' }}>Pro</strong> e ganhe <strong style={{ color: '#f0f0f0' }}>10 scans por mês inclusos</strong> {'—'} todo mês.
+                        </p>
+                        <a href="/minha-conta" style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+                          borderRadius: 10, padding: '10px 14px', textDecoration: 'none',
+                          color: '#f59e0b', fontWeight: 700, fontSize: 13,
+                        }}>
+                          Conhecer o Pro {'→'}
+                        </a>
+                      </div>
+                    )}
 
                     {/* Aviso sem créditos */}
                     {creditos === 0 && (
