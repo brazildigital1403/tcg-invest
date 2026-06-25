@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import AppLayout from '@/components/ui/AppLayout'
 import { supabase } from '@/lib/supabaseClient'
+import { getUserPlan } from '@/lib/isPro'
 
 const GENERATIONS = [
   { label: 'Gen I',    short: 'GEN 1', from: 1,    to: 151,  region: 'Kanto',  color: '#e74c3c' },
@@ -81,7 +82,9 @@ export default function SeparadoresPage() {
         .eq('id', user.id)
         .limit(1)
 
-      const status = data?.[0]?.separadores_desbloqueado ?? false
+      const avulso = data?.[0]?.separadores_desbloqueado ?? false
+      const { caps } = await getUserPlan(user.id)
+      const status = avulso || caps.separadoresLiberados
       setDesbloqueado(status)
 
       // Se voltou do Stripe com ?desbloqueado=1

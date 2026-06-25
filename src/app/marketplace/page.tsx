@@ -424,6 +424,7 @@ function MarketplaceInner() {
   const [userId, setUserId]     = useState<string | null>(null)
   const [userWhatsapp, setUserWhatsapp] = useState<string | null>(null)
   const [isPro, setIsPro] = useState(false)
+  const [limiteAnuncios, setLimiteAnuncios] = useState<number>(LIMITE_FREE_MKTPLACE)
   const [loading, setLoading]   = useState(true)
   const [showAnunciarModal, setShowAnunciarModal] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState('')
@@ -448,6 +449,7 @@ function MarketplaceInner() {
       // getUserPlan considera is_pro + pro_expira_em + trial_expires_at.
       const planInfo = await getUserPlan(uid)
       setIsPro(planInfo.isPro)
+      setLimiteAnuncios(planInfo.caps.limiteAnuncios)
     }
 
     // Busca anúncios — exclui anúncios moderados (removidos pelo admin)
@@ -874,7 +876,7 @@ function MarketplaceInner() {
                 </div>
 
                 {/* Banner upgrade após 3 anúncios — apenas pra users free */}
-                {!isPro && totalAnuncios >= LIMITE_FREE_MKTPLACE && (
+                {limiteAnuncios !== Infinity && totalAnuncios >= limiteAnuncios && (
                   <UpgradeBanner tipo="marketplace" />
                 )}
               </>

@@ -38,6 +38,7 @@ export default function PastasIndex() {
   const { showAlert } = useAppModal()
   const [pastas, setPastas] = useState<Pasta[]>([])
   const [isPro, setIsPro] = useState(false)
+  const [limitePastas, setLimitePastas] = useState<number>(LIMITE_PASTAS_FREE)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [openCreate, setOpenCreate] = useState(false)
@@ -48,8 +49,9 @@ export default function PastasIndex() {
       if (!userData?.user) { window.location.href = '/login'; return }
       setUserId(userData.user.id)
 
-      const { isPro: pro, isTrial: trial } = await getUserPlan(userData.user.id)
+      const { isPro: pro, isTrial: trial, caps } = await getUserPlan(userData.user.id)
       setIsPro(pro || trial)
+      setLimitePastas(caps.limitePastas)
 
       // S40: normaliza travas conforme plano (PRO destrava tudo; Free mantem 1 ativa = mais antiga)
       await supabase.rpc('sync_pastas_lock')
@@ -76,7 +78,7 @@ export default function PastasIndex() {
   useEffect(() => { load() }, [])
 
   const ativas = pastas.filter(p => !p.locked)
-  const freeAtLimit = !isPro && ativas.length >= LIMITE_PASTAS_FREE
+  const freeAtLimit = ativas.length >= limitePastas
   const lockedPastas = pastas.filter(p => p.locked)
   const showGhost = freeAtLimit && lockedPastas.length === 0
 
@@ -88,7 +90,7 @@ export default function PastasIndex() {
 
   function handleCreateClick() {
     if (!userId) return
-    if (!isPro && ativas.length >= LIMITE_PASTAS_FREE) {
+    if (ativas.length >= limitePastas) {
       showAlert('No plano Free voce pode ter 1 Pasta. Faca upgrade para o Pro e tenha pastas ilimitadas.', 'warning')
       return
     }
@@ -114,7 +116,7 @@ export default function PastasIndex() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Pastas</h1>
             <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              {isPro ? `${pastas.length} pasta${pastas.length !== 1 ? 's' : ''}` : `${ativas.length}/${LIMITE_PASTAS_FREE} pasta${ativas.length !== 1 ? 's' : ''}`}
+              {limitePastas === Infinity ? `${pastas.length} pasta${pastas.length !== 1 ? 's' : ''}` : `${ativas.length}/${limitePastas} pasta${ativas.length !== 1 ? 's' : ''}`}
             </span>
           </div>
           <button
