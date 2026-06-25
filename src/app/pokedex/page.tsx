@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
-import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
+import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
@@ -115,6 +115,7 @@ export default function Pokedex() {
   const [ownedCardIds, setOwnedCardIds] = useState<Set<string>>(new Set())
 
   const [isPro, setIsPro]           = useState(false)
+  const [pokedexCompleta, setPokedexCompleta] = useState(false)
   const [userId, setUserId]         = useState<string | null>(null)
 
   // Exchange rate
@@ -148,8 +149,9 @@ export default function Pokedex() {
       const { data: authData } = await supabase.auth.getUser()
       if (authData.user) {
         setUserId(authData.user.id)
-        const { isPro: pro, isTrial } = await getUserPlan(authData.user.id)
+        const { isPro: pro, isTrial, caps } = await getUserPlan(authData.user.id)
         setIsPro(pro || isTrial)
+        setPokedexCompleta(caps.pokedexCompleta)
         await loadOwnedPokemons(authData.user.id)
       }
       await loadPokemons()
@@ -265,6 +267,10 @@ export default function Pokedex() {
   }
 
   async function handleSelectPokemon(pokemon: any) {
+    if (ENFORCEMENT_ATIVO && !pokedexCompleta) {
+      showAlert('Ver as cartas e os detalhes de cada Pokémon é um recurso dos planos pagos. Faça upgrade para desbloquear a Pokédex completa.', 'warning')
+      return
+    }
     setSelectedPokemon(pokemon)
     setView('cards')
     setLoadingCards(true)

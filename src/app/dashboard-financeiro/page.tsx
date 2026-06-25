@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
+import { ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
@@ -113,7 +114,8 @@ export default function DashboardFinanceiro() {
         const uid = userData.user.id
         setUserId(uid)
 
-        const { isPro: pro, isTrial: trial } = await getUserPlan(uid)
+        const { isPro: pro, isTrial: trial, caps } = await getUserPlan(uid)
+        if (ENFORCEMENT_ATIVO && !caps.podeDashboard) { window.location.href = '/minha-colecao'; return }
         setIsPro(pro || trial)
         setIsTrial(trial) // trial já indica trial, independente de isPro
         const { data: txns } = await supabase

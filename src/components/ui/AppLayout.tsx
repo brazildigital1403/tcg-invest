@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import MuroPosTrial from './MuroPosTrial'
 import { supabase } from '@/lib/supabaseClient'
+import { resolvePlan } from '@/lib/plan'
+import { ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
 import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount,
@@ -199,14 +200,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     })
   }
 
+  const [podeDashboard, setPodeDashboard] = useState(true)
+
   // Determina o perfil
   const isLojistaPuro = temLoja === true && temCartas === false && !exploreMode
   const isLojistaExplore = temLoja === true && temCartas === false && exploreMode
 
   // Monta menu adaptativo
   const menu = useMemo<MenuItem[]>(() => {
+    const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && !podeDashboard) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE]
+      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE])
     }
     if (isLojistaPuro) {
       return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE]
@@ -214,8 +218,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE)
-    return base
-  }, [temLoja, temCartas, isLojistaPuro])
+    return semDash(base)
+  }, [temLoja, temCartas, isLojistaPuro, podeDashboard])
 
   const primaryTabs = useMemo<MenuItem[]>(() => {
     const inBottom = BOTTOM_TAB_HREFS.map(h => menu.find(m => m.href === h)).filter(Boolean) as MenuItem[]
@@ -223,7 +227,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [menu])
   const maisItems = useMemo<MenuItem[]>(() => menu.filter(m => !primaryTabs.includes(m)), [menu, primaryTabs])
 
-  const logoHref = isLojistaPuro ? '/minha-loja' : '/dashboard-financeiro'
+  const logoHref = isLojistaPuro ? '/minha-loja' : (ENFORCEMENT_ATIVO && !podeDashboard) ? '/minha-colecao' : '/dashboard-financeiro'
   const mostrarPatrimonio = !isLojistaPuro
 
   function toggleExploreMode() {
@@ -318,7 +322,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
 
       const { data: userData } = await supabase
-        .from('users').select('is_pro, trial_expires_at').eq('id', authData.user.id).single()
+        .from('users').select('is_pro, trial_expires_at, plano, pro_expira_em').eq('id', authData.user.id).single()
+      if (userData) {
+        const { caps } = resolvePlan(userData as any)
+        setPodeDashboard(caps.podeDashboard)
+      }
       if (userData && !userData.is_pro && userData.trial_expires_at) {
         const expiry = new Date(userData.trial_expires_at)
         if (expiry > new Date()) {
@@ -351,7 +359,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <MuroPosTrial />
       {notifOpen && <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />}
 
       {notifOpen && (
