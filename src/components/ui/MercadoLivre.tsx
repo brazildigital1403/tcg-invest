@@ -7,6 +7,7 @@
 // variante="strip" -> faixa fina de acessorios (usado no /carta)
 
 import type { CSSProperties, ReactNode } from 'react'
+import MlGaleriaRail from './MlGaleriaRail'
 
 const AMARELO = '#FFE600'
 const ML_DARK = '#1a1a2e'
@@ -107,24 +108,7 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo, produto
         <div style={{ fontSize: 16, fontWeight: 800, color: '#f5f5f5', margin: '0 0 3px' }}>{t}</div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '0 0 14px' }}>{s}</div>
 
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '2px 2px 12px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
-          {produtos.map((prod, idx) => (
-            <a
-              key={idx}
-              href={prod.url}
-              target="_blank"
-              rel={REL}
-              style={{ flex: '0 0 156px', scrollSnapAlign: 'start', background: '#fff', borderRadius: 12, overflow: 'hidden', textDecoration: 'none', display: 'flex', flexDirection: 'column', border: '1px solid rgba(0,0,0,0.06)' }}
-            >
-              <img src={prod.imagem} alt={prod.titulo} loading="lazy" style={{ width: '100%', height: 130, objectFit: 'contain', background: '#fff', padding: 10 }} />
-              <span style={{ padding: '8px 10px 11px', display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
-                <span style={{ fontSize: 11.5, lineHeight: 1.32, color: '#2d2d3a', fontWeight: 600, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 30 }}>{prod.titulo}</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: '#00a650', marginTop: 'auto' }}>{prod.preco}</span>
-                <span style={{ fontSize: 10, color: '#3483fa', fontWeight: 700 }}>Ver no ML &rarr;</span>
-              </span>
-            </a>
-          ))}
-        </div>
+        <MlGaleriaRail produtos={produtos} />
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
           <a href={url} target="_blank" rel={REL} style={ctaBase}>Ver tudo no Mercado Livre &rarr;</a>
