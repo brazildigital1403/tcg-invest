@@ -38,14 +38,17 @@ const TILES: { label: string; icon: ReactNode }[] = [
   ) },
 ]
 
+type Produto = { titulo: string; preco: string; imagem: string; url: string }
+
 type Props = {
   url: string
   variante: 'card' | 'strip'
   titulo?: string | null
   subtitulo?: string | null
+  produtos?: Produto[]
 }
 
-export default function MercadoLivre({ url, variante, titulo, subtitulo }: Props) {
+export default function MercadoLivre({ url, variante, titulo, subtitulo, produtos }: Props) {
   if (!url) return null
 
   const ctaBase: CSSProperties = {
@@ -86,8 +89,50 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo }: Props
   }
 
   // variante card
-  const t = titulo || 'Comprar lacrado e acessórios'
-  const s = subtitulo || 'Boxes, ETBs, sleeves e fichários pra montar e proteger sua coleção.'
+  const t = titulo || 'Garanta seus lacrados e acessórios'
+  const s = subtitulo || 'Boxes, blisters e proteção pra sua coleção — os mais buscados, num clique.'
+
+  // Galeria de produtos reais (foto + titulo + preco). Cada card linka pro produto
+  // (v1: todos pro link da lista marcada; cookie de 30 dias atribui a compra).
+  if (produtos && produtos.length > 0) {
+    return (
+      <div style={{ position: 'relative', overflow: 'hidden', background: '#0d0f14', border: '1px solid rgba(255,230,0,0.18)', borderRadius: 14, padding: 18, margin: '20px 0 28px' }}>
+        <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: AMARELO }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: ML_DARK, background: AMARELO, padding: '3px 9px', borderRadius: 100 }}>
+            <CartIcon /> Mercado Livre
+          </span>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>Publicidade</span>
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#f5f5f5', margin: '0 0 3px' }}>{t}</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '0 0 14px' }}>{s}</div>
+
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '2px 2px 12px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+          {produtos.map((prod, idx) => (
+            <a
+              key={idx}
+              href={prod.url}
+              target="_blank"
+              rel={REL}
+              style={{ flex: '0 0 156px', scrollSnapAlign: 'start', background: '#fff', borderRadius: 12, overflow: 'hidden', textDecoration: 'none', display: 'flex', flexDirection: 'column', border: '1px solid rgba(0,0,0,0.06)' }}
+            >
+              <img src={prod.imagem} alt={prod.titulo} loading="lazy" style={{ width: '100%', height: 130, objectFit: 'contain', background: '#fff', padding: 10 }} />
+              <span style={{ padding: '8px 10px 11px', display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
+                <span style={{ fontSize: 11.5, lineHeight: 1.32, color: '#2d2d3a', fontWeight: 600, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 30 }}>{prod.titulo}</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: '#00a650', marginTop: 'auto' }}>{prod.preco}</span>
+                <span style={{ fontSize: 10, color: '#3483fa', fontWeight: 700 }}>Ver no ML &rarr;</span>
+              </span>
+            </a>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+          <a href={url} target="_blank" rel={REL} style={ctaBase}>Ver tudo no Mercado Livre &rarr;</a>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <a
       href={url}

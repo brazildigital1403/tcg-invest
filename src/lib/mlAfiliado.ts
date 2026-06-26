@@ -23,3 +23,38 @@ export async function getMlAfiliadoLink(chave: string): Promise<MlAfiliadoLink |
     return null
   }
 }
+
+export type MlAfiliadoProduto = { titulo: string; preco: string; imagem: string; url: string }
+
+// Lista de produtos de afiliado por chave (set_id, 'acessorios', etc.), caindo no
+// 'default' quando a chave nao tiver produtos proprios. Ordenado por 'ordem'.
+// A prova de erro: retorna [] em qualquer falha (a galeria cai no CTA simples).
+export async function getMlAfiliadoProdutos(chave: string): Promise<MlAfiliadoProduto[]> {
+  try {
+    const sb = getServiceSupabase()
+    const map = (
+      rows: { titulo: string; preco: string; imagem_url: string; url: string }[] | null,
+    ): MlAfiliadoProduto[] =>
+      (rows || []).map((r) => ({ titulo: r.titulo, preco: r.preco, imagem: r.imagem_url, url: r.url }))
+
+    if (chave !== 'default') {
+      const { data: esp } = await sb
+        .from('ml_afiliado_produtos')
+        .select('titulo, preco, imagem_url, url')
+        .eq('chave', chave)
+        .eq('ativo', true)
+        .order('ordem', { ascending: true })
+      if (esp && esp.length > 0) return map(esp)
+    }
+
+    const { data } = await sb
+      .from('ml_afiliado_produtos')
+      .select('titulo, preco, imagem_url, url')
+      .eq('chave', 'default')
+      .eq('ativo', true)
+      .order('ordem', { ascending: true })
+    return map(data)
+  } catch {
+    return []
+  }
+}
