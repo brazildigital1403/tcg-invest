@@ -25,7 +25,7 @@ import { notFound } from 'next/navigation'
 import CardClient from './CardClient'
 import CartasRelacionadas from '@/components/cards/CartasRelacionadas'
 import MercadoLivre from '@/components/ui/MercadoLivre'
-import { getMlAfiliadoLink } from '@/lib/mlAfiliado'
+import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
 import Link from 'next/link'
 
 function slugifyName(s: string): string {
@@ -337,6 +337,7 @@ export default async function CartaPage({
 
   // Link de afiliado do Mercado Livre (acessorios; cai no 'default' se nao houver)
   const mlLink = await getMlAfiliadoLink('acessorios')
+  const mlProdutos = await getMlAfiliadoProdutos('acessorios')
 
   return (
     <>
@@ -377,7 +378,15 @@ export default async function CartaPage({
         />
 
         {mlLink && (
-          <MercadoLivre variante="strip" url={mlLink.url} titulo={mlLink.titulo} subtitulo={mlLink.subtitulo} />
+          <MercadoLivre
+            variante="card"
+            layout="grid"
+            gridMax={6}
+            url={mlLink.url}
+            titulo={mlLink.titulo}
+            subtitulo={mlLink.subtitulo}
+            produtos={mlProdutos}
+          />
         )}
       </CardClient>
     </>

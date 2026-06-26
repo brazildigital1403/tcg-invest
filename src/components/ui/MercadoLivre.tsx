@@ -8,6 +8,7 @@
 
 import type { CSSProperties, ReactNode } from 'react'
 import MlGaleriaRail from './MlGaleriaRail'
+import MlGaleriaGrid from './MlGaleriaGrid'
 
 const AMARELO = '#FFE600'
 const ML_DARK = '#1a1a2e'
@@ -47,9 +48,11 @@ type Props = {
   titulo?: string | null
   subtitulo?: string | null
   produtos?: Produto[]
+  layout?: 'rail' | 'grid'
+  gridMax?: number
 }
 
-export default function MercadoLivre({ url, variante, titulo, subtitulo, produtos }: Props) {
+export default function MercadoLivre({ url, variante, titulo, subtitulo, produtos, layout = 'rail', gridMax = 6 }: Props) {
   if (!url) return null
 
   const ctaBase: CSSProperties = {
@@ -108,7 +111,11 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo, produto
         <div style={{ fontSize: 16, fontWeight: 800, color: '#f5f5f5', margin: '0 0 3px' }}>{t}</div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '0 0 14px' }}>{s}</div>
 
-        <MlGaleriaRail produtos={produtos} />
+        {layout === 'grid' ? (
+          <MlGaleriaGrid produtos={produtos} max={gridMax} />
+        ) : (
+          <MlGaleriaRail produtos={produtos} />
+        )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
           <a href={url} target="_blank" rel={REL} style={ctaBase}>Ver tudo no Mercado Livre &rarr;</a>
