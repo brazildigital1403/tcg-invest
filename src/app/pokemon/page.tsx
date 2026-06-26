@@ -42,6 +42,26 @@ const GERACOES: { nome: string; min: number; max: number }[] = [
   { nome: 'Geração 9 — Paldea', min: 906, max: 1025 },
 ]
 
+// Sprite do Pokemon (mesma fonte do /pokedex): pokemondb p/ #1-1000, PokeAPI
+// official-artwork p/ #1001-1025. Usado com loading=lazy + referrerPolicy=no-referrer.
+function getPokemonSprite(name: string, dexId: number): string {
+  if (dexId <= 0) return ''
+  if (dexId >= 1001) {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`
+  }
+  const urlName = name
+    .toLowerCase()
+    .replace(/[\u2019']/g, '')
+    .replace(/\u2640/g, '-f')
+    .replace(/\u2642/g, '-m')
+    .replace(/[\u00e9\u00e8\u00ea\u00eb]/g, 'e')
+    .replace(/[.:]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  return `https://img.pokemondb.net/sprites/home/normal/${urlName}.png`
+}
+
 async function fetchAllPokemon(): Promise<Dex[]> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -209,6 +229,15 @@ export default async function PokemonIndexPage() {
                         padding: '9px 12px',
                       }}
                     >
+                      <img
+                        src={getPokemonSprite(p.name, p.national_dex || 0)}
+                        alt=""
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        width={40}
+                        height={40}
+                        style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }}
+                      />
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', minWidth: 34 }}>
                         {p.national_dex ? `#${String(p.national_dex).padStart(3, '0')}` : ''}
                       </span>
