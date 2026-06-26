@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       .select('id, user_id, card_id, nome, numero, colecao, idioma, notificado')
       .eq('status', 'adicionada')
       .not('user_id', 'is', null)
-      .not('card_id', 'is', null)
+      // inclui pedidos sem card_id linkado: o e-mail usa nome/colecao do pedido como fallback
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     const pend = (alvos || []).filter(a => !a.notificado)
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
       const uid = a.user_id as string
       if (!porUser[uid]) porUser[uid] = { ids: [], cartas: {} }
       porUser[uid].ids.push(a.id)
-      const cid = a.card_id as string
+      const cid = (a.card_id || a.id) as string
       if (!porUser[uid].cartas[cid]) {
         const card = cardMap[cid]
         porUser[uid].cartas[cid] = {
