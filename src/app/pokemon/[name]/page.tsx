@@ -18,6 +18,9 @@ import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { Fragment } from 'react'
+import MercadoLivre from '@/components/ui/MercadoLivre'
+import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
 import PublicFooter from '@/components/ui/PublicFooter'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import PriceHistory from '@/components/ui/PriceHistory'
@@ -300,6 +303,10 @@ export default async function PokemonHubPage({
     (hub.top_card_set ? ` do set ${hub.top_card_set}` : '') +
     ' — Pokémon TCG | Bynx'
 
+  // Afiliado Mercado Livre (lacrados + acessorios genericos; chave 'default')
+  const mlLink = await getMlAfiliadoLink('default')
+  const mlProdutos = await getMlAfiliadoProdutos('default')
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }} />
@@ -524,8 +531,9 @@ export default async function PokemonHubPage({
             Todas as cartas do {hub.name} atravessando as eras do Pokémon TCG.
           </p>
 
-          {grupos.map((g) => (
-            <section key={g.series} style={{ marginBottom: 34 }}>
+          {grupos.map((g, gi) => (
+            <Fragment key={g.series}>
+            <section style={{ marginBottom: 34 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.02em' }}>{g.series}</h3>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
@@ -577,6 +585,18 @@ export default async function PokemonHubPage({
                 ))}
               </div>
             </section>
+            {gi === 0 && mlLink && (
+              <div style={{ margin: '0 0 34px' }}>
+                <MercadoLivre
+                  variante="card"
+                  url={mlLink.url}
+                  titulo={mlLink.titulo}
+                  subtitulo={mlLink.subtitulo}
+                  produtos={mlProdutos}
+                />
+              </div>
+            )}
+            </Fragment>
           ))}
 
           {/* CTA footer */}
