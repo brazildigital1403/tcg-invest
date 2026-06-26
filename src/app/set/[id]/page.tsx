@@ -25,6 +25,7 @@ import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { Fragment } from 'react'
 import PublicFooter from '@/components/ui/PublicFooter'
 import MercadoLivre from '@/components/ui/MercadoLivre'
 import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
@@ -399,11 +400,7 @@ export default async function SetPage({
             </div>
           </div>
 
-          {mlLink && (
-            <MercadoLivre variante="card" url={mlLink.url} titulo={mlLink.titulo} subtitulo={mlLink.subtitulo} produtos={mlProdutos} />
-          )}
-
-          {/* Grid de cartas */}
+          {/* Grid de cartas (ML afiliado entra na 2a linha, via Fragment abaixo) */}
           <div
             style={{
               display: 'grid',
@@ -411,9 +408,21 @@ export default async function SetPage({
               gap: 14,
             }}
           >
-            {cards.map((card) => (
-              <Link
-                key={card.id}
+            {cards.map((card, idx) => (
+              <Fragment key={card.id}>
+                {idx === 6 && mlLink && (
+                  <div style={{ gridColumn: '1 / -1', margin: '6px 0' }}>
+                    <MercadoLivre
+                      variante="card"
+                      url={mlLink.url}
+                      titulo={mlLink.titulo}
+                      subtitulo={mlLink.subtitulo}
+                      produtos={mlProdutos}
+                    />
+                  </div>
+                )}
+                <Link
+                  key={card.id}
                 href={`/carta/${card.id}`}
                 style={{
                   textDecoration: 'none',
@@ -488,8 +497,20 @@ export default async function SetPage({
                     {formatBRL(Number(card.preco_medio))}
                   </p>
                 )}
-              </Link>
+                </Link>
+              </Fragment>
             ))}
+            {cards.length <= 6 && mlLink && (
+              <div style={{ gridColumn: '1 / -1', margin: '6px 0' }}>
+                <MercadoLivre
+                  variante="card"
+                  url={mlLink.url}
+                  titulo={mlLink.titulo}
+                  subtitulo={mlLink.subtitulo}
+                  produtos={mlProdutos}
+                />
+              </div>
+            )}
           </div>
 
           {/* CTA footer */}
