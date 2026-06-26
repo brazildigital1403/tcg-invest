@@ -234,17 +234,21 @@ export default async function PokemonIndexPage() {
                         alt=""
                         loading="lazy"
                         referrerPolicy="no-referrer"
-                        width={40}
-                        height={40}
-                        style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }}
+                        width={48}
+                        height={48}
+                        style={{ width: 48, height: 48, objectFit: 'contain', flexShrink: 0 }}
                       />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', minWidth: 34 }}>
-                        {p.national_dex ? `#${String(p.national_dex).padStart(3, '0')}` : ''}
+                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
+                          {p.national_dex ? `#${String(p.national_dex).padStart(3, '0')}` : ''}
+                        </span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: '#f5f5f5', lineHeight: 1.2 }}>
+                          {p.name}
+                        </span>
+                        <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: `${cor}28`, color: cor, marginTop: 1 }}>
+                          {p.cards_count} cart{p.cards_count === 1 ? 'a' : 'as'}
+                        </span>
                       </span>
-                      <span style={{ flex: 1, fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {p.name}
-                      </span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.cards_count}</span>
                     </Link>
                   )
                 })}
