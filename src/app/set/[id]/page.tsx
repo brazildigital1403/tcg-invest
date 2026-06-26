@@ -26,6 +26,8 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
+import MercadoLivre from '@/components/ui/MercadoLivre'
+import { getMlAfiliadoLink } from '@/lib/mlAfiliado'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 
 // ISR: regenera a cada 1h. Após o rename dos sets, os títulos precisam
@@ -220,6 +222,9 @@ export default async function SetPage({
   if (!set || cards.length === 0) {
     notFound()
   }
+
+  // Link de afiliado do Mercado Livre (lacrado deste set; cai no 'default' se nao houver)
+  const mlLink = await getMlAfiliadoLink(set.id)
 
   // ─── Schema.org CollectionPage + ItemList (rich snippet no Google) ─
   const collectionSchema = {
@@ -481,6 +486,10 @@ export default async function SetPage({
               </Link>
             ))}
           </div>
+
+          {mlLink && (
+            <MercadoLivre variante="card" url={mlLink.url} titulo={mlLink.titulo} subtitulo={mlLink.subtitulo} />
+          )}
 
           {/* CTA footer */}
           <div

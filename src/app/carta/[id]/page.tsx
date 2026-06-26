@@ -24,6 +24,8 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
 import CardClient from './CardClient'
 import CartasRelacionadas from '@/components/cards/CartasRelacionadas'
+import MercadoLivre from '@/components/ui/MercadoLivre'
+import { getMlAfiliadoLink } from '@/lib/mlAfiliado'
 import Link from 'next/link'
 
 function slugifyName(s: string): string {
@@ -333,6 +335,9 @@ export default async function CartaPage({
 
   const related = await fetchRelatedCards(id)
 
+  // Link de afiliado do Mercado Livre (acessorios; cai no 'default' se nao houver)
+  const mlLink = await getMlAfiliadoLink('acessorios')
+
   return (
     <>
       {/* JSON-LD invisível pro user, lido pelo Googlebot */}
@@ -370,6 +375,10 @@ export default async function CartaPage({
           setName={card.setName}
           pokemonName={related.pokemon_name}
         />
+
+        {mlLink && (
+          <MercadoLivre variante="strip" url={mlLink.url} titulo={mlLink.titulo} subtitulo={mlLink.subtitulo} />
+        )}
       </CardClient>
     </>
   )
