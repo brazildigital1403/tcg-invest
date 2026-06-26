@@ -23,15 +23,6 @@ function CartIcon({ s = 13 }: { s?: number }) {
   )
 }
 
-function InfoIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="10" cy="10" r="8" stroke="rgba(255,255,255,0.3)" strokeWidth="1.3" />
-      <path d="M10 6v.5M10 9v5" stroke="rgba(255,255,255,0.3)" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 const TILES: { label: string; icon: ReactNode }[] = [
   { label: 'Boxes & ETBs', icon: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 8l8-4 8 4v8l-8 4-8-4V8z" stroke={AMARELO} strokeWidth="1.5" strokeLinejoin="round" /><path d="M4 8l8 4 8-4M12 12v8" stroke={AMARELO} strokeWidth="1.5" strokeLinejoin="round" /></svg>
@@ -67,7 +58,7 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo }: Props
     const t = titulo || 'Proteja sua coleção'
     const s = subtitulo || 'Sleeves, toploaders e fichários no Mercado Livre'
     return (
-      <div style={{ margin: '4px 0 22px' }}>
+      <div style={{ margin: '4px 0 28px' }}>
         <a
           href={url}
           target="_blank"
@@ -87,8 +78,8 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo }: Props
           </span>
           <span style={ctaBase}>Ver acessórios &rarr;</span>
         </a>
-        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.32)', margin: '8px 2px 0', display: 'flex', alignItems: 'center', gap: 5 }}>
-          <InfoIcon /> Link de afiliado &middot; a Bynx pode receber comissão, sem custo pra você. Cartas avulsas ficam no marketplace.
+        <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.28)', margin: '6px 2px 0' }}>
+          Publicidade
         </p>
       </div>
     )
@@ -105,7 +96,7 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo }: Props
       style={{
         display: 'block', textDecoration: 'none', position: 'relative', overflow: 'hidden',
         background: '#0d0f14', border: '1px solid rgba(255,230,0,0.18)', borderRadius: 14,
-        padding: 18, marginTop: 28,
+        padding: 18, margin: '20px 0 28px',
       }}
     >
       <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: AMARELO }} />
@@ -113,7 +104,7 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo }: Props
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: ML_DARK, background: AMARELO, padding: '3px 9px', borderRadius: 100 }}>
           <CartIcon /> Mercado Livre
         </span>
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.32)' }}>Link de afiliado</span>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>Publicidade</span>
       </span>
       <span style={{ display: 'block', fontSize: 16, fontWeight: 800, color: '#f5f5f5', margin: '0 0 3px' }}>{t}</span>
       <span style={{ display: 'block', fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '0 0 14px' }}>{s}</span>
@@ -127,10 +118,7 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo }: Props
         ))}
       </span>
 
-      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.32)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <InfoIcon /> A Bynx pode receber comissão, sem custo pra você.
-        </span>
+      <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <span style={ctaBase}>Ver no Mercado Livre &rarr;</span>
       </span>
     </a>

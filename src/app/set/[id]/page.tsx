@@ -398,6 +398,10 @@ export default async function SetPage({
             </div>
           </div>
 
+          {mlLink && (
+            <MercadoLivre variante="card" url={mlLink.url} titulo={mlLink.titulo} subtitulo={mlLink.subtitulo} />
+          )}
+
           {/* Grid de cartas */}
           <div
             style={{
@@ -486,10 +490,6 @@ export default async function SetPage({
               </Link>
             ))}
           </div>
-
-          {mlLink && (
-            <MercadoLivre variante="card" url={mlLink.url} titulo={mlLink.titulo} subtitulo={mlLink.subtitulo} />
-          )}
 
           {/* CTA footer */}
           <div
