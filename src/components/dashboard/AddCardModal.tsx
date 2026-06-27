@@ -200,6 +200,15 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     return Object.values(sp).reduce((a: number, n) => a + Number(n), 0)
   }
 
+  function mergeCondicoes(a: Record<string, number> | null, b: Record<string, number> | null): Record<string, number> | null {
+    if (!a && !b) return null
+    if (!a) return b
+    if (!b) return a
+    const out: Record<string, number> = { ...a }
+    for (const [k, n] of Object.entries(b)) out[k] = (out[k] || 0) + Number(n)
+    return out
+  }
+
   async function handleAdd() {
     if (!userId || !selectedCards.length) return
     setAdding(true)
@@ -208,13 +217,6 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (!authData?.user?.id) { setAdding(false); return }
 
     for (const card of selectedCards) {
-      const { bloqueado } = await checkCardLimit(userId)
-      if (bloqueado) {
-        setShowLimite(true)
-        setAdding(false)
-        return
-      }
-
       const number = card.number || ''
       const total = card.set_total ? `/${card.set_total}` : ''
       const numFmt = (number && /^\d+$/.test(String(number)) && card.set_total)
@@ -240,6 +242,41 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         if (c) condicoes = { [c]: quantity }
       }
 
+      // Ja existe na colecao? (mesma carta = mesmo pokemon_api_id) -> incrementa a quantidade
+      const { data: existente } = await supabase
+        .from('user_cards')
+        .select('id, quantity, condicoes')
+        .eq('user_id', authData.user.id)
+        .eq('pokemon_api_id', card.id)
+        .limit(1)
+        .maybeSingle()
+
+      if (existente) {
+        const { error: incErr } = await supabase
+          .from('user_cards')
+          .update({
+            quantity: (existente.quantity || 0) + quantity,
+            condicoes: mergeCondicoes(existente.condicoes as Record<string, number> | null, condicoes),
+          })
+          .eq('id', existente.id)
+        if (incErr) {
+          console.error('[AddCardModal] increment error:', incErr)
+          await showAlert(`Erro ao atualizar "${card.name}". Tente novamente.`, 'error')
+          setAdding(false)
+          return
+        }
+        trackFirstCardAdded(authData.user.id)
+        continue
+      }
+
+      // Carta nova -> o limite (entradas distintas) so e checado aqui
+      const { bloqueado } = await checkCardLimit(userId)
+      if (bloqueado) {
+        setShowLimite(true)
+        setAdding(false)
+        return
+      }
+
       const { error: insertError } = await supabase.from('user_cards').insert({
         user_id: authData.user.id,
         pokemon_api_id: card.id,
@@ -255,12 +292,29 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       })
 
       if (insertError) {
+        // corrida concorrente (linha criada entre o SELECT e o INSERT) -> incrementa
         if (insertError.code === '23505') {
-          await showAlert(`"${card.name}" ja esta na sua colecao!`, 'warning')
-        } else {
-          console.error('[AddCardModal] insert error:', insertError)
-          await showAlert(`Erro ao adicionar "${card.name}". Tente novamente.`, 'error')
+          const { data: ex2 } = await supabase
+            .from('user_cards')
+            .select('id, quantity, condicoes')
+            .eq('user_id', authData.user.id)
+            .eq('pokemon_api_id', card.id)
+            .limit(1)
+            .maybeSingle()
+          if (ex2) {
+            await supabase
+              .from('user_cards')
+              .update({
+                quantity: (ex2.quantity || 0) + quantity,
+                condicoes: mergeCondicoes(ex2.condicoes as Record<string, number> | null, condicoes),
+              })
+              .eq('id', ex2.id)
+            trackFirstCardAdded(authData.user.id)
+            continue
+          }
         }
+        console.error('[AddCardModal] insert error:', insertError)
+        await showAlert(`Erro ao adicionar "${card.name}". Tente novamente.`, 'error')
         setAdding(false)
         return
       }
