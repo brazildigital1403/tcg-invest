@@ -40,7 +40,8 @@ const CARD_FIELDS =
   'preco_reverse_min, preco_reverse_medio, preco_reverse_max, ' +
   'preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, ' +
   'price_usd_normal, price_usd_holofoil, price_usd_reverse, ' +
-  'price_eur_normal, price_eur_holofoil'
+  'price_eur_normal, price_eur_holofoil, ' +
+  'outras_variantes'
 
 const MAX_VALUES = 5000   // teto total de valores aceitos por request
 const CHUNK = 100         // lotes pro .in() (evita URL longa no PostgREST, licao do scan)

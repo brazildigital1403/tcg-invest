@@ -206,7 +206,10 @@ export default function CardItem({
       }}
     >
       {/* ── IMAGEM ── */}
-      <div style={{ position: 'relative' }}>
+      <div
+        onClick={mode === 'collection' ? onSelect : undefined}
+        style={{ position: 'relative', cursor: mode === 'collection' && onSelect ? 'pointer' : 'default' }}
+      >
         {image ? (
           <img
             src={image}

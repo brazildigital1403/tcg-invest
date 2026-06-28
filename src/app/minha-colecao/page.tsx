@@ -16,6 +16,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import CardItem from '@/components/ui/CardItem'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
+import CardDetailModal from '@/components/dashboard/CardDetailModal'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -88,6 +89,7 @@ export default function MinhaColecao() {
   const [loading, setLoading] = useState(true)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
   const [exchangeRate, setExchangeRate] = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
+  const [detalheCard, setDetalheCard] = useState<any>(null)
 
   const LOADING_MSGS = [
     'Procurando a carta...',
@@ -1010,6 +1012,7 @@ export default function MinhaColecao() {
               key={c.id}
               card={c}
               mode="collection"
+              onSelect={() => setDetalheCard(c)}
               variante={c.variante || 'normal'}
               exchangeRate={exchangeRate}
               onVarianteChange={(v) => handleVarianteChange(c, v)}
@@ -1043,6 +1046,20 @@ export default function MinhaColecao() {
           mode="create"
           onClose={() => setCriarPasta(false)}
           onSaved={(id) => { setCriarPasta(false); router.push(`/minha-colecao/pastas/${id}`) }}
+        />
+      )}
+      {detalheCard && (
+        <CardDetailModal
+          key={detalheCard.id}
+          card={detalheCard}
+          isPro={isPro}
+          exchangeRate={exchangeRate}
+          onClose={() => setDetalheCard(null)}
+          onVarianteChange={(v) => handleVarianteChange(detalheCard, v)}
+          onQuantityChange={(delta) => handleUpdateQuantity(detalheCard, delta)}
+          onCondicoesSaved={(novas) => setCards(prev => prev.map(x => x.id === detalheCard.id ? { ...x, condicoes: novas } : x))}
+          onSell={async () => { await handleSell(detalheCard); setDetalheCard(null) }}
+          onRemove={async () => { await handleRemove(detalheCard.id, detalheCard.card_name); setDetalheCard(null) }}
         />
       )}
     </AppLayout>
