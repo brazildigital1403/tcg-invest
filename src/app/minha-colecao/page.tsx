@@ -86,6 +86,7 @@ export default function MinhaColecao() {
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroRaridade, setFiltroRaridade] = useState('')
   const [filtroCondicao, setFiltroCondicao] = useState('')
+  const [filtroGraduada, setFiltroGraduada] = useState(false)
   const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc' | 'valor_asc' | 'valor_desc'>('recente')
   const [loading, setLoading] = useState(true)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
@@ -570,7 +571,8 @@ export default function MinhaColecao() {
     const matchVariante = !filtroVariante || (c.variante || 'normal') === filtroVariante
     const matchRaridade = !filtroRaridade || c.rarity === filtroRaridade
     const matchCondicao = !filtroCondicao || !!(c.condicoes && (c.condicoes[filtroCondicao] || 0) > 0)
-    return matchSearch && matchVariante && matchRaridade && matchCondicao
+    const matchGraduada = !filtroGraduada || !!c.graduada
+    return matchSearch && matchVariante && matchRaridade && matchCondicao && matchGraduada
   }).sort((a, b) => {
     switch (ordenacao) {
       case 'az':      return (a.card_name || '').localeCompare(b.card_name || '')
@@ -971,6 +973,12 @@ export default function MinhaColecao() {
               <option value="HP" style={{ background: '#0d0f14' }}>HP</option>
             </select>
 
+            {/* Graduadas */}
+            <button onClick={() => setFiltroGraduada(v => !v)}
+              style={{ backgroundColor: filtroGraduada ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroGraduada ? 'rgba(139,92,246,0.45)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroGraduada ? '#a78bfa' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', fontWeight: filtroGraduada ? 700 : 500, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
+              💎 Graduadas
+            </button>
+
             {/* Ordenação — select único igual à Pokédex */}
             <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as any)} className="mc-select"
               style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
@@ -985,9 +993,9 @@ export default function MinhaColecao() {
             </select>
 
             {/* Limpar filtros */}
-            {(search || filtroVariante || filtroRaridade || filtroCondicao) && (
+            {(search || filtroVariante || filtroRaridade || filtroCondicao || filtroGraduada) && (
               <button
-                onClick={() => { setSearch(''); setFiltroVariante(''); setFiltroRaridade(''); setFiltroCondicao('') }}
+                onClick={() => { setSearch(''); setFiltroVariante(''); setFiltroRaridade(''); setFiltroCondicao(''); setFiltroGraduada(false) }}
                 style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
               >
                 Limpar

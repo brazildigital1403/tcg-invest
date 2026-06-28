@@ -5,6 +5,7 @@ import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, Ico
 import { supabase } from '@/lib/supabaseClient'
 import { criarNotificacao } from '@/lib/notificacoes'
 import { authFetch } from '@/lib/authFetch'
+import { GRADUADORAS, GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
 import { getUserPlan } from '@/lib/isPro'
 import { trackFirstCardAdded } from '@/lib/analytics'
@@ -94,6 +95,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
   const isBuyer  = card.buyer_id === userId
   const st       = STATUS_CFG[card.status || 'disponivel'] || STATUS_CFG.disponivel
   const variante = VARIANTES.find(v => v.key === card.variante)?.label || 'Normal'
+  const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
 
   async function contatarVendedor(jaRegistrouInteresse: boolean) {
     try {
@@ -201,10 +203,17 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
       display: 'flex',
       flexDirection: 'column',
       fontFamily: "'DM Sans', system-ui, sans-serif",
+      ...(grad ? { boxShadow: `inset 0 0 0 2px ${grad.cor}, inset 0 0 0 5px rgba(255,255,255,0.06)${isNotaTop(card.nota, card.black_label) ? `, 0 0 26px -3px ${grad.cor}` : ''}` } : {}),
       opacity: card.status === 'cancelado' || card.status === 'concluido' ? 0.5 : 1,
     }}>
       {/* Imagem */}
       <div style={{ position: 'relative' }}>
+        {grad && (
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 10px', background: card.black_label ? '#0a0a0a' : grad.cor }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff', letterSpacing: '0.03em' }}>{grad.curto}</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{notaCurta(card.nota, card.black_label)}</span>
+          </div>
+        )}
         {card.fotos && card.fotos.length ? (
           <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
         ) : card.card_image ? (
@@ -217,12 +226,12 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
         </div>
 
         {/* Status badge */}
-        <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: st.bg, color: st.color, backdropFilter: 'blur(4px)' }}>
+        <span style={{ position: 'absolute', top: grad ? 30 : 8, left: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: st.bg, color: st.color, backdropFilter: 'blur(4px)' }}>
           {st.label}
         </span>
 
         {/* Variante badge */}
-        <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', color: '#f0f0f0' }}>
+        <span style={{ position: 'absolute', top: grad ? 30 : 8, right: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', color: '#f0f0f0' }}>
           {variante}
         </span>
 
@@ -263,7 +272,11 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
         <div>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>{card.card_name}</p>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {(() => {
+            {grad ? (
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.02em', color: card.black_label ? '#e8c878' : '#fff', background: card.black_label ? '#0a0a0a' : grad.cor, border: card.black_label ? '1px solid #c8a04b' : 'none', padding: '2px 8px', borderRadius: 6, display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+                {grad.curto} {notaCurta(card.nota, card.black_label)}<span style={{ fontWeight: 700, opacity: 0.85, fontSize: 9, textTransform: 'uppercase' }}>{tierNome(card.graduadora, card.nota, card.black_label)}</span>
+              </span>
+            ) : (() => {
               const cond = String(card.condicao || 'NM').toUpperCase()
               const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
               return (
@@ -432,6 +445,8 @@ function MarketplaceInner() {
   const [filtroStatus, setFiltroStatus] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroCondicao, setFiltroCondicao] = useState('')
+  const [filtroGraduada, setFiltroGraduada] = useState(false)
+  const [filtroGraduadora, setFiltroGraduadora] = useState('')
   const [showFiltrosAvancados, setShowFiltrosAvancados] = useState(false)
   const [busca, setBusca]       = useState('')
   const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior' | 'desconto'>('recente')
@@ -573,6 +588,8 @@ function MarketplaceInner() {
     if (filtroStatus && status !== filtroStatus) return false
     if (filtroVariante && c.variante !== filtroVariante) return false
     if (filtroCondicao && c.condicao !== filtroCondicao) return false
+    if (filtroGraduada && !c.graduada) return false
+    if (filtroGraduadora && c.graduadora !== filtroGraduadora) return false
     if (busca && !c.card_name.toLowerCase().includes(busca.toLowerCase())) return false
     return true
   }).sort((a, b) => {
@@ -732,6 +749,19 @@ function MarketplaceInner() {
                 )
               })}
 
+              <button onClick={() => setFiltroGraduada(v => !v)}
+                style={{
+                  padding: '7px 14px', borderRadius: 100, border: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 13, fontWeight: filtroGraduada ? 700 : 500,
+                  background: filtroGraduada ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.04)',
+                  color: filtroGraduada ? '#a78bfa' : 'rgba(255,255,255,0.55)',
+                  outline: filtroGraduada ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                  transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                💎 Graduadas
+                <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>{listings.filter(c => c.user_id !== userId && c.graduada).length}</span>
+              </button>
               <button
                 onClick={() => setShowFiltrosAvancados(v => !v)}
                 style={{
@@ -805,8 +835,27 @@ function MarketplaceInner() {
                     })}
                   </div>
                 </div>
-                {(filtroVariante || filtroCondicao) && (
-                  <button onClick={() => { setFiltroVariante(''); setFiltroCondicao('') }}
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6, fontWeight: 600 }}>Graduadora</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {([['', 'Todas'] as [string, string], ...GRADUADORAS.map(g => [g.slug, g.curto] as [string, string])]).map(([key, label]) => {
+                      const ativo = filtroGraduadora === key
+                      return (
+                        <button key={key} onClick={() => setFiltroGraduadora(key)}
+                          style={{
+                            padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                            fontSize: 12, fontWeight: ativo ? 700 : 500,
+                            background: ativo ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)',
+                            color: ativo ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                            outline: ativo ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                          }}
+                        >{label}</button>
+                      )
+                    })}
+                  </div>
+                </div>
+                {(filtroVariante || filtroCondicao || filtroGraduadora) && (
+                  <button onClick={() => { setFiltroVariante(''); setFiltroCondicao(''); setFiltroGraduadora('') }}
                     style={{ alignSelf: 'flex-end', padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, background: 'rgba(239,68,68,0.08)', color: '#ef4444', outline: '1px solid rgba(239,68,68,0.2)', fontWeight: 600 }}
                   >
                     Limpar

@@ -5,6 +5,7 @@ import { IconSearch, IconClose, IconRocket } from '@/components/ui/Icons'
 import CardItem from '@/components/ui/CardItem'
 import MarketplaceFotosInput from './MarketplaceFotosInput'
 import { supabase } from '@/lib/supabaseClient'
+import { GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -197,7 +198,8 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
   userId: string
   isPro: boolean
 }) {
-  const [preco, setPreco]       = useState(precoMercado > 0 ? precoMercado.toFixed(2) : '')
+  const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
+  const [preco, setPreco]       = useState(grad && card.valor_graduada ? Number(card.valor_graduada).toFixed(2) : (precoMercado > 0 ? precoMercado.toFixed(2) : ''))
   const [condicao, setCondicao] = useState('NM')
   const [variante, setVariante] = useState(card.variante || 'normal')
   const [descricao, setDescricao] = useState('')
@@ -210,18 +212,36 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
     <div style={{ display: 'flex', height: '100%' }}>
       {/* Esquerda — preview */}
       <div style={{ width: 220, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.07)', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {card.card_image
+        {grad ? (
+          <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', boxShadow: `inset 0 0 0 2px ${grad.cor}, inset 0 0 0 5px rgba(255,255,255,0.06), 0 8px 24px rgba(0,0,0,0.5)${isNotaTop(card.nota, card.black_label) ? `, 0 0 22px -3px ${grad.cor}` : ''}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 9px', background: card.black_label ? '#0a0a0a' : grad.cor }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{grad.curto}</span>
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <b style={{ fontSize: 15, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff', lineHeight: 1 }}>{notaCurta(card.nota, card.black_label)}</b>
+                <span style={{ fontSize: 8, fontWeight: 700, color: card.black_label ? 'rgba(232,200,120,0.85)' : 'rgba(255,255,255,0.85)', textTransform: 'uppercase' }}>{tierNome(card.graduadora, card.nota, card.black_label)}</span>
+              </span>
+            </div>
+            {card.card_image ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} /> : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.06)' }} />}
+          </div>
+        ) : card.card_image
           ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} />
           : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.06)', borderRadius: 10 }} />
         }
         <div>
           <p style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, marginBottom: 8 }}>{card.card_name}</p>
+          {grad && (
+            <div style={{ background: grad.cor + '14', border: `1px solid ${grad.cor}44`, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginBottom: 3, fontWeight: 600, letterSpacing: '0.05em' }}>GRADUAÇÃO</p>
+              <p style={{ fontSize: 16, fontWeight: 800, color: grad.cor, letterSpacing: '-0.01em' }}>{grad.curto} {notaCurta(card.nota, card.black_label)} <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.8 }}>{tierNome(card.graduadora, card.nota, card.black_label)}</span></p>
+              {card.cert_graduacao && <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Cert. {card.cert_graduacao}</p>}
+            </div>
+          )}
           {/* S29 UX v5: card de preço de mercado com fonte explícita.
               Cores seguem padrão canonical (CardItem em /minha-colecao e /pokedex):
               - BRL puro: laranja (#f59e0b) — Liga Pokémon, fonte oficial BR
               - BRL variante: laranja com label da variante
               - USD convertido: azul (#60a5fa) — TCG Player, valor estimado */}
-          {precoMercado > 0 && precoFonte && (() => {
+          {!grad && precoMercado > 0 && precoFonte && (() => {
             const fonteCfg = {
               BRL:         { label: 'PREÇO DE MERCADO',         badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
               BRL_FOIL:    { label: 'PREÇO MERCADO · FOIL',     badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
@@ -240,7 +260,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
               </div>
             )
           })()}
-          {precoMercado === 0 && (
+          {!grad && precoMercado === 0 && (
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px' }}>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
                 Sem preço de mercado disponível. Defina o valor de venda livremente.
@@ -289,7 +309,8 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
           </div>
         </div>
 
-        {/* Condição */}
+        {/* Condição — escondida quando graduada (a nota substitui) */}
+        {!grad && (
         <div>
           <label style={LABEL}>Condição da carta</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -307,6 +328,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
             ))}
           </div>
         </div>
+        )}
 
         {/* Descrição */}
         <div>
@@ -329,7 +351,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
             <div>
               <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{card.card_name}</p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-                {VARIANTES.find(v => v.key === variante)?.label} · {CONDICOES.find(c => c.key === condicao)?.desc}
+                {VARIANTES.find(v => v.key === variante)?.label} · {grad ? `${grad.curto} ${notaCurta(card.nota, card.black_label)}` : CONDICOES.find(c => c.key === condicao)?.desc}
               </p>
             </div>
             <p style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', color: '#f59e0b' }}>{fmt(precoNum)}</p>
@@ -342,7 +364,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
             ← Voltar
           </button>
           <button
-            onClick={() => onConfirm({ preco: precoNum, condicao, variante, descricao, fotos })}
+            onClick={() => onConfirm({ preco: precoNum, condicao: grad ? null : condicao, variante, descricao, fotos, graduada: !!grad, graduadora: grad ? card.graduadora : null, nota: grad ? card.nota : null, black_label: grad ? !!card.black_label : false, cert_graduacao: grad ? (card.cert_graduacao || null) : null, subnotas: grad ? (card.subnotas || null) : null })}
             disabled={precoNum <= 0 || loading}
             style={{
               flex: 1, background: precoNum > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none',
@@ -449,10 +471,12 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
     if (!cartaSel || dados.preco <= 0) return
     setLoading(true)
     await supabase.from('marketplace').insert({
-      user_id: userId, card_name: cartaSel.card_name,
+      user_id: userId, card_id: cartaSel.card_id || null, card_name: cartaSel.card_name,
       card_image: cartaSel.card_image || null, card_link: cartaSel.card_link || null,
       variante: dados.variante, price: dados.preco,
       condicao: dados.condicao, descricao: dados.descricao || null, fotos: dados.fotos && dados.fotos.length ? dados.fotos : null, status: 'disponivel',
+      graduada: dados.graduada || false, graduadora: dados.graduadora || null, nota: dados.nota ?? null,
+      black_label: dados.black_label || false, cert_graduacao: dados.cert_graduacao || null, subnotas: dados.subnotas || null,
     })
     setLoading(false)
     onAdded()
