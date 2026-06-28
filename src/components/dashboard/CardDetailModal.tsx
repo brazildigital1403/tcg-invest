@@ -257,7 +257,10 @@ export default function CardDetailModal({
                   <p style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Fonte: <b style={{ color: pv.fonte === 'USD' ? '#60a5fa' : '#f59e0b', fontWeight: 700 }}>{pv.label}</b></p>
                 </>
               ) : (
-                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>Sem preço de mercado pra essa variante ainda.</p>
+                <div style={{ marginTop: 2 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>Ainda sem preço de mercado para esta variante.</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.42)', marginTop: 5, lineHeight: 1.45 }}>Se não aparecer em até 24h, entre em contato que iremos averiguar.</p>
+                </div>
               )}
             </div>
 
