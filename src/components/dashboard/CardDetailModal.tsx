@@ -10,7 +10,7 @@ interface Props {
   exchangeRate?: { usd: number; eur: number }
   onClose: () => void
   onVarianteChange: (v: string) => void
-  onQuantityChange: (delta: number) => void
+  onQuantitySet: (novaQty: number) => void
   onCondicoesSaved: (novas: Record<string, number> | null) => void
   onSell: () => void
   onRemove: () => void
@@ -82,13 +82,17 @@ function precoVariante(price: any, v: string, rate?: { usd: number; eur: number 
 
 export default function CardDetailModal({
   card, isPro, exchangeRate, onClose,
-  onVarianteChange, onQuantityChange, onCondicoesSaved, onSell, onRemove,
+  onVarianteChange, onQuantitySet, onCondicoesSaved, onSell, onRemove,
 }: Props) {
   const [isMobile, setIsMobile] = useState(false)
   const [variante, setVariante] = useState<string>(card.variante || 'normal')
   const [condicoes, setCondicoes] = useState<Record<string, number> | null>(card.condicoes || null)
   const [quantity, setQuantity] = useState<number>(card.quantity || 1)
   const [anunciados, setAnunciados] = useState<number | null>(null)
+  const [savedVar, setSavedVar] = useState<string>(card.variante || 'normal')
+  const [savedQty, setSavedQty] = useState<number>(card.quantity || 1)
+  const [saving, setSaving] = useState(false)
+  const [flash, setFlash] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640)
@@ -119,22 +123,36 @@ export default function CardDetailModal({
   }, [card.id, card.card_id])
 
   const price = card.price || null
-  const variantes = buildVariantes(price, card.variante || 'normal')
+  const variantes = buildVariantes(price, savedVar)
   const pv = precoVariante(price, variante, exchangeRate)
   const valorTotal = pv.medio * quantity
   const cartaUrlId = price?.id || card.pokemon_api_id || null
 
   function selecionarVariante(v: string) {
-    if (v === variante) return
     setVariante(v)
-    if (v !== (card.variante || 'normal')) onVarianteChange(v)
   }
 
   function alterarQuantidade(delta: number) {
     const nova = quantity + delta
-    if (nova <= 0) return // remocao total fica no botao Remover
+    if (nova < 1) return // remocao total fica no botao Remover
     setQuantity(nova)
-    onQuantityChange(delta)
+  }
+
+  const dirty = quantity !== savedQty || variante !== savedVar
+
+  async function salvar() {
+    if (!dirty || saving) return
+    setSaving(true)
+    try {
+      if (quantity !== savedQty) await Promise.resolve(onQuantitySet(quantity))
+      if (variante !== savedVar) await Promise.resolve(onVarianteChange(variante))
+      setSavedQty(quantity)
+      setSavedVar(variante)
+      setFlash(true)
+      window.setTimeout(() => setFlash(false), 1800)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const subtitleParts = [
@@ -284,6 +302,22 @@ export default function CardDetailModal({
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Valor total ({quantity} cópia{quantity !== 1 ? 's' : ''})</span>
                 <span style={{ fontSize: 19, fontWeight: 800, color: '#f0f0f0', letterSpacing: '-0.02em' }}>{valorTotal > 0 ? fmtBRL(valorTotal) : '—'}</span>
               </div>
+
+              {/* Salvar alteracoes (quantidade + variante) */}
+              <button
+                onClick={salvar}
+                disabled={!dirty || saving}
+                style={{
+                  width: '100%', marginTop: 14, padding: '11px', borderRadius: 10, fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: 700, cursor: dirty && !saving ? 'pointer' : 'default',
+                  border: '1px solid ' + (flash ? 'rgba(34,197,94,0.4)' : dirty ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'),
+                  background: flash ? 'rgba(34,197,94,0.15)' : dirty ? 'rgba(245,158,11,0.16)' : 'rgba(255,255,255,0.03)',
+                  color: flash ? '#22c55e' : dirty ? '#f59e0b' : 'rgba(255,255,255,0.35)',
+                  transition: 'all .15s',
+                }}
+              >
+                {saving ? 'Salvando…' : flash ? '✓ Alterações salvas' : dirty ? 'Salvar alterações' : 'Tudo salvo'}
+              </button>
             </div>
 
             {/* STATUS */}

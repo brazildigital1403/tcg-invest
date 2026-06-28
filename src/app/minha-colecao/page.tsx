@@ -453,6 +453,13 @@ export default function MinhaColecao() {
     setCards(prev => prev.map(c => c.id === card.id ? { ...c, quantity: newQty } : c))
   }
 
+  async function handleSetQuantity(card: any, novaQty: number) {
+    if (novaQty < 1) return
+    const { error } = await supabase.from('user_cards').update({ quantity: novaQty }).eq('id', card.id)
+    if (error) { showAlert('Erro ao atualizar quantidade.', 'error'); return }
+    setCards(prev => prev.map(c => c.id === card.id ? { ...c, quantity: novaQty } : c))
+  }
+
   async function handleRemove(id: string, cardName?: string) {
     const confirmed = await showConfirm({
       message: `Tem certeza que deseja remover "${cardName || 'esta carta'}" da sua coleção? Esta ação não pode ser desfeita.`,
@@ -1056,7 +1063,7 @@ export default function MinhaColecao() {
           exchangeRate={exchangeRate}
           onClose={() => setDetalheCard(null)}
           onVarianteChange={(v) => handleVarianteChange(detalheCard, v)}
-          onQuantityChange={(delta) => handleUpdateQuantity(detalheCard, delta)}
+          onQuantitySet={(novaQty) => handleSetQuantity(detalheCard, novaQty)}
           onCondicoesSaved={(novas) => setCards(prev => prev.map(x => x.id === detalheCard.id ? { ...x, condicoes: novas } : x))}
           onSell={async () => { await handleSell(detalheCard); setDetalheCard(null) }}
           onRemove={async () => { await handleRemove(detalheCard.id, detalheCard.card_name); setDetalheCard(null) }}
