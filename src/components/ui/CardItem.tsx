@@ -6,6 +6,7 @@
  */
 
 import { ReactNode } from 'react'
+import { GRADUADORA_MAP, isNotaTop, notaCurta } from '@/lib/graduadoras'
 
 // Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
 // "Liga BR — MEP" -> "Set MEP" ; "Liga BR" -> "Set" ; demais nomes inalterados
@@ -191,6 +192,9 @@ export default function CardItem({
   const curPrices = curVariant && price ? curVariant.priceKey(price) : { min: null, med: null, max: null }
   const isValuable = (curPrices.med || estimate?.valor || 0) > 100
   const qty = card.quantity || 1
+  const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
+  const gradCor = grad?.cor || '#f59e0b'
+  const gradTop = grad ? isNotaTop(card.nota, card.black_label) : false
 
   return (
     <div
@@ -202,6 +206,11 @@ export default function CardItem({
           : isValuable ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(255,255,255,0.07)',
         borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column',
         cursor: mode === 'select' ? 'pointer' : 'default',
+        boxShadow: grad
+          ? (gradTop
+            ? `inset 0 0 0 2px ${gradCor}, inset 0 0 0 5px rgba(255,255,255,0.06), 0 0 22px -2px ${gradCor}`
+            : `inset 0 0 0 2px ${gradCor}, inset 0 0 0 5px rgba(255,255,255,0.06)`)
+          : undefined,
         transition: 'all 0.15s', fontFamily: "'DM Sans', system-ui, sans-serif",
       }}
     >
@@ -210,6 +219,12 @@ export default function CardItem({
         onClick={mode === 'collection' ? onSelect : undefined}
         style={{ position: 'relative', cursor: mode === 'collection' && onSelect ? 'pointer' : 'default' }}
       >
+        {grad && (
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 9px', background: card.black_label ? '#0a0a0a' : gradCor }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff', letterSpacing: '0.03em' }}>{grad.curto}</span>
+            <span style={{ fontSize: 10, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{notaCurta(card.nota, card.black_label)}</span>
+          </div>
+        )}
         {image ? (
           <img
             src={image}
@@ -240,11 +255,17 @@ export default function CardItem({
             </div>
           )}
           {badge}
-          {(curPrices.med || estimate) && (
+          {grad ? (
+            card.valor_graduada ? (
+              <div style={{ background: gradCor, backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>
+                {fmt(card.valor_graduada)}
+              </div>
+            ) : null
+          ) : (curPrices.med || estimate) ? (
             <div style={{ background: estimate && !curPrices.med ? 'rgba(96,165,250,0.9)' : 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>
               {estimate && !curPrices.med ? '~' : ''}{fmt(curPrices.med || estimate?.valor)}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Check de seleção */}
@@ -256,8 +277,8 @@ export default function CardItem({
           </div>
         )}
 
-        {/* Dot de raridade */}
-        {rColor && (
+        {/* Dot de raridade (escondido em slab graduado pra nao colidir com a barra) */}
+        {rColor && !grad && (
           <div style={{ position: 'absolute', top: 8, left: selected ? 36 : 8, width: 8, height: 8, borderRadius: '50%', background: rColor, boxShadow: `0 0 6px ${rColor}` }} />
         )}
       </div>

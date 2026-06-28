@@ -1068,6 +1068,7 @@ export default function MinhaColecao() {
           onQuantitySet={(novaQty) => handleSetQuantity(detalheCard, novaQty)}
           onCondicoesSaved={(novas) => setCards(prev => prev.map(x => x.id === detalheCard.id ? { ...x, condicoes: novas } : x))}
           onAnunciar={() => { setAnunciarCard(detalheCard); setDetalheCard(null) }}
+          onGradSaved={(campos) => { setCards(prev => prev.map(c => c.id === detalheCard.id ? { ...c, ...campos } : c)); setDetalheCard((prev: any) => prev ? { ...prev, ...campos } : prev) }}
           onRemove={async () => { await handleRemove(detalheCard.id, detalheCard.card_name); setDetalheCard(null) }}
         />
       )}

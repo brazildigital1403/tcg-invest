@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
+import { GRADUADORAS, GRADUADORA_MAP, tierNome, isNotaTop, notaCurta } from '@/lib/graduadoras'
 
 interface Props {
   card: any
@@ -13,6 +14,7 @@ interface Props {
   onQuantitySet: (novaQty: number) => void
   onCondicoesSaved: (novas: Record<string, number> | null) => void
   onAnunciar: () => void
+  onGradSaved: (campos: any) => void
   onRemove: () => void
 }
 
@@ -25,6 +27,10 @@ function fmtBRL(n: number) {
   return 'R$ ' + (n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 function cap(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s }
+function hexA(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
+}
 
 // Lista de variantes que a carta possui (preco BRL na coluna, OU em outras_variantes,
 // OU a variante atualmente salva). Cada uma com o medio pra ordenar/exibir.
@@ -82,7 +88,7 @@ function precoVariante(price: any, v: string, rate?: { usd: number; eur: number 
 
 export default function CardDetailModal({
   card, isPro, exchangeRate, onClose,
-  onVarianteChange, onQuantitySet, onCondicoesSaved, onAnunciar, onRemove,
+  onVarianteChange, onQuantitySet, onCondicoesSaved, onAnunciar, onRemove, onGradSaved,
 }: Props) {
   const [isMobile, setIsMobile] = useState(false)
   const [variante, setVariante] = useState<string>(card.variante || 'normal')
@@ -93,6 +99,15 @@ export default function CardDetailModal({
   const [savedQty, setSavedQty] = useState<number>(card.quantity || 1)
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState(false)
+  const [graduada, setGraduada] = useState<boolean>(!!card.graduada)
+  const [graduadora, setGraduadora] = useState<string>(card.graduadora || 'psa')
+  const [nota, setNota] = useState<number | null>(card.nota != null ? Number(card.nota) : 10)
+  const [blackLabel, setBlackLabel] = useState<boolean>(!!card.black_label)
+  const [subnotas, setSubnotas] = useState<Record<string, string>>(card.subnotas || {})
+  const [cert, setCert] = useState<string>(card.cert_graduacao || '')
+  const [valorGrad, setValorGrad] = useState<string>(card.valor_graduada != null ? String(card.valor_graduada) : '')
+  const [savingGrad, setSavingGrad] = useState(false)
+  const [flashGrad, setFlashGrad] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640)
@@ -127,6 +142,9 @@ export default function CardDetailModal({
   const pv = precoVariante(price, variante, exchangeRate)
   const valorTotal = pv.medio * quantity
   const cartaUrlId = price?.id || card.pokemon_api_id || null
+  const gradMeta = GRADUADORA_MAP[graduadora] || GRADUADORAS[0]
+  const gradTop = isNotaTop(nota, blackLabel)
+  const valorTotalExibido = graduada ? Number(valorGrad || 0) * quantity : valorTotal
 
   function selecionarVariante(v: string) {
     setVariante(v)
@@ -152,6 +170,40 @@ export default function CardDetailModal({
       window.setTimeout(() => setFlash(false), 1800)
     } finally {
       setSaving(false)
+    }
+  }
+
+  function pickGraduadora(slug: string) {
+    setGraduadora(slug)
+    if (!GRADUADORA_MAP[slug]?.temBlackLabel) setBlackLabel(false)
+  }
+  function pickNota(v: string) {
+    if (v === 'BL') { setNota(10); setBlackLabel(true) }
+    else { setNota(Number(v)); setBlackLabel(false) }
+  }
+  async function salvarGrad() {
+    if (savingGrad) return
+    setSavingGrad(true)
+    try {
+      const campos: any = graduada
+        ? {
+            graduada: true,
+            graduadora,
+            nota,
+            black_label: blackLabel,
+            cert_graduacao: cert || null,
+            subnotas: gradMeta.temSubnota ? subnotas : null,
+            valor_graduada: valorGrad ? Number(valorGrad) : null,
+          }
+        : { graduada: false }
+      const { error } = await supabase.from('user_cards').update(campos).eq('id', card.id)
+      if (!error) {
+        onGradSaved(campos)
+        setFlashGrad(true)
+        window.setTimeout(() => setFlashGrad(false), 1800)
+      }
+    } finally {
+      setSavingGrad(false)
     }
   }
 
@@ -197,6 +249,8 @@ export default function CardDetailModal({
   const chipOn: React.CSSProperties = {
     ...chipBase, background: 'rgba(245,158,11,0.16)', borderColor: 'rgba(245,158,11,0.4)', color: '#f59e0b',
   }
+  const gLbl: React.CSSProperties = { fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 7, display: 'block' }
+  const gInput: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, padding: '9px 12px', color: '#f0f0f0', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
   const btn: React.CSSProperties = {
     padding: 13, borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: '1px solid transparent', fontFamily: 'inherit',
   }
@@ -227,15 +281,26 @@ export default function CardDetailModal({
         {/* BODY */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '248px 1fr', gap: isMobile ? 18 : 26, padding: isMobile ? 18 : 26, overflowY: 'auto' }}>
 
-          {/* COLUNA ESQUERDA — imagem */}
+          {/* COLUNA ESQUERDA — imagem / slab */}
           <div>
             <div style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', inset: -12, borderRadius: 20, zIndex: 0, background: 'radial-gradient(closest-side, rgba(245,158,11,0.30), transparent 75%)', filter: 'blur(14px)' }} />
-              {card.card_image ? (
-                <img src={card.card_image} alt={card.card_name} style={{ position: 'relative', width: '100%', borderRadius: 14, display: 'block', boxShadow: '0 18px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)' }} />
-              ) : (
-                <div style={{ position: 'relative', width: '100%', aspectRatio: '63 / 88', borderRadius: 14, background: 'linear-gradient(160deg,#1a1d29,#0f1119)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 12, padding: 18, textAlign: 'center', boxShadow: '0 18px 50px rgba(0,0,0,0.6)' }}>{card.card_name}</div>
-              )}
+              <div style={{ position: 'absolute', inset: -12, borderRadius: 20, zIndex: 0, background: `radial-gradient(closest-side, ${graduada ? hexA(gradMeta.cor, gradTop ? 0.42 : 0.18) : 'rgba(245,158,11,0.30)'}, transparent 75%)`, filter: 'blur(14px)' }} />
+              <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', boxShadow: graduada ? `inset 0 0 0 2px ${gradMeta.cor}, inset 0 0 0 5px rgba(255,255,255,0.06), 0 18px 50px rgba(0,0,0,0.6)` : '0 18px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)' }}>
+                {graduada && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 11px', background: blackLabel ? '#0a0a0a' : gradMeta.cor }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: blackLabel ? '#e8c878' : '#fff', letterSpacing: '0.02em' }}>{gradMeta.curto}</span>
+                    <span style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                      <b style={{ fontSize: 18, fontWeight: 800, color: blackLabel ? '#e8c878' : '#fff', lineHeight: 1 }}>{notaCurta(nota, blackLabel)}</b>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: blackLabel ? 'rgba(232,200,120,0.85)' : 'rgba(255,255,255,0.85)', textTransform: 'uppercase' }}>{tierNome(graduadora, nota, blackLabel)}</span>
+                    </span>
+                  </div>
+                )}
+                {card.card_image ? (
+                  <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+                ) : (
+                  <div style={{ width: '100%', aspectRatio: '63 / 88', background: 'linear-gradient(160deg,#1a1d29,#0f1119)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 12, padding: 18, textAlign: 'center' }}>{card.card_name}</div>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.14)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>{VAR_LABELS[variante] || cap(variante)}</span>
@@ -248,7 +313,18 @@ export default function CardDetailModal({
           {/* COLUNA DIREITA */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* PRECO DE MERCADO */}
+            {/* PRECO DE MERCADO (crua) ou SEU VALOR (graduada) */}
+            {graduada ? (
+              <div style={{ background: hexA(gradMeta.cor, 0.07), border: `1px solid ${hexA(gradMeta.cor, 0.25)}`, borderRadius: 14, padding: '14px 16px' }}>
+                <p style={{ fontSize: 9, letterSpacing: '0.08em', fontWeight: 700, color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>SEU VALOR · {gradMeta.curto} {notaCurta(nota, blackLabel)} {tierNome(graduadora, nota, blackLabel)}</p>
+                {Number(valorGrad) > 0 ? (
+                  <p style={{ fontSize: 26, fontWeight: 800, color: gradMeta.cor, letterSpacing: '-0.02em', lineHeight: 1 }}>{fmtBRL(Number(valorGrad))}</p>
+                ) : (
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Informe o valor da carta graduada abaixo.</p>
+                )}
+                {cert ? <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 8 }}>Cert. {cert}</p> : null}
+              </div>
+            ) : (
             <div style={{ background: pv.fonte === 'USD' ? 'rgba(96,165,250,0.07)' : 'rgba(245,158,11,0.07)', border: `1px solid ${pv.fonte === 'USD' ? 'rgba(96,165,250,0.25)' : 'rgba(245,158,11,0.25)'}`, borderRadius: 14, padding: '14px 16px' }}>
               <p style={{ fontSize: 9, letterSpacing: '0.08em', fontWeight: 700, color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>PREÇO DE MERCADO · {(VAR_LABELS[variante] || cap(variante)).toUpperCase()}</p>
               {pv.medio > 0 ? (
@@ -266,6 +342,7 @@ export default function CardDetailModal({
                 </div>
               )}
             </div>
+            )}
 
             {/* NA SUA COLECAO — ordem: Quantidade, Condicoes, Variante, Valor */}
             <div style={card3}>
@@ -281,7 +358,8 @@ export default function CardDetailModal({
                 </span>
               </div>
 
-              {/* Condicoes (editor) */}
+              {/* Condicoes (editor) — escondido quando graduada (a nota substitui) */}
+              {!graduada && (
               <div style={{ marginBottom: 13 }}>
                 <span style={{ ...kStyle, display: 'block', marginBottom: 8 }}>Condições</span>
                 <CondicaoEditor
@@ -292,6 +370,7 @@ export default function CardDetailModal({
                   onSaved={(novas: Record<string, number> | null) => { setCondicoes(novas); onCondicoesSaved(novas) }}
                 />
               </div>
+              )}
 
               {/* Variante (chips — salva ao trocar) */}
               <div style={{ ...rowi, alignItems: 'flex-start' }}>
@@ -306,7 +385,7 @@ export default function CardDetailModal({
               {/* Valor total */}
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', paddingTop: 13, marginTop: 3, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Valor total ({quantity} cópia{quantity !== 1 ? 's' : ''})</span>
-                <span style={{ fontSize: 19, fontWeight: 800, color: '#f0f0f0', letterSpacing: '-0.02em' }}>{valorTotal > 0 ? fmtBRL(valorTotal) : '—'}</span>
+                <span style={{ fontSize: 19, fontWeight: 800, color: '#f0f0f0', letterSpacing: '-0.02em' }}>{valorTotalExibido > 0 ? fmtBRL(valorTotalExibido) : '—'}</span>
               </div>
 
               {/* Salvar alteracoes (quantidade + variante) */}
@@ -323,6 +402,80 @@ export default function CardDetailModal({
                 }}
               >
                 {saving ? 'Salvando…' : flash ? '✓ Alterações salvas' : dirty ? 'Salvar alterações' : 'Tudo salvo'}
+              </button>
+            </div>
+
+            {/* GRADUACAO */}
+            <div style={card3}>
+              <p style={ttl}>Graduação</p>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: graduada ? 14 : 0 }}>
+                <button onClick={() => setGraduada(g => !g)} style={{ width: 42, height: 24, borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative', background: graduada ? gradMeta.cor : 'rgba(255,255,255,0.12)', transition: 'all .15s', flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', top: 2, left: graduada ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'all .15s' }} />
+                </button>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>Esta carta é graduada</span>
+              </div>
+
+              {graduada && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <span style={gLbl}>Graduadora</span>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {GRADUADORAS.map(g => (
+                        <button key={g.slug} onClick={() => pickGraduadora(g.slug)} style={{ ...chipBase, ...(graduadora === g.slug ? { background: g.cor, borderColor: g.cor, color: '#fff' } : {}) }}>{g.curto}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={gLbl}>Nota</span>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {['7', '8', '9', '9.5', '10'].map(v => {
+                        const on = !blackLabel && Number(nota) === Number(v)
+                        return <button key={v} onClick={() => pickNota(v)} style={{ ...chipBase, minWidth: 38, textAlign: 'center', ...(on ? { background: gradMeta.cor, borderColor: gradMeta.cor, color: '#fff' } : {}) }}>{v}</button>
+                      })}
+                      {gradMeta.temBlackLabel && (
+                        <button onClick={() => pickNota('BL')} style={{ ...chipBase, ...(blackLabel ? { background: '#0a0a0a', borderColor: '#c8a04b', color: '#e8c878' } : {}) }}>Black Label</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {gradMeta.temSubnota && (
+                    <div>
+                      <span style={gLbl}>Subnotas (opcional)</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                        {([['centro', 'Centro'], ['cantos', 'Cantos'], ['bordas', 'Bordas'], ['superficie', 'Superf.']] as [string, string][]).map(([k, lbl]) => (
+                          <div key={k} style={{ textAlign: 'center' }}>
+                            <span style={{ fontSize: 8, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>{lbl}</span>
+                            <input value={subnotas[k] || ''} onChange={e => setSubnotas(prev => ({ ...prev, [k]: e.target.value }))} placeholder="—" style={{ width: '100%', textAlign: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 4px', color: '#f0f0f0', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <span style={gLbl}>Certificado (opcional)</span>
+                    <input value={cert} onChange={e => setCert(e.target.value)} placeholder="Número / código de verificação" style={gInput} />
+                  </div>
+
+                  <div>
+                    <span style={gLbl}>Seu valor (R$)</span>
+                    <input type="number" min="0" step="0.01" value={valorGrad} onChange={e => setValorGrad(e.target.value)} placeholder="Ex: 950.00" style={gInput} />
+                  </div>
+                </div>
+              )}
+
+              <button onClick={salvarGrad} disabled={savingGrad}
+                style={{
+                  width: '100%', marginTop: 14, padding: '11px', borderRadius: 10, fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: 700, cursor: savingGrad ? 'default' : 'pointer',
+                  border: '1px solid ' + (flashGrad ? 'rgba(34,197,94,0.4)' : graduada ? hexA(gradMeta.cor, 0.4) : 'rgba(255,255,255,0.12)'),
+                  background: flashGrad ? 'rgba(34,197,94,0.15)' : graduada ? hexA(gradMeta.cor, 0.16) : 'rgba(255,255,255,0.05)',
+                  color: flashGrad ? '#22c55e' : graduada ? gradMeta.cor : 'rgba(255,255,255,0.75)',
+                  transition: 'all .15s',
+                }}>
+                {savingGrad ? 'Salvando…' : flashGrad ? '✓ Graduação salva' : graduada ? 'Salvar graduação' : 'Salvar (sem graduação)'}
               </button>
             </div>
 
