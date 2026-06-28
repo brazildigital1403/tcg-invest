@@ -12,6 +12,7 @@ interface Props {
   userId: string
   onClose: () => void
   onAdded: () => void
+  initialCard?: any | null
 }
 
 // ─── Estilos ───────────────────────────────────────────────────────────────
@@ -361,9 +362,10 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
 
 // ─── Modal wrapper ────────────────────────────────────────────────────────────
 
-export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
-  const [step, setStep]         = useState<'escolher' | 'detalhes'>('escolher')
-  const [cartaSel, setCartaSel] = useState<any | null>(null)
+export default function AnunciarModal({ userId, onClose, onAdded, initialCard }: Props) {
+  const [step, setStep]         = useState<'escolher' | 'detalhes'>(initialCard ? 'detalhes' : 'escolher')
+  const [cartaSel, setCartaSel] = useState<any | null>(initialCard || null)
+  const [bootstrapping, setBootstrapping] = useState<boolean>(!!initialCard)
   const [precoMercado, setPrecoMercado] = useState(0)
   const [precoFonte, setPrecoFonte] = useState<'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null>(null)
   const [loading, setLoading]   = useState(false)
@@ -372,6 +374,13 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
   useEffect(() => {
     supabase.from('users').select('is_pro').eq('id', userId).single().then(({ data }) => setIsPro(!!(data as any)?.is_pro))
   }, [userId])
+
+  // Abre direto no step 2 quando a carta ja vem escolhida (ex: vindo da colecao).
+  // Reusa handleSelectCard pra resolver o preco de mercado igual ao fluxo normal.
+  useEffect(() => {
+    if (initialCard) handleSelectCard(initialCard).finally(() => setBootstrapping(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleSelectCard(card: any) {
     // R6 + S29 UX v4: estratégia de resolução de preço com fallback.
@@ -475,7 +484,14 @@ export default function AnunciarModal({ userId, onClose, onAdded }: Props) {
         </div>
 
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          {step === 'escolher'
+          {bootstrapping
+            ? (
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: 'rgba(255,255,255,0.5)' }}>
+                <div style={{ width: 34, height: 34, border: '3px solid rgba(245,158,11,0.25)', borderTopColor: '#f59e0b', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <span style={{ fontSize: 13 }}>Preparando anúncio…</span>
+              </div>
+            )
+            : step === 'escolher'
             ? <EscolherCarta userId={userId} cartaSel={cartaSel} onSelect={handleSelectCard} />
             : <DetalhesAnuncio userId={userId} isPro={isPro} card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} />
           }

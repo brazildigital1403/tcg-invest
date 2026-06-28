@@ -17,6 +17,7 @@ import CardItem from '@/components/ui/CardItem'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
 import CardDetailModal from '@/components/dashboard/CardDetailModal'
+import AnunciarModal from '@/components/marketplace/AnunciarModal'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -90,6 +91,7 @@ export default function MinhaColecao() {
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
   const [exchangeRate, setExchangeRate] = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
   const [detalheCard, setDetalheCard] = useState<any>(null)
+  const [anunciarCard, setAnunciarCard] = useState<any>(null)
 
   const LOADING_MSGS = [
     'Procurando a carta...',
@@ -1065,8 +1067,17 @@ export default function MinhaColecao() {
           onVarianteChange={(v) => handleVarianteChange(detalheCard, v)}
           onQuantitySet={(novaQty) => handleSetQuantity(detalheCard, novaQty)}
           onCondicoesSaved={(novas) => setCards(prev => prev.map(x => x.id === detalheCard.id ? { ...x, condicoes: novas } : x))}
-          onSell={async () => { await handleSell(detalheCard); setDetalheCard(null) }}
+          onAnunciar={() => { setAnunciarCard(detalheCard); setDetalheCard(null) }}
           onRemove={async () => { await handleRemove(detalheCard.id, detalheCard.card_name); setDetalheCard(null) }}
+        />
+      )}
+
+      {anunciarCard && userId && (
+        <AnunciarModal
+          userId={userId}
+          initialCard={anunciarCard}
+          onClose={() => setAnunciarCard(null)}
+          onAdded={() => setAnunciarCard(null)}
         />
       )}
     </AppLayout>

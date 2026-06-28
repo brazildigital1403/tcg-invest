@@ -12,7 +12,7 @@ interface Props {
   onVarianteChange: (v: string) => void
   onQuantitySet: (novaQty: number) => void
   onCondicoesSaved: (novas: Record<string, number> | null) => void
-  onSell: () => void
+  onAnunciar: () => void
   onRemove: () => void
 }
 
@@ -82,7 +82,7 @@ function precoVariante(price: any, v: string, rate?: { usd: number; eur: number 
 
 export default function CardDetailModal({
   card, isPro, exchangeRate, onClose,
-  onVarianteChange, onQuantitySet, onCondicoesSaved, onSell, onRemove,
+  onVarianteChange, onQuantitySet, onCondicoesSaved, onAnunciar, onRemove,
 }: Props) {
   const [isMobile, setIsMobile] = useState(false)
   const [variante, setVariante] = useState<string>(card.variante || 'normal')
@@ -155,8 +155,11 @@ export default function CardDetailModal({
     }
   }
 
+  // Suprime o rotulo "Liga BR — XXX" quando o set nao tem nome real de mercado.
+  const setNomeRaw = price?.set_name || card.set_name || ''
+  const setNome = /^Liga BR\b/i.test(setNomeRaw) ? null : (setNomeRaw || null)
   const subtitleParts = [
-    price?.set_name || card.set_name,
+    setNome,
     (price?.number || card.number) ? `#${price?.number || card.number}` : null,
     price?.rarity || card.rarity,
   ].filter(Boolean) as string[]
@@ -345,7 +348,7 @@ export default function CardDetailModal({
 
         {/* ACOES */}
         <div style={{ display: 'flex', gap: 10, padding: isMobile ? '0 18px 18px' : '0 26px 26px', flexShrink: 0 }}>
-          <button onClick={onSell} style={{ ...btn, flex: 1, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#fff' }}>Anunciar à venda</button>
+          <button onClick={onAnunciar} style={{ ...btn, flex: 1, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#fff' }}>Anunciar Carta</button>
           {cartaUrlId && (
             <a href={`/carta/${cartaUrlId}`} style={{ ...btn, background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', padding: '13px 16px' }}>Ver página</a>
           )}
