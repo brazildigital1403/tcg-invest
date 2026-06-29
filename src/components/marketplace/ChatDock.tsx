@@ -486,7 +486,7 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
           <input ref={inputRef} value={texto} onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() } }}
             placeholder="Escreva uma mensagem..." maxLength={2000}
-            style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 100, padding: '11px 16px', color: '#f0f0f0', fontSize: 14, fontFamily: 'inherit', outline: 'none' }} />
+            style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 100, padding: '11px 16px', color: '#f0f0f0', fontSize: 16, fontFamily: 'inherit', outline: 'none' }} />
           <button onClick={enviar} disabled={enviando || !texto.trim()} style={{ width: 42, height: 42, borderRadius: '50%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', cursor: enviando || !texto.trim() ? 'default' : 'pointer', opacity: enviando || !texto.trim() ? 0.5 : 1, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M3 11l18-8-8 18-2-7-8-3z" fill="#1a0e00" /></svg>
           </button>
