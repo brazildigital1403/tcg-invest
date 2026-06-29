@@ -13,7 +13,7 @@
  *   - Stats (counts: cadastrou, ativou, engajado)
  *   - Indicações recentes (últimas 10, com email mascarado)
  *   - Trust suspended alert (se aplicável)
- *   - CTAs pra /recompensas e /ranking
+ *   - CTA pra /recompensas
  */
 
 import { useEffect, useState, type CSSProperties } from 'react'
@@ -361,13 +361,6 @@ export default function IndiqueEGanhePage() {
                 <div>
                   <div style={S.ctaTitle}>Trocar pontos por recompensas</div>
                   <div style={S.ctaSub}>Pro, scans IA, separadores e mais</div>
-                </div>
-              </Link>
-              <Link href="/ranking" style={S.ctaRight}>
-                <div style={S.ctaIcon}>🏆</div>
-                <div>
-                  <div style={S.ctaTitle}>Ver ranking do mês</div>
-                  <div style={S.ctaSub}>Top 3 ganham prêmios em dinheiro</div>
                 </div>
               </Link>
             </section>
