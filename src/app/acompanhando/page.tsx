@@ -56,53 +56,22 @@ export default function AcompanhandoPage() {
         return
       }
 
-      const { data: wl } = await supabase
-        .from('watchlist')
-        .select('card_id, created_at')
-        .eq('user_id', uid)
-        .order('created_at', { ascending: false })
-
-      const ids = (wl || []).map((w: any) => w.card_id)
-      if (ids.length === 0) {
-        if (active) { setItems([]); setLoaded(true) }
+      const { data, error } = await supabase.rpc('get_watchlist')
+      if (!active) return
+      if (error) {
+        setItems([])
+        setLoaded(true)
         return
       }
 
-      const { data: cards } = await supabase
-        .from('pokemon_cards')
-        .select('id, name, set_name, image_small, preco_medio')
-        .in('id', ids)
-
-      const since = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10)
-      const { data: snaps } = await supabase
-        .from('price_snapshots')
-        .select('card_id, preco_medio, snapshot_date')
-        .in('card_id', ids)
-        .gte('snapshot_date', since)
-        .order('snapshot_date', { ascending: true })
-
-      const baseByCard: Record<string, number> = {}
-      for (const s of snaps || []) {
-        if (baseByCard[(s as any).card_id] === undefined) baseByCard[(s as any).card_id] = Number((s as any).preco_medio)
-      }
-
-      const byId: Record<string, any> = {}
-      for (const c of cards || []) byId[(c as any).id] = c
-
-      const built: Item[] = ids
-        .map((id: string) => {
-          const c = byId[id]
-          if (!c) return null
-          const atual = c.preco_medio != null ? Number(c.preco_medio) : null
-          const base = baseByCard[id]
-          let pct: number | null = null
-          if (atual != null && base && base > 0) {
-            const v = ((atual - base) / base) * 100
-            if (Math.abs(v) >= 0.5) pct = v
-          }
-          return { card_id: id, name: cleanName(c.name), set_name: c.set_name, image_small: c.image_small, preco_medio: atual, pct }
-        })
-        .filter(Boolean) as Item[]
+      const built: Item[] = (data || []).map((r: any) => ({
+        card_id: r.card_id,
+        name: cleanName(r.name),
+        set_name: r.set_name,
+        image_small: r.image_small,
+        preco_medio: r.preco_medio != null ? Number(r.preco_medio) : null,
+        pct: r.pct != null ? Number(r.pct) : null,
+      }))
 
       if (active) { setItems(built); setLoaded(true) }
     })()
