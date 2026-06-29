@@ -233,8 +233,13 @@ export default function ChatDock() {
 
 function ChatFab({ count, onClick }: { count: number; onClick: () => void }) {
   return (
-    <button onClick={onClick} aria-label="Conversas" style={{
-      position: 'fixed', bottom: 22, right: 22, zIndex: 80, width: 56, height: 56, borderRadius: '50%',
+    <>
+      <style>{`
+        .bynx-chatfab { position: fixed; bottom: 22px; right: 22px; z-index: 201; }
+        @media (max-width: 768px) { .bynx-chatfab { bottom: 84px; right: 16px; } }
+      `}</style>
+      <button onClick={onClick} aria-label="Conversas" className="bynx-chatfab" style={{
+      width: 56, height: 56, borderRadius: '50%',
       background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', cursor: 'pointer',
       boxShadow: '0 10px 30px -6px rgba(245,158,11,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
@@ -245,6 +250,7 @@ function ChatFab({ count, onClick }: { count: number; onClick: () => void }) {
         </span>
       )}
     </button>
+    </>
   )
 }
 
