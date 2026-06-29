@@ -176,10 +176,10 @@ export default function ChatDock() {
       {/* Dock */}
       {aberto && (
         <>
-          <div onClick={fecharTudo} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 90 }} />
+          <div onClick={fecharTudo} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9990 }} />
           <div style={desktop
-            ? { position: 'fixed', top: 0, right: 0, height: '100dvh', width: 680, maxWidth: '94vw', zIndex: 91, display: 'flex', background: '#080a0f', borderLeft: '1px solid rgba(255,255,255,0.1)', boxShadow: '-30px 0 60px -20px rgba(0,0,0,0.7)', animation: 'chatdock-in 0.4s cubic-bezier(.22,.61,.36,1)' }
-            : { position: 'fixed', inset: 0, zIndex: 91, display: 'flex', background: '#080a0f' }
+            ? { position: 'fixed', top: 0, right: 0, height: '100dvh', width: 680, maxWidth: '94vw', zIndex: 9991, display: 'flex', background: '#080a0f', borderLeft: '1px solid rgba(255,255,255,0.1)', boxShadow: '-30px 0 60px -20px rgba(0,0,0,0.7)', animation: 'chatdock-in 0.4s cubic-bezier(.22,.61,.36,1)' }
+            : { position: 'fixed', inset: 0, zIndex: 9991, display: 'flex', background: '#080a0f' }
           }>
             <style>{`@keyframes chatdock-in{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes chatdock-spin{to{transform:rotate(360deg)}}`}</style>
 
