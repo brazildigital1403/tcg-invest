@@ -124,6 +124,8 @@ const NOTIF_CORES: Record<string, string> = {
   novidade: '#a78bfa',
   boas_vindas: '#60a5fa',
   cancelado: '#94a3b8',
+  mensagem: '#60a5fa',
+  aviso: '#ef4444',
 }
 
 const fmt = (v: number) =>

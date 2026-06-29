@@ -24,6 +24,8 @@ export type NotifType =
   | 'watch_listada'
   | 'novidade'
   | 'boas_vindas'
+  | 'mensagem'
+  | 'aviso'
 
 /** Cria uma notificacao para 1 usuario. Retorna true se gravou. */
 export async function notify(

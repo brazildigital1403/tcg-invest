@@ -67,6 +67,15 @@ function IconChevron({ collapsed, color = 'rgba(255,255,255,0.55)' }: { collapse
   )
 }
 
+function IconConversasAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M2 4h11v7H6l-4 3V4z" stroke={color} strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M7 11v1.5A1.5 1.5 0 008.5 14H14l4 3v-9.5A1.5 1.5 0 0016.5 6H15" stroke={color} strokeWidth="1.4" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean }
 
 const adminMenu: MenuItem[] = [
@@ -78,6 +87,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },
   { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro' },
   { label: 'Avisos', href: '/admin/notificacoes', Icon: IconBell },
+  { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, countKey: 'conversas' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
