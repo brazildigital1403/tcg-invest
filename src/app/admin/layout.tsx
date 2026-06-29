@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell } from '@/components/ui/Icons'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -77,6 +77,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, countKey: 'marketplace' },
   { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },
   { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro' },
+  { label: 'Avisos', href: '/admin/notificacoes', Icon: IconBell },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
