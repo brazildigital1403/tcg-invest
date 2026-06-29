@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, IconWhatsApp, IconShield, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import AvaliacaoModal from './AvaliacaoModal'
-import { criarNotificacao } from '@/lib/notificacoes'
 import { dispararMarco } from '@/lib/marketplaceMarco'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
@@ -153,17 +152,6 @@ function NegociacaoCard({ card, role, onAction, userId }: {
     if (!ok) return
     await supabase.from('marketplace').update({ status: 'enviado' }).eq('id', card.id)
 
-    // Notifica o comprador
-    if (card.buyer_id) {
-      await criarNotificacao(
-        card.buyer_id,
-        'enviado',
-        'Sua carta foi enviada!',
-        `${nomeContato || 'O vendedor'} confirmou o envio de "${card.card_name}". Confirme o recebimento quando chegar.`,
-        { marketplace_id: card.id, card_name: card.card_name }
-      )
-    }
-
     await dispararMarco(card.id, 'enviado')
 
     showAlert('Envio confirmado! Aguardando o comprador confirmar o recebimento.', 'success')
@@ -202,15 +190,6 @@ function NegociacaoCard({ card, role, onAction, userId }: {
 
     // Conclui anúncio
     await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', card.id)
-
-    // Notifica o vendedor
-    await criarNotificacao(
-      card.user_id,
-      'recebido',
-      'Venda concluída!',
-      `O comprador confirmou o recebimento de "${card.card_name}". Negociação concluída com sucesso!`,
-      { marketplace_id: card.id, card_name: card.card_name }
-    )
 
     await dispararMarco(card.id, 'concluido')
 

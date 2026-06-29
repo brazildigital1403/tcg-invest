@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, IconHistory, IconCollection, IconChat, IconBox, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
-import { criarNotificacao } from '@/lib/notificacoes'
 import { dispararMarco } from '@/lib/marketplaceMarco'
 import { authFetch } from '@/lib/authFetch'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
@@ -134,16 +133,6 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
     await supabase.from('marketplace')
       .update({ status: 'reservado', buyer_id: userId })
       .eq('id', card.id)
-
-    // Notifica o vendedor
-    const { data: buyerProfile } = await supabase.from('users').select('name').eq('id', userId).single()
-    await criarNotificacao(
-      card.user_id,
-      'interesse',
-      'Novo interesse na sua carta!',
-      `${buyerProfile?.name || 'Um usuário'} demonstrou interesse em "${card.card_name}" por ${fmt(card.price)}.`,
-      { marketplace_id: card.id, card_name: card.card_name }
-    )
 
     await dispararMarco(card.id, 'interesse')
 

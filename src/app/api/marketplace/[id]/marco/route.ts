@@ -5,6 +5,7 @@ import {
   sendCartaEnviadaEmail,
   sendNegociacaoConcluidaEmail,
 } from '@/lib/email'
+import { notify } from '@/lib/notify'
 
 function supabaseAdmin() {
   return createClient(
@@ -80,12 +81,31 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const buyer = buyerId ? byId.get(buyerId) : null
     const dest = byId.get(destinatarioId)
 
-    if (!dest?.email) {
-      return NextResponse.json({ ok: true, emailed: false, reason: 'sem email' })
-    }
-
     const card = anuncio.card_name || 'sua carta'
     const price = (anuncio.price ?? null) as number | null
+    const link = `/marketplace?conversa=${anuncio.id}`
+    const precoStr = price ? ` por R$ ${Number(price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+    const buyerNome = buyer?.name || 'Um comprador'
+    const sellerNome = seller?.name || 'O vendedor'
+
+    // Sino (independe de email): notifica a contraparte do marco
+    if (tipo === 'interesse') {
+      await notify(destinatarioId, 'interesse', 'Novo interesse na sua carta!',
+        `${buyerNome} demonstrou interesse em "${card}"${precoStr}.`,
+        { link, marketplace_id: anuncio.id, card_name: card }).catch(() => {})
+    } else if (tipo === 'enviado') {
+      await notify(destinatarioId, 'enviado', 'Sua carta foi enviada!',
+        `${sellerNome} confirmou o envio de "${card}". Confirme o recebimento quando chegar.`,
+        { link, marketplace_id: anuncio.id, card_name: card }).catch(() => {})
+    } else if (tipo === 'concluido') {
+      await notify(destinatarioId, 'recebido', 'Venda concluída!',
+        `${buyerNome} confirmou o recebimento de "${card}". Negociação concluída com sucesso!`,
+        { link, marketplace_id: anuncio.id, card_name: card }).catch(() => {})
+    }
+
+    if (!dest?.email) {
+      return NextResponse.json({ ok: true, notified: true, emailed: false, reason: 'sem email' })
+    }
 
     if (tipo === 'interesse') {
       await sendNovaNegociacaoEmail({
@@ -104,7 +124,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       }).catch(() => {})
     }
 
-    return NextResponse.json({ ok: true, emailed: true })
+    return NextResponse.json({ ok: true, notified: true, emailed: true })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'erro' }, { status: 500 })
   }
