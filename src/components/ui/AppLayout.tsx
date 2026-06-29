@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { resolvePlan } from '@/lib/plan'
@@ -103,12 +103,27 @@ function IconChevron({ collapsed, color = 'rgba(255,255,255,0.55)' }: { collapse
   )
 }
 
-import { marcarTodasLidas } from '@/lib/notificacoes'
+import { marcarTodasLidas, marcarLida } from '@/lib/notificacoes'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const BG = '#080a0f'
 const EXPLORE_KEY = 'bynx_explore_mode'
 const SIDEBAR_KEY = 'bynx_sidebar_collapsed'
+
+const NOTIF_CORES: Record<string, string> = {
+  valorizacao: '#22c55e',
+  desvalorizacao: '#ef4444',
+  venda: '#22c55e',
+  enviado: '#22c55e',
+  recebido: '#22c55e',
+  interesse: '#f59e0b',
+  avaliacao: '#f59e0b',
+  watch_listada: '#f59e0b',
+  carta_adicionada: '#2dd4bf',
+  novidade: '#a78bfa',
+  boas_vindas: '#60a5fa',
+  cancelado: '#94a3b8',
+}
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -151,6 +166,7 @@ const TAB_SHORT: Record<string, string> = { '/dashboard-financeiro': 'Início', 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { openContactModal } = useContactModal()
   const [patrimonio, setPatrimonio] = useState<number | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -360,6 +376,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setNotifOpen(false)
   }, [pathname])
 
+  async function abrirNotif(n: any) {
+    setNotifs(prev => prev.filter(x => x.id !== n.id))
+    marcarLida(n.id)
+    const link = n?.data?.link
+    if (link) { setNotifOpen(false); router.push(String(link)) }
+  }
+
   async function handleLogout() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(EXPLORE_KEY)
@@ -401,14 +424,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div style={{ padding: '32px 16px', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
                 <IconBell size={28} color="rgba(255,255,255,0.2)" style={{ marginBottom: 8 }} />
                 <p style={{ fontSize: 13 }}>Nenhuma notificação</p>
-                <p style={{ fontSize: 11, marginTop: 4, color: 'rgba(255,255,255,0.2)' }}>Avisamos quando suas cartas variarem ±10%</p>
+                <p style={{ fontSize: 11, marginTop: 4, color: 'rgba(255,255,255,0.2)' }}>Avisamos sobre suas cartas, anúncios e novidades</p>
               </div>
             ) : (
               notifs.map(n => {
-                const color = n.type === 'valorizacao' ? '#22c55e' : n.type === 'desvalorizacao' ? '#ef4444' : '#60a5fa'
-                const bg = n.type === 'valorizacao' ? 'rgba(34,197,94,0.06)' : n.type === 'desvalorizacao' ? 'rgba(239,68,68,0.06)' : 'rgba(96,165,250,0.06)'
+                const color = NOTIF_CORES[n.type] || '#60a5fa'
+                const bg = color + '12'
                 return (
-                  <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: bg }}>
+                  <div key={n.id} onClick={() => abrirNotif(n)} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: bg, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 6 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>

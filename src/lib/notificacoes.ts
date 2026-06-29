@@ -12,6 +12,10 @@ export async function criarNotificacao(
   })
 }
 
+export async function marcarLida(id: string) {
+  await supabase.from('notifications').update({ read: true }).eq('id', id)
+}
+
 export async function marcarTodasLidas(userId: string) {
   await supabase.from('notifications')
     .update({ read: true })
