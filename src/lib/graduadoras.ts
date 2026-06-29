@@ -18,6 +18,7 @@ export const GRADUADORAS: Graduadora[] = [
   { slug: 'cgc',  nome: 'CGC · Certified Guaranty Company',        curto: 'CGC',  cor: '#1f6fb2', temSubnota: true,  temBlackLabel: false, pais: 'intl' },
   { slug: 'ace',  nome: 'ACE Grading',                             curto: 'ACE',  cor: '#0ea5e9', temSubnota: true,  temBlackLabel: false, pais: 'intl' },
   { slug: 'ags',  nome: 'AGS · AI Grading',                        curto: 'AGS',  cor: '#64748b', temSubnota: true,  temBlackLabel: false, pais: 'intl' },
+  { slug: 'tag',  nome: 'TAG · Technical Authentication & Grading', curto: 'TAG',  cor: '#52525b', temSubnota: true,  temBlackLabel: false, pais: 'intl' },
   // Nacionais
   { slug: 'mgs',  nome: 'MGS · ManaFix Grading System',            curto: 'MGS',  cor: '#8b5cf6', temSubnota: true,  temBlackLabel: false, pais: 'br' },
   { slug: 'capy', nome: 'Capy Grading',                            curto: 'Capy', cor: '#e0902a', temSubnota: true,  temBlackLabel: false, pais: 'br' },
