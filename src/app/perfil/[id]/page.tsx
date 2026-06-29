@@ -52,6 +52,7 @@ export default function PerfilPage() {
   const [portfolioHistory, setPortfolioHistory] = useState<any[]>([])
   const [setProgress, setSetProgress] = useState<any[]>([])
   const [stats, setStats]         = useState({ cartas: 0, anuncios: 0, vendas: 0 })
+  const [reputacao, setReputacao]  = useState({ media: 0, total: 0 })
   const [loading, setLoading]     = useState(true)
   const [notFound, setNotFound]   = useState(false)
   const [isPrivate, setIsPrivate] = useState(false)
@@ -157,6 +158,16 @@ export default function PerfilPage() {
         anuncios: (listingsData || []).length,
         vendas: vendasCount || 0,
       })
+
+      // Resumo de reputacao (media de estrelas) — alimenta o stat box
+      const { data: avsResumo } = await supabase.rpc('get_avaliacoes_usuario', { p_user_id: uid })
+      const avList = (avsResumo as any[]) || []
+      if (avList.length > 0) {
+        const med = avList.reduce((acc, a) => acc + (a.estrelas || 0), 0) / avList.length
+        setReputacao({ media: med, total: avList.length })
+      } else {
+        setReputacao({ media: 0, total: 0 })
+      }
 
       // Histórico de patrimônio
       const { data: history } = await supabase
@@ -359,7 +370,7 @@ export default function PerfilPage() {
             { label: 'Cartas na coleção', value: stats.cartas, color: '#60a5fa', icon: 'cards' },
             { label: 'Anúncios ativos',   value: stats.anuncios, color: '#f59e0b', icon: 'megaphone' },
             { label: 'Vendas concluídas', value: stats.vendas, color: '#22c55e', icon: 'check' },
-            { label: 'Reputação', value: stats.vendas === 0 ? 'Novo' : stats.vendas < 3 ? `${stats.vendas} venda${stats.vendas > 1 ? 's' : ''}` : stats.vendas < 10 ? `${stats.vendas} vendas` : `${stats.vendas} vendas`, color: '#f59e0b', icon: 'medal', text: true },
+            { label: 'Reputação', value: reputacao.total === 0 ? 'Novo' : `${reputacao.media.toFixed(1).replace('.', ',')} ★`, color: '#f59e0b', icon: 'medal', text: true },
           ].map((s, i) => (
             <div key={i} style={{ ...SURFACE, padding: '20px 16px', textAlign: 'center' }}>
               <div style={{ display:'flex', justifyContent:'center', alignItems:'center', marginBottom: 8, height: 28 }}>{s.icon === 'megaphone'
