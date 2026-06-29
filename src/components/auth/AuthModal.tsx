@@ -274,6 +274,14 @@ useEffect(() => {
         const loginDest = next || '/dashboard-financeiro'
         router.push(loginDest)
       } else {
+        // ── Trava de CPF unico: pre-checa ANTES de criar a conta no Auth ──
+        // (evita usuario orfao no Auth caso o insert em users seja barrado).
+        const { data: cpfTaken } = await supabase.rpc('cpf_em_uso', { p_cpf: cpf })
+        if (cpfTaken) {
+          setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))
+          setTouched(prev => ({ ...prev, cpf: true }))
+          return
+        }
         const { data, error } = await supabase.auth.signUp({
           email, password,
           options: { data: { name, cpf, city, whatsapp } },
@@ -285,7 +293,16 @@ useEffect(() => {
         }
         if (data.user) {
           const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-          await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito })
+          const { error: insErr } = await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito })
+          if (insErr) {
+            if (insErr.code === '23505' || (insErr.message || '').includes('CPF_DUPLICADO') || (insErr.message || '').toLowerCase().includes('cpf')) {
+              setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))
+              setTouched(prev => ({ ...prev, cpf: true }))
+            } else {
+              setServerError('Não foi possível concluir o cadastro. Tente novamente.')
+            }
+            return
+          }
 
           // ── Indique e Ganhe: associa ref_code se houver (fire & forget) ────
           if (refCode) {
