@@ -7,6 +7,7 @@ import { getUserPlan } from '@/lib/isPro'
 import { trackProUpgradeInitiated } from '@/lib/analytics'
 import { IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink, IconCamera, IconCollection as IconBinder } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
+import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { ENFORCEMENT_ATIVO, LIMITE_FREE } from '@/lib/checkCardLimit'
 
@@ -523,6 +524,8 @@ export default function MinhaConta() {
             </div>
           )}
         </div>
+
+        {user?.id && <ReputacaoCard userId={user.id} titulo="Minha reputação" />}
 
         {/* ── DADOS PESSOAIS ── */}
         <div style={SURFACE}>

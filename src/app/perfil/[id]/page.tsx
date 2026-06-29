@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
+import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
 import { setLabel } from '@/lib/setLabel'
 
 const fmt = (v: number) =>
@@ -376,6 +377,8 @@ export default function PerfilPage() {
             </div>
           ))}
         </div>
+
+        {user?.id && <ReputacaoCard userId={user.id} titulo="Reputação" esconderSeVazio />}
 
         {/* ── SHOWCASE — 6 cartas mais valiosas ── */}
         {showcase.length > 0 && (
