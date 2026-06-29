@@ -40,7 +40,6 @@ export const STATIC_ROUTES: StaticRoute[] = [
   { path: '/colecionadores', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/pokedex-pokemon-tcg', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/scan-ia', changeFrequency: 'monthly', priority: 0.85 },
-  { path: '/ranking', changeFrequency: 'daily', priority: 0.7 },
   { path: '/sobre', changeFrequency: 'monthly', priority: 0.6 },
 ]
 

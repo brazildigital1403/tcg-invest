@@ -117,7 +117,6 @@ export default function HomeDiscovery() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
             <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em' }}>As mais valiosas em reais</h2>
             <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-            <Link href="/ranking" style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, textDecoration: 'none' }}>Ver ranking →</Link>
           </div>
           <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 14 }}>
             {tops.map((c) => (

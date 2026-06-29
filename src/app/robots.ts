@@ -27,7 +27,6 @@ export default function robots(): MetadataRoute.Robots {
           '/colecionadores',
           '/pokedex-pokemon-tcg',
           '/scan-ia',
-          '/ranking',
         ],
         disallow: [
           '/minha-colecao',
