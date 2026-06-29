@@ -953,3 +953,90 @@ export async function sendDisputeAdminEmail(args: {
 
   return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx] ALERTA: chargeback aberto (${valor})`, html })
 }
+
+
+// ── Marketplace: marcos da negociacao + nao lidas ────────────────────────────
+
+function fmtBRLemail(v: number | null | undefined): string {
+  const n = Number(v || 0)
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function convoUrl(anuncioId: string, campaign: string): string {
+  return addUtm(`${APP_URL}/marketplace?conversa=${anuncioId}`, campaign)
+}
+
+export async function sendNovaNegociacaoEmail(args: {
+  to: string; sellerName: string; buyerName: string; cardName: string; price: number | null; anuncioId: string
+}) {
+  const url = convoUrl(args.anuncioId, 'mkt_nova_negociacao')
+  const first = (args.sellerName || '').split(' ')[0] || 'colecionador'
+  const comprador = escapeHtml(args.buyerName || 'Um comprador')
+  const carta = escapeHtml(args.cardName || 'sua carta')
+  const html = baseLayout(`
+    ${badge('Marketplace', '#f59e0b', '')}
+    ${h1('Alguém quer sua carta! 🤝')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`<b style="color:#f0f0f0;">${comprador}</b> demonstrou interesse em <b style="color:#f0f0f0;">${carta}</b>${args.price ? ` (${fmtBRLemail(args.price)})` : ''} e abriu uma negociação com você.`)}
+    ${p('Responda pelo chat do Bynx para combinar valor, condição e envio — tudo dentro da plataforma.')}
+    ${btn('Abrir conversa →', url)}
+  `, `${args.buyerName || 'Um comprador'} quer ${args.cardName}`)
+  return resend.emails.send({ from: FROM, to: args.to, subject: `🤝 Nova negociação: ${args.cardName}`, html })
+}
+
+export async function sendCartaEnviadaEmail(args: {
+  to: string; buyerName: string; sellerName: string; cardName: string; anuncioId: string
+}) {
+  const url = convoUrl(args.anuncioId, 'mkt_carta_enviada')
+  const first = (args.buyerName || '').split(' ')[0] || 'colecionador'
+  const vendedor = escapeHtml(args.sellerName || 'O vendedor')
+  const carta = escapeHtml(args.cardName || 'a carta')
+  const html = baseLayout(`
+    ${badge('Marketplace', '#f59e0b', '')}
+    ${h1('Sua carta foi enviada! 📦')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`<b style="color:#f0f0f0;">${vendedor}</b> confirmou o envio de <b style="color:#f0f0f0;">${carta}</b>.`)}
+    ${p('Quando a carta chegar, confirme o recebimento pelo chat para concluir a negociação e adicioná-la à sua coleção.')}
+    ${btn('Acompanhar negociação →', url)}
+  `, `${args.sellerName || 'O vendedor'} enviou ${args.cardName}`)
+  return resend.emails.send({ from: FROM, to: args.to, subject: `📦 Carta enviada: ${args.cardName}`, html })
+}
+
+export async function sendNegociacaoConcluidaEmail(args: {
+  to: string; sellerName: string; buyerName: string; cardName: string; price: number | null; anuncioId: string
+}) {
+  const url = convoUrl(args.anuncioId, 'mkt_concluida')
+  const first = (args.sellerName || '').split(' ')[0] || 'colecionador'
+  const comprador = escapeHtml(args.buyerName || 'O comprador')
+  const carta = escapeHtml(args.cardName || 'a carta')
+  const html = baseLayout(`
+    ${badge('Marketplace', '#22c55e', '')}
+    ${h1('Venda concluída! ✅')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`<b style="color:#f0f0f0;">${comprador}</b> confirmou o recebimento de <b style="color:#f0f0f0;">${carta}</b>${args.price ? ` (${fmtBRLemail(args.price)})` : ''}. Negociação concluída com sucesso!`)}
+    ${p('Que tal avaliar o comprador? Avaliações ajudam toda a comunidade a negociar com mais confiança.')}
+    ${btn('Avaliar comprador →', url)}
+  `, `Venda concluída: ${args.cardName}`)
+  return resend.emails.send({ from: FROM, to: args.to, subject: `✅ Venda concluída: ${args.cardName}`, html })
+}
+
+export async function sendMensagensNaoLidasEmail(args: {
+  to: string; name: string; qtd: number; anuncioId: string
+}) {
+  const url = convoUrl(args.anuncioId, 'mkt_nao_lidas')
+  const first = (args.name || '').split(' ')[0] || 'colecionador'
+  const plural = args.qtd > 1
+  const titulo = plural ? `Você tem ${args.qtd} mensagens não lidas 💬` : 'Você tem uma mensagem não lida 💬'
+  const corpo = plural
+    ? `Há <b style="color:#f0f0f0;">${args.qtd} mensagens</b> te esperando no chat do marketplace do Bynx.`
+    : 'Há uma mensagem te esperando no chat do marketplace do Bynx.'
+  const html = baseLayout(`
+    ${badge('Marketplace', '#f59e0b', '')}
+    ${h1(titulo)}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`${corpo} Não deixe seu comprador ou vendedor no vácuo!`)}
+    ${btn('Ver conversas →', url)}
+  `, plural ? `${args.qtd} mensagens não lidas no Bynx` : 'Você tem uma mensagem não lida')
+  const subject = plural ? `💬 ${args.qtd} mensagens não lidas no Bynx` : '💬 Você tem uma mensagem não lida no Bynx'
+  return resend.emails.send({ from: FROM, to: args.to, subject, html })
+}

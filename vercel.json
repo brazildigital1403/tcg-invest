@@ -15,6 +15,10 @@
     {
       "path": "/api/cron-monthly-ranking",
       "schedule": "5 0 1 * *"
+    },
+    {
+      "path": "/api/cron-mensagens-nao-lidas",
+      "schedule": "0 */6 * * *"
     }
   ],
   "functions": {
@@ -28,6 +32,9 @@
       "maxDuration": 30
     },
     "src/app/api/cron-monthly-ranking/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron-mensagens-nao-lidas/route.ts": {
       "maxDuration": 60
     }
   }

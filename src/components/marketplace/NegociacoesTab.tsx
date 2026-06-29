@@ -6,6 +6,7 @@ import { IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, I
 import { supabase } from '@/lib/supabaseClient'
 import AvaliacaoModal from './AvaliacaoModal'
 import { criarNotificacao } from '@/lib/notificacoes'
+import { dispararMarco } from '@/lib/marketplaceMarco'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { authFetch } from '@/lib/authFetch'
@@ -163,6 +164,8 @@ function NegociacaoCard({ card, role, onAction, userId }: {
       )
     }
 
+    await dispararMarco(card.id, 'enviado')
+
     showAlert('Envio confirmado! Aguardando o comprador confirmar o recebimento.', 'success')
     onAction()
   }
@@ -208,6 +211,8 @@ function NegociacaoCard({ card, role, onAction, userId }: {
       `O comprador confirmou o recebimento de "${card.card_name}". Negociação concluída com sucesso!`,
       { marketplace_id: card.id, card_name: card.card_name }
     )
+
+    await dispararMarco(card.id, 'concluido')
 
     showAlert('Compra concluída! A carta foi adicionada à sua coleção.', 'success')
     onAction()

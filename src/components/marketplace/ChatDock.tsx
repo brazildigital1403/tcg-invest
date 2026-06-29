@@ -22,6 +22,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { dispararMarco } from '@/lib/marketplaceMarco'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AvaliacaoModal from '@/components/marketplace/AvaliacaoModal'
 import { trackFirstCardAdded } from '@/lib/analytics'
@@ -381,6 +382,7 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
     const ok = await showConfirm({ message: `Confirma que enviou "${anuncio.card_name}" para ${outroNome}?`, confirmLabel: 'Sim, confirmei o envio', description: 'O comprador será notificado para confirmar o recebimento.' })
     if (!ok) return
     await supabase.from('marketplace').update({ status: 'enviado' }).eq('id', anuncioId)
+    await dispararMarco(anuncioId, 'enviado')
     showAlert('Envio confirmado! Aguardando o comprador confirmar o recebimento.', 'success')
     await carregarAnuncio(); onMudanca()
   }
@@ -394,6 +396,7 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
     await supabase.from('user_cards').delete().eq('user_id', anuncio.user_id).eq('card_name', anuncio.card_name).limit(1)
     await supabase.from('transactions').insert({ buyer_id: userId, seller_id: anuncio.user_id, card_name: anuncio.card_name, price: anuncio.price })
     await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', anuncioId)
+    await dispararMarco(anuncioId, 'concluido')
     showAlert('Compra concluída! A carta foi adicionada à sua coleção.', 'success')
     await carregarAnuncio(); onMudanca()
     setTimeout(() => setShowAvaliacao(true), 700)

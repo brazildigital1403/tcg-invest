@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, IconHistory, IconCollection, IconChat, IconBox, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { criarNotificacao } from '@/lib/notificacoes'
+import { dispararMarco } from '@/lib/marketplaceMarco'
 import { authFetch } from '@/lib/authFetch'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
@@ -143,6 +144,8 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
       `${buyerProfile?.name || 'Um usuário'} demonstrou interesse em "${card.card_name}" por ${fmt(card.price)}.`,
       { marketplace_id: card.id, card_name: card.card_name }
     )
+
+    await dispararMarco(card.id, 'interesse')
 
     router.push(`/marketplace?conversa=${card.id}`)
   }
