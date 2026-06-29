@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, IconWhatsApp, IconShield, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import AvaliacaoModal from './AvaliacaoModal'
@@ -118,6 +119,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
   userId: string
 }) {
   const { showConfirm, showAlert } = useAppModal()
+  const router = useRouter()
   const [showAvaliacao, setShowAvaliacao] = useState(false)
   const status = card.status || 'reservado'
   const steps  = role === 'comprador' ? STEPS_COMPRADOR : STEPS_VENDEDOR
@@ -281,10 +283,10 @@ function NegociacaoCard({ card, role, onAction, userId }: {
                 {cidadeContato && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display:'flex', alignItems:'center', gap:3 }}><svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z' stroke='currentColor' strokeWidth='1.3'/><circle cx='10' cy='7' r='2' stroke='currentColor' strokeWidth='1.3'/></svg> {cidadeContato}</p>}
               </div>
               {contatoId && (
-                <button onClick={abrirWhatsApp}
-                  style={{ marginLeft: 'auto', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                  <IconWhatsApp size={14} color="currentColor" />
-                  <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>WhatsApp</span>
+                <button onClick={() => router.push(`/marketplace/negociacao/${card.id}`)}
+                  style={{ marginLeft: 'auto', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                  <IconChat size={14} color="currentColor" />
+                  <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>Conversar</span>
                 </button>
               )}
             </div>
@@ -307,7 +309,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
               <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 2h10M5 18h10M6 2v4l4 4-4 4v4M14 2v4l-4 4 4 4v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
               Aguardando o vendedor confirmar o envio
             </p>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Entre em contato pelo WhatsApp para combinar os detalhes</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Abra a conversa para combinar os detalhes</p>
           </div>
         )}
 
@@ -323,7 +325,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
         {role === 'vendedor' && status === 'reservado' && (
           <>
             <div style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.15)', borderRadius: 10, padding: '10px 14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 12, color: '#60a5fa', display:'flex', alignItems:'center', gap:4 }}><IconChat size={12} color='currentColor' />Combine a entrega pelo WhatsApp antes de confirmar o envio</p>
+              <p style={{ fontSize: 12, color: '#60a5fa', display:'flex', alignItems:'center', gap:4 }}><IconChat size={12} color='currentColor' />Combine a entrega na conversa antes de confirmar o envio</p>
             </div>
             <button onClick={handleConfirmarEnvio}
               style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.35)', color: '#60a5fa', padding: '12px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
