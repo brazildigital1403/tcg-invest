@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import ChatDock from '@/components/marketplace/ChatDock'
 import { resolvePlan } from '@/lib/plan'
 import { ENFORCEMENT_ATIVO, MURO_POSTRIAL_ATIVO, LIMITE_FREE, checkCardLimit } from '@/lib/checkCardLimit'
 import { useContactModal } from '@/components/ui/ContactModalProvider'
@@ -907,6 +908,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
 
       </div>
+
+      <Suspense fallback={null}><ChatDock /></Suspense>
     </>
   )
 }

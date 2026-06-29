@@ -283,7 +283,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
                 {cidadeContato && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display:'flex', alignItems:'center', gap:3 }}><svg width='16' height='16' viewBox='0 0 20 20' fill='none'><path d='M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z' stroke='currentColor' strokeWidth='1.3'/><circle cx='10' cy='7' r='2' stroke='currentColor' strokeWidth='1.3'/></svg> {cidadeContato}</p>}
               </div>
               {contatoId && (
-                <button onClick={() => router.push(`/marketplace/negociacao/${card.id}`)}
+                <button onClick={() => router.push(`/marketplace?conversa=${card.id}`)}
                   style={{ marginLeft: 'auto', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                   <IconChat size={14} color="currentColor" />
                   <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>Conversar</span>

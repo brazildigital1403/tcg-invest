@@ -144,7 +144,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
       { marketplace_id: card.id, card_name: card.card_name }
     )
 
-    router.push(`/marketplace/negociacao/${card.id}`)
+    router.push(`/marketplace?conversa=${card.id}`)
   }
 
   async function handleCancelar() {
@@ -343,7 +343,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           {(isBuyer || isMeu) && ['reservado', 'em_negociacao', 'enviado'].includes(card.status) && (
             <button
               type="button"
-              onClick={() => router.push(`/marketplace/negociacao/${card.id}`)}
+              onClick={() => router.push(`/marketplace?conversa=${card.id}`)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               <svg viewBox="0 0 20 20" width="15" height="15" fill="none"><path d="M3 3h14v9H6l-4 3V3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
