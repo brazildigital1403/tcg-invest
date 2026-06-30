@@ -55,6 +55,12 @@
   --bx-purple:     #a855f7;
   --bx-brand:      linear-gradient(135deg, #f59e0b, #ef4444);
   --bx-brand-ink:  #0a0a0a;            /* texto sobre o gradiente da marca */
+  /* Acento contextual: APP por padrao; sobrescrito na casca da Loja (azul->roxo) */
+  --ac-1:     #f59e0b;
+  --ac-2:     #ef4444;
+  --ac-1-rgb: 245, 158, 11;
+  --ac-2-rgb: 239, 68, 68;
+  --ac-grad:  linear-gradient(135deg, #f59e0b, #ef4444);
 
   /* efeitos */
   --bx-shadow:     0 16px 48px rgba(0,0,0,0.55);

@@ -472,7 +472,7 @@ const S: Record<string, CSSProperties> = {
 
   breadcrumb: {
     fontSize: 13,
-    color: 'rgba(245,158,11,0.85)',
+    color: 'rgba(96,165,250,0.85)',
     textDecoration: 'none',
     fontWeight: 600,
     marginBottom: -8,
@@ -656,7 +656,7 @@ const S: Record<string, CSSProperties> = {
   },
   progressFill: {
     height: '100%',
-    background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
+    background: 'linear-gradient(90deg, #60a5fa, #a855f7)',
     borderRadius: 4,
     transition: 'width 0.3s ease',
   },
@@ -692,7 +692,7 @@ const S: Record<string, CSSProperties> = {
 
   // Botões
   btnPrimary: {
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    background: 'linear-gradient(135deg, #60a5fa, #a855f7)',
     border: 'none',
     color: '#000',
     fontSize: 13,

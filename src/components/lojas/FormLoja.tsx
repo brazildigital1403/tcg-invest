@@ -428,7 +428,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
             </div>
             {slugError && <p style={S.errorText}>{slugError}</p>}
             {!slugError && slugFinal && (
-              <p style={S.hintText}>Sua loja: bynx.gg/lojas/<strong style={{ color: '#f59e0b' }}>{slugFinal}</strong></p>
+              <p style={S.hintText}>Sua loja: bynx.gg/lojas/<strong style={{ color: 'var(--ac-1)' }}>{slugFinal}</strong></p>
             )}
           </div>
         </div>
@@ -459,13 +459,13 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
                 <img src={logoUrl} alt="Logo da loja" style={S.logoImg} />
               ) : (
                 <div style={S.logoPlaceholder}>
-                  <span style={{ fontSize: 32, lineHeight: 1, color: 'rgba(245,158,11,0.5)' }}>+</span>
+                  <span style={{ fontSize: 32, lineHeight: 1, color: 'rgba(var(--ac-1-rgb), 0.5)' }}>+</span>
                   <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Sem logo</span>
                 </div>
               )}
               {logoUploading && (
                 <div style={S.logoOverlay}>
-                  <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>enviando…</span>
+                  <span style={{ fontSize: 11, color: 'var(--ac-1)', fontWeight: 700 }}>enviando…</span>
                 </div>
               )}
             </div>
@@ -729,7 +729,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
                   onClick={() => fileInputRef.current?.click()}
                   style={S.fotoAddBtn}
                 >
-                  <span style={{ fontSize: 32, lineHeight: 1, color: 'rgba(245,158,11,0.7)' }}>+</span>
+                  <span style={{ fontSize: 32, lineHeight: 1, color: 'rgba(var(--ac-1-rgb), 0.7)' }}>+</span>
                   <span style={S.fotoAddBtnLabel}>
                     Adicionar {slotsRestantes > 1 ? `(até ${slotsRestantes})` : 'foto'}
                   </span>
@@ -875,9 +875,9 @@ const S: Record<string, CSSProperties> = {
     transition: 'all 0.12s ease',
   },
   chipActive: {
-    background: 'rgba(245,158,11,0.15)',
-    color: '#f59e0b',
-    border: '1px solid rgba(245,158,11,0.35)',
+    background: 'rgba(var(--ac-1-rgb), 0.15)',
+    color: 'var(--ac-1)',
+    border: '1px solid rgba(var(--ac-1-rgb), 0.35)',
   },
 
   // ─── Logo ───
@@ -910,8 +910,8 @@ const S: Record<string, CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(245,158,11,0.04)',
-    border: '1px dashed rgba(245,158,11,0.2)',
+    background: 'rgba(var(--ac-1-rgb), 0.04)',
+    border: '1px dashed rgba(var(--ac-1-rgb), 0.2)',
     borderRadius: 14,
   },
   logoOverlay: {
@@ -931,9 +931,9 @@ const S: Record<string, CSSProperties> = {
     alignItems: 'flex-start',
   },
   btnSecondaryInline: {
-    background: 'rgba(245,158,11,0.1)',
-    border: '1px solid rgba(245,158,11,0.3)',
-    color: '#f59e0b',
+    background: 'rgba(var(--ac-1-rgb), 0.1)',
+    border: '1px solid rgba(var(--ac-1-rgb), 0.3)',
+    color: 'var(--ac-1)',
     fontSize: 13,
     fontWeight: 600,
     padding: '8px 16px',
@@ -998,20 +998,20 @@ const S: Record<string, CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(245,158,11,0.06)',
-    border: '1px dashed rgba(245,158,11,0.3)',
+    background: 'rgba(var(--ac-1-rgb), 0.06)',
+    border: '1px dashed rgba(var(--ac-1-rgb), 0.3)',
   },
   fotoUploadingText: {
     fontSize: 13,
-    color: 'rgba(245,158,11,0.9)',
+    color: 'rgba(var(--ac-1-rgb), 0.9)',
     fontWeight: 700,
   },
   fotoAddBtn: {
     aspectRatio: '4 / 3',
     borderRadius: 10,
-    background: 'rgba(245,158,11,0.04)',
-    border: '1px dashed rgba(245,158,11,0.3)',
-    color: 'rgba(245,158,11,0.85)',
+    background: 'rgba(var(--ac-1-rgb), 0.04)',
+    border: '1px dashed rgba(var(--ac-1-rgb), 0.3)',
+    color: 'rgba(var(--ac-1-rgb), 0.85)',
     cursor: 'pointer',
     display: 'flex',
     flexDirection: 'column',
@@ -1035,7 +1035,7 @@ const S: Record<string, CSSProperties> = {
     paddingTop: 8,
   },
   btnPrimary: {
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    background: 'var(--ac-grad)',
     border: 'none',
     color: '#000',
     fontSize: 14,

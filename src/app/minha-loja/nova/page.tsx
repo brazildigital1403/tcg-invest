@@ -138,7 +138,7 @@ const S: Record<string, CSSProperties> = {
 
   breadcrumb: {
     fontSize: 13,
-    color: 'rgba(245,158,11,0.85)',
+    color: 'rgba(96,165,250,0.85)',
     textDecoration: 'none',
     fontWeight: 600,
     marginBottom: -8,
@@ -174,15 +174,15 @@ const S: Record<string, CSSProperties> = {
 
   // Banner trial
   banner: {
-    background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))',
-    border: '1px solid rgba(245,158,11,0.2)',
+    background: 'linear-gradient(135deg, rgba(96,165,250,0.08), rgba(168,85,247,0.06))',
+    border: '1px solid rgba(96,165,250,0.2)',
     borderRadius: 16,
     padding: 24,
   },
   bannerBadge: {
     display: 'inline-block',
-    background: 'rgba(245,158,11,0.15)',
-    color: '#f59e0b',
+    background: 'rgba(96,165,250,0.15)',
+    color: '#60a5fa',
     fontSize: 11,
     fontWeight: 700,
     padding: '4px 10px',

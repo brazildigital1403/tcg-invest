@@ -197,7 +197,7 @@ function CardLoja({ loja }: { loja: LojaCard }) {
                 <span style={S.verificadaBadge} title="Loja verificada">
                   <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
                     <path d="M10 2l2.4 2.8 3.6-.4.4 3.6L19 10l-2.6 2 .4 3.6-3.6.4L10 19l-2.4-2.8-3.6.4-.4-3.6L1 10l2.6-2L3.2 4.4 6.8 4 10 1z"
-                      fill="#f59e0b" stroke="#f59e0b" strokeWidth="1.2" strokeLinejoin="round" />
+                      fill="#60a5fa" stroke="#60a5fa" strokeWidth="1.2" strokeLinejoin="round" />
                     <path d="M6 10l2.5 2.5L14 7" stroke="#0d0f14" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
@@ -390,7 +390,7 @@ const S: Record<string, CSSProperties> = {
   cardLogoFallback: {
     width: '100%',
     height: '100%',
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    background: 'linear-gradient(135deg, #60a5fa, #a855f7)',
     color: '#0d0f14',
     fontSize: 22,
     fontWeight: 800,
@@ -475,13 +475,13 @@ const S: Record<string, CSSProperties> = {
   },
   cardEditarLabel: {
     fontSize: 13,
-    color: '#f59e0b',
+    color: '#60a5fa',
     fontWeight: 600,
   },
 
   // Botões
   btnPrimary: {
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    background: 'linear-gradient(135deg, #60a5fa, #a855f7)',
     border: 'none',
     color: '#000',
     fontSize: 13,
@@ -498,8 +498,8 @@ const S: Record<string, CSSProperties> = {
 
   // Tip
   tipBox: {
-    background: 'rgba(245,158,11,0.04)',
-    border: '1px solid rgba(245,158,11,0.12)',
+    background: 'rgba(96,165,250,0.04)',
+    border: '1px solid rgba(96,165,250,0.12)',
     borderRadius: 10,
     padding: '12px 16px',
   },
