@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell } from '@/components/ui/Icons'
+import WorldSwitcher from '@/components/ui/WorldSwitcher'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -217,6 +218,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           )}
 
+          {/* World switcher App|Admin */}
+          {!collapsed && <WorldSwitcher current="admin" mb={18} />}
+
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, marginTop: collapsed ? 4 : 0 }}>
             {adminMenu.map(item => {
               const active = item.href === '/admin'
@@ -285,6 +289,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               }}>
                 Admin
               </span>
+              <div style={{ marginLeft: 4 }}><WorldSwitcher current="admin" compact /></div>
             </div>
 
             <div style={{
