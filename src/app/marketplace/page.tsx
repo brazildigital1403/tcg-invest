@@ -520,6 +520,100 @@ function HeroEditorial({ card, userId, onAction }: { card: any; userId: string |
   )
 }
 
+// ─── Trio pódio (3 cards compactos · "Em destaque hoje") ───────────────────────
+
+function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; userId: string | null; onAction: () => void }) {
+  const { showAlert, showConfirm } = useAppModal()
+  const router = useRouter()
+  const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
+  const isMeu = card.user_id === userId
+
+  async function interesse() {
+    if (!userId) { showAlert('Você precisa estar logado.', 'error'); return }
+    if (isMeu)   { showAlert('Você não pode comprar sua própria carta.', 'warning'); return }
+    const ok = await showConfirm({
+      message: `Deseja manifestar interesse em "${card.card_name}" por ${fmt(card.price)}?`,
+      confirmLabel: 'Sim, tenho interesse',
+      description: 'Você poderá conversar com o vendedor aqui pela plataforma.',
+    })
+    if (!ok) return
+    await supabase.from('marketplace').update({ status: 'reservado', buyer_id: userId }).eq('id', card.id)
+    await dispararMarco(card.id, 'interesse')
+    router.push(`/marketplace?conversa=${card.id}`)
+  }
+
+  return (
+    <div className="mkt-trio-card" style={{
+      display: 'flex', gap: 14, alignItems: 'center', padding: 16, borderRadius: 18,
+      fontFamily: "'DM Sans', system-ui, sans-serif",
+      transform: top ? 'translateY(-6px)' : 'none',
+      background: top
+        ? 'radial-gradient(120% 120% at 50% 0%, rgba(245,158,11,0.09), transparent 60%), rgba(255,255,255,0.025)'
+        : 'rgba(255,255,255,0.025)',
+      border: top ? '2px solid rgba(245,158,11,0.55)' : '1px solid rgba(255,255,255,0.08)',
+    }}>
+      {/* Arte pequena */}
+      <div style={{ flex: '0 0 86px', maxWidth: 86, position: 'relative', borderRadius: 10, overflow: 'hidden' }}>
+        {grad && (
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 6px', background: card.black_label ? '#0a0a0a' : grad.cor }}>
+            <span style={{ fontSize: 8, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{grad.curto}</span>
+            <span style={{ fontSize: 9, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{notaCurta(card.nota, card.black_label)}</span>
+          </div>
+        )}
+        {card.fotos && card.fotos.length ? (
+          <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
+        ) : card.card_image ? (
+          <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <IconCard size={28} color="rgba(255,255,255,0.2)" />
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        {top && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: BRAND, color: '#0a0a0a', fontSize: 10, fontWeight: 900, letterSpacing: '0.04em', padding: '3px 9px', borderRadius: 100, marginBottom: 8 }}>
+            <IconStar size={11} color="#0a0a0a" /> TOP DO DIA
+          </span>
+        )}
+        <p style={{ fontSize: 14, fontWeight: 800, color: '#f0f0f0', margin: '0 0 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.card_name}</p>
+
+        <div style={{ marginBottom: 9 }}>
+          {grad ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff', background: card.black_label ? '#0a0a0a' : grad.cor, border: card.black_label ? '1px solid #c8a04b' : 'none', padding: '2px 8px', borderRadius: 6 }}>
+              <IconShield size={11} color={card.black_label ? '#e8c878' : '#fff'} /> {grad.curto} {notaCurta(card.nota, card.black_label)}
+            </span>
+          ) : (() => {
+            const cond = String(card.condicao || 'NM').toUpperCase()
+            const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
+            return <span style={{ fontSize: 10, fontWeight: 800, color: cor, background: cor + '1f', border: '1px solid ' + cor + '55', padding: '2px 7px', borderRadius: 6 }}>{cond}</span>
+          })()}
+        </div>
+
+        <p style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em', color: '#f59e0b', margin: '0 0 9px' }}>{fmt(card.price)}</p>
+
+        <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 11, textDecoration: 'none', minWidth: 0 }}>
+          <span style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>{iniciais(card.seller_name)}</span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#e8e8e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.seller_name || 'Vendedor'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+              {card.seller_city && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, minWidth: 0 }}><IconLocation size={10} color="rgba(255,255,255,0.4)" /><span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.seller_city}</span></span>)}
+            </span>
+          </span>
+        </a>
+
+        {!isMeu && (
+          <button onClick={interesse} style={{ width: '100%', background: BRAND, border: 'none', color: '#0a0a0a', padding: '9px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Tenho interesse
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 //
 // S29 UX v3 — REGRA 24: useSearchParams em Next.js 16+ pode quebrar build
@@ -894,16 +988,7 @@ function MarketplaceInner() {
                 <SectionHead Icon={IconStar} color="#f59e0b" title="Em destaque hoje" />
                 <div className="mkt-trio" style={{ display: 'grid', gridTemplateColumns: '1fr 1.12fr 1fr', gap: 16, alignItems: 'center', marginBottom: 6 }}>
                   {trio.map(({ c, top }) => (
-                    <div key={c.id} style={{ position: 'relative', transform: top ? 'translateY(-6px)' : 'none' }}>
-                      {top && (
-                        <span style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', zIndex: 6, display: 'inline-flex', alignItems: 'center', gap: 5, background: BRAND, color: '#0a0a0a', fontSize: 10, fontWeight: 900, letterSpacing: '0.04em', padding: '3px 11px', borderRadius: 100, whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(245,158,11,0.35)' }}>
-                          <IconStar size={11} color="#0a0a0a" /> TOP DO DIA
-                        </span>
-                      )}
-                      <div style={{ borderRadius: 16, ...(top ? { boxShadow: '0 0 0 2px rgba(245,158,11,0.55)' } : {}) }}>
-                        <AnuncioCard card={c} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
-                      </div>
-                    </div>
+                    <TrioCard key={c.id} card={c} top={top} userId={userId} onAction={loadData} />
                   ))}
                 </div>
               </>
