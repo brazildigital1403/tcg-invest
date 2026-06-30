@@ -198,6 +198,39 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
           })}
         </div>
 
+        {/* Banner lojista (descoberta — NAO conta no checklist) */}
+        <a
+          href="/minha-loja/nova"
+          style={{
+            display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 14,
+            margin: isMobile ? '0 20px 4px' : '14px 28px 0',
+            padding: isMobile ? '12px 14px' : '14px 16px',
+            borderRadius: 14, textDecoration: 'none',
+            background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.22)',
+          }}
+        >
+          <div style={{
+            width: isMobile ? 32 : 36, height: isMobile ? 32 : 36, borderRadius: 10, flexShrink: 0,
+            background: 'linear-gradient(135deg, #60a5fa, #a855f7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 16 : 18,
+          }}>🏪</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>
+              Tem uma loja de cards?
+            </p>
+            <p style={{ fontSize: isMobile ? 11 : 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+              Monte sua vitrine na Bynx e seja encontrado por colecionadores de todo o Brasil.
+            </p>
+          </div>
+          <span style={{
+            background: 'linear-gradient(135deg, #60a5fa, #a855f7)', color: '#fff',
+            padding: isMobile ? '7px 11px' : '8px 14px', borderRadius: 10, fontWeight: 700,
+            fontSize: isMobile ? 11 : 12, whiteSpace: 'nowrap', flexShrink: 0,
+          }}>
+            Vender na Bynx →
+          </span>
+        </a>
+
         {/* Rodapé */}
         <div style={{ padding: isMobile ? '16px 20px' : '0 28px 32px', flexShrink: 0, borderTop: isMobile ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
           {allComplete ? (
