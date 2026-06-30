@@ -152,6 +152,7 @@ const ITEM_SEPARADORES: MenuItem = { name: 'Separadores', full: 'Separadores', h
 const ITEM_INDIQUE: MenuItem = { name: 'Indique', full: 'Indique e Ganhe', href: '/indique-e-ganhe', Icon: IconGift, group: 'conta' }
 const ITEM_CONTA: MenuItem = { name: 'Conta', full: 'Minha Conta', href: '/minha-conta', Icon: IconAccount, group: 'conta' }
 const ITEM_MINHA_LOJA: MenuItem = { name: 'Loja', full: 'Minha Loja', href: '/minha-loja', Icon: IconMinhaLoja, group: 'conta' }
+const ITEM_VENDER: MenuItem = { name: 'Vender', full: 'Vender na Bynx', href: '/minha-loja/nova', Icon: IconMinhaLoja, group: 'conta' }
 const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas, group: 'explorar' }
 const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat, group: 'conta' }
 
@@ -239,6 +240,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
     const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
+    else base.push(ITEM_VENDER)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_CONTA, ITEM_SUPORTE)
     return semDash(base)
   }, [temLoja, temCartas, isLojistaPuro, podeDashboard])
