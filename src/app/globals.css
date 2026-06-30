@@ -19,10 +19,85 @@
   }
 }
 
+/* ============================================================
+   BYNX — CAMADA DE TOKENS DE TEMA (groundwork light/dark)
+   Os valores em :root sao o tema ESCURO atual (identicos aos
+   literais cravados hoje pelo site) -> adotar um token nao muda
+   nada visualmente. O bloco [data-theme="light"] fica DORMENTE
+   ate alguem setar data-theme="light" no <html>. A migracao do
+   site e incremental: cada arquivo que tocarmos troca a cor
+   literal pelo var(--bx-*) correspondente.
+   Convencao de nome alinhada ao .bx-gutter ja existente.
+   ============================================================ */
+:root {
+  /* superficies / fundo */
+  --bx-bg:         #080a0f;
+  --bx-bg-elev:    #0d0f14;
+  --bx-surface:    rgba(255,255,255,0.03);
+  --bx-surface-2:  rgba(255,255,255,0.05);
+  --bx-surface-3:  rgba(255,255,255,0.08);
+
+  /* bordas */
+  --bx-border:     rgba(255,255,255,0.08);
+  --bx-border-2:   rgba(255,255,255,0.14);
+
+  /* texto */
+  --bx-text:       #f0f0f0;
+  --bx-text-2:     rgba(255,255,255,0.62);
+  --bx-text-3:     rgba(255,255,255,0.40);
+  --bx-text-faint: rgba(255,255,255,0.25);
+
+  /* marca + acentos */
+  --bx-amber:      #f59e0b;
+  --bx-green:      #22c55e;
+  --bx-red:        #ef4444;
+  --bx-blue:       #60a5fa;
+  --bx-purple:     #a855f7;
+  --bx-brand:      linear-gradient(135deg, #f59e0b, #ef4444);
+  --bx-brand-ink:  #0a0a0a;            /* texto sobre o gradiente da marca */
+
+  /* efeitos */
+  --bx-shadow:     0 16px 48px rgba(0,0,0,0.55);
+  --bx-hero-wash:  radial-gradient(140% 120% at 12% 30%, rgba(245,158,11,0.07), transparent 60%);
+}
+
+/* Tema CLARO — dormente. So passa a valer quando o <html> tiver
+   data-theme="light" (toggle + persistencia entram numa fase futura). */
+[data-theme="light"] {
+  --bx-bg:         #f3f4f7;
+  --bx-bg-elev:    #ffffff;
+  --bx-surface:    #ffffff;
+  --bx-surface-2:  #eef0f4;
+  --bx-surface-3:  #e6e9ef;
+
+  --bx-border:     rgba(15,23,42,0.10);
+  --bx-border-2:   rgba(15,23,42,0.18);
+
+  --bx-text:       #14161c;
+  --bx-text-2:     #4a5160;
+  --bx-text-3:     #828a99;
+  --bx-text-faint: #aab1bd;
+
+  --bx-amber:      #c2710a;            /* ambar escurecido p/ contraste no branco */
+  --bx-green:      #15803d;
+  --bx-red:        #dc2626;
+  --bx-blue:       #2563eb;
+  --bx-purple:     #7c3aed;
+  --bx-brand:      linear-gradient(135deg, #f59e0b, #ef4444);
+  --bx-brand-ink:  #1a0e00;
+
+  --bx-shadow:     0 12px 32px rgba(20,30,60,0.12);
+  --bx-hero-wash:  radial-gradient(140% 120% at 12% 30%, rgba(245,158,11,0.10), transparent 60%);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  /* base ligada aos tokens (antes: var(--background)/var(--foreground)).
+     Como o app e sempre escuro, o fundo real passa a ser #080a0f,
+     eliminando flash/borda branca em dispositivos com SO no modo claro. */
+  background: var(--bx-bg);
+  color: var(--bx-text);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 
