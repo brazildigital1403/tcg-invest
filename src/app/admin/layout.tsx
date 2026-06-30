@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell } from '@/components/ui/Icons'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
+import { supabase } from '@/lib/supabaseClient'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -95,6 +96,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [collapsed, setCollapsed] = useState(false)
+  const [temLoja, setTemLoja] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const { data } = await supabase.from('lojas').select('id').eq('owner_user_id', user.id).limit(1)
+        if (alive) setTemLoja(!!(data && data.length))
+      } catch {}
+    })()
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     try { setCollapsed(localStorage.getItem('adm-sidebar-collapsed') === '1') } catch {}
@@ -219,7 +234,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           )}
 
           {/* World switcher App|Admin */}
-          {!collapsed && <WorldSwitcher current="admin" mb={18} />}
+          {!collapsed && <WorldSwitcher current="admin" temLoja={temLoja} mb={18} />}
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, marginTop: collapsed ? 4 : 0 }}>
             {adminMenu.map(item => {
@@ -289,7 +304,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               }}>
                 Admin
               </span>
-              <div style={{ marginLeft: 4 }}><WorldSwitcher current="admin" compact /></div>
+              <div style={{ marginLeft: 4 }}><WorldSwitcher current="admin" temLoja={temLoja} compact /></div>
             </div>
 
             <div style={{
