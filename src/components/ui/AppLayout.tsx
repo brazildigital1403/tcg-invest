@@ -106,8 +106,8 @@ function IconChevron({ collapsed, color = 'rgba(255,255,255,0.55)' }: { collapse
 
 import { marcarTodasLidas, marcarLida } from '@/lib/notificacoes'
 
-const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
-const BG = '#080a0f'
+const BRAND = 'var(--bx-brand)'
+const BG = 'var(--bx-bg)'
 const EXPLORE_KEY = 'bynx_explore_mode'
 const SIDEBAR_KEY = 'bynx_sidebar_collapsed'
 
@@ -402,11 +402,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {notifOpen && <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />}
 
       {notifOpen && (
-        <div style={{ position: 'fixed', top: 60, right: 12, width: 'min(340px, calc(100vw - 24px))', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 76px)', overflow: 'hidden' }}
+        <div style={{ position: 'fixed', top: 60, right: 12, width: 'min(340px, calc(100vw - 24px))', background: 'var(--bx-bg-elev)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 76px)', overflow: 'hidden' }}
           onClick={e => e.stopPropagation()}
         >
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>Notificações {notifs.length > 0 && <span style={{ fontSize: 11, color: '#ef4444' }}>({notifs.length})</span>}</p>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--bx-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-text)' }}>Notificações {notifs.length > 0 && <span style={{ fontSize: 11, color: '#ef4444' }}>({notifs.length})</span>}</p>
             {notifs.length > 0 && (
               <button
                 onClick={async () => {
@@ -435,7 +435,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 const color = NOTIF_CORES[n.type] || '#60a5fa'
                 const bg = color + '12'
                 return (
-                  <div key={n.id} onClick={() => abrirNotif(n)} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: bg, cursor: 'pointer' }}>
+                  <div key={n.id} onClick={() => abrirNotif(n)} style={{ padding: '12px 16px', borderBottom: '1px solid var(--bx-surface-2)', background: bg, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 6 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -460,7 +460,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           display: flex;
           min-height: 100vh;
           background: ${BG};
-          color: #f0f0f0;
+          color: var(--bx-text);
           font-family: 'DM Sans', system-ui, sans-serif;
         }
 
@@ -468,7 +468,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           width: 220px;
           flex-shrink: 0;
           background: rgba(255,255,255,0.02);
-          border-right: 1px solid rgba(255,255,255,0.08);
+          border-right: 1px solid var(--bx-border);
           display: flex;
           flex-direction: column;
           padding: 20px 12px;
@@ -493,7 +493,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           align-items: center;
           justify-content: space-between;
           padding: 12px 20px;
-          border-bottom: 1px solid rgba(255,255,255,0.08);
+          border-bottom: 1px solid var(--bx-border);
           background: rgba(8,10,15,0.97);
           backdrop-filter: blur(12px);
           position: sticky;
@@ -527,7 +527,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           left: 0;
           bottom: 0;
           width: 260px;
-          background: #0d0f14;
+          background: var(--bx-bg-elev);
           border-right: 1px solid rgba(255,255,255,0.1);
           z-index: 301;
           display: flex;
@@ -561,7 +561,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             )}
             <button onClick={toggleSidebar} title={collapsed ? 'Expandir menu' : 'Recolher menu'} style={{
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+              background: 'var(--bx-surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
               width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}>
@@ -694,7 +694,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               >
                 {notifs.length > 0 ? <IconBellDot size={22} color="rgba(255,255,255,0.8)" /> : <IconBell size={22} color="rgba(255,255,255,0.8)" />}
                 {notifs.length > 0 && (
-                  <span style={{ position: 'absolute', top: 0, right: 0, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #080a0f' }}>
+                  <span style={{ position: 'absolute', top: 0, right: 0, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bx-bg)' }}>
                     {notifs.length > 9 ? '9+' : notifs.length}
                   </span>
                 )}
