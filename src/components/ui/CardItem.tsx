@@ -112,7 +112,7 @@ const rarityColor = (r: string) => {
 }
 
 const VARIANTS = [
-  { key: 'normal', label: 'Normal', color: '#f0f0f0',
+  { key: 'normal', label: 'Normal', color: 'var(--bx-text)',
     priceKey: (p: CardPrice) => ({ min: n(p.preco_min), med: n(p.preco_medio), max: n(p.preco_max) }) },
   { key: 'foil', label: 'Foil', color: '#f59e0b',
     priceKey: (p: CardPrice) => ({ min: n(p.preco_foil_min), med: n(p.preco_foil_medio), max: n(p.preco_foil_max) }) },
@@ -235,7 +235,7 @@ export default function CardItem({
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
           />
         ) : (
-          <div style={{ width: '100%', paddingBottom: '140%', position: 'relative', background: 'rgba(255,255,255,0.03)', borderRadius: '18px 18px 0 0' }}>
+          <div style={{ width: '100%', paddingBottom: '140%', position: 'relative', background: 'var(--bx-surface)', borderRadius: '18px 18px 0 0' }}>
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <svg width="40" height="40" viewBox="0 0 100 100" fill="none" style={{ opacity: 0.15, color: '#fff' }}>
                 <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="4"/>
@@ -270,7 +270,7 @@ export default function CardItem({
 
         {/* Check de seleção */}
         {selected && (
-          <div style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'var(--bx-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="11" height="11" viewBox="0 0 20 20" fill="none">
               <path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -287,7 +287,7 @@ export default function CardItem({
       <div style={{ padding: '10px 12px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* Nome + número */}
         <div>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', lineHeight: 1.3, marginBottom: 1 }}>{name}</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-text)', lineHeight: 1.3, marginBottom: 1 }}>{name}</p>
           {(number || setName) && (
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
               {number ? number : ''}{number && setName ? ' · ' : ''}{setName}
@@ -304,7 +304,7 @@ export default function CardItem({
         {mode !== 'readonly' && availableVariants.length > 0 && (
           <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid rgba(255,255,255,0.06)' }}>
             {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 56px 56px', minWidth: 242, padding: '4px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 56px 56px', minWidth: 242, padding: '4px 8px', borderBottom: '1px solid var(--bx-surface-2)' }}>
               <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipo</span>
               {['Mín','Méd','Máx'].map(l => (
                 <span key={l} style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</span>
@@ -357,9 +357,9 @@ export default function CardItem({
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
             {onQuantityChange && (
               <>
-                <button onClick={(e) => { e.stopPropagation(); onQuantityChange(-1) }} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
-                <span style={{ fontSize: 12, color: '#f0f0f0', fontWeight: 600, flex: 1, textAlign: 'center' }}>{qty}×</span>
-                <button onClick={(e) => { e.stopPropagation(); onQuantityChange(1) }} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
+                <button onClick={(e) => { e.stopPropagation(); onQuantityChange(-1) }} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--bx-text)', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
+                <span style={{ fontSize: 12, color: 'var(--bx-text)', fontWeight: 600, flex: 1, textAlign: 'center' }}>{qty}×</span>
+                <button onClick={(e) => { e.stopPropagation(); onQuantityChange(1) }} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--bx-text)', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
               </>
             )}
             {onRemove && (
