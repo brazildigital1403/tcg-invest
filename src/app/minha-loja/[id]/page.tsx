@@ -4,7 +4,6 @@ import { CSSProperties, useEffect, useState, use as usePromise } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import AppLayout from '@/components/ui/AppLayout'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
 import AnalyticsCard from '@/components/lojas/AnalyticsCard'
 import EventosManager from '@/components/lojas/EventosManager'
@@ -141,17 +140,17 @@ export default function MinhaLojaEditarPage({
 
   if (estado === 'loading' || estado === 'nao_logado') {
     return (
-      <AppLayout>
+      <>
         <div style={S.loadingWrap}>
           <p style={S.loadingText}>Carregando…</p>
         </div>
-      </AppLayout>
+      </>
     )
   }
 
   if (estado === 'nao_encontrada') {
     return (
-      <AppLayout>
+      <>
         <div style={S.errorWrap}>
           <h2 style={S.errorTitle}>Loja não encontrada</h2>
           <p style={S.errorText}>
@@ -159,13 +158,13 @@ export default function MinhaLojaEditarPage({
           </p>
           <Link href="/minha-loja" style={S.btnPrimary}>← Voltar para Minhas Lojas</Link>
         </div>
-      </AppLayout>
+      </>
     )
   }
 
   if (estado === 'sem_permissao') {
     return (
-      <AppLayout>
+      <>
         <div style={S.errorWrap}>
           <h2 style={S.errorTitle}>Acesso negado</h2>
           <p style={S.errorText}>
@@ -173,14 +172,14 @@ export default function MinhaLojaEditarPage({
           </p>
           <Link href="/minha-loja" style={S.btnPrimary}>← Voltar para Minhas Lojas</Link>
         </div>
-      </AppLayout>
+      </>
     )
   }
 
   if (!loja) return null
 
   return (
-    <AppLayout>
+    <>
       <div style={S.page}>
         {/* ─── Breadcrumb ──────────────────────────────── */}
         <Link href="/minha-loja" style={S.breadcrumb}>
@@ -236,7 +235,7 @@ export default function MinhaLojaEditarPage({
           )
         )}
       </div>
-    </AppLayout>
+    </>
   )
 }
 

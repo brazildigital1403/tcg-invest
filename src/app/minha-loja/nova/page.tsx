@@ -4,7 +4,6 @@ import { CSSProperties, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import AppLayout from '@/components/ui/AppLayout'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
 
 // ─── Página ───────────────────────────────────────────────────────────────────
@@ -64,16 +63,16 @@ export default function NovaLojaPage() {
 
   if (estado === 'loading' || estado === 'nao_logado') {
     return (
-      <AppLayout>
+      <>
         <div style={S.loadingWrap}>
           <p style={S.loadingText}>Carregando…</p>
         </div>
-      </AppLayout>
+      </>
     )
   }
 
   return (
-    <AppLayout>
+    <>
       <div style={S.page}>
         {/* ─── Breadcrumb ──────────────────────────────── */}
         {temOutrasLojas && (
@@ -100,7 +99,7 @@ export default function NovaLojaPage() {
         {/* ─── Form ─────────────────────────────────────── */}
         <FormLoja userId={userId!} onSaved={onLojaCriada} />
       </div>
-    </AppLayout>
+    </>
   )
 }
 

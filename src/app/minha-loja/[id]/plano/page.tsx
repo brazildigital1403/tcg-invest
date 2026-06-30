@@ -4,7 +4,6 @@ import { CSSProperties, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -245,23 +244,23 @@ export default function PlanoLojaPage() {
 
   if (loading) {
     return (
-      <AppLayout>
+      <>
         <div style={S.loadingWrap}>
           <p style={S.loadingText}>Carregando…</p>
         </div>
-      </AppLayout>
+      </>
     )
   }
 
   if (erro || !loja) {
     return (
-      <AppLayout>
+      <>
         <div style={S.errorWrap}>
           <h2 style={S.errorTitle}>Ops</h2>
           <p style={S.errorText}>{erro || 'Loja não encontrada.'}</p>
           <Link href="/minha-loja" style={S.btnSecondary}>← Voltar</Link>
         </div>
-      </AppLayout>
+      </>
     )
   }
 
@@ -269,7 +268,7 @@ export default function PlanoLojaPage() {
   const podeUsarTrial = !loja.trial_usado_em
 
   return (
-    <AppLayout>
+    <>
       <div style={S.page}>
         {/* ── Breadcrumb ──────────────────────────── */}
         <Link href={`/minha-loja/${loja.id}`} style={S.breadcrumb}>
@@ -469,7 +468,7 @@ export default function PlanoLojaPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   )
 }
 

@@ -4,7 +4,6 @@ import { CSSProperties, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import AppLayout from '@/components/ui/AppLayout'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -117,16 +116,16 @@ export default function MinhasLojasHubPage() {
 
   if (estado === 'loading' || estado === 'nao_logado' || estado === 'sem_lojas') {
     return (
-      <AppLayout>
+      <>
         <div style={S.loadingWrap}>
           <p style={S.loadingText}>Carregando…</p>
         </div>
-      </AppLayout>
+      </>
     )
   }
 
   return (
-    <AppLayout>
+    <>
       <div style={S.page}>
         {/* ─── Header ───────────────────────────────────── */}
         <header style={S.header}>
@@ -158,7 +157,7 @@ export default function MinhasLojasHubPage() {
           </p>
         </div>
       </div>
-    </AppLayout>
+    </>
   )
 }
 
