@@ -198,7 +198,7 @@ export default function MinhaColecao() {
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { background: #111; color: #fff; padding: 10px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
   th:last-child, td:last-child { text-align: right; }
-  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--bx-text); vertical-align: middle; }
   tr:hover td { background: #fafafa; }
   .card-img { width: 28px; height: 39px; object-fit: cover; border-radius: 3px; vertical-align: middle; margin-right: 8px; }
   .badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 10px; background: #f59e0b22; color: #b45309; }
@@ -620,11 +620,11 @@ export default function MinhaColecao() {
               <path d="M2 36 Q2 2 36 2 Q70 2 70 36Z" fill="#e53e3e"/>
               <rect x="2" y="33" width="68" height="6" fill="#222"/>
               <circle cx="36" cy="36" r="10" fill="#fff" stroke="#222" strokeWidth="3"/>
-              <circle cx="36" cy="36" r="5" fill="#f0f0f0" stroke="#888" strokeWidth="1.5"/>
+              <circle cx="36" cy="36" r="5" fill="var(--bx-text)" stroke="#888" strokeWidth="1.5"/>
             </svg>
           </div>
           <div style={{
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)',
+            background: 'var(--bx-surface-2)', border: '1px solid rgba(255,255,255,0.15)',
             borderRadius: 20, padding: '28px 40px', maxWidth: 420, textAlign: 'center',
           }}>
             <p style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b', marginBottom: 12 }}>
@@ -661,7 +661,7 @@ export default function MinhaColecao() {
                   Limite atingido ({cards.length}/{limiteDisplay})
                 </span>
               ) : (
-                <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'rgba(255,255,255,0.35)', border: '1px solid var(--bx-border)' }}>
                   {cards.length}/{limiteDisplay} cartas
                 </span>
               )}
@@ -670,7 +670,7 @@ export default function MinhaColecao() {
             {userId && (
               <button
                 onClick={() => setOpenAddModal(true)}
-                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
+                style={{ background: 'var(--bx-brand)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
               >
                 <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
                 Adicionar carta
@@ -817,7 +817,7 @@ export default function MinhaColecao() {
               {pastasTopo.hero.top_cards?.length > 0 && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   {pastasTopo.hero.top_cards.slice(0, 3).map((tc: any, i: number) => (
-                    <div key={i} style={{ width: 64, aspectRatio: '63/88', borderRadius: 8, overflow: 'hidden', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.14)' }}>
+                    <div key={i} style={{ width: 64, aspectRatio: '63/88', borderRadius: 8, overflow: 'hidden', background: 'var(--bx-bg-elev)', border: '1px solid rgba(255,255,255,0.14)' }}>
                       {tc.img ? <img src={tc.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : null}
                     </div>
                   ))}
@@ -840,7 +840,7 @@ export default function MinhaColecao() {
                     key={p.id}
                     className="pastas-card"
                     href={p.locked ? '/minha-colecao/pastas' : `/minha-colecao/pastas/${p.id}`}
-                    style={{ textDecoration: 'none', color: 'inherit', position: 'relative', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                    style={{ textDecoration: 'none', color: 'inherit', position: 'relative', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--bx-border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
                   >
                     <div style={{ height: 64, background: p.imagem_url ? `center/cover no-repeat url(${p.imagem_url})` : 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.18))' }} />
                     <div style={{ padding: '10px 12px' }}>
@@ -892,14 +892,14 @@ export default function MinhaColecao() {
 
                 <button
                   onClick={() => setCriarPasta(true)}
-                  style={{ fontSize: 13, fontWeight: 800, color: '#000', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', padding: '11px 22px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+                  style={{ fontSize: 13, fontWeight: 800, color: '#000', background: 'var(--bx-brand)', border: 'none', padding: '11px 22px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 7 }}
                 >
                   <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                   Criar primeira pasta
                 </button>
               </div>
 
-              <div style={{ flex: '0 0 180px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 12 }}>
+              <div style={{ flex: '0 0 180px', background: 'rgba(255,255,255,0.025)', border: '1px solid var(--bx-border)', borderRadius: 12, padding: 12 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7 }}>
                   <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'linear-gradient(135deg, rgba(245,158,11,0.4), rgba(239,68,68,0.3))' }} />
                   <div style={{ aspectRatio: '5/7', borderRadius: 5, background: 'rgba(255,255,255,0.06)', border: '1px dashed rgba(255,255,255,0.15)' }} />
@@ -927,7 +927,7 @@ export default function MinhaColecao() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar carta..."
-                style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px 8px 32px', color: '#f0f0f0', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                style={{ width: '100%', background: 'var(--bx-surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px 8px 32px', color: 'var(--bx-text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                 onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
                 onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
@@ -940,56 +940,56 @@ export default function MinhaColecao() {
                 background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
                 padding-right: 30px !important;
               }
-              .mc-select option { color: #f0f0f0; background: #0d0f14; }
+              .mc-select option { color: var(--bx-text); background: var(--bx-bg-elev); }
             `}</style>
 
             {/* Raridade */}
             {raridades.length > 0 && (
               <select value={filtroRaridade} onChange={e => setFiltroRaridade(e.target.value)} className="mc-select"
-                style={{ backgroundColor: filtroRaridade ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroRaridade ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroRaridade ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-                <option value="" style={{ background: '#0d0f14' }}>Raridade</option>
-                {raridades.map(r => <option key={r} value={r} style={{ background: '#0d0f14' }}>{r}</option>)}
+                style={{ backgroundColor: filtroRaridade ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${filtroRaridade ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroRaridade ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+                <option value="" style={{ background: 'var(--bx-bg-elev)' }}>Raridade</option>
+                {raridades.map(r => <option key={r} value={r} style={{ background: 'var(--bx-bg-elev)' }}>{r}</option>)}
               </select>
             )}
 
             {/* Variante */}
             <select value={filtroVariante} onChange={e => setFiltroVariante(e.target.value)} className="mc-select"
-              style={{ backgroundColor: filtroVariante ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroVariante ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroVariante ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-              <option value="" style={{ background: '#0d0f14' }}>Variante</option>
-              <option value="normal" style={{ background: '#0d0f14' }}>Normal</option>
-              <option value="foil" style={{ background: '#0d0f14' }}>Foil</option>
-              <option value="promo" style={{ background: '#0d0f14' }}>Promo</option>
-              <option value="reverse" style={{ background: '#0d0f14' }}>Reverse Foil</option>
-              <option value="pokeball" style={{ background: '#0d0f14' }}>Pokeball Foil</option>
+              style={{ backgroundColor: filtroVariante ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${filtroVariante ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroVariante ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+              <option value="" style={{ background: 'var(--bx-bg-elev)' }}>Variante</option>
+              <option value="normal" style={{ background: 'var(--bx-bg-elev)' }}>Normal</option>
+              <option value="foil" style={{ background: 'var(--bx-bg-elev)' }}>Foil</option>
+              <option value="promo" style={{ background: 'var(--bx-bg-elev)' }}>Promo</option>
+              <option value="reverse" style={{ background: 'var(--bx-bg-elev)' }}>Reverse Foil</option>
+              <option value="pokeball" style={{ background: 'var(--bx-bg-elev)' }}>Pokeball Foil</option>
             </select>
 
             {/* Condição */}
             <select value={filtroCondicao} onChange={e => setFiltroCondicao(e.target.value)} className="mc-select"
-              style={{ backgroundColor: filtroCondicao ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroCondicao ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroCondicao ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-              <option value="" style={{ background: '#0d0f14' }}>Condição</option>
-              <option value="NM" style={{ background: '#0d0f14' }}>NM</option>
-              <option value="LP" style={{ background: '#0d0f14' }}>LP</option>
-              <option value="MP" style={{ background: '#0d0f14' }}>MP</option>
-              <option value="HP" style={{ background: '#0d0f14' }}>HP</option>
+              style={{ backgroundColor: filtroCondicao ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${filtroCondicao ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroCondicao ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+              <option value="" style={{ background: 'var(--bx-bg-elev)' }}>Condição</option>
+              <option value="NM" style={{ background: 'var(--bx-bg-elev)' }}>NM</option>
+              <option value="LP" style={{ background: 'var(--bx-bg-elev)' }}>LP</option>
+              <option value="MP" style={{ background: 'var(--bx-bg-elev)' }}>MP</option>
+              <option value="HP" style={{ background: 'var(--bx-bg-elev)' }}>HP</option>
             </select>
 
             {/* Graduadas */}
             <button onClick={() => setFiltroGraduada(v => !v)}
-              style={{ backgroundColor: filtroGraduada ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.05)', border: `1px solid ${filtroGraduada ? 'rgba(139,92,246,0.45)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroGraduada ? '#a78bfa' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', fontWeight: filtroGraduada ? 700 : 500, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
+              style={{ backgroundColor: filtroGraduada ? 'rgba(139,92,246,0.12)' : 'var(--bx-surface-2)', border: `1px solid ${filtroGraduada ? 'rgba(139,92,246,0.45)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroGraduada ? '#a78bfa' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', fontWeight: filtroGraduada ? 700 : 500, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
               💎 Graduadas
             </button>
 
             {/* Ordenação — select único igual à Pokédex */}
             <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as any)} className="mc-select"
-              style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-              <option value="numero" style={{ background: '#0d0f14' }}>Nº ↑</option>
-              <option value="numero_desc" style={{ background: '#0d0f14' }}>Nº ↓</option>
-              <option value="az" style={{ background: '#0d0f14' }}>Nome A→Z</option>
-              <option value="za" style={{ background: '#0d0f14' }}>Nome Z→A</option>
-              <option value="recente" style={{ background: '#0d0f14' }}>Mais recente</option>
-              <option value="antiga" style={{ background: '#0d0f14' }}>Mais antiga</option>
-              <option value="valor_desc" style={{ background: '#0d0f14' }}>Maior valor</option>
-              <option value="valor_asc" style={{ background: '#0d0f14' }}>Menor valor</option>
+              style={{ backgroundColor: 'var(--bx-surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+              <option value="numero" style={{ background: 'var(--bx-bg-elev)' }}>Nº ↑</option>
+              <option value="numero_desc" style={{ background: 'var(--bx-bg-elev)' }}>Nº ↓</option>
+              <option value="az" style={{ background: 'var(--bx-bg-elev)' }}>Nome A→Z</option>
+              <option value="za" style={{ background: 'var(--bx-bg-elev)' }}>Nome Z→A</option>
+              <option value="recente" style={{ background: 'var(--bx-bg-elev)' }}>Mais recente</option>
+              <option value="antiga" style={{ background: 'var(--bx-bg-elev)' }}>Mais antiga</option>
+              <option value="valor_desc" style={{ background: 'var(--bx-bg-elev)' }}>Maior valor</option>
+              <option value="valor_asc" style={{ background: 'var(--bx-bg-elev)' }}>Menor valor</option>
             </select>
 
             {/* Limpar filtros */}
