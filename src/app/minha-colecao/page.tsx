@@ -207,7 +207,7 @@ export default function MinhaColecao() {
   @media print { body { padding: 20px; } }
   @media (min-width: 640px) { .md-row { flex-direction: row !important; align-items: flex-start !important; } }
   @media (max-width: 639px) {
-    .p-6 { padding: 16px !important; }
+    .p-6 { padding: 16px 0 !important; }
     .colecao-titulo { font-size: 22px !important; }
     .colecao-botoes button { font-size: 13px !important; padding: 10px 14px !important; }
   }
