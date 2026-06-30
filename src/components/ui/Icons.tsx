@@ -512,3 +512,35 @@ export function IconGlobe({ size = 20, color = defaultColor, strokeWidth = defau
     </svg>
   )
 }
+export function IconClock({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <circle cx="10" cy="10" r="7.5" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M10 5.5V10l3 2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconBolt({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M11 2L4 11h4l-1 7 7-9h-4l1-7z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconFilter({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 4h14l-5.5 6.5V16l-3 1.5v-7.5L3 4z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconArrowRight({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M4 10h12M11 5l5 5-5 5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}

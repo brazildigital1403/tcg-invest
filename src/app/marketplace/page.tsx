@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconMarketplace, IconWhatsApp, IconCheck, IconLocation, IconSearch, IconHistory, IconCollection, IconChat, IconBox, IconTag } from '@/components/ui/Icons'
+import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconPlus } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
 import { authFetch } from '@/lib/authFetch'
@@ -76,6 +76,13 @@ function iniciais(nome: string | null | undefined): string {
   return (p[0][0] + p[p.length - 1][0]).toUpperCase()
 }
 
+// Comparação de cidade (signup) — normaliza acentos/caixa pra "Perto de você"
+const stripAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const normCidade = (s: string | null | undefined) => stripAccents((s || '').toLowerCase().trim())
+// Desconto vs mercado (fração 0..1). Sem mercado conhecido => -Infinity (nunca entra em ofertas)
+const descontoDe = (c: any) => (c.preco_mercado > 0 && c.price > 0) ? (c.preco_mercado - c.price) / c.preco_mercado : -Infinity
+const isNovo24 = (c: any) => !!c.created_at && (Date.now() - new Date(c.created_at).getTime()) < 24 * 60 * 60 * 1000
+
 const VARIANTES = [
   { key: 'normal', label: 'Normal' },
   { key: 'foil',   label: 'Foil'   },
@@ -85,6 +92,27 @@ const VARIANTES = [
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14 }
+
+// Cabeçalho de seção (ícone + título + ação opcional "ver todas")
+function SectionHead({ Icon, color, title, count, actionLabel, onAction }: {
+  Icon: any; color: string; title: string; count?: number; actionLabel?: string; onAction?: () => void
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '26px 2px 14px', gap: 12 }}>
+      <h2 style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.03em', margin: 0, display: 'flex', alignItems: 'center', gap: 9 }}>
+        <Icon size={19} color={color} /> {title}
+        {typeof count === 'number' && count > 0 && (
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>· {count}</span>
+        )}
+      </h2>
+      {actionLabel && onAction && (
+        <button onClick={onAction} style={{ background: 'transparent', border: 'none', color: '#f59e0b', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          {actionLabel} <IconArrowRight size={14} color="#f59e0b" />
+        </button>
+      )}
+    </div>
+  )
+}
 
 // ─── Componente de card de anúncio ────────────────────────────────────────────
 
@@ -215,7 +243,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           />
         ) : null}
         <div hidden={!!card.card_image} style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: card.card_image ? 'absolute' : 'relative', inset: 0 }}>
-          <span style={{ fontSize: 40 }}>🃏</span>
+          <IconCard size={40} color="rgba(255,255,255,0.2)" />
         </div>
 
         {/* Status badge */}
@@ -228,21 +256,18 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           {variante}
         </span>
 
-        {/* S29 UX v2: badges contextuais sobrepostos. Mostrados apenas em
-            anúncios disponíveis (não distrai em status finais).
-            - 💎 Bom preço: > 10% abaixo do preço médio de mercado
-            - 🔥 Imperdível: > 25% abaixo do mercado
-            - ⚡ Novo: criado nas últimas 24h
-            Combina com `preco_mercado` enriched do canonical. */}
+        {/* Badges contextuais sobrepostos — só em anúncios disponíveis.
+            Novo: criado nas últimas 24h · Imperdível: >25% abaixo · Bom preço: >10% abaixo.
+            Todos com ícone outline (zero emoji). */}
         {(card.status || 'disponivel') === 'disponivel' && (() => {
-          const badges: Array<{ label: string; bg: string; color: string }> = []
+          const badges: Array<{ Icon: any; label: string; bg: string; color: string }> = []
           const isNovo = card.created_at && (Date.now() - new Date(card.created_at).getTime()) < 24 * 60 * 60 * 1000
-          if (isNovo) badges.push({ label: '⚡ Novo', bg: 'rgba(96,165,250,0.85)', color: '#0a0e16' })
+          if (isNovo) badges.push({ Icon: IconBolt, label: 'Novo', bg: 'rgba(96,165,250,0.85)', color: '#0a0e16' })
 
           if (card.preco_mercado > 0 && card.price > 0) {
             const desconto = (card.preco_mercado - card.price) / card.preco_mercado
-            if (desconto >= 0.25) badges.push({ label: '🔥 Imperdível', bg: 'rgba(239,68,68,0.85)', color: '#fff' })
-            else if (desconto >= 0.10) badges.push({ label: '💎 Bom preço', bg: 'rgba(34,197,94,0.85)', color: '#0a0e16' })
+            if (desconto >= 0.25) badges.push({ Icon: IconFire, label: 'Imperdível', bg: 'rgba(239,68,68,0.85)', color: '#fff' })
+            else if (desconto >= 0.10) badges.push({ Icon: IconTag, label: 'Bom preço', bg: 'rgba(34,197,94,0.85)', color: '#0a0e16' })
           }
 
           if (badges.length === 0) return null
@@ -250,10 +275,11 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
             <div style={{ position: 'absolute', bottom: 8, left: 8, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
               {badges.map((b, i) => (
                 <span key={i} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
                   fontSize: 10, fontWeight: 700, padding: '3px 7px', borderRadius: 6,
                   background: b.bg, color: b.color, backdropFilter: 'blur(4px)',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                }}>{b.label}</span>
+                }}><b.Icon size={11} color={b.color} />{b.label}</span>
               ))}
             </div>
           )
@@ -289,7 +315,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: '#f59e0b' }}>
             {fmt(card.price)}
           </p>
-          {/* S29 UX v2: comparação vs mercado se preço canonical disponível */}
+          {/* comparação vs mercado se preço canonical disponível */}
           {card.preco_mercado > 0 && card.price > 0 && (() => {
             const diff = ((card.price - card.preco_mercado) / card.preco_mercado) * 100
             const cor = diff <= -10 ? '#22c55e' : diff >= 10 ? '#ef4444' : 'rgba(255,255,255,0.4)'
@@ -315,8 +341,18 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
             <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#e8e8e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {card.seller_name || 'Vendedor'}
             </span>
-            <span style={{ display: 'block', fontSize: 10.5, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
-              {[card.seller_city && `📍 ${card.seller_city}`, card.created_at && `🕐 ${tempoRelativo(card.created_at)}`].filter(Boolean).join(' · ')}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 10.5, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+              {card.seller_city && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <IconLocation size={11} color="rgba(255,255,255,0.4)" />{card.seller_city}
+                </span>
+              )}
+              {card.seller_city && card.created_at && <span style={{ opacity: 0.5 }}>·</span>}
+              {card.created_at && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <IconClock size={11} color="rgba(255,255,255,0.4)" />{tempoRelativo(card.created_at)}
+                </span>
+              )}
             </span>
           </span>
         </a>
@@ -346,7 +382,9 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
           {/* Comprador: aguardando */}
           {isBuyer && card.status === 'reservado' && (
             <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '10px', textAlign: 'center' }}>
-              <p style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>⏳ Aguardando vendedor</p>
+              <p style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
+                <IconClock size={13} color="#f59e0b" /> Aguardando vendedor
+              </p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>Combine os detalhes na conversa</p>
             </div>
           )}
@@ -377,6 +415,105 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
             <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Seu anúncio</p>
           )}
 
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Hero editorial (1 card · a mais valiosa à venda) ──────────────────────────
+
+function HeroEditorial({ card, userId, onAction }: { card: any; userId: string | null; onAction: () => void }) {
+  const { showAlert, showConfirm } = useAppModal()
+  const router = useRouter()
+  const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
+  const isMeu = card.user_id === userId
+
+  async function interesse() {
+    if (!userId) { showAlert('Você precisa estar logado.', 'error'); return }
+    if (isMeu)   { showAlert('Você não pode comprar sua própria carta.', 'warning'); return }
+    const ok = await showConfirm({
+      message: `Deseja manifestar interesse em "${card.card_name}" por ${fmt(card.price)}?`,
+      confirmLabel: 'Sim, tenho interesse',
+      description: 'Você poderá conversar com o vendedor aqui pela plataforma.',
+    })
+    if (!ok) return
+    await supabase.from('marketplace').update({ status: 'reservado', buyer_id: userId }).eq('id', card.id)
+    await dispararMarco(card.id, 'interesse')
+    router.push(`/marketplace?conversa=${card.id}`)
+  }
+
+  return (
+    <div className="mkt-hero" style={{
+      display: 'flex', gap: 28, alignItems: 'center',
+      background: 'radial-gradient(140% 120% at 12% 30%, rgba(245,158,11,0.07), transparent 60%), rgba(255,255,255,0.025)',
+      border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '24px 28px',
+      position: 'relative', overflow: 'hidden', marginBottom: 6,
+    }}>
+      {/* Arte */}
+      <div className="mkt-hero-art" style={{ flex: '0 0 190px', position: 'relative', maxWidth: 190 }}>
+        <span style={{ position: 'absolute', top: 12, left: -2, zIndex: 6, display: 'inline-flex', alignItems: 'center', gap: 6, background: BRAND, color: '#0a0a0a', fontSize: 11, fontWeight: 800, letterSpacing: '0.03em', padding: '5px 12px 5px 10px', borderRadius: '0 8px 8px 0' }}>
+          <IconStar size={13} color="#0a0a0a" /> MAIS VALIOSA
+        </span>
+        <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
+          {grad && (
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 10px', background: card.black_label ? '#0a0a0a' : grad.cor }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{grad.curto}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{notaCurta(card.nota, card.black_label)}</span>
+            </div>
+          )}
+          {card.fotos && card.fotos.length ? (
+            <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
+          ) : card.card_image ? (
+            <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+          ) : (
+            <div style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              <IconCard size={40} color="rgba(255,255,255,0.2)" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: '#f59e0b', fontSize: 12, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
+          <IconStar size={14} color="#f59e0b" /> Destaque do marketplace
+        </span>
+        <h2 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.035em', margin: '0 0 12px', lineHeight: 1.05 }}>{card.card_name}</h2>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {grad ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff', background: card.black_label ? '#0a0a0a' : grad.cor, border: card.black_label ? '1px solid #c8a04b' : 'none', padding: '3px 10px', borderRadius: 7 }}>
+              <IconShield size={13} color={card.black_label ? '#e8c878' : '#fff'} /> {grad.curto} {notaCurta(card.nota, card.black_label)}
+              <span style={{ opacity: 0.85, fontSize: 9, textTransform: 'uppercase' }}>{tierNome(card.graduadora, card.nota, card.black_label)}</span>
+            </span>
+          ) : (() => {
+            const cond = String(card.condicao || 'NM').toUpperCase()
+            const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
+            return <span style={{ fontSize: 11, fontWeight: 800, color: cor, background: cor + '1f', border: '1px solid ' + cor + '55', padding: '3px 10px', borderRadius: 7 }}>{cond}</span>
+          })()}
+        </div>
+        <p style={{ fontSize: 31, fontWeight: 900, letterSpacing: '-0.03em', color: '#f59e0b', margin: '12px 0 2px' }}>{fmt(card.price)}</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', fontWeight: 600 }}>A carta mais valiosa à venda agora na Bynx.</p>
+
+        <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, textDecoration: 'none' }}>
+          <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>{iniciais(card.seller_name)}</span>
+          <span>
+            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#e8e8e8' }}>{card.seller_name || 'Vendedor'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(255,255,255,0.42)' }}>
+              {card.seller_city && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><IconLocation size={11} color="rgba(255,255,255,0.42)" />{card.seller_city}</span>)}
+              {card.seller_city && card.created_at && <span style={{ opacity: 0.5 }}>·</span>}
+              {card.created_at && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><IconClock size={11} color="rgba(255,255,255,0.42)" />{tempoRelativo(card.created_at)}</span>)}
+            </span>
+          </span>
+        </a>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+          {!isMeu && card.status === 'disponivel' ? (
+            <button onClick={interesse} style={{ background: BRAND, border: 'none', color: '#0a0a0a', padding: '11px 20px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>Tenho interesse</button>
+          ) : null}
+          <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.14)', color: '#f0f0f0', padding: '11px 18px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none' }}>
+            Ver vendedor <IconArrowRight size={16} color="#f0f0f0" />
+          </a>
         </div>
       </div>
     </div>
@@ -431,6 +568,7 @@ function MarketplaceInner() {
   const [listings, setListings] = useState<any[]>([])
   const [userId, setUserId]     = useState<string | null>(null)
   const [userWhatsapp, setUserWhatsapp] = useState<string | null>(null)
+  const [userCity, setUserCity] = useState<string | null>(null)
   const [isPro, setIsPro] = useState(false)
   const [limiteAnuncios, setLimiteAnuncios] = useState<number>(LIMITE_FREE_MKTPLACE)
   const [loading, setLoading]   = useState(true)
@@ -439,11 +577,14 @@ function MarketplaceInner() {
   const [filtroStatus, setFiltroStatus] = useState('')
   const [filtroVariante, setFiltroVariante] = useState('')
   const [filtroCondicao, setFiltroCondicao] = useState('')
-  const [filtroGraduada, setFiltroGraduada] = useState(false)
   const [filtroGraduadora, setFiltroGraduadora] = useState('')
   const [showFiltrosAvancados, setShowFiltrosAvancados] = useState(false)
   const [busca, setBusca]       = useState('')
   const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior' | 'desconto'>('recente')
+  // Lentes de descoberta da barra principal (eixo separado dos filtros avançados)
+  const [discovery, setDiscovery] = useState<'' | 'ofertas' | 'bompreco' | 'graduadas' | 'novidades' | 'perto'>('')
+
+  const mesmaCidade = (c: any) => !!userCity && !!c.seller_city && normCidade(c.seller_city) === normCidade(userCity)
 
   async function loadData() {
     setLoading(true)
@@ -455,6 +596,7 @@ function MarketplaceInner() {
       // S29: lê próprio whatsapp/city de users (RLS auth.uid()=id permite)
       const { data: profile } = await supabase.from('users').select('whatsapp, city').eq('id', uid).single()
       setUserWhatsapp(profile?.whatsapp || null)
+      setUserCity(profile?.city || null)
 
       // S29: detecta se user é Pro/trial pra esconder banners de upgrade.
       // getUserPlan considera is_pro + pro_expira_em + trial_expires_at.
@@ -514,7 +656,7 @@ function MarketplaceInner() {
     // BUG ANTERIOR: o `.in('name', cardNames)` pedia match EXATO. Mas no
     // marketplace o card_name vem como "Charmander (017/034)" enquanto em
     // pokemon_cards vem só "Charmander" — então quase nenhum match acontecia
-    // e os badges 💎/🔥 nunca apareciam.
+    // e os badges nunca apareciam.
     //
     // FIX: extrai o nome-base removendo o sufixo "(NNN/NNN)" antes do match.
     const stripCardNumber = (name: string) =>
@@ -582,9 +724,14 @@ function MarketplaceInner() {
     if (filtroStatus && status !== filtroStatus) return false
     if (filtroVariante && c.variante !== filtroVariante) return false
     if (filtroCondicao && c.condicao !== filtroCondicao) return false
-    if (filtroGraduada && !c.graduada) return false
     if (filtroGraduadora && c.graduadora !== filtroGraduadora) return false
     if (busca && !c.card_name.toLowerCase().includes(busca.toLowerCase())) return false
+    // Lentes de descoberta (chips da barra principal)
+    if (discovery === 'ofertas' && descontoDe(c) < 0.15) return false
+    if (discovery === 'bompreco') { const d = descontoDe(c); if (!(d >= 0.05 && d < 0.15)) return false }
+    if (discovery === 'graduadas' && !c.graduada) return false
+    if (discovery === 'novidades' && !isNovo24(c)) return false
+    if (discovery === 'perto' && !mesmaCidade(c)) return false
     return true
   }).sort((a, b) => {
     if (ordenacao === 'menor') return (a.price || 0) - (b.price || 0)
@@ -603,6 +750,75 @@ function MarketplaceInner() {
   const minhasNegociacoes = listings.filter(c =>
     c.buyer_id === userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel')
   )
+
+  // ── Curadoria da vitrine (hero · trio · trilhos) ─────────────────────────────
+  // Pool base = anúncios de OUTROS users, status disponível (compráveis).
+  const disponiveis = useMemo(
+    () => listings.filter(c => c.user_id !== userId && (c.status || 'disponivel') === 'disponivel'),
+    [listings, userId]
+  )
+
+  // 1) Hero editorial = a mais valiosa à venda.
+  const hero = useMemo(() => {
+    if (disponiveis.length === 0) return null
+    return [...disponiveis].sort((a, b) => (b.price || 0) - (a.price || 0))[0]
+  }, [disponiveis])
+
+  // 2) Trio pódio: centro = maior valor · esquerda = maior oferta · direita = mais nova.
+  const trio = useMemo(() => {
+    const pool = disponiveis.filter(c => !hero || c.id !== hero.id)
+    if (pool.length < 3) return [] as Array<{ c: any; top: boolean }>
+    const center = [...pool].sort((a, b) => (b.price || 0) - (a.price || 0))[0]
+    const rest1 = pool.filter(c => c.id !== center.id)
+    const left = [...rest1].sort((a, b) => descontoDe(b) - descontoDe(a))[0]
+    const rest2 = rest1.filter(c => c.id !== left.id)
+    const right = [...rest2].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+    if (!center || !left || !right) return []
+    const ids = new Set([center.id, left.id, right.id])
+    if (ids.size !== 3) return []
+    return [{ c: left, top: false }, { c: center, top: true }, { c: right, top: false }]
+  }, [disponiveis, hero])
+
+  const heroTrioIds = useMemo(
+    () => new Set<string>([hero?.id, ...trio.map(t => t.c.id)].filter(Boolean) as string[]),
+    [hero, trio]
+  )
+
+  // 3) Trilhos (excluem o que já está em hero/trio pra não repetir).
+  const railOfertas = useMemo(
+    () => disponiveis.filter(c => !heroTrioIds.has(c.id) && descontoDe(c) >= 0.15)
+      .sort((a, b) => descontoDe(b) - descontoDe(a)).slice(0, 12),
+    [disponiveis, heroTrioIds]
+  )
+  const railGrads = useMemo(
+    () => disponiveis.filter(c => !heroTrioIds.has(c.id) && c.graduada)
+      .sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, 12),
+    [disponiveis, heroTrioIds]
+  )
+
+  // Modo editorial: só no estado "limpo" (sem busca/filtros/lente). Quando o
+  // user busca ou aplica um filtro/lente, cai direto na grade de resultados.
+  const semFiltro = !busca && !filtroStatus && !filtroVariante && !filtroCondicao && !filtroGraduadora
+  const editorialMode = discovery === '' && semFiltro && !loading
+  const gridCards = editorialMode ? vitrine.filter(c => !heroTrioIds.has(c.id)) : vitrine
+
+  // Contadores das lentes de descoberta
+  const baseAtivos = listings.filter(c => c.user_id !== userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel'))
+  const countTodos = baseAtivos.length
+  const countOfertas = baseAtivos.filter(c => descontoDe(c) >= 0.15).length
+  const countBom = baseAtivos.filter(c => { const d = descontoDe(c); return d >= 0.05 && d < 0.15 }).length
+  const countGrad = baseAtivos.filter(c => c.graduada).length
+  const countNovi = baseAtivos.filter(c => isNovo24(c)).length
+  const countPerto = userCity ? baseAtivos.filter(c => mesmaCidade(c)).length : 0
+
+  const discoveryChips: Array<{ key: typeof discovery; label: string; Icon: any | null; count: number; show: boolean }> = [
+    { key: '',          label: 'Todos',         Icon: null,          count: countTodos,   show: true },
+    { key: 'ofertas',   label: 'Ofertas',       Icon: IconFire,      count: countOfertas, show: countOfertas > 0 },
+    { key: 'bompreco',  label: 'Bom preço',     Icon: IconTag,       count: countBom,     show: countBom > 0 },
+    { key: 'graduadas', label: 'Graduadas',     Icon: IconStar,      count: countGrad,    show: countGrad > 0 },
+    { key: 'novidades', label: 'Novidades',     Icon: IconBolt,      count: countNovi,    show: countNovi > 0 },
+    { key: 'perto',     label: 'Perto de você', Icon: IconLocation,  count: countPerto,   show: !!userCity && countPerto > 0 },
+  ]
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -630,14 +846,14 @@ function MarketplaceInner() {
           </div>
           <button
             onClick={handleAnunciar}
-            style={{ background: BRAND, border: 'none', color: '#000', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.2)' }}
+            style={{ background: BRAND, border: 'none', color: '#000', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.2)', display: 'inline-flex', alignItems: 'center', gap: 7 }}
           >
-            + Anunciar carta
+            <IconPlus size={16} color="#000" /> Anunciar carta
           </button>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4 }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4 }} className="mkt-tabs">
           {[
             { key: 'vitrine',      label: 'Vitrine',          count: vitrine.length },
             { key: 'meus',         label: 'Meus anúncios',    count: meusAnuncios.length },
@@ -668,14 +884,33 @@ function MarketplaceInner() {
         {/* ── VITRINE ── */}
         {tab === 'vitrine' && (
           <>
-            {/* S29 UX v2: filtros redesenhados.
-                - Hero search ocupando largura total
-                - Chips horizontais de status (visualmente claros)
-                - Ordenação como dropdown único
-                - Variante/Condição atrás de "+ Filtros" pra reduzir noise */}
+            {/* HERO editorial + TRIO pódio — só no modo editorial (estado limpo) */}
+            {editorialMode && hero && (
+              <HeroEditorial card={hero} userId={userId} onAction={loadData} />
+            )}
 
-            {/* Linha 1: Busca + Ordenação */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }} className="mkt-filtros-row1">
+            {editorialMode && trio.length === 3 && (
+              <>
+                <SectionHead Icon={IconStar} color="#f59e0b" title="Em destaque hoje" />
+                <div className="mkt-trio" style={{ display: 'grid', gridTemplateColumns: '1fr 1.12fr 1fr', gap: 16, alignItems: 'center', marginBottom: 6 }}>
+                  {trio.map(({ c, top }) => (
+                    <div key={c.id} style={{ position: 'relative', transform: top ? 'translateY(-6px)' : 'none' }}>
+                      {top && (
+                        <span style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', zIndex: 6, display: 'inline-flex', alignItems: 'center', gap: 5, background: BRAND, color: '#0a0a0a', fontSize: 10, fontWeight: 900, letterSpacing: '0.04em', padding: '3px 11px', borderRadius: 100, whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(245,158,11,0.35)' }}>
+                          <IconStar size={11} color="#0a0a0a" /> TOP DO DIA
+                        </span>
+                      )}
+                      <div style={{ borderRadius: 16, ...(top ? { boxShadow: '0 0 0 2px rgba(245,158,11,0.55)' } : {}) }}>
+                        <AnuncioCard card={c} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Barra de descoberta: busca + Filtros + ordenação */}
+            <div style={{ display: 'flex', gap: 10, marginTop: editorialMode ? 26 : 0, marginBottom: 12, flexWrap: 'wrap' }} className="mkt-filtros-row1">
               <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
                 <IconSearch size={15} color="rgba(255,255,255,0.35)" style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)' }} />
                 <input
@@ -693,6 +928,25 @@ function MarketplaceInner() {
                 )}
               </div>
 
+              <button
+                onClick={() => setShowFiltrosAvancados(v => !v)}
+                style={{
+                  padding: '11px 16px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                  background: (filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora) ? 'rgba(96,165,250,0.12)' : 'rgba(255,255,255,0.05)',
+                  color: (filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora) ? '#60a5fa' : 'rgba(255,255,255,0.8)',
+                  outline: (filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora) ? '1px solid rgba(96,165,250,0.35)' : '1px solid rgba(255,255,255,0.1)',
+                  display: 'inline-flex', alignItems: 'center', gap: 7, transition: 'all 0.15s',
+                }}
+              >
+                <IconFilter size={15} color={(filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora) ? '#60a5fa' : 'rgba(255,255,255,0.8)'} /> Filtros
+                {(filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora) && (
+                  <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(96,165,250,0.25)', color: '#60a5fa', padding: '1px 6px', borderRadius: 100 }}>
+                    {[filtroStatus, filtroVariante, filtroCondicao, filtroGraduadora].filter(Boolean).length}
+                  </span>
+                )}
+              </button>
+
               <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as any)}
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '11px 14px', color: 'rgba(255,255,255,0.85)', fontSize: 13, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', minWidth: 200 }}
               >
@@ -703,83 +957,31 @@ function MarketplaceInner() {
               </select>
             </div>
 
-            {/* Linha 2: Chips de status + botão "+ Filtros" */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }} className="mkt-filtros-row2">
-              {([
-                ['',              'Todos'],
-                ['disponivel',    'Disponíveis'],
-                ['reservado',     'Em negociação'],
-                ['em_negociacao', 'Em negociação avançada'],
-                ['enviado',       'Em envio'],
-              ] as const).filter(([key]) => {
-                // Esconde chip "Em negociação avançada" se não houver itens
-                if (key === 'em_negociacao') {
-                  return listings.some(c => c.status === 'em_negociacao' && c.user_id !== userId)
-                }
-                if (key === 'enviado') {
-                  return listings.some(c => c.status === 'enviado' && c.user_id !== userId)
-                }
-                return true
-              }).map(([key, label]) => {
-                const ativo = filtroStatus === key
-                const count = key === ''
-                  ? listings.filter(c => c.user_id !== userId && !['concluido','cancelado'].includes(c.status || 'disponivel')).length
-                  : listings.filter(c => c.user_id !== userId && (c.status || 'disponivel') === key).length
+            {/* Chips de descoberta */}
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }} className="mkt-chips">
+              {discoveryChips.filter(ch => ch.show).map(ch => {
+                const ativo = discovery === ch.key
                 return (
-                  <button key={key} onClick={() => setFiltroStatus(key)}
+                  <button key={ch.key || 'todos'} onClick={() => setDiscovery(ch.key)}
                     style={{
-                      padding: '7px 14px', borderRadius: 100, border: 'none', cursor: 'pointer',
-                      fontFamily: 'inherit', fontSize: 13, fontWeight: ativo ? 700 : 500,
-                      background: ativo ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)',
-                      color: ativo ? '#f59e0b' : 'rgba(255,255,255,0.55)',
-                      outline: ativo ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(255,255,255,0.07)',
-                      transition: 'all 0.15s',
-                      display: 'flex', alignItems: 'center', gap: 6,
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      padding: '8px 14px', borderRadius: 100, border: 'none', cursor: 'pointer',
+                      fontFamily: 'inherit', fontSize: 13, fontWeight: ativo ? 700 : 600,
+                      background: ativo ? 'rgba(245,158,11,0.14)' : 'rgba(255,255,255,0.04)',
+                      color: ativo ? '#fde9c4' : 'rgba(255,255,255,0.6)',
+                      outline: ativo ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(255,255,255,0.07)',
+                      transition: 'all 0.15s', whiteSpace: 'nowrap',
                     }}
                   >
-                    {label}
-                    <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>{count}</span>
+                    {ch.Icon && <ch.Icon size={15} color={ativo ? '#fde9c4' : 'rgba(255,255,255,0.6)'} />}
+                    {ch.label}
+                    <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>{ch.count}</span>
                   </button>
                 )
               })}
-
-              <button onClick={() => setFiltroGraduada(v => !v)}
-                style={{
-                  padding: '7px 14px', borderRadius: 100, border: 'none', cursor: 'pointer',
-                  fontFamily: 'inherit', fontSize: 13, fontWeight: filtroGraduada ? 700 : 500,
-                  background: filtroGraduada ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.04)',
-                  color: filtroGraduada ? '#a78bfa' : 'rgba(255,255,255,0.55)',
-                  outline: filtroGraduada ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.07)',
-                  transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6,
-                }}
-              >
-                💎 Graduadas
-                <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>{listings.filter(c => c.user_id !== userId && c.graduada).length}</span>
-              </button>
-              <button
-                onClick={() => setShowFiltrosAvancados(v => !v)}
-                style={{
-                  marginLeft: 'auto',
-                  padding: '7px 12px', borderRadius: 100, border: 'none', cursor: 'pointer',
-                  fontFamily: 'inherit', fontSize: 12,
-                  background: (filtroVariante || filtroCondicao) ? 'rgba(96,165,250,0.12)' : 'rgba(255,255,255,0.04)',
-                  color: (filtroVariante || filtroCondicao) ? '#60a5fa' : 'rgba(255,255,255,0.5)',
-                  outline: (filtroVariante || filtroCondicao) ? '1px solid rgba(96,165,250,0.35)' : '1px solid rgba(255,255,255,0.07)',
-                  fontWeight: 600,
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  transition: 'all 0.15s',
-                }}
-              >
-                {showFiltrosAvancados ? '−' : '+'} Filtros
-                {(filtroVariante || filtroCondicao) && (
-                  <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(96,165,250,0.25)', color: '#60a5fa', padding: '1px 6px', borderRadius: 100 }}>
-                    {[filtroVariante, filtroCondicao].filter(Boolean).length}
-                  </span>
-                )}
-              </button>
             </div>
 
-            {/* Filtros avançados — colapsáveis */}
+            {/* Filtros avançados — colapsáveis (status, variante, condição, graduadora) */}
             {showFiltrosAvancados && (
               <div style={{
                 background: 'rgba(255,255,255,0.02)',
@@ -791,6 +993,35 @@ function MarketplaceInner() {
                 gap: 16,
                 flexWrap: 'wrap',
               }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6, fontWeight: 600 }}>Status</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {([
+                      ['', 'Todos'],
+                      ['disponivel', 'Disponíveis'],
+                      ['reservado', 'Em negociação'],
+                      ['em_negociacao', 'Em negociação avançada'],
+                      ['enviado', 'Em envio'],
+                    ] as const).filter(([key]) => {
+                      if (key === 'em_negociacao') return listings.some(c => c.status === 'em_negociacao' && c.user_id !== userId)
+                      if (key === 'enviado') return listings.some(c => c.status === 'enviado' && c.user_id !== userId)
+                      return true
+                    }).map(([key, label]) => {
+                      const ativo = filtroStatus === key
+                      return (
+                        <button key={key} onClick={() => setFiltroStatus(key)}
+                          style={{
+                            padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                            fontSize: 12, fontWeight: ativo ? 700 : 500,
+                            background: ativo ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)',
+                            color: ativo ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                            outline: ativo ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                          }}
+                        >{label}</button>
+                      )
+                    })}
+                  </div>
+                </div>
                 <div style={{ flex: 1, minWidth: 160 }}>
                   <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6, fontWeight: 600 }}>Variante</label>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -848,13 +1079,49 @@ function MarketplaceInner() {
                     })}
                   </div>
                 </div>
-                {(filtroVariante || filtroCondicao || filtroGraduadora) && (
-                  <button onClick={() => { setFiltroVariante(''); setFiltroCondicao(''); setFiltroGraduadora('') }}
+                {(filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora) && (
+                  <button onClick={() => { setFiltroStatus(''); setFiltroVariante(''); setFiltroCondicao(''); setFiltroGraduadora('') }}
                     style={{ alignSelf: 'flex-end', padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, background: 'rgba(239,68,68,0.08)', color: '#ef4444', outline: '1px solid rgba(239,68,68,0.2)', fontWeight: 600 }}
                   >
                     Limpar
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Trilhos editoriais — só no modo limpo e com volume suficiente (>= 4) */}
+            {editorialMode && railOfertas.length >= 4 && (
+              <>
+                <SectionHead Icon={IconFire} color="#f87171" title="Ofertas imperdíveis" count={railOfertas.length} actionLabel="ver todas" onAction={() => setDiscovery('ofertas')} />
+                <div className="mkt-track" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '2px 2px 14px' }}>
+                  {railOfertas.map(card => (
+                    <div key={card.id} style={{ flex: '0 0 188px' }}>
+                      <AnuncioCard card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {editorialMode && railGrads.length >= 4 && (
+              <>
+                <SectionHead Icon={IconStar} color="#fbbf24" title="Graduadas em destaque" count={railGrads.length} actionLabel="ver todas" onAction={() => setDiscovery('graduadas')} />
+                <div className="mkt-track" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '2px 2px 14px' }}>
+                  {railGrads.map(card => (
+                    <div key={card.id} style={{ flex: '0 0 188px' }}>
+                      <AnuncioCard card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Grade completa */}
+            {editorialMode && gridCards.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '26px 2px 14px', gap: 12 }}>
+                <h2 style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.03em', margin: 0 }}>Todos os anúncios</h2>
+                <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>{gridCards.length} {gridCards.length === 1 ? 'resultado' : 'resultados'}</span>
               </div>
             )}
 
@@ -864,17 +1131,17 @@ function MarketplaceInner() {
                   <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, height: 320, animation: 'pulse 1.5s infinite' }} />
                 ))}
               </div>
-            ) : vitrine.length === 0 ? (
+            ) : gridCards.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
                 <IconMarketplace size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:16}} />
                 <p style={{ fontSize: 15 }}>
-                  {(busca || filtroStatus || filtroVariante || filtroCondicao)
+                  {(busca || filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora || discovery)
                     ? 'Nenhum anúncio com esses filtros.'
                     : 'Nenhum anúncio disponível no momento.'}
                 </p>
                 <p style={{ fontSize: 13, marginTop: 8 }}>
-                  {(busca || filtroStatus || filtroVariante || filtroCondicao)
-                    ? <button onClick={() => { setBusca(''); setFiltroStatus(''); setFiltroVariante(''); setFiltroCondicao('') }}
+                  {(busca || filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora || discovery)
+                    ? <button onClick={() => { setBusca(''); setFiltroStatus(''); setFiltroVariante(''); setFiltroCondicao(''); setFiltroGraduadora(''); setDiscovery('') }}
                         style={{ background: 'transparent', border: 'none', color: '#f59e0b', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textDecoration: 'underline' }}
                       >Limpar filtros</button>
                     : 'Seja o primeiro a anunciar uma carta!'}
@@ -882,7 +1149,7 @@ function MarketplaceInner() {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="mkt-grid">
-                {vitrine.map(card => (
+                {gridCards.map(card => (
                   <AnuncioCard key={card.id} card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
                 ))}
               </div>
@@ -897,7 +1164,7 @@ function MarketplaceInner() {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
                 <IconCollection size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:16}} />
                 <p style={{ fontSize: 15 }}>Você ainda não tem anúncios.</p>
-                <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "+ Anunciar carta" para começar.</p>
+                <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "Anunciar carta" para começar.</p>
               </div>
             ) : (
               <>
@@ -941,18 +1208,24 @@ function MarketplaceInner() {
       </div>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.7} }
+        .mkt-track::-webkit-scrollbar { height: 8px }
+        .mkt-track::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 100px }
         @media (max-width: 768px) {
           .mkt-header { flex-direction: column !important; align-items: flex-start !important; }
-          .mkt-header button { width: 100% !important; }
+          .mkt-header button { width: 100% !important; justify-content: center !important; }
           .mkt-tabs button { font-size: 11px !important; padding: 8px 6px !important; }
           .mkt-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
           .mkt-neg-row { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
           .mkt-neg-row .mkt-neg-actions { width: 100% !important; justify-content: flex-start !important; }
           .mkt-card-img { width: 70px !important; height: 98px !important; }
           .mkt-filtros-row1 { flex-direction: column !important; }
-          .mkt-filtros-row1 select { width: 100% !important; }
-          .mkt-filtros-row2 { gap: 6px !important; }
-          .mkt-filtros-row2 button { font-size: 12px !important; padding: 6px 10px !important; }
+          .mkt-filtros-row1 select, .mkt-filtros-row1 > button { width: 100% !important; justify-content: center !important; }
+          .mkt-chips { gap: 6px !important; }
+          .mkt-chips button { font-size: 12px !important; padding: 7px 11px !important; }
+          .mkt-hero { flex-direction: column !important; align-items: stretch !important; gap: 18px !important; padding: 18px !important; }
+          .mkt-hero-art { flex: none !important; max-width: 150px !important; margin: 0 auto !important; }
+          .mkt-trio { grid-template-columns: 1fr !important; }
+          .mkt-trio > div { transform: none !important; }
         }
         @media (max-width: 400px) {
           .mkt-grid { grid-template-columns: 1fr 1fr !important; }
