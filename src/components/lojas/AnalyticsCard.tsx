@@ -63,6 +63,9 @@ const PERIODOS: { v: Periodo; label: string }[] = [
 // ─── Componente ───────────────────────────────────────────────────────────
 
 export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
+  // Acento do chart/SVG (canvas nao aceita var CSS): Painel=azul->roxo, Admin=ambar
+  const AC1 = admin ? '#f59e0b' : '#60a5fa'
+  const AC1_RGB = admin ? '245,158,11' : '96,165,250'
   const [periodo, setPeriodo] = useState<Periodo>(admin ? 'all' : 30)
   const [tipoFiltro, setTipoFiltro] = useState<string | null>(null)
   const [data, setData] = useState<AnalyticsData | null>(null)
@@ -158,7 +161,7 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
               <polyline
                 points="0,80 30,60 60,70 90,40 120,50 150,30 180,45 210,25 240,35 270,15 300,20"
                 fill="none"
-                stroke="rgba(245,158,11,0.5)"
+                stroke={`rgba(${AC1_RGB},0.5)`}
                 strokeWidth="2"
               />
             </svg>
@@ -228,13 +231,13 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
       {
         label: 'Cliques',
         data: data.porDia.map(d => d.cliques),
-        borderColor: '#f59e0b',
-        backgroundColor: 'rgba(245,158,11,0.15)',
+        borderColor: AC1,
+        backgroundColor: `rgba(${AC1_RGB},0.15)`,
         fill: true,
         tension: 0.3,
         pointRadius: data.porDia.length <= 14 ? 3 : 0,
         pointHoverRadius: 5,
-        pointBackgroundColor: '#f59e0b',
+        pointBackgroundColor: AC1,
         borderWidth: 2,
       },
     ],
@@ -249,7 +252,7 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
         backgroundColor: '#0d0f14',
         titleColor: '#f0f0f0',
         bodyColor: '#f0f0f0',
-        borderColor: 'rgba(245,158,11,0.3)',
+        borderColor: `rgba(${AC1_RGB},0.3)`,
         borderWidth: 1,
         padding: 10,
       },
@@ -427,9 +430,9 @@ const S: Record<string, CSSProperties> = {
     letterSpacing: '0.08em',
     padding: '4px 10px',
     borderRadius: 100,
-    color: '#f59e0b',
-    background: 'rgba(245,158,11,0.1)',
-    border: '1px solid rgba(245,158,11,0.3)',
+    color: 'var(--ac-1)',
+    background: 'rgba(var(--ac-1-rgb), 0.1)',
+    border: '1px solid rgba(var(--ac-1-rgb), 0.3)',
   },
   periodoSelect: {
     display: 'flex',
@@ -452,8 +455,8 @@ const S: Record<string, CSSProperties> = {
     fontFamily: 'inherit',
   },
   periodoBtnAtivo: {
-    background: 'rgba(245,158,11,0.15)',
-    color: '#f59e0b',
+    background: 'rgba(var(--ac-1-rgb), 0.15)',
+    color: 'var(--ac-1)',
   },
 
   // KPI cards
@@ -611,7 +614,7 @@ const S: Record<string, CSSProperties> = {
   },
   origemBarFill: {
     height: '100%',
-    background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
+    background: 'var(--ac-grad)',
     borderRadius: 100,
   },
   origemVal: {
@@ -663,7 +666,7 @@ const S: Record<string, CSSProperties> = {
   },
   ctaBox: {
     background: 'rgba(13,15,20,0.95)',
-    border: '1px solid rgba(245,158,11,0.3)',
+    border: '1px solid rgba(var(--ac-1-rgb), 0.3)',
     borderRadius: 16,
     padding: '24px 28px',
     maxWidth: 380,
@@ -678,7 +681,7 @@ const S: Record<string, CSSProperties> = {
   ctaTitle: {
     fontSize: 16,
     fontWeight: 800,
-    color: '#f59e0b',
+    color: 'var(--ac-1)',
     margin: 0,
     marginBottom: 8,
   },
@@ -691,7 +694,7 @@ const S: Record<string, CSSProperties> = {
   },
   ctaBtn: {
     display: 'inline-block',
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    background: 'var(--ac-grad)',
     color: '#000',
     padding: '10px 20px',
     borderRadius: 10,
