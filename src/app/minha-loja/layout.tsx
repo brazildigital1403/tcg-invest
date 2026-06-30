@@ -4,17 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import WorldSwitcher from '@/components/ui/WorldSwitcher'
 
 type Loja = { id: string; slug: string | null; nome: string; logo_url: string | null; status: string | null }
 
 const LOJA_GRAD = 'linear-gradient(135deg, #60a5fa, #a855f7)'
-const lojaAccent: React.CSSProperties = {
-  ['--ac-1' as any]: '#60a5fa',
-  ['--ac-2' as any]: '#a855f7',
-  ['--ac-1-rgb' as any]: '96, 165, 250',
-  ['--ac-2-rgb' as any]: '168, 85, 247',
-  ['--ac-grad' as any]: 'linear-gradient(135deg, #60a5fa, #a855f7)',
-}
 const APP_HREF = '/minha-colecao'
 
 // ─── Ícones inline (stroke=currentColor -> herda a cor do elemento; sem var() em atributo SVG) ───
@@ -32,16 +26,6 @@ const IcoChevron = (p: IcoP) => <Ico {...p}><path d="M6 9l6 6 6-6" /></Ico>
 const IcoPlus = (p: IcoP) => <Ico {...p}><path d="M12 5v14" /><path d="M5 12h14" /></Ico>
 
 type NavDef = { key: string; label: string; href: string; Icon: (p: IcoP) => React.ReactElement; external?: boolean }
-
-// ─── Switcher de mundo (App | Loja) — fora do menu, no topo ───
-function WorldSwitcher({ compact = false }: { compact?: boolean }) {
-  return (
-    <div style={{ ...S.worldSeg, ...(compact ? S.worldSegCompact : null) }}>
-      <Link href={APP_HREF} style={S.worldTab}>App</Link>
-      <span style={{ ...S.worldTab, ...S.worldTabOn }}>Loja</span>
-    </div>
-  )
-}
 
 export default function MinhaLojaLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || ''
@@ -121,7 +105,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Switcher de mundo — topo, fora do menu */}
-      <div style={{ padding: '2px 4px 12px' }}><WorldSwitcher /></div>
+      <div style={{ padding: '2px 4px 12px' }}><WorldSwitcher current="loja" temLoja /></div>
 
       {!minimal && (
         <div ref={switcherRef} style={{ position: 'relative', margin: '0 4px 10px' }}>
@@ -191,7 +175,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
   )
 
   return (
-    <div style={{ ...S.root, ...lojaAccent }}>
+    <div style={S.root}>
       <style>{`
         .lj-shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
         .lj-side { display: flex; }
@@ -216,7 +200,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
             <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 22, width: 'auto', display: 'block' }} />
             <span style={{ ...S.badge, fontSize: 8.5, padding: '3px 7px' }}>Painel da Loja</span>
           </div>
-          <WorldSwitcher compact />
+          <WorldSwitcher current="loja" temLoja compact />
         </div>
 
         {/* Nav mobile (faltava!) */}

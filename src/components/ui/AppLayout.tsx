@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import ChatDock from '@/components/marketplace/ChatDock'
+import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { resolvePlan } from '@/lib/plan'
 import { ENFORCEMENT_ATIVO, MURO_POSTRIAL_ATIVO, LIMITE_FREE, checkCardLimit } from '@/lib/checkCardLimit'
 import { useContactModal } from '@/components/ui/ContactModalProvider'
@@ -571,13 +572,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
 
-          {/* World switcher App|Loja (so' lojista) */}
-          {!collapsed && temLoja === true && (
-            <div style={{ display: 'flex', gap: 3, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 999, padding: 3, marginBottom: 18 }}>
-              <span style={{ flex: 1, textAlign: 'center', padding: '7px 10px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, color: 'var(--bx-brand-ink)', background: BRAND }}>App</span>
-              <Link href="/minha-loja" style={{ flex: 1, textAlign: 'center', padding: '7px 10px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, color: 'var(--bx-text-2)', textDecoration: 'none' }}>Loja</Link>
-            </div>
-          )}
+          {/* World switcher App|Loja|Admin */}
+          {!collapsed && <WorldSwitcher current="app" temLoja={temLoja === true} mb={18} />}
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
             {!menuPronto && (
@@ -670,13 +666,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <header className="tcg-header">
             <div className="tcg-header-logo" style={{ display: 'none', alignItems: 'center', gap: 8, flex: 1 }}>
               <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
-              {/* World switcher mobile (so' lojista) */}
-              {temLoja === true && (
-                <div style={{ display: 'flex', gap: 2, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 999, padding: 2, marginLeft: 4 }}>
-                  <span style={{ padding: '5px 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, color: 'var(--bx-brand-ink)', background: BRAND }}>App</span>
-                  <Link href="/minha-loja" style={{ padding: '5px 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, color: 'var(--bx-text-2)', textDecoration: 'none' }}>Loja</Link>
-                </div>
-              )}
+              {/* World switcher mobile */}
+              <div style={{ marginLeft: 4 }}><WorldSwitcher current="app" temLoja={temLoja === true} compact /></div>
             </div>
 
             {isLojistaExplore && (
