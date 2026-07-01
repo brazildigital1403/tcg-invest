@@ -507,6 +507,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         .tcg-header-logo { display: none; }
         .tcg-header-menu-btn { display: none; }
+        .tcg-switchbar { display: none; }
 
         .tcg-content {
           flex: 1;
@@ -546,6 +547,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           .tcg-header-logo { display: flex !important; }
           .tcg-header-menu-btn { display: flex !important; }
           .tcg-header-account { display: none !important; }
+          .tcg-switchbar { display: flex !important; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--bx-border); background: rgba(8,10,15,0.97); }
           .tcg-content { padding: 16px 16px 100px; }
           .tcg-bottom-nav { display: flex !important; }
           .tcg-drawer-overlay { display: block; }
@@ -666,8 +668,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <header className="tcg-header">
             <div className="tcg-header-logo" style={{ display: 'none', alignItems: 'center', gap: 8, flex: 1 }}>
               <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
-              {/* World switcher mobile */}
-              <div style={{ marginLeft: 4 }}><WorldSwitcher current="app" temLoja={temLoja === true} compact /></div>
             </div>
 
             {isLojistaExplore && (
@@ -710,6 +710,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
           </header>
+
+          {/* World switcher mobile (sub-barra fora do header lotado) */}
+          {temLoja === true && (
+            <div className="tcg-switchbar">
+              <WorldSwitcher current="app" temLoja={temLoja === true} compact />
+            </div>
+          )}
 
           {/* CONTEÚDO */}
           <main className="tcg-content">

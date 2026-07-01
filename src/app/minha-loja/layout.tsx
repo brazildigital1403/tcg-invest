@@ -179,11 +179,13 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
       <style>{`
         .lj-shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
         .lj-side { display: flex; }
+        .lj-mobhead { display: none; }
         .lj-mobtop { display: none; }
         .lj-mobnav { display: none; }
         @media (max-width: 860px) {
           .lj-shell { grid-template-columns: 1fr; }
           .lj-side { display: none !important; }
+          .lj-mobhead { display: block !important; position: sticky; top: 0; z-index: 21; }
           .lj-mobtop { display: flex !important; }
           .lj-mobnav { display: flex !important; }
           .lj-content { padding: 14px 16px 96px !important; }
@@ -194,6 +196,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
       <div className="lj-shell">
         <div className="lj-side">{Sidebar}</div>
 
+        <div className="lj-mobhead">
         {/* Top bar mobile: logo + switcher de mundo */}
         <div className="lj-mobtop" style={S.mobtop}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -205,6 +208,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
 
         {/* Nav mobile (faltava!) */}
         {!minimal && MobileTabs}
+        </div>
 
         <main className="lj-content" style={S.content}>{children}</main>
       </div>
@@ -242,8 +246,8 @@ const S: Record<string, React.CSSProperties> = {
   niIco: { width: 17, height: 17, flex: '0 0 17px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   divider: { height: 1, background: 'var(--bx-border)', margin: '12px 4px' },
 
-  mobtop: { alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: '1px solid var(--bx-border)', background: '#0a0c11', position: 'sticky', top: 0, zIndex: 21 },
-  mobnav: { gap: 8, padding: '10px 16px', borderBottom: '1px solid var(--bx-border)', background: '#0a0c11', position: 'sticky', top: 45, zIndex: 20, overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'] },
+  mobtop: { alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: '1px solid var(--bx-border)', background: '#0a0c11' },
+  mobnav: { gap: 8, padding: '10px 16px', borderBottom: '1px solid var(--bx-border)', background: '#0a0c11', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'] },
   mtab: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, color: 'var(--bx-text-2)', background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 },
   mtabOn: { background: 'rgba(96,165,250,0.14)', color: '#fff', borderColor: 'rgba(96,165,250,0.3)' },
 

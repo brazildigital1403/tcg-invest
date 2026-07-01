@@ -192,12 +192,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         .adm-header-logo { display: none; }
         .adm-bottom-nav { display: none; }
+        .adm-switchbar { display: none; }
         .adm-content { flex: 1; overflow-x: hidden; }
 
         @media (max-width: 768px) {
           .adm-sidebar { display: none !important; }
           .adm-header-logo { display: flex !important; }
           .adm-bottom-nav { display: flex !important; }
+          .adm-switchbar { display: flex !important; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--bx-border); background: rgba(8,10,15,0.97); }
           .adm-content { padding-bottom: 80px; }
         }
       `}</style>
@@ -304,7 +306,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               }}>
                 Admin
               </span>
-              <div style={{ marginLeft: 4 }}><WorldSwitcher current="admin" temLoja={temLoja} compact /></div>
             </div>
 
             <div style={{
@@ -331,6 +332,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ← App
             </Link>
           </header>
+
+          {/* World switcher mobile (sub-barra) */}
+          <div className="adm-switchbar">
+            <WorldSwitcher current="admin" temLoja={temLoja} compact />
+          </div>
 
           <div className="adm-content">{children}</div>
         </div>
