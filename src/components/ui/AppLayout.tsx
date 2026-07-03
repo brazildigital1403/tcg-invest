@@ -207,13 +207,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Load explore mode do localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return
-    setExploreMode(localStorage.getItem(EXPLORE_KEY) === '1')
+    try { setExploreMode(localStorage.getItem(EXPLORE_KEY) === '1') } catch {}
   }, [])
 
   // Load estado da sidebar (recolhida ou nao) do localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return
-    setCollapsed(localStorage.getItem(SIDEBAR_KEY) === '1')
+    try { setCollapsed(localStorage.getItem(SIDEBAR_KEY) === '1') } catch {}
   }, [])
 
   function toggleSidebar() {
@@ -260,8 +260,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const novo = !exploreMode
     setExploreMode(novo)
     if (typeof window !== 'undefined') {
-      if (novo) localStorage.setItem(EXPLORE_KEY, '1')
-      else localStorage.removeItem(EXPLORE_KEY)
+      try {
+        if (novo) localStorage.setItem(EXPLORE_KEY, '1')
+        else localStorage.removeItem(EXPLORE_KEY)
+      } catch {}
     }
     if (!novo && temLoja && !temCartas) {
       window.location.href = '/minha-loja'
@@ -392,7 +394,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   async function handleLogout() {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(EXPLORE_KEY)
+      try { localStorage.removeItem(EXPLORE_KEY) } catch {}
     }
     await supabase.auth.signOut()
     window.location.href = '/'

@@ -26,6 +26,25 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+
+  // Filtra ruido nao acionavel (ambiente do usuario, nao bug do app)
+  ignoreErrors: [
+    // Recursos/imagens que falham no browser do usuario (adblock, rede, offline)
+    "Load failed",
+    "Failed to fetch",
+    "NetworkError when attempting to fetch resource",
+    "The network connection was lost",
+    "The request timed out",
+    "cancelled",
+    // Lock benigno do supabase-js (auth-token roubado por outra aba/requisicao)
+    "was released because another request stole it",
+    // Storage indisponivel em alguns WebViews (ja tratado com try/catch no codigo)
+    "Cannot read properties of null (reading 'getItem')",
+    "The operation is insecure",
+    // Ruidos comuns de extensoes/navegador
+    "ResizeObserver loop",
+    "Non-Error promise rejection captured",
+  ],
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
