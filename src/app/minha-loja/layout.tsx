@@ -39,6 +39,8 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
   const isNova = seg[1] === 'nova'
   const activeId = seg[1] && seg[1] !== 'nova' ? seg[1] : null
   const isPlano = seg[2] === 'plano'
+  const isVitrine = seg[2] === 'vitrine'
+  const isAnalytics = seg[2] === 'analytics'
   const isHub = pathname === '/minha-loja'
   const activeLoja = useMemo(() => lojas.find((l) => l.id === activeId) || null, [lojas, activeId])
 
@@ -73,15 +75,19 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
     if (activeLoja) {
       const base = `/minha-loja/${activeLoja.id}`
       items.push({ key: 'visao', label: 'Visão geral', href: base, Icon: IcoVisao })
+      items.push({ key: 'minhavitrine', label: 'Minha vitrine', href: `${base}/vitrine`, Icon: IcoLojas })
+      items.push({ key: 'analytics', label: 'Analytics', href: `${base}/analytics`, Icon: IcoAnalytics })
       items.push({ key: 'plano', label: 'Plano & cobrança', href: `${base}/plano`, Icon: IcoPlano })
-      if (activeLoja.slug) items.push({ key: 'vitrine', label: 'Ver vitrine pública', href: `/lojas/${activeLoja.slug}`, Icon: IcoExternal, external: true })
+      if (activeLoja.slug) items.push({ key: 'verpublica', label: 'Ver vitrine pública', href: `/lojas/${activeLoja.slug}`, Icon: IcoExternal, external: true })
     }
     return items
   }, [activeLoja])
 
   const isActive = (it: NavDef) => {
     if (it.external) return false
-    if (it.key === 'visao') return !!activeId && !isPlano
+    if (it.key === 'visao') return !!activeId && !isPlano && !isVitrine && !isAnalytics
+    if (it.key === 'minhavitrine') return isVitrine
+    if (it.key === 'analytics') return isAnalytics
     if (it.key === 'plano') return isPlano
     return false
   }
