@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import ChatDock from '@/components/marketplace/ChatDock'
+import { lojaCache } from '@/lib/lojaCache'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { resolvePlan } from '@/lib/plan'
 import { ENFORCEMENT_ATIVO, MURO_POSTRIAL_ATIVO, LIMITE_FREE, checkCardLimit } from '@/lib/checkCardLimit'
@@ -185,7 +186,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Detecção adaptativa do perfil
   const [temCartas, setTemCartas] = useState<boolean | null>(null)
-  const [temLoja, setTemLoja] = useState<boolean | null>(null)
+  const [temLoja, setTemLoja] = useState<boolean | null>(lojaCache.getHasLoja())
   const [exploreMode, setExploreMode] = useState(false)
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
@@ -295,6 +296,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const _temLoja = !!lojasCheck && lojasCheck.length > 0
       setTemCartas(_temCartas)
       setTemLoja(_temLoja)
+      lojaCache.setHasLoja(_temLoja)
 
       if (!_temCartas) {
         setPatrimonio(0)
@@ -396,6 +398,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       try { localStorage.removeItem(EXPLORE_KEY) } catch {}
     }
+    lojaCache.clear()
     await supabase.auth.signOut()
     window.location.href = '/'
   }

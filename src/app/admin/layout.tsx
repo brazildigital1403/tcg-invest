@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell } from '@/components/ui/Icons'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
+import { lojaCache } from '@/lib/lojaCache'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -96,7 +97,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [collapsed, setCollapsed] = useState(false)
-  const [temLoja, setTemLoja] = useState(false)
+  const [temLoja, setTemLoja] = useState(lojaCache.getHasLoja() ?? false)
 
   useEffect(() => {
     let alive = true
@@ -105,7 +106,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
         const { data } = await supabase.from('lojas').select('id').eq('owner_user_id', user.id).limit(1)
-        if (alive) setTemLoja(!!(data && data.length))
+        const has = !!(data && data.length)
+        lojaCache.setHasLoja(has)
+        if (alive) setTemLoja(has)
       } catch {}
     })()
     return () => { alive = false }

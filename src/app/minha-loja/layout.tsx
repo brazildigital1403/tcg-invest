@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { lojaCache } from '@/lib/lojaCache'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 
 type Loja = { id: string; slug: string | null; nome: string; logo_url: string | null; status: string | null }
@@ -37,8 +38,8 @@ type NavDef = { key: string; label: string; href: string; Icon: (p: IcoP) => Rea
 export default function MinhaLojaLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || ''
   const router = useRouter()
-  const [lojas, setLojas] = useState<Loja[]>([])
-  const [carregou, setCarregou] = useState(false)
+  const [lojas, setLojas] = useState<Loja[]>(() => (lojaCache.getList() as Loja[] | null) || [])
+  const [carregou, setCarregou] = useState(lojaCache.getList() !== null)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const switcherRef = useRef<HTMLDivElement | null>(null)
 
@@ -62,7 +63,9 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
           .select('id, slug, nome, logo_url, status')
           .eq('owner_user_id', user.id)
           .order('created_at', { ascending: true })
-        if (alive) { setLojas((data as Loja[]) || []); setCarregou(true) }
+        const arr = (data as Loja[]) || []
+        lojaCache.setList(arr)
+        if (alive) { setLojas(arr); setCarregou(true) }
       } catch { if (alive) setCarregou(true) }
     })()
     return () => { alive = false }

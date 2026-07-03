@@ -4,6 +4,7 @@ import { CSSProperties, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { lojaCache } from '@/lib/lojaCache'
 import type { LojaFormData } from '@/components/lojas/FormLoja'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -25,9 +26,15 @@ export interface LojaFull extends LojaFormData {
 // ─── Hook compartilhado: carrega loja + valida dono ──────────────────────────
 export function useLojaOwner(lojaId: string) {
   const router = useRouter()
-  const [estado, setEstado] = useState<Estado>('loading')
+  const cached = lojaCache.getFull(lojaId) as LojaFull | null
+  const [estado, setEstado] = useState<Estado>(cached ? 'pronto' : 'loading')
   const [userId, setUserId] = useState<string | null>(null)
-  const [loja, setLoja] = useState<LojaFull | null>(null)
+  const [loja, setLojaState] = useState<LojaFull | null>(cached)
+  const setLoja: typeof setLojaState = (v) => setLojaState((prev) => {
+    const next = typeof v === 'function' ? (v as (p: LojaFull | null) => LojaFull | null)(prev) : v
+    if (next && next.id) lojaCache.setFull(next.id, next)
+    return next
+  })
 
   useEffect(() => {
     let alive = true
@@ -50,6 +57,7 @@ export function useLojaOwner(lojaId: string) {
       if (error || !data || data.length === 0) { setEstado('nao_encontrada'); return }
       const lojaData = data[0] as LojaFull
       if (lojaData.owner_user_id !== user.id) { setEstado('sem_permissao'); return }
+      lojaCache.setFull(lojaData.id, lojaData)
       setLoja(lojaData)
       setEstado('pronto')
     }
