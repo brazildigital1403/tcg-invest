@@ -160,6 +160,10 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
   const [signupConfirmSent, setSignupConfirmSent] = useState(false)
+  const [reconfirmPrompt, setReconfirmPrompt] = useState(false)
+  const [reconfirmEmail, setReconfirmEmail] = useState('')
+  const [reconfirmSent, setReconfirmSent] = useState(false)
+  const [reconfirmLoading, setReconfirmLoading] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
 
   // Validação / erros
@@ -260,6 +264,19 @@ useEffect(() => {
     if (!error) setForgotSent(true)
   }
 
+  async function handleSendReconfirm() {
+    setReconfirmLoading(true)
+    setServerError('')
+    const { error } = await supabase.auth.signInWithOtp({
+      email: reconfirmEmail,
+      options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}/auth/email-confirmado`, captchaToken: captchaToken ?? undefined },
+    })
+    setReconfirmLoading(false)
+    setCaptchaToken(null); setCaptchaResetKey((k) => k + 1)
+    if (error) { setServerError(error.message); return }
+    setReconfirmSent(true)
+  }
+
   async function handleAuth() {
     const allTouched: Record<string, boolean> = { name: true, cpf: true, city: true, whatsapp: true, email: true, password: true }
     setTouched(allTouched)
@@ -278,6 +295,11 @@ useEffect(() => {
           if (error.message.includes('Invalid login')) setServerError('E-mail ou senha incorretos.')
           else setServerError(error.message)
           return
+        }
+        const { data: { user: loggedUser } } = await supabase.auth.getUser()
+        if (loggedUser) {
+          const { data: prof } = await supabase.from('users').select('reconfirmar_email').eq('id', loggedUser.id).maybeSingle()
+          if (prof?.reconfirmar_email) { setReconfirmEmail(email); setReconfirmPrompt(true); return }
         }
         onClose()
         const loginDest = next || '/dashboard-financeiro'
@@ -481,6 +503,30 @@ useEffect(() => {
                 Sem cartão de crédito para começar gratuitamente
               </p>
             </div>
+          ) : reconfirmPrompt ? (
+            reconfirmSent ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ fontSize: 34, lineHeight: 1 }}>📧</div>
+                <p style={{ fontSize: 16, fontWeight: 700, margin: '14px 0 8px' }}>Link enviado!</p>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 20 }}>
+                  Enviamos um link de confirmacao para <span style={{ color: '#60a5fa' }}>{reconfirmEmail}</span>. Clique nele pra confirmar seu e-mail. (Verifique o spam.)
+                </p>
+                <button onClick={() => { onClose(); router.push(next || '/dashboard-financeiro') }} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 26px', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>Entendi</button>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <svg width="46" height="46" viewBox="0 0 20 20" fill="none" style={{ marginBottom: 14 }}><rect x="2" y="5" width="16" height="11" rx="2" stroke="rgba(96,165,250,0.7)" strokeWidth="1.3"/><path d="M2 7l8 6 8-6" stroke="rgba(96,165,250,0.7)" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Confirme seu e-mail</p>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 18 }}>
+                  Por seguranca, confirme que <span style={{ color: '#60a5fa' }}>{reconfirmEmail}</span> e seu. E rapido: a gente te manda um link.
+                </p>
+                <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
+                <button onClick={handleSendReconfirm} disabled={reconfirmLoading} style={{ display: 'block', width: '100%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '12px', borderRadius: 10, cursor: reconfirmLoading ? 'default' : 'pointer', fontSize: 14, fontWeight: 700, marginTop: 14, opacity: reconfirmLoading ? 0.6 : 1 }}>
+                  {reconfirmLoading ? 'Enviando...' : 'Enviar link de confirmacao'}
+                </button>
+                <button onClick={() => { onClose(); router.push(next || '/dashboard-financeiro') }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', padding: '10px', cursor: 'pointer', fontSize: 13, marginTop: 4 }}>Agora nao</button>
+              </div>
+            )
           ) : signupConfirmSent ? (
             /* CONFIRME SEU E-MAIL (Confirm email ON) */
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
