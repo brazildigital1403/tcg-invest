@@ -146,6 +146,8 @@ export default function MinhaConta() {
   const [usernameChangedAt, setUsernameChangedAt] = useState<string | null>(null)
   const [whatsapp, setWhatsapp] = useState('')
   const [city, setCity] = useState('')
+  const [instagram, setInstagram] = useState('')
+  const [tiktok, setTiktok] = useState('')
 
   // S40: privacidade do perfil publico
   const [perfilPublico, setPerfilPublico] = useState(true)
@@ -175,6 +177,8 @@ export default function MinhaConta() {
         setUsernameChangedAt(profile.username_changed_at || null)
         setWhatsapp(profile.whatsapp || '')
         setCity(profile.city || '')
+        setInstagram(profile.instagram || '')
+        setTiktok(profile.tiktok || '')
         setPerfilPublico(profile.perfil_publico ?? true)
         setPerfilOcultarValores(profile.perfil_ocultar_valores ?? false)
         setPerfilMostrarPastas(profile.perfil_mostrar_pastas ?? true)
@@ -326,7 +330,9 @@ export default function MinhaConta() {
       }
     }
 
-    const updateData: any = { name, whatsapp, city, username: uSlug }
+    const igNorm = instagram.trim().replace(/^@+/, '') || null
+    const ttNorm = tiktok.trim().replace(/^@+/, '') || null
+    const updateData: any = { name, whatsapp, city, username: uSlug, instagram: igNorm, tiktok: ttNorm }
     if (usernameChanged) updateData.username_changed_at = new Date().toISOString()
 
     const { error } = await supabase
@@ -599,6 +605,34 @@ export default function MinhaConta() {
                   type="text"
                   value={whatsapp}
                   onChange={e => setWhatsapp(formatarWhatsApp(e.target.value))}
+                  style={INPUT}
+                  onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </div>
+            </div>
+
+            {/* Instagram + TikTok */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="mc-2col">
+              <div>
+                <label style={LABEL}>Instagram <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— opcional</span></label>
+                <input
+                  type="text"
+                  value={instagram}
+                  onChange={e => setInstagram(e.target.value)}
+                  placeholder="@seuperfil"
+                  style={INPUT}
+                  onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </div>
+              <div>
+                <label style={LABEL}>TikTok <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— opcional</span></label>
+                <input
+                  type="text"
+                  value={tiktok}
+                  onChange={e => setTiktok(e.target.value)}
+                  placeholder="@seuperfil"
                   style={INPUT}
                   onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
