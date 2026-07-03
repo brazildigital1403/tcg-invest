@@ -4,6 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = 'Bynx <noreply@bynx.gg>'
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
+const FONT = "font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
 
 // ── Helper: adiciona UTM params em links de email ────────────────────────────
 // Padrao: ?utm_source=email&utm_medium=<nurture|transactional>&utm_campaign=<X>&utm_content=<Y>
@@ -59,6 +60,8 @@ function baseLayout(content: string, preheader = '') {
   <style>td,th{font-family:Arial,sans-serif!important}v\:* {behavior:url(#default#VML)}o\:* {behavior:url(#default#VML)}</style>
   <![endif]-->
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap');
+    body,table,td,a,h1,p{${FONT}}
     body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
     img{-ms-interpolation-mode:bicubic}
     body{margin:0!important;padding:0!important;background-color:#080a0f!important}
@@ -87,11 +90,11 @@ function baseLayout(content: string, preheader = '') {
           <!--[if mso]>
           <tr><td>
           <table role="presentation" width="560" cellpadding="0" cellspacing="0" bgcolor="#0d0f14" style="background-color:#0d0f14;">
-          <tr><td style="padding:40px 36px;font-family:Arial,sans-serif;background-color:#0d0f14;" bgcolor="#0d0f14">
+          <tr><td style="padding:40px 36px;${FONT}background-color:#0d0f14;" bgcolor="#0d0f14">
           <![endif]-->
           <!--[if !mso]><!-->
           <tr>
-            <td style="background-color:#0d0f14;border-radius:20px;padding:40px 36px;border:1px solid #1f2937;" bgcolor="#0d0f14">
+            <td style="background-color:#0d0f14;border-radius:20px;padding:40px 36px;border:1px solid #1f2937;${FONT}" bgcolor="#0d0f14">
           <!--<![endif]-->
               ${content}
           <!--[if mso]></td></tr></table></td></tr><![endif]-->
@@ -102,7 +105,7 @@ function baseLayout(content: string, preheader = '') {
 
           <!-- Footer -->
           <tr>
-            <td align="center" style="padding-top:28px;color:#4b5563;font-size:12px;line-height:1.6;font-family:Arial,sans-serif;background-color:#080a0f;" bgcolor="#080a0f">
+            <td align="center" style="padding-top:28px;color:#4b5563;font-size:12px;line-height:1.6;${FONT}background-color:#080a0f;" bgcolor="#080a0f">
               © 2026 Bynx · Feito para colecionadores brasileiros de Pokémon TCG<br/>
               <a href="${APP_URL}" style="color:#6b7280;text-decoration:none;">bynx.gg</a>
             </td>
@@ -122,9 +125,9 @@ function btn(label: string, href: string, color = '#f59e0b') {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px auto 0;">
     <tr>
       <td align="center" bgcolor="#f59e0b" style="background-color:#f59e0b;border-radius:12px;mso-padding-alt:0;">
-        <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="25%" stroke="f" fillcolor="#f59e0b"><w:anchorlock/><center style="color:#000000;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${label}</center></v:roundrect><![endif]-->
+        <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="25%" stroke="f" fillcolor="#f59e0b"><w:anchorlock/><center style="color:#000000;${FONT}font-size:15px;font-weight:bold;">${label}</center></v:roundrect><![endif]-->
         <!--[if !mso]><!-->
-        <a href="${href}" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#ef4444);border-radius:12px;color:#000;font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap;padding:14px 32px;font-family:Arial,sans-serif;">${label}</a>
+        <a href="${href}" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#ef4444);border-radius:12px;color:#000;font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap;padding:14px 32px;${FONT}">${label}</a>
         <!--<![endif]-->
       </td>
     </tr>
@@ -144,9 +147,9 @@ function btnB2B(label: string, href: string, gradient: string = B2B_GRADIENT_PRO
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px auto 0;">
     <tr>
       <td align="center" bgcolor="${msoSolidColor}" style="background-color:${msoSolidColor};border-radius:12px;mso-padding-alt:0;">
-        <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="25%" stroke="f" fillcolor="${msoSolidColor}"><w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${label}</center></v:roundrect><![endif]-->
+        <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="25%" stroke="f" fillcolor="${msoSolidColor}"><w:anchorlock/><center style="color:#ffffff;${FONT}font-size:15px;font-weight:bold;">${label}</center></v:roundrect><![endif]-->
         <!--[if !mso]><!-->
-        <a href="${href}" style="display:inline-block;background:${gradient};border-radius:12px;color:#fff;font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap;padding:14px 32px;font-family:Arial,sans-serif;">${label}</a>
+        <a href="${href}" style="display:inline-block;background:${gradient};border-radius:12px;color:#fff;font-weight:800;font-size:15px;text-decoration:none;white-space:nowrap;padding:14px 32px;${FONT}">${label}</a>
         <!--<![endif]-->
       </td>
     </tr>
@@ -154,11 +157,11 @@ function btnB2B(label: string, href: string, gradient: string = B2B_GRADIENT_PRO
 }
 
 function h1(text: string) {
-  return `<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#f0f0f0;letter-spacing:-0.03em;line-height:1.2;">${text}</h1>`
+  return `<h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#f0f0f0;letter-spacing:-0.03em;line-height:1.2;${FONT}">${text}</h1>`
 }
 
 function p(text: string, style = '') {
-  return `<p style="margin:12px 0;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.7;${style}">${text}</p>`
+  return `<p style="margin:12px 0;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.7;${FONT}${style}">${text}</p>`
 }
 
 function divider() {
@@ -166,7 +169,7 @@ function divider() {
 }
 
 function badge(text: string, color: string, bg: string) {
-  return `<p style="margin:0 0 8px;font-size:10px;font-weight:800;color:${color};letter-spacing:0.08em;text-transform:uppercase;font-family:Arial,sans-serif;">${text}</p>`
+  return `<p style="margin:0 0 8px;font-size:10px;font-weight:800;color:${color};letter-spacing:0.08em;text-transform:uppercase;${FONT}">${text}</p>`
 }
 
 // ── 1. Email de boas-vindas ────────────────────────────────────────────────────
@@ -268,10 +271,10 @@ export async function sendNewTicketAdminEmail(args: {
     ${h1('Um novo ticket foi aberto')}
     ${p(`<strong style="color:#f0f0f0;">${args.userName || 'Colecionador'}</strong> (${args.userEmail}) abriu o ticket "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>".`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
-      <tr><td style="padding:12px 16px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Categoria · Prioridade</td></tr>
-      <tr><td style="padding:0 16px 12px;font-size:13px;color:rgba(255,255,255,0.8);font-family:Arial,sans-serif;">${args.category} · <strong style="color:#f59e0b;">${args.priority}</strong></td></tr>
+      <tr><td style="padding:12px 16px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Categoria · Prioridade</td></tr>
+      <tr><td style="padding:0 16px 12px;font-size:13px;color:rgba(255,255,255,0.8);${FONT}">${args.category} · <strong style="color:#f59e0b;">${args.priority}</strong></td></tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+      <tr><td style="padding:12px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
     ${btn('Ver no painel admin →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-new-admin', 'cta-button'))}
   `, `Novo ticket: ${args.subject}`)
@@ -316,7 +319,7 @@ export async function sendUserReplyAdminEmail(args: {
     ${h1('Nova resposta em ticket')}
     ${p(`<strong style="color:#f0f0f0;">${args.userName || 'Colecionador'}</strong> (${args.userEmail}) respondeu em "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>":`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
-      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
     ${btn('Responder no painel →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-user-reply', 'cta-button'))}
   `, `Nova resposta: ${args.subject}`)
@@ -340,7 +343,7 @@ export async function sendAdminReplyUserEmail(args: {
     ${h1('Você tem uma nova resposta')}
     ${p(`${firstName}, nossa equipe respondeu seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>":`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
-      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
     ${btn('Ver conversa completa →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-admin-reply', 'cta-button'))}
     ${divider()}
@@ -407,11 +410,11 @@ export async function sendEmailLojaAprovada(args: {
     ${p(`${firstName}, boa notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi aprovada pela equipe do Bynx e já está no ar no Guia de Lojas.`)}
     ${divider()}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
-      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Página pública</td></tr>
-      <tr><td style="padding:0 18px 12px;font-size:13px;font-family:Arial,sans-serif;"><a href="${addUtm(urlPublica, 'loja-approved', 'link-publica')}" style="color:${B2B_LINK_COLOR};text-decoration:none;word-break:break-all;">${urlPublica}</a></td></tr>
+      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Página pública</td></tr>
+      <tr><td style="padding:0 18px 12px;font-size:13px;${FONT}"><a href="${addUtm(urlPublica, 'loja-approved', 'link-publica')}" style="color:${B2B_LINK_COLOR};text-decoration:none;word-break:break-all;">${urlPublica}</a></td></tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Painel de edição</td></tr>
-      <tr><td style="padding:0 18px 14px;font-size:13px;font-family:Arial,sans-serif;"><a href="${addUtm(urlEdicao, 'loja-approved', 'link-edicao')}" style="color:${B2B_LINK_COLOR};text-decoration:none;">${urlEdicao}</a></td></tr>
+      <tr><td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Painel de edição</td></tr>
+      <tr><td style="padding:0 18px 14px;font-size:13px;${FONT}"><a href="${addUtm(urlEdicao, 'loja-approved', 'link-edicao')}" style="color:${B2B_LINK_COLOR};text-decoration:none;">${urlEdicao}</a></td></tr>
     </table>
     ${btnB2B('Abrir minha loja →', addUtm(urlEdicao, 'loja-approved', 'cta-button'))}
     ${divider()}
@@ -442,8 +445,8 @@ export async function sendEmailLojaSuspensa(args: {
     ${h1('Sua loja foi suspensa')}
     ${p(`${firstName}, precisamos te avisar que <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi suspensa temporariamente no Guia do Bynx.`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(239,68,68,0.3);margin-top:16px;">
-      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#ef4444;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Motivo</td></tr>
-      <tr><td style="padding:0 18px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;font-family:Arial,sans-serif;white-space:pre-wrap;">${escapeHtml(args.motivo)}</td></tr>
+      <tr><td style="padding:14px 18px 6px;font-size:11px;color:#ef4444;${FONT}text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Motivo</td></tr>
+      <tr><td style="padding:0 18px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.motivo)}</td></tr>
     </table>
     ${divider()}
     ${p('Enquanto suspensa, sua loja <strong style="color:#ef4444;">não aparece</strong> no guia público. Para contestar ou pedir a reativação, é só responder este email explicando o que mudou.')}
@@ -548,23 +551,23 @@ export async function sendEmailLojaPlanoAlterado(args: {
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid ${cfgNovo.borderColor};margin-top:16px;">
       <tr>
-        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">
           Plano atual
         </td>
       </tr>
       <tr>
-        <td style="padding:0 18px 12px;font-size:18px;font-weight:800;color:${cfgNovo.color};font-family:Arial,sans-serif;">
+        <td style="padding:0 18px 12px;font-size:18px;font-weight:800;color:${cfgNovo.color};${FONT}">
           ${cfgNovo.label}
         </td>
       </tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">
           Validade
         </td>
       </tr>
       <tr>
-        <td style="padding:0 18px 14px;font-size:14px;color:rgba(255,255,255,0.8);font-family:Arial,sans-serif;">
+        <td style="padding:0 18px 14px;font-size:14px;color:rgba(255,255,255,0.8);${FONT}">
           ${args.planoNovo === 'basico'
             ? 'Sem expiração'
             : `Válido até <strong style="color:#f0f0f0;">${fmtDataExpiracao(args.expiraEm)}</strong>`
@@ -758,12 +761,12 @@ export async function sendReferralActivatedEmail(args: {
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(34,197,94,0.25);margin-top:16px;">
       <tr>
-        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">
           Saldo de pontos
         </td>
       </tr>
       <tr>
-        <td style="padding:0 18px 14px;font-size:24px;font-weight:800;color:#22c55e;font-family:Arial,sans-serif;">
+        <td style="padding:0 18px 14px;font-size:24px;font-weight:800;color:#22c55e;${FONT}">
           ${args.newBalance.toLocaleString('pt-BR')} pts
         </td>
       </tr>
@@ -806,23 +809,23 @@ export async function sendReferralEngagedEmail(args: {
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(245,158,11,0.3);margin-top:16px;">
       <tr>
-        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">
           Bônus por engajamento
         </td>
       </tr>
       <tr>
-        <td style="padding:0 18px 12px;font-size:24px;font-weight:800;color:#f59e0b;font-family:Arial,sans-serif;">
+        <td style="padding:0 18px 12px;font-size:24px;font-weight:800;color:#f59e0b;${FONT}">
           +${POINTS} pts
         </td>
       </tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">
           Saldo total
         </td>
       </tr>
       <tr>
-        <td style="padding:0 18px 14px;font-size:18px;font-weight:800;color:#f0f0f0;font-family:Arial,sans-serif;">
+        <td style="padding:0 18px 14px;font-size:18px;font-weight:800;color:#f0f0f0;${FONT}">
           ${args.newBalance.toLocaleString('pt-BR')} pts
         </td>
       </tr>
@@ -864,23 +867,23 @@ export async function sendRedemptionConfirmedEmail(args: {
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
       <tr>
-        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+        <td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">
           Pontos gastos
         </td>
       </tr>
       <tr>
-        <td style="padding:0 18px 12px;font-size:18px;font-weight:800;color:#ef4444;font-family:Arial,sans-serif;">
+        <td style="padding:0 18px 12px;font-size:18px;font-weight:800;color:#ef4444;${FONT}">
           -${args.costPoints.toLocaleString('pt-BR')} pts
         </td>
       </tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">
+        <td style="padding:12px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">
           Saldo restante
         </td>
       </tr>
       <tr>
-        <td style="padding:0 18px 14px;font-size:18px;font-weight:800;color:#22c55e;font-family:Arial,sans-serif;">
+        <td style="padding:0 18px 14px;font-size:18px;font-weight:800;color:#22c55e;${FONT}">
           ${args.newBalance.toLocaleString('pt-BR')} pts
         </td>
       </tr>
@@ -943,10 +946,10 @@ export async function sendDisputeAdminEmail(args: {
     ${h1('Disputa aberta no Stripe ⚠️')}
     ${p('Um cliente abriu uma disputa (chargeback) junto ao banco. Responda o quanto antes no Stripe para não perder o valor mais a multa de disputa.')}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
-      <tr><td style="padding:12px 16px;font-size:11px;color:#9ca3af;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">Valor · Motivo · Status</td></tr>
-      <tr><td style="padding:0 16px 12px;font-size:14px;color:rgba(255,255,255,0.85);font-family:Arial,sans-serif;"><strong style="color:#f59e0b;">${valor}</strong> · ${escapeHtml(args.reason)} · ${escapeHtml(args.status)}</td></tr>
+      <tr><td style="padding:12px 16px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Valor · Motivo · Status</td></tr>
+      <tr><td style="padding:0 16px 12px;font-size:14px;color:rgba(255,255,255,0.85);${FONT}"><strong style="color:#f59e0b;">${valor}</strong> · ${escapeHtml(args.reason)} · ${escapeHtml(args.status)}</td></tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 16px;font-size:12px;color:rgba(255,255,255,0.6);font-family:Arial,sans-serif;">charge ${escapeHtml(args.charge)}${args.customer ? ` · customer ${escapeHtml(args.customer)}` : ''}</td></tr>
+      <tr><td style="padding:12px 16px;font-size:12px;color:rgba(255,255,255,0.6);${FONT}">charge ${escapeHtml(args.charge)}${args.customer ? ` · customer ${escapeHtml(args.customer)}` : ''}</td></tr>
     </table>
     ${btn('Abrir disputas no Stripe →', 'https://dashboard.stripe.com/disputes')}
   `, `Chargeback aberto: ${valor}`)
