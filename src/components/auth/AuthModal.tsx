@@ -146,6 +146,9 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
   const [marketingAceito, setMarketingAceito] = useState(false)
   const [city, setCity] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
+  const [instagram, setInstagram] = useState('')
+  const [tiktok, setTiktok] = useState('')
+  const [hpWebsite, setHpWebsite] = useState('') // honeypot anti-bot (fica oculto)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -282,9 +285,12 @@ useEffect(() => {
           setTouched(prev => ({ ...prev, cpf: true }))
           return
         }
+        if (hpWebsite.trim()) { return } // honeypot preenchido -> provavel bot
+        const igNorm = instagram.trim().replace(/^@+/, '') || null
+        const ttNorm = tiktok.trim().replace(/^@+/, '') || null
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { name, cpf, city, whatsapp } },
+          options: { data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm } },
         })
         if (error) {
           if (error.message.includes('already registered')) setServerError('Este e-mail já está cadastrado.')
@@ -293,7 +299,7 @@ useEffect(() => {
         }
         if (data.user) {
           const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-          const { error: insErr } = await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito })
+          const { error: insErr } = await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito })
           if (insErr) {
             if (insErr.code === '23505' || (insErr.message || '').includes('CPF_DUPLICADO') || (insErr.message || '').toLowerCase().includes('cpf')) {
               setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))
@@ -611,6 +617,32 @@ useEffect(() => {
                           </Campo>
                         </div>
                       </div>
+
+                      <div>
+                        <label style={lbl}>Instagram <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>(opcional)</span></label>
+                        <Campo>
+                          <input type="text" placeholder="@seuperfil" autoComplete="off"
+                            value={instagram}
+                            onChange={e => setInstagram(e.target.value)}
+                            style={inputStyle(undefined, false)}
+                          />
+                        </Campo>
+                      </div>
+                      <div>
+                        <label style={lbl}>TikTok <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>(opcional)</span></label>
+                        <Campo>
+                          <input type="text" placeholder="@seuperfil" autoComplete="off"
+                            value={tiktok}
+                            onChange={e => setTiktok(e.target.value)}
+                            style={inputStyle(undefined, false)}
+                          />
+                        </Campo>
+                      </div>
+
+                      <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true"
+                        value={hpWebsite} onChange={e => setHpWebsite(e.target.value)}
+                        style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                      />
                     </>
                   )}
                 </>

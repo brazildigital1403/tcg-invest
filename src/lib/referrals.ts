@@ -87,6 +87,11 @@ export function getFingerprint(): string {
 }
 
 const DISPOSABLE_DOMAINS = new Set([
+  'doefy.com', 'doanas.com', 'sfr.lol', 'cazlp.com', 'kzccv.com', 'wimcs.com',
+  'yopmail.com', 'yopmail.net', 'sharklasers.com', 'grr.la', 'trashmail.com',
+  'throwawaymail.com', 'getnada.com', 'mailnesia.com', 'dispostable.com',
+  'fakeinbox.com', 'maildrop.cc', 'mohmal.com', 'tempr.email', 'emailondeck.com',
+  '10minutemail.com', '10minutemail.net', 'moakt.com', 'inboxkitten.com',
   'mailinator.com', 'guerrillamail.com', 'guerrillamail.info', 'guerrillamail.net',
   'guerrillamail.org', 'guerrillamail.biz', 'guerrillamail.de',
   'sharklasers.com', 'grr.la', 'spam4.me',
