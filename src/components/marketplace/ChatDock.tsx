@@ -109,8 +109,13 @@ export default function ChatDock() {
   useEffect(() => {
     let active = true
     ;(async () => {
-      const { data } = await supabase.auth.getUser()
-      if (active) setUserId(data.user?.id ?? null)
+      try {
+        const { data } = await supabase.auth.getUser()
+        if (active) setUserId(data.user?.id ?? null)
+      } catch {
+        // Ignora erro de lock do supabase-js (sb-*-auth-token roubado por outra aba/requisicao);
+        // o estado de auth ainda chega via onAuthStateChange abaixo.
+      }
     })()
     const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setUserId(sess?.user?.id ?? null))
     return () => { active = false; sub.subscription.unsubscribe() }
