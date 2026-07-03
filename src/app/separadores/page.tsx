@@ -316,7 +316,11 @@ export default function SeparadoresPage() {
                       new Promise(res => { img.onload = res; img.onerror = res; const s = img.src; img.src = ''; img.src = s })
                     ))
                   }
-                  window.print()
+                  try {
+                    window.print()
+                  } catch {
+                    alert('Não foi possível abrir a impressão neste navegador. Abra a página no Safari ou Chrome para imprimir os separadores.')
+                  }
                 }}
                 disabled={filtered.length === 0 || desbloqueado === null}
                 style={{
