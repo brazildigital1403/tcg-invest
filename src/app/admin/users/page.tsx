@@ -26,6 +26,9 @@ type User = {
   // S40: contagem de tickets
   tickets_total: number
   tickets_open: number
+  lojas_count: number
+  indicacoes_count: number
+  pokedex_count: number
 }
 
 const FILTER_TABS = [
@@ -44,11 +47,13 @@ const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string;
 
 type SortKey =
   | 'name' | 'plano' | 'collection_count' | 'pastas_count' | 'anuncios_count' | 'tickets'
+  | 'lojas_count' | 'indicacoes_count' | 'pokedex_count'
   | 'scan_creditos' | 'last_sign_in_at' | 'last_seen_at' | 'created_at'
 
 const SORT_LABELS: Record<SortKey, string> = {
   name: 'usuário', plano: 'plano', collection_count: 'cartas', pastas_count: 'pastas', anuncios_count: 'anúncios',
   tickets: 'tickets', scan_creditos: 'créditos', last_sign_in_at: 'último acesso',
+  lojas_count: 'lojas', indicacoes_count: 'indicações', pokedex_count: 'pokédex',
   last_seen_at: 'última atividade', created_at: 'cadastro',
 }
 
@@ -276,6 +281,9 @@ function UsersView() {
                   {thSort('Cartas', 'collection_count', 'right')}
                   {thSort('Pastas', 'pastas_count', 'right')}
                   {thSort('Anúncios', 'anuncios_count', 'right')}
+                  {thSort('Lojas', 'lojas_count', 'right')}
+                  {thSort('Indic.', 'indicacoes_count', 'right')}
+                  {thSort('Pokédex', 'pokedex_count', 'right')}
                   {thSort('Tickets', 'tickets', 'right')}
                   {thSort('Créditos', 'scan_creditos', 'right')}
                   {thSort('Último acesso', 'last_sign_in_at', 'right')}
@@ -337,6 +345,15 @@ function UsersView() {
                       </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.anuncios_count > 0 ? '#60a5fa' : 'rgba(255,255,255,0.25)', fontWeight: u.anuncios_count > 0 ? 700 : 400 }}>
                         {u.anuncios_count.toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.lojas_count > 0 ? '#a855f7' : 'rgba(255,255,255,0.25)', fontWeight: u.lojas_count > 0 ? 700 : 400 }}>
+                        {u.lojas_count.toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.indicacoes_count > 0 ? '#22c55e' : 'rgba(255,255,255,0.25)', fontWeight: u.indicacoes_count > 0 ? 700 : 400 }}>
+                        {u.indicacoes_count.toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.pokedex_count > 0 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)' }}>
+                        {u.pokedex_count.toLocaleString('pt-BR')}
                       </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: 12 }}>
                         {u.tickets_total === 0 ? (

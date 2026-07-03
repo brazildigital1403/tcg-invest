@@ -69,9 +69,12 @@ export async function GET(req: NextRequest) {
     const ticketsTotalMap = new Map<string, number>()
     const ticketsOpenMap  = new Map<string, number>()
     const pastasMap       = new Map<string, number>()
+    const lojasMap        = new Map<string, number>()
+    const indicacoesMap   = new Map<string, number>()
+    const pokedexMap      = new Map<string, number>()
 
     if (userIds.length > 0) {
-      const [authRes, cardsRes, adsRes, ticketsRes, pastasRes] = await Promise.all([
+      const [authRes, cardsRes, adsRes, ticketsRes, pastasRes, lojasRes, refsRes, pokedexRes] = await Promise.all([
         sb.rpc('admin_get_users_last_sign_in', { user_ids: userIds }),
         sb.from('user_cards')
           .select('user_id, quantity')
@@ -87,6 +90,13 @@ export async function GET(req: NextRequest) {
         sb.from('pastas')
           .select('user_id')
           .in('user_id', userIds),
+        sb.from('lojas')
+          .select('owner_user_id')
+          .in('owner_user_id', userIds),
+        sb.from('referrals')
+          .select('referrer_user_id')
+          .in('referrer_user_id', userIds),
+        sb.rpc('admin_pokedex_counts', { user_ids: userIds }),
       ])
 
       for (const r of (authRes.data as Array<{ id: string; last_sign_in_at: string | null }>) || []) {
@@ -111,6 +121,17 @@ export async function GET(req: NextRequest) {
         if (!pf.user_id) continue
         pastasMap.set(pf.user_id, (pastasMap.get(pf.user_id) || 0) + 1)
       }
+      for (const l of (lojasRes.data || []) as Array<{ owner_user_id: string | null }>) {
+        if (!l.owner_user_id) continue
+        lojasMap.set(l.owner_user_id, (lojasMap.get(l.owner_user_id) || 0) + 1)
+      }
+      for (const r of (refsRes.data || []) as Array<{ referrer_user_id: string | null }>) {
+        if (!r.referrer_user_id) continue
+        indicacoesMap.set(r.referrer_user_id, (indicacoesMap.get(r.referrer_user_id) || 0) + 1)
+      }
+      for (const pk of (pokedexRes.data || []) as Array<{ user_id: string; capturados: number }>) {
+        pokedexMap.set(pk.user_id, pk.capturados || 0)
+      }
     }
 
     const now = Date.now()
@@ -127,6 +148,9 @@ export async function GET(req: NextRequest) {
         collection_count: collectionMap.get(u.id) || 0,
         anuncios_count:   anuncioMap.get(u.id)    || 0,
         pastas_count:     pastasMap.get(u.id)      || 0,
+        lojas_count:      lojasMap.get(u.id)       || 0,
+        indicacoes_count: indicacoesMap.get(u.id)  || 0,
+        pokedex_count:    pokedexMap.get(u.id)     || 0,
         tickets_total:    ticketsTotalMap.get(u.id) || 0,
         tickets_open:     ticketsOpenMap.get(u.id)  || 0,
       }
