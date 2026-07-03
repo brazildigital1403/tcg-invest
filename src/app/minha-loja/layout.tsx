@@ -10,6 +10,13 @@ type Loja = { id: string; slug: string | null; nome: string; logo_url: string | 
 
 const LOJA_GRAD = 'linear-gradient(135deg, #60a5fa, #a855f7)'
 const APP_HREF = '/minha-colecao'
+const lojaAccent: React.CSSProperties = {
+  ['--ac-1' as any]: '#60a5fa',
+  ['--ac-2' as any]: '#a855f7',
+  ['--ac-1-rgb' as any]: '96, 165, 250',
+  ['--ac-2-rgb' as any]: '168, 85, 247',
+  ['--ac-grad' as any]: 'linear-gradient(135deg, #60a5fa, #a855f7)',
+}
 
 // ─── Ícones inline (stroke=currentColor -> herda a cor do elemento; sem var() em atributo SVG) ───
 type IcoP = { size?: number }
@@ -181,7 +188,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
   )
 
   return (
-    <div style={S.root}>
+    <div style={{ ...S.root, ...lojaAccent }}>
       <style>{`
         .lj-shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
         .lj-side { display: flex; }
