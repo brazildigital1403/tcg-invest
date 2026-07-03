@@ -35,15 +35,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const enriched = (anuncios || []).map(a => ({
       ...a,
       is_removido: !!a.removido_em,
-      is_vendido: a.status === 'vendido' || !!a.buyer_id,
+      is_vendido: a.status === 'concluido',
     }))
 
     return NextResponse.json({
       anuncios: enriched,
       total: enriched.length,
-      ativos:   enriched.filter(a => !a.is_removido && !a.is_vendido && a.status === 'disponivel').length,
-      vendidos: enriched.filter(a => a.is_vendido).length,
-      removidos: enriched.filter(a => a.is_removido).length,
+      ativos:   enriched.filter(a => !a.removido_em && a.status === 'disponivel').length,
+      vendidos: enriched.filter(a => a.status === 'concluido').length,
+      removidos: enriched.filter(a => !!a.removido_em).length,
     })
   } catch (err: any) {
     console.error('[admin/users/[id]/anuncios GET]', err?.message)

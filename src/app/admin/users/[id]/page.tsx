@@ -14,6 +14,8 @@ type User = {
   cpf: string | null
   city: string | null
   whatsapp: string | null
+  instagram: string | null
+  tiktok: string | null
   data_nascimento: string | null
   is_pro: boolean
   plano: string | null
@@ -580,6 +582,8 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
                 <InfoRow label="Username" value={user.username ? `@${user.username}` : '—'} />
                 <InfoRow label="Cidade"   value={user.city || '—'} />
                 <InfoRow label="WhatsApp" value={user.whatsapp || '—'} />
+                <InfoRow label="Instagram" value={user.instagram ? `@${user.instagram}` : '—'} />
+                <InfoRow label="TikTok"    value={user.tiktok ? `@${user.tiktok}` : '—'} />
                 <InfoRow label="Idade"    value={calcIdade(user.data_nascimento)} />
                 <InfoRow label="CPF"      value={user.cpf ? '****' + user.cpf.slice(-4) : '—'} mono />
               </>
@@ -764,11 +768,17 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
                   </thead>
                   <tbody>
                     {anuncios.anuncios.map(a => {
+                      const ST: Record<string, { label: string; color: string; bg: string; border: string }> = {
+                        disponivel:    { label: 'Ativo',         color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', border: 'rgba(96,165,250,0.3)' },
+                        reservado:     { label: 'Reservado',     color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)' },
+                        em_negociacao: { label: 'Em negociação', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)' },
+                        enviado:       { label: 'Enviado',       color: '#a855f7', bg: 'rgba(168,85,247,0.1)', border: 'rgba(168,85,247,0.3)' },
+                        concluido:     { label: 'Vendido',       color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.3)' },
+                        cancelado:     { label: 'Cancelado',     color: 'rgba(255,255,255,0.45)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.15)' },
+                      }
                       const statusInfo = a.is_removido
                         ? { label: 'Removido', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' }
-                        : a.is_vendido
-                        ? { label: 'Vendido', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.3)' }
-                        : { label: 'Ativo', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', border: 'rgba(96,165,250,0.3)' }
+                        : (ST[a.status] || { label: a.status || 'Ativo', color: 'rgba(255,255,255,0.45)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.15)' })
                       return (
                         <tr key={a.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', opacity: a.is_removido ? 0.55 : 1 }}>
                           <td style={tdTbl}>
