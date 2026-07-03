@@ -49,10 +49,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       sb.from('marketplace')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', id)
+        .eq('status', 'disponivel')
         .is('removido_em', null),
-      sb.from('transactions')
+      sb.from('marketplace')
         .select('id', { count: 'exact', head: true })
-        .eq('buyer_id', id),
+        .eq('buyer_id', id)
+        .in('status', ['concluido', 'enviado', 'reservado', 'em_negociacao']),
       sb.rpc('admin_get_users_last_sign_in', { user_ids: [id] }),
     ])
 
