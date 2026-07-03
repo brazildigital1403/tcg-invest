@@ -10,8 +10,11 @@ function supabaseAdmin() {
 }
 
 // GET /api/admin/users/[id]/compras
-// Lista as compras (transactions) onde o usuário foi COMPRADOR.
-// Hidrata com nome/email do vendedor pra facilitar render no admin.
+// Lista as compras onde o usuário foi COMPRADOR (buyer_id) no marketplace.
+// FIX: as vendas reais vivem em `marketplace` (com buyer_id + status), nao em
+// `transactions` (que nunca e populada). Considera compras firmes/em andamento:
+// concluido, enviado, reservado, em_negociacao. Ignora cancelado/disponivel.
+// Hidrata com nome/email do vendedor (marketplace.user_id).
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const unauth = await requireAdmin(req)
@@ -20,10 +23,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const { id } = await ctx.params
     const sb = supabaseAdmin()
 
-    const { data: compras, error } = await sb
-      .from('transactions')
-      .select('id, seller_id, card_name, price, created_at')
+    const { data: rows, error } = await sb
+      .from('marketplace')
+      .select('id, user_id, card_name, card_image, price, condicao, status, created_at')
       .eq('buyer_id', id)
+      .in('status', ['concluido', 'enviado', 'reservado', 'em_negociacao'])
       .order('created_at', { ascending: false })
       .limit(200)
 
@@ -32,12 +36,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Hidratar com nome do vendedor (1 query única em batch)
+    // Hidratar com nome do vendedor (marketplace.user_id) — 1 query em batch
     const sellerIds = [...new Set(
-      (compras || []).map(c => c.seller_id).filter(Boolean) as string[]
+      (rows || []).map(c => c.user_id).filter(Boolean) as string[]
     )]
 
-    let sellerMap = new Map<string, { name: string | null; email: string }>()
+    const sellerMap = new Map<string, { name: string | null; email: string }>()
     if (sellerIds.length > 0) {
       const { data: sellers } = await sb
         .from('users')
@@ -48,10 +52,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       }
     }
 
-    const enriched = (compras || []).map(c => {
-      const seller = c.seller_id ? sellerMap.get(c.seller_id) : null
+    const enriched = (rows || []).map(c => {
+      const seller = c.user_id ? sellerMap.get(c.user_id) : null
       return {
-        ...c,
+        id: c.id,
+        seller_id: c.user_id,            // mantem o shape antigo (a UI usa seller_*)
+        card_name: c.card_name,
+        card_image: c.card_image,
+        price: c.price,
+        condicao: c.condicao,
+        status: c.status,
+        created_at: c.created_at,
         seller_name:  seller?.name  || null,
         seller_email: seller?.email || null,
       }
