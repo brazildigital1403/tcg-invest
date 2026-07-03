@@ -29,6 +29,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import Turnstile from '@/components/auth/Turnstile'
 import { trackProUpgradeInitiated } from '@/lib/analytics'
 import { IconWarning, IconClose, IconEye, IconEyeOff } from '@/components/ui/Icons'
 import {
@@ -165,6 +166,8 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
   const [erros, setErros] = useState<Record<string, string>>({})
   const [serverError, setServerError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
   const [refCode, setRefCode] = useState<string | null>(null)
 
 // Captura ?ref= da URL no mount
@@ -249,8 +252,10 @@ useEffect(() => {
     setForgotLoading(true)
     const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken: captchaToken ?? undefined,
     })
     setForgotLoading(false)
+    setCaptchaToken(null); setCaptchaResetKey((k) => k + 1)
     if (!error) setForgotSent(true)
   }
 
@@ -267,7 +272,7 @@ useEffect(() => {
     setServerError('')
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captchaToken ?? undefined } })
         if (error) {
           if (error.message.includes('Invalid login')) setServerError('E-mail ou senha incorretos.')
           else setServerError(error.message)
@@ -290,7 +295,7 @@ useEffect(() => {
         const ttNorm = tiktok.trim().replace(/^@+/, '') || null
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm } },
+          options: { captchaToken: captchaToken ?? undefined, data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm } },
         })
         if (error) {
           if (error.message.includes('already registered')) setServerError('Este e-mail já está cadastrado.')
@@ -385,6 +390,7 @@ useEffect(() => {
       setServerError('Ocorreu um erro. Tente novamente.')
     } finally {
       setLoading(false)
+      setCaptchaToken(null); setCaptchaResetKey((k) => k + 1)
     }
   }
 
@@ -511,6 +517,7 @@ useEffect(() => {
                     )}
                   />
                 </Campo>
+                <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
                 <button
                   onClick={handleForgotPassword}
                   disabled={forgotLoading || !validarEmail(forgotEmail)}
@@ -723,6 +730,9 @@ useEffect(() => {
                   <p style={{ fontSize: 13, color: '#ef4444' }}>{serverError}</p>
                 </div>
               )}
+
+              {/* CAPTCHA (Cloudflare Turnstile) */}
+              <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
 
               {!isLogin && signupStep === 1 ? (
                 <>
