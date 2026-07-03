@@ -98,8 +98,8 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; badge
 
 export const PLANO_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; description: string }> = {
   basico: { label: 'Básico', color: 'rgba(255,255,255,0.75)', bg: '#0d0f14', border: 'rgba(255,255,255,0.08)', description: 'Listagem gratuita no Guia. Faça upgrade para desbloquear fotos, redes sociais e mais.' },
-  pro: { label: 'Pro', color: '#f59e0b', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)', description: 'Até 5 fotos, redes sociais, especialidades ilimitadas e destaque acima do Básico.' },
-  premium: { label: 'Premium', color: '#f59e0b', bg: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))', border: 'rgba(245,158,11,0.3)', description: 'Até 10 fotos, eventos e torneios, analytics e rotação no topo da listagem.' },
+  pro: { label: 'Pro', color: '#60a5fa', bg: 'rgba(96,165,250,0.06)', border: 'rgba(96,165,250,0.2)', description: 'Até 5 fotos, redes sociais, especialidades ilimitadas e destaque acima do Básico.' },
+  premium: { label: 'Premium', color: '#a855f7', bg: 'linear-gradient(135deg, rgba(96,165,250,0.08), rgba(168,85,247,0.06))', border: 'rgba(168,85,247,0.3)', description: 'Até 10 fotos, eventos e torneios, analytics e rotação no topo da listagem.' },
 }
 
 // ─── Estilos base (identidade LOJA azul->roxo) ───────────────────────────────

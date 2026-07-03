@@ -287,15 +287,15 @@ const PLANO_CONFIG: Record<string, {
   },
   pro: {
     label: 'Pro',
-    color: '#f59e0b',
-    badgeBg: 'rgba(245,158,11,0.1)',
-    border: 'rgba(245,158,11,0.25)',
+    color: '#60a5fa',
+    badgeBg: 'rgba(96,165,250,0.1)',
+    border: 'rgba(96,165,250,0.25)',
   },
   premium: {
     label: 'Premium',
-    color: '#ef4444',
-    badgeBg: 'rgba(239,68,68,0.1)',
-    border: 'rgba(239,68,68,0.25)',
+    color: '#a855f7',
+    badgeBg: 'rgba(168,85,247,0.1)',
+    border: 'rgba(168,85,247,0.25)',
   },
 }
 
