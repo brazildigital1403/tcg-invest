@@ -159,6 +159,7 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
   const [forgotStep, setForgotStep] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
+  const [signupConfirmSent, setSignupConfirmSent] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
 
   // Validação / erros
@@ -295,7 +296,7 @@ useEffect(() => {
         const ttNorm = tiktok.trim().replace(/^@+/, '') || null
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { captchaToken: captchaToken ?? undefined, data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm } },
+          options: { captchaToken: captchaToken ?? undefined, data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito } },
         })
         if (error) {
           if (error.message.includes('already registered')) setServerError('Este e-mail já está cadastrado.')
@@ -303,8 +304,14 @@ useEffect(() => {
           return
         }
         if (data.user) {
+          if (!data.session) {
+            // Confirm email ON: signup nao gera sessao. O perfil e criado pelo trigger handle_new_user.
+            setServerError('')
+            setSignupConfirmSent(true)
+            return
+          }
           const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-          const { error: insErr } = await supabase.from('users').insert({ id: data.user.id, email, name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito })
+          const { error: insErr } = await supabase.from('users').upsert({ id: data.user.id, email, name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito }, { onConflict: 'id', ignoreDuplicates: true })
           if (insErr) {
             if (insErr.code === '23505' || (insErr.message || '').includes('CPF_DUPLICADO') || (insErr.message || '').toLowerCase().includes('cpf')) {
               setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))
@@ -473,6 +480,26 @@ useEffect(() => {
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 4 }}>
                 Sem cartão de crédito para começar gratuitamente
               </p>
+            </div>
+          ) : signupConfirmSent ? (
+            /* CONFIRME SEU E-MAIL (Confirm email ON) */
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{ marginBottom: 16 }}><rect x="2" y="5" width="16" height="11" rx="2" stroke="rgba(96,165,250,0.7)" strokeWidth="1.3"/><path d="M2 7l8 6 8-6" stroke="rgba(96,165,250,0.7)" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Confirme seu e-mail</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 20 }}>
+                Enviamos um link de confirmacao para{' '}
+                <span style={{ color: '#60a5fa' }}>{email}</span>.{' '}
+                Clique nele para ativar sua conta e poder entrar.
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginBottom: 20 }}>
+                Nao recebeu? Verifique o spam.
+              </p>
+              <button
+                onClick={onClose}
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 26px', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}
+              >
+                Entendi
+              </button>
             </div>
           ) : forgotStep ? (
             /* RECOVERY */
