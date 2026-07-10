@@ -26,6 +26,8 @@ type Linha = {
   status: string
 }
 
+type Resultado = { adicionadas: number; incrementadas: number; processadas: number }
+
 const PLACEHOLDER = `2x Avalugg 024/086
 Charizard ex 199/165
 Pikachu VMAX 44/185`
@@ -35,11 +37,18 @@ function msgErro(status: string): string {
   return 'Não encontrada — confira o número e o set'
 }
 
+function mapErroAdd(codigo: string): string {
+  if (codigo === 'nao_autenticado') return 'Sua sessão expirou. Recarregue a página e tente de novo.'
+  if (codigo === 'payload_invalido') return 'A lista ficou inválida. Analise de novo.'
+  return 'Não foi possível adicionar agora. Tente de novo.'
+}
+
 export default function ImportarCartasModal({ userId, onClose, onAdded }: Props) {
   const [texto, setTexto] = useState('')
   const [analisando, setAnalisando] = useState(false)
   const [resultado, setResultado] = useState<Linha[] | null>(null)
   const [adicionando, setAdicionando] = useState(false)
+  const [sucesso, setSucesso] = useState<Resultado | null>(null)
   const [erroMsg, setErroMsg] = useState('')
 
   const linhasInput = texto.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -62,7 +71,8 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
       const { data, error } = await supabase.rpc('analisar_import_lote', { linhas })
       if (error) throw error
       setResultado((data || []) as Linha[])
-    } catch {
+    } catch (e) {
+      console.error('[ImportarCartas] analisar:', e)
       setErroMsg('Não foi possível analisar. Tente de novo.')
     } finally {
       setAnalisando(false)
@@ -83,13 +93,27 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
     try {
       const { data, error } = await supabase.rpc('importar_cartas_lote', { items })
       if (error) throw error
-      if (data && (data as any).erro) throw new Error((data as any).erro)
-      onAdded()
-      onClose()
-    } catch {
-      setErroMsg('Não foi possível adicionar. Tente de novo.')
+      const d = (data || {}) as any
+      if (d.erro) {
+        setErroMsg(mapErroAdd(String(d.erro)))
+        setAdicionando(false)
+        return
+      }
+      setSucesso({
+        adicionadas: Number(d.adicionadas || 0),
+        incrementadas: Number(d.incrementadas || 0),
+        processadas: Number(d.processadas || 0),
+      })
+    } catch (e: any) {
+      console.error('[ImportarCartas] adicionar:', e)
+      setErroMsg(mapErroAdd(e?.code || e?.message || ''))
       setAdicionando(false)
     }
+  }
+
+  function concluir() {
+    onAdded()
+    onClose()
   }
 
   return (
@@ -105,7 +129,7 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
         zIndex: 1200,
         padding: 16,
       }}
-      onClick={onClose}
+      onClick={sucesso ? undefined : onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -164,7 +188,44 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
 
         {/* BODY */}
         <div style={{ padding: 22, overflowY: 'auto', flex: 1 }}>
-          {!resultado ? (
+          {sucesso ? (
+            /* ---- TELA DE SUCESSO ---- */
+            <div style={{ textAlign: 'center', padding: '18px 8px 8px' }}>
+              <div
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: '50%',
+                  background: 'rgba(34,197,94,0.12)',
+                  border: '1px solid rgba(34,197,94,0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12.5l4.5 4.5L19 7.5" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <p style={{ fontSize: 18, fontWeight: 700, color: '#f0f0f0', marginBottom: 6 }}>
+                {sucesso.processadas} carta{sucesso.processadas !== 1 ? 's' : ''} na sua coleção!
+              </p>
+              <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.6 }}>
+                {sucesso.adicionadas > 0 && (
+                  <>{sucesso.adicionadas} nova{sucesso.adicionadas !== 1 ? 's' : ''}</>
+                )}
+                {sucesso.adicionadas > 0 && sucesso.incrementadas > 0 && ' · '}
+                {sucesso.incrementadas > 0 && (
+                  <>{sucesso.incrementadas} já tinha — somei a quantidade</>
+                )}
+              </p>
+              <p style={{ fontSize: 12, color: MUTED, marginTop: 12 }}>
+                A condição você ajusta depois, direto na coleção.
+              </p>
+            </div>
+          ) : !resultado ? (
+            /* ---- ENTRADA ---- */
             <>
               <textarea
                 value={texto}
@@ -172,6 +233,7 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
                 placeholder={PLACEHOLDER}
                 rows={6}
                 autoFocus
+                disabled={analisando}
                 style={{
                   width: '100%',
                   background: 'rgba(255,255,255,0.05)',
@@ -197,12 +259,11 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
               {erroMsg && <p style={{ fontSize: 13, color: '#ef4444', marginTop: 10 }}>{erroMsg}</p>}
             </>
           ) : (
+            /* ---- REVISÃO ---- */
             <>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
                 <span style={chip('#22c55e')}>{totalOk} {totalOk === 1 ? 'pronta' : 'prontas'}</span>
-                {erroItems.length > 0 && (
-                  <span style={chip('#ef4444')}>{erroItems.length} com erro</span>
-                )}
+                {erroItems.length > 0 && <span style={chip('#ef4444')}>{erroItems.length} com erro</span>}
                 {excedeu && <span style={chip('#f59e0b')}>máx {CAP} por vez</span>}
               </div>
 
@@ -297,9 +358,15 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
                 })}
               </div>
 
-              <p style={{ fontSize: 12, color: MUTED, marginTop: 10 }}>
-                Linhas com erro são ignoradas. Corrija o texto e analise de novo, se quiser.
-              </p>
+              {adicionando ? (
+                <p style={{ fontSize: 13, color: '#f59e0b', marginTop: 12, textAlign: 'center' }}>
+                  Adicionando {aAdicionar} carta{aAdicionar !== 1 ? 's' : ''} à sua coleção...
+                </p>
+              ) : (
+                <p style={{ fontSize: 12, color: MUTED, marginTop: 10 }}>
+                  Linhas com erro são ignoradas. Corrija o texto e analise de novo, se quiser.
+                </p>
+              )}
               {erroMsg && <p style={{ fontSize: 13, color: '#ef4444', marginTop: 8 }}>{erroMsg}</p>}
             </>
           )}
@@ -316,63 +383,40 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
             flexShrink: 0,
           }}
         >
-          {resultado && (
-            <button
-              onClick={() => {
-                setResultado(null)
-                setErroMsg('')
-              }}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: MUTED,
-                padding: '10px 18px',
-                borderRadius: 10,
-                fontSize: 13,
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
-            >
-              Voltar
+          {sucesso ? (
+            <button onClick={concluir} style={primaryBtn(true)}>
+              Concluir
             </button>
-          )}
-          {!resultado ? (
-            <button
-              onClick={analisar}
-              disabled={analisando || linhasInput.length === 0}
-              style={{
-                background: linhasInput.length > 0 ? BRAND : 'rgba(255,255,255,0.06)',
-                border: 'none',
-                color: linhasInput.length > 0 ? '#000' : MUTED,
-                padding: '10px 22px',
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: linhasInput.length > 0 && !analisando ? 'pointer' : 'default',
-                opacity: analisando ? 0.7 : 1,
-              }}
-            >
+          ) : !resultado ? (
+            <button onClick={analisar} disabled={analisando || linhasInput.length === 0} style={primaryBtn(linhasInput.length > 0 && !analisando)}>
               {analisando ? 'Analisando...' : 'Analisar'}
             </button>
           ) : (
-            <button
-              onClick={adicionar}
-              disabled={adicionando || aAdicionar === 0}
-              style={{
-                background: aAdicionar > 0 ? BRAND : 'rgba(255,255,255,0.06)',
-                border: 'none',
-                color: aAdicionar > 0 ? '#000' : MUTED,
-                padding: '10px 22px',
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: aAdicionar > 0 && !adicionando ? 'pointer' : 'default',
-                opacity: adicionando ? 0.7 : 1,
-                boxShadow: aAdicionar > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none',
-              }}
-            >
-              {adicionando ? 'Adicionando...' : `Adicionar ${aAdicionar} carta${aAdicionar !== 1 ? 's' : ''}`}
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setResultado(null)
+                  setErroMsg('')
+                }}
+                disabled={adicionando}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: MUTED,
+                  padding: '10px 18px',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  cursor: adicionando ? 'default' : 'pointer',
+                  fontWeight: 500,
+                  opacity: adicionando ? 0.5 : 1,
+                }}
+              >
+                Voltar
+              </button>
+              <button onClick={adicionar} disabled={adicionando || aAdicionar === 0} style={primaryBtn(aAdicionar > 0 && !adicionando)}>
+                {adicionando ? 'Adicionando...' : `Adicionar ${aAdicionar} carta${aAdicionar !== 1 ? 's' : ''}`}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -388,5 +432,19 @@ function chip(cor: string): React.CSSProperties {
     borderRadius: 8,
     background: `${cor}1a`,
     color: cor,
+  }
+}
+
+function primaryBtn(ativo: boolean): React.CSSProperties {
+  return {
+    background: ativo ? BRAND : 'rgba(255,255,255,0.06)',
+    border: 'none',
+    color: ativo ? '#000' : MUTED,
+    padding: '10px 22px',
+    borderRadius: 10,
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: ativo ? 'pointer' : 'default',
+    boxShadow: ativo ? '0 0 20px rgba(245,158,11,0.2)' : 'none',
   }
 }
