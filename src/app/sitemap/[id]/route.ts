@@ -23,6 +23,8 @@ import {
  * statement_timeout do role anon (erro 57014), zerando os sets no sitemap.
  */
 export const revalidate = 86400
+// Blocos podem gerar milhares de URLs; da folga alem do timeout padrao.
+export const maxDuration = 60
 
 export async function GET(
   _req: Request,

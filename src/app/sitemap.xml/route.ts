@@ -14,6 +14,8 @@ import {
  * contagem real de cartas elegíveis, então escala sozinho com o catálogo.
  */
 export const revalidate = 86400
+// Blocos podem gerar milhares de URLs; da folga alem do timeout padrao.
+export const maxDuration = 60
 
 export async function GET() {
   const now = new Date().toISOString()

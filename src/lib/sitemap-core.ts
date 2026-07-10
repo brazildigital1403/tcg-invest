@@ -17,10 +17,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 export const BASE = 'https://bynx.gg'
 
-// URLs de cartas por bloco. Sob o limite de 50.000 do protocolo Sitemap e
-// do max_rows do Supabase. Margem proposital pra caber estáticas+lojas+sets
-// no bloco 0 sem estourar.
-export const CARD_CHUNK = 40000
+// URLs de cartas por bloco. Reduzido de 40k -> 10k (S45): blocos grandes
+// estouravam o timeout da funcao Vercel na geracao (o bloco 0 chegava a ~42k
+// URLs), e o Google reportava "nao foi possivel buscar o sitemap". Blocos
+// menores (~7 no total) geram rapido e sao buscados sem timeout.
+export const CARD_CHUNK = 10000
 
 // ─── Rotas estáticas públicas (mesma curadoria do antigo sitemap.ts) ──────────
 export type StaticRoute = {
