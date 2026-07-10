@@ -7,6 +7,7 @@ import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import CardRequestBox from './CardRequestBox'
+import ImportarCartasModal from './ImportarCartasModal'
 import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
 
 interface Props {
@@ -82,6 +83,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [isPro, setIsPro] = useState(false)
   const [adding, setAdding] = useState(false)
   const [showLimite, setShowLimite] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -352,9 +354,15 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
               </p>
             </div>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setShowImport(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', padding: '7px 12px', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Importar lista
+          </button>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </button>
+          </div>
         </div>
 
         {/* SEARCH + FILTERS */}
@@ -825,6 +833,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         <ModalLimiteCartas
           onClose={() => setShowLimite(false)}
           onUpgrade={() => { window.location.href = '/minha-conta' }}
+        />
+      )}
+      {showImport && (
+        <ImportarCartasModal
+          userId={userId}
+          onClose={() => setShowImport(false)}
+          onAdded={onAdded}
         />
       )}
     </div>
