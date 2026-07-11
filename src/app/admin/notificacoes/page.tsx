@@ -16,7 +16,19 @@ const INPUT: React.CSSProperties = {
   fontFamily: 'inherit', outline: 'none',
 }
 
+function tabStyle(ativo: boolean): React.CSSProperties {
+  return {
+    flex: 1, padding: '10px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
+    background: ativo ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)',
+    color: ativo ? GOLD : 'rgba(255,255,255,0.6)',
+    border: `1px solid ${ativo ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`,
+  }
+}
+
 export default function AdminNotificacoesPage() {
+  const [alvo, setAlvo] = useState<'todos' | 'usuario'>('todos')
+  const [email, setEmail] = useState('')
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [link, setLink] = useState('')
@@ -24,7 +36,11 @@ export default function AdminNotificacoesPage() {
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
 
-  const podeEnviar = title.trim().length > 0 && message.trim().length > 0 && !sending
+  const podeEnviar =
+    title.trim().length > 0 &&
+    message.trim().length > 0 &&
+    !sending &&
+    (alvo === 'todos' || email.trim().length > 0)
 
   async function enviar() {
     setSending(true)
@@ -33,14 +49,19 @@ export default function AdminNotificacoesPage() {
       const r = await fetch('/api/admin/notificacoes/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), message: message.trim(), link: link.trim() }),
+        body: JSON.stringify({
+          title: title.trim(),
+          message: message.trim(),
+          link: link.trim(),
+          ...(alvo === 'usuario' ? { email: email.trim() } : {}),
+        }),
       })
       const j = await r.json()
       if (!r.ok) {
         setResult({ ok: false, text: j?.error || 'Erro ao enviar.' })
       } else {
         setResult({ ok: true, text: `Enviado para ${j.enviados} usuario(s).` })
-        setTitle(''); setMessage(''); setLink('')
+        setTitle(''); setMessage(''); setLink(''); setEmail('')
       }
     } catch {
       setResult({ ok: false, text: 'Erro de rede.' })
@@ -50,17 +71,44 @@ export default function AdminNotificacoesPage() {
     }
   }
 
+  function onClickEnviar() {
+    if (!podeEnviar) return
+    // So o broadcast pra TODOS pede confirmacao (acao ampla). Usuario unico envia direto.
+    if (alvo === 'todos') setConfirming(true)
+    else enviar()
+  }
+
   return (
     <div style={{ padding: '32px 24px', maxWidth: 760, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px', color: '#f0f0f0' }}>
         Avisos
       </h1>
       <p style={{ color: MUTED, fontSize: 13, margin: '0 0 24px' }}>
-        Envie uma novidade para <b style={{ color: '#f0f0f0' }}>todos os usuarios</b>. Aparece no sino de cada um.
+        Envie um aviso para <b style={{ color: '#f0f0f0' }}>todos os usuarios</b> ou para <b style={{ color: '#f0f0f0' }}>um usuario especifico</b>. Aparece no sino.
       </p>
 
       {/* Formulario */}
       <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 20, marginBottom: 20 }}>
+        {/* Destinatario */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={LABEL}>Destinatario</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setAlvo('todos')} style={tabStyle(alvo === 'todos')}>Todos os usuarios</button>
+            <button onClick={() => setAlvo('usuario')} style={tabStyle(alvo === 'usuario')}>Um usuario especifico</button>
+          </div>
+        </div>
+
+        {alvo === 'usuario' && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={LABEL}>E-mail do usuario</label>
+            <input value={email} onChange={e => setEmail(e.target.value)} type="email"
+              placeholder="usuario@email.com" style={INPUT} />
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+              A notificacao vai so pra esse usuario.
+            </p>
+          </div>
+        )}
+
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL}>Titulo</label>
           <input value={title} maxLength={120} onChange={e => setTitle(e.target.value)}
@@ -121,14 +169,14 @@ export default function AdminNotificacoesPage() {
 
       {/* Acao */}
       {!confirming ? (
-        <button onClick={() => podeEnviar && setConfirming(true)} disabled={!podeEnviar}
+        <button onClick={onClickEnviar} disabled={!podeEnviar}
           style={{
             background: podeEnviar ? 'linear-gradient(135deg, #f59e0b, #ef4444)' : 'rgba(255,255,255,0.06)',
             color: podeEnviar ? '#000' : 'rgba(255,255,255,0.3)',
             border: 'none', borderRadius: 10, padding: '12px 22px', fontSize: 14, fontWeight: 700,
             cursor: podeEnviar ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
           }}>
-          Enviar para todos
+          {alvo === 'todos' ? 'Enviar para todos' : 'Enviar para o usuario'}
         </button>
       ) : (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
