@@ -250,6 +250,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         .select('id, quantity, condicoes')
         .eq('user_id', authData.user.id)
         .eq('pokemon_api_id', card.id)
+        .eq('graduada', false)
         .limit(1)
         .maybeSingle()
 
@@ -301,6 +302,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             .select('id, quantity, condicoes')
             .eq('user_id', authData.user.id)
             .eq('pokemon_api_id', card.id)
+            .eq('graduada', false)
             .limit(1)
             .maybeSingle()
           if (ex2) {
