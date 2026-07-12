@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
 
     const lastSignInMap   = new Map<string, string | null>()
     const collectionMap   = new Map<string, number>()
+    const gradedMap       = new Map<string, number>()
     const anuncioMap      = new Map<string, number>()
     const ticketsTotalMap = new Map<string, number>()
     const ticketsOpenMap  = new Map<string, number>()
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest) {
       const [authRes, cardsRes, adsRes, ticketsRes, pastasRes, lojasRes, refsRes, pokedexRes] = await Promise.all([
         sb.rpc('admin_get_users_last_sign_in', { user_ids: userIds }),
         sb.from('user_cards')
-          .select('user_id, quantity')
+          .select('user_id, quantity, graduada')
           .in('user_id', userIds),
         sb.from('marketplace')
           .select('user_id')
@@ -102,9 +103,10 @@ export async function GET(req: NextRequest) {
       for (const r of (authRes.data as Array<{ id: string; last_sign_in_at: string | null }>) || []) {
         lastSignInMap.set(r.id, r.last_sign_in_at)
       }
-      for (const c of (cardsRes.data || []) as Array<{ user_id: string | null; quantity: number | null }>) {
+      for (const c of (cardsRes.data || []) as Array<{ user_id: string | null; quantity: number | null; graduada: boolean | null }>) {
         if (!c.user_id) continue
         collectionMap.set(c.user_id, (collectionMap.get(c.user_id) || 0) + (Number(c.quantity) || 0))
+        if (c.graduada) gradedMap.set(c.user_id, (gradedMap.get(c.user_id) || 0) + (Number(c.quantity) || 0))
       }
       for (const a of (adsRes.data || []) as Array<{ user_id: string | null }>) {
         if (!a.user_id) continue
@@ -146,6 +148,7 @@ export async function GET(req: NextRequest) {
         is_suspended: !!u.suspended_at,
         last_sign_in_at:  lastSignInMap.get(u.id) || null,
         collection_count: collectionMap.get(u.id) || 0,
+        graded_count:     gradedMap.get(u.id)      || 0,
         anuncios_count:   anuncioMap.get(u.id)    || 0,
         pastas_count:     pastasMap.get(u.id)      || 0,
         lojas_count:      lojasMap.get(u.id)       || 0,

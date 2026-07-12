@@ -21,6 +21,7 @@ type User = {
   last_sign_in_at: string | null
   last_seen_at: string | null
   collection_count: number
+  graded_count: number
   anuncios_count: number
   pastas_count: number
   // S40: contagem de tickets
@@ -46,12 +47,12 @@ const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string;
 }
 
 type SortKey =
-  | 'name' | 'plano' | 'collection_count' | 'pastas_count' | 'anuncios_count' | 'tickets'
+  | 'name' | 'plano' | 'collection_count' | 'graded_count' | 'pastas_count' | 'anuncios_count' | 'tickets'
   | 'lojas_count' | 'indicacoes_count' | 'pokedex_count'
   | 'scan_creditos' | 'last_sign_in_at' | 'last_seen_at' | 'created_at'
 
 const SORT_LABELS: Record<SortKey, string> = {
-  name: 'usuário', plano: 'plano', collection_count: 'cartas', pastas_count: 'pastas', anuncios_count: 'anúncios',
+  name: 'usuário', plano: 'plano', collection_count: 'cartas', graded_count: 'graduadas', pastas_count: 'pastas', anuncios_count: 'anúncios',
   tickets: 'tickets', scan_creditos: 'créditos', last_sign_in_at: 'último acesso',
   lojas_count: 'lojas', indicacoes_count: 'indicações', pokedex_count: 'pokédex',
   last_seen_at: 'última atividade', created_at: 'cadastro',
@@ -279,6 +280,7 @@ function UsersView() {
                   {thSort('Usuário', 'name', 'left')}
                   {thSort('Plano', 'plano', 'center')}
                   {thSort('Cartas', 'collection_count', 'right')}
+                  {thSort('Graduadas', 'graded_count', 'right')}
                   {thSort('Pastas', 'pastas_count', 'right')}
                   {thSort('Anúncios', 'anuncios_count', 'right')}
                   {thSort('Lojas', 'lojas_count', 'right')}
@@ -339,6 +341,9 @@ function UsersView() {
                       </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.collection_count > 0 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)' }}>
                         {u.collection_count.toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.graded_count > 0 ? '#f59e0b' : 'rgba(255,255,255,0.2)' }}>
+                        {u.graded_count.toLocaleString('pt-BR')}
                       </td>
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: u.pastas_count > 0 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)' }}>
                         {u.pastas_count.toLocaleString('pt-BR')}
