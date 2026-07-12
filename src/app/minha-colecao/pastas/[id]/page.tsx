@@ -271,7 +271,7 @@ export default function PastaDetalhe() {
 
   <div class="cards">${cells}</div>
 
-  <div class="footer">Gerado pelo Bynx · bynx.gg · ${date}</div>
+  <div class="footer">Gerado pela Bynx · bynx.gg · ${date}</div>
 
   <script>
     (function(){

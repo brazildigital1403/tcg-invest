@@ -84,7 +84,7 @@ function ProAtivadoContent() {
         }}>Bem-vindo ao Pro! 🎉</h1>
 
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: '0 0 32px' }}>
-          Sua assinatura está ativa. Você agora tem acesso completo a todos os recursos do Bynx.
+          Sua assinatura está ativa. Você agora tem acesso completo a todos os recursos da Bynx.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 36, textAlign: 'left' }}>

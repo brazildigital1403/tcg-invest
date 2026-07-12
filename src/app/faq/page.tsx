@@ -8,12 +8,12 @@ import PublicFooter from '@/components/ui/PublicFooter'
 export const metadata: Metadata = {
   title: 'Perguntas Frequentes (FAQ)',
   description:
-    'Tire suas dúvidas sobre o Bynx: como adicionar cartas, scanner por foto, marketplace, programa Indique e Ganhe, planos e mais. Respostas claras pra colecionadores brasileiros de Pokémon TCG.',
+    'Tire suas dúvidas sobre a Bynx: como adicionar cartas, scanner por foto, marketplace, programa Indique e Ganhe, planos e mais. Respostas claras pra colecionadores brasileiros de Pokémon TCG.',
   alternates: { canonical: 'https://bynx.gg/faq' },
   openGraph: {
     title: 'Perguntas Frequentes · Bynx',
     description:
-      'Tudo que você precisa saber sobre o Bynx — a plataforma brasileira de Pokémon TCG.',
+      'Tudo que você precisa saber sobre a Bynx — a plataforma brasileira de Pokémon TCG.',
     url: 'https://bynx.gg/faq',
     siteName: 'Bynx',
     locale: 'pt_BR',
@@ -25,12 +25,12 @@ export const metadata: Metadata = {
 
 const faqs: { q: string; a: string }[] = [
   {
-    q: 'O que é o Bynx?',
-    a: 'O Bynx é a plataforma brasileira para colecionadores de Pokémon TCG gerenciarem suas cartas, acompanharem o valor da coleção em tempo real e venderem ou comprarem cartas no marketplace nacional. Toda a base de preços é cotada em real (BRL) com dados reais do mercado brasileiro.',
+    q: 'O que é a Bynx?',
+    a: 'A Bynx é a plataforma brasileira para colecionadores de Pokémon TCG gerenciarem suas cartas, acompanharem o valor da coleção em tempo real e venderem ou comprarem cartas no marketplace nacional. Toda a base de preços é cotada em real (BRL) com dados reais do mercado brasileiro.',
   },
   {
     q: 'É grátis? Tem plano pago?',
-    a: 'Sim, o Bynx tem um plano gratuito que permite gerenciar até 100 cartas, com acesso a marketplace, ranking e Indique e Ganhe. Para mais cartas e features avançadas, temos os planos Plus e Pro (mensal ou anual). Todo cadastro novo ainda testa o Pro grátis por 7 dias antes de decidir.',
+    a: 'Sim, a Bynx tem um plano gratuito que permite gerenciar até 100 cartas, com acesso a marketplace, ranking e Indique e Ganhe. Para mais cartas e features avançadas, temos os planos Plus e Pro (mensal ou anual). Todo cadastro novo ainda testa o Pro grátis por 7 dias antes de decidir.',
   },
   {
     q: 'Como adiciono uma carta na minha coleção?',
@@ -128,7 +128,7 @@ export default function FAQPage() {
                 margin: '0 auto',
               }}
             >
-              Tudo o que você precisa saber sobre o Bynx. Não achou sua resposta?{' '}
+              Tudo o que você precisa saber sobre a Bynx. Não achou sua resposta?{' '}
               <a
                 href="mailto:suporte@bynx.gg"
                 style={{ color: '#f59e0b', textDecoration: 'none', fontWeight: 600 }}

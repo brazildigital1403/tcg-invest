@@ -61,25 +61,25 @@ export async function sendCardRequestResolvedEmail(args: {
     .filter(Boolean).join(' ').trim()
   const href = args.cardId ? `${APP_URL}/carta/${encodeURIComponent(args.cardId)}` : `${APP_URL}/minha-colecao`
 
-  const titulo = isErro ? 'Corrigimos a carta que você reportou' : 'A carta que você pediu já está no Bynx'
+  const titulo = isErro ? 'Corrigimos a carta que você reportou' : 'A carta que você pediu já está na Bynx'
   const intro = isErro
     ? `${escapeHtml(firstName)}, obrigado por avisar. Revisamos e corrigimos ${args.erroTipo ? `o(a) <strong style="color:#f59e0b;">${escapeHtml(args.erroTipo)}</strong> d` : ''}a carta que você apontou.`
-    : `${escapeHtml(firstName)}, boa notícia: a carta que você pediu foi catalogada e já aparece na busca do Bynx.`
+    : `${escapeHtml(firstName)}, boa notícia: a carta que você pediu foi catalogada e já aparece na busca da Bynx.`
 
   const content = `
 <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.04em;font-family:Arial,sans-serif;">${isErro ? 'Carta corrigida' : 'Carta adicionada'}</p>
 <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#f0f0f0;letter-spacing:-0.03em;line-height:1.2;font-family:Arial,sans-serif;">${titulo}</h1>
 <p style="margin:12px 0;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.7;font-family:Arial,sans-serif;">${intro}</p>
 ${cartaLabel ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:8px;"><tr><td style="padding:14px 18px;font-size:14px;color:rgba(255,255,255,0.85);font-family:Arial,sans-serif;">${escapeHtml(cartaLabel)}</td></tr></table>` : ''}
-${btn(isErro ? 'Ver a carta' : 'Ver no Bynx', href)}
+${btn(isErro ? 'Ver a carta' : 'Ver na Bynx', href)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;"><tr><td height="1" bgcolor="#1f2937" style="height:1px;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
 <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.6;font-family:Arial,sans-serif;">Obrigado por ajudar a deixar o catálogo da Bynx.gg cada vez mais completo. Dúvidas? <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
 `
   return resend.emails.send({
     from: FROM,
     to: args.to,
-    subject: isErro ? 'Corrigimos sua carta no Bynx' : 'Sua carta foi adicionada ao Bynx',
-    html: shell(content, isErro ? 'Corrigimos a carta que você reportou.' : 'A carta que você pediu já está no Bynx.'),
+    subject: isErro ? 'Corrigimos sua carta na Bynx' : 'Sua carta foi adicionada à Bynx',
+    html: shell(content, isErro ? 'Corrigimos a carta que você reportou.' : 'A carta que você pediu já está na Bynx.'),
   })
 }
 
@@ -115,11 +115,11 @@ export async function sendCardRequestBatchEmail(args: {
 
   const content = `
 <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:0.04em;font-family:Arial,sans-serif;">a pedido seu</p>
-<h1 style="margin:0 0 10px;font-size:23px;font-weight:800;color:#f0f0f0;letter-spacing:-0.02em;line-height:1.25;font-family:Arial,sans-serif;">${n} carta${plural ? 's' : ''} que você pediu ${plural ? 'já estão' : 'já está'} no Bynx</h1>
+<h1 style="margin:0 0 10px;font-size:23px;font-weight:800;color:#f0f0f0;letter-spacing:-0.02em;line-height:1.25;font-family:Arial,sans-serif;">${n} carta${plural ? 's' : ''} que você pediu ${plural ? 'já estão' : 'já está'} na Bynx</h1>
 <p style="margin:12px 0 20px;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.7;font-family:Arial,sans-serif;">Olá, ${escapeHtml(firstName)}! Boas notícias: adicionamos ao catálogo Bynx.gg ${plural ? `as ${n} cartas` : 'a carta'} que você solicitou. ${plural ? 'Já estão disponíveis' : 'Já está disponível'} para adicionar a sua coleção, com o preço em reais atualizado.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>
 ${totalRow}
-${btn('Ver minhas cartas no Bynx', `${APP_URL}/minha-colecao`)}
+${btn('Ver minhas cartas na Bynx', `${APP_URL}/minha-colecao`)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;"><tr><td height="1" bgcolor="#1f2937" style="height:1px;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
 <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.6;font-family:Arial,sans-serif;">Obrigado por nos ajudar a deixar o catálogo da Bynx.gg mais completo. Dúvidas? <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
 `
@@ -128,6 +128,6 @@ ${btn('Ver minhas cartas no Bynx', `${APP_URL}/minha-colecao`)}
     from: FROM,
     to: args.to,
     subject,
-    html: shell(content, plural ? `${n} cartas novas no catálogo, com preço em reais.` : 'Sua carta já está no Bynx, com preço em reais.'),
+    html: shell(content, plural ? `${n} cartas novas no catálogo, com preço em reais.` : 'Sua carta já está na Bynx, com preço em reais.'),
   })
 }

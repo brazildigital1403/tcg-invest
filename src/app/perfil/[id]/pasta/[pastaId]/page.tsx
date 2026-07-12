@@ -153,9 +153,9 @@ export default function PastaPublica() {
 
         {/* CTA */}
         <div style={{ textAlign: 'center', paddingTop: 40, marginTop: 32, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>Crie e organize suas próprias pastas no Bynx</p>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>Crie e organize suas próprias pastas na Bynx</p>
           <Link href="/" style={{ background: BRAND, color: '#000', padding: '13px 32px', borderRadius: 14, fontWeight: 800, fontSize: 15, textDecoration: 'none', display: 'inline-block', boxShadow: '0 0 24px rgba(245,158,11,0.25)' }}>
-            Criar conta grátis no Bynx →
+            Criar conta grátis na Bynx →
           </Link>
         </div>
 

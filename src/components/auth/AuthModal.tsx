@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Modal de autenticação global do Bynx.
+ * Modal de autenticação global da Bynx.
  *
  * Extraído do src/app/page.tsx pra funcionar SOBRE qualquer página
  * (landings, /lojas, /perfil, etc). O modal era acoplado à home e os CTAs
@@ -649,7 +649,7 @@ useEffect(() => {
                       </div>
                       {menorDe13 && (
                         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 14px' }}>
-                          <p style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}>🔒 <strong>Cadastro não permitido.</strong> O Bynx não permite cadastro de menores de 13 anos (LGPD, Art. 14).</p>
+                          <p style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}>🔒 <strong>Cadastro não permitido.</strong> A Bynx não permite cadastro de menores de 13 anos (LGPD, Art. 14).</p>
                         </div>
                       )}
                       {entre13e17 && (
@@ -791,7 +791,7 @@ useEffect(() => {
                     <input type="checkbox" checked={marketingAceito} onChange={e => setMarketingAceito(e.target.checked)}
                       style={{ marginTop: 3, accentColor: '#f59e0b', width: 15, height: 15, flexShrink: 0 }} />
                     <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>
-                      Quero receber novidades e dicas de TCG do Bynx <span style={{ color: 'rgba(255,255,255,0.25)' }}>(opcional)</span>
+                      Quero receber novidades e dicas de TCG da Bynx <span style={{ color: 'rgba(255,255,255,0.25)' }}>(opcional)</span>
                     </span>
                   </label>
                 </div>

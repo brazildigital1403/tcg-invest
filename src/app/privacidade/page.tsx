@@ -3,7 +3,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 
 export const metadata = {
   title: 'Política de Privacidade',
-  description: 'Saiba como o Bynx coleta, usa e protege seus dados pessoais conforme a LGPD.',
+  description: 'Saiba como a Bynx coleta, usa e protege seus dados pessoais conforme a LGPD.',
 }
 
 const UPDATED = '30 de abril de 2026'
@@ -116,7 +116,7 @@ export default function PrivacidadePage() {
         </Section>
 
         <Section title="4. Compartilhamento de Dados com Terceiros">
-          <P>O Bynx compartilha seus dados apenas com parceiros essenciais à operação da plataforma, todos com adequada política de privacidade:</P>
+          <P>A Bynx compartilha seus dados apenas com parceiros essenciais à operação da plataforma, todos com adequada política de privacidade:</P>
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
             <li><strong style={{ color: '#f0f0f0' }}>Supabase</strong> — banco de dados e autenticação (servidores nos EUA, com cláusulas contratuais padrão da LGPD);</li>
             <li><strong style={{ color: '#f0f0f0' }}>Stripe</strong> — processamento de pagamentos (certificado PCI-DSS Level 1);</li>
@@ -124,7 +124,7 @@ export default function PrivacidadePage() {
             <li><strong style={{ color: '#f0f0f0' }}>Anthropic (Claude)</strong> — processamento de imagens no recurso de Scan com IA. As imagens são enviadas apenas durante o escaneamento e não são armazenadas pela Anthropic para treinamento;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Vercel</strong> — infraestrutura de hospedagem;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Google (Tag Manager e Analytics 4)</strong> — métricas de uso e analytics agregados, sem identificação direta do usuário, conforme a seção 8 desta Política;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>ZenRows</strong> — coleta automatizada de preços públicos de fontes do mercado brasileiro de TCG. Não trata dados pessoais dos usuários do Bynx;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>ZenRows</strong> — coleta automatizada de preços públicos de fontes do mercado brasileiro de TCG. Não trata dados pessoais dos usuários da Bynx;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Pokémon TCG API</strong> — consulta de dados de cartas (apenas nome/código da carta, sem dados pessoais).</li>
           </ul>
           <P>Não vendemos, alugamos ou cedemos seus dados pessoais a terceiros para fins comerciais.</P>
@@ -137,7 +137,7 @@ export default function PrivacidadePage() {
             <li>Dados fiscais (CPF, histórico de pagamentos): 5 (cinco) anos, conforme obrigação legal tributária;</li>
             <li>Logs de acesso: 6 (seis) meses, conforme Marco Civil da Internet (Lei nº 12.965/2014);</li>
             <li>Imagens de escaneamento: não armazenadas — processadas em tempo real e descartadas;</li>
-            <li>Anúncios moderados (removidos pelo Bynx): mantidos como histórico interno por até 12 (doze) meses para fins de auditoria;</li>
+            <li>Anúncios moderados (removidos pela Bynx): mantidos como histórico interno por até 12 (doze) meses para fins de auditoria;</li>
             <li>Após exclusão da conta: dados são anonimizados ou excluídos em até 30 (trinta) dias, exceto onde houver obrigação legal de retenção.</li>
           </ul>
         </Section>
@@ -186,7 +186,7 @@ export default function PrivacidadePage() {
           </ul>
 
           <SubTitle>8.3 Cookies publicitários:</SubTitle>
-          <P>O Bynx <strong>não utiliza</strong> cookies publicitários nem exibe anúncios de terceiros. Nossa plataforma é livre de publicidade externa.</P>
+          <P>A Bynx <strong>não utiliza</strong> cookies publicitários nem exibe anúncios de terceiros. Nossa plataforma é livre de publicidade externa.</P>
         </Section>
 
         <Section title="9. Transferência Internacional de Dados">
@@ -194,8 +194,8 @@ export default function PrivacidadePage() {
         </Section>
 
         <Section title="10. Dados de Crianças e Adolescentes">
-          <P>O Bynx não coleta intencionalmente dados de menores de 13 (treze) anos. O cadastro é bloqueado para usuários abaixo dessa idade conforme verificação por data de nascimento no momento da inscrição.</P>
-          <P>Para usuários entre 13 e 18 anos, é necessário o consentimento dos pais ou responsáveis legais, conforme o Art. 14 da LGPD. O Bynx pode solicitar comprovação desse consentimento e suspender contas em caso de irregularidade.</P>
+          <P>A Bynx não coleta intencionalmente dados de menores de 13 (treze) anos. O cadastro é bloqueado para usuários abaixo dessa idade conforme verificação por data de nascimento no momento da inscrição.</P>
+          <P>Para usuários entre 13 e 18 anos, é necessário o consentimento dos pais ou responsáveis legais, conforme o Art. 14 da LGPD. A Bynx pode solicitar comprovação desse consentimento e suspender contas em caso de irregularidade.</P>
           <P>Caso identifiquemos o tratamento de dados de crianças sem o devido consentimento, esses dados serão imediatamente excluídos.</P>
         </Section>
 

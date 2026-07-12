@@ -36,19 +36,19 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 // pra bloquear o back-gesture do trackpad no Mac.
 
 const TESTIMONIALS = [
-  { initials: 'RC', name: 'Rafael Cavalcanti', role: 'Investidor', city: 'Vinhedo, SP', text: 'Trato minha coleção como portfólio. O Bynx me mostra ROI por carta, performance vs compra e quais variantes acompanhar. Já vendi 3 Charizards no momento certo só olhando o histórico de preço.' },
+  { initials: 'RC', name: 'Rafael Cavalcanti', role: 'Investidor', city: 'Vinhedo, SP', text: 'Trato minha coleção como portfólio. A Bynx me mostra ROI por carta, performance vs compra e quais variantes acompanhar. Já vendi 3 Charizards no momento certo só olhando o histórico de preço.' },
   { initials: 'MS', name: 'Mariana Silva', role: 'Colecionadora', city: 'Curitiba, PR', text: 'Comecei a colecionar com meu filho e a coleção cresceu sem eu perceber. Hoje sei exatamente quanto temos em casa — e cada carta tá organizada por set.' },
   { initials: 'LA', name: 'Lucas Almeida', role: 'Colecionador', city: 'Belo Horizonte, MG', text: 'Tô completando o 151 carta por carta. A barra de progresso por set é viciante. Já são 87% e não vou parar até zerar.' },
-  { initials: 'GO', name: 'Gabriel Oliveira', role: 'Competitivo', city: 'São Paulo, SP', text: 'Monto deck pra torneio e antes de comprar carta eu sempre confiro o histórico no Bynx. Já evitei comprar carta hypeada que ia desabar — e desabou na semana seguinte.' },
-  { initials: 'CO', name: 'Carlos Oliveira', role: 'Lojista', city: 'Campinas, SP', text: 'Tenho loja física há 6 anos. Uso o Bynx pra precificar carta usada que entra no balcão. Os valores médios batem com o que a galera aceita, não preciso negociar no chute.' },
-  { initials: 'CA', name: 'Camila Araújo', role: 'Colecionadora', city: 'Florianópolis, SC', text: 'Minha coleção é toda de Eeveelutions. O Bynx separa por variante (foil, reverse, alt art) e isso muda tudo — antes eu nem sabia que tinha 4 versões da mesma Sylveon.' },
-  { initials: 'MR', name: 'Marcelo Rocha', role: 'Veterano', city: 'Porto Alegre, RS', text: 'Joguei TCG na época do Charizard Base Set. Voltei adulto, comecei tudo de novo, mas agora com cabeça de coleção, não de moleque trocando carta no recreio. O Bynx é o que faltava nessa fase 2.' },
+  { initials: 'GO', name: 'Gabriel Oliveira', role: 'Competitivo', city: 'São Paulo, SP', text: 'Monto deck pra torneio e antes de comprar carta eu sempre confiro o histórico na Bynx. Já evitei comprar carta hypeada que ia desabar — e desabou na semana seguinte.' },
+  { initials: 'CO', name: 'Carlos Oliveira', role: 'Lojista', city: 'Campinas, SP', text: 'Tenho loja física há 6 anos. Uso a Bynx pra precificar carta usada que entra no balcão. Os valores médios batem com o que a galera aceita, não preciso negociar no chute.' },
+  { initials: 'CA', name: 'Camila Araújo', role: 'Colecionadora', city: 'Florianópolis, SC', text: 'Minha coleção é toda de Eeveelutions. A Bynx separa por variante (foil, reverse, alt art) e isso muda tudo — antes eu nem sabia que tinha 4 versões da mesma Sylveon.' },
+  { initials: 'MR', name: 'Marcelo Rocha', role: 'Veterano', city: 'Porto Alegre, RS', text: 'Joguei TCG na época do Charizard Base Set. Voltei adulto, comecei tudo de novo, mas agora com cabeça de coleção, não de moleque trocando carta no recreio. A Bynx é o que faltava nessa fase 2.' },
   { initials: 'BF', name: 'Bruno Ferreira', role: 'Colecionador', city: 'Brasília, DF', text: 'Já perdi carta em mudança, já saí no prejuízo em troca, sabe como é. Agora tudo registrado, com foto e valor. Se sumir alguma, eu sei na hora.' },
-  { initials: 'FB', name: 'Fernanda Borges', role: 'Lojista', city: 'Fortaleza, CE', text: 'Vendo carta pelo Instagram e o Bynx é meu termômetro de preço. Quando uma variante começa a subir, eu vejo antes — e ajusto o anúncio antes do meu concorrente.' },
-  { initials: 'LC', name: 'Larissa Costa', role: 'Colecionadora', city: 'Goiânia, GO', text: 'Voltei a colecionar depois de 15 anos. O Bynx me deu o contexto que faltava: o que é raro hoje, o que valorizou, como organizar. Virei criança de novo, só que com planilha.' },
-  { initials: 'PH', name: 'Pedro Henrique', role: 'Competitivo', city: 'Niterói, RJ', text: 'Tô economizando pro Nationals. Cada carta que entra no deck eu lanço no Bynx pra ver o custo total. Saber que o deck me custou R$ 1.840 e tá valendo R$ 2.100 é satisfação pura.' },
+  { initials: 'FB', name: 'Fernanda Borges', role: 'Lojista', city: 'Fortaleza, CE', text: 'Vendo carta pelo Instagram e a Bynx é meu termômetro de preço. Quando uma variante começa a subir, eu vejo antes — e ajusto o anúncio antes do meu concorrente.' },
+  { initials: 'LC', name: 'Larissa Costa', role: 'Colecionadora', city: 'Goiânia, GO', text: 'Voltei a colecionar depois de 15 anos. A Bynx me deu o contexto que faltava: o que é raro hoje, o que valorizou, como organizar. Virei criança de novo, só que com planilha.' },
+  { initials: 'PH', name: 'Pedro Henrique', role: 'Competitivo', city: 'Niterói, RJ', text: 'Tô economizando pro Nationals. Cada carta que entra no deck eu lanço na Bynx pra ver o custo total. Saber que o deck me custou R$ 1.840 e tá valendo R$ 2.100 é satisfação pura.' },
   { initials: 'DM', name: 'Diego Mendes', role: 'Colecionador', city: 'Recife, PE', text: '5 caixas de cartas aleatórias no armário há anos. Em 2 fins de semana escaneei tudo, organizei e descobri que tinha quase R$ 4 mil em carta lá. Sério.' },
-  { initials: 'AC', name: 'André Cardoso', role: 'Lojista', city: 'Joinville, SC', text: 'Organizo torneios locais e vendo cartas avulsas. O Bynx me dá controle de estoque + valor atualizado. Antes era planilha do Excel sofrendo, agora é só abrir o app.' },
+  { initials: 'AC', name: 'André Cardoso', role: 'Lojista', city: 'Joinville, SC', text: 'Organizo torneios locais e vendo cartas avulsas. A Bynx me dá controle de estoque + valor atualizado. Antes era planilha do Excel sofrendo, agora é só abrir o app.' },
   { initials: 'BS', name: 'Beatriz Santos', role: 'Colecionadora', city: 'Salvador, BA', text: 'O app é bonito demais. Adicionar carta é rápido, ver a coleção dá orgulho, e o dashboard de patrimônio é meu xodó. Recomendei pra todo o grupo da liga.' },
 ]
 
@@ -284,7 +284,7 @@ export default function Home() {
 
   useEffect(() => {
     // ─── Detecta sessão sem redirecionar ────────────────────────
-    // Agora que o Bynx tem várias seções (Guia de Lojas, Para Lojistas, etc),
+    // Agora que a Bynx tem várias seções (Guia de Lojas, Para Lojistas, etc),
     // a landing é navegável pra todo usuário — logado ou não. O botão
     // "Entrar" do header vira "Meu Dashboard" quando o user está logado,
     // permitindo acesso rápido sem empurrar o user pra fora da landing.
@@ -404,32 +404,32 @@ export default function Home() {
               },
               {
                 "@type": "Question",
-                name: "Como adiciono minhas cartas no Bynx?",
+                name: "Como adiciono minhas cartas na Bynx?",
                 acceptedAnswer: { "@type": "Answer", text: "Tem dois caminhos: busca pelo nome na Pokédex de 22 mil+ cartas, ou Scan com IA — aponta a câmera, a carta é reconhecida e entra na coleção." }
               },
               {
                 "@type": "Question",
-                name: "O Bynx funciona com cartas em português, inglês e japonês?",
-                acceptedAnswer: { "@type": "Answer", text: "Sim. O Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga. Os preços são exibidos em reais (R$) atualizados." }
+                name: "A Bynx funciona com cartas em português, inglês e japonês?",
+                acceptedAnswer: { "@type": "Answer", text: "Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga. Os preços são exibidos em reais (R$) atualizados." }
               },
               {
                 "@type": "Question",
-                name: "Como o Bynx sabe o preço das cartas Pokémon?",
-                acceptedAnswer: { "@type": "Answer", text: "O Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante (Normal, Holo, Reverse Holo, Foil, Promo) e exibidos como mínimo, médio e máximo." }
+                name: "Como a Bynx sabe o preço das cartas Pokémon?",
+                acceptedAnswer: { "@type": "Answer", text: "A Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante (Normal, Holo, Reverse Holo, Foil, Promo) e exibidos como mínimo, médio e máximo." }
               },
               {
                 "@type": "Question",
                 name: "Qual a diferença entre Normal, Holo, Reverse, Foil e Promo?",
-                acceptedAnswer: { "@type": "Answer", text: "Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. O Bynx separa cada variante para você ter o valor exato da carta que tem na mão." }
+                acceptedAnswer: { "@type": "Answer", text: "Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. A Bynx separa cada variante para você ter o valor exato da carta que tem na mão." }
               },
               {
                 "@type": "Question",
-                name: "O Bynx vende minhas cartas Pokémon pra mim?",
-                acceptedAnswer: { "@type": "Answer", text: "Não. O Marketplace conecta você direto com outros colecionadores via WhatsApp. Você cria o anúncio, recebe interessados, negocia e fecha. O Bynx é a vitrine; o trade é com você." }
+                name: "A Bynx vende minhas cartas Pokémon pra mim?",
+                acceptedAnswer: { "@type": "Answer", text: "Não. O Marketplace conecta você direto com outros colecionadores via WhatsApp. Você cria o anúncio, recebe interessados, negocia e fecha. A Bynx é a vitrine; o trade é com você." }
               },
               {
                 "@type": "Question",
-                name: "Tenho uma loja de TCG. Posso aparecer no Bynx?",
+                name: "Tenho uma loja de TCG. Posso aparecer na Bynx?",
                 acceptedAnswer: { "@type": "Answer", text: "Sim. O Guia de Lojas Bynx é gratuito pra cadastrar e tem opções Pro e Premium para destaque, fotos, redes sociais e analytics dos seus visitantes." }
               },
             ]
@@ -452,7 +452,7 @@ export default function Home() {
         </h1>
 
         <p style={{ fontSize: 20, color: 'rgba(255,255,255,0.55)', maxWidth: 1180, lineHeight: 1.6, marginBottom: 24 }}>
-          Você tem cartas guardadas há anos. Já trocou e ficou com a dúvida — <em style={{ color: 'rgba(255,255,255,0.75)', fontStyle: 'normal' }}>"será que vendi por menos do que valia?"</em>. O Bynx mostra o preço real em reais, atualizado, organizado, pra você decidir com base no que importa.
+          Você tem cartas guardadas há anos. Já trocou e ficou com a dúvida — <em style={{ color: 'rgba(255,255,255,0.75)', fontStyle: 'normal' }}>"será que vendi por menos do que valia?"</em>. A Bynx mostra o preço real em reais, atualizado, organizado, pra você decidir com base no que importa.
         </p>
         {/* Trial badge */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 100, padding: '8px 20px', marginBottom: 40 }}>
@@ -590,14 +590,14 @@ export default function Home() {
       </section>
 
       {/* COMO FUNCIONA */}
-      <section ref={howRef} aria-label="Como funciona o Bynx" style={{ padding: '100px 24px', maxWidth: 1100, margin: '0 auto' }}>
+      <section ref={howRef} aria-label="Como funciona a Bynx" style={{ padding: '100px 24px', maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 64 }}>
           <p style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Como funciona</p>
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-0.03em' }}>Simples como deve ser</h2>
         </div>
         <div className="lp-how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
           {[
-            { num: '01', Icon: IconCollection, title: 'Adicione suas cartas', desc: 'Busque pelo nome da carta e o Bynx encontra na nossa Pokédex de 22 mil+ cartas. Em 2 cliques tá na sua coleção.' },
+            { num: '01', Icon: IconCollection, title: 'Adicione suas cartas', desc: 'Busque pelo nome da carta e a Bynx encontra na nossa Pokédex de 22 mil+ cartas. Em 2 cliques tá na sua coleção.' },
             { num: '02', Icon: IconFire, title: 'Ou use o Scan', desc: 'Aponta a câmera, a IA reconhece a carta e adiciona automaticamente. Pra quem tem coleção grande e não quer digitar tudo.' },
             { num: '03', Icon: IconChart, title: 'Acompanhe o valor', desc: 'Preços por variante em reais (Normal, Holo, Reverse, Foil, Promo). Mínimo, médio e máximo de mercado, sempre atualizados.' },
             { num: '04', Icon: IconWallet, title: 'Decida com clareza', desc: 'Coleção valorizou ou caiu? Carta tá no preço justo? Você tem todos os números antes de fazer trade, vender ou comprar.' },
@@ -672,26 +672,26 @@ export default function Home() {
             },
             {
               q: 'Como adiciono minhas cartas?',
-              a: 'Tem dois caminhos: (1) busca pelo nome — a Pokédex do Bynx tem 22 mil+ cartas catalogadas, é só achar e adicionar; (2) Scan com IA — aponta a câmera, a carta é reconhecida e entra na sua coleção. Você escolhe o que for mais rápido pra você.'
+              a: 'Tem dois caminhos: (1) busca pelo nome — a Pokédex da Bynx tem 22 mil+ cartas catalogadas, é só achar e adicionar; (2) Scan com IA — aponta a câmera, a carta é reconhecida e entra na sua coleção. Você escolhe o que for mais rápido pra você.'
             },
             {
               q: 'Funciona com cartas em português, inglês e japonês?',
-              a: 'Sim. O Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga. Os preços são exibidos em reais (R$) atualizados.'
+              a: 'Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga. Os preços são exibidos em reais (R$) atualizados.'
             },
             {
-              q: 'Como o Bynx sabe o preço das cartas?',
-              a: 'O Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante (Normal, Holo, Reverse Holo, Foil, Promo) e exibidos como mínimo, médio e máximo — para você ter uma faixa real de mercado, não um único número.'
+              q: 'Como a Bynx sabe o preço das cartas?',
+              a: 'A Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante (Normal, Holo, Reverse Holo, Foil, Promo) e exibidos como mínimo, médio e máximo — para você ter uma faixa real de mercado, não um único número.'
             },
             {
               q: 'Qual a diferença entre Normal, Holo, Reverse, Foil e Promo?',
-              a: 'Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Promos são ainda mais específicas. O Bynx separa cada variante para você ter o valor exato da carta que tem na mão, não uma média genérica.'
+              a: 'Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Promos são ainda mais específicas. A Bynx separa cada variante para você ter o valor exato da carta que tem na mão, não uma média genérica.'
             },
             {
-              q: 'O Bynx vende minhas cartas pra mim?',
-              a: 'Não. O Marketplace do Bynx conecta você direto com outros colecionadores via WhatsApp. Você cria o anúncio, recebe interessados, negocia e fecha o trade do jeito que quiser. O Bynx é a vitrine; o trade é com você.'
+              q: 'A Bynx vende minhas cartas pra mim?',
+              a: 'Não. O Marketplace da Bynx conecta você direto com outros colecionadores via WhatsApp. Você cria o anúncio, recebe interessados, negocia e fecha o trade do jeito que quiser. A Bynx é a vitrine; o trade é com você.'
             },
             {
-              q: 'Tenho uma loja de TCG. Posso aparecer no Bynx?',
+              q: 'Tenho uma loja de TCG. Posso aparecer na Bynx?',
               a: 'Sim. O Guia de Lojas Bynx é gratuito pra cadastrar (plano Básico) e tem opções Pro e Premium para destaque, fotos, redes sociais e analytics dos seus visitantes. Acesse a área "Minha Loja" depois de criar sua conta.'
             },
           ].map((item, i) => (

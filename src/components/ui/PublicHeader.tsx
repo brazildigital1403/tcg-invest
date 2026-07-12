@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
 /**
- * Header público unificado para todas as páginas públicas do Bynx.
+ * Header público unificado para todas as páginas públicas da Bynx.
  *
  * Uso padrão (páginas como /lojas, /lojas/[slug], /para-lojistas, /termos, /privacidade):
  *   <PublicHeader />

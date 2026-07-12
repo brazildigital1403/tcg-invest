@@ -377,7 +377,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         }
 
         showAlert(
-          'Loja cadastrada! Sua loja está em análise pelo time do Bynx. Assim que aprovada, ela aparecerá no Guia de Lojas.',
+          'Loja cadastrada! Sua loja está em análise pelo time da Bynx. Assim que aprovada, ela aparecerá no Guia de Lojas.',
           'success'
         )
         if (data?.loja) onSaved?.(data.loja as LojaFormData)

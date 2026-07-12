@@ -101,7 +101,7 @@ export async function generateMetadata(
   const description =
     loja.meta_description ||
     loja.descricao ||
-    `Loja de TCG${localizacao ? ` em ${localizacao}` : ''}. Confira produtos, contato e endereço no Guia de Lojas do Bynx.`
+    `Loja de TCG${localizacao ? ` em ${localizacao}` : ''}. Confira produtos, contato e endereço no Guia de Lojas da Bynx.`
 
   return {
     title,
@@ -127,7 +127,7 @@ function formatarWhatsAppLink(num: string | null, nomeLoja: string): string | nu
   const digits = num.replace(/\D/g, '')
   if (digits.length < 10) return null
   const fullNumber = digits.startsWith('55') ? digits : `55${digits}`
-  const msg = encodeURIComponent(`Olá! Vi sua loja "${nomeLoja}" no Bynx e tenho interesse em saber mais.`)
+  const msg = encodeURIComponent(`Olá! Vi sua loja "${nomeLoja}" na Bynx e tenho interesse em saber mais.`)
   return `https://wa.me/${fullNumber}?text=${msg}`
 }
 
@@ -253,7 +253,7 @@ export default async function LojaPage(
             <div style={S.nameRow}>
               <h1 style={S.heroName}>{nome}</h1>
               {loja.verificada && (
-                <span style={S.verifiedBadge} title="Loja verificada pelo Bynx">
+                <span style={S.verifiedBadge} title="Loja verificada pela Bynx">
                   <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M4 10l4.5 4.5L16 6" stroke="#1877F2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>

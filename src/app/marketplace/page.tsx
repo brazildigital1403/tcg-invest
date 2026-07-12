@@ -132,7 +132,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
       const resp = await authFetch(`/api/marketplace/${card.id}/contato`)
       const dados = await resp.json().catch(() => ({}))
       if (resp.ok && dados.whatsapp) {
-        const msg = encodeURIComponent(`Olá! Tenho interesse na carta *${card.card_name}* anunciada no Bynx por ${fmt(card.price)}. Podemos negociar?`)
+        const msg = encodeURIComponent(`Olá! Tenho interesse na carta *${card.card_name}* anunciada na Bynx por ${fmt(card.price)}. Podemos negociar?`)
         window.open(`https://wa.me/55${dados.whatsapp}?text=${msg}`, '_blank')
         return
       }

@@ -183,44 +183,44 @@ export default async function PokedexPokemonTcgPage() {
   // FAQ — itens dinamicos (a mesma fonte alimenta o acordeao visivel e o JSON-LD)
   const faqItems = [
     {
-      q: 'O que é a Pokédex do Bynx?',
-      a: `A Pokédex do Bynx é o catálogo mais completo do Pokémon TCG em português brasileiro. São ${cartasFmt} cartas catalogadas, organizadas por set, raridade, geração e variante (Normal, Holo, Reverse, Foil, Promo). Cada carta tem preço em reais (mínimo, médio e máximo) atualizado continuamente. A busca é em português e funciona com nomes parciais — digite "char" e aparece Charizard, Charmander, Charmeleon.`,
+      q: 'O que é a Pokédex da Bynx?',
+      a: `A Pokédex da Bynx é o catálogo mais completo do Pokémon TCG em português brasileiro. São ${cartasFmt} cartas catalogadas, organizadas por set, raridade, geração e variante (Normal, Holo, Reverse, Foil, Promo). Cada carta tem preço em reais (mínimo, médio e máximo) atualizado continuamente. A busca é em português e funciona com nomes parciais — digite "char" e aparece Charizard, Charmander, Charmeleon.`,
     },
     {
       q: 'Quantas cartas Pokémon TCG existem ao todo?',
-      a: `O Pokémon TCG completou mais de 25 anos de história (lançado em 1996 no Japão, 1999 nos EUA) e tem mais de 22.000 cartas únicas oficialmente lançadas. O Bynx tem ${cartasFmt} cartas catalogadas, cobrindo da Base Set (1999) até os sets mais recentes como ${novo0?.name} (${anoDe(novo0?.rel || '')}) e ${novo1?.name}. Isso inclui sets em inglês, japonês, espanhol e francês — quando há tradução oficial.`,
+      a: `O Pokémon TCG completou mais de 25 anos de história (lançado em 1996 no Japão, 1999 nos EUA) e tem mais de 22.000 cartas únicas oficialmente lançadas. A Bynx tem ${cartasFmt} cartas catalogadas, cobrindo da Base Set (1999) até os sets mais recentes como ${novo0?.name} (${anoDe(novo0?.rel || '')}) e ${novo1?.name}. Isso inclui sets em inglês, japonês, espanhol e francês — quando há tradução oficial.`,
     },
     {
-      q: 'Como o Bynx organiza as 9 gerações de Pokémon?',
-      a: 'O Bynx cobre as 9 gerações de Pokémon (Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea) através de 17 séries de TCG: Base, Gym, Neo, E-Card, EX, Diamond & Pearl, Platinum, HeartGold & SoulSilver, Black & White, XY, Sun & Moon, Sword & Shield, Scarlet & Violet, Mega Evolution, e séries especiais como POP e Trainer Galleries. Cada série tem múltiplos sets — só Sword & Shield, por exemplo, tem 25 sets.',
+      q: 'Como a Bynx organiza as 9 gerações de Pokémon?',
+      a: 'A Bynx cobre as 9 gerações de Pokémon (Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea) através de 17 séries de TCG: Base, Gym, Neo, E-Card, EX, Diamond & Pearl, Platinum, HeartGold & SoulSilver, Black & White, XY, Sun & Moon, Sword & Shield, Scarlet & Violet, Mega Evolution, e séries especiais como POP e Trainer Galleries. Cada série tem múltiplos sets — só Sword & Shield, por exemplo, tem 25 sets.',
     },
     {
-      q: 'A Pokédex do Bynx é gratuita?',
+      q: 'A Pokédex da Bynx é gratuita?',
       a: 'Sim. A consulta à Pokédex é 100% gratuita pra qualquer pessoa, sem precisar de cadastro. Você pode buscar cartas, ver preços em reais por variante, conferir raridade e set. Adicionar à coleção e ter perfil público também são grátis. Recursos como scan com IA e exportar dados ficam no plano Pro (com 7 dias grátis pra novos usuários).',
     },
     {
-      q: 'Como a Pokédex do Bynx se compara com TCGPlayer e pokemon.com?',
-      a: `TCGPlayer tem o maior catálogo do mundo, mas é 100% em inglês, preços em dólar e foco no mercado americano. Pokemon.com é a fonte oficial mas só lista cartas (sem preços). LigaPokémon tem dados em português mas interface datada e busca limitada. O Bynx combina o melhor: catálogo completo (${cartasFmt} cartas), preços em reais por variante atualizados continuamente, busca em português, mobile-first, scan com IA e marketplace BR — tudo no mesmo lugar.`,
+      q: 'Como a Pokédex da Bynx se compara com TCGPlayer e pokemon.com?',
+      a: `TCGPlayer tem o maior catálogo do mundo, mas é 100% em inglês, preços em dólar e foco no mercado americano. Pokemon.com é a fonte oficial mas só lista cartas (sem preços). LigaPokémon tem dados em português mas interface datada e busca limitada. A Bynx combina o melhor: catálogo completo (${cartasFmt} cartas), preços em reais por variante atualizados continuamente, busca em português, mobile-first, scan com IA e marketplace BR — tudo no mesmo lugar.`,
     },
     {
       q: 'O que são as variantes de uma carta Pokémon?',
-      a: 'Cada carta Pokémon TCG pode ter várias variantes com preços muito diferentes: Normal (versão padrão), Holo (com brilho holográfico no Pokémon), Reverse Holo (brilho na borda em vez do Pokémon), Foil/Promo (versões especiais), e variantes premium como Pokeball Pattern e Master Ball Pattern. Uma Charizard Holo pode valer 5x mais que a versão Normal. O Bynx mostra preço separado pra cada variante — você sabe exatamente quanto vale a sua.',
+      a: 'Cada carta Pokémon TCG pode ter várias variantes com preços muito diferentes: Normal (versão padrão), Holo (com brilho holográfico no Pokémon), Reverse Holo (brilho na borda em vez do Pokémon), Foil/Promo (versões especiais), e variantes premium como Pokeball Pattern e Master Ball Pattern. Uma Charizard Holo pode valer 5x mais que a versão Normal. A Bynx mostra preço separado pra cada variante — você sabe exatamente quanto vale a sua.',
     },
     {
       q: 'Quais são os tipos de raridade no Pokémon TCG?',
-      a: `O Pokémon TCG tem ${fmtInt(stats.total_rarities)} tipos de raridade catalogados no Bynx. Os principais: Common (${rc('Common')} cartas), Uncommon (${rc('Uncommon')}), Rare (${rc('Rare')}), Rare Holo (${rc('Rare Holo')}), Promo (${rc('Promo')}), Rare Ultra (${rc('Rare Ultra')}), Illustration Rare (${rc('Illustration Rare')}), Special Illustration Rare (${rc('Special Illustration Rare')}), Hyper Rare (${rc('Hyper Rare')}). Raridades modernas como Special Illustration Rare e Hyper Rare são as mais buscadas — Umbreon ex Prismatic Evolutions, por exemplo, vale cerca de ${umbreon} em média no Brasil.`,
+      a: `O Pokémon TCG tem ${fmtInt(stats.total_rarities)} tipos de raridade catalogados na Bynx. Os principais: Common (${rc('Common')} cartas), Uncommon (${rc('Uncommon')}), Rare (${rc('Rare')}), Rare Holo (${rc('Rare Holo')}), Promo (${rc('Promo')}), Rare Ultra (${rc('Rare Ultra')}), Illustration Rare (${rc('Illustration Rare')}), Special Illustration Rare (${rc('Special Illustration Rare')}), Hyper Rare (${rc('Hyper Rare')}). Raridades modernas como Special Illustration Rare e Hyper Rare são as mais buscadas — Umbreon ex Prismatic Evolutions, por exemplo, vale cerca de ${umbreon} em média no Brasil.`,
     },
     {
-      q: 'Como o Bynx atualiza os preços das cartas?',
-      a: 'Os preços vêm de coleta contínua de marketplaces brasileiros do Pokémon TCG. Pra cada carta, o Bynx mostra preço mínimo, médio e máximo de mercado, separado por variante. A atualização é automatizada e diária. Diferente de sites americanos que mostram USD convertido, os preços do Bynx são em reais reais — o que você efetivamente paga no Brasil.',
+      q: 'Como a Bynx atualiza os preços das cartas?',
+      a: 'Os preços vêm de coleta contínua de marketplaces brasileiros do Pokémon TCG. Pra cada carta, a Bynx mostra preço mínimo, médio e máximo de mercado, separado por variante. A atualização é automatizada e diária. Diferente de sites americanos que mostram USD convertido, os preços da Bynx são em reais reais — o que você efetivamente paga no Brasil.',
     },
     {
       q: 'Posso buscar cartas pelo número do set?',
       a: 'Sim. A busca da Pokédex aceita busca por nome (em português ou inglês), por número da carta no set (ex: "Pikachu 25/102"), por set, por raridade, por geração e por tipo do Pokémon. Você pode filtrar por múltiplos critérios ao mesmo tempo.',
     },
     {
-      q: 'Quais são as cartas mais valiosas do Bynx hoje?',
-      a: `No mercado BR, as cartas mais valiosas catalogadas no Bynx incluem ${topValiosas.map((c) => `${c.name} ${c.desc.split(' · ')[0]} (${fmtBRL(c.preco)})`).join(', ')}. Special Illustration Rares modernas — especialmente o trio Eeveelutions de Prismatic Evolutions — dominam o topo do mercado brasileiro.`,
+      q: 'Quais são as cartas mais valiosas da Bynx hoje?',
+      a: `No mercado BR, as cartas mais valiosas catalogadas na Bynx incluem ${topValiosas.map((c) => `${c.name} ${c.desc.split(' · ')[0]} (${fmtBRL(c.preco)})`).join(', ')}. Special Illustration Rares modernas — especialmente o trio Eeveelutions de Prismatic Evolutions — dominam o topo do mercado brasileiro.`,
     },
   ]
 
@@ -539,7 +539,7 @@ export default async function PokedexPokemonTcgPage() {
             <SectionHeader
               eyebrow="Comparativo"
               title="Bynx vs o resto do mundo."
-              subtitle="Existem várias Pokédex. Nenhuma combina catálogo completo, preços em reais, busca em português e mobile-first como o Bynx."
+              subtitle="Existem várias Pokédex. Nenhuma combina catálogo completo, preços em reais, busca em português e mobile-first como a Bynx."
             />
 
             <div style={S.comparativoWrap}>
@@ -582,7 +582,7 @@ export default async function PokedexPokemonTcgPage() {
             <SectionHeader
               eyebrow="Sets recentes"
               title="Os 9 sets mais novos do TCG, todos cobertos."
-              subtitle="Quando um set sai, o Bynx tá lá. Logos oficiais, total de cartas, data de lançamento e preços por variante já no primeiro dia."
+              subtitle="Quando um set sai, a Bynx tá lá. Logos oficiais, total de cartas, data de lançamento e preços por variante já no primeiro dia."
             />
 
             <div className="pdx-sets-grid" style={S.setsGrid}>
@@ -643,7 +643,7 @@ export default async function PokedexPokemonTcgPage() {
             <SectionHeader
               eyebrow="Raridades"
               title="Da Common à Hyper Rare — todas catalogadas."
-              subtitle={`Pokémon TCG tem ${fmtInt(stats.total_rarities)} tipos de raridade. O Bynx mostra a raridade exata de cada carta, com cor diferente, ícone e exemplos visuais.`}
+              subtitle={`Pokémon TCG tem ${fmtInt(stats.total_rarities)} tipos de raridade. A Bynx mostra a raridade exata de cada carta, com cor diferente, ícone e exemplos visuais.`}
             />
 
             <div className="pdx-rarity-grid" style={S.rarityGrid}>
@@ -675,7 +675,7 @@ export default async function PokedexPokemonTcgPage() {
             <SectionHeader
               eyebrow="25+ anos de TCG"
               title="Da Base Set ao Mega Evolution."
-              subtitle="O Pokémon TCG nasceu em 1996 no Japão. O Bynx cobre 17 séries diferentes — algumas com 25+ sets cada."
+              subtitle="O Pokémon TCG nasceu em 1996 no Japão. A Bynx cobre 17 séries diferentes — algumas com 25+ sets cada."
             />
 
             <div className="pdx-series-timeline" style={S.seriesTimeline}>
@@ -847,7 +847,7 @@ export default async function PokedexPokemonTcgPage() {
                   Criar conta grátis
                 </Link>
                 <Link href="/colecionadores" style={S.ctaTertiary}>
-                  Saber mais sobre o Bynx
+                  Saber mais sobre a Bynx
                 </Link>
               </div>
             </div>

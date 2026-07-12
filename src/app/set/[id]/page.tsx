@@ -162,7 +162,7 @@ export async function generateMetadata({
   if (!set || set.cardsCount === 0) {
     return {
       title: 'Set não encontrado',
-      description: 'Este set não foi encontrado no Bynx.',
+      description: 'Este set não foi encontrado na Bynx.',
       alternates: { canonical: `https://bynx.gg/set/${id}` },
       robots: { index: false, follow: false },
     }
@@ -183,7 +183,7 @@ export async function generateMetadata({
 
   const seriesStr = set.series ? ` da série ${set.series}` : ''
 
-  const description = `${displayName}: ${set.cardsCount} cartas Pokémon TCG${seriesStr}.${valueStr} Veja todas as cartas, preços em reais por variante e adicione à sua coleção no Bynx.`
+  const description = `${displayName}: ${set.cardsCount} cartas Pokémon TCG${seriesStr}.${valueStr} Veja todas as cartas, preços em reais por variante e adicione à sua coleção na Bynx.`
 
   const ogImage = set.logoUrl || 'https://bynx.gg/og-image.jpg'
 
@@ -545,7 +545,7 @@ export default async function SetPage({
                 display: 'inline-block',
               }}
             >
-              Criar conta grátis no Bynx →
+              Criar conta grátis na Bynx →
             </Link>
           </div>
         </main>

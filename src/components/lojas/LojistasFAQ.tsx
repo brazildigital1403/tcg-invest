@@ -8,7 +8,7 @@ const FAQ_ITEMS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Vou aparecer pra colecionador da minha cidade?',
     resposta:
-      'Sim, e essa é a graça do Bynx. Quando alguém pesquisa "loja Pokémon [sua cidade]" no guia, você aparece. O filtro tá em cima de estado e cidade — ou seja, quem é da sua área te encontra primeiro. Lojas Pro aparecem acima das Básico; Premium aparece em rotação no topo.',
+      'Sim, e essa é a graça da Bynx. Quando alguém pesquisa "loja Pokémon [sua cidade]" no guia, você aparece. O filtro tá em cima de estado e cidade — ou seja, quem é da sua área te encontra primeiro. Lojas Pro aparecem acima das Básico; Premium aparece em rotação no topo.',
   },
   {
     pergunta: 'Qual a diferença entre Pro e Premium?',
@@ -53,12 +53,12 @@ const FAQ_ITEMS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Como funciona a moderação e o selo verificado?',
     resposta:
-      'Toda loja nova passa por moderação pra evitar cadastros falsos, duplicatas ou conteúdo impróprio. O selo verificado (⭐ azul) é concedido manualmente pela equipe Bynx pra lojas com CNPJ ativo, operação comprovada (site, redes sociais com seguidores, reviews no Google) e pelo menos 3 meses cadastradas no Bynx.',
+      'Toda loja nova passa por moderação pra evitar cadastros falsos, duplicatas ou conteúdo impróprio. O selo verificado (⭐ azul) é concedido manualmente pela equipe Bynx pra lojas com CNPJ ativo, operação comprovada (site, redes sociais com seguidores, reviews no Google) e pelo menos 3 meses cadastradas na Bynx.',
   },
   {
-    pergunta: 'Posso usar o Bynx pra vender cartas online pelo meu WhatsApp?',
+    pergunta: 'Posso usar a Bynx pra vender cartas online pelo meu WhatsApp?',
     resposta:
-      'Sim. Essa é justamente a proposta. O Bynx não processa vendas nem cobra comissão. Ele conecta o colecionador à sua loja, e a negociação rola do jeito que você já trabalha: WhatsApp, e-commerce próprio, presencial. Você fica com 100% do faturamento.',
+      'Sim. Essa é justamente a proposta. A Bynx não processa vendas nem cobra comissão. Ele conecta o colecionador à sua loja, e a negociação rola do jeito que você já trabalha: WhatsApp, e-commerce próprio, presencial. Você fica com 100% do faturamento.',
   },
 ]
 

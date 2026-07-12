@@ -321,7 +321,7 @@ export default function SeparadoresPokemonPage() {
               <StepCard
                 num="02"
                 title="Personalize o PDF"
-                description="O Bynx gera automaticamente um PDF com 9 separadores por página A4, com nome, número e arte oficial de cada Pokémon. Tudo pronto pra fichário 9-pocket."
+                description="A Bynx gera automaticamente um PDF com 9 separadores por página A4, com nome, número e arte oficial de cada Pokémon. Tudo pronto pra fichário 9-pocket."
               />
               <StepCard
                 num="03"

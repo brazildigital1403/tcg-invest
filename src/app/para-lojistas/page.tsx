@@ -10,7 +10,7 @@ import LojistasFAQ from '@/components/lojas/LojistasFAQ'
 export const metadata: Metadata = {
   title: 'Para Lojistas — Bynx | A plataforma 100% Pokémon TCG do Brasil',
   description:
-    'Cadastre sua loja Pokémon TCG no Bynx — onde colecionadores brasileiros encontram lojas como a sua. Grátis pra começar, 14 dias de Pro no trial. Beta fechado: 27 vagas restantes de Pro grátis por 6 meses.',
+    'Cadastre sua loja Pokémon TCG na Bynx — onde colecionadores brasileiros encontram lojas como a sua. Grátis pra começar, 14 dias de Pro no trial. Beta fechado: 27 vagas restantes de Pro grátis por 6 meses.',
   openGraph: {
     title: 'Para Lojistas — Bynx',
     description:
@@ -75,7 +75,7 @@ export default function ParaLojistasPage() {
               </h1>
 
               <p style={S.heroSubtitle}>
-                O Bynx é a única plataforma 100% focada em Pokémon TCG do Brasil. Cada visitante que entra aqui já tá decidido a comprar — só precisa achar uma loja boa.{' '}
+                A Bynx é a única plataforma 100% focada em Pokémon TCG do Brasil. Cada visitante que entra aqui já tá decidido a comprar — só precisa achar uma loja boa.{' '}
                 <strong style={{ color: '#f0f0f0' }}>Faça com que essa loja seja a sua.</strong>
               </p>
 
@@ -149,7 +149,7 @@ export default function ParaLojistasPage() {
             <div style={S.metricsGrid}>
               <div style={S.metric}>
                 <div style={S.metricValue}>22.000+</div>
-                <div style={S.metricLabel}>Cartas Pokémon catalogadas no Bynx</div>
+                <div style={S.metricLabel}>Cartas Pokémon catalogadas na Bynx</div>
               </div>
               <div style={S.metric}>
                 <div style={S.metricValue}>240+</div>
@@ -183,7 +183,7 @@ export default function ParaLojistasPage() {
                   </svg>
                 }
                 title="Loja física na sua cidade"
-                description="O cliente novo da região pesquisa 'carta Pokémon [cidade]' e cai em loja online de outro estado. Você não aparece. No Bynx, você é a primeira opção pra quem é da sua área."
+                description="O cliente novo da região pesquisa 'carta Pokémon [cidade]' e cai em loja online de outro estado. Você não aparece. Na Bynx, você é a primeira opção pra quem é da sua área."
               />
               <BenefitCard
                 icon={
@@ -193,7 +193,7 @@ export default function ParaLojistasPage() {
                   </svg>
                 }
                 title="Loja online focada em Pokémon"
-                description="Você vende pelo Instagram, WhatsApp e marketplace, mas todo mês perde clientes pra concorrente que aparece primeiro no Google. No Bynx, quem busca compra logo — sem disputa de tráfego."
+                description="Você vende pelo Instagram, WhatsApp e marketplace, mas todo mês perde clientes pra concorrente que aparece primeiro no Google. Na Bynx, quem busca compra logo — sem disputa de tráfego."
               />
               <BenefitCard
                 icon={
@@ -204,7 +204,7 @@ export default function ParaLojistasPage() {
                   </svg>
                 }
                 title="Casa de torneios e ligas"
-                description="Você organiza torneio toda semana, mas só a galera fixa vem. Quem nunca foi nem sabe que existe. Premium publica sua liga no Bynx — e quem nunca foi descobre."
+                description="Você organiza torneio toda semana, mas só a galera fixa vem. Quem nunca foi nem sabe que existe. Premium publica sua liga na Bynx — e quem nunca foi descobre."
               />
               <BenefitCard
                 icon={
@@ -215,7 +215,7 @@ export default function ParaLojistasPage() {
                   </svg>
                 }
                 title="Vendedor de single ou sealed"
-                description="Você fecha trade no zap e tem estoque que ninguém vê. No Bynx, colecionador que tá com a grana na mão atrás de uma carta específica acha você — sem precisar postar 10 vezes na comunidade."
+                description="Você fecha trade no zap e tem estoque que ninguém vê. Na Bynx, colecionador que tá com a grana na mão atrás de uma carta específica acha você — sem precisar postar 10 vezes na comunidade."
               />
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function ParaLojistasPage() {
               <StepCard
                 num="03"
                 title="Apareça pra quem compra"
-                description="Sua loja entra na busca do Bynx. Colecionadores encontram você por cidade, especialidade e tipo. Clique direto no seu WhatsApp."
+                description="Sua loja entra na busca da Bynx. Colecionadores encontram você por cidade, especialidade e tipo. Clique direto no seu WhatsApp."
               />
             </div>
           </div>
@@ -270,7 +270,7 @@ export default function ParaLojistasPage() {
               <div style={S.roiDivider} />
 
               <p style={S.roiText}>
-                Se o Bynx te trouxer <strong style={{ color: '#60a5fa' }}>1 cliente novo por trimestre</strong>, o plano já se paga.
+                Se a Bynx te trouxer <strong style={{ color: '#60a5fa' }}>1 cliente novo por trimestre</strong>, o plano já se paga.
                 A questão não é se vale — é quantos clientes novos você não está captando hoje porque não aparece na primeira busca de quem mora na sua cidade.
               </p>
             </div>

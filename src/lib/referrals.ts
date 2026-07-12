@@ -139,5 +139,5 @@ export function buildShareLink(refCode: string): string {
 
 export function buildShareMessage(refCode: string): string {
   const link = buildShareLink(refCode)
-  return `Tô usando o Bynx pra organizar minha coleção de Pokémon TCG e tá MUITO bom 🎴 Cadastra com meu link e ganha 7 dias de Pro grátis: ${link}`
+  return `Tô usando a Bynx pra organizar minha coleção de Pokémon TCG e tá MUITO bom 🎴 Cadastra com meu link e ganha 7 dias de Pro grátis: ${link}`
 }

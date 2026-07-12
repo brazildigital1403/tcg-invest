@@ -199,7 +199,7 @@ export async function generateMetadata({
   if (!card) {
     return {
       title: 'Carta não encontrada',
-      description: 'Esta carta não está cadastrada no Bynx.',
+      description: 'Esta carta não está cadastrada na Bynx.',
       alternates: { canonical: `https://bynx.gg/carta/${id}` },
       robots: { index: false, follow: false },
     }
@@ -226,8 +226,8 @@ export async function generateMetadata({
     title = `${card.name}${numStr}${setStr}`
   }
   const description = precoStr
-    ? `Quanto vale ${card.name}${numStr} de ${card.setName || 'Pokémon TCG'}? Preço médio ${precoStr}, atualizado em reais no Bynx. Veja a faixa (mín–máx), as variantes e acompanhe na sua coleção.`
-    : `Quanto vale ${card.name}${numStr}${card.setName ? ` de ${card.setName}` : ''}? Veja o preço em reais, variantes, raridade e ataques, e acompanhe na sua coleção Pokémon TCG no Bynx.`
+    ? `Quanto vale ${card.name}${numStr} de ${card.setName || 'Pokémon TCG'}? Preço médio ${precoStr}, atualizado em reais na Bynx. Veja a faixa (mín–máx), as variantes e acompanhe na sua coleção.`
+    : `Quanto vale ${card.name}${numStr}${card.setName ? ` de ${card.setName}` : ''}? Veja o preço em reais, variantes, raridade e ataques, e acompanhe na sua coleção Pokémon TCG na Bynx.`
 
   const ogImage = card.imageLarge || card.imageSmall || 'https://bynx.gg/og-image.jpg'
 

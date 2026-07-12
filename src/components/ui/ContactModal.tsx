@@ -16,11 +16,11 @@ import { useState } from 'react'
 
 const CONTACT_CATEGORIES = [
   { id: 'parceria',   icon: '🤝', label: 'Parceria',                  desc: 'Lojas, distribuidores, organizadores de torneios' },
-  { id: 'loja',       icon: '🏪', label: 'Quero minha loja no Bynx',  desc: 'Cadastre sua loja no nosso Guia de Lojas' },
+  { id: 'loja',       icon: '🏪', label: 'Quero minha loja na Bynx',  desc: 'Cadastre sua loja no nosso Guia de Lojas' },
   { id: 'imprensa',   icon: '📣', label: 'Imprensa & Mídia',          desc: 'Canais, podcasts e influencers de Pokémon TCG' },
-  { id: 'sugestao',   icon: '💡', label: 'Sugestão de funcionalidade', desc: 'Ideias para melhorar o Bynx' },
+  { id: 'sugestao',   icon: '💡', label: 'Sugestão de funcionalidade', desc: 'Ideias para melhorar a Bynx' },
   { id: 'duvida',     icon: '❓', label: 'Dúvida geral',              desc: 'Planos, pagamentos, privacidade' },
-  { id: 'investidor', icon: '💼', label: 'Investidor',                desc: 'Interesse em investir no Bynx' },
+  { id: 'investidor', icon: '💼', label: 'Investidor',                desc: 'Interesse em investir na Bynx' },
 ]
 
 interface Props {

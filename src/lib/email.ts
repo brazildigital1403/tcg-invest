@@ -202,8 +202,8 @@ export async function sendMasterSetUnlockedEmail(to: string, name: string, setNa
 export async function sendWelcomeEmail(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'Colecionador'
   const html = baseLayout(`
-    ${h1(`Bem-vindo ao Bynx, ${firstName}! 🎉`)}
-    ${p('Sua conta foi criada com sucesso. Você ganhou <strong style="color:#f59e0b;">7 dias de Pro grátis</strong> para explorar tudo que o Bynx tem a oferecer.')}
+    ${h1(`Bem-vindo à Bynx, ${firstName}! 🎉`)}
+    ${p('Sua conta foi criada com sucesso. Você ganhou <strong style="color:#f59e0b;">7 dias de Pro grátis</strong> para explorar tudo que a Bynx tem a oferecer.')}
     ${divider()}
     <table width="100%" cellpadding="0" cellspacing="0">
       ${['📚 Catalogue suas cartas — busca por nome ou número', '📷 Scan IA — adicione cartas direto pela foto', '📊 Dashboard em BRL — min, médio e máx em tempo real', '📈 Histórico de preços — veja a evolução do mercado', '🛒 Marketplace brasileiro — compre e venda com segurança', '🎁 Indique e Ganhe — recompensas mensais indicando amigos'].map(f => `
@@ -214,9 +214,9 @@ export async function sendWelcomeEmail(to: string, name: string) {
     ${btn('Acessar minha conta', addUtm(`${APP_URL}/minha-colecao`, 'welcome', 'cta-button'))}
     ${divider()}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${addUtm(`${APP_URL}/faq`, 'welcome', 'link-faq')}" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
-  `, `Bem-vindo ao Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`)
+  `, `Bem-vindo à Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`)
 
-  return resend.emails.send({ from: FROM, to, subject: `Bem-vindo ao Bynx, ${firstName}! 🎉`, html })
+  return resend.emails.send({ from: FROM, to, subject: `Bem-vindo à Bynx, ${firstName}! 🎉`, html })
 }
 
 // ── 2. Trial expirando — 5º dia ───────────────────────────────────────────────
@@ -407,7 +407,7 @@ export async function sendEmailLojaAprovada(args: {
       <div style="font-size:48px;line-height:1;">🎉</div>
     </div>
     ${h1('Sua loja foi aprovada!')}
-    ${p(`${firstName}, boa notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi aprovada pela equipe do Bynx e já está no ar no Guia de Lojas.`)}
+    ${p(`${firstName}, boa notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi aprovada pela equipe da Bynx e já está no ar no Guia de Lojas.`)}
     ${divider()}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
       <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Página pública</td></tr>
@@ -423,7 +423,7 @@ export async function sendEmailLojaAprovada(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `🎉 Sua loja foi aprovada no Bynx!`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: `🎉 Sua loja foi aprovada na Bynx!`, html })
 }
 
 // ── 10. LOJAS — loja suspensa (para o owner) ─────────────────────────────────
@@ -443,7 +443,7 @@ export async function sendEmailLojaSuspensa(args: {
     ${badge('Loja suspensa', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Sua loja foi suspensa')}
-    ${p(`${firstName}, precisamos te avisar que <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi suspensa temporariamente no Guia do Bynx.`)}
+    ${p(`${firstName}, precisamos te avisar que <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi suspensa temporariamente no Guia da Bynx.`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(239,68,68,0.3);margin-top:16px;">
       <tr><td style="padding:14px 18px 6px;font-size:11px;color:#ef4444;${FONT}text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Motivo</td></tr>
       <tr><td style="padding:0 18px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.motivo)}</td></tr>
@@ -452,9 +452,9 @@ export async function sendEmailLojaSuspensa(args: {
     ${p('Enquanto suspensa, sua loja <strong style="color:#ef4444;">não aparece</strong> no guia público. Para contestar ou pedir a reativação, é só responder este email explicando o que mudou.')}
     ${p('Nossa equipe analisa todos os pedidos e responde em até 48 horas úteis.')}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
-  `, `Sua loja ${args.nomeLoja} foi suspensa no Bynx`)
+  `, `Sua loja ${args.nomeLoja} foi suspensa na Bynx`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `Sua loja foi suspensa no Bynx`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: `Sua loja foi suspensa na Bynx`, html })
 }
 
 // ── 11. LOJAS — plano alterado (para o owner) ────────────────────────────────
@@ -587,7 +587,7 @@ export async function sendEmailLojaPlanoAlterado(args: {
     : `Plano da loja ${args.nomeLoja} foi atualizado para ${cfgNovo.label}`)
 
   const subject = isUpgrade
-    ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label} no Bynx!`
+    ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label} na Bynx!`
     : `Plano da sua loja foi atualizado para ${cfgNovo.label}`
 
   return resend.emails.send({ from: FROM, to: args.to, subject, html })
@@ -626,8 +626,8 @@ export async function sendPurchaseConfirmationEmail(
     badgeLabel = 'Pro Ativado'
     badgeColor = '#f59e0b'
     badgeBg = 'rgba(245,158,11,0.15)'
-    titulo = `Bem-vindo ao Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}! ⭐`
-    intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}</strong> foi ativada com sucesso. Obrigado por apoiar o Bynx!`
+    titulo = `Bem-vindo à Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}! ⭐`
+    intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}</strong> foi ativada com sucesso. Obrigado por apoiar a Bynx!`
     detalhes = `
       <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Cartas ilimitadas na sua coleção</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Scan de cartas com IA</p>
@@ -638,7 +638,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Acessar minha conta'
     ctaHref = `${APP_URL}/minha-colecao`
     preheader = `Sua assinatura Pro ${plano === 'anual' ? 'Anual' : 'Mensal'} foi ativada.`
-    subject = `⭐ Bem-vindo ao Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}!`
+    subject = `⭐ Bem-vindo à Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}!`
 
   } else if (tipo === 'separadores') {
     badgeLabel = 'Separadores Desbloqueados'
@@ -654,7 +654,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Acessar separadores'
     ctaHref = `${APP_URL}/separadores`
     preheader = 'Seus separadores de fichário já estão liberados.'
-    subject = '🗂️ Seus separadores foram liberados no Bynx!'
+    subject = '🗂️ Seus separadores foram liberados na Bynx!'
 
   } else if (tipo.startsWith('scan_')) {
     badgeLabel = 'Créditos Adicionados'
@@ -676,8 +676,8 @@ export async function sendPurchaseConfirmationEmail(
     badgeLabel = 'Plus Ativado'
     badgeColor = '#f59e0b'
     badgeBg = 'rgba(245,158,11,0.15)'
-    titulo = 'Bem-vindo ao Bynx Plus! ✨'
-    intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Plus</strong> foi ativada com sucesso. Obrigado por apoiar o Bynx!`
+    titulo = 'Bem-vindo à Bynx Plus! ✨'
+    intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Plus</strong> foi ativada com sucesso. Obrigado por apoiar a Bynx!`
     detalhes = `
       <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Até 500 cartas na sua coleção</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📊 Dashboard completo</p>
@@ -687,7 +687,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Acessar minha conta'
     ctaHref = `${APP_URL}/minha-colecao`
     preheader = 'Sua assinatura Plus foi ativada.'
-    subject = '✨ Bem-vindo ao Bynx Plus!'
+    subject = '✨ Bem-vindo à Bynx Plus!'
 
   } else {
     // Fallback genérico — não deveria acontecer em produção, mas é seguro
@@ -700,7 +700,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Acessar minha conta'
     ctaHref = `${APP_URL}/minha-colecao`
     preheader = 'Sua compra foi confirmada.'
-    subject = '✅ Sua compra foi confirmada no Bynx'
+    subject = '✅ Sua compra foi confirmada na Bynx'
   }
 
   const html = baseLayout(`
@@ -757,7 +757,7 @@ export async function sendReferralActivatedEmail(args: {
     ${badge('Indicação Ativada', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
     ${h1(`Você ganhou ${args.pointsAwarded} pontos! 🎉`)}
-    ${p(`${firstName}, alguém que você indicou completou o cadastro, confirmou o email e começou a usar o Bynx de verdade. Você ganhou <strong style="color:#22c55e;">+${args.pointsAwarded} pontos</strong>!`)}
+    ${p(`${firstName}, alguém que você indicou completou o cadastro, confirmou o email e começou a usar a Bynx de verdade. Você ganhou <strong style="color:#22c55e;">+${args.pointsAwarded} pontos</strong>!`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(34,197,94,0.25);margin-top:16px;">
       <tr>
@@ -785,7 +785,7 @@ export async function sendReferralActivatedEmail(args: {
   return resend.emails.send({
     from: FROM,
     to: args.to,
-    subject: `🎉 +${args.pointsAwarded} pts! Sua indicação ativou no Bynx`,
+    subject: `🎉 +${args.pointsAwarded} pts! Sua indicação ativou na Bynx`,
     html,
   })
 }
@@ -805,7 +805,7 @@ export async function sendReferralEngagedEmail(args: {
       <div style="font-size:48px;line-height:1;">🚀</div>
     </div>
     ${h1('Sua indicação virou Pro!')}
-    ${p(`${firstName}, BOA notícia em dose dupla: alguém que você indicou assinou o Bynx Pro. Você ganhou <strong style="color:#f59e0b;">+${POINTS} pontos</strong> de bônus!`)}
+    ${p(`${firstName}, BOA notícia em dose dupla: alguém que você indicou assinou a Bynx Pro. Você ganhou <strong style="color:#f59e0b;">+${POINTS} pontos</strong> de bônus!`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(245,158,11,0.3);margin-top:16px;">
       <tr>
@@ -837,7 +837,7 @@ export async function sendReferralEngagedEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
       Top 3 do mês ganham <strong style="color:#f59e0b;">prêmios físicos exclusivos</strong>. Continua na sua jornada — quem sabe esse mês não é o seu? 🏆
     </p>
-  `, `+${POINTS} pts! Sua indicação virou Pro no Bynx`)
+  `, `+${POINTS} pts! Sua indicação virou Pro na Bynx`)
 
   return resend.emails.send({
     from: FROM,
@@ -981,7 +981,7 @@ export async function sendNovaNegociacaoEmail(args: {
     ${h1('Alguém quer sua carta! 🤝')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`<b style="color:#f0f0f0;">${comprador}</b> demonstrou interesse em <b style="color:#f0f0f0;">${carta}</b>${args.price ? ` (${fmtBRLemail(args.price)})` : ''} e abriu uma negociação com você.`)}
-    ${p('Responda pelo chat do Bynx para combinar valor, condição e envio — tudo dentro da plataforma.')}
+    ${p('Responda pelo chat da Bynx para combinar valor, condição e envio — tudo dentro da plataforma.')}
     ${btn('Abrir conversa →', url)}
   `, `${args.buyerName || 'Um comprador'} quer ${args.cardName}`)
   return resend.emails.send({ from: FROM, to: args.to, subject: `🤝 Nova negociação: ${args.cardName}`, html })
@@ -1031,15 +1031,15 @@ export async function sendMensagensNaoLidasEmail(args: {
   const plural = args.qtd > 1
   const titulo = plural ? `Você tem ${args.qtd} mensagens não lidas 💬` : 'Você tem uma mensagem não lida 💬'
   const corpo = plural
-    ? `Há <b style="color:#f0f0f0;">${args.qtd} mensagens</b> te esperando no chat do marketplace do Bynx.`
-    : 'Há uma mensagem te esperando no chat do marketplace do Bynx.'
+    ? `Há <b style="color:#f0f0f0;">${args.qtd} mensagens</b> te esperando no chat do marketplace da Bynx.`
+    : 'Há uma mensagem te esperando no chat do marketplace da Bynx.'
   const html = baseLayout(`
     ${badge('Marketplace', '#f59e0b', '')}
     ${h1(titulo)}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`${corpo} Não deixe seu comprador ou vendedor no vácuo!`)}
     ${btn('Ver conversas →', url)}
-  `, plural ? `${args.qtd} mensagens não lidas no Bynx` : 'Você tem uma mensagem não lida')
-  const subject = plural ? `💬 ${args.qtd} mensagens não lidas no Bynx` : '💬 Você tem uma mensagem não lida no Bynx'
+  `, plural ? `${args.qtd} mensagens não lidas na Bynx` : 'Você tem uma mensagem não lida')
+  const subject = plural ? `💬 ${args.qtd} mensagens não lidas na Bynx` : '💬 Você tem uma mensagem não lida na Bynx'
   return resend.emails.send({ from: FROM, to: args.to, subject, html })
 }

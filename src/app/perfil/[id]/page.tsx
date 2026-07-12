@@ -578,7 +578,7 @@ export default function PerfilPage() {
         <div style={{ textAlign: 'center', paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>Organize sua coleção e negocie com segurança</p>
           <Link href="/" style={{ background: BRAND, color: '#000', padding: '13px 32px', borderRadius: 14, fontWeight: 800, fontSize: 15, textDecoration: 'none', display: 'inline-block', boxShadow: '0 0 24px rgba(245,158,11,0.25)' }}>
-            Criar conta grátis no Bynx →
+            Criar conta grátis na Bynx →
           </Link>
         </div>
 

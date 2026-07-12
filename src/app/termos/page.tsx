@@ -35,7 +35,7 @@ export default function TermosPage() {
         </Section>
 
         <Section title="2. Descrição do Serviço">
-          <P>O Bynx é uma plataforma digital voltada ao público colecionador de cartas do Pokémon TCG (Trading Card Game) no Brasil, que oferece as seguintes funcionalidades:</P>
+          <P>A Bynx é uma plataforma digital voltada ao público colecionador de cartas do Pokémon TCG (Trading Card Game) no Brasil, que oferece as seguintes funcionalidades:</P>
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
             <li>Organização e catalogação de coleções de cartas TCG;</li>
             <li>Acompanhamento de preços de referência de mercado;</li>
@@ -49,7 +49,7 @@ export default function TermosPage() {
             <li>Suporte por tickets diretamente na plataforma;</li>
             <li>Notificações in-app sobre atividades da conta.</li>
           </ul>
-          <P>O Bynx é um organizador de coleções e facilitador de contatos entre colecionadores. Não somos parte das negociações realizadas entre usuários no Marketplace, não intermediamos pagamentos entre particulares e não nos responsabilizamos por transações realizadas fora da plataforma.</P>
+          <P>A Bynx é um organizador de coleções e facilitador de contatos entre colecionadores. Não somos parte das negociações realizadas entre usuários no Marketplace, não intermediamos pagamentos entre particulares e não nos responsabilizamos por transações realizadas fora da plataforma.</P>
         </Section>
 
         <Section title="3. Cadastro e Conta de Usuário">
@@ -58,11 +58,11 @@ export default function TermosPage() {
 
           <SubTitle>3.1 Idade Mínima</SubTitle>
           <P>Em conformidade com o Art. 14 da LGPD (Lei nº 13.709/2018), o cadastro é vedado a menores de 13 (treze) anos.</P>
-          <P>Usuários entre 13 e 17 anos só podem se cadastrar com o consentimento expresso e supervisão dos pais ou responsáveis legais. O Bynx pode, a qualquer momento, solicitar comprovação desse consentimento e suspender a conta caso não seja apresentado.</P>
+          <P>Usuários entre 13 e 17 anos só podem se cadastrar com o consentimento expresso e supervisão dos pais ou responsáveis legais. A Bynx pode, a qualquer momento, solicitar comprovação desse consentimento e suspender a conta caso não seja apresentado.</P>
 
           <SubTitle>3.2 Uso da Conta</SubTitle>
           <P>É vedado criar contas falsas, utilizar dados de terceiros sem autorização ou criar múltiplas contas com o intuito de burlar limitações do plano gratuito.</P>
-          <P>O Bynx reserva-se o direito de suspender ou encerrar contas que violem estes Termos, sem prejuízo de outras medidas cabíveis.</P>
+          <P>A Bynx reserva-se o direito de suspender ou encerrar contas que violem estes Termos, sem prejuízo de outras medidas cabíveis.</P>
         </Section>
 
         <Section title="4. Planos e Pagamentos (Colecionadores)">
@@ -71,7 +71,7 @@ export default function TermosPage() {
           <P><strong style={{ color: '#f59e0b' }}>Plano Plus:</strong> R$ 14,90 (quatorze reais e noventa centavos) por mês, com renovação automática. Permite o cadastro de até 500 (quinhentas) cartas, anúncios ilimitados no Marketplace, dashboard financeiro e Pokédex completa.</P>
           <P><strong style={{ color: '#f59e0b' }}>Plano Pro Mensal:</strong> R$ 29,90 (vinte e nove reais e noventa centavos) por mês, com renovação automática. Libera funcionalidades ilimitadas, incluindo cartas e anúncios sem limite, scan com IA, histórico completo de preços e dashboard avançado.</P>
           <P><strong style={{ color: '#f59e0b' }}>Plano Pro Anual:</strong> R$ 249,00 (duzentos e quarenta e nove reais) por ano, equivalente a um desconto significativo sobre o valor mensal. Mesma cobertura do Pro Mensal.</P>
-          <P>Os valores e periodicidades podem ser alterados mediante comunicação prévia de 30 (trinta) dias. Pagamentos são processados pela plataforma <strong>Stripe</strong>. O Bynx não armazena dados de cartão de crédito.</P>
+          <P>Os valores e periodicidades podem ser alterados mediante comunicação prévia de 30 (trinta) dias. Pagamentos são processados pela plataforma <strong>Stripe</strong>. A Bynx não armazena dados de cartão de crédito.</P>
           <P>Em caso de cobrança indevida, o usuário deve contatar <strong>suporte@bynx.gg</strong> em até 7 (sete) dias da cobrança. O cancelamento da assinatura pode ser solicitado a qualquer momento, com acesso Pro mantido até o fim do período pago.</P>
         </Section>
 
@@ -88,16 +88,16 @@ export default function TermosPage() {
           <P>Um único usuário pode cadastrar e gerenciar múltiplas lojas (por exemplo, filiais ou marcas distintas), sendo cada loja faturada de forma independente. O plano contratado e o estado da assinatura são vinculados a cada loja individualmente.</P>
 
           <SubTitle>4.1.3 Aprovação Manual</SubTitle>
-          <P>Cada cadastro de loja passa por aprovação manual da equipe Bynx, com prazo de até 48 (quarenta e oito) horas úteis. O Bynx pode solicitar documentação adicional (como CNPJ, comprovante de atividade) e reserva-se o direito de recusar cadastros que não atendam aos critérios de qualidade da plataforma.</P>
+          <P>Cada cadastro de loja passa por aprovação manual da equipe Bynx, com prazo de até 48 (quarenta e oito) horas úteis. A Bynx pode solicitar documentação adicional (como CNPJ, comprovante de atividade) e reserva-se o direito de recusar cadastros que não atendam aos critérios de qualidade da plataforma.</P>
         </Section>
 
         <Section title="5. Marketplace e Negociações">
-          <P>O Marketplace do Bynx é um ambiente para que colecionadores anunciem e encontrem cartas para negociação direta. O contato entre compradores e vendedores é facilitado via WhatsApp, e cada anúncio percorre status de venda (disponível, reservado, em negociação, enviado, concluído ou cancelado) registrados na plataforma.</P>
+          <P>O Marketplace da Bynx é um ambiente para que colecionadores anunciem e encontrem cartas para negociação direta. O contato entre compradores e vendedores é facilitado via WhatsApp, e cada anúncio percorre status de venda (disponível, reservado, em negociação, enviado, concluído ou cancelado) registrados na plataforma.</P>
           <P>Após a finalização da venda, ambas as partes (comprador e vendedor) podem deixar uma avaliação pública sobre a transação, contribuindo para a reputação dos usuários na plataforma.</P>
-          <P>O Bynx não é parte das negociações, não garante a entrega de produtos, não responde por vícios ou defeitos das cartas negociadas e não intermedia pagamentos entre usuários.</P>
+          <P>A Bynx não é parte das negociações, não garante a entrega de produtos, não responde por vícios ou defeitos das cartas negociadas e não intermedia pagamentos entre usuários.</P>
 
           <SubTitle>5.1 Moderação Ativa</SubTitle>
-          <P>O Bynx exerce moderação ativa do Marketplace e pode remover anúncios que, a seu exclusivo critério, sejam considerados:</P>
+          <P>A Bynx exerce moderação ativa do Marketplace e pode remover anúncios que, a seu exclusivo critério, sejam considerados:</P>
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
             <li>Falsificados ou suspeitos de falsificação;</li>
             <li>Fora da categoria Pokémon TCG;</li>
@@ -110,13 +110,13 @@ export default function TermosPage() {
 
         <Section title="6. Preços de Referência">
           <P>Os preços exibidos na plataforma são valores de referência de mercado coletados de fontes públicas, destinados exclusivamente à organização e acompanhamento da coleção pessoal do usuário. Não constituem oferta de compra ou venda, avaliação oficial ou garantia de valor.</P>
-          <P>O Bynx não se responsabiliza por decisões financeiras tomadas com base nos preços de referência exibidos.</P>
+          <P>A Bynx não se responsabiliza por decisões financeiras tomadas com base nos preços de referência exibidos.</P>
         </Section>
 
         <Section title="7. Propriedade Intelectual">
           <P>Todo o conteúdo da plataforma Bynx — incluindo logotipo, interface, código-fonte, textos e funcionalidades — é de propriedade exclusiva da Bynx ou de seus licenciadores, sendo vedada sua reprodução, distribuição ou uso comercial sem autorização prévia por escrito.</P>
           <P>Imagens de cartas Pokémon são de propriedade da The Pokémon Company International e exibidas para fins organizacionais e de referência, conforme uso legítimo.</P>
-          <P>Ao publicar conteúdo na plataforma (anúncios, perfil público, fotos de loja), o usuário concede ao Bynx licença não exclusiva para exibição e divulgação dentro da plataforma.</P>
+          <P>Ao publicar conteúdo na plataforma (anúncios, perfil público, fotos de loja), o usuário concede à Bynx licença não exclusiva para exibição e divulgação dentro da plataforma.</P>
         </Section>
 
         <Section title="8. Conduta do Usuário">
@@ -132,12 +132,12 @@ export default function TermosPage() {
         </Section>
 
         <Section title="9. Limitação de Responsabilidade">
-          <P>Na máxima extensão permitida pela legislação brasileira, o Bynx não se responsabiliza por danos indiretos, incidentais ou consequenciais decorrentes do uso ou impossibilidade de uso da plataforma, incluindo perdas financeiras relacionadas a decisões de coleção ou negociação.</P>
+          <P>Na máxima extensão permitida pela legislação brasileira, a Bynx não se responsabiliza por danos indiretos, incidentais ou consequenciais decorrentes do uso ou impossibilidade de uso da plataforma, incluindo perdas financeiras relacionadas a decisões de coleção ou negociação.</P>
           <P>A plataforma é fornecida &quot;no estado em que se encontra&quot;, sem garantias de disponibilidade ininterrupta. Realizamos manutenções periódicas e podemos suspender o serviço por razões técnicas ou operacionais.</P>
         </Section>
 
         <Section title="10. Suspensão e Encerramento">
-          <P>O Bynx pode suspender ou encerrar a conta de usuário que viole estes Termos, mediante notificação por e-mail, exceto em casos de violação grave, onde a suspensão pode ser imediata.</P>
+          <P>A Bynx pode suspender ou encerrar a conta de usuário que viole estes Termos, mediante notificação por e-mail, exceto em casos de violação grave, onde a suspensão pode ser imediata.</P>
           <P>Ações de suspensão são executadas pela equipe Bynx através de painel administrativo interno e ficam registradas com data, motivo e responsável pela ação. O usuário suspenso recebe notificação e pode contestar a decisão via <strong>suporte@bynx.gg</strong>.</P>
           <P>O usuário pode solicitar o encerramento de sua conta e a exclusão de seus dados a qualquer momento, conforme descrito na Política de Privacidade.</P>
         </Section>

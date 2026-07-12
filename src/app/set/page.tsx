@@ -279,7 +279,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   const title = `Pokédex de Sets Pokémon TCG — ${totalSets}+ coleções catalogadas`
-  const description = `Explore todas as ${totalSets}+ coleções Pokémon TCG (sets) catalogadas no Bynx. ${formatNumber(totalCards)}+ cartas individuais, preços em reais por variante, agrupadas por série: Scarlet & Violet, Sword & Shield, Sun & Moon, XY, Black & White, Sun & Moon, Base Set e mais.`
+  const description = `Explore todas as ${totalSets}+ coleções Pokémon TCG (sets) catalogadas na Bynx. ${formatNumber(totalCards)}+ cartas individuais, preços em reais por variante, agrupadas por série: Scarlet & Violet, Sword & Shield, Sun & Moon, XY, Black & White, Sun & Moon, Base Set e mais.`
 
   return {
     title,
@@ -337,7 +337,7 @@ export default async function SetIndexPage() {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: 'Pokédex de Sets Pokémon TCG',
-    description: `${totalSets} coleções Pokémon TCG catalogadas no Bynx`,
+    description: `${totalSets} coleções Pokémon TCG catalogadas na Bynx`,
     url: 'https://bynx.gg/set',
     inLanguage: 'pt-BR',
     mainEntity: {
@@ -746,7 +746,7 @@ export default async function SetIndexPage() {
                 display: 'inline-block',
               }}
             >
-              Começar agora no Bynx →
+              Começar agora na Bynx →
             </Link>
           </div>
         </main>

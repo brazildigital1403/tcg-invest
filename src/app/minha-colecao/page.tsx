@@ -280,7 +280,7 @@ export default function MinhaColecao() {
   </tbody>
 </table>
 
-<div class="footer">Gerado pelo Bynx · bynx.gg · ${date}</div>
+<div class="footer">Gerado pela Bynx · bynx.gg · ${date}</div>
 </body>
 </html>`
 

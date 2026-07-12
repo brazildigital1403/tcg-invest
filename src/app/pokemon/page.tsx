@@ -82,7 +82,7 @@ async function fetchAllPokemon(): Promise<Dex[]> {
 export async function generateMetadata(): Promise<Metadata> {
   const title = 'Todos os Pokémon no TCG — cartas e preços dos 1025 Pokémon'
   const description =
-    'Explore todos os 1025 Pokémon no Pokémon TCG: veja todas as cartas de cada Pokémon, da Geração 1 (Kanto) à 9 (Paldea), com preços em reais e a carta mais valiosa de cada um no Bynx.'
+    'Explore todos os 1025 Pokémon no Pokémon TCG: veja todas as cartas de cada Pokémon, da Geração 1 (Kanto) à 9 (Paldea), com preços em reais e a carta mais valiosa de cada um na Bynx.'
   return {
     title,
     description,
@@ -137,7 +137,7 @@ export default async function PokemonIndexPage() {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: 'Todos os Pokémon no Pokémon TCG',
-    description: `Índice dos ${all.length} Pokémon catalogados no Bynx, com suas cartas e preços.`,
+    description: `Índice dos ${all.length} Pokémon catalogados na Bynx, com suas cartas e preços.`,
     url: 'https://bynx.gg/pokemon',
     inLanguage: 'pt-BR',
     mainEntity: {
@@ -197,7 +197,7 @@ export default async function PokemonIndexPage() {
             Todos os Pokémon no TCG
           </h1>
           <p style={{ fontSize: 15, lineHeight: 1.7, color: 'rgba(255,255,255,0.6)', maxWidth: 760, marginBottom: 6 }}>
-            O Bynx cataloga {all.length} Pokémon no Pokémon TCG, da Geração 1 (Kanto) até a 9 (Paldea). Escolha um Pokémon
+            A Bynx cataloga {all.length} Pokémon no Pokémon TCG, da Geração 1 (Kanto) até a 9 (Paldea). Escolha um Pokémon
             para ver todas as suas cartas atravessando as eras, a faixa de preço em reais e a carta mais valiosa.
           </p>
 
@@ -273,7 +273,7 @@ export default async function PokemonIndexPage() {
                 display: 'inline-block',
               }}
             >
-              Criar conta grátis no Bynx →
+              Criar conta grátis na Bynx →
             </Link>
           </div>
         </main>

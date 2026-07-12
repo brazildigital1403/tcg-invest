@@ -134,8 +134,8 @@ function NegociacaoCard({ card, role, onAction, userId }: {
       const dados = await resp.json().catch(() => ({}))
       if (resp.ok && dados.whatsapp) {
         const msg = role === 'comprador'
-          ? `Olá! Tenho interesse na carta *${card.card_name}* por ${fmt(card.price)} anunciada no Bynx.`
-          : `Olá! Você demonstrou interesse na minha carta *${card.card_name}* por ${fmt(card.price)} no Bynx.`
+          ? `Olá! Tenho interesse na carta *${card.card_name}* por ${fmt(card.price)} anunciada na Bynx.`
+          : `Olá! Você demonstrou interesse na minha carta *${card.card_name}* por ${fmt(card.price)} na Bynx.`
         window.open(`https://wa.me/55${dados.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank')
         return
       }

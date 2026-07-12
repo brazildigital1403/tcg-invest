@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 /**
- * Núcleo do sitemap do Bynx (S41).
+ * Núcleo do sitemap da Bynx (S41).
  *
  * Substitui o antigo app/sitemap.ts (arquivo único) que batia no teto de
  * 50.000 URLs do protocolo Sitemap E no max_rows do Supabase — deixando

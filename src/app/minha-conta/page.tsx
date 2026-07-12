@@ -325,7 +325,7 @@ export default function MinhaConta() {
         .from('public_users').select('id').eq('username', uSlug).neq('id', user.id).single()
       if (existing) {
         setSaving(false)
-        showAlert('Este username já está em uso. Escolha outro — cada perfil é único no Bynx!', 'error')
+        showAlert('Este username já está em uso. Escolha outro — cada perfil é único na Bynx!', 'error')
         return
       }
     }

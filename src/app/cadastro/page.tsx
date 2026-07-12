@@ -3,7 +3,7 @@ import { permanentRedirect } from 'next/navigation'
 /**
  * Rota /cadastro — redirect server-side pra modal de signup da home.
  *
- * O Bynx unificou todo o fluxo de cadastro no modal rico da landing principal
+ * A Bynx unificou todo o fluxo de cadastro no modal rico da landing principal
  * (com escolha de plano). Esta rota fica preservada (não foi deletada) pra
  * que possa ser reutilizada no futuro como destino de campanhas, fluxos
  * especiais, ou redirects de SEO/legacy URLs.

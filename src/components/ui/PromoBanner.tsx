@@ -34,7 +34,7 @@ const VARIANTS: Variant[] = [
   {
     title: 'Sua coleção vale mais do que você imagina.',
     subtitle: 'Junte-se a milhares de colecionadores no maior hub de Pokémon TCG do Brasil.',
-    cta: 'Entrar no Bynx',
+    cta: 'Entrar na Bynx',
   },
 ]
 

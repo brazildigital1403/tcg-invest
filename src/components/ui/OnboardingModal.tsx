@@ -238,7 +238,7 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
               onClick={() => { onAllDone() }}
               style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              🎉 Começar a usar o Bynx!
+              🎉 Começar a usar a Bynx!
             </button>
           ) : (
             <button

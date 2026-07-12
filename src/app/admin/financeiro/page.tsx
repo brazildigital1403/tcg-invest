@@ -237,7 +237,7 @@ export default function AdminFinanceiroPage() {
             💰 Financeiro
           </h1>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-            Controle de gastos, recebimentos e resultado do Bynx
+            Controle de gastos, recebimentos e resultado da Bynx
           </p>
         </div>
         <button onClick={abrirNovo} style={{

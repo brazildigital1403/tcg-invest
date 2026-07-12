@@ -89,7 +89,7 @@ export default function NovaLojaPage() {
           <p style={S.subtitle}>
             {temOutrasLojas
               ? 'Adicione mais uma loja ao seu portfólio no Guia de Lojistas.'
-              : 'Cadastre sua loja no Guia de Lojistas do Bynx e seja encontrado por milhares de colecionadores.'}
+              : 'Cadastre sua loja no Guia de Lojistas da Bynx e seja encontrado por milhares de colecionadores.'}
           </p>
         </header>
 

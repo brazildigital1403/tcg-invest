@@ -110,7 +110,7 @@ export function trackLojaClique(lojaId: string, tipo: string): void {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Catálogo de eventos do Bynx pro PostHog.
+ * Catálogo de eventos da Bynx pro PostHog.
  *
  * Discriminated union: TypeScript valida que `properties` bate com `name`.
  * Pra adicionar evento novo, expanda este type e use track({ name, properties }).
@@ -199,7 +199,7 @@ export type BynxEvent =
   | { name: 'checkout_abandoned'; properties: { step: string } }
 
 /**
- * Captura um evento custom do Bynx no PostHog.
+ * Captura um evento custom da Bynx no PostHog.
  *
  * Type-safe: nome + propriedades validados em tempo de compilação.
  *

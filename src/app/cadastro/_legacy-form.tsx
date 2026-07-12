@@ -148,7 +148,7 @@ export default function Cadastro() {
             <p style={{ fontSize: 28, marginBottom: 8 }}>🔒</p>
             <p style={{ fontSize: 15, fontWeight: 700, color: '#ef4444', marginBottom: 6 }}>Acesso não permitido</p>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-              O Bynx não permite cadastro de menores de 13 anos, conforme a Lei Geral de Proteção de Dados (LGPD — Art. 14). Se você tem entre 13 e 17 anos, peça a um responsável legal para criar a conta.
+              A Bynx não permite cadastro de menores de 13 anos, conforme a Lei Geral de Proteção de Dados (LGPD — Art. 14). Se você tem entre 13 e 17 anos, peça a um responsável legal para criar a conta.
             </p>
           </div>
         )}
@@ -235,7 +235,7 @@ export default function Cadastro() {
                 style={{ marginTop: 2, accentColor: '#f59e0b', width: 16, height: 16, flexShrink: 0 }}
               />
               <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
-                Quero receber novidades, dicas de TCG e ofertas do Bynx por e-mail <span style={{ color: 'rgba(255,255,255,0.3)' }}>(opcional)</span>
+                Quero receber novidades, dicas de TCG e ofertas da Bynx por e-mail <span style={{ color: 'rgba(255,255,255,0.3)' }}>(opcional)</span>
               </span>
             </label>
           </div>

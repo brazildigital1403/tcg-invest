@@ -72,8 +72,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const title = `${user.name} ${handle} — Bynx`
 
     const description = total > 0
-      ? `${firstName} tem ${total} carta${total !== 1 ? 's' : ''} Pokémon TCG organizada${total !== 1 ? 's' : ''} no Bynx. Veja a coleção completa.`
-      : `Perfil de ${user.name} no Bynx — ferramenta de organização para colecionadores de Pokémon TCG.`
+      ? `${firstName} tem ${total} carta${total !== 1 ? 's' : ''} Pokémon TCG organizada${total !== 1 ? 's' : ''} na Bynx. Veja a coleção completa.`
+      : `Perfil de ${user.name} na Bynx — ferramenta de organização para colecionadores de Pokémon TCG.`
 
     const cardImage = cards?.[0]?.card_image || null
     const ogImage = cardImage || 'https://bynx.gg/og-image.jpg'
@@ -95,7 +95,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
             url: ogImage,
             width: 400,
             height: 560,
-            alt: `Coleção de ${user.name} no Bynx`,
+            alt: `Coleção de ${user.name} na Bynx`,
           },
         ],
       },
@@ -113,7 +113,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   } catch {
     return {
       title: 'Perfil — Bynx',
-      description: 'Organize e valorize sua coleção Pokémon TCG no Bynx.',
+      description: 'Organize e valorize sua coleção Pokémon TCG na Bynx.',
     }
   }
 }

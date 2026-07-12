@@ -120,7 +120,7 @@ function textoSEO(h: Hub): string {
   p.push(abertura)
 
   const umaCarta = h.cards_count === 1
-  let cat = `No Pokémon TCG, o Bynx cataloga ${h.cards_count} cart${umaCarta ? 'a' : 'as'} do ${h.name}`
+  let cat = `No Pokémon TCG, a Bynx cataloga ${h.cards_count} cart${umaCarta ? 'a' : 'as'} do ${h.name}`
   if (h.sets_count) cat += ` distribuída${umaCarta ? '' : 's'} por ${h.sets_count} coleç${h.sets_count === 1 ? 'ão' : 'ões'}`
   if (h.first_year && h.last_year) {
     cat += h.first_year === h.last_year
@@ -158,7 +158,7 @@ export async function generateMetadata({
   if (!hub) {
     return {
       title: 'Pokémon não encontrado',
-      description: 'Este Pokémon não foi encontrado no Bynx.',
+      description: 'Este Pokémon não foi encontrado na Bynx.',
       alternates: { canonical: `https://bynx.gg/pokemon/${slug}` },
       robots: { index: false, follow: false },
     }
@@ -177,7 +177,7 @@ export async function generateMetadata({
       ? ` de ${hub.first_year} a ${hub.last_year}`
       : ''
   const description =
-    `Todas as ${hub.cards_count} cartas do ${hub.name}${dexStr} no Pokémon TCG: ${hub.sets_count} coleções${eras}.${faixa} Veja a carta mais valiosa, preços por carta e organize sua coleção no Bynx.`
+    `Todas as ${hub.cards_count} cartas do ${hub.name}${dexStr} no Pokémon TCG: ${hub.sets_count} coleções${eras}.${faixa} Veja a carta mais valiosa, preços por carta e organize sua coleção na Bynx.`
 
   const ogImage = hub.top_card_image || 'https://bynx.gg/og-image.jpg'
 
@@ -617,7 +617,7 @@ export default async function PokemonHubPage({
                 display: 'inline-block',
               }}
             >
-              Criar conta grátis no Bynx →
+              Criar conta grátis na Bynx →
             </Link>
           </div>
         </main>

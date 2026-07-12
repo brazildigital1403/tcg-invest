@@ -145,14 +145,14 @@ export default function IndiqueEGanhePage() {
   function shareTelegram() {
     if (!me?.referral_code) return
     const link = buildShareLink(me.referral_code)
-    const msg = `Tô usando o Bynx pra organizar minha coleção de Pokémon TCG 🎴`
+    const msg = `Tô usando a Bynx pra organizar minha coleção de Pokémon TCG 🎴`
     window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(msg)}`, '_blank')
   }
 
   function shareEmail() {
     if (!me?.referral_code) return
     const msg = buildShareMessage(me.referral_code)
-    const subject = 'Você vai gostar do Bynx 🎴'
+    const subject = 'Você vai gostar da Bynx 🎴'
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(msg)}`
   }
 
@@ -316,7 +316,7 @@ export default function IndiqueEGanhePage() {
                   <div style={{ ...S.howStepBadge, background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>3</div>
                   <h3 style={S.howStepTitle}>Ele vira PRO → bônus de 200 pts</h3>
                   <p style={S.howStepText}>
-                    Se ele assinar o Bynx Pro, você ganha mais +200 pts e ele entra no seu histórico de engajados.
+                    Se ele assinar a Bynx Pro, você ganha mais +200 pts e ele entra no seu histórico de engajados.
                   </p>
                 </div>
               </div>

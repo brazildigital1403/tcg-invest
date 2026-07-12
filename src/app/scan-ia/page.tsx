@@ -130,10 +130,10 @@ const faqSchema = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'Como funciona o Scan IA do Bynx?',
+      name: 'Como funciona o Scan IA da Bynx?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA do Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
+        text: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA da Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
       },
     },
     {
@@ -141,7 +141,7 @@ const faqSchema = {
       name: 'Funciona com cartas em japonês ou inglês?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. O Scan IA do Bynx é multilíngue nativo — reconhece cartas em português (PT-BR), inglês (EN) e japonês (JP). É a única solução brasileira que faz isso. Útil pra quem tem cartas internacionais, importa do Japão ou compra eventos com lotes mistos.',
+        text: 'Sim. O Scan IA da Bynx é multilíngue nativo — reconhece cartas em português (PT-BR), inglês (EN) e japonês (JP). É a única solução brasileira que faz isso. Útil pra quem tem cartas internacionais, importa do Japão ou compra eventos com lotes mistos.',
       },
     },
     {
@@ -149,7 +149,7 @@ const faqSchema = {
       name: 'Posso escanear várias cartas ao mesmo tempo?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. O scan do Bynx é multi-card — em uma única foto a IA pode identificar até 8 cartas dispostas lado a lado. É a forma mais rápida de cadastrar uma coleção inteira: organiza as cartas em grid, tira uma foto, e a IA processa todas de uma vez.',
+        text: 'Sim. O scan da Bynx é multi-card — em uma única foto a IA pode identificar até 8 cartas dispostas lado a lado. É a forma mais rápida de cadastrar uma coleção inteira: organiza as cartas em grid, tira uma foto, e a IA processa todas de uma vez.',
       },
     },
     {
@@ -181,7 +181,7 @@ const faqSchema = {
       name: 'A IA reconhece variantes (Holo, Reverse, Foil)?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'A IA identifica a carta (nome, número, set, raridade) e o Bynx mostra todas as variantes disponíveis daquela carta no banco — Normal, Holo, Reverse Holo, Foil, Promo. Você escolhe qual variante tem na sua coleção e o preço se ajusta automaticamente. Em alguns casos a IA também consegue inferir a variante pela aparência visual, mas a confirmação humana é sempre rápida.',
+        text: 'A IA identifica a carta (nome, número, set, raridade) e a Bynx mostra todas as variantes disponíveis daquela carta no banco — Normal, Holo, Reverse Holo, Foil, Promo. Você escolhe qual variante tem na sua coleção e o preço se ajusta automaticamente. Em alguns casos a IA também consegue inferir a variante pela aparência visual, mas a confirmação humana é sempre rápida.',
       },
     },
     {
@@ -197,7 +197,7 @@ const faqSchema = {
       name: 'Posso testar antes de comprar pacote?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. Quem cria conta no Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. Os scans são à parte (pré-pagos), mas o pacote Básico de R$ 5,90 (5 scans) é uma forma barata de testar a tecnologia antes de investir num pacote maior.',
+        text: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. Os scans são à parte (pré-pagos), mas o pacote Básico de R$ 5,90 (5 scans) é uma forma barata de testar a tecnologia antes de investir num pacote maior.',
       },
     },
     {
@@ -205,7 +205,7 @@ const faqSchema = {
       name: 'Como o preço em reais é calculado?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Após a IA identificar a carta, o Bynx busca os preços em marketplaces brasileiros e exibe mínimo, médio e máximo por variante (Normal, Holo, Reverse, Foil, Promo). É a média real do mercado BR — nada de dólar convertido na correria. Você vê quanto sua carta vale hoje, em reais, sem precisar fazer conta.',
+        text: 'Após a IA identificar a carta, a Bynx busca os preços em marketplaces brasileiros e exibe mínimo, médio e máximo por variante (Normal, Holo, Reverse, Foil, Promo). É a média real do mercado BR — nada de dólar convertido na correria. Você vê quanto sua carta vale hoje, em reais, sem precisar fazer conta.',
       },
     },
   ],
@@ -1444,16 +1444,16 @@ export default function ScanIaLanding() {
           <div style={S.faqWrap}>
             {[
               {
-                q: 'Como funciona o Scan IA do Bynx?',
-                a: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA do Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
+                q: 'Como funciona o Scan IA da Bynx?',
+                a: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA da Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
               },
               {
                 q: 'Funciona com cartas em japonês ou inglês?',
-                a: 'Sim. O Scan IA do Bynx é multilíngue nativo — reconhece cartas em português (PT-BR), inglês (EN) e japonês (JP). É a única solução brasileira que faz isso. Útil pra quem tem cartas internacionais, importa do Japão ou compra eventos com lotes mistos.',
+                a: 'Sim. O Scan IA da Bynx é multilíngue nativo — reconhece cartas em português (PT-BR), inglês (EN) e japonês (JP). É a única solução brasileira que faz isso. Útil pra quem tem cartas internacionais, importa do Japão ou compra eventos com lotes mistos.',
               },
               {
                 q: 'Posso escanear várias cartas ao mesmo tempo?',
-                a: 'Sim. O scan do Bynx é multi-card — em uma única foto a IA pode identificar até 8 cartas dispostas lado a lado. É a forma mais rápida de cadastrar uma coleção inteira: organiza as cartas em grid, tira uma foto, e a IA processa todas de uma vez.',
+                a: 'Sim. O scan da Bynx é multi-card — em uma única foto a IA pode identificar até 8 cartas dispostas lado a lado. É a forma mais rápida de cadastrar uma coleção inteira: organiza as cartas em grid, tira uma foto, e a IA processa todas de uma vez.',
               },
               {
                 q: 'Qual o tempo médio de reconhecimento?',
@@ -1469,7 +1469,7 @@ export default function ScanIaLanding() {
               },
               {
                 q: 'A IA reconhece variantes (Holo, Reverse, Foil)?',
-                a: 'A IA identifica a carta (nome, número, set, raridade) e o Bynx mostra todas as variantes disponíveis daquela carta no banco — Normal, Holo, Reverse Holo, Foil, Promo. Você escolhe qual variante tem na sua coleção e o preço se ajusta automaticamente. Em alguns casos a IA também consegue inferir a variante pela aparência visual, mas a confirmação humana é sempre rápida.',
+                a: 'A IA identifica a carta (nome, número, set, raridade) e a Bynx mostra todas as variantes disponíveis daquela carta no banco — Normal, Holo, Reverse Holo, Foil, Promo. Você escolhe qual variante tem na sua coleção e o preço se ajusta automaticamente. Em alguns casos a IA também consegue inferir a variante pela aparência visual, mas a confirmação humana é sempre rápida.',
               },
               {
                 q: 'Funciona offline?',
@@ -1477,11 +1477,11 @@ export default function ScanIaLanding() {
               },
               {
                 q: 'Posso testar antes de comprar pacote?',
-                a: 'Sim. Quem cria conta no Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. Os scans são à parte (pré-pagos), mas o pacote Básico de R$ 5,90 (5 scans) é uma forma barata de testar a tecnologia antes de investir num pacote maior.',
+                a: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. Os scans são à parte (pré-pagos), mas o pacote Básico de R$ 5,90 (5 scans) é uma forma barata de testar a tecnologia antes de investir num pacote maior.',
               },
               {
                 q: 'Como o preço em reais é calculado?',
-                a: 'Após a IA identificar a carta, o Bynx busca os preços em marketplaces brasileiros e exibe mínimo, médio e máximo por variante (Normal, Holo, Reverse, Foil, Promo). É a média real do mercado BR — nada de dólar convertido na correria. Você vê quanto sua carta vale hoje, em reais, sem precisar fazer conta.',
+                a: 'Após a IA identificar a carta, a Bynx busca os preços em marketplaces brasileiros e exibe mínimo, médio e máximo por variante (Normal, Holo, Reverse, Foil, Promo). É a média real do mercado BR — nada de dólar convertido na correria. Você vê quanto sua carta vale hoje, em reais, sem precisar fazer conta.',
               },
             ].map((item, idx) => (
               <details key={idx} name="scan-faq" style={S.faqItem}>

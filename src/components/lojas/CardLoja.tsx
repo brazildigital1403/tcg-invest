@@ -67,7 +67,7 @@ export default function CardLoja({ loja }: { loja: LojaCard }) {
           <div style={S.nameRow}>
             <h3 style={S.name}>{nome}</h3>
             {loja.verificada && (
-              <span style={S.verifiedBadge} title="Loja verificada pelo Bynx">
+              <span style={S.verifiedBadge} title="Loja verificada pela Bynx">
                 {/* SVG inline (independe de Icons.tsx) */}
                 <svg width="10" height="10" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                   <path d="M4 10l4.5 4.5L16 6" stroke="#1877F2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>

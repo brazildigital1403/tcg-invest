@@ -317,7 +317,7 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
                       href="/"
                       style={{ color: '#f59e0b', textDecoration: 'none' }}
                     >
-                      Entre no Bynx
+                      Entre na Bynx
                     </Link>{' '}
                     e adicione essa carta na sua coleção pra acompanhar a evolução
                     do preço.
@@ -469,7 +469,7 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
               display: 'inline-block',
             }}
           >
-            Criar conta grátis no Bynx →
+            Criar conta grátis na Bynx →
           </Link>
         </div>
       </main>

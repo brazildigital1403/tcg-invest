@@ -135,7 +135,7 @@ const faqSchema = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'O Bynx é grátis?',
+      name: 'A Bynx é grátis?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Sim, o plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
@@ -146,15 +146,15 @@ const faqSchema = {
       name: 'Funciona com cartas em português, inglês e japonês?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. O Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras. Os preços são exibidos em reais (R$) atualizados.',
+        text: 'Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras. Os preços são exibidos em reais (R$) atualizados.',
       },
     },
     {
       '@type': 'Question',
-      name: 'Como o Bynx separa as variantes (Normal, Holo, Reverse, Foil, Promo)?',
+      name: 'Como a Bynx separa as variantes (Normal, Holo, Reverse, Foil, Promo)?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Cada variante tem preço próprio no Bynx. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Quando você adiciona a carta, escolhe qual variante tem na mão e o valor exibido reflete exatamente isso.',
+        text: 'Cada variante tem preço próprio na Bynx. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Quando você adiciona a carta, escolhe qual variante tem na mão e o valor exibido reflete exatamente isso.',
       },
     },
     {
@@ -175,18 +175,18 @@ const faqSchema = {
     },
     {
       '@type': 'Question',
-      name: 'Como o Bynx sabe o preço das cartas em reais?',
+      name: 'Como a Bynx sabe o preço das cartas em reais?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'O Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores vêm em reais, organizados por variante, e mostrados como mínimo, médio e máximo — pra você ter uma faixa real de mercado, não um único número que pode estar fora da realidade.',
+        text: 'A Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores vêm em reais, organizados por variante, e mostrados como mínimo, médio e máximo — pra você ter uma faixa real de mercado, não um único número que pode estar fora da realidade.',
       },
     },
     {
       '@type': 'Question',
-      name: 'Posso vender cartas pelo Bynx?',
+      name: 'Posso vender cartas pela Bynx?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim, no Marketplace do Bynx. Você cria o anúncio, colecionadores interessados entram em contato direto via WhatsApp e vocês fecham o trade do jeito que quiserem. O Bynx é a vitrine; a negociação é entre você e o comprador.',
+        text: 'Sim, no Marketplace da Bynx. Você cria o anúncio, colecionadores interessados entram em contato direto via WhatsApp e vocês fecham o trade do jeito que quiserem. A Bynx é a vitrine; a negociação é entre você e o comprador.',
       },
     },
   ],
@@ -296,7 +296,7 @@ export default async function ColecionadoresPage() {
               </h1>
 
               <p style={S.heroSubtitle}>
-                O Bynx é onde colecionadores brasileiros catalogam, valoram e compartilham suas cartas Pokémon TCG.{' '}
+                A Bynx é onde colecionadores brasileiros catalogam, valoram e compartilham suas cartas Pokémon TCG.{' '}
                 <strong style={{ color: '#f0f0f0' }}>{cartasFmt} cartas</strong>,{' '}
                 <strong style={{ color: '#f0f0f0' }}>1.025 Pokémons</strong>, preços em reais por variante. Sem caça-níquel, sem pop-up, sem inglês embolado.
               </p>
@@ -401,7 +401,7 @@ export default async function ColecionadoresPage() {
             <SectionHeader
               eyebrow="Pra quem é"
               title="Você é desse tipo de colecionador?"
-              subtitle="Não importa o estilo. Se cartas Pokémon te dão alegria, o Bynx te entende."
+              subtitle="Não importa o estilo. Se cartas Pokémon te dão alegria, a Bynx te entende."
             />
 
             <div className="col-personas-grid" style={S.personasGrid}>
@@ -433,7 +433,7 @@ export default async function ColecionadoresPage() {
             <SectionHeader
               eyebrow="Ferramentas"
               title="Tudo que falta na planilha do Excel."
-              subtitle="O Bynx foi feito por colecionador, pra colecionador. Cada feature resolve uma dor real."
+              subtitle="A Bynx foi feito por colecionador, pra colecionador. Cada feature resolve uma dor real."
             />
 
             <div className="col-tools-grid" style={S.toolsGrid}>
@@ -564,15 +564,15 @@ export default async function ColecionadoresPage() {
             <div style={S.faqList}>
               {[
                 {
-                  q: 'O Bynx é grátis?',
+                  q: 'A Bynx é grátis?',
                   a: 'Sim. O plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
                 },
                 {
                   q: 'Funciona com cartas em português, inglês e japonês?',
-                  a: 'Sim. O Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga Pokémon. Os preços são exibidos em reais (R$) atualizados.',
+                  a: 'Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga Pokémon. Os preços são exibidos em reais (R$) atualizados.',
                 },
                 {
-                  q: 'Como o Bynx separa as variantes (Normal, Holo, Reverse, Foil, Promo)?',
+                  q: 'Como a Bynx separa as variantes (Normal, Holo, Reverse, Foil, Promo)?',
                   a: 'Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Quando você adiciona a carta, escolhe a variante que tem na mão e o valor exibido reflete exatamente isso.',
                 },
                 {
@@ -584,12 +584,12 @@ export default async function ColecionadoresPage() {
                   a: 'Funciona. Aponta a câmera do celular pra carta e a IA reconhece automaticamente — nome, set, número e raridade. É o jeito mais rápido pra colecionador com muita carta. Disponível no plano Pro com créditos mensais.',
                 },
                 {
-                  q: 'Como o Bynx sabe o preço das cartas em reais?',
-                  a: 'O Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante e mostrados como mínimo, médio e máximo — pra você ter uma faixa real de mercado, não um número único que pode estar fora da realidade.',
+                  q: 'Como a Bynx sabe o preço das cartas em reais?',
+                  a: 'A Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante e mostrados como mínimo, médio e máximo — pra você ter uma faixa real de mercado, não um número único que pode estar fora da realidade.',
                 },
                 {
-                  q: 'Posso vender cartas pelo Bynx?',
-                  a: 'Sim, no Marketplace. Você cria o anúncio e colecionadores interessados entram em contato direto via WhatsApp. Vocês fecham o trade do jeito que quiserem. O Bynx é a vitrine; a negociação é entre você e o comprador.',
+                  q: 'Posso vender cartas pela Bynx?',
+                  a: 'Sim, no Marketplace. Você cria o anúncio e colecionadores interessados entram em contato direto via WhatsApp. Vocês fecham o trade do jeito que quiserem. A Bynx é a vitrine; a negociação é entre você e o comprador.',
                 },
               ].map((item, i) => (
                 <details key={i} name="bynx-col-faq" style={S.faqItem}>

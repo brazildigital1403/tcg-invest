@@ -460,7 +460,7 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
         {msgs.length === 0 && (
           <div style={{ margin: 'auto', textAlign: 'center', maxWidth: 260, color: 'rgba(255,255,255,0.4)' }}>
             <p style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>Comece a conversa</p>
-            <p style={{ fontSize: 12.5, lineHeight: 1.5 }}>Combine valor, condição e envio direto por aqui — sem sair do Bynx.</p>
+            <p style={{ fontSize: 12.5, lineHeight: 1.5 }}>Combine valor, condição e envio direto por aqui — sem sair da Bynx.</p>
           </div>
         )}
         {msgs.map((m, i) => {
