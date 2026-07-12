@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
+import MinhasLojasBox from '@/components/perfil/MinhasLojasBox'
 import { setLabel } from '@/lib/setLabel'
 
 const fmt = (v: number) =>
@@ -460,6 +461,9 @@ export default function PerfilPage() {
             </div>
           </div>
         )}
+        {/* ── MINHAS LOJAS ── */}
+        {user?.id && <MinhasLojasBox ownerUserId={user.id} isOwner={isOwnerPreview} />}
+
         {/* ── PROGRESSO POR COLEÇÃO ── */}
         {setProgress.length > 0 && (
           <div style={{ marginBottom: 32 }}>
