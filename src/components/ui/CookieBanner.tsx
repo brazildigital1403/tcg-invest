@@ -70,7 +70,7 @@ export default function CookieBanner() {
           <div style={S.textBox}>
             <p style={S.title}>Cookies e privacidade</p>
             <p style={S.text}>
-              A Bynx usa cookies essenciais pro site funcionar e cookies analíticos (Google Analytics 4) pra entender como você usa a plataforma.{' '}
+              A Bynx usa cookies para o site funcionar e para melhorar sua experiência.{' '}
               <Link href="/privacidade" style={S.link}>
                 Saiba mais
               </Link>
