@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title:
     'Scan IA Pokémon TCG — Bynx | Aponte a câmera e identifique cartas em segundos',
   description:
-    'A primeira IA brasileira que reconhece sua coleção Pokémon TCG em segundos. Aponta a câmera, identifica até 8 cartas de uma vez, e adiciona à coleção com preço em reais atualizado. Funciona com cartas em português, inglês e japonês. Powered by Claude Opus 4.5 — modelo de visão mais avançado do mercado.',
+    'A primeira IA brasileira que reconhece sua coleção Pokémon TCG em segundos. Aponta a câmera, identifica até 8 cartas de uma vez, e adiciona à coleção com preço em reais atualizado. Funciona com cartas em português, inglês e japonês. Powered by IA de ponta — modelo de visão mais avançado do mercado.',
   keywords: [
     'scanner carta pokemon', 'identificar carta pokemon', 'app scan pokemon',
     'leitor de cartas pokemon', 'ia reconhecer carta pokemon', 'scan pokemon tcg brasil',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Scan IA Pokémon TCG — Bynx | Reconhece sua coleção em segundos',
     description:
-      'Aponte a câmera. A IA identifica até 8 cartas Pokémon TCG por foto, em PT, EN ou JP, e adiciona à sua coleção com preço em reais. Powered by Claude Opus 4.5.',
+      'Aponte a câmera. A IA identifica até 8 cartas Pokémon TCG por foto, em PT, EN ou JP, e adiciona à sua coleção com preço em reais. Powered by IA de ponta.',
     url: 'https://bynx.gg/scan-ia',
     siteName: 'Bynx',
     locale: 'pt_BR',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Scan IA Pokémon TCG — Bynx | Aponte e a IA identifica',
     description:
-      'IA brasileira reconhece até 8 cartas Pokémon TCG por foto, em PT, EN ou JP, com preço em R$. Powered by Claude Opus 4.5.',
+      'IA brasileira reconhece até 8 cartas Pokémon TCG por foto, em PT, EN ou JP, com preço em R$. Powered by IA de ponta.',
     images: ['https://bynx.gg/og-image.jpg'],
   },
   alternates: {
@@ -119,7 +119,7 @@ const softwareSchema = {
     'Suporte a português, inglês, japonês',
     'Cross-reference com banco de 22.861 cartas',
     'Preço em reais atualizado',
-    'Powered by Claude Opus 4.5',
+    'Powered by IA de ponta',
     'Mobile-first',
   ],
 }
@@ -133,7 +133,7 @@ const faqSchema = {
       name: 'Como funciona o Scan IA do Bynx?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA do Bynx (Claude Opus 4.5 da Anthropic) analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
+        text: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA do Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
       },
     },
     {
@@ -916,7 +916,7 @@ export default function ScanIaLanding() {
           {/* Esquerda: copy */}
           <div>
             <span style={S.heroBadge}>
-              <span>🤖</span> Powered by Claude Opus 4.5 · Anthropic
+              <span>🤖</span> Powered by IA de ponta
             </span>
 
             <h1 style={S.heroTitle}>
@@ -1076,7 +1076,7 @@ export default function ScanIaLanding() {
               <div style={S.stepIcon}>🤖</div>
               <div style={S.stepTitle}>A IA processa</div>
               <p style={S.stepDesc}>
-                A imagem é enviada pra Claude Opus 4.5 (Anthropic) — modelo de visão mais avançado
+                A imagem é enviada pra IA de ponta — modelo de visão mais avançado
                 do mercado. Identifica nome, número, set, raridade e idioma de cada carta.
               </p>
               <div style={S.stepFooter}>Cross-reference com banco de 22.861 cartas</div>
@@ -1104,15 +1104,15 @@ export default function ScanIaLanding() {
           <SectionHeader
             eyebrow="Por dentro da tecnologia"
             title={<>A IA mais avançada do mercado, <span style={S.heroTitleAccent}>treinada pra TCG brasileiro.</span></>}
-            subtitle="Não é um algoritmo qualquer. É o modelo de visão de ponta da Anthropic, integrado com a Pokédex Bynx e cruzado com preços de marketplaces brasileiros em tempo real."
+            subtitle="Não é um algoritmo qualquer. É o modelo de visão de ponta, integrado com a Pokédex Bynx e cruzado com preços de marketplaces brasileiros em tempo real."
           />
 
           <div className="scan-tech-grid" style={S.techGrid}>
             <div style={{ ...S.techCard, ...S.techCardHighlight }}>
               <div style={S.techIcon}>🧠</div>
-              <div style={S.techTitle}>Claude Opus 4.5</div>
+              <div style={S.techTitle}>IA de ponta</div>
               <p style={S.techDesc}>
-                Modelo de visão de última geração da Anthropic. State-of-the-art em reconhecimento
+                Modelo de visão de última geração. State-of-the-art em reconhecimento
                 visual estruturado — identifica detalhes finos que outros modelos perdem.
               </p>
             </div>
@@ -1272,7 +1272,7 @@ export default function ScanIaLanding() {
                 </tr>
                 <tr style={S.compRow}>
                   <td style={S.compCellLabel}>Modelo IA</td>
-                  <td style={S.compCellBynx}>Claude Opus 4.5</td>
+                  <td style={S.compCellBynx}>IA de ponta</td>
                   <td style={S.compCell}>—</td>
                   <td style={S.compCell}>proprietário</td>
                   <td style={S.compCell}>—</td>
@@ -1445,7 +1445,7 @@ export default function ScanIaLanding() {
             {[
               {
                 q: 'Como funciona o Scan IA do Bynx?',
-                a: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA do Bynx (Claude Opus 4.5 da Anthropic) analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
+                a: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA do Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
               },
               {
                 q: 'Funciona com cartas em japonês ou inglês?',
