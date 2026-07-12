@@ -536,7 +536,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '20px 0', gridColumn: 'span 1' }}>
                   <div style={{ width: 48, height: 48, border: '3px solid rgba(245,158,11,0.2)', borderTop: '3px solid #f59e0b', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Analisando com Claude Vision...</p>
+                    <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Analisando com IA...</p>
                     <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Identificando cartas Pokémon na imagem</p>
                   </div>
                   <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
