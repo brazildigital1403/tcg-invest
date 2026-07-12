@@ -7,6 +7,7 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import GaleriaFotos from '@/components/lojas/GaleriaFotos'
 import TrackedLink from '@/components/lojas/TrackedLink'
+import AnunciosLoja from '@/components/lojas/AnunciosLoja'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -369,6 +370,9 @@ export default async function LojaPage(
             <GaleriaFotos fotos={fotosVisiveis} nomeLoja={nome} />
           </section>
         )}
+
+        {/* Anuncios do dono (marketplace) */}
+        <AnunciosLoja ownerUserId={(loja as { owner_user_id?: string | null }).owner_user_id ?? null} />
 
         {/* ─── Eventos (Premium only) ────────────────────────── */}
         {isPremium && eventos.length > 0 && (
