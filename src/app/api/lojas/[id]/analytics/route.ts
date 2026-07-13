@@ -196,10 +196,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       .map(([origem, total]) => ({ origem, total }))
       .sort((a, b) => b.total - a.total)
 
-    // ─── Dispositivo (mobile vs desktop) do conjunto filtrado ───
+    // ─── Dispositivo (mobile vs desktop) de toda a atividade ───
+    // (visitas + contatos) — popula mesmo antes das visitas acumularem
     let deviceMobile = 0
     let deviceDesktop = 0
-    for (const c of filtradas) {
+    for (const c of linhas) {
       const ua = String((c as { user_agent?: string | null }).user_agent || '')
       if (/mobile|android|iphone|ipad|ipod/i.test(ua)) deviceMobile++
       else deviceDesktop++
