@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuthModal } from '@/components/auth/AuthModalProvider'
 
 const BRAND = '#f59e0b'
 
@@ -28,14 +29,34 @@ type Anuncio = {
 
 const S = {
   card: { background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24 } as React.CSSProperties,
-  sectionTitle: { fontSize: 13, fontWeight: 700 as const, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' as const, letterSpacing: '0.07em', margin: '0 0 14px' } as React.CSSProperties,
+  sectionTitle: { fontSize: 13, fontWeight: 700 as const, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' as const, letterSpacing: '0.07em', margin: 0 } as React.CSSProperties,
   surface: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' } as React.CSSProperties,
+  ctaPill: {
+    display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700,
+    background: 'rgba(245,158,11,0.12)', color: BRAND, border: '1px solid rgba(245,158,11,0.3)',
+    padding: '7px 14px', borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+  } as React.CSSProperties,
+  btn: {
+    display: 'block', textAlign: 'center' as const, background: BRAND, color: '#000',
+    padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none',
+  } as React.CSSProperties,
 }
 
 export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | null }) {
   const [anuncios, setAnuncios] = useState<Anuncio[]>([])
   const [carregou, setCarregou] = useState(false)
+  const [logado, setLogado] = useState<boolean | null>(null) // null = ainda verificando
+  const { openSignup } = useAuthModal()
 
+  // estado de login (inicial + ao vivo) — botao aparece na hora apos cadastro/login
+  useEffect(() => {
+    let ativo = true
+    supabase.auth.getUser().then(({ data }) => { if (ativo) setLogado(!!data.user) })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setLogado(!!sess?.user))
+    return () => { ativo = false; sub.subscription.unsubscribe() }
+  }, [])
+
+  // anuncios do dono da loja
   useEffect(() => {
     if (!ownerUserId) { setCarregou(true); return }
     let ativo = true
@@ -58,7 +79,14 @@ export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | nu
 
   return (
     <section style={S.card}>
-      <h2 style={S.sectionTitle}>Anúncios disponíveis ({anuncios.length})</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+        <h2 style={S.sectionTitle}>Anúncios disponíveis ({anuncios.length})</h2>
+        {logado === false && (
+          <button type="button" onClick={() => openSignup()} style={S.ctaPill}>
+            Cadastre-se para falar com o vendedor &rarr;
+          </button>
+        )}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
         {anuncios.map((card) => (
@@ -79,22 +107,10 @@ export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | nu
                   {card.condicao || 'NM'}
                 </span>
               </div>
-              <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
-              <Link
-                href="/"
-                style={{ display: 'block', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}
-                onClick={(e) => {
-                  e.preventDefault()
-                  try { localStorage.setItem('interesse-card-id', card.id) } catch {}
-                  window.location.href = '/?login=1&redirect=marketplace'
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ verticalAlign: 'middle', marginRight: 5 }}>
-                  <path d="M3 7l4 3 3-2 3 2 4-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                  <path d="M3 13l4-3 3 2 3-2 4 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-                Tenho interesse
-              </Link>
+              <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: logado ? 10 : 2 }}>{fmt(Number(card.price))}</p>
+              {logado && (
+                <Link href={`/marketplace?conversa=${card.id}`} style={S.btn}>Tenho interesse</Link>
+              )}
             </div>
           </div>
         ))}
