@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import CardLoja from '@/components/lojas/CardLoja'
+import LojasDestaque from '@/components/lojas/LojasDestaque'
 import FiltrosGuia from '@/components/lojas/FiltrosGuia'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ export interface LojaCard {
   plano: 'basico' | 'pro' | 'premium' | null
   verificada: boolean | null
   logo_url: string | null
+  owner_user_id: string | null
 }
 
 const ORDEM_PLANO: Record<string, number> = { premium: 0, pro: 1, basico: 2 }
@@ -75,7 +77,7 @@ export default async function LojasPage(
   // Monta query
   let query = supabase
     .from('lojas')
-    .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url')
+    .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url, owner_user_id')
     .eq('status', 'ativa')
     .limit(200)
 
@@ -95,6 +97,26 @@ export default async function LojasPage(
     return 0
   })
 
+  // Destaque Premium: separa as lojas premium + puxa a nota do dono (proxy de vendedor)
+  const premiumLojas = lojas.filter(l => l.plano === 'premium')
+  const ratingMap: Record<string, { media: number; total: number }> = {}
+  if (premiumLojas.length > 0) {
+    const ownerIds = premiumLojas.map(l => l.owner_user_id).filter(Boolean) as string[]
+    if (ownerIds.length > 0) {
+      const { data: avals } = await supabase.from('avaliacoes').select('avaliado_id, estrelas').in('avaliado_id', ownerIds)
+      const acc: Record<string, number[]> = {}
+      for (const a of (avals || []) as { avaliado_id: string; estrelas: number | null }[]) {
+        if (typeof a.estrelas !== 'number') continue
+        if (!acc[a.avaliado_id]) acc[a.avaliado_id] = []
+        acc[a.avaliado_id].push(a.estrelas)
+      }
+      for (const k in acc) {
+        const arr = acc[k]
+        ratingMap[k] = { media: arr.reduce((sum, v) => sum + v, 0) / arr.length, total: arr.length }
+      }
+    }
+  }
+
   const totalResultados = lojas.length
   const temFiltro = !!(qParam || estadoParam || tipoParam || especialidadeParam)
 
@@ -112,6 +134,9 @@ export default async function LojasPage(
           Encontre lojas de TCG do Brasil. Físicas e online, com especialidade em Pokémon, Magic, Yu-Gi-Oh e mais.
         </p>
       </section>
+
+      {/* Destaque Premium (so na visao padrao, sem filtro) */}
+      {!temFiltro && <LojasDestaque lojas={premiumLojas} ratings={ratingMap} />}
 
       {/* ─── Filtros ────────────────────────────────────────────── */}
       <FiltrosGuia
