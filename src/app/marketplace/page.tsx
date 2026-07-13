@@ -1189,7 +1189,7 @@ function MarketplaceInner() {
                 <SectionHead Icon={IconFire} color="#f87171" title="Ofertas imperdíveis" count={railOfertas.length} actionLabel="ver todas" onAction={() => setDiscovery('ofertas')} />
                 <div className="mkt-track" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '2px 2px 14px' }}>
                   {railOfertas.map(card => (
-                    <div key={card.id} style={{ flex: '0 0 188px' }}>
+                    <div key={card.id} style={{ flex: '0 0 188px', minWidth: 0 }}>
                       <AnuncioCard card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} railMode />
                     </div>
                   ))}
@@ -1202,7 +1202,7 @@ function MarketplaceInner() {
                 <SectionHead Icon={IconStar} color="#fbbf24" title="Graduadas em destaque" count={railGrads.length} actionLabel="ver todas" onAction={() => setDiscovery('graduadas')} />
                 <div className="mkt-track" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '2px 2px 14px' }}>
                   {railGrads.map(card => (
-                    <div key={card.id} style={{ flex: '0 0 188px' }}>
+                    <div key={card.id} style={{ flex: '0 0 188px', minWidth: 0 }}>
                       <AnuncioCard card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} railMode />
                     </div>
                   ))}
