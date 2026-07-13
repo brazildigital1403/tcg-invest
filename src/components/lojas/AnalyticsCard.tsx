@@ -24,6 +24,11 @@ interface AnalyticsData {
   porDia: { data: string; cliques: number }[]
   porUsuario: { logados: number; anonimos: number }
   porOrigem?: { origem: string; total: number }[]
+  visitas?: number
+  contatos?: number
+  conversao?: number
+  deltas?: { visitas: number; contatos: number; conversao: number } | null
+  device?: { mobile: number; desktop: number }
   periodoDias: number
   desde?: string | null
   ate?: string | null
@@ -173,7 +178,7 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
               <div style={S.ctaIcon}>📊</div>
               <h3 style={S.ctaTitle}>Disponível no plano Premium</h3>
               <p style={S.ctaText}>
-                Acompanhe cliques nos seus contatos por dia, tipo e origem. Saiba quem está te encontrando.
+                Acompanhe visitas, contatos e taxa de conversão da sua loja. Saiba quem está te encontrando.
               </p>
               <Link href={`/minha-loja/${lojaId}/plano`} style={S.ctaBtn}>
                 Fazer upgrade →
@@ -214,11 +219,23 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
   const totalAnonimos = data.porUsuario.anonimos
   const pctLogados = data.total > 0 ? Math.round((totalLogados / data.total) * 100) : 0
 
+  // Funil + dispositivo (parte 1 backend ja envia)
+  const visitas = data.visitas ?? 0
+  const contatos = data.contatos ?? 0
+  const conversao = data.conversao ?? 0
+  const deltas = data.deltas ?? null
+  const device = data.device ?? { mobile: 0, desktop: 0 }
+  const totalDevice = device.mobile + device.desktop
+  const pctMobile = totalDevice > 0 ? Math.round((device.mobile / totalDevice) * 100) : 0
+  const pctDesktop = 100 - pctMobile
+  const fmtDelta = (d: number) => (d > 0 ? `▲ ${d}%` : d < 0 ? `▼ ${Math.abs(d)}%` : '—')
+
   const filtroLabel = tipoFiltro ? TIPO_LABELS[tipoFiltro]?.label : null
+  const unidade = tipoFiltro ? 'clique' : 'visita'
   const subtitle =
     (periodo === 'all'
-      ? `${data.total} clique${data.total !== 1 ? 's' : ''} no total`
-      : `${data.total} clique${data.total !== 1 ? 's' : ''} nos últimos ${data.periodoDias} dias`) +
+      ? `${data.total} ${unidade}${data.total !== 1 ? 's' : ''} no total`
+      : `${data.total} ${unidade}${data.total !== 1 ? 's' : ''} nos últimos ${data.periodoDias} dias`) +
     (filtroLabel ? ` · filtrando ${filtroLabel}` : '')
 
   // Chart data
@@ -229,7 +246,7 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
     }),
     datasets: [
       {
-        label: 'Cliques',
+        label: tipoFiltro ? 'Cliques' : 'Visitas',
         data: data.porDia.map(d => d.cliques),
         borderColor: AC1,
         backgroundColor: `rgba(${AC1_RGB},0.15)`,
@@ -303,6 +320,45 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
           ))}
         </div>
       </div>
+
+      {/* Visão geral: funil Visitas -> Contatos -> Conversão */}
+      <div style={S.secLabelRow}><span style={S.secLabel}>Visão geral</span></div>
+      <div style={S.funil}>
+        <div style={{ ...S.fstep, borderColor: `rgba(${AC1_RGB},0.22)` }}>
+          <div style={S.fic}>👁️</div>
+          <div style={S.fval}>{visitas}</div>
+          <div style={S.flbl}>Visitas</div>
+          {deltas && <div style={{ ...S.delta, color: deltas.visitas >= 0 ? '#22c55e' : '#ef4444' }}>{fmtDelta(deltas.visitas)}</div>}
+        </div>
+        <div style={S.farrow}>→</div>
+        <div style={{ ...S.fstep, borderColor: `rgba(${AC1_RGB},0.22)` }}>
+          <div style={S.fic}>💬</div>
+          <div style={S.fval}>{contatos}</div>
+          <div style={S.flbl}>Contatos</div>
+          {deltas && <div style={{ ...S.delta, color: deltas.contatos >= 0 ? '#22c55e' : '#ef4444' }}>{fmtDelta(deltas.contatos)}</div>}
+        </div>
+        <div style={S.farrow}>→</div>
+        <div style={{ ...S.fstep, ...S.fconv }}>
+          <div style={S.fic}>📈</div>
+          <div style={{ ...S.fval, color: '#22c55e' }}>{conversao > 0 ? `${(conversao * 100).toFixed(1).replace('.', ',')}%` : '—'}</div>
+          <div style={S.flbl}>Conversão</div>
+          {deltas && <div style={{ ...S.delta, color: deltas.conversao >= 0 ? '#22c55e' : '#ef4444' }}>{fmtDelta(deltas.conversao)}</div>}
+        </div>
+      </div>
+
+      {totalDevice > 0 && (
+        <div style={S.devWrap}>
+          <span style={S.secLabel}>Dispositivo</span>
+          <div style={S.devBar}>
+            {pctMobile > 0 && (
+              <div style={{ ...S.devSeg, width: `${pctMobile}%`, background: `linear-gradient(135deg, ${AC1}, #818cf8)` }}>📱 {pctMobile}%</div>
+            )}
+            {pctDesktop > 0 && (
+              <div style={{ ...S.devSeg, ...S.devSegD, width: `${pctDesktop}%` }}>💻 {pctDesktop}%</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* KPIs por tipo de CTA. No admin, clicáveis = filtro. */}
       <div style={S.kpiGrid}>
@@ -509,6 +565,65 @@ const S: Record<string, CSSProperties> = {
     fontFamily: 'inherit',
     marginTop: -8,
   },
+
+  // Funil (visao geral) + dispositivo
+  secLabelRow: { marginBottom: 10 },
+  secLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: 'rgba(255,255,255,0.4)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  },
+  funil: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto 1fr auto 1fr',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 22,
+  },
+  fstep: {
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    padding: '16px 12px',
+    textAlign: 'center',
+    minWidth: 0,
+  },
+  fconv: {
+    borderColor: 'rgba(34,197,94,0.3)',
+    background: 'rgba(34,197,94,0.05)',
+  },
+  fic: { fontSize: 18, marginBottom: 5 },
+  fval: {
+    fontSize: 28,
+    fontWeight: 800,
+    letterSpacing: '-0.02em',
+    lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  flbl: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 5 },
+  farrow: { color: 'rgba(255,255,255,0.25)', fontSize: 18, textAlign: 'center' },
+  delta: { fontSize: 11, fontWeight: 700, marginTop: 4 },
+  devWrap: { marginBottom: 22 },
+  devBar: {
+    display: 'flex',
+    height: 32,
+    borderRadius: 9,
+    overflow: 'hidden',
+    border: '1px solid rgba(255,255,255,0.08)',
+    marginTop: 8,
+  },
+  devSeg: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 12,
+    fontWeight: 700,
+    color: '#fff',
+    whiteSpace: 'nowrap',
+  },
+  devSegD: { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' },
 
   // Chart
   chartWrap: {
