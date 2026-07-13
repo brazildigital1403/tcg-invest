@@ -472,6 +472,44 @@ export default function PerfilPage() {
         {/* ── MINHAS LOJAS ── */}
         {user?.id && <MinhasLojasBox ownerUserId={user.id} isOwner={isOwnerPreview} />}
 
+        {/* ── ANÚNCIOS ── */}
+        <div style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>
+            <svg width='14' height='14' viewBox='0 0 20 20' fill='none' style={{marginRight:6,verticalAlign:'middle'}}><path d='M3 7h10l2-3v12l-2-3H3V7z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 13v3' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>Anúncios disponíveis ({stats.anuncios})
+          </h2>
+
+          {listings.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 24px', color: 'rgba(255,255,255,0.25)', ...SURFACE }}>
+              <IconMarketplace size={32} color='rgba(255,255,255,0.15)' style={{marginBottom:10}} />
+              <p style={{ fontSize: 14 }}>Nenhum anúncio ativo no momento.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
+              {listings.map((card: any) => (
+                <div key={card.id} style={{ ...SURFACE, overflow: 'hidden' }}>
+                  {card.card_image
+                    ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+                    : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)' }} />
+                  }
+                  <div style={{ padding: '12px 14px' }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3 }}>{card.card_name}</p>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{VARIANTE_LABEL[card.variante] || 'Normal'}</span>
+                      <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{card.condicao || 'NM'}</span>
+                    </div>
+                    <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
+                    {logado && (
+                      <Link href={`/marketplace?conversa=${card.id}`} style={{ display: 'block', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>
+                        Tenho interesse
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* ── PROGRESSO POR COLEÇÃO ── */}
         {setProgress.length > 0 && (
           <div style={{ marginBottom: 32 }}>
@@ -548,44 +586,6 @@ export default function PerfilPage() {
             </div>
           </div>
         )}
-
-        {/* ── ANÚNCIOS ── */}
-        <div style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>
-            <svg width='14' height='14' viewBox='0 0 20 20' fill='none' style={{marginRight:6,verticalAlign:'middle'}}><path d='M3 7h10l2-3v12l-2-3H3V7z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 13v3' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>Anúncios disponíveis ({stats.anuncios})
-          </h2>
-
-          {listings.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 24px', color: 'rgba(255,255,255,0.25)', ...SURFACE }}>
-              <IconMarketplace size={32} color='rgba(255,255,255,0.15)' style={{marginBottom:10}} />
-              <p style={{ fontSize: 14 }}>Nenhum anúncio ativo no momento.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
-              {listings.map((card: any) => (
-                <div key={card.id} style={{ ...SURFACE, overflow: 'hidden' }}>
-                  {card.card_image
-                    ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
-                    : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)' }} />
-                  }
-                  <div style={{ padding: '12px 14px' }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3 }}>{card.card_name}</p>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{VARIANTE_LABEL[card.variante] || 'Normal'}</span>
-                      <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{card.condicao || 'NM'}</span>
-                    </div>
-                    <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
-                    {logado && (
-                      <Link href={`/marketplace?conversa=${card.id}`} style={{ display: 'block', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>
-                        Tenho interesse
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* ── CTA ── */}
         <div style={{ textAlign: 'center', paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
