@@ -223,6 +223,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
+      height: railMode ? '100%' : undefined,
       fontFamily: "'DM Sans', system-ui, sans-serif",
       ...(grad ? { boxShadow: `inset 0 0 0 2px ${grad.cor}, inset 0 0 0 5px rgba(255,255,255,0.06)${isNotaTop(card.nota, card.black_label) ? `, 0 0 26px -3px ${grad.cor}` : ''}` } : {}),
       opacity: card.status === 'cancelado' || card.status === 'concluido' ? 0.5 : 1,
