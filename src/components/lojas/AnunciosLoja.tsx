@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
+import { manifestarInteresse } from '@/lib/marketplaceInteresse'
 
 const BRAND = '#f59e0b'
 
@@ -37,22 +37,30 @@ const S = {
     padding: '7px 14px', borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   } as React.CSSProperties,
   btn: {
-    display: 'block', textAlign: 'center' as const, background: BRAND, color: '#000',
+    display: 'block', width: '100%', textAlign: 'center' as const, background: BRAND, color: '#000',
     padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none',
+    border: 'none', cursor: 'pointer', fontFamily: 'inherit',
   } as React.CSSProperties,
 }
 
 export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | null }) {
   const [anuncios, setAnuncios] = useState<Anuncio[]>([])
   const [carregou, setCarregou] = useState(false)
-  const [logado, setLogado] = useState<boolean | null>(null) // null = ainda verificando
+  const [logado, setLogado] = useState<boolean | null>(null)
+  const [viewerId, setViewerId] = useState<string | null>(null)
+  const [enviando, setEnviando] = useState<string | null>(null)
   const { openSignup } = useAuthModal()
 
-  // estado de login (inicial + ao vivo) — botao aparece na hora apos cadastro/login
+  // estado de login (inicial + ao vivo)
   useEffect(() => {
     let ativo = true
-    supabase.auth.getUser().then(({ data }) => { if (ativo) setLogado(!!data.user) })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setLogado(!!sess?.user))
+    supabase.auth.getUser().then(({ data }) => {
+      if (!ativo) return
+      setLogado(!!data.user); setViewerId(data.user?.id ?? null)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
+      setLogado(!!sess?.user); setViewerId(sess?.user?.id ?? null)
+    })
     return () => { ativo = false; sub.subscription.unsubscribe() }
   }, [])
 
@@ -74,8 +82,24 @@ export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | nu
     return () => { ativo = false }
   }, [ownerUserId])
 
+  async function clicarInteresse(card: Anuncio) {
+    const ok = window.confirm(
+      `Manifestar interesse em "${card.card_name}"? A carta sera reservada e voce podera conversar com o vendedor pela plataforma.`
+    )
+    if (!ok) return
+    setEnviando(card.id)
+    const sucesso = await manifestarInteresse(card.id)
+    if (!sucesso) {
+      setEnviando(null)
+      window.alert('Nao foi possivel manifestar interesse. A carta pode ter sido reservada por outra pessoa.')
+    }
+    // em caso de sucesso, o helper ja redireciona pro /marketplace
+  }
+
   // esconde a secao inteira se nao ha anuncios (evita bloco vazio)
   if (!carregou || anuncios.length === 0) return null
+
+  const ehDono = !!viewerId && viewerId === ownerUserId
 
   return (
     <section style={S.card}>
@@ -107,9 +131,11 @@ export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | nu
                   {card.condicao || 'NM'}
                 </span>
               </div>
-              <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: logado ? 10 : 2 }}>{fmt(Number(card.price))}</p>
-              {logado && (
-                <Link href={`/marketplace?conversa=${card.id}`} style={S.btn}>Tenho interesse</Link>
+              <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: (logado && !ehDono) ? 10 : 2 }}>{fmt(Number(card.price))}</p>
+              {logado && !ehDono && (
+                <button type="button" disabled={enviando === card.id} onClick={() => clicarInteresse(card)} style={{ ...S.btn, opacity: enviando === card.id ? 0.6 : 1 }}>
+                  {enviando === card.id ? 'Abrindo...' : 'Tenho interesse'}
+                </button>
               )}
             </div>
           </div>

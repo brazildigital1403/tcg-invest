@@ -7,6 +7,7 @@ import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection,
 import { supabase } from '@/lib/supabaseClient'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
 import MinhasLojasBox from '@/components/perfil/MinhasLojasBox'
+import { manifestarInteresse } from '@/lib/marketplaceInteresse'
 import { setLabel } from '@/lib/setLabel'
 
 const fmt = (v: number) =>
@@ -59,11 +60,13 @@ export default function PerfilPage() {
   const [isPrivate, setIsPrivate] = useState(false)
   const [isOwnerPreview, setIsOwnerPreview] = useState(false)
   const [logado, setLogado] = useState<boolean | null>(null)
+  const [viewerId, setViewerId] = useState<string | null>(null)
+  const [interesseEnviando, setInteresseEnviando] = useState<string | null>(null)
 
   useEffect(() => {
     let ativo = true
-    supabase.auth.getUser().then(({ data }) => { if (ativo) setLogado(!!data.user) })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setLogado(!!sess?.user))
+    supabase.auth.getUser().then(({ data }) => { if (ativo) { setLogado(!!data.user); setViewerId(data.user?.id ?? null) } })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => { setLogado(!!sess?.user); setViewerId(sess?.user?.id ?? null) })
     return () => { ativo = false; sub.subscription.unsubscribe() }
   }, [])
 
@@ -498,10 +501,17 @@ export default function PerfilPage() {
                       <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{card.condicao || 'NM'}</span>
                     </div>
                     <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
-                    {logado && (
-                      <Link href={`/marketplace?conversa=${card.id}`} style={{ display: 'block', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>
-                        Tenho interesse
-                      </Link>
+                    {logado && viewerId !== user?.id && (
+                      <button type="button" disabled={interesseEnviando === card.id}
+                        onClick={async () => {
+                          if (!window.confirm(`Manifestar interesse em "${card.card_name}"? A carta sera reservada e voce podera conversar com o vendedor pela plataforma.`)) return
+                          setInteresseEnviando(card.id)
+                          const ok = await manifestarInteresse(card.id)
+                          if (!ok) { setInteresseEnviando(null); window.alert('Nao foi possivel manifestar interesse. A carta pode ter sido reservada por outra pessoa.') }
+                        }}
+                        style={{ display: 'block', width: '100%', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', opacity: interesseEnviando === card.id ? 0.6 : 1 }}>
+                        {interesseEnviando === card.id ? 'Abrindo...' : 'Tenho interesse'}
+                      </button>
                     )}
                   </div>
                 </div>
