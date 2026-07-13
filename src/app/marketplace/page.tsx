@@ -116,8 +116,8 @@ function SectionHead({ Icon, color, title, count, actionLabel, onAction }: {
 
 // ─── Componente de card de anúncio ────────────────────────────────────────────
 
-function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
-  card: any; userId: string | null; userWhatsapp: string | null; onAction: () => void
+function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
+  card: any; userId: string | null; userWhatsapp: string | null; onAction: () => void; railMode?: boolean
 }) {
   const { showAlert, showConfirm } = useAppModal()
   const router = useRouter()
@@ -238,9 +238,17 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction }: {
         {card.fotos && card.fotos.length ? (
           <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
         ) : card.card_image ? (
-          <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden') }}
-          />
+          railMode ? (
+            <div style={{ position: 'relative', width: '100%', paddingBottom: '140%', overflow: 'hidden' }}>
+              <img src={card.card_image} alt={card.card_name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                onError={e => { const img = e.target as HTMLImageElement; img.style.display = 'none'; img.parentElement?.nextElementSibling?.removeAttribute('hidden') }}
+              />
+            </div>
+          ) : (
+            <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }}
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden') }}
+            />
+          )
         ) : null}
         <div hidden={!!card.card_image} style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: card.card_image ? 'absolute' : 'relative', inset: 0 }}>
           <IconCard size={40} color="rgba(255,255,255,0.2)" />
@@ -1181,7 +1189,7 @@ function MarketplaceInner() {
                 <div className="mkt-track" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '2px 2px 14px' }}>
                   {railOfertas.map(card => (
                     <div key={card.id} style={{ flex: '0 0 188px' }}>
-                      <AnuncioCard card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
+                      <AnuncioCard card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} railMode />
                     </div>
                   ))}
                 </div>
@@ -1194,7 +1202,7 @@ function MarketplaceInner() {
                 <div className="mkt-track" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '2px 2px 14px' }}>
                   {railGrads.map(card => (
                     <div key={card.id} style={{ flex: '0 0 188px' }}>
-                      <AnuncioCard card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
+                      <AnuncioCard card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} railMode />
                     </div>
                   ))}
                 </div>
