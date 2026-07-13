@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
 import MinhasLojasBox from '@/components/perfil/MinhasLojasBox'
 import { manifestarInteresse } from '@/lib/marketplaceInteresse'
+import { useAppModal } from '@/components/ui/useAppModal'
 import { setLabel } from '@/lib/setLabel'
 
 const fmt = (v: number) =>
@@ -62,6 +63,7 @@ export default function PerfilPage() {
   const [logado, setLogado] = useState<boolean | null>(null)
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [interesseEnviando, setInteresseEnviando] = useState<string | null>(null)
+  const { showConfirm, showAlert } = useAppModal()
 
   useEffect(() => {
     let ativo = true
@@ -504,10 +506,15 @@ export default function PerfilPage() {
                     {logado && viewerId !== user?.id && (
                       <button type="button" disabled={interesseEnviando === card.id}
                         onClick={async () => {
-                          if (!window.confirm(`Manifestar interesse em "${card.card_name}"? A carta sera reservada e voce podera conversar com o vendedor pela plataforma.`)) return
+                          const confirmou = await showConfirm({
+                            message: `Manifestar interesse em "${card.card_name}" por ${fmt(Number(card.price))}?`,
+                            confirmLabel: 'Sim, tenho interesse',
+                            description: 'A carta será reservada e você poderá conversar com o vendedor pela plataforma.',
+                          })
+                          if (!confirmou) return
                           setInteresseEnviando(card.id)
                           const ok = await manifestarInteresse(card.id)
-                          if (!ok) { setInteresseEnviando(null); window.alert('Nao foi possivel manifestar interesse. A carta pode ter sido reservada por outra pessoa.') }
+                          if (!ok) { setInteresseEnviando(null); await showAlert('Não foi possível manifestar interesse. A carta pode ter sido reservada por outra pessoa.', 'warning') }
                         }}
                         style={{ display: 'block', width: '100%', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', opacity: interesseEnviando === card.id ? 0.6 : 1 }}>
                         {interesseEnviando === card.id ? 'Abrindo...' : 'Tenho interesse'}

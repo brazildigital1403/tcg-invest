@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { manifestarInteresse } from '@/lib/marketplaceInteresse'
+import { useAppModal } from '@/components/ui/useAppModal'
 
 const BRAND = '#f59e0b'
 
@@ -50,6 +51,7 @@ export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | nu
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [enviando, setEnviando] = useState<string | null>(null)
   const { openSignup } = useAuthModal()
+  const { showConfirm, showAlert } = useAppModal()
 
   // estado de login (inicial + ao vivo)
   useEffect(() => {
@@ -83,15 +85,17 @@ export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | nu
   }, [ownerUserId])
 
   async function clicarInteresse(card: Anuncio) {
-    const ok = window.confirm(
-      `Manifestar interesse em "${card.card_name}"? A carta sera reservada e voce podera conversar com o vendedor pela plataforma.`
-    )
+    const ok = await showConfirm({
+      message: `Manifestar interesse em "${card.card_name}" por ${fmt(Number(card.price))}?`,
+      confirmLabel: 'Sim, tenho interesse',
+      description: 'A carta será reservada e você poderá conversar com o vendedor pela plataforma.',
+    })
     if (!ok) return
     setEnviando(card.id)
     const sucesso = await manifestarInteresse(card.id)
     if (!sucesso) {
       setEnviando(null)
-      window.alert('Nao foi possivel manifestar interesse. A carta pode ter sido reservada por outra pessoa.')
+      await showAlert('Não foi possível manifestar interesse. A carta pode ter sido reservada por outra pessoa.', 'warning')
     }
     // em caso de sucesso, o helper ja redireciona pro /marketplace
   }
