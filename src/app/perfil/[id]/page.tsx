@@ -58,6 +58,14 @@ export default function PerfilPage() {
   const [notFound, setNotFound]   = useState(false)
   const [isPrivate, setIsPrivate] = useState(false)
   const [isOwnerPreview, setIsOwnerPreview] = useState(false)
+  const [logado, setLogado] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let ativo = true
+    supabase.auth.getUser().then(({ data }) => { if (ativo) setLogado(!!data.user) })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setLogado(!!sess?.user))
+    return () => { ativo = false; sub.subscription.unsubscribe() }
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -567,10 +575,11 @@ export default function PerfilPage() {
                       <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{card.condicao || 'NM'}</span>
                     </div>
                     <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
-                    <Link href="/" style={{ display: 'block', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}
-                      onClick={e => { e.preventDefault(); localStorage.setItem('interesse-card-id', card.id); window.location.href = '/?login=1&redirect=marketplace' }}>
-                      <svg width='14' height='14' viewBox='0 0 20 20' fill='none'><path d='M3 7l4 3 3-2 3 2 4-3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/><path d='M3 13l4-3 3 2 3-2 4 3' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>Tenho interesse
-                    </Link>
+                    {logado && (
+                      <Link href={`/marketplace?conversa=${card.id}`} style={{ display: 'block', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>
+                        Tenho interesse
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}
