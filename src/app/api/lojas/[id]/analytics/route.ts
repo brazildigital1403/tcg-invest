@@ -108,7 +108,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     // ─── Busca cliques no período ───────────────────────────────────
     let q = sb
       .from('loja_cliques')
-      .select('tipo, user_id, created_at, referrer')
+      .select('tipo, user_id, created_at, referrer, user_agent')
       .eq('loja_id', lojaId)
       .order('created_at', { ascending: true })
       .limit(100000)
@@ -125,6 +125,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const linhas = cliques || []
 
+    // ─── Visitas (views) vs Contatos (cliques de contato) ───────
+    const views = linhas.filter((c) => c.tipo === 'view')
+    const contatosRows = linhas.filter((c) => c.tipo !== 'view')
+    const visitas = views.length
+    const contatos = contatosRows.length
+    const conversao = visitas > 0 ? contatos / visitas : 0
+
     // ─── porTipo: sempre sobre TODOS os tipos do período (sem filtro) ─
     // (alimenta os KPIs e serve de seletor de filtro no painel admin)
     const porTipo: Record<string, number> = {}
@@ -140,7 +147,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       tipoFiltroRaw && (TIPOS_CLIQUE as readonly string[]).includes(tipoFiltroRaw)
         ? tipoFiltroRaw
         : null
-    const filtradas = tipoFiltro ? linhas.filter((c) => c.tipo === tipoFiltro) : linhas
+    const filtradas = tipoFiltro ? contatosRows.filter((c) => c.tipo === tipoFiltro) : views
 
     // ─── Janela da série (preenche dias vazios com 0 p/ continuidade) ─
     let inicio: Date
@@ -189,8 +196,42 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       .map(([origem, total]) => ({ origem, total }))
       .sort((a, b) => b.total - a.total)
 
+    // ─── Dispositivo (mobile vs desktop) do conjunto filtrado ───
+    let deviceMobile = 0
+    let deviceDesktop = 0
+    for (const c of filtradas) {
+      const ua = String((c as { user_agent?: string | null }).user_agent || '')
+      if (/mobile|android|iphone|ipad|ipod/i.test(ua)) deviceMobile++
+      else deviceDesktop++
+    }
+
+    // ─── Delta vs período anterior (só com limite inferior) ─────
+    let deltas: { visitas: number; contatos: number; conversao: number } | null = null
+    if (desde) {
+      const periodMs = ate.getTime() - desde.getTime()
+      const prevDesde = new Date(desde.getTime() - periodMs)
+      const { data: prevRows } = await sb
+        .from('loja_cliques')
+        .select('tipo')
+        .eq('loja_id', lojaId)
+        .gte('created_at', prevDesde.toISOString())
+        .lt('created_at', desde.toISOString())
+        .limit(100000)
+      const pRows = (prevRows || []) as { tipo: string }[]
+      const pv = pRows.filter((c) => c.tipo === 'view').length
+      const pc = pRows.length - pv
+      const pconv = pv > 0 ? pc / pv : 0
+      const pct = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : (cur > 0 ? 100 : 0))
+      deltas = { visitas: pct(visitas, pv), contatos: pct(contatos, pc), conversao: pct(conversao, pconv) }
+    }
+
     return NextResponse.json({
       total: filtradas.length,
+      visitas,
+      contatos,
+      conversao,
+      deltas,
+      device: { mobile: deviceMobile, desktop: deviceDesktop },
       porTipo,
       porDia,
       porUsuario: { logados, anonimos },

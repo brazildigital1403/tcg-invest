@@ -33,7 +33,7 @@ import { createClient } from '@supabase/supabase-js'
  * `fetch` com `keepalive: true` pra não bloquear a abertura do link externo.
  */
 
-const TIPOS_VALIDOS = ['whatsapp', 'instagram', 'facebook', 'website', 'maps'] as const
+const TIPOS_VALIDOS = ['whatsapp', 'instagram', 'facebook', 'website', 'maps', 'view'] as const
 type TipoClique = typeof TIPOS_VALIDOS[number]
 
 // Formato UUID canônico — lojas.id é uuid. Id fora desse formato nem chega ao banco.
@@ -139,7 +139,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     // ─── Metadados opcionais ───────────────────────────────
     const userAgent = req.headers.get('user-agent') || null
-    const referrer  = req.headers.get('referer')    || null
+    const referrer  = (body && Object.prototype.hasOwnProperty.call(body, 'referrer'))
+      ? (typeof body.referrer === 'string' && body.referrer.trim() ? body.referrer.trim() : null)
+      : (req.headers.get('referer') || null)
 
     // S42: NÃO lemos x-user-id (header do cliente, spoofável). user_id sempre null.
     // Atribuição confiável de logado exigiria verificar o token de auth (follow-up).

@@ -7,6 +7,7 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import GaleriaFotos from '@/components/lojas/GaleriaFotos'
 import TrackedLink from '@/components/lojas/TrackedLink'
+import TrackViewLoja from '@/components/lojas/TrackViewLoja'
 import AnunciosLoja from '@/components/lojas/AnunciosLoja'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -237,6 +238,7 @@ export default async function LojaPage(
   return (
     <div style={S.page}>
       <PublicHeader />
+      <TrackViewLoja lojaId={loja.id} ownerUserId={(loja as { owner_user_id?: string | null }).owner_user_id ?? null} />
       <div style={{ height: 62 }} />
 
       {/* ─── Hero da loja ─────────────────────────────────────── */}
