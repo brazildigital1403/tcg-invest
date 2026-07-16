@@ -62,8 +62,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       ...(req_?.past_due || []),
     ]
 
+    // Classificacao do status. ATENCAO: conta Express recem-criada JA vem com
+    // requirements.disabled_reason preenchido (o onboarding nao terminou) — se
+    // olhar so pra isso, toda conta nova vira "restrito" e assusta o lojista.
+    // O sinal certo de "ainda nao terminou o cadastro" e details_submitted.
+    const detalhesEnviados = !!acc.details_submitted
     let status: 'pendente' | 'ativo' | 'restrito' = 'pendente'
     if (charges && payouts) status = 'ativo'
+    else if (!detalhesEnviados) status = 'pendente'
     else if (req_?.disabled_reason || (req_?.past_due?.length || 0) > 0) status = 'restrito'
 
     const patch: Record<string, unknown> = {
@@ -88,6 +94,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       status,
       charges_enabled: charges,
       payouts_enabled: payouts,
+      details_submitted: detalhesEnviados,
       repasse_prazo: normalizarPrazo(loja.repasse_prazo),
       pendencias,
       disabled_reason: req_?.disabled_reason || null,
