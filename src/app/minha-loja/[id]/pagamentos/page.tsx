@@ -4,7 +4,7 @@ import { use as usePromise, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useLojaOwner, LojaEstadoFallback, SH } from '../_shared'
-import { pctLabel, calcularComissaoCents, calcularLiquidoCents, fmtBRL, type PrazoRepasse } from '@/lib/comissao'
+import { pctLabel, calcularCheckout, fmtBRL, type PrazoRepasse, type MetodoPagamento } from '@/lib/comissao'
 
 /**
  * Pagamentos da loja — Stripe Connect Express (Fase 1 do epico de vendas).
@@ -34,6 +34,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
   const [indo, setIndo] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [salvandoPrazo, setSalvandoPrazo] = useState(false)
+  const [metodo, setMetodo] = useState<MetodoPagamento>('cartao')
 
   const token = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
@@ -102,8 +103,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
   const voltouDoOnboarding = search.get('done') === '1'
   const status = info?.status || 'nao_iniciado'
   const prazo: PrazoRepasse = info?.repasse_prazo || 30
-  const comissao = calcularComissaoCents(EXEMPLO_CENTS, prazo)
-  const liquido = calcularLiquidoCents(EXEMPLO_CENTS, prazo)
+  const c = calcularCheckout(EXEMPLO_CENTS, prazo, metodo)
 
   return (
     <div style={SH.page}>
@@ -189,14 +189,42 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
             </div>
 
             <div style={S.linhas}>
-              <div style={S.linha}><span style={S.lbl}>Comissão da Bynx</span><span>{pctLabel(prazo)} + R$ 0,40*</span></div>
-              <div style={S.linha}><span style={S.lbl}>Exemplo: venda de {fmtBRL(EXEMPLO_CENTS)}</span><span>− {fmtBRL(comissao)}</span></div>
+              <div style={S.linha}><span style={S.lbl}>Sua comissão</span><span>{pctLabel(prazo)} + R$ 0,40*</span></div>
+              <div style={S.linha}><span style={S.lbl}>Numa venda de {fmtBRL(EXEMPLO_CENTS)}</span><span>− {fmtBRL(c.comissaoVendedorCents)}</span></div>
               <div style={{ ...S.linha, borderBottom: 'none', fontWeight: 800 }}>
                 <span style={{ color: '#22c55e' }}>Você recebe</span>
-                <span style={{ color: '#22c55e' }}>{fmtBRL(liquido)}</span>
+                <span style={{ color: '#22c55e' }}>{fmtBRL(c.liquidoLojaCents)}</span>
               </div>
             </div>
             <p style={S.mini}>* A taxa fixa de R$ 0,40 só entra em vendas a partir de R$ 20,00.</p>
+          </div>
+
+          {/* ─── Lado do comprador ────────────────────────────── */}
+          <div style={{ ...SH.card, marginTop: 16 }}>
+            <h2 style={S.h3}>O que o comprador paga</h2>
+            <p style={S.sub}>Como em outras plataformas do mercado, o custo do meio de pagamento vai pro comprador — o seu líquido não muda.</p>
+
+            <div style={S.chips}>
+              {(['pix', 'cartao'] as MetodoPagamento[]).map(m => (
+                <button key={m} onClick={() => setMetodo(m)} style={{ ...S.chip, ...(metodo === m ? S.chipOn : {}) }}>
+                  {m === 'pix' ? '⚡ Pix' : '💳 Cartão'}
+                </button>
+              ))}
+            </div>
+
+            <div style={S.linhas}>
+              <div style={S.linha}><span style={S.lbl}>Preço do seu anúncio</span><span>{fmtBRL(c.valorCents)}</span></div>
+              <div style={S.linha}>
+                <span style={S.lbl}>Acréscimo {metodo === 'pix' ? 'do Pix' : 'do cartão (4,8%)'}</span>
+                <span>+ {fmtBRL(c.acrescimoCents)}</span>
+              </div>
+              <div style={S.linha}><span style={S.lbl}>Comprador paga</span><span style={{ fontWeight: 700 }}>{fmtBRL(c.totalCompradorCents)}</span></div>
+              <div style={{ ...S.linha, borderBottom: 'none', fontWeight: 800 }}>
+                <span style={{ color: '#22c55e' }}>Você recebe (igual nos dois)</span>
+                <span style={{ color: '#22c55e' }}>{fmtBRL(c.liquidoLojaCents)}</span>
+              </div>
+            </div>
+            <p style={S.mini}>O Pix sai mais barato pro comprador — a maioria escolhe ele.</p>
           </div>
         </>
       )}

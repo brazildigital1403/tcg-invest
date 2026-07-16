@@ -132,7 +132,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       if (stripe) {
         try {
           await stripe.accounts.update(accountId, {
-            settings: { payouts: { schedule: { interval: 'daily', delay_days: prazo } } },
+            settings: {
+              payouts: { schedule: { interval: 'weekly', weekly_anchor: 'monday', delay_days: prazo } },
+            },
           })
         } catch (e) {
           console.warn('[connect PATCH] schedule nao aplicado:', (e as Error)?.message)
