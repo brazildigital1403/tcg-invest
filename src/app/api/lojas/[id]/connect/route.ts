@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 import { ehPrazoValido, normalizarPrazo } from '@/lib/comissao'
+import { classificarConta } from '@/lib/connect-status'
 
 /**
  * GET   /api/lojas/[id]/connect  -> le a conta na Stripe e SINCRONIZA o status
@@ -54,33 +55,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const acc = await stripe.accounts.retrieve(accountId)
 
-    const charges = !!acc.charges_enabled
-    const payouts = !!acc.payouts_enabled
-    const req_ = acc.requirements
-    const pendencias = [
-      ...(req_?.currently_due || []),
-      ...(req_?.past_due || []),
-    ]
-
-    // Classificacao do status. ATENCAO: conta Express recem-criada JA vem com
-    // requirements.disabled_reason preenchido (o onboarding nao terminou) — se
-    // olhar so pra isso, toda conta nova vira "restrito" e assusta o lojista.
-    // O sinal certo de "ainda nao terminou o cadastro" e details_submitted.
-    const detalhesEnviados = !!acc.details_submitted
-    let status: 'pendente' | 'ativo' | 'restrito' = 'pendente'
-    if (charges && payouts) status = 'ativo'
-    else if (!detalhesEnviados) status = 'pendente'
-    else if (req_?.disabled_reason || (req_?.past_due?.length || 0) > 0) status = 'restrito'
+    // Classificacao vem da lib compartilhada com o webhook account.updated —
+    // se divergir, a pagina mostra um status e o banco guarda outro.
+    const c = classificarConta(acc)
+    const { status, charges, payouts, detalhesEnviados, pendencias } = c
 
     const patch: Record<string, unknown> = {
       stripe_connect_status: status,
       connect_charges_enabled: charges,
       connect_payouts_enabled: payouts,
-      connect_requirements: {
-        currently_due: req_?.currently_due || [],
-        past_due: req_?.past_due || [],
-        disabled_reason: req_?.disabled_reason || null,
-      },
+      connect_requirements: c.requirements,
       updated_at: new Date().toISOString(),
     }
     if (status === 'ativo' && loja.stripe_connect_status !== 'ativo') {
@@ -97,7 +81,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       details_submitted: detalhesEnviados,
       repasse_prazo: normalizarPrazo(loja.repasse_prazo),
       pendencias,
-      disabled_reason: req_?.disabled_reason || null,
+      disabled_reason: c.disabledReason,
     })
   } catch (err) {
     const msg = (err as Error)?.message || 'erro'

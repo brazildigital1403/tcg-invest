@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { classificarConta } from '@/lib/connect-status'
 
 // ─── Mapas de descrição (sincronizados com checkout/SCAN_PACKAGES) ──────────
 
@@ -777,6 +778,74 @@ export async function POST(req: NextRequest) {
           }
         } catch (err: any) {
           console.error(`[webhook] falha enviando alerta de dispute:`, err?.message)
+        }
+        break
+      }
+
+      // ────────────────────────────────────────────────────────────────────
+      // ACCOUNT.UPDATED — conta Connect (Express) da loja mudou de estado
+      // ────────────────────────────────────────────────────────────────────
+      // Dispara quando o lojista avanca/conclui o onboarding hospedado da
+      // Stripe, ou quando a Stripe pede/libera algo. Sem isso, o status so
+      // atualizaria quando alguem abrisse /minha-loja/[id]/pagamentos.
+      //
+      // ATENCAO: este e um evento de CONTA CONECTADA. O endpoint do webhook
+      // precisa estar assinando eventos "de contas conectadas" no dashboard,
+      // senao ele nunca chega aqui.
+      case 'account.updated': {
+        const acc = event.data.object as Stripe.Account
+        const c = classificarConta(acc)
+
+        const { data: lojas, error: selErr } = await supabase
+          .from('lojas')
+          .select('id, nome, owner_user_id, stripe_connect_status')
+          .eq('stripe_connect_account_id', acc.id)
+          .limit(1)
+
+        if (selErr) {
+          console.error(`[webhook] account.updated: erro buscando loja de ${acc.id}:`, selErr.message)
+          break
+        }
+        const loja = lojas?.[0]
+        if (!loja) {
+          // Conta conectada que nao e da Bynx (ou foi removida). Nao e erro.
+          console.warn(`[webhook] account.updated: nenhuma loja com account ${acc.id}`)
+          break
+        }
+
+        const eraAtivo = loja.stripe_connect_status === 'ativo'
+        const virouAtivo = c.status === 'ativo' && !eraAtivo
+
+        const patchLoja: Record<string, any> = {
+          stripe_connect_status: c.status,
+          connect_charges_enabled: c.charges,
+          connect_payouts_enabled: c.payouts,
+          connect_requirements: c.requirements,
+          updated_at: new Date().toISOString(),
+        }
+        if (virouAtivo) patchLoja.connect_onboarded_em = new Date().toISOString()
+
+        const { error: upErr } = await supabase.from('lojas').update(patchLoja).eq('id', loja.id)
+        if (upErr) {
+          console.error(`[webhook] account.updated: falha ao atualizar loja ${loja.id}:`, upErr.message)
+          break
+        }
+
+        console.log(`[webhook] account.updated: loja ${loja.nome} (${loja.id}) -> ${c.status} (charges ${c.charges} payouts ${c.payouts} pendencias ${c.pendencias.length})`)
+
+        // Avisa o dono no sino quando os recebimentos ficam ativos (1x so).
+        if (virouAtivo && loja.owner_user_id) {
+          try {
+            await supabase.from('notifications').insert({
+              user_id: loja.owner_user_id,
+              type: 'aviso',
+              title: 'Recebimentos ativos!',
+              message: `A loja ${loja.nome} está pronta para vender na Bynx. O dinheiro das suas vendas cai direto na sua conta.`,
+              data: { link: `/minha-loja/${loja.id}/pagamentos` },
+            })
+          } catch (err: any) {
+            console.error(`[webhook] account.updated: falha notificando dono:`, err?.message)
+          }
         }
         break
       }
