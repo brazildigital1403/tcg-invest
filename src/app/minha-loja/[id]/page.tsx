@@ -99,6 +99,11 @@ export default function VisaoGeralPage({ params }: { params: Promise<{ id: strin
           <span style={S.at}>Analytics</span>
           <span style={S.ad}>Contatos, visitas e canais</span>
         </Link>
+        <Link href={`${base}/pagamentos`} style={S.atalho}>
+          <span style={S.ai}>🏦</span>
+          <span style={S.at}>Pagamentos</span>
+          <span style={S.ad}>Receba pelas vendas na Bynx</span>
+        </Link>
         <Link href={`${base}/vitrine`} style={S.atalho}>
           <span style={S.ai}><IconCalendar /></span>
           <span style={S.at}>Eventos</span>
