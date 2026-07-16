@@ -243,11 +243,31 @@ export async function POST(req: NextRequest) {
   const body = await req.text()
   const sig = req.headers.get('stripe-signature')!
 
-  let event: Stripe.Event
-  try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET)
-  } catch (err: any) {
-    console.error('[webhook] Assinatura inválida:', err.message)
+  // ── Assinatura: aceita DOIS segredos ────────────────────────────────────
+  // A Stripe nao deixa um endpoint escutar "sua conta" E "contas conectadas" ao
+  // mesmo tempo (o campo "Eventos de" e definido na criacao e vira read-only).
+  // Entao a mesma URL recebe de dois destinos, cada um com seu whsec_:
+  //   STRIPE_WEBHOOK_SECRET          -> eventos da propria conta (assinaturas)
+  //   STRIPE_WEBHOOK_SECRET_CONNECT  -> eventos das contas conectadas (lojas)
+  // Tentamos os dois: o que validar, vale. Sem o segundo, account.updated cairia
+  // como "Assinatura invalida".
+  const segredos = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_CONNECT,
+  ].filter((x): x is string => !!x)
+
+  let event: Stripe.Event | null = null
+  let ultimoErro = ''
+  for (const segredo of segredos) {
+    try {
+      event = stripe.webhooks.constructEvent(body, sig, segredo)
+      break
+    } catch (err: any) {
+      ultimoErro = err?.message || 'erro'
+    }
+  }
+  if (!event) {
+    console.error(`[webhook] Assinatura inválida (${segredos.length} segredo(s) tentado(s)):`, ultimoErro)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
