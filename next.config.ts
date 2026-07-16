@@ -1,6 +1,46 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
 
+/**
+ * Content-Security-Policy (S-atual).
+ *
+ * MODO: Report-Only. O browser NAO bloqueia nada — apenas reporta violacoes
+ * pra /api/csp-report (aparecem nos runtime logs da Vercel). Depois de rodar
+ * alguns dias sem violacao legitima, trocar a chave do header para
+ * 'Content-Security-Policy' (enforcing).
+ *
+ * Decisoes:
+ * - script-src usa 'unsafe-inline': o Next injeta ~53 inline scripts de
+ *   hidratacao por pagina. Nonce exigiria renderizacao dinamica e mataria o
+ *   ISR do site inteiro — troca ruim.
+ * - img-src libera https: geral: lojas cadastram logo_url de qualquer dominio.
+ * - PostHog (/ingest) e Sentry (/monitoring) sao tunelados pelo proprio
+ *   dominio (ver rewrites + tunnelRoute), entao entram em 'self'.
+ * - Fontes vem do next/font (self-hosted no build) — nao precisa gstatic.
+ */
+const SUPABASE_HOST = 'https://hvkcwfcvizrvhkerupfc.supabase.co'
+const SUPABASE_WSS  = 'wss://hvkcwfcvizrvhkerupfc.supabase.co'
+
+const CSP = [
+  "default-src 'self'",
+  // GTM (gated no consentimento) + Turnstile (captcha do cadastro)
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://www.google-analytics.com https://ssl.google-analytics.com https://tagmanager.google.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `connect-src 'self' ${SUPABASE_HOST} ${SUPABASE_WSS} https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://challenges.cloudflare.com https://api.pokemontcg.io https://economia.awesomeapi.com.br`,
+  "frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com",
+  "worker-src 'self' blob:",
+  "media-src 'self' data: https:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  'upgrade-insecure-requests',
+  'report-uri /api/csp-report',
+].join('; ')
+
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -63,6 +103,9 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
+          // CSP em modo RELATORIO (nao bloqueia; so reporta em /api/csp-report).
+          // Trocar a chave pra 'Content-Security-Policy' quando estiver limpo.
+          { key: 'Content-Security-Policy-Report-Only', value: CSP },
           // Impede que o site seja carregado dentro de iframes (clickjacking)
           { key: 'X-Frame-Options', value: 'DENY' },
           // Impede que o browser adivinhe o tipo de arquivo (sniffing)
