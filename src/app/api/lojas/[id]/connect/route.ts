@@ -122,9 +122,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       const stripe = stripeClient()
       if (stripe) {
         try {
+          // 'daily' porque a Stripe BR nao aceita 'weekly'. O delay_days e que
+          // garante o prazo (14/30 dias) prometido ao lojista.
           await stripe.accounts.update(accountId, {
             settings: {
-              payouts: { schedule: { interval: 'weekly', weekly_anchor: 'monday', delay_days: prazo } },
+              payouts: { schedule: { interval: 'daily', delay_days: prazo } },
             },
           })
         } catch (e) {

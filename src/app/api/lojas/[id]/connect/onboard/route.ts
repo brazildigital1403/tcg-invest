@@ -83,19 +83,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         return NextResponse.json({ error: 'Erro ao salvar a conta. Tente de novo.' }, { status: 500 })
       }
 
-      // Prazo de repasse (14/30 dias). SEMANAL de proposito: cada repasse custa
-      // 0,25% + US$0,25 pra plataforma. No diario, uma loja com 30 vendas/mes
-      // geraria ~30 repasses (~R$42/mes so de tarifa); no semanal sao ~4
-      // (~R$5,60). O delay_days e que garante o prazo prometido ao lojista.
-      // Falha aqui NAO quebra o onboarding: o default da Stripe vale e a gente
-      // re-aplica depois (o PATCH de /connect refaz).
+      // Prazo de repasse (14/30 dias) = `delay_days`: e ele que honra a promessa
+      // feita ao lojista ("voce recebe X dias depois da venda").
+      // ATENCAO (aprendido na marra): a Stripe BR NAO aceita interval 'weekly'
+      // ("The payout interval \"weekly\" is not available for merchants in BR").
+      // Usamos 'daily': o repasse so acontece nos dias em que ha saldo maduro,
+      // entao loja de baixo volume gera poucos repasses de qualquer jeito.
+      // Falha aqui NAO quebra o onboarding: vale o default da Stripe e o PATCH
+      // de /connect re-aplica depois.
       try {
         await stripe.accounts.update(accountId, {
           settings: {
             payouts: {
               schedule: {
-                interval: 'weekly',
-                weekly_anchor: 'monday',
+                interval: 'daily',
                 delay_days: normalizarPrazo(loja.repasse_prazo),
               },
             },
