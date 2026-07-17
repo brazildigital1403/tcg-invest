@@ -24,6 +24,69 @@ function sb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
 }
 
+/**
+ * GET /api/marketplace/[id]/checkout
+ * Dados pra montar a tela: item + regras da loja (frete, prazo).
+ * A pagina calcula os totais com a MESMA lib (@/lib/comissao) — nao duplicamos
+ * a regra de preco no cliente.
+ * Nao exige login: o visitante pode ver o preco antes de entrar.
+ */
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  try {
+    const { id: anuncioId } = await ctx.params
+    const db = sb()
+
+    const { data: anuncios } = await db
+      .from('marketplace')
+      .select('id, user_id, card_id, card_name, card_image, price, status, condicao, fotos, graduada, graduadora, nota')
+      .eq('id', anuncioId)
+      .limit(1)
+
+    const anuncio = anuncios?.[0]
+    if (!anuncio) return NextResponse.json({ error: 'Anúncio não encontrado.' }, { status: 404 })
+
+    const { data: lojas } = await db
+      .from('lojas')
+      .select('id, nome, slug, logo_url, verificada, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents')
+      .eq('owner_user_id', anuncio.user_id)
+      .eq('status', 'ativa')
+      .limit(1)
+
+    const loja = lojas?.[0] || null
+    const podeVender = !!loja?.connect_charges_enabled
+
+    return NextResponse.json({
+      item: {
+        id: anuncio.id,
+        nome: anuncio.card_name,
+        imagem: anuncio.card_image || (Array.isArray(anuncio.fotos) ? anuncio.fotos[0] : null),
+        preco_cents: Math.round(Number(anuncio.price) * 100),
+        condicao: anuncio.condicao,
+        graduada: anuncio.graduada,
+        graduadora: anuncio.graduadora,
+        nota: anuncio.nota,
+        disponivel: anuncio.status === 'disponivel',
+        vendedor_user_id: anuncio.user_id,
+      },
+      loja: loja
+        ? {
+            nome: loja.nome,
+            slug: loja.slug,
+            logo_url: loja.logo_url,
+            verificada: loja.verificada,
+            frete_cents: loja.frete_cents || 0,
+            frete_gratis_acima_cents: loja.frete_gratis_acima_cents,
+            repasse_prazo: normalizarPrazo(loja.repasse_prazo),
+            pode_vender: podeVender,
+          }
+        : null,
+    })
+  } catch (err) {
+    console.error('[checkout GET] erro:', (err as Error)?.message)
+    return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
+  }
+}
+
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id: anuncioId } = await ctx.params
