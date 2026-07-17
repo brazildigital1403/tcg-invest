@@ -4,10 +4,9 @@ import type { NextConfig } from 'next'
 /**
  * Content-Security-Policy (S-atual).
  *
- * MODO: Report-Only. O browser NAO bloqueia nada — apenas reporta violacoes
- * pra /api/csp-report (aparecem nos runtime logs da Vercel). Depois de rodar
- * alguns dias sem violacao legitima, trocar a chave do header para
- * 'Content-Security-Policy' (enforcing).
+ * MODO: ENFORCING. O browser BLOQUEIA o que nao esta na lista. O report-uri
+ * segue ativo pra logar o que for bloqueado (ver /api/csp-report nos runtime
+ * logs da Vercel).
  *
  * Decisoes:
  * - script-src usa 'unsafe-inline': o Next injeta ~53 inline scripts de
@@ -44,10 +43,7 @@ const CSP = [
   "base-uri 'self'",
   "form-action 'self' https://www.facebook.com",
   "frame-ancestors 'none'",
-  // 'upgrade-insecure-requests' — REATIVAR ao virar pra enforcing.
-  // Em Report-Only ela e IGNORADA pelo browser e ainda gera um warning no
-  // console a cada pagina ('...is ignored when delivered in a report-only
-  // policy'), abafando as violacoes de verdade.
+  'upgrade-insecure-requests',
   'report-uri /api/csp-report',
 ].join('; ')
 
@@ -113,9 +109,17 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          // CSP em modo RELATORIO (nao bloqueia; so reporta em /api/csp-report).
-          // Trocar a chave pra 'Content-Security-Policy' quando estiver limpo.
-          { key: 'Content-Security-Policy-Report-Only', value: CSP },
+          // CSP em ENFORCING (bloqueia de verdade). O `report-uri` continua
+          // ativo: mesmo bloqueando, cada violacao vira log em /api/csp-report,
+          // entao da pra ver o que quebrou sem depender do usuario reclamar.
+          //
+          // Rodou ~1 dia em Report-Only antes. As violacoes encontradas foram
+          // todas legitimas e ja estao liberadas (badge do GTM preview + os
+          // frame-src/form-action do Meta Pixel).
+          //
+          // SE ALGO QUEBRAR: voltar a chave pra 'Content-Security-Policy-Report-Only'
+          // e dar push — o site volta ao normal na hora.
+          { key: 'Content-Security-Policy', value: CSP },
           // Impede que o site seja carregado dentro de iframes (clickjacking)
           { key: 'X-Frame-Options', value: 'DENY' },
           // Impede que o browser adivinhe o tipo de arquivo (sniffing)
