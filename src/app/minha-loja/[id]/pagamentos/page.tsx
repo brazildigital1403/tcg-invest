@@ -18,6 +18,8 @@ interface ConnectInfo {
   charges_enabled: boolean
   payouts_enabled: boolean
   repasse_prazo: PrazoRepasse
+  frete_cents: number
+  frete_gratis_acima_cents: number | null
   pendencias: string[]
   disabled_reason?: string | null
 }
@@ -35,6 +37,10 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
   const [erro, setErro] = useState<string | null>(null)
   const [salvandoPrazo, setSalvandoPrazo] = useState(false)
   const [metodo, setMetodo] = useState<MetodoPagamento>('cartao')
+  const [freteTxt, setFreteTxt] = useState('')
+  const [gratisTxt, setGratisTxt] = useState('')
+  const [salvandoFrete, setSalvandoFrete] = useState(false)
+  const [freteOk, setFreteOk] = useState(false)
 
   const token = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
@@ -50,6 +56,8 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Falha ao carregar')
       setInfo(j)
+      setFreteTxt(j.frete_cents ? (j.frete_cents / 100).toFixed(2).replace('.', ',') : '')
+      setGratisTxt(j.frete_gratis_acima_cents ? (j.frete_gratis_acima_cents / 100).toFixed(2).replace('.', ',') : '')
     } catch (e) {
       setErro((e as Error).message)
     } finally {
@@ -99,6 +107,44 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
       setErro((e as Error).message)
     } finally {
       setSalvandoPrazo(false)
+    }
+  }
+
+  // "18,50" / "18.50" / "" -> centavos. String vazia = 0 (frete gratis).
+  function paraCentavos(txt: string): number | null {
+    const limpo = txt.trim().replace(/[^0-9,.]/g, '').replace(',', '.')
+    if (!limpo) return 0
+    const n = Number(limpo)
+    if (!Number.isFinite(n) || n < 0) return null
+    return Math.round(n * 100)
+  }
+
+  async function salvarFrete() {
+    const f = paraCentavos(freteTxt)
+    const g = gratisTxt.trim() ? paraCentavos(gratisTxt) : null
+    if (f === null || (gratisTxt.trim() && (g === null || g <= 0))) {
+      setErro('Valor de frete inválido. Use algo como 18,50.')
+      return
+    }
+    setSalvandoFrete(true)
+    setErro(null)
+    setFreteOk(false)
+    try {
+      const t = await token()
+      const r = await fetch(`/api/lojas/${lojaId}/connect`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frete_cents: f, frete_gratis_acima_cents: g }),
+      })
+      const j = await r.json().catch(() => null)
+      if (!r.ok) throw new Error(j?.error || 'Não consegui salvar o frete.')
+      setInfo(prev => (prev ? { ...prev, frete_cents: f, frete_gratis_acima_cents: g } : prev))
+      setFreteOk(true)
+      setTimeout(() => setFreteOk(false), 2500)
+    } catch (e) {
+      setErro((e as Error).message)
+    } finally {
+      setSalvandoFrete(false)
     }
   }
 
@@ -245,6 +291,57 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
             </div>
             <p style={S.mini}>O Pix sai mais barato pro comprador — a maioria escolhe ele.</p>
           </div>
+
+          {/* ─── Frete ────────────────────────────────────────── */}
+          <div style={{ ...SH.card, marginTop: 16 }}>
+            <h2 style={S.h3}>Frete</h2>
+            <p style={S.sub}>Valor fixo cobrado do comprador por pedido. Ele vai 100% pra você — a Bynx não cobra comissão sobre frete.</p>
+
+            <div style={S.freteGrid}>
+              <div>
+                <label style={S.lbl2}>Frete fixo</label>
+                <div style={S.inputWrap}>
+                  <span style={S.prefixo}>R$</span>
+                  <input
+                    value={freteTxt}
+                    onChange={e => setFreteTxt(e.target.value)}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    style={S.input}
+                  />
+                </div>
+                <p style={S.hint}>Deixe 0 para frete grátis</p>
+              </div>
+              <div>
+                <label style={S.lbl2}>Frete grátis acima de</label>
+                <div style={S.inputWrap}>
+                  <span style={S.prefixo}>R$</span>
+                  <input
+                    value={gratisTxt}
+                    onChange={e => setGratisTxt(e.target.value)}
+                    placeholder="opcional"
+                    inputMode="decimal"
+                    style={S.input}
+                  />
+                </div>
+                <p style={S.hint}>Vazio = sem regra</p>
+              </div>
+            </div>
+
+            <button onClick={salvarFrete} disabled={salvandoFrete} style={{ ...SH.btnPrimary, width: '100%', marginTop: 14, opacity: salvandoFrete ? 0.6 : 1 }}>
+              {salvandoFrete ? 'Salvando…' : freteOk ? '✓ Frete salvo!' : 'Salvar frete'}
+            </button>
+
+            {info && (
+              <p style={S.previa}>
+                {info.frete_cents === 0
+                  ? '🚚 Seus compradores não pagam frete.'
+                  : info.frete_gratis_acima_cents
+                    ? `🚚 ${fmtBRL(info.frete_cents)} de frete — grátis em compras acima de ${fmtBRL(info.frete_gratis_acima_cents)}.`
+                    : `🚚 ${fmtBRL(info.frete_cents)} de frete em todos os pedidos.`}
+              </p>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -263,6 +360,13 @@ const S: Record<string, React.CSSProperties> = {
   badgeAnalise: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(96,165,250,0.15)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', marginBottom: 12 },
   badgePend: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', marginBottom: 12 },
   badgeRestr: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', marginBottom: 12 },
+  freteGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
+  lbl2: { display: 'block', fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 },
+  inputWrap: { display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '0 10px' },
+  prefixo: { fontSize: 12.5, color: 'rgba(255,255,255,0.35)', marginRight: 6 },
+  input: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#f0f0f0', fontSize: 14, fontWeight: 600, padding: '10px 0' },
+  hint: { fontSize: 10.5, color: 'rgba(255,255,255,0.3)', marginTop: 5 },
+  previa: { fontSize: 12.5, color: '#22c55e', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: 9, padding: '9px 12px', marginTop: 12, textAlign: 'center' },
   chips: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 },
   chip: { fontSize: 12.5, fontWeight: 700, padding: '9px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' },
   chipOn: { background: 'rgba(96,165,250,0.15)', color: '#60a5fa', borderColor: 'rgba(96,165,250,0.35)' },

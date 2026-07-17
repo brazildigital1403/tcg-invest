@@ -20,7 +20,7 @@ import { classificarConta } from '@/lib/connect-status'
  * (usuario voltando do onboarding, sem esperar o webhook).
  */
 
-const SELECT = 'id, owner_user_id, status, stripe_connect_account_id, stripe_connect_status, connect_charges_enabled, connect_payouts_enabled, repasse_prazo'
+const SELECT = 'id, owner_user_id, status, stripe_connect_account_id, stripe_connect_status, connect_charges_enabled, connect_payouts_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents'
 
 function stripeClient(): Stripe | null {
   if (!process.env.STRIPE_SECRET_KEY) return null
@@ -44,6 +44,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         charges_enabled: false,
         payouts_enabled: false,
         repasse_prazo: normalizarPrazo(loja.repasse_prazo),
+        frete_cents: loja.frete_cents ?? 0,
+        frete_gratis_acima_cents: loja.frete_gratis_acima_cents ?? null,
         pendencias: [],
       })
     }
@@ -80,6 +82,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       payouts_enabled: payouts,
       details_submitted: detalhesEnviados,
       repasse_prazo: normalizarPrazo(loja.repasse_prazo),
+      frete_cents: loja.frete_cents ?? 0,
+      frete_gratis_acima_cents: loja.frete_gratis_acima_cents ?? null,
       pendencias,
       disabled_reason: c.disabledReason,
     })
@@ -99,11 +103,48 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const { loja, sb } = auth
 
     const body = await req.json().catch(() => null)
-    const prazo = body?.repasse_prazo
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Requisição inválida.' }, { status: 400 })
+    }
 
-    if (!ehPrazoValido(prazo)) {
+    // PATCH parcial: a pagina manda so o que o lojista mexeu.
+    const temPrazo = 'repasse_prazo' in body
+    const temFrete = 'frete_cents' in body
+    const temGratis = 'frete_gratis_acima_cents' in body
+    if (!temPrazo && !temFrete && !temGratis) {
+      return NextResponse.json({ error: 'Nada para atualizar.' }, { status: 400 })
+    }
+
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+
+    // ── Frete (nao envolve a Stripe: e regra da loja) ────────────────────
+    if (temFrete) {
+      const f = Number(body.frete_cents)
+      // Teto de R$200 e o mesmo do CHECK no banco — melhor recusar aqui com
+      // mensagem boa do que deixar o Postgres estourar constraint.
+      if (!Number.isInteger(f) || f < 0 || f > 20000) {
+        return NextResponse.json({ error: 'Frete inválido. Use de R$ 0,00 a R$ 200,00.' }, { status: 400 })
+      }
+      patch.frete_cents = f
+    }
+    if (temGratis) {
+      const g = body.frete_gratis_acima_cents
+      if (g === null) patch.frete_gratis_acima_cents = null
+      else {
+        const gn = Number(g)
+        if (!Number.isInteger(gn) || gn <= 0) {
+          return NextResponse.json({ error: 'Valor inválido para frete grátis.' }, { status: 400 })
+        }
+        patch.frete_gratis_acima_cents = gn
+      }
+    }
+
+    // ── Prazo (esse SIM depende da Stripe aceitar) ───────────────────────
+    const prazo = body.repasse_prazo
+    if (temPrazo && !ehPrazoValido(prazo)) {
       return NextResponse.json({ error: 'Prazo invalido. Use 14 ou 30.' }, { status: 400 })
     }
+    if (temPrazo) patch.repasse_prazo = prazo
 
     // ORDEM IMPORTA: a Stripe manda, o banco obedece.
     //
@@ -118,7 +159,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     // conta nova o piso e 30 dias, entao o plano de 14 dias simplesmente nao
     // esta disponivel ainda. Devolvemos 409 com mensagem clara.
     const accountId: string | null = loja.stripe_connect_account_id || null
-    if (accountId) {
+    if (temPrazo && accountId) {
       const stripe = stripeClient()
       if (stripe) {
         try {
@@ -146,17 +187,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       }
     }
 
-    const { error: upErr } = await sb
-      .from('lojas')
-      .update({ repasse_prazo: prazo, updated_at: new Date().toISOString() })
-      .eq('id', lojaId)
+    const { error: upErr } = await sb.from('lojas').update(patch).eq('id', lojaId)
 
     if (upErr) {
       console.error('[connect PATCH] falha ao salvar', upErr.message)
       return NextResponse.json({ error: 'Erro ao salvar o prazo.' }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, repasse_prazo: prazo })
+    return NextResponse.json({ ok: true, ...patch })
   } catch (err) {
     console.error('[connect PATCH] erro:', (err as Error)?.message)
     return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
