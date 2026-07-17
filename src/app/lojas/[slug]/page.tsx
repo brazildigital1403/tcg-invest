@@ -374,7 +374,7 @@ export default async function LojaPage(
         )}
 
         {/* Anuncios do dono (marketplace) */}
-        <AnunciosLoja ownerUserId={(loja as { owner_user_id?: string | null }).owner_user_id ?? null} podeVender={!!(loja as { connect_charges_enabled?: boolean }).connect_charges_enabled} />
+        <AnunciosLoja ownerUserId={(loja as { owner_user_id?: string | null }).owner_user_id ?? null} lojaId={loja.id} podeVender={!!(loja as { connect_charges_enabled?: boolean }).connect_charges_enabled} />
 
         {/* ─── Eventos (Premium only) ────────────────────────── */}
         {isPremium && eventos.length > 0 && (

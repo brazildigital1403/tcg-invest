@@ -47,6 +47,11 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const search = useSearchParams()
   const { openSignup } = useAuthModal()
 
+  // Carta e produto usam a MESMA tela: muda so a API por tras. O ?tipo=produto
+  // vem do link da vitrine. Sem isso precisariamos de duas telas identicas.
+  const ehProduto = search.get('tipo') === 'produto'
+  const apiBase = ehProduto ? `/api/produtos/${anuncioId}/checkout` : `/api/marketplace/${anuncioId}/checkout`
+
   const [item, setItem] = useState<ItemInfo | null>(null)
   const [loja, setLoja] = useState<LojaInfo | null>(null)
   const [metodo, setMetodo] = useState<MetodoPagamento>(PIX_DISPONIVEL ? 'pix' : 'cartao')
@@ -64,7 +69,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const carregar = useCallback(async () => {
     setCarregando(true)
     try {
-      const r = await fetch(`/api/marketplace/${anuncioId}/checkout`)
+      const r = await fetch(apiBase)
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Não consegui carregar')
       setItem(j.item)
@@ -74,7 +79,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
     } finally {
       setCarregando(false)
     }
-  }, [anuncioId])
+  }, [apiBase])
 
   useEffect(() => { carregar() }, [carregar])
   useEffect(() => { if (search.get('cancelado') === '1') setErro('Pagamento cancelado. Seu pedido não foi finalizado.') }, [search])
@@ -85,7 +90,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
     setErro(null)
     try {
       const { data } = await supabase.auth.getSession()
-      const r = await fetch(`/api/marketplace/${anuncioId}/checkout`, {
+      const r = await fetch(apiBase, {
         method: 'POST',
         headers: { Authorization: `Bearer ${data.session?.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ metodo }),
@@ -112,11 +117,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
             <h1 style={S.h1}>Esse anúncio é de negociação direta</h1>
             <p style={S.txt}>
               {loja ? `A ${loja.nome} ainda está ativando os recebimentos.` : 'Esse vendedor ainda não vende pela Bynx.'}{' '}
-              Você pode conversar com ele pelo marketplace.
+              {ehProduto ? 'Volte em breve para comprar por aqui.' : 'Você pode conversar com ele pelo marketplace.'}
             </p>
-            <Link href={`/marketplace?conversa=${item.id}`} style={{ ...S.cta, display: 'inline-block', textDecoration: 'none' }}>
-              Tenho interesse →
-            </Link>
+            {!ehProduto && (
+              <Link href={`/marketplace?conversa=${item.id}`} style={{ ...S.cta, display: 'inline-block', textDecoration: 'none' }}>
+                Tenho interesse →
+              </Link>
+            )}
           </div>
         </div>
       </Casca>
