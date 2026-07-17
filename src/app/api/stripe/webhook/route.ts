@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
         if (pedidoId) {
           const { data: peds } = await supabase
             .from('pedidos')
-            .select('id, numero, status, loja_id, vendedor_user_id, comprador_user_id, marketplace_id, item_nome, total_comprador_cents, liquido_loja_cents, repasse_prazo')
+            .select('id, numero, status, loja_id, vendedor_user_id, comprador_user_id, marketplace_id, produto_id, item_nome, total_comprador_cents, liquido_loja_cents, repasse_prazo')
             .eq('id', pedidoId)
             .limit(1)
 
@@ -353,12 +353,51 @@ export async function POST(req: NextRequest) {
             break
           }
 
-          // Anuncio sai do ar (1 carta por anuncio na v1).
+          // ── Baixa do item ────────────────────────────────────────────────
+          // Carta: 1 unidade -> o anuncio sai do ar.
+          // Produto: N unidades -> DECREMENTA. So some da vitrine quando zera
+          // (a policy da vitrine filtra estoque > 0), e volta se o lojista
+          // repuser — sem mexer no campo `ativo`.
           if (pedido.marketplace_id) {
             await supabase
               .from('marketplace')
               .update({ status: 'vendido', buyer_id: pedido.comprador_user_id })
               .eq('id', pedido.marketplace_id)
+          } else if (pedido.produto_id) {
+            const { data: prodAtual } = await supabase
+              .from('loja_produtos')
+              .select('estoque, vendidos, nome')
+              .eq('id', pedido.produto_id)
+              .single()
+
+            if (prodAtual) {
+              const novoEstoque = Math.max(0, (prodAtual.estoque || 0) - 1)
+              await supabase
+                .from('loja_produtos')
+                .update({
+                  estoque: novoEstoque,
+                  vendidos: (prodAtual.vendidos || 0) + 1,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', pedido.produto_id)
+
+              console.log(`[webhook] venda: estoque de "${prodAtual.nome}" ${prodAtual.estoque} -> ${novoEstoque}`)
+
+              // Esgotou: avisa o lojista pra repor (o produto some da vitrine).
+              if (novoEstoque === 0) {
+                try {
+                  await supabase.from('notifications').insert({
+                    user_id: pedido.vendedor_user_id,
+                    type: 'aviso',
+                    title: 'Produto esgotado',
+                    message: `${prodAtual.nome} vendeu a última unidade e saiu da sua vitrine. Reponha o estoque para voltar a vender.`,
+                    data: { link: `/minha-loja/${pedido.loja_id}/produtos` },
+                  })
+                } catch (err: any) {
+                  console.error('[webhook] venda: falha avisando esgotado:', err?.message)
+                }
+              }
+            }
           }
 
           console.log(`[webhook] venda: pedido ${pedido.numero} PAGO — ${pedido.item_nome} (loja ${pedido.loja_id})`)
