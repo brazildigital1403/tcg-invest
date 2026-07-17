@@ -1064,12 +1064,12 @@ export async function sendConnectAtivoEmail(args: {
       <div style="font-size:48px;line-height:1;">🎉</div>
     </div>
     ${h1('Seus recebimentos estão ativos!')}
-    ${p(`${firstName}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>. Sua loja já pode vender direto na Bynx.`)}
+    ${p(`${firstName}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>. Sua loja já pode vender direto na Bynx — cartas, selados, acessórios e o que mais você tiver na vitrine.`)}
     ${p('O dinheiro das suas vendas cai na conta bancária que você cadastrou. A gente nunca toca nele — quem cuida disso é a Stripe.')}
     ${divider()}
     ${p('<strong style="color:#f0f0f0;">Como funciona:</strong>')}
-    ${p('• O colecionador compra sua carta aqui mesmo, com Pix ou cartão')}
-    ${p('• Você recebe um aviso e envia a carta')}
+    ${p('• O colecionador compra direto na sua vitrine, com Pix ou cartão')}
+    ${p('• Você recebe o aviso do pedido e envia o produto')}
     ${p('• O valor cai na sua conta no prazo de repasse que você escolheu')}
     ${divider()}
     ${btnB2B('Ver meus pagamentos', addUtm(url, 'connect_ativo'), B2B_GRADIENT_PREMIUM, '#a855f7')}

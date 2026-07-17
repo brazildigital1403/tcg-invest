@@ -173,8 +173,9 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
                 <div style={S.icone}>🏦</div>
                 <h2 style={S.h2}>Comece a vender na Bynx</h2>
                 <p style={S.txt}>
-                  Ative os recebimentos e venda suas cartas direto na sua vitrine. O dinheiro cai na
-                  sua conta bancária — seus dados ficam seguros com a Stripe, a Bynx nunca vê.
+                  Ative os recebimentos e venda direto na sua vitrine: cartas, selados, acessórios e
+                  o que mais você quiser. O dinheiro cai na sua conta bancária e seus dados ficam
+                  seguros com a Stripe, a Bynx nunca vê.
                 </p>
                 <button onClick={ativar} disabled={indo} style={{ ...SH.btnPrimary, marginTop: 4, opacity: indo ? 0.6 : 1 }}>
                   {indo ? 'Abrindo…' : 'Ativar recebimentos →'}
