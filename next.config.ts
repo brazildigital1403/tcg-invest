@@ -17,6 +17,13 @@ import type { NextConfig } from 'next'
  * - PostHog (/ingest) e Sentry (/monitoring) sao tunelados pelo proprio
  *   dominio (ver rewrites + tunnelRoute), entao entram em 'self'.
  * - Fontes vem do next/font (self-hosted no build) — nao precisa gstatic.
+ * - META PIXEL (via GTM): descoberto no Report-Only que ele precisa de TRES
+ *   coisas alem do script — `connect-src` (envio), `frame-src` (ele cria um
+ *   iframe pro facebook.com) e `form-action` (ele posta em /tr/). Sem os dois
+ *   ultimos o pixel morre em silencio no enforcing: as conversoes somem e
+ *   parece bug de outra coisa.
+ * - `style-src` inclui googletagmanager.com por causa do badge do modo Preview
+ *   do GTM (so aparece em debug, mas polui o relatorio).
  */
 const SUPABASE_HOST = 'https://hvkcwfcvizrvhkerupfc.supabase.co'
 const SUPABASE_WSS  = 'wss://hvkcwfcvizrvhkerupfc.supabase.co'
@@ -25,19 +32,22 @@ const CSP = [
   "default-src 'self'",
   // GTM (gated no consentimento) + Turnstile (captcha do cadastro)
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://www.google-analytics.com https://ssl.google-analytics.com https://tagmanager.google.com https://connect.facebook.net",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://www.googletagmanager.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
   `connect-src 'self' ${SUPABASE_HOST} ${SUPABASE_WSS} https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://challenges.cloudflare.com https://api.pokemontcg.io https://economia.awesomeapi.com.br https://connect.facebook.net https://www.facebook.com`,
-  "frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com",
+  "frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.facebook.com",
   "worker-src 'self' blob:",
   "media-src 'self' data: https:",
   "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self'",
+  "form-action 'self' https://www.facebook.com",
   "frame-ancestors 'none'",
-  'upgrade-insecure-requests',
+  // 'upgrade-insecure-requests' — REATIVAR ao virar pra enforcing.
+  // Em Report-Only ela e IGNORADA pelo browser e ainda gera um warning no
+  // console a cada pagina ('...is ignored when delivered in a report-only
+  // policy'), abafando as violacoes de verdade.
   'report-uri /api/csp-report',
 ].join('; ')
 
