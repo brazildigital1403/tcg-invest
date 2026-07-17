@@ -8,20 +8,32 @@ import type Stripe from 'stripe'
  * quando a Stripe avisa). Se a logica divergisse entre os dois, a loja veria um
  * status na pagina e outro no banco.
  *
- * GOTCHA (mordeu na Fase 1): conta Express recem-criada JA vem com
- * `requirements.disabled_reason` preenchido — o onboarding simplesmente nao
- * terminou. Classificar por disabled_reason marcaria toda conta nova como
- * "restrito" e assustaria o lojista. O sinal correto de "ainda nao terminou o
- * cadastro" e `details_submitted`.
+ * DOIS GOTCHAS (os dois morderam em producao):
+ *
+ * 1) Conta Express recem-criada JA vem com `requirements.disabled_reason`
+ *    preenchido — o onboarding simplesmente nao terminou. O sinal correto de
+ *    "ainda nao terminou o cadastro" e `details_submitted`.
+ *
+ * 2) Quando o lojista TERMINA o onboarding, a Stripe entra em
+ *    `requirements.pending_verification` com currently_due/past_due VAZIOS —
+ *    ela so esta conferindo os documentos, nao ha nada a fazer. Tratar isso
+ *    como "restrito" fazia a pagina pedir "Resolver pendencia", o lojista
+ *    voltava pro onboarding, nao tinha nada pra preencher e voltava pro mesmo
+ *    estado: LOOP. Por isso existe o estado `em_analise`.
+ *
+ * Regra: so e "restrito" quando ha algo concreto a fazer (currently_due /
+ * past_due) ou a conta foi bloqueada por outro motivo.
  */
 
-export type ConnectStatus = 'nao_iniciado' | 'pendente' | 'ativo' | 'restrito'
+export type ConnectStatus = 'nao_iniciado' | 'pendente' | 'em_analise' | 'ativo' | 'restrito'
 
 export interface ContaClassificada {
   status: ConnectStatus
   charges: boolean
   payouts: boolean
   detalhesEnviados: boolean
+  /** Stripe esta conferindo documentos (pending_verification). Nada a fazer. */
+  emVerificacao: boolean
   pendencias: string[]
   disabledReason: string | null
   /** Pronto pra gravar em lojas.connect_requirements (jsonb). */
@@ -42,16 +54,23 @@ export function classificarConta(acc: Stripe.Account): ContaClassificada {
   const pastDue = req?.past_due || []
   const disabledReason = req?.disabled_reason || null
 
+  const temPendenciaReal = currentlyDue.length > 0 || pastDue.length > 0
+  const emVerificacao = disabledReason === 'requirements.pending_verification'
+
   let status: ConnectStatus = 'pendente'
   if (charges && payouts) status = 'ativo'
   else if (!detalhesEnviados) status = 'pendente'
-  else if (disabledReason || pastDue.length > 0) status = 'restrito'
+  else if (temPendenciaReal) status = 'restrito'
+  else if (emVerificacao) status = 'em_analise'
+  else if (disabledReason) status = 'restrito'
+  else status = 'em_analise'
 
   return {
     status,
     charges,
     payouts,
     detalhesEnviados,
+    emVerificacao,
     pendencias: [...currentlyDue, ...pastDue],
     disabledReason,
     requirements: {

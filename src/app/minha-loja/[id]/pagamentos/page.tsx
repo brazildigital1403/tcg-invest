@@ -14,7 +14,7 @@ import { pctLabel, calcularCheckout, fmtBRL, type PrazoRepasse, type MetodoPagam
  */
 
 interface ConnectInfo {
-  status: 'nao_iniciado' | 'pendente' | 'ativo' | 'restrito'
+  status: 'nao_iniciado' | 'pendente' | 'em_analise' | 'ativo' | 'restrito'
   charges_enabled: boolean
   payouts_enabled: boolean
   repasse_prazo: PrazoRepasse
@@ -124,7 +124,17 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
         <>
           {/* ─── Cartao de status ─────────────────────────────── */}
           <div style={SH.card}>
-            {status === 'ativo' ? (
+            {status === 'em_analise' ? (
+              <div style={{ textAlign: 'center', padding: '6px 0' }}>
+                <div style={S.icone}>🔎</div>
+                <span style={S.badgeAnalise}>Em análise pela Stripe</span>
+                <p style={S.txt}>
+                  Seus dados foram enviados e estão sendo conferidos pela Stripe. <b>Você não precisa
+                  fazer nada</b> — normalmente leva de alguns minutos a 1 dia útil. Avisamos assim que
+                  seus recebimentos forem liberados.
+                </p>
+              </div>
+            ) : status === 'ativo' ? (
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
                 <div style={S.icone}>✅</div>
                 <span style={S.badgeOk}>Recebimentos ativos</span>
@@ -249,6 +259,7 @@ const S: Record<string, React.CSSProperties> = {
   mini: { fontSize: 11.5, color: 'rgba(255,255,255,0.35)', marginTop: 10 },
   pend: { fontSize: 12, color: '#f59e0b', margin: '0 0 12px' },
   badgeOk: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', marginBottom: 12 },
+  badgeAnalise: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(96,165,250,0.15)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', marginBottom: 12 },
   badgePend: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', marginBottom: 12 },
   badgeRestr: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', marginBottom: 12 },
   chips: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 },
