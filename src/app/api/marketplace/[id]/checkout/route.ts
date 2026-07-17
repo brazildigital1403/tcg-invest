@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { calcularCheckout, normalizarPrazo, ehMetodoValido, type MetodoPagamento } from '@/lib/comissao'
+import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 
 /**
  * POST /api/marketplace/[id]/checkout
@@ -105,6 +105,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // ── Metodo ──────────────────────────────────────────────────────────
     const body = await req.json().catch(() => null)
     const metodo: MetodoPagamento = ehMetodoValido(body?.metodo) ? body.metodo : 'cartao'
+
+    // Trava de seguranca: a UI ja esconde o Pix, mas alguem pode postar direto.
+    // Melhor recusar aqui do que deixar a Stripe estourar depois de criar o pedido.
+    if (metodo === 'pix' && !PIX_DISPONIVEL) {
+      return NextResponse.json(
+        { error: 'O Pix ainda não está disponível na Bynx. Use cartão por enquanto.' },
+        { status: 409 }
+      )
+    }
 
     // ── Anuncio ─────────────────────────────────────────────────────────
     const { data: anuncios } = await db

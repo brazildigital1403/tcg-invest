@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
-import { calcularCheckout, fmtBRL, type MetodoPagamento } from '@/lib/comissao'
+import { calcularCheckout, fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 
 /**
  * /checkout/[id] — tela de compra de um anuncio (Opcao A do epico de vendas).
@@ -49,7 +49,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
 
   const [item, setItem] = useState<ItemInfo | null>(null)
   const [loja, setLoja] = useState<LojaInfo | null>(null)
-  const [metodo, setMetodo] = useState<MetodoPagamento>('pix')
+  const [metodo, setMetodo] = useState<MetodoPagamento>(PIX_DISPONIVEL ? 'pix' : 'cartao')
   const [carregando, setCarregando] = useState(true)
   const [indo, setIndo] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -168,12 +168,19 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
               {(['pix', 'cartao'] as MetodoPagamento[]).map(m => {
                 const cm = m === 'pix' ? cPix : cCartao
                 const on = metodo === m
+                const bloqueado = m === 'pix' && !PIX_DISPONIVEL
                 return (
-                  <button key={m} onClick={() => setMetodo(m)} style={{ ...S.pay, ...(on ? S.payOn : {}) }}>
+                  <button
+                    key={m}
+                    onClick={() => !bloqueado && setMetodo(m)}
+                    disabled={bloqueado}
+                    title={bloqueado ? 'O Pix está a caminho' : undefined}
+                    style={{ ...S.pay, ...(on ? S.payOn : {}), ...(bloqueado ? S.payOff : {}) }}
+                  >
                     <div style={{ fontSize: 18 }}>{m === 'pix' ? '⚡' : '💳'}</div>
                     <div style={S.payL}>{m === 'pix' ? 'Pix' : 'Cartão'}</div>
-                    <div style={{ ...S.payP, color: on ? '#22c55e' : 'rgba(255,255,255,0.4)' }}>
-                      + {fmtBRL(cm.acrescimoCents)}
+                    <div style={{ ...S.payP, color: bloqueado ? 'rgba(255,255,255,0.3)' : on ? '#22c55e' : 'rgba(255,255,255,0.4)' }}>
+                      {bloqueado ? 'em breve' : `+ ${fmtBRL(cm.acrescimoCents)}`}
                     </div>
                   </button>
                 )
@@ -193,7 +200,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
               <div style={S.total}><span>Total</span><span style={{ color: '#22c55e' }}>{fmtBRL(total)}</span></div>
             </div>
 
-            {metodo === 'cartao' && economia > 0 && (
+            {PIX_DISPONIVEL && metodo === 'cartao' && economia > 0 && (
               <button onClick={() => setMetodo('pix')} style={S.dica}>
                 💡 Pagando no Pix você economiza {fmtBRL(economia)}
               </button>
@@ -239,6 +246,7 @@ const S: Record<string, React.CSSProperties> = {
   label: { fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 8 },
   pays: { display: 'flex', gap: 8, marginBottom: 16 },
   pay: { flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '11px 8px', cursor: 'pointer', color: '#f0f0f0' },
+  payOff: { opacity: 0.45, cursor: 'not-allowed' },
   payOn: { borderColor: 'rgba(34,197,94,0.45)', background: 'rgba(34,197,94,0.08)' },
   payL: { fontSize: 12.5, fontWeight: 700, marginTop: 3 },
   payP: { fontSize: 11, marginTop: 2 },

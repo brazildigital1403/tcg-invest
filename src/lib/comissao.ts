@@ -39,6 +39,22 @@ export const TAXA_FIXA_CENTS = 40
 export const TAXA_FIXA_MINIMO_CENTS = 2000
 
 // ─── Lado comprador ─────────────────────────────────────────────────────────
+/**
+ * O Pix esta liberado na conta Stripe da Bynx?
+ *
+ * A Stripe confirmou por email (jul/2026) que o Pix no Brasil e um **beta
+ * fechado por convite**, sem criterio publico de entrada — eles chamam se e
+ * quando aceitarem. Lista de espera: https://docs.stripe.com/payments/pix
+ *
+ * Enquanto for `false`, a tela de checkout mostra o Pix como "em breve" e o
+ * cartao e o padrao. Sem essa trava, quem escolhesse Pix tomaria erro da Stripe
+ * DEPOIS de decidir comprar — a pior hora possivel.
+ *
+ * QUANDO LIBERAR: virar pra `true` e dar deploy. O resto ja esta pronto (a
+ * regra de preco, o checkout e o split nao mudam).
+ */
+export const PIX_DISPONIVEL = false
+
 export const ACRESCIMO_PIX_CENTS = 99
 export const ACRESCIMO_CARTAO_PCT = 0.048
 export const ACRESCIMO_CARTAO_MIN_CENTS = 120
