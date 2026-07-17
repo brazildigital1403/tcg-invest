@@ -1213,3 +1213,35 @@ export async function sendPedidoCompradorEmail(args: {
     html,
   })
 }
+
+/** Comprador: a loja despachou. Fecha o ciclo da compra. */
+export async function sendPedidoEnviadoEmail(args: {
+  to: string
+  nomeUser: string
+  pedidoId: string
+  pedidoNumero: number | string
+  itemNome: string
+  nomeLoja: string
+  rastreio: string | null
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const url = `${APP_URL}/pedido/${args.pedidoId}`
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">📦</div></div>
+    ${h1('Seu pedido foi enviado!')}
+    ${p(`${firstName}, a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> despachou <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong>. Agora é só aguardar a entrega.`)}
+    ${args.rastreio
+      ? `${divider()}${p(`<strong style="color:#f0f0f0;">Código de rastreio</strong>`)}${p(`<span style="font-family:monospace;font-size:16px;color:#60a5fa;letter-spacing:0.05em;">${escapeHtml(args.rastreio)}</span>`)}`
+      : ''}
+    ${divider()}
+    ${btn('Acompanhar pedido', addUtm(url, 'pedido_enviado'))}
+  `, `${args.itemNome} está a caminho`)
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: subjUser(`📦 A caminho: ${args.itemNome}`),
+    html,
+  })
+}
