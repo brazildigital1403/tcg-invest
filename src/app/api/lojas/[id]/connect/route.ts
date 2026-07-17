@@ -105,34 +105,55 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: 'Prazo invalido. Use 14 ou 30.' }, { status: 400 })
     }
 
-    const { error: upErr } = await sb
-      .from('lojas')
-      .update({ repasse_prazo: prazo, updated_at: new Date().toISOString() })
-      .eq('id', lojaId)
-
-    if (upErr) {
-      console.error('[connect PATCH] falha', upErr.message)
-      return NextResponse.json({ error: 'Erro ao salvar o prazo.' }, { status: 500 })
-    }
-
-    // Reflete na Stripe quando ja existe conta. Falha aqui nao desfaz o banco:
-    // o valor local e o que manda na comissao; o schedule e re-aplicavel.
+    // ORDEM IMPORTA: a Stripe manda, o banco obedece.
+    //
+    // O `repasse_prazo` define a COMISSAO (14d = 4,99% / 30d = 3,99%). Se a
+    // gente gravasse no banco antes e a Stripe recusasse o prazo, a loja seria
+    // cobrada em 4,99% e continuaria recebendo em 30 dias — cobrar mais caro
+    // entregando o prazo mais lento. Entao: aplica na Stripe primeiro e so
+    // persiste se ela aceitar.
+    //
+    // Limite real (descoberto em producao): "You cannot lower this merchant's
+    // delay below 30" — a Stripe BR impoe um piso de repasse por conta. Pra
+    // conta nova o piso e 30 dias, entao o plano de 14 dias simplesmente nao
+    // esta disponivel ainda. Devolvemos 409 com mensagem clara.
     const accountId: string | null = loja.stripe_connect_account_id || null
     if (accountId) {
       const stripe = stripeClient()
       if (stripe) {
         try {
           // 'daily' porque a Stripe BR nao aceita 'weekly'. O delay_days e que
-          // garante o prazo (14/30 dias) prometido ao lojista.
+          // garante o prazo prometido ao lojista.
           await stripe.accounts.update(accountId, {
             settings: {
               payouts: { schedule: { interval: 'daily', delay_days: prazo } },
             },
           })
         } catch (e) {
-          console.warn('[connect PATCH] schedule nao aplicado:', (e as Error)?.message)
+          const msg = (e as Error)?.message || ''
+          console.warn('[connect PATCH] schedule recusado pela Stripe:', msg)
+          const ehPiso = /lower this merchant's delay|delay below/i.test(msg)
+          return NextResponse.json(
+            {
+              error: ehPiso
+                ? `A Stripe ainda não libera repasse em ${prazo} dias para a sua conta. Conforme sua loja ganha histórico de vendas, esse prazo pode ser reduzido.`
+                : 'Não foi possível alterar o prazo agora. Tente de novo mais tarde.',
+              repasse_prazo: normalizarPrazo(loja.repasse_prazo),
+            },
+            { status: 409 }
+          )
         }
       }
+    }
+
+    const { error: upErr } = await sb
+      .from('lojas')
+      .update({ repasse_prazo: prazo, updated_at: new Date().toISOString() })
+      .eq('id', lojaId)
+
+    if (upErr) {
+      console.error('[connect PATCH] falha ao salvar', upErr.message)
+      return NextResponse.json({ error: 'Erro ao salvar o prazo.' }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true, repasse_prazo: prazo })

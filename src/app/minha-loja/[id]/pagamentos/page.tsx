@@ -80,8 +80,9 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
   async function trocarPrazo(p: PrazoRepasse) {
     if (!info || info.repasse_prazo === p) return
     setSalvandoPrazo(true)
+    setErro(null)
     const antes = info.repasse_prazo
-    setInfo({ ...info, repasse_prazo: p })
+    setInfo({ ...info, repasse_prazo: p }) // otimista
     try {
       const t = await token()
       const r = await fetch(`/api/lojas/${lojaId}/connect`, {
@@ -89,10 +90,13 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ repasse_prazo: p }),
       })
-      if (!r.ok) throw new Error('Falha ao salvar')
-    } catch {
+      const j = await r.json().catch(() => null)
+      // 409 = a Stripe recusou o prazo (ex: piso de 30 dias pra conta nova).
+      // A rota NAO grava nesse caso, entao desfazemos o otimista e explicamos.
+      if (!r.ok) throw new Error(j?.error || 'Não consegui salvar o prazo. Tente de novo.')
+    } catch (e) {
       setInfo(prev => (prev ? { ...prev, repasse_prazo: antes } : prev))
-      setErro('Nao consegui salvar o prazo. Tente de novo.')
+      setErro((e as Error).message)
     } finally {
       setSalvandoPrazo(false)
     }
@@ -187,6 +191,10 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
                 </button>
               ))}
             </div>
+            <p style={S.mini}>
+              Contas novas começam com repasse em 30 dias — é uma regra da Stripe, não da Bynx.
+              Conforme sua loja cria histórico de vendas, o prazo de 14 dias pode ser liberado.
+            </p>
 
             <div style={S.linhas}>
               <div style={S.linha}><span style={S.lbl}>Sua comissão</span><span>{pctLabel(prazo)} + R$ 0,40*</span></div>
