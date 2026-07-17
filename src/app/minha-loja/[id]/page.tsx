@@ -99,6 +99,11 @@ export default function VisaoGeralPage({ params }: { params: Promise<{ id: strin
           <span style={S.at}>Analytics</span>
           <span style={S.ad}>Contatos, visitas e canais</span>
         </Link>
+        <Link href={`${base}/produtos`} style={S.atalho}>
+          <span style={S.ai}>🎁</span>
+          <span style={S.at}>Produtos</span>
+          <span style={S.ad}>Selados, pelúcias, funkos e mais</span>
+        </Link>
         <Link href={`${base}/pedidos`} style={S.atalho}>
           <span style={S.ai}>📦</span>
           <span style={S.at}>Pedidos</span>
