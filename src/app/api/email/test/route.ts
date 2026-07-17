@@ -7,6 +7,8 @@ import {
   sendPaymentFailedEmail,
   sendDisputeAdminEmail,
   sendMasterSetUnlockedEmail,
+  sendConnectAtivoEmail,
+  sendConnectPendenciaEmail,
 } from '@/lib/email'
 
 // Rota de teste — dispara templates para um email especifico
@@ -74,6 +76,25 @@ export async function GET(req: NextRequest) {
     if (template === 'all' || template === 'master_set') {
       await sendMasterSetUnlockedEmail(to, nome, 'Caos Ascendente', 'cri')
       results.master_set = 'enviado'
+    }
+    if (template === 'all' || template === 'connect_ativo') {
+      await sendConnectAtivoEmail({
+        to,
+        nomeUser: nome,
+        nomeLoja: 'Bynx',
+        lojaId: 'cb58e63a-4aca-48c6-ac8e-2bbaa1165d18',
+      })
+      results.connect_ativo = 'enviado'
+    }
+    if (template === 'all' || template === 'connect_pendencia') {
+      await sendConnectPendenciaEmail({
+        to,
+        nomeUser: nome,
+        nomeLoja: 'Bynx',
+        lojaId: 'cb58e63a-4aca-48c6-ac8e-2bbaa1165d18',
+        qtdPendencias: 2,
+      })
+      results.connect_pendencia = 'enviado'
     }
 
     return NextResponse.json({ ok: true, to, results })
