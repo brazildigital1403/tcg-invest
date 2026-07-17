@@ -2,6 +2,27 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = 'Bynx <noreply@bynx.gg>'
+
+// ─── Padrao de ASSUNTO (nao fugir disso) ────────────────────────────────────
+//
+// 1) Email pro USUARIO  ->  `Assunto — Bynx.gg`
+//    O sufixo fixa o dominio na cabeca de quem le, sem depender do remetente
+//    (que muitos clientes de email escondem ou truncam).
+//    Nao repetir "Bynx" no meio do texto: "Bem-vindo a Bynx — Bynx.gg" fica bobo.
+//
+// 2) Email INTERNO / operacional  ->  `[Bynx Setor] Assunto`
+//    Prefixo por setor pra filtrar/buscar na caixa: Suporte, Contato, Sync,
+//    Alerta. Esses NAO levam o sufixo — sao pra dentro de casa.
+
+/** Assunto pro usuario final: `Assunto — Bynx.gg` */
+function subjUser(texto: string): string {
+  return `${texto} — Bynx.gg`
+}
+
+/** Assunto interno: `[Bynx Setor] Assunto` */
+function subjInterno(setor: 'Suporte' | 'Contato' | 'Sync' | 'Alerta', texto: string): string {
+  return `[Bynx ${setor}] ${texto}`
+}
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 const FONT = "font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
@@ -196,7 +217,7 @@ export async function sendMasterSetUnlockedEmail(to: string, name: string, setNa
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Acesso vitalício — esse Master Set fica liberado na sua conta pra sempre. Dúvidas? Fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Seu Master Set ${setName} foi desbloqueado — imprima as folhas de fichário.`)
 
-  return resend.emails.send({ from: FROM, to, subject: `🗂️ Master Set liberado: ${setName}`, html })
+  return resend.emails.send({ from: FROM, to, subject: subjUser(`🗂️ Master Set liberado: ${setName}`), html })
 }
 
 export async function sendWelcomeEmail(to: string, name: string) {
@@ -216,7 +237,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${addUtm(`${APP_URL}/faq`, 'welcome', 'link-faq')}" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Bem-vindo à Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`)
 
-  return resend.emails.send({ from: FROM, to, subject: `Bem-vindo à Bynx, ${firstName}! 🎉`, html })
+  return resend.emails.send({ from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), html })
 }
 
 // ── 2. Trial expirando — 5º dia ───────────────────────────────────────────────
@@ -234,7 +255,7 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Quer continuar no Pro? <a href="${addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'link-veja-planos')}" style="color:#f59e0b;text-decoration:none;">Veja os planos aqui</a>.</p>
   `, `Seu trial Pro expira em 2 dias`)
 
-  return resend.emails.send({ from: FROM, to, subject: `⏰ Seu trial Pro expira em 2 dias`, html })
+  return resend.emails.send({ from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), html })
 }
 
 // ── 3. Trial expirando — último dia ──────────────────────────────────────────
@@ -250,7 +271,7 @@ export async function sendTrialExpiring1Email(to: string, name: string) {
     ${btn('Continuar no Pro →', addUtm(`${APP_URL}/minha-conta`, 'trial-1d', 'cta-button'))}
   `, `Hoje é o último dia do seu Pro trial`)
 
-  return resend.emails.send({ from: FROM, to, subject: `🚨 Último dia de Pro grátis`, html })
+  return resend.emails.send({ from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), html })
 }
 
 // ── 4. SUPORTE — novo ticket criado (para admin) ──────────────────────────────
@@ -279,7 +300,7 @@ export async function sendNewTicketAdminEmail(args: {
     ${btn('Ver no painel admin →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-new-admin', 'cta-button'))}
   `, `Novo ticket: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `[Suporte Bynx] Novo ticket: ${args.subject}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Novo ticket: ${args.subject}`), html })
 }
 
 // ── 5. SUPORTE — confirmação de ticket criado (para usuário) ─────────────────
@@ -300,7 +321,7 @@ export async function sendTicketCreatedUserEmail(args: {
     ${btn('Ver meu ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-created-user', 'cta-button'))}
   `, `Recebemos seu ticket: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] Ticket recebido: ${args.subject}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Ticket recebido: ${args.subject}`), html })
 }
 
 // ── 6. SUPORTE — resposta do usuário (para admin) ────────────────────────────
@@ -324,7 +345,7 @@ export async function sendUserReplyAdminEmail(args: {
     ${btn('Responder no painel →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-user-reply', 'cta-button'))}
   `, `Nova resposta: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `[Suporte Bynx] Resposta: ${args.subject}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Resposta: ${args.subject}`), html })
 }
 
 // ── 7. SUPORTE — resposta do admin (para o usuário) ──────────────────────────
@@ -350,7 +371,7 @@ export async function sendAdminReplyUserEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Para responder, basta abrir a conversa no botão acima. Você também pode responder este email, mas o caminho mais rápido é pelo app. 📬</p>
   `, `Resposta para seu ticket: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] ${args.subject}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
 }
 
 // ── 8. SUPORTE — mudança de status (para o usuário) ──────────────────────────
@@ -381,7 +402,7 @@ export async function sendTicketStatusChangedEmail(args: {
     ${btn('Ver ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-status-changed', 'cta-button'))}
   `, `Seu ticket agora está ${info.label.toLowerCase()}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx Suporte] ${info.label}: ${args.subject}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', `${info.label}: ${args.subject}`), html })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -423,7 +444,7 @@ export async function sendEmailLojaAprovada(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `🎉 Sua loja foi aprovada na Bynx!`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`🎉 Sua loja foi aprovada!`), html })
 }
 
 // ── 10. LOJAS — loja suspensa (para o owner) ─────────────────────────────────
@@ -454,7 +475,7 @@ export async function sendEmailLojaSuspensa(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi suspensa na Bynx`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `Sua loja foi suspensa na Bynx`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`Sua loja foi suspensa`), html })
 }
 
 // ── 11. LOJAS — plano alterado (para o owner) ────────────────────────────────
@@ -638,7 +659,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Acessar minha conta'
     ctaHref = `${APP_URL}/minha-colecao`
     preheader = `Sua assinatura Pro ${plano === 'anual' ? 'Anual' : 'Mensal'} foi ativada.`
-    subject = `⭐ Bem-vindo à Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}!`
+    subject = subjUser(`⭐ Bem-vindo ao Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}!`)
 
   } else if (tipo === 'separadores') {
     badgeLabel = 'Separadores Desbloqueados'
@@ -654,7 +675,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Acessar separadores'
     ctaHref = `${APP_URL}/separadores`
     preheader = 'Seus separadores de fichário já estão liberados.'
-    subject = '🗂️ Seus separadores foram liberados na Bynx!'
+    subject = subjUser('🗂️ Seus separadores foram liberados!')
 
   } else if (tipo.startsWith('scan_')) {
     badgeLabel = 'Créditos Adicionados'
@@ -670,7 +691,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Começar a escanear'
     ctaHref = `${APP_URL}/minha-colecao`
     preheader = 'Seus créditos de scan já estão disponíveis.'
-    subject = '📷 Seus créditos de scan estão disponíveis!'
+    subject = subjUser('📷 Seus créditos de scan estão disponíveis!')
 
   } else if (tipo === 'plus') {
     badgeLabel = 'Plus Ativado'
@@ -687,7 +708,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Acessar minha conta'
     ctaHref = `${APP_URL}/minha-colecao`
     preheader = 'Sua assinatura Plus foi ativada.'
-    subject = '✨ Bem-vindo à Bynx Plus!'
+    subject = subjUser('✨ Bem-vindo ao Plus!')
 
   } else {
     // Fallback genérico — não deveria acontecer em produção, mas é seguro
@@ -700,7 +721,7 @@ export async function sendPurchaseConfirmationEmail(
     ctaLabel = 'Acessar minha conta'
     ctaHref = `${APP_URL}/minha-colecao`
     preheader = 'Sua compra foi confirmada.'
-    subject = '✅ Sua compra foi confirmada na Bynx'
+    subject = subjUser('✅ Sua compra foi confirmada')
   }
 
   const html = baseLayout(`
@@ -785,7 +806,7 @@ export async function sendReferralActivatedEmail(args: {
   return resend.emails.send({
     from: FROM,
     to: args.to,
-    subject: `🎉 +${args.pointsAwarded} pts! Sua indicação ativou na Bynx`,
+    subject: subjUser(`🎉 +${args.pointsAwarded} pts! Sua indicação ativou`),
     html,
   })
 }
@@ -842,7 +863,7 @@ export async function sendReferralEngagedEmail(args: {
   return resend.emails.send({
     from: FROM,
     to: args.to,
-    subject: `🚀 +${POINTS} pts! Sua indicação virou Pro`,
+    subject: subjUser(`🚀 +${POINTS} pts! Sua indicação virou Pro`),
     html,
   })
 }
@@ -902,7 +923,7 @@ export async function sendRedemptionConfirmedEmail(args: {
   return resend.emails.send({
     from: FROM,
     to: args.to,
-    subject: `✅ Resgate confirmado: ${args.rewardTitle}`,
+    subject: subjUser(`✅ Resgate confirmado: ${args.rewardTitle}`),
     html,
   })
 }
@@ -922,7 +943,7 @@ export async function sendPaymentFailedEmail(to: string, name: string) {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Já atualizou? Pode ignorar este email — a próxima tentativa de cobrança resolve sozinha.</p>
   `, `Atualize seu pagamento para manter o Pro ativo`)
 
-  return resend.emails.send({ from: FROM, to, subject: `💳 Não conseguimos renovar seu Bynx Pro`, html })
+  return resend.emails.send({ from: FROM, to, subject: subjUser(`💳 Não conseguimos renovar seu Pro`), html })
 }
 
 // ── PAGAMENTO — chargeback aberto (alerta para admin) ────────────────────────
@@ -954,7 +975,7 @@ export async function sendDisputeAdminEmail(args: {
     ${btn('Abrir disputas no Stripe →', 'https://dashboard.stripe.com/disputes')}
   `, `Chargeback aberto: ${valor}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: `[Bynx] ALERTA: chargeback aberto (${valor})`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Alerta', `Chargeback aberto (${valor})`), html })
 }
 
 
@@ -984,7 +1005,7 @@ export async function sendNovaNegociacaoEmail(args: {
     ${p('Responda pelo chat da Bynx para combinar valor, condição e envio — tudo dentro da plataforma.')}
     ${btn('Abrir conversa →', url)}
   `, `${args.buyerName || 'Um comprador'} quer ${args.cardName}`)
-  return resend.emails.send({ from: FROM, to: args.to, subject: `🤝 Nova negociação: ${args.cardName}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`🤝 Nova negociação: ${args.cardName}`), html })
 }
 
 export async function sendCartaEnviadaEmail(args: {
@@ -1002,7 +1023,7 @@ export async function sendCartaEnviadaEmail(args: {
     ${p('Quando a carta chegar, confirme o recebimento pelo chat para concluir a negociação e adicioná-la à sua coleção.')}
     ${btn('Acompanhar negociação →', url)}
   `, `${args.sellerName || 'O vendedor'} enviou ${args.cardName}`)
-  return resend.emails.send({ from: FROM, to: args.to, subject: `📦 Carta enviada: ${args.cardName}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`📦 Carta enviada: ${args.cardName}`), html })
 }
 
 export async function sendNegociacaoConcluidaEmail(args: {
@@ -1020,7 +1041,7 @@ export async function sendNegociacaoConcluidaEmail(args: {
     ${p('Que tal avaliar o comprador? Avaliações ajudam toda a comunidade a negociar com mais confiança.')}
     ${btn('Avaliar comprador →', url)}
   `, `Venda concluída: ${args.cardName}`)
-  return resend.emails.send({ from: FROM, to: args.to, subject: `✅ Venda concluída: ${args.cardName}`, html })
+  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`✅ Venda concluída: ${args.cardName}`), html })
 }
 
 export async function sendMensagensNaoLidasEmail(args: {
@@ -1078,7 +1099,7 @@ export async function sendConnectAtivoEmail(args: {
   return resend.emails.send({
     from: FROM,
     to: args.to,
-    subject: `🎉 ${args.nomeLoja}: seus recebimentos estão ativos!`,
+    subject: subjUser(`🎉 ${args.nomeLoja}: seus recebimentos estão ativos!`),
     html,
   })
 }
@@ -1115,7 +1136,7 @@ export async function sendConnectPendenciaEmail(args: {
   return resend.emails.send({
     from: FROM,
     to: args.to,
-    subject: `📋 ${args.nomeLoja}: falta pouco para ativar seus recebimentos`,
+    subject: subjUser(`📋 ${args.nomeLoja}: falta pouco para ativar seus recebimentos`),
     html,
   })
 }

@@ -78,7 +78,7 @@ ${btn(isErro ? 'Ver a carta' : 'Ver na Bynx', href)}
   return resend.emails.send({
     from: FROM,
     to: args.to,
-    subject: isErro ? 'Corrigimos sua carta na Bynx' : 'Sua carta foi adicionada à Bynx',
+    subject: isErro ? 'Corrigimos sua carta — Bynx.gg' : 'Sua carta foi adicionada — Bynx.gg',
     html: shell(content, isErro ? 'Corrigimos a carta que você reportou.' : 'A carta que você pediu já está na Bynx.'),
   })
 }
@@ -123,7 +123,7 @@ ${btn('Ver minhas cartas na Bynx', `${APP_URL}/minha-colecao`)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;"><tr><td height="1" bgcolor="#1f2937" style="height:1px;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
 <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.6;font-family:Arial,sans-serif;">Obrigado por nos ajudar a deixar o catálogo da Bynx.gg mais completo. Dúvidas? <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
 `
-  const subject = plural ? `Adicionamos as ${n} cartas que você pediu` : 'Adicionamos a carta que você pediu'
+  const subject = (plural ? `Adicionamos as ${n} cartas que você pediu` : 'Adicionamos a carta que você pediu') + ' — Bynx.gg'
   return resend.emails.send({
     from: FROM,
     to: args.to,
