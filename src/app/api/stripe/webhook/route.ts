@@ -24,7 +24,7 @@
 // 5. Renovação detecta se sub é de user ou de loja (busca em ambas as tabelas).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail } from '@/lib/email'
+import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail, sendConnectAtivoEmail, sendConnectPendenciaEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
@@ -853,18 +853,68 @@ export async function POST(req: NextRequest) {
 
         console.log(`[webhook] account.updated: loja ${loja.nome} (${loja.id}) -> ${c.status} (charges ${c.charges} payouts ${c.payouts} pendencias ${c.pendencias.length})`)
 
-        // Avisa o dono no sino quando os recebimentos ficam ativos (1x so).
-        if (virouAtivo && loja.owner_user_id) {
+        // ── Avisos ao dono: sino + email ──────────────────────────────────
+        // Dois momentos que valem interromper o lojista:
+        //   1) virou ATIVO      -> "pode vender" (comemora)
+        //   2) virou RESTRITO   -> "a Stripe precisa de mais X" (acao dele)
+        // NUNCA avisar em `em_analise`: nao ha nada a fazer, o email so geraria
+        // ansiedade e um clique que nao resolve. E so avisamos na TRANSICAO,
+        // pra nao spammar (a Stripe manda varios account.updated seguidos —
+        // vimos 6 num onboarding so).
+        const virouRestrito = c.status === 'restrito' && loja.stripe_connect_status !== 'restrito'
+
+        if ((virouAtivo || virouRestrito) && loja.owner_user_id) {
+          const sino = virouAtivo
+            ? {
+                title: 'Recebimentos ativos!',
+                message: `A loja ${loja.nome} está pronta para vender na Bynx. O dinheiro das suas vendas cai direto na sua conta.`,
+              }
+            : {
+                title: 'Falta pouco para vender na Bynx',
+                message: `A Stripe precisa de mais ${c.pendencias.length} informação(ões) para liberar os recebimentos da loja ${loja.nome}.`,
+              }
+
           try {
             await supabase.from('notifications').insert({
               user_id: loja.owner_user_id,
               type: 'aviso',
-              title: 'Recebimentos ativos!',
-              message: `A loja ${loja.nome} está pronta para vender na Bynx. O dinheiro das suas vendas cai direto na sua conta.`,
+              title: sino.title,
+              message: sino.message,
               data: { link: `/minha-loja/${loja.id}/pagamentos` },
             })
           } catch (err: any) {
-            console.error(`[webhook] account.updated: falha notificando dono:`, err?.message)
+            console.error(`[webhook] account.updated: falha no sino:`, err?.message)
+          }
+
+          // Email (o sino so e visto se o lojista entrar; o email traz ele de volta)
+          try {
+            const { data: dono } = await supabase
+              .from('users')
+              .select('email, name')
+              .eq('id', loja.owner_user_id)
+              .single()
+
+            if (dono?.email) {
+              if (virouAtivo) {
+                await sendConnectAtivoEmail({
+                  to: dono.email,
+                  nomeUser: dono.name || '',
+                  nomeLoja: loja.nome,
+                  lojaId: loja.id,
+                })
+              } else {
+                await sendConnectPendenciaEmail({
+                  to: dono.email,
+                  nomeUser: dono.name || '',
+                  nomeLoja: loja.nome,
+                  lojaId: loja.id,
+                  qtdPendencias: c.pendencias.length,
+                })
+              }
+              console.log(`[webhook] account.updated: email de ${virouAtivo ? 'ativo' : 'pendencia'} enviado pra loja ${loja.nome}`)
+            }
+          } catch (err: any) {
+            console.error(`[webhook] account.updated: falha no email:`, err?.message)
           }
         }
         break

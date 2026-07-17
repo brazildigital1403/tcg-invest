@@ -1043,3 +1043,79 @@ export async function sendMensagensNaoLidasEmail(args: {
   const subject = plural ? `💬 ${args.qtd} mensagens não lidas na Bynx` : '💬 Você tem uma mensagem não lida na Bynx'
   return resend.emails.send({ from: FROM, to: args.to, subject, html })
 }
+
+// ─── Stripe Connect (vendas on-site) ────────────────────────────────────────
+
+/**
+ * Recebimentos liberados: a loja ja pode vender na Bynx.
+ * Disparado pelo webhook account.updated quando a conta vira `ativo`.
+ */
+export async function sendConnectAtivoEmail(args: {
+  to: string
+  nomeUser: string
+  nomeLoja: string
+  lojaId: string
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const url = `${APP_URL}/minha-loja/${args.lojaId}/pagamentos`
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:48px;line-height:1;">🎉</div>
+    </div>
+    ${h1('Seus recebimentos estão ativos!')}
+    ${p(`${firstName}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>. Sua loja já pode vender direto na Bynx.`)}
+    ${p('O dinheiro das suas vendas cai na conta bancária que você cadastrou. A gente nunca toca nele — quem cuida disso é a Stripe.')}
+    ${divider()}
+    ${p('<strong style="color:#f0f0f0;">Como funciona:</strong>')}
+    ${p('• O colecionador compra sua carta aqui mesmo, com Pix ou cartão')}
+    ${p('• Você recebe um aviso e envia a carta')}
+    ${p('• O valor cai na sua conta no prazo de repasse que você escolheu')}
+    ${divider()}
+    ${btnB2B('Ver meus pagamentos', addUtm(url, 'connect_ativo'), B2B_GRADIENT_PREMIUM, '#a855f7')}
+  `, 'Sua loja já pode vender na Bynx')
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: `🎉 ${args.nomeLoja}: seus recebimentos estão ativos!`,
+    html,
+  })
+}
+
+/**
+ * A Stripe pediu mais alguma informacao pra liberar os recebimentos.
+ * Disparado quando a conta fica `restrito` COM pendencia real (currently_due /
+ * past_due). Nunca disparar em `em_analise` — la nao ha nada a fazer, e o
+ * email so geraria ansiedade e um clique que nao resolve nada.
+ */
+export async function sendConnectPendenciaEmail(args: {
+  to: string
+  nomeUser: string
+  nomeLoja: string
+  lojaId: string
+  qtdPendencias: number
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const url = `${APP_URL}/minha-loja/${args.lojaId}/pagamentos`
+  const plural = args.qtdPendencias === 1 ? 'uma informação' : `${args.qtdPendencias} informações`
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:48px;line-height:1;">📋</div>
+    </div>
+    ${h1('Falta pouco para você vender na Bynx')}
+    ${p(`${firstName}, a Stripe precisa de ${plural} a mais para liberar os recebimentos de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>.`)}
+    ${p('É rapidinho e você continua exatamente de onde parou. Enquanto isso, sua loja segue no ar normalmente — só as vendas com pagamento pela Bynx que ficam esperando.')}
+    ${divider()}
+    ${btnB2B('Resolver agora', addUtm(url, 'connect_pendencia'), B2B_GRADIENT_PRO, '#8b5cf6')}
+    ${p('<span style="color:rgba(255,255,255,0.4);font-size:13px;">Essas informações são exigidas pela Stripe, que processa os pagamentos com segurança. A Bynx não tem acesso aos seus dados bancários.</span>')}
+  `, `A Stripe precisa de ${plural} para liberar seus recebimentos`)
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: `📋 ${args.nomeLoja}: falta pouco para ativar seus recebimentos`,
+    html,
+  })
+}
