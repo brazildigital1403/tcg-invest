@@ -37,6 +37,7 @@ const S = {
     background: 'rgba(245,158,11,0.12)', color: BRAND, border: '1px solid rgba(245,158,11,0.3)',
     padding: '7px 14px', borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   } as React.CSSProperties,
+  btnComprar: { background: 'linear-gradient(135deg,#a855f7,#ec4899)', color: '#fff', border: 'none' },
   btn: {
     display: 'block', width: '100%', textAlign: 'center' as const, background: BRAND, color: '#000',
     padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none',
@@ -44,7 +45,13 @@ const S = {
   } as React.CSSProperties,
 }
 
-export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | null }) {
+/**
+ * `podeVender` = a loja tem recebimentos ativos no Stripe Connect.
+ * Se sim, o botao leva pro checkout (compra na hora). Se nao, mantem o fluxo
+ * antigo de negociacao ("Tenho interesse" -> reserva + chat). Assim a vitrine
+ * funciona igual pras lojas que ainda nao ativaram.
+ */
+export default function AnunciosLoja({ ownerUserId, podeVender = false }: { ownerUserId: string | null; podeVender?: boolean }) {
   const [anuncios, setAnuncios] = useState<Anuncio[]>([])
   const [carregou, setCarregou] = useState(false)
   const [logado, setLogado] = useState<boolean | null>(null)
@@ -137,9 +144,15 @@ export default function AnunciosLoja({ ownerUserId }: { ownerUserId: string | nu
               </div>
               <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: (logado && !ehDono) ? 10 : 2 }}>{fmt(Number(card.price))}</p>
               {logado && !ehDono && (
-                <button type="button" disabled={enviando === card.id} onClick={() => clicarInteresse(card)} style={{ ...S.btn, opacity: enviando === card.id ? 0.6 : 1 }}>
-                  {enviando === card.id ? 'Abrindo...' : 'Tenho interesse'}
-                </button>
+                podeVender ? (
+                  <a href={`/checkout/${card.id}`} style={{ ...S.btn, ...S.btnComprar, display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+                    Comprar
+                  </a>
+                ) : (
+                  <button type="button" disabled={enviando === card.id} onClick={() => clicarInteresse(card)} style={{ ...S.btn, opacity: enviando === card.id ? 0.6 : 1 }}>
+                    {enviando === card.id ? 'Abrindo...' : 'Tenho interesse'}
+                  </button>
+                )
               )}
             </div>
           </div>
