@@ -218,6 +218,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         // Fixo no metodo escolhido: o preco ja embute o acrescimo dele.
         payment_method_types: [metodo === 'pix' ? 'pix' : 'card'],
         line_items: linhas,
+        // A loja precisa saber pra onde enviar. A Stripe coleta e devolve em
+        // session.customer_details / collected_information — o webhook grava no pedido.
+        shipping_address_collection: { allowed_countries: ['BR'] },
+        phone_number_collection: { enabled: true },
         client_reference_id: String(pedidoIns.id),
         metadata: {
           bynx_pedido_id: String(pedidoIns.id),

@@ -1140,3 +1140,76 @@ export async function sendConnectPendenciaEmail(args: {
     html,
   })
 }
+
+// ─── Venda on-site (marketplace com Stripe Connect) ─────────────────────────
+
+/** Lojista: vendeu, precisa enviar. E o email mais importante do fluxo. */
+export async function sendVendaLojistaEmail(args: {
+  to: string
+  nomeUser: string
+  nomeLoja: string
+  lojaId: string
+  pedidoNumero: number | string
+  itemNome: string
+  liquidoBRL: string
+  compradorNome: string
+  endereco: string
+  repassePrazo: number
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const url = `${APP_URL}/minha-loja/${args.lojaId}/pedidos`
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">💰</div></div>
+    ${h1('Você vendeu!')}
+    ${p(`${firstName}, <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> foi vendido na sua vitrine da Bynx. O pagamento já está confirmado.`)}
+    ${divider()}
+    ${p(`<strong style="color:#f0f0f0;">Pedido #${args.pedidoNumero}</strong>`)}
+    ${p(`Comprador: ${escapeHtml(args.compradorNome)}`)}
+    ${p(`Entrega: ${escapeHtml(args.endereco)}`)}
+    ${p(`Você recebe: <strong style="color:#22c55e;">${args.liquidoBRL}</strong> em até ${args.repassePrazo} dias`)}
+    ${divider()}
+    ${p('<strong style="color:#f0f0f0;">Agora é com você:</strong> envie o produto e marque o pedido como enviado (com o código de rastreio, se tiver). O comprador é avisado automaticamente.')}
+    ${btnB2B('Ver o pedido', addUtm(url, 'venda_lojista'), B2B_GRADIENT_PREMIUM, '#a855f7')}
+  `, `${args.itemNome} vendido — envie o produto`)
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: subjUser(`💰 Você vendeu: ${args.itemNome}`),
+    html,
+  })
+}
+
+/** Comprador: pagou, esta tudo certo, e agora e so esperar. */
+export async function sendPedidoCompradorEmail(args: {
+  to: string
+  nomeUser: string
+  pedidoId: string
+  pedidoNumero: number | string
+  itemNome: string
+  nomeLoja: string
+  totalBRL: string
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const url = `${APP_URL}/pedido/${args.pedidoId}`
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">✅</div></div>
+    ${h1('Pagamento confirmado!')}
+    ${p(`${firstName}, sua compra de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> na <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi confirmada.`)}
+    ${divider()}
+    ${p(`<strong style="color:#f0f0f0;">Pedido #${args.pedidoNumero}</strong>`)}
+    ${p(`Total pago: <strong style="color:#f0f0f0;">${args.totalBRL}</strong>`)}
+    ${divider()}
+    ${p('A loja já foi avisada e vai preparar seu envio. Você recebe outro e-mail assim que ela despachar — e pode acompanhar tudo por aqui.')}
+    ${btn('Acompanhar pedido', addUtm(url, 'pedido_comprador'))}
+  `, `Pedido #${args.pedidoNumero} confirmado`)
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: subjUser(`✅ Pedido confirmado: ${args.itemNome}`),
+    html,
+  })
+}

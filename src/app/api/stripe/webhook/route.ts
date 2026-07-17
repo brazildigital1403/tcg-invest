@@ -24,7 +24,7 @@
 // 5. Renovação detecta se sub é de user ou de loja (busca em ambas as tabelas).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail, sendConnectAtivoEmail, sendConnectPendenciaEmail } from '@/lib/email'
+import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail, sendConnectAtivoEmail, sendConnectPendenciaEmail, sendVendaLojistaEmail, sendPedidoCompradorEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
@@ -297,6 +297,145 @@ export async function POST(req: NextRequest) {
       // ────────────────────────────────────────────────────────────────────
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.CheckoutSession
+
+        // ─── VENDA ON-SITE (marketplace + Connect) ──────────────────────
+        // Identificada pelo metadata que a rota de checkout gravou. Precisa vir
+        // ANTES do check de userId/plano (que e das assinaturas) — senao a venda
+        // cairia no "ignorando".
+        const pedidoId = session.metadata?.bynx_pedido_id
+        if (pedidoId) {
+          const { data: peds } = await supabase
+            .from('pedidos')
+            .select('id, numero, status, loja_id, vendedor_user_id, comprador_user_id, marketplace_id, item_nome, total_comprador_cents, liquido_loja_cents, repasse_prazo')
+            .eq('id', pedidoId)
+            .limit(1)
+
+          const pedido = peds?.[0]
+          if (!pedido) {
+            console.error(`[webhook] venda: pedido ${pedidoId} nao encontrado`)
+            break
+          }
+          // Idempotencia: a Stripe re-entrega evento. Nao marcar vendido 2x.
+          if (pedido.status !== 'aguardando_pagamento') {
+            console.log(`[webhook] venda: pedido ${pedido.numero} ja estava ${pedido.status} — ignorando`)
+            break
+          }
+
+          const cd = session.customer_details
+          const end = cd?.address
+          const enderecoStr = end
+            ? [end.line1, end.line2, end.city, end.state, end.postal_code].filter(Boolean).join(', ')
+            : 'não informado'
+
+          const { error: upPedErr } = await supabase
+            .from('pedidos')
+            .update({
+              status: 'pago',
+              pago_em: new Date().toISOString(),
+              stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+              endereco: {
+                nome: cd?.name || null,
+                email: cd?.email || null,
+                telefone: cd?.phone || null,
+                linha1: end?.line1 || null,
+                linha2: end?.line2 || null,
+                cidade: end?.city || null,
+                estado: end?.state || null,
+                cep: end?.postal_code || null,
+                pais: end?.country || null,
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', pedido.id)
+
+          if (upPedErr) {
+            console.error(`[webhook] venda: falha atualizando pedido ${pedido.numero}:`, upPedErr.message)
+            break
+          }
+
+          // Anuncio sai do ar (1 carta por anuncio na v1).
+          if (pedido.marketplace_id) {
+            await supabase
+              .from('marketplace')
+              .update({ status: 'vendido', buyer_id: pedido.comprador_user_id })
+              .eq('id', pedido.marketplace_id)
+          }
+
+          console.log(`[webhook] venda: pedido ${pedido.numero} PAGO — ${pedido.item_nome} (loja ${pedido.loja_id})`)
+
+          const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+          // Sino pros dois lados
+          try {
+            await supabase.from('notifications').insert([
+              {
+                user_id: pedido.vendedor_user_id,
+                type: 'aviso',
+                title: 'Você vendeu!',
+                message: `${pedido.item_nome} foi vendido. Envie o produto e marque como enviado.`,
+                data: { link: `/minha-loja/${pedido.loja_id}/pedidos` },
+              },
+              {
+                user_id: pedido.comprador_user_id,
+                type: 'aviso',
+                title: 'Pagamento confirmado',
+                message: `Sua compra de ${pedido.item_nome} foi confirmada. A loja vai preparar o envio.`,
+                data: { link: `/pedido/${pedido.id}` },
+              },
+            ])
+          } catch (err: any) {
+            console.error('[webhook] venda: falha no sino:', err?.message)
+          }
+
+          // Emails
+          try {
+            const { data: partes } = await supabase
+              .from('users')
+              .select('id, email, name')
+              .in('id', [pedido.vendedor_user_id, pedido.comprador_user_id])
+
+            const vendedor = partes?.find((u: any) => u.id === pedido.vendedor_user_id)
+            const comprador = partes?.find((u: any) => u.id === pedido.comprador_user_id)
+
+            const { data: lojaRow } = await supabase
+              .from('lojas')
+              .select('nome')
+              .eq('id', pedido.loja_id)
+              .single()
+
+            if (vendedor?.email) {
+              await sendVendaLojistaEmail({
+                to: vendedor.email,
+                nomeUser: vendedor.name || '',
+                nomeLoja: lojaRow?.nome || 'sua loja',
+                lojaId: pedido.loja_id,
+                pedidoNumero: pedido.numero,
+                itemNome: pedido.item_nome,
+                liquidoBRL: brl(pedido.liquido_loja_cents),
+                compradorNome: cd?.name || comprador?.name || 'Comprador',
+                endereco: enderecoStr,
+                repassePrazo: pedido.repasse_prazo,
+              })
+            }
+            if (comprador?.email) {
+              await sendPedidoCompradorEmail({
+                to: comprador.email,
+                nomeUser: comprador.name || '',
+                pedidoId: pedido.id,
+                pedidoNumero: pedido.numero,
+                itemNome: pedido.item_nome,
+                nomeLoja: lojaRow?.nome || 'a loja',
+                totalBRL: brl(pedido.total_comprador_cents),
+              })
+            }
+          } catch (err: any) {
+            console.error('[webhook] venda: falha nos emails:', err?.message)
+          }
+
+          break
+        }
+
+        // ─── Assinaturas / pacotes (fluxo antigo) ───────────────────────
         const userId = session.metadata?.userId
         const lojaId = session.metadata?.lojaId
         const planoMeta = session.metadata?.plano
