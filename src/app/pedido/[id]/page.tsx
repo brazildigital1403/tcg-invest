@@ -21,12 +21,17 @@ import { fmtBRL } from '@/lib/comissao'
  * panico.
  */
 
+declare global {
+  interface Window { dataLayer?: Record<string, unknown>[] }
+}
+
 interface Pedido {
   id: string
   numero: number
   status: string
   item_nome: string
   item_imagem: string | null
+  item_card_id: string | null
   valor_item_cents: number
   frete_cents: number
   acrescimo_cents: number
@@ -74,6 +79,48 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     const t = setTimeout(async () => { await buscar(); setTentativas(n => n + 1) }, 2000)
     return () => clearTimeout(t)
   }, [veioDoPagamento, pedido, tentativas, buscar])
+
+  // ─── Conversao pro GTM (GA4 + Meta Pixel) ─────────────────────────────
+  // UM push alimenta os dois: o GTM tem uma tag do GA4 e outra da Meta ouvindo
+  // o evento 'purchase'. Formato = GA4 ecommerce (padrao de mercado).
+  //
+  // DEDUP: a chave no localStorage garante 1 disparo por pedido pra sempre —
+  // recarregar a pagina, voltar nela semana que vem ou abrir em outra aba nao
+  // conta venda de novo. Sem isso o Meta otimizaria com faturamento inflado.
+  //
+  // Se o usuario nao aceitou cookies, o GTM nao existe e o push cai num array
+  // solto — inofensivo, e nada e enviado. (Consent LGPD respeitado.)
+  useEffect(() => {
+    if (!pedido) return
+    if (pedido.status === 'aguardando_pagamento' || pedido.status === 'cancelado' || pedido.status === 'reembolsado') return
+
+    const chave = `bx_purchase_${pedido.id}`
+    try {
+      if (localStorage.getItem(chave)) return
+      localStorage.setItem(chave, '1')
+    } catch {
+      return // sem localStorage nao da pra garantir o dedup: melhor nao disparar
+    }
+
+    window.dataLayer = window.dataLayer || []
+    window.dataLayer.push({
+      event: 'purchase',
+      ecommerce: {
+        transaction_id: String(pedido.numero),
+        value: pedido.total_comprador_cents / 100,
+        shipping: pedido.frete_cents / 100,
+        currency: 'BRL',
+        items: [
+          {
+            item_id: pedido.item_card_id || pedido.id,
+            item_name: pedido.item_nome,
+            price: pedido.valor_item_cents / 100,
+            quantity: 1,
+          },
+        ],
+      },
+    })
+  }, [pedido])
 
   if (carregando) return <Casca><div style={S.vazio}>Carregando…</div></Casca>
   if (semAcesso || !pedido) {
