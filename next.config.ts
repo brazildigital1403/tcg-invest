@@ -24,11 +24,11 @@ const SUPABASE_WSS  = 'wss://hvkcwfcvizrvhkerupfc.supabase.co'
 const CSP = [
   "default-src 'self'",
   // GTM (gated no consentimento) + Turnstile (captcha do cadastro)
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://www.google-analytics.com https://ssl.google-analytics.com https://tagmanager.google.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://www.google-analytics.com https://ssl.google-analytics.com https://tagmanager.google.com https://connect.facebook.net",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' ${SUPABASE_HOST} ${SUPABASE_WSS} https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://challenges.cloudflare.com https://api.pokemontcg.io https://economia.awesomeapi.com.br`,
+  `connect-src 'self' ${SUPABASE_HOST} ${SUPABASE_WSS} https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://challenges.cloudflare.com https://api.pokemontcg.io https://economia.awesomeapi.com.br https://connect.facebook.net https://www.facebook.com`,
   "frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com",
   "worker-src 'self' blob:",
   "media-src 'self' data: https:",
