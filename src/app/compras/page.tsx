@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
+import AppLayout from '@/components/ui/AppLayout'
 import { fmtBRL } from '@/lib/comissao'
 
 /**
@@ -157,17 +158,20 @@ export default function ComprasPage() {
   )
 }
 
+/**
+ * Envolve no AppLayout pra herdar menu lateral, sino e patrimonio — cada pagina
+ * do app importa o AppLayout ela mesma (nao existe layout de grupo aqui).
+ */
 function Casca({ children }: { children: React.ReactNode }) {
   return (
-    <div style={S.page}>
+    <AppLayout>
       <div style={S.wrap}>{children}</div>
-    </div>
+    </AppLayout>
   )
 }
 
 const S: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh', background: '#080a0f', color: '#f0f0f0', padding: '26px 18px 60px' },
-  wrap: { maxWidth: 620, margin: '0 auto' },
+  wrap: { maxWidth: 620, margin: '0 auto', padding: '4px 0 40px' },
   h1: { fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 4 },
   sub: { fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 18 },
   card: { background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 20 },
