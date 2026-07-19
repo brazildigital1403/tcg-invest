@@ -18,6 +18,9 @@ const BASE = process.env.MELHOR_ENVIO_BASE || 'https://www.melhorenvio.com.br'
 const UA = process.env.MELHOR_ENVIO_UA || 'Bynx (contato@bynx.gg)'
 // Filtro opcional de servicos (ex "1,2,17"). Vazio = todas as transportadoras.
 const SERVICES = process.env.MELHOR_ENVIO_SERVICES || ''
+// Corta a lista pra nao afogar o comprador (ja vem ordenada por preco, mais
+// barata primeiro). Tunavel por env sem redeploy; default 4.
+const MAX_OPCOES = Math.max(1, Number(process.env.MELHOR_ENVIO_MAX) || 4)
 
 export interface ItemFrete {
   id: string
@@ -130,4 +133,5 @@ export async function cotarFrete(fromCep: string, toCep: string, itens: ItemFret
     }))
     .filter(o => Number.isFinite(o.precoCents) && o.precoCents > 0)
     .sort((a, b) => a.precoCents - b.precoCents)
+    .slice(0, MAX_OPCOES)
 }
