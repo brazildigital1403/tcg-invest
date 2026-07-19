@@ -371,7 +371,7 @@ export default async function PokedexPokemonTcgPage() {
                 <Link href="/pokedex" style={S.ctaPrimary}>
                   Explorar Pokédex →
                 </Link>
-                <Link href="?auth=signup&next=/pokedex" style={S.ctaSecondary}>
+                <Link href="/pokedex-pokemon-tcg?auth=signup&next=/pokedex" style={S.ctaSecondary}>
                   Criar conta grátis
                 </Link>
               </div>
@@ -843,7 +843,7 @@ export default async function PokedexPokemonTcgPage() {
                 <Link href="/pokedex" style={S.ctaPrimary}>
                   Explorar Pokédex →
                 </Link>
-                <Link href="?auth=signup&next=/minha-colecao" style={S.ctaSecondary}>
+                <Link href="/pokedex-pokemon-tcg?auth=signup&next=/minha-colecao" style={S.ctaSecondary}>
                   Criar conta grátis
                 </Link>
                 <Link href="/colecionadores" style={S.ctaTertiary}>

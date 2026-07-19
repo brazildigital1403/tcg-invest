@@ -153,6 +153,7 @@ export interface AuthModalProps {
 
 export default function AuthModal({ open, onClose, initialMode = 'signup', initialPlan = null, next = null }: AuthModalProps) {
   const router = useRouter()
+  const bodyRef = React.useRef<HTMLDivElement>(null)
 
   // Estado do fluxo (todos resetados quando o modal abre)
   const [isLogin, setIsLogin] = useState(initialMode === 'login')
@@ -230,6 +231,11 @@ useEffect(() => {
       setLoading(false)
     }
   }, [open, initialMode, initialPlan])
+
+  // Sobe o corpo do modal ao trocar de passo/modo (senao fica preso rolado)
+  React.useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0
+  }, [signupStep, isLogin, forgotStep, reconfirmPrompt, signupConfirmSent])
 
   // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -392,7 +398,11 @@ useEffect(() => {
         const ttNorm = tiktok.trim().replace(/^@+/, '') || null
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { captchaToken: captchaToken ?? undefined, data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf } },
+          options: {
+            captchaToken: captchaToken ?? undefined,
+            emailRedirectTo: `${window.location.origin}/auth/pos-cadastro?plan=${pendingPlan && pendingPlan !== 'free' ? pendingPlan : ''}&next=${encodeURIComponent(next || '')}`,
+            data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf },
+          },
         })
         if (error) {
           if (error.message.includes('already registered')) setServerError('Este e-mail já está cadastrado.')
@@ -534,7 +544,7 @@ useEffect(() => {
         </div>
 
         {/* Body */}
-        <div style={{ padding: '20px 28px 24px', display: 'flex', flexDirection: 'column', gap: 12, flex: '1 1 auto', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div ref={bodyRef} style={{ padding: '20px 28px 24px', display: 'flex', flexDirection: 'column', gap: 12, flex: '1 1 auto', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
 
           {/* STEP 0: Escolha de plano */}
           {reconfirmPrompt ? (

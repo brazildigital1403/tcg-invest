@@ -302,7 +302,7 @@ export default async function ColecionadoresPage() {
               </p>
 
               <div className="col-hero-ctas" style={S.heroCtas}>
-                <Link href="?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
+                <Link href="/colecionadores?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
                   Começar grátis →
                 </Link>
                 <Link href="/pokedex" style={S.ctaSecondary}>
@@ -487,7 +487,7 @@ export default async function ColecionadoresPage() {
                 <p style={S.profileDesc}>
                   É a versão BR do que existe lá fora — só que melhor adaptado pro nosso jeito: links pro WhatsApp, badge "verificado" e modo privado pra quem não quer expor patrimônio.
                 </p>
-                <Link href="?auth=signup&next=/minha-conta" style={S.ctaInline}>
+                <Link href="/colecionadores?auth=signup&next=/minha-conta" style={S.ctaInline}>
                   Criar meu perfil grátis →
                 </Link>
               </div>
@@ -549,7 +549,7 @@ export default async function ColecionadoresPage() {
               subtitle="Sem fidelidade. Cancele a qualquer momento."
             />
 
-            <CardsPlanos ctaHref="?auth=signup&next=/minha-colecao" />
+            <CardsPlanos ctaHref="/colecionadores?auth=signup&next=/minha-colecao" />
           </div>
         </section>
 
@@ -616,7 +616,7 @@ export default async function ColecionadoresPage() {
                 Depois disso, plano gratuito pra sempre, até 100 cartas — ou Plus/Pro quando precisar de mais.
               </p>
               <div className="col-final-ctas" style={S.heroCtas}>
-                <Link href="?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
+                <Link href="/colecionadores?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
                   Começar grátis →
                 </Link>
                 <Link href="/pokedex" style={S.ctaSecondary}>

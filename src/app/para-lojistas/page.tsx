@@ -85,7 +85,7 @@ const FAQ: { q: string; a: string }[] = [
   },
 ]
 
-const SIGNUP = '?auth=signup&next=/minha-loja/nova'
+const SIGNUP = '/para-lojistas?auth=signup&next=/minha-loja/nova'
 const CHECK = (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <path d="M16.5 6.5L8 15l-4.5-4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

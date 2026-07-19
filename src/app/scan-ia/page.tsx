@@ -932,7 +932,7 @@ export default function ScanIaLanding() {
             </p>
 
             <div style={S.heroCtas}>
-              <Link href="?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
+              <Link href="/scan-ia?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
                 Criar conta grátis →
               </Link>
               <Link href="#pacotes" style={S.ctaSecondary}>
@@ -1337,7 +1337,7 @@ export default function ScanIaLanding() {
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Cartas em PT, EN, JP</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Preço R$ instantâneo</li>
               </ul>
-              <Link href="?auth=signup&next=/minha-colecao" style={S.pkgCta}>
+              <Link href="/scan-ia?auth=signup&next=/minha-colecao" style={S.pkgCta}>
                 Começar com Básico
               </Link>
             </div>
@@ -1357,7 +1357,7 @@ export default function ScanIaLanding() {
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Ideal pra coleção média</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Suporte prioritário</li>
               </ul>
-              <Link href="?auth=signup&next=/minha-colecao" style={{ ...S.pkgCta, ...S.pkgCtaPopular }}>
+              <Link href="/scan-ia?auth=signup&next=/minha-colecao" style={{ ...S.pkgCta, ...S.pkgCtaPopular }}>
                 Começar com Popular
               </Link>
             </div>
@@ -1376,7 +1376,7 @@ export default function ScanIaLanding() {
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Ideal pra cadastrar coleções inteiras</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Reembolso em 7 dias</li>
               </ul>
-              <Link href="?auth=signup&next=/minha-colecao" style={S.pkgCta}>
+              <Link href="/scan-ia?auth=signup&next=/minha-colecao" style={S.pkgCta}>
                 Começar com Colecionador
               </Link>
             </div>
@@ -1514,7 +1514,7 @@ export default function ScanIaLanding() {
             os créditos não expiram nunca.
           </p>
           <div style={S.finalCtas}>
-            <Link href="?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
+            <Link href="/scan-ia?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
               Criar conta grátis →
             </Link>
             <Link href="#pacotes" style={S.ctaSecondary}>
