@@ -6,7 +6,7 @@ import { classificarConta } from '@/lib/connect-status'
 
 /**
  * GET   /api/lojas/[id]/connect  -> le a conta na Stripe e SINCRONIZA o status
- * PATCH /api/lojas/[id]/connect  -> troca o prazo de repasse (14 | 30 dias)
+ * PATCH /api/lojas/[id]/connect  -> troca prazo de repasse / frete / modo de frete / CEP
  *
  * Auth: owner da loja OU admin.
  *
@@ -18,13 +18,20 @@ import { classificarConta } from '@/lib/connect-status'
  *
  * O webhook account.updated tambem sincroniza; este GET e o caminho sincrono
  * (usuario voltando do onboarding, sem esperar o webhook).
+ *
+ * Frete: 'fixo' (valor unico da loja) ou 'calculado' (Melhor Envio por CEP no
+ * checkout). No calculado o `cep` de origem e obrigatorio.
  */
 
-const SELECT = 'id, owner_user_id, status, stripe_connect_account_id, stripe_connect_status, connect_charges_enabled, connect_payouts_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents'
+const SELECT = 'id, owner_user_id, status, stripe_connect_account_id, stripe_connect_status, connect_charges_enabled, connect_payouts_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents, cep, frete_modo'
 
 function stripeClient(): Stripe | null {
   if (!process.env.STRIPE_SECRET_KEY) return null
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
+}
+
+function soDigitos(v: unknown): string {
+  return String(v ?? '').replace(/\D/g, '')
 }
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -46,6 +53,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         repasse_prazo: normalizarPrazo(loja.repasse_prazo),
         frete_cents: loja.frete_cents ?? 0,
         frete_gratis_acima_cents: loja.frete_gratis_acima_cents ?? null,
+        frete_modo: loja.frete_modo ?? 'fixo',
+        cep: loja.cep ?? null,
         pendencias: [],
       })
     }
@@ -84,6 +93,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       repasse_prazo: normalizarPrazo(loja.repasse_prazo),
       frete_cents: loja.frete_cents ?? 0,
       frete_gratis_acima_cents: loja.frete_gratis_acima_cents ?? null,
+      frete_modo: loja.frete_modo ?? 'fixo',
+      cep: loja.cep ?? null,
       pendencias,
       disabled_reason: c.disabledReason,
     })
@@ -111,7 +122,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const temPrazo = 'repasse_prazo' in body
     const temFrete = 'frete_cents' in body
     const temGratis = 'frete_gratis_acima_cents' in body
-    if (!temPrazo && !temFrete && !temGratis) {
+    const temModo = 'frete_modo' in body
+    const temCep = 'cep' in body
+    if (!temPrazo && !temFrete && !temGratis && !temModo && !temCep) {
       return NextResponse.json({ error: 'Nada para atualizar.' }, { status: 400 })
     }
 
@@ -137,6 +150,34 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         }
         patch.frete_gratis_acima_cents = gn
       }
+    }
+
+    // ── Modo de frete + CEP de origem ────────────────────────────────────
+    let modoFinal: string = loja.frete_modo || 'fixo'
+    if (temModo) {
+      if (body.frete_modo !== 'fixo' && body.frete_modo !== 'calculado') {
+        return NextResponse.json({ error: 'Modo de frete inválido.' }, { status: 400 })
+      }
+      modoFinal = body.frete_modo
+      patch.frete_modo = body.frete_modo
+    }
+
+    let cepFinal: string | null = loja.cep ?? null
+    if (temCep) {
+      const cd = soDigitos(body.cep)
+      if (cd && cd.length !== 8) {
+        return NextResponse.json({ error: 'CEP inválido. Use 8 dígitos.' }, { status: 400 })
+      }
+      cepFinal = cd || null
+      patch.cep = cepFinal
+    }
+
+    // Frete calculado exige CEP de origem valido (novo ou o que ja estava).
+    if (modoFinal === 'calculado' && soDigitos(cepFinal).length !== 8) {
+      return NextResponse.json(
+        { error: 'Para frete calculado, informe o CEP de origem (de onde você posta).' },
+        { status: 400 }
+      )
     }
 
     // ── Prazo (esse SIM depende da Stripe aceitar) ───────────────────────
@@ -191,7 +232,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     if (upErr) {
       console.error('[connect PATCH] falha ao salvar', upErr.message)
-      return NextResponse.json({ error: 'Erro ao salvar o prazo.' }, { status: 500 })
+      return NextResponse.json({ error: 'Erro ao salvar as configurações.' }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true, ...patch })

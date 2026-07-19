@@ -11,7 +11,12 @@ import { pctLabel, calcularCheckout, fmtBRL, type PrazoRepasse, type MetodoPagam
  *
  * Estados: nao_iniciado -> pendente -> ativo | restrito.
  * O lojista cadastra dados/banco na Stripe (hospedado). A Bynx nunca ve.
+ *
+ * Frete: 'fixo' (valor unico) ou 'calculado' (Melhor Envio por CEP no checkout).
+ * No calculado, o CEP de origem e obrigatorio.
  */
+
+type FreteModo = 'fixo' | 'calculado'
 
 interface ConnectInfo {
   status: 'nao_iniciado' | 'pendente' | 'em_analise' | 'ativo' | 'restrito'
@@ -20,11 +25,18 @@ interface ConnectInfo {
   repasse_prazo: PrazoRepasse
   frete_cents: number
   frete_gratis_acima_cents: number | null
+  frete_modo?: FreteModo
+  cep?: string | null
   pendencias: string[]
   disabled_reason?: string | null
 }
 
 const EXEMPLO_CENTS = 24990
+
+function fmtCep(v: string): string {
+  const d = String(v || '').replace(/\D/g, '').slice(0, 8)
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d
+}
 
 export default function LojaPagamentosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: lojaId } = usePromise(params)
@@ -37,8 +49,10 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
   const [erro, setErro] = useState<string | null>(null)
   const [salvandoPrazo, setSalvandoPrazo] = useState(false)
   const [metodo, setMetodo] = useState<MetodoPagamento>('cartao')
+  const [freteModo, setFreteModo] = useState<FreteModo>('fixo')
   const [freteTxt, setFreteTxt] = useState('')
   const [gratisTxt, setGratisTxt] = useState('')
+  const [cepTxt, setCepTxt] = useState('')
   const [salvandoFrete, setSalvandoFrete] = useState(false)
   const [freteOk, setFreteOk] = useState(false)
 
@@ -56,8 +70,10 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Falha ao carregar')
       setInfo(j)
+      setFreteModo(j.frete_modo === 'calculado' ? 'calculado' : 'fixo')
       setFreteTxt(j.frete_cents ? (j.frete_cents / 100).toFixed(2).replace('.', ',') : '')
       setGratisTxt(j.frete_gratis_acima_cents ? (j.frete_gratis_acima_cents / 100).toFixed(2).replace('.', ',') : '')
+      setCepTxt(j.cep ? fmtCep(j.cep) : '')
     } catch (e) {
       setErro((e as Error).message)
     } finally {
@@ -120,25 +136,46 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
   }
 
   async function salvarFrete() {
+    const modo = freteModo
+    const cepDigits = cepTxt.replace(/\D/g, '')
+
+    if (modo === 'calculado' && cepDigits.length !== 8) {
+      setErro('Para frete calculado, informe um CEP de origem válido (8 dígitos).')
+      return
+    }
+
     const f = paraCentavos(freteTxt)
     const g = gratisTxt.trim() ? paraCentavos(gratisTxt) : null
-    if (f === null || (gratisTxt.trim() && (g === null || g <= 0))) {
+    if (modo === 'fixo' && (f === null || (gratisTxt.trim() && (g === null || g <= 0)))) {
       setErro('Valor de frete inválido. Use algo como 18,50.')
       return
     }
+
     setSalvandoFrete(true)
     setErro(null)
     setFreteOk(false)
     try {
       const t = await token()
+      const payload: Record<string, unknown> = { frete_modo: modo, cep: cepDigits || null }
+      if (modo === 'fixo') {
+        payload.frete_cents = f
+        payload.frete_gratis_acima_cents = g
+      }
       const r = await fetch(`/api/lojas/${lojaId}/connect`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frete_cents: f, frete_gratis_acima_cents: g }),
+        body: JSON.stringify(payload),
       })
       const j = await r.json().catch(() => null)
       if (!r.ok) throw new Error(j?.error || 'Não consegui salvar o frete.')
-      setInfo(prev => (prev ? { ...prev, frete_cents: f, frete_gratis_acima_cents: g } : prev))
+      setInfo(prev => (prev
+        ? {
+            ...prev,
+            frete_modo: modo,
+            cep: cepDigits || null,
+            ...(modo === 'fixo' ? { frete_cents: f as number, frete_gratis_acima_cents: g } : {}),
+          }
+        : prev))
       setFreteOk(true)
       setTimeout(() => setFreteOk(false), 2500)
     } catch (e) {
@@ -295,38 +332,66 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
           {/* ─── Frete ────────────────────────────────────────── */}
           <div style={{ ...SH.card, marginTop: 16 }}>
             <h2 style={S.h3}>Frete</h2>
-            <p style={S.sub}>Valor fixo cobrado do comprador por pedido. Ele vai 100% pra você — a Bynx não cobra comissão sobre frete.</p>
+            <p style={S.sub}>Escolha como cobrar o frete. Ele vai 100% pra você — a Bynx não cobra comissão sobre frete.</p>
 
-            <div style={S.freteGrid}>
-              <div>
-                <label style={S.lbl2}>Frete fixo</label>
-                <div style={S.inputWrap}>
-                  <span style={S.prefixo}>R$</span>
-                  <input
-                    value={freteTxt}
-                    onChange={e => setFreteTxt(e.target.value)}
-                    placeholder="0,00"
-                    inputMode="decimal"
-                    style={S.input}
-                  />
-                </div>
-                <p style={S.hint}>Deixe 0 para frete grátis</p>
-              </div>
-              <div>
-                <label style={S.lbl2}>Frete grátis acima de</label>
-                <div style={S.inputWrap}>
-                  <span style={S.prefixo}>R$</span>
-                  <input
-                    value={gratisTxt}
-                    onChange={e => setGratisTxt(e.target.value)}
-                    placeholder="opcional"
-                    inputMode="decimal"
-                    style={S.input}
-                  />
-                </div>
-                <p style={S.hint}>Vazio = sem regra</p>
-              </div>
+            <div style={S.chips}>
+              {(['fixo', 'calculado'] as FreteModo[]).map(m => (
+                <button key={m} onClick={() => setFreteModo(m)} style={{ ...S.chip, ...(freteModo === m ? S.chipOn : {}) }}>
+                  {m === 'fixo' ? 'Valor fixo' : 'Calculado · Melhor Envio'}
+                </button>
+              ))}
             </div>
+
+            {freteModo === 'fixo' ? (
+              <div style={S.freteGrid}>
+                <div>
+                  <label style={S.lbl2}>Frete fixo</label>
+                  <div style={S.inputWrap}>
+                    <span style={S.prefixo}>R$</span>
+                    <input
+                      value={freteTxt}
+                      onChange={e => setFreteTxt(e.target.value)}
+                      placeholder="0,00"
+                      inputMode="decimal"
+                      style={S.input}
+                    />
+                  </div>
+                  <p style={S.hint}>Deixe 0 para frete grátis</p>
+                </div>
+                <div>
+                  <label style={S.lbl2}>Frete grátis acima de</label>
+                  <div style={S.inputWrap}>
+                    <span style={S.prefixo}>R$</span>
+                    <input
+                      value={gratisTxt}
+                      onChange={e => setGratisTxt(e.target.value)}
+                      placeholder="opcional"
+                      inputMode="decimal"
+                      style={S.input}
+                    />
+                  </div>
+                  <p style={S.hint}>Vazio = sem regra</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={S.noteCalc}>
+                  <b style={{ color: '#60a5fa' }}>Como funciona:</b> o comprador vê PAC/SEDEX pelo CEP dele no
+                  checkout. Você recebe o frete no pedido e envia por conta própria.
+                </div>
+                <label style={S.lbl2}>CEP de origem (de onde você posta)</label>
+                <div style={S.inputWrap}>
+                  <input
+                    value={cepTxt}
+                    onChange={e => setCepTxt(fmtCep(e.target.value))}
+                    placeholder="01310-100"
+                    inputMode="numeric"
+                    style={S.input}
+                  />
+                </div>
+                <p style={S.hint}>Obrigatório pro frete calculado funcionar.</p>
+              </>
+            )}
 
             <button onClick={salvarFrete} disabled={salvandoFrete} style={{ ...SH.btnPrimary, width: '100%', marginTop: 14, opacity: salvandoFrete ? 0.6 : 1 }}>
               {salvandoFrete ? 'Salvando…' : freteOk ? '✓ Frete salvo!' : 'Salvar frete'}
@@ -334,11 +399,13 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
 
             {info && (
               <p style={S.previa}>
-                {info.frete_cents === 0
-                  ? '🚚 Seus compradores não pagam frete.'
-                  : info.frete_gratis_acima_cents
-                    ? `🚚 ${fmtBRL(info.frete_cents)} de frete — grátis em compras acima de ${fmtBRL(info.frete_gratis_acima_cents)}.`
-                    : `🚚 ${fmtBRL(info.frete_cents)} de frete em todos os pedidos.`}
+                {info.frete_modo === 'calculado'
+                  ? '🚚 Frete calculado pelo Melhor Envio no checkout.'
+                  : info.frete_cents === 0
+                    ? '🚚 Seus compradores não pagam frete.'
+                    : info.frete_gratis_acima_cents
+                      ? `🚚 ${fmtBRL(info.frete_cents)} de frete — grátis em compras acima de ${fmtBRL(info.frete_gratis_acima_cents)}.`
+                      : `🚚 ${fmtBRL(info.frete_cents)} de frete em todos os pedidos.`}
               </p>
             )}
           </div>
@@ -366,6 +433,7 @@ const S: Record<string, React.CSSProperties> = {
   prefixo: { fontSize: 12.5, color: 'rgba(255,255,255,0.35)', marginRight: 6 },
   input: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#f0f0f0', fontSize: 14, fontWeight: 600, padding: '10px 0' },
   hint: { fontSize: 10.5, color: 'rgba(255,255,255,0.3)', marginTop: 5 },
+  noteCalc: { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 10, padding: '10px 12px', marginBottom: 12 },
   previa: { fontSize: 12.5, color: '#22c55e', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: 9, padding: '9px 12px', marginTop: 12, textAlign: 'center' },
   chips: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 },
   chip: { fontSize: 12.5, fontWeight: 700, padding: '9px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' },

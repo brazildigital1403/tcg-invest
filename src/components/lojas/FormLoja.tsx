@@ -115,6 +115,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
   const [cidade,         setCidade]         = useState(initialData?.cidade         || '')
   const [estado,         setEstado]         = useState(initialData?.estado         || '')
   const [endereco,       setEndereco]       = useState(initialData?.endereco       || '')
+  const [cep,            setCep]            = useState(initialData?.cep            || '')
   const [tipo,           setTipo]           = useState<'fisica' | 'online' | 'ambas'>(initialData?.tipo || 'fisica')
   const [especialidades, setEspecialidades] = useState<string[]>(initialData?.especialidades || [])
   const [whatsapp,       setWhatsapp]       = useState(initialData?.whatsapp       || '')
@@ -307,6 +308,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       cidade: cidade.trim(),
       estado: estado.trim().toUpperCase(),
       endereco: endereco.trim() || null,
+      cep: cep.replace(/\D/g, '') || null,
       tipo,
       especialidades,
       whatsapp: whatsapp.trim() || null,
@@ -564,6 +566,19 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
               {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
             </select>
           </div>
+        </div>
+
+        <div>
+          <label style={LABEL}>CEP</label>
+          <input
+            type="text"
+            value={cep}
+            onChange={e => setCep(e.target.value)}
+            placeholder="Ex: 01310-100"
+            inputMode="numeric"
+            style={INPUT}
+          />
+          <p style={S.hintText}>Usado para calcular o frete dos seus pedidos.</p>
         </div>
 
         {(tipo === 'fisica' || tipo === 'ambas') && (
