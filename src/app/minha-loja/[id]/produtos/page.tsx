@@ -13,6 +13,9 @@ import { fmtBRL } from '@/lib/comissao'
  * Carta continua no Marketplace (puxa do catalogo, tem condicao/graduacao).
  * Aqui e selado/pelucia/funko/fichario/acessorio: a loja descreve do zero e tem
  * ESTOQUE (N unidades). Estoque 0 some da vitrine sozinho e volta quando repoe.
+ *
+ * `peso_g` (gramas) alimenta o frete calculado (Melhor Envio). So precisa
+ * preencher se a loja usa frete calculado; a dimensao a Bynx estima pelo tipo.
  */
 
 const TIPOS = [
@@ -33,6 +36,7 @@ interface Produto {
   descricao: string | null
   preco_cents: number
   estoque: number
+  peso_g: number | null
   vendidos: number
   fotos: string[]
   ativo: boolean
@@ -58,6 +62,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
   const [nome, setNome] = useState('')
   const [precoTxt, setPrecoTxt] = useState('')
   const [estoqueTxt, setEstoqueTxt] = useState('1')
+  const [pesoTxt, setPesoTxt] = useState('')
   const [descricao, setDescricao] = useState('')
   const [fotos, setFotos] = useState<string[]>([])
 
@@ -85,14 +90,15 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
   useEffect(() => { if (estado === 'pronto') carregar() }, [estado, carregar])
 
   function limpar() {
-    setTipo('selado'); setNome(''); setPrecoTxt(''); setEstoqueTxt('1')
+    setTipo('selado'); setNome(''); setPrecoTxt(''); setEstoqueTxt('1'); setPesoTxt('')
     setDescricao(''); setFotos([]); setEditId(null)
   }
   function abrirNovo() { limpar(); setForm(true) }
   function abrirEdicao(p: Produto) {
     setTipo(p.tipo as TipoV); setNome(p.nome)
     setPrecoTxt((p.preco_cents / 100).toFixed(2).replace('.', ','))
-    setEstoqueTxt(String(p.estoque)); setDescricao(p.descricao || '')
+    setEstoqueTxt(String(p.estoque)); setPesoTxt(p.peso_g ? String(p.peso_g) : '')
+    setDescricao(p.descricao || '')
     setFotos(p.fotos || []); setEditId(p.id); setForm(true)
   }
 
@@ -120,15 +126,17 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
   async function salvar() {
     const preco = Math.round(Number(precoTxt.replace(/[^0-9,.]/g, '').replace(',', '.')) * 100)
     const est = Number(estoqueTxt)
+    const peso = pesoTxt.trim() ? Number(pesoTxt) : null
     if (!nome.trim() || nome.trim().length < 2) return setErro('Dê um nome ao produto.')
     if (!Number.isFinite(preco) || preco <= 0) return setErro('Preço inválido. Use algo como 289,90.')
     if (!Number.isInteger(est) || est < 0) return setErro('Estoque inválido.')
+    if (peso !== null && (!Number.isInteger(peso) || peso <= 0 || peso > 30000)) return setErro('Peso inválido. Use de 1 a 30000 g.')
 
     setSalvando(true)
     setErro(null)
     try {
       const t = await token()
-      const corpo = { tipo, nome: nome.trim(), preco_cents: preco, estoque: est, descricao: descricao.trim() || null, fotos }
+      const corpo = { tipo, nome: nome.trim(), preco_cents: preco, estoque: est, peso_g: peso, descricao: descricao.trim() || null, fotos }
       const r = await fetch(`/api/lojas/${lojaId}/produtos`, {
         method: editId ? 'PATCH' : 'POST',
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
@@ -233,6 +241,10 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
               <input value={estoqueTxt} onChange={e => setEstoqueTxt(e.target.value.replace(/[^0-9]/g, ''))} placeholder="1" inputMode="numeric" style={S.input} />
             </div>
           </div>
+
+          <label style={S.lbl}>Peso (g)</label>
+          <input value={pesoTxt} onChange={e => setPesoTxt(e.target.value.replace(/[^0-9]/g, ''))} placeholder="Ex: 850" inputMode="numeric" style={S.input} />
+          <p style={S.hint}>Usado pra calcular o frete. Só precisa preencher se sua loja usa frete calculado.</p>
 
           <label style={S.lbl}>Descrição (opcional)</label>
           <textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Lacrado, pronta entrega…" rows={3} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />

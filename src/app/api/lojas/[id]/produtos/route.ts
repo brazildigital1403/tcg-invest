@@ -10,19 +10,30 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
  * DELETE /api/lojas/[id]/produtos?produto_id -> remove
  *
  * Auth: owner da loja OU admin. Escrita so por aqui (a tabela nao aceita write
- * de cliente) — e aqui que validamos dono, tipo, preco e estoque.
+ * de cliente) — e aqui que validamos dono, tipo, preco, estoque e peso.
  *
  * Regra de acesso (decisao do Du): qualquer loja ATIVA pode cadastrar. O plano
  * ja limita naturalmente pelas FOTOS (basico 0 / pro 5 / premium 10) — sem foto
  * o produto nao vende, entao nao precisamos de outra regra por cima.
+ *
+ * `peso_g` (gramas) alimenta o frete calculado (Melhor Envio). Opcional: so
+ * precisa quando a loja usa frete_modo='calculado'. A dimensao a Bynx estima
+ * pelo tipo do produto.
  */
 
 const SELECT_LOJA = 'id, owner_user_id, nome, status'
 const TIPOS = ['selado', 'pelucia', 'funko', 'fichario', 'acessorio'] as const
-const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, vendidos, fotos, ativo, created_at'
+const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, vendidos, fotos, ativo, created_at'
 
 type Tipo = (typeof TIPOS)[number]
 const ehTipo = (v: unknown): v is Tipo => TIPOS.includes(v as Tipo)
+
+/** "850" | 850 | "" | null -> gramas (int) ou null. */
+function pesoParaGramas(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const w = Number(v)
+  return Number.isFinite(w) ? Math.round(w) : NaN
+}
 
 /** Valida os campos comuns de create/update. Devolve erro (string) ou null. */
 function validar(p: Record<string, unknown>, parcial: boolean): string | null {
@@ -40,6 +51,11 @@ function validar(p: Record<string, unknown>, parcial: boolean): string | null {
   if (!parcial || 'estoque' in p) {
     const e = Number(p.estoque)
     if (!Number.isInteger(e) || e < 0 || e > 9999) return 'Estoque inválido. Use de 0 a 9999.'
+  }
+  if ('peso_g' in p && p.peso_g != null && p.peso_g !== '') {
+    const w = pesoParaGramas(p.peso_g)
+    if (w === null) return null
+    if (!Number.isInteger(w) || w <= 0 || w > 30000) return 'Peso inválido. Use de 1 a 30000 g.'
   }
   if ('descricao' in p && p.descricao != null && String(p.descricao).length > 1000) {
     return 'Descrição muito longa (máx. 1000 caracteres).'
@@ -108,6 +124,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         descricao: body.descricao ? String(body.descricao).trim() : null,
         preco_cents: Number(body.preco_cents),
         estoque: Number(body.estoque),
+        peso_g: pesoParaGramas(body.peso_g),
         fotos: Array.isArray(body.fotos) ? body.fotos.slice(0, 10) : [],
       })
       .select(CAMPOS)
@@ -144,6 +161,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if ('descricao' in body) patch.descricao = body.descricao ? String(body.descricao).trim() : null
     if ('preco_cents' in body) patch.preco_cents = Number(body.preco_cents)
     if ('estoque' in body) patch.estoque = Number(body.estoque)
+    if ('peso_g' in body) patch.peso_g = pesoParaGramas(body.peso_g)
     if ('ativo' in body) patch.ativo = !!body.ativo
     if ('fotos' in body && Array.isArray(body.fotos)) patch.fotos = body.fotos.slice(0, 10)
 
