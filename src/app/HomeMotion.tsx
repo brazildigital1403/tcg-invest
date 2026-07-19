@@ -32,12 +32,22 @@ export default function HomeMotion() {
     const patrEl = root.querySelector<HTMLElement>('.am-pval')
     if (patrEl) {
       const patr = Math.round((6000 + Math.random() * 74000) / 10) * 10
-      patrEl.dataset.money = String(patr)
       const trendEl = document.getElementById('hm-trend')
       if (trendEl) {
         const pct = Math.round(15 + Math.random() * 95) / 10
         const gain = Math.round(patr * pct / 100)
         trendEl.textContent = 'R$ ' + raw(gain) + ' este m\u00eas \u00b7 +' + pct.toFixed(1).replace('.', ',') + '%'
+      }
+      if (reduce) {
+        patrEl.textContent = 'R$ ' + raw(patr)
+      } else {
+        const t0p = performance.now()
+        const stepP = (t: number) => {
+          const p = Math.min(1, (t - t0p) / 1200)
+          patrEl.textContent = 'R$ ' + raw(Math.round(patr * (1 - Math.pow(1 - p, 3))))
+          if (p < 1) requestAnimationFrame(stepP)
+        }
+        requestAnimationFrame(stepP)
       }
     }
 
