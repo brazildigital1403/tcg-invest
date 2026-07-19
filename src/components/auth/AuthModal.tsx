@@ -82,6 +82,21 @@ function formatarCEP(v: string) {
   return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d
 }
 
+// Espelha a politica do Supabase Auth: 8+ chars com minuscula, maiuscula, numero e simbolo.
+function senhaChecks(s: string) {
+  return {
+    len: s.length >= 8,
+    lower: /[a-z]/.test(s),
+    upper: /[A-Z]/.test(s),
+    num: /[0-9]/.test(s),
+    sym: /[^a-zA-Z0-9]/.test(s),
+  }
+}
+function senhaValida(s: string) {
+  const c = senhaChecks(s)
+  return c.len && c.lower && c.upper && c.num && c.sym
+}
+
 function forcasenha(senha: string) {
   if (senha.length < 6) return { nivel: 0, label: 'Muito curta', cor: '#ef4444' }
   if (senha.length < 8) return { nivel: 1, label: 'Fraca', cor: '#f59e0b' }
@@ -257,7 +272,9 @@ useEffect(() => {
     } else if (!isLogin && isDisposableEmail(email)) {
       e.email = 'Use um e-mail real (descartáveis bloqueados)'
     }
-    if (password.length < 6)
+    if (!isLogin && !senhaValida(password))
+      e.password = 'Senha fraca. Use 8+ caracteres com maiúscula, minúscula, número e símbolo.'
+    else if (isLogin && password.length < 6)
       e.password = 'Senha deve ter pelo menos 6 caracteres'
     return e
   }
@@ -285,6 +302,18 @@ useEffect(() => {
     } finally {
       setCepLoading(false)
     }
+  }
+
+  // Checa CPF duplicado assim que o campo e preenchido (nao so no submit).
+  async function checkCpfDisponivel() {
+    if (!validarCPF(cpf)) return
+    try {
+      const { data: taken } = await supabase.rpc('cpf_em_uso', { p_cpf: cpf })
+      if (taken) {
+        setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))
+        setTouched(prev => ({ ...prev, cpf: true }))
+      }
+    } catch { /* silencioso: a checagem no submit cobre */ }
   }
 
   function trocarModo() {
@@ -367,6 +396,8 @@ useEffect(() => {
         })
         if (error) {
           if (error.message.includes('already registered')) setServerError('Este e-mail já está cadastrado.')
+          else if (/weak|easy to guess|pwned|known to be|leaked/i.test(error.message)) setServerError('Essa senha é muito comum e fácil de adivinhar. Escolha uma senha diferente.')
+          else if (/should contain at least one character|password should/i.test(error.message)) setServerError('Senha fraca. Use 8+ caracteres com maiúscula, minúscula, número e símbolo.')
           else setServerError(error.message)
           return
         }
@@ -671,7 +702,7 @@ useEffect(() => {
                           <input type="text" placeholder="000.000.000-00" inputMode="numeric"
                             value={cpf}
                             onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
-                            onBlur={() => handleBlur('cpf')}
+                            onBlur={() => { handleBlur('cpf'); checkCpfDisponivel() }}
                             style={inputStyle(touched.cpf ? erros.cpf : undefined, touched.cpf && !erros.cpf && cpf.length > 0)}
                           />
                         </Campo>
@@ -838,15 +869,24 @@ useEffect(() => {
                     </button>
                   </div>
                   {!isLogin && password.length > 0 && (() => {
-                    const f = forcasenha(password)
+                    const c = senhaChecks(password)
+                    const reqs: { ok: boolean; txt: string }[] = [
+                      { ok: c.len, txt: '8+ caracteres' },
+                      { ok: c.lower, txt: 'letra minúscula' },
+                      { ok: c.upper, txt: 'letra maiúscula' },
+                      { ok: c.num, txt: 'número' },
+                      { ok: c.sym, txt: 'símbolo (!@#...)' },
+                    ]
                     return (
-                      <div style={{ marginTop: 6 }}>
-                        <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
-                          {[1,2,3].map(n => (
-                            <div key={n} style={{ height: 3, flex: 1, borderRadius: 2, background: n <= f.nivel ? f.cor : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
-                          ))}
-                        </div>
-                        <p style={{ fontSize: 11, color: f.cor }}>{f.label}</p>
+                      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 12px' }}>
+                        {reqs.map((r, i) => (
+                          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: r.ok ? '#22c55e' : 'rgba(255,255,255,0.42)' }}>
+                            {r.ok
+                              ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg>
+                              : <span style={{ width: 12, height: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} /></span>}
+                            {r.txt}
+                          </span>
+                        ))}
                       </div>
                     )
                   })()}
@@ -903,12 +943,6 @@ useEffect(() => {
                 </>
               ) : (
                 <>
-                  {!isLogin && (
-                    <button onClick={() => setSignupStep(1)}
-                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)', padding: '11px', borderRadius: 10, fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
-                      ← Voltar
-                    </button>
-                  )}
                   <button onClick={handleAuth} disabled={loading}
                     style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1, marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                     {loading ? (
@@ -922,6 +956,12 @@ useEffect(() => {
                       : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
                       : 'Criar conta grátis →'}
                   </button>
+                  {!isLogin && (
+                    <button onClick={() => setSignupStep(1)}
+                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)', padding: '11px', borderRadius: 10, fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
+                      ← Voltar
+                    </button>
+                  )}
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: -4 }}>* campos obrigatórios</p>
                 </>
               )}
