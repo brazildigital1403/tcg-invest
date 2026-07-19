@@ -27,7 +27,7 @@ import AuthModal from './AuthModal'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
-type Plan = 'free' | 'mensal' | 'anual' | null
+type Plan = 'free' | 'plus' | 'mensal' | 'anual' | null
 
 interface OpenSignupOpts {
   next?: string | null
@@ -100,16 +100,23 @@ function URLAuthListener({ openSignup, openLogin }: URLAuthListenerProps) {
 
     const authParam = searchParams.get('auth')
     const nextParam = searchParams.get('next')
+    const planParam = searchParams.get('plan')
 
     if (authParam !== 'signup' && authParam !== 'login') return
 
     const validNext = sanitizeNext(nextParam)
+    const validPlan: Plan =
+      planParam === 'plus' ? 'plus'
+      : planParam === 'mensal' ? 'mensal'
+      : planParam === 'anual' ? 'anual'
+      : null
 
     // Limpa os params da URL sem reload (mantém pathname e outros params)
     const cleanUrl = () => {
       const url = new URL(window.location.href)
       url.searchParams.delete('auth')
       url.searchParams.delete('next')
+      url.searchParams.delete('plan')
       window.history.replaceState({}, '', url.toString())
     }
 
@@ -125,7 +132,7 @@ function URLAuthListener({ openSignup, openLogin }: URLAuthListenerProps) {
 
       // Não logado → abre modal
       if (authParam === 'signup') {
-        openSignup({ next: validNext })
+        openSignup({ next: validNext, plan: validPlan })
       } else {
         openLogin({ next: validNext })
       }

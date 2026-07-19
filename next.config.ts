@@ -34,7 +34,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://www.googletagmanager.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' ${SUPABASE_HOST} ${SUPABASE_WSS} https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://challenges.cloudflare.com https://api.pokemontcg.io https://economia.awesomeapi.com.br https://connect.facebook.net https://www.facebook.com`,
+  `connect-src 'self' ${SUPABASE_HOST} ${SUPABASE_WSS} https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://challenges.cloudflare.com https://api.pokemontcg.io https://economia.awesomeapi.com.br https://connect.facebook.net https://www.facebook.com https://viacep.com.br`,
   "frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.facebook.com",
   "worker-src 'self' blob:",
   "media-src 'self' data: https:",

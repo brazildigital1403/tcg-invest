@@ -4,6 +4,14 @@ import React from 'react'
 
 export type PlanoTier = 'free' | 'plus' | 'pro' | 'pro_anual'
 
+// Mapa tier -> plano do checkout Stripe. free = so cadastro (sem plano).
+// Anexa ?plan= a um href de signup pra o modal rotear pro pagamento no fim do cadastro.
+export function planoAuthHref(base: string, tier: PlanoTier): string {
+  const plano = tier === 'plus' ? 'plus' : tier === 'pro' ? 'mensal' : tier === 'pro_anual' ? 'anual' : null
+  if (!plano) return base
+  return base + (base.includes('?') ? '&' : '?') + 'plan=' + plano
+}
+
 interface Props {
   onSelectPlan?: (tier: PlanoTier) => void
   ctaHref?: string
@@ -139,7 +147,7 @@ export function CardsPlanos({ onSelectPlan, ctaHref, loggedIn }: Props) {
               ))}
             </ul>
             {ctaHref
-              ? <a href={ctaHref} style={btnStyle(t.btn)}>{ctaLabel}</a>
+              ? <a href={planoAuthHref(ctaHref, t.key)} style={btnStyle(t.btn)}>{ctaLabel}</a>
               : <button onClick={() => onSelectPlan?.(t.key)} style={btnStyle(t.btn)}>{ctaLabel}</button>}
           </div>
         )
@@ -205,7 +213,7 @@ export function TabelaPlanos({ onSelectPlan, ctaHref }: Props) {
             {COLS.map((c, i) => (
               <td key={c.key} style={{ ...cell, borderBottom: 'none', background: i === featCol ? featBg : 'transparent' }}>
                 {ctaHref
-                  ? <a href={ctaHref} style={{ ...btnStyle(c.btn), fontSize: 12, padding: '9px' }}>{c.cta}</a>
+                  ? <a href={planoAuthHref(ctaHref, c.key)} style={{ ...btnStyle(c.btn), fontSize: 12, padding: '9px' }}>{c.cta}</a>
                   : <button onClick={() => onSelectPlan?.(c.key)} style={{ ...btnStyle(c.btn), fontSize: 12, padding: '9px' }}>{c.cta}</button>}
               </td>
             ))}

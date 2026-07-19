@@ -77,6 +77,11 @@ function validarEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
+function formatarCEP(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 8)
+  return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d
+}
+
 function forcasenha(senha: string) {
   if (senha.length < 6) return { nivel: 0, label: 'Muito curta', cor: '#ef4444' }
   if (senha.length < 8) return { nivel: 1, label: 'Fraca', cor: '#f59e0b' }
@@ -124,7 +129,7 @@ export interface AuthModalProps {
   /** 'signup' abre na escolha de plano (step 0). 'login' abre direto no form de login. */
   initialMode?: 'signup' | 'login'
   /** Plano pré-selecionado (pula o step 0 e vai direto pro form de cadastro com badge do plano). */
-  initialPlan?: 'free' | 'mensal' | 'anual' | null
+  initialPlan?: 'free' | 'plus' | 'mensal' | 'anual' | null
   /** Rota pra redirecionar pós-auth. Validada (precisa começar com '/' e não ser '//'). */
   next?: string | null
 }
@@ -136,8 +141,8 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
 
   // Estado do fluxo (todos resetados quando o modal abre)
   const [isLogin, setIsLogin] = useState(initialMode === 'login')
-  const [showPlanStep, setShowPlanStep] = useState(initialMode === 'signup' && !initialPlan)
-  const [pendingPlan, setPendingPlan] = useState<'free' | 'mensal' | 'anual' | null>(initialPlan)
+  const [showPlanStep, setShowPlanStep] = useState(false)
+  const [pendingPlan, setPendingPlan] = useState<'free' | 'plus' | 'mensal' | 'anual' | null>(initialPlan)
 
   // Campos do form
   const [name, setName] = useState('')
@@ -149,6 +154,14 @@ export default function AuthModal({ open, onClose, initialMode = 'signup', initi
   const [whatsapp, setWhatsapp] = useState('')
   const [instagram, setInstagram] = useState('')
   const [tiktok, setTiktok] = useState('')
+  const [cep, setCep] = useState('')
+  const [logradouro, setLogradouro] = useState('')
+  const [numero, setNumero] = useState('')
+  const [complemento, setComplemento] = useState('')
+  const [bairro, setBairro] = useState('')
+  const [uf, setUf] = useState('')
+  const [cepLoading, setCepLoading] = useState(false)
+  const [cepErro, setCepErro] = useState('')
   const [hpWebsite, setHpWebsite] = useState('') // honeypot anti-bot (fica oculto)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -188,13 +201,14 @@ useEffect(() => {
   React.useEffect(() => {
     if (open) {
       setIsLogin(initialMode === 'login')
-      setShowPlanStep(initialMode === 'signup' && !initialPlan)
+      setShowPlanStep(false)
       setPendingPlan(initialPlan)
       setSignupStep(1)
       setForgotStep(false)
       setForgotSent(false)
       setForgotEmail('')
       setName(''); setCpf(''); setCity(''); setWhatsapp('')
+      setCep(''); setLogradouro(''); setNumero(''); setComplemento(''); setBairro(''); setUf(''); setCepErro('')
       setEmail(''); setPassword(''); setShowPassword(false)
       setDataNasc(''); setTermosAceito(false); setMarketingAceito(false)
       setTouched({}); setErros({}); setServerError('')
@@ -227,6 +241,16 @@ useEffect(() => {
       const wDigits = whatsapp.replace(/\D/g, '')
       if (wDigits.length < 10)
         e.whatsapp = 'WhatsApp incompleto (DDD + número)'
+      if (cep.replace(/\D/g, '').length !== 8)
+        e.cep = 'CEP inválido'
+      if (!logradouro.trim())
+        e.logradouro = 'Informe a rua'
+      if (!numero.trim())
+        e.numero = 'Informe o número'
+      if (!bairro.trim())
+        e.bairro = 'Informe o bairro'
+      if (uf.trim().length !== 2)
+        e.uf = 'UF'
     }
     if (!validarEmail(email)) {
       e.email = 'E-mail inválido'
@@ -243,11 +267,32 @@ useEffect(() => {
     setErros(validarCampos())
   }
 
+  // Autofill de endereco via ViaCEP (gratis, read-only). Preenche rua/bairro/cidade/UF.
+  async function buscarCep(raw?: string) {
+    const dig = (raw ?? cep).replace(/\D/g, '')
+    if (dig.length !== 8) return
+    setCepLoading(true); setCepErro('')
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${dig}/json/`)
+      const j = await r.json()
+      if (j.erro) { setCepErro('CEP não encontrado. Confira o número.'); return }
+      if (j.logradouro) setLogradouro(j.logradouro)
+      if (j.bairro) setBairro(j.bairro)
+      if (j.localidade) setCity(j.localidade)
+      if (j.uf) setUf(j.uf)
+    } catch {
+      setCepErro('Não foi possível buscar o CEP agora.')
+    } finally {
+      setCepLoading(false)
+    }
+  }
+
   function trocarModo() {
     setIsLogin(!isLogin)
     setShowPlanStep(false)
     setForgotStep(false); setForgotSent(false); setForgotEmail('')
     setName(''); setCpf(''); setCity(''); setWhatsapp('')
+      setCep(''); setLogradouro(''); setNumero(''); setComplemento(''); setBairro(''); setUf(''); setCepErro('')
     setEmail(''); setPassword('')
     setTouched({}); setErros({}); setServerError('')
   }
@@ -278,7 +323,7 @@ useEffect(() => {
   }
 
   async function handleAuth() {
-    const allTouched: Record<string, boolean> = { name: true, cpf: true, city: true, whatsapp: true, email: true, password: true }
+    const allTouched: Record<string, boolean> = { name: true, cpf: true, city: true, whatsapp: true, email: true, password: true, cep: true, logradouro: true, numero: true, bairro: true, uf: true }
     setTouched(allTouched)
     const e = validarCampos()
     setErros(e)
@@ -318,7 +363,7 @@ useEffect(() => {
         const ttNorm = tiktok.trim().replace(/^@+/, '') || null
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { captchaToken: captchaToken ?? undefined, data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito } },
+          options: { captchaToken: captchaToken ?? undefined, data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf } },
         })
         if (error) {
           if (error.message.includes('already registered')) setServerError('Este e-mail já está cadastrado.')
@@ -333,7 +378,7 @@ useEffect(() => {
             return
           }
           const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-          const { error: insErr } = await supabase.from('users').upsert({ id: data.user.id, email, name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito }, { onConflict: 'id', ignoreDuplicates: true })
+          const { error: insErr } = await supabase.from('users').upsert({ id: data.user.id, email, name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf }, { onConflict: 'id', ignoreDuplicates: true })
           if (insErr) {
             if (insErr.code === '23505' || (insErr.message || '').includes('CPF_DUPLICADO') || (insErr.message || '').toLowerCase().includes('cpf')) {
               setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))
@@ -443,13 +488,13 @@ useEffect(() => {
               {showPlanStep ? 'Escolha seu plano' : forgotStep ? 'Recuperar acesso' : isLogin ? 'Bem-vindo de volta' : 'Criar sua conta'}
             </h2>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-              {showPlanStep ? 'Organize sua coleção grátis ou desbloqueie mais com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Grátis · 7 dias de Pro incluídos ⭐'}
+              {showPlanStep ? 'Organize sua coleção grátis ou desbloqueie mais com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Grátis · 7 dias de Pro incluídos'}
             </p>
             {!isLogin && !forgotStep && !showPlanStep && pendingPlan && pendingPlan !== 'free' && (
               <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 10px' }}>
-                <span style={{ fontSize: 13 }}>⭐</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 3l2.6 5.8 6.4.6-4.8 4.2 1.4 6.2L12 17l-5.6 2.9 1.4-6.2L3 9.4l6.4-.6z"/></svg>
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>
-                  Plano Pro {pendingPlan === 'mensal' ? 'Mensal · R$ 29,90/mês' : 'Anual · R$ 249/ano'} será ativado após o cadastro
+                  Plano {pendingPlan === 'plus' ? 'Plus · R$ 14,90/mês' : pendingPlan === 'mensal' ? 'Pro Mensal · R$ 29,90/mês' : 'Pro Anual · R$ 249/ano'} será ativado após o cadastro
                 </span>
               </div>
             )}
@@ -461,52 +506,10 @@ useEffect(() => {
         <div style={{ padding: '20px 28px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* STEP 0: Escolha de plano */}
-          {showPlanStep ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button onClick={() => { setPendingPlan('free'); setShowPlanStep(false) }}
-                style={{ width: '100%', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', transition: 'all 0.15s', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: -10, left: 16, background: 'rgba(245,158,11,0.9)', color: '#000', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 100, letterSpacing: '0.05em' }}>
-                  ⭐ 7 DIAS DE PRO GRÁTIS
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 15, fontWeight: 700 }}>Começar grátis</span>
-                  <span style={{ fontSize: 18, fontWeight: 900 }}>R$ 0</span>
-                </div>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>7 dias de Pro completo · depois plano gratuito pra sempre, sem cobrança</p>
-              </button>
-
-              <button onClick={() => { setPendingPlan('mensal'); setShowPlanStep(false) }}
-                style={{ width: '100%', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', transition: 'all 0.15s' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: '#f59e0b' }}>Pro Mensal</span>
-                  <span style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 29,90<span style={{ fontSize: 11 }}>/mês</span></span>
-                </div>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Cartas ilimitadas · Perfil público · Exportar · Marketplace completo</p>
-              </button>
-
-              <button onClick={() => { setPendingPlan('anual'); setShowPlanStep(false) }}
-                style={{ width: '100%', background: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(239,68,68,0.08))', border: '2px solid rgba(245,158,11,0.5)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: '#f0f0f0', position: 'relative', transition: 'all 0.15s' }}>
-                <div style={{ position: 'absolute', top: -10, right: 16, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 100, letterSpacing: '0.05em' }}>
-                  MELHOR VALOR
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: '#f59e0b' }}>Pro Anual</span>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 249</span>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block' }}>R$ 14,91/mês · 2 meses grátis</span>
-                  </div>
-                </div>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Tudo do Pro + prioridade no suporte + acesso antecipado</p>
-              </button>
-
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 4 }}>
-                Sem cartão de crédito para começar gratuitamente
-              </p>
-            </div>
-          ) : reconfirmPrompt ? (
+          {reconfirmPrompt ? (
             reconfirmSent ? (
               <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                <div style={{ fontSize: 34, lineHeight: 1 }}>📧</div>
+                <svg width="46" height="46" viewBox="0 0 20 20" fill="none" style={{ marginBottom: 4 }}><rect x="2" y="5" width="16" height="11" rx="2" stroke="rgba(96,165,250,0.7)" strokeWidth="1.3"/><path d="M2 7l8 6 8-6" stroke="rgba(96,165,250,0.7)" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 <p style={{ fontSize: 16, fontWeight: 700, margin: '14px 0 8px' }}>Link enviado!</p>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 20 }}>
                   Enviamos um link de confirmacao para <span style={{ color: '#60a5fa' }}>{reconfirmEmail}</span>. Clique nele pra confirmar seu e-mail. (Verifique o spam.)
@@ -649,12 +652,12 @@ useEffect(() => {
                       </div>
                       {menorDe13 && (
                         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 14px' }}>
-                          <p style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}>🔒 <strong>Cadastro não permitido.</strong> A Bynx não permite cadastro de menores de 13 anos (LGPD, Art. 14).</p>
+                          <p style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}><strong>Cadastro não permitido.</strong> A Bynx não permite cadastro de menores de 13 anos (LGPD, Art. 14).</p>
                         </div>
                       )}
                       {entre13e17 && (
                         <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '12px 14px' }}>
-                          <p style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1.5 }}>⚠️ Ao continuar, declare que possui autorização de um responsável legal (LGPD, Art. 14).</p>
+                          <p style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1.5 }}>Ao continuar, declare que possui autorização de um responsável legal (LGPD, Art. 14).</p>
                         </div>
                       )}
                     </>
@@ -665,7 +668,7 @@ useEffect(() => {
                       <div>
                         <label style={lbl}>CPF *</label>
                         <Campo erro={touched.cpf ? erros.cpf : undefined}>
-                          <input type="text" placeholder="000.000.000-00"
+                          <input type="text" placeholder="000.000.000-00" inputMode="numeric"
                             value={cpf}
                             onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
                             onBlur={() => handleBlur('cpf')}
@@ -673,7 +676,83 @@ useEffect(() => {
                           />
                         </Campo>
                       </div>
+
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <label style={lbl}>CEP *</label>
+                          <Campo erro={touched.cep ? (erros.cep || cepErro || undefined) : (cepErro || undefined)}>
+                            <input type="text" placeholder="00000-000" inputMode="numeric"
+                              value={cep}
+                              onChange={e => { const v = formatarCEP(e.target.value); setCep(v); setCepErro(''); if (touched.cep) setErros(validarCampos()); if (v.replace(/\D/g, '').length === 8) buscarCep(v) }}
+                              onBlur={() => { handleBlur('cep'); buscarCep() }}
+                              style={inputStyle(touched.cep ? (erros.cep || cepErro || undefined) : (cepErro || undefined), touched.cep && !erros.cep && !cepErro && cep.replace(/\D/g, '').length === 8)}
+                            />
+                          </Campo>
+                        </div>
+                        <div>
+                          <label style={lbl}>WhatsApp *</label>
+                          <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
+                            <input type="text" placeholder="(11) 99999-9999" inputMode="tel"
+                              value={whatsapp}
+                              onChange={e => { setWhatsapp(formatarWhatsApp(e.target.value)); if (touched.whatsapp) setErros(validarCampos()) }}
+                              onBlur={() => handleBlur('whatsapp')}
+                              style={inputStyle(touched.whatsapp ? erros.whatsapp : undefined, touched.whatsapp && !erros.whatsapp && whatsapp.length > 0)}
+                            />
+                          </Campo>
+                        </div>
+                      </div>
+
+                      {cepLoading && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: -4 }}>Buscando endereço...</p>}
+
+                      <div>
+                        <label style={lbl}>Rua *</label>
+                        <Campo erro={touched.logradouro ? erros.logradouro : undefined}>
+                          <input type="text" placeholder="Rua / Avenida"
+                            value={logradouro}
+                            onChange={e => { setLogradouro(e.target.value); if (touched.logradouro) setErros(validarCampos()) }}
+                            onBlur={() => handleBlur('logradouro')}
+                            style={inputStyle(touched.logradouro ? erros.logradouro : undefined, touched.logradouro && !erros.logradouro && logradouro.length > 0)}
+                          />
+                        </Campo>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <label style={lbl}>Número *</label>
+                          <Campo erro={touched.numero ? erros.numero : undefined}>
+                            <input type="text" placeholder="123"
+                              value={numero}
+                              onChange={e => { setNumero(e.target.value); if (touched.numero) setErros(validarCampos()) }}
+                              onBlur={() => handleBlur('numero')}
+                              style={inputStyle(touched.numero ? erros.numero : undefined, touched.numero && !erros.numero && numero.length > 0)}
+                            />
+                          </Campo>
+                        </div>
+                        <div>
+                          <label style={lbl}>Complemento <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>(opcional)</span></label>
+                          <Campo>
+                            <input type="text" placeholder="Apto, bloco"
+                              value={complemento}
+                              onChange={e => setComplemento(e.target.value)}
+                              style={inputStyle(undefined, false)}
+                            />
+                          </Campo>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={lbl}>Bairro *</label>
+                        <Campo erro={touched.bairro ? erros.bairro : undefined}>
+                          <input type="text" placeholder="Bairro"
+                            value={bairro}
+                            onChange={e => { setBairro(e.target.value); if (touched.bairro) setErros(validarCampos()) }}
+                            onBlur={() => handleBlur('bairro')}
+                            style={inputStyle(touched.bairro ? erros.bairro : undefined, touched.bairro && !erros.bairro && bairro.length > 0)}
+                          />
+                        </Campo>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 92px', gap: 10 }}>
                         <div>
                           <label style={lbl}>Cidade *</label>
                           <Campo erro={touched.city ? erros.city : undefined}>
@@ -686,13 +765,13 @@ useEffect(() => {
                           </Campo>
                         </div>
                         <div>
-                          <label style={lbl}>WhatsApp *</label>
-                          <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
-                            <input type="text" placeholder="(11) 99999-9999"
-                              value={whatsapp}
-                              onChange={e => { setWhatsapp(formatarWhatsApp(e.target.value)); if (touched.whatsapp) setErros(validarCampos()) }}
-                              onBlur={() => handleBlur('whatsapp')}
-                              style={inputStyle(touched.whatsapp ? erros.whatsapp : undefined, touched.whatsapp && !erros.whatsapp && whatsapp.length > 0)}
+                          <label style={lbl}>UF *</label>
+                          <Campo erro={touched.uf ? erros.uf : undefined}>
+                            <input type="text" placeholder="SP" maxLength={2}
+                              value={uf}
+                              onChange={e => { setUf(e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2)); if (touched.uf) setErros(validarCampos()) }}
+                              onBlur={() => handleBlur('uf')}
+                              style={{ ...inputStyle(touched.uf ? erros.uf : undefined, touched.uf && !erros.uf && uf.length === 2), textTransform: 'uppercase' }}
                             />
                           </Campo>
                         </div>
@@ -838,6 +917,7 @@ useEffect(() => {
                         Carregando...
                       </>
                     ) : isLogin ? 'Entrar →'
+                      : pendingPlan === 'plus' ? 'Criar conta e assinar Plus →'
                       : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
                       : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
                       : 'Criar conta grátis →'}
