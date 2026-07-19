@@ -9,6 +9,7 @@ import GaleriaFotos from '@/components/lojas/GaleriaFotos'
 import TrackedLink from '@/components/lojas/TrackedLink'
 import TrackViewLoja from '@/components/lojas/TrackViewLoja'
 import AnunciosLoja from '@/components/lojas/AnunciosLoja'
+import ReputacaoCard from '@/components/ui/ReputacaoCard'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -375,6 +376,10 @@ export default async function LojaPage(
 
         {/* Anuncios do dono (marketplace) */}
         <AnunciosLoja ownerUserId={(loja as { owner_user_id?: string | null }).owner_user_id ?? null} lojaId={loja.id} podeVender={!!(loja as { connect_charges_enabled?: boolean }).connect_charges_enabled} />
+
+        {(loja as { owner_user_id?: string | null }).owner_user_id && (
+          <ReputacaoCard userId={(loja as { owner_user_id?: string | null }).owner_user_id as string} titulo="Avaliações da loja" esconderSeVazio />
+        )}
 
         {/* ─── Eventos (Premium only) ────────────────────────── */}
         {isPremium && eventos.length > 0 && (

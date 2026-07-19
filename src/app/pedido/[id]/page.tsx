@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
 
 /**
@@ -19,6 +20,11 @@ import { fmtBRL } from '@/lib/comissao'
  * 'aguardando_pagamento', a pagina faz alguns re-fetch antes de dar como certo —
  * senao o comprador ve "aguardando pagamento" logo apos ter pago e entra em
  * panico.
+ *
+ * PoS-VENDA: quando o comprador ve o proprio pedido em 'enviado'/'entregue',
+ * aparece o bloco de avaliar a loja (+ botao "Confirmar recebimento" no enviado,
+ * que hoje e a unica forma da timeline chegar em 'entregue'). A avaliacao vai
+ * pra rota /api/pedidos/[id]/avaliar (comprador-verificado, 1 por pedido).
  */
 
 declare global {
@@ -52,6 +58,7 @@ const PASSOS = [
   { k: 'entregue', ic: '🏠', label: 'Entregue' },
 ]
 const ORDEM: Record<string, number> = { aguardando_pagamento: -1, pago: 0, enviado: 1, entregue: 2 }
+const LABEL_ESTRELA = ['', 'Muito ruim', 'Ruim', 'Ok', 'Boa', 'Excelente!']
 
 export default function PedidoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params)
@@ -62,6 +69,18 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const [carregando, setCarregando] = useState(true)
   const [tentativas, setTentativas] = useState(0)
   const [semAcesso, setSemAcesso] = useState(false)
+
+  // ─── Pos-venda (avaliacao + recebimento) ──────────────────────────────
+  const [meuId, setMeuId] = useState<string | null>(null)
+  const [lojaNome, setLojaNome] = useState('')
+  const [jaAvaliou, setJaAvaliou] = useState<boolean | null>(null)
+  const [estrelas, setEstrelas] = useState(0)
+  const [hoverEstrela, setHoverEstrela] = useState(0)
+  const [comentario, setComentario] = useState('')
+  const [enviandoAval, setEnviandoAval] = useState(false)
+  const [avalOk, setAvalOk] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
+  const [erroAcao, setErroAcao] = useState<string | null>(null)
 
   const buscar = useCallback(async () => {
     const { data, error } = await supabase.from('pedidos').select('*').eq('id', id).maybeSingle()
@@ -79,6 +98,23 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     const t = setTimeout(async () => { await buscar(); setTentativas(n => n + 1) }, 2000)
     return () => clearTimeout(t)
   }, [veioDoPagamento, pedido, tentativas, buscar])
+
+  // Contexto pos-venda: quem sou eu, nome da loja e se ja avaliei este pedido.
+  useEffect(() => {
+    if (!pedido) return
+    let active = true
+    ;(async () => {
+      const { data: auth } = await supabase.auth.getUser()
+      if (active) setMeuId(auth.user?.id ?? null)
+
+      const { data: lj } = await supabase.from('lojas').select('nome').eq('id', pedido.loja_id).maybeSingle()
+      if (active && lj?.nome) setLojaNome(lj.nome)
+
+      const { data: av } = await supabase.from('avaliacoes').select('id').eq('pedido_id', pedido.id).limit(1)
+      if (active) setJaAvaliou((av?.length ?? 0) > 0)
+    })()
+    return () => { active = false }
+  }, [pedido])
 
   // ─── Conversao pro GTM (GA4 + Meta Pixel) ─────────────────────────────
   // UM push alimenta os dois: o GTM tem uma tag do GA4 e outra da Meta ouvindo
@@ -122,6 +158,39 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     })
   }, [pedido])
 
+  async function confirmarRecebimento() {
+    setConfirmando(true); setErroAcao(null)
+    try {
+      const r = await authFetch(`/api/pedidos/${id}/receber`, { method: 'POST' })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(j?.error || 'Nao consegui confirmar o recebimento.')
+      await buscar()
+    } catch (e) {
+      setErroAcao((e as Error).message)
+    } finally {
+      setConfirmando(false)
+    }
+  }
+
+  async function enviarAvaliacao() {
+    if (estrelas === 0) { setErroAcao('Selecione pelo menos 1 estrela.'); return }
+    setEnviandoAval(true); setErroAcao(null)
+    try {
+      const r = await authFetch(`/api/pedidos/${id}/avaliar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estrelas, comentario: comentario.trim() || null }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(j?.error || 'Nao consegui enviar a avaliacao.')
+      setAvalOk(true); setJaAvaliou(true)
+    } catch (e) {
+      setErroAcao((e as Error).message)
+    } finally {
+      setEnviandoAval(false)
+    }
+  }
+
   if (carregando) return <Casca><div style={S.vazio}>Carregando…</div></Casca>
   if (semAcesso || !pedido) {
     return (
@@ -142,6 +211,11 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const passoAtual = ORDEM[pedido.status] ?? -1
   const cancelado = pedido.status === 'cancelado' || pedido.status === 'reembolsado'
   const end = pedido.endereco
+
+  const souComprador = !!meuId && meuId === pedido.comprador_user_id
+  const podeConfirmar = souComprador && pedido.status === 'enviado'
+  const podeAvaliar = souComprador && !cancelado && (pedido.status === 'enviado' || pedido.status === 'entregue') && jaAvaliou === false && !avalOk
+  const avaliou = souComprador && !cancelado && (avalOk || jaAvaliou === true)
 
   return (
     <Casca>
@@ -229,6 +303,66 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
         )}
       </div>
 
+      {erroAcao && <div style={S.avalErro}>{erroAcao}</div>}
+
+      {podeConfirmar && (
+        <div style={S.acaoCard}>
+          <div style={S.acaoTxt}>Já recebeu seu pedido? Confirme pra fechar a compra.</div>
+          <button onClick={confirmarRecebimento} disabled={confirmando} style={{ ...S.btnReceber, opacity: confirmando ? 0.7 : 1 }}>
+            {confirmando ? 'Confirmando…' : 'Confirmar recebimento'}
+          </button>
+        </div>
+      )}
+
+      {podeAvaliar && (
+        <div style={S.avalCard}>
+          <div style={S.avalTitulo}>Como foi sua compra{lojaNome ? ` com ${lojaNome}` : ''}?</div>
+          <div style={S.avalSub}>Sua avaliação ajuda outros colecionadores a confiar {lojaNome ? `na ${lojaNome}` : 'na loja'}.</div>
+          <div style={S.estrelasRow}>
+            {[1, 2, 3, 4, 5].map(n => {
+              const on = (hoverEstrela || estrelas) >= n
+              return (
+                <button
+                  key={n}
+                  onClick={() => setEstrelas(n)}
+                  onMouseEnter={() => setHoverEstrela(n)}
+                  onMouseLeave={() => setHoverEstrela(0)}
+                  aria-label={`${n} estrela${n > 1 ? 's' : ''}`}
+                  style={{ ...S.estrelaBtn, transform: on ? 'scale(1.12)' : 'scale(1)' }}
+                >
+                  <svg width="30" height="30" viewBox="0 0 20 20" fill={on ? '#f59e0b' : 'none'}>
+                    <path d="M10 2l2.4 5 5.4.5-4.1 3.7 1.2 5.3L10 14.9 5.1 16.2l1.2-5.3L2.2 7.5l5.4-.5L10 2z" stroke={on ? '#f59e0b' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )
+            })}
+          </div>
+          {(hoverEstrela || estrelas) > 0 && (
+            <div style={S.estrelaLabel}>{LABEL_ESTRELA[hoverEstrela || estrelas]}</div>
+          )}
+          <textarea
+            value={comentario}
+            onChange={e => setComentario(e.target.value)}
+            placeholder="Conte como foi (opcional)…"
+            maxLength={200}
+            style={S.avalTextarea}
+          />
+          <button
+            onClick={enviarAvaliacao}
+            disabled={enviandoAval || estrelas === 0}
+            style={{ ...S.btnAvaliar, opacity: enviandoAval ? 0.7 : estrelas === 0 ? 0.5 : 1, cursor: estrelas === 0 ? 'not-allowed' : 'pointer' }}
+          >
+            {enviandoAval ? 'Enviando…' : 'Enviar avaliação'}
+          </button>
+        </div>
+      )}
+
+      {avaliou && (
+        <div style={S.avalFeito}>
+          <span style={{ color: '#22c55e', fontWeight: 800 }}>✓</span> Você avaliou esta loja. Obrigado pelo feedback!
+        </div>
+      )}
+
       <Link href="/marketplace" style={S.voltar}>← Voltar ao marketplace</Link>
     </Casca>
   )
@@ -291,4 +425,19 @@ const S: Record<string, React.CSSProperties> = {
   cta: { textAlign: 'center', fontSize: 13.5, fontWeight: 800, padding: '11px 20px', borderRadius: 11, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#a855f7,#ec4899)', color: '#fff' },
   vazio: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40, fontSize: 14 },
   voltar: { display: 'block', textAlign: 'center', marginTop: 18, fontSize: 12.5, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' },
+
+  // ─── Pos-venda ─────────────────────────────────────────────
+  acaoCard: { background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, marginTop: 12, display: 'flex', flexDirection: 'column', gap: 11 },
+  acaoTxt: { fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.45 },
+  btnReceber: { background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.4)', color: '#22c55e', padding: '11px', borderRadius: 10, fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' },
+  avalCard: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.22)', borderRadius: 16, padding: '16px 16px 18px', marginTop: 12 },
+  avalTitulo: { fontSize: 15, fontWeight: 800, marginBottom: 3 },
+  avalSub: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', marginBottom: 14, lineHeight: 1.45 },
+  estrelasRow: { display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 6 },
+  estrelaBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, lineHeight: 0, transition: 'transform 0.12s ease' },
+  estrelaLabel: { textAlign: 'center', fontSize: 12.5, color: '#f59e0b', fontWeight: 700, marginBottom: 4 },
+  avalTextarea: { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: '#f0f0f0', fontSize: 13, resize: 'vertical', minHeight: 70, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginTop: 10, marginBottom: 12 },
+  btnAvaliar: { width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#0a0a0a', padding: '12px', borderRadius: 10, fontSize: 13.5, fontWeight: 800, fontFamily: 'inherit' },
+  avalFeito: { background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 12, padding: '12px 14px', marginTop: 12, fontSize: 13, color: 'rgba(255,255,255,0.75)', textAlign: 'center' },
+  avalErro: { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '9px 12px', marginTop: 12, fontSize: 12.5, color: '#ef4444' },
 }
