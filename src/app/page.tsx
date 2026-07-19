@@ -11,13 +11,13 @@ import HomeMotion from './HomeMotion'
 export const revalidate = 600
 
 export const metadata: Metadata = {
-  title: 'Bynx - Quanto vale a sua colecao Pokemon? Preco em reais',
+  title: 'Bynx - Quanto vale a sua coleção Pokémon? Preço em reais',
   description:
-    'Monte a sua colecao Pokemon, veja o preco de cada carta em reais, acompanhe o mercado ao vivo e compre e venda no marketplace. Gratis pra comecar.',
+    'Monte a sua coleção Pokémon, veja o preço de cada carta em reais, acompanhe o mercado ao vivo e compre e venda no marketplace. Grátis pra começar.',
   openGraph: {
-    title: 'Bynx - Quanto vale a sua colecao Pokemon?',
+    title: 'Bynx - Quanto vale a sua coleção Pokémon?',
     description:
-      'A plataforma brasileira de colecao Pokemon TCG. Preco em reais, mercado ao vivo, Scan, marketplace e Pokedex.',
+      'A plataforma brasileira de coleção Pokémon TCG. Preço em reais, mercado ao vivo, Scan, marketplace e Pokédex.',
     url: 'https://bynx.gg',
     type: 'website',
   },
@@ -54,14 +54,14 @@ const FALLBACK_DOWN = [
 
 const POKEDEX = [
   { img: 'neo4/107', dex: '006', name: 'Charizard', tp: 'Fogo', tc: '#f97316', cards: 329, faixa: 'R$ 1,99 a R$ 32.944' },
-  { img: 'ex6/104', dex: '009', name: 'Blastoise', tp: 'Agua', tc: '#3b82f6', cards: 147, faixa: 'R$ 3,68 a R$ 14.000' },
-  { img: 'svp/85', dex: '025', name: 'Pikachu', tp: 'Eletrico', tc: '#eab308', cards: 661, faixa: 'R$ 0,71 a R$ 40.000' },
-  { img: 'ex6/108', dex: '094', name: 'Gengar', tp: 'Psiquico', tc: '#a855f7', cards: 171, faixa: 'R$ 0,50 a R$ 11.730' },
+  { img: 'ex6/104', dex: '009', name: 'Blastoise', tp: 'Água', tc: '#3b82f6', cards: 147, faixa: 'R$ 3,68 a R$ 14.000' },
+  { img: 'svp/85', dex: '025', name: 'Pikachu', tp: 'Elétrico', tc: '#eab308', cards: 661, faixa: 'R$ 0,71 a R$ 40.000' },
+  { img: 'ex6/108', dex: '094', name: 'Gengar', tp: 'Psíquico', tc: '#a855f7', cards: 171, faixa: 'R$ 0,50 a R$ 11.730' },
   { img: 'sm115/49', dex: '133', name: 'Eevee', tp: 'Incolor', tc: '#a8a29e', cards: 300, faixa: 'R$ 0,55 a R$ 9.500' },
   { img: 'ex7/104', dex: '143', name: 'Snorlax', tp: 'Incolor', tc: '#a8a29e', cards: 158, faixa: 'R$ 0,25 a R$ 3.824' },
-  { img: 'neo4/109', dex: '150', name: 'Mewtwo', tp: 'Psiquico', tc: '#a855f7', cards: 278, faixa: 'R$ 1,42 a R$ 70.000' },
+  { img: 'neo4/109', dex: '150', name: 'Mewtwo', tp: 'Psíquico', tc: '#a855f7', cards: 278, faixa: 'R$ 1,42 a R$ 70.000' },
   { img: 'pop5/17', dex: '197', name: 'Umbreon', tp: 'Noturno', tc: '#64748b', cards: 160, faixa: 'R$ 2,90 a R$ 39.800' },
-  { img: 'ex8/107', dex: '384', name: 'Rayquaza', tp: 'Dragao', tc: '#d97706', cards: 188, faixa: 'R$ 1,00 a R$ 40.000' },
+  { img: 'ex8/107', dex: '384', name: 'Rayquaza', tp: 'Dragão', tc: '#d97706', cards: 188, faixa: 'R$ 1,00 a R$ 40.000' },
 ]
 
 const PRODUTOS = [
@@ -83,10 +83,10 @@ const ETB_LOJA = `${PROD}/me-expansions/me05/collections/pt-br/me05-etb-ptbr-2x.
 const SIGNUP = '?auth=signup'
 
 const FAQ: { q: string; a: string }[] = [
-  { q: 'A Bynx e gratis mesmo?', a: 'E. Voce cria a conta, monta a sua colecao, ve o preco em reais e ja entra no marketplace sem pagar nada. O Pro (R$ 29,90/mes) libera o Scan, o historico de preco e os alertas.' },
-  { q: 'De onde vem esse preco?', a: 'Do mercado brasileiro, em reais, nao e conversao de dolar. Minimo, medio e maximo por variante, atualizado todo dia. E o motivo da Bynx existir pra quem coleciona no Brasil.' },
-  { q: 'Como funciona o Scan?', a: 'Voce aponta a camera na carta e ela entra na colecao com o nome, o set, a variante e o preco. Salva a vida de quem tem colecao grande. Fica no Pro.' },
-  { q: 'Da pra vender minhas cartas?', a: 'Da. Voce anuncia no marketplace com preco em reais, o comprador fecha com pagamento e frete calculado pelo CEP, e o dinheiro cai na sua conta.' },
+  { q: 'A Bynx é grátis mesmo?', a: 'É. Você cria a conta, monta a sua coleção, vê o preço em reais e já entra no marketplace sem pagar nada. O Pro (R$ 29,90/mês) libera o Scan, o histórico de preço e os alertas.' },
+  { q: 'De onde vem esse preço?', a: 'Do mercado brasileiro, em reais, não é conversão de dólar. Mínimo, médio e máximo por variante, atualizado todo dia. É o motivo da Bynx existir pra quem coleciona no Brasil.' },
+  { q: 'Como funciona o Scan?', a: 'Você aponta a câmera na carta e ela entra na coleção com o nome, o set, a variante e o preço. Salva a vida de quem tem coleção grande. Fica no Pro.' },
+  { q: 'Dá pra vender minhas cartas?', a: 'Dá. Você anuncia no marketplace com preço em reais, o comprador fecha com pagamento e frete calculado pelo CEP, e o dinheiro cai na sua conta.' },
 ]
 
 type Mover = { name: string; set_name: string; image_small: string; preco_atual: number; pct: number }
@@ -127,7 +127,7 @@ async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[
 function jsonLd() {
   return [
     { '@context': 'https://schema.org', '@type': 'Organization', name: 'Bynx', url: 'https://bynx.gg',
-      description: 'Plataforma brasileira de colecao Pokemon TCG com preco em reais, mercado ao vivo, Scan e marketplace.' },
+      description: 'Plataforma brasileira de coleção Pokémon TCG com preço em reais, mercado ao vivo, Scan e marketplace.' },
     { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Bynx', url: 'https://bynx.gg',
       potentialAction: { '@type': 'SearchAction', target: 'https://bynx.gg/busca?q={search_term_string}', 'query-input': 'required name=search_term_string' } },
     { '@context': 'https://schema.org', '@type': 'FAQPage',
@@ -173,15 +173,15 @@ export default async function HomePage() {
         <section className="hero">
           <div className="wrap hero-grid">
             <div className="reveal">
-              <h1 className="h1">Quanto vale a sua <span className="grad">colecao Pokemon?</span></h1>
+              <h1 className="h1">Quanto vale a sua <span className="grad">coleção Pokémon?</span></h1>
               <p className="lead">Sabe aquela caixa com as suas cartas? Ela tem um valor de mercado. A gente te mostra qual, <b>carta por carta, em reais</b>.</p>
               <div className="ctas">
-                <Link href={SIGNUP} className="btn-primary">Ver minha colecao <IcArrow /></Link>
+                <Link href={SIGNUP} className="btn-primary">Ver minha coleção <IcArrow /></Link>
                 <a href="#live" className="btn-ghost">Ver o mercado ao vivo</a>
               </div>
               <div className="hero-trust">
-                <span><span className="dot-g" /> Gratis pra comecar</span><span>·</span>
-                <span><b>70 mil+</b> cartas com preco</span><span>·</span><span>sem cartao</span>
+                <span><span className="dot-g" /> Grátis pra começar</span><span>·</span>
+                <span><b>70 mil+</b> cartas com preço</span><span>·</span><span>sem cartão</span>
               </div>
             </div>
             <div className="reveal">
@@ -190,9 +190,9 @@ export default async function HomePage() {
                 <div className="appmock">
                   <div className="am-top"><span className="am-logo">BYNX</span><span className="am-bell"><IcBell /></span></div>
                   <div className="am-patr">
-                    <div className="am-plabel"><IcWallet /> Patrimonio da colecao</div>
+                    <div className="am-plabel"><IcWallet /> Patrimônio da coleção</div>
                     <div className="am-pval" data-money="12509">R$ 0</div>
-                    <div className="am-ptrend"><IcUp /> R$ 842 este mes · +7,2%</div>
+                    <div className="am-ptrend"><IcUp /> R$ 842 este mês · +7,2%</div>
                   </div>
                   <div className="am-grid">
                     {HERO_MOCK.map(c => (<div key={c.id} className="am-cc"><img src={IMG(c.id)} alt="" /><span className="pz">{c.p}</span></div>))}
@@ -239,7 +239,7 @@ export default async function HomePage() {
                 ))}
               </div>
             </div>
-            <div className="live-note">Preco medio de mercado, atualizado todo dia. A sua carta ta aqui dentro.</div>
+            <div className="live-note">Preço médio de mercado, atualizado todo dia. A sua carta tá aqui dentro.</div>
           </div>
         </section>
 
@@ -253,15 +253,15 @@ export default async function HomePage() {
           <div className="wrap scan">
             <div className="reveal">
               <span className="eyebrow"><IcScan /> Scan · recurso do Pro</span>
-              <h2 className="sec-title">Aponta a camera. A carta entra sozinha.</h2>
-              <p className="sec-sub">Colecao grande da preguica de digitar uma por uma. Aponta a camera na carta e ela entra na sua colecao com o nome, a variante e o preco.</p>
+              <h2 className="sec-title">Aponta a câmera. A carta entra sozinha.</h2>
+              <p className="sec-sub">Coleção grande dá preguiça de digitar uma por uma. Aponta a câmera na carta e ela entra na sua coleção com o nome, a variante e o preço.</p>
               <div className="ctas"><Link href={SIGNUP} className="btn-primary">Ver o Pro <IcArrow /></Link></div>
             </div>
             <div className="reveal">
               <div className="scanner">
                 <div className="cam">
                   <span className="corner c-tl" /><span className="corner c-tr" /><span className="corner c-bl" /><span className="corner c-br" />
-                  <img className="card-in-cam" src={IMG('base1/4')} alt="carta na camera" />
+                  <img className="card-in-cam" src={IMG('base1/4')} alt="carta na câmera" />
                   <div className="scanline" />
                 </div>
                 <div className="toast">
@@ -278,10 +278,10 @@ export default async function HomePage() {
         <section style={{ padding: '48px 0 34px' }}>
           <div className="wrap">
             <div className="metrics reveal">
-              <div className="metric"><div className="m-val" data-target="70000" data-suffix="+">70 mil+</div><div className="m-lab">Cartas com preco em reais</div></div>
-              <div className="metric"><div className="m-val" data-target="249">249</div><div className="m-lab">Colecoes catalogadas</div></div>
-              <div className="metric"><div className="m-val" data-target="1025">1.025</div><div className="m-lab">Pokemon no hub</div></div>
-              <div className="metric"><div className="m-val" data-money="125" data-kmi="1">R$ 0</div><div className="m-lab">Em colecoes acompanhadas</div></div>
+              <div className="metric"><div className="m-val" data-target="70000" data-suffix="+">70 mil+</div><div className="m-lab">Cartas com preço em reais</div></div>
+              <div className="metric"><div className="m-val" data-target="249">249</div><div className="m-lab">Coleções catalogadas</div></div>
+              <div className="metric"><div className="m-val" data-target="1025">1.025</div><div className="m-lab">Pokémon no hub</div></div>
+              <div className="metric"><div className="m-val" data-money="125" data-kmi="1">R$ 0</div><div className="m-lab">Em coleções acompanhadas</div></div>
             </div>
           </div>
         </section>
@@ -289,14 +289,14 @@ export default async function HomePage() {
         {/* HOW */}
         <section>
           <div className="wrap">
-            <div className="reveal center"><span className="eyebrow">Como funciona</span><h2 className="sec-title center">Tres passos e voce ja sabe quanto tem.</h2></div>
+            <div className="reveal center"><span className="eyebrow">Como funciona</span><h2 className="sec-title center">Três passos e você já sabe quanto tem.</h2></div>
             <div className="steps">
               <div className="step reveal">
                 <div className="step-vis">
                   <div className="sv-row"><img src={IMG('base1/4')} alt="" />Charizard · Base Set<span className="add"><IcPlus /></span></div>
                   <div className="sv-row"><img src={IMG('swsh7/215')} alt="" />Umbreon VMAX<span className="add"><IcPlus /></span></div>
                 </div>
-                <div className="step-body"><div className="n">01</div><h3>Coloque suas cartas</h3><p>Busca pelo nome ou aponta a camera. A carta certa entra na colecao.</p></div>
+                <div className="step-body"><div className="n">01</div><h3>Coloque suas cartas</h3><p>Busca pelo nome ou aponta a câmera. A carta certa entra na coleção.</p></div>
               </div>
               <div className="step reveal">
                 <div className="step-vis">
@@ -304,14 +304,14 @@ export default async function HomePage() {
                   <div className="sv-var hl"><span>Holo</span><b>R$ 249,90</b></div>
                   <div className="sv-var"><span>Reverse</span><b>R$ 134,90</b></div>
                 </div>
-                <div className="step-body"><div className="n">02</div><h3>Veja o valor em reais</h3><p>Cada variante com o seu preco. Minimo, medio e maximo do mercado.</p></div>
+                <div className="step-body"><div className="n">02</div><h3>Veja o valor em reais</h3><p>Cada variante com o seu preço. Mínimo, médio e máximo do mercado.</p></div>
               </div>
               <div className="step reveal">
                 <div className="step-vis">
                   <div className="sv-spark"><i style={{ height: '22%' }} /><i style={{ height: '34%' }} /><i style={{ height: '30%' }} /><i style={{ height: '48%' }} /><i style={{ height: '62%' }} /><i style={{ height: '58%' }} /><i style={{ height: '82%' }} /><i style={{ height: '100%' }} /></div>
                   <span className="sv-up"><IcUp /> +7,2% em 30 dias</span>
                 </div>
-                <div className="step-body"><div className="n">03</div><h3>Decida na hora certa</h3><p>Subiu ou caiu? Voce tem o numero na frente antes de trocar, vender ou comprar.</p></div>
+                <div className="step-body"><div className="n">03</div><h3>Decida na hora certa</h3><p>Subiu ou caiu? Você tem o número na frente antes de trocar, vender ou comprar.</p></div>
               </div>
             </div>
           </div>
@@ -320,14 +320,14 @@ export default async function HomePage() {
         {/* FEATURES */}
         <section className="sec-dark">
           <div className="wrap">
-            <div className="reveal center"><span className="eyebrow">Recursos</span><h2 className="sec-title center">Tudo em um so lugar.</h2><p className="sec-sub center">Feito por quem coleciona, pra quem coleciona.</p></div>
+            <div className="reveal center"><span className="eyebrow">Recursos</span><h2 className="sec-title center">Tudo em um só lugar.</h2><p className="sec-sub center">Feito por quem coleciona, pra quem coleciona.</p></div>
             <div className="feats">
-              <div className="fcell reveal"><div className="fic"><IcWallet /></div><h3>Preco por variante</h3><p>Normal, Holo, Reverse, Foil e Promo. Cada um com o seu preco em reais.</p></div>
-              <div className="fcell reveal"><div className="fic"><IcHistory /></div><h3>Historico de preco</h3><p>O grafico da carta nos ultimos meses. Voce ve a curva antes de fechar negocio.</p></div>
-              <div className="fcell reveal"><div className="fic"><IcScan /></div><h3>Scan</h3><p>Aponta a camera e a carta entra sozinha. Sem digitar, sem catar link.</p></div>
+              <div className="fcell reveal"><div className="fic"><IcWallet /></div><h3>Preço por variante</h3><p>Normal, Holo, Reverse, Foil e Promo. Cada um com o seu preço em reais.</p></div>
+              <div className="fcell reveal"><div className="fic"><IcHistory /></div><h3>Histórico de preço</h3><p>O gráfico da carta nos últimos meses. Você vê a curva antes de fechar negócio.</p></div>
+              <div className="fcell reveal"><div className="fic"><IcScan /></div><h3>Scan</h3><p>Aponta a câmera e a carta entra sozinha. Sem digitar, sem catar link.</p></div>
               <div className="fcell reveal"><div className="fic"><IcBag /></div><h3>Marketplace</h3><p>Compra e vende com colecionador de todo o Brasil. Pagamento e frete por dentro.</p></div>
-              <div className="fcell reveal"><div className="fic"><IcBall /></div><h3>Pokedex e hub</h3><p>1.025 Pokemon, cada carta com o preco, cada colecao reunida.</p></div>
-              <div className="fcell reveal"><div className="fic"><IcPin /></div><h3>Guia de lojas</h3><p>Lojas de TCG de verdade perto de voce, com endereco e especialidade.</p></div>
+              <div className="fcell reveal"><div className="fic"><IcBall /></div><h3>Pokédex e hub</h3><p>1.025 Pokémon, cada carta com o preço, cada coleção reunida.</p></div>
+              <div className="fcell reveal"><div className="fic"><IcPin /></div><h3>Guia de lojas</h3><p>Lojas de TCG de verdade perto de você, com endereço e especialidade.</p></div>
             </div>
             <div className="reveal" style={{ textAlign: 'center', marginTop: 34 }}>
               <a href="https://bynx.gg/colecionadores" className="btn-primary">Ver tudo pra colecionador <IcArrow /></a>
@@ -340,12 +340,12 @@ export default async function HomePage() {
           <div className="wrap mkt-grid">
             <div className="reveal">
               <span className="eyebrow"><IcBag /> Marketplace</span>
-              <h2 className="sec-title">A carta que sobra pra voce e a que falta pra outro.</h2>
-              <p className="sec-sub">Anuncia o que nao usa, acha o que falta no seu Master Set, e fecha negocio com colecionador de todo o Brasil, com pagamento e frete por dentro da Bynx.</p>
+              <h2 className="sec-title">A carta que sobra pra você é a que falta pra outro.</h2>
+              <p className="sec-sub">Anuncia o que não usa, acha o que falta no seu Master Set, e fecha negócio com colecionador de todo o Brasil, com pagamento e frete por dentro da Bynx.</p>
               <div className="mkt-badges">
                 <span className="mkt-badge"><IcShield /> Pagamento seguro</span>
                 <span className="mkt-badge"><IcBag /> Frete calculado pelo CEP</span>
-                <span className="mkt-badge"><IcStar /> Avaliacao verificada</span>
+                <span className="mkt-badge"><IcStar /> Avaliação verificada</span>
               </div>
               <div className="ctas"><Link href={SIGNUP} className="btn-primary">Entrar no marketplace <IcArrow /></Link></div>
             </div>
@@ -371,7 +371,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="wrap" style={{ marginTop: 46 }}>
-            <div className="reveal" style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--text-2)', marginBottom: 18 }}>Nao e so carta. Selado, sleeve, fichario e Elite Trainer Box tambem vendem aqui.</div>
+            <div className="reveal" style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--text-2)', marginBottom: 18 }}>Não é só carta. Selado, sleeve, fichário e Elite Trainer Box também vendem aqui.</div>
             <div className="marquee reveal"><div className="prodtrack">
               {[...PRODUTOS, ...PRODUTOS].map((p, i) => (<div key={i} className="prodtile"><img loading="lazy" src={p.u} alt={p.l} /><div className="pt-lab">{p.l}</div><div className="pt-tag">{p.t}</div></div>))}
             </div></div>
@@ -382,16 +382,16 @@ export default async function HomePage() {
         <section className="sec-dark">
           <div className="wrap">
             <div className="reveal center">
-              <span className="eyebrow"><IcBall /> Pokedex e precos</span>
-              <h2 className="sec-title center">Todo Pokemon tem uma historia. E um preco.</h2>
-              <p className="sec-sub center">Busca qualquer um dos 1.025 e ve todas as cartas dele, de toda colecao, com o valor de cada uma.</p>
+              <span className="eyebrow"><IcBall /> Pokédex e preços</span>
+              <h2 className="sec-title center">Todo Pokémon tem uma história. E um preço.</h2>
+              <p className="sec-sub center">Busca qualquer um dos 1.025 e vê todas as cartas dele, de toda coleção, com o valor de cada uma.</p>
             </div>
             <div className="pokedex reveal">
-              <img className="pkx-logo" src={LOGO30} alt="30 anos de Pokemon" />
+              <img className="pkx-logo" src={LOGO30} alt="30 anos de Pokémon" />
               <div className="pkx-head">
                 <span className="pkx-lens" />
                 <span className="pkx-lights"><i /><i /><i /></span>
-                <span className="pkx-title">POKEDEX NACIONAL · 1.025 registros</span>
+                <span className="pkx-title">POKÉDEX NACIONAL · 1.025 registros</span>
               </div>
               <div className="pkx-screen">
                 <div className="pkx-grid">
@@ -410,7 +410,7 @@ export default async function HomePage() {
               </div>
             </div>
             <div className="reveal" style={{ textAlign: 'center', marginTop: 34 }}>
-              <a href="https://bynx.gg/pokedex-pokemon-tcg" className="btn-primary">Explorar a Pokedex <IcArrow /></a>
+              <a href="https://bynx.gg/pokedex-pokemon-tcg" className="btn-primary">Explorar a Pokédex <IcArrow /></a>
             </div>
           </div>
         </section>
@@ -420,8 +420,8 @@ export default async function HomePage() {
           <div className="wrap">
             <div className="reveal center">
               <span className="eyebrow">Planos</span>
-              <h2 className="sec-title center">Comece de graca. Assine quando fizer sentido.</h2>
-              <p className="sec-sub center">Sem cartao pra comecar, cancela quando quiser.</p>
+              <h2 className="sec-title center">Comece de graça. Assine quando fizer sentido.</h2>
+              <p className="sec-sub center">Sem cartão pra começar, cancela quando quiser.</p>
             </div>
             <div className="reveal" style={{ marginTop: 40 }}><CardsPlanos ctaHref={SIGNUP} /></div>
             <div className="reveal" style={{ marginTop: 20 }}><TabelaPlanos ctaHref={SIGNUP} /></div>
@@ -434,15 +434,15 @@ export default async function HomePage() {
             <div className="reveal center">
               <span className="eyebrow"><IcStore /> Para lojistas</span>
               <h2 className="sec-title center">Tem loja de card? Ela fica muito maior aqui.</h2>
-              <p className="sec-sub center">Monta a vitrine, vende com checkout e frete, e aparece pra colecionador da sua cidade. O cliente ja chega decidido.</p>
+              <p className="sec-sub center">Monta a vitrine, vende com checkout e frete, e aparece pra colecionador da sua cidade. O cliente já chega decidido.</p>
             </div>
             <div className="feat" style={{ marginTop: 46 }}>
               <div className="reveal">
                 <div className="lj-benefits">
                   <div className="lj-b"><div className="bic"><IcCard /></div><div><b>Vitrine de cartas e produtos</b><span>seu estoque em reais, com foto de verdade</span></div></div>
                   <div className="lj-b"><div className="bic"><IcBag /></div><div><b>Checkout e frete calculado</b><span>o dinheiro cai direto na sua conta</span></div></div>
-                  <div className="lj-b"><div className="bic"><IcPin /></div><div><b>Achada por cidade</b><span>quem e da sua regiao te encontra primeiro</span></div></div>
-                  <div className="lj-b"><div className="bic"><IcStar /></div><div><b>Avaliacao verificada</b><span>reputacao que ninguem falsifica</span></div></div>
+                  <div className="lj-b"><div className="bic"><IcPin /></div><div><b>Achada por cidade</b><span>quem é da sua região te encontra primeiro</span></div></div>
+                  <div className="lj-b"><div className="bic"><IcStar /></div><div><b>Avaliação verificada</b><span>reputação que ninguém falsifica</span></div></div>
                 </div>
                 <div className="ctas"><a href="https://bynx.gg/para-lojistas" className="btn-primary">Criar minha loja <IcArrow /></a></div>
               </div>
@@ -461,7 +461,7 @@ export default async function HomePage() {
                   <div className="sf-checkout">
                     <div className="sf-line"><span>Venda · Umbreon VMAX</span><span>R$ 189,90</span></div>
                     <div className="sf-line"><span>Taxa Bynx</span><span>menos R$ 13,00</span></div>
-                    <div className="sf-line tot"><span>Voce recebe</span><b>R$ 176,90</b></div>
+                    <div className="sf-line tot"><span>Você recebe</span><b>R$ 176,90</b></div>
                     <div className="sf-pay"><IcWallet /> Repassado pra sua conta</div>
                   </div>
                 </div>
@@ -473,7 +473,7 @@ export default async function HomePage() {
         {/* FAQ */}
         <section>
           <div className="wrap">
-            <div className="reveal center"><span className="eyebrow">Ainda em duvida?</span><h2 className="sec-title center">O que todo mundo pergunta.</h2></div>
+            <div className="reveal center"><span className="eyebrow">Ainda em dúvida?</span><h2 className="sec-title center">O que todo mundo pergunta.</h2></div>
             <div className="faq reveal">
               {FAQ.map((f, i) => (
                 <details key={i} className="qa" open={i === 0}>
@@ -488,10 +488,10 @@ export default async function HomePage() {
         {/* FINAL */}
         <section className="final">
           <div className="wrap reveal">
-            <h2>A sua colecao vale mais do que voce imagina.</h2>
-            <p>Cria a conta de graca e ve o valor da sua colecao ainda hoje.</p>
+            <h2>A sua coleção vale mais do que você imagina.</h2>
+            <p>Cria a conta de graça e vê o valor da sua coleção ainda hoje.</p>
             <div className="ctas">
-              <Link href={SIGNUP} className="btn-primary">Criar conta gratis <IcArrow /></Link>
+              <Link href={SIGNUP} className="btn-primary">Criar conta grátis <IcArrow /></Link>
               <a href="#live" className="btn-ghost">Ver o mercado ao vivo</a>
             </div>
           </div>
