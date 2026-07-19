@@ -105,12 +105,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
   function openLogin() {
     setMobileMenuOpen(false)
     if (typeof window === 'undefined') return
-
-    if (window.location.pathname === '/') {
-      window.dispatchEvent(new CustomEvent('bynx:open-login'))
-    } else {
-      router.push('/?auth=login')
-    }
+    // O AuthModalProvider esta no layout raiz, entao o evento abre o modal
+    // em qualquer tela, sem jogar o usuario pra home.
+    window.dispatchEvent(new CustomEvent('bynx:open-login'))
   }
 
   return (
