@@ -16,6 +16,10 @@ import { calcularCheckout, fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '
  * A Session da Stripe tem UM preco fechado — ela nao recalcula o total depois
  * que o comprador escolhe o metodo. Entao a escolha precisa acontecer AQUI,
  * antes de criar a Session. De quebra, da pra mostrar o quanto o Pix economiza.
+ *
+ * FRETE: se a loja usa frete calculado, o comprador digita o CEP e escolhe
+ * PAC/SEDEX aqui. O preco vem de /api/frete/cotar (so estimativa); o checkout
+ * RE-COTA no servidor na hora de fechar — o cliente nunca dita o preco do frete.
  */
 
 interface ItemInfo {
@@ -37,8 +41,21 @@ interface LojaInfo {
   verificada: boolean | null
   frete_cents: number
   frete_gratis_acima_cents: number | null
+  frete_modo?: 'fixo' | 'calculado'
   repasse_prazo: 14 | 30
   pode_vender: boolean
+}
+interface OpcaoFrete {
+  id: number
+  nome: string
+  empresa: string
+  precoCents: number
+  prazoDias: number
+}
+
+function fmtCep(v: string): string {
+  const d = String(v || '').replace(/\D/g, '').slice(0, 8)
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d
 }
 
 export default function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
@@ -59,6 +76,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const [indo, setIndo] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [uid, setUid] = useState<string | null>(null)
+
+  // Frete calculado
+  const [cepDest, setCepDest] = useState('')
+  const [opcoesFrete, setOpcoesFrete] = useState<OpcaoFrete[] | null>(null)
+  const [servicoSel, setServicoSel] = useState<number | null>(null)
+  const [cotando, setCotando] = useState(false)
+  const [erroFrete, setErroFrete] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null))
@@ -84,16 +108,47 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   useEffect(() => { carregar() }, [carregar])
   useEffect(() => { if (search.get('cancelado') === '1') setErro('Pagamento cancelado. Seu pedido não foi finalizado.') }, [search])
 
+  async function cotar() {
+    const cd = cepDest.replace(/\D/g, '')
+    if (cd.length !== 8) { setErroFrete('Digite um CEP válido (8 dígitos).'); return }
+    setCotando(true)
+    setErroFrete(null)
+    setOpcoesFrete(null)
+    setServicoSel(null)
+    try {
+      const r = await fetch('/api/frete/cotar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: ehProduto ? 'produto' : 'marketplace', id: anuncioId, cep: cd }),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j?.error || 'Não consegui calcular o frete.')
+      const ops = (j.opcoes || []) as OpcaoFrete[]
+      setOpcoesFrete(ops)
+      if (ops.length) setServicoSel(ops[0].id) // ja seleciona o mais barato
+    } catch (e) {
+      setErroFrete((e as Error).message)
+    } finally {
+      setCotando(false)
+    }
+  }
+
   async function pagar() {
     if (!uid) { openSignup(); return }
     setIndo(true)
     setErro(null)
     try {
       const { data } = await supabase.auth.getSession()
+      const ehCalc = loja?.frete_modo === 'calculado'
+      const corpo: Record<string, unknown> = { metodo }
+      if (ehCalc) {
+        corpo.cep = cepDest.replace(/\D/g, '')
+        corpo.servico = servicoSel
+      }
       const r = await fetch(apiBase, {
         method: 'POST',
         headers: { Authorization: `Bearer ${data.session?.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ metodo }),
+        body: JSON.stringify(corpo),
       })
       const j = await r.json()
       if (!r.ok || !j?.url) throw new Error(j?.error || 'Não foi possível iniciar o pagamento.')
@@ -131,15 +186,26 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   }
 
   const ehMeu = uid && uid === item.vendedor_user_id
+  const ehCalculado = loja.frete_modo === 'calculado'
   const freteBase = loja.frete_cents
   const gratisAcima = loja.frete_gratis_acima_cents
-  const frete = gratisAcima != null && item.preco_cents >= gratisAcima ? 0 : freteBase
+
+  // Frete resolvido: no fixo e sempre um numero; no calculado so depois que o
+  // comprador cota e escolhe um servico (ate la, null = total indefinido).
+  let freteResolvido: number | null
+  if (ehCalculado) {
+    const op = opcoesFrete?.find(o => o.id === servicoSel)
+    freteResolvido = op ? op.precoCents : null
+  } else {
+    freteResolvido = gratisAcima != null && item.preco_cents >= gratisAcima ? 0 : freteBase
+  }
 
   const cPix = calcularCheckout(item.preco_cents, loja.repasse_prazo, 'pix')
   const cCartao = calcularCheckout(item.preco_cents, loja.repasse_prazo, 'cartao')
   const c = metodo === 'pix' ? cPix : cCartao
-  const total = c.totalCompradorCents + frete
+  const total = freteResolvido == null ? null : c.totalCompradorCents + freteResolvido
   const economia = cCartao.acrescimoCents - cPix.acrescimoCents
+  const precisaFrete = ehCalculado && freteResolvido == null
 
   return (
     <Casca>
@@ -170,6 +236,42 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
           <div style={S.aviso}>Esse anúncio é seu — você não pode comprá-lo.</div>
         ) : (
           <>
+            {ehCalculado && (
+              <>
+                <div style={S.label}>Entrega</div>
+                <div style={S.cepRow}>
+                  <input
+                    value={cepDest}
+                    onChange={e => setCepDest(fmtCep(e.target.value))}
+                    placeholder="Seu CEP"
+                    inputMode="numeric"
+                    style={S.cepInput}
+                  />
+                  <button onClick={cotar} disabled={cotando} style={{ ...S.btnCep, opacity: cotando ? 0.6 : 1 }}>
+                    {cotando ? '…' : 'Calcular'}
+                  </button>
+                </div>
+                {erroFrete && <div style={S.freteErro}>{erroFrete}</div>}
+                {opcoesFrete && opcoesFrete.length > 0 && (
+                  <div style={S.opcoes}>
+                    {opcoesFrete.map(o => {
+                      const on = servicoSel === o.id
+                      return (
+                        <button key={o.id} onClick={() => setServicoSel(o.id)} style={{ ...S.opcao, ...(on ? S.opcaoOn : {}) }}>
+                          <span style={{ ...S.radio, ...(on ? S.radioOn : {}) }}>{on && <span style={S.radioDot} />}</span>
+                          <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+                            <div style={S.opNome}>{o.empresa} {o.nome}</div>
+                            <div style={S.opPrazo}>Chega em ~{o.prazoDias} dia{o.prazoDias > 1 ? 's' : ''} úteis</div>
+                          </div>
+                          <div style={S.opPreco}>{fmtBRL(o.precoCents)}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
             <div style={S.label}>Como você quer pagar?</div>
             <div style={S.pays}>
               {(['pix', 'cartao'] as MetodoPagamento[]).map(m => {
@@ -202,9 +304,15 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
               </div>
               <div style={S.linha}>
                 <span style={S.mut}>Frete</span>
-                <span>{frete === 0 ? <span style={{ color: '#22c55e' }}>Grátis</span> : fmtBRL(frete)}</span>
+                <span>
+                  {freteResolvido == null
+                    ? <span style={{ color: 'rgba(255,255,255,0.4)' }}>calcule acima</span>
+                    : freteResolvido === 0
+                      ? <span style={{ color: '#22c55e' }}>Grátis</span>
+                      : fmtBRL(freteResolvido)}
+                </span>
               </div>
-              <div style={S.total}><span>Total</span><span style={{ color: '#22c55e' }}>{fmtBRL(total)}</span></div>
+              <div style={S.total}><span>Total</span><span style={{ color: '#22c55e' }}>{total == null ? '—' : fmtBRL(total)}</span></div>
             </div>
 
             {PIX_DISPONIVEL && metodo === 'cartao' && economia > 0 && (
@@ -213,8 +321,8 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
               </button>
             )}
 
-            <button onClick={pagar} disabled={indo} style={{ ...S.cta, opacity: indo ? 0.6 : 1 }}>
-              {indo ? 'Abrindo pagamento…' : uid ? 'Ir para o pagamento →' : 'Entrar e comprar →'}
+            <button onClick={pagar} disabled={indo || precisaFrete} style={{ ...S.cta, opacity: (indo || precisaFrete) ? 0.6 : 1 }}>
+              {indo ? 'Abrindo pagamento…' : precisaFrete ? 'Calcule o frete para continuar' : uid ? 'Ir para o pagamento →' : 'Entrar e comprar →'}
             </button>
             <p style={S.mini}>🔒 O pagamento é processado pela Stripe. A Bynx não guarda os dados do seu cartão.</p>
           </>
@@ -251,6 +359,19 @@ const S: Record<string, React.CSSProperties> = {
   h1: { fontSize: 18, fontWeight: 800, margin: '10px 0 8px' },
   txt: { fontSize: 13.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.55, marginBottom: 16 },
   label: { fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 8 },
+  cepRow: { display: 'flex', gap: 8, marginBottom: 10 },
+  cepInput: { flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '11px 12px', fontSize: 14, fontWeight: 600, color: '#f0f0f0', outline: 'none' },
+  btnCep: { flexShrink: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: '#f0f0f0', borderRadius: 10, padding: '0 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  freteErro: { fontSize: 12, color: '#fca5a5', marginBottom: 10 },
+  opcoes: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 },
+  opcao: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '11px 13px', cursor: 'pointer', color: '#f0f0f0' },
+  opcaoOn: { borderColor: 'rgba(168,85,247,0.5)', background: 'rgba(168,85,247,0.08)' },
+  radio: { flexShrink: 0, width: 17, height: 17, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: '#a855f7' },
+  radioDot: { width: 8, height: 8, borderRadius: '50%', background: '#a855f7' },
+  opNome: { fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  opPrazo: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 1 },
+  opPreco: { fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap' },
   pays: { display: 'flex', gap: 8, marginBottom: 16 },
   pay: { flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '11px 8px', cursor: 'pointer', color: '#f0f0f0' },
   payOff: { opacity: 0.45, cursor: 'not-allowed' },

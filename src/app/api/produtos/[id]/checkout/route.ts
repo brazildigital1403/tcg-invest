@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
+import { cotarFrete, pacoteDeProduto } from '@/lib/melhor-envio'
 
 /**
  * Checkout de PRODUTO da loja (selado/pelucia/funko/fichario/acessorio).
@@ -12,6 +13,10 @@ import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type
  *   - produto-> `ativo && estoque > 0`, N unidades, DECREMENTA ao vender
  * A matematica do dinheiro NAO e duplicada: vem de `@/lib/comissao`.
  *
+ * FRETE: 'fixo' usa o valor da loja; 'calculado' RE-COTA no servidor (Melhor
+ * Envio) com o CEP do comprador + o servico escolhido — o cliente nunca dita o
+ * preco do frete. A dimensao vem do tipo do produto; o peso do `peso_g`.
+ *
  * GET  -> dados pra tela
  * POST -> cria pedido + Session com split (application_fee + transfer_data)
  */
@@ -20,8 +25,12 @@ function sb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
 }
 
+function digits(v: unknown): string {
+  return String(v ?? '').replace(/\D/g, '')
+}
+
 const SELECT_LOJA =
-  'id, nome, slug, logo_url, verificada, status, owner_user_id, stripe_connect_account_id, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents'
+  'id, nome, slug, logo_url, verificada, status, owner_user_id, stripe_connect_account_id, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents, frete_modo, cep'
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -61,6 +70,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
             verificada: loja.verificada,
             frete_cents: loja.frete_cents || 0,
             frete_gratis_acima_cents: loja.frete_gratis_acima_cents,
+            frete_modo: loja.frete_modo || 'fixo',
             repasse_prazo: normalizarPrazo(loja.repasse_prazo),
             pode_vender: !!loja.connect_charges_enabled,
           }
@@ -94,7 +104,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const { data: ps } = await db
       .from('loja_produtos')
-      .select('id, loja_id, tipo, nome, preco_cents, estoque, fotos, ativo')
+      .select('id, loja_id, tipo, nome, preco_cents, estoque, peso_g, fotos, ativo')
       .eq('id', produtoId)
       .limit(1)
 
@@ -117,9 +127,42 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const prazo = normalizarPrazo(loja.repasse_prazo)
     const c = calcularCheckout(p.preco_cents, prazo, metodo)
 
-    const freteBase = Math.max(0, loja.frete_cents || 0)
-    const limiteGratis = loja.frete_gratis_acima_cents
-    const freteCents = limiteGratis != null && p.preco_cents >= limiteGratis ? 0 : freteBase
+    // ── Frete: fixo (loja) OU calculado (re-cotacao no servidor) ──────────
+    let freteCents = 0
+    let freteLabel = `Frete — ${loja.nome}`
+
+    if (loja.frete_modo === 'calculado') {
+      const cepDest = digits(body?.cep)
+      const servicoId = Number(body?.servico)
+      if (cepDest.length !== 8) {
+        return NextResponse.json({ error: 'Informe um CEP de entrega válido.' }, { status: 400 })
+      }
+      if (!servicoId) {
+        return NextResponse.json({ error: 'Escolha uma opção de frete.' }, { status: 400 })
+      }
+      if (digits(loja.cep).length !== 8) {
+        return NextResponse.json({ error: 'A loja ainda não configurou o CEP de origem.' }, { status: 409 })
+      }
+      try {
+        const opcoes = await cotarFrete(loja.cep, cepDest, [pacoteDeProduto(p.peso_g, p.tipo, p.preco_cents)])
+        const escolhido = opcoes.find(o => o.id === servicoId)
+        if (!escolhido) {
+          return NextResponse.json(
+            { error: 'Essa opção de frete não está mais disponível. Calcule o frete de novo.' },
+            { status: 409 }
+          )
+        }
+        freteCents = escolhido.precoCents
+        freteLabel = `Frete — ${escolhido.empresa} ${escolhido.nome}`.trim()
+      } catch (e) {
+        console.error('[produto checkout] cotacao falhou:', (e as Error)?.message)
+        return NextResponse.json({ error: 'Não consegui calcular o frete agora. Tente de novo.' }, { status: 502 })
+      }
+    } else {
+      const freteBase = Math.max(0, loja.frete_cents || 0)
+      const limiteGratis = loja.frete_gratis_acima_cents
+      freteCents = limiteGratis != null && p.preco_cents >= limiteGratis ? 0 : freteBase
+    }
 
     const totalCompradorCents = c.totalCompradorCents + freteCents
     const liquidoLojaCents = c.liquidoLojaCents + freteCents
@@ -167,7 +210,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (c.acrescimoCents > 0) {
       linhas.push(brl(c.acrescimoCents, metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'))
     }
-    if (freteCents > 0) linhas.push(brl(freteCents, `Frete — ${loja.nome}`))
+    if (freteCents > 0) linhas.push(brl(freteCents, freteLabel))
 
     try {
       const session = await stripe.checkout.sessions.create({
