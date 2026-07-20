@@ -50,6 +50,9 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
   const [aberto, setAberto] = useState<string | null>(null)
   const [rastreios, setRastreios] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState<string | null>(null)
+  const [cancelAberto, setCancelAberto] = useState<string | null>(null)
+  const [cancelando, setCancelando] = useState<string | null>(null)
+  const [motivos, setMotivos] = useState<Record<string, string>>({})
 
   const token = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
@@ -97,6 +100,27 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
       showAlert((e as Error).message, 'error')
     } finally {
       setEnviando(null)
+    }
+  }
+
+  async function cancelarPedido(p: Pedido) {
+    setCancelando(p.id)
+    try {
+      const t = await token()
+      const r = await fetch(`/api/lojas/${lojaId}/pedidos`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pedido_id: p.id, acao: 'cancelar', motivo: (motivos[p.id] || '').trim() || null }),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j?.error || 'Falha ao cancelar')
+      showAlert('Pedido cancelado e reembolsado. O comprador já foi avisado.', 'success')
+      setCancelAberto(null)
+      await carregar()
+    } catch (e) {
+      showAlert((e as Error).message, 'error')
+    } finally {
+      setCancelando(null)
     }
   }
 
@@ -195,6 +219,30 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
                   </button>
                 )
               )}
+
+              {(p.status === 'pago' || p.status === 'enviado') && (
+                cancelAberto === p.id ? (
+                  <div style={S.formCancel}>
+                    <div style={S.cancelWarn}>Isso reembolsa o comprador integralmente e não pode ser desfeito.</div>
+                    <input
+                      value={motivos[p.id] || ''}
+                      onChange={e => setMotivos(m => ({ ...m, [p.id]: e.target.value }))}
+                      placeholder="Motivo (opcional — o comprador vê)"
+                      style={S.input}
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => cancelarPedido(p)} disabled={cancelando === p.id} style={{ ...S.btnDanger, flex: 1, opacity: cancelando === p.id ? 0.6 : 1 }}>
+                        {cancelando === p.id ? 'Reembolsando…' : 'Confirmar cancelamento'}
+                      </button>
+                      <button onClick={() => setCancelAberto(null)} style={{ ...S.btnGhost }}>Voltar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setCancelAberto(p.id)} style={{ ...S.btnDangerGhost, width: '100%', marginTop: 8 }}>
+                    Cancelar e reembolsar
+                  </button>
+                )
+              )}
             </div>
           )
         })
@@ -228,6 +276,10 @@ const S: Record<string, React.CSSProperties> = {
   form: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 },
   input: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '10px 12px', fontSize: 13, color: '#f0f0f0', outline: 'none' },
   btnGhost: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 10, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
+  btnDanger: { background: '#dc2626', border: '1px solid #dc2626', color: '#fff', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  btnDangerGhost: { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  formCancel: { marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, padding: 12 },
+  cancelWarn: { fontSize: 12, color: '#fca5a5', lineHeight: 1.4 },
   h2: { fontSize: 16, fontWeight: 800, margin: '10px 0 6px' },
   txt: { fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.55, maxWidth: 380, margin: '0 auto' },
   erro: { background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 },

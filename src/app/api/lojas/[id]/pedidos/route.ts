@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
-import { sendPedidoEnviadoEmail } from '@/lib/email'
+import Stripe from 'stripe'
+import { sendPedidoEnviadoEmail, sendReembolsoCompradorEmail } from '@/lib/email'
 
 /**
  * GET   /api/lojas/[id]/pedidos           -> pedidos da loja (o painel)
@@ -70,79 +71,162 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const pedidoId = body?.pedido_id
     const acao = body?.acao
     const rastreio = typeof body?.rastreio === 'string' ? body.rastreio.trim().slice(0, 60) : null
+    const motivo = typeof body?.motivo === 'string' ? body.motivo.trim().slice(0, 300) : null
 
-    if (!pedidoId || acao !== 'enviar') {
+    if (!pedidoId || (acao !== 'enviar' && acao !== 'cancelar')) {
       return NextResponse.json({ error: 'Requisição inválida.' }, { status: 400 })
-    }
-
-    if (!rastreio || rastreio.length < 8) {
-      return NextResponse.json({ error: 'Informe um código de rastreio válido (mínimo 8 caracteres) para marcar como enviado.' }, { status: 400 })
     }
 
     // O pedido TEM que ser desta loja (senao um lojista mexeria no pedido de outro).
     const { data: peds } = await sb
       .from('pedidos')
-      .select('id, numero, status, loja_id, comprador_user_id, item_nome')
+      .select('id, numero, status, loja_id, comprador_user_id, item_nome, produto_id, marketplace_id, total_comprador_cents, stripe_payment_intent_id')
       .eq('id', pedidoId)
       .eq('loja_id', lojaId)
       .limit(1)
 
     const pedido = peds?.[0]
     if (!pedido) return NextResponse.json({ error: 'Pedido não encontrado.' }, { status: 404 })
-    if (pedido.status !== 'pago') {
-      return NextResponse.json(
-        { error: `Só dá para enviar um pedido pago. Esse está como "${pedido.status}".` },
-        { status: 409 }
-      )
+
+    // ==================== ENVIAR ====================
+    if (acao === 'enviar') {
+      if (!rastreio || rastreio.length < 8) {
+        return NextResponse.json({ error: 'Informe um código de rastreio válido (mínimo 8 caracteres) para marcar como enviado.' }, { status: 400 })
+      }
+      if (pedido.status !== 'pago') {
+        return NextResponse.json({ error: `Só dá para enviar um pedido pago. Esse está como "${pedido.status}".` }, { status: 409 })
+      }
+
+      const { error: upErr } = await sb
+        .from('pedidos')
+        .update({ status: 'enviado', rastreio, enviado_em: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', pedido.id)
+
+      if (upErr) {
+        console.error('[pedidos PATCH enviar]', upErr.message)
+        return NextResponse.json({ error: 'Erro ao marcar como enviado.' }, { status: 500 })
+      }
+
+      // Avisa o comprador (sino + email). Falha aqui nao desfaz o envio.
+      try {
+        await sb.from('notifications').insert({
+          user_id: pedido.comprador_user_id,
+          type: 'aviso',
+          title: 'Seu pedido foi enviado!',
+          message: `${pedido.item_nome} está a caminho${rastreio ? ` · rastreio ${rastreio}` : ''}.`,
+          data: { link: `/pedido/${pedido.id}` },
+        })
+
+        const { data: comprador } = await sb.from('users').select('email, name').eq('id', pedido.comprador_user_id).single()
+        if (comprador?.email) {
+          await sendPedidoEnviadoEmail({
+            to: comprador.email,
+            nomeUser: comprador.name || '',
+            pedidoId: pedido.id,
+            pedidoNumero: pedido.numero,
+            itemNome: pedido.item_nome,
+            nomeLoja: loja.nome,
+            rastreio,
+          })
+        }
+      } catch (err) {
+        console.error('[pedidos PATCH enviar] falha avisando comprador:', (err as Error)?.message)
+      }
+
+      return NextResponse.json({ ok: true })
+    }
+
+    // ==================== CANCELAR + REEMBOLSAR ====================
+    // So a loja (owner/admin, ja checado). So antes de entregue.
+    if (pedido.status !== 'pago' && pedido.status !== 'enviado') {
+      return NextResponse.json({ error: `Só dá para cancelar um pedido pago ou enviado. Esse está como "${pedido.status}".` }, { status: 409 })
+    }
+    if (!pedido.stripe_payment_intent_id) {
+      return NextResponse.json({ error: 'Pedido sem pagamento associado. Não há o que reembolsar.' }, { status: 409 })
+    }
+
+    // Estorna na Stripe: devolve ao comprador, reverte o transfer da loja e a taxa da Bynx (reembolso integral).
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2025-03-31.basil' })
+    let refundId: string
+    try {
+      const refund = await stripe.refunds.create({
+        payment_intent: pedido.stripe_payment_intent_id,
+        reverse_transfer: true,
+        refund_application_fee: true,
+      })
+      refundId = refund.id
+    } catch (e) {
+      console.error('[pedidos PATCH cancelar] refund falhou:', (e as Error)?.message)
+      return NextResponse.json({ error: 'Não foi possível processar o reembolso na Stripe. Nada foi alterado — tente de novo em instantes.' }, { status: 502 })
     }
 
     const { error: upErr } = await sb
       .from('pedidos')
       .update({
-        status: 'enviado',
-        rastreio,
-        enviado_em: new Date().toISOString(),
+        status: 'reembolsado',
+        cancelado_em: new Date().toISOString(),
+        cancelamento_motivo: motivo,
+        cancelado_por: 'loja',
+        stripe_refund_id: refundId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', pedido.id)
 
     if (upErr) {
-      console.error('[pedidos PATCH]', upErr.message)
-      return NextResponse.json({ error: 'Erro ao marcar como enviado.' }, { status: 500 })
+      // O dinheiro JA foi estornado na Stripe. Loga alto pra reconciliar.
+      console.error('[pedidos PATCH cancelar] refund OK mas update falhou:', upErr.message, '| pedido', pedido.id, '| refund', refundId)
+      return NextResponse.json({ error: 'O reembolso foi feito na Stripe, mas houve um erro ao atualizar o pedido. Fale com o suporte com o número do pedido.' }, { status: 500 })
     }
 
-    // Avisa o comprador (sino + email). Falha aqui nao desfaz o envio.
+    // Restaura o inventario (produto: estoque+1; carta: volta pra disponivel).
     try {
-      await sb.from('notifications').insert({
-        user_id: pedido.comprador_user_id,
-        type: 'aviso',
-        title: 'Seu pedido foi enviado!',
-        message: `${pedido.item_nome} está a caminho${rastreio ? ` · rastreio ${rastreio}` : ''}.`,
-        data: { link: `/pedido/${pedido.id}` },
-      })
+      if (pedido.produto_id) {
+        await sb.rpc('restaurar_estoque_produto', { p_id: pedido.produto_id })
+      } else if (pedido.marketplace_id) {
+        await sb.from('marketplace').update({ status: 'disponivel', buyer_id: null }).eq('id', pedido.marketplace_id)
+      }
+    } catch (err) {
+      console.error('[pedidos PATCH cancelar] falha restaurando inventario:', (err as Error)?.message)
+    }
 
-      const { data: comprador } = await sb
-        .from('users')
-        .select('email, name')
-        .eq('id', pedido.comprador_user_id)
-        .single()
+    // Avisa os dois lados (sino) + email pro comprador.
+    try {
+      const valor = (pedido.total_comprador_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      await sb.from('notifications').insert([
+        {
+          user_id: pedido.comprador_user_id,
+          type: 'aviso',
+          title: 'Pedido reembolsado',
+          message: `A ${loja.nome} cancelou o pedido de ${pedido.item_nome}. ${valor} foi estornado no seu cartão.`,
+          data: { link: `/pedido/${pedido.id}` },
+        },
+        {
+          user_id: loja.owner_user_id,
+          type: 'aviso',
+          title: 'Pedido cancelado',
+          message: `Você cancelou e reembolsou o pedido de ${pedido.item_nome}.`,
+          data: { link: `/minha-loja/${lojaId}/pedidos` },
+        },
+      ])
 
+      const { data: comprador } = await sb.from('users').select('email, name').eq('id', pedido.comprador_user_id).single()
       if (comprador?.email) {
-        await sendPedidoEnviadoEmail({
+        await sendReembolsoCompradorEmail({
           to: comprador.email,
           nomeUser: comprador.name || '',
           pedidoId: pedido.id,
           pedidoNumero: pedido.numero,
           itemNome: pedido.item_nome,
           nomeLoja: loja.nome,
-          rastreio,
+          valorCents: pedido.total_comprador_cents,
+          motivo,
         })
       }
     } catch (err) {
-      console.error('[pedidos PATCH] falha avisando comprador:', (err as Error)?.message)
+      console.error('[pedidos PATCH cancelar] falha avisando:', (err as Error)?.message)
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, reembolsado: true })
   } catch (err) {
     console.error('[pedidos PATCH] erro:', (err as Error)?.message)
     return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })

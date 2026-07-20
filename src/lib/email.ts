@@ -1245,3 +1245,38 @@ export async function sendPedidoEnviadoEmail(args: {
     html,
   })
 }
+
+
+export async function sendReembolsoCompradorEmail(args: {
+  to: string
+  nomeUser: string
+  pedidoId: string
+  pedidoNumero: number | string
+  itemNome: string
+  nomeLoja: string
+  valorCents: number
+  motivo?: string | null
+}) {
+  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const url = `${APP_URL}/pedido/${args.pedidoId}`
+  const valor = (args.valorCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">↩️</div></div>
+    ${h1('Seu pedido foi reembolsado')}
+    ${p(`${firstName}, a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> cancelou o pedido de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> e o valor foi estornado.`)}
+    ${divider()}
+    ${p(`<strong style="color:#f0f0f0;">Valor reembolsado:</strong> <span style="color:#22c55e;font-weight:700;">${valor}</span>`)}
+    ${args.motivo ? p(`<strong style="color:#f0f0f0;">Motivo informado pela loja:</strong> ${escapeHtml(args.motivo)}`) : ''}
+    ${p('O estorno volta pro mesmo cartão em alguns dias úteis, no prazo do banco emissor.')}
+    ${divider()}
+    ${btn('Ver o pedido', addUtm(url, 'pedido_reembolsado'))}
+  `, `Reembolso do pedido #${args.pedidoNumero}`)
+
+  return resend.emails.send({
+    from: FROM,
+    to: args.to,
+    subject: subjUser(`↩️ Reembolso: ${args.itemNome}`),
+    html,
+  })
+}
