@@ -137,9 +137,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
 
     // ==================== CANCELAR + REEMBOLSAR ====================
-    // So a loja (owner/admin, ja checado). So antes de entregue.
-    if (pedido.status !== 'pago' && pedido.status !== 'enviado') {
-      return NextResponse.json({ error: `Só dá para cancelar um pedido pago ou enviado. Esse está como "${pedido.status}".` }, { status: 409 })
+    // So a loja (owner/admin, ja checado). So ANTES de enviar — depois de despachado nao faz sentido.
+    if (pedido.status !== 'pago') {
+      return NextResponse.json({ error: `Só dá para cancelar um pedido que ainda não foi enviado. Esse está como "${pedido.status}".` }, { status: 409 })
     }
     if (!pedido.stripe_payment_intent_id) {
       return NextResponse.json({ error: 'Pedido sem pagamento associado. Não há o que reembolsar.' }, { status: 409 })

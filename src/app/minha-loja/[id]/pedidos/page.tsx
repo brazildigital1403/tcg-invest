@@ -220,7 +220,7 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
                 )
               )}
 
-              {(p.status === 'pago' || p.status === 'enviado') && (
+              {p.status === 'pago' && (
                 cancelAberto === p.id ? (
                   <div style={S.formCancel}>
                     <div style={S.cancelWarn}>Isso reembolsa o comprador integralmente e não pode ser desfeito.</div>
