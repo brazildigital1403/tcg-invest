@@ -75,13 +75,18 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
   useEffect(() => { if (estado === 'pronto') carregar() }, [estado, carregar])
 
   async function marcarEnviado(p: Pedido) {
+    const cod = (rastreios[p.id] || '').trim()
+    if (cod.length < 8) {
+      showAlert('Informe o código de rastreio (mínimo 8 caracteres) para marcar como enviado. O comprador precisa dele para acompanhar a entrega.', 'error')
+      return
+    }
     setEnviando(p.id)
     try {
       const t = await token()
       const r = await fetch(`/api/lojas/${lojaId}/pedidos`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pedido_id: p.id, acao: 'enviar', rastreio: rastreios[p.id] || null }),
+        body: JSON.stringify({ pedido_id: p.id, acao: 'enviar', rastreio: cod }),
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Falha ao enviar')
@@ -174,11 +179,11 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
                     <input
                       value={rastreios[p.id] || ''}
                       onChange={e => setRastreios(r => ({ ...r, [p.id]: e.target.value }))}
-                      placeholder="Código de rastreio (opcional)"
+                      placeholder="Código de rastreio (obrigatório)"
                       style={S.input}
                     />
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => marcarEnviado(p)} disabled={enviando === p.id} style={{ ...SH.btnPrimary, flex: 1, opacity: enviando === p.id ? 0.6 : 1 }}>
+                      <button onClick={() => marcarEnviado(p)} disabled={enviando === p.id || (rastreios[p.id] || '').trim().length < 8} style={{ ...SH.btnPrimary, flex: 1, opacity: (enviando === p.id || (rastreios[p.id] || '').trim().length < 8) ? 0.6 : 1 }}>
                         {enviando === p.id ? 'Salvando…' : 'Confirmar envio'}
                       </button>
                       <button onClick={() => setAberto(null)} style={{ ...S.btnGhost }}>Cancelar</button>

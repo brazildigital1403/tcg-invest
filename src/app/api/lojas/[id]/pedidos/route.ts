@@ -75,6 +75,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: 'Requisição inválida.' }, { status: 400 })
     }
 
+    if (!rastreio || rastreio.length < 8) {
+      return NextResponse.json({ error: 'Informe um código de rastreio válido (mínimo 8 caracteres) para marcar como enviado.' }, { status: 400 })
+    }
+
     // O pedido TEM que ser desta loja (senao um lojista mexeria no pedido de outro).
     const { data: peds } = await sb
       .from('pedidos')
@@ -96,7 +100,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       .from('pedidos')
       .update({
         status: 'enviado',
-        rastreio: rastreio || null,
+        rastreio,
         enviado_em: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
