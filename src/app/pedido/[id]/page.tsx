@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
+import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, IconBolt, IconPokeball } from '@/components/ui/Icons'
 
 /**
  * /pedido/[id] — acompanhamento do pedido.
@@ -17,14 +18,14 @@ import { fmtBRL } from '@/lib/comissao'
  *
  * GOTCHA: ao voltar da Stripe o webhook pode nao ter processado ainda (leva
  * segundos). Por isso, quando cai aqui com ?ok=1 e o status ainda esta
- * 'aguardando_pagamento', a pagina faz alguns re-fetch antes de dar como certo —
- * senao o comprador ve "aguardando pagamento" logo apos ter pago e entra em
- * panico.
+ * 'aguardando_pagamento', a pagina faz alguns re-fetch antes de dar como certo.
  *
  * PoS-VENDA: quando o comprador ve o proprio pedido em 'enviado'/'entregue',
- * aparece o bloco de avaliar a loja (+ botao "Confirmar recebimento" no enviado,
- * que hoje e a unica forma da timeline chegar em 'entregue'). A avaliacao vai
- * pra rota /api/pedidos/[id]/avaliar (comprador-verificado, 1 por pedido).
+ * aparece o bloco de avaliar a loja (+ botao "Confirmar recebimento" no enviado).
+ *
+ * LAYOUT (redesign): status hero que se adapta (pago/enviado/entregue) + 2
+ * colunas — esquerda "acompanhamento" (timeline vertical + confirmar/avaliar),
+ * direita "resumo" (item + valores + endereco). Zero emoji: icones SVG.
  */
 
 declare global {
@@ -53,12 +54,56 @@ interface Pedido {
 }
 
 const PASSOS = [
-  { k: 'pago', ic: '💳', label: 'Pagamento confirmado' },
-  { k: 'enviado', ic: '📦', label: 'Enviado pela loja' },
-  { k: 'entregue', ic: '🏠', label: 'Entregue' },
+  { k: 'pago', label: 'Pagamento confirmado' },
+  { k: 'enviado', label: 'Enviado pela loja' },
+  { k: 'entregue', label: 'Entregue' },
 ]
 const ORDEM: Record<string, number> = { aguardando_pagamento: -1, pago: 0, enviado: 1, entregue: 2 }
 const LABEL_ESTRELA = ['', 'Muito ruim', 'Ruim', 'Ok', 'Boa', 'Excelente!']
+const LABEL: Record<string, string> = {
+  aguardando_pagamento: 'Aguardando pagamento',
+  pago: 'Pago',
+  enviado: 'Enviado',
+  entregue: 'Entregue',
+  cancelado: 'Cancelado',
+  reembolsado: 'Reembolsado',
+}
+const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+function fmtData(iso: string | null): string {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    const hh = String(d.getHours()).padStart(2, '0')
+    const mm = String(d.getMinutes()).padStart(2, '0')
+    return `${d.getDate()} ${MES[d.getMonth()]}, ${hh}:${mm}`
+  } catch { return '' }
+}
+
+// Casa (entregue) e copiar — nao existem no Icons.tsx.
+function IcHome({ size = 15, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M3 9l7-5.5L17 9v7.5a1 1 0 01-1 1h-3v-5H7v5H4a1 1 0 01-1-1V9z" stroke={color} strokeWidth={1.4} strokeLinejoin="round" />
+    </svg>
+  )
+}
+function IcTruck({ size = 26, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M2 6h11v9H2V6zM13 9h4l3 3v3h-7V9z" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+      <circle cx="6.5" cy="17.5" r="1.7" stroke={color} strokeWidth={1.5} />
+      <circle cx="16.5" cy="17.5" r="1.7" stroke={color} strokeWidth={1.5} />
+    </svg>
+  )
+}
+function IcCopy({ size = 13, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <rect x="7" y="7" width="9" height="9" rx="2" stroke={color} strokeWidth={1.4} />
+      <path d="M4 13V5a2 2 0 012-2h6" stroke={color} strokeWidth={1.4} strokeLinecap="round" />
+    </svg>
+  )
+}
 
 export default function PedidoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params)
@@ -81,6 +126,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const [avalOk, setAvalOk] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
+  const [copiado, setCopiado] = useState(false)
 
   const buscar = useCallback(async () => {
     const { data, error } = await supabase.from('pedidos').select('*').eq('id', id).maybeSingle()
@@ -117,15 +163,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   }, [pedido])
 
   // ─── Conversao pro GTM (GA4 + Meta Pixel) ─────────────────────────────
-  // UM push alimenta os dois: o GTM tem uma tag do GA4 e outra da Meta ouvindo
-  // o evento 'purchase'. Formato = GA4 ecommerce (padrao de mercado).
-  //
-  // DEDUP: a chave no localStorage garante 1 disparo por pedido pra sempre —
-  // recarregar a pagina, voltar nela semana que vem ou abrir em outra aba nao
-  // conta venda de novo. Sem isso o Meta otimizaria com faturamento inflado.
-  //
-  // Se o usuario nao aceitou cookies, o GTM nao existe e o push cai num array
-  // solto — inofensivo, e nada e enviado. (Consent LGPD respeitado.)
+  // UM push alimenta os dois. DEDUP por localStorage: 1 disparo por pedido.
   useEffect(() => {
     if (!pedido) return
     if (pedido.status === 'aguardando_pagamento' || pedido.status === 'cancelado' || pedido.status === 'reembolsado') return
@@ -135,7 +173,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
       if (localStorage.getItem(chave)) return
       localStorage.setItem(chave, '1')
     } catch {
-      return // sem localStorage nao da pra garantir o dedup: melhor nao disparar
+      return
     }
 
     window.dataLayer = window.dataLayer || []
@@ -191,16 +229,25 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     }
   }
 
+  function copiarRastreio() {
+    if (!pedido?.rastreio) return
+    try {
+      navigator.clipboard?.writeText(pedido.rastreio).then(() => {
+        setCopiado(true); setTimeout(() => setCopiado(false), 1500)
+      }).catch(() => {})
+    } catch { /* noop */ }
+  }
+
   if (carregando) return <Casca><div style={S.vazio}>Carregando…</div></Casca>
   if (semAcesso || !pedido) {
     return (
       <Casca>
-        <div style={S.card}>
+        <div style={S.fallbackCard}>
           <div style={{ textAlign: 'center', padding: '14px 0' }}>
-            <div style={{ fontSize: 34 }}>🔒</div>
-            <h1 style={S.h1}>Pedido não encontrado</h1>
-            <p style={S.txt}>Ou ele não existe, ou você precisa entrar com a conta que fez a compra.</p>
-            <Link href="/marketplace" style={{ ...S.cta, display: 'inline-block', textDecoration: 'none' }}>Ir para o marketplace</Link>
+            <div style={S.fallbackIco}><IconShield size={26} color="#c084fc" /></div>
+            <h1 style={S.fh1}>Pedido não encontrado</h1>
+            <p style={S.ftxt}>Ou ele não existe, ou você precisa entrar com a conta que fez a compra.</p>
+            <Link href="/marketplace" style={{ ...S.cta, display: 'inline-flex', width: 'auto', padding: '12px 20px', textDecoration: 'none' }}>Ir para o marketplace</Link>
           </div>
         </div>
       </Casca>
@@ -210,6 +257,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const processando = pedido.status === 'aguardando_pagamento' && veioDoPagamento
   const passoAtual = ORDEM[pedido.status] ?? -1
   const cancelado = pedido.status === 'cancelado' || pedido.status === 'reembolsado'
+  const reembolsado = pedido.status === 'reembolsado'
   const end = pedido.endereco
 
   const souComprador = !!meuId && meuId === pedido.comprador_user_id
@@ -217,227 +265,289 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const podeAvaliar = souComprador && !cancelado && (pedido.status === 'enviado' || pedido.status === 'entregue') && jaAvaliou === false && !avalOk
   const avaliou = souComprador && !cancelado && (avalOk || jaAvaliou === true)
 
+  // ─── Status hero (adapta ao momento) ───────────────────────────────
+  let heroIco: React.ReactNode, heroH: string, heroS: string, heroBg: string
+  if (processando) {
+    heroIco = <IconClock size={28} color="#c084fc" />; heroBg = 'rgba(168,85,247,0.14)'
+    heroH = 'Confirmando seu pagamento…'; heroS = 'Isso leva alguns segundos. Pode deixar essa página aberta.'
+  } else if (reembolsado) {
+    heroIco = <IconArrowRight size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
+    heroH = 'Pedido reembolsado'; heroS = 'O valor foi estornado no seu cartão. Pode levar alguns dias pra aparecer na fatura.'
+  } else if (pedido.status === 'cancelado') {
+    heroIco = <IconShield size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
+    heroH = 'Pedido cancelado'; heroS = 'Este pedido foi cancelado. Se tiver dúvida, fale com a loja.'
+  } else if (pedido.status === 'entregue') {
+    heroIco = <IcHome size={26} color="#22c55e" />; heroBg = 'rgba(34,197,94,0.14)'
+    heroH = 'Pedido entregue!'; heroS = 'Que bom que chegou. Conta pra gente como foi a compra.'
+  } else if (pedido.status === 'enviado') {
+    heroIco = <IcTruck size={28} color="#c084fc" />; heroBg = 'rgba(168,85,247,0.14)'
+    heroH = 'Seu pedido está a caminho!'; heroS = 'A loja despachou. Acompanhe pelo código de rastreio abaixo.'
+  } else if (pedido.status === 'pago') {
+    heroIco = <IconCheck size={30} color="#22c55e" />; heroBg = 'rgba(34,197,94,0.14)'
+    heroH = 'Pagamento aprovado!'; heroS = 'A loja foi avisada e já vai preparar seu envio.'
+  } else {
+    heroIco = <IconClock size={28} color="#f5b942" />; heroBg = 'rgba(245,158,11,0.12)'
+    heroH = 'Aguardando pagamento'; heroS = 'Assim que o pagamento for confirmado, seu pedido aparece aqui.'
+  }
+
+  function stepIco(k: string, feito: boolean, atual: boolean) {
+    const col = feito ? '#0a0a0a' : atual ? '#c084fc' : 'rgba(255,255,255,0.4)'
+    if (k === 'pago') return <IconCheck size={17} color={col} />
+    if (k === 'enviado') return <IconBox size={16} color={col} />
+    return <IcHome size={15} color={col} />
+  }
+  function stepSub(k: string, feito: boolean, atual: boolean): string {
+    if (k === 'pago') return feito ? (fmtData(pedido!.pago_em || pedido!.created_at) || 'confirmado') : 'aguardando'
+    if (k === 'enviado') return feito ? (fmtData(pedido!.enviado_em) || 'despachado') : atual ? 'a loja vai despachar e você recebe o rastreio' : 'aguardando'
+    return feito ? 'recebimento confirmado' : atual ? 'aguardando confirmação' : 'aguardando'
+  }
+
+  const metodoTxt = pedido.metodo === 'pix' ? 'Pix' : 'Cartão'
+
   return (
     <Casca>
-      {processando ? (
-        <div style={S.topo}>
-          <div style={{ fontSize: 34 }}>⏳</div>
-          <div style={S.topoT}>Confirmando seu pagamento…</div>
-          <div style={S.topoS}>Isso leva alguns segundos. Pode deixar essa página aberta.</div>
-        </div>
-      ) : pedido.status !== 'aguardando_pagamento' && !cancelado ? (
-        <div style={S.topo}>
-          <div style={{ fontSize: 34 }}>✅</div>
-          <div style={S.topoT}>Pagamento aprovado!</div>
-          <div style={S.topoS}>A loja foi avisada e vai preparar seu envio.</div>
-        </div>
-      ) : null}
-
-      <div style={S.card}>
-        <div style={S.head}>
-          <span style={S.cap}>Pedido #{pedido.numero}</span>
-          <span style={{ ...S.pill, ...(cancelado ? S.pillOff : pedido.status === 'aguardando_pagamento' ? S.pillWait : S.pillOk) }}>
-            {LABEL[pedido.status] || pedido.status}
-          </span>
-        </div>
-
-        <div style={S.item}>
-          <div style={S.thumb}>
-            {pedido.item_imagem
-              ? <Image src={pedido.item_imagem} alt={pedido.item_nome} width={54} height={75} style={{ objectFit: 'contain', borderRadius: 6 }} unoptimized />
-              : <span style={{ fontSize: 22 }}>🎴</span>}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={S.inome}>{pedido.item_nome}</div>
-            <div style={S.isub}>{pedido.metodo === 'pix' ? '⚡ Pix' : '💳 Cartão'}</div>
-          </div>
-          <div style={S.ipreco}>{fmtBRL(pedido.total_comprador_cents)}</div>
-        </div>
-
-        {!cancelado && (
-          <div style={S.timeline}>
-            {PASSOS.map((pp, i) => {
-              const feito = passoAtual >= i
-              return (
-                <div key={pp.k} style={S.passo}>
-                  <div style={{ ...S.bola, ...(feito ? S.bolaOn : {}) }}>{feito ? pp.ic : ''}</div>
-                  <div style={{ ...S.passoL, color: feito ? '#f0f0f0' : 'rgba(255,255,255,0.3)' }}>{pp.label}</div>
-                  {i < PASSOS.length - 1 && <div style={{ ...S.linhaT, background: passoAtual > i ? '#22c55e' : 'rgba(255,255,255,0.1)' }} />}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {pedido.rastreio && (
-          <div style={S.rastreio}>
-            <span style={S.mut}>Código de rastreio</span>
-            <strong style={{ letterSpacing: '0.04em' }}>{pedido.rastreio}</strong>
-          </div>
-        )}
-
-        <div style={S.linhas}>
-          <div style={S.linha}><span style={S.mut}>Produto</span><span>{fmtBRL(pedido.valor_item_cents)}</span></div>
-          {pedido.acrescimo_cents > 0 && (
-            <div style={S.linha}>
-              <span style={S.mut}>{pedido.metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'}</span>
-              <span>{fmtBRL(pedido.acrescimo_cents)}</span>
-            </div>
-          )}
-          <div style={S.linha}>
-            <span style={S.mut}>Frete</span>
-            <span>{pedido.frete_cents === 0 ? <span style={{ color: '#22c55e' }}>Grátis</span> : fmtBRL(pedido.frete_cents)}</span>
-          </div>
-          <div style={S.total}><span>Total</span><span>{fmtBRL(pedido.total_comprador_cents)}</span></div>
-        </div>
-
-        {end?.linha1 && (
-          <div style={S.endereco}>
-            <div style={S.cap}>Entrega</div>
-            <div style={S.endT}>
-              {end.nome && <>{end.nome}<br /></>}
-              {end.linha1}{end.linha2 ? `, ${end.linha2}` : ''}<br />
-              {[end.cidade, end.estado].filter(Boolean).join(' · ')} {end.cep ? `· ${end.cep}` : ''}
-            </div>
-          </div>
-        )}
+      <div style={S.hero}>
+        <div style={{ ...S.heroIc, background: heroBg }}>{heroIco}</div>
+        <div style={S.heroH}>{heroH}</div>
+        <div style={S.heroS}>{heroS}</div>
       </div>
 
       {erroAcao && <div style={S.avalErro}>{erroAcao}</div>}
 
-      {podeConfirmar && (
-        <div style={S.acaoCard}>
-          <div style={S.acaoTxt}>Já recebeu seu pedido? Confirme pra fechar a compra.</div>
-          <button onClick={confirmarRecebimento} disabled={confirmando} style={{ ...S.btnReceber, opacity: confirmando ? 0.7 : 1 }}>
-            {confirmando ? 'Confirmando…' : 'Confirmar recebimento'}
-          </button>
-        </div>
-      )}
+      <div style={S.cols}>
 
-      {podeAvaliar && (
-        <div style={S.avalCard}>
-          <div style={S.avalTitulo}>Como foi sua compra{lojaNome ? ` com ${lojaNome}` : ''}?</div>
-          <div style={S.avalSub}>Sua avaliação ajuda outros colecionadores a confiar {lojaNome ? `na ${lojaNome}` : 'na loja'}.</div>
-          <div style={S.estrelasRow}>
-            {[1, 2, 3, 4, 5].map(n => {
-              const on = (hoverEstrela || estrelas) >= n
-              return (
-                <button
-                  key={n}
-                  onClick={() => setEstrelas(n)}
-                  onMouseEnter={() => setHoverEstrela(n)}
-                  onMouseLeave={() => setHoverEstrela(0)}
-                  aria-label={`${n} estrela${n > 1 ? 's' : ''}`}
-                  style={{ ...S.estrelaBtn, transform: on ? 'scale(1.12)' : 'scale(1)' }}
-                >
-                  <svg width="30" height="30" viewBox="0 0 20 20" fill={on ? '#f59e0b' : 'none'}>
-                    <path d="M10 2l2.4 5 5.4.5-4.1 3.7 1.2 5.3L10 14.9 5.1 16.2l1.2-5.3L2.2 7.5l5.4-.5L10 2z" stroke={on ? '#f59e0b' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              )
-            })}
-          </div>
-          {(hoverEstrela || estrelas) > 0 && (
-            <div style={S.estrelaLabel}>{LABEL_ESTRELA[hoverEstrela || estrelas]}</div>
+        {/* ───────── ESQUERDA: acompanhamento ───────── */}
+        <div style={S.left}>
+          {cancelado ? (
+            <div style={S.panel}>
+              <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+                <span style={{ display: 'inline-flex', marginTop: 1 }}><IconArrowRight size={18} color="#f87171" /></span>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55 }}>
+                  {reembolsado
+                    ? `Este pedido foi cancelado pela loja e o valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado no seu cartão.`
+                    : 'Este pedido foi cancelado.'}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={S.panel}>
+              <div style={S.ptit}>Status do pedido</div>
+              {PASSOS.map((pp, i) => {
+                const feito = passoAtual >= i
+                const atual = i === passoAtual + 1
+                const ultimo = i === PASSOS.length - 1
+                const nodeStyle = feito ? S.tlnDone : atual ? S.tlnNext : S.tlnPend
+                return (
+                  <div key={pp.k} style={S.tl}>
+                    <div style={S.tlcol}>
+                      <div style={{ ...S.tln, ...nodeStyle }}>{stepIco(pp.k, feito, atual)}</div>
+                      {!ultimo && <div style={{ ...S.tlc, background: passoAtual > i ? '#22c55e' : 'rgba(255,255,255,0.12)' }} />}
+                    </div>
+                    <div style={{ paddingBottom: ultimo ? 0 : 20, flex: 1, minWidth: 0 }}>
+                      <div style={{ ...S.tlt, ...(feito || atual ? {} : S.tltOff) }}>{pp.label}</div>
+                      <div style={S.tld}>{stepSub(pp.k, feito, atual)}</div>
+                      {pp.k === 'enviado' && feito && pedido.rastreio && (
+                        <div style={S.rastr}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={S.rastrLbl}>CÓDIGO DE RASTREIO</div>
+                            <div style={S.rastrCod}>{pedido.rastreio}</div>
+                          </div>
+                          <button onClick={copiarRastreio} style={S.copyBtn}>
+                            {copiado ? <IconCheck size={13} color="#c084fc" /> : <IcCopy size={13} color="#c084fc" />}
+                            {copiado ? 'copiado' : 'copiar'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
-          <textarea
-            value={comentario}
-            onChange={e => setComentario(e.target.value)}
-            placeholder="Conte como foi (opcional)…"
-            maxLength={200}
-            style={S.avalTextarea}
-          />
-          <button
-            onClick={enviarAvaliacao}
-            disabled={enviandoAval || estrelas === 0}
-            style={{ ...S.btnAvaliar, opacity: enviandoAval ? 0.7 : estrelas === 0 ? 0.5 : 1, cursor: estrelas === 0 ? 'not-allowed' : 'pointer' }}
-          >
-            {enviandoAval ? 'Enviando…' : 'Enviar avaliação'}
-          </button>
-        </div>
-      )}
 
-      {avaliou && (
-        <div style={S.avalFeito}>
-          <span style={{ color: '#22c55e', fontWeight: 800 }}>✓</span> Você avaliou esta loja. Obrigado pelo feedback!
+          {podeConfirmar && (
+            <div style={S.actionG}>
+              <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+                <span style={{ display: 'inline-flex', marginTop: 1 }}><IconCheck size={22} color="#22c55e" /></span>
+                <div style={{ flex: 1 }}>
+                  <div style={S.actionH}>Já recebeu seu pedido?</div>
+                  <div style={S.actionS}>Confirme o recebimento pra fechar a compra. Isso avisa a loja e libera sua avaliação.</div>
+                  <button onClick={confirmarRecebimento} disabled={confirmando} style={{ ...S.btnG, opacity: confirmando ? 0.7 : 1 }}>
+                    <IconCheck size={17} color="#0a0a0a" />{confirmando ? 'Confirmando…' : 'Confirmar recebimento'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {podeAvaliar && (
+            <div style={S.avalCard}>
+              <div style={S.avalTitulo}>Como foi sua compra{lojaNome ? ` com a ${lojaNome}` : ''}?</div>
+              <div style={S.avalSub}>Sua avaliação ajuda outros colecionadores a confiar {lojaNome ? `na ${lojaNome}` : 'na loja'}.</div>
+              <div style={S.estrelasRow}>
+                {[1, 2, 3, 4, 5].map(n => {
+                  const on = (hoverEstrela || estrelas) >= n
+                  return (
+                    <button key={n} onClick={() => setEstrelas(n)} onMouseEnter={() => setHoverEstrela(n)} onMouseLeave={() => setHoverEstrela(0)} aria-label={`${n} estrela${n > 1 ? 's' : ''}`} style={{ ...S.estrelaBtn, transform: on ? 'scale(1.12)' : 'scale(1)' }}>
+                      <svg width="32" height="32" viewBox="0 0 20 20" fill={on ? '#f59e0b' : 'none'}>
+                        <path d="M10 2l2.4 5 5.4.5-4.1 3.7 1.2 5.3L10 14.9 5.1 16.2l1.2-5.3L2.2 7.5l5.4-.5L10 2z" stroke={on ? '#f59e0b' : 'rgba(255,255,255,0.25)'} strokeWidth="1.2" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  )
+                })}
+              </div>
+              {(hoverEstrela || estrelas) > 0 && <div style={S.estrelaLabel}>{LABEL_ESTRELA[hoverEstrela || estrelas]}</div>}
+              <textarea value={comentario} onChange={e => setComentario(e.target.value)} placeholder="Conte como foi (opcional)…" maxLength={200} style={S.avalTextarea} />
+              <button onClick={enviarAvaliacao} disabled={enviandoAval || estrelas === 0} style={{ ...S.btnAvaliar, opacity: enviandoAval ? 0.7 : estrelas === 0 ? 0.5 : 1, cursor: estrelas === 0 ? 'not-allowed' : 'pointer' }}>
+                {enviandoAval ? 'Enviando…' : 'Enviar avaliação'}
+              </button>
+            </div>
+          )}
+
+          {avaliou && (
+            <div style={S.avalFeito}>
+              <span style={{ display: 'inline-flex' }}><IconCheck size={15} color="#22c55e" /></span> Você avaliou esta loja. Obrigado pelo feedback!
+            </div>
+          )}
         </div>
-      )}
+
+        {/* ───────── DIREITA: resumo ───────── */}
+        <div style={S.right}>
+          <div style={S.rHead}>
+            <span style={S.cap}>Pedido #{pedido.numero}</span>
+            <span style={{ ...S.pill, ...(cancelado ? S.pillOff : pedido.status === 'aguardando_pagamento' ? S.pillWait : S.pillOk) }}>{LABEL[pedido.status] || pedido.status}</span>
+          </div>
+
+          <div style={S.item}>
+            <div style={S.thumb}>
+              {pedido.item_imagem
+                ? <Image src={pedido.item_imagem} alt={pedido.item_nome} width={44} height={60} style={{ objectFit: 'contain', borderRadius: 6 }} unoptimized />
+                : <IconPokeball size={18} color="rgba(255,255,255,0.4)" />}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={S.inome}>{pedido.item_nome}</div>
+              <div style={S.isub}>{pedido.metodo === 'pix' ? <IconBolt size={12} color="rgba(255,255,255,0.5)" /> : <IconCard size={12} color="rgba(255,255,255,0.5)" />}{metodoTxt}</div>
+            </div>
+            <div style={S.ipreco}>{fmtBRL(pedido.valor_item_cents)}</div>
+          </div>
+
+          <div style={S.linhas}>
+            <div style={S.linha}><span style={S.mut}>Produto</span><span>{fmtBRL(pedido.valor_item_cents)}</span></div>
+            {pedido.acrescimo_cents > 0 && (
+              <div style={S.linha}><span style={S.mut}>{pedido.metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'}</span><span>{fmtBRL(pedido.acrescimo_cents)}</span></div>
+            )}
+            <div style={S.linha}><span style={S.mut}>Frete</span><span>{pedido.frete_cents === 0 ? <span style={{ color: '#22c55e' }}>Grátis</span> : fmtBRL(pedido.frete_cents)}</span></div>
+            <div style={S.total}><span>{cancelado ? 'Total' : 'Total pago'}</span><span>{fmtBRL(pedido.total_comprador_cents)}</span></div>
+          </div>
+
+          {end?.linha1 && (
+            <div style={S.endereco}>
+              <div style={S.cap}>Entrega</div>
+              <div style={S.endT}>
+                {end.nome && <>{end.nome}<br /></>}
+                {end.linha1}{end.linha2 ? `, ${end.linha2}` : ''}<br />
+                {[end.cidade, end.estado].filter(Boolean).join(' · ')} {end.cep ? `· ${end.cep}` : ''}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       <Link href="/marketplace" style={S.voltar}>← Voltar ao marketplace</Link>
     </Casca>
   )
 }
 
-const LABEL: Record<string, string> = {
-  aguardando_pagamento: 'Aguardando pagamento',
-  pago: 'Pago',
-  enviado: 'Enviado',
-  entregue: 'Entregue',
-  cancelado: 'Cancelado',
-  reembolsado: 'Reembolsado',
-}
-
 function Casca({ children }: { children: React.ReactNode }) {
   return (
     <div style={S.page}>
-      <div style={S.wrap}>
-        <Link href="/" style={S.logo}>BYNX</Link>
-        {children}
+      <div style={S.topbar}>
+        <Link href="/" style={S.brand0}>
+          <span style={S.mark}>B</span>
+          <span style={S.wm}>BYNX</span>
+        </Link>
+        <span style={S.safe}><IconShield size={13} color="rgba(255,255,255,0.5)" />ambiente seguro</span>
       </div>
+      <div style={S.wrap}>{children}</div>
     </div>
   )
 }
 
 const S: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh', background: '#080a0f', color: '#f0f0f0', padding: '28px 18px 60px' },
-  wrap: { maxWidth: 480, margin: '0 auto' },
-  logo: { display: 'block', textAlign: 'center', fontWeight: 900, letterSpacing: '0.1em', color: '#f59e0b', textDecoration: 'none', marginBottom: 20, fontSize: 15 },
-  topo: { textAlign: 'center', marginBottom: 16 },
-  topoT: { fontSize: 18, fontWeight: 800, marginTop: 8 },
-  topoS: { fontSize: 13, color: 'rgba(255,255,255,0.45)', marginTop: 4 },
-  card: { background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: 20 },
-  head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  cap: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em' },
-  pill: { fontSize: 10.5, fontWeight: 800, padding: '4px 9px', borderRadius: 20 },
-  pillOk: { background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' },
-  pillWait: { background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' },
-  pillOff: { background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' },
-  item: { display: 'flex', gap: 12, alignItems: 'center', paddingBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 },
-  thumb: { width: 54, height: 75, borderRadius: 6, background: 'linear-gradient(135deg,#1a1030,#0f1628)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' },
-  inome: { fontSize: 14, fontWeight: 700, lineHeight: 1.3 },
-  isub: { fontSize: 11.5, color: 'rgba(255,255,255,0.4)', marginTop: 3 },
-  ipreco: { fontSize: 16, fontWeight: 800, marginLeft: 'auto', whiteSpace: 'nowrap' },
-  timeline: { display: 'flex', justifyContent: 'space-between', position: 'relative', marginBottom: 18, gap: 4 },
-  passo: { flex: 1, textAlign: 'center', position: 'relative', minWidth: 0 },
-  bola: { width: 30, height: 30, borderRadius: '50%', margin: '0 auto 6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, position: 'relative', zIndex: 1 },
-  bolaOn: { background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(34,197,94,0.45)' },
-  passoL: { fontSize: 10.5, lineHeight: 1.3 },
-  linhaT: { position: 'absolute', top: 15, left: '58%', width: '84%', height: 2, zIndex: 0 },
-  rastreio: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, marginBottom: 14 },
-  linhas: { borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 },
-  linha: { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0' },
-  total: { display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 800, borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 6, paddingTop: 10 },
-  mut: { color: 'rgba(255,255,255,0.45)' },
-  endereco: { marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)' },
-  endT: { fontSize: 12.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, marginTop: 6 },
-  h1: { fontSize: 18, fontWeight: 800, margin: '10px 0 8px' },
-  txt: { fontSize: 13.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.55, marginBottom: 16 },
-  cta: { textAlign: 'center', fontSize: 13.5, fontWeight: 800, padding: '11px 20px', borderRadius: 11, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#a855f7,#ec4899)', color: '#fff' },
-  vazio: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40, fontSize: 14 },
-  voltar: { display: 'block', textAlign: 'center', marginTop: 18, fontSize: 12.5, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' },
+  page: { minHeight: '100vh', background: '#080a0f', color: '#f0f0f0', padding: '0 0 60px' },
+  topbar: { padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: 900, margin: '0 auto' },
+  brand0: { display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' },
+  mark: { width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, color: '#0a0a0a' },
+  wm: { fontWeight: 800, letterSpacing: '0.12em', fontSize: 14, color: '#f0f0f0' },
+  safe: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'rgba(255,255,255,0.5)' },
+  wrap: { maxWidth: 900, margin: '0 auto', padding: '0 22px' },
 
-  // ─── Pos-venda ─────────────────────────────────────────────
-  acaoCard: { background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, marginTop: 12, display: 'flex', flexDirection: 'column', gap: 11 },
-  acaoTxt: { fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.45 },
-  btnReceber: { background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.4)', color: '#22c55e', padding: '11px', borderRadius: 10, fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' },
-  avalCard: { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.22)', borderRadius: 16, padding: '16px 16px 18px', marginTop: 12 },
-  avalTitulo: { fontSize: 15, fontWeight: 800, marginBottom: 3 },
-  avalSub: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', marginBottom: 14, lineHeight: 1.45 },
-  estrelasRow: { display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 6 },
+  hero: { textAlign: 'center', padding: '30px 0 20px' },
+  heroIc: { width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' },
+  heroH: { fontSize: 23, fontWeight: 800 },
+  heroS: { fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 5, maxWidth: 420, marginInline: 'auto', lineHeight: 1.5 },
+
+  cols: { display: 'flex', gap: 18, padding: '4px 0 24px', alignItems: 'flex-start', flexWrap: 'wrap' },
+  left: { flex: '1.1 1 300px', minWidth: 280 },
+  right: { flex: '0.9 1 280px', minWidth: 260, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, background: 'rgba(255,255,255,0.02)', overflow: 'hidden' },
+
+  panel: { border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, background: 'rgba(255,255,255,0.02)', padding: '20px 18px' },
+  ptit: { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 18 },
+  tl: { display: 'flex', gap: 13 },
+  tlcol: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  tln: { width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  tlnDone: { background: '#22c55e' },
+  tlnNext: { background: 'rgba(168,85,247,0.16)', border: '2px solid #a855f7' },
+  tlnPend: { border: '2px solid rgba(255,255,255,0.15)' },
+  tlc: { width: 2, flex: 1, minHeight: 26 },
+  tlt: { fontSize: 14, fontWeight: 500 },
+  tltOff: { color: 'rgba(255,255,255,0.6)' },
+  tld: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
+  rastr: { marginTop: 9, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'rgba(255,255,255,0.02)' },
+  rastrLbl: { fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.03em' },
+  rastrCod: { fontSize: 13, fontWeight: 500, fontFamily: 'monospace', letterSpacing: '0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  copyBtn: { flexShrink: 0, background: 'rgba(168,85,247,0.14)', border: '1px solid rgba(168,85,247,0.35)', borderRadius: 8, color: '#c084fc', fontSize: 11, padding: '6px 10px', fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 },
+
+  actionG: { marginTop: 16, border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.05)', borderRadius: 16, padding: 18 },
+  actionH: { fontSize: 15, fontWeight: 500 },
+  actionS: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 3, lineHeight: 1.5 },
+  btnG: { marginTop: 13, width: '100%', border: 'none', borderRadius: 11, padding: 12, fontSize: 14, fontWeight: 700, color: '#0a0a0a', fontFamily: 'inherit', background: '#22c55e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: 'pointer' },
+
+  avalCard: { marginTop: 16, background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.22)', borderRadius: 16, padding: '20px 18px', textAlign: 'center' },
+  avalTitulo: { fontSize: 16, fontWeight: 700 },
+  avalSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4, lineHeight: 1.45 },
+  estrelasRow: { display: 'flex', gap: 6, justifyContent: 'center', margin: '14px 0 4px' },
   estrelaBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 2, lineHeight: 0, transition: 'transform 0.12s ease' },
   estrelaLabel: { textAlign: 'center', fontSize: 12.5, color: '#f59e0b', fontWeight: 700, marginBottom: 4 },
-  avalTextarea: { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: '#f0f0f0', fontSize: 13, resize: 'vertical', minHeight: 70, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginTop: 10, marginBottom: 12 },
-  btnAvaliar: { width: '100%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', color: '#0a0a0a', padding: '12px', borderRadius: 10, fontSize: 13.5, fontWeight: 800, fontFamily: 'inherit' },
-  avalFeito: { background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 12, padding: '12px 14px', marginTop: 12, fontSize: 13, color: 'rgba(255,255,255,0.75)', textAlign: 'center' },
-  avalErro: { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '9px 12px', marginTop: 12, fontSize: 12.5, color: '#ef4444' },
+  avalTextarea: { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: '#f0f0f0', fontSize: 13, resize: 'none', minHeight: 60, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginTop: 10, marginBottom: 12 },
+  btnAvaliar: { width: '100%', background: 'linear-gradient(90deg,#a855f7,#ec4899)', border: 'none', color: '#fff', padding: '12px', borderRadius: 11, fontSize: 14, fontWeight: 700, fontFamily: 'inherit' },
+  avalFeito: { marginTop: 16, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 12, padding: '12px 14px', fontSize: 13, color: 'rgba(255,255,255,0.75)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  avalErro: { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '9px 12px', margin: '6px 0 0', fontSize: 12.5, color: '#ef4444' },
+
+  rHead: { padding: '16px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  cap: { fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  pill: { fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' },
+  pillOk: { background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' },
+  pillWait: { background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' },
+  pillOff: { background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' },
+  item: { display: 'flex', gap: 12, alignItems: 'center', padding: '14px 16px' },
+  thumb: { width: 44, height: 60, borderRadius: 8, background: 'linear-gradient(160deg,#1a1030,#0f1628)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' },
+  inome: { fontSize: 13, fontWeight: 500, lineHeight: 1.3 },
+  isub: { fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 4 },
+  ipreco: { fontSize: 14, fontWeight: 700, marginLeft: 'auto', whiteSpace: 'nowrap' },
+  linhas: { margin: '0 16px', padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.08)' },
+  linha: { display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 7 },
+  total: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 14, fontWeight: 700, borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 3, paddingTop: 10 },
+  mut: { color: 'rgba(255,255,255,0.6)' },
+  endereco: { margin: '0 16px 16px', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' },
+  endT: { fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, marginTop: 6 },
+
+  cta: { textAlign: 'center', fontSize: 13.5, fontWeight: 700, padding: '11px 20px', borderRadius: 11, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#a855f7,#ec4899)', color: '#fff', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  vazio: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40, fontSize: 14 },
+  voltar: { display: 'block', textAlign: 'center', marginTop: 8, fontSize: 12.5, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' },
+
+  fallbackCard: { maxWidth: 460, margin: '24px auto 0', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: 24 },
+  fallbackIco: { width: 52, height: 52, borderRadius: '50%', background: 'rgba(168,85,247,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 6px' },
+  fh1: { fontSize: 18, fontWeight: 800, margin: '10px 0 8px' },
+  ftxt: { fontSize: 13.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.55, marginBottom: 16 },
 }
