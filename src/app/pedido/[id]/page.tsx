@@ -454,7 +454,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
         </div>
       </div>
 
-      <Link href="/marketplace" style={S.voltar}>← Voltar ao marketplace</Link>
+      <button onClick={() => window.history.back()} style={S.voltar}>← Voltar</button>
     </Casca>
   )
 }
@@ -538,7 +538,7 @@ const S: Record<string, React.CSSProperties> = {
 
   cta: { textAlign: 'center', fontSize: 13.5, fontWeight: 700, padding: '11px 20px', borderRadius: 11, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#a855f7,#ec4899)', color: '#fff', alignItems: 'center', justifyContent: 'center', gap: 8 },
   vazio: { textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40, fontSize: 14 },
-  voltar: { display: 'block', textAlign: 'center', marginTop: 8, fontSize: 12.5, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' },
+  voltar: { display: 'block', textAlign: 'center', margin: '8px auto 0', fontSize: 12.5, color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%', padding: 0 },
 
   fallbackCard: { maxWidth: 460, margin: '24px auto 0', background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: 24 },
   fallbackIco: { width: 52, height: 52, borderRadius: '50%', background: 'rgba(168,85,247,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 6px' },
