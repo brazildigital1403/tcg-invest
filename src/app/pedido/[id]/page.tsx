@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
 import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, IconBolt, IconPokeball } from '@/components/ui/Icons'
+import AppLayout from '@/components/ui/AppLayout'
 
 /**
  * /pedido/[id] — acompanhamento do pedido.
@@ -460,16 +461,9 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
 
 function Casca({ children }: { children: React.ReactNode }) {
   return (
-    <div style={S.page}>
-      <div style={S.topbar}>
-        <Link href="/" style={S.brand0}>
-          <span style={S.mark}>B</span>
-          <span style={S.wm}>BYNX</span>
-        </Link>
-        <span style={S.safe}><IconShield size={13} color="rgba(255,255,255,0.5)" />ambiente seguro</span>
-      </div>
+    <AppLayout>
       <div style={S.wrap}>{children}</div>
-    </div>
+    </AppLayout>
   )
 }
 
@@ -480,7 +474,7 @@ const S: Record<string, React.CSSProperties> = {
   mark: { width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, color: '#0a0a0a' },
   wm: { fontWeight: 800, letterSpacing: '0.12em', fontSize: 14, color: '#f0f0f0' },
   safe: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'rgba(255,255,255,0.5)' },
-  wrap: { maxWidth: 900, margin: '0 auto', padding: '0 22px' },
+  wrap: { maxWidth: 900, margin: '0 auto' },
 
   hero: { textAlign: 'center', padding: '30px 0 20px' },
   heroIc: { width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' },

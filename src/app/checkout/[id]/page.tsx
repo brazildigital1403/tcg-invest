@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { calcularCheckout, fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { IconShield, IconCard, IconBolt, IconArrowRight, IconCheck, IconBox, IconPokeball } from '@/components/ui/Icons'
+import AppLayout from '@/components/ui/AppLayout'
 
 /**
  * /checkout/[id] — tela de compra de um anuncio (Opcao A do epico de vendas).
@@ -396,16 +397,9 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
 
 function Casca({ children }: { children: React.ReactNode }) {
   return (
-    <div style={S.page}>
-      <div style={S.topbar}>
-        <Link href="/" style={S.brand0}>
-          <span style={S.mark}>B</span>
-          <span style={S.wm}>BYNX</span>
-        </Link>
-        <span style={S.safe}><IconShield size={13} color="rgba(255,255,255,0.5)" />ambiente seguro</span>
-      </div>
+    <AppLayout>
       <div style={S.wrap}>{children}</div>
-    </div>
+    </AppLayout>
   )
 }
 
@@ -416,7 +410,7 @@ const S: Record<string, React.CSSProperties> = {
   mark: { width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, color: '#0a0a0a' },
   wm: { fontWeight: 800, letterSpacing: '0.12em', fontSize: 14, color: '#f0f0f0' },
   safe: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'rgba(255,255,255,0.5)' },
-  wrap: { maxWidth: 1000, margin: '0 auto', padding: '0 22px' },
+  wrap: { maxWidth: 1000, margin: '0 auto' },
 
   head: { padding: '24px 0 6px' },
   h1: { fontSize: 24, fontWeight: 800, margin: 0 },
