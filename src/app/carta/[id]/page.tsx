@@ -21,7 +21,7 @@
 
 import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import CardClient from './CardClient'
 import CartasRelacionadas from '@/components/cards/CartasRelacionadas'
 import MercadoLivre from '@/components/ui/MercadoLivre'
@@ -268,6 +268,24 @@ export async function generateMetadata({
   }
 }
 
+// ─── Redirect de carta deduplicada (S43) ──────────────────────────────────
+// Algumas cartas entraram no catalogo DUAS vezes: a versao boa (ex: `sv8-57`) e
+// uma copia criada pelo scan quando ele nao casou o codigo do fornecedor com o
+// set do catalogo (ex: `liga-SSP-Pikachu-ex--057-191-`). As copias foram
+// removidas, mas as URLs delas ja estavam indexadas no Google e circulando em
+// links compartilhados. Sem isso aqui elas virariam 404 e a gente jogaria fora
+// o historico de busca. `dedup_liga_map` guarda de->para de cada remocao.
+async function destinoDeCartaRemovida(id: string): Promise<string | null> {
+  const sb = getServiceSupabase()
+  if (!sb) return null
+  const { data } = await sb
+    .from('dedup_liga_map')
+    .select('cat_id')
+    .eq('liga_id', id)
+    .maybeSingle()
+  return data?.cat_id ?? null
+}
+
 // ─── Page Component (server, renderiza Schema.org + CardClient) ───────────
 
 export default async function CartaPage({
@@ -279,6 +297,9 @@ export default async function CartaPage({
   const card = await fetchCardData(id)
 
   if (!card) {
+    // Carta removida por deduplicacao? Manda 301 pra versao boa em vez de 404.
+    const destino = await destinoDeCartaRemovida(id)
+    if (destino) permanentRedirect(`/carta/${destino}`)
     notFound()
   }
 
