@@ -58,6 +58,7 @@ type NormalizedCard = {
   number: string | null
   setName: string | null
   setId: string | null
+  slug: string | null
   setTotal: number | null
   setReleaseYear: string | null
   rarity: string | null
@@ -94,31 +95,47 @@ function normalizeAttacks(
 
 // ─── Fetch de dados (server-side, com cache ISR) ──────────────────────────
 
-async function fetchCardData(id: string): Promise<NormalizedCard | null> {
-  // Tentativa 1: API Pokémon TCG oficial (dados de jogo: ataques, hp, etc.)
-  const tcgRes = await fetch(`https://api.pokemontcg.io/v2/cards/${id}`, {
+async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
+  // A rota aceita a URL nova (slug) e a antiga (id, ainda circulando em links
+  // compartilhados e no indice do Google). Resolvemos no banco ANTES de chamar
+  // a API oficial, porque ela so entende o id — mandar um slug pra la seria
+  // uma chamada desperdicada em toda visita.
+  let bynx: any = null
+  let printedTotal: number | null = null
+  const sb = getServiceSupabase()
+  if (sb) {
+    const COLS =
+      'id, slug, name, number, set_id, set_name, set_release_date, set_total, ' +
+      'rarity, hp, types, image_small, image_large, attacks, ' +
+      'preco_min, preco_medio, preco_max'
+    const porSlug = await sb.from('pokemon_cards').select(COLS).eq('slug', idOrSlug).maybeSingle()
+    bynx = porSlug.data
+    if (!bynx) {
+      const porId = await sb.from('pokemon_cards').select(COLS).eq('id', idOrSlug).maybeSingle()
+      bynx = porId.data
+    }
+    // printed_total = o numero impresso NA carta (23/132), nao o total com
+    // secretas (23/188). E o que o colecionador digita na busca.
+    if (bynx?.set_id) {
+      const { data: st } = await sb
+        .from('pokemon_sets')
+        .select('printed_total')
+        .eq('id', bynx.set_id)
+        .maybeSingle()
+      printedTotal = st?.printed_total ?? null
+    }
+  }
+
+  const idReal = bynx?.id || idOrSlug
+
+  // API Pokemon TCG oficial (dados de jogo: ataques, hp, etc.)
+  const tcgRes = await fetch(`https://api.pokemontcg.io/v2/cards/${idReal}`, {
     headers: { 'X-Api-Key': process.env.POKEMON_API_KEY || '' },
-    next: { revalidate: 86400, tags: [`card:${id}`] },
+    next: { revalidate: 86400, tags: [`card:${idReal}`] },
   }).catch(() => null)
 
   const tcgJson: any = tcgRes?.ok ? await tcgRes.json().catch(() => null) : null
   const tcg = tcgJson?.data || null
-
-  // Tentativa 2: Supabase (preços + dados de Liga-only)
-  let bynx: any = null
-  const sb = getServiceSupabase()
-  if (sb) {
-    const { data } = await sb
-      .from('pokemon_cards')
-      .select(
-        'id, name, number, set_id, set_name, set_release_date, set_total, ' +
-          'rarity, hp, types, image_small, image_large, attacks, ' +
-          'preco_min, preco_medio, preco_max',
-      )
-      .eq('id', id)
-      .maybeSingle()
-    bynx = data
-  }
 
   // Se nenhuma fonte achou, é 404
   if (!tcg && !bynx) return null
@@ -131,7 +148,8 @@ async function fetchCardData(id: string): Promise<NormalizedCard | null> {
     number: tcg?.number || bynx?.number || null,
     setName: tcg?.set?.name || bynx?.set_name || null,
     setId: bynx?.set_id || tcg?.set?.id || null,
-    setTotal: tcg?.set?.printedTotal || bynx?.set_total || null,
+    slug: bynx?.slug || null,
+    setTotal: printedTotal ?? tcg?.set?.printedTotal ?? bynx?.set_total ?? null,
     setReleaseYear:
       tcg?.set?.releaseDate?.slice(0, 4) ||
       bynx?.set_release_date?.slice(0, 4) ||
@@ -235,7 +253,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: `https://bynx.gg/carta/${id}`,
+      canonical: `https://bynx.gg/carta/${card.slug || id}`,
     },
     openGraph: {
       title: `${title} | Bynx.gg`,
@@ -301,6 +319,13 @@ export default async function CartaPage({
     const destino = await destinoDeCartaRemovida(id)
     if (destino) permanentRedirect(`/carta/${destino}`)
     notFound()
+  }
+
+  // URL antiga (id) -> 301 pra URL nova (slug). O id continua valendo pra
+  // sempre: ele esta no indice do Google e em link que gente ja compartilhou.
+  // O 301 preserva esse historico em vez de jogar fora.
+  if (card.slug && card.slug !== id) {
+    permanentRedirect(`/carta/${card.slug}`)
   }
 
   // ─── Schema.org Product (Rich Snippet no Google: mostra R$ na busca) ─

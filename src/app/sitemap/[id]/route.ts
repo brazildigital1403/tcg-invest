@@ -112,23 +112,26 @@ export async function GET(
     }
   }
 
-  // Bloco de cartas deste chunk (paginado por range, ordenado por id)
+  // Bloco de cartas deste chunk (paginado por range, ordenado por slug)
   if (sb) {
     const from = chunkIndex * CARD_CHUNK
     const to = from + CARD_CHUNK - 1
     try {
       const { data: cartas, error: cartasErr } = await sb
         .from('pokemon_cards')
-        .select('id, liga_updated_at')
+        .select('slug, liga_updated_at')
         .neq('excluded_from_scan', true)
         .neq('is_canary', true)
-        .order('id', { ascending: true })
+        .order('slug', { ascending: true })
         .range(from, to)
       if (cartasErr) console.error('[sitemap] erro cartas:', cartasErr)
       for (const carta of cartas || []) {
-        if (isIdSafeForUrl(carta.id)) {
+        // Antes filtravamos por isIdSafeForUrl e ~1.2k cartas ficavam FORA do
+        // sitemap (id com caractere que quebra URL) - invisiveis pro Google.
+        // O slug e gerado ja seguro, entao a unica condicao agora e existir.
+        if (carta.slug) {
           entries.push({
-            loc: `${BASE}/carta/${carta.id}`,
+            loc: `${BASE}/carta/${carta.slug}`,
             lastmod: carta.liga_updated_at
               ? new Date(carta.liga_updated_at).toISOString()
               : now,
