@@ -143,7 +143,7 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
   // Merge: TCG api tem dados de jogo melhores (image grande, ataques),
   // Bynx tem preço em BRL. Combina os dois.
   return {
-    id,
+    id: idReal,
     name: tcg?.name || bynx?.name || 'Carta',
     number: tcg?.number || bynx?.number || null,
     setName: tcg?.set?.name || bynx?.set_name || null,
@@ -366,7 +366,7 @@ export default async function CartaPage({
   if (card.setName && card.setId) {
     breadcrumbItems.push({ name: card.setName, href: `/set/${card.setId}` })
   }
-  breadcrumbItems.push({ name: card.name, href: `/carta/${card.id}` })
+  breadcrumbItems.push({ name: card.name, href: `/carta/${card.slug || card.id}` })
 
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
@@ -379,7 +379,8 @@ export default async function CartaPage({
     })),
   }
 
-  const related = await fetchRelatedCards(id)
+  // a RPC casa por id de carta, nao por slug — passa o id resolvido
+  const related = await fetchRelatedCards(card.id)
 
   // Link de afiliado do Mercado Livre (acessorios; cai no 'default' se nao houver)
   const mlLink = await getMlAfiliadoLink('acessorios')
