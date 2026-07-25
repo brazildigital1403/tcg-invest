@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { supabase } from '@/lib/supabaseClient'
 
 interface MasterSet {
@@ -105,12 +106,18 @@ export default function MasterSetsPage() {
     <AppLayout>
       {/* Padding lateral zero: quem da a margem e o .tcg-content do AppLayout. */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 0 80px' }}>
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', margin: 0 }}>Master Sets</h1>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: '6px 0 0' }}>
-            Complete qualquer Master Set com a ajuda da Bynx. As cartas que você já tem vêm marcadas automaticamente — clique para ver a amostra, imprima no tamanho exato da carta e vá preenchendo apenas o que falta. Do primeiro ao último bolso, a Bynx te ajuda!
-          </p>
-        </div>
+        <PageHeader
+          trilha={[INICIO, { name: 'Master Sets', href: '/master-sets' }]}
+          titulo="Master Sets"
+          descricao="Complete um set inteiro sem perder o controle."
+          stat={loading ? undefined : `${sets.length} ${sets.length === 1 ? 'set disponível' : 'sets disponíveis'}`}
+        />
+
+        {/* Texto longo mantido fora do PageHeader: explica como a feature
+            funciona, nao e descricao de tela. */}
+        <p style={{ fontSize: 14, color: 'var(--bx-text-2)', margin: '-10px 0 20px', lineHeight: 1.5 }}>
+          As cartas que você já tem vêm marcadas automaticamente — clique para ver a amostra, imprima no tamanho exato da carta e vá preenchendo apenas o que falta. Do primeiro ao último bolso, a Bynx te ajuda!
+        </p>
 
         <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 16, padding: 'clamp(16px,4vw,28px) clamp(16px,4vw,32px)', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 220, flex: 1 }}>

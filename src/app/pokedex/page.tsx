@@ -7,6 +7,7 @@ import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardL
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import CardItem from '@/components/ui/CardItem'
 import CardDetailModal from './CardDetailModal'
 import ModalUpgradePokedex from '@/components/ui/ModalUpgradePokedex'
@@ -487,17 +488,14 @@ export default function Pokedex() {
         {/* ── Vista 1: Grid de Pokémon ───────────────────────────────── */}
         {view === 'grid' && (
           <div>
-            {/* Header com stat hero (capturados) à direita */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
-              <div>
-                <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 2 }}>Pokédex</h1>
-                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
-                  {loading ? 'Carregando...' : `${fmtNum(filteredPokemons.length)} Pokémon com cartas TCG`}
-                </p>
-              </div>
-
-              {/* ── Stat hero: capturados ─────────────────────────────────── */}
-              {stagiou && !loading && pokemons.length > 0 && (
+            {/* Header — padrao do app, ver src/components/ui/PageHeader.tsx.
+                O stat hero (capturados) vai no slot `acao`, a direita do titulo. */}
+            <PageHeader
+              trilha={[INICIO, { name: 'Pokédex', href: '/pokedex' }]}
+              titulo="Pokédex"
+              descricao="Os 1.025 Pokémon e todas as cartas de cada um."
+              stat={loading ? 'Carregando...' : `${fmtNum(filteredPokemons.length)} Pokémon com cartas TCG`}
+              acao={stagiou && !loading && pokemons.length > 0 && (
                 <div style={{
                   textAlign: 'right',
                   display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
@@ -536,7 +534,7 @@ export default function Pokedex() {
                   </p>
                 </div>
               )}
-            </div>
+            />
 
             {/* Filtros */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>

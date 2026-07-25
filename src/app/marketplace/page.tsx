@@ -12,6 +12,7 @@ import { getUserPlan } from '@/lib/isPro'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AnunciarModal from '@/components/marketplace/AnunciarModal'
 import ModalLimiteAnuncios from '@/components/ui/ModalLimiteAnuncios'
@@ -929,31 +930,31 @@ function MarketplaceInner() {
     <AppLayout>
       <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 1200, margin: '0 auto' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }} className="mkt-header">
-          <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Marketplace</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
-              {(() => {
-                // S29 UX v2: contador com breakdown legível
-                const ativos = listings.filter(c =>
-                  c.user_id !== userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel')
-                )
-                const disp = ativos.filter(c => (c.status || 'disponivel') === 'disponivel').length
-                const neg  = ativos.filter(c => ['reservado', 'em_negociacao', 'enviado'].includes(c.status || '')).length
-                if (ativos.length === 0) return 'Nenhum anúncio ativo no momento'
-                if (neg === 0) return `${disp} ${disp === 1 ? 'carta disponível' : 'cartas disponíveis'}`
-                return `${disp} ${disp === 1 ? 'disponível' : 'disponíveis'} · ${neg} em negociação`
-              })()}
-            </p>
-          </div>
-          <button
-            onClick={handleAnunciar}
-            style={{ background: BRAND, border: 'none', color: '#000', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.2)', display: 'inline-flex', alignItems: 'center', gap: 7 }}
-          >
-            <IconPlus size={16} color="#000" /> Anunciar carta
-          </button>
-        </div>
+        {/* Header — padrao do app, ver src/components/ui/PageHeader.tsx */}
+        <PageHeader
+          trilha={[INICIO, { name: 'Mercado', href: '/marketplace' }]}
+          titulo="Marketplace"
+          descricao="Cartas à venda de colecionador para colecionador."
+          acao={
+            <button
+              onClick={handleAnunciar}
+              style={{ background: BRAND, border: 'none', color: '#000', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.2)', display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              <IconPlus size={16} color="#000" /> Anunciar carta
+            </button>
+          }
+          stat={(() => {
+            // S29 UX v2: contador com breakdown legível
+            const ativos = listings.filter(c =>
+              c.user_id !== userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel')
+            )
+            const disp = ativos.filter(c => (c.status || 'disponivel') === 'disponivel').length
+            const neg  = ativos.filter(c => ['reservado', 'em_negociacao', 'enviado'].includes(c.status || '')).length
+            if (ativos.length === 0) return 'Nenhum anúncio ativo no momento'
+            if (neg === 0) return `${disp} ${disp === 1 ? 'carta disponível' : 'cartas disponíveis'}`
+            return `${disp} ${disp === 1 ? 'disponível' : 'disponíveis'} · ${neg} em negociação`
+          })()}
+        />
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4 }} className="mkt-tabs">

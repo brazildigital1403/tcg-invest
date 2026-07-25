@@ -9,6 +9,7 @@ import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardL
 import { getUserPlan } from '@/lib/isPro'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import ScanModal from '@/components/ui/ScanModal'
 import { IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
@@ -661,47 +662,42 @@ export default function MinhaColecao() {
 
         {/* Onboarding */}
 
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          {/* Linha principal: Título + botão Adicionar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Minha Coleção</h1>
-              {ENFORCEMENT_ATIVO && cards.length >= limiteCartas ? (
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
-                  Limite atingido ({cards.length}/{limiteDisplay})
-                </span>
-              ) : (
-                <span
-                  title="O limite do plano conta cartas diferentes. Repetidas nao contam."
-                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'rgba(255,255,255,0.35)', border: '1px solid var(--bx-border)', whiteSpace: 'nowrap' }}
-                >
-                  {cards.length}/{limiteDisplay} diferentes
-                </span>
-              )}
-            </div>
-            {/* Botão principal — lado direito do título */}
-            {userId && (
-              <button
-                onClick={() => setOpenAddModal(true)}
-                style={{ background: 'var(--bx-brand)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
+        {/* Header — padrao do app, ver src/components/ui/PageHeader.tsx */}
+        <PageHeader
+          trilha={[INICIO, { name: 'Coleção', href: '/minha-colecao' }]}
+          titulo="Minha Coleção"
+          descricao="Tudo que você tem, com o valor de mercado atualizado."
+          selo={
+            ENFORCEMENT_ATIVO && cards.length >= limiteCartas ? (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
+                Limite atingido ({cards.length}/{limiteDisplay})
+              </span>
+            ) : (
+              <span
+                title="O limite do plano conta cartas diferentes. Repetidas nao contam."
+                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'rgba(255,255,255,0.35)', border: '1px solid var(--bx-border)', whiteSpace: 'nowrap' }}
               >
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
-                Adicionar carta
-              </button>
-            )}
-          </div>
-
-          {/* Subtítulo + botões secundários */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
-              {/* Dois numeros diferentes conviviam aqui sem rotulo (o selo contava
-                  cartas distintas, este contava quantidades) e pareciam divergencia. */}
-              {filteredCards.length !== cards.length
-                ? `${filteredCards.length} de ${cards.length} diferentes · ${totalQty} no total`
-                : `${totalQty} carta${totalQty !== 1 ? 's' : ''} no total · ${cards.length} diferente${cards.length !== 1 ? 's' : ''}`}
-            </p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {cards.length}/{limiteDisplay} diferentes
+              </span>
+            )
+          }
+          acao={userId && (
+            <button
+              onClick={() => setOpenAddModal(true)}
+              style={{ background: 'var(--bx-brand)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+              Adicionar carta
+            </button>
+          )}
+          stat={
+            /* Dois numeros diferentes conviviam aqui sem rotulo (o selo contava
+               cartas distintas, este contava quantidades) e pareciam divergencia. */
+            filteredCards.length !== cards.length
+              ? `${filteredCards.length} de ${cards.length} diferentes · ${totalQty} no total`
+              : `${totalQty} carta${totalQty !== 1 ? 's' : ''} no total · ${cards.length} diferente${cards.length !== 1 ? 's' : ''}`
+          }
+        >
               {userId && (
                 <Link
                   href="/minha-colecao/pastas"
@@ -740,9 +736,7 @@ export default function MinhaColecao() {
                   </button>
                 </>
               )}
-            </div>
-          </div>
-        </div>
+        </PageHeader>
 
         {/* Resumo financeiro — scroll horizontal */}
         <style>{`

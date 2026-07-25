@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconChat, IconPlus } from '@/components/ui/Icons'
 
@@ -149,15 +150,12 @@ export default function SuportePage() {
     <AppLayout>
       <div style={{ maxWidth: 760, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-        {/* ── Cabeçalho ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 4px' }}>Suporte</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-              Tire dúvidas, reporte bugs ou peça ajuda com sua coleção.
-            </p>
-          </div>
-          {!showForm && (
+        {/* ── Cabeçalho — padrao do app, ver src/components/ui/PageHeader.tsx ── */}
+        <PageHeader
+          trilha={[INICIO, { name: 'Suporte', href: '/suporte' }]}
+          titulo="Suporte"
+          descricao="Abra um chamado e acompanhe a resposta."
+          acao={!showForm && (
             <button
               onClick={() => setShowForm(true)}
               style={{
@@ -166,13 +164,13 @@ export default function SuportePage() {
                 padding: '11px 20px', borderRadius: 10,
                 fontSize: 14, fontWeight: 800, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 8,
-                fontFamily: 'inherit',
+                fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
               }}
             >
               <IconPlus size={16} color="#000" /> Novo ticket
             </button>
           )}
-        </div>
+        />
 
         {/* ── Form de novo ticket ── */}
         {showForm && (
