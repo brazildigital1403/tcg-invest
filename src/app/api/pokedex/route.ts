@@ -19,8 +19,14 @@ async function buildPokedexData() {
   // Query 1: nomes únicos + contagem (rápido)
   const { data: counts, error } = await supabase.rpc('get_unique_base_pokemon')
   if (error || !counts) {
+    // ATENÇÃO: aqui NÃO pode retornar []. Esta função roda dentro de
+    // unstable_cache — um retorno vazio vira entrada de cache válida e a Pokédex
+    // fica em branco por 1h (revalidate: 3600), em todas as instâncias, e o
+    // vazio sobrevive a deploy porque o Data Cache da Vercel é compartilhado
+    // entre deployments. Uma falha de 1 segundo virava 1 hora de página vazia.
+    // Lançando o erro, nada é gravado e a próxima request tenta de novo.
     console.error('[api/pokedex] rpc error:', error?.message)
-    return []
+    throw new Error(`rpc get_unique_base_pokemon falhou: ${error?.message ?? 'sem dados'}`)
   }
 
   const pokemons = JSON.parse(typeof counts === 'string' ? counts : JSON.stringify(counts))
@@ -45,18 +51,31 @@ async function buildPokedexData() {
   }
 
   // Combina
-  return pokemons.map((p: any) => ({
+  const resultado = pokemons.map((p: any) => ({
     name: p.name,
     types: typeMap[p.name] || [],
     card_count: p.card_count,
   }))
+
+  // Rede de segurança: lista vazia nunca é resposta legítima (a Pokédex tem
+  // ~1025 nomes). Se vier vazia, é falha — lança pra não virar cache.
+  if (resultado.length === 0) {
+    throw new Error('[api/pokedex] resultado vazio, nao vai pro cache')
+  }
+
+  return resultado
 }
 
 // Wrapper cacheado. Tag 'pokedex' permite invalidação targetada.
 // `revalidate: 3600` é o fallback caso ninguém chame revalidateTag (1h).
+//
+// A chave foi pra -v2 de propósito: a entrada antiga ('pokedex-base') ficou
+// gravada com [] e o Data Cache da Vercel é compartilhado entre deployments,
+// então redeploy não limpava. Trocar a chave orfana a entrada podre na hora,
+// sem depender de revalidateTag (que exige sessão de admin).
 const getPokedexCached = unstable_cache(
   async () => buildPokedexData(),
-  ['pokedex-base'],
+  ['pokedex-base-v2'],
   { tags: ['pokedex'], revalidate: 3600 }
 )
 
