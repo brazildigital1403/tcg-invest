@@ -52,6 +52,7 @@ type SetData = {
 
 type CardLite = {
   id: string
+  slug: string | null
   name: string
   number: string | null
   image_small: string | null
@@ -83,7 +84,7 @@ async function fetchSetData(
   const { data: cardsRaw } = await sb
     .from('pokemon_cards')
     .select(
-      'id, name, number, image_small, rarity, preco_medio, set_name',
+      'id, slug, name, number, image_small, rarity, preco_medio, set_name',
     )
     .eq('set_id', id)
     .order('number', { ascending: true, nullsFirst: false })
@@ -244,7 +245,7 @@ export default async function SetPage({
       itemListElement: cards.slice(0, 20).map((c, i) => ({
         '@type': 'ListItem',
         position: i + 1,
-        url: `https://bynx.gg/carta/${c.id}`,
+        url: `https://bynx.gg/carta/${c.slug || c.id}`,
         name: c.name,
       })),
     },
@@ -423,7 +424,7 @@ export default async function SetPage({
                 )}
                 <Link
                   key={card.id}
-                href={`/carta/${card.id}`}
+                href={`/carta/${card.slug || card.id}`}
                 style={{
                   textDecoration: 'none',
                   color: 'inherit',
