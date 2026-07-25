@@ -11,6 +11,7 @@ import CardItem from '@/components/ui/CardItem'
 import CardDetailModal from './CardDetailModal'
 import ModalUpgradePokedex from '@/components/ui/ModalUpgradePokedex'
 import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
+import { IconCard } from '@/components/ui/Icons'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -421,7 +422,7 @@ export default function Pokedex() {
               </div>
             ) : cards.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 80, color: 'rgba(255,255,255,0.3)' }}>
-                <p style={{ fontSize: 32, marginBottom: 8 }}>🃏</p>
+                <IconCard size={34} color="rgba(255,255,255,0.25)" style={{ marginBottom: 10 }} />
                 <p>Nenhuma carta encontrada para {selectedPokemon.name}</p>
               </div>
             ) : (
