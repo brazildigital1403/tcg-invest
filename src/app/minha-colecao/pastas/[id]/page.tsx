@@ -294,14 +294,14 @@ export default function PastaDetalhe() {
   }
 
   if (loading) {
-    return <AppLayout><div className="p-6">Carregando pasta...</div></AppLayout>
+    return <AppLayout><div>Carregando pasta...</div></AppLayout>
   }
 
   // S40: pasta travada no Free -> tela de upsell, sem acesso ao conteudo
   if (!isPro && meta?.locked) {
     return (
       <AppLayout>
-        <div className="p-6" style={{ maxWidth: 560, margin: '0 auto' }}>
+        <div style={{ maxWidth: 560, margin: '0 auto' }}>
           <Link href="/minha-colecao/pastas" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', marginBottom: 16 }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Pastas
@@ -335,7 +335,7 @@ export default function PastaDetalhe() {
 
   return (
     <AppLayout>
-      <div className="p-6">
+      <div>
 
         {/* Voltar */}
         <Link href="/minha-colecao/pastas" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', marginBottom: 16 }}>

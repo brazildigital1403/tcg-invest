@@ -544,7 +544,7 @@ export default function MinhaColecao() {
 
 
   if (loading) {
-    return <AppLayout><div className="p-6">Carregando coleção...</div></AppLayout>
+    return <AppLayout><div>Carregando coleção...</div></AppLayout>
   }
 
   // ✅ Total real de cartas (soma de quantities, não count de tipos)
@@ -657,7 +657,7 @@ export default function MinhaColecao() {
           <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
         </div>
       )}
-      <div className="p-6">
+      <div>
 
         {/* Onboarding */}
 

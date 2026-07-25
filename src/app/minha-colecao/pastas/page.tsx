@@ -98,12 +98,12 @@ export default function PastasIndex() {
   }
 
   if (loading) {
-    return <AppLayout><div className="p-6">Carregando pastas...</div></AppLayout>
+    return <AppLayout><div>Carregando pastas...</div></AppLayout>
   }
 
   return (
     <AppLayout>
-      <div className="p-6">
+      <div>
 
         {/* Voltar */}
         <Link href="/minha-colecao" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', marginBottom: 16 }}>
