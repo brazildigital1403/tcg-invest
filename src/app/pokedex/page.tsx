@@ -462,7 +462,13 @@ export default function Pokedex() {
                         exchangeRate={exchangeRate}
                         onSelect={() => { setSelectedCard(card); setSelectedCardIndex(cards.indexOf(card)); setSelectedVariante(pickBestVariante(card)) }}
                         badge={
+                          // No mobile este botao some: o card inteiro ja abre o
+                          // mesmo detalhe (onSelect acima), entao ele e redundante —
+                          // e num card de 167px ele comia 64px e sobrava 4px de
+                          // folga pro badge de preco, com o texto quebrando em duas
+                          // linhas por cima da arte.
                           <button
+                            className="pkdx-badge-detalhes"
                             onClick={e => { e.stopPropagation(); setSelectedCard(card) }}
                             style={{ background: 'rgba(245,158,11,0.9)', border: 'none', color: '#000', padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}
                           >
@@ -691,6 +697,8 @@ export default function Pokedex() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
           }
+          /* Redundante com o clique no card, e em 167px so atrapalhava. */
+          .pkdx-badge-detalhes { display: none; }
         }
       `}</style>
 
