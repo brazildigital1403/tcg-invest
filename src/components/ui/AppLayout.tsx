@@ -554,7 +554,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           .tcg-header-menu-btn { display: flex !important; }
           .tcg-header-account { display: none !important; }
           .tcg-switchbar { display: flex !important; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--bx-border); background: rgba(8,10,15,0.97); }
-          .tcg-content { padding: 16px 16px 100px; }
+          .tcg-content { padding: 16px 16px calc(100px + env(safe-area-inset-bottom, 0px)); }
           .tcg-bottom-nav { display: flex !important; }
           .tcg-drawer-overlay { display: block; }
         }
@@ -793,6 +793,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           background: 'rgba(8,10,15,0.98)',
           borderTop: '1px solid rgba(255,255,255,0.1)',
           alignItems: 'stretch',
+          // Hoje resolve 0: o viewport nao usa viewport-fit=cover, entao o proprio
+          // browser ja insere a nav acima da barra de gestos. Fica aqui pra nao
+          // quebrar no dia em que alguem ligar o cover pra ter tela ponta a ponta.
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}>
           {primaryTabs.map(item => {
             const active = pathname === item.href

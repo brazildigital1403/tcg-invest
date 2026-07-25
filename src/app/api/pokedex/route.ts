@@ -16,7 +16,15 @@ async function buildPokedexData() {
     process.env.SUPABASE_SERVICE_KEY!
   )
 
-  // Query 1: nomes únicos + contagem (rápido)
+  // Uma query só: nomes únicos + contagem + tipo representativo.
+  //
+  // Antes eram duas. A segunda puxava 5.000 cartas cruas pro lambda e montava o
+  // mapa de tipos com "primeira carta vence", sem order by — sobre ~54k cartas
+  // elegíveis. Media: os 5.000 cobriam 673 dos 1.025 nomes, então 34% da Pokédex
+  // saía sem badge, e o tipo que aparecia era sorteado entre as variantes daquele
+  // Pokémon no TCG (Ekans tem carta Grass, Fire, Darkness e Psychic).
+  //
+  // Agora a RPC devolve a MODA do tipo, calculada no banco. 1.025 nomes, 1 sem tipo.
   const { data: counts, error } = await supabase.rpc('get_unique_base_pokemon')
   if (error || !counts) {
     console.error('[api/pokedex] rpc error:', error?.message)
@@ -25,29 +33,9 @@ async function buildPokedexData() {
 
   const pokemons = JSON.parse(typeof counts === 'string' ? counts : JSON.stringify(counts))
 
-  // Query 2: tipos por nome base (uma query IN, sem correlação)
-  const { data: typeData } = await supabase
-    .from('pokemon_cards')
-    .select('base_pokemon_names, types')
-    .eq('supertype', 'Pokémon')
-    .not('image_small', 'is', null)
-    .not('base_pokemon_names', 'is', null)
-    .limit(5000)
-
-  // Mapa: nome base → tipos
-  const typeMap: Record<string, string[]> = {}
-  for (const card of typeData || []) {
-    for (const baseName of card.base_pokemon_names || []) {
-      if (!typeMap[baseName] && card.types?.length > 0) {
-        typeMap[baseName] = card.types
-      }
-    }
-  }
-
-  // Combina
   return pokemons.map((p: any) => ({
     name: p.name,
-    types: typeMap[p.name] || [],
+    types: p.types || [],
     card_count: p.card_count,
   }))
 }

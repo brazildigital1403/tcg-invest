@@ -91,6 +91,38 @@ function useIsDesktop(): boolean {
   return desk
 }
 
+// Rotas onde o inbox faz sentido estar a um toque de distancia.
+const CONTEXTO_MARKETPLACE = ['/marketplace', '/compras', '/pedido', '/checkout']
+
+// Some o FAB enquanto o dedo desce a pagina e devolve quando sobe.
+// Sem isso ele fica parado por cima do conteudo (56px de botao dentro da faixa
+// que o .tcg-content reserva pra bottom nav), e a Colecao chega a encostar no X
+// de excluir carta.
+function useFabVisivel(): boolean {
+  const [visivel, setVisivel] = useState(true)
+  useEffect(() => {
+    let ultimo = window.scrollY
+    let raf = 0
+    const onScroll = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        const y = window.scrollY
+        const delta = y - ultimo
+        if (Math.abs(delta) < 6) return
+        setVisivel(y < 80 ? true : delta < 0)
+        ultimo = y
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [])
+  return visivel
+}
+
 // ─── Componente principal ────────────────────────────────────────────────────
 
 export default function ChatDock() {
@@ -174,10 +206,17 @@ export default function ChatDock() {
   const ativas = conversas.filter(c => c.ativa)
   const historico = conversas.filter(c => !c.ativa)
 
+  // O ChatDock e global (montado no AppLayout), entao o FAB aparecia em cima do
+  // conteudo de TODA tela do app, inclusive pra quem nunca abriu o marketplace.
+  // Agora so aparece onde serve: com mensagem nao lida (precisa de atencao em
+  // qualquer tela) ou dentro do fluxo de compra/venda. Conversa parada sem
+  // nao-lidas continua alcancavel pelo sino, que faz deep-link pra ca.
+  const mostrarFab = selo > 0 || CONTEXTO_MARKETPLACE.some(p => (pathname || '').startsWith(p))
+
   return (
     <>
       {/* FAB */}
-      {!aberto && <ChatFab count={selo} onClick={abrirInbox} />}
+      {!aberto && mostrarFab && <ChatFab count={selo} onClick={abrirInbox} />}
 
       {/* Dock */}
       {aberto && (
@@ -238,13 +277,29 @@ export default function ChatDock() {
 // ─── FAB ─────────────────────────────────────────────────────────────────────
 
 function ChatFab({ count, onClick }: { count: number; onClick: () => void }) {
+  const visivel = useFabVisivel()
   return (
     <>
       <style>{`
         .bynx-chatfab { position: fixed; bottom: 22px; right: 22px; z-index: 201; }
-        @media (max-width: 768px) { .bynx-chatfab { bottom: 84px; right: 16px; } }
+        @media (max-width: 768px) {
+          .bynx-chatfab {
+            bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+            right: 16px;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+          }
+          .bynx-chatfab.oculto {
+            transform: translateY(calc(100% + 28px));
+            opacity: 0;
+            pointer-events: none;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .bynx-chatfab { transition: none; }
+          .bynx-chatfab.oculto { transform: none; visibility: hidden; }
+        }
       `}</style>
-      <button onClick={onClick} aria-label="Conversas" className="bynx-chatfab" style={{
+      <button onClick={onClick} aria-label="Conversas" className={`bynx-chatfab${visivel ? '' : ' oculto'}`} style={{
       width: 56, height: 56, borderRadius: '50%',
       background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none', cursor: 'pointer',
       boxShadow: '0 10px 30px -6px rgba(245,158,11,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',

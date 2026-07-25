@@ -672,8 +672,11 @@ export default function MinhaColecao() {
                   Limite atingido ({cards.length}/{limiteDisplay})
                 </span>
               ) : (
-                <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'rgba(255,255,255,0.35)', border: '1px solid var(--bx-border)' }}>
-                  {cards.length}/{limiteDisplay} cartas
+                <span
+                  title="O limite do plano conta cartas diferentes. Repetidas nao contam."
+                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'rgba(255,255,255,0.35)', border: '1px solid var(--bx-border)', whiteSpace: 'nowrap' }}
+                >
+                  {cards.length}/{limiteDisplay} diferentes
                 </span>
               )}
             </div>
@@ -692,9 +695,11 @@ export default function MinhaColecao() {
           {/* Subtítulo + botões secundários */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+              {/* Dois numeros diferentes conviviam aqui sem rotulo (o selo contava
+                  cartas distintas, este contava quantidades) e pareciam divergencia. */}
               {filteredCards.length !== cards.length
-                ? `${filteredCards.length} de ${cards.length} tipo${cards.length !== 1 ? 's' : ''} (${totalQty} carta${totalQty !== 1 ? 's' : ''})`
-                : `${totalQty} carta${totalQty !== 1 ? 's' : ''} na coleção`}
+                ? `${filteredCards.length} de ${cards.length} diferentes · ${totalQty} no total`
+                : `${totalQty} carta${totalQty !== 1 ? 's' : ''} no total · ${cards.length} diferente${cards.length !== 1 ? 's' : ''}`}
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {userId && (
