@@ -23,6 +23,30 @@ import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound, permanentRedirect } from 'next/navigation'
 import CardClient from './CardClient'
+
+// Variantes exibidas na pagina publica da carta. Leem as colunas fixas ja
+// scaneadas em pokemon_cards (preco_<var>_min/medio/max). So entram as com preco.
+const VAR_DEFS_CARTA: Array<{ key: string; label: string; pre: string }> = [
+  { key: 'normal',   label: 'Normal',   pre: 'preco_' },
+  { key: 'foil',     label: 'Foil',     pre: 'preco_foil_' },
+  { key: 'reverse',  label: 'Reverse',  pre: 'preco_reverse_' },
+  { key: 'pokeball', label: 'Pokéball', pre: 'preco_pokeball_' },
+  { key: 'promo',    label: 'Promo',    pre: 'preco_promo_' },
+]
+function precoNum(v: any): number | null {
+  const f = Number(v)
+  return f > 0 ? f : null
+}
+function buildVariantesCarta(b: any) {
+  if (!b) return []
+  return VAR_DEFS_CARTA.map((v) => ({
+    key: v.key,
+    label: v.label,
+    min: precoNum(b[v.pre + 'min']),
+    med: precoNum(b[v.pre + 'medio']),
+    max: precoNum(b[v.pre + 'max']),
+  })).filter((v) => v.min || v.med || v.max)
+}
 import CartasRelacionadas from '@/components/cards/CartasRelacionadas'
 import MercadoLivre from '@/components/ui/MercadoLivre'
 import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
@@ -107,7 +131,11 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
     const COLS =
       'id, slug, name, number, set_id, set_name, set_release_date, set_total, ' +
       'rarity, hp, types, image_small, image_large, attacks, ' +
-      'preco_min, preco_medio, preco_max'
+      'preco_min, preco_medio, preco_max, ' +
+      'preco_foil_min, preco_foil_medio, preco_foil_max, ' +
+      'preco_reverse_min, preco_reverse_medio, preco_reverse_max, ' +
+      'preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, ' +
+      'preco_promo_min, preco_promo_medio, preco_promo_max'
     const porSlug = await sb.from('pokemon_cards').select(COLS).eq('slug', idOrSlug).maybeSingle()
     bynx = porSlug.data
     if (!bynx) {
@@ -163,6 +191,7 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
     precoMin: bynx?.preco_min ? Number(bynx.preco_min) : null,
     precoMedio: bynx?.preco_medio ? Number(bynx.preco_medio) : null,
     precoMax: bynx?.preco_max ? Number(bynx.preco_max) : null,
+    variantes: buildVariantesCarta(bynx),
   }
 }
 

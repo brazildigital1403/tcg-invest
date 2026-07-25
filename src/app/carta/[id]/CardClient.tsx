@@ -59,6 +59,7 @@ type CardProps = {
     precoMin: number | null
     precoMedio: number | null
     precoMax: number | null
+    variantes?: Array<{ key: string; label: string; min: number | null; med: number | null; max: number | null }>
   }
   breadcrumb?: { name: string; href: string }[]
   children?: ReactNode
@@ -66,6 +67,9 @@ type CardProps = {
 
 export default function CardClient({ card, children, breadcrumb }: CardProps) {
   const [copied, setCopied] = useState(false)
+  const variantes = card.variantes && card.variantes.length ? card.variantes : []
+  const [varSel, setVarSel] = useState<string>(variantes[0]?.key || 'normal')
+  const vAtual = variantes.find((v) => v.key === varSel) || variantes[0] || null
 
   const color = TYPE_COLORS[card.types[0]] || '#f59e0b'
 
@@ -75,7 +79,6 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const hasPrice = card.precoMin || card.precoMedio || card.precoMax
   const numLabel = card.number ? (card.setTotal ? card.number + '/' + card.setTotal : '#' + card.number) : ''
   const imgAlt = 'Carta ' + card.name + (numLabel ? ' ' + numLabel : '') + (card.setName ? ' do set ' + card.setName : '') + ' — Pokémon TCG | Bynx'
 
@@ -259,42 +262,81 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
               >
                 Preço de mercado
               </p>
-              {hasPrice ? (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: 12,
-                  }}
-                >
-                  {[
-                    { label: 'Mínimo', value: card.precoMin, color: '#22c55e' },
-                    { label: 'Médio', value: card.precoMedio, color: '#60a5fa' },
-                    { label: 'Máximo', value: card.precoMax, color: '#f59e0b' },
-                  ].map((p) => (
-                    <div key={p.label} style={{ textAlign: 'center' }}>
-                      <p
-                        style={{
-                          fontSize: 10,
-                          color: 'rgba(255,255,255,0.35)',
-                          marginBottom: 4,
-                        }}
-                      >
-                        {p.label}
-                      </p>
-                      <p
-                        style={{
-                          fontSize: 17,
-                          fontWeight: 800,
-                          color: p.color,
-                          letterSpacing: '-0.02em',
-                        }}
-                      >
-                        {fmt(p.value || 0)}
-                      </p>
+              {variantes.length > 0 && vAtual ? (
+                <>
+                  {variantes.length > 1 && (
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
+                      {variantes.map((v) => {
+                        const on = v.key === varSel
+                        return (
+                          <button
+                            key={v.key}
+                            onClick={() => setVarSel(v.key)}
+                            style={{
+                              fontSize: 12,
+                              padding: '6px 13px',
+                              borderRadius: 8,
+                              fontFamily: 'inherit',
+                              cursor: 'pointer',
+                              border: `1px solid ${on ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                              background: on ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.03)',
+                              color: on ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                            }}
+                          >
+                            {v.label}
+                          </button>
+                        )
+                      })}
                     </div>
-                  ))}
-                </div>
+                  )}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: 12,
+                    }}
+                  >
+                    {[
+                      { label: 'Mínimo', value: vAtual.min, color: '#22c55e' },
+                      { label: 'Médio', value: vAtual.med, color: '#60a5fa' },
+                      { label: 'Máximo', value: vAtual.max, color: '#f59e0b' },
+                    ].map((p) => (
+                      <div key={p.label} style={{ textAlign: 'center' }}>
+                        <p
+                          style={{
+                            fontSize: 10,
+                            color: 'rgba(255,255,255,0.35)',
+                            marginBottom: 4,
+                          }}
+                        >
+                          {p.label}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: 17,
+                            fontWeight: 800,
+                            color: p.color,
+                            letterSpacing: '-0.02em',
+                          }}
+                        >
+                          {fmt(p.value || 0)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      marginTop: 14,
+                      fontSize: 10,
+                      color: 'rgba(255,255,255,0.4)',
+                    }}
+                  >
+                    Fonte: <b style={{ color: '#f59e0b', fontWeight: 700 }}>Mercado Brasileiro</b>
+                  </p>
+                </>
               ) : (
                 <div>
                   <p
