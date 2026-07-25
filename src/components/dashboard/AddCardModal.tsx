@@ -232,7 +232,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         : number
       const cardName = number ? `${card.name} (${numFmt}${total})` : card.name
       const variante = variantMap[card.id] || 'normal'
-      const idioma = idiomaMap[card.id] || 'pt'
+      const idioma = idiomaMap[card.id] || card.idioma || 'pt'
 
       const usandoSplit = isPro && splitOn[card.id]
       let quantity = qtyMap[card.id] || 1
@@ -721,7 +721,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                     <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: isMobile ? 0 : 6, flexShrink: 0, minWidth: isMobile ? 64 : 'auto' }}>Idioma</p>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: isMobile ? 1 : 'none' }}>
                       {IDIOMAS.map(i => {
-                        const isActive = (idiomaMap[preview.id] || 'pt') === i
+                        const isActive = (idiomaMap[preview.id] || preview.idioma || 'pt') === i
                         return (
                           <button key={i} onClick={() => setIdiomaMap(prev => ({ ...prev, [preview.id]: i }))}
                             style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, border: `1px solid ${isActive ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)'}`, background: isActive ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.03)', color: isActive ? '#f59e0b' : TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit' }}>
