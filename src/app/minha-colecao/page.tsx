@@ -413,6 +413,17 @@ export default function MinhaColecao() {
     }
   }
 
+  async function handleIdiomaChange(card: any, novoIdioma: string) {
+    const { error } = await supabase
+      .from('user_cards')
+      .update({ idioma: novoIdioma })
+      .eq('id', card.id)
+
+    if (!error) {
+      setCards(prev => prev.map(c => c.id === card.id ? { ...c, idioma: novoIdioma } : c))
+    }
+  }
+
 
 
 
@@ -1073,6 +1084,7 @@ export default function MinhaColecao() {
           exchangeRate={exchangeRate}
           onClose={() => setDetalheCard(null)}
           onVarianteChange={(v) => handleVarianteChange(detalheCard, v)}
+          onIdiomaChange={(i) => handleIdiomaChange(detalheCard, i)}
           onQuantitySet={(novaQty) => handleSetQuantity(detalheCard, novaQty)}
           onCondicoesSaved={(novas) => setCards(prev => prev.map(x => x.id === detalheCard.id ? { ...x, condicoes: novas } : x))}
           onAnunciar={() => { setAnunciarCard(detalheCard); setDetalheCard(null) }}

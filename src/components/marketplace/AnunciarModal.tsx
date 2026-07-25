@@ -243,10 +243,10 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
               - USD convertido: azul (#60a5fa) — TCG Player, valor estimado */}
           {!grad && precoMercado > 0 && precoFonte && (() => {
             const fonteCfg = {
-              BRL:         { label: 'PREÇO DE MERCADO',         badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
-              BRL_FOIL:    { label: 'PREÇO MERCADO · FOIL',     badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
-              BRL_REVERSE: { label: 'PREÇO MERCADO · REVERSE',  badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
-              BRL_PROMO:   { label: 'PREÇO MERCADO · PROMO',    badge: 'Liga Pokémon · BRL',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL:         { label: 'PREÇO DE MERCADO',         badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL_FOIL:    { label: 'PREÇO MERCADO · FOIL',     badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL_REVERSE: { label: 'PREÇO MERCADO · REVERSE',  badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL_PROMO:   { label: 'PREÇO MERCADO · PROMO',    badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
               USD:         { label: 'PREÇO DE MERCADO',         badge: 'TCG Player · USD convertido', color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.25)' },
             }[precoFonte]
             return (

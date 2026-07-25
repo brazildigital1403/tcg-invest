@@ -11,6 +11,7 @@ interface Props {
   exchangeRate?: { usd: number; eur: number }
   onClose: () => void
   onVarianteChange: (v: string) => void
+  onIdiomaChange: (i: string) => void
   onQuantitySet: (novaQty: number) => void
   onCondicoesSaved: (novas: Record<string, number> | null) => void
   onAnunciar: () => void
@@ -20,6 +21,10 @@ interface Props {
 
 const VAR_LABELS: Record<string, string> = {
   normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse', pokeball: 'Pokéball',
+}
+const IDIOMAS_LISTA = ['pt', 'en', 'jp', 'es', 'fr', 'de', 'it', 'cn', 'kr'] as const
+const IDIOMA_LABELS: Record<string, string> = {
+  pt: 'PT', en: 'EN', jp: 'JP', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', cn: 'CN', kr: 'KR',
 }
 const TEXT_MUTED = 'rgba(255,255,255,0.5)'
 
@@ -72,11 +77,11 @@ function precoVariante(price: any, v: string, rate?: { usd: number; eur: number 
   }
   const brl = brlMap[v]
   if (brl && Number(brl[1]) > 0) {
-    return { medio: Number(brl[1]), min: Number(brl[0]) || 0, max: Number(brl[2]) || 0, fonte: 'BRL', label: 'Liga Pokémon · BRL' }
+    return { medio: Number(brl[1]), min: Number(brl[0]) || 0, max: Number(brl[2]) || 0, fonte: 'BRL', label: 'Mercado Brasileiro' }
   }
   const ov = p.outras_variantes?.[v]
   if (ov && Number(ov.medio) > 0) {
-    return { medio: Number(ov.medio), min: Number(ov.min) || 0, max: Number(ov.max) || 0, fonte: 'BRL', label: 'Liga Pokémon · BRL' }
+    return { medio: Number(ov.medio), min: Number(ov.min) || 0, max: Number(ov.max) || 0, fonte: 'BRL', label: 'Mercado Brasileiro' }
   }
   const usdMap: Record<string, any> = { normal: p.price_usd_normal, foil: p.price_usd_holofoil, reverse: p.price_usd_reverse }
   const usd = usdMap[v]
@@ -88,7 +93,7 @@ function precoVariante(price: any, v: string, rate?: { usd: number; eur: number 
 
 export default function CardDetailModal({
   card, isPro, exchangeRate, onClose,
-  onVarianteChange, onQuantitySet, onCondicoesSaved, onAnunciar, onRemove, onGradSaved,
+  onVarianteChange, onIdiomaChange, onQuantitySet, onCondicoesSaved, onAnunciar, onRemove, onGradSaved,
 }: Props) {
   const [isMobile, setIsMobile] = useState(false)
   const [variante, setVariante] = useState<string>(card.variante || 'normal')
@@ -96,6 +101,8 @@ export default function CardDetailModal({
   const [quantity, setQuantity] = useState<number>(card.quantity || 1)
   const [anunciados, setAnunciados] = useState<number | null>(null)
   const [savedVar, setSavedVar] = useState<string>(card.variante || 'normal')
+  const [idioma, setIdioma] = useState<string>((card.idioma || 'pt').toLowerCase())
+  const [savedIdioma, setSavedIdioma] = useState<string>((card.idioma || 'pt').toLowerCase())
   const [savedQty, setSavedQty] = useState<number>(card.quantity || 1)
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState(false)
@@ -156,7 +163,7 @@ export default function CardDetailModal({
     setQuantity(nova)
   }
 
-  const dirty = quantity !== savedQty || variante !== savedVar
+  const dirty = quantity !== savedQty || variante !== savedVar || idioma !== savedIdioma
 
   async function salvar() {
     if (!dirty || saving) return
@@ -164,8 +171,10 @@ export default function CardDetailModal({
     try {
       if (quantity !== savedQty) await Promise.resolve(onQuantitySet(quantity))
       if (variante !== savedVar) await Promise.resolve(onVarianteChange(variante))
+      if (idioma !== savedIdioma) await Promise.resolve(onIdiomaChange(idioma))
       setSavedQty(quantity)
       setSavedVar(variante)
+      setSavedIdioma(idioma)
       setFlash(true)
       window.setTimeout(() => setFlash(false), 1800)
     } finally {
@@ -378,6 +387,16 @@ export default function CardDetailModal({
                 <span style={{ display: 'flex', gap: 7, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {variantes.map(v => (
                     <button key={v.key} onClick={() => selecionarVariante(v.key)} style={variante === v.key ? chipOn : chipBase}>{v.label}</button>
+                  ))}
+                </span>
+              </div>
+
+              {/* Idioma (chips — salva ao clicar em Salvar) */}
+              <div style={{ ...rowi, alignItems: 'flex-start' }}>
+                <span style={{ ...kStyle, marginTop: 5 }}>Idioma</span>
+                <span style={{ display: 'flex', gap: 7, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {IDIOMAS_LISTA.map(i => (
+                    <button key={i} onClick={() => setIdioma(i)} style={idioma === i ? chipOn : chipBase}>{IDIOMA_LABELS[i]}</button>
                   ))}
                 </span>
               </div>
