@@ -9,6 +9,7 @@ import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
 import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, IconBolt, IconPokeball } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 
 /**
  * /pedido/[id] — acompanhamento do pedido.
@@ -307,6 +308,17 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
 
   return (
     <Casca>
+      {/* Trilha + identidade do pedido. O hero de status logo abaixo continua
+          intacto: ele responde "em que pe esta", que e outra pergunta.
+          A trilha tem 3 niveis, entao aparece tambem no mobile — util aqui,
+          porque muita gente chega nesta tela por link de email. */}
+      <PageHeader
+        trilha={[INICIO, { name: 'Compras', href: '/compras' }, { name: 'Pedido', href: `/pedido/${pedido.id}` }]}
+        titulo={pedido.numero ? `Pedido ${pedido.numero}` : 'Seu pedido'}
+        descricao="Acompanhe o pagamento, o envio e a entrega."
+        stat={`${pedido.item_nome} · ${fmtBRL(pedido.total_comprador_cents)} no ${metodoTxt}`}
+      />
+
       <div style={S.hero}>
         <div style={{ ...S.heroIc, background: heroBg }}>{heroIco}</div>
         <div style={S.heroH}>{heroH}</div>
