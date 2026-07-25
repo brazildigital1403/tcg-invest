@@ -425,7 +425,7 @@ export default function Pokedex() {
                 <p>Nenhuma carta encontrada para {selectedPokemon.name}</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div className="pkdx-cards-grid">
                 {cards.map(card => {
                   const owned = ownedCardIds.has(card.id)
                   return (
@@ -671,6 +671,26 @@ export default function Pokedex() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         select option { background: #1a1d24; color: #f0f0f0; }
+
+        /* Grade de cartas do Pokemon aberto.
+           No desktop segue o auto-fill de 200px. No mobile o auto-fill nao
+           conseguia encaixar duas colunas (2x200 + gap = 416px num conteudo de
+           358px em tela de 390) e caia pra 1 coluna, deixando a carta ocupando
+           a largura inteira. Aqui fixa em 2 colunas — o detalhe abre no clique,
+           entao a miniatura nao precisa ser grande.
+           minmax(0,1fr) e proposital: sem ele o conteudo impoe largura minima
+           e a grade vaza pra fora da tela. */
+        .pkdx-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 16px;
+        }
+        @media (max-width: 768px) {
+          .pkdx-cards-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+        }
       `}</style>
 
       {selectedCard && (
