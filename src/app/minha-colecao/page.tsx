@@ -1050,7 +1050,6 @@ export default function MinhaColecao() {
               exchangeRate={exchangeRate}
               onVarianteChange={(v) => handleVarianteChange(c, v)}
               onQuantityChange={(delta) => handleUpdateQuantity(c, delta)}
-              onRemove={() => handleRemove(c.id, c.card_name)}
               footerSlot={<CondicaoEditor userCardId={c.id} quantity={c.quantity || 1} condicoes={c.condicoes || null} isPro={isPro} onSaved={(novas) => setCards(prev => prev.map(x => x.id === c.id ? { ...x, condicoes: novas } : x))} />}
             />
           ))}

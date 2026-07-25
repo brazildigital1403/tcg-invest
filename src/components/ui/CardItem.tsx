@@ -75,7 +75,8 @@ interface CardItemProps {
   selected?: boolean
   onSelect?: () => void
   // Remoção
-  onRemove?: () => void
+  // onRemove saiu: excluir carta agora e so pelo CardDetailModal (botao
+  // "Remover"). Ver o comentario na linha da quantidade, mais abaixo.
   // Extra badge ou ação
   badge?: ReactNode
   // Slot extra no rodapé do card (ex: editor de condição)
@@ -142,7 +143,6 @@ export default function CardItem({
   onQuantityChange,
   selected,
   onSelect,
-  onRemove,
   badge,
   footerSlot,
   exchangeRate = { usd: 6.0, eur: 6.5 },
@@ -369,21 +369,28 @@ export default function CardItem({
           </div>
         )}
 
-        {/* Qtd + Remover — só em modo collection */}
-        {mode === 'collection' && (onQuantityChange || onRemove) && (
+        {/* Quantidade — só em modo collection.
+            O X de excluir SAIU daqui: ficava a 6px do "+", ambos 28x28, e o
+            dedo que ia somar uma copia apagava a carta. Medido em 375px:
+            - 53..81   + 108..136   X 142..170, container de 117px sem folga.
+            Expandir so a area de toque piorava — com 6px de folga as areas se
+            sobrepoem em 10px e quem ganha o trecho e o X, que vem depois no DOM.
+            Excluir agora e so pelo CardDetailModal, que ja tinha o botao
+            "Remover". Sem o X sobram 34px e os dois botoes cabem em 44x44,
+            o minimo de alvo de toque (WCAG 2.5.5 / HIG). */}
+        {mode === 'collection' && onQuantityChange && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-            {onQuantityChange && (
-              <>
-                <button onClick={(e) => { e.stopPropagation(); onQuantityChange(-1) }} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--bx-text)', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
-                <span style={{ fontSize: 12, color: 'var(--bx-text)', fontWeight: 600, flex: 1, textAlign: 'center' }}>{qty}×</span>
-                <button onClick={(e) => { e.stopPropagation(); onQuantityChange(1) }} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--bx-text)', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
-              </>
-            )}
-            {onRemove && (
-              <button onClick={(e) => { e.stopPropagation(); onRemove() }} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-              </button>
-            )}
+            {/* Desabilitado em 1: descer daqui apagava a carta, e exclusao
+                agora e so pelo modal. Mesma regra que o CardDetailModal ja
+                aplica ("remocao total fica no botao Remover"). */}
+            <button
+              disabled={qty <= 1}
+              title={qty <= 1 ? 'Para remover a carta, abra os detalhes' : undefined}
+              onClick={(e) => { e.stopPropagation(); if (qty > 1) onQuantityChange(-1) }}
+              style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--bx-text)', width: 44, height: 44, borderRadius: 8, cursor: qty <= 1 ? 'default' : 'pointer', opacity: qty <= 1 ? 0.35 : 1, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'opacity 0.15s ease' }}
+            >−</button>
+            <span style={{ fontSize: 12, color: 'var(--bx-text)', fontWeight: 600, flex: 1, textAlign: 'center' }}>{qty}×</span>
+            <button onClick={(e) => { e.stopPropagation(); onQuantityChange(1) }} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--bx-text)', width: 44, height: 44, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
           </div>
         )}
       </div>
