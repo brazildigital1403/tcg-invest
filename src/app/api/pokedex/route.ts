@@ -16,8 +16,20 @@ async function buildPokedexData() {
     process.env.SUPABASE_SERVICE_KEY!
   )
 
-  // Query 1: nomes únicos + contagem (rápido)
-  const { data: counts, error } = await supabase.rpc('get_unique_base_pokemon')
+  // Uma query só, lendo da matview mv_base_pokemon_tipos: nome + contagem +
+  // tipo representativo (a moda das cartas daquele Pokémon no TCG).
+  //
+  // Antes eram duas queries, e a segunda puxava 5.000 cartas cruas pro lambda
+  // com "primeira carta vence", sobre ~54k elegíveis: cobria 673 dos 1.025
+  // nomes, então 34% da Pokédex saía sem badge, e o tipo exibido era sorteado.
+  //
+  // A moda NÃO pode ser calculada por request: exige seq scan em pokemon_cards
+  // (187 MB). Com buffer quente dá 144ms e engana; frio estoura o
+  // statement_timeout de 8s do papel authenticator e derruba a página.
+  // Por isso o cálculo vive numa matview, atualizada de hora em hora pelo
+  // pg_cron (job refresh_base_pokemon_tipos, :32). Aqui é index scan, 19
+  // buffers, ~8ms — mil vezes abaixo do limite.
+  const { data: counts, error } = await supabase.rpc('get_base_pokemon_com_tipos')
   if (error || !counts) {
     // ATENÇÃO: aqui NÃO pode retornar []. Esta função roda dentro de
     // unstable_cache — um retorno vazio vira entrada de cache válida e a Pokédex
@@ -26,34 +38,14 @@ async function buildPokedexData() {
     // entre deployments. Uma falha de 1 segundo virava 1 hora de página vazia.
     // Lançando o erro, nada é gravado e a próxima request tenta de novo.
     console.error('[api/pokedex] rpc error:', error?.message)
-    throw new Error(`rpc get_unique_base_pokemon falhou: ${error?.message ?? 'sem dados'}`)
+    throw new Error(`rpc get_base_pokemon_com_tipos falhou: ${error?.message ?? 'sem dados'}`)
   }
 
   const pokemons = JSON.parse(typeof counts === 'string' ? counts : JSON.stringify(counts))
 
-  // Query 2: tipos por nome base (uma query IN, sem correlação)
-  const { data: typeData } = await supabase
-    .from('pokemon_cards')
-    .select('base_pokemon_names, types')
-    .eq('supertype', 'Pokémon')
-    .not('image_small', 'is', null)
-    .not('base_pokemon_names', 'is', null)
-    .limit(5000)
-
-  // Mapa: nome base → tipos
-  const typeMap: Record<string, string[]> = {}
-  for (const card of typeData || []) {
-    for (const baseName of card.base_pokemon_names || []) {
-      if (!typeMap[baseName] && card.types?.length > 0) {
-        typeMap[baseName] = card.types
-      }
-    }
-  }
-
-  // Combina
   const resultado = pokemons.map((p: any) => ({
     name: p.name,
-    types: typeMap[p.name] || [],
+    types: p.types || [],
     card_count: p.card_count,
   }))
 
@@ -75,7 +67,7 @@ async function buildPokedexData() {
 // sem depender de revalidateTag (que exige sessão de admin).
 const getPokedexCached = unstable_cache(
   async () => buildPokedexData(),
-  ['pokedex-base-v2'],
+  ['pokedex-base-v3'],
   { tags: ['pokedex'], revalidate: 3600 }
 )
 
