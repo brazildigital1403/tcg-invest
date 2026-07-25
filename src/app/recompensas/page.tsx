@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { formatPoints } from '@/lib/referrals'
 import { IconCheck } from '@/components/ui/Icons'
@@ -210,18 +211,20 @@ export default function RecompensasPage() {
 
         {!loading && (
           <>
-            {/* Header */}
-            <header style={S.header}>
-              <div>
-                <h1 style={S.headerTitle}>Recompensas</h1>
-                <p style={S.headerSub}>Troque seus pontos do Indique e Ganhe por benefícios.</p>
-              </div>
-              <div style={S.balanceCard}>
-                <div style={S.balanceLabel}>Seu saldo</div>
-                <div style={S.balanceValue}>{formatPoints(me?.points_balance || 0)} <span style={S.balanceUnit}>pts</span></div>
-                <Link href="/indique-e-ganhe" style={S.balanceLink}>Indicar mais amigos →</Link>
-              </div>
-            </header>
+            {/* Header — padrao do app, ver src/components/ui/PageHeader.tsx */}
+            <PageHeader
+              trilha={[INICIO, { name: 'Recompensas', href: '/recompensas' }]}
+              titulo="Recompensas"
+              descricao="Troque seus pontos por benefícios."
+              stat={`${formatPoints(me?.points_balance || 0)} pontos no saldo`}
+              acao={
+                <div style={S.balanceCard}>
+                  <div style={S.balanceLabel}>Seu saldo</div>
+                  <div style={S.balanceValue}>{formatPoints(me?.points_balance || 0)} <span style={S.balanceUnit}>pts</span></div>
+                  <Link href="/indique-e-ganhe" style={S.balanceLink}>Indicar mais amigos →</Link>
+                </div>
+              }
+            />
 
             {/* Tabs */}
             <div style={S.tabs}>

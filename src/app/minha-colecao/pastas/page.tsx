@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { useAppModal } from '@/components/ui/useAppModal'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
 
@@ -105,33 +106,32 @@ export default function PastasIndex() {
     <AppLayout>
       <div>
 
-        {/* Voltar */}
-        <Link href="/minha-colecao" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', marginBottom: 16 }}>
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          Minha Coleção
-        </Link>
+        {/* O link "Voltar" saiu daqui: a trilha do PageHeader ja leva pra
+            Colecao, e nesta tela ela aparece tambem no mobile (3 niveis). */}
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>Pastas</h1>
+        {/* Header — padrao do app, ver src/components/ui/PageHeader.tsx */}
+        <PageHeader
+          trilha={[INICIO, { name: 'Coleção', href: '/minha-colecao' }, { name: 'Pastas', href: '/minha-colecao/pastas' }]}
+          titulo="Pastas"
+          descricao="Organize sua coleção do jeito que faz sentido para você."
+          selo={
             <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
               {limitePastas === Infinity ? `${pastas.length} pasta${pastas.length !== 1 ? 's' : ''}` : `${ativas.length}/${limitePastas} pasta${ativas.length !== 1 ? 's' : ''}`}
             </span>
-          </div>
-          <button
-            onClick={handleCreateClick}
-            style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">{freeAtLimit
-              ? <><rect x="4" y="9" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.6"/><path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></>
-              : <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>}</svg>
-            Criar Pasta
-          </button>
-        </div>
-        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginBottom: 24 }}>
-          Organize suas cartas em grupos. As cartas continuam na sua coleção — uma carta pode estar em várias pastas.
-        </p>
+          }
+          acao={
+            <button
+              onClick={handleCreateClick}
+              style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none">{freeAtLimit
+                ? <><rect x="4" y="9" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.6"/><path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></>
+                : <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>}</svg>
+              Criar Pasta
+            </button>
+          }
+          stat="As cartas continuam na coleção — uma carta pode estar em várias pastas."
+        />
 
         {/* Vazio */}
         {pastas.length === 0 && (

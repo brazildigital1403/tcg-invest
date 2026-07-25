@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconStar, IconArrowRight, IconShield, IconMarketplace, IconBolt, IconCard, IconPokeball } from '@/components/ui/Icons'
 
@@ -109,7 +110,11 @@ export default function ComprasPage() {
   if (pedidos.length === 0) {
     return (
       <Casca>
-        <h1 style={S.h1}>Minhas compras</h1>
+        <PageHeader
+          trilha={[INICIO, { name: 'Compras', href: '/compras' }]}
+          titulo="Minhas compras"
+          descricao="Seus pedidos e o rastreio de cada um."
+        />
         <div style={S.empty}>
           <div style={S.emptyIco}><IconMarketplace size={34} color="rgba(255,255,255,0.4)" /></div>
           <div style={S.emptyH}>Você ainda não comprou nada</div>
@@ -140,8 +145,12 @@ export default function ComprasPage() {
 
   return (
     <Casca>
-      <h1 style={S.h1}>Minhas compras</h1>
-      <p style={S.sub}>Acompanhe tudo que você comprou nas lojas da Bynx — do pagamento à entrega.</p>
+      <PageHeader
+        trilha={[INICIO, { name: 'Compras', href: '/compras' }]}
+        titulo="Minhas compras"
+        descricao="Seus pedidos e o rastreio de cada um."
+        stat={`${pedidos.length} ${pedidos.length === 1 ? 'pedido' : 'pedidos'} · do pagamento à entrega`}
+      />
 
       <div style={S.tabs}>
         {TABS.map(t => (

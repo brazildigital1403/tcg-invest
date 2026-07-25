@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { IconBell, IconClose } from '@/components/ui/Icons'
@@ -92,17 +93,19 @@ export default function AcompanhandoPage() {
           e 24px no desktop. Somar aqui empilhava e saia do padrao do app. */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 0 60px' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-          <span style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(245,158,11,0.13)', border: '1px solid rgba(245,158,11,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flex: '0 0 auto' }}>
-            <IconBell size={22} color="#f59e0b" />
-          </span>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>Acompanhando</h1>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
-              {loaded && userId ? `${items.length} ${items.length === 1 ? 'carta que você acompanha' : 'cartas que você acompanha'}` : 'Acompanhe o preço das cartas que te interessam'}
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          trilha={[INICIO, { name: 'Acompanhando', href: '/acompanhando' }]}
+          titulo="Acompanhando"
+          descricao="Cartas que você marcou para ficar de olho no preço."
+          selo={
+            <span style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(245,158,11,0.13)', border: '1px solid rgba(245,158,11,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flex: '0 0 auto' }}>
+              <IconBell size={17} color="#f59e0b" />
+            </span>
+          }
+          stat={loaded && userId
+            ? `${items.length} ${items.length === 1 ? 'carta acompanhada' : 'cartas acompanhadas'}`
+            : undefined}
+        />
 
         {!loaded && (
           <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, padding: '40px 0' }}>Carregando…</div>
