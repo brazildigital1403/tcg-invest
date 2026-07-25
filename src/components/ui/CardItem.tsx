@@ -57,6 +57,7 @@ export interface CardItemData {
   set_total?: number | string
   quantity?: number
   variante?: string
+  idioma?: string
   condicoes?: Record<string, number> | null
   price?: CardPrice // joined price data
 }
@@ -124,6 +125,12 @@ const VARIANTS = [
     priceKey: (p: CardPrice) => ({ min: n(p.preco_pokeball_min), med: n(p.preco_pokeball_medio), max: n(p.preco_pokeball_max) }) },
 ]
 
+// Cor do selo por familia de idioma (pt = default do mercado BR, sem selo)
+const IDIOMA_COR: Record<string, string> = {
+  en: '#60a5fa', jp: '#f472b6', es: '#f59e0b', fr: '#a855f7',
+  de: '#94a3b8', it: '#22c55e', cn: '#ef4444', kr: '#818cf8',
+}
+
 // ── Componente ───────────────────────────────────────────────────────────────
 
 export default function CardItem({
@@ -140,6 +147,8 @@ export default function CardItem({
   exchangeRate = { usd: 6.0, eur: 6.5 },
 }: CardItemProps) {
   const variante = varianteProp || card.variante || 'normal'
+  const idioma = (card.idioma || 'pt').toLowerCase()
+  const idiomaCor = idioma !== 'pt' ? (IDIOMA_COR[idioma] || '#94a3b8') : null
   const image = card.card_image || card.image_large || card.image_small
   const name = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || card.name || '—'
   const setName = setLabel(card.set_name)
@@ -277,9 +286,16 @@ export default function CardItem({
           </div>
         )}
 
+        {/* Selo de idioma (so quando != pt; pt e o default do mercado BR) */}
+        {idiomaCor && (
+          <div style={{ position: 'absolute', top: 8, left: 8, fontSize: 10, fontWeight: 700, letterSpacing: '0.03em', padding: '3px 7px', borderRadius: 6, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', border: `1px solid ${idiomaCor}`, color: idiomaCor }}>
+            {idioma.toUpperCase()}
+          </div>
+        )}
+
         {/* Dot de raridade (escondido em slab graduado pra nao colidir com a barra) */}
         {rColor && !grad && (
-          <div style={{ position: 'absolute', top: 8, left: selected ? 36 : 8, width: 8, height: 8, borderRadius: '50%', background: rColor, boxShadow: `0 0 6px ${rColor}` }} />
+          <div style={{ position: 'absolute', top: 8, left: selected ? 36 : (idiomaCor ? 44 : 8), width: 8, height: 8, borderRadius: '50%', background: rColor, boxShadow: `0 0 6px ${rColor}` }} />
         )}
       </div>
 

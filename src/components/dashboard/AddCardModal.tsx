@@ -25,6 +25,11 @@ const CONDICAO_CORES: Record<string, string> = {
   NM: '#22c55e', LP: '#60a5fa', MP: '#f59e0b', HP: '#ef4444',
 }
 
+const IDIOMAS = ['pt', 'en', 'jp', 'es', 'fr', 'de', 'it', 'cn', 'kr'] as const
+const IDIOMA_LABEL: Record<string, string> = {
+  pt: 'PT', en: 'EN', jp: 'JP', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', cn: 'CN', kr: 'KR',
+}
+
 const typeColors: Record<string, string> = {
   Fire: '#ef4444', Water: '#60a5fa', Grass: '#22c55e',
   Lightning: '#f59e0b', Psychic: '#a855f7', Fighting: '#f97316',
@@ -78,6 +83,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [variantMap, setVariantMap] = useState<Record<string, string>>({})
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({})
   const [condMap, setCondMap] = useState<Record<string, string>>({})
+  const [idiomaMap, setIdiomaMap] = useState<Record<string, string>>({})
   const [splitMap, setSplitMap] = useState<Record<string, Record<string, number>>>({})
   const [splitOn, setSplitOn] = useState<Record<string, boolean>>({})
   const [isPro, setIsPro] = useState(false)
@@ -226,6 +232,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         : number
       const cardName = number ? `${card.name} (${numFmt}${total})` : card.name
       const variante = variantMap[card.id] || 'normal'
+      const idioma = idiomaMap[card.id] || 'pt'
 
       const usandoSplit = isPro && splitOn[card.id]
       let quantity = qtyMap[card.id] || 1
@@ -289,6 +296,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         card_link: null,
         rarity: card.rarity || null,
         variante,
+        idioma,
         quantity,
         condicoes,
         set_name: card.set_name || null,
@@ -708,6 +716,21 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       </div>
                     </>
                   )}
+
+                  <div style={{ marginBottom: 12, display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'stretch', gap: isMobile ? 10 : 6 }}>
+                    <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: isMobile ? 0 : 6, flexShrink: 0, minWidth: isMobile ? 64 : 'auto' }}>Idioma</p>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: isMobile ? 1 : 'none' }}>
+                      {IDIOMAS.map(i => {
+                        const isActive = (idiomaMap[preview.id] || 'pt') === i
+                        return (
+                          <button key={i} onClick={() => setIdiomaMap(prev => ({ ...prev, [preview.id]: i }))}
+                            style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, border: `1px solid ${isActive ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)'}`, background: isActive ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.03)', color: isActive ? '#f59e0b' : TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            {IDIOMA_LABEL[i]}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
 
                   <div style={{ marginBottom: 12, display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'stretch', gap: isMobile ? 10 : 6 }}>
                     <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: isMobile ? 0 : 6, flexShrink: 0, minWidth: isMobile ? 64 : 'auto' }}>Variante</p>
