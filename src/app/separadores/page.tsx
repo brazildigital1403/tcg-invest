@@ -258,7 +258,9 @@ export default function SeparadoresPage() {
         }
       `}</style>
 
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 24px)' }}>
+      {/* Padding lateral zero: o .tcg-content ja da a margem. O print zera este
+          wrapper de qualquer jeito (.tcg-content > div), entao a folha nao muda. */}
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(16px, 4vw, 32px) 0' }}>
 
         {/* Header */}
         <div className="no-print" style={{ marginBottom: 24 }}>

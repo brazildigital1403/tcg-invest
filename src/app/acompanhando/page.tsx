@@ -88,7 +88,9 @@ export default function AcompanhandoPage() {
 
   return (
     <AppLayout>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 18px 60px' }}>
+      {/* Padding lateral zero: o .tcg-content do AppLayout ja da 16px no mobile
+          e 24px no desktop. Somar aqui empilhava e saia do padrao do app. */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 0 60px' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
           <span style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(245,158,11,0.13)', border: '1px solid rgba(245,158,11,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flex: '0 0 auto' }}>

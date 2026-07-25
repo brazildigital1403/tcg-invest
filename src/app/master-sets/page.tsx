@@ -103,7 +103,8 @@ export default function MasterSetsPage() {
 
   return (
     <AppLayout>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px 80px' }}>
+      {/* Padding lateral zero: quem da a margem e o .tcg-content do AppLayout. */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 0 80px' }}>
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', margin: 0 }}>Master Sets</h1>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', margin: '6px 0 0' }}>

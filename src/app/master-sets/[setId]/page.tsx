@@ -205,7 +205,9 @@ export default function MasterSetSheetPage() {
         @page { size: A4 portrait; margin: 0; }
       `}</style>
 
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(16px,4vw,32px) clamp(12px,4vw,24px)' }}>
+      {/* Padding lateral zero: o .tcg-content ja da a margem. O print zera este
+          wrapper de qualquer jeito (.tcg-content > div), entao a folha nao muda. */}
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(16px,4vw,32px) 0' }}>
 
         <div className="no-print">
           <button onClick={() => router.push('/master-sets')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', padding: 0, marginBottom: 14 }}>
