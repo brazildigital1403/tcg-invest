@@ -7,8 +7,19 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: "https://8418847aaa5b98e2627ef8bce0850ea4@o4511486328438784.ingest.us.sentry.io/4511486333091841",
 
-  // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  // Session Replay com mascaramento EXPLICITO.
+  //
+  // Sao os defaults do SDK, mas escritos aqui de proposito: o cadastro da Bynx
+  // coleta CPF, e replay sem mascara gravaria o campo sendo digitado. Deixar
+  // implicito significa que uma atualizacao de default vira vazamento de dado
+  // pessoal sem ninguem perceber.
+  integrations: [
+    Sentry.replayIntegration({
+      maskAllText: true,
+      maskAllInputs: true,
+      blockAllMedia: true,
+    }),
+  ],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
@@ -44,6 +55,28 @@ Sentry.init({
     // Ruidos comuns de extensoes/navegador
     "ResizeObserver loop",
     "Non-Error promise rejection captured",
+
+    // ── Navegador embutido de Instagram/Facebook/TikTok ──────────────────
+    // Esses apps injetam scripts proprios na WebView. Quando a pagina navega,
+    // a ponte nativa some e o script deles estoura. Nao e codigo da Bynx e
+    // nao ha o que consertar — mas em 26/07/2026 estes tres eram as issues
+    // de MAIOR volume do projeto (96 usuarios somados), enterrando erro real.
+    "window.webkit.messageHandlers",
+    "Java object is gone",
+    "Error invoking postMessage",
+    "enableDidUserTypeOnKeyboardLogging",
+
+    // ── Lock do supabase-js ──────────────────────────────────────────────
+    // A entrada antiga so pegava uma das tres redacoes que o SDK emite.
+    "Lock broken by another request",
+    "Lock was stolen by another request",
+
+    // ── Extensoes de cripto injetando provider ───────────────────────────
+    "Failed to connect to MetaMask",
+    "ethereum",
+
+    // React x extensao que mexe no DOM por fora (tradutor, leitor).
+    "Failed to execute 'removeChild' on 'Node'",
   ],
 });
 
