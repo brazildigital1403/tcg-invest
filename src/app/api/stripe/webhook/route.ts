@@ -137,6 +137,12 @@ async function registrarReceitaStripe(
     descricao: string
     dataCompetencia: string
     userId?: string | null
+    /**
+     * Default 'assinatura' pra nao mexer nas 5 chamadas que ja existiam.
+     * Venda do marketplace usa 'comissao': la o que entra pra Bynx e a taxa,
+     * nao o valor do item (o resto vai pra loja via transfer_data).
+     */
+    categoria?: 'assinatura' | 'comissao'
   }
 ): Promise<{ inserted: boolean; reason?: string }> {
   if (!params.paymentIntentId) {
@@ -158,7 +164,7 @@ async function registrarReceitaStripe(
     taxa: 0,
     valor_liquido: valorBruto,
     descricao: params.descricao,
-    categoria: 'assinatura',
+    categoria: params.categoria || 'assinatura',
     data_competencia: params.dataCompetencia,
     data_liquidacao:  params.dataCompetencia,
     pago: false,
@@ -351,6 +357,42 @@ export async function POST(req: NextRequest) {
           if (upPedErr) {
             console.error(`[webhook] venda: falha atualizando pedido ${pedido.numero}:`, upPedErr.message)
             break
+          }
+
+          // ── Receita da Bynx ──────────────────────────────────────────────
+          // Este ramo era o UNICO dos seis do checkout.session.completed que
+          // nao registrava receita — a comissao do marketplace nunca chegava
+          // no /admin/financeiro. Assinatura e produto proprio apareciam;
+          // venda, nao.
+          //
+          // O que entra pra Bynx e a TAXA, nao o valor do item: o resto vai
+          // pra loja via transfer_data.destination.
+          //
+          //   taxaBynx = comissao do vendedor + acrescimo do comprador
+          //            = total_comprador - liquido_loja
+          //
+          // Os dois campos ja estao gravados no pedido, calculados no checkout
+          // por calcularCheckout(). NAO refazemos a conta aqui de proposito —
+          // a economia da comissao e travada, e duplicar a formula em dois
+          // lugares e como as duas versoes divergem.
+          //
+          // O frete entra nos dois campos e some na subtracao, entao nao
+          // contamina a receita.
+          const taxaBynxCents =
+            (pedido.total_comprador_cents || 0) - (pedido.liquido_loja_cents || 0)
+
+          if (taxaBynxCents > 0) {
+            const piVenda = typeof session.payment_intent === 'string' ? session.payment_intent : null
+            await registrarReceitaStripe(supabase, {
+              paymentIntentId: piVenda,
+              valorTotalCentavos: taxaBynxCents,
+              descricao: `Comissao venda #${pedido.numero} — ${pedido.item_nome}`,
+              dataCompetencia: new Date().toISOString().slice(0, 10),
+              userId: pedido.comprador_user_id,
+              categoria: 'comissao',
+            })
+          } else {
+            console.warn(`[webhook] venda: taxa <= 0 no pedido ${pedido.numero} — sem lancamento`)
           }
 
           // ── Baixa do item ────────────────────────────────────────────────

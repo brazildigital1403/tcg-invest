@@ -178,6 +178,47 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: 'O reembolso foi feito na Stripe, mas houve um erro ao atualizar o pedido. Fale com o suporte com o número do pedido.' }, { status: 500 })
     }
 
+    // ── Estorna a receita no financeiro ──────────────────────────────────
+    // Par obrigatorio do registro que o webhook faz na venda. Sem isto, a
+    // comissao continuaria somando no /admin/financeiro depois do dinheiro
+    // ter voltado pro comprador — o painel superestimaria a receita, que e
+    // pior que o problema anterior (subestimar).
+    //
+    // Por que ZERAR e nao inserir estorno negativo: `lancamentos` tem CHECK
+    // de valor_bruto >= 0 e valor_liquido >= 0, e indice unico por
+    // stripe_payment_intent_id. Entao a linha fica (auditoria preservada),
+    // com valor zerado e o motivo em `observacao`.
+    //
+    // Best effort: o dinheiro ja voltou pro comprador, e nada aqui pode
+    // desfazer isso. Mas loga alto, porque divergencia de caixa e coisa que
+    // precisa ser reconciliada na mao.
+    try {
+      const { data: estornados, error: estErr } = await sb
+        .from('lancamentos')
+        .update({
+          valor_bruto: 0,
+          valor_liquido: 0,
+          observacao: `Estornado — pedido #${pedido.numero} cancelado pela loja em ${new Date().toISOString().slice(0, 10)} (refund ${refundId})`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('stripe_payment_intent_id', pedido.stripe_payment_intent_id)
+        .select('id')
+
+      if (estErr) {
+        console.error(
+          '[pedidos PATCH cancelar] CRITICAL: falha ao estornar lancamento |',
+          'pedido', pedido.id, '| PI', pedido.stripe_payment_intent_id, '|', estErr.message
+        )
+      } else if (!estornados || estornados.length === 0) {
+        // Normal em pedido anterior ao registro de receita da venda.
+        console.log(`[pedidos PATCH cancelar] sem lancamento para o PI ${pedido.stripe_payment_intent_id} — nada a estornar`)
+      } else {
+        console.log(`[pedidos PATCH cancelar] lancamento zerado para o pedido ${pedido.numero}`)
+      }
+    } catch (err) {
+      console.error('[pedidos PATCH cancelar] CRITICAL: excecao ao estornar lancamento:', (err as Error)?.message)
+    }
+
     // Restaura o inventario (produto: estoque+1; carta: volta pra disponivel).
     try {
       if (pedido.produto_id) {
