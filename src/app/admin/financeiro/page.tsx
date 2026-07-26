@@ -54,7 +54,12 @@ type Lancamento = {
 }
 
 const CATEGORIAS_DESPESA = ['infra','marketing','dominio','pagamentos','impostos','outros']
-const CATEGORIAS_RECEITA = ['assinatura','outros']
+// 'comissao' = receita das vendas do marketplace (a taxa que fica com a Bynx;
+// o resto vai pra loja via transfer_data). Separada de 'assinatura' de
+// proposito: sao dois motores de receita diferentes e interessa ver qual
+// cresce. Sem esta entrada a linha aparece sem rotulo e sem cor, e some do
+// filtro — foi o que aconteceu quando a categoria nasceu no banco.
+const CATEGORIAS_RECEITA = ['assinatura','comissao','outros']
 
 const CAT_LABELS: Record<string, string> = {
   infra:       'Infraestrutura',
@@ -63,6 +68,7 @@ const CAT_LABELS: Record<string, string> = {
   pagamentos:  'Pagamentos',
   impostos:    'Impostos',
   assinatura:  'Assinatura',
+  comissao:    'Comissão de venda',
   outros:      'Outros',
 }
 
@@ -73,6 +79,9 @@ const CAT_COLORS: Record<string, string> = {
   pagamentos:  '#f59e0b',
   impostos:    '#ef4444',
   assinatura:  '#22c55e',
+  // Familia de receita (verde), mas distinta da assinatura. Nao reusa o ambar
+  // do `pagamentos` — as duas podem cair no mesmo grafico.
+  comissao:    '#a3e635',
   outros:      'rgba(255,255,255,0.4)',
 }
 
