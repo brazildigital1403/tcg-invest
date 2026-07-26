@@ -451,8 +451,14 @@ type MotivoHero = {
 
 /**
  * Trilho: barras de progresso no topo + o slide atual.
- * Avanca sozinho a cada 6s, pausa no hover/foco, e nao avanca sozinho
- * pra quem pediu menos movimento (prefers-reduced-motion).
+ *
+ * NAO pausa no hover nem no toque, de proposito: a barra andando e o unico
+ * sinal de que existe mais de um destaque. Pausar no hover matava esse sinal
+ * exatamente pra quem estava olhando.
+ *
+ * A unica excecao e `prefers-reduced-motion` — ai o avanco automatico nao
+ * acontece e a navegacao fica no clique das barras. Isso e preferencia de
+ * sistema do usuario, nao interacao com a tela.
  */
 function HeroTrilho({ slides, userId, onAction }: {
   slides: Array<{ card: any; motivo: MotivoHero }>
@@ -460,26 +466,21 @@ function HeroTrilho({ slides, userId, onAction }: {
   onAction: () => void
 }) {
   const [i, setI] = useState(0)
-  const [pausado, setPausado] = useState(false)
 
   useEffect(() => { if (i >= slides.length) setI(0) }, [slides.length, i])
 
   useEffect(() => {
-    if (slides.length < 2 || pausado) return
+    if (slides.length < 2) return
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const t = setTimeout(() => setI(n => (n + 1) % slides.length), 6000)
     return () => clearTimeout(t)
-  }, [i, pausado, slides.length])
+  }, [i, slides.length])
 
   const atual = slides[i] || slides[0]
   if (!atual) return null
 
   return (
-    <div
-      onMouseEnter={() => setPausado(true)}
-      onMouseLeave={() => setPausado(false)}
-      style={{ marginBottom: 6 }}
-    >
+    <div style={{ marginBottom: 6 }}>
       <style>{`
         @keyframes bx-hero-bar { from { width: 0 } to { width: 100% } }
         @keyframes bx-hero-in  { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
@@ -503,12 +504,12 @@ function HeroTrilho({ slides, userId, onAction }: {
               }}
             >
               <span
-                className={k === i && !pausado ? 'bx-hero-bar-live' : undefined}
+                className={k === i ? 'bx-hero-bar-live' : undefined}
                 style={{
                   display: 'block', height: '100%', borderRadius: 99,
                   background: k === i ? s.motivo.cor : 'rgba(255,255,255,0.3)',
-                  width: k < i ? '100%' : k === i ? (pausado ? '100%' : 0) : 0,
-                  animation: k === i && !pausado ? 'bx-hero-bar 6s linear forwards' : undefined,
+                  width: k < i ? '100%' : 0,
+                  animation: k === i ? 'bx-hero-bar 6s linear forwards' : undefined,
                 }}
               />
             </button>
