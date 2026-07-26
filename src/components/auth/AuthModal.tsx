@@ -42,6 +42,29 @@ import {
 
 // ─── Validadores ─────────────────────────────────────────────────────────────
 
+/**
+ * Pergunta ao servidor se o CPF ja tem conta.
+ *
+ * Nunca lanca e nunca bloqueia o cadastro por conta propria: em erro de rede,
+ * 429 ou env faltando, devolve `false` e deixa o fluxo seguir. A trava de
+ * verdade e a constraint unica no banco — esta checagem existe so pra dar
+ * mensagem boa antes de criar conta orfa no Auth.
+ */
+async function cpfEmUso(cpf: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/cpf-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cpf }),
+    })
+    if (!res.ok) return false
+    const json = await res.json()
+    return json?.taken === true
+  } catch {
+    return false
+  }
+}
+
 function validarCPF(cpf: string) {
   const digits = cpf.replace(/\D/g, '')
   if (digits.length !== 11) return false
@@ -311,10 +334,14 @@ useEffect(() => {
   }
 
   // Checa CPF duplicado assim que o campo e preenchido (nao so no submit).
+  //
+  // Vai por /api/cpf-check, nao pela RPC direta: a `cpf_em_uso` e SECURITY
+  // DEFINER e o EXECUTE do `anon` foi revogado na auditoria de 26/07/2026 —
+  // aberta, ela era um oraculo de enumeracao de CPF. A rota limita por IP.
   async function checkCpfDisponivel() {
     if (!validarCPF(cpf)) return
     try {
-      const { data: taken } = await supabase.rpc('cpf_em_uso', { p_cpf: cpf })
+      const taken = await cpfEmUso(cpf)
       if (taken) {
         setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))
         setTouched(prev => ({ ...prev, cpf: true }))
@@ -387,7 +414,7 @@ useEffect(() => {
       } else {
         // ── Trava de CPF unico: pre-checa ANTES de criar a conta no Auth ──
         // (evita usuario orfao no Auth caso o insert em users seja barrado).
-        const { data: cpfTaken } = await supabase.rpc('cpf_em_uso', { p_cpf: cpf })
+        const cpfTaken = await cpfEmUso(cpf)
         if (cpfTaken) {
           setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))
           setTouched(prev => ({ ...prev, cpf: true }))
