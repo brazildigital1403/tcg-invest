@@ -324,21 +324,16 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
       <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>{card.card_name}</p>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {grad ? (
+          {/* Condicao simples ficou SO na arte (canto superior esquerdo).
+              Aqui embaixo sobra a graduada, que carrega nota e tier e nao
+              cabe num badge de canto. */}
+          {grad && (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.02em', color: card.black_label ? '#e8c878' : '#fff', background: card.black_label ? '#0a0a0a' : grad.cor, border: card.black_label ? '1px solid #c8a04b' : 'none', padding: '2px 8px', borderRadius: 6, display: 'inline-flex', gap: 5, alignItems: 'center' }}>
                 {grad.curto} {notaCurta(card.nota, card.black_label)}<span style={{ fontWeight: 700, opacity: 0.85, fontSize: 9, textTransform: 'uppercase' }}>{tierNome(card.graduadora, card.nota, card.black_label)}</span>
               </span>
-            ) : (() => {
-              const cond = String(card.condicao || 'NM').toUpperCase()
-              const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
-              return (
-                <span title={CONDICAO_DESC[cond] || cond} style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.02em', color: cor, background: cor + '1f', border: '1px solid ' + cor + '55', padding: '2px 7px', borderRadius: 6 }}>
-                  {cond}
-                </span>
-              )
-            })()}
-          </div>
+            </div>
+          )}
           {card.descricao && (
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 4, lineHeight: 1.4 }}>{card.descricao}</p>
           )}
