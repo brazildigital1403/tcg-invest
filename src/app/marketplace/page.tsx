@@ -572,7 +572,7 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
     }}>
       {/* Arte */}
       <div className="mkt-hero-art" style={{ flex: '0 0 190px', position: 'relative', maxWidth: 190 }}>
-        <span style={{ position: 'absolute', top: 12, left: -2, zIndex: 6, display: 'inline-flex', alignItems: 'center', gap: 6, background: motivo.cor, color: '#0a0a0a', fontSize: 11, fontWeight: 800, letterSpacing: '0.03em', padding: '5px 12px 5px 10px', borderRadius: '0 8px 8px 0' }}>
+        <span className="mkt-hero-fita" style={{ position: 'absolute', top: 12, left: -2, zIndex: 6, display: 'inline-flex', alignItems: 'center', gap: 6, background: motivo.cor, color: '#0a0a0a', fontSize: 11, fontWeight: 800, letterSpacing: '0.03em', padding: '5px 12px 5px 10px', borderRadius: '0 8px 8px 0' }}>
           <IconStar size={13} color="#0a0a0a" /> {motivo.fita}
         </span>
         <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
@@ -650,7 +650,7 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
 
         {/* Os dois botoes dividem UMA linha (flexWrap: nowrap + flex: 1).
             Antes empilhavam no mobile e custavam ~50px de altura. */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'nowrap' }}>
+        <div className="mkt-hero-acoes" style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'nowrap' }}>
           {!isMeu && card.status === 'disponivel' ? (
             <button onClick={interesse} style={{ flex: 1, minWidth: 0, background: BRAND, border: 'none', color: '#0a0a0a', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Tenho interesse</button>
           ) : null}
@@ -1554,6 +1554,26 @@ function MarketplaceInner() {
           .mkt-hero-vendedor { display: none !important; }
           .mkt-hero h2 { font-size: 19px !important; margin-bottom: 8px !important; }
           .mkt-hero-preco { font-size: 24px !important; margin: 8px 0 2px !important; }
+
+          /* Com a arte ao lado, a coluna de texto caiu pra 187px e os dois
+             botoes pediam 221px — "Tenho interesse" saia cortado. Fonte e
+             padding menores cabem; o white-space: normal e a rede de seguranca
+             pra nome/idioma que ainda estoure: quebra em duas linhas em vez de
+             truncar a acao principal. */
+          .mkt-hero-acoes button, .mkt-hero-acoes a {
+            font-size: 12.5px !important;
+            padding: 10px 8px !important;
+            white-space: normal !important;
+            line-height: 1.25 !important;
+          }
+
+          /* A fita media 114px sobre uma arte de 112px — cobria a ilustracao
+             inteira. Menor que a carta, sempre. */
+          .mkt-hero-fita {
+            font-size: 9px !important;
+            padding: 3px 7px 3px 6px !important;
+            gap: 4px !important;
+          }
           .mkt-trio { grid-template-columns: 1fr !important; }
           .mkt-trio > div { transform: none !important; }
         }
