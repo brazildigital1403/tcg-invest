@@ -426,7 +426,7 @@ export default function DashboardFinanceiro() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 200 }} className="dash-hero-btns">
             {userId && (
               <button onClick={() => setOpenAddModal(true)} style={{ background: BRAND, border: 'none', color: '#000', padding: '13px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 24px rgba(245,158,11,0.25)' }}>
-                + Adicionar carta
+                Adicionar carta
               </button>
             )}
           </div>

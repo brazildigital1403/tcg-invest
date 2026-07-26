@@ -684,9 +684,8 @@ export default function MinhaColecao() {
           acao={userId && (
             <button
               onClick={() => setOpenAddModal(true)}
-              style={{ background: 'var(--bx-brand)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
+              style={{ background: 'var(--bx-brand)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
             >
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
               Adicionar carta
             </button>
           )}
@@ -1018,7 +1017,9 @@ export default function MinhaColecao() {
           <div style={{ textAlign: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
             <svg width="48" height="48" viewBox="0 0 20 20" fill="none" style={{ display: 'block', margin: '0 auto 16px' }}><rect x="3" y="5" width="10" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M7 5V4a2 2 0 012-2h6a2 2 0 012 2v9a2 2 0 01-2 2h-1" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
             <p style={{ fontSize: 16 }}>Você ainda não adicionou cartas.</p>
-            <p style={{ fontSize: 13, marginTop: 8 }}>Clique em "+ Buscar carta" para adicionar sua primeira carta</p>
+            {/* Apontava pra "+ Buscar carta", botao que nao existe mais com
+                esse nome. Agora casa com o rotulo real do botao. */}
+            <p style={{ fontSize: 13, marginTop: 8 }}>Toque em "Adicionar carta" para começar sua coleção</p>
           </div>
         )}
 
