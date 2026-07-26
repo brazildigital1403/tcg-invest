@@ -998,6 +998,117 @@ export async function POST(req: NextRequest) {
       // CHARGE.DISPUTE.CREATED — chargeback (cliente disputou no banco)
       // ────────────────────────────────────────────────────────────────────
       // Custo Stripe: USD 15 + multa. Log crítico pra ação imediata.
+      // ─── ESTORNO ────────────────────────────────────────────────────────
+      // Fecha o buraco descoberto na auditoria de 26/07/2026: 5 assinaturas
+      // duplicadas do mesmo usuario foram estornadas PELO PAINEL DA STRIPE e o
+      // banco nunca soube — o /admin/financeiro seguiu somando R$149,50 que ja
+      // tinham voltado pro cartao.
+      //
+      // A rota /api/lojas/[id]/pedidos tambem estorna, mas so cobre o
+      // cancelamento feito pela loja dentro do app. Este handler cobre os DOIS
+      // caminhos, inclusive o reembolso manual no dashboard.
+      //
+      // Proporcional de proposito: charge.refunded tambem dispara em estorno
+      // PARCIAL. Zerar cego inflaria a reversao. O reembolso da Bynx e sempre
+      // integral (V1), entao parcial so vem do dashboard — e ai a proporcao e
+      // a unica leitura honesta.
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge
+        const pi = typeof charge.payment_intent === 'string' ? charge.payment_intent : null
+
+        if (!pi) {
+          console.warn(`[webhook] charge.refunded sem payment_intent (charge ${charge.id}) — nada a fazer`)
+          break
+        }
+
+        const bruto = charge.amount || 0
+        const devolvido = charge.amount_refunded || 0
+        const integral = bruto > 0 && devolvido >= bruto
+        const fracaoQueSobra = bruto > 0 ? Math.max(0, 1 - devolvido / bruto) : 0
+
+        console.log(
+          `[webhook] estorno: PI ${pi} — devolvido ${devolvido}/${bruto} (${integral ? 'integral' : 'parcial'})`
+        )
+
+        // ── 1. Financeiro ────────────────────────────────────────────────
+        try {
+          const { data: lancs } = await supabase
+            .from('lancamentos')
+            .select('id, valor_bruto, descricao')
+            .eq('stripe_payment_intent_id', pi)
+            .limit(1)
+
+          const lanc = lancs?.[0]
+          if (!lanc) {
+            console.log(`[webhook] estorno: sem lancamento para o PI ${pi} — nada a reverter`)
+          } else {
+            const novoValor = Math.round(Number(lanc.valor_bruto) * fracaoQueSobra * 100) / 100
+            const { error: revErr } = await supabase
+              .from('lancamentos')
+              .update({
+                valor_bruto: novoValor,
+                valor_liquido: novoValor,
+                observacao: `Estornado na Stripe em ${new Date().toISOString().slice(0, 10)} — `
+                  + `${integral ? 'integral' : 'parcial'} (${devolvido}/${bruto} centavos), charge ${charge.id}.`,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', lanc.id)
+
+            if (revErr) {
+              console.error(`[webhook] CRITICAL: estorno nao aplicado no lancamento ${lanc.id} (PI ${pi}):`, revErr.message)
+            } else {
+              console.log(`[webhook] estorno: lancamento "${lanc.descricao}" ${lanc.valor_bruto} -> ${novoValor}`)
+            }
+          }
+        } catch (err) {
+          console.error('[webhook] CRITICAL: excecao revertendo lancamento:', (err as Error)?.message)
+        }
+
+        // ── 2. Pedido ────────────────────────────────────────────────────
+        // Estorno feito no dashboard deixava o pedido como 'pago' pra sempre:
+        // o comprador via "pagamento aprovado" com o dinheiro ja de volta.
+        // So mexe em estorno integral — parcial nao cancela a venda.
+        if (integral) {
+          try {
+            const { data: peds } = await supabase
+              .from('pedidos')
+              .select('id, numero, status, marketplace_id, produto_id')
+              .eq('stripe_payment_intent_id', pi)
+              .limit(1)
+
+            const pedido = peds?.[0]
+            if (pedido && pedido.status !== 'reembolsado' && pedido.status !== 'cancelado') {
+              await supabase
+                .from('pedidos')
+                .update({
+                  status: 'reembolsado',
+                  cancelado_em: new Date().toISOString(),
+                  cancelado_por: 'stripe',
+                  cancelamento_motivo: 'Estorno feito diretamente na Stripe',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', pedido.id)
+
+              // Devolve o item pra venda, igual ao cancelamento pela loja.
+              if (pedido.produto_id) {
+                await supabase.rpc('restaurar_estoque_produto', { p_id: pedido.produto_id })
+              } else if (pedido.marketplace_id) {
+                await supabase
+                  .from('marketplace')
+                  .update({ status: 'disponivel', buyer_id: null })
+                  .eq('id', pedido.marketplace_id)
+              }
+
+              console.log(`[webhook] estorno: pedido ${pedido.numero} marcado como reembolsado`)
+            }
+          } catch (err) {
+            console.error('[webhook] CRITICAL: excecao atualizando pedido no estorno:', (err as Error)?.message)
+          }
+        }
+
+        break
+      }
+
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute
         console.error(`[webhook] CRITICAL DISPUTE: charge ${dispute.charge} reason ${dispute.reason} amount ${dispute.amount} status ${dispute.status}`)
