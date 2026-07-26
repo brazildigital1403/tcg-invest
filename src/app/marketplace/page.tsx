@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconPlus } from '@/components/ui/Icons'
+import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
 import { authFetch } from '@/lib/authFetch'
@@ -256,10 +256,34 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
           <IconCard size={40} color="rgba(255,255,255,0.2)" />
         </div>
 
-        {/* Status badge */}
-        <span style={{ position: 'absolute', top: grad ? 30 : 8, left: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: st.bg, color: st.color, backdropFilter: 'blur(4px)' }}>
-          {st.label}
-        </span>
+        {/* Canto superior esquerdo — um so ocupante:
+            - status, quando ele INFORMA algo (reservado, em negociacao, ...);
+            - condicao da carta, quando o anuncio esta simplesmente disponivel.
+            Antes o badge "Disponivel" aparecia em todo card; numa trilha feita
+            so de disponiveis isso e ruido, e ocupava o canto que a condicao
+            usa melhor. */}
+        {(card.status || 'disponivel') !== 'disponivel' ? (
+          <span style={{ position: 'absolute', top: grad ? 30 : 8, left: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: st.bg, color: st.color, backdropFilter: 'blur(4px)' }}>
+            {st.label}
+          </span>
+        ) : !grad ? (() => {
+          const cond = String(card.condicao || 'NM').toUpperCase()
+          const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
+          return (
+            <span
+              title={CONDICAO_DESC[cond] || cond}
+              style={{
+                position: 'absolute', top: grad ? 30 : 8, left: 8, zIndex: 5,
+                fontSize: 10, fontWeight: 800, letterSpacing: '0.02em',
+                padding: '3px 8px', borderRadius: 6,
+                color: cor, background: 'rgba(0,0,0,0.72)',
+                border: '1px solid ' + cor + '66', backdropFilter: 'blur(4px)',
+              }}
+            >
+              {cond}
+            </span>
+          )
+        })() : null}
 
         {/* Variante badge */}
         <span style={{ position: 'absolute', top: grad ? 30 : 8, right: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', color: '#f0f0f0' }}>
@@ -572,6 +596,29 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
               <IconCard size={40} color="rgba(255,255,255,0.2)" />
             </div>
           )}
+
+          {/* Condicao sobre a arte, canto inferior direito. Saiu da coluna de
+              texto pra devolver uma linha de altura — o hero empilha no mobile
+              e cada linha ali custa tela. Carta graduada nao entra: a nota
+              dela ja aparece na tarja do topo. */}
+          {!grad && (() => {
+            const cond = String(card.condicao || 'NM').toUpperCase()
+            const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
+            return (
+              <span
+                title={CONDICAO_DESC[cond] || cond}
+                style={{
+                  position: 'absolute', bottom: 8, right: 8, zIndex: 5,
+                  fontSize: 10, fontWeight: 800, letterSpacing: '0.02em',
+                  padding: '3px 8px', borderRadius: 6,
+                  color: cor, background: 'rgba(0,0,0,0.72)',
+                  border: '1px solid ' + cor + '66', backdropFilter: 'blur(4px)',
+                }}
+              >
+                {cond}
+              </span>
+            )
+          })()}
         </div>
       </div>
 
@@ -581,18 +628,16 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
           <IconStar size={14} color={motivo.cor} /> {motivo.eyebrow}
         </span>
         <h2 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.035em', margin: '0 0 12px', lineHeight: 1.05 }}>{card.card_name}</h2>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {grad ? (
+        {/* So graduada ocupa linha aqui. A condicao simples (NM/LP/...) foi
+            pra cima da arte, no canto inferior direito. */}
+        {grad && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff', background: card.black_label ? '#0a0a0a' : grad.cor, border: card.black_label ? '1px solid #c8a04b' : 'none', padding: '3px 10px', borderRadius: 7 }}>
               <IconShield size={13} color={card.black_label ? '#e8c878' : '#fff'} /> {grad.curto} {notaCurta(card.nota, card.black_label)}
               <span style={{ opacity: 0.85, fontSize: 9, textTransform: 'uppercase' }}>{tierNome(card.graduadora, card.nota, card.black_label)}</span>
             </span>
-          ) : (() => {
-            const cond = String(card.condicao || 'NM').toUpperCase()
-            const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
-            return <span style={{ fontSize: 11, fontWeight: 800, color: cor, background: cor + '1f', border: '1px solid ' + cor + '55', padding: '3px 10px', borderRadius: 7 }}>{cond}</span>
-          })()}
-        </div>
+          </div>
+        )}
         <p style={{ fontSize: 31, fontWeight: 900, letterSpacing: '-0.03em', color: '#f59e0b', margin: '12px 0 2px' }}>{fmt(card.price)}</p>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', fontWeight: 600 }}>{motivo.linha}</p>
 
@@ -608,11 +653,13 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
           </span>
         </a>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+        {/* Os dois botoes dividem UMA linha (flexWrap: nowrap + flex: 1).
+            Antes empilhavam no mobile e custavam ~50px de altura. */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'nowrap' }}>
           {!isMeu && card.status === 'disponivel' ? (
-            <button onClick={interesse} style={{ background: BRAND, border: 'none', color: '#0a0a0a', padding: '11px 20px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>Tenho interesse</button>
+            <button onClick={interesse} style={{ flex: 1, minWidth: 0, background: BRAND, border: 'none', color: '#0a0a0a', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Tenho interesse</button>
           ) : null}
-          <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.14)', color: '#f0f0f0', padding: '11px 18px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none' }}>
+          <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.14)', color: '#f0f0f0', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             Ver vendedor <IconArrowRight size={16} color="#f0f0f0" />
           </a>
         </div>
@@ -670,6 +717,27 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
             <IconCard size={28} color="rgba(255,255,255,0.2)" />
           </div>
         )}
+
+        {/* Condicao sobre a arte, canto superior esquerdo (aqui esta livre —
+            a tarja de graduada e a unica outra coisa no topo). */}
+        {!grad && (() => {
+          const cond = String(card.condicao || 'NM').toUpperCase()
+          const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
+          return (
+            <span
+              title={CONDICAO_DESC[cond] || cond}
+              style={{
+                position: 'absolute', top: 5, left: 5, zIndex: 5,
+                fontSize: 9, fontWeight: 800, letterSpacing: '0.02em',
+                padding: '2px 6px', borderRadius: 5,
+                color: cor, background: 'rgba(0,0,0,0.72)',
+                border: '1px solid ' + cor + '66', backdropFilter: 'blur(4px)',
+              }}
+            >
+              {cond}
+            </span>
+          )
+        })()}
       </div>
 
       {/* Info */}
@@ -681,17 +749,14 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
         )}
         <p style={{ fontSize: 14, fontWeight: 800, color: '#f0f0f0', margin: '0 0 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.card_name}</p>
 
-        <div style={{ marginBottom: 9 }}>
-          {grad ? (
+        {/* Condicao simples subiu pra arte; aqui sobra so a graduada. */}
+        {grad && (
+          <div style={{ marginBottom: 9 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff', background: card.black_label ? '#0a0a0a' : grad.cor, border: card.black_label ? '1px solid #c8a04b' : 'none', padding: '2px 8px', borderRadius: 6 }}>
               <IconShield size={11} color={card.black_label ? '#e8c878' : '#fff'} /> {grad.curto} {notaCurta(card.nota, card.black_label)}
             </span>
-          ) : (() => {
-            const cond = String(card.condicao || 'NM').toUpperCase()
-            const cor = CONDICAO_COR[cond] || 'rgba(255,255,255,0.5)'
-            return <span style={{ fontSize: 10, fontWeight: 800, color: cor, background: cor + '1f', border: '1px solid ' + cor + '55', padding: '2px 7px', borderRadius: 6 }}>{cond}</span>
-          })()}
-        </div>
+          </div>
+        )}
 
         <p style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em', color: '#f59e0b', margin: '0 0 9px' }}>{fmt(card.price)}</p>
 
@@ -1103,9 +1168,9 @@ function MarketplaceInner() {
           acao={
             <button
               onClick={handleAnunciar}
-              style={{ background: BRAND, border: 'none', color: '#000', padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.2)', display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap', flexShrink: 0 }}
+              style={{ background: BRAND, border: 'none', color: '#000', padding: '12px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.2)', display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', flexShrink: 0 }}
             >
-              <IconPlus size={16} color="#000" /> Anunciar carta
+              Anunciar carta
             </button>
           }
           stat={(() => {
