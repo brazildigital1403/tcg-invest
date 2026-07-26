@@ -431,9 +431,99 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
   )
 }
 
-// ─── Hero editorial (1 card · a mais valiosa à venda) ──────────────────────────
+// ─── Hero editorial (trilho de motivos) ───────────────────────────────────────
 
-function HeroEditorial({ card, userId, onAction }: { card: any; userId: string | null; onAction: () => void }) {
+/**
+ * Um motivo e a razao pela qual ESTA carta esta no topo agora. A informacao
+ * nova e o motivo, nao a carta — por isso ele abre o slide.
+ */
+type MotivoHero = {
+  key: string
+  /** Fita sobre a arte. Curto: cabe em ~90px no mobile. */
+  fita: string
+  /** Linha acima do titulo. */
+  eyebrow: string
+  /** Cor semantica do motivo (verde oferta, azul novo, roxo perto, ambar valor). */
+  cor: string
+  /** Frase sob o preco, explicando o motivo. */
+  linha: string
+}
+
+/**
+ * Trilho: barras de progresso no topo + o slide atual.
+ * Avanca sozinho a cada 6s, pausa no hover/foco, e nao avanca sozinho
+ * pra quem pediu menos movimento (prefers-reduced-motion).
+ */
+function HeroTrilho({ slides, userId, onAction }: {
+  slides: Array<{ card: any; motivo: MotivoHero }>
+  userId: string | null
+  onAction: () => void
+}) {
+  const [i, setI] = useState(0)
+  const [pausado, setPausado] = useState(false)
+
+  useEffect(() => { if (i >= slides.length) setI(0) }, [slides.length, i])
+
+  useEffect(() => {
+    if (slides.length < 2 || pausado) return
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const t = setTimeout(() => setI(n => (n + 1) % slides.length), 6000)
+    return () => clearTimeout(t)
+  }, [i, pausado, slides.length])
+
+  const atual = slides[i] || slides[0]
+  if (!atual) return null
+
+  return (
+    <div
+      onMouseEnter={() => setPausado(true)}
+      onMouseLeave={() => setPausado(false)}
+      style={{ marginBottom: 6 }}
+    >
+      <style>{`
+        @keyframes bx-hero-bar { from { width: 0 } to { width: 100% } }
+        @keyframes bx-hero-in  { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+        .bx-hero-slide { animation: bx-hero-in 0.3s ease; }
+        @media (prefers-reduced-motion: reduce) {
+          .bx-hero-bar-live { animation: none !important; width: 100% !important; }
+          .bx-hero-slide { animation: none; }
+        }
+      `}</style>
+
+      {slides.length > 1 && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }} aria-hidden="true">
+          {slides.map((s, k) => (
+            <button
+              key={s.motivo.key}
+              onClick={() => setI(k)}
+              aria-label={`Ver ${s.motivo.eyebrow}`}
+              style={{
+                flex: 1, height: 3, padding: 0, border: 'none', borderRadius: 99,
+                background: 'rgba(255,255,255,0.13)', overflow: 'hidden', cursor: 'pointer',
+              }}
+            >
+              <span
+                className={k === i && !pausado ? 'bx-hero-bar-live' : undefined}
+                style={{
+                  display: 'block', height: '100%', borderRadius: 99,
+                  background: k === i ? s.motivo.cor : 'rgba(255,255,255,0.3)',
+                  width: k < i ? '100%' : k === i ? (pausado ? '100%' : 0) : 0,
+                  animation: k === i && !pausado ? 'bx-hero-bar 6s linear forwards' : undefined,
+                }}
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="bx-hero-slide" key={atual.card.id + atual.motivo.key}>
+        <HeroEditorial card={atual.card} motivo={atual.motivo} userId={userId} onAction={onAction} />
+      </div>
+    </div>
+  )
+}
+
+function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: MotivoHero; userId: string | null; onAction: () => void }) {
   const { showAlert, showConfirm } = useAppModal()
   const router = useRouter()
   const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
@@ -462,8 +552,8 @@ function HeroEditorial({ card, userId, onAction }: { card: any; userId: string |
     }}>
       {/* Arte */}
       <div className="mkt-hero-art" style={{ flex: '0 0 190px', position: 'relative', maxWidth: 190 }}>
-        <span style={{ position: 'absolute', top: 12, left: -2, zIndex: 6, display: 'inline-flex', alignItems: 'center', gap: 6, background: BRAND, color: '#0a0a0a', fontSize: 11, fontWeight: 800, letterSpacing: '0.03em', padding: '5px 12px 5px 10px', borderRadius: '0 8px 8px 0' }}>
-          <IconStar size={13} color="#0a0a0a" /> MAIS VALIOSA
+        <span style={{ position: 'absolute', top: 12, left: -2, zIndex: 6, display: 'inline-flex', alignItems: 'center', gap: 6, background: motivo.cor, color: '#0a0a0a', fontSize: 11, fontWeight: 800, letterSpacing: '0.03em', padding: '5px 12px 5px 10px', borderRadius: '0 8px 8px 0' }}>
+          <IconStar size={13} color="#0a0a0a" /> {motivo.fita}
         </span>
         <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
           {grad && (
@@ -486,8 +576,8 @@ function HeroEditorial({ card, userId, onAction }: { card: any; userId: string |
 
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: '#f59e0b', fontSize: 12, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
-          <IconStar size={14} color="#f59e0b" /> Destaque do marketplace
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: motivo.cor, fontSize: 12, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
+          <IconStar size={14} color={motivo.cor} /> {motivo.eyebrow}
         </span>
         <h2 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.035em', margin: '0 0 12px', lineHeight: 1.05 }}>{card.card_name}</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -503,7 +593,7 @@ function HeroEditorial({ card, userId, onAction }: { card: any; userId: string |
           })()}
         </div>
         <p style={{ fontSize: 31, fontWeight: 900, letterSpacing: '-0.03em', color: '#f59e0b', margin: '12px 0 2px' }}>{fmt(card.price)}</p>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', fontWeight: 600 }}>A carta mais valiosa à venda agora na Bynx.</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', fontWeight: 600 }}>{motivo.linha}</p>
 
         <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, textDecoration: 'none' }}>
           <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>{iniciais(card.seller_name)}</span>
@@ -862,11 +952,83 @@ function MarketplaceInner() {
     [listings, userId]
   )
 
-  // 1) Hero editorial = a mais valiosa à venda.
-  const hero = useMemo(() => {
-    if (disponiveis.length === 0) return null
-    return [...disponiveis].sort((a, b) => (b.price || 0) - (a.price || 0))[0]
-  }, [disponiveis])
+  // 1) Hero editorial = TRILHO DE MOTIVOS, nao mais uma carta so.
+  //
+  // Antes era `sort(price)[0]` — a mais valiosa. Com o inventario girando
+  // devagar, o topo dessa lista nao muda por semanas: o hero repetia a mesma
+  // carta e nao era bug de UI, era uma funcao deterministica.
+  //
+  // Agora cada slide responde um motivo diferente de comprar. O estoque pode
+  // ser o mesmo; "maior desconto agora" e "chegou hoje" trocam de dono sozinhos.
+  //
+  // Duas travas:
+  //   1. um anuncio so aparece em UM motivo (Set `usados`) — senao a mesma
+  //      carta vira "desconto" e "mais valiosa" no mesmo trilho;
+  //   2. motivo sem candidato e PULADO, nao vira slide vazio. Com 6 lojas,
+  //      "perto de voce" vem vazio pra maioria dos usuarios.
+  const heroSlides = useMemo(() => {
+    const usados = new Set<string>()
+    const out: Array<{ card: any; motivo: MotivoHero }> = []
+
+    const pegar = (candidatos: any[], montar: (c: any) => MotivoHero) => {
+      const c = candidatos.find(x => !usados.has(x.id))
+      if (!c) return
+      usados.add(c.id)
+      out.push({ card: c, motivo: montar(c) })
+    }
+
+    // Maior desconto — piso de 10% pra nao chamar de oferta o que nao e.
+    pegar(
+      disponiveis.filter(c => descontoDe(c) >= 0.10).sort((a, b) => descontoDe(b) - descontoDe(a)),
+      c => ({
+        key: 'oferta',
+        fita: `${Math.round(descontoDe(c) * 100)}% OFF`,
+        eyebrow: 'Maior desconto agora',
+        cor: '#22c55e',
+        linha: `${Math.round(descontoDe(c) * 100)}% abaixo do Mercado Brasileiro.`,
+      })
+    )
+
+    // Chegou hoje — o anuncio mais recente das ultimas 24h.
+    pegar(
+      disponiveis.filter(isNovo24).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+      c => ({
+        key: 'novo',
+        fita: 'NOVO',
+        eyebrow: 'Chegou hoje',
+        cor: '#60a5fa',
+        linha: `Anunciada ${tempoRelativo(c.created_at)}.`,
+      })
+    )
+
+    // Perto de voce — mesma cidade do cadastro, a mais cara primeiro.
+    pegar(
+      disponiveis.filter(mesmaCidade).sort((a, b) => (b.price || 0) - (a.price || 0)),
+      c => ({
+        key: 'perto',
+        fita: 'PERTO',
+        eyebrow: 'Perto de você',
+        cor: '#a855f7',
+        linha: `À venda em ${c.seller_city}, na sua cidade.`,
+      })
+    )
+
+    // A mais valiosa — o criterio antigo, agora como UM motivo entre quatro.
+    pegar(
+      [...disponiveis].sort((a, b) => (b.price || 0) - (a.price || 0)),
+      () => ({
+        key: 'valiosa',
+        fita: 'MAIS VALIOSA',
+        eyebrow: 'Destaque do marketplace',
+        cor: '#f59e0b',
+        linha: 'A carta mais valiosa à venda agora na Bynx.',
+      })
+    )
+
+    return out
+  }, [disponiveis, userCity])
+
+  const hero = heroSlides[0]?.card ?? null
 
   // 2) Trio pódio: centro = maior valor · esquerda = maior oferta · direita = mais nova.
   const trio = useMemo(() => {
@@ -883,9 +1045,11 @@ function MarketplaceInner() {
     return [{ c: left, top: false }, { c: center, top: true }, { c: right, top: false }]
   }, [disponiveis, hero])
 
+  // Exclui TODAS as cartas do trilho (nao so a primeira), senao a mesma carta
+  // aparece no hero e de novo nos trilhos abaixo.
   const heroTrioIds = useMemo(
-    () => new Set<string>([hero?.id, ...trio.map(t => t.c.id)].filter(Boolean) as string[]),
-    [hero, trio]
+    () => new Set<string>([...heroSlides.map(s => s.card.id), ...trio.map(t => t.c.id)].filter(Boolean) as string[]),
+    [heroSlides, trio]
   )
 
   // 3) Trilhos (excluem o que já está em hero/trio pra não repetir).
@@ -989,8 +1153,8 @@ function MarketplaceInner() {
         {tab === 'vitrine' && (
           <>
             {/* HERO editorial + TRIO pódio — só no modo editorial (estado limpo) */}
-            {editorialMode && hero && (
-              <HeroEditorial card={hero} userId={userId} onAction={loadData} />
+            {editorialMode && heroSlides.length > 0 && (
+              <HeroTrilho slides={heroSlides} userId={userId} onAction={loadData} />
             )}
 
             {editorialMode && trio.length === 3 && (
