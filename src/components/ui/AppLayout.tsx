@@ -149,7 +149,7 @@ const ITEM_DASHBOARD: MenuItem = { name: 'Dashboard', full: 'Dashboard', href: '
 const ITEM_COLECAO: MenuItem = { name: 'Coleção', full: 'Minha Coleção', href: '/minha-colecao', Icon: IconCollection, group: 'colecao' }
 const ITEM_ACOMPANHANDO: MenuItem = { name: 'Acompanhando', full: 'Acompanhando', href: '/acompanhando', Icon: IconStar, group: 'colecao' }
 const ITEM_POKEDEX: MenuItem = { name: 'Pokédex', full: 'Pokédex', href: '/pokedex', Icon: IconPokedex, group: 'explorar' }
-const ITEM_MARKETPLACE: MenuItem = { name: 'Marketplace', full: 'Marketplace', href: '/marketplace', Icon: IconMarketplace, group: 'explorar' }
+const ITEM_MARKETPLACE: MenuItem = { name: 'Mercado', full: 'Mercado', href: '/marketplace', Icon: IconMarketplace, group: 'explorar' }
 const ITEM_SEPARADORES: MenuItem = { name: 'Separadores', full: 'Separadores', href: '/separadores', Icon: IconSeparador, group: 'imprimir' }
 const ITEM_INDIQUE: MenuItem = { name: 'Indique', full: 'Indique e Ganhe', href: '/indique-e-ganhe', Icon: IconGift, group: 'conta' }
 const ITEM_COMPRAS: MenuItem = { name: 'Compras', full: 'Minhas Compras', href: '/compras', Icon: IconMarketplace, group: 'conta' }
@@ -170,7 +170,11 @@ const GROUP_ORDER: { key: GroupKey; label: string }[] = [
   { key: 'conta', label: 'Conta' },
 ]
 const BOTTOM_TAB_HREFS = ['/dashboard-financeiro', '/minha-colecao', '/marketplace', '/pokedex']
-const TAB_SHORT: Record<string, string> = { '/dashboard-financeiro': 'Início', '/marketplace': 'Mercado' }
+// Rotulo curto da bottom nav. O /marketplace saiu daqui: agora o item ja se
+// chama "Mercado" em todo lugar (sidebar, drawer e bottom nav diziam nomes
+// diferentes pra mesma tela). A ROTA segue /marketplace — trocar quebraria
+// link de email, SEO e o deep-link do chat.
+const TAB_SHORT: Record<string, string> = { '/dashboard-financeiro': 'Início' }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -545,6 +549,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           padding: 24px 16px;
           transform: translateX(-100%);
           transition: transform 0.25s ease;
+          /* Sem isto o menu cortava os ultimos itens em tela baixa: o drawer e
+             fixed com altura travada e o conteudo nao tinha pra onde ir.
+             Com rolagem, nada precisa sair do menu.
+             -webkit-overflow-scrolling: rolagem com inercia no iOS. */
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+        }
+        /* Barra de rolagem discreta: o menu e escuro, a barra padrao do
+           Chrome/Android aparece branca e chapada em cima do fundo. */
+        .tcg-drawer::-webkit-scrollbar { width: 3px; }
+        .tcg-drawer::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.18);
+          border-radius: 99px;
         }
         .tcg-drawer.open { transform: translateX(0); }
 

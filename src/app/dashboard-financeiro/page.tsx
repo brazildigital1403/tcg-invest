@@ -618,7 +618,7 @@ export default function DashboardFinanceiro() {
               {transactions.length === 0 ? (
                 <>
                   <EmptyRow label="Nenhuma transação ainda" />
-                  <EmptyRow label="Venda uma carta no Marketplace" />
+                  <EmptyRow label="Venda uma carta no Mercado" />
                   <EmptyRow label="para ver seu histórico aqui" />
                 </>
               ) : (

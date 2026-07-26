@@ -1098,7 +1098,7 @@ function MarketplaceInner() {
         {/* Header — padrao do app, ver src/components/ui/PageHeader.tsx */}
         <PageHeader
           trilha={[INICIO, { name: 'Mercado', href: '/marketplace' }]}
-          titulo="Marketplace"
+          titulo="Mercado"
           descricao="Cartas à venda de colecionador para colecionador."
           acao={
             <button

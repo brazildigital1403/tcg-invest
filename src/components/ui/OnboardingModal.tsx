@@ -24,9 +24,9 @@ const STEPS = [
   {
     id: 'marketplace',
     icon: '🛒',
-    title: 'Explore o Marketplace',
+    title: 'Explore o Mercado',
     desc: 'Compre e venda cartas diretamente com outros colecionadores brasileiros via WhatsApp.',
-    cta: 'Abrir Marketplace →',
+    cta: 'Abrir o Mercado →',
     href: '/marketplace',
   },
   {
