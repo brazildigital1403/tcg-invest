@@ -633,10 +633,10 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
             </span>
           </div>
         )}
-        <p style={{ fontSize: 31, fontWeight: 900, letterSpacing: '-0.03em', color: '#f59e0b', margin: '12px 0 2px' }}>{fmt(card.price)}</p>
+        <p className="mkt-hero-preco" style={{ fontSize: 31, fontWeight: 900, letterSpacing: '-0.03em', color: '#f59e0b', margin: '12px 0 2px' }}>{fmt(card.price)}</p>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', fontWeight: 600 }}>{motivo.linha}</p>
 
-        <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, textDecoration: 'none' }}>
+        <a className="mkt-hero-vendedor" href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, textDecoration: 'none' }}>
           <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>{iniciais(card.seller_name)}</span>
           <span>
             <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#e8e8e8' }}>{card.seller_name || 'Vendedor'}</span>
@@ -1542,8 +1542,18 @@ function MarketplaceInner() {
           .mkt-filtros-row1 select, .mkt-filtros-row1 > button { width: 100% !important; justify-content: center !important; }
           .mkt-chips { gap: 6px !important; }
           .mkt-chips button { font-size: 12px !important; padding: 7px 11px !important; }
-          .mkt-hero { flex-direction: column !important; align-items: stretch !important; gap: 18px !important; padding: 18px !important; }
-          .mkt-hero-art { flex: none !important; max-width: 150px !important; margin: 0 auto !important; }
+          /* Hero do mobile: arte AO LADO do texto, nao empilhada.
+             Medido em 26/07/2026, em 375px: empilhado dava 514px de altura —
+             63% da tela antes do primeiro anuncio. A arte sozinha custava
+             209px de altura util. Ao lado, ela divide a linha com o texto e
+             a altura do bloco passa a ser o maior dos dois, nao a soma.
+             O bloco do vendedor sai: e redundante com o botao "Ver vendedor"
+             logo abaixo, que leva pro mesmo perfil. */
+          .mkt-hero { flex-direction: row !important; align-items: flex-start !important; gap: 14px !important; padding: 14px !important; }
+          .mkt-hero-art { flex: 0 0 112px !important; max-width: 112px !important; margin: 0 !important; }
+          .mkt-hero-vendedor { display: none !important; }
+          .mkt-hero h2 { font-size: 19px !important; margin-bottom: 8px !important; }
+          .mkt-hero-preco { font-size: 24px !important; margin: 8px 0 2px !important; }
           .mkt-trio { grid-template-columns: 1fr !important; }
           .mkt-trio > div { transform: none !important; }
         }
