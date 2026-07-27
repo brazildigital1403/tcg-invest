@@ -138,7 +138,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true)
       try {
-        const { data, error } = await supabase.rpc('smart_search_cards', {
+        // v2 (27/07/2026): unaccent nos dois lados + fuzzy tambem quando a
+        // busca tem nome E numero. Sem isso, "Fossil 072" com acento, ou
+        // "lilipup 154" com typo, voltavam VAZIO com a carta no catalogo -
+        // e o vazio virava pedido de "carta faltando" no admin.
+        // Custa ~2x no caminho quente (15 -> 29ms morno, teto de 8s), e some
+        // atras do debounce de 350ms aqui em cima. A v1 continua no banco.
+        const { data, error } = await supabase.rpc('smart_search_cards_v2', {
           q: value,
           limit_n: PAGE_SIZE,
           offset_n: 0,
@@ -168,7 +174,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (loadingMore || !hasMore || !searchTerm.trim()) return
     setLoadingMore(true)
     try {
-      const { data, error } = await supabase.rpc('smart_search_cards', {
+      const { data, error } = await supabase.rpc('smart_search_cards_v2', {
         q: searchTerm,
         limit_n: PAGE_SIZE,
         offset_n: offset,
