@@ -9,7 +9,14 @@ function supabaseAdmin() {
   )
 }
 
-const CATEGORIAS_TODAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'assinatura', 'outros']
+// ATENCAO: esta lista NAO e cosmetica. A linha do GET faz
+//   if (categoria && CATEGORIAS_TODAS.includes(categoria)) q = q.eq(...)
+// ou seja, categoria de fora daqui faz o filtro ser DESCARTADO em silencio —
+// a tela devolve tudo e parece que o filtro nao funciona.
+// Foi o que aconteceu com 'comissao': a categoria nasceu no banco em 26/07 e
+// a pagina foi atualizada, mas esta lista ficou pra tras. 'master_set' entrou
+// junto em 27/07. Categoria nova no banco = mexer AQUI e na pagina.
+const CATEGORIAS_TODAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'assinatura', 'comissao', 'master_set', 'outros']
 const CATEGORIAS_DESPESA = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'outros']
 
 // ─── Tipo do sub-item ─────────────────────────────────────────────────

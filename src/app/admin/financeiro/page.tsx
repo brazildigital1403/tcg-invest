@@ -59,7 +59,10 @@ const CATEGORIAS_DESPESA = ['infra','marketing','dominio','pagamentos','impostos
 // proposito: sao dois motores de receita diferentes e interessa ver qual
 // cresce. Sem esta entrada a linha aparece sem rotulo e sem cor, e some do
 // filtro — foi o que aconteceu quando a categoria nasceu no banco.
-const CATEGORIAS_RECEITA = ['assinatura','comissao','outros']
+// 'master_set' = compra AVULSA e vitalicia de um master set (R$ 9,99 por set).
+// Nao e recorrente: misturar com 'assinatura' inflava o MRR — em 27/07/2026
+// eram R$ 19,98 de R$ 55,78 (36%) lidos como receita recorrente.
+const CATEGORIAS_RECEITA = ['assinatura','comissao','master_set','outros']
 
 const CAT_LABELS: Record<string, string> = {
   infra:       'Infraestrutura',
@@ -69,6 +72,7 @@ const CAT_LABELS: Record<string, string> = {
   impostos:    'Impostos',
   assinatura:  'Assinatura',
   comissao:    'Comissão de venda',
+  master_set:  'Master Set',
   outros:      'Outros',
 }
 
@@ -82,6 +86,8 @@ const CAT_COLORS: Record<string, string> = {
   // Familia de receita (verde), mas distinta da assinatura. Nao reusa o ambar
   // do `pagamentos` — as duas podem cair no mesmo grafico.
   comissao:    '#a3e635',
+  // Terceiro tom da familia de receita, ainda distinto do ambar de `pagamentos`.
+  master_set:  '#14b8a6',
   outros:      'rgba(255,255,255,0.4)',
 }
 

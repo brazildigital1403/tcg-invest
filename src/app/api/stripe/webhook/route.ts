@@ -129,6 +129,33 @@ async function extrairPaymentIntentDeSession(
 
 // ─── Helper: registrar receita em lancamentos (idempotente via PI unique) ───
 
+/**
+ * Taxa cobrada pela Stripe nessa cobranca, em centavos, ou null se nao der
+ * pra saber. A fonte e a `balance_transaction` da charge — e a unica que tem
+ * o numero exato (varia por bandeira, meio de pagamento e parcelamento).
+ *
+ * Nunca lanca: o chamador usa isto pra ENRIQUECER o lancamento, e uma falha
+ * aqui nao pode impedir que a venda seja registrada.
+ */
+async function buscarTaxaStripeCentavos(
+  stripe: Stripe,
+  paymentIntentId: string
+): Promise<number | null> {
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ['latest_charge.balance_transaction'],
+    })
+    const charge = pi.latest_charge as Stripe.Charge | null
+    const bt = charge?.balance_transaction as Stripe.BalanceTransaction | null
+    return typeof bt?.fee === 'number' ? bt.fee : null
+  } catch (err: any) {
+    console.warn(
+      `[webhook/financeiro] nao consegui ler a taxa do PI ${paymentIntentId}: ${err.message}`
+    )
+    return null
+  }
+}
+
 async function registrarReceitaStripe(
   supabase: SupabaseClient,
   params: {
@@ -138,11 +165,21 @@ async function registrarReceitaStripe(
     dataCompetencia: string
     userId?: string | null
     /**
-     * Default 'assinatura' pra nao mexer nas 5 chamadas que ja existiam.
+     * Default 'assinatura' pra nao mexer nas chamadas que ja existiam.
      * Venda do marketplace usa 'comissao': la o que entra pra Bynx e a taxa,
      * nao o valor do item (o resto vai pra loja via transfer_data).
+     * Master Set usa 'master_set': e compra AVULSA vitalicia, nao recorrente
+     * — deixar como 'assinatura' inflava o MRR (27/07/2026: R$ 19,98 dos
+     * R$ 55,78 de "assinatura" eram venda avulsa, 36%).
      */
-    categoria?: 'assinatura' | 'comissao'
+    categoria?: 'assinatura' | 'comissao' | 'master_set'
+    /**
+     * Cliente Stripe, pra ler a TAXA REAL da transacao. Sem ele o lancamento
+     * nasce com taxa 0 e liquido = bruto, que e o que acontecia ate hoje nos
+     * 11 lancamentos existentes: o painel mostrava liquido igual ao bruto e
+     * superestimava o que de fato entrou (nesta venda, R$ 0,79 em R$ 9,99).
+     */
+    stripe?: Stripe
   }
 ): Promise<{ inserted: boolean; reason?: string }> {
   if (!params.paymentIntentId) {
@@ -158,11 +195,41 @@ async function registrarReceitaStripe(
 
   const valorBruto = Math.round(params.valorTotalCentavos) / 100
 
+  // ─── Taxa REAL da Stripe (27/07/2026) ───────────────────────────────────
+  // Antes era `taxa: 0` cravado, entao valor_liquido sempre igual ao bruto e
+  // o painel superestimava a entrada. A taxa vem da balance_transaction da
+  // cobranca — a unica fonte que sabe o valor exato (varia por meio de
+  // pagamento, parcelamento e bandeira; nao da pra calcular por formula).
+  //
+  // Se a leitura falhar, cai no comportamento antigo (taxa 0) em vez de
+  // derrubar o lancamento: dinheiro registrado com taxa faltando e ruim, mas
+  // venda sem registro nenhum e pior.
+  let taxa = 0
+  if (params.stripe) {
+    const taxaCentavos = await buscarTaxaStripeCentavos(params.stripe, params.paymentIntentId)
+    if (taxaCentavos != null) taxa = Math.round(taxaCentavos) / 100
+  }
+
+  // Em destination charge (comissao), o valorBruto e a application_fee e a
+  // taxa da Stripe sai do bolso da plataforma — entao liquido = fee - taxa,
+  // que pode dar NEGATIVO numa venda pequena. O CHECK do banco exige
+  // valor_liquido >= 0, e um insert rejeitado viraria venda sem lancamento.
+  // Trava no zero e registra, porque prejuizo silencioso e pior que zero.
+  let valorLiquido = valorBruto - taxa
+  if (valorLiquido < 0) {
+    console.warn(
+      `[webhook/financeiro] taxa (R$ ${taxa.toFixed(2)}) maior que o bruto ` +
+      `(R$ ${valorBruto.toFixed(2)}) no PI ${params.paymentIntentId} — liquido travado em 0. ` +
+      `Vale conferir se essa venda realmente da prejuizo.`
+    )
+    valorLiquido = 0
+  }
+
   const insert = {
     tipo: 'receita',
     valor_bruto: valorBruto,
-    taxa: 0,
-    valor_liquido: valorBruto,
+    taxa,
+    valor_liquido: valorLiquido,
     descricao: params.descricao,
     categoria: params.categoria || 'assinatura',
     data_competencia: params.dataCompetencia,
@@ -384,6 +451,7 @@ export async function POST(req: NextRequest) {
           if (taxaBynxCents > 0) {
             const piVenda = typeof session.payment_intent === 'string' ? session.payment_intent : null
             await registrarReceitaStripe(supabase, {
+              stripe,
               paymentIntentId: piVenda,
               valorTotalCentavos: taxaBynxCents,
               descricao: `Comissao venda #${pedido.numero} — ${pedido.item_nome}`,
@@ -554,6 +622,7 @@ export async function POST(req: NextRequest) {
             try {
               const piId = await extrairPaymentIntentDeSession(stripe, session)
               await registrarReceitaStripe(supabase, {
+              stripe,
                 paymentIntentId:    piId,
                 valorTotalCentavos: session.amount_total || 0,
                 descricao:          DESCRICAO_PLANO[planoMeta] || `Pacote de Scan — ${planoMeta}`,
@@ -587,6 +656,7 @@ export async function POST(req: NextRequest) {
           try {
             const piId = await extrairPaymentIntentDeSession(stripe, session)
             await registrarReceitaStripe(supabase, {
+              stripe,
               paymentIntentId:    piId,
               valorTotalCentavos: session.amount_total || 0,
               descricao:          DESCRICAO_PLANO['separadores'],
@@ -626,9 +696,11 @@ export async function POST(req: NextRequest) {
             const { data: msRow } = await supabase.from('master_sets').select('nome').eq('set_id', setId).limit(1)
             const nomeSet = msRow?.[0]?.nome || setId
             await registrarReceitaStripe(supabase, {
+              stripe,
               paymentIntentId:    piId,
               valorTotalCentavos: session.amount_total || 0,
               descricao:          `Master Set — ${nomeSet}`,
+              categoria:          'master_set',
               dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
               userId,
             })
@@ -719,6 +791,7 @@ export async function POST(req: NextRequest) {
             // Lançamento financeiro (durante trial, valor é 0 — helper pula)
             const piId = await extrairPaymentIntentDeSession(stripe, session)
             await registrarReceitaStripe(supabase, {
+              stripe,
               paymentIntentId:    piId,
               valorTotalCentavos: session.amount_total || 0,
               descricao:          DESCRICAO_PLANO[planoMeta] || `Lojista — ${planoMeta}`,
@@ -792,6 +865,7 @@ export async function POST(req: NextRequest) {
 
           const piId = await extrairPaymentIntentDeSession(stripe, session)
           await registrarReceitaStripe(supabase, {
+              stripe,
             paymentIntentId:    piId,
             valorTotalCentavos: session.amount_total || 0,
             descricao:          DESCRICAO_PLANO[isPlus ? 'plus' : (plano === 'anual' ? 'pro_anual' : 'pro_mensal')],
@@ -848,6 +922,7 @@ export async function POST(req: NextRequest) {
               : `lojista_${lojistaTier}_mensal`
 
             await registrarReceitaStripe(supabase, {
+              stripe,
               paymentIntentId:    piId,
               valorTotalCentavos: invoice.amount_paid || invoice.amount_due || 0,
               descricao:          `${DESCRICAO_PLANO[planoTag] || planoTag} (renovação)`,
@@ -880,6 +955,7 @@ export async function POST(req: NextRequest) {
           const piId = await extrairPaymentIntentDeInvoice(stripe, invoice)
 
           await registrarReceitaStripe(supabase, {
+              stripe,
             paymentIntentId:    piId,
             valorTotalCentavos: invoice.amount_paid || invoice.amount_due || 0,
             descricao:          `${DESCRICAO_PLANO[planoTag]} (renovação)`,
