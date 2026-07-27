@@ -138,6 +138,17 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true)
       try {
+        // v4 (27/07/2026): v3 + nome do SET em portugues + fuzzy no primeiro
+        // token do caminho multi-token. Os dois vieram de pedidos reais
+        // parados na fila do admin: "clyrex cavaleiro glacial vmax" nao achava
+        // nada com a carta no banco E com o nome PT gravado, porque varios
+        // termos juntos usavam ILIKE puro e o typo matava tudo.
+        // O fuzzy usa word_similarity (casa palavra DENTRO da frase), nao
+        // similarity: contra "Ice Rider Calyrex VMAX" a similaridade da string
+        // inteira da 0,20 e reprova; a da palavra da 0,57.
+        // Medido v3 x v4: clyrex 0->3, beldun do steve 0->7, Gounging fire
+        // 0->19, zero regressao, pior caso 15ms.
+        //
         // v3 (27/07/2026): v2 + o nome em PORTUGUES das cartas
         // (pokemon_cards.name_pt, 3.028 cartas vindas da TCGdex).
         // A v2 ja resolvia acento e typo; o que faltava era o proprio nome:
@@ -147,7 +158,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         // 72ms no pior multi-token, contra um teto de 8.000ms. Em troca,
         // maçarico 0->2, martelo esmagador 2->11, bola rapida 7->10.
         // v1 e v2 continuam no banco — reverter e trocar este nome.
-        const { data, error } = await supabase.rpc('smart_search_cards_v3', {
+        const { data, error } = await supabase.rpc('smart_search_cards_v4', {
           q: value,
           limit_n: PAGE_SIZE,
           offset_n: 0,
@@ -177,7 +188,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (loadingMore || !hasMore || !searchTerm.trim()) return
     setLoadingMore(true)
     try {
-      const { data, error } = await supabase.rpc('smart_search_cards_v3', {
+      const { data, error } = await supabase.rpc('smart_search_cards_v4', {
         q: searchTerm,
         limit_n: PAGE_SIZE,
         offset_n: offset,
