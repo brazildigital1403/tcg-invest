@@ -9,6 +9,9 @@ interface Props {
   termo: string
   resultados: any[]
   isSearching: boolean
+  /** A busca ERROU (rede/RPC), em vez de ter voltado vazia. Vazio por falha
+   *  nao e carta faltando — sem esse sinal, todo tropeco virava pedido. */
+  buscaFalhou?: boolean
   cartaSelecionada: any | null
 }
 
@@ -30,7 +33,7 @@ function numFromName(name?: string): string {
   return m ? `${m[1]}/${m[2]}` : ''
 }
 
-export default function CardRequestBox({ userId, termo, resultados, isSearching, cartaSelecionada }: Props) {
+export default function CardRequestBox({ userId, termo, resultados, isSearching, buscaFalhou = false, cartaSelecionada }: Props) {
   const { showAlert } = useAppModal()
   const [tipo, setTipo] = useState<'faltando' | 'erro'>('faltando')
   const [nome, setNome] = useState('')
@@ -59,6 +62,7 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
   // exato e voltou vazia (nao durante o debounce).
   const semResultado =
     !isSearching &&
+    !buscaFalhou &&
     termoTrim.length >= 3 &&
     resultados.length === 0 &&
     lastSearchedRef.current === termoTrim

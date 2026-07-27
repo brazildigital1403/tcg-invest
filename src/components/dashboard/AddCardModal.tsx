@@ -76,6 +76,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [selectedCards, setSelectedCards] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  // Busca que FALHOU (rede caiu, RPC deu erro) e coisa diferente de busca que
+  // voltou vazia. Sem separar as duas, todo tropeco de conexao virava um
+  // pedido de "carta faltando" no admin — ver a nota no catch de handleSearch.
+  const [buscaFalhou, setBuscaFalhou] = useState(false)
   const [preview, setPreview] = useState<any | null>(null)
   const [exchangeRate, setExchangeRate] = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
   const [typeFilter, setTypeFilter] = useState('')
@@ -142,10 +146,20 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         if (error) throw error
         const rows = data || []
         setSearchResults(rows)
+        setBuscaFalhou(false)
         setOffset(rows.length)
         setHasMore(rows.length === PAGE_SIZE)
         if (resultsRef.current) resultsRef.current.scrollTop = 0
-      } catch { setSearchResults([]); setOffset(0); setHasMore(false) }
+      } catch {
+        // Falha NAO e "nao existe". Enquanto esse catch zerava a lista sem
+        // marcar nada, o CardRequestBox lia zero resultados e registrava um
+        // pedido de carta faltando — e o admin acumulava "Charizard",
+        // "Meowth", "Koraidon" como se nao estivessem no catalogo. Estavam:
+        // 30 dos 95 termos pendentes tinham carta. Publico majoritariamente
+        // mobile + rede instavel = pedido fantasma.
+        setSearchResults([]); setOffset(0); setHasMore(false)
+        setBuscaFalhou(true)
+      }
       setIsSearching(false)
     }, 350)
   }
@@ -535,11 +549,17 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             )}
 
             {/* BOX DE REPORTE — sempre visivel no fim da coluna de resultados */}
+            {/* `searchResults`, NAO `filtered`: a pergunta aqui e "essa carta
+                existe no catalogo?", e filtro de tipo/raridade do usuario nao
+                muda a resposta. Passando `filtered`, quem buscasse Charizard,
+                achasse 30 e filtrasse por um tipo sem match gerava pedido de
+                carta faltando. */}
             <CardRequestBox
               userId={userId}
               termo={searchTerm}
-              resultados={filtered}
+              resultados={searchResults}
               isSearching={isSearching}
+              buscaFalhou={buscaFalhou}
               cartaSelecionada={preview}
             />
           </div>
