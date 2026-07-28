@@ -135,6 +135,40 @@ function LojasView() {
 
   // ─── Ações ────────────────────────────────────────────────────────────
 
+  // Pedido de documentos do Selo de Loja Validada, sob demanda.
+  //
+  // O disparo automatico so pega loja NOVA (roda na primeira aprovacao). Toda
+  // loja aprovada antes disso existir nunca receberia o pedido — e varias
+  // estao ativas ha semanas sem selo. Sem este botao a unica saida seria
+  // reprovar e aprovar de novo, o que mandaria e-mail errado pro lojista.
+  async function pedirVerificacao(loja: Loja) {
+    const jaVerificada = loja.verificada
+      ? ' Esta loja JÁ está verificada — o pedido serve para revalidar.'
+      : ''
+    const ok = await showConfirm({
+      message: `Enviar o pedido de documentos para "${loja.nome}"?${jaVerificada}\n\nO dono recebe um e-mail e envia os arquivos dentro do suporte.`,
+      confirmLabel: 'Enviar pedido',
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/lojas/${loja.id}/verificacao`, { method: 'POST' })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) return showAlert(d.error || 'Erro ao enviar', 'error')
+      // Distingue "mandei" de "criei mas o e-mail nao saiu" — dizer sucesso
+      // nos dois casos esconderia o caso que precisa de acao.
+      showAlert(
+        d.emailEnviado
+          ? `Pedido enviado para ${d.para}.${d.reaproveitou ? ' (conversa que já existia)' : ''}`
+          : `Conversa criada, mas o E-MAIL NÃO SAIU para ${d.para}. Confira o log.`,
+        d.emailEnviado ? 'success' : 'warning'
+      )
+      load()
+    } catch (e: any) {
+      showAlert(e?.message || 'Erro de rede', 'error')
+    } finally { setBusy(false) }
+  }
+
   async function aprovar(loja: Loja) {
     const ok = await showConfirm({
       message: `Aprovar a loja "${loja.nome}"? Ela vai aparecer no guia público.${loja.aprovada_data ? '' : ' O owner receberá um email de boas-vindas.'}`,
@@ -474,6 +508,11 @@ function LojasView() {
                     {l.owner_email && (
                       <BtnAction onClick={() => setConversaLoja(l)} busy={busy} color="#a855f7">
                         Falar com dono
+                      </BtnAction>
+                    )}
+                    {l.owner_email && (
+                      <BtnAction onClick={() => pedirVerificacao(l)} busy={busy} color="#60a5fa">
+                        Pedir documentos
                       </BtnAction>
                     )}
 

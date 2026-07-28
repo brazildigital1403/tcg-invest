@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendEmailLojaAprovada, sendEmailLojaVerificacao } from '@/lib/email'
+import { sendEmailLojaAprovada } from '@/lib/email'
+import { abrirVerificacaoDeLoja } from '@/lib/verificacaoLoja'
 import { requireAdmin } from '@/lib/admin-auth'
 
 function supabaseAdmin() {
@@ -92,61 +93,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // ─── Verificação: abre a conversa que pede os documentos ────────────
       //
       // Aprovar poe a loja no ar. O SELO de Loja Validada e outra coisa, e
-      // depende de conferir CNPJ e documento do responsavel. Ate agora nao
-      // havia canal nenhum pra pedir isso.
+      // depende de conferir CNPJ e documento do responsavel.
       //
-      // Vira um TICKET, nao um e-mail solto: o remetente e noreply@, entao
-      // "responda com os arquivos" nao entregaria nada. No ticket ha upload
-      // em bucket privado, e a conversa fica registrada na conta da pessoa.
+      // A logica vive em lib/verificacaoLoja porque ha DOIS gatilhos — este,
+      // automatico, e o botao manual do admin. Duplicar aqui faria os dois
+      // divergirem no primeiro ajuste de texto.
       //
-      // Nao repete se a loja JA e verificada nem se ja existe a conversa.
-      if (!loja.verificada && !loja.verificacao_ticket_id) {
+      // Nao repete se a loja JA e verificada.
+      if (!loja.verificada) {
         try {
-          const { data: owner } = await sb
-            .from('users').select('email, name').eq('id', loja.owner_user_id).limit(1)
-          const dono = owner?.[0]
-
-          if (dono?.email) {
-            const { data: criados, error: tErr } = await sb
-              .from('tickets')
-              .insert({ user_id: loja.owner_user_id, subject: `Verificação da ${loja.nome}` })
-              .select('id')
-              .limit(1)
-
-            if (tErr || !criados?.[0]) throw new Error(tErr?.message || 'falha ao criar ticket')
-            const ticketId = criados[0].id
-
-            await sb.from('ticket_messages').insert({
-              ticket_id: ticketId,
-              sender_type: 'admin',
-              sender_id: null,
-              content:
-                `Olá! Aqui é o Eduardo, fundador da Bynx.\n\n` +
-                `Para liberar o Selo de Loja Validada da ${loja.nome}, preciso confirmar alguns itens. ` +
-                `É só anexar aqui nesta conversa:\n\n` +
-                `• Cartão CNPJ da loja, com situação cadastral ativa (ou CCMEI, no caso de MEI)\n` +
-                `• Documento do responsável pela conta (RG ou CNH)\n` +
-                `• Um canal ativo de vendas (site, Instagram ou perfil em marketplace)\n` +
-                `• Uma ou duas fotos da loja física ou do estoque\n\n` +
-                `Uso essas informações apenas para a validação e não compartilho com terceiros. ` +
-                `Assim que eu conferir, o selo é ativado no mesmo dia e os arquivos são apagados.\n\n` +
-                `Um detalhe importante: dados bancários e fiscais para receber pagamentos não entram aqui — ` +
-                `isso é feito de forma segura na hora de ativar o recebimento pela plataforma.`,
-            })
-
-            await sb.from('lojas').update({ verificacao_ticket_id: ticketId }).eq('id', id)
-
-            await sendEmailLojaVerificacao({
-              to: dono.email,
-              nomeUser: dono.name || '',
-              nomeLoja: loja.nome,
-              ticketId,
-            })
-          }
+          const r = await abrirVerificacaoDeLoja(sb, loja)
+          if (!r.ok) console.error('[admin/lojas/approve] verificacao:', r.erro)
         } catch (e: any) {
-          // Nao derruba a aprovacao: a loja ja esta no ar, e a verificacao
-          // pode ser pedida depois pelo botao "Falar com dono".
-          console.error('[admin/lojas/[id]/approve] verificacao falhou:', e?.message)
+          // Nao derruba a aprovacao: a loja ja esta no ar, e da pra pedir
+          // depois pelo botao de verificacao.
+          console.error('[admin/lojas/approve] verificacao falhou:', e?.message)
         }
       }
     }
