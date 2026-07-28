@@ -118,6 +118,15 @@ const nextConfig: NextConfig = {
     // O default de 60s faz a Vercel re-otimizar a mesma imagem sem parar, o que
     // e lento pro usuario e cobrado. 1 ano.
     minimumCacheTTL: 31536000,
+    // O default do Next sao 16 larguras (8 deviceSizes + 8 imageSizes), e ele
+    // escreve uma URL por largura no srcset. Numa grade de 766 cartas isso
+    // inchou o HTML de /set/mc em ~60 KB comprimido (medido 28/07/2026).
+    //
+    // Carta e imagem pequena — o arquivo original tem no maximo 734px de
+    // largura, entao metade das larguras do default nunca seria usada. Estas
+    // 8 cobrem de miniatura de grade ate a hero em retina.
+    deviceSizes: [640, 828, 1080, 1920],
+    imageSizes: [64, 128, 256, 384],
   },
 
   async headers() {
