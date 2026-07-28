@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, Suspense, useRef } from 'react'
+import NovaConversaModal from '@/components/admin/NovaConversaModal'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAppModal } from '@/components/ui/useAppModal'
@@ -85,6 +86,7 @@ function LojasView() {
   const [motivo, setMotivo] = useState('')
 
   // Modal de detalhes
+  const [conversaLoja, setConversaLoja] = useState<Loja | null>(null)
   const [detailsLoja, setDetailsLoja] = useState<Loja | null>(null)
 
   // Modal de mudança de plano
@@ -467,6 +469,14 @@ function LojasView() {
                       </BtnAction>
                     )}
 
+                    {/* Falar com o dono — pedir documento/informacao antes de aprovar.
+                        Abre um ticket, entao a resposta dele volta pro painel. */}
+                    {l.owner_email && (
+                      <BtnAction onClick={() => setConversaLoja(l)} busy={busy} color="#a855f7">
+                        Falar com dono
+                      </BtnAction>
+                    )}
+
                     {/* Dropdown Plano (sempre disponível) */}
                     <div style={{ position: 'relative' }} ref={planoDropdownLojaId === l.id ? dropdownRef : undefined}>
                       <BtnAction
@@ -741,6 +751,16 @@ function LojasView() {
       )}
 
       {/* ── Modal: detalhes ── */}
+      {/* Conversa com o dono da loja. Prefixa o assunto com o nome da loja pra
+          a pessoa saber do que se trata antes de abrir. */}
+      <NovaConversaModal
+        aberto={!!conversaLoja}
+        onFechar={() => setConversaLoja(null)}
+        emailFixo={conversaLoja?.owner_email || undefined}
+        nomeFixo={conversaLoja?.owner_name ? `${conversaLoja.owner_name} · ${conversaLoja.nome}` : conversaLoja?.nome}
+        assuntoInicial={conversaLoja ? `Sobre a loja ${conversaLoja.nome}` : ''}
+      />
+
       {detailsLoja && (
         <div style={overlayStyle} onClick={() => setDetailsLoja(null)}>
           <div style={{ ...modalStyle, maxWidth: 640, maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>

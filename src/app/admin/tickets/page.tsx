@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
+import NovaConversaModal from '@/components/admin/NovaConversaModal'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
@@ -48,6 +49,7 @@ function TicketsView() {
   const [q, setQ]             = useState('')
   const [rows, setRows]       = useState<Ticket[] | null>(null)
   const [loading, setLoading] = useState(true)
+  const [novaAberta, setNovaAberta] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -65,14 +67,32 @@ function TicketsView() {
   return (
     <div style={{ padding: '32px 24px', maxWidth: 1100, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px', color: '#f0f0f0' }}>
-          Tickets
-        </h1>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-          Últimos 200 tickets, ordenados pela atividade mais recente.
-        </p>
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px', color: '#f0f0f0' }}>
+            Tickets
+          </h1>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+            Últimos 200 tickets, ordenados pela atividade mais recente.
+          </p>
+        </div>
+        <button
+          onClick={() => setNovaAberta(true)}
+          style={{
+            padding: '10px 18px', borderRadius: 9, fontSize: 13, fontWeight: 800,
+            background: 'linear-gradient(135deg,#f59e0b,#ef4444)', border: 'none',
+            color: '#000', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+          }}
+        >
+          Falar com usuário
+        </button>
       </div>
+
+      <NovaConversaModal
+        aberto={novaAberta}
+        onFechar={() => setNovaAberta(false)}
+        onCriado={() => load()}
+      />
 
       {/* ── Filtros ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>

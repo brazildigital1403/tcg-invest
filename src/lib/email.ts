@@ -408,6 +408,40 @@ export async function sendAdminReplyUserEmail(args: {
   return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
 }
 
+// ── 7-bis. SUPORTE — conversa ABERTA pela equipe (para o usuário) ────────────
+//
+// Diferente do sendAdminReplyUserEmail: la a equipe RESPONDE algo que o
+// usuario abriu. Aqui a equipe COMECA a conversa — caso tipico e pedir
+// documento ou informacao pra validar uma loja. O texto precisa dizer por que
+// a Bynx esta falando com a pessoa do nada, senao parece phishing.
+//
+// Usa subjInterno como o resto do fluxo de ticket, de proposito: assunto
+// diferente parte a thread na caixa de quem responde.
+
+export async function sendAdminNovaConversaEmail(args: {
+  to: string
+  userName?: string
+  ticketId: string
+  subject: string
+  message: string
+}) {
+  const firstName = args.userName?.split(' ')[0] || 'Colecionador'
+  const html = baseLayout(`
+    ${badge('Mensagem da Equipe', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('A equipe da Bynx te enviou uma mensagem')}
+    ${p(`${escapeHtml(firstName)}, abrimos uma conversa com você sobre "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>":`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
+      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+    </table>
+    ${btn('Responder →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-admin-nova', 'cta-button'))}
+    ${divider()}
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Você está recebendo isso porque tem conta na Bynx e nossa equipe precisou falar com você. Responda pelo botão acima — a conversa fica registrada na sua conta. 📬</p>
+  `, `A equipe da Bynx te enviou uma mensagem sobre ${args.subject}`)
+
+  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
+}
+
 // ── 8. SUPORTE — mudança de status (para o usuário) ──────────────────────────
 
 const STATUS_LABEL: Record<string, { label: string; color: string; emoji: string }> = {
