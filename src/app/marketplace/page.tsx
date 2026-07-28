@@ -585,7 +585,7 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
           {card.fotos && card.fotos.length ? (
             <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
           ) : card.card_image ? (
-            <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+            <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
           ) : (
             <div style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
               <IconCard size={40} color="rgba(255,255,255,0.2)" />
@@ -706,7 +706,7 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
         {card.fotos && card.fotos.length ? (
           <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
         ) : card.card_image ? (
-          <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+          <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
         ) : (
           <div style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             <IconCard size={28} color="rgba(255,255,255,0.2)" />

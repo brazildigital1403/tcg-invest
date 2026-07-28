@@ -63,6 +63,25 @@ export function initPostHog() {
     capture_pageview: false,
     capture_pageleave: true,
 
+    // ─── Web Vitals (LCP, CLS, FCP, INP) ────────────────────────────────
+    //
+    // Ate 27/07/2026 nao havia NENHUMA coleta: dava pra medir a home na mao,
+    // mas nao dava pra saber como esta na mao do usuario — que e quem importa,
+    // ainda mais com publico majoritariamente mobile em 4G.
+    //
+    // Usa o PostHog que ja esta pago e instalado, em vez de somar
+    // @vercel/speed-insights: uma dependencia a menos, custo zero a mais, e
+    // herda de graca o gate de consentimento LGPD logo abaixo — quem nao
+    // aceitou cookie nao e medido, que e o comportamento correto.
+    //
+    // `network_timing` fica DESLIGADO de proposito: ele grava o waterfall
+    // inteiro de cada request, o que engorda o payload sem responder a
+    // pergunta que interessa aqui (o site esta rapido pro usuario?).
+    capture_performance: {
+      web_vitals: true,
+      network_timing: false,
+    },
+
     // LGPD: não captura por padrão até user dar consent via CookieBanner.
     opt_out_capturing_by_default: true,
 

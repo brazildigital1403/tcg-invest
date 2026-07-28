@@ -88,7 +88,7 @@ export default function PastaPublica() {
         {/* Capa */}
         {pasta.imagem_url && (
           <div style={{ width: '100%', height: 180, borderRadius: 18, overflow: 'hidden', marginBottom: 18, border: '1px solid rgba(255,255,255,0.08)' }}>
-            <img src={pasta.imagem_url} alt={pasta.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img loading="lazy" decoding="async" src={pasta.imagem_url} alt={pasta.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         )}
 
@@ -130,7 +130,7 @@ export default function PastaPublica() {
             {cards.map((c) => (
               <div key={c.user_card_id} style={{ ...SURFACE, overflow: 'hidden' }}>
                 <div style={{ aspectRatio: '63/88', background: '#0d0f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {c.card_image ? <img src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 28 }}>🃏</span>}
+                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 28 }}>🃏</span>}
                 </div>
                 <div style={{ padding: 10 }}>
                   <p style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.card_name.replace(/\s*\([^)]*\)/, '')}</p>
@@ -234,7 +234,7 @@ function ReadOnlyBinder({ cards }: { cards: Card[] }) {
                   return (
                     <div key={globalIndex} title={card?.card_name} style={{ position: 'relative', aspectRatio: '63/88', borderRadius: 8, background: card ? '#0d0f14' : 'rgba(255,255,255,0.015)', border: card ? '1px solid rgba(255,255,255,0.1)' : '1.5px dashed rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                       {card && (card.card_image
-                        ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 24 }}>🃏</div>)}
                       {card && card.quantity > 1 && (
                         <span style={{ position: 'absolute', bottom: 5, left: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(0,0,0,0.7)', color: '#fff' }}>x{card.quantity}</span>

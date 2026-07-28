@@ -346,7 +346,7 @@ export default function PastaDetalhe() {
         {/* Capa */}
         {meta?.imagem_url && (
           <div style={{ width: '100%', height: 170, borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid rgba(255,255,255,0.08)' }}>
-            <img src={meta.imagem_url} alt={meta.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img loading="lazy" decoding="async" src={meta.imagem_url} alt={meta.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         )}
 
@@ -439,7 +439,7 @@ export default function PastaDetalhe() {
                 </button>
                 <div style={{ aspectRatio: '63/88', background: '#0d0f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {c.card_image
-                    ? <img src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     : <span style={{ fontSize: 30 }}>🃏</span>}
                 </div>
                 <div style={{ padding: 10 }}>
@@ -462,7 +462,7 @@ export default function PastaDetalhe() {
             {filtered.map((c) => (
               <div key={c.user_card_id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '8px 12px' }}>
                 <div style={{ width: 34, height: 47, flexShrink: 0, background: '#0d0f14', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {c.card_image ? <img src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span>🃏</span>}
+                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span>🃏</span>}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.card_name.replace(/\s*\([^)]*\)/, '')}</p>
@@ -685,7 +685,7 @@ function Binder({
                           style={{ width: '100%', height: '100%', cursor: 'grab', touchAction: 'none' }}
                         >
                           {card.card_image
-                            ? <img src={card.card_image} alt={card.card_name} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }} />
+                            ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }} />
                             : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 24 }}>🃏</div>}
                           {card.quantity > 1 && (
                             <span style={{ position: 'absolute', bottom: 5, left: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(0,0,0,0.7)', color: '#fff' }}>x{card.quantity}</span>
@@ -791,7 +791,7 @@ function AddCardsModal({
                   {isSel && <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-9" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
                 <div style={{ width: 28, height: 39, flexShrink: 0, background: '#0d0f14', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {c.card_image ? <img src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 14 }}>🃏</span>}
+                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 14 }}>🃏</span>}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.card_name.replace(/\s*\([^)]*\)/, '')}</p>

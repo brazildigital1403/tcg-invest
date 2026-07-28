@@ -224,7 +224,7 @@ export default async function HomePage() {
                 <div className="bcol-head"><IcUp /> Maiores altas · 30 dias</div>
                 {up.map((m, i) => (
                   <div key={i} className="mrow">
-                    <img src={m.image_small} alt="" />
+                    <img loading="lazy" decoding="async" src={m.image_small} alt="" />
                     <div style={{ minWidth: 0 }}><div className="nm">{m.name}</div><div className="st">{m.set_name}</div></div>
                     <div className="rt"><div className="pr">{brl(m.preco_atual)}</div><div className="pc">{pctFmt(m.pct)}</div></div>
                   </div>
@@ -234,7 +234,7 @@ export default async function HomePage() {
                 <div className="bcol-head"><IcDown /> Maiores quedas · 30 dias</div>
                 {down.map((m, i) => (
                   <div key={i} className="mrow">
-                    <img src={m.image_small} alt="" />
+                    <img loading="lazy" decoding="async" src={m.image_small} alt="" />
                     <div style={{ minWidth: 0 }}><div className="nm">{m.name}</div><div className="st">{m.set_name}</div></div>
                     <div className="rt"><div className="pr">{brl(m.preco_atual)}</div><div className="pc">{pctFmt(m.pct)}</div></div>
                   </div>
@@ -263,7 +263,7 @@ export default async function HomePage() {
               <div className="scanner">
                 <div className="cam">
                   <span className="corner c-tl" /><span className="corner c-tr" /><span className="corner c-bl" /><span className="corner c-br" />
-                  <img className="card-in-cam" src={IMG('base1/4')} alt="carta na câmera" />
+                  <img loading="lazy" decoding="async" className="card-in-cam" src={IMG('base1/4')} alt="carta na câmera" />
                   <div className="scanline" />
                 </div>
                 <div className="toast">
@@ -295,8 +295,8 @@ export default async function HomePage() {
             <div className="steps">
               <div className="step reveal">
                 <div className="step-vis">
-                  <div className="sv-row"><img src={IMG('base1/4')} alt="" />Charizard · Base Set<span className="add"><IcPlus /></span></div>
-                  <div className="sv-row"><img src={IMG('swsh7/215')} alt="" />Umbreon VMAX<span className="add"><IcPlus /></span></div>
+                  <div className="sv-row"><img loading="lazy" decoding="async" src={IMG('base1/4')} alt="" />Charizard · Base Set<span className="add"><IcPlus /></span></div>
+                  <div className="sv-row"><img loading="lazy" decoding="async" src={IMG('swsh7/215')} alt="" />Umbreon VMAX<span className="add"><IcPlus /></span></div>
                 </div>
                 <div className="step-body"><div className="n">01</div><h3>Coloque suas cartas</h3><p>Busca pelo nome ou aponta a câmera. A carta certa entra na coleção.</p></div>
               </div>
@@ -359,9 +359,9 @@ export default async function HomePage() {
                   <div className="sf-star"><IcStar /> 4,9</div>
                 </div>
                 <div className="sf-cards">
-                  <div className="sf-c"><div className="img"><img src={IMG('base1/4')} alt="" /></div><div className="b"><div className="n">Charizard</div><div className="p">R$ 249,90</div></div></div>
-                  <div className="sf-c"><div className="img"><img src={IMG('swsh7/215')} alt="" /></div><div className="b"><div className="n">Umbreon VMAX</div><div className="p">R$ 189,90</div></div></div>
-                  <div className="sf-c prod"><div className="img"><img src={ETB_LOJA} alt="Elite Trainer Box" /></div><div className="b"><div className="n">Elite Trainer Box</div><div className="p">R$ 299,90</div></div></div>
+                  <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('base1/4')} alt="" /></div><div className="b"><div className="n">Charizard</div><div className="p">R$ 249,90</div></div></div>
+                  <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('swsh7/215')} alt="" /></div><div className="b"><div className="n">Umbreon VMAX</div><div className="p">R$ 189,90</div></div></div>
+                  <div className="sf-c prod"><div className="img"><img loading="lazy" decoding="async" src={ETB_LOJA} alt="Elite Trainer Box" /></div><div className="b"><div className="n">Elite Trainer Box</div><div className="p">R$ 299,90</div></div></div>
                 </div>
                 <div className="sf-checkout">
                   <div className="sf-line"><span>Umbreon VMAX</span><span>R$ 189,90</span></div>
@@ -389,7 +389,7 @@ export default async function HomePage() {
               <p className="sec-sub center">Busca qualquer um dos 1.025 e vê todas as cartas dele, de toda coleção, com o valor de cada uma.</p>
             </div>
             <div className="pokedex reveal">
-              <img className="pkx-logo" src={LOGO30} alt="30 anos de Pokémon" />
+              <img loading="lazy" decoding="async" className="pkx-logo" src={LOGO30} alt="30 anos de Pokémon" />
               <div className="pkx-head">
                 <span className="pkx-lens" />
                 <span className="pkx-lights"><i /><i /><i /></span>
@@ -399,7 +399,7 @@ export default async function HomePage() {
                 <div className="pkx-grid">
                   {POKEDEX.map(p => (
                     <div key={p.dex} className="pkx-entry" style={{ ['--tc']: p.tc } as CSSProperties}>
-                      <img src={IMG(p.img)} alt="" />
+                      <img loading="lazy" decoding="async" src={IMG(p.img)} alt="" />
                       <div className="pkx-e-info">
                         <div className="pkx-e-top"><span className="pkx-dex">No {p.dex}</span><span className="pkx-type">{p.tp}</span></div>
                         <div className="pkx-e-name">{p.name}</div>
@@ -456,9 +456,9 @@ export default async function HomePage() {
                     <div className="sf-star"><IcStar /> 5,0</div>
                   </div>
                   <div className="sf-cards">
-                    <div className="sf-c"><div className="img"><img src={IMG('base1/4')} alt="" /></div><div className="b"><div className="n">Charizard</div><div className="p">R$ 249,90</div></div></div>
-                    <div className="sf-c"><div className="img"><img src={IMG('swsh7/215')} alt="" /></div><div className="b"><div className="n">Umbreon VMAX</div><div className="p">R$ 189,90</div></div></div>
-                    <div className="sf-c prod"><div className="img"><img src={ETB_LOJA} alt="Elite Trainer Box" /></div><div className="b"><div className="n">Elite Trainer Box</div><div className="p">R$ 289,90</div></div></div>
+                    <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('base1/4')} alt="" /></div><div className="b"><div className="n">Charizard</div><div className="p">R$ 249,90</div></div></div>
+                    <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('swsh7/215')} alt="" /></div><div className="b"><div className="n">Umbreon VMAX</div><div className="p">R$ 189,90</div></div></div>
+                    <div className="sf-c prod"><div className="img"><img loading="lazy" decoding="async" src={ETB_LOJA} alt="Elite Trainer Box" /></div><div className="b"><div className="n">Elite Trainer Box</div><div className="p">R$ 289,90</div></div></div>
                   </div>
                   <div className="sf-checkout">
                     <div className="sf-line"><span>Venda · Umbreon VMAX</span><span>R$ 189,90</span></div>

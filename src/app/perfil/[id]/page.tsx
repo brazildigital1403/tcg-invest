@@ -428,7 +428,7 @@ export default function PerfilPage() {
                     )}
                     {/* Imagem */}
                     {card.card_image
-                      ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+                      ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
                       : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 32 }}>🃏</span></div>
                     }
                     {/* Info */}
@@ -493,7 +493,7 @@ export default function PerfilPage() {
               {listings.map((card: any) => (
                 <div key={card.id} style={{ ...SURFACE, overflow: 'hidden' }}>
                   {card.card_image
-                    ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+                    ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
                     : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)' }} />
                   }
                   <div style={{ padding: '12px 14px' }}>
@@ -541,7 +541,7 @@ export default function PerfilPage() {
                     {/* Logo ou símbolo do set */}
                     <div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {s.logo_url ? (
-                        <img src={s.logo_url} alt={s.name}
+                        <img loading="lazy" decoding="async" src={s.logo_url} alt={s.name}
                           style={{ maxWidth: 64, maxHeight: 36, objectFit: 'contain', opacity: 0.9 }}
                           onError={e => {
                             const t = e.target as HTMLImageElement
@@ -552,7 +552,7 @@ export default function PerfilPage() {
                         />
                       ) : null}
                       {s.symbol_url ? (
-                        <img src={s.symbol_url} alt={s.name}
+                        <img loading="lazy" decoding="async" src={s.symbol_url} alt={s.name}
                           style={{ width: 28, height: 28, objectFit: 'contain', display: s.logo_url ? 'none' : 'block', opacity: 0.7 }}
                         />
                       ) : (
