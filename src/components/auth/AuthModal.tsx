@@ -30,7 +30,8 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Turnstile from '@/components/auth/Turnstile'
-import { trackProUpgradeInitiated } from '@/lib/analytics'
+import { trackProUpgradeInitiated, trackSignUp } from '@/lib/analytics'
+import { camposDeAtribuicao } from '@/lib/atribuicao'
 import { IconWarning, IconClose, IconEye, IconEyeOff } from '@/components/ui/Icons'
 import {
   captureRefCodeFromURL,
@@ -423,12 +424,23 @@ useEffect(() => {
         if (hpWebsite.trim()) { return } // honeypot preenchido -> provavel bot
         const igNorm = instagram.trim().replace(/^@+/, '') || null
         const ttNorm = tiktok.trim().replace(/^@+/, '') || null
+
+        // De onde essa pessoa veio (ver src/lib/atribuicao.ts).
+        //
+        // Vai DENTRO do options.data de proposito: com confirmacao de e-mail
+        // ligada — que e o caso de 245 dos 255 usuarios — o signUp nao devolve
+        // sessao, o `upsert` mais abaixo nunca roda, e quem cria a linha em
+        // public.users e o trigger on_auth_user_created lendo justamente o
+        // raw_user_meta_data. Gravar so no upsert perderia a atribuicao de
+        // praticamente todo mundo.
+        const atrib = camposDeAtribuicao()
+
         const { data, error } = await supabase.auth.signUp({
           email, password,
           options: {
             captchaToken: captchaToken ?? undefined,
             emailRedirectTo: `${window.location.origin}/auth/pos-cadastro?plan=${pendingPlan && pendingPlan !== 'free' ? pendingPlan : ''}&next=${encodeURIComponent(next || '')}`,
-            data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf },
+            data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf, ...atrib },
           },
         })
         if (error) {
@@ -439,6 +451,14 @@ useEffect(() => {
           return
         }
         if (data.user) {
+          // Antes de qualquer ramificacao: os dois caminhos (com e sem sessao)
+          // sao cadastro concluido, e o de confirmacao de e-mail e o comum.
+          trackSignUp({
+            utm_source: atrib.signup_utm_source,
+            utm_medium: atrib.signup_utm_medium,
+            utm_campaign: atrib.signup_utm_campaign,
+          })
+
           if (!data.session) {
             // Confirm email ON: signup nao gera sessao. O perfil e criado pelo trigger handle_new_user.
             setServerError('')
@@ -446,7 +466,7 @@ useEffect(() => {
             return
           }
           const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-          const { error: insErr } = await supabase.from('users').upsert({ id: data.user.id, email, name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf }, { onConflict: 'id', ignoreDuplicates: true })
+          const { error: insErr } = await supabase.from('users').upsert({ id: data.user.id, email, name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, trial_expires_at: trialExpiry, data_nascimento: dataNasc || null, termos_aceitos_em: new Date().toISOString(), marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf, ...atrib }, { onConflict: 'id', ignoreDuplicates: true })
           if (insErr) {
             if (insErr.code === '23505' || (insErr.message || '').includes('CPF_DUPLICADO') || (insErr.message || '').toLowerCase().includes('cpf')) {
               setErros(prev => ({ ...prev, cpf: 'Este CPF já está cadastrado em outra conta.' }))

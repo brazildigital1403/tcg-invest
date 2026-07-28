@@ -42,6 +42,7 @@ declare global {
 }
 
 type EventName =
+  | 'sign_up'
   | 'signup_completed'
   | 'first_card_added'
   | 'pro_upgrade_initiated'
@@ -61,6 +62,42 @@ function push(event: EventName, params: Record<string, unknown> = {}): void {
 }
 
 // ─── Eventos públicos GTM/GA4 ───────────────────────────────────────────────
+
+/**
+ * Cadastro concluido — o evento de AQUISICAO.
+ *
+ * Nao confundir com o `signup_completed` logo abaixo, que dispara na PRIMEIRA
+ * CARTA e mede onboarding, nao aquisicao. Ate 28/07/2026 esse proxy era a
+ * unica coisa parecida com um evento de cadastro, o que impedia montar o funil
+ * clique -> conta criada.
+ *
+ * Leva a atribuicao junto pra dar pra segmentar o funil por canal direto no
+ * GA4 e no PostHog.
+ *
+ * RESSALVA: o PostHog so captura depois do aceite de cookie e o GTM so e
+ * injetado depois do aceite. Entao este evento NAO ve todo mundo — quem
+ * ve todo mundo e a coluna `signup_utm_source` em `users`, que e a fonte da
+ * verdade. Este aqui serve pro funil, nao pra contagem.
+ */
+export function trackSignUp(params: {
+  metodo?: string
+  utm_source?: string | null
+  utm_medium?: string | null
+  utm_campaign?: string | null
+}): void {
+  const p = {
+    method: params.metodo || 'email',
+    utm_source: params.utm_source || undefined,
+    utm_medium: params.utm_medium || undefined,
+    utm_campaign: params.utm_campaign || undefined,
+  }
+  push('sign_up', p)
+  try {
+    posthog?.capture('signup', p)
+  } catch {
+    // Silent fail — tracking nunca quebra cadastro.
+  }
+}
 
 /**
  * Dispara quando um user adiciona a PRIMEIRA carta na coleção.
