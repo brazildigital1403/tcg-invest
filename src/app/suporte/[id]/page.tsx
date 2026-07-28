@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
+import TicketAnexos from '@/components/suporte/TicketAnexos'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconChat } from '@/components/ui/Icons'
@@ -259,6 +260,10 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             >
               {sending ? 'Enviando...' : 'Enviar resposta'}
             </button>
+
+            {/* Anexos: e por aqui que o documento chega. O e-mail sai de
+                noreply@, entao responder o e-mail nao entrega nada. */}
+            <TicketAnexos ticketId={id} fetcher={authFetch} lado="user" />
           </div>
         )}
 

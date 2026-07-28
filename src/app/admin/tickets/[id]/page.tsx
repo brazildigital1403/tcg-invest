@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
+import TicketAnexos from '@/components/suporte/TicketAnexos'
 import Link from 'next/link'
 import { useAppModal } from '@/components/ui/useAppModal'
 
@@ -299,6 +300,10 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 10, marginBottom: 0 }}>
               Um email será enviado ao usuário com a resposta.
             </p>
+
+            {/* Anexos da conversa. Aqui e onde chegam os documentos da
+                verificacao de loja — bucket privado, link assinado de 5min. */}
+            <TicketAnexos ticketId={id} fetcher={fetch} lado="admin" />
           </div>
         </div>
 

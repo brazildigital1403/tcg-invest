@@ -543,6 +543,66 @@ export async function sendAdminNovaConversaEmail(args: {
   return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
 }
 
+// ── 7-ter. LOJAS — pedido de documentos pro Selo de Loja Validada ───────────
+//
+// Disparado quando o admin APROVA a loja. Aprovar poe a loja no ar; o SELO e
+// outra coisa, e depende de conferir documento.
+//
+// ★ O texto original dizia "e so responder este e-mail com os arquivos". Nao
+// da: o remetente e noreply@bynx.gg e a resposta — com o documento junto — se
+// perde. Por isso a conversa vive num TICKET e o botao leva pra la, onde ha
+// upload de arquivo em bucket privado.
+//
+// Assinado pelo Du em primeira pessoa de proposito: e um pedido de RG e CNPJ,
+// e pedido de documento assinado por "a equipe" cheira a golpe.
+
+export async function sendEmailLojaVerificacao(args: {
+  to: string
+  nomeUser: string
+  nomeLoja: string
+  ticketId: string
+}) {
+  const primeiro = args.nomeUser?.split(' ')[0] || 'tudo bem'
+  const item = (t: string) => `<tr>
+      <td valign="top" style="padding:0 10px 10px 0;font-size:14px;color:${B2B_LINK_COLOR};${FONT}">•</td>
+      <td valign="top" style="padding:0 0 10px;font-size:14px;color:rgba(255,255,255,0.72);line-height:1.6;${FONT}">${t}</td>
+    </tr>`
+
+  const html = baseLayout(`
+    ${badge('Verificação de loja', B2B_LINK_COLOR, 'rgba(96,165,250,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Falta pouco para o seu selo')}
+    ${p(`Olá, ${escapeHtml(primeiro)}, tudo bem?`)}
+    ${p('Aqui é o Eduardo, fundador da Bynx.')}
+    ${p(`Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na plataforma. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Loja Validada</strong> no seu perfil — o selo é o que sinaliza aos colecionadores que a sua loja é uma empresa real e confiável — preciso confirmar alguns itens:`)}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 4px;">
+      ${item('Cartão CNPJ da loja, com situação cadastral ativa (ou CCMEI, no caso de MEI)')}
+      ${item('Documento do responsável pela conta (RG ou CNH)')}
+      ${item('Um canal ativo de vendas (site, Instagram ou perfil em marketplace)')}
+      ${item('Uma ou duas fotos da loja física ou do estoque')}
+    </table>
+
+    ${p('Clique no botão abaixo e envie os arquivos por lá — é uma conversa privada entre você e eu, dentro da sua conta. Uso essas informações apenas para a validação e não compartilho com terceiros. Assim que eu conferir, o selo é ativado no mesmo dia e os arquivos são apagados.')}
+
+    ${btnB2B('Enviar os documentos', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'loja-verificacao', 'cta-button'))}
+
+    ${divider()}
+    <p style="margin:0 0 12px;font-size:12.5px;color:rgba(255,255,255,0.45);line-height:1.65;${FONT}">
+      <em>Um detalhe importante: dados bancários e fiscais para receber pagamentos não entram aqui. Isso é feito de forma segura no momento em que você ativar o recebimento pela plataforma.</em>
+    </p>
+    <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.55);line-height:1.7;${FONT}">
+      Qualquer dúvida, é só me responder por lá que eu te ajudo.<br/><br/>
+      Abraço,<br/>
+      <strong style="color:#f0f0f0;">Eduardo</strong><br/>
+      Fundador da Bynx<br/>
+      <a href="${APP_URL}" style="color:${B2B_LINK_COLOR};text-decoration:none;">bynx.gg</a>
+    </p>
+  `, `${escapeHtml(args.nomeLoja)}: falta pouco para o Selo de Loja Validada`)
+
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`Verificação da ${args.nomeLoja}`), html })
+}
+
 // ── 8. SUPORTE — mudança de status (para o usuário) ──────────────────────────
 
 const STATUS_LABEL: Record<string, { label: string; color: string; emoji: string }> = {
