@@ -201,8 +201,24 @@ export default async function PokemonIndexPage() {
             para ver todas as suas cartas atravessando as eras, a faixa de preço em reais e a carta mais valiosa.
           </p>
 
+          {/* content-visibility: auto — a pagina lista os 1.025 Pokemon de uma
+              vez (6.617 nos no DOM, medido 28/07/2026) porque os 1.034 links
+              internos sao um ativo de SEO: o Googlebot descobre tudo numa URL
+              so. Paginar resolveria o custo de render as custas disso.
+
+              Isto resolve os dois: o HTML continua completo pro crawler, mas o
+              navegador pula layout e paint das geracoes fora da tela.
+              `contain-intrinsic-size: auto` faz ele lembrar a altura real
+              depois do primeiro render, entao a barra de rolagem nao pula. */}
           {grupos.map((g) => (
-            <section key={g.nome} style={{ marginTop: 34 }}>
+            <section
+              key={g.nome}
+              style={{
+                marginTop: 34,
+                contentVisibility: 'auto',
+                containIntrinsicSize: 'auto 1200px',
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <h2 style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.03em' }}>{g.nome}</h2>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{g.lista.length} Pokémon</span>

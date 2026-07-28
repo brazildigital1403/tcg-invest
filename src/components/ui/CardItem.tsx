@@ -6,6 +6,7 @@
  */
 
 import { ReactNode } from 'react'
+import Image from 'next/image'
 import { GRADUADORA_MAP, isNotaTop, notaCurta } from '@/lib/graduadoras'
 
 // Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
@@ -236,12 +237,26 @@ export default function CardItem({
           </div>
         )}
         {image ? (
-          <img
+          /* next/image em vez de <img>: as imagens de listagem do catalogo
+             oficial pesam ~184 KB cada (medido 28/07/2026) e sao servidas no
+             tamanho original. O otimizador entrega ~15 KB de WebP no tamanho
+             que a grade realmente usa.
+
+             width/height sao a proporcao da carta (245x342), nao o tamanho
+             final — o `style` manda no layout e mantem o comportamento fluido
+             que a grade ja tinha.
+
+             ATENCAO: o host precisa estar no `remotePatterns` do
+             next.config.ts, senao a imagem some. A lista la foi levantada do
+             banco; set novo com host novo exige atualizar. */
+          <Image
             src={image}
             alt={imgAlt}
+            width={245}
+            height={342}
             loading="lazy"
-            decoding="async"
-            style={{ width: '100%', display: 'block', borderRadius: '18px 18px 0 0' }}
+            sizes="(max-width: 768px) 45vw, 200px"
+            style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '18px 18px 0 0' }}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
           />
         ) : (

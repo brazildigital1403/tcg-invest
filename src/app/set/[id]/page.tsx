@@ -24,6 +24,7 @@
 import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Fragment } from 'react'
 import PublicFooter from '@/components/ui/PublicFooter'
@@ -70,25 +71,31 @@ async function fetchSetData(
     return { set: null, cards: [] }
   }
 
-  // 1. Tenta buscar metadata em pokemon_sets (sets oficiais)
-  const { data: officialSet } = await sb
-    .from('pokemon_sets')
-    .select(
-      'id, name, name_pt, series, printed_total, release_date, logo_url',
-    )
-    .eq('id', id)
-    .maybeSingle()
+  // As duas queries nao dependem uma da outra — em serie eram dois RTTs
+  // empilhados pra Supabase sa-east-1.
+  //
+  // O limite era 500, com o comentario "maior set tem ~300 cartas, sobra
+  // folga". Envelheceu: em 28/07/2026 tres sets passavam de 500 e 286 cartas
+  // estavam INVISIVEIS na pagina do proprio set (mc perdia 266, sv1 13,
+  // svp 7). Teto novo em 1000, com folga de 234 sobre o maior set de hoje.
+  // Quando encostar de novo, a saida e paginar — nao subir o numero pela
+  // terceira vez.
+  const [setRes, cardsRes] = await Promise.all([
+    sb
+      .from('pokemon_sets')
+      .select('id, name, name_pt, series, printed_total, release_date, logo_url')
+      .eq('id', id)
+      .maybeSingle(),
+    sb
+      .from('pokemon_cards')
+      .select('id, slug, name, number, image_small, rarity, preco_medio, set_name')
+      .eq('set_id', id)
+      .order('number', { ascending: true, nullsFirst: false })
+      .limit(1000),
+  ])
 
-  // 2. Busca cartas desse set (ordenadas por number)
-  // Limit 500: maior set tem ~300 cartas, sobra folga
-  const { data: cardsRaw } = await sb
-    .from('pokemon_cards')
-    .select(
-      'id, slug, name, number, image_small, rarity, preco_medio, set_name',
-    )
-    .eq('set_id', id)
-    .order('number', { ascending: true, nullsFirst: false })
-    .limit(500)
+  const officialSet = setRes.data
+  const cardsRaw = cardsRes.data
 
   const cards = (cardsRaw || []) as Array<CardLite & { set_name?: string }>
 
@@ -437,12 +444,20 @@ export default async function SetPage({
                 }}
               >
                 {card.image_small ? (
-                  <img
+                  /* next/image: esta grade chega a 766 cartas num set so, cada
+                     imagem servida no tamanho original (~184 KB no catalogo
+                     oficial). O otimizador entrega ~15 KB de WebP no tamanho
+                     que a grade usa. Continua lazy — so as visiveis baixam. */
+                  <Image
                     src={card.image_small}
                     alt={card.name + (card.number ? ' ' + card.number + (set.printedTotal ? '/' + set.printedTotal : '') : '') + ' — ' + (set.namePt || set.name)}
+                    width={245}
+                    height={342}
                     loading="lazy"
+                    sizes="(max-width: 768px) 30vw, 160px"
                     style={{
                       width: '100%',
+                      height: 'auto',
                       borderRadius: 8,
                       display: 'block',
                       marginBottom: 8,

@@ -15,8 +15,10 @@
  */
 
 import type { Metadata } from 'next'
+import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Fragment } from 'react'
 import MercadoLivre from '@/components/ui/MercadoLivre'
@@ -92,20 +94,35 @@ function getSb() {
   return createClient(url, anon)
 }
 
-async function fetchHub(slug: string): Promise<{ hub: Hub | null; cards: HubCard[] }> {
-  const sb = getSb()
-  if (!sb) return { hub: null, cards: [] }
+/**
+ * Duas correcoes de uma vez (28/07/2026, TTFB medido em 1.082ms):
+ *
+ * 1. As duas RPCs so dependem do slug, nao uma da outra — rodavam em serie,
+ *    dois RTTs empilhados pra sa-east-1. Agora em paralelo. O preco e que num
+ *    slug inexistente a segunda RPC roda a toa; vale pelo caso comum.
+ *
+ * 2. `cache()`: generateMetadata e o componente chamavam fetchHub cada um por
+ *    sua conta, dobrando tudo. Memoizado por slug dentro do mesmo request.
+ */
+const fetchHub = cache(
+  async (slug: string): Promise<{ hub: Hub | null; cards: HubCard[] }> => {
+    const sb = getSb()
+    if (!sb) return { hub: null, cards: [] }
 
-  const { data: hubRows, error: hubErr } = await sb.rpc('get_pokemon_hub', { p_slug: slug })
-  if (hubErr) throw hubErr
-  const hub = (hubRows && hubRows[0]) as Hub | undefined
-  if (!hub) return { hub: null, cards: [] }
+    const [hubRes, cardsRes] = await Promise.all([
+      sb.rpc('get_pokemon_hub', { p_slug: slug }),
+      sb.rpc('get_pokemon_hub_cards', { p_slug: slug }),
+    ])
 
-  const { data: cards, error: cardsErr } = await sb.rpc('get_pokemon_hub_cards', { p_slug: slug })
-  if (cardsErr) throw cardsErr
+    if (hubRes.error) throw hubRes.error
+    const hub = (hubRes.data && hubRes.data[0]) as Hub | undefined
+    if (!hub) return { hub: null, cards: [] }
 
-  return { hub, cards: (cards || []) as HubCard[] }
-}
+    if (cardsRes.error) throw cardsRes.error
+
+    return { hub, cards: (cardsRes.data || []) as HubCard[] }
+  },
+)
 
 // ─── Texto de SEO gerado por dados (único por Pokémon) ─────────────────────
 
@@ -304,8 +321,11 @@ export default async function PokemonHubPage({
     ' — Pokémon TCG | Bynx'
 
   // Afiliado Mercado Livre (lacrados + acessorios genericos; chave 'default')
-  const mlLink = await getMlAfiliadoLink('default')
-  const mlProdutos = await getMlAfiliadoProdutos('default')
+  // Em paralelo: nao dependem uma da outra.
+  const [mlLink, mlProdutos] = await Promise.all([
+    getMlAfiliadoLink('default'),
+    getMlAfiliadoProdutos('default'),
+  ])
 
   return (
     <>
@@ -383,11 +403,17 @@ export default async function PokemonHubPage({
                 >
                   ★ MAIS VALIOSA
                 </span>
-                <img
+                {/* Hero da pagina — LCP. priority tira do lazy e marca
+                    fetchpriority=high. */}
+                <Image
                   src={hub.top_card_image}
                   alt={heroAlt}
+                  width={200}
+                  height={279}
+                  priority
                   style={{
                     width: 200,
+                    height: 'auto',
                     borderRadius: 14,
                     display: 'block',
                     boxShadow: '0 0 50px rgba(245,158,11,0.3), 0 20px 50px rgba(0,0,0,0.55)',
@@ -559,11 +585,14 @@ export default async function PokemonHubPage({
                     }}
                   >
                     {card.image_small ? (
-                      <img
+                      <Image
                         src={card.image_small}
                         alt={card.name + (card.number ? ' ' + card.number : '') + (card.set_name ? ' — ' + card.set_name : '')}
+                        width={245}
+                        height={342}
                         loading="lazy"
-                        style={{ width: '100%', borderRadius: 8, display: 'block', marginBottom: 8, aspectRatio: '63/88', objectFit: 'cover' }}
+                        sizes="(max-width: 768px) 30vw, 160px"
+                        style={{ width: '100%', height: 'auto', borderRadius: 8, display: 'block', marginBottom: 8, aspectRatio: '63/88', objectFit: 'cover' }}
                       />
                     ) : (
                       <div style={{ width: '100%', aspectRatio: '63/88', borderRadius: 8, marginBottom: 8, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, opacity: 0.3 }}>

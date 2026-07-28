@@ -1,4 +1,5 @@
 import { CSSProperties } from 'react'
+import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { supabase } from '@/lib/supabaseClient'
@@ -10,8 +11,52 @@ import FiltrosGuia from '@/components/lojas/FiltrosGuia'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-// Força renderização dinâmica (já implícito por usar searchParams, mas explícito é mais seguro)
+// A rota usa searchParams (filtros), entao renderiza dinamica de qualquer jeito
+// — tirar o force-dynamic nao cachearia a PAGINA. Quem estava custando os
+// ~1.056ms medidos em 28/07/2026 eram as duas idas ao banco em toda visita.
+//
+// Como sao 7 lojas ativas e 2 avaliacoes no total, buscar TUDO uma vez e
+// filtrar em memoria sai mais barato que uma query por combinacao de filtro.
 export const dynamic = 'force-dynamic'
+
+/**
+ * Lojas ativas + notas dos donos premium, em uma unica entrada de cache.
+ *
+ * Regra da casa: dentro de unstable_cache, falha NUNCA vira `return []` —
+ * vazio viraria entrada valida e ficaria servido ate o revalidate. Sempre
+ * `throw`, assim nada e gravado e a proxima request tenta de novo.
+ */
+const getLojasAtivas = unstable_cache(
+  async () => {
+    const { data, error } = await supabase
+      .from('lojas')
+      .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url, owner_user_id')
+      .eq('status', 'ativa')
+      .limit(200)
+    if (error) throw new Error(`[/lojas] falha ao buscar lojas: ${error.message}`)
+
+    const lojas = (data || []) as LojaCard[]
+
+    const ownerIds = lojas
+      .filter((l) => l.plano === 'premium')
+      .map((l) => l.owner_user_id)
+      .filter(Boolean) as string[]
+
+    let avaliacoes: { avaliado_id: string; estrelas: number | null }[] = []
+    if (ownerIds.length > 0) {
+      const r = await supabase
+        .from('avaliacoes')
+        .select('avaliado_id, estrelas')
+        .in('avaliado_id', ownerIds)
+      if (r.error) throw new Error(`[/lojas] falha ao buscar avaliacoes: ${r.error.message}`)
+      avaliacoes = (r.data || []) as typeof avaliacoes
+    }
+
+    return { lojas, avaliacoes }
+  },
+  ['lojas-ativas-v1'],
+  { revalidate: 300, tags: ['lojas'] },
+)
 
 interface SearchParams {
   q?: string
@@ -74,20 +119,35 @@ export default async function LojasPage(
   const tipoParam          = typeof sp.tipo === 'string' ? sp.tipo.trim() : ''
   const especialidadeParam = typeof sp.especialidade === 'string' ? sp.especialidade.trim() : ''
 
-  // Monta query
-  let query = supabase
-    .from('lojas')
-    .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url, owner_user_id')
-    .eq('status', 'ativa')
-    .limit(200)
+  // Uma leitura cacheada em vez de duas queries por visita. O catch fica aqui
+  // FORA do unstable_cache de proposito: o throw la dentro impede o vazio de
+  // ser gravado, e aqui a gente ainda consegue mostrar a caixa de erro em vez
+  // de derrubar a pagina.
+  let todas: LojaCard[] = []
+  let avaliacoes: { avaliado_id: string; estrelas: number | null }[] = []
+  let error: { message: string } | null = null
+  try {
+    const r = await getLojasAtivas()
+    todas = r.lojas
+    avaliacoes = r.avaliacoes
+  } catch (e: any) {
+    console.error('[/lojas]', e?.message)
+    error = { message: e?.message || 'falha ao carregar' }
+  }
 
-  if (qParam)             query = query.ilike('nome', `%${qParam}%`)
-  if (estadoParam)        query = query.eq('estado', estadoParam)
-  if (tipoParam)          query = query.eq('tipo', tipoParam)
-  if (especialidadeParam) query = query.contains('especialidades', [especialidadeParam])
+  // Filtro em memoria — 7 lojas ativas, nao compensa ir ao banco por combinacao.
+  // `normalizar` tira acento pra busca por nome casar "Colecoes" com "Coleções".
+  const normalizar = (s: string) =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const alvo = normalizar(qParam)
 
-  const { data, error } = await query
-  const lojas: LojaCard[] = (data || []) as LojaCard[]
+  const lojas: LojaCard[] = todas.filter((l) => {
+    if (alvo && !normalizar(l.nome || '').includes(alvo)) return false
+    if (estadoParam && (l.estado || '').toUpperCase() !== estadoParam) return false
+    if (tipoParam && l.tipo !== tipoParam) return false
+    if (especialidadeParam && !(l.especialidades || []).includes(especialidadeParam)) return false
+    return true
+  })
 
   // Ordenação: premium > pro > basico, depois verificadas primeiro
   lojas.sort((a, b) => {
@@ -97,24 +157,19 @@ export default async function LojasPage(
     return 0
   })
 
-  // Destaque Premium: separa as lojas premium + puxa a nota do dono (proxy de vendedor)
+  // Destaque Premium: separa as lojas premium + monta a nota do dono a partir
+  // das avaliacoes que ja vieram no mesmo cache.
   const premiumLojas = lojas.filter(l => l.plano === 'premium')
   const ratingMap: Record<string, { media: number; total: number }> = {}
-  if (premiumLojas.length > 0) {
-    const ownerIds = premiumLojas.map(l => l.owner_user_id).filter(Boolean) as string[]
-    if (ownerIds.length > 0) {
-      const { data: avals } = await supabase.from('avaliacoes').select('avaliado_id, estrelas').in('avaliado_id', ownerIds)
-      const acc: Record<string, number[]> = {}
-      for (const a of (avals || []) as { avaliado_id: string; estrelas: number | null }[]) {
-        if (typeof a.estrelas !== 'number') continue
-        if (!acc[a.avaliado_id]) acc[a.avaliado_id] = []
-        acc[a.avaliado_id].push(a.estrelas)
-      }
-      for (const k in acc) {
-        const arr = acc[k]
-        ratingMap[k] = { media: arr.reduce((sum, v) => sum + v, 0) / arr.length, total: arr.length }
-      }
-    }
+  const acc: Record<string, number[]> = {}
+  for (const a of avaliacoes) {
+    if (typeof a.estrelas !== 'number') continue
+    if (!acc[a.avaliado_id]) acc[a.avaliado_id] = []
+    acc[a.avaliado_id].push(a.estrelas)
+  }
+  for (const k in acc) {
+    const arr = acc[k]
+    ratingMap[k] = { media: arr.reduce((sum, v) => sum + v, 0) / arr.length, total: arr.length }
   }
 
   const totalResultados = lojas.length

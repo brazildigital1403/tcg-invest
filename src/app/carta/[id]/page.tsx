@@ -142,25 +142,46 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
       const porId = await sb.from('pokemon_cards').select(COLS).eq('id', idOrSlug).maybeSingle()
       bynx = porId.data
     }
-    // printed_total = o numero impresso NA carta (23/132), nao o total com
-    // secretas (23/188). E o que o colecionador digita na busca.
-    if (bynx?.set_id) {
-      const { data: st } = await sb
-        .from('pokemon_sets')
-        .select('printed_total')
-        .eq('id', bynx.set_id)
-        .maybeSingle()
-      printedTotal = st?.printed_total ?? null
-    }
   }
 
   const idReal = bynx?.id || idOrSlug
 
-  // API Pokemon TCG oficial (dados de jogo: ataques, hp, etc.)
-  const tcgRes = await fetch(`https://api.pokemontcg.io/v2/cards/${idReal}`, {
-    headers: { 'X-Api-Key': process.env.POKEMON_API_KEY || '' },
-    next: { revalidate: 86400, tags: [`card:${idReal}`] },
-  }).catch(() => null)
+  // ─── Vale a pena chamar a API oficial? ────────────────────────────────────
+  //
+  // Medido em 28/07/2026: essa chamada custava ~800ms de TTFB e na imensa
+  // maioria das visitas nao entregava nada.
+  //
+  //  - id `liga-*` (46.411 cartas, 69,4% do catalogo) e cunhado pelo NOSSO
+  //    scan. A API oficial nao tem como conhecer esse id — a resposta so pode
+  //    ser erro. Chamada 100% perdida.
+  //  - das 20.486 com id oficial, 17.056 (83%) ja tem attacks+hp+types no
+  //    banco. Nada a ganhar.
+  //
+  // Sobra ~5% das visitas, que sao justamente as que precisam.
+  const temDadosDeJogo = Boolean(
+    bynx?.attacks && bynx?.hp && bynx?.types?.length,
+  )
+  const idEhNosso = idReal.startsWith('liga-')
+  const vaiChamarApi = !idEhNosso && !temDadosDeJogo
+
+  // printed_total = o numero impresso NA carta (23/132), nao o total com
+  // secretas (23/188). E o que o colecionador digita na busca.
+  //
+  // Roda em paralelo com a API: as duas so dependem do `bynx`, nao uma da
+  // outra. Em serie eram dois RTTs empilhados.
+  const [stRes, tcgRes] = await Promise.all([
+    bynx?.set_id && sb
+      ? sb.from('pokemon_sets').select('printed_total').eq('id', bynx.set_id).maybeSingle()
+      : Promise.resolve(null),
+    vaiChamarApi
+      ? fetch(`https://api.pokemontcg.io/v2/cards/${idReal}`, {
+          headers: { 'X-Api-Key': process.env.POKEMON_API_KEY || '' },
+          next: { revalidate: 86400, tags: [`card:${idReal}`] },
+        }).catch(() => null)
+      : Promise.resolve(null),
+  ])
+
+  printedTotal = stRes?.data?.printed_total ?? null
 
   const tcgJson: any = tcgRes?.ok ? await tcgRes.json().catch(() => null) : null
   const tcg = tcgJson?.data || null

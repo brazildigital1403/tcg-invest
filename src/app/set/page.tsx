@@ -20,6 +20,7 @@
  */
 
 import type { Metadata } from 'next'
+import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
@@ -99,6 +100,28 @@ async function fetchStatsWithRetry(
   throw new Error(`set_index_stats indisponivel: ${lastErr}`)
 }
 
+/**
+ * `set_index_stats` estava sendo chamada DUAS VEZES por render desta pagina:
+ * uma no generateMetadata (pro titulo dinamico) e outra no fetchAllSets. Sao
+ * 842 linhas puxadas em dobro.
+ *
+ * O Next deduplica `fetch()` GET automaticamente, mas RPC do supabase-js e
+ * POST — nao entra nessa dedup. `cache()` do React resolve: memoiza pelo
+ * argumento dentro do mesmo request, e os dois chamadores compartilham a
+ * mesma promise.
+ *
+ * Sem argumento de proposito: passar o client quebraria a memoizacao, porque
+ * cada chamada criaria um objeto novo e a chave nunca bateria.
+ */
+const getSetIndexStats = cache(async (): Promise<any[]> => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnon) {
+    throw new Error('Supabase env vars ausentes em /set')
+  }
+  return fetchStatsWithRetry(createClient(supabaseUrl, supabaseAnon))
+})
+
 async function fetchAllSets(): Promise<SeriesGroup[]> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -108,20 +131,28 @@ async function fetchAllSets(): Promise<SeriesGroup[]> {
   }
   const sb = createClient(supabaseUrl, supabaseAnon)
 
-  // 1. Sets oficiais (com row em pokemon_sets)
-  const { data: officialSets } = await sb
-    .from('pokemon_sets')
-    .select(
-      'id, name, name_pt, series, release_date, printed_total, logo_url',
-    )
-    .order('release_date', { ascending: false, nullsFirst: false })
+  // 1 e 2 em paralelo: sets oficiais e stats nao dependem um do outro.
+  //    Stats vem por getSetIndexStats (memoizado — ver comentario la em cima).
+  //    O `.then` de dois bracos preserva o tratamento de erro original sem
+  //    deixar o Promise.all rejeitar antes de a outra query terminar.
+  const [officialRes, statsResult] = await Promise.all([
+    sb
+      .from('pokemon_sets')
+      .select('id, name, name_pt, series, release_date, printed_total, logo_url')
+      .order('release_date', { ascending: false, nullsFirst: false }),
+    getSetIndexStats().then(
+      (data) => ({ ok: true as const, data }),
+      (err) => ({ ok: false as const, err }),
+    ),
+  ])
 
-  // 2. Stats por set_id agregados NO BANCO (RPC) — sem cap de linhas, escala com o catálogo.
-  //    Com retry pra absorver blip de rede do fetch ("TypeError: fetch failed").
+  const officialSets = officialRes.data
+
   let cardStats: any[]
-  try {
-    cardStats = await fetchStatsWithRetry(sb)
-  } catch (err) {
+  if (statsResult.ok) {
+    cardStats = statsResult.data
+  } else {
+    const err = statsResult.err
     // Em BUILD-TIME (prerender): NAO derrubar o deploy inteiro por uma falha de
     // rede transitoria. Renderiza fallback vazio; o ISR (revalidate) reconstroi
     // a pagina cheia na primeira regeneracao. Em RUNTIME: relanca pra manter a
@@ -266,9 +297,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (supabaseUrl && supabaseAnon) {
     try {
-      const sb = createClient(supabaseUrl, supabaseAnon)
-      const { data: stats } = await sb.rpc('set_index_stats')
-      const rows = (stats as any[]) || []
+      // Mesma promise que o fetchAllSets vai consumir — nao e uma segunda ida
+      // ao banco. Se falhar aqui, o titulo cai nos defaults; quem decide
+      // derrubar a pagina e o fetchAllSets, que relanca.
+      const rows = await getSetIndexStats()
       if (rows.length) {
         totalSets = rows.length
         totalCards = rows.reduce((s, r) => s + (Number(r.cards_count) || 0), 0)
@@ -550,8 +582,19 @@ export default async function SetIndexPage() {
           </div>
 
           {/* Séries */}
+          {/* Mesma razao do /pokemon: os 850 links internos sao o motivo desta
+              pagina existir (ver comentario do topo do arquivo), entao paginar
+              esta fora de questao. content-visibility deixa o HTML inteiro pro
+              crawler e poupa layout/paint do que esta fora da tela. */}
           {groups.map((grp) => (
-            <section key={grp.series} style={{ marginBottom: 48 }}>
+            <section
+              key={grp.series}
+              style={{
+                marginBottom: 48,
+                contentVisibility: 'auto',
+                containIntrinsicSize: 'auto 1200px',
+              }}
+            >
               {/* Header da série */}
               <div
                 style={{

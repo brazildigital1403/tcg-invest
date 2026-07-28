@@ -84,10 +84,26 @@ const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
 
   images: {
+    // Hosts levantados do banco (28/07/2026), por volume de cartas:
+    //   supabase.co          48.516  <- o maior, e estava FALTANDO aqui
+    //   images.pokemontcg.io 19.682
+    //   images.scrydex.com      661 cartas + 172 logos de set
+    //   repositorio.sbrauble.com 39
+    //   pokecardex.b-cdn.net      6 logos
+    // Sem o host na lista o next/image nao otimiza: ele lanca erro e a imagem
+    // some. Por isso a lista tem que acompanhar o banco.
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'hvkcwfcvizrvhkerupfc.supabase.co',
+      },
+      {
+        protocol: 'https',
         hostname: 'images.pokemontcg.io',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.scrydex.com',
       },
       {
         protocol: 'https',
@@ -95,13 +111,13 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'www.ligapokemon.com.br', // S39: fix - tava com markdown link quebrado
-      },
-      {
-        protocol: 'https',
-        hostname: 'ligapokemon.com.br',
+        hostname: 'pokecardex.b-cdn.net',
       },
     ],
+    // Imagem de carta e imutavel: o arquivo nunca muda depois de publicado.
+    // O default de 60s faz a Vercel re-otimizar a mesma imagem sem parar, o que
+    // e lento pro usuario e cobrado. 1 ano.
+    minimumCacheTTL: 31536000,
   },
 
   async headers() {

@@ -14,6 +14,7 @@
  */
 
 import { useState, type ReactNode } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import PublicFooter from '@/components/ui/PublicFooter'
 import PromoBanner from '@/components/ui/PromoBanner'
@@ -142,11 +143,21 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
         >
           {/* Imagem */}
           <div style={{ flex: '0 0 auto' }}>
-            <img
+            {/* next/image em vez de <img>: a fonte e um PNG de 1.606 KB exibido
+                a 260px. O otimizador entrega o mesmo quadro em ~29 KB de WebP
+                (medido 28/07/2026), 98% menos, com qualidade melhor do que
+                apontar pra imageSmall. `priority` porque esta e a LCP da pagina.
+                Continua lendo imageLarge: quem reduz e o otimizador, e partir do
+                arquivo grande preserva nitidez em tela retina. */}
+            <Image
               src={card.imageLarge || card.imageSmall || '/og-image.jpg'}
               alt={imgAlt}
+              width={260}
+              height={363}
+              priority
               style={{
                 width: 260,
+                height: 'auto',
                 borderRadius: 16,
                 boxShadow: `0 0 48px ${color}33, 0 24px 64px rgba(0,0,0,0.6)`,
                 display: 'block',

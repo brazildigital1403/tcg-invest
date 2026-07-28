@@ -107,6 +107,17 @@ export function sitemapIndexXml(items: { loc: string; lastmod?: string }[]): str
 }
 
 // ─── Contagem de cartas elegíveis (pra calcular nº de blocos) ─────────────────
+//
+// Custava ~52s e estourava o statement_timeout de 8s do `authenticator`, sempre.
+// O indice parcial `idx_cards_sitemap_elegiveis` (criado 28/07/2026) espelha
+// exatamente este predicado e transforma a contagem em Index Only Scan:
+// mediana de 16,7ms.
+//
+// NAO voltar a engolir o erro com `return 0`. Zero vira `chunks = 1` la no
+// /sitemap.xml, o indice passa a anunciar UM bloco no lugar de dezenas, e isso
+// fica 24h no CDN — o Google perde quase todas as URLs de carta sem ninguem
+// perceber. Falhando alto, o `stale-while-revalidate` continua servindo o
+// ultimo sitemap bom.
 export async function countEligibleCards(sb: SupabaseClient): Promise<number> {
   const { count, error } = await sb
     .from('pokemon_cards')
@@ -114,10 +125,12 @@ export async function countEligibleCards(sb: SupabaseClient): Promise<number> {
     .neq('excluded_from_scan', true)
     .neq('is_canary', true)
   if (error) {
-    console.error('[sitemap] erro ao contar cartas:', error)
-    return 0
+    throw new Error(`[sitemap] falha ao contar cartas elegiveis: ${error.message}`)
   }
-  return count || 0
+  if (!count) {
+    throw new Error('[sitemap] contagem de cartas voltou vazia — nao vou publicar sitemap truncado')
+  }
+  return count
 }
 
 export function cardChunkCount(total: number): number {
