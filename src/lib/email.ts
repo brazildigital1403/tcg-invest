@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { createClient } from '@supabase/supabase-js'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = 'Bynx <noreply@bynx.gg>'
@@ -87,7 +88,106 @@ const B2B_LINK_COLOR       = '#60a5fa'
 //
 // Este helper existe pra isso: nenhum envio deve chamar `resend.emails.send`
 // direto. Ele mantem a mesma forma de retorno, entao nenhum chamador quebra.
-async function enviar(params: { from: string; to: string | string[]; subject: string; html: string }) {
+// ── Descadastro (so e-mail de RELACIONAMENTO) ───────────────────────────────
+//
+// Gmail e Yahoo exigem List-Unsubscribe + List-Unsubscribe-Post de quem manda
+// volume (RFC 8058). Sem isso a entrega degrada sozinha com o tempo.
+//
+// ATENCAO: `{{{RESEND_UNSUBSCRIBE_URL}}}` NAO serve aqui. Aquela variavel e
+// substituida so em BROADCAST (envio pra Audience). Neste arquivo tudo sai por
+// `emails.send`, onde ela chegaria LITERAL na tela do usuario. Por isso a URL
+// e nossa, com token proprio.
+//
+// Escopo e proposital: SO os 5 e-mails de relacionamento. Recibo, pedido,
+// ticket, master set e loja NAO levam descadastro — ninguem pode optar por nao
+// receber a confirmacao de uma compra que fez, e oferecer isso so cria o risco
+// de a pessoa desligar o que ela precisa receber.
+
+/**
+ * ★ Host canonico, SEM www — obrigatorio no link de descadastro.
+ *
+ * `www.bynx.gg` responde 308 pra `bynx.gg`, e o um-clique do Gmail e um POST.
+ * POST em cima de redirect e exatamente a armadilha que ja mordeu o webhook da
+ * Stripe nesta casa: o cliente pode simplesmente nao seguir, e o descadastro
+ * falha CALADO. Pior que nao ter: o provedor passa a ver um unsubscribe
+ * quebrado, que e o que ele estava tentando garantir.
+ *
+ * Por isso nao uso APP_URL direto — ele pode vir com www do ambiente.
+ * Medido em 27/07/2026: GET e POST em www devolvem 308.
+ */
+const URL_CANONICA = APP_URL.replace('://www.', '://')
+
+function supabaseEmail() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+  )
+}
+
+/**
+ * Busca o estado de descadastro de um e-mail.
+ * Em caso de erro devolve `optOut: false` e sem URL: preferimos mandar sem o
+ * rodape a segurar um e-mail por causa de uma consulta que falhou.
+ */
+async function estadoDescadastro(email: string): Promise<{ optOut: boolean; url: string | null }> {
+  try {
+    const { data } = await supabaseEmail()
+      .from('users')
+      .select('email_optout_nurture, unsubscribe_token')
+      .ilike('email', email)
+      .limit(1)
+    const u = data?.[0]
+    if (!u) return { optOut: false, url: null }
+    return {
+      optOut: !!u.email_optout_nurture,
+      url: u.unsubscribe_token ? `${URL_CANONICA}/api/email/descadastrar?t=${u.unsubscribe_token}` : null,
+    }
+  } catch (e: any) {
+    console.warn('[email] nao consegui checar descadastro de', email, '-', e?.message)
+    return { optOut: false, url: null }
+  }
+}
+
+/** Rodape com o link, so pros e-mails de relacionamento. */
+function rodapeDescadastro(url: string): string {
+  return `<br/><br/>
+      <span style="font-size:11px;line-height:1.6;color:#4b5563;">
+        Você recebe este e-mail porque tem conta na Bynx.
+        <a href="${url}" rel="noopener noreferrer nofollow" target="_blank" style="color:#8a8a8a;text-decoration:underline;">Descadastrar</a>.
+      </span>`
+}
+
+/**
+ * Envia e-mail de RELACIONAMENTO: respeita o opt-out, poe o rodape e os dois
+ * headers que o Gmail/Yahoo pedem. Quem ja saiu da lista NAO recebe — e o
+ * retorno diz isso, em vez de fingir que enviou.
+ */
+async function enviarNurture(params: {
+  from: string; to: string; subject: string
+  /** Recebe o rodape pra encaixar ANTES do fechamento do card. */
+  montarHtml: (rodape: string) => string
+}) {
+  const { optOut, url } = await estadoDescadastro(params.to)
+  if (optOut) {
+    console.log(`[email] ${params.to} optou por nao receber relacionamento — "${params.subject}" nao enviado`)
+    return { data: null, error: null, puloPorOptOut: true } as any
+  }
+  const html = params.montarHtml(url ? rodapeDescadastro(url) : '')
+  return enviar({
+    from: params.from, to: params.to, subject: params.subject, html,
+    headers: url
+      ? {
+          'List-Unsubscribe': `<${url}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        }
+      : undefined,
+  })
+}
+
+async function enviar(params: {
+  from: string; to: string | string[]; subject: string; html: string
+  headers?: Record<string, string>
+}) {
   const res = await resend.emails.send(params)
   if (res.error) {
     const para = Array.isArray(params.to) ? params.to.join(', ') : params.to
@@ -101,7 +201,7 @@ async function enviar(params: { from: string; to: string | string[]; subject: st
 
 // ── Layout base ───────────────────────────────────────────────────────────────
 
-function baseLayout(content: string, preheader = '') {
+function baseLayout(content: string, preheader = '', rodapeExtra = '') {
   return `<!DOCTYPE html>
 <html lang="pt-BR" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -163,6 +263,7 @@ function baseLayout(content: string, preheader = '') {
             <td align="center" style="padding-top:28px;color:#4b5563;font-size:12px;line-height:1.6;${FONT}background-color:#080a0f;" bgcolor="#080a0f">
               © 2026 Bynx · Feito para colecionadores brasileiros de Pokémon TCG<br/>
               <a href="${APP_URL}" style="color:#6b7280;text-decoration:none;">bynx.gg</a>
+              ${rodapeExtra}
             </td>
           </tr>
 
@@ -256,7 +357,7 @@ export async function sendMasterSetUnlockedEmail(to: string, name: string, setNa
 
 export async function sendWelcomeEmail(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'Colecionador'
-  const html = baseLayout(`
+  const montarHtml = (rodape: string) => baseLayout(`
     ${h1(`Bem-vindo à Bynx, ${escapeHtml(firstName)}! 🎉`)}
     ${p('Sua conta foi criada com sucesso. Você ganhou <strong style="color:#f59e0b;">7 dias de Pro grátis</strong> para explorar tudo que a Bynx tem a oferecer.')}
     ${divider()}
@@ -269,16 +370,16 @@ export async function sendWelcomeEmail(to: string, name: string) {
     ${btn('Acessar minha conta', addUtm(`${APP_URL}/minha-colecao`, 'welcome', 'cta-button'))}
     ${divider()}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${addUtm(`${APP_URL}/faq`, 'welcome', 'link-faq')}" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
-  `, `Bem-vindo à Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`)
+  `, `Bem-vindo à Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`, rodape)
 
-  return enviar({ from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), html })
+  return enviarNurture({ from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), montarHtml })
 }
 
 // ── 2. Trial expirando — 5º dia ───────────────────────────────────────────────
 
 export async function sendTrialExpiring5Email(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'Colecionador'
-  const html = baseLayout(`
+  const montarHtml = (rodape: string) => baseLayout(`
     ${badge('Pro Trial', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Seu trial Pro expira em 2 dias ⏰')}
@@ -287,25 +388,25 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     ${btn('Ver planos →', addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'cta-button'))}
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Quer continuar no Pro? <a href="${addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'link-veja-planos')}" style="color:#f59e0b;text-decoration:none;">Veja os planos aqui</a>.</p>
-  `, `Seu trial Pro expira em 2 dias`)
+  `, `Seu trial Pro expira em 2 dias`, rodape)
 
-  return enviar({ from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), html })
+  return enviarNurture({ from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), montarHtml })
 }
 
 // ── 3. Trial expirando — último dia ──────────────────────────────────────────
 
 export async function sendTrialExpiring1Email(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'Colecionador'
-  const html = baseLayout(`
+  const montarHtml = (rodape: string) => baseLayout(`
     ${badge('Último dia', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Hoje é o último dia do seu Pro trial 🚨')}
     ${p(`${escapeHtml(firstName)}, amanhã sua conta volta automaticamente para o plano Free. Você não perde nada que já adicionou — só os recursos Pro ficam bloqueados.`)}
     ${p('Continue no Pro para manter acesso a cartas ilimitadas, scan com IA e marketplace.')}
     ${btn('Continuar no Pro →', addUtm(`${APP_URL}/minha-conta`, 'trial-1d', 'cta-button'))}
-  `, `Hoje é o último dia do seu Pro trial`)
+  `, `Hoje é o último dia do seu Pro trial`, rodape)
 
-  return enviar({ from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), html })
+  return enviarNurture({ from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), montarHtml })
 }
 
 // ── 4. SUPORTE — novo ticket criado (para admin) ──────────────────────────────
@@ -842,7 +943,7 @@ export async function sendReferralActivatedEmail(args: {
   newBalance: number
 }) {
   const firstName = args.name?.split(' ')[0] || 'Colecionador'
-  const html = baseLayout(`
+  const montarHtml = (rodape: string) => baseLayout(`
     ${badge('Indicação Ativada', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
     ${h1(`Você ganhou ${args.pointsAwarded} pontos! 🎉`)}
@@ -869,13 +970,13 @@ export async function sendReferralActivatedEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
       Continue indicando: cada nova indicação ativada vale ainda mais pontos, até o cap de 100 pts. Se ela virar Pro, você ganha <strong style="color:#f59e0b;">+200 pts extras</strong>! 🔥
     </p>
-  `, `Você ganhou ${args.pointsAwarded} pontos por indicar alguém!`)
+  `, `Você ganhou ${args.pointsAwarded} pontos por indicar alguém!`, rodape)
 
-  return enviar({
+  return enviarNurture({
     from: FROM,
     to: args.to,
     subject: subjUser(`🎉 +${args.pointsAwarded} pts! Sua indicação ativou`),
-    html,
+    montarHtml,
   })
 }
 
@@ -889,7 +990,7 @@ export async function sendReferralEngagedEmail(args: {
   const firstName = args.name?.split(' ')[0] || 'Colecionador'
   const POINTS = 200
 
-  const html = baseLayout(`
+  const montarHtml = (rodape: string) => baseLayout(`
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:48px;line-height:1;">🚀</div>
     </div>
@@ -926,13 +1027,13 @@ export async function sendReferralEngagedEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">
       Top 3 do mês ganham <strong style="color:#f59e0b;">prêmios físicos exclusivos</strong>. Continua na sua jornada — quem sabe esse mês não é o seu? 🏆
     </p>
-  `, `+${POINTS} pts! Sua indicação virou Pro na Bynx`)
+  `, `+${POINTS} pts! Sua indicação virou Pro na Bynx`, rodape)
 
-  return enviar({
+  return enviarNurture({
     from: FROM,
     to: args.to,
     subject: subjUser(`🚀 +${POINTS} pts! Sua indicação virou Pro`),
-    html,
+    montarHtml,
   })
 }
 
