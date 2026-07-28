@@ -776,9 +776,12 @@ export async function sendEmailLojaPlanoAlterado(args: {
     ? `Sua loja ${args.nomeLoja} foi promovida para ${cfgNovo.label}!`
     : `Plano da loja ${args.nomeLoja} foi atualizado para ${cfgNovo.label}`)
 
-  const subject = isUpgrade
-    ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label} na Bynx!`
-    : `Plano da sua loja foi atualizado para ${cfgNovo.label}`
+  // subjUser poe o sufixo "— Bynx.gg". Por isso o "na Bynx" sai do meio: a
+  // convencao no topo do arquivo pede exatamente isso ("Bem-vindo a Bynx —
+  // Bynx.gg" fica bobo).
+  const subject = subjUser(isUpgrade
+    ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label}`
+    : `Plano da sua loja foi atualizado para ${cfgNovo.label}`)
 
   return enviar({ from: FROM, to: args.to, subject, html })
 }
@@ -1230,7 +1233,7 @@ export async function sendMensagensNaoLidasEmail(args: {
     ${p(`${corpo} Não deixe seu comprador ou vendedor no vácuo!`)}
     ${btn('Ver conversas →', url)}
   `, plural ? `${args.qtd} mensagens não lidas na Bynx` : 'Você tem uma mensagem não lida')
-  const subject = plural ? `💬 ${args.qtd} mensagens não lidas na Bynx` : '💬 Você tem uma mensagem não lida na Bynx'
+  const subject = subjUser(plural ? `💬 ${args.qtd} mensagens não lidas` : '💬 Você tem uma mensagem não lida')
   return enviar({ from: FROM, to: args.to, subject, html })
 }
 
