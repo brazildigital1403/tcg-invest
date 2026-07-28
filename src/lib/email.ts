@@ -14,14 +14,24 @@ const FROM = 'Bynx <noreply@bynx.gg>'
 //    Prefixo por setor pra filtrar/buscar na caixa: Suporte, Contato, Sync,
 //    Alerta. Esses NAO levam o sufixo — sao pra dentro de casa.
 
+/**
+ * Assunto e CABECALHO, nao HTML — nao leva escape de HTML (senao o usuario
+ * veria "&amp;" no titulo). O que ele nao pode ter e quebra de linha: o
+ * assunto do ticket vem de campo livre com `slice(0, 200)` e nada impede um
+ * \n. A API do Resend codifica, mas normalizar aqui e barato e fecha a porta.
+ */
+function limparAssunto(texto: string): string {
+  return String(texto ?? '').replace(/[\r\n]+/g, ' ').trim()
+}
+
 /** Assunto pro usuario final: `Assunto — Bynx.gg` */
 function subjUser(texto: string): string {
-  return `${texto} — Bynx.gg`
+  return `${limparAssunto(texto)} — Bynx.gg`
 }
 
 /** Assunto interno: `[Bynx Setor] Assunto` */
 function subjInterno(setor: 'Suporte' | 'Contato' | 'Sync' | 'Alerta', texto: string): string {
-  return `[Bynx ${setor}] ${texto}`
+  return `[Bynx ${setor}] ${limparAssunto(texto)}`
 }
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
@@ -65,6 +75,30 @@ const B2B_GRADIENT_PRO     = 'linear-gradient(135deg,#60a5fa,#a855f7)'
 const B2B_GRADIENT_PREMIUM = 'linear-gradient(135deg,#a855f7,#ec4899)'
 const B2B_LINK_COLOR       = '#60a5fa'
 
+// ── Envio ─────────────────────────────────────────────────────────────────────
+//
+// ★ O SDK do Resend NAO LANCA em erro de API — ele devolve `{ data, error }`.
+// Por isso todo `try/catch` e `.catch(console.error)` espalhado pelas rotas
+// pegava so falha de REDE. E-mail rejeitado (endereco invalido, dominio nao
+// verificado, rate limit, supressao) voltava em `error` e ninguem olhava:
+// a Bynx nao tinha como saber que um e-mail nao chegou. Num negocio onde o
+// e-mail entrega o Master Set, a confirmacao de pedido e a aprovacao de loja,
+// falha silenciosa e o pior modo de falhar.
+//
+// Este helper existe pra isso: nenhum envio deve chamar `resend.emails.send`
+// direto. Ele mantem a mesma forma de retorno, entao nenhum chamador quebra.
+async function enviar(params: { from: string; to: string | string[]; subject: string; html: string }) {
+  const res = await resend.emails.send(params)
+  if (res.error) {
+    const para = Array.isArray(params.to) ? params.to.join(', ') : params.to
+    console.error(
+      `[email] FALHA no envio para ${para} — "${params.subject}": ` +
+      `${res.error.name ?? 'erro'}: ${res.error.message ?? JSON.stringify(res.error)}`
+    )
+  }
+  return res
+}
+
 // ── Layout base ───────────────────────────────────────────────────────────────
 
 function baseLayout(content: string, preheader = '') {
@@ -90,7 +124,7 @@ function baseLayout(content: string, preheader = '') {
   </style>
 </head>
 <body style="margin:0;padding:0;background-color:#080a0f;" bgcolor="#080a0f">
-  ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>` : ''}
+  ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(preheader)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>` : ''}
 
   <!-- Outer wrapper -->
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#080a0f" style="background-color:#080a0f;">
@@ -203,8 +237,8 @@ export async function sendMasterSetUnlockedEmail(to: string, name: string, setNa
   const html = baseLayout(`
     ${badge('Master Set liberado', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
-    ${h1(`Seu Master Set chegou, ${firstName}! 🗂️`)}
-    ${p(`O <strong style="color:#f59e0b;">${setName}</strong> foi desbloqueado na sua conta. Agora é só abrir as folhas de fichário, marcar o que você já tem e imprimir pra completar o set.`)}
+    ${h1(`Seu Master Set chegou, ${escapeHtml(firstName)}! 🗂️`)}
+    ${p(`O <strong style="color:#f59e0b;">${escapeHtml(setName)}</strong> foi desbloqueado na sua conta. Agora é só abrir as folhas de fichário, marcar o que você já tem e imprimir pra completar o set.`)}
     ${divider()}
     <table width="100%" cellpadding="0" cellspacing="0">
       ${['🗂️ Folhas de 9 bolsos no tamanho exato da carta', '✅ Cartas que você já tem aparecem marcadas', '🖨️ Modo imagem ou econômico (número + nome)', '🔎 Filtro "só o que falta" pra focar nos buracos'].map(f => `
@@ -217,13 +251,13 @@ export async function sendMasterSetUnlockedEmail(to: string, name: string, setNa
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Acesso vitalício — esse Master Set fica liberado na sua conta pra sempre. Dúvidas? Fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Seu Master Set ${setName} foi desbloqueado — imprima as folhas de fichário.`)
 
-  return resend.emails.send({ from: FROM, to, subject: subjUser(`🗂️ Master Set liberado: ${setName}`), html })
+  return enviar({ from: FROM, to, subject: subjUser(`🗂️ Master Set liberado: ${setName}`), html })
 }
 
 export async function sendWelcomeEmail(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'Colecionador'
   const html = baseLayout(`
-    ${h1(`Bem-vindo à Bynx, ${firstName}! 🎉`)}
+    ${h1(`Bem-vindo à Bynx, ${escapeHtml(firstName)}! 🎉`)}
     ${p('Sua conta foi criada com sucesso. Você ganhou <strong style="color:#f59e0b;">7 dias de Pro grátis</strong> para explorar tudo que a Bynx tem a oferecer.')}
     ${divider()}
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -237,7 +271,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${addUtm(`${APP_URL}/faq`, 'welcome', 'link-faq')}" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Bem-vindo à Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`)
 
-  return resend.emails.send({ from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), html })
+  return enviar({ from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), html })
 }
 
 // ── 2. Trial expirando — 5º dia ───────────────────────────────────────────────
@@ -248,14 +282,14 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     ${badge('Pro Trial', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Seu trial Pro expira em 2 dias ⏰')}
-    ${p(`${firstName}, você ainda tem 2 dias para curtir tudo do Pro: importação ilimitada, scan com IA, marketplace, separadores e muito mais.`)}
+    ${p(`${escapeHtml(firstName)}, você ainda tem 2 dias para curtir tudo do Pro: importação ilimitada, scan com IA, marketplace, separadores e muito mais.`)}
     ${p('Depois de 7 dias, sua conta volta para o plano Free, mas tudo que você adicionou continua salvo.')}
     ${btn('Ver planos →', addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'cta-button'))}
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Quer continuar no Pro? <a href="${addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'link-veja-planos')}" style="color:#f59e0b;text-decoration:none;">Veja os planos aqui</a>.</p>
   `, `Seu trial Pro expira em 2 dias`)
 
-  return resend.emails.send({ from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), html })
+  return enviar({ from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), html })
 }
 
 // ── 3. Trial expirando — último dia ──────────────────────────────────────────
@@ -266,12 +300,12 @@ export async function sendTrialExpiring1Email(to: string, name: string) {
     ${badge('Último dia', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Hoje é o último dia do seu Pro trial 🚨')}
-    ${p(`${firstName}, amanhã sua conta volta automaticamente para o plano Free. Você não perde nada que já adicionou — só os recursos Pro ficam bloqueados.`)}
+    ${p(`${escapeHtml(firstName)}, amanhã sua conta volta automaticamente para o plano Free. Você não perde nada que já adicionou — só os recursos Pro ficam bloqueados.`)}
     ${p('Continue no Pro para manter acesso a cartas ilimitadas, scan com IA e marketplace.')}
     ${btn('Continuar no Pro →', addUtm(`${APP_URL}/minha-conta`, 'trial-1d', 'cta-button'))}
   `, `Hoje é o último dia do seu Pro trial`)
 
-  return resend.emails.send({ from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), html })
+  return enviar({ from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), html })
 }
 
 // ── 4. SUPORTE — novo ticket criado (para admin) ──────────────────────────────
@@ -290,7 +324,7 @@ export async function sendNewTicketAdminEmail(args: {
     ${badge('Novo Ticket', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Um novo ticket foi aberto')}
-    ${p(`<strong style="color:#f0f0f0;">${args.userName || 'Colecionador'}</strong> (${args.userEmail}) abriu o ticket "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>".`)}
+    ${p(`<strong style="color:#f0f0f0;">${escapeHtml(args.userName || 'Colecionador')}</strong> (${escapeHtml(args.userEmail)}) abriu o ticket "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>".`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
       <tr><td style="padding:12px 16px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Categoria · Prioridade</td></tr>
       <tr><td style="padding:0 16px 12px;font-size:13px;color:rgba(255,255,255,0.8);${FONT}">${args.category} · <strong style="color:#f59e0b;">${args.priority}</strong></td></tr>
@@ -300,7 +334,7 @@ export async function sendNewTicketAdminEmail(args: {
     ${btn('Ver no painel admin →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-new-admin', 'cta-button'))}
   `, `Novo ticket: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Novo ticket: ${args.subject}`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Novo ticket: ${args.subject}`), html })
 }
 
 // ── 5. SUPORTE — confirmação de ticket criado (para usuário) ─────────────────
@@ -316,12 +350,12 @@ export async function sendTicketCreatedUserEmail(args: {
     ${badge('Ticket recebido', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Recebemos sua mensagem ✅')}
-    ${p(`${firstName}, seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>" foi criado e nossa equipe vai responder em breve.`)}
+    ${p(`${escapeHtml(firstName)}, seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>" foi criado e nossa equipe vai responder em breve.`)}
     ${p('Costumamos responder em até 24 horas úteis.')}
     ${btn('Ver meu ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-created-user', 'cta-button'))}
   `, `Recebemos seu ticket: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Ticket recebido: ${args.subject}`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Ticket recebido: ${args.subject}`), html })
 }
 
 // ── 6. SUPORTE — resposta do usuário (para admin) ────────────────────────────
@@ -338,14 +372,14 @@ export async function sendUserReplyAdminEmail(args: {
     ${badge('Nova Resposta', '#60a5fa', 'rgba(96,165,250,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Nova resposta em ticket')}
-    ${p(`<strong style="color:#f0f0f0;">${args.userName || 'Colecionador'}</strong> (${args.userEmail}) respondeu em "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>":`)}
+    ${p(`<strong style="color:#f0f0f0;">${escapeHtml(args.userName || 'Colecionador')}</strong> (${escapeHtml(args.userEmail)}) respondeu em "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>":`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
       <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
     ${btn('Responder no painel →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-user-reply', 'cta-button'))}
   `, `Nova resposta: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Resposta: ${args.subject}`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Resposta: ${args.subject}`), html })
 }
 
 // ── 7. SUPORTE — resposta do admin (para o usuário) ──────────────────────────
@@ -362,7 +396,7 @@ export async function sendAdminReplyUserEmail(args: {
     ${badge('Resposta da Equipe', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Você tem uma nova resposta')}
-    ${p(`${firstName}, nossa equipe respondeu seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>":`)}
+    ${p(`${escapeHtml(firstName)}, nossa equipe respondeu seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>":`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
       <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
     </table>
@@ -371,7 +405,7 @@ export async function sendAdminReplyUserEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Para responder, basta abrir a conversa no botão acima. Você também pode responder este email, mas o caminho mais rápido é pelo app. 📬</p>
   `, `Resposta para seu ticket: ${args.subject}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
+  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
 }
 
 // ── 8. SUPORTE — mudança de status (para o usuário) ──────────────────────────
@@ -397,12 +431,12 @@ export async function sendTicketStatusChangedEmail(args: {
       <div style="font-size:48px;line-height:1;">${info.emoji}</div>
     </div>
     ${h1(`Ticket ${info.label.toLowerCase()}`)}
-    ${p(`${firstName}, o status do seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>" foi atualizado para <strong style="color:${info.color};">${info.label}</strong>.`)}
+    ${p(`${escapeHtml(firstName)}, o status do seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>" foi atualizado para <strong style="color:${info.color};">${info.label}</strong>.`)}
     ${args.status === 'resolved' ? p('Se ainda tiver dúvidas ou o problema voltar, é só responder o ticket — ele reabre automaticamente.') : ''}
     ${btn('Ver ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-status-changed', 'cta-button'))}
   `, `Seu ticket agora está ${info.label.toLowerCase()}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Suporte', `${info.label}: ${args.subject}`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `${info.label}: ${args.subject}`), html })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -428,7 +462,7 @@ export async function sendEmailLojaAprovada(args: {
       <div style="font-size:48px;line-height:1;">🎉</div>
     </div>
     ${h1('Sua loja foi aprovada!')}
-    ${p(`${firstName}, boa notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi aprovada pela equipe da Bynx e já está no ar no Guia de Lojas.`)}
+    ${p(`${escapeHtml(firstName)}, boa notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi aprovada pela equipe da Bynx e já está no ar no Guia de Lojas.`)}
     ${divider()}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
       <tr><td style="padding:14px 18px 6px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Página pública</td></tr>
@@ -444,7 +478,7 @@ export async function sendEmailLojaAprovada(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`🎉 Sua loja foi aprovada!`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`🎉 Sua loja foi aprovada!`), html })
 }
 
 // ── 10. LOJAS — loja suspensa (para o owner) ─────────────────────────────────
@@ -464,7 +498,7 @@ export async function sendEmailLojaSuspensa(args: {
     ${badge('Loja suspensa', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Sua loja foi suspensa')}
-    ${p(`${firstName}, precisamos te avisar que <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi suspensa temporariamente no Guia da Bynx.`)}
+    ${p(`${escapeHtml(firstName)}, precisamos te avisar que <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi suspensa temporariamente no Guia da Bynx.`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(239,68,68,0.3);margin-top:16px;">
       <tr><td style="padding:14px 18px 6px;font-size:11px;color:#ef4444;${FONT}text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Motivo</td></tr>
       <tr><td style="padding:0 18px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.motivo)}</td></tr>
@@ -475,7 +509,7 @@ export async function sendEmailLojaSuspensa(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi suspensa na Bynx`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`Sua loja foi suspensa`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`Sua loja foi suspensa`), html })
 }
 
 // ── 11. LOJAS — plano alterado (para o owner) ────────────────────────────────
@@ -560,8 +594,8 @@ export async function sendEmailLojaPlanoAlterado(args: {
     : `Plano da sua loja foi atualizado`
 
   const introducao = isUpgrade
-    ? `${firstName}, ótima notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> agora está no plano <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>! 🎉`
-    : `${firstName}, queremos te avisar que o plano da sua loja <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi alterado de <strong style="color:${cfgAnterior.color};">${cfgAnterior.label}</strong> para <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>.`
+    ? `${escapeHtml(firstName)}, ótima notícia: <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> agora está no plano <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>! 🎉`
+    : `${escapeHtml(firstName)}, queremos te avisar que o plano da sua loja <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi alterado de <strong style="color:${cfgAnterior.color};">${cfgAnterior.label}</strong> para <strong style="color:${cfgNovo.color};">${cfgNovo.label}</strong>.`
 
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;">
@@ -611,7 +645,7 @@ export async function sendEmailLojaPlanoAlterado(args: {
     ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label} na Bynx!`
     : `Plano da sua loja foi atualizado para ${cfgNovo.label}`
 
-  return resend.emails.send({ from: FROM, to: args.to, subject, html })
+  return enviar({ from: FROM, to: args.to, subject, html })
 }
 
 // ── 12. PURCHASE — confirmação de compra (após webhook Stripe) ───────────────
@@ -648,7 +682,7 @@ export async function sendPurchaseConfirmationEmail(
     badgeColor = '#f59e0b'
     badgeBg = 'rgba(245,158,11,0.15)'
     titulo = `Bem-vindo à Bynx Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}! ⭐`
-    intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}</strong> foi ativada com sucesso. Obrigado por apoiar a Bynx!`
+    intro = `${escapeHtml(firstName)}, sua assinatura <strong style="color:#f59e0b;">Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}</strong> foi ativada com sucesso. Obrigado por apoiar a Bynx!`
     detalhes = `
       <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Cartas ilimitadas na sua coleção</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Scan de cartas com IA</p>
@@ -666,7 +700,7 @@ export async function sendPurchaseConfirmationEmail(
     badgeColor = '#22c55e'
     badgeBg = 'rgba(34,197,94,0.15)'
     titulo = 'Separadores liberados! 🗂️'
-    intro = `${firstName}, sua compra dos <strong style="color:#22c55e;">Separadores de Fichário</strong> foi confirmada e o recurso já está liberado na sua conta.`
+    intro = `${escapeHtml(firstName)}, sua compra dos <strong style="color:#22c55e;">Separadores de Fichário</strong> foi confirmada e o recurso já está liberado na sua conta.`
     detalhes = `
       <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">🎨 Layouts profissionais prontos pra imprimir</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📄 Geração em PDF de alta qualidade</p>
@@ -682,7 +716,7 @@ export async function sendPurchaseConfirmationEmail(
     badgeColor = '#60a5fa'
     badgeBg = 'rgba(96,165,250,0.15)'
     titulo = 'Créditos de scan adicionados! 📷'
-    intro = `${firstName}, sua compra de créditos de scan foi confirmada e os créditos já estão disponíveis na sua conta.`
+    intro = `${escapeHtml(firstName)}, sua compra de créditos de scan foi confirmada e os créditos já estão disponíveis na sua conta.`
     detalhes = `
       <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Cada scan reconhece uma carta automaticamente via IA</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">⚡ Use pela câmera ou enviando uma foto</p>
@@ -698,7 +732,7 @@ export async function sendPurchaseConfirmationEmail(
     badgeColor = '#f59e0b'
     badgeBg = 'rgba(245,158,11,0.15)'
     titulo = 'Bem-vindo à Bynx Plus! ✨'
-    intro = `${firstName}, sua assinatura <strong style="color:#f59e0b;">Plus</strong> foi ativada com sucesso. Obrigado por apoiar a Bynx!`
+    intro = `${escapeHtml(firstName)}, sua assinatura <strong style="color:#f59e0b;">Plus</strong> foi ativada com sucesso. Obrigado por apoiar a Bynx!`
     detalhes = `
       <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Até 500 cartas na sua coleção</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📊 Dashboard completo</p>
@@ -716,7 +750,7 @@ export async function sendPurchaseConfirmationEmail(
     badgeColor = '#22c55e'
     badgeBg = 'rgba(34,197,94,0.15)'
     titulo = 'Compra confirmada! ✅'
-    intro = `${firstName}, sua compra foi confirmada com sucesso.`
+    intro = `${escapeHtml(firstName)}, sua compra foi confirmada com sucesso.`
     detalhes = ''
     ctaLabel = 'Acessar minha conta'
     ctaHref = `${APP_URL}/minha-colecao`
@@ -735,7 +769,7 @@ export async function sendPurchaseConfirmationEmail(
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, preheader)
 
-  return resend.emails.send({ from: FROM, to, subject, html })
+  return enviar({ from: FROM, to, subject, html })
 }
 
 // ── 13. TRIAL — alias de sendTrialExpiring1Email ─────────────────────────────
@@ -778,7 +812,7 @@ export async function sendReferralActivatedEmail(args: {
     ${badge('Indicação Ativada', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
     ${h1(`Você ganhou ${args.pointsAwarded} pontos! 🎉`)}
-    ${p(`${firstName}, alguém que você indicou completou o cadastro, confirmou o email e começou a usar a Bynx de verdade. Você ganhou <strong style="color:#22c55e;">+${args.pointsAwarded} pontos</strong>!`)}
+    ${p(`${escapeHtml(firstName)}, alguém que você indicou completou o cadastro, confirmou o email e começou a usar a Bynx de verdade. Você ganhou <strong style="color:#22c55e;">+${args.pointsAwarded} pontos</strong>!`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(34,197,94,0.25);margin-top:16px;">
       <tr>
@@ -803,7 +837,7 @@ export async function sendReferralActivatedEmail(args: {
     </p>
   `, `Você ganhou ${args.pointsAwarded} pontos por indicar alguém!`)
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`🎉 +${args.pointsAwarded} pts! Sua indicação ativou`),
@@ -826,7 +860,7 @@ export async function sendReferralEngagedEmail(args: {
       <div style="font-size:48px;line-height:1;">🚀</div>
     </div>
     ${h1('Sua indicação virou Pro!')}
-    ${p(`${firstName}, BOA notícia em dose dupla: alguém que você indicou assinou a Bynx Pro. Você ganhou <strong style="color:#f59e0b;">+${POINTS} pontos</strong> de bônus!`)}
+    ${p(`${escapeHtml(firstName)}, BOA notícia em dose dupla: alguém que você indicou assinou a Bynx Pro. Você ganhou <strong style="color:#f59e0b;">+${POINTS} pontos</strong> de bônus!`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(245,158,11,0.3);margin-top:16px;">
       <tr>
@@ -860,7 +894,7 @@ export async function sendReferralEngagedEmail(args: {
     </p>
   `, `+${POINTS} pts! Sua indicação virou Pro na Bynx`)
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`🚀 +${POINTS} pts! Sua indicação virou Pro`),
@@ -884,7 +918,7 @@ export async function sendRedemptionConfirmedEmail(args: {
     ${badge('Resgate Confirmado', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Recompensa resgatada com sucesso! ✅')}
-    ${p(`${firstName}, seu resgate de <strong style="color:#f0f0f0;">${escapeHtml(args.rewardTitle)}</strong> foi confirmado.`)}
+    ${p(`${escapeHtml(firstName)}, seu resgate de <strong style="color:#f0f0f0;">${escapeHtml(args.rewardTitle)}</strong> foi confirmado.`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
       <tr>
@@ -920,7 +954,7 @@ export async function sendRedemptionConfirmedEmail(args: {
     </p>
   `, `Resgate confirmado: ${args.rewardTitle}`)
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`✅ Resgate confirmado: ${args.rewardTitle}`),
@@ -936,14 +970,14 @@ export async function sendPaymentFailedEmail(to: string, name: string) {
     ${badge('Ação necessária', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Não conseguimos renovar seu Pro 💳')}
-    ${p(`${firstName}, a cobrança da sua assinatura Bynx Pro foi recusada — geralmente é cartão expirado, sem saldo ou bloqueio do banco.`)}
+    ${p(`${escapeHtml(firstName)}, a cobrança da sua assinatura Bynx Pro foi recusada — geralmente é cartão expirado, sem saldo ou bloqueio do banco.`)}
     ${p('Fique tranquilo: seu acesso Pro continua ativo enquanto tentamos cobrar de novo nos próximos dias. Para não perder o acesso, atualize sua forma de pagamento.')}
     ${btn('Atualizar pagamento →', addUtm(`${APP_URL}/minha-conta`, 'payment-failed', 'cta-button'))}
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Já atualizou? Pode ignorar este email — a próxima tentativa de cobrança resolve sozinha.</p>
   `, `Atualize seu pagamento para manter o Pro ativo`)
 
-  return resend.emails.send({ from: FROM, to, subject: subjUser(`💳 Não conseguimos renovar seu Pro`), html })
+  return enviar({ from: FROM, to, subject: subjUser(`💳 Não conseguimos renovar seu Pro`), html })
 }
 
 // ── PAGAMENTO — chargeback aberto (alerta para admin) ────────────────────────
@@ -975,7 +1009,7 @@ export async function sendDisputeAdminEmail(args: {
     ${btn('Abrir disputas no Stripe →', 'https://dashboard.stripe.com/disputes')}
   `, `Chargeback aberto: ${valor}`)
 
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjInterno('Alerta', `Chargeback aberto (${valor})`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjInterno('Alerta', `Chargeback aberto (${valor})`), html })
 }
 
 
@@ -1005,7 +1039,7 @@ export async function sendNovaNegociacaoEmail(args: {
     ${p('Responda pelo chat da Bynx para combinar valor, condição e envio — tudo dentro da plataforma.')}
     ${btn('Abrir conversa →', url)}
   `, `${args.buyerName || 'Um comprador'} quer ${args.cardName}`)
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`🤝 Nova negociação: ${args.cardName}`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`🤝 Nova negociação: ${args.cardName}`), html })
 }
 
 export async function sendCartaEnviadaEmail(args: {
@@ -1023,7 +1057,7 @@ export async function sendCartaEnviadaEmail(args: {
     ${p('Quando a carta chegar, confirme o recebimento pelo chat para concluir a negociação e adicioná-la à sua coleção.')}
     ${btn('Acompanhar negociação →', url)}
   `, `${args.sellerName || 'O vendedor'} enviou ${args.cardName}`)
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`📦 Carta enviada: ${args.cardName}`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`📦 Carta enviada: ${args.cardName}`), html })
 }
 
 export async function sendNegociacaoConcluidaEmail(args: {
@@ -1041,7 +1075,7 @@ export async function sendNegociacaoConcluidaEmail(args: {
     ${p('Que tal avaliar o comprador? Avaliações ajudam toda a comunidade a negociar com mais confiança.')}
     ${btn('Avaliar comprador →', url)}
   `, `Venda concluída: ${args.cardName}`)
-  return resend.emails.send({ from: FROM, to: args.to, subject: subjUser(`✅ Venda concluída: ${args.cardName}`), html })
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`✅ Venda concluída: ${args.cardName}`), html })
 }
 
 export async function sendMensagensNaoLidasEmail(args: {
@@ -1062,7 +1096,7 @@ export async function sendMensagensNaoLidasEmail(args: {
     ${btn('Ver conversas →', url)}
   `, plural ? `${args.qtd} mensagens não lidas na Bynx` : 'Você tem uma mensagem não lida')
   const subject = plural ? `💬 ${args.qtd} mensagens não lidas na Bynx` : '💬 Você tem uma mensagem não lida na Bynx'
-  return resend.emails.send({ from: FROM, to: args.to, subject, html })
+  return enviar({ from: FROM, to: args.to, subject, html })
 }
 
 // ─── Stripe Connect (vendas on-site) ────────────────────────────────────────
@@ -1085,7 +1119,7 @@ export async function sendConnectAtivoEmail(args: {
       <div style="font-size:48px;line-height:1;">🎉</div>
     </div>
     ${h1('Seus recebimentos estão ativos!')}
-    ${p(`${firstName}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>. Sua loja já pode vender direto na Bynx — cartas, selados, acessórios e o que mais você tiver na vitrine.`)}
+    ${p(`${escapeHtml(firstName)}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>. Sua loja já pode vender direto na Bynx — cartas, selados, acessórios e o que mais você tiver na vitrine.`)}
     ${p('O dinheiro das suas vendas cai na conta bancária que você cadastrou. A gente nunca toca nele — quem cuida disso é a Stripe.')}
     ${divider()}
     ${p('<strong style="color:#f0f0f0;">Como funciona:</strong>')}
@@ -1096,7 +1130,7 @@ export async function sendConnectAtivoEmail(args: {
     ${btnB2B('Ver meus pagamentos', addUtm(url, 'connect_ativo'), B2B_GRADIENT_PREMIUM, '#a855f7')}
   `, 'Sua loja já pode vender na Bynx')
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`🎉 ${args.nomeLoja}: seus recebimentos estão ativos!`),
@@ -1126,14 +1160,14 @@ export async function sendConnectPendenciaEmail(args: {
       <div style="font-size:48px;line-height:1;">📋</div>
     </div>
     ${h1('Falta pouco para você vender na Bynx')}
-    ${p(`${firstName}, a Stripe precisa de ${plural} a mais para liberar os recebimentos de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>.`)}
+    ${p(`${escapeHtml(firstName)}, a Stripe precisa de ${plural} a mais para liberar os recebimentos de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>.`)}
     ${p('É rapidinho e você continua exatamente de onde parou. Enquanto isso, sua loja segue no ar normalmente — só as vendas com pagamento pela Bynx que ficam esperando.')}
     ${divider()}
     ${btnB2B('Resolver agora', addUtm(url, 'connect_pendencia'), B2B_GRADIENT_PRO, '#8b5cf6')}
     ${p('<span style="color:rgba(255,255,255,0.4);font-size:13px;">Essas informações são exigidas pela Stripe, que processa os pagamentos com segurança. A Bynx não tem acesso aos seus dados bancários.</span>')}
   `, `A Stripe precisa de ${plural} para liberar seus recebimentos`)
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`📋 ${args.nomeLoja}: falta pouco para ativar seus recebimentos`),
@@ -1162,7 +1196,7 @@ export async function sendVendaLojistaEmail(args: {
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">💰</div></div>
     ${h1('Você vendeu!')}
-    ${p(`${firstName}, <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> foi vendido na sua vitrine da Bynx. O pagamento já está confirmado.`)}
+    ${p(`${escapeHtml(firstName)}, <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> foi vendido na sua vitrine da Bynx. O pagamento já está confirmado.`)}
     ${divider()}
     ${p(`<strong style="color:#f0f0f0;">Pedido #${args.pedidoNumero}</strong>`)}
     ${p(`Comprador: ${escapeHtml(args.compradorNome)}`)}
@@ -1173,7 +1207,7 @@ export async function sendVendaLojistaEmail(args: {
     ${btnB2B('Ver o pedido', addUtm(url, 'venda_lojista'), B2B_GRADIENT_PREMIUM, '#a855f7')}
   `, `${args.itemNome} vendido — envie o produto`)
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`💰 Você vendeu: ${args.itemNome}`),
@@ -1197,7 +1231,7 @@ export async function sendPedidoCompradorEmail(args: {
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">✅</div></div>
     ${h1('Pagamento confirmado!')}
-    ${p(`${firstName}, sua compra de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> na <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi confirmada.`)}
+    ${p(`${escapeHtml(firstName)}, sua compra de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> na <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> foi confirmada.`)}
     ${divider()}
     ${p(`<strong style="color:#f0f0f0;">Pedido #${args.pedidoNumero}</strong>`)}
     ${p(`Total pago: <strong style="color:#f0f0f0;">${args.totalBRL}</strong>`)}
@@ -1206,7 +1240,7 @@ export async function sendPedidoCompradorEmail(args: {
     ${btn('Acompanhar pedido', addUtm(url, 'pedido_comprador'))}
   `, `Pedido #${args.pedidoNumero} confirmado`)
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`✅ Pedido confirmado: ${args.itemNome}`),
@@ -1230,7 +1264,7 @@ export async function sendPedidoEnviadoEmail(args: {
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">📦</div></div>
     ${h1('Seu pedido foi enviado!')}
-    ${p(`${firstName}, a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> despachou <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong>. Agora é só aguardar a entrega.`)}
+    ${p(`${escapeHtml(firstName)}, a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> despachou <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong>. Agora é só aguardar a entrega.`)}
     ${args.rastreio
       ? `${divider()}${p(`<strong style="color:#f0f0f0;">Código de rastreio</strong>`)}${p(`<span style="font-family:monospace;font-size:16px;color:#60a5fa;letter-spacing:0.05em;">${escapeHtml(args.rastreio)}</span>`)}`
       : ''}
@@ -1238,7 +1272,7 @@ export async function sendPedidoEnviadoEmail(args: {
     ${btn('Acompanhar pedido', addUtm(url, 'pedido_enviado'))}
   `, `${args.itemNome} está a caminho`)
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`📦 A caminho: ${args.itemNome}`),
@@ -1264,7 +1298,7 @@ export async function sendReembolsoCompradorEmail(args: {
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">↩️</div></div>
     ${h1('Seu pedido foi reembolsado')}
-    ${p(`${firstName}, a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> cancelou o pedido de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> e o valor foi estornado.`)}
+    ${p(`${escapeHtml(firstName)}, a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> cancelou o pedido de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> e o valor foi estornado.`)}
     ${divider()}
     ${p(`<strong style="color:#f0f0f0;">Valor reembolsado:</strong> <span style="color:#22c55e;font-weight:700;">${valor}</span>`)}
     ${args.motivo ? p(`<strong style="color:#f0f0f0;">Motivo informado pela loja:</strong> ${escapeHtml(args.motivo)}`) : ''}
@@ -1273,7 +1307,7 @@ export async function sendReembolsoCompradorEmail(args: {
     ${btn('Ver o pedido', addUtm(url, 'pedido_reembolsado'))}
   `, `Reembolso do pedido #${args.pedidoNumero}`)
 
-  return resend.emails.send({
+  return enviar({
     from: FROM,
     to: args.to,
     subject: subjUser(`↩️ Reembolso: ${args.itemNome}`),
