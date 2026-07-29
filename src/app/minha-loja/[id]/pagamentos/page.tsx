@@ -299,7 +299,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
 
             <div style={S.linhas}>
               <div style={S.linha}><span style={S.lbl}>Sua comissão</span><span>{pctLabel(prazo)} + R$ 0,40*</span></div>
-              <div style={S.linha}><span style={S.lbl}>Numa venda de {fmtBRL(EXEMPLO_CENTS)}</span><span>− {fmtBRL(c.comissaoVendedorCents)}</span></div>
+              <div style={S.linha}><span style={S.lbl}>Em uma venda de {fmtBRL(EXEMPLO_CENTS)}</span><span>− {fmtBRL(c.comissaoVendedorCents)}</span></div>
               <div style={{ ...S.linha, borderBottom: 'none', fontWeight: 800 }}>
                 <span style={{ color: '#22c55e' }}>Você recebe</span>
                 <span style={{ color: '#22c55e' }}>{fmtBRL(c.liquidoLojaCents)}</span>
