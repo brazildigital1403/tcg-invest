@@ -21,26 +21,24 @@ export async function GET() {
   const now = new Date().toISOString()
   const sb = getSupabase()
 
-  // ─── CONTENCAO TEMPORARIA — incidente de 29/07/2026 ───────────────────────
+  // O indice anuncia um bloco por CARD_CHUNK cartas elegiveis.
   //
-  // Ate 28/07 a contagem de cartas estourava o statement_timeout e o codigo
-  // respondia `return 0`, entao este indice anunciava UM bloco. Consertar isso
-  // fez ele anunciar SETE — correto, mas convidou o crawler pras 66.890
-  // paginas de carta, que sao rotas DINAMICAS e sem cache. Cada visita acorda
-  // uma lambda e bate no banco; o pool de conexao esgotou e derrubou o site.
+  // Historico que vale lembrar antes de mexer aqui: ate 28/07/2026 a contagem
+  // estourava o statement_timeout e o codigo respondia `return 0`, entao isto
+  // anunciava UM bloco — o Google enxergava so as 10.000 primeiras cartas.
+  // Consertada a contagem, passou a anunciar sete, e o crawler encontrou as
+  // 66.890 paginas de carta. Como /carta/[id] era rota DINAMICA sem cache,
+  // cada visita acordava uma lambda e batia no banco: o pool esgotou e
+  // derrubou o site (incidente de 29/07).
   //
-  // Enquanto /carta/[id] nao for cacheavel, o indice fica limitado. Nao
-  // resolve sozinho — cada bloco ainda tem CARD_CHUNK (10.000) URLs —, mas
-  // reduz a superficie em ~6,7x.
-  //
-  // REMOVER assim que a rota de carta sair de dinamica. Sem isso, o Google
-  // enxerga so as 10.000 primeiras cartas do catalogo.
-  const TETO_DE_BLOCOS = 1
-
+  // Voltou ao numero real depois que as tres rotas de conteudo ganharam
+  // `generateStaticParams` e passaram a servir do CDN. A licao nao e "sitemap
+  // pequeno e mais seguro" — e que anunciar URL so e seguro quando a rota
+  // correspondente aguenta ser varrida.
   let chunks = 1
   if (sb) {
     const total = await countEligibleCards(sb)
-    chunks = Math.min(cardChunkCount(total), TETO_DE_BLOCOS)
+    chunks = cardChunkCount(total)
   }
 
   const items = Array.from({ length: chunks }, (_, i) => ({
