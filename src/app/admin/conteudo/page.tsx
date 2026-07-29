@@ -144,18 +144,18 @@ const CHECKLIST_POST = [
 ]
 
 const CAMPANHAS = [
-  { t: 'A caca ao Squirtle 10', status: 'no ar', cor: '#22c55e',
-    d: 'Você tem Charmander 10 e Bulbasaur 10. Falta o Squirtle pra fechar o trio de Kanto. Aberturas diarias cacando, graduação, veredito. Novela pura.',
-    cta: 'acompanha a caca + montei o trio na Bynx' },
+  { t: 'A caça ao Squirtle 10', status: 'no ar', cor: '#22c55e',
+    d: 'Você tem Charmander 10 e Bulbasaur 10. Falta o Squirtle pra fechar o trio de Kanto. Aberturas diárias caçando, graduação, veredito. Novela pura.',
+    cta: 'acompanha a caça + montei o trio na Bynx' },
   { t: 'Lancamento de set', status: '', cor: '',
-    d: 'Teaser, abertura, as cartas mais valiosas pra caçar com preço da Bynx, o hit. Surfa a busca do lancamento.',
+    d: 'Teaser, abertura, as cartas mais valiosas pra caçar com preço da Bynx, o hit. Surfa a busca do lançamento.',
     cta: 'checklist do set na Bynx' },
   { t: 'Quanto vale sua coleção?', status: 'lead forte', cor: 'var(--ac-1)',
     d: 'Provocação, prova (a sua vale isso, olha), convite (descobre a sua de graca). A mecânica de captação mais direta.',
     cta: 'cadastro na Bynx' },
   { t: 'Loja Validada', status: 'B2B', cor: '#60a5fa',
-    d: 'O que e o selo, por que da confiança ao comprador, como a loja consegue, depoimento. Ataca a dor de "e seguro?".',
-    cta: 'cadastre sua loja e peca o selo' },
+    d: 'O que é o selo, por que dá confiança ao comprador, como a loja consegue, depoimento. Ataca a dor de "é seguro?".',
+    cta: 'cadastre sua loja e peça o selo' },
   { t: '30 anos do Pokemon TCG', status: '', cor: '',
     d: 'Nostalgia, cartas historicas, o quanto valorizaram, "sua base set valia quanto?". Nostalgia e o combustivel de compartilhamento número 1 do nicho.',
     cta: 'veja quanto valem as antigas na Bynx' },
@@ -169,7 +169,7 @@ Quer descobrir quanto vale a sua? E de graca e leva uns minutos: cadastra em byn
 Me conta aqui embaixo: você acha que sua coleção passa de R$500, R$1.000 ou R$5.000?` },
   { t: 'Comentário como chave', f: 'Reels curto', c:
 `Fiz uma lista das cartas mais valiosas do [SET] com o preço de cada uma.
-Comenta QUERO aqui embaixo que eu te mando o link pra você conferir e marcar o que ja tem.` },
+Comenta QUERO aqui embaixo que eu te mando o link pra você conferir e marcar o que já tem.` },
   { t: 'Prova social do valor', f: 'Estatico / carrossel', c:
 `Essa carta ficou anos parada numa gaveta. Hoje ela vale R$[X].
 A parte chata e não saber o que você tem. A boa e que da pra descobrir em minutos.
@@ -498,7 +498,7 @@ export default function GestaoConteudo() {
           <div style={{ ...card, marginTop: 14, borderLeft: `3px solid ${AC}`, borderRadius: '0 12px 12px 0' }}>
             <p style={{ fontSize: 13.5, color: TXT2, margin: 0 }}>
               <strong style={{ color: TXT }}>Por que muita coisa cai em "(sem origem)":</strong>{' '}
-              a captura de atribuicao passou a existir em 29/07/2026. Cadastro anterior a isso não tem
+              a captura de atribuição passou a existir em 29/07/2026. Cadastro anterior a isso não tem
               como saber de onde veio — não é falha, é ausência de dado. A proporção com origem sobe
               conforme os cadastros novos entram.
             </p>
@@ -606,7 +606,7 @@ export default function GestaoConteudo() {
         <>
           <p style={{ color: TXT2, fontSize: 14, marginBottom: 18, maxWidth: '70ch' }}>
             História com começo, meio e fim (5 a 10 dias), com CTA claro. É o que faz a base voltar todo dia
-            pra ver o proximo capitulo. Rode uma por vez, por tras do conteudo perene.
+            pra ver o próximo capítulo. Rode uma por vez, por trás do conteúdo perene.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
             {CAMPANHAS.map((c) => (
@@ -713,7 +713,7 @@ export default function GestaoConteudo() {
       {aba === 'metas' && (
         <>
           <p style={{ color: TXT2, fontSize: 14, marginBottom: 18, maxWidth: '70ch' }}>
-            KPI primario: crescimento liquido por semana + taxa de salvamento e compartilhamento.
+            KPI primário: crescimento líquido por semana + taxa de salvamento e compartilhamento.
             Não likes, não número bruto.
           </p>
 
