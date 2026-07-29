@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { useLojaOwner, LojaEstadoFallback, SH } from '../_shared'
+import { IconBox, IconPlush, IconFigure, IconCollection, IconTag } from '@/components/ui/Icons'
 import { fmtBRL } from '@/lib/comissao'
 
 /**
@@ -19,14 +20,14 @@ import { fmtBRL } from '@/lib/comissao'
  */
 
 const TIPOS = [
-  { v: 'selado', ic: '📦', label: 'Selado' },
-  { v: 'pelucia', ic: '🧸', label: 'Pelúcia' },
-  { v: 'funko', ic: '🎎', label: 'Funko' },
-  { v: 'fichario', ic: '📁', label: 'Fichário' },
-  { v: 'acessorio', ic: '🎁', label: 'Acessório' },
+  { v: 'selado', ic: IconBox, label: 'Selado' },
+  { v: 'pelucia', ic: IconPlush, label: 'Pelúcia' },
+  { v: 'funko', ic: IconFigure, label: 'Funko' },
+  { v: 'fichario', ic: IconCollection, label: 'Fichário' },
+  { v: 'acessorio', ic: IconTag, label: 'Acessório' },
 ] as const
 type TipoV = (typeof TIPOS)[number]['v']
-const icone = (t: string) => TIPOS.find(x => x.v === t)?.ic || '📦'
+const icone = (t: string) => TIPOS.find(x => x.v === t)?.ic || IconBox
 const rotulo = (t: string) => TIPOS.find(x => x.v === t)?.label || t
 
 interface Produto {
@@ -199,7 +200,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
           <div style={S.chips}>
             {TIPOS.map(t => (
               <button key={t.v} onClick={() => setTipo(t.v)} style={{ ...S.chip, ...(tipo === t.v ? S.chipOn : {}) }}>
-                {t.ic} {t.label}
+                <t.ic size={15} /> {t.label}
               </button>
             ))}
           </div>
@@ -260,7 +261,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
         <div style={{ ...SH.card, textAlign: 'center', color: 'rgba(255,255,255,0.45)' }}>Carregando…</div>
       ) : produtos.length === 0 ? (
         <div style={{ ...SH.card, textAlign: 'center', padding: '32px 20px' }}>
-          <div style={{ fontSize: 34 }}>📦</div>
+          <div style={{ color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}><IconBox size={34} strokeWidth={1.2} /></div>
           <h2 style={S.h2}>Sua vitrine só tem cartas</h2>
           <p style={S.txt}>Cadastre selados, pelúcias, funkos e acessórios. Eles aparecem na sua vitrine junto com as cartas e vendem pelo mesmo checkout.</p>
           <button onClick={abrirNovo} style={{ ...SH.btnPrimary, marginTop: 14 }}>+ Adicionar produto</button>
@@ -270,13 +271,14 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
           <button onClick={abrirNovo} style={{ ...SH.btnPrimary, width: '100%', marginBottom: 12 }}>+ Adicionar produto</button>
           {produtos.map(p => {
             const esgotado = p.estoque === 0
+            const Ic = icone(p.tipo)
             return (
               <div key={p.id} style={{ ...SH.card, marginBottom: 10, padding: 14, ...(esgotado ? S.opaco : {}) }}>
                 <div style={S.lin}>
                   <div style={S.th}>
                     {p.fotos?.[0]
                       ? <Image src={p.fotos[0]} alt={p.nome} width={42} height={42} style={{ objectFit: 'cover', borderRadius: 7 }} unoptimized />
-                      : <span style={{ fontSize: 18 }}>{icone(p.tipo)}</span>}
+                      : <Ic size={20} />}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={S.ln}>{p.nome}</div>
@@ -313,7 +315,7 @@ const S: Record<string, React.CSSProperties> = {
   cap: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 },
   lbl: { display: 'block', fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6, marginTop: 12 },
   chips: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  chip: { fontSize: 11.5, fontWeight: 600, padding: '7px 12px', borderRadius: 20, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)', cursor: 'pointer' },
+  chip: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '7px 12px', borderRadius: 20, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)', cursor: 'pointer' },
   chipOn: { background: 'rgba(168,85,247,0.16)', borderColor: 'rgba(168,85,247,0.4)', color: '#c084fc' },
   fotos: { display: 'flex', gap: 6, flexWrap: 'wrap' },
   foto: { position: 'relative', width: 54, height: 54, borderRadius: 8, overflow: 'hidden' },

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
+import { IconStar } from '@/components/ui/Icons'
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 
@@ -108,7 +109,7 @@ export default function NovaLojaPage() {
 function BannerBeneficios() {
   return (
     <div style={S.banner}>
-      <div style={S.bannerBadge}>🎉 Novo cadastro</div>
+      <div style={S.bannerBadge}><IconStar size={12} /> Novo cadastro</div>
       <h3 style={S.bannerTitle}>14 dias de Pro grátis ao cadastrar sua loja</h3>
       <p style={S.bannerText}>
         Teste todos os recursos do plano Pro sem compromisso: até 5 fotos, redes sociais,
@@ -180,7 +181,9 @@ const S: Record<string, CSSProperties> = {
     padding: 24,
   },
   bannerBadge: {
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
     background: 'rgba(96,165,250,0.15)',
     color: '#60a5fa',
     fontSize: 11,

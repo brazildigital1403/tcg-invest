@@ -4,6 +4,7 @@ import { CSSProperties, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { IconBolt } from '@/components/ui/Icons'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -152,7 +153,8 @@ export default function MinhasLojasHubPage() {
         {/* ─── Dica ───────────────────────────────────── */}
         <div style={S.tipBox}>
           <p style={S.tipText}>
-            💡 <strong>Dica:</strong> cada loja tem seu próprio plano. Você pode ter
+            <IconBolt size={14} style={{ flexShrink: 0, marginRight: 2, verticalAlign: -2 }} />
+            <strong>Dica:</strong> cada loja tem seu próprio plano. Você pode ter
             uma Premium na cidade principal e outras Básico nas filiais.
           </p>
         </div>

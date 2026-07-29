@@ -485,6 +485,44 @@ export function IconBox({ size = 20, color = defaultColor, strokeWidth = default
   )
 }
 
+export function IconTruck({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      {/* Frete — carroceria + cabine */}
+      <path d="M1.5 5.5a1 1 0 011-1h8a1 1 0 011 1v8H1.5v-8z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <path d="M11.5 7.5h3l3 3v3h-6v-6z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <circle cx="5.5" cy="15" r="1.6" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="14" cy="15" r="1.6" stroke={color} strokeWidth={strokeWidth}/>
+    </svg>
+  )
+}
+
+export function IconPlush({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      {/* Pelucia — cabeca com duas orelhas */}
+      <circle cx="10" cy="11" r="5.2" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="5" cy="5" r="2.4" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="15" cy="5" r="2.4" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="8.2" cy="10" r="0.8" fill={color}/>
+      <circle cx="11.8" cy="10" r="0.8" fill={color}/>
+    </svg>
+  )
+}
+
+export function IconFigure({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      {/* Funko — cabeca grande sobre corpo pequeno */}
+      <rect x="4.5" y="2" width="11" height="8.5" rx="3" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="8" cy="6.2" r="0.9" fill={color}/>
+      <circle cx="12" cy="6.2" r="0.9" fill={color}/>
+      <path d="M7 10.5v2.5a3 3 0 003 3 3 3 0 003-3v-2.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+      <path d="M7 18h6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 export function IconChat({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>

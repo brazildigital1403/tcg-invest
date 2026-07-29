@@ -100,17 +100,17 @@ export default function VisaoGeralPage({ params }: { params: Promise<{ id: strin
           <span style={S.ad}>Contatos, visitas e canais</span>
         </Link>
         <Link href={`${base}/produtos`} style={S.atalho}>
-          <span style={S.ai}>🎁</span>
+          <span style={S.ai}><IconCubo /></span>
           <span style={S.at}>Produtos</span>
           <span style={S.ad}>Selados, pelúcias, funkos e mais</span>
         </Link>
         <Link href={`${base}/pedidos`} style={S.atalho}>
-          <span style={S.ai}>📦</span>
+          <span style={S.ai}><IconPedido /></span>
           <span style={S.at}>Pedidos</span>
           <span style={S.ad}>Vendas a enviar e histórico</span>
         </Link>
         <Link href={`${base}/pagamentos`} style={S.atalho}>
-          <span style={S.ai}>🏦</span>
+          <span style={S.ai}><IconBanco /></span>
           <span style={S.at}>Pagamentos</span>
           <span style={S.ad}>Receba pelas vendas na Bynx</span>
         </Link>
@@ -171,6 +171,9 @@ const IconEdit = () => <Ico><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 
 const IconExternal = () => <Ico><path d="M14 4h6v6" /><path d="M20 4l-9 9" /><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6" /></Ico>
 const IconChart = () => <Ico><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 16v-4" /><path d="M13 16V8" /><path d="M18 16v-7" /></Ico>
 const IconCalendar = () => <Ico><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></Ico>
+const IconCubo = () => <Ico><path d="M12 2.5 21 7v10l-9 4.5L3 17V7z" /><path d="M3 7l9 4.5L21 7" /><path d="M12 11.5v10" /></Ico>
+const IconPedido = () => <Ico><path d="M8 3h8a1 1 0 0 1 1 1v1H7V4a1 1 0 0 1 1-1z" /><path d="M7 5H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2" /><path d="M9 12l2 2 4-4" /></Ico>
+const IconBanco = () => <Ico><path d="M3 9.5 12 4l9 5.5" /><path d="M4 10v8" /><path d="M9 10v8" /><path d="M15 10v8" /><path d="M20 10v8" /><path d="M2.5 20.5h19" /></Ico>
 
 const S: Record<string, CSSProperties> = {
   badge: { display: 'inline-block', fontSize: 12, fontWeight: 800, padding: '5px 12px', borderRadius: 999 },

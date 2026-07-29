@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useLojaOwner, LojaEstadoFallback, SH } from '../_shared'
 import { pctLabel, calcularCheckout, fmtBRL, type PrazoRepasse, type MetodoPagamento } from '@/lib/comissao'
+import { IconSearch, IconCheck, IconWarning, IconWallet, IconBolt, IconCard, IconTruck } from '@/components/ui/Icons'
 
 /**
  * Pagamentos da loja — Stripe Connect Express (Fase 1 do epico de vendas).
@@ -209,7 +210,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
           <div style={SH.card}>
             {status === 'em_analise' ? (
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
-                <div style={S.icone}>🔎</div>
+                <div style={S.icone}><IconSearch size={36} strokeWidth={1.2} /></div>
                 <span style={S.badgeAnalise}>Em análise pela Stripe</span>
                 <p style={S.txt}>
                   Seus dados foram enviados e estão sendo conferidos pela Stripe. <b>Você não precisa
@@ -219,7 +220,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
               </div>
             ) : status === 'ativo' ? (
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
-                <div style={S.icone}>✅</div>
+                <div style={{ ...S.icone, color: '#22c55e' }}><IconCheck size={36} strokeWidth={1.6} /></div>
                 <span style={S.badgeOk}>Recebimentos ativos</span>
                 <p style={S.txt}>
                   Sua loja está pronta para vender na Bynx. O dinheiro cai direto na conta que você
@@ -244,7 +245,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
               </div>
             ) : status === 'restrito' ? (
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
-                <div style={S.icone}>⚠️</div>
+                <div style={{ ...S.icone, color: '#f59e0b' }}><IconWarning size={36} strokeWidth={1.2} /></div>
                 <span style={S.badgeRestr}>Conta com pendência</span>
                 <p style={S.txt}>A Stripe pediu informações adicionais para liberar seus recebimentos.</p>
                 <button onClick={ativar} disabled={indo} style={{ ...SH.btnPrimary, marginTop: 4, opacity: indo ? 0.6 : 1 }}>
@@ -253,7 +254,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
-                <div style={S.icone}>🏦</div>
+                <div style={{ ...S.icone, color: '#60a5fa' }}><IconWallet size={36} strokeWidth={1.2} /></div>
                 <h2 style={S.h2}>Comece a vender na Bynx</h2>
                 <p style={S.txt}>
                   Ative os recebimentos e venda direto na sua vitrine: cartas, selados, acessórios e
@@ -309,7 +310,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
             <div style={S.chips}>
               {(['pix', 'cartao'] as MetodoPagamento[]).map(m => (
                 <button key={m} onClick={() => setMetodo(m)} style={{ ...S.chip, ...(metodo === m ? S.chipOn : {}) }}>
-                  {m === 'pix' ? '⚡ Pix' : '💳 Cartão'}
+                  {m === 'pix' ? <><IconBolt size={14} /> Pix</> : <><IconCard size={14} /> Cartão</>}
                 </button>
               ))}
             </div>
@@ -399,13 +400,14 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
 
             {info && (
               <p style={S.previa}>
+                <IconTruck size={15} style={{ flexShrink: 0 }} />
                 {info.frete_modo === 'calculado'
-                  ? '🚚 Frete calculado pelo Melhor Envio no checkout.'
+                  ? 'Frete calculado pelo Melhor Envio no checkout.'
                   : info.frete_cents === 0
-                    ? '🚚 Seus compradores não pagam frete.'
+                    ? 'Seus compradores não pagam frete.'
                     : info.frete_gratis_acima_cents
-                      ? `🚚 ${fmtBRL(info.frete_cents)} de frete — grátis em compras acima de ${fmtBRL(info.frete_gratis_acima_cents)}.`
-                      : `🚚 ${fmtBRL(info.frete_cents)} de frete em todos os pedidos.`}
+                      ? `${fmtBRL(info.frete_cents)} de frete — grátis em compras acima de ${fmtBRL(info.frete_gratis_acima_cents)}.`
+                      : `${fmtBRL(info.frete_cents)} de frete em todos os pedidos.`}
               </p>
             )}
           </div>
@@ -416,7 +418,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
 }
 
 const S: Record<string, React.CSSProperties> = {
-  icone: { fontSize: 36, marginBottom: 10 },
+  icone: { display: 'flex', justifyContent: 'center', marginBottom: 10, color: 'rgba(255,255,255,0.5)' },
   h2: { fontSize: 17, fontWeight: 800, margin: '0 0 8px' },
   h3: { fontSize: 15, fontWeight: 800, margin: '0 0 2px' },
   sub: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', margin: '0 0 12px' },
@@ -437,9 +439,9 @@ const S: Record<string, React.CSSProperties> = {
   input: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#f0f0f0', fontSize: 14, fontWeight: 600, padding: '10px 0' },
   hint: { fontSize: 10.5, color: 'rgba(255,255,255,0.3)', marginTop: 5 },
   noteCalc: { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 10, padding: '10px 12px', marginBottom: 12 },
-  previa: { fontSize: 12.5, color: '#22c55e', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: 9, padding: '9px 12px', marginTop: 12, textAlign: 'center' },
+  previa: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 12.5, color: '#22c55e', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: 9, padding: '9px 12px', marginTop: 12, textAlign: 'center' },
   chips: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 },
-  chip: { fontSize: 12.5, fontWeight: 700, padding: '9px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' },
+  chip: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '9px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' },
   chipOn: { background: 'rgba(96,165,250,0.15)', color: '#60a5fa', borderColor: 'rgba(96,165,250,0.35)' },
   linhas: { borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 4 },
   linha: { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' },
