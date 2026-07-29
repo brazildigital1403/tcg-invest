@@ -193,13 +193,20 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
   return (
     <div style={{ ...S.root, ...lojaAccent }}>
       <style>{`
-        .lj-shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+        /* ★ minmax(0, 1fr), nao 1fr.
+           A faixa 1fr tem min-width:auto, entao um filho largo ESTICA a faixa
+           em vez de ser contido por ela. Era o que quebrava o mobile da loja:
+           o .lj-mobnav (nav em fila com overflow-x:auto) inflava a faixa pra
+           958px num viewport de 375, o nav nunca rolava sozinho e a PAGINA
+           inteira rolava de lado — 73 elementos estourando a tela.
+           Medido em 29/07/2026. Vale pros dois breakpoints. */
+        .lj-shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 100vh; }
         .lj-side { display: flex; }
         .lj-mobhead { display: none; }
         .lj-mobtop { display: none; }
         .lj-mobnav { display: none; }
         @media (max-width: 860px) {
-          .lj-shell { grid-template-columns: 1fr; }
+          .lj-shell { grid-template-columns: minmax(0, 1fr); }
           .lj-side { display: none !important; }
           .lj-mobhead { display: block !important; position: sticky; top: 0; z-index: 21; }
           .lj-mobtop { display: flex !important; }

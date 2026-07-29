@@ -427,7 +427,10 @@ const S: Record<string, React.CSSProperties> = {
   badgeAnalise: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(96,165,250,0.15)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', marginBottom: 12 },
   badgePend: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', marginBottom: 12 },
   badgeRestr: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', marginBottom: 12 },
-  freteGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
+  // minmax(0, 1fr): a faixa 1fr tem min-width:auto e o <input> tem largura
+  // intrinseca de ~165px, entao as duas colunas esticavam e a tela rolava de
+  // lado em celular (462px num viewport de 375, medido em 29/07/2026).
+  freteGrid: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10 },
   lbl2: { display: 'block', fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 },
   inputWrap: { display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '0 10px' },
   prefixo: { fontSize: 12.5, color: 'rgba(255,255,255,0.35)', marginRight: 6 },

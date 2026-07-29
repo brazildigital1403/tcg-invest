@@ -324,7 +324,9 @@ const S: Record<string, React.CSSProperties> = {
   inputWrap: { display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '0 10px' },
   inputBare: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#f0f0f0', fontSize: 13.5, fontWeight: 600, padding: '10px 0' },
   prefixo: { fontSize: 12.5, color: 'rgba(255,255,255,0.35)', marginRight: 6 },
-  two: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
+  // minmax(0, 1fr) pelo mesmo motivo do freteGrid em /pagamentos: faixa 1fr
+  // tem min-width:auto e campo com largura intrinseca estica a coluna.
+  two: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10 },
   btnGhost: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 10, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
   btnDel: { color: '#fca5a5', borderColor: 'rgba(239,68,68,0.2)' },
   opaco: { opacity: 0.62 },
