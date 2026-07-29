@@ -3,22 +3,22 @@
 /**
  * src/app/admin/conteudo/page.tsx
  *
- * GESTAO DE CONTEUDO — a regua de conteudo da Bynx dentro do painel.
+ * GESTAO DE CONTEUDO - a regua de conteudo da Bynx dentro do painel.
  *
  * Por que ela migrou pra ca: o guia em HTML era consulta pura, e o estado
- * (o que ja foi feito, o que foi publicado) vivia no navegador de um aparelho
- * so. Aqui o estado persiste no banco, e duas coisas que o guia nao conseguia
+ * (o que já foi feito, o que foi publicado) vivia no navegador de um aparelho
+ * só. Aqui o estado persiste no banco, e duas coisas que o guia não conseguia
  * fazer passam a existir:
  *
  *   - "Hoje": o que postar agora, puxado da grade da semana.
  *   - "Deu resultado": cadastros por canal, de `users.signup_utm_source`.
- *     Era o item da Fase 3 do proprio guia ("medir os cadastros vindos do
+ *     Era o item da Fase 3 do próprio guia ("medir os cadastros vindos do
  *     Instagram") — virou coluna em 29/07/2026.
  *
- * O HTML original passa a ser historico. A fonte de verdade e esta tela.
+ * O HTML original passa a ser histórico. A fonte de verdade é esta tela.
  *
  * ★ Zero emoji (regra 15). O guia usava emoji nos pilares e campanhas; aqui
- *   tudo e icone SVG outline de Icons.tsx.
+ *   tudo é ícone SVG outline de Icons.tsx.
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -46,82 +46,82 @@ const P = { jornada: '#f59e0b', utilidade: '#60a5fa', preco: '#22c55e', novidade
 // ─── Dados da regua ──────────────────────────────────────────────────────────
 
 const PILARES = [
-  { id: 'jornada', nome: 'Jornada do Du', cor: P.jornada, Icon: IconCamera, tag: 'o coracao da marca',
-    txt: 'Graduacao, abertura de booster, hits, o sobrinho, a colecao crescendo. Gera conexao e compartilhamento. E o que a concorrencia nao consegue copiar.',
-    como: ['Formato: Reels com narracao', '2 a 3x por semana'] },
+  { id: 'jornada', nome: 'Jornada do Du', cor: P.jornada, Icon: IconCamera, tag: 'o coração da marca',
+    txt: 'Graduação, abertura de booster, hits, o sobrinho, a coleção crescendo. Gera conexão e compartilhamento. É o que a concorrência não consegue copiar.',
+    como: ['Formato: Reels com narração', '2 a 3x por semana'] },
   { id: 'utilidade', nome: 'Utilidade do colecionador', cor: P.utilidade, Icon: IconCollection, tag: 'autoridade',
-    txt: 'Como proteger carta, sleeve x toploader, como ver se e real, o que e reverse/foil, vale gradar, quanto custa gradar. Gera salvamento.',
+    txt: 'Como proteger carta, sleeve x toploader, como ver se é real, o que é reverse/foil, vale gradar, quanto custa gradar. Gera salvamento.',
     como: ['Formato: carrossel + Reels explicativo', '2x por semana'] },
-  { id: 'preco', nome: 'Preco e mercado', cor: P.preco, Icon: IconWallet, tag: 'o produto aparecendo',
-    txt: 'Quanto vale a carta X, o que valorizou, "voce jogou fora e hoje vale R$", os movers da semana. O preco em real e o gancho, sem pitch.',
-    como: ['Formato: estatico ou carrossel com print da Bynx', '1 a 2x por semana'] },
-  { id: 'novidade', nome: 'Novidades e lancamentos', cor: P.novidade, Icon: IconRocket, tag: 'timing',
-    txt: 'Set novo, cartas pra cacar, data de lancamento, 30 anos do TCG. Surfa o hype e a busca do momento, atrai gente nova.',
-    como: ['Formato: estatico + Reels de abertura', 'Sob demanda'] },
+  { id: 'preco', nome: 'Preço e mercado', cor: P.preco, Icon: IconWallet, tag: 'o produto aparecendo',
+    txt: 'Quanto vale a carta X, o que valorizou, "você jogou fora e hoje vale R$", os movers da semana. O preço em real é o gancho, sem pitch.',
+    como: ['Formato: estático ou carrossel com print da Bynx', '1 a 2x por semana'] },
+  { id: 'novidade', nome: 'Novidades e lançamentos', cor: P.novidade, Icon: IconRocket, tag: 'timing',
+    txt: 'Set novo, cartas pra caçar, data de lançamento, 30 anos do TCG. Surfa o hype e a busca do momento, atrai gente nova.',
+    como: ['Formato: estático + Reels de abertura', 'Sob demanda'] },
   { id: 'comunidade', nome: 'Comunidade e engajamento', cor: P.comunidade, Icon: IconChat, tag: 'alcance',
     txt: 'Enquetes, "rip ou abrir devagar?", memes do hobby, nostalgia, TCG Pocket. Barato de produzir, alto de engajar.',
-    como: ['Formato: estatico + Stories', '1x no feed + todo dia nos Stories'] },
+    como: ['Formato: estático + Stories', '1x no feed + todo dia nos Stories'] },
 ]
 
 // dia 0 = domingo (Date.getDay())
 const GRADE = [
   { dia: 'Domingo',  pilar: 'jornada',    fmt: 'Reels leve — recap / carta favorita' },
   { dia: 'Segunda',  pilar: 'jornada',    fmt: 'Reels — abertura, hit ou bastidor' },
-  { dia: 'Terca',    pilar: 'utilidade',  fmt: 'Carrossel salvavel' },
-  { dia: 'Quarta',   pilar: 'preco',      fmt: 'Estatico — "valia R$X, hoje vale R$Y"' },
+  { dia: 'Terça',    pilar: 'utilidade',  fmt: 'Carrossel salvável' },
+  { dia: 'Quarta',   pilar: 'preco',      fmt: 'Estático — "valia R$X, hoje vale R$Y"' },
   { dia: 'Quinta',   pilar: 'utilidade',  fmt: 'Reels explicativo ou set novo', pilar2: 'novidade' },
   { dia: 'Sexta',    pilar: 'jornada',    fmt: 'Reels emocional — o dia de mais compartilhamento' },
-  { dia: 'Sabado',   pilar: 'comunidade', fmt: 'Enquete / meme' },
+  { dia: 'Sábado',   pilar: 'comunidade', fmt: 'Enquete / meme' },
 ]
 
 const GANCHOS: { p: keyof typeof P; t: string }[] = [
   { p: 'jornada', t: 'Deixei duas cartas pra gradar. Hoje saiu o resultado.' },
-  { p: 'jornada', t: 'Meu sobrinho abriu o primeiro booster da vida. Olha a reacao.' },
-  { p: 'jornada', t: 'Abri e no segundo booster veio o premio.' },
+  { p: 'jornada', t: 'Meu sobrinho abriu o primeiro booster da vida. Olha a reação.' },
+  { p: 'jornada', t: 'Abri e no segundo booster veio o prêmio.' },
   { p: 'jornada', t: 'Falta uma carta pra fechar meu trio de Kanto.' },
   { p: 'jornada', t: 'Rasguei tudo de uma vez? Ou abri devagar? Confesso o que fiz.' },
   { p: 'jornada', t: 'A carta que mais me deu trabalho pra achar.' },
-  { p: 'utilidade', t: 'Voce ta guardando suas cartas errado. Olha o jeito certo.' },
+  { p: 'utilidade', t: 'Você tá guardando suas cartas errado. Olha o jeito certo.' },
   { p: 'utilidade', t: 'Sleeve, toploader, pasta: quando usar cada um.' },
-  { p: 'utilidade', t: 'Como saber se uma carta Pokemon e falsa em 10 segundos.' },
-  { p: 'utilidade', t: 'O que significa cada numero da sua carta (ex: 090/084).' },
-  { p: 'utilidade', t: 'Vale a pena gradar? Fiz as contas com preco real.' },
+  { p: 'utilidade', t: 'Como saber se uma carta Pokémon é falsa em 10 segundos.' },
+  { p: 'utilidade', t: 'O que significa cada número da sua carta (ex: 090/084).' },
+  { p: 'utilidade', t: 'Vale a pena gradar? Fiz as contas com preço real.' },
   { p: 'utilidade', t: 'Reverse, foil, pokeball: qual vale mais?' },
   { p: 'utilidade', t: 'Quanto custa gradar uma carta no Brasil em 2026.' },
-  { p: 'preco', t: 'Essa carta voce jogou fora — hoje vale R$[X].' },
+  { p: 'preco', t: 'Essa carta você jogou fora — hoje vale R$[X].' },
   { p: 'preco', t: 'As 5 cartas mais caras do [SET] agora.' },
-  { p: 'preco', t: 'Comprei por R$X, hoje vale R$Y. A conta da valorizacao.' },
-  { p: 'preco', t: 'O que subiu de preco essa semana no mercado brasileiro.' },
-  { p: 'novidade', t: 'Chegou o [SET]. As cartas que voce tem que cacar.' },
+  { p: 'preco', t: 'Comprei por R$X, hoje vale R$Y. A conta da valorização.' },
+  { p: 'preco', t: 'O que subiu de preço essa semana no mercado brasileiro.' },
+  { p: 'novidade', t: 'Chegou o [SET]. As cartas que você tem que caçar.' },
   { p: 'novidade', t: 'Data confirmada: quando sai o [SET] no Brasil.' },
-  { p: 'novidade', t: '30 anos de Pokemon TCG: as cartas que fizeram historia.' },
-  { p: 'comunidade', t: 'Qual foi seu primeiro starter? (eu ja sei o meu)' },
-  { p: 'comunidade', t: 'Rip and ship ou abrir devagar? Assume ai.' },
+  { p: 'novidade', t: '30 anos de Pokémon TCG: as cartas que fizeram história.' },
+  { p: 'comunidade', t: 'Qual foi seu primeiro starter? (eu já sei o meu)' },
+  { p: 'comunidade', t: 'Rip and ship ou abrir devagar? Assume aí.' },
   { p: 'comunidade', t: 'A carta que TE fisgou de vez no hobby.' },
-  { p: 'comunidade', t: 'Adivinha a carta pela arte. (serie)' },
-  { p: 'comunidade', t: 'O maior perrengue de colecionador que voce ja passou.' },
+  { p: 'comunidade', t: 'Adivinha a carta pela arte. (série)' },
+  { p: 'comunidade', t: 'O maior perrengue de colecionador que você já passou.' },
 ]
 
 const FASES = [
-  { n: 1, nome: 'Fundacao', quando: 'Semana 1', itens: [
+  { n: 1, nome: 'Fundação', quando: 'Semana 1', itens: [
     { k: 'p1-bio', t: 'Ajustar a bio do perfil', s: 'Posicionamento claro: a casa do colecionador, contada por um colecionador. Link do bynx.gg em destaque.' },
     { k: 'p1-pilares', t: 'Fixar os 5 pilares como quadros', s: 'Todo post cai em um deles.' },
     { k: 'p1-grade', t: 'Montar a grade da semana', s: 'Ter o esqueleto pronto pra nunca abrir o app sem saber o que postar.' },
-    { k: 'p1-destaques', t: 'Criar destaques por tema', s: 'Jornada, Como cuidar, Precos, Sets. Organiza a casa pra quem chega novo.' },
-    { k: 'p1-confianca', t: 'Preparar 3 pecas de "comprar sem medo"', s: 'Ataca a dor de confianca que aparece nos comentarios da concorrencia.' },
+    { k: 'p1-destaques', t: 'Criar destaques por tema', s: 'Jornada, Como cuidar, Preços, Sets. Organiza a casa pra quem chega novo.' },
+    { k: 'p1-confianca', t: 'Preparar 3 peças de "comprar sem medo"', s: 'Ataca a dor de confiança que aparece nos comentários da concorrência.' },
   ]},
   { n: 2, nome: 'Ritmo', quando: 'Semanas 2 a 4', itens: [
-    { k: 'p2-postar', t: 'Postar seguindo a grade', s: '6 a 7 por semana, com peso em Reels. Constancia vence viral isolado.' },
-    { k: 'p2-stories', t: 'Stories todo dia', s: 'Enquete, bastidor, link do cadastro. E onde o lead nasce.' },
-    { k: 'p2-comentarios', t: 'Responder todo comentario na 1a hora', s: 'O Instagram mede o engajamento inicial.' },
-    { k: 'p2-campanha', t: 'Rodar 1 campanha', s: 'Comeca pela caca ao Squirtle 10, que ja esta viva.' },
-    { k: 'p2-lead', t: 'Ativar 1 mecanica de lead por semana', s: 'Comeca pela "Quanto vale sua colecao?".' },
+    { k: 'p2-postar', t: 'Postar seguindo a grade', s: '6 a 7 por semana, com peso em Reels. Constância vence viral isolado.' },
+    { k: 'p2-stories', t: 'Stories todo dia', s: 'Enquete, bastidor, link do cadastro. É onde o lead nasce.' },
+    { k: 'p2-comentarios', t: 'Responder todo comentário na 1ª hora', s: 'O Instagram mede o engajamento inicial.' },
+    { k: 'p2-campanha', t: 'Rodar 1 campanha', s: 'Começa pela caça ao Squirtle 10, que já está viva.' },
+    { k: 'p2-lead', t: 'Ativar 1 mecânica de lead por semana', s: 'Começa pela "Quanto vale sua coleção?".' },
   ]},
-  { n: 3, nome: 'Escala', quando: 'Mes 2 em diante', itens: [
-    { k: 'p3-checkpoint', t: 'Checkpoint mensal', s: 'Quais 3 posts mais salvaram e compartilharam? Esse e o mapa do que repetir.' },
-    { k: 'p3-dobrar', t: 'Dobrar a dose do que funcionou', s: 'O pilar que mais puxou ganha mais espaco na semana seguinte.' },
+  { n: 3, nome: 'Escala', quando: 'Mês 2 em diante', itens: [
+    { k: 'p3-checkpoint', t: 'Checkpoint mensal', s: 'Quais 3 posts mais salvaram e compartilharam? Esse é o mapa do que repetir.' },
+    { k: 'p3-dobrar', t: 'Dobrar a dose do que funcionou', s: 'O pilar que mais puxou ganha mais espaço na semana seguinte.' },
     { k: 'p3-reaproveitar', t: 'Reaproveitar o campeao', s: 'Reels que foi bem vira carrossel e vira Stories.' },
-    { k: 'p3-leads', t: 'Medir os cadastros vindos do Instagram', s: 'Agora da: ver a aba Resultado.' },
+    { k: 'p3-leads', t: 'Medir os cadastros vindos do Instagram', s: 'Agora dá: ver a aba Resultado.' },
     { k: 'p3-meta', t: 'Ajustar o ritmo pros 10k', s: 'Usa a calculadora na aba Metas.' },
   ]},
 ]
@@ -130,53 +130,53 @@ const CHECKLIST_POST = [
   { grupo: 'Antes de postar', itens: [
     { k: 'c-gancho', t: 'Gancho forte nos 2 primeiros segundos', s: 'Fala + texto na tela. Introducao sem valor custa alcance.' },
     { k: 'c-texto', t: 'Texto na tela sempre', s: 'Roda sem som e ajuda o Instagram a entender o tema.' },
-    { k: 'c-marca', t: "Sem marca d'agua de outro app", s: 'CapCut/TikTok penaliza. Exporta limpo.' },
-    { k: 'c-seo', t: 'Legenda com palavra-chave clara', s: 'cartas pokemon, colecionador, preco em real, graduacao, nome do set.' },
-    { k: 'c-pergunta', t: 'Termina com pergunta', s: 'Puxa comentario. Comentario e alcance.' },
-    { k: 'c-cta', t: 'CTA suave: bynx.gg no rodape', s: '' },
+    { k: 'c-marca', t: "Sem marca d'água de outro app", s: 'CapCut/TikTok penaliza. Exporta limpo.' },
+    { k: 'c-seo', t: 'Legenda com palavra-chave clara', s: 'cartas pokemon, colecionador, preço em real, graduação, nome do set.' },
+    { k: 'c-pergunta', t: 'Termina com pergunta', s: 'Puxa comentário. Comentário e alcance.' },
+    { k: 'c-cta', t: 'CTA suave: bynx.gg no rodapé', s: '' },
   ]},
   { grupo: 'Logo depois de postar', itens: [
-    { k: 'c-primeiro', t: 'Primeiro comentario seu', s: 'Reforco, pergunta ou CTA.' },
-    { k: 'c-responder', t: 'Responder todo comentario na 1a hora', s: '' },
-    { k: 'c-reels', t: 'Comentario bom? Responde com um Reels', s: 'Formato que o algoritmo premia.' },
+    { k: 'c-primeiro', t: 'Primeiro comentário seu', s: 'Reforço, pergunta ou CTA.' },
+    { k: 'c-responder', t: 'Responder todo comentário na 1ª hora', s: '' },
+    { k: 'c-reels', t: 'Comentário bom? Responde com um Reels', s: 'Formato que o algoritmo premia.' },
     { k: 'c-reuso', t: 'Reels que foi bem vira carrossel e Stories', s: '' },
   ]},
 ]
 
 const CAMPANHAS = [
   { t: 'A caca ao Squirtle 10', status: 'no ar', cor: '#22c55e',
-    d: 'Voce tem Charmander 10 e Bulbasaur 10. Falta o Squirtle pra fechar o trio de Kanto. Aberturas diarias cacando, graduacao, veredito. Novela pura.',
+    d: 'Você tem Charmander 10 e Bulbasaur 10. Falta o Squirtle pra fechar o trio de Kanto. Aberturas diarias cacando, graduação, veredito. Novela pura.',
     cta: 'acompanha a caca + montei o trio na Bynx' },
   { t: 'Lancamento de set', status: '', cor: '',
-    d: 'Teaser, abertura, as cartas mais valiosas pra cacar com preco da Bynx, o hit. Surfa a busca do lancamento.',
+    d: 'Teaser, abertura, as cartas mais valiosas pra caçar com preço da Bynx, o hit. Surfa a busca do lancamento.',
     cta: 'checklist do set na Bynx' },
-  { t: 'Quanto vale sua colecao?', status: 'lead forte', cor: 'var(--ac-1)',
-    d: 'Provocacao, prova (a sua vale isso, olha), convite (descobre a sua de graca). A mecanica de captacao mais direta.',
+  { t: 'Quanto vale sua coleção?', status: 'lead forte', cor: 'var(--ac-1)',
+    d: 'Provocação, prova (a sua vale isso, olha), convite (descobre a sua de graca). A mecânica de captação mais direta.',
     cta: 'cadastro na Bynx' },
   { t: 'Loja Validada', status: 'B2B', cor: '#60a5fa',
-    d: 'O que e o selo, por que da confianca ao comprador, como a loja consegue, depoimento. Ataca a dor de "e seguro?".',
+    d: 'O que e o selo, por que da confiança ao comprador, como a loja consegue, depoimento. Ataca a dor de "e seguro?".',
     cta: 'cadastre sua loja e peca o selo' },
   { t: '30 anos do Pokemon TCG', status: '', cor: '',
-    d: 'Nostalgia, cartas historicas, o quanto valorizaram, "sua base set valia quanto?". Nostalgia e o combustivel de compartilhamento numero 1 do nicho.',
+    d: 'Nostalgia, cartas historicas, o quanto valorizaram, "sua base set valia quanto?". Nostalgia e o combustivel de compartilhamento número 1 do nicho.',
     cta: 'veja quanto valem as antigas na Bynx' },
 ]
 
 const LEADS = [
-  { t: 'Quanto vale sua colecao? (a principal)', f: 'Reels ou carrossel', c:
-`Voce provavelmente tem mais dinheiro parado em cartas do que imagina.
-Peguei a minha colecao e a Bynx me mostrou o valor de tudo, em real, atualizado do mercado brasileiro.
+  { t: 'Quanto vale sua coleção? (a principal)', f: 'Reels ou carrossel', c:
+`Você provavelmente tem mais dinheiro parado em cartas do que imagina.
+Peguei a minha coleção e a Bynx me mostrou o valor de tudo, em real, atualizado do mercado brasileiro.
 Quer descobrir quanto vale a sua? E de graca e leva uns minutos: cadastra em bynx.gg e vai adicionando suas cartas.
-Me conta aqui embaixo: voce acha que sua colecao passa de R$500, R$1.000 ou R$5.000?` },
-  { t: 'Comentario como chave', f: 'Reels curto', c:
-`Fiz uma lista das cartas mais valiosas do [SET] com o preco de cada uma.
-Comenta QUERO aqui embaixo que eu te mando o link pra voce conferir e marcar o que ja tem.` },
+Me conta aqui embaixo: você acha que sua coleção passa de R$500, R$1.000 ou R$5.000?` },
+  { t: 'Comentário como chave', f: 'Reels curto', c:
+`Fiz uma lista das cartas mais valiosas do [SET] com o preço de cada uma.
+Comenta QUERO aqui embaixo que eu te mando o link pra você conferir e marcar o que ja tem.` },
   { t: 'Prova social do valor', f: 'Estatico / carrossel', c:
 `Essa carta ficou anos parada numa gaveta. Hoje ela vale R$[X].
-A parte chata e nao saber o que voce tem. A boa e que da pra descobrir em minutos.
-Cadastra sua colecao em bynx.gg e veja o valor de cada carta sua, em real.` },
+A parte chata e não saber o que você tem. A boa e que da pra descobrir em minutos.
+Cadastra sua coleção em bynx.gg e veja o valor de cada carta sua, em real.` },
   { t: 'Stories em funil (todo dia)', f: '3 telas de Stories', c:
-`Tela 1 — Enquete: "Voce sabe quanto vale sua colecao?" (Sei / Nao faco ideia)
-Tela 2 — Bastidor: print da sua colecao na Bynx com o valor.
+`Tela 1 — Enquete: "Você sabe quanto vale sua coleção?" (Sei / Não faco ideia)
+Tela 2 — Bastidor: print da sua coleção na Bynx com o valor.
 Tela 3 — Link: "Descubra a sua em bynx.gg"` },
   { t: 'Lojista (lead B2B)', f: 'Reels / carrossel', c:
 `Loja de card: seus clientes confiam mais quando veem o selo de verificada.
@@ -188,14 +188,14 @@ const ABAS = [
   { id: 'hoje', nome: 'Hoje' },
   { id: 'resultado', nome: 'Resultado' },
   { id: 'semana', nome: 'A semana' },
-  { id: 'plano', nome: 'Plano de acao' },
+  { id: 'plano', nome: 'Plano de ação' },
   { id: 'pilares', nome: 'Pilares' },
   { id: 'campanhas', nome: 'Campanhas' },
   { id: 'leads', nome: 'Leads' },
   { id: 'ganchos', nome: 'Ganchos' },
   { id: 'checklist', nome: 'Checklist' },
   { id: 'metas', nome: 'Metas' },
-  { id: 'visao', nome: 'Visao geral' },
+  { id: 'visao', nome: 'Visão geral' },
 ]
 
 // ─── Estilos ─────────────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ const miniBtn: React.CSSProperties = {
 }
 
 function Pill({ pilar }: { pilar: keyof typeof P }) {
-  const nome = { jornada: 'Jornada', utilidade: 'Utilidade', preco: 'Preco', novidade: 'Novidade', comunidade: 'Comunidade' }[pilar]
+  const nome = { jornada: 'Jornada', utilidade: 'Utilidade', preco: 'Preço', novidade: 'Novidade', comunidade: 'Comunidade' }[pilar]
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600,
@@ -291,7 +291,7 @@ export default function GestaoConteudo() {
       setTotalCadastros(d.totalCadastros || 0)
       setErro('')
     } catch {
-      setErro('Nao consegui carregar o estado. Recarrega a pagina.')
+      setErro('Não consegui carregar o estado. Recarrega a página.')
     } finally {
       setCarregando(false)
     }
@@ -350,12 +350,12 @@ export default function GestaoConteudo() {
   seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7))
 
   return (
-    <div style={{ maxWidth: 1000 }}>
+    <div style={{ maxWidth: 1000, padding: '32px 24px' }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: TXT }}>
-        Gestao de conteudo
+        Gestão de conteúdo
       </h1>
       <p style={{ color: TXT3, fontSize: 14, marginBottom: 18 }}>
-        O que postar hoje, se voce esta em dia, e quanto isso virou cadastro.
+        O que postar hoje, se você está em dia, e quanto isso virou cadastro.
         {totalChecks > 0 && <span style={{ marginLeft: 8, color: FAINT }}>{feitos} de {totalChecks} passos marcados</span>}
       </p>
 
@@ -438,8 +438,8 @@ export default function GestaoConteudo() {
           <div style={{ ...card, marginTop: 14, borderLeft: `3px solid ${AC}`, borderRadius: '0 12px 12px 0' }}>
             <p style={{ fontSize: 13.5, color: TXT2, margin: 0 }}>
               <strong style={{ color: TXT }}>O teste antes de postar:</strong>{' '}
-              isso e salvavel ou compartilhavel? Se nao for nenhum dos dois, refaz.
-              Persiga salvamento, compartilhamento, comentario e retencao — nessa ordem. Seguidor e consequencia.
+              isso é salvável ou compartilhável? Se não for nenhum dos dois, refaz.
+              Persiga salvamento, compartilhamento, comentário e retenção — nessa ordem. Seguidor e consequência.
             </p>
           </div>
         </>
@@ -449,12 +449,12 @@ export default function GestaoConteudo() {
       {aba === 'resultado' && !carregando && (
         <>
           <h2 style={h2}><IconChart size={16} color={TXT3} /> Cadastros por canal
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: FAINT, fontWeight: 400 }}>ultimos 30 dias</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: FAINT, fontWeight: 400 }}>últimos 30 dias</span>
           </h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginBottom: 14 }}>
             <div style={{ background: SURF, borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ fontSize: 12, color: TXT3, marginBottom: 5 }}>Cadastros no periodo</div>
+              <div style={{ fontSize: 12, color: TXT3, marginBottom: 5 }}>Cadastros no período</div>
               <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: TXT }}>{totalCadastros}</div>
             </div>
             <div style={{ background: SURF, borderRadius: 12, padding: '14px 16px' }}>
@@ -472,7 +472,7 @@ export default function GestaoConteudo() {
           <div style={{ ...card, padding: 0 }}>
             {canais.length === 0 ? (
               <p style={{ textAlign: 'center', padding: '26px 16px', color: TXT3, fontSize: 13.5 }}>
-                Nenhum cadastro no periodo.
+                Nenhum cadastro no período.
               </p>
             ) : canais.map((c) => (
               <div key={c.nome} style={{
@@ -495,8 +495,8 @@ export default function GestaoConteudo() {
           <div style={{ ...card, marginTop: 14, borderLeft: `3px solid ${AC}`, borderRadius: '0 12px 12px 0' }}>
             <p style={{ fontSize: 13.5, color: TXT2, margin: 0 }}>
               <strong style={{ color: TXT }}>Por que muita coisa cai em "(sem origem)":</strong>{' '}
-              a captura de atribuicao passou a existir em 29/07/2026. Cadastro anterior a isso nao tem
-              como saber de onde veio — nao e falha, e ausencia de dado. A proporcao com origem sobe
+              a captura de atribuicao passou a existir em 29/07/2026. Cadastro anterior a isso não tem
+              como saber de onde veio — não é falha, é ausência de dado. A proporção com origem sobe
               conforme os cadastros novos entram.
             </p>
           </div>
@@ -540,9 +540,9 @@ export default function GestaoConteudo() {
           </div>
           <div style={{ ...card, marginTop: 14 }}>
             <p style={{ fontSize: 13.5, color: TXT2, margin: 0 }}>
-              <strong style={{ color: TXT }}>Mix que importa:</strong> Reels e o motor — engaja 59% mais que
-              carrossel e 75% mais que estatico. Meta de feed: cerca de 1 por dia. Nao precisa ser perfeito
-              todo dia, precisa ser constante. Stories todo dia, sem excecao.
+              <strong style={{ color: TXT }}>Mix que importa:</strong> Reels é o motor — engaja 59% mais que
+              carrossel e 75% mais que estático. Meta de feed: cerca de 1 por dia. Não precisa ser perfeito
+              todo dia, precisa ser constante. Stories todo dia, sem exceção.
             </p>
           </div>
         </>
@@ -552,7 +552,7 @@ export default function GestaoConteudo() {
       {aba === 'plano' && !carregando && (
         <>
           <p style={{ color: TXT2, fontSize: 14, marginBottom: 18, maxWidth: '70ch' }}>
-            Tres fases, na ordem. A fundacao sustenta o ritmo, o ritmo gera os dados, os dados guiam a escala.
+            Três fases, na ordem. A fundação sustenta o ritmo, o ritmo gera os dados, os dados guiam a escala.
           </p>
           {FASES.map((f) => (
             <div key={f.n} style={{ marginBottom: 26 }}>
@@ -602,7 +602,7 @@ export default function GestaoConteudo() {
       {aba === 'campanhas' && (
         <>
           <p style={{ color: TXT2, fontSize: 14, marginBottom: 18, maxWidth: '70ch' }}>
-            Historia com comeco, meio e fim (5 a 10 dias), com CTA claro. E o que faz a base voltar todo dia
+            História com começo, meio e fim (5 a 10 dias), com CTA claro. É o que faz a base voltar todo dia
             pra ver o proximo capitulo. Rode uma por vez, por tras do conteudo perene.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
@@ -630,7 +630,7 @@ export default function GestaoConteudo() {
       {aba === 'leads' && (
         <>
           <p style={{ color: TXT2, fontSize: 14, marginBottom: 18, maxWidth: '70ch' }}>
-            Lead da Bynx e cadastro no app. A regra: entregue valor <strong style={{ color: TXT }}>antes</strong> de
+            Lead da Bynx é cadastro no app. A regra: entregue valor <strong style={{ color: TXT }}>antes</strong> de
             pedir o cadastro. Copies prontas.
           </p>
           {LEADS.map((l, i) => (
@@ -693,7 +693,7 @@ export default function GestaoConteudo() {
       {aba === 'checklist' && !carregando && (
         <>
           <p style={{ color: TXT2, fontSize: 14, marginBottom: 18, maxWidth: '70ch' }}>
-            Rotina operacional. Marca conforme faz — vira automatico depois de algumas semanas.
+            Rotina operacional. Marca conforme faz — vira automático depois de algumas semanas.
           </p>
           {CHECKLIST_POST.map((g) => (
             <div key={g.grupo} style={{ marginBottom: 22 }}>
@@ -711,7 +711,7 @@ export default function GestaoConteudo() {
         <>
           <p style={{ color: TXT2, fontSize: 14, marginBottom: 18, maxWidth: '70ch' }}>
             KPI primario: crescimento liquido por semana + taxa de salvamento e compartilhamento.
-            Nao likes, nao numero bruto.
+            Não likes, não número bruto.
           </p>
 
           <div style={card}>
@@ -739,18 +739,18 @@ export default function GestaoConteudo() {
             </div>
           </div>
 
-          <h2 style={h2}><IconTrendingUp size={16} color={TXT3} /> Pago x organico</h2>
+          <h2 style={h2}><IconTrendingUp size={16} color={TXT3} /> Pago x orgânico</h2>
           <div style={{ ...card, borderLeft: `3px solid ${AC}`, borderRadius: '0 12px 12px 0' }}>
             <p style={{ fontSize: 13.5, color: TXT2, marginBottom: 10 }}>
               <strong style={{ color: TXT }}>A leitura honesta:</strong> se o crescimento depende do
-              impulsionamento, os 10k sao uma meta cara, nao organica. Quando o gasto baixa, o ritmo cai junto —
-              a menos que o organico esteja crescendo por baixo.
+              impulsionamento, os 10k sao uma meta cara, não organica. Quando o gasto baixa, o ritmo cai junto —
+              a menos que o orgânico esteja crescendo por baixo.
             </p>
             {[
-              'Todo post nasce organico. Deixa rodar 24 a 48h sem impulsionar.',
-              'Impulsiona so o vencedor — o que teve salvamento ou retencao acima da media sozinho.',
-              'O que floppou nao recebe dinheiro. Aprende e descarta.',
-              'Meta paralela: crescer o organico, que e o que sustenta quando o gasto baixar.',
+              'Todo post nasce orgânico. Deixa rodar 24 a 48h sem impulsionar.',
+              'Impulsiona só o vencedor — o que teve salvamento ou retenção acima da média sozinho.',
+              'O que floppou não recebe dinheiro. Aprende e descarta.',
+              'Meta paralela: crescer o orgânico, que é o que sustenta quando o gasto baixar.',
             ].map((t) => (
               <p key={t} style={{ fontSize: 13.5, color: TXT2, paddingLeft: 16, position: 'relative', marginBottom: 5 }}>
                 <span style={{ position: 'absolute', left: 0, color: AC }}>&rsaquo;</span>{t}
@@ -760,9 +760,9 @@ export default function GestaoConteudo() {
 
           <div style={{ ...card, marginTop: 14 }}>
             <p style={{ fontSize: 13.5, color: TXT2, margin: 0 }}>
-              <strong style={{ color: TXT }}>O numero que falta:</strong> o custo por seguidor
-              (gasto mensal dividido por seguidores ganhos). Com ele na mao da pra decidir se os 10k valem o
-              investimento, ou se a meta sustentavel e 5 a 7k combinando organico forte com pago pontual.
+              <strong style={{ color: TXT }}>O número que falta:</strong> o custo por seguidor
+              (gasto mensal dividido por seguidores ganhos). Com ele na mao dá pra decidir se os 10k valem o
+              investimento, ou se a meta sustentável é 5 a 7k combinando orgânico forte com pago pontual.
             </p>
           </div>
         </>
@@ -780,17 +780,17 @@ export default function GestaoConteudo() {
               A casa do colecionador brasileiro, contada por um colecionador.
             </h3>
             <p style={{ color: TXT2, fontSize: 14.5, maxWidth: '70ch' }}>
-              Os concorrentes sao marketplaces sem rosto. Nenhum tem um fundador colecionador construindo em
-              publico. Voce tem. E o algoritmo premia exatamente isso: rosto, bastidor, historia e utilidade.
+              Os concorrentes são marketplaces sem rosto. Nenhum tem um fundador colecionador construindo em
+              público. Você tem. E o algoritmo premia exatamente isso: rosto, bastidor, história e utilidade.
             </p>
           </div>
 
-          <h2 style={h2}><IconStar size={16} color={TXT3} /> O que a concorrencia ensinou</h2>
+          <h2 style={h2}><IconStar size={16} color={TXT3} /> O que a concorrência ensinou</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
             {[
-              { Icon: IconShield, t: 'A dor numero 1 e confianca', d: '"E seguro mesmo? Da pra confiar no site?" A audiencia tem medo de comprar online. O Selo de Loja Validada e o repasse protegido sao a resposta.' },
-              { Icon: IconTrendingUp, t: 'Existe demanda de venda reprimida', d: '"Quero vender as minhas!" e "alguem que venda em Pernambuco?" — intencao clara de vender e de achar gente perto.' },
-              { Icon: IconWarning, t: 'Numero inflado nao engaja', d: 'Um concorrente segue 3,5 mil contas pra inflar numero, e o post fixado tem 49 curtidas num perfil de 26 mil. Folheto sem alma.' },
+              { Icon: IconShield, t: 'A dor número 1 é confiança', d: '"É seguro mesmo? Dá pra confiar no site?" A audiencia tem medo de comprar online. O Selo de Loja Validada e o repasse protegido são a resposta.' },
+              { Icon: IconTrendingUp, t: 'Existe demanda de venda reprimida', d: '"Quero vender as minhas!" e "alguém que venda em Pernambuco?" — intenção clara de vender e de achar gente perto.' },
+              { Icon: IconWarning, t: 'Número inflado não engaja', d: 'Um concorrente segue 3,5 mil contas pra inflar número, e o post fixado tem 49 curtidas num perfil de 26 mil. Folheto sem alma.' },
             ].map((c) => (
               <div key={c.t} style={card}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
@@ -804,15 +804,15 @@ export default function GestaoConteudo() {
 
           <div style={{ ...card, marginTop: 16, borderLeft: `3px solid ${AC}`, borderRadius: '0 12px 12px 0' }}>
             <p style={{ fontSize: 13.5, color: TXT2, margin: 0 }}>
-              <strong style={{ color: TXT }}>A regra de ouro:</strong> pare de perseguir numero de seguidor.
-              Persiga salvamento, compartilhamento, comentario e retencao — nessa ordem.
+              <strong style={{ color: TXT }}>A regra de ouro:</strong> pare de perseguir número de seguidor.
+              Persiga salvamento, compartilhamento, comentário e retenção — nessa ordem.
             </p>
           </div>
         </>
       )}
 
       <p style={{ color: FAINT, fontSize: 12.5, marginTop: 30, paddingTop: 16, borderTop: `1px solid ${BORD}` }}>
-        <IconClock size={12} color={FAINT} /> Progresso e publicacoes ficam no banco — valem em qualquer aparelho.
+        <IconClock size={12} color={FAINT} /> Progresso e publicações ficam no banco — valem em qualquer aparelho.
       </p>
     </div>
   )
