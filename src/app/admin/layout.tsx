@@ -79,6 +79,16 @@ function IconConversasAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { s
   )
 }
 
+// Icone de conteudo inline (balao com linhas de texto = post)
+function IconConteudoAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M3 3h14v10H7l-4 4V3z" stroke={color} strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M6.5 7h7M6.5 10h4.5" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean }
 
 const adminMenu: MenuItem[] = [
@@ -91,6 +101,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro' },
   { label: 'Avisos', href: '/admin/notificacoes', Icon: IconBell },
   { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, countKey: 'conversas' },
+  { label: 'Conteúdo', href: '/admin/conteudo', Icon: IconConteudoAdmin },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
