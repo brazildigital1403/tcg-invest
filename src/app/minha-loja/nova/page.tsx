@@ -1,11 +1,12 @@
 'use client'
 
 import { CSSProperties, useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
 import { IconStar } from '@/components/ui/Icons'
+import Breadcrumb from '@/components/ui/Breadcrumb'
+import { LOJA_HOME } from '../[id]/_shared'
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 
@@ -75,12 +76,10 @@ export default function NovaLojaPage() {
   return (
     <>
       <div style={S.page}>
-        {/* ─── Breadcrumb ──────────────────────────────── */}
-        {temOutrasLojas && (
-          <Link href="/minha-loja" style={S.breadcrumb}>
-            ← Minhas Lojas
-          </Link>
-        )}
+        {/* Sempre visivel (mesmo no mobile): a nav da loja fica escondida
+            de proposito nesta tela (modo minimal do layout), entao a trilha
+            e a UNICA saida quando o usuario ja tem outra loja e desiste. */}
+        {temOutrasLojas && <Breadcrumb items={[LOJA_HOME, { name: 'Nova loja', href: '/minha-loja/nova' }]} />}
 
         {/* ─── Header ───────────────────────────────────── */}
         <header style={S.header}>
@@ -137,13 +136,6 @@ const S: Record<string, CSSProperties> = {
     gap: 20,
   },
 
-  breadcrumb: {
-    fontSize: 13,
-    color: 'rgba(96,165,250,0.85)',
-    textDecoration: 'none',
-    fontWeight: 600,
-    marginBottom: -8,
-  },
 
   header: {
     paddingBottom: 4,

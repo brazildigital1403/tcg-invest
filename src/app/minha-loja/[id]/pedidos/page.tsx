@@ -4,7 +4,7 @@ import { use as usePromise, useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { useLojaOwner, LojaEstadoFallback, SH } from '../_shared'
+import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconCheck, IconWallet, IconPhone, IconBolt, IconCard, IconPokeball } from '@/components/ui/Icons'
 
@@ -180,6 +180,7 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div style={SH.page}>
+      <TrilhaLoja items={[LOJA_HOME, { name: loja.nome, href: `/minha-loja/${lojaId}` }, { name: 'Pedidos', href: `/minha-loja/${lojaId}/pedidos` }]} />
       <header style={SH.head}>
         <h1 style={SH.title}>Pedidos</h1>
         <p style={SH.subtitle}>Vendas feitas na sua vitrine da Bynx. Despache no prazo pra manter sua reputação lá em cima.</p>

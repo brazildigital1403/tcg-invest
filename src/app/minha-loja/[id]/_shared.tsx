@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { lojaCache } from '@/lib/lojaCache'
 import type { LojaFormData } from '@/components/lojas/FormLoja'
+import Breadcrumb from '@/components/ui/Breadcrumb'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 export type Estado = 'loading' | 'nao_logado' | 'nao_encontrada' | 'sem_permissao' | 'pronto'
@@ -21,6 +22,31 @@ export interface LojaFull extends LojaFormData {
   plano_expira_em: string | null
   owner_user_id: string
   created_at: string
+}
+
+// ─── Trilha (breadcrumb) da loja ─────────────────────────────────────────────
+type Crumb = { name: string; href: string }
+
+export const LOJA_HOME: Crumb = { name: 'Minhas lojas', href: '/minha-loja' }
+
+/**
+ * Mesma regra do PageHeader (app): trilha com ate 2 itens repetiria o que a
+ * nav da loja (sidebar/abas) ja destaca -> some no mobile, sempre visivel no
+ * desktop. So os 3+ itens (aninhado) aparecem nos dois.
+ */
+export function TrilhaLoja({ items }: { items: Crumb[] }) {
+  const topo = items.length <= 2
+  return (
+    <div className="bx-lj-trilha" data-toplevel={topo ? '1' : '0'}>
+      <style>{`
+        .bx-lj-trilha { margin-bottom: 4px; }
+        @media (max-width: 768px) {
+          .bx-lj-trilha[data-toplevel="1"] { display: none; }
+        }
+      `}</style>
+      <Breadcrumb items={items} />
+    </div>
+  )
 }
 
 // ─── Hook compartilhado: carrega loja + valida dono ──────────────────────────

@@ -2,7 +2,7 @@
 
 import { use as usePromise } from 'react'
 import AnalyticsCard from '@/components/lojas/AnalyticsCard'
-import { useLojaOwner, LojaEstadoFallback, SH } from '../_shared'
+import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 
 export default function LojaAnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: lojaId } = usePromise(params)
@@ -12,6 +12,7 @@ export default function LojaAnalyticsPage({ params }: { params: Promise<{ id: st
 
   return (
     <div style={SH.page}>
+      <TrilhaLoja items={[LOJA_HOME, { name: loja.nome, href: `/minha-loja/${lojaId}` }, { name: 'Analytics', href: `/minha-loja/${lojaId}/analytics` }]} />
       <header style={SH.head}>
         <h1 style={SH.title}>Analytics</h1>
         <p style={SH.subtitle}>Contatos, visitas e canais da sua loja.</p>

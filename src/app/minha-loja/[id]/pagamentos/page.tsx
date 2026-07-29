@@ -3,7 +3,7 @@
 import { use as usePromise, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { useLojaOwner, LojaEstadoFallback, SH } from '../_shared'
+import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { pctLabel, calcularCheckout, fmtBRL, type PrazoRepasse, type MetodoPagamento } from '@/lib/comissao'
 import { IconSearch, IconCheck, IconWarning, IconWallet, IconBolt, IconCard, IconTruck } from '@/components/ui/Icons'
 
@@ -195,6 +195,7 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
 
   return (
     <div style={SH.page}>
+      <TrilhaLoja items={[LOJA_HOME, { name: loja.nome, href: `/minha-loja/${lojaId}` }, { name: 'Pagamentos', href: `/minha-loja/${lojaId}/pagamentos` }]} />
       <header style={SH.head}>
         <h1 style={SH.title}>Pagamentos</h1>
         <p style={SH.subtitle}>Receba direto na sua conta pelas vendas na Bynx.</p>

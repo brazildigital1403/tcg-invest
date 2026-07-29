@@ -4,7 +4,7 @@ import { use as usePromise, useCallback, useEffect, useRef, useState } from 'rea
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { useLojaOwner, LojaEstadoFallback, SH } from '../_shared'
+import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { IconBox, IconPlush, IconFigure, IconCollection, IconTag } from '@/components/ui/Icons'
 import { fmtBRL } from '@/lib/comissao'
 
@@ -177,6 +177,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
 
   return (
     <div style={SH.page}>
+      <TrilhaLoja items={[LOJA_HOME, { name: loja.nome, href: `/minha-loja/${lojaId}` }, { name: 'Produtos', href: `/minha-loja/${lojaId}/produtos` }]} />
       <header style={SH.head}>
         <h1 style={SH.title}>Produtos</h1>
         <p style={SH.subtitle}>Selados, pelúcias, funkos e acessórios da sua vitrine. Cartas continuam no Marketplace.</p>

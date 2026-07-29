@@ -3,7 +3,7 @@
 import { use as usePromise } from 'react'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
 import EventosManager from '@/components/lojas/EventosManager'
-import { useLojaOwner, LojaEstadoFallback, SH, type LojaFull } from '../_shared'
+import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja, type LojaFull } from '../_shared'
 
 export default function MinhaVitrinePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: lojaId } = usePromise(params)
@@ -13,6 +13,7 @@ export default function MinhaVitrinePage({ params }: { params: Promise<{ id: str
 
   return (
     <div style={SH.page}>
+      <TrilhaLoja items={[LOJA_HOME, { name: loja.nome, href: `/minha-loja/${lojaId}` }, { name: 'Minha vitrine', href: `/minha-loja/${lojaId}/vitrine` }]} />
       <header style={{ ...SH.head, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 style={SH.title}>Minha vitrine</h1>

@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
 import {
   useLojaOwner, LojaEstadoFallback, STATUS_CONFIG, PLANO_CONFIG, SH,
+  LOJA_HOME, TrilhaLoja,
   type LojaFull,
 } from './_shared'
 
@@ -58,6 +59,7 @@ export default function VisaoGeralPage({ params }: { params: Promise<{ id: strin
         @media (max-width: 720px) { .vg-atalhos { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 560px) { .vg-grid2 { grid-template-columns: 1fr; } }
       `}</style>
+      <TrilhaLoja items={[LOJA_HOME, { name: loja.nome, href: base }]} />
       <header style={SH.head}>
         <h1 style={SH.title}>{loja.nome}</h1>
         {loja.slug && <p style={SH.subtitle}>bynx.gg/lojas/{loja.slug}</p>}

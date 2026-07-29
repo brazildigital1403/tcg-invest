@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { LOJA_HOME, TrilhaLoja } from '../_shared'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -270,10 +271,7 @@ export default function PlanoLojaPage() {
   return (
     <>
       <div style={S.page}>
-        {/* ── Breadcrumb ──────────────────────────── */}
-        <Link href={`/minha-loja/${loja.id}`} style={S.breadcrumb}>
-          ← Voltar para {loja.nome}
-        </Link>
+        <TrilhaLoja items={[LOJA_HOME, { name: loja.nome, href: `/minha-loja/${loja.id}` }, { name: 'Plano & cobrança', href: `/minha-loja/${loja.id}/plano` }]} />
 
         {/* ── Hero ────────────────────────────────── */}
         <header className="bx-gutter" style={S.hero}>
@@ -483,13 +481,6 @@ const S: Record<string, CSSProperties> = {
     flexDirection: 'column',
     gap: 20,
     fontFamily: "'DM Sans', system-ui, sans-serif",
-  },
-
-  breadcrumb: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    textDecoration: 'none',
-    alignSelf: 'flex-start',
   },
 
   hero: {

@@ -47,7 +47,7 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
 
   return (
     <nav aria-label="Trilha de navegação" style={{ marginBottom: 24 }}>
-      <style>{`.bynx-crumb-link:hover{color:#f59e0b !important}`}</style>
+      <style>{`.bynx-crumb-link:hover{color:var(--ac-1) !important}`}</style>
       <ol
         style={{
           listStyle: 'none',
@@ -78,7 +78,7 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
                   style={{
                     color: '#fff',
                     fontWeight: 600,
-                    borderBottom: '2px solid #f59e0b',
+                    borderBottom: '2px solid var(--ac-1)',
                     paddingBottom: 1,
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -90,7 +90,7 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
                   }}
                 >
                   {isHome && (
-                    <span style={{ color: '#f59e0b', display: 'inline-flex' }}>
+                    <span style={{ color: 'var(--ac-1)', display: 'inline-flex' }}>
                       <HomeIcon />
                     </span>
                   )}
@@ -101,7 +101,7 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
                   href={it.href}
                   className="bynx-crumb-link"
                   style={{
-                    color: isHome ? '#f59e0b' : 'rgba(255,255,255,0.55)',
+                    color: isHome ? 'var(--ac-1)' : 'var(--bx-text-2)',
                     textDecoration: 'none',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -115,7 +115,7 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
                 </Link>
               )}
               {!isLast && (
-                <span style={{ color: 'rgba(245,158,11,0.45)', display: 'inline-flex' }}>
+                <span style={{ color: 'rgba(var(--ac-1-rgb), 0.45)', display: 'inline-flex' }}>
                   <Chevron />
                 </span>
               )}
