@@ -74,6 +74,34 @@ function slugifyName(s: string): string {
 // On-demand revalidate via /api/revalidate quando scan atualiza preço.
 export const revalidate = 86400
 
+/**
+ * ★ Sem isto, o `revalidate` acima nao valia NADA.
+ *
+ * Rota com segmento dinamico e SEM generateStaticParams o Next classifica como
+ * `f` (server-rendered on demand) e responde
+ * `cache-control: private, no-cache, no-store` — 100% MISS, sempre. Medido em
+ * 29/07/2026: cinco requests identicos seguidos, cinco MISS.
+ *
+ * Na pratica: toda visita a qualquer uma das 66.897 paginas de carta acordava
+ * uma lambda e batia no Postgres. Foi esse o combustivel do apagao — varredura
+ * de crawler em rota sem cache, cada request segurando conexao, ate o pool
+ * estourar e derrubar o site inteiro junto.
+ *
+ * Declarar generateStaticParams muda o modo da rota: com `dynamicParams`, o
+ * caminho que ainda nao existe e gerado na primeira visita e FICA CACHEADO pelo
+ * `revalidate`. Da segunda visita em diante sai do CDN sem tocar no banco.
+ *
+ * Devolve lista vazia de proposito. Prerenderizar no build custaria leitura da
+ * tabela de 187 MB — exatamente o tipo de operacao que esgotou o orcamento de
+ * IO. Aqui o custo e uma renderizacao por carta, distribuida no tempo, so pras
+ * cartas que alguem realmente visita.
+ */
+export async function generateStaticParams() {
+  return []
+}
+
+export const dynamicParams = true
+
 // INCIDENTE 29/07/2026: esta rota e dinamica (o build classifica como `f`) e
 // nao tinha maxDuration, entao herdava o teto de 300s da Vercel. Sob carga de
 // crawler, cada request travado segurava lambda E conexao do Postgres por

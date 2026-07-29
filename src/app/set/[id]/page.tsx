@@ -40,6 +40,16 @@ export const revalidate = 3600
 // duracao segurava conexao do Postgres por 300s sob carga.
 export const maxDuration = 20
 
+// Sem generateStaticParams o Next trata a rota como on-demand e responde
+// `no-store` — o `revalidate` acima nao tem efeito nenhum. Ver o comentario
+// longo em carta/[id]/page.tsx. Lista vazia: nada prerenderizado no build
+// (zero leitura da tabela de 187 MB), mas cada set visitado fica cacheado.
+export async function generateStaticParams() {
+  return []
+}
+
+export const dynamicParams = true
+
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
 type SetData = {
