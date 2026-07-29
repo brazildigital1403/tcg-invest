@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { IconWarning, IconBolt } from '@/components/ui/Icons'
 
 type User = {
   id: string
@@ -364,7 +365,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
 
     // 1ª confirmação
     const first = await showConfirm({
-      message: `⚠️ EXCLUIR PERMANENTEMENTE a conta de ${user.email}?\n\nIsso vai apagar: ${stats?.total_cards || 0} cartas, ${stats?.total_tickets || 0} tickets, notificações e anúncios.\n\nEssa ação NÃO pode ser desfeita.`,
+      message: `EXCLUIR PERMANENTEMENTE a conta de ${user.email}?\n\nIsso vai apagar: ${stats?.total_cards || 0} cartas, ${stats?.total_tickets || 0} tickets, notificações e anúncios.\n\nEssa ação NÃO pode ser desfeita.`,
       danger: true,
       confirmLabel: 'Sim, prosseguir',
     })
@@ -430,7 +431,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
         }}>
           <div>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#ef4444', margin: '0 0 2px' }}>
-              ⛔ Conta suspensa
+              <IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Conta suspensa
             </p>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
               Suspenso em {fmtDateTime(user.suspended_at)}
@@ -607,7 +608,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
 
           {/* ── Ações administrativas ── */}
           <aside style={{ ...surface, position: 'sticky', top: 80 }}>
-            <h3 style={sectionTitle}>⚡ Ações rápidas</h3>
+            <h3 style={sectionTitle}><IconBolt size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Ações rápidas</h3>
 
             <ActionButton label="Conceder Pro"    onClick={grantPro}    color="#f59e0b" busy={busy} />
             {user.is_pro && (
@@ -621,7 +622,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
             <ActionButton label={user.separadores_desbloqueado ? 'Bloquear separadores' : 'Liberar separadores'} onClick={toggleSeparadores} color="#f59e0b" busy={busy} variant="outline" />
 
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '16px 0', paddingTop: 16 }}>
-              <h3 style={{ ...sectionTitle, fontSize: 10, marginBottom: 10 }}>⚠️ Zona perigosa</h3>
+              <h3 style={{ ...sectionTitle, fontSize: 10, marginBottom: 10 }}><IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Zona perigosa</h3>
 
               {!user.is_suspended ? (
                 <ActionButton label="Suspender conta" onClick={suspend} color="#f59e0b" busy={busy} variant="outline" />

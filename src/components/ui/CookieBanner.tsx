@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { IconShield } from '@/components/ui/Icons'
 
 // ─── Storage key (compartilhada com o gate do GTM em src/app/layout.tsx) ─────
 
@@ -66,7 +67,7 @@ export default function CookieBanner() {
     <div style={S.wrapper} role="dialog" aria-live="polite" aria-label="Aviso de cookies">
       <div style={S.banner}>
         <div style={S.content}>
-          <div style={S.iconBox} aria-hidden="true">🍪</div>
+          <div style={S.iconBox} aria-hidden="true"><IconShield size={20} /></div>
           <div style={S.textBox}>
             <p style={S.title}>Cookies e privacidade</p>
             <p style={S.text}>

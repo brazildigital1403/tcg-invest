@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { trackProUpgradeInitiated } from '@/lib/analytics'
-import { IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink, IconCamera, IconCollection as IconBinder } from '@/components/ui/Icons'
+import { IconStarFilled, IconBolt, IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink, IconCamera, IconCollection as IconBinder } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
 import { useAppModal } from '@/components/ui/useAppModal'
@@ -713,7 +713,7 @@ export default function MinhaConta() {
             <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(239,68,68,0.08))', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 14, padding: '16px 20px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <p style={{ fontSize: 14, fontWeight: 800, color: '#f59e0b', marginBottom: 4 }}>
-                  ⭐ Pro Trial ativo — {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''} restante{trialDaysLeft !== 1 ? 's' : ''}
+                  <IconStarFilled size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Pro Trial ativo — {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''} restante{trialDaysLeft !== 1 ? 's' : ''}
                 </p>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
                   {trialDaysLeft <= 2
@@ -1015,7 +1015,7 @@ export default function MinhaConta() {
             <div style={{ textAlign: 'center', marginBottom: 28 }}>
               {isTrial && trialDaysLeft <= 3 && (
                 <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '8px 16px', marginBottom: 16, display: 'inline-block' }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>⚡ Seu trial expira em {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''}! Garanta seu desconto agora.</p>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}><IconBolt size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Seu trial expira em {trialDaysLeft} dia{trialDaysLeft !== 1 ? 's' : ''}! Garanta seu desconto agora.</p>
                 </div>
               )}
               {isTrial && trialDaysLeft > 3 && (

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { IconCheck } from '@/components/ui/Icons'
 
 interface Props {
   userId: string | null
@@ -146,7 +147,7 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
   if (enviado) {
     return (
       <div style={{ margin: '18px 4px 8px', background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 14, padding: '18px 16px', textAlign: 'center' }}>
-        <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: '#22c55e' }}><IconCheck size={28} /></div>
         <p style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', margin: 0 }}>Recebido! Obrigado por avisar.</p>
         <p style={{ fontSize: 12, color: TEXT_MUTED, margin: '6px 0 0' }}>Vamos revisar e avisamos por e-mail quando a carta for adicionada ou corrigida.</p>
         <button onClick={() => setEnviado(false)} style={{ marginTop: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: TEXT_MUTED, fontSize: 12, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Reportar outra</button>
@@ -157,7 +158,7 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
   return (
     <div style={{ margin: '18px 4px 8px', background: 'rgba(245,158,11,0.04)', border: `1px solid ${semResultado ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.25)'}`, borderRadius: 14, padding: 16 }}>
       <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', margin: '0 0 3px' }}>
-        {semResultado ? `Não encontramos "${termoTrim}" 🔎` : 'Encontrou algo errado — ou não encontrou? 🛠️'}
+        {semResultado ? `Não encontramos "${termoTrim}"` : 'Encontrou algo errado — ou não encontrou?'}
       </p>
       <p style={{ fontSize: 12, color: TEXT_MUTED, margin: '0 0 12px', lineHeight: 1.5 }}>
         {semResultado ? 'Avise-nos e nós catalogamos para você.' : 'Reporte uma carta faltando ou um erro (nome, valor, imagem) em uma carta que existe.'}

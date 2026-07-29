@@ -19,7 +19,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { formatPoints } from '@/lib/referrals'
-import { IconCheck } from '@/components/ui/Icons'
+import { IconCheck, IconStarFilled, IconScan, IconFilter, IconBox, IconTag } from '@/components/ui/Icons'
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -59,12 +59,12 @@ const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const CARD_BG = '#0f1117'
 const BORDER = 'rgba(255,255,255,0.1)'
 
-const TYPE_CONFIG: Record<string, { label: string; emoji: string; color: string }> = {
-  pro_days:     { label: 'PRO',          emoji: '⭐', color: '#f59e0b' },
-  scan_credits: { label: 'SCAN IA',      emoji: '📸', color: '#60a5fa' },
-  separadores:  { label: 'SEPARADORES',  emoji: '📁', color: '#22c55e' },
-  physical:     { label: 'PRÊMIO FÍSICO',emoji: '📦', color: '#ec4899' },
-  other:        { label: 'OUTRO',        emoji: '🎁', color: '#94a3b8' },
+const TYPE_CONFIG: Record<string, { label: string; emoji: React.ComponentType<{ size?: number }>; color: string }> = {
+  pro_days:     { label: 'PRO',          emoji: IconStarFilled, color: '#f59e0b' },
+  scan_credits: { label: 'SCAN IA',      emoji: IconScan,       color: '#60a5fa' },
+  separadores:  { label: 'SEPARADORES',  emoji: IconFilter,     color: '#22c55e' },
+  physical:     { label: 'PRÊMIO FÍSICO',emoji: IconBox,        color: '#ec4899' },
+  other:        { label: 'OUTRO',        emoji: IconTag,        color: '#94a3b8' },
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -262,7 +262,7 @@ export default function RecompensasPage() {
                         color: cfg.color,
                         borderColor: cfg.color + '40',
                       }}>
-                        {cfg.emoji} {cfg.label}
+                        <cfg.emoji size={12} /> {cfg.label}
                       </div>
 
                       <h3 style={S.rewardTitle}>{r.title}</h3>
@@ -314,7 +314,7 @@ export default function RecompensasPage() {
                   return (
                     <div key={r.id} style={S.historyRow}>
                       <div style={S.historyLeft}>
-                        <div style={S.historyTitle}>{typeCfg.emoji} {r.reward?.title || '(reward removido)'}</div>
+                        <div style={S.historyTitle}><typeCfg.emoji size={13} /> {r.reward?.title || '(reward removido)'}</div>
                         <div style={S.historyMeta}>
                           {new Date(r.created_at).toLocaleDateString('pt-BR', {
                             day: '2-digit', month: 'short', year: 'numeric',

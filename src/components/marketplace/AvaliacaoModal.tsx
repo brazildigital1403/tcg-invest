@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { criarNotificacao } from '@/lib/notificacoes'
+import { IconStarFilled } from '@/components/ui/Icons'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -47,12 +48,12 @@ export default function AvaliacaoModal({ card, userId, role, onClose }: Props) {
     await criarNotificacao(
       avaliado_id,
       'avaliacao',
-      `⭐ Você recebeu uma avaliação!`,
+      `Você recebeu uma avaliação!`,
       `${estrelas} estrela${estrelas > 1 ? 's' : ''} pela negociação de "${card.card_name}"${comentario ? `: "${comentario.slice(0, 60)}..."` : '.'}`,
       { marketplace_id: card.id, estrelas }
     )
 
-    showAlert('Avaliação enviada! Obrigado pelo feedback. 🙏', 'success')
+    showAlert('Avaliação enviada! Obrigado pelo feedback.', 'success')
     setLoading(false)
     onClose()
   }
@@ -63,7 +64,7 @@ export default function AvaliacaoModal({ card, userId, role, onClose }: Props) {
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <p style={{ fontSize: 36, marginBottom: 8 }}>⭐</p>
+          <p style={{ display: 'flex', justifyContent: 'center', color: '#f59e0b', marginBottom: 8 }}><IconStarFilled size={36} /></p>
           <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 6 }}>
             Avaliar negociação
           </h2>
@@ -93,7 +94,7 @@ export default function AvaliacaoModal({ card, userId, role, onClose }: Props) {
               onMouseLeave={() => setHover(0)}
               style={{ background: 'none', border: 'none', fontSize: 36, cursor: 'pointer', transition: 'transform 0.1s', transform: (hover || estrelas) >= n ? 'scale(1.2)' : 'scale(1)', filter: (hover || estrelas) >= n ? 'none' : 'grayscale(1) opacity(0.3)' }}
             >
-              ⭐
+              <IconStarFilled size={32} />
             </button>
           ))}
         </div>
@@ -101,7 +102,7 @@ export default function AvaliacaoModal({ card, userId, role, onClose }: Props) {
         {/* Label da nota */}
         {(hover || estrelas) > 0 && (
           <p style={{ textAlign: 'center', fontSize: 13, color: '#f59e0b', fontWeight: 600, marginBottom: 16 }}>
-            {['', 'Muito ruim 😞', 'Ruim 😕', 'Ok 😐', 'Boa 😊', 'Excelente! 🎉'][hover || estrelas]}
+            {['', 'Muito ruim', 'Ruim', 'Ok', 'Boa', 'Excelente!'][hover || estrelas]}
           </p>
         )}
 

@@ -13,7 +13,7 @@ import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount,
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
-  IconChat, IconStar,
+  IconChat, IconStar, IconStarFilled, IconEye,
 } from '@/components/ui/Icons'
 import MuroPosTrial from '@/components/ui/MuroPosTrial'
 
@@ -697,7 +697,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {isLojistaExplore && (
               <div style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', borderRadius: 8, padding: '4px 10px', flexShrink: 0 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: '#60a5fa', whiteSpace: 'nowrap' }}>
-                  👀 Modo colecionador ativo
+                  <IconEye size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />Modo colecionador ativo
                 </p>
               </div>
             )}
@@ -705,7 +705,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {trialDaysLeft !== null && (
               <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '4px 10px', flexShrink: 0 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', whiteSpace: 'nowrap' }}>
-                  ⭐ Pro Trial · {trialDaysLeft}d restante{trialDaysLeft !== 1 ? 's' : ''}
+                  <IconStarFilled size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />Pro Trial · {trialDaysLeft}d restante{trialDaysLeft !== 1 ? 's' : ''}
                 </p>
               </div>
             )}

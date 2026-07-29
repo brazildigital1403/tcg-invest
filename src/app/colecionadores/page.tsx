@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { CardsPlanos } from '@/components/ui/PlanosBlocos'
+import { IconFilter, IconTrendingUp, IconStar } from '@/components/ui/Icons'
 
 // ─── ISR ────────────────────────────────────────────────────────────────────
 // Revalida os numeros do catalogo 1x por hora. Stats (cartas, sets, valor) vem
@@ -406,19 +407,19 @@ export default async function ColecionadoresPage() {
 
             <div className="col-personas-grid" style={S.personasGrid}>
               <PersonaCard
-                emoji="🎯"
+                icone={IconFilter}
                 title="O curador"
                 desc="Você tem coleção montada há tempos. Quer organizar por set, ver o que falta pra completar, e olhar pra prateleira sabendo exatamente o que tem. Bynx é seu inventário visual, com filtros por geração, raridade e variante."
                 tags={['Pokédex completa', 'Filtros avançados', 'Por set/geração']}
               />
               <PersonaCard
-                emoji="📈"
+                icone={IconTrendingUp}
                 title="O estrategista"
                 desc="Você compra com olho no valor. Acompanha mercado, faz trade, sabe que carta valoriza. Bynx te dá preço médio em reais por variante, histórico de oscilação, e patrimônio total da coleção atualizado."
                 tags={['Preços por variante', 'Histórico de preço', 'Patrimônio total']}
               />
               <PersonaCard
-                emoji="✨"
+                icone={IconStar}
                 title="O nostálgico"
                 desc="Você voltou a colecionar agora — abriu o álbum antigo, achou aquela carta da infância, e quer reviver. Bynx tem a Pokédex completa de Bulbasaur a Pecharunt, e o scan com IA pra digitalizar tudo sem precisar digitar nome."
                 tags={['1.025 Pokémons', 'Scan com IA', 'Pokédex visual']}
@@ -645,10 +646,10 @@ function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: s
   )
 }
 
-function PersonaCard({ emoji, title, desc, tags }: { emoji: string; title: string; desc: string; tags: string[] }) {
+function PersonaCard({ icone: Icone, title, desc, tags }: { icone: React.ComponentType<{ size?: number }>; title: string; desc: string; tags: string[] }) {
   return (
     <div style={S.personaCard}>
-      <div style={S.personaEmoji} aria-hidden="true">{emoji}</div>
+      <div style={S.personaEmoji} aria-hidden="true"><Icone size={28} /></div>
       <h3 style={S.personaTitle}>{title}</h3>
       <p style={S.personaDesc}>{desc}</p>
       <div style={S.personaTags}>

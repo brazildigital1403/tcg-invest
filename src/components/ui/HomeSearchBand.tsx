@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { IconBolt, IconCard } from '@/components/ui/Icons'
 
 type Sug = { kind: string; ref: string; label: string; sublabel: string; image: string | null; price: number | null; href: string }
 
@@ -84,7 +85,7 @@ export default function HomeSearchBand() {
               <button key={r.kind + r.ref + i} onMouseDown={() => router.push(r.href)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', color: '#fff', fontFamily: 'inherit' }}>
                 {r.kind === 'card' && r.image
                   ? <img src={r.image} alt="" style={{ width: 30, height: 42, objectFit: 'contain', borderRadius: 4, flex: '0 0 auto' }} />
-                  : <span style={{ width: 30, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flex: '0 0 auto' }}>{r.kind === 'pokemon' ? '⚡' : '🃏'}</span>}
+                  : <span style={{ width: 30, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto', color: 'rgba(255,255,255,0.5)' }}>{r.kind === 'pokemon' ? <IconBolt size={16} /> : <IconCard size={16} />}</span>}
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</span>
                   <span style={{ display: 'block', fontSize: 12, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.kind === 'pokemon' ? 'Pokémon · ' : ''}{r.sublabel}</span>

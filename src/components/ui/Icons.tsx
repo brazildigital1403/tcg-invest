@@ -485,6 +485,15 @@ export function IconBox({ size = 20, color = defaultColor, strokeWidth = default
   )
 }
 
+export function IconEdit({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M10 17h7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+      <path d="M13.8 3.2a1.75 1.75 0 012.5 2.5L6 16l-3.3.8.8-3.3L13.8 3.2z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function IconFacebook({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>

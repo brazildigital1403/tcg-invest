@@ -8,6 +8,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { useAppModal } from '@/components/ui/useAppModal'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
+import { IconKey } from '@/components/ui/Icons'
 
 const LIMITE_PASTAS_FREE = 1
 
@@ -159,7 +160,7 @@ export default function PastasIndex() {
                 </div>
                 {/* overlay travado */}
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16, textAlign: 'center', background: 'rgba(8,10,15,0.55)' }}>
-                  <div style={{ fontSize: 26 }}>🔒</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', color: 'rgba(255,255,255,0.4)' }}><IconKey size={26} /></div>
                   <p style={{ fontSize: 13, fontWeight: 800, color: '#f59e0b', margin: 0 }}>Pasta travada</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.4, maxWidth: 200 }}>No Free só 1 pasta fica ativa. Torne esta a ativa ou destrave todas com o Pro.</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, width: '100%', maxWidth: 200 }}>
@@ -224,7 +225,7 @@ export default function PastasIndex() {
               {/* overlay CTA */}
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                 <div style={{ background: 'rgba(13,15,20,0.95)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 16, padding: '20px 18px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
-                  <div style={{ fontSize: 28, marginBottom: 6 }}>🔒</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'rgba(255,255,255,0.4)' }}><IconKey size={28} /></div>
                   <p style={{ fontSize: 14, fontWeight: 800, color: '#f59e0b', margin: 0, marginBottom: 6 }}>Pastas ilimitadas no Pro</p>
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.45, margin: 0, marginBottom: 14 }}>O plano Free tem 1 pasta. Desbloqueie quantas quiser com o Pro.</p>
                   <Link href="/minha-conta" style={{ display: 'inline-block', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#000', padding: '9px 18px', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 800 }}>Fazer upgrade →</Link>

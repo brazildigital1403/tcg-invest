@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { IconLink, IconKey, IconEye, IconEyeOff } from '@/components/ui/Icons'
+import { IconWarning, IconLink, IconKey, IconEye, IconEyeOff } from '@/components/ui/Icons'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -198,7 +198,7 @@ export default function ResetPassword() {
               </button>
             </div>
             {confirm.length > 0 && !coincidem && (
-              <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>⚠ As senhas não coincidem</p>
+              <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}><IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />As senhas não coincidem</p>
             )}
             {coincidem && (
               <p style={{ fontSize: 11, color: '#22c55e', marginTop: 4 }}>✓ As senhas coincidem</p>
@@ -208,7 +208,7 @@ export default function ResetPassword() {
           {/* Erro do servidor */}
           {error && (
             <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ color: '#ef4444' }}>⚠</span>
+              <span style={{ color: '#ef4444', display: 'flex' }}><IconWarning size={13} /></span>
               <p style={{ fontSize: 13, color: '#ef4444' }}>{error}</p>
             </div>
           )}

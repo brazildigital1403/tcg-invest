@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey } from '@/components/ui/Icons'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
 import { lojaCache } from '@/lib/lojaCache'
@@ -332,7 +332,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               marginLeft: 'auto',
               whiteSpace: 'nowrap',
             }}>
-              🔒 Acesso restrito
+              <IconKey size={14} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />Acesso restrito
             </div>
 
             <Link href="/dashboard-financeiro" style={{

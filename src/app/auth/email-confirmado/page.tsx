@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { IconCheck, IconWarning } from '@/components/ui/Icons'
 
 const FONT = "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 
@@ -33,15 +34,15 @@ export default function EmailConfirmadoPage() {
         )}
         {estado === 'ok' && (
           <>
-            <div style={{ fontSize: 44, lineHeight: 1 }}>✅</div>
+            <div style={{ display: 'flex', justifyContent: 'center', color: '#22c55e' }}><IconCheck size={44} strokeWidth={1.6} /></div>
             <h1 style={{ color: '#f0f0f0', fontSize: 22, fontWeight: 800, margin: '16px 0 8px' }}>E-mail confirmado!</h1>
-            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>Obrigado! Sua conta está verificada e segura. 🔒</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>Obrigado! Sua conta está verificada e segura.</p>
             <button onClick={() => router.push('/minha-colecao')} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '12px 32px', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: FONT }}>Ir para o app →</button>
           </>
         )}
         {estado === 'erro' && (
           <>
-            <div style={{ fontSize: 44, lineHeight: 1 }}>⚠️</div>
+            <div style={{ display: 'flex', justifyContent: 'center', color: '#f59e0b' }}><IconWarning size={44} strokeWidth={1.2} /></div>
             <h1 style={{ color: '#f0f0f0', fontSize: 20, fontWeight: 800, margin: '16px 0 8px' }}>Link expirado ou inválido</h1>
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>Faça login novamente e reenvie o link de confirmação.</p>
             <button onClick={() => router.push('/')} style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '12px 32px', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: FONT }}>Voltar ao início</button>

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AnalyticsCard from '@/components/lojas/AnalyticsCard'
+import { IconWarning, IconEdit, IconCalendar } from '@/components/ui/Icons'
 
 type Loja = {
   id: string
@@ -289,7 +290,7 @@ function LojasView() {
           flexWrap: 'wrap',
         }}>
           <p style={{ fontSize: 13, color: '#f59e0b', margin: 0, fontWeight: 600 }}>
-            ⚠️ {counts?.pendente} {counts?.pendente === 1 ? 'loja pendente' : 'lojas pendentes'} aguardando aprovação
+            <IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />{counts?.pendente} {counts?.pendente === 1 ? 'loja pendente' : 'lojas pendentes'} aguardando aprovação
           </p>
           <button onClick={() => { setStatus('pendente'); setPage(1) }} style={{
             marginLeft: 'auto',
@@ -589,7 +590,7 @@ function LojasView() {
                         fontFamily: 'inherit',
                       }}
                     >
-                      ✏️ Editar
+                      <IconEdit size={13} /> Editar
                     </Link>
 
                     <BtnAction onClick={() => setDetailsLoja(l)} busy={busy} color="rgba(255,255,255,0.6)" variant="ghost">
@@ -613,7 +614,7 @@ function LojasView() {
                         fontFamily: 'inherit',
                       }}
                     >
-                      📅 Eventos
+                      <IconCalendar size={13} /> Eventos
                     </Link>
                   </div>
                 </div>

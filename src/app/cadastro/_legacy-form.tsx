@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
+import { IconKey, IconWarning } from '@/components/ui/Icons'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const SURFACE = { background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '32px 28px' }
@@ -139,13 +140,13 @@ export default function Cadastro() {
 
         <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 4 }}>Criar conta</h1>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginBottom: 28 }}>
-          Grátis · 7 dias de Pro incluídos ⭐
+          Grátis · 7 dias de Pro incluídos
         </p>
 
         {/* Bloqueio menor de 13 */}
         {menorDe13 && (
           <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '20px', marginBottom: 20, textAlign: 'center' }}>
-            <p style={{ fontSize: 28, marginBottom: 8 }}>🔒</p>
+            <p style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'rgba(255,255,255,0.45)' }}><IconKey size={28} /></p>
             <p style={{ fontSize: 15, fontWeight: 700, color: '#ef4444', marginBottom: 6 }}>Acesso não permitido</p>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
               A Bynx não permite cadastro de menores de 13 anos, conforme a Lei Geral de Proteção de Dados (LGPD — Art. 14). Se você tem entre 13 e 17 anos, peça a um responsável legal para criar a conta.
@@ -157,7 +158,7 @@ export default function Cadastro() {
         {entre13e17 && (
           <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '14px 16px', marginBottom: 20 }}>
             <p style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1.6 }}>
-              ⚠️ <strong>Usuário menor de idade:</strong> ao prosseguir, você declara que possui autorização de um pai ou responsável legal para criar esta conta, conforme exigido pela LGPD.
+              <IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} /><strong>Usuário menor de idade:</strong> ao prosseguir, você declara que possui autorização de um pai ou responsável legal para criar esta conta, conforme exigido pela LGPD.
             </p>
           </div>
         )}
@@ -243,7 +244,7 @@ export default function Cadastro() {
           {/* Erro */}
           {erro && (
             <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 14px' }}>
-              <p style={{ fontSize: 13, color: '#ef4444' }}>⚠ {erro}</p>
+              <p style={{ fontSize: 13, color: '#ef4444' }}><IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />{erro}</p>
             </div>
           )}
 

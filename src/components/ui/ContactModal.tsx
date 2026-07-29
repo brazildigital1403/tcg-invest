@@ -11,16 +11,17 @@
  */
 
 import { useState } from 'react'
+import { IconLink, IconLocation, IconBell, IconBolt, IconChat, IconChart } from '@/components/ui/Icons'
 
 // ─── Categorias ──────────────────────────────────────────────────────────────
 
 const CONTACT_CATEGORIES = [
-  { id: 'parceria',   icon: '🤝', label: 'Parceria',                  desc: 'Lojas, distribuidores, organizadores de torneios' },
-  { id: 'loja',       icon: '🏪', label: 'Quero minha loja na Bynx',  desc: 'Cadastre sua loja no nosso Guia de Lojas' },
-  { id: 'imprensa',   icon: '📣', label: 'Imprensa & Mídia',          desc: 'Canais, podcasts e influencers de Pokémon TCG' },
-  { id: 'sugestao',   icon: '💡', label: 'Sugestão de funcionalidade', desc: 'Ideias para melhorar a Bynx' },
-  { id: 'duvida',     icon: '❓', label: 'Dúvida geral',              desc: 'Planos, pagamentos, privacidade' },
-  { id: 'investidor', icon: '💼', label: 'Investidor',                desc: 'Interesse em investir na Bynx' },
+  { id: 'parceria',   icon: IconLink, label: 'Parceria',                  desc: 'Lojas, distribuidores, organizadores de torneios' },
+  { id: 'loja',       icon: IconLocation, label: 'Quero minha loja na Bynx',  desc: 'Cadastre sua loja no nosso Guia de Lojas' },
+  { id: 'imprensa',   icon: IconBell, label: 'Imprensa & Mídia',          desc: 'Canais, podcasts e influencers de Pokémon TCG' },
+  { id: 'sugestao',   icon: IconBolt, label: 'Sugestão de funcionalidade', desc: 'Ideias para melhorar a Bynx' },
+  { id: 'duvida',     icon: IconChat, label: 'Dúvida geral',              desc: 'Planos, pagamentos, privacidade' },
+  { id: 'investidor', icon: IconChart, label: 'Investidor',                desc: 'Interesse em investir na Bynx' },
 ]
 
 interface Props {
@@ -102,7 +103,7 @@ export default function ContactModal({ onClose }: Props) {
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(245,158,11,0.4)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
               >
-                <span style={{ fontSize: 22, flexShrink: 0 }}>{cat.icon}</span>
+                <span style={{ display: 'flex', flexShrink: 0, color: '#60a5fa' }}><cat.icon size={20} /></span>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>{cat.label}</p>
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{cat.desc}</p>
@@ -117,7 +118,7 @@ export default function ContactModal({ onClose }: Props) {
         {step === 'form' && (
           <div>
             <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}>{selectedCat?.icon}</span>
+              <span style={{ display: 'flex', color: '#60a5fa' }}>{selectedCat ? <selectedCat.icon size={17} /> : null}</span>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{selectedCat?.desc}</p>
               <button onClick={() => setStep('category')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 12, flexShrink: 0, fontFamily: 'inherit' }}>← Trocar</button>
             </div>

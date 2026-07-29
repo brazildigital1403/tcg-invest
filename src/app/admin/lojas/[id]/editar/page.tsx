@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import FormLoja, { LojaFormData } from '@/components/lojas/FormLoja'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { IconShield } from '@/components/ui/Icons'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ export default function AdminLojaEditarPage({
       {/* ─── Banner ADMIN ──────────────────────────────── */}
       <div style={S.adminBanner}>
         <div style={S.bannerLeft}>
-          <span style={S.bannerIcon}>🛡️</span>
+          <span style={S.bannerIcon}><IconShield size={18} /></span>
           <div>
             <p style={S.bannerTitle}>Você está editando como ADMIN</p>
             <p style={S.bannerSub}>

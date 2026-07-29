@@ -23,7 +23,7 @@ import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
 import {
-  IconShare, IconCheck, IconWhatsApp,
+  IconShare, IconCheck, IconWhatsApp, IconAccount, IconRocket, IconStar, IconWarning, IconTag,
 } from '@/components/ui/Icons'
 import {
   formatPoints,
@@ -69,9 +69,9 @@ const CARD_BG = '#0f1117'
 const BORDER = 'rgba(255,255,255,0.1)'
 
 const STATUS_CONFIG = {
-  cadastrou: { label: 'Cadastrou', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', emoji: '👋' },
-  ativou:    { label: 'Ativou',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  emoji: '✅' },
-  engajado:  { label: 'Pro',       color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', emoji: '🚀' },
+  cadastrou: { label: 'Cadastrou', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', emoji: IconAccount },
+  ativou:    { label: 'Ativou',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  emoji: IconCheck },
+  engajado:  { label: 'Pro',       color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', emoji: IconRocket },
 }
 
 // ─── Componente ────────────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ export default function IndiqueEGanhePage() {
           <>
             {/* Header */}
             <header style={S.header}>
-              <div style={S.headerBadge}>✨ Indique e Ganhe</div>
+              <div style={S.headerBadge}><IconStar size={13} /> Indique e Ganhe</div>
               <h1 style={S.headerTitle}>
                 Convide amigos. Ganhe pontos. Troque por recompensas.
               </h1>
@@ -186,7 +186,7 @@ export default function IndiqueEGanhePage() {
             {/* Trust alert */}
             {me.trust_suspended && (
               <div style={S.trustAlert}>
-                <strong>⚠️ Indicações pausadas:</strong> detectamos um padrão suspeito nas suas indicações.
+                <strong><IconWarning size={14} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Indicações pausadas:</strong> detectamos um padrão suspeito nas suas indicações.
                 Entre em contato com o suporte pra revisar.
                 {' '}
                 <Link href="/suporte" style={S.trustAlertLink}>Abrir ticket →</Link>
@@ -345,7 +345,7 @@ export default function IndiqueEGanhePage() {
                           color: cfg.color,
                           borderColor: cfg.color + '40',
                         }}>
-                          {cfg.emoji} {cfg.label}
+                          <cfg.emoji size={11} /> {cfg.label}
                         </div>
                       </div>
                     )
@@ -357,7 +357,7 @@ export default function IndiqueEGanhePage() {
             {/* CTAs finais */}
             <section style={S.ctaSection}>
               <Link href="/recompensas" style={S.ctaLeft}>
-                <div style={S.ctaIcon}>🎁</div>
+                <div style={S.ctaIcon}><IconTag size={30} /></div>
                 <div>
                   <div style={S.ctaTitle}>Trocar pontos por recompensas</div>
                   <div style={S.ctaSub}>Pro, scans IA, separadores e mais</div>
@@ -616,7 +616,7 @@ const S: Record<string, CSSProperties> = {
     textDecoration: 'none',
     color: '#f0f0f0',
   },
-  ctaIcon: { fontSize: 32, lineHeight: 1 },
+  ctaIcon: { display: 'flex', justifyContent: 'center', color: '#60a5fa', lineHeight: 1 },
   ctaTitle: { fontSize: 15, fontWeight: 700, marginBottom: 2 },
   ctaSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
 }

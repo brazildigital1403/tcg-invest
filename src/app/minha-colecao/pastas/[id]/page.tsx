@@ -8,7 +8,7 @@ import { setLabel } from '@/lib/setLabel'
 import { getUserPlan } from '@/lib/isPro'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { IconSearch, IconClose } from '@/components/ui/Icons'
+import { IconSearch, IconClose, IconKey } from '@/components/ui/Icons'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
 
 const LIMITE_CARTAS_FREE = 100
@@ -307,7 +307,7 @@ export default function PastaDetalhe() {
             Pastas
           </Link>
           <div style={{ textAlign: 'center', padding: '48px 24px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 18 }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>🔒</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, color: 'rgba(255,255,255,0.4)' }}><IconKey size={40} /></div>
             <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>{meta.nome}</h1>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, maxWidth: 380, margin: '0 auto 20px' }}>
               No plano Free só 1 pasta fica ativa por vez. Torne esta a sua pasta ativa, ou desbloqueie todas com o Pro.
@@ -356,14 +356,14 @@ export default function PastaDetalhe() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{meta?.nome}</h1>
               {meta?.locked && (
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>🔒 Travada</span>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconKey size={11} /> Travada</span>
               )}
             </div>
             {meta?.descricao && <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{meta.descricao}</p>}
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button onClick={() => setOpenEdit(true)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Editar</button>
-            <button onClick={handleExportPDF} title={!isPro ? 'Disponível no plano Pro' : 'Exportar PDF da pasta'} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>{!isPro && <span style={{ fontSize: 11 }}>🔒</span>}PDF</button>
+            <button onClick={handleExportPDF} title={!isPro ? 'Disponível no plano Pro' : 'Exportar PDF da pasta'} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: isPro ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>{!isPro && <span style={{ display: 'flex' }}><IconKey size={11} /></span>}PDF</button>
             <button onClick={handleDelete} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', padding: '8px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Excluir</button>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { trackProUpgradeCompleted } from '@/lib/analytics'
-import { IconCollection, IconChart, IconScan, IconMarketplace, IconFilter, IconBell, IconGlobe, IconDownload } from '@/components/ui/Icons'
+import { IconStarFilled, IconCollection, IconChart, IconScan, IconMarketplace, IconFilter, IconBell, IconGlobe, IconDownload } from '@/components/ui/Icons'
 
 const PERKS = [
   { icon: IconCollection, label: 'Cartas ilimitadas' },
@@ -65,7 +65,7 @@ function ProAtivadoContent() {
           border: '2px solid rgba(245,158,11,0.4)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 36, margin: '0 auto 24px',
-        }}>⭐</div>
+        }}><IconStarFilled size={30} color="#fff" /></div>
 
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,

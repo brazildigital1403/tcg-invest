@@ -2,6 +2,7 @@
 
 import { CSSProperties, useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { IconLocation } from '@/components/ui/Icons'
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
 
@@ -282,7 +283,7 @@ export default function EventosManager({
                 </div>
                 <h3 style={S.itemTitulo}>{ev.titulo}</h3>
                 <p style={S.itemQuando}>{rotuloQuando(ev)}</p>
-                {ev.local && <p style={S.itemMeta}>📍 {ev.local}</p>}
+                {ev.local && <p style={S.itemMeta}><IconLocation size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />{ev.local}</p>}
                 {ev.descricao && <p style={S.itemDesc}>{ev.descricao}</p>}
               </div>
               <div style={S.itemAcoes}>

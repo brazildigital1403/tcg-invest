@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, IconWhatsApp, IconShield, IconTag } from '@/components/ui/Icons'
+import { IconClock, IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, IconWhatsApp, IconShield, IconTag } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import AvaliacaoModal from './AvaliacaoModal'
 import { dispararMarco } from '@/lib/marketplaceMarco'
@@ -249,7 +249,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
 
           {card.created_at && (
             <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.34)', marginBottom: 10 }}>
-              🕐 anunciado {tempoRelativo(card.created_at)}
+              <IconClock size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />anunciado {tempoRelativo(card.created_at)}
             </p>
           )}
 

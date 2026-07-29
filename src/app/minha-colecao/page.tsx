@@ -12,7 +12,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import ScanModal from '@/components/ui/ScanModal'
-import { IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
+import { IconKey, IconShield, IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 import CardItem from '@/components/ui/CardItem'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
@@ -859,7 +859,7 @@ export default function MinhaColecao() {
                     </div>
                     {p.locked && (
                       <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,10,15,0.55)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                        <span style={{ fontSize: 18 }}>🔒</span>
+                        <span style={{ display: 'flex' }}><IconKey size={18} /></span>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>Desbloquear no Pro</span>
                       </div>
                     )}
@@ -985,7 +985,7 @@ export default function MinhaColecao() {
             {/* Graduadas */}
             <button onClick={() => setFiltroGraduada(v => !v)}
               style={{ backgroundColor: filtroGraduada ? 'rgba(139,92,246,0.12)' : 'var(--bx-surface-2)', border: `1px solid ${filtroGraduada ? 'rgba(139,92,246,0.45)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroGraduada ? '#a78bfa' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', fontWeight: filtroGraduada ? 700 : 500, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
-              💎 Graduadas
+              <IconShield size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />Graduadas
             </button>
 
             {/* Ordenação — select único igual à Pokédex */}

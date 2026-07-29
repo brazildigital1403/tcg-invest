@@ -3,7 +3,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
-import { IconScan, IconCamera, IconGlobe, IconLink, IconWallet, IconPhone, IconBox, IconTrendingUp, IconPokeball, IconClock, IconShield, IconChat, IconRocket } from '@/components/ui/Icons'
+import { IconCheck, IconStarFilled, IconScan, IconCamera, IconGlobe, IconLink, IconWallet, IconPhone, IconBox, IconTrendingUp, IconPokeball, IconClock, IconShield, IconChat, IconRocket } from '@/components/ui/Icons'
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
@@ -1085,7 +1085,7 @@ export default function ScanIaLanding() {
 
             <div style={S.stepCard}>
               <span style={S.stepNumber}>03</span>
-              <div style={S.stepIcon}>✨</div>
+              <div style={S.stepIcon}><IconCheck size={22} /></div>
               <div style={S.stepTitle}>Confirma e pronto</div>
               <p style={S.stepDesc}>
                 Cartas reconhecidas aparecem com imagem oficial, set, número e preço médio em reais.
@@ -1345,7 +1345,7 @@ export default function ScanIaLanding() {
 
             {/* Popular — destaque */}
             <div className="scan-pkg-popular" style={{ ...S.pkgCard, ...S.pkgCardPopular }}>
-              <span style={S.pkgBadge}>⭐ MAIS ESCOLHIDO</span>
+              <span style={S.pkgBadge}><IconStarFilled size={12} /> MAIS ESCOLHIDO</span>
               <div style={S.pkgName}>Popular</div>
               <div style={S.pkgScans}>15</div>
               <div style={S.pkgScansLabel}>scans de IA</div>

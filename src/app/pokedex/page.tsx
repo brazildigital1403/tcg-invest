@@ -628,7 +628,7 @@ export default function Pokedex() {
                             }}
                           />
                         ) : (
-                          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎴</div>
+                          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.35)' }}><IconCard size={20} /></div>
                         )}
                       </div>
 

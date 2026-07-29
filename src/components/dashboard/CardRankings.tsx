@@ -99,7 +99,7 @@ export default function CardRankings({ rankingWithVariation, transactions }: Pro
       )}
 
       {/* Ranking */}
-      <Section title="🏆 Cartas mais valiosas">
+      <Section title="Cartas mais valiosas">
         {rankingWithVariation.length === 0 ? (
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>Sem cartas na coleção</p>
         ) : (

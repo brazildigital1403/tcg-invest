@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, type UIEvent } from 'react'
-import { IconSearch } from '@/components/ui/Icons'
+import { IconSearch, IconWallet } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { trackFirstCardAdded } from '@/lib/analytics'
@@ -626,7 +626,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                           if (hasBRL && variantPrice > 0) {
                             return (
                               <p style={{ fontSize: 14, fontWeight: 700, color: '#f59e0b', margin: 0 }}>
-                                💰 {fmtBRL(variantPrice)}
+                                <IconWallet size={11} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />{fmtBRL(variantPrice)}
                               </p>
                             )
                           } else if (best) {
@@ -696,7 +696,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       </div>
 
                       <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
-                        <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>💰 Preço de mercado</p>
+                        <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}><IconWallet size={11} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />Preço de mercado</p>
                         {(() => {
                           const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
                           const best = getBestPrice(preview)

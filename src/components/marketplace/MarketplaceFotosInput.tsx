@@ -2,6 +2,7 @@
 
 import { useRef, useState, type CSSProperties } from 'react'
 import { uploadFotoMarketplace, deletarFotoMarketplace, MARKETPLACE_FOTOS_MAX } from '@/lib/uploadFoto'
+import { IconKey } from '@/components/ui/Icons'
 
 const LABEL: CSSProperties = {
   display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
@@ -52,7 +53,7 @@ export default function MarketplaceFotosInput({ userId, isPro, fotos, setFotos }
         <label style={LABEL}>Fotos reais</label>
         <button type="button" onClick={() => { window.location.href = '/minha-conta' }}
           style={{ width: '100%', textAlign: 'left', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: 15, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-          <span style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>🔒</span>
+          <span style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#f59e0b' }}><IconKey size={15} /></span>
           <span>
             <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#f0f0f0' }}>Fotos reais é um recurso PRO</span>
             <span style={{ display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 3, lineHeight: 1.4 }}>Anúncios com foto real da carta vendem mais. Suba suas próprias fotos sendo PRO.</span>

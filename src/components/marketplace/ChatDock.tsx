@@ -578,7 +578,7 @@ function AcaoBanner({ role, status, onEnvio, onRecebimento, onCancelar, onAvalia
   if (status === 'concluido') return wrap(<>{txt('Negociação concluída. Que tal avaliar?')}{btn('Avaliar', onAvaliar, '#22c55e')}</>, '#22c55e')
   if (role === 'vendedor') {
     if (status === 'reservado' || status === 'em_negociacao') return wrap(<>{txt('Combinou tudo? Quando despachar:')}<div style={{ display: 'flex', gap: 8 }}>{btn('Cancelar', onCancelar, '#ef4444')}{btn('Confirmar envio', onEnvio)}</div></>)
-    if (status === 'enviado') return wrap(txt('✈️ Você confirmou o envio. Aguardando o comprador receber.'))
+    if (status === 'enviado') return wrap(txt('Você confirmou o envio. Aguardando o comprador receber.'))
   }
   if (role === 'comprador') {
     if (status === 'reservado' || status === 'em_negociacao') return wrap(txt('⏳ Combine os detalhes. O vendedor confirma o envio quando despachar.'), '#f59e0b')

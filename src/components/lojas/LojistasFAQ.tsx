@@ -53,7 +53,7 @@ const FAQ_ITEMS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Como funciona a moderação e o selo verificado?',
     resposta:
-      'Toda loja nova passa por moderação pra evitar cadastros falsos, duplicatas ou conteúdo impróprio. O selo verificado (⭐ azul) é concedido manualmente pela equipe Bynx pra lojas com CNPJ ativo, operação comprovada (site, redes sociais com seguidores, reviews no Google) e pelo menos 3 meses cadastradas na Bynx.',
+      'Toda loja nova passa por moderação pra evitar cadastros falsos, duplicatas ou conteúdo impróprio. O selo verificado (o azul) é concedido manualmente pela equipe Bynx pra lojas com CNPJ ativo, operação comprovada (site, redes sociais com seguidores, reviews no Google) e pelo menos 3 meses cadastradas na Bynx.',
   },
   {
     pergunta: 'Posso usar a Bynx pra vender cartas online pelo meu WhatsApp?',

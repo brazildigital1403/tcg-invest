@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { IconCollection, IconChart, IconMarketplace, IconGlobe, IconCheck, IconLocation } from '@/components/ui/Icons'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
 const STEPS = [
   {
     id: 'import',
-    icon: '📚',
+    icon: IconCollection,
     title: 'Adicione sua primeira carta',
     desc: 'Adicione cartas pela busca por nome ou número, ou escaneie com IA. Importamos imagem e preços automaticamente.',
     cta: 'Adicionar carta →',
@@ -15,7 +16,7 @@ const STEPS = [
   },
   {
     id: 'dashboard',
-    icon: '📊',
+    icon: IconChart,
     title: 'Veja o valor da sua coleção',
     desc: 'O Dashboard mostra o patrimônio total, histórico de preço e variações em tempo real.',
     cta: 'Ver Dashboard →',
@@ -23,7 +24,7 @@ const STEPS = [
   },
   {
     id: 'marketplace',
-    icon: '🛒',
+    icon: IconMarketplace,
     title: 'Explore o Mercado',
     desc: 'Compre e venda cartas diretamente com outros colecionadores brasileiros via WhatsApp.',
     cta: 'Abrir o Mercado →',
@@ -31,7 +32,7 @@ const STEPS = [
   },
   {
     id: 'profile',
-    icon: '🌐',
+    icon: IconGlobe,
     title: 'Configure seu perfil público',
     desc: 'Crie um username e compartilhe sua coleção com outros colecionadores.',
     cta: 'Configurar perfil →',
@@ -81,7 +82,7 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
       localStorage.setItem(`ob-complete-${userId}`, '1')
       setTimeout(() => {
         onAllDone()
-      }, 1200) // pequeno delay para o usuário ver o 🎉
+      }, 1200) // pequeno delay para o usuário ver a confirmação
     }
   }
 
@@ -123,7 +124,7 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
             <div>
               <p style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>✦ Primeiros passos</p>
               <h2 style={{ fontSize: 22, fontWeight: 900, color: '#f0f0f0', letterSpacing: '-0.03em', margin: 0 }}>
-                {allComplete ? '🎉 Tudo configurado!' : 'Configure seu Bynx'}
+                {allComplete ? 'Tudo configurado!' : 'Configure seu Bynx'}
               </h2>
             </div>
             <button
@@ -165,7 +166,7 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
                   fontSize: isDone ? (isMobile ? 14 : 16) : (isMobile ? 16 : 18), color: isDone ? '#22c55e' : 'inherit',
                   transition: 'all 0.3s',
                 }}>
-                  {isDone ? '✓' : step.icon}
+                  {isDone ? <IconCheck size={16} /> : <step.icon size={16} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{
@@ -213,7 +214,7 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
             width: isMobile ? 32 : 36, height: isMobile ? 32 : 36, borderRadius: 10, flexShrink: 0,
             background: 'linear-gradient(135deg, #60a5fa, #a855f7)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 16 : 18,
-          }}>🏪</div>
+          }}><IconLocation size={isMobile ? 16 : 18} color="#fff" /></div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>
               Tem uma loja de cards?
@@ -238,7 +239,7 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
               onClick={() => { onAllDone() }}
               style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '13px', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              🎉 Começar a usar a Bynx!
+              Começar a usar a Bynx!
             </button>
           ) : (
             <button

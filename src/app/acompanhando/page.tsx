@@ -123,7 +123,7 @@ export default function AcompanhandoPage() {
 
         {loaded && userId && items.length === 0 && (
           <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '40px 26px', textAlign: 'center' }}>
-            <div style={{ fontSize: 30, marginBottom: 10 }}>🔔</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, color: 'rgba(255,255,255,0.45)' }}><IconBell size={30} /></div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Você ainda não acompanha nenhuma carta</div>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', margin: '0 0 18px' }}>Abra qualquer carta e toque em <strong style={{ color: '#f59e0b' }}>Acompanhar preço</strong> para vê-la aqui.</p>
             <Link href="/pokedex" style={{ fontSize: 14, fontWeight: 700, color: '#f59e0b', textDecoration: 'none' }}>Explorar cartas →</Link>

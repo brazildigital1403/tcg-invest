@@ -10,6 +10,7 @@ import TrackedLink from '@/components/lojas/TrackedLink'
 import TrackViewLoja from '@/components/lojas/TrackViewLoja'
 import AnunciosLoja from '@/components/lojas/AnunciosLoja'
 import ReputacaoCard from '@/components/ui/ReputacaoCard'
+import { IconLocation } from '@/components/ui/Icons'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -395,7 +396,7 @@ export default async function LojaPage(
                   <span style={S.eventoTipo}>{TIPO_LABELS[evento.tipo] || 'Evento'}</span>
                   {evento.titulo && <h3 style={S.eventoTitulo}>{evento.titulo}</h3>}
                   <p style={S.eventoData}>{rotuloQuando(evento)}</p>
-                  {evento.local && <p style={S.eventoLocal}>📍 {evento.local}</p>}
+                  {evento.local && <p style={S.eventoLocal}><IconLocation size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />{evento.local}</p>}
                   {evento.descricao && <p style={S.eventoDescricao}>{evento.descricao}</p>}
                   {evento.link && (
                     <a href={normalizarUrlSocial(evento.link) || '#'} target="_blank" rel="noopener noreferrer" style={S.eventoLink}>

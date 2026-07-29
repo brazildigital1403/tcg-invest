@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { IconWallet, IconWarning, IconKey } from '@/components/ui/Icons'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────
 
@@ -249,7 +250,7 @@ export default function AdminFinanceiroPage() {
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px', color: '#f0f0f0' }}>
-            💰 Financeiro
+            <IconWallet size={20} style={{ display: 'inline-block', verticalAlign: -4, marginRight: 6 }} />Financeiro
           </h1>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
             Controle de gastos, recebimentos e resultado da Bynx
@@ -281,7 +282,7 @@ export default function AdminFinanceiroPage() {
               marginBottom: 18,
             }}>
               <p style={{ fontSize: 12, fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>
-                ⚠️ {data.vencimentos_proximos.length} {data.vencimentos_proximos.length === 1 ? 'conta vencendo' : 'contas vencendo'} nos próximos 3 dias
+                <IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />{data.vencimentos_proximos.length} {data.vencimentos_proximos.length === 1 ? 'conta vencendo' : 'contas vencendo'} nos próximos 3 dias
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {data.vencimentos_proximos.map(v => (
@@ -307,7 +308,7 @@ export default function AdminFinanceiroPage() {
               marginBottom: 18,
             }}>
               <p style={{ fontSize: 12, color: data.mei.percentual >= 90 ? '#ef4444' : '#f59e0b', margin: 0, fontWeight: 700 }}>
-                {data.mei.percentual >= 90 ? '🚨' : '⚠️'} Limite MEI: {data.mei.percentual}% do teto anual usado ({fmtBRL(data.mei.faturamento_ano)} de {fmtBRL(data.mei.limite)})
+                <IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Limite MEI: {data.mei.percentual}% do teto anual usado ({fmtBRL(data.mei.faturamento_ano)} de {fmtBRL(data.mei.limite)})
               </p>
             </div>
           )}
@@ -999,7 +1000,7 @@ function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
             margin: '8px 0 16px',
           }}>
             <p style={{ fontSize: 12, color: '#a78bfa', margin: 0, fontWeight: 600 }}>
-              🔒 Lançamento Stripe — apenas observação e status são editáveis
+              <IconKey size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Lançamento Stripe — apenas observação e status são editáveis
             </p>
           </div>
         )}

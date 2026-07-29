@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { IconCamera } from '@/components/ui/Icons'
 
 export default function MarketplaceFotosGaleria({ fotos, cardName }: { fotos: string[]; cardName: string }) {
   const [i, setI] = useState(0)
@@ -29,7 +30,7 @@ export default function MarketplaceFotosGaleria({ fotos, cardName }: { fotos: st
       )}
 
       <span style={{ position: 'absolute', bottom: 8, right: 8, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(255,255,255,0.2)', padding: '3px 7px', borderRadius: 7, backdropFilter: 'blur(4px)' }}>
-        📷 Foto real
+        <IconCamera size={12} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} />Foto real
       </span>
     </div>
   )
