@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { pctLabel, calcularCheckout, fmtBRL, type PrazoRepasse, type MetodoPagamento } from '@/lib/comissao'
-import { IconSearch, IconCheck, IconWarning, IconWallet, IconBolt, IconCard, IconTruck } from '@/components/ui/Icons'
+import { IconSearch, IconCheck, IconWarning, IconWallet, IconBolt, IconCard, IconTruck, IconKey } from '@/components/ui/Icons'
 
 /**
  * Pagamentos da loja — Stripe Connect Express (Fase 1 do epico de vendas).
@@ -276,20 +276,25 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
             <p style={S.sub}>Quanto antes você recebe, um pouco maior é a comissão.</p>
 
             <div style={S.chips}>
-              {([14, 30] as PrazoRepasse[]).map(p => (
-                <button
-                  key={p}
-                  onClick={() => trocarPrazo(p)}
-                  disabled={salvandoPrazo}
-                  style={{ ...S.chip, ...(prazo === p ? S.chipOn : {}) }}
-                >
-                  {p} dias · {pctLabel(p)}
-                </button>
-              ))}
+              {([14, 30] as PrazoRepasse[]).map(p => {
+                const bloqueado = p === 14
+                return (
+                  <button
+                    key={p}
+                    onClick={() => trocarPrazo(p)}
+                    disabled={salvandoPrazo || bloqueado}
+                    title={bloqueado ? 'Libera conforme sua loja vende mais e ganha histórico' : undefined}
+                    style={{ ...S.chip, ...(prazo === p ? S.chipOn : {}), ...(bloqueado ? S.chipLocked : {}) }}
+                  >
+                    {bloqueado && <IconKey size={12} />}
+                    {p} dias · {pctLabel(p)}
+                  </button>
+                )
+              })}
             </div>
             <p style={S.mini}>
               Contas novas começam com repasse em 30 dias — é uma regra da Stripe, não da Bynx.
-              Conforme sua loja cria histórico de vendas, o prazo de 14 dias pode ser liberado.
+              Quanto mais sua loja vender, mais rápido o prazo de 14 dias libera.
             </p>
 
             <div style={S.linhas}>
@@ -444,6 +449,7 @@ const S: Record<string, React.CSSProperties> = {
   chips: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 },
   chip: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '9px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' },
   chipOn: { background: 'rgba(96,165,250,0.15)', color: '#60a5fa', borderColor: 'rgba(96,165,250,0.35)' },
+  chipLocked: { opacity: 0.45, cursor: 'not-allowed' },
   linhas: { borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 4 },
   linha: { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' },
   lbl: { color: 'rgba(255,255,255,0.5)' },
