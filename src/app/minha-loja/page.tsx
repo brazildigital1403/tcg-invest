@@ -153,7 +153,8 @@ export default function MinhasLojasHubPage() {
         {/* ─── Dica ───────────────────────────────────── */}
         <div style={S.tipBox}>
           <p style={S.tipText}>
-            <IconBolt size={14} style={{ flexShrink: 0, marginRight: 2, verticalAlign: -2 }} />
+            {/* display inline-block explicito: o reset global poe svg como block */}
+            <IconBolt size={14} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />
             <strong>Dica:</strong> cada loja tem seu próprio plano. Você pode ter
             uma Premium na cidade principal e outras Básico nas filiais.
           </p>
