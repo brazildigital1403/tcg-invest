@@ -269,6 +269,7 @@ export default function GestaoConteudo() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [copiado, setCopiado] = useState('')
+  const [salvo, setSalvo] = useState('')
   const [filtroGancho, setFiltroGancho] = useState<'todos' | keyof typeof P>('todos')
   const [ganchoIdx, setGanchoIdx] = useState(0)
   const [seguidores, setSeguidores] = useState(1553)
@@ -286,6 +287,10 @@ export default function GestaoConteudo() {
       if (!r.ok) throw new Error('falha ao carregar')
       const d = await r.json()
       setChecklist(d.checklist || {})
+      // Campos da calculadora de metas vem do banco. Sem isto, o numero que o
+      // Du digita se perde ao recarregar ou ao trocar de aparelho.
+      if (d.config?.metas_seguidores) setSeguidores(Number(d.config.metas_seguidores) || 0)
+      if (d.config?.metas_semanas) setSemanas(Number(d.config.metas_semanas) || 0)
       setPosts(d.posts || [])
       setCanais(d.canais || [])
       setTotalCadastros(d.totalCadastros || 0)
@@ -322,6 +327,20 @@ export default function GestaoConteudo() {
       body: JSON.stringify({ acao: 'publicar', data: hojeISO, pilar: grade.pilar, formato: grade.fmt, gancho }),
     })
     carregar()
+  }
+
+  // Grava no blur, nao a cada tecla: digitar "1553" dispararia quatro escritas.
+  async function salvarConfig(chave: string, valor: number) {
+    try {
+      await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'config', chave, valor: String(valor) }),
+      })
+      setSalvo(chave)
+      setTimeout(() => setSalvo(''), 1600)
+    } catch {
+      // Silencioso: perder a preferencia e menos grave que travar a tela.
+    }
   }
 
   async function desmarcar(data: string) {
@@ -722,13 +741,23 @@ export default function GestaoConteudo() {
             <p style={{ fontSize: 12.5, color: TXT3, marginBottom: 14 }}>Quantos seguidores por semana pra chegar aos 10k.</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 14 }}>
               <div>
-                <label htmlFor="seg" style={{ display: 'block', fontSize: 12.5, color: TXT3, fontWeight: 600, marginBottom: 6 }}>Seguidores hoje</label>
-                <input id="seg" type="number" value={seguidores} onChange={(e) => setSeguidores(Number(e.target.value) || 0)}
+                <label htmlFor="seg" style={{ display: 'block', fontSize: 12.5, color: TXT3, fontWeight: 600, marginBottom: 6 }}>
+                  Seguidores hoje
+                  {salvo === 'metas_seguidores' && <span style={{ color: '#22c55e', marginLeft: 8, fontWeight: 500 }}>salvo</span>}
+                </label>
+                <input id="seg" type="number" value={seguidores}
+                  onChange={(e) => setSeguidores(Number(e.target.value) || 0)}
+                  onBlur={() => salvarConfig('metas_seguidores', seguidores)}
                   style={{ width: '100%', background: 'var(--bx-bg-elev)', border: `1px solid ${BORD2}`, borderRadius: 8, color: TXT, fontFamily: 'inherit', fontSize: 15, padding: '10px 12px' }} />
               </div>
               <div>
-                <label htmlFor="sem" style={{ display: 'block', fontSize: 12.5, color: TXT3, fontWeight: 600, marginBottom: 6 }}>Semanas restantes</label>
-                <input id="sem" type="number" value={semanas} onChange={(e) => setSemanas(Number(e.target.value) || 0)}
+                <label htmlFor="sem" style={{ display: 'block', fontSize: 12.5, color: TXT3, fontWeight: 600, marginBottom: 6 }}>
+                  Semanas restantes
+                  {salvo === 'metas_semanas' && <span style={{ color: '#22c55e', marginLeft: 8, fontWeight: 500 }}>salvo</span>}
+                </label>
+                <input id="sem" type="number" value={semanas}
+                  onChange={(e) => setSemanas(Number(e.target.value) || 0)}
+                  onBlur={() => salvarConfig('metas_semanas', semanas)}
                   style={{ width: '100%', background: 'var(--bx-bg-elev)', border: `1px solid ${BORD2}`, borderRadius: 8, color: TXT, fontFamily: 'inherit', fontSize: 15, padding: '10px 12px' }} />
               </div>
             </div>

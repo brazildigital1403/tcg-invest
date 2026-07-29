@@ -37,13 +37,14 @@ export async function GET(req: NextRequest) {
     const desde = inicioDaSemana()
 
     // Em paralelo: nao dependem uma da outra.
-    const [checkRes, postsRes, canaisRes] = await Promise.all([
+    const [checkRes, postsRes, canaisRes, cfgRes] = await Promise.all([
       sb.from('conteudo_checklist').select('chave, feito'),
       sb.from('conteudo_posts').select('data, pilar, formato, gancho, observacao').gte('data', desde),
       sb
         .from('users')
         .select('signup_utm_source, signup_utm_medium')
         .gte('created_at', new Date(Date.now() - 30 * 86400_000).toISOString()),
+      sb.from('conteudo_config').select('chave, valor'),
     ])
 
     if (checkRes.error) throw new Error(`checklist: ${checkRes.error.message}`)
@@ -51,6 +52,9 @@ export async function GET(req: NextRequest) {
 
     const checklist: Record<string, boolean> = {}
     for (const r of checkRes.data || []) checklist[r.chave] = r.feito
+
+    const config: Record<string, string> = {}
+    for (const r of cfgRes.data || []) config[r.chave] = r.valor
 
     // Cadastros por canal nos ultimos 30 dias. A atribuicao comecou a coletar em
     // 29/07/2026, entao no comeco quase tudo cai em "(sem origem)" — e correto,
@@ -65,6 +69,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       checklist,
+      config,
       posts: postsRes.data || [],
       canais: Object.entries(canais)
         .map(([nome, total]) => ({ nome, total }))
@@ -99,6 +104,19 @@ export async function POST(req: NextRequest) {
           { chave, feito: Boolean(body.feito), atualizado_em: new Date().toISOString() },
           { onConflict: 'chave' }
         )
+      if (error) throw new Error(error.message)
+      return NextResponse.json({ ok: true })
+    }
+
+    // ─── Guardar um valor avulso (ex: os campos da calculadora de metas) ──
+    if (body.acao === 'config') {
+      const chave = typeof body.chave === 'string' ? body.chave.trim().slice(0, 60) : ''
+      const valor = body.valor == null ? '' : String(body.valor).slice(0, 200)
+      if (!chave) return NextResponse.json({ error: 'chave invalida' }, { status: 400 })
+
+      const { error } = await sb
+        .from('conteudo_config')
+        .upsert({ chave, valor, atualizado_em: new Date().toISOString() }, { onConflict: 'chave' })
       if (error) throw new Error(error.message)
       return NextResponse.json({ ok: true })
     }
