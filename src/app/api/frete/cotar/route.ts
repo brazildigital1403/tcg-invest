@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { cotarFrete, pacoteDeCarta, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
+import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
 
 /**
  * POST /api/frete/cotar
@@ -11,12 +12,34 @@ import { cotarFrete, pacoteDeCarta, pacoteDeProduto, type ItemFrete } from '@/li
  * estimado, sem efeito colateral, e a cotacao do Melhor Envio e gratis. O
  * checkout RE-COTA no servidor na hora de fechar (nunca confia no preco do
  * cliente).
+ *
+ * ★ POR QUE TEM RATE LIMIT mesmo sendo read-only e gratis: cada chamada gasta
+ * duas coisas que NAO sao nossas nem infinitas — a cota do token central da
+ * Bynx no Melhor Envio (um IP abusando queima a cota de TODAS as lojas) e uma
+ * conexao do Postgres por request (2 queries). Foi exatamente esse segundo
+ * vetor que derrubou o site em 29/07: rota publica sem teto empilhando conexao
+ * ate o pool estourar.
  */
+
+// 30 cotacoes por IP por minuto. No checkout o comprador troca CEP e reconsulta
+// algumas vezes; 30 cobre isso com folga e ainda barra varredura.
+const limitador = criarLimitador({ janelaMs: 60_000, max: 30 })
 
 function digits(s: string) { return String(s || '').replace(/\D/g, '') }
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = ipDaRequest(req)
+    if (ip) {
+      limitador.gc()
+      if (limitador.excedeu(ip)) {
+        return NextResponse.json(
+          { error: 'Muitas consultas de frete. Aguarde alguns segundos.' },
+          { status: 429 }
+        )
+      }
+    }
+
     const sb = getServiceSupabase()
     if (!sb) return NextResponse.json({ error: 'Servico indisponivel.' }, { status: 503 })
 

@@ -36,6 +36,7 @@ export default function ContactModal({ onClose }: Props) {
   const [mensagem, setMensagem] = useState('')
   const [loading, setLoading]   = useState(false)
   const [closing, setClosing]   = useState(false)
+  const [erro, setErro]         = useState<string | null>(null)
 
   const selectedCat = CONTACT_CATEGORIES.find(c => c.id === category)
 
@@ -47,16 +48,24 @@ export default function ContactModal({ onClose }: Props) {
   async function handleSend() {
     if (!nome.trim() || !email.trim() || !mensagem.trim()) return
     setLoading(true)
+    setErro(null)
     try {
-      await fetch('/api/contact', {
+      // `fetch` NAO lança em 4xx/5xx — sem checar r.ok, a tela dizia "enviada"
+      // pra mensagem que a rota tinha recusado (e-mail invalido, rate limit).
+      const r = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, categoryLabel: selectedCat?.label, nome, email, mensagem }),
+        body: JSON.stringify({ category, nome, email, mensagem }),
       })
+      if (!r.ok) {
+        const j = await r.json().catch(() => null)
+        setErro(j?.error || 'Não consegui enviar agora. Tente de novo.')
+        setLoading(false)
+        return
+      }
       setStep('done')
     } catch {
-      // mesmo com erro, mostra sucesso (Resend pode ter recebido)
-      setStep('done')
+      setErro('Sem conexão. Verifique sua internet e tente de novo.')
     }
     setLoading(false)
   }
@@ -138,6 +147,12 @@ export default function ContactModal({ onClose }: Props) {
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '12px 14px', color: '#f0f0f0', fontSize: 14, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
               />
             </div>
+
+            {erro && (
+              <p style={{ fontSize: 13, color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, lineHeight: 1.5 }}>
+                {erro}
+              </p>
+            )}
 
             <button
               onClick={handleSend}
