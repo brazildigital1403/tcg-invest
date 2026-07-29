@@ -3,6 +3,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
+import { IconScan, IconCamera, IconGlobe, IconLink, IconWallet, IconPhone, IconBox, IconTrendingUp, IconPokeball, IconClock, IconShield, IconChat, IconRocket } from '@/components/ui/Icons'
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
@@ -583,7 +584,7 @@ const S = {
     position: 'relative' as const,
     overflow: 'hidden' as const,
   },
-  personaEmoji: { fontSize: 32, marginBottom: 12 },
+  personaEmoji: { display: 'flex', justifyContent: 'center', color: '#f59e0b', marginBottom: 12 },
   personaTag: {
     display: 'inline-block',
     fontSize: 11,
@@ -775,7 +776,7 @@ const S = {
     padding: 24,
     textAlign: 'center' as const,
   },
-  guaranteeEmoji: { fontSize: 32, marginBottom: 12 },
+  guaranteeEmoji: { display: 'flex', justifyContent: 'center', color: '#f59e0b', marginBottom: 12 },
   guaranteeTitle: { fontSize: 14, fontWeight: 700, marginBottom: 6 },
   guaranteeDesc: { fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 },
 
@@ -916,7 +917,7 @@ export default function ScanIaLanding() {
           {/* Esquerda: copy */}
           <div>
             <span style={S.heroBadge}>
-              <span>🤖</span> Powered by IA de ponta
+              <IconScan size={15} /> Powered by IA de ponta
             </span>
 
             <h1 style={S.heroTitle}>
@@ -957,7 +958,7 @@ export default function ScanIaLanding() {
           <div style={S.heroMockup}>
             <div style={S.mockupHeader}>
               <div style={S.mockupHeaderLeft}>
-                <div style={S.mockupCameraBadge}>📷</div>
+                <div style={S.mockupCameraBadge}><IconCamera size={14} /></div>
                 <span style={S.mockupTitle}>Scan IA</span>
               </div>
               <div style={S.mockupStatus}>
@@ -1062,7 +1063,7 @@ export default function ScanIaLanding() {
           <div className="scan-steps-grid" style={S.stepsGrid}>
             <div style={S.stepCard}>
               <span style={S.stepNumber}>01</span>
-              <div style={S.stepIcon}>📸</div>
+              <div style={S.stepIcon}><IconCamera size={22} /></div>
               <div style={S.stepTitle}>Aponte a câmera</div>
               <p style={S.stepDesc}>
                 Pode ser uma carta solta, uma fileira, ou até uma página inteira de classificador.
@@ -1073,7 +1074,7 @@ export default function ScanIaLanding() {
 
             <div style={S.stepCard}>
               <span style={S.stepNumber}>02</span>
-              <div style={S.stepIcon}>🤖</div>
+              <div style={S.stepIcon}><IconScan size={22} /></div>
               <div style={S.stepTitle}>A IA processa</div>
               <p style={S.stepDesc}>
                 A imagem é enviada pra IA de ponta — modelo de visão mais avançado
@@ -1109,7 +1110,7 @@ export default function ScanIaLanding() {
 
           <div className="scan-tech-grid" style={S.techGrid}>
             <div style={{ ...S.techCard, ...S.techCardHighlight }}>
-              <div style={S.techIcon}>🧠</div>
+              <div style={S.techIcon}><IconScan size={19} /></div>
               <div style={S.techTitle}>IA de ponta</div>
               <p style={S.techDesc}>
                 Modelo de visão de última geração. State-of-the-art em reconhecimento
@@ -1118,7 +1119,7 @@ export default function ScanIaLanding() {
             </div>
 
             <div style={S.techCard}>
-              <div style={S.techIcon}>📷</div>
+              <div style={S.techIcon}><IconCamera size={19} /></div>
               <div style={S.techTitle}>Multi-card detection</div>
               <p style={S.techDesc}>
                 Uma foto, várias cartas. A IA detecta cada carta separadamente em layouts complexos
@@ -1127,7 +1128,7 @@ export default function ScanIaLanding() {
             </div>
 
             <div style={S.techCard}>
-              <div style={S.techIcon}>🌎</div>
+              <div style={S.techIcon}><IconGlobe size={19} /></div>
               <div style={S.techTitle}>Multilíngue nativo</div>
               <p style={S.techDesc}>
                 Reconhece cartas em português, inglês e japonês. Útil pra coleções mistas,
@@ -1136,7 +1137,7 @@ export default function ScanIaLanding() {
             </div>
 
             <div style={S.techCard}>
-              <div style={S.techIcon}>🔗</div>
+              <div style={S.techIcon}><IconLink size={19} /></div>
               <div style={S.techTitle}>Cross-reference automático</div>
               <p style={S.techDesc}>
                 Após reconhecer, a carta é automaticamente cruzada com a Pokédex Bynx (22.861 cartas)
@@ -1145,7 +1146,7 @@ export default function ScanIaLanding() {
             </div>
 
             <div style={S.techCard}>
-              <div style={S.techIcon}>💰</div>
+              <div style={S.techIcon}><IconWallet size={19} /></div>
               <div style={S.techTitle}>Preço R$ em tempo real</div>
               <p style={S.techDesc}>
                 Mínimo, médio e máximo coletados de marketplaces brasileiros. Nada de dólar
@@ -1154,7 +1155,7 @@ export default function ScanIaLanding() {
             </div>
 
             <div style={S.techCard}>
-              <div style={S.techIcon}>📱</div>
+              <div style={S.techIcon}><IconPhone size={19} /></div>
               <div style={S.techTitle}>Mobile-first</div>
               <p style={S.techDesc}>
                 Otimizado pra câmera de celular: foco rápido, correção de perspectiva, tolerância
@@ -1178,7 +1179,7 @@ export default function ScanIaLanding() {
 
           <div className="scan-personas-grid" style={S.personasGrid}>
             <div style={S.personaCard}>
-              <div style={S.personaEmoji}>📦</div>
+              <div style={S.personaEmoji}><IconBox size={30} /></div>
               <span style={S.personaTag}>BULK</span>
               <div style={S.personaTitle}>O Cadastrador em Massa</div>
               <p style={S.personaDesc}>
@@ -1191,7 +1192,7 @@ export default function ScanIaLanding() {
             </div>
 
             <div style={S.personaCard}>
-              <div style={S.personaEmoji}>💼</div>
+              <div style={S.personaEmoji}><IconTrendingUp size={30} /></div>
               <span style={S.personaTag}>TRADER</span>
               <div style={S.personaTitle}>O Negociador Ágil</div>
               <p style={S.personaDesc}>
@@ -1204,7 +1205,7 @@ export default function ScanIaLanding() {
             </div>
 
             <div style={S.personaCard}>
-              <div style={S.personaEmoji}>🌱</div>
+              <div style={S.personaEmoji}><IconPokeball size={30} /></div>
               <span style={S.personaTag}>INICIANTE</span>
               <div style={S.personaTitle}>O Curioso Recém-Chegado</div>
               <p style={S.personaDesc}>
@@ -1400,28 +1401,28 @@ export default function ScanIaLanding() {
 
           <div className="scan-guarantees-grid" style={S.guaranteesGrid}>
             <div style={S.guaranteeCard}>
-              <div style={S.guaranteeEmoji}>♾️</div>
+              <div style={S.guaranteeEmoji}><IconClock size={30} /></div>
               <div style={S.guaranteeTitle}>Créditos não expiram</div>
               <p style={S.guaranteeDesc}>
                 Compra uma vez. Usa quando quiser. Sem prazo, sem renovação automática.
               </p>
             </div>
             <div style={S.guaranteeCard}>
-              <div style={S.guaranteeEmoji}>💸</div>
+              <div style={S.guaranteeEmoji}><IconWallet size={30} /></div>
               <div style={S.guaranteeTitle}>Reembolso em 7 dias</div>
               <p style={S.guaranteeDesc}>
                 Não gostou? Devolvemos o dinheiro em até 7 dias, sem perguntas.
               </p>
             </div>
             <div style={S.guaranteeCard}>
-              <div style={S.guaranteeEmoji}>🇧🇷</div>
+              <div style={S.guaranteeEmoji}><IconChat size={30} /></div>
               <div style={S.guaranteeTitle}>Suporte em português</div>
               <p style={S.guaranteeDesc}>
                 Time brasileiro, atendimento humano, resposta no mesmo dia.
               </p>
             </div>
             <div style={S.guaranteeCard}>
-              <div style={S.guaranteeEmoji}>🔒</div>
+              <div style={S.guaranteeEmoji}><IconShield size={30} /></div>
               <div style={S.guaranteeTitle}>Pagamento seguro</div>
               <p style={S.guaranteeDesc}>
                 Processado por Stripe. PIX, cartão e boleto. Nada armazenado.
@@ -1502,7 +1503,7 @@ export default function ScanIaLanding() {
       <section className="scan-final" style={S.finalSection}>
         <div style={S.finalInner}>
           <span style={S.heroBadge}>
-            <span>🚀</span> Junte-se à nova geração de colecionadores
+            <IconRocket size={15} /> Junte-se à nova geração de colecionadores
           </span>
           <h2 style={S.finalTitle}>
             Pare de digitar.{' '}

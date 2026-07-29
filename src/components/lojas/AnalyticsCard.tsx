@@ -3,6 +3,7 @@
 import { CSSProperties, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
+import { IconWhatsApp, IconInstagram, IconFacebook, IconGlobe, IconLocation, IconChart, IconEye, IconChat, IconTrendingUp, IconPhone, IconDesktop } from '@/components/ui/Icons'
 import {
   Chart as ChartJS,
   LineElement,
@@ -51,12 +52,12 @@ interface Props {
 
 type Periodo = number | 'all'
 
-const TIPO_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-  whatsapp:  { label: 'WhatsApp',  color: '#22c55e', icon: '💬' },
-  instagram: { label: 'Instagram', color: '#a855f7', icon: '📸' },
-  facebook:  { label: 'Facebook',  color: '#3b82f6', icon: '👍' },
-  website:   { label: 'Website',   color: '#f59e0b', icon: '🌐' },
-  maps:      { label: 'Maps',      color: '#ef4444', icon: '📍' },
+const TIPO_LABELS: Record<string, { label: string; color: string; icon: React.ComponentType<{ size?: number }> }> = {
+  whatsapp:  { label: 'WhatsApp',  color: '#22c55e', icon: IconWhatsApp },
+  instagram: { label: 'Instagram', color: '#a855f7', icon: IconInstagram },
+  facebook:  { label: 'Facebook',  color: '#3b82f6', icon: IconFacebook },
+  website:   { label: 'Website',   color: '#f59e0b', icon: IconGlobe },
+  maps:      { label: 'Maps',      color: '#ef4444', icon: IconLocation },
 }
 
 const PERIODOS: { v: Periodo; label: string }[] = [
@@ -153,7 +154,7 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
           <div style={S.kpiGrid}>
             {Object.entries(TIPO_LABELS).map(([key, info]) => (
               <div key={key} style={{ ...S.kpiCard, ...S.blurred }}>
-                <div style={S.kpiIcon}>{info.icon}</div>
+                <div style={S.kpiIcon}><info.icon size={17} /></div>
                 <div style={{ ...S.kpiValue, color: info.color }}>—</div>
                 <div style={S.kpiLabel}>{info.label}</div>
               </div>
@@ -175,7 +176,7 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
           {/* Overlay com CTA */}
           <div style={S.ctaOverlay}>
             <div style={S.ctaBox}>
-              <div style={S.ctaIcon}>📊</div>
+              <div style={S.ctaIcon}><IconChart size={22} /></div>
               <h3 style={S.ctaTitle}>Disponível no plano Premium</h3>
               <p style={S.ctaText}>
                 Acompanhe visitas, contatos e taxa de conversão da sua loja. Saiba quem está te encontrando.
@@ -325,21 +326,21 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
       <div style={S.secLabelRow}><span style={S.secLabel}>Visão geral</span></div>
       <div style={S.funil}>
         <div style={{ ...S.fstep, borderColor: `rgba(${AC1_RGB},0.22)` }}>
-          <div style={S.fic}>👁️</div>
+          <div style={S.fic}><IconEye size={18} /></div>
           <div style={S.fval}>{visitas}</div>
           <div style={S.flbl}>Visitas</div>
           {deltas && <div style={{ ...S.delta, color: deltas.visitas >= 0 ? '#22c55e' : '#ef4444' }}>{fmtDelta(deltas.visitas)}</div>}
         </div>
         <div style={S.farrow}>→</div>
         <div style={{ ...S.fstep, borderColor: `rgba(${AC1_RGB},0.22)` }}>
-          <div style={S.fic}>💬</div>
+          <div style={S.fic}><IconChat size={18} /></div>
           <div style={S.fval}>{contatos}</div>
           <div style={S.flbl}>Contatos</div>
           {deltas && <div style={{ ...S.delta, color: deltas.contatos >= 0 ? '#22c55e' : '#ef4444' }}>{fmtDelta(deltas.contatos)}</div>}
         </div>
         <div style={S.farrow}>→</div>
         <div style={{ ...S.fstep, ...S.fconv }}>
-          <div style={S.fic}>📈</div>
+          <div style={S.fic}><IconTrendingUp size={18} /></div>
           <div style={{ ...S.fval, color: '#22c55e' }}>{conversao > 0 ? `${(conversao * 100).toFixed(1).replace('.', ',')}%` : '—'}</div>
           <div style={S.flbl}>Conversão</div>
           {deltas && <div style={{ ...S.delta, color: deltas.conversao >= 0 ? '#22c55e' : '#ef4444' }}>{fmtDelta(deltas.conversao)}</div>}
@@ -351,10 +352,10 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
           <span style={S.secLabel}>Dispositivo</span>
           <div style={S.devBar}>
             {pctMobile > 0 && (
-              <div style={{ ...S.devSeg, width: `${pctMobile}%`, background: `linear-gradient(135deg, ${AC1}, #818cf8)` }}>📱 {pctMobile}%</div>
+              <div style={{ ...S.devSeg, width: `${pctMobile}%`, background: `linear-gradient(135deg, ${AC1}, #818cf8)` }}><IconPhone size={12} /> {pctMobile}%</div>
             )}
             {pctDesktop > 0 && (
-              <div style={{ ...S.devSeg, ...S.devSegD, width: `${pctDesktop}%` }}>💻 {pctDesktop}%</div>
+              <div style={{ ...S.devSeg, ...S.devSegD, width: `${pctDesktop}%` }}><IconDesktop size={12} /> {pctDesktop}%</div>
             )}
           </div>
         </div>
@@ -377,7 +378,7 @@ export default function AnalyticsCard({ lojaId, plano, admin = false }: Props) {
                 ...(ativo ? { borderColor: info.color, background: 'rgba(255,255,255,0.05)' } : {}),
               }}
             >
-              <div style={S.kpiIcon}>{info.icon}</div>
+              <div style={S.kpiIcon}><info.icon size={17} /></div>
               <div style={{ ...S.kpiValue, color: valor > 0 ? info.color : 'rgba(255,255,255,0.3)' }}>
                 {valor}
               </div>
@@ -536,8 +537,9 @@ const S: Record<string, CSSProperties> = {
     cursor: 'pointer',
   },
   kpiIcon: {
-    fontSize: 20,
-    marginBottom: 2,
+    display: 'flex',
+    marginBottom: 4,
+    opacity: 0.9,
   },
   kpiValue: {
     fontSize: 24,
@@ -594,7 +596,7 @@ const S: Record<string, CSSProperties> = {
     borderColor: 'rgba(34,197,94,0.3)',
     background: 'rgba(34,197,94,0.05)',
   },
-  fic: { fontSize: 18, marginBottom: 5 },
+  fic: { display: 'flex', justifyContent: 'center', marginBottom: 6, color: 'rgba(255,255,255,0.55)' },
   fval: {
     fontSize: 28,
     fontWeight: 800,
@@ -618,6 +620,7 @@ const S: Record<string, CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
     fontSize: 12,
     fontWeight: 700,
     color: '#fff',
@@ -790,8 +793,10 @@ const S: Record<string, CSSProperties> = {
     backdropFilter: 'blur(8px)',
   },
   ctaIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: 10,
+    color: '#60a5fa',
   },
   ctaTitle: {
     fontSize: 16,

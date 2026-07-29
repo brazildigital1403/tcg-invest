@@ -485,6 +485,24 @@ export function IconBox({ size = 20, color = defaultColor, strokeWidth = default
   )
 }
 
+export function IconFacebook({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <rect x="2.5" y="2.5" width="15" height="15" rx="3.5" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M12.6 7.2h-1.3a1 1 0 00-1 1v1.3m0 0H8.9m1.4 0v4.8m0-4.8h1.9" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function IconDesktop({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <rect x="2" y="3.5" width="16" height="11" rx="1.6" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M7 17.5h6M10 14.5v3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 export function IconTruck({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>

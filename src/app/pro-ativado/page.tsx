@@ -4,16 +4,17 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { trackProUpgradeCompleted } from '@/lib/analytics'
+import { IconCollection, IconChart, IconScan, IconMarketplace, IconFilter, IconBell, IconGlobe, IconDownload } from '@/components/ui/Icons'
 
 const PERKS = [
-  { icon: '♾️', label: 'Cartas ilimitadas' },
-  { icon: '📊', label: 'Dashboard completo' },
-  { icon: '📷', label: 'Scan com IA' },
-  { icon: '🛒', label: 'Marketplace ilimitado' },
-  { icon: '🗂️', label: 'Separadores inclusos' },
-  { icon: '🔔', label: 'Alertas de valorização' },
-  { icon: '🌐', label: 'Perfil público' },
-  { icon: '📤', label: 'Exportar CSV' },
+  { icon: IconCollection, label: 'Cartas ilimitadas' },
+  { icon: IconChart, label: 'Dashboard completo' },
+  { icon: IconScan, label: 'Scan com IA' },
+  { icon: IconMarketplace, label: 'Marketplace ilimitado' },
+  { icon: IconFilter, label: 'Separadores inclusos' },
+  { icon: IconBell, label: 'Alertas de valorização' },
+  { icon: IconGlobe, label: 'Perfil público' },
+  { icon: IconDownload, label: 'Exportar CSV' },
 ]
 
 function ProAtivadoContent() {
@@ -81,7 +82,7 @@ function ProAtivadoContent() {
         <h1 style={{
           fontSize: 32, fontWeight: 900, color: '#f0f0f0',
           letterSpacing: '-0.04em', lineHeight: 1.1, margin: '0 0 12px',
-        }}>Bem-vindo ao Pro! 🎉</h1>
+        }}>Bem-vindo ao Pro!</h1>
 
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: '0 0 32px' }}>
           Sua assinatura está ativa. Você agora tem acesso completo a todos os recursos da Bynx.
@@ -95,7 +96,7 @@ function ProAtivadoContent() {
               border: '1px solid rgba(255,255,255,0.07)',
               borderRadius: 10, padding: '10px 14px',
             }}>
-              <span style={{ fontSize: 16 }}>{p.icon}</span>
+              <span style={{ display: 'flex', color: '#a855f7' }}><p.icon size={16} /></span>
               <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{p.label}</span>
             </div>
           ))}

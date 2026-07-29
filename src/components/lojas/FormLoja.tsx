@@ -4,6 +4,7 @@ import { CSSProperties, useState, useMemo, useRef } from 'react'
 import { authFetch } from '@/lib/authFetch'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { uploadFotoLoja, deletarFotoLoja, uploadLogoLoja, deletarLogoLoja } from '@/lib/uploadFoto'
+import { IconKey } from '@/components/ui/Icons'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -692,7 +693,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         <fieldset style={S.fieldsetLocked}>
           <legend style={S.legend}>Redes sociais e website</legend>
           <p style={S.lockedText}>
-            🔒 Recurso disponível nos planos <strong>Pro</strong> e <strong>Premium</strong>.
+            <IconKey size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} /> Recurso disponível nos planos <strong>Pro</strong> e <strong>Premium</strong>.
             Mostre seu Instagram, Facebook e site na página da sua loja.
           </p>
         </fieldset>
@@ -779,7 +780,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         <fieldset style={S.fieldsetLocked}>
           <legend style={S.legend}>Fotos da loja</legend>
           <p style={S.lockedText}>
-            🔒 Recurso disponível nos planos <strong>Pro</strong> (5 fotos) e <strong>Premium</strong> (10 fotos).
+            <IconKey size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 3 }} /> Recurso disponível nos planos <strong>Pro</strong> (5 fotos) e <strong>Premium</strong> (10 fotos).
             Mostre o ambiente da sua loja e deixe os colecionadores ansiosos pra te visitar.
           </p>
         </fieldset>

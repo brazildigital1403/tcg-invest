@@ -1,6 +1,7 @@
 import { CSSProperties } from 'react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { IconCollection, IconStar, IconTag } from '@/components/ui/Icons'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 
@@ -386,17 +387,17 @@ export default function SeparadoresPokemonPage() {
 
             <div style={S.personasGrid}>
               <PersonaCard
-                emoji="📂"
+                icone={IconCollection}
                 title="O Organizador"
                 description="Você abre o fichário e quer ver tudo no lugar — geração separada de geração, coleção de coleção. Hoje tá uma bagunça e você sabe que dá pra ficar muito melhor."
               />
               <PersonaCard
-                emoji="✨"
+                icone={IconStar}
                 title="O Perfeccionista"
                 description="Sua coleção tem que ser bonita. Não basta guardar, tem que ter visual de coleção mesmo. Separadores feitos à mão? Nem pensar — quer algo profissional."
               />
               <PersonaCard
-                emoji="🎁"
+                icone={IconTag}
                 title="O Presenteador"
                 description="Vai dar de presente pra alguém que coleciona Pokémon — filho, sobrinho, parceiro(a) — e quer um mimo a mais. Os separadores deixam a coleção com cara de loja."
               />
@@ -505,10 +506,10 @@ function StepCard({ num, title, description }: { num: string; title: string; des
   )
 }
 
-function PersonaCard({ emoji, title, description }: { emoji: string; title: string; description: string }) {
+function PersonaCard({ icone: Icone, title, description }: { icone: React.ComponentType<{ size?: number }>; title: string; description: string }) {
   return (
     <div style={S.personaCard}>
-      <div style={S.personaEmoji}>{emoji}</div>
+      <div style={S.personaEmoji}><Icone size={30} /></div>
       <h3 style={S.personaTitle}>{title}</h3>
       <p style={S.personaDescription}>{description}</p>
     </div>
@@ -1031,7 +1032,8 @@ const S: Record<string, CSSProperties> = {
     textAlign: 'center',
   },
   personaEmoji: {
-    fontSize: 36,
+    display: 'flex',
+    color: '#60a5fa',
     marginBottom: 16,
     lineHeight: 1,
   },

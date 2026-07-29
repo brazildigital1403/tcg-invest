@@ -5,6 +5,7 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import ParaLojistasMotion from './ParaLojistasMotion'
+import { IconBolt } from '@/components/ui/Icons'
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
@@ -479,7 +480,7 @@ export default async function ParaLojistasPage() {
                 <Link href={SIGNUP} className="pl-cta">Começar 14 dias grátis</Link>
               </div>
             </div>
-            <div className="sell-note reveal">💡 <b>Vender é de todo mundo.</b> Vitrine, checkout e frete liberados até no Básico. Os planos amplificam quem te <b>acha</b>.</div>
+            <div className="sell-note reveal"><IconBolt size={15} style={{ display: 'inline-block', verticalAlign: -3, marginRight: 4 }} /> <b>Vender é de todo mundo.</b> Vitrine, checkout e frete liberados até no Básico. Os planos amplificam quem te <b>acha</b>.</div>
           </div>
         </section>
 

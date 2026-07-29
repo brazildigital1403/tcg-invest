@@ -1,6 +1,7 @@
 import { CSSProperties, cache } from 'react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { IconFire, IconBolt, IconStar } from '@/components/ui/Icons'
 import { createClient } from '@supabase/supabase-js'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
@@ -744,14 +745,14 @@ export default async function PokedexPokemonTcgPage() {
 
               <div style={S.searchSuggestions}>
                 {[
-                  { name: 'Charizard', count: '87 cartas', flame: '🔥' },
-                  { name: 'Charmander', count: '34 cartas', flame: '🔥' },
-                  { name: 'Charmeleon', count: '21 cartas', flame: '🔥' },
-                  { name: 'Charjabug', count: '12 cartas', flame: '⚡' },
-                  { name: 'Chansey', count: '28 cartas', flame: '💞' },
+                  { name: 'Charizard', count: '87 cartas', flame: IconFire },
+                  { name: 'Charmander', count: '34 cartas', flame: IconFire },
+                  { name: 'Charmeleon', count: '21 cartas', flame: IconFire },
+                  { name: 'Charjabug', count: '12 cartas', flame: IconBolt },
+                  { name: 'Chansey', count: '28 cartas', flame: IconStar },
                 ].map((s) => (
                   <div key={s.name} style={S.searchSuggestion}>
-                    <span style={{ fontSize: 18 }}>{s.flame}</span>
+                    <span style={{ display: 'flex', color: '#f59e0b' }}><s.flame size={18} /></span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: '#f0f0f0' }}>
                         <span style={{ color: '#f59e0b' }}>Char</span>{s.name.slice(4)}

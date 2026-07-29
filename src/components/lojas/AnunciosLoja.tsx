@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { manifestarInteresse } from '@/lib/marketplaceInteresse'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { IconCard, IconBox, IconPlush, IconFigure, IconCollection, IconTag } from '@/components/ui/Icons'
 
 const BRAND = '#f59e0b'
 
@@ -16,9 +17,15 @@ const TIPO_LABEL: Record<string, string> = {
   carta: 'Cartas', selado: 'Selados', pelucia: 'Pelúcias',
   funko: 'Funkos', fichario: 'Fichários', acessorio: 'Acessórios',
 }
-const TIPO_ICONE: Record<string, string> = {
-  carta: '🃏', selado: '📦', pelucia: '🧸', funko: '🎎', fichario: '📁', acessorio: '🎁',
+const TIPO_ICONE: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
+  carta: IconCard, selado: IconBox, pelucia: IconPlush, funko: IconFigure, fichario: IconCollection, acessorio: IconTag,
 }
+// Resolve o icone pelo tipo sem quebrar o retorno implicito dos .map() abaixo.
+function TipoIcone({ tipo, size, style }: { tipo: string; size?: number; style?: React.CSSProperties }) {
+  const I = TIPO_ICONE[tipo]
+  return I ? <I size={size} style={style} /> : null
+}
+
 const ORDEM_TIPO = ['carta', 'selado', 'pelucia', 'funko', 'fichario', 'acessorio']
 
 const fmt = (v: number) =>
@@ -55,6 +62,7 @@ const S = {
   } as React.CSSProperties,
   filtros: { display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 14 } as React.CSSProperties,
   chip: {
+    display: 'inline-flex', alignItems: 'center', gap: 5,
     fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 100,
     background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
     color: 'rgba(255,255,255,0.55)', cursor: 'pointer', fontFamily: 'inherit',
@@ -215,7 +223,7 @@ export default function AnunciosLoja({
             const n = todos.filter(i => i.tipo === t).length
             return (
               <button key={t} type="button" onClick={() => setFiltro(t)} style={{ ...S.chip, ...(filtro === t ? S.chipOn : {}) }}>
-                {TIPO_ICONE[t]} {TIPO_LABEL[t]} ({n})
+                <TipoIcone tipo={t} size={14} /> {TIPO_LABEL[t]} ({n})
               </button>
             )
           })}
@@ -234,13 +242,13 @@ export default function AnunciosLoja({
               />
             ) : (
               <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: 26, opacity: 0.4 }}>{TIPO_ICONE[item.tipo]}</span>
+                <TipoIcone tipo={item.tipo} size={26} style={{ opacity: 0.4 }} />
               </div>
             )}
             <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', flex: 1 }}>
               <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3 }}>{item.nome}</p>
               <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                {!item.ehCarta && <span style={{ ...S.badge, color: BRAND }}>{TIPO_ICONE[item.tipo]} {TIPO_LABEL[item.tipo]?.replace(/s$/, '')}</span>}
+                {!item.ehCarta && <span style={{ ...S.badge, color: BRAND, display: 'inline-flex', alignItems: 'center', gap: 4 }}><TipoIcone tipo={item.tipo} size={12} /> {TIPO_LABEL[item.tipo]?.replace(/s$/, '')}</span>}
                 {item.badges.map((b, i) => <span key={i} style={S.badge}>{b}</span>)}
               </div>
               <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: (logado && !ehDono) ? 10 : 2, marginTop: 'auto' }}>
