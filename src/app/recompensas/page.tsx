@@ -448,6 +448,9 @@ const S: Record<string, CSSProperties> = {
   },
   rewardTypeBadge: {
     alignSelf: 'flex-start',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
     fontSize: 11,
     fontWeight: 700,
     padding: '4px 10px',
@@ -499,7 +502,7 @@ const S: Record<string, CSSProperties> = {
     gap: 12,
   },
   historyLeft: { flex: 1 },
-  historyTitle: { fontSize: 14, fontWeight: 600, marginBottom: 2 },
+  historyTitle: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 14, fontWeight: 600, marginBottom: 2 },
   historyMeta: { fontSize: 11, color: 'rgba(255,255,255,0.4)' },
   historyRight: { textAlign: 'right' },
   historyCost: { fontSize: 14, fontWeight: 700, color: '#ef4444', marginBottom: 4 },

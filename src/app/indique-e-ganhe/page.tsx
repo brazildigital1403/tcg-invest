@@ -387,7 +387,9 @@ const S: Record<string, CSSProperties> = {
   // Header
   header: { textAlign: 'center', marginBottom: 36 },
   headerBadge: {
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
     background: 'rgba(245,158,11,0.12)',
     border: '1px solid rgba(245,158,11,0.3)',
     color: '#f59e0b',
@@ -583,6 +585,7 @@ const S: Record<string, CSSProperties> = {
   recentName: { fontSize: 14, fontWeight: 600, marginBottom: 2 },
   recentMeta: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
   recentBadge: {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
     fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
     border: '1px solid', whiteSpace: 'nowrap',
   },
