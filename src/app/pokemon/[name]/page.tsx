@@ -30,6 +30,10 @@ import WatchButton from '@/components/ui/WatchButton'
 
 export const revalidate = 3600
 
+// Mesma contencao da /carta (incidente 29/07/2026): rota dinamica sem teto de
+// duracao segurava conexao do Postgres por 300s sob carga.
+export const maxDuration = 20
+
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
 type Hub = {

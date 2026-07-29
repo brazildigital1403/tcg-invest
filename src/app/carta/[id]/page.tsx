@@ -74,6 +74,18 @@ function slugifyName(s: string): string {
 // On-demand revalidate via /api/revalidate quando scan atualiza preço.
 export const revalidate = 86400
 
+// INCIDENTE 29/07/2026: esta rota e dinamica (o build classifica como `f`) e
+// nao tinha maxDuration, entao herdava o teto de 300s da Vercel. Sob carga de
+// crawler, cada request travado segurava lambda E conexao do Postgres por
+// CINCO MINUTOS — o pool esgotou e derrubou o site inteiro junto (/pokemon,
+// /api/admin, ate o acesso administrativo ao banco).
+//
+// 20s e folga generosa: a pagina responde em ~1s. O que passar disso ja e
+// falha, e falhar rapido devolve a conexao 15x mais cedo.
+//
+// Isto e contencao, nao cura. A cura e a rota deixar de ser dinamica.
+export const maxDuration = 20
+
 // ─── Tipos normalizados (merge pokemontcg.io + Supabase) ──────────────────
 
 type NormalizedCard = {
