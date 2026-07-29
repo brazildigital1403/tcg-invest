@@ -313,7 +313,10 @@ export default function GestaoConteudo() {
   }
 
   async function marcarPublicado() {
-    const gancho = ganchosFiltrados[ganchoIdx % Math.max(1, ganchosFiltrados.length)]?.t
+    // `sugestao` e exatamente o gancho que a tela esta mostrando no card de
+    // Hoje. Antes isto lia `ganchosFiltrados`, que segue o filtro da aba
+    // Ganchos e nao o pilar do dia — gravava um gancho diferente do exibido.
+    const gancho = sugestao?.t
     await fetch('/api/admin/conteudo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'publicar', data: hojeISO, pilar: grade.pilar, formato: grade.fmt, gancho }),
