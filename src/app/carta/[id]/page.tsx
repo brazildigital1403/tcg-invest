@@ -217,7 +217,19 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
       ? fetch(`https://api.pokemontcg.io/v2/cards/${idReal}`, {
           headers: { 'X-Api-Key': process.env.POKEMON_API_KEY || '' },
           next: { revalidate: 86400, tags: [`card:${idReal}`] },
-        }).catch(() => null)
+          // ★ TIMEOUT OBRIGATORIO (30/07/2026). O `.catch` abaixo pega ERRO,
+          // nao PENDURA: sem signal, uma API de terceiro que nao responde
+          // segura o Promise.all inteiro ate o maxDuration de 20s e a pagina
+          // devolve 504. Aconteceu — 17 paginas de carta cairam em 24h com a
+          // pokemontcg.io degradada (medido: 25s sem resposta em me1-121, a
+          // mesma carta do log). 5s e folga de sobra: o resto da pagina leva
+          // ~1s, e dado de jogo e ENRIQUECIMENTO — a pagina renderiza sem ele
+          // em 95% das visitas de qualquer forma.
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => {
+          console.warn(`[carta] pokemontcg.io nao respondeu em 5s para ${idReal} — seguindo sem dados de jogo`)
+          return null
+        })
       : Promise.resolve(null),
   ])
 
