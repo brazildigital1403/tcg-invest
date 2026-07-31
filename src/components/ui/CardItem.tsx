@@ -8,6 +8,7 @@
 import { ReactNode } from 'react'
 import Image from 'next/image'
 import { GRADUADORA_MAP, isNotaTop, notaCurta } from '@/lib/graduadoras'
+import { IconHistory } from '@/components/ui/Icons'
 
 // Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
 // "Liga BR — MEP" -> "Set MEP" ; "Liga BR" -> "Set" ; demais nomes inalterados
@@ -61,6 +62,50 @@ export interface CardItemData {
   idioma?: string
   condicoes?: Record<string, number> | null
   price?: CardPrice // joined price data
+  /**
+   * Ultima venda REGISTRADA da carta — preco realizado, nao pedido.
+   *
+   * Opcional de proposito: a maioria das cartas nao tem esse dado, e a linha
+   * some quando falta (grade cheia de "—" parece produto quebrado). Nunca
+   * misturar com preco_medio: um e o que pediram, o outro e o que pagaram.
+   *
+   * Nao pressupor que toda carta com isto tambem tem preco do Liga (variante
+   * `availableVariants`) — ha carta com um e sem o outro. Por isso renderiza
+   * como bloco proprio, nao colado na tabela de variantes.
+   */
+  ultima_venda?: UltimaVenda | null
+}
+
+export interface UltimaVenda {
+  /** Em CENTAVOS (espelha `ultima_venda_cents` do banco) — dividir por 100 antes de formatar. */
+  valor?: any
+  variante?: string | null
+  condicao?: string | null
+  idioma?: string | null
+  /**
+   * Quando o VALOR mudou pela ultima vez na nossa observacao — nao a data da
+   * venda, que a origem nao expoe. E a unica coisa honesta que temos pra dizer
+   * ao usuario quao recente e o numero.
+   */
+  atualizado_em?: string | null
+}
+
+/**
+ * Monta o objeto `ultima_venda` a partir de uma row flat do banco
+ * (`ultima_venda_cents`, `ultima_venda_variante`, ...), do jeito que
+ * `pokemon_cards`/`user_cards` joined devolvem. Centralizado aqui pra quem
+ * chama <CardItem> nao repetir os 5 nomes de campo em 3 lugares diferentes
+ * e divergir com o tempo.
+ */
+export function montarUltimaVenda(row: any): UltimaVenda | null {
+  if (row?.ultima_venda_cents == null) return null
+  return {
+    valor: row.ultima_venda_cents,
+    variante: row.ultima_venda_variante ?? null,
+    condicao: row.ultima_venda_condicao ?? null,
+    idioma: row.ultima_venda_idioma ?? null,
+    atualizado_em: row.ultima_venda_atualizado_em ?? null,
+  }
 }
 
 interface CardItemProps {
@@ -199,6 +244,10 @@ export default function CardItem({
   }
 
   const estimate = getBestEstimate()
+  // ultima_venda.valor vem em CENTAVOS do banco; fmtC espera reais.
+  const ultimoVendidoFmt = card.ultima_venda?.valor != null
+    ? fmtC(Number(card.ultima_venda.valor) / 100)
+    : null
   const curVariant = VARIANTS.find(v => v.key === variante)
   const curPrices = curVariant && price ? curVariant.priceKey(price) : { min: null, med: null, max: null }
   const isValuable = (curPrices.med || estimate?.valor || 0) > 100
@@ -378,9 +427,26 @@ export default function CardItem({
         )}
 
         {/* Sem preço */}
-        {availableVariants.length === 0 && !estimate && (
+        {availableVariants.length === 0 && !estimate && !ultimoVendidoFmt && (
           <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.15)', padding: '4px 0' }}>
             Sem preço disponível
+          </div>
+        )}
+
+        {/* Último vendido — preco REALIZADO, nao pedido. Bloco proprio: uma
+            carta pode ter isto sem ter preco do Liga (availableVariants), ou
+            vice-versa. Roxo CRAVADO de proposito (nao var(--ac-2), que aqui
+            seria vermelho — cor de erro/queda, errada pra dado neutro).
+            Confirmado: CardItem so roda em contexto App (Pokedex, Colecao,
+            AnunciarModal) -- nunca dentro da Loja, que usa roxo como accent
+            proprio; se isso mudar, revisar a cor. */}
+        {ultimoVendidoFmt && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: '6px 9px', borderRadius: 8, background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.18)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+              <span style={{ color: '#a855f7', display: 'flex', flexShrink: 0 }}><IconHistory size={11} /></span>
+              <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>Último vendido</span>
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#a855f7', whiteSpace: 'nowrap' }}>{ultimoVendidoFmt}</span>
           </div>
         )}
 

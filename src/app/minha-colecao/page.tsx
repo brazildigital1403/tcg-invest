@@ -14,7 +14,7 @@ import AddCardModal from '@/components/dashboard/AddCardModal'
 import ScanModal from '@/components/ui/ScanModal'
 import { IconKey, IconShield, IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
-import CardItem from '@/components/ui/CardItem'
+import CardItem, { montarUltimaVenda } from '@/components/ui/CardItem'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
 import CardDetailModal from '@/components/dashboard/CardDetailModal'
@@ -391,6 +391,7 @@ export default function MinhaColecao() {
           price,
           number: price?.number || c.number || null,
           set_total: price?.set_total || c.set_total || null,
+          ultima_venda: montarUltimaVenda(price || {}),
         }
       })
 

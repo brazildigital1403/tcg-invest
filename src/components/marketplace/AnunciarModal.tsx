@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { IconSearch, IconClose, IconRocket } from '@/components/ui/Icons'
-import CardItem from '@/components/ui/CardItem'
+import CardItem, { montarUltimaVenda } from '@/components/ui/CardItem'
 import MarketplaceFotosInput from './MarketplaceFotosInput'
 import { supabase } from '@/lib/supabaseClient'
 import { GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
@@ -110,11 +110,15 @@ function EscolherCarta({
 
       // Anexa _priceData (objeto inteiro de pokemon_cards) em cada user_card.
       // O CardItem usa a prop `price` pra renderizar valores com cores canonical.
-      const enriched = (userCards || []).map((c: any) => ({
-        ...c,
-        jaAnunciada: nomeAnunciados.has(c.card_name),
-        _priceData: c.pokemon_api_id ? (priceMap[c.pokemon_api_id] || null) : null,
-      }))
+      const enriched = (userCards || []).map((c: any) => {
+        const p = c.pokemon_api_id ? (priceMap[c.pokemon_api_id] || null) : null
+        return {
+          ...c,
+          jaAnunciada: nomeAnunciados.has(c.card_name),
+          _priceData: p,
+          ultima_venda: montarUltimaVenda(p || {}),
+        }
+      })
       setCards(enriched)
       setLoading(false)
     }

@@ -8,7 +8,7 @@ import { trackFirstCardAdded } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
-import CardItem from '@/components/ui/CardItem'
+import CardItem, { montarUltimaVenda } from '@/components/ui/CardItem'
 import CardDetailModal from './CardDetailModal'
 import ModalUpgradePokedex from '@/components/ui/ModalUpgradePokedex'
 import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
@@ -288,7 +288,7 @@ export default function Pokedex() {
       body: JSON.stringify({ pokemon: pokemon.name }),
     }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
 
-    setCards((data || []).map(c => ({ ...c, price: c })))
+    setCards((data || []).map(c => ({ ...c, price: c, ultima_venda: montarUltimaVenda(c) })))
     setLoadingCards(false)
   }
 

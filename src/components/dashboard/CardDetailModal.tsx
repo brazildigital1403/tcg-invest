@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, isNotaTop, notaCurta } from '@/lib/graduadoras'
+import { IconHistory } from '@/components/ui/Icons'
 
 interface Props {
   card: any
@@ -27,6 +28,15 @@ const IDIOMA_LABELS: Record<string, string> = {
   pt: 'PT', en: 'EN', jp: 'JP', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', cn: 'CN', kr: 'KR',
 }
 const TEXT_MUTED = 'rgba(255,255,255,0.5)'
+const FILTROS_DIAS = [7, 15, 30, 60] as const
+
+interface HistoricoVenda {
+  valor_cents: number
+  variante: string | null
+  condicao: string | null
+  idioma: string | null
+  capturado_em: string
+}
 
 function fmtBRL(n: number) {
   return 'R$ ' + (n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -115,6 +125,9 @@ export default function CardDetailModal({
   const [valorGrad, setValorGrad] = useState<string>(card.valor_graduada != null ? String(card.valor_graduada) : '')
   const [savingGrad, setSavingGrad] = useState(false)
   const [flashGrad, setFlashGrad] = useState(false)
+  const [historicoVendas, setHistoricoVendas] = useState<HistoricoVenda[]>([])
+  const [diasHistorico, setDiasHistorico] = useState(7)
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640)
@@ -147,11 +160,30 @@ export default function CardDetailModal({
   const price = card.price || null
   const variantes = buildVariantes(price, savedVar)
   const pv = precoVariante(price, variante, exchangeRate)
+  // ultima_venda.valor vem em CENTAVOS do banco; fmtBRL espera reais.
+  const ultimoVendidoFmt = card.ultima_venda?.valor != null
+    ? fmtBRL(Number(card.ultima_venda.valor) / 100)
+    : null
   const valorTotal = pv.medio * quantity
   const cartaUrlId = price?.id || card.pokemon_api_id || null
   const gradMeta = GRADUADORA_MAP[graduadora] || GRADUADORAS[0]
   const gradTop = isNotaTop(nota, blackLabel)
   const valorTotalExibido = graduada ? Number(valorGrad || 0) * quantity : valorTotal
+
+  // Historico de "ultima venda" -- so busca se a carta tem pelo menos um
+  // valor atual (sem isso nao ha o que mostrar) e refaz quando o filtro
+  // de periodo muda.
+  useEffect(() => {
+    if (!cartaUrlId || !ultimoVendidoFmt) { setHistoricoVendas([]); return }
+    let active = true
+    setCarregandoHistorico(true)
+    fetch(`/api/cards/${encodeURIComponent(cartaUrlId)}/historico-vendas?dias=${diasHistorico}`)
+      .then(r => r.ok ? r.json() : { historico: [] })
+      .then(({ historico }) => { if (active) setHistoricoVendas(historico || []) })
+      .catch(() => { if (active) setHistoricoVendas([]) })
+      .finally(() => { if (active) setCarregandoHistorico(false) })
+    return () => { active = false }
+  }, [cartaUrlId, ultimoVendidoFmt, diasHistorico])
 
   function selecionarVariante(v: string) {
     setVariante(v)
@@ -351,6 +383,65 @@ export default function CardDetailModal({
                 </div>
               )}
             </div>
+            )}
+
+            {/* Último vendido — preco REALIZADO (Mypcards), nao pedido (Liga).
+                Roxo cravado de proposito, mesmo padrao do CardItem — nao
+                var(--ac-2), que aqui seria vermelho (cor de erro/queda). */}
+            {ultimoVendidoFmt && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'rgba(168,85,247,0.07)', border: '1px solid rgba(168,85,247,0.22)', borderRadius: 14, padding: '11px 16px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: '#a855f7', display: 'flex', flexShrink: 0 }}><IconHistory size={14} /></span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Último vendido</span>
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: '#a855f7', letterSpacing: '-0.01em' }}>{ultimoVendidoFmt}</span>
+              </div>
+            )}
+
+            {/* Historico de vendas -- so aparece quando ha "ultima venda" pra
+                comparar contra. Mockup aprovado 30/07/2026: filtros de
+                periodo, mini-grafico, lista das ultimas observacoes. */}
+            {ultimoVendidoFmt && (
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 14px' }}>
+                <p style={{ fontSize: 10, letterSpacing: '0.08em', fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 10 }}>Histórico de vendas</p>
+
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                  {FILTROS_DIAS.map(d => (
+                    <button key={d} onClick={() => setDiasHistorico(d)}
+                      style={{
+                        flex: 1, padding: '6px 0', borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                        border: '1px solid ' + (diasHistorico === d ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.1)'),
+                        background: diasHistorico === d ? 'rgba(168,85,247,0.16)' : 'rgba(255,255,255,0.04)',
+                        color: diasHistorico === d ? '#a855f7' : 'rgba(255,255,255,0.5)',
+                      }}>
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+
+                {carregandoHistorico ? (
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', padding: '8px 0' }}>Carregando…</p>
+                ) : historicoVendas.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {historicoVendas.map((h, i) => {
+                      const dias = Math.floor((Date.now() - new Date(h.capturado_em).getTime()) / 86400000)
+                      const quando = dias <= 0 ? 'Hoje' : dias === 1 ? 'Ontem' : `${dias} dias atrás`
+                      const meta = [h.variante, h.condicao, h.idioma].filter(Boolean).join(' · ')
+                      return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.03)' }}>
+                          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', flexShrink: 0 }}>{quando}</span>
+                          {meta && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</span>}
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#f0f0f0', flexShrink: 0 }}>{fmtBRL(h.valor_cents / 100)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', padding: '8px 0', lineHeight: 1.5 }}>
+                    Coletando desde hoje — histórico completo aparece com o tempo.
+                  </p>
+                )}
+              </div>
             )}
 
             {/* NA SUA COLECAO — ordem: Quantidade, Condicoes, Variante, Valor */}
