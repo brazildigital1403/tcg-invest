@@ -385,7 +385,7 @@ export default function CardDetailModal({
             </div>
             )}
 
-            {/* Último vendido — preco REALIZADO (Mypcards), nao pedido (Liga).
+            {/* Último vendido — preco REALIZADO (fonte externa), nao pedido (Liga).
                 Roxo cravado de proposito, mesmo padrao do CardItem — nao
                 var(--ac-2), que aqui seria vermelho (cor de erro/queda). */}
             {ultimoVendidoFmt && (

@@ -5,7 +5,7 @@ import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
 /**
  * GET /api/cards/[id]/historico-vendas?dias=30
  *
- * Historico de "ultima venda" (preco REALIZADO, fonte MyPCards) de uma
+ * Historico de "ultima venda" (preco REALIZADO, de fonte externa) de uma
  * carta ao longo do tempo. `card_ultima_venda_historico` tem RLS trancada
  * (so a service role le/escreve) -- mesmo motivo do /api/cards/lookup: nao
  * expor a tabela direto pro client.
