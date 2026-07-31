@@ -26,6 +26,7 @@ import {
   IconCamera, IconCollection, IconWallet, IconRocket, IconChat,
   IconShield, IconTrendingUp, IconWarning, IconBolt, IconCheck,
   IconClock, IconCalendar, IconChart, IconTag, IconStar,
+  IconEdit, IconArrowUp, IconArrowDown, IconTrash, IconPlus, IconClose, IconHistory,
 } from '@/components/ui/Icons'
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
@@ -185,9 +186,9 @@ Chama no direct "LOJA" que eu te explico como funciona.` },
 ]
 
 const ABAS = [
-  { id: 'hoje', nome: 'Hoje' },
+  { id: 'fila', nome: 'Fila' },
   { id: 'resultado', nome: 'Resultado' },
-  { id: 'semana', nome: 'A semana' },
+  { id: 'semana', nome: 'Histórico' },
   { id: 'plano', nome: 'Plano de ação' },
   { id: 'pilares', nome: 'Pilares' },
   { id: 'campanhas', nome: 'Campanhas' },
@@ -257,13 +258,31 @@ function Check({ feito, onClick, titulo, sub }: { feito: boolean; onClick: () =>
 
 // ─── Pagina ──────────────────────────────────────────────────────────────────
 
-type Post = { data: string; pilar: string | null; formato: string | null; gancho: string | null }
+type FilaItem = {
+  id: string
+  pilar: string | null
+  formato: string | null
+  gancho: string | null
+  observacao: string | null
+  status: 'rascunho' | 'pronto'
+  ordem: number | null
+  criado_em: string
+}
+type HistoricoItem = {
+  id: string
+  pilar: string | null
+  formato: string | null
+  gancho: string | null
+  observacao: string | null
+  postado_em: string
+}
 type Canal = { nome: string; total: number }
 
 export default function GestaoConteudo() {
-  const [aba, setAba] = useState('hoje')
+  const [aba, setAba] = useState('fila')
   const [checklist, setChecklist] = useState<Record<string, boolean>>({})
-  const [posts, setPosts] = useState<Post[]>([])
+  const [fila, setFila] = useState<FilaItem[]>([])
+  const [historico, setHistorico] = useState<HistoricoItem[]>([])
   const [canais, setCanais] = useState<Canal[]>([])
   const [totalCadastros, setTotalCadastros] = useState(0)
   const [carregando, setCarregando] = useState(true)
@@ -271,15 +290,18 @@ export default function GestaoConteudo() {
   const [copiado, setCopiado] = useState('')
   const [salvo, setSalvo] = useState('')
   const [filtroGancho, setFiltroGancho] = useState<'todos' | keyof typeof P>('todos')
-  const [ganchoIdx, setGanchoIdx] = useState(0)
   const [seguidores, setSeguidores] = useState(1553)
   const [semanas, setSemanas] = useState(22)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [rascunhoNovo, setRascunhoNovo] = useState(false)
+  const [formPilar, setFormPilar] = useState<string>('jornada')
+  const [formFormato, setFormFormato] = useState('')
+  const [formGancho, setFormGancho] = useState('')
+  const [formObs, setFormObs] = useState('')
 
-  const hoje = new Date()
-  const hojeISO = hoje.toISOString().slice(0, 10)
-  const grade = GRADE[hoje.getDay()]
-  const pilarHoje = PILARES.find((p) => p.id === grade.pilar)!
-  const publicadoHoje = posts.some((p) => p.data === hojeISO)
+  const prontos = fila.filter((f) => f.status === 'pronto')
+  const rascunhos = fila.filter((f) => f.status === 'rascunho')
+  const proximo = prontos[0] || null
 
   const carregar = useCallback(async () => {
     try {
@@ -291,7 +313,8 @@ export default function GestaoConteudo() {
       // Du digita se perde ao recarregar ou ao trocar de aparelho.
       if (d.config?.metas_seguidores) setSeguidores(Number(d.config.metas_seguidores) || 0)
       if (d.config?.metas_semanas) setSemanas(Number(d.config.metas_semanas) || 0)
-      setPosts(d.posts || [])
+      setFila(d.fila || [])
+      setHistorico(d.historico || [])
       setCanais(d.canais || [])
       setTotalCadastros(d.totalCadastros || 0)
       setErro('')
@@ -317,18 +340,6 @@ export default function GestaoConteudo() {
     }
   }
 
-  async function marcarPublicado() {
-    // `sugestao` e exatamente o gancho que a tela esta mostrando no card de
-    // Hoje. Antes isto lia `ganchosFiltrados`, que segue o filtro da aba
-    // Ganchos e nao o pilar do dia — gravava um gancho diferente do exibido.
-    const gancho = sugestao?.t
-    await fetch('/api/admin/conteudo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'publicar', data: hojeISO, pilar: grade.pilar, formato: grade.fmt, gancho }),
-    })
-    carregar()
-  }
-
   // Grava no blur, nao a cada tecla: digitar "1553" dispararia quatro escritas.
   async function salvarConfig(chave: string, valor: number) {
     try {
@@ -343,14 +354,6 @@ export default function GestaoConteudo() {
     }
   }
 
-  async function desmarcar(data: string) {
-    await fetch('/api/admin/conteudo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'desmarcar', data }),
-    })
-    carregar()
-  }
-
   function copiar(txt: string, id: string) {
     navigator.clipboard?.writeText(txt).then(() => {
       setCopiado(id)
@@ -358,18 +361,121 @@ export default function GestaoConteudo() {
     }).catch(() => {})
   }
 
+  // ─── Fila ────────────────────────────────────────────────────────────────
+  async function postarItem(id: string) {
+    setFila((f) => f.filter((i) => i.id !== id))   // otimista: some da fila na hora
+    await fetch('/api/admin/conteudo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'fila_postar', id }),
+    })
+    carregar()
+  }
+
+  async function despostarItem(id: string) {
+    await fetch('/api/admin/conteudo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'fila_despostar', id }),
+    })
+    carregar()
+  }
+
+  async function marcarPronto(id: string) {
+    await fetch('/api/admin/conteudo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'fila_atualizar', id, marcarPronto: true }),
+    })
+    carregar()
+  }
+
+  async function removerRascunho(id: string) {
+    setFila((f) => f.filter((i) => i.id !== id))
+    await fetch('/api/admin/conteudo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'fila_remover', id }),
+    })
+  }
+
+  async function mover(id: string, direcao: -1 | 1) {
+    const idx = prontos.findIndex((p) => p.id === id)
+    const alvo = prontos[idx + direcao]
+    if (!alvo) return
+    const atual = prontos[idx]
+    // Troca as ordens dos dois — reordenacao local otimista pra nao esperar o round-trip.
+    const novaFila = fila.map((f) => {
+      if (f.id === atual.id) return { ...f, ordem: alvo.ordem }
+      if (f.id === alvo.id) return { ...f, ordem: atual.ordem }
+      return f
+    })
+    setFila(novaFila)
+    await fetch('/api/admin/conteudo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'fila_reordenar', itens: [{ id: atual.id, ordem: alvo.ordem }, { id: alvo.id, ordem: atual.ordem }] }),
+    })
+  }
+
+  function abrirEdicao(item: FilaItem) {
+    setEditandoId(item.id)
+    setRascunhoNovo(false)
+    setFormPilar(item.pilar || 'jornada')
+    setFormFormato(item.formato || '')
+    setFormGancho(item.gancho || '')
+    setFormObs(item.observacao || '')
+  }
+
+  function abrirNovoRascunho() {
+    setEditandoId(null)
+    setRascunhoNovo(true)
+    setFormPilar('jornada')
+    setFormFormato('')
+    setFormGancho('')
+    setFormObs('')
+  }
+
+  function fecharForm() {
+    setEditandoId(null)
+    setRascunhoNovo(false)
+  }
+
+  async function salvarForm(marcarProntoAoSalvar: boolean) {
+    const corpo = { pilar: formPilar, formato: formFormato, gancho: formGancho, observacao: formObs }
+    if (rascunhoNovo) {
+      await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'fila_criar', ...corpo, status: marcarProntoAoSalvar ? 'pronto' : 'rascunho' }),
+      })
+    } else if (editandoId) {
+      await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'fila_atualizar', id: editandoId, ...corpo, marcarPronto: marcarProntoAoSalvar }),
+      })
+    }
+    fecharForm()
+    carregar()
+  }
+
+  // "Preencher a semana" — usa a grade-modelo pra gerar 7 rascunhos de uma vez,
+  // com um gancho sugerido por pilar (o Du refina cada um antes de marcar pronto).
+  async function preencherSemana() {
+    const usados = new Set<string>()
+    const itens = GRADE.map((g) => {
+      const opcoes = GANCHOS.filter((h) => h.p === g.pilar && !usados.has(h.t))
+      const escolhido = opcoes[0] || GANCHOS.find((h) => h.p === g.pilar)
+      if (escolhido) usados.add(escolhido.t)
+      return { pilar: g.pilar, formato: g.fmt, gancho: escolhido?.t || '' }
+    })
+    await fetch('/api/admin/conteudo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'fila_criar_lote', itens }),
+    })
+    carregar()
+  }
+
   const ganchosFiltrados = GANCHOS.filter((g) => filtroGancho === 'todos' || g.p === filtroGancho)
-  const ganchoDoDia = GANCHOS.filter((g) => g.p === grade.pilar)
-  const sugestao = ganchoDoDia[ganchoIdx % Math.max(1, ganchoDoDia.length)]
 
   const totalChecks = FASES.reduce((n, f) => n + f.itens.length, 0) + CHECKLIST_POST.reduce((n, g) => n + g.itens.length, 0)
   const feitos = Object.values(checklist).filter(Boolean).length
   const faltam = Math.max(0, 10000 - seguidores)
   const porSemana = semanas > 0 ? Math.ceil(faltam / semanas) : 0
-
-  // Segunda-feira da semana corrente, pra montar a grade com data real.
-  const seg = new Date(hoje)
-  seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7))
 
   return (
     <div style={{ maxWidth: 1000, padding: '32px 24px' }}>
@@ -377,7 +483,7 @@ export default function GestaoConteudo() {
         Gestão de conteúdo
       </h1>
       <p style={{ color: TXT3, fontSize: 14, marginBottom: 18 }}>
-        O que postar hoje, se você está em dia, e quanto isso virou cadastro.
+        O que postar em seguida, se você está adiantado, e quanto isso virou cadastro.
         {totalChecks > 0 && <span style={{ marginLeft: 8, color: FAINT }}>{feitos} de {totalChecks} passos marcados</span>}
       </p>
 
@@ -405,57 +511,160 @@ export default function GestaoConteudo() {
 
       {carregando && <p style={{ color: TXT3, fontSize: 14 }}>Carregando...</p>}
 
-      {/* ─── HOJE ─────────────────────────────────────────────────────────── */}
-      {aba === 'hoje' && !carregando && (
+      {/* ─── FILA ─────────────────────────────────────────────────────────── */}
+      {aba === 'fila' && !carregando && (
         <>
-          <div style={{
-            background: 'var(--bx-hero-wash), var(--bx-surface)', border: `1px solid ${BORD2}`,
-            borderRadius: 14, padding: '20px 22px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-              <Pill pilar={grade.pilar as keyof typeof P} />
-              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: AC }}>
-                {grade.dia}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: TXT2 }}>
+              <IconCollection size={16} color={AC} />
+              {prontos.length === 0 ? 'Fila vazia' : `${prontos.length} ${prontos.length === 1 ? 'pronto' : 'prontos'} na fila`}
+            </span>
+            {prontos.length > 0 && (
+              <span style={{ fontSize: 12, color: TXT3 }}>
+                — cobre cerca de {prontos.length} {prontos.length === 1 ? 'dia' : 'dias'} de posts
               </span>
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: TXT3 }}>{grade.fmt}</span>
-            </div>
-
-            <h3 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 6, color: TXT }}>
-              {pilarHoje.nome}
-            </h3>
-            <p style={{ color: TXT2, fontSize: 14, marginBottom: 14, maxWidth: '62ch' }}>{pilarHoje.txt}</p>
-
-            {sugestao && (
-              <div style={{
-                background: 'var(--bx-bg-elev)', border: `1px solid ${BORD}`, borderRadius: 10,
-                padding: '12px 14px', fontSize: 14, color: TXT2, display: 'flex',
-                alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap',
-              }}>
-                <IconBolt size={16} color={AC} />
-                <span style={{ flex: 1, minWidth: 200 }}>{sugestao.t}</span>
-                <button style={miniBtn} onClick={() => copiar(sugestao.t, 'hoje')}>
-                  {copiado === 'hoje' ? 'copiado' : 'copiar'}
-                </button>
-                <button style={miniBtn} onClick={() => setGanchoIdx((i) => i + 1)}>outro</button>
-              </div>
             )}
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {publicadoHoje ? (
-                <>
-                  <span style={{ ...btn, background: 'rgba(34,197,94,0.14)', color: '#22c55e', borderColor: 'rgba(34,197,94,0.4)', cursor: 'default' }}>
-                    <IconCheck size={14} color="#22c55e" /> Publicado hoje
-                  </span>
-                  <button style={btn} onClick={() => desmarcar(hojeISO)}>Desfazer</button>
-                </>
-              ) : (
-                <button style={btnPri} onClick={marcarPublicado}>
-                  <IconCheck size={14} color="var(--bx-brand-ink)" /> Marcar como publicado
-                </button>
-              )}
-              <button style={btn} onClick={() => setAba('checklist')}>Ver checklist do post</button>
-            </div>
+            <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button style={miniBtn} onClick={preencherSemana}>
+                <IconPlus size={12} style={{ verticalAlign: -1, marginRight: 4 }} />preencher a semana
+              </button>
+              <button style={miniBtn} onClick={abrirNovoRascunho}>+ novo rascunho</button>
+            </span>
           </div>
+
+          {/* Próximo da fila */}
+          {proximo ? (
+            <div style={{
+              background: 'var(--bx-hero-wash), var(--bx-surface)', border: `1px solid ${BORD2}`,
+              borderRadius: 14, padding: '20px 22px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                {proximo.pilar && <Pill pilar={proximo.pilar as keyof typeof P} />}
+                {proximo.formato && <span style={{ fontSize: 12, color: TXT3 }}>{proximo.formato}</span>}
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: AC }}>
+                  próximo da fila
+                </span>
+              </div>
+
+              {proximo.gancho && (
+                <div style={{
+                  background: 'var(--bx-bg-elev)', border: `1px solid ${BORD}`, borderRadius: 10,
+                  padding: '12px 14px', fontSize: 14, color: TXT2, display: 'flex',
+                  alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap',
+                }}>
+                  <IconBolt size={16} color={AC} />
+                  <span style={{ flex: 1, minWidth: 200 }}>{proximo.gancho}</span>
+                  <button style={miniBtn} onClick={() => copiar(proximo.gancho!, 'proximo')}>
+                    {copiado === 'proximo' ? 'copiado' : 'copiar'}
+                  </button>
+                </div>
+              )}
+              {proximo.observacao && (
+                <p style={{ fontSize: 12.5, color: TXT3, marginBottom: 10 }}>{proximo.observacao}</p>
+              )}
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button style={btnPri} onClick={() => postarItem(proximo.id)}>
+                  <IconCheck size={14} color="var(--bx-brand-ink)" /> Marcar como postado
+                </button>
+                <button style={btn} onClick={() => abrirEdicao(proximo)}>
+                  <IconEdit size={14} color={TXT2} /> Editar
+                </button>
+                <button style={btn} onClick={() => setAba('checklist')}>Ver checklist do post</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ ...card, textAlign: 'center', padding: '30px 20px' }}>
+              <p style={{ color: TXT2, fontSize: 14, marginBottom: 10 }}>Nenhum post pronto esperando a vez.</p>
+              <button style={btnPri} onClick={abrirNovoRascunho}>
+                <IconPlus size={14} color="var(--bx-brand-ink)" /> Criar rascunho
+              </button>
+            </div>
+          )}
+
+          {/* Formulario de criacao/edicao */}
+          {(editandoId || rascunhoNovo) && (
+            <div style={{ ...card, marginTop: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                <strong style={{ fontSize: 14, color: TXT }}>{rascunhoNovo ? 'Novo rascunho' : 'Editar item'}</strong>
+                <button style={{ ...miniBtn, marginLeft: 'auto' }} onClick={fecharForm}>
+                  <IconClose size={12} style={{ verticalAlign: -1 }} />
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 10 }}>
+                {(Object.keys(P) as (keyof typeof P)[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setFormPilar(p)}
+                    style={{
+                      border: `1px solid ${formPilar === p ? BORD2 : BORD}`,
+                      background: formPilar === p ? SURF3 : SURF, color: formPilar === p ? P[p] : TXT3,
+                      fontFamily: 'inherit', fontSize: 12, fontWeight: 600, padding: '6px 12px',
+                      borderRadius: 999, cursor: 'pointer', textTransform: 'capitalize',
+                    }}
+                  >{p}</button>
+                ))}
+              </div>
+              <input
+                value={formFormato} onChange={(e) => setFormFormato(e.target.value)}
+                placeholder="Formato (ex: Reels — abertura, hit ou bastidor)"
+                style={{ width: '100%', background: 'var(--bx-bg-elev)', border: `1px solid ${BORD2}`, borderRadius: 8, color: TXT, fontFamily: 'inherit', fontSize: 13.5, padding: '9px 12px', marginBottom: 8, boxSizing: 'border-box' }}
+              />
+              <textarea
+                value={formGancho} onChange={(e) => setFormGancho(e.target.value)}
+                placeholder="Gancho / legenda"
+                rows={3}
+                style={{ width: '100%', background: 'var(--bx-bg-elev)', border: `1px solid ${BORD2}`, borderRadius: 8, color: TXT, fontFamily: 'inherit', fontSize: 13.5, padding: '9px 12px', marginBottom: 8, boxSizing: 'border-box', resize: 'vertical' }}
+              />
+              <input
+                value={formObs} onChange={(e) => setFormObs(e.target.value)}
+                placeholder="Observação (opcional)"
+                style={{ width: '100%', background: 'var(--bx-bg-elev)', border: `1px solid ${BORD2}`, borderRadius: 8, color: TXT, fontFamily: 'inherit', fontSize: 13.5, padding: '9px 12px', marginBottom: 12, boxSizing: 'border-box' }}
+              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button style={btnPri} onClick={() => salvarForm(true)}>Salvar e marcar pronto</button>
+                <button style={btn} onClick={() => salvarForm(false)}>Salvar como rascunho</button>
+              </div>
+            </div>
+          )}
+
+          {/* Resto da fila de prontos */}
+          {prontos.length > 1 && (
+            <>
+              <h2 style={h2}><IconCollection size={16} color={TXT3} /> Na fila</h2>
+              {prontos.slice(1).map((item, i) => (
+                <div key={item.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px',
+                  border: `1px solid ${BORD}`, background: SURF, borderRadius: 10, marginBottom: 7, fontSize: 13.5,
+                }}>
+                  {item.pilar && <Pill pilar={item.pilar as keyof typeof P} />}
+                  <span style={{ flex: 1, color: TXT2, minWidth: 120 }}>{item.gancho || item.formato || 'sem gancho ainda'}</span>
+                  <button style={miniBtn} onClick={() => mover(item.id, -1)} aria-label="Subir na fila"><IconArrowUp size={12} /></button>
+                  <button style={miniBtn} onClick={() => mover(item.id, 1)} disabled={i === prontos.length - 2}><IconArrowDown size={12} /></button>
+                  <button style={miniBtn} onClick={() => abrirEdicao(item)}><IconEdit size={12} /></button>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Rascunhos */}
+          {rascunhos.length > 0 && (
+            <>
+              <h2 style={h2}><IconEdit size={16} color={TXT3} /> Rascunhos</h2>
+              {rascunhos.map((item) => (
+                <div key={item.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px',
+                  border: `1px solid ${BORD}`, background: SURF, borderRadius: 10, marginBottom: 7, fontSize: 13.5,
+                }}>
+                  {item.pilar && <Pill pilar={item.pilar as keyof typeof P} />}
+                  <span style={{ flex: 1, color: item.gancho ? TXT2 : FAINT, minWidth: 120 }}>{item.gancho || 'sem gancho ainda'}</span>
+                  <button style={miniBtn} onClick={() => marcarPronto(item.id)}>marcar pronto</button>
+                  <button style={miniBtn} onClick={() => abrirEdicao(item)}><IconEdit size={12} /></button>
+                  <button style={miniBtn} onClick={() => removerRascunho(item.id)}><IconTrash size={12} /></button>
+                </div>
+              ))}
+            </>
+          )}
 
           <div style={{ ...card, marginTop: 14, borderLeft: `3px solid ${AC}`, borderRadius: '0 12px 12px 0' }}>
             <p style={{ fontSize: 13.5, color: TXT2, margin: 0 }}>
@@ -486,8 +695,11 @@ export default function GestaoConteudo() {
               </div>
             </div>
             <div style={{ background: SURF, borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ fontSize: 12, color: TXT3, marginBottom: 5 }}>Publicados nesta semana</div>
-              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: TXT }}>{posts.length} <span style={{ fontSize: 14, color: TXT3 }}>de 7</span></div>
+              <div style={{ fontSize: 12, color: TXT3, marginBottom: 5 }}>Postados nos últimos 7 dias</div>
+              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: TXT }}>
+                {historico.filter((h) => Date.now() - new Date(h.postado_em).getTime() < 7 * 86400_000).length}
+                <span style={{ fontSize: 14, color: TXT3 }}> de 7</span>
+              </div>
             </div>
           </div>
 
@@ -525,41 +737,40 @@ export default function GestaoConteudo() {
         </>
       )}
 
-      {/* ─── A SEMANA ─────────────────────────────────────────────────────── */}
+      {/* ─── HISTORICO ────────────────────────────────────────────────────── */}
       {aba === 'semana' && !carregando && (
         <>
-          <h2 style={h2}><IconCalendar size={16} color={TXT3} /> A semana-modelo
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: FAINT, fontWeight: 400 }}>{posts.length} de 7 publicados</span>
+          <h2 style={h2}><IconHistory size={16} color={TXT3} /> O que já saiu
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: FAINT, fontWeight: 400 }}>últimos {historico.length}</span>
           </h2>
-          <div style={{ border: `1px solid ${BORD}`, borderRadius: 12, overflow: 'hidden' }}>
-            {[1, 2, 3, 4, 5, 6, 0].map((d) => {
-              const g = GRADE[d]
-              const dt = new Date(seg)
-              dt.setDate(seg.getDate() + ((d + 6) % 7))
-              const iso = dt.toISOString().slice(0, 10)
-              const pub = posts.some((p) => p.data === iso)
-              const ehHoje = iso === hojeISO
-              return (
-                <div key={g.dia} style={{
-                  display: 'grid', gridTemplateColumns: '96px 1fr 112px', alignItems: 'center',
-                  borderBottom: `1px solid ${BORD}`, fontSize: 13.5,
-                  background: ehHoje ? 'rgba(var(--ac-1-rgb),0.05)' : 'transparent',
-                }}>
-                  <div style={{ padding: '11px 14px', fontWeight: 600, color: TXT2, borderRight: `1px solid ${BORD}` }}>{g.dia}</div>
-                  <div style={{ padding: '11px 14px', color: TXT2, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-                    <Pill pilar={g.pilar as keyof typeof P} />
-                    {g.pilar2 && <Pill pilar={g.pilar2 as keyof typeof P} />}
-                    {g.fmt}
+          {historico.length === 0 ? (
+            <p style={{ ...card, color: TXT3, fontSize: 13.5, textAlign: 'center', padding: '26px 16px' }}>
+              Nada postado ainda. Assim que marcar o primeiro item da fila como postado, ele aparece aqui.
+            </p>
+          ) : (
+            <div style={{ border: `1px solid ${BORD}`, borderRadius: 12, overflow: 'hidden' }}>
+              {historico.map((h, i) => {
+                const dt = new Date(h.postado_em)
+                const label = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                return (
+                  <div key={h.id} style={{
+                    display: 'grid', gridTemplateColumns: '132px 1fr', alignItems: 'center',
+                    borderBottom: i === historico.length - 1 ? 'none' : `1px solid ${BORD}`, fontSize: 13.5,
+                  }}>
+                    <div style={{ padding: '11px 14px', color: TXT3, borderRight: `1px solid ${BORD}`, fontVariantNumeric: 'tabular-nums' }}>{label}</div>
+                    <div style={{ padding: '11px 14px', color: TXT2, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                      {h.pilar && <Pill pilar={h.pilar as keyof typeof P} />}
+                      <span style={{ flex: 1, minWidth: 160 }}>{h.gancho || h.formato || '—'}</span>
+                      <button
+                        style={miniBtn}
+                        onClick={async () => { await despostarItem(h.id) }}
+                      >desfazer</button>
+                    </div>
                   </div>
-                  <div style={{ padding: '11px 14px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>
-                    {pub ? <span style={{ color: '#22c55e' }}>publicado</span>
-                      : ehHoje ? <span style={{ color: AC }}>hoje</span>
-                      : <span style={{ color: FAINT }}>pendente</span>}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
           <div style={{ ...card, marginTop: 14 }}>
             <p style={{ fontSize: 13.5, color: TXT2, margin: 0 }}>
               <strong style={{ color: TXT }}>Mix que importa:</strong> Reels é o motor — engaja 59% mais que
