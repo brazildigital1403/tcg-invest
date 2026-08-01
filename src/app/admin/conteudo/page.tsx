@@ -533,26 +533,29 @@ export default function GestaoConteudo() {
             </span>
           </div>
 
-          {/* Grade da semana — o "caminho do dia": qual pilar cai em cada dia, hoje destacado. */}
-          <div style={{ border: `1px solid ${BORD}`, borderRadius: 12, overflow: 'hidden', marginBottom: 16, display: 'flex' }}>
+          {/* Regua semanal de temas — o "caminho do dia": pilar + tema especifico de
+              cada dia, nao so a cor. Tema = 1o gancho cadastrado pro pilar (fixo,
+              nao roda) -- e referencia, tem que ser sempre o mesmo ao reabrir a tela. */}
+          <h2 style={{ ...h2, margin: '0 0 10px', fontSize: 13 }}><IconCalendar size={14} color={TXT3} /> Régua semanal</h2>
+          <div style={{ border: `1px solid ${BORD}`, borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
             {GRADE.map((g, i) => {
               const ehHoje = i === diaDaSemanaHoje
-              const nomePilar = { jornada: 'Jornada', utilidade: 'Utilidade', preco: 'Preço', novidade: 'Novidade', comunidade: 'Comunidade' }[g.pilar as keyof typeof P]
+              const tema = GANCHOS.find((h) => h.p === g.pilar)?.t
               return (
-                <div key={g.dia} title={g.fmt} style={{
-                  flex: 1, padding: '9px 6px', textAlign: 'center',
-                  borderRight: i === GRADE.length - 1 ? 'none' : `1px solid ${BORD}`,
-                  background: ehHoje ? 'rgba(var(--ac-1-rgb),0.08)' : 'transparent',
+                <div key={g.dia} style={{
+                  display: 'grid', gridTemplateColumns: '92px 1fr', alignItems: 'center',
+                  borderBottom: i === GRADE.length - 1 ? 'none' : `1px solid ${BORD}`, fontSize: 13,
+                  background: ehHoje ? 'rgba(var(--ac-1-rgb),0.06)' : 'transparent',
                 }}>
                   <div style={{
-                    fontSize: 10, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase',
-                    color: ehHoje ? AC : TXT3, marginBottom: 5,
-                  }}>{g.dia.slice(0, 3)}</div>
-                  <span style={{
-                    display: 'inline-block', width: 7, height: 7, borderRadius: 999,
-                    background: P[g.pilar as keyof typeof P], marginBottom: 4,
-                  }} />
-                  <div style={{ fontSize: 10.5, color: ehHoje ? TXT : TXT3, lineHeight: 1.2 }}>{nomePilar}</div>
+                    padding: '9px 12px', fontWeight: 600, borderRight: `1px solid ${BORD}`,
+                    color: ehHoje ? AC : TXT2, fontSize: 12.5,
+                  }}>{g.dia}{ehHoje && <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>hoje</span>}</div>
+                  <div style={{ padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <Pill pilar={g.pilar as keyof typeof P} />
+                    <span style={{ color: TXT2, flex: 1, minWidth: 160 }}>{tema}</span>
+                    <span style={{ fontSize: 11, color: TXT3 }}>{g.fmt}</span>
+                  </div>
                 </div>
               )
             })}
