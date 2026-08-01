@@ -2,6 +2,7 @@
 
 import { CSSProperties, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { IconClose, IconChevronDown } from '@/components/ui/Icons'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -35,6 +36,10 @@ interface Props {
   initialEstado: string
   initialTipo: string
   initialEspecialidade: string
+  /** So os estados/tipos que tem pelo menos 1 loja ativa hoje -- nao oferece
+      filtro que so leva a "nenhuma loja encontrada" (auditoria 31/07/2026). */
+  estadosDisponiveis: string[]
+  tiposDisponiveis: string[]
 }
 
 export default function FiltrosGuia({
@@ -42,6 +47,8 @@ export default function FiltrosGuia({
   initialEstado,
   initialTipo,
   initialEspecialidade,
+  estadosDisponiveis,
+  tiposDisponiveis,
 }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -89,10 +96,16 @@ export default function FiltrosGuia({
 
   const temFiltroAtivo = q || estado || tipo || especialidade
 
+  // So oferece UF/Tipo que tem pelo menos 1 loja hoje -- senao o clique
+  // sempre cai em "nenhuma loja encontrada" (auditoria 31/07/2026). O valor
+  // selecionado atualmente sempre aparece, mesmo que a lista mude embaixo.
+  const ufsVisiveis = UFS.filter(uf => estadosDisponiveis.includes(uf) || uf === estado)
+  const tiposVisiveis = TIPOS.filter(t => !t.value || tiposDisponiveis.includes(t.value) || t.value === tipo)
+
   return (
     <section style={S.wrap}>
       {/* Linha 1: busca + estado + botão */}
-      <div style={S.topRow}>
+      <div style={S.topRow} className="lojas-filtros-top">
         <div style={S.searchBlock}>
           <label style={S.label}>Buscar loja</label>
           <div style={S.searchWrap}>
@@ -117,20 +130,25 @@ export default function FiltrosGuia({
 
         <div style={S.estadoBlock}>
           <label style={S.label}>Estado</label>
-          <select
-            value={estado}
-            onChange={e => {
-              setEstado(e.target.value)
-              aplicar({ initialEstado: e.target.value })
-            }}
-            style={S.select}
-            disabled={pending}
-          >
-            <option value="">Todos</option>
-            {UFS.map(uf => (
-              <option key={uf} value={uf}>{uf}</option>
-            ))}
-          </select>
+          <div style={S.selectWrap}>
+            <select
+              value={estado}
+              onChange={e => {
+                setEstado(e.target.value)
+                aplicar({ initialEstado: e.target.value })
+              }}
+              style={S.select}
+              disabled={pending}
+            >
+              <option value="">Todos</option>
+              {ufsVisiveis.map(uf => (
+                <option key={uf} value={uf}>{uf}</option>
+              ))}
+            </select>
+            <span style={S.selectChevron}>
+              <IconChevronDown size={14} color="rgba(255,255,255,0.4)" />
+            </span>
+          </div>
         </div>
 
         <div style={S.actionBlock}>
@@ -149,7 +167,7 @@ export default function FiltrosGuia({
       <div style={S.chipsBlock}>
         <span style={S.chipsLabel}>Tipo</span>
         <div style={S.chipsList}>
-          {TIPOS.map(t => (
+          {tiposVisiveis.map(t => (
             <button
               key={t.value}
               type="button"
@@ -190,7 +208,7 @@ export default function FiltrosGuia({
       {/* Limpar filtros */}
       {temFiltroAtivo && (
         <button type="button" onClick={limpar} style={S.clearBtn} disabled={pending}>
-          ✕ Limpar filtros
+          <IconClose size={12} color="rgba(255,255,255,0.45)" /> Limpar filtros
         </button>
       )}
     </section>
@@ -257,11 +275,14 @@ const S: Record<string, CSSProperties> = {
     boxSizing: 'border-box',
   },
 
+  selectWrap: {
+    position: 'relative',
+  },
   select: {
     background: 'rgba(255,255,255,0.05)',
     border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: 10,
-    padding: '12px 14px',
+    padding: '12px 32px 12px 14px',
     color: '#f0f0f0',
     fontSize: 14,
     outline: 'none',
@@ -270,6 +291,15 @@ const S: Record<string, CSSProperties> = {
     boxSizing: 'border-box',
     cursor: 'pointer',
     appearance: 'none',
+  },
+  selectChevron: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    pointerEvents: 'none',
   },
 
   searchBtn: {
@@ -308,6 +338,9 @@ const S: Record<string, CSSProperties> = {
     fontSize: 12,
     fontWeight: 600,
     padding: '7px 14px',
+    minHeight: 44,
+    display: 'inline-flex',
+    alignItems: 'center',
     borderRadius: 8,
     background: 'rgba(255,255,255,0.04)',
     color: 'rgba(255,255,255,0.65)',
@@ -315,6 +348,7 @@ const S: Record<string, CSSProperties> = {
     cursor: 'pointer',
     fontFamily: 'inherit',
     transition: 'all 0.12s ease',
+    boxSizing: 'border-box',
   },
   chipActive: {
     background: 'rgba(245,158,11,0.15)',
@@ -331,6 +365,9 @@ const S: Record<string, CSSProperties> = {
     cursor: 'pointer',
     padding: 0,
     fontFamily: 'inherit',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
     alignSelf: 'flex-start',
   },
 }

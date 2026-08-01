@@ -112,3 +112,10 @@ body {
 @media (max-width: 768px) {
   .bx-gutter { padding-left: 16px !important; padding-right: 16px !important; }
 }
+
+/* Guia de lojas: busca/estado/botao empilham no mobile -- em 390px o grid de
+   3 colunas fixas sobrava so ~90px pra busca (36px de area de digitar de
+   verdade), auditoria 31/07/2026. */
+@media (max-width: 640px) {
+  .lojas-filtros-top { grid-template-columns: 1fr !important; }
+}

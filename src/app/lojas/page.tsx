@@ -128,7 +128,11 @@ export default async function LojasPage(
   let error: { message: string } | null = null
   try {
     const r = await getLojasAtivas()
-    todas = r.lojas
+    // A propria Bynx tem uma linha em `lojas` (plano premium, verificada) --
+    // sem isso ela aparecia como "loja destaque" ao lado de lojista de
+    // verdade, indistinguivel, o que parece autopromocao (auditoria 31/07/2026).
+    // Este e o guia de lojas DE TERCEIROS, a Bynx nao e uma delas.
+    todas = r.lojas.filter(l => l.slug !== 'bynx')
     avaliacoes = r.avaliacoes
   } catch (e: any) {
     console.error('[/lojas]', e?.message)
@@ -175,6 +179,16 @@ export default async function LojasPage(
   const totalResultados = lojas.length
   const temFiltro = !!(qParam || estadoParam || tipoParam || especialidadeParam)
 
+  // So oferece filtro de Estado/Tipo que tem loja de verdade hoje -- calculado
+  // sobre `todas` (nao filtrado), senao escolher um filtro escondia as outras
+  // opcoes tambem disponiveis (auditoria 31/07/2026).
+  const estadosDisponiveis = Array.from(
+    new Set(todas.map(l => (l.estado || '').toUpperCase()).filter(Boolean))
+  )
+  const tiposDisponiveis = Array.from(
+    new Set(todas.map(l => l.tipo).filter(Boolean) as string[])
+  )
+
   return (
     <div style={S.page}>
       <PublicHeader />
@@ -199,6 +213,8 @@ export default async function LojasPage(
         initialEstado={estadoParam}
         initialTipo={tipoParam}
         initialEspecialidade={especialidadeParam}
+        estadosDisponiveis={estadosDisponiveis}
+        tiposDisponiveis={tiposDisponiveis}
       />
 
       {/* ─── Resultados ─────────────────────────────────────────── */}
