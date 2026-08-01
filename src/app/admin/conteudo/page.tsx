@@ -302,6 +302,7 @@ export default function GestaoConteudo() {
   const prontos = fila.filter((f) => f.status === 'pronto')
   const rascunhos = fila.filter((f) => f.status === 'rascunho')
   const proximo = prontos[0] || null
+  const diaDaSemanaHoje = new Date().getDay()
 
   const carregar = useCallback(async () => {
     try {
@@ -530,6 +531,31 @@ export default function GestaoConteudo() {
               </button>
               <button style={miniBtn} onClick={abrirNovoRascunho}>+ novo rascunho</button>
             </span>
+          </div>
+
+          {/* Grade da semana — o "caminho do dia": qual pilar cai em cada dia, hoje destacado. */}
+          <div style={{ border: `1px solid ${BORD}`, borderRadius: 12, overflow: 'hidden', marginBottom: 16, display: 'flex' }}>
+            {GRADE.map((g, i) => {
+              const ehHoje = i === diaDaSemanaHoje
+              const nomePilar = { jornada: 'Jornada', utilidade: 'Utilidade', preco: 'Preço', novidade: 'Novidade', comunidade: 'Comunidade' }[g.pilar as keyof typeof P]
+              return (
+                <div key={g.dia} title={g.fmt} style={{
+                  flex: 1, padding: '9px 6px', textAlign: 'center',
+                  borderRight: i === GRADE.length - 1 ? 'none' : `1px solid ${BORD}`,
+                  background: ehHoje ? 'rgba(var(--ac-1-rgb),0.08)' : 'transparent',
+                }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase',
+                    color: ehHoje ? AC : TXT3, marginBottom: 5,
+                  }}>{g.dia.slice(0, 3)}</div>
+                  <span style={{
+                    display: 'inline-block', width: 7, height: 7, borderRadius: 999,
+                    background: P[g.pilar as keyof typeof P], marginBottom: 4,
+                  }} />
+                  <div style={{ fontSize: 10.5, color: ehHoje ? TXT : TXT3, lineHeight: 1.2 }}>{nomePilar}</div>
+                </div>
+              )
+            })}
           </div>
 
           {/* Próximo da fila */}
