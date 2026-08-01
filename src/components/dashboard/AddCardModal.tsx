@@ -325,7 +325,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         user_id: authData.user.id,
         pokemon_api_id: card.id,
         card_name: cardName,
-        card_id: card.number || card.id,
+        card_id: card.id,
         card_image: card.image_large || card.image_small || null,
         card_link: null,
         rarity: card.rarity || null,

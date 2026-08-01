@@ -18,6 +18,7 @@ interface ScannedCard {
   _preco?: number
   _fonte?: 'BRL' | 'USD' | null
   _matched?: boolean
+  _matchedId?: string | null
 }
 
 interface Props {
@@ -285,6 +286,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           _preco: valor,
           _fonte: fonte,
           _matched: !!matched,
+          _matchedId: matched?.id || null,
         }
       })
 
@@ -372,10 +374,17 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         if (imageUrl) updates.card_image = imageUrl
         await supabase.from('user_cards').update(updates).eq('id', existing.id)
       } else {
+        // card_id/pokemon_api_id usam o id real do catalogo quando o enrich
+        // achou a carta (card._matchedId) -- so cai pro numero impresso quando
+        // o Claude Vision leu uma carta que a Bynx nao tem casada (raro, mas
+        // aí nao ha id nenhum pra usar). Gravar so o numero quebrava o vinculo
+        // com pokemon_cards pra toda carta adicionada por scan (achado em
+        // auditoria 01/08/2026 -- via bug identico no AddCardModal/Pokedex).
         await supabase.from('user_cards').insert({
           user_id: user.id,
           card_name: cardName,
-          card_id: card.number || null,
+          card_id: card._matchedId || card.number || null,
+          pokemon_api_id: card._matchedId || null,
           set_name: card.set || null,
           variante: 'normal',
           quantity: 1,

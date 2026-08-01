@@ -303,7 +303,7 @@ export default function Pokedex() {
     const variante = card._variante || selectedVariante || 'normal'
     const { error } = await supabase.from('user_cards').insert({
       user_id: userId, pokemon_api_id: card.id,
-      card_name: card.name, card_id: card.number,
+      card_name: card.name, card_id: card.id,
       card_image: card.image_small, set_name: card.set_name,
       rarity: card.rarity, variante, quantity: 1,
     })
