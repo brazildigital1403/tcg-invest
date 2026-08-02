@@ -137,11 +137,12 @@ export default async function LojasPage(
   let error: { message: string } | null = null
   try {
     const r = await getLojasAtivas()
-    // A propria Bynx tem uma linha em `lojas` (plano premium, verificada) --
-    // sem isso ela aparecia como "loja destaque" ao lado de lojista de
-    // verdade, indistinguivel, o que parece autopromocao (auditoria 31/07/2026).
-    // Este e o guia de lojas DE TERCEIROS, a Bynx nao e uma delas.
-    todas = r.lojas.filter(l => l.slug !== 'bynx')
+    // A propria Bynx tem uma linha em `lojas` (plano premium, verificada).
+    // Decisao do Du (02/08/2026): ela entra na listagem normal, no meio das
+    // lojas de terceiros -- so nao pode aparecer no carrossel de Destaque
+    // (ve premiumLojas embaixo), que era o que parecia autopromocao
+    // (auditoria 31/07/2026).
+    todas = r.lojas
     avaliacoes = r.avaliacoes
   } catch (e: any) {
     console.error('[/lojas]', e?.message)
@@ -171,8 +172,10 @@ export default async function LojasPage(
   })
 
   // Destaque Premium: separa as lojas premium + monta a nota do dono a partir
-  // das avaliacoes que ja vieram no mesmo cache.
-  const premiumLojas = lojas.filter(l => l.plano === 'premium')
+  // das avaliacoes que ja vieram no mesmo cache. Bynx fica de fora do
+  // destaque de proposito (decisao do Du, 02/08/2026) -- ela aparece na
+  // grade normal ali embaixo, igual a qualquer outra loja.
+  const premiumLojas = lojas.filter(l => l.plano === 'premium' && l.slug !== 'bynx')
   const ratingMap: Record<string, { media: number; total: number }> = {}
   const acc: Record<string, number[]> = {}
   for (const a of avaliacoes) {
