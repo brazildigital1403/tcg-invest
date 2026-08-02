@@ -2,7 +2,7 @@ import { authFetch } from './authFetch'
 import { supabase } from '@/lib/supabaseClient'
 
 /**
- * Helpers de upload de fotos e logo de loja.
+ * Helpers de upload de fotos, logo e capa de loja.
  *
  * Fotos da galeria (array `fotos[]` da loja):
  *   - uploadFotoLoja(lojaId, file)   → POST /api/lojas/[id]/upload-foto
@@ -12,9 +12,16 @@ import { supabase } from '@/lib/supabaseClient'
  *   - uploadLogoLoja(lojaId, file)   → POST /api/lojas/[id]/logo
  *   - deletarLogoLoja(lojaId)        → DELETE /api/lojas/[id]/logo
  *
+ * Capa (campo `capa_url` único da loja, banner do topo de /lojas/[slug]):
+ *   - uploadCapaLoja(lojaId, file)   → POST /api/lojas/[id]/capa
+ *   - deletarCapaLoja(lojaId)        → DELETE /api/lojas/[id]/capa
+ *
  * Compressão client-side:
  *   - Fotos: 1600px max, WebP 0.85
  *   - Logo:  400px quadrado (crop centralizado), WebP 0.9
+ *   - Capa:  mesmo tratamento da galeria (1600px max, sem corte) -- o corte
+ *     pra caber no banner e feito por CSS (background-size:cover) na exibicao,
+ *     assim aceita qualquer proporcao que o lojista mandar.
  */
 
 const MIMES_OK   = ['image/jpeg', 'image/png', 'image/webp'] as const
@@ -35,6 +42,10 @@ export interface UploadFotoResult {
 }
 
 export interface UploadLogoResult {
+  url: string
+}
+
+export interface UploadCapaResult {
   url: string
 }
 
@@ -244,4 +255,46 @@ export async function deletarLogoLoja(lojaId: string): Promise<void> {
 
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data?.error || 'Erro ao remover logo. Tente novamente.')
+}
+
+// ─── Capa da loja ───────────────────────────────────────────────────────────
+
+/**
+ * Faz upload da capa da loja (banner do topo de /lojas/[slug]).
+ *
+ * Comportamento:
+ *   - Sem corte no upload (preserva a proporção original, so comprime)
+ *   - Substitui a capa anterior (se houver) — servidor apaga a antiga do bucket
+ */
+export async function uploadCapaLoja(lojaId: string, file: File): Promise<UploadCapaResult> {
+  validateFile(file)
+  const blob = await compressToWebP(file, FOTO_MAX_DIMENSION, FOTO_QUALITY)
+  if (blob.size > TAMANHO_MAX_OUTPUT) {
+    throw new Error('Não foi possível comprimir a capa o suficiente. Tente uma imagem menor.')
+  }
+
+  const formData = new FormData()
+  formData.append('file', blob, 'capa.webp')
+
+  const res = await authFetch(`/api/lojas/${lojaId}/capa`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data?.error || 'Erro ao enviar capa. Tente novamente.')
+
+  return { url: data.url }
+}
+
+/**
+ * Remove a capa da loja (limpa capa_url e apaga arquivo do bucket).
+ */
+export async function deletarCapaLoja(lojaId: string): Promise<void> {
+  const res = await authFetch(`/api/lojas/${lojaId}/capa`, {
+    method: 'DELETE',
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data?.error || 'Erro ao remover capa. Tente novamente.')
 }

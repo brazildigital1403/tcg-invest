@@ -10,7 +10,7 @@ import TrackedLink from '@/components/lojas/TrackedLink'
 import TrackViewLoja from '@/components/lojas/TrackViewLoja'
 import AnunciosLoja from '@/components/lojas/AnunciosLoja'
 import ReputacaoCard from '@/components/ui/ReputacaoCard'
-import { IconLocation } from '@/components/ui/Icons'
+import { IconLocation, IconInstagram, IconFacebook, IconGlobe, IconWhatsApp, IconPokeball } from '@/components/ui/Icons'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -51,10 +51,18 @@ interface Loja {
   plano: 'basico' | 'pro' | 'premium' | null
   verificada: boolean | null
   logo_url: string | null
+  capa_url: string | null
   fotos: string[] | null
+  owner_user_id: string | null
+  connect_charges_enabled: boolean | null
   // eventos: campo jsonb legado (dormente). Eventos agora vêm da tabela loja_eventos.
   meta_title: string | null
   meta_description: string | null
+}
+
+interface Rating {
+  media: number
+  total: number
 }
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
@@ -86,6 +94,24 @@ async function buscarLoja(slug: string): Promise<Loja | null> {
   return (data?.[0] as Loja) || null
 }
 
+/**
+ * Nota media do dono da loja -- mesma query/logica do card de Destaque em
+ * /lojas (avaliacoes.avaliado_id = owner_user_id). So pra pintar o selo
+ * inline no cabecalho; falha aqui nao pode derrubar a pagina (best effort).
+ */
+async function buscarRating(ownerUserId: string | null): Promise<Rating | null> {
+  if (!ownerUserId) return null
+  const { data } = await supabase
+    .from('avaliacoes')
+    .select('estrelas')
+    .eq('avaliado_id', ownerUserId)
+  const estrelas = (data || [])
+    .map((a: { estrelas: number | null }) => a.estrelas)
+    .filter((n: number | null): n is number => typeof n === 'number')
+  if (estrelas.length === 0) return null
+  return { media: estrelas.reduce((s, v) => s + v, 0) / estrelas.length, total: estrelas.length }
+}
+
 // ─── SEO dinâmico ─────────────────────────────────────────────────────────────
 
 export async function generateMetadata(
@@ -107,6 +133,8 @@ export async function generateMetadata(
     loja.descricao ||
     `Loja de TCG${localizacao ? ` em ${localizacao}` : ''}. Confira produtos, contato e endereço no Guia de Lojas da Bynx.`
 
+  const imagemOg = loja.capa_url || loja.logo_url
+
   return {
     title,
     description,
@@ -114,7 +142,7 @@ export async function generateMetadata(
       title,
       description,
       type: 'website',
-      images: loja.logo_url ? [{ url: loja.logo_url, alt: nome }] : [],
+      images: imagemOg ? [{ url: imagemOg, alt: nome }] : [],
     },
     twitter: {
       card: 'summary_large_image',
@@ -202,6 +230,16 @@ async function buscarEventos(lojaId: string): Promise<Evento[]> {
   return relevantes
 }
 
+function Estrelas({ media }: { media: number }) {
+  const cheias = Math.round(media)
+  return (
+    <span style={{ color: 'var(--ac-1)', letterSpacing: 1, fontSize: 13 }} aria-hidden="true">
+      {'★'.repeat(cheias)}
+      <span style={{ color: 'var(--bx-text-faint)' }}>{'★'.repeat(5 - cheias)}</span>
+    </span>
+  )
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default async function LojaPage(
@@ -217,6 +255,7 @@ export default async function LojaPage(
   const especialidades = loja.especialidades || []
   const fotos          = loja.fotos || []
   const eventos        = await buscarEventos(loja.id)
+  const rating         = await buscarRating(loja.owner_user_id)
   const cidade         = loja.cidade || ''
   const estado         = loja.estado || ''
   const tipo           = loja.tipo || 'online'
@@ -237,125 +276,188 @@ export default async function LojaPage(
   // Limite de fotos por plano
   const fotosVisiveis = fotos.slice(0, isPremium ? 10 : 5)
 
+  const temSobre      = !!loja.descricao
+  const temContato    = !!(instagramUrl || facebookUrl || websiteUrl)
+  const temEndereco   = !!loja.endereco && (tipo === 'fisica' || tipo === 'ambas')
+  const temFotos      = fotosVisiveis.length > 0 && (isPremium || isPro)
+  const temAvaliacoes = !!rating
+  const temEventos    = isPremium && eventos.length > 0
+
+  // Nav rápida sticky -- só entra pra secao que realmente vai renderizar,
+  // senao o link cai num alvo vazio.
+  const quicknav: { id: string; label: string }[] = []
+  if (temSobre)      quicknav.push({ id: 'sobre', label: 'Sobre' })
+  if (temContato)    quicknav.push({ id: 'onde-encontrar', label: 'Onde encontrar' })
+  if (temEndereco)   quicknav.push({ id: 'endereco', label: 'Endereço' })
+  if (temFotos)      quicknav.push({ id: 'fotos', label: 'Fotos' })
+  if (temAvaliacoes) quicknav.push({ id: 'avaliacoes', label: 'Avaliações' })
+  if (temEventos)    quicknav.push({ id: 'eventos', label: 'Eventos' })
+
   return (
     <div style={S.page}>
       <PublicHeader />
-      <TrackViewLoja lojaId={loja.id} ownerUserId={(loja as { owner_user_id?: string | null }).owner_user_id ?? null} />
+      <TrackViewLoja lojaId={loja.id} ownerUserId={loja.owner_user_id} />
       <div style={{ height: 62 }} />
 
-      {/* ─── Hero da loja ─────────────────────────────────────── */}
-      <section style={{ ...S.heroWrap, ...(isPremium ? S.heroWrapPremium : {}) }}>
-        <div style={S.heroInner}>
-          {/* Logo */}
-          {loja.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={loja.logo_url} alt={nome} style={S.heroLogo} />
-          ) : (
-            <div style={S.heroLogoFallback}>{inicial}</div>
-          )}
+      <div className="bx-gutter" style={S.breadcrumb}>
+        <Link href="/lojas" style={S.breadcrumbLink}>Guia de Lojas</Link>
+        <span style={S.breadcrumbSep}>/</span>
+        <span style={S.breadcrumbAtual}>{nome}</span>
+      </div>
 
-          <div style={S.heroInfo}>
-            <div style={S.nameRow}>
-              <h1 style={S.heroName}>{nome}</h1>
-              {loja.verificada && (
-                <span style={S.verifiedBadge} title="Loja verificada pela Bynx">
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <path d="M4 10l4.5 4.5L16 6" stroke="#1877F2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
-              )}
-              {isPremium && <span style={S.planoPremium}>Premium</span>}
-              {isPro && <span style={S.planoPro}>Pro</span>}
-            </div>
-
-            {localizacao && (
-              <p style={S.heroLocation}>
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true" style={{ marginRight: 4, verticalAlign: -2 }}>
-                  <path d="M10 18s-6-5-6-10a6 6 0 1112 0c0 5-6 10-6 10z" stroke="rgba(255,255,255,0.55)" strokeWidth="1.4" strokeLinejoin="round"/>
-                  <circle cx="10" cy="8" r="2" stroke="rgba(255,255,255,0.55)" strokeWidth="1.4"/>
-                </svg>
-                {localizacao}
-              </p>
-            )}
-
-            <div style={S.chipsRow}>
-              <span style={S.typeChip}>{TIPO_LABEL[tipo] || tipo}</span>
-              {especialidades.map(esp => (
-                <span key={esp} style={S.chip}>
-                  {ESPECIALIDADE_LABEL[esp] || capitalize(esp)}
-                </span>
-              ))}
-            </div>
+      {/* ─── Capa ───────────────────────────────────────────────── */}
+      <section className="loja-cover" style={S.cover}>
+        {loja.capa_url ? (
+          <div style={{ ...S.coverImg, backgroundImage: `url(${loja.capa_url})` }} />
+        ) : (
+          <div style={S.coverFallback}>
+            <IconPokeball size={340} color="var(--ac-1)" strokeWidth={0.6} style={S.coverPokeball} />
           </div>
-        </div>
+        )}
+        <div style={S.coverFade} />
       </section>
 
+      {/* ─── Identidade (sobrepõe a capa) ──────────────────────── */}
+      <div className="bx-gutter" style={S.headerblock}>
+        <div className="loja-hb-row">
+          {loja.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={loja.logo_url} alt={nome} className="loja-logo" style={S.logo} />
+          ) : (
+            <div className="loja-logo loja-logo-fb" style={S.logoFallback}>{inicial}</div>
+          )}
+
+          <div className="loja-hb-actions" style={S.hbActions}>
+            {instagramUrl && (
+              <TrackedLink lojaId={loja.id} tipo="instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" style={S.iconBtn} title="Instagram">
+                <IconInstagram size={17} color="var(--bx-text-2)" />
+              </TrackedLink>
+            )}
+            {websiteUrl && (
+              <TrackedLink lojaId={loja.id} tipo="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" style={S.iconBtn} title="Site">
+                <IconGlobe size={17} color="var(--bx-text-2)" />
+              </TrackedLink>
+            )}
+            {whatsappLink && (
+              <TrackedLink lojaId={loja.id} tipo="whatsapp" href={whatsappLink} target="_blank" rel="noopener noreferrer" style={S.waBtn}>
+                <IconWhatsApp size={16} color="var(--bx-brand-ink)" style={{ marginRight: 8 }} />
+                Falar no WhatsApp
+              </TrackedLink>
+            )}
+          </div>
+        </div>
+
+        <div style={S.hbInfo}>
+          <div style={S.nameRow}>
+            <h1 style={S.heroName}>{nome}</h1>
+            {loja.verificada && (
+              <span style={S.verifiedBadge} title="Loja verificada pela Bynx">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M4 10l4.5 4.5L16 6" stroke="#1877F2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
+            )}
+            {isPremium && <span style={S.planoPremium}>Premium</span>}
+            {isPro && <span style={S.planoPro}>Pro</span>}
+          </div>
+
+          <div style={S.metaRow}>
+            {rating ? (
+              <span style={S.ratingPill}>
+                <Estrelas media={rating.media} /> {rating.media.toFixed(1).replace('.', ',')}
+                <span style={S.ratingCount}>({rating.total})</span>
+              </span>
+            ) : (
+              <span style={S.novoBadge}>Novo na Bynx</span>
+            )}
+            {localizacao && (
+              <span style={S.heroLocation}>
+                <IconLocation size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />
+                {localizacao}
+              </span>
+            )}
+          </div>
+
+          <div style={S.chipsRow}>
+            <span style={S.typeChip}>{TIPO_LABEL[tipo] || tipo}</span>
+            {especialidades.map(esp => (
+              <span key={esp} style={S.chip}>
+                {ESPECIALIDADE_LABEL[esp] || capitalize(esp)}
+              </span>
+            ))}
+          </div>
+
+          <div className="loja-mobile-actions" style={S.mobileActions}>
+            {whatsappLink && (
+              <TrackedLink lojaId={loja.id} tipo="whatsapp" href={whatsappLink} target="_blank" rel="noopener noreferrer" style={{ ...S.waBtn, flex: 1, justifyContent: 'center' }}>
+                <IconWhatsApp size={16} color="var(--bx-brand-ink)" style={{ marginRight: 8 }} />
+                Falar no WhatsApp
+              </TrackedLink>
+            )}
+            {instagramUrl && (
+              <TrackedLink lojaId={loja.id} tipo="instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" style={S.iconBtn} title="Instagram">
+                <IconInstagram size={17} color="var(--bx-text-2)" />
+              </TrackedLink>
+            )}
+            {websiteUrl && (
+              <TrackedLink lojaId={loja.id} tipo="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" style={S.iconBtn} title="Site">
+                <IconGlobe size={17} color="var(--bx-text-2)" />
+              </TrackedLink>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Nav rápida ─────────────────────────────────────────── */}
+      {quicknav.length > 1 && (
+        <nav className="bx-gutter loja-quicknav" style={S.quicknav}>
+          {quicknav.map(item => (
+            <a key={item.id} href={`#${item.id}`} style={S.quicknavLink}>{item.label}</a>
+          ))}
+        </nav>
+      )}
+
       <main style={S.main}>
-        {/* ─── CTA WhatsApp ───────────────────────────────────── */}
-        {whatsappLink && (
-          <TrackedLink
-            lojaId={loja.id}
-            tipo="whatsapp"
-            href={whatsappLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={S.waBtn}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ marginRight: 8 }}>
-              <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2 22l5.26-1.38c1.45.79 3.08 1.21 4.75 1.21h.03c5.46 0 9.91-4.45 9.91-9.92 0-2.65-1.03-5.14-2.9-7.01A9.85 9.85 0 0012.04 2zm0 18.14h-.03c-1.49 0-2.96-.4-4.24-1.16l-.3-.18-3.14.82.84-3.05-.2-.32a8.22 8.22 0 01-1.26-4.34c0-4.54 3.7-8.23 8.24-8.23 2.2 0 4.27.86 5.83 2.41a8.2 8.2 0 012.41 5.82c0 4.55-3.7 8.23-8.22 8.23z"/>
-              <path d="M16.56 14.29c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.79.97-.15.17-.29.18-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.15.17-.25.25-.42.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.41-.56-.42h-.48c-.17 0-.43.06-.66.31-.23.25-.87.85-.87 2.07 0 1.22.89 2.4 1.01 2.57.12.17 1.76 2.68 4.26 3.76.59.26 1.06.41 1.42.52.6.19 1.14.16 1.57.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.15-1.18-.06-.1-.23-.17-.48-.29z"/>
-            </svg>
-            Falar no WhatsApp
-          </TrackedLink>
-        )}
-
-        {/* ─── Descrição ──────────────────────────────────────── */}
-        {loja.descricao && (
-          <section style={S.card}>
-            <h2 style={S.sectionTitle}>Sobre a loja</h2>
-            <p style={S.descricao}>{loja.descricao}</p>
-          </section>
-        )}
-
-        {/* ─── Contatos / Redes sociais ──────────────────────── */}
-        {(instagramUrl || facebookUrl || websiteUrl) && (
-          <section style={S.card}>
-            <h2 style={S.sectionTitle}>Onde encontrar</h2>
-            <div style={S.socialGrid}>
-              {instagramUrl && (
-                <TrackedLink lojaId={loja.id} tipo="instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <rect x="3" y="3" width="14" height="14" rx="4" stroke="currentColor" strokeWidth="1.4"/>
-                    <circle cx="10" cy="10" r="3.2" stroke="currentColor" strokeWidth="1.4"/>
-                    <circle cx="14.2" cy="5.8" r="0.8" fill="currentColor"/>
-                  </svg>
-                  <span>Instagram</span>
-                </TrackedLink>
-              )}
-              {facebookUrl && (
-                <TrackedLink lojaId={loja.id} tipo="facebook" href={facebookUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <path d="M12 7V5.3C12 4.6 12.2 4 13 4h1.5V1.5h-2C10.5 1.5 9 3 9 5v2H7v3h2v8h3v-8h2.2l.3-3H12z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                  </svg>
-                  <span>Facebook</span>
-                </TrackedLink>
-              )}
-              {websiteUrl && (
-                <TrackedLink lojaId={loja.id} tipo="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4"/>
-                    <path d="M3 10h14M10 3c2 2.5 3 5 3 7s-1 4.5-3 7c-2-2.5-3-5-3-7s1-4.5 3-7z" stroke="currentColor" strokeWidth="1.4"/>
-                  </svg>
-                  <span>Website</span>
-                </TrackedLink>
-              )}
-            </div>
-          </section>
+        {/* ─── Sobre + Onde encontrar ─────────────────────────── */}
+        {(temSobre || temContato) && (
+          <div className={temSobre && temContato ? 'loja-cols' : undefined}>
+            {temSobre && (
+              <section id="sobre" style={S.card}>
+                <h2 style={S.sectionTitle}>Sobre a loja</h2>
+                <p style={S.descricao}>{loja.descricao}</p>
+              </section>
+            )}
+            {temContato && (
+              <section id="onde-encontrar" style={S.card}>
+                <h2 style={S.sectionTitle}>Onde encontrar</h2>
+                <div style={S.socialGrid}>
+                  {instagramUrl && (
+                    <TrackedLink lojaId={loja.id} tipo="instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
+                      <IconInstagram size={18} />
+                      <span>Instagram</span>
+                    </TrackedLink>
+                  )}
+                  {facebookUrl && (
+                    <TrackedLink lojaId={loja.id} tipo="facebook" href={facebookUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
+                      <IconFacebook size={18} />
+                      <span>Facebook</span>
+                    </TrackedLink>
+                  )}
+                  {websiteUrl && (
+                    <TrackedLink lojaId={loja.id} tipo="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
+                      <IconGlobe size={18} />
+                      <span>Website</span>
+                    </TrackedLink>
+                  )}
+                </div>
+              </section>
+            )}
+          </div>
         )}
 
         {/* ─── Endereço físico ───────────────────────────────── */}
-        {loja.endereco && (tipo === 'fisica' || tipo === 'ambas') && (
-          <section style={S.card}>
+        {temEndereco && (
+          <section id="endereco" style={S.card}>
             <h2 style={S.sectionTitle}>Endereço</h2>
             <p style={S.endereco}>{loja.endereco}</p>
             {localizacao && <p style={S.enderecoCidade}>{localizacao}</p>}
@@ -368,23 +470,25 @@ export default async function LojaPage(
         )}
 
         {/* ─── Fotos (Pro/Premium) — com lightbox ───────────── */}
-        {fotosVisiveis.length > 0 && (isPremium || isPro) && (
-          <section style={S.card}>
+        {temFotos && (
+          <section id="fotos" style={S.card}>
             <h2 style={S.sectionTitle}>Fotos</h2>
             <GaleriaFotos fotos={fotosVisiveis} nomeLoja={nome} />
           </section>
         )}
 
         {/* Anuncios do dono (marketplace) */}
-        <AnunciosLoja ownerUserId={(loja as { owner_user_id?: string | null }).owner_user_id ?? null} lojaId={loja.id} podeVender={!!(loja as { connect_charges_enabled?: boolean }).connect_charges_enabled} />
+        <AnunciosLoja ownerUserId={loja.owner_user_id} lojaId={loja.id} podeVender={!!loja.connect_charges_enabled} />
 
-        {(loja as { owner_user_id?: string | null }).owner_user_id && (
-          <ReputacaoCard userId={(loja as { owner_user_id?: string | null }).owner_user_id as string} titulo="Avaliações da loja" esconderSeVazio />
+        {temAvaliacoes && (
+          <div id="avaliacoes" style={S.scrollAnchor}>
+            <ReputacaoCard userId={loja.owner_user_id as string} titulo="Avaliações da loja" esconderSeVazio />
+          </div>
         )}
 
         {/* ─── Eventos (Premium only) ────────────────────────── */}
-        {isPremium && eventos.length > 0 && (
-          <section style={S.card}>
+        {temEventos && (
+          <section id="eventos" style={S.card}>
             <h2 style={S.sectionTitle}>Eventos e torneios</h2>
             <div style={S.eventosList}>
               {eventos.map((evento) => (
@@ -427,75 +531,144 @@ export default async function LojaPage(
 const S: Record<string, CSSProperties> = {
   page: {
     minHeight: '100vh',
-    background: '#080a0f',
-    color: '#f0f0f0',
+    background: 'var(--bx-bg)',
+    color: 'var(--bx-text)',
     fontFamily: "'DM Sans', system-ui, sans-serif",
     display: 'flex',
     flexDirection: 'column',
   },
 
-  heroWrap: {
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
-    padding: '48px 24px 40px',
+  breadcrumb: {
+    maxWidth: 1000,
+    margin: '14px auto 0',
+    fontSize: 12.5,
+    color: 'var(--bx-text-3)',
   },
-  heroWrapPremium: {
-    background: 'linear-gradient(180deg, rgba(245,158,11,0.06), rgba(8,10,15,0) 60%)',
+  breadcrumbLink: { color: 'var(--bx-text-3)', textDecoration: 'none' },
+  breadcrumbSep: { margin: '0 6px' },
+  breadcrumbAtual: { color: 'var(--bx-text-2)', fontWeight: 600 },
+
+  // ─── Capa ─── (altura varia por breakpoint: classe .loja-cover no globals.css)
+  cover: {
+    position: 'relative',
+    marginTop: 12,
+    overflow: 'hidden',
+    background: 'var(--bx-surface)',
   },
-  heroInner: {
-    maxWidth: 900,
+  coverImg: {
+    position: 'absolute',
+    inset: 0,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  },
+  coverFallback: {
+    position: 'absolute',
+    inset: 0,
+    background:
+      'radial-gradient(120% 140% at 8% 15%, rgba(245,158,11,0.16), transparent 55%),' +
+      'radial-gradient(120% 140% at 95% 100%, rgba(239,68,68,0.14), transparent 55%),' +
+      'var(--bx-surface)',
+    overflow: 'hidden',
+  },
+  coverPokeball: {
+    position: 'absolute',
+    right: -40,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    opacity: 0.06,
+  },
+  coverFade: {
+    position: 'absolute',
+    inset: 0,
+    background: 'linear-gradient(180deg, transparent 35%, var(--bx-bg) 100%)',
+  },
+
+  // ─── Identidade ───
+  headerblock: {
+    maxWidth: 1000,
     margin: '0 auto',
-    display: 'flex',
-    gap: 24,
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
+    position: 'relative',
+    zIndex: 2,
   },
-  heroLogo: {
-    width: 96,
-    height: 96,
-    borderRadius: 18,
+  // hbRow: display/align-items/gap/margin-top vivem na classe .loja-hb-row
+  // (margin-top e align-items mudam no mobile) -- sem inline aqui de proposito.
+
+  // logo/logoFallback: width/height/border-radius/border/font-size vivem nas
+  // classes .loja-logo/.loja-logo-fb (tamanho muda no mobile).
+  logo: {
     objectFit: 'cover',
-    background: 'rgba(255,255,255,0.05)',
+    background: 'var(--bx-surface-2)',
     flexShrink: 0,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
   },
-  heroLogoFallback: {
-    width: 96,
-    height: 96,
-    borderRadius: 18,
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    color: '#000',
+  logoFallback: {
+    background: 'var(--ac-grad)',
+    color: 'var(--bx-brand-ink)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 44,
     fontWeight: 800,
     flexShrink: 0,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
   },
-  heroInfo: {
-    flex: 1,
-    minWidth: 260,
+  hbActions: {
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 'auto',
+    paddingBottom: 10,
+  },
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    background: 'var(--bx-surface-2)',
+    border: '1px solid var(--bx-border-2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  waBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'var(--ac-grad)',
+    color: 'var(--bx-brand-ink)',
+    fontSize: 14,
+    fontWeight: 800,
+    height: 38,
+    padding: '0 20px',
+    borderRadius: 10,
+    textDecoration: 'none',
+    letterSpacing: '-0.01em',
+    whiteSpace: 'nowrap',
+  },
+
+  hbInfo: {
+    padding: '14px 0 22px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
+    gap: 4,
   },
   nameRow: {
     display: 'flex',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 9,
   },
   heroName: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: 800,
     letterSpacing: '-0.02em',
     margin: 0,
-    color: '#f0f0f0',
+    color: 'var(--bx-text)',
   },
   verifiedBadge: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: '50%',
     background: 'rgba(24,119,242,0.15)',
     border: '1px solid rgba(24,119,242,0.3)',
@@ -508,8 +681,8 @@ const S: Record<string, CSSProperties> = {
     textTransform: 'uppercase',
     padding: '4px 8px',
     borderRadius: 6,
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    color: '#000',
+    background: 'var(--ac-grad)',
+    color: 'var(--bx-brand-ink)',
   },
   planoPro: {
     fontSize: 10,
@@ -519,20 +692,46 @@ const S: Record<string, CSSProperties> = {
     padding: '4px 8px',
     borderRadius: 6,
     background: 'rgba(245,158,11,0.15)',
-    color: '#f59e0b',
+    color: 'var(--ac-1)',
     border: '1px solid rgba(245,158,11,0.25)',
   },
+
+  metaRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    flexWrap: 'wrap',
+    marginTop: 8,
+    fontSize: 13.5,
+  },
+  ratingPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    fontWeight: 700,
+    color: 'var(--bx-text)',
+  },
+  ratingCount: { color: 'var(--bx-text-3)', fontWeight: 500 },
+  novoBadge: {
+    fontSize: 11,
+    fontWeight: 700,
+    background: 'rgba(96,165,250,0.12)',
+    color: 'var(--bx-blue)',
+    border: '1px solid rgba(96,165,250,0.25)',
+    padding: '3px 9px',
+    borderRadius: 100,
+  },
   heroLocation: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.55)',
-    margin: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    color: 'var(--bx-text-3)',
   },
 
   chipsRow: {
     display: 'flex',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 4,
+    marginTop: 10,
   },
   typeChip: {
     fontSize: 11,
@@ -540,7 +739,7 @@ const S: Record<string, CSSProperties> = {
     padding: '4px 10px',
     borderRadius: 6,
     background: 'rgba(96,165,250,0.1)',
-    color: '#60a5fa',
+    color: 'var(--bx-blue)',
     border: '1px solid rgba(96,165,250,0.2)',
   },
   chip: {
@@ -548,96 +747,118 @@ const S: Record<string, CSSProperties> = {
     fontWeight: 500,
     padding: '4px 10px',
     borderRadius: 6,
-    background: 'rgba(255,255,255,0.04)',
-    color: 'rgba(255,255,255,0.6)',
-    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'var(--bx-surface-2)',
+    color: 'var(--bx-text-2)',
+    border: '1px solid var(--bx-border)',
+  },
+
+  // display vive na classe .loja-mobile-actions (flex so no mobile)
+  mobileActions: {
+    gap: 8,
+    marginTop: 16,
+  },
+
+  // ─── Nav rápida ───
+  quicknav: {
+    position: 'sticky',
+    top: 62,
+    zIndex: 20,
+    display: 'flex',
+    gap: 22,
+    padding: '12px 24px',
+    background: 'rgba(8,10,15,0.92)',
+    backdropFilter: 'blur(8px)',
+    borderTop: '1px solid var(--bx-border)',
+    borderBottom: '1px solid var(--bx-border)',
+    fontSize: 13,
+    fontWeight: 600,
+    maxWidth: 1000,
+    margin: '0 auto',
+    boxSizing: 'border-box',
+    overflowX: 'auto',
+  },
+  quicknavLink: {
+    color: 'var(--bx-text-3)',
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
   },
 
   main: {
-    maxWidth: 900,
+    maxWidth: 1000,
     margin: '0 auto',
-    padding: '32px 24px 48px',
+    padding: '24px 24px 48px',
     width: '100%',
     boxSizing: 'border-box',
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: 16,
+    gap: 14,
   },
-
-  waBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    color: '#000',
-    fontSize: 15,
-    fontWeight: 700,
-    padding: '14px 28px',
-    borderRadius: 12,
-    textDecoration: 'none',
-    letterSpacing: '-0.01em',
+  // cols: display/grid-template-columns/gap vivem na classe .loja-cols
+  // (1 coluna no mobile) -- sem inline aqui de proposito.
+  scrollAnchor: {
+    scrollMarginTop: 120,
   },
 
   card: {
-    background: '#0d0f14',
-    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'var(--bx-surface)',
+    border: '1px solid var(--bx-border)',
     borderRadius: 16,
-    padding: 24,
+    padding: 22,
+    scrollMarginTop: 120,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 700,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'var(--bx-text-3)',
     textTransform: 'uppercase',
     letterSpacing: '0.07em',
     margin: '0 0 14px',
   },
 
   descricao: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.75)',
+    fontSize: 14.5,
+    color: 'var(--bx-text-2)',
     lineHeight: 1.7,
     margin: 0,
     whiteSpace: 'pre-line',
   },
 
   socialGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-    gap: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
   },
   socialLink: {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'var(--bx-surface-2)',
+    border: '1px solid var(--bx-border)',
     borderRadius: 10,
-    padding: '12px 14px',
-    color: 'rgba(255,255,255,0.75)',
+    padding: '11px 14px',
+    color: 'var(--bx-text-2)',
     textDecoration: 'none',
-    fontSize: 14,
-    fontWeight: 500,
-    transition: 'all 0.12s ease',
+    fontSize: 13.5,
+    fontWeight: 600,
+    transition: 'all 0.15s ease',
   },
 
   endereco: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.75)',
+    color: 'var(--bx-text-2)',
     margin: 0,
     lineHeight: 1.5,
   },
   enderecoCidade: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'var(--bx-text-3)',
     margin: '4px 0 0',
   },
   mapsLink: {
     display: 'inline-block',
     marginTop: 12,
-    color: '#f59e0b',
+    color: 'var(--ac-1)',
     fontSize: 14,
     fontWeight: 600,
     textDecoration: 'none',
@@ -649,26 +870,26 @@ const S: Record<string, CSSProperties> = {
     gap: 12,
   },
   eventoCard: {
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.06)',
+    background: 'var(--bx-surface-2)',
+    border: '1px solid var(--bx-border)',
     borderRadius: 10,
     padding: '14px 16px',
   },
   eventoTitulo: {
     fontSize: 15,
     fontWeight: 700,
-    color: '#f0f0f0',
+    color: 'var(--bx-text)',
     margin: '0 0 4px',
   },
   eventoData: {
     fontSize: 12,
-    color: '#f59e0b',
+    color: 'var(--ac-1)',
     fontWeight: 600,
     margin: '0 0 6px',
   },
   eventoDescricao: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
+    color: 'var(--bx-text-2)',
     lineHeight: 1.5,
     margin: 0,
   },
@@ -676,7 +897,7 @@ const S: Record<string, CSSProperties> = {
     display: 'inline-block',
     marginTop: 8,
     fontSize: 13,
-    color: '#f59e0b',
+    color: 'var(--ac-1)',
     fontWeight: 600,
     textDecoration: 'none',
   },
@@ -694,7 +915,7 @@ const S: Record<string, CSSProperties> = {
     fontWeight: 800,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-    color: '#f59e0b',
+    color: 'var(--ac-1)',
     background: 'rgba(245,158,11,0.12)',
     border: '1px solid rgba(245,158,11,0.3)',
     padding: '2px 8px',
@@ -703,7 +924,7 @@ const S: Record<string, CSSProperties> = {
   },
   eventoLocal: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.55)',
+    color: 'var(--bx-text-2)',
     margin: '0 0 6px',
   },
 
@@ -711,7 +932,7 @@ const S: Record<string, CSSProperties> = {
     marginTop: 8,
   },
   backLink: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'var(--bx-text-3)',
     fontSize: 14,
     textDecoration: 'none',
     fontWeight: 500,
