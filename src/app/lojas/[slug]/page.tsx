@@ -539,7 +539,9 @@ const S: Record<string, CSSProperties> = {
   },
 
   breadcrumb: {
-    maxWidth: 1000,
+    maxWidth: 1200,
+    width: '100%',
+    boxSizing: 'border-box',
     margin: '14px auto 0',
     fontSize: 12.5,
     color: 'var(--bx-text-3)',
@@ -585,7 +587,9 @@ const S: Record<string, CSSProperties> = {
 
   // ─── Identidade ───
   headerblock: {
-    maxWidth: 1000,
+    maxWidth: 1200,
+    width: '100%',
+    boxSizing: 'border-box',
     margin: '0 auto',
     position: 'relative',
     zIndex: 2,
@@ -772,7 +776,8 @@ const S: Record<string, CSSProperties> = {
     borderBottom: '1px solid var(--bx-border)',
     fontSize: 13,
     fontWeight: 600,
-    maxWidth: 1000,
+    maxWidth: 1200,
+    width: '100%',
     margin: '0 auto',
     boxSizing: 'border-box',
     overflowX: 'auto',
@@ -784,7 +789,7 @@ const S: Record<string, CSSProperties> = {
   },
 
   main: {
-    maxWidth: 1000,
+    maxWidth: 1200,
     margin: '0 auto',
     padding: '24px 24px 48px',
     width: '100%',
