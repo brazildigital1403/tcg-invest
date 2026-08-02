@@ -104,64 +104,60 @@ export default function LojasDestaque({ lojas, ratings }: { lojas: LojaDestaque[
   return (
     <section style={S.section}>
       <div style={S.secHead}>
-        <span style={{ color: '#f59e0b', fontSize: 19, lineHeight: 1 }} aria-hidden="true">★</span>
+        <span style={{ color: 'var(--ac-1)', fontSize: 15, lineHeight: 1 }} aria-hidden="true">★</span>
         <h2 style={S.secTitle}>Lojas em destaque</h2>
         <span style={S.secSub}>selo Premium</span>
       </div>
 
-      <div className="ld-track" style={S.track}>
+      <div style={S.track}>
         {lojas.map(loja => (
           <CardDestaque key={loja.id} loja={loja} rating={ratings[loja.owner_user_id || '']} />
         ))}
       </div>
-
-      <style>{`
-        .ld-track::-webkit-scrollbar { height: 8px }
-        .ld-track::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.25); border-radius: 100px }
-        .ld-track::-webkit-scrollbar-track { background: transparent }
-      `}</style>
     </section>
   )
 }
 
 // ─── Estilos ────────────────────────────────────────────────────────────────
+// Encolhido pra caber ao lado do grid (redesign 01/08/2026): era carrossel
+// full-bleed antes dos filtros, agora entra na mesma dobra da lista de lojas.
 const S: Record<string, React.CSSProperties> = {
-  section: { maxWidth: 1200, margin: '0 auto', padding: '4px 24px 8px', width: '100%', boxSizing: 'border-box' },
-  secHead: { display: 'flex', alignItems: 'center', gap: 9, margin: '0 0 16px' },
-  secTitle: { fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em', margin: 0, color: '#f0f0f0' },
-  secSub: { fontSize: 12.5, color: 'rgba(255,255,255,0.4)', marginLeft: 2 },
+  section: { padding: '0 0 24px', width: '100%', boxSizing: 'border-box' },
+  secHead: { display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 12px' },
+  secTitle: { fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em', margin: 0, color: 'var(--bx-text)' },
+  secSub: { fontSize: 11.5, color: 'var(--bx-text-3)', marginLeft: 2 },
 
-  track: { display: 'flex', gap: 16, overflowX: 'auto', padding: '4px 2px 16px', scrollSnapType: 'x mandatory' },
+  track: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 },
 
   card: {
-    scrollSnapAlign: 'start', flex: '0 0 278px', minWidth: 0, position: 'relative',
-    background: 'linear-gradient(180deg, rgba(245,158,11,0.07), #0d0f14 42%)',
-    border: '1px solid rgba(245,158,11,0.4)', borderRadius: 18, padding: 22,
+    position: 'relative', minWidth: 0,
+    background: 'linear-gradient(180deg, rgba(245,158,11,0.07), var(--bx-bg-elev) 42%)',
+    border: '1px solid rgba(245,158,11,0.4)', borderRadius: 14, padding: 16,
     boxShadow: '0 0 0 1px rgba(245,158,11,0.15), 0 10px 40px -8px rgba(245,158,11,0.18)',
     textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column',
   },
   ribbon: {
-    position: 'absolute', top: 0, right: 0, background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    color: '#000', fontSize: 10, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase',
-    padding: '5px 12px 5px 14px', borderRadius: '0 18px 0 12px',
+    position: 'absolute', top: 0, right: 0, background: 'var(--ac-grad)',
+    color: 'var(--bx-brand-ink)', fontSize: 9, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase',
+    padding: '4px 10px 4px 12px', borderRadius: '0 14px 0 10px',
   },
-  head: { display: 'flex', alignItems: 'center', gap: 13, marginBottom: 14 },
-  logo: { width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(245,158,11,0.2)' },
+  head: { display: 'flex', alignItems: 'center', gap: 11, marginBottom: 11 },
+  logo: { width: 46, height: 46, borderRadius: 11, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(245,158,11,0.2)' },
   logoFallback: {
-    width: 58, height: 58, borderRadius: 13, background: 'linear-gradient(135deg, #2a2f3a, #1a1d24)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800,
-    color: '#f59e0b', flexShrink: 0, border: '1px solid rgba(245,158,11,0.2)',
+    width: 46, height: 46, borderRadius: 11, background: 'var(--bx-surface-3)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800,
+    color: 'var(--ac-1)', flexShrink: 0, border: '1px solid rgba(245,158,11,0.2)',
   },
   nameRow: { display: 'flex', alignItems: 'center', gap: 6 },
-  name: { fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f0f0f0' },
-  verif: { width: 16, height: 16, borderRadius: '50%', background: '#1877F2', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  loc: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 },
+  name: { fontSize: 14.5, fontWeight: 800, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--bx-text)' },
+  verif: { width: 15, height: 15, borderRadius: '50%', background: '#1877F2', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  loc: { fontSize: 12, color: 'var(--bx-text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 },
 
-  ratingRow: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 13, minHeight: 20 },
-  novoBadge: { fontSize: 11, fontWeight: 700, background: 'rgba(96,165,250,0.12)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)', padding: '3px 9px', borderRadius: 100 },
+  ratingRow: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 11, minHeight: 20 },
+  novoBadge: { fontSize: 11, fontWeight: 700, background: 'rgba(96,165,250,0.12)', color: 'var(--bx-blue)', border: '1px solid rgba(96,165,250,0.25)', padding: '3px 9px', borderRadius: 100 },
 
-  chips: { display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 18, minHeight: 24 },
-  chip: { fontSize: 11, fontWeight: 600, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.22)', color: '#f5c164', padding: '4px 10px', borderRadius: 100, whiteSpace: 'nowrap' },
+  chips: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, minHeight: 22 },
+  chip: { fontSize: 11, fontWeight: 600, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.22)', color: '#f5c164', padding: '4px 9px', borderRadius: 100, whiteSpace: 'nowrap' },
 
-  cta: { marginTop: 'auto', display: 'block', textAlign: 'center', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#000', fontWeight: 800, fontSize: 13.5, padding: 11, borderRadius: 11 },
+  cta: { marginTop: 'auto', display: 'block', textAlign: 'center', background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', fontWeight: 800, fontSize: 13, padding: 10, borderRadius: 10 },
 }

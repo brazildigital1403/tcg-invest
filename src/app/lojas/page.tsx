@@ -7,7 +7,16 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import CardLoja from '@/components/lojas/CardLoja'
 import LojasDestaque from '@/components/lojas/LojasDestaque'
-import FiltrosGuia from '@/components/lojas/FiltrosGuia'
+import { FiltrosSidebar, FiltrosGaveta } from '@/components/lojas/FiltrosGuia'
+import HeroSearchLojas from '@/components/lojas/HeroSearchLojas'
+import { IconClose } from '@/components/ui/Icons'
+import {
+  buildLojasUrl,
+  TIPO_LABEL,
+  TIPOS_ORDEM,
+  ESPECIALIDADE_LABEL,
+  ESPECIALIDADES_ORDEM,
+} from '@/components/lojas/lojasFiltros'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -179,15 +188,48 @@ export default async function LojasPage(
   const totalResultados = lojas.length
   const temFiltro = !!(qParam || estadoParam || tipoParam || especialidadeParam)
 
-  // So oferece filtro de Estado/Tipo que tem loja de verdade hoje -- calculado
-  // sobre `todas` (nao filtrado), senao escolher um filtro escondia as outras
-  // opcoes tambem disponiveis (auditoria 31/07/2026).
-  const estadosDisponiveis = Array.from(
-    new Set(todas.map(l => (l.estado || '').toUpperCase()).filter(Boolean))
-  )
-  const tiposDisponiveis = Array.from(
-    new Set(todas.map(l => l.tipo).filter(Boolean) as string[])
-  )
+  // Contagem por opcao (sobre `todas`, nao filtrado) -- so oferece filtro que
+  // tem loja de verdade hoje, mas a opcao selecionada sempre aparece mesmo com
+  // 0, senao escolher um filtro faz o proprio filtro sumir da lista embaixo
+  // (auditoria 31/07/2026 -- regra que ja existia pra estado/tipo, agora
+  // estendida pra especialidade tambem, que antes nao seguia o mesmo padrao).
+  const estadoCounts: Record<string, number> = {}
+  const tipoCounts: Record<string, number> = {}
+  const espCounts: Record<string, number> = {}
+  for (const l of todas) {
+    const uf = (l.estado || '').toUpperCase()
+    if (uf) estadoCounts[uf] = (estadoCounts[uf] || 0) + 1
+    const tp = l.tipo || 'online'
+    tipoCounts[tp] = (tipoCounts[tp] || 0) + 1
+    for (const esp of (l.especialidades || [])) {
+      espCounts[esp] = (espCounts[esp] || 0) + 1
+    }
+  }
+
+  const estadosOpcoes = Object.keys(estadoCounts).sort()
+    .filter(uf => estadoCounts[uf] > 0 || uf === estadoParam)
+    .map(uf => ({ value: uf, label: uf, count: estadoCounts[uf] || 0 }))
+  if (estadoParam && !estadosOpcoes.some(o => o.value === estadoParam)) {
+    estadosOpcoes.push({ value: estadoParam, label: estadoParam, count: 0 })
+  }
+
+  const tiposOpcoes = TIPOS_ORDEM
+    .filter(tp => (tipoCounts[tp] || 0) > 0 || tp === tipoParam)
+    .map(tp => ({ value: tp, label: TIPO_LABEL[tp], count: tipoCounts[tp] || 0 }))
+
+  const especialidadesOpcoes = ESPECIALIDADES_ORDEM
+    .filter(esp => (espCounts[esp] || 0) > 0 || esp === especialidadeParam)
+    .map(esp => ({ value: esp, label: ESPECIALIDADE_LABEL[esp], count: espCounts[esp] || 0 }))
+
+  const atual = { q: qParam, estado: estadoParam, tipo: tipoParam, especialidade: especialidadeParam }
+
+  // Pills removíveis acima do grid -- cada uma tira so o proprio filtro,
+  // preservando os outros.
+  const pills: { key: string; label: string; href: string }[] = []
+  if (qParam) pills.push({ key: 'q', label: `"${qParam}"`, href: buildLojasUrl({ ...atual, q: '' }) })
+  if (estadoParam) pills.push({ key: 'estado', label: estadoParam, href: buildLojasUrl({ ...atual, estado: '' }) })
+  if (tipoParam) pills.push({ key: 'tipo', label: TIPO_LABEL[tipoParam] || tipoParam, href: buildLojasUrl({ ...atual, tipo: '' }) })
+  if (especialidadeParam) pills.push({ key: 'especialidade', label: ESPECIALIDADE_LABEL[especialidadeParam] || especialidadeParam, href: buildLojasUrl({ ...atual, especialidade: '' }) })
 
   return (
     <div style={S.page}>
@@ -196,59 +238,96 @@ export default async function LojasPage(
       {/* Spacer pro header fixed */}
       <div style={{ height: 62 }} />
 
-      {/* ─── Hero ───────────────────────────────────────────────── */}
+      {/* ─── Hero (vitrine: busca e estatisticas ja aqui, sem rolar) ─── */}
       <section className="bx-gutter" style={S.hero}>
-        <h1 style={S.heroTitle}>Guia de Lojas</h1>
+        <span style={S.heroEyebrow}>Guia de Lojas</span>
+        <h1 style={S.heroTitle}>Encontre a loja certa pro seu hobby</h1>
         <p style={S.heroSubtitle}>
-          Encontre lojas de TCG do Brasil. Físicas e online, com especialidade em Pokémon, Magic, Yu-Gi-Oh e mais.
+          Lojas de TCG do Brasil — físicas e online — com especialidade em Pokémon, Magic, Yu-Gi-Oh e mais.
         </p>
+        <HeroSearchLojas atual={atual} />
+        <div style={S.heroStats}>
+          <div style={S.stat}>
+            <b style={S.statNum}>{todas.length}</b>
+            <span style={S.statLabel}>{todas.length === 1 ? 'Loja ativa' : 'Lojas ativas'}</span>
+          </div>
+          <div style={S.stat}>
+            <b style={S.statNum}>{Object.keys(estadoCounts).length}</b>
+            <span style={S.statLabel}>{Object.keys(estadoCounts).length === 1 ? 'Estado' : 'Estados'}</span>
+          </div>
+          <div style={S.stat}>
+            <b style={S.statNum}>{Object.keys(espCounts).length}</b>
+            <span style={S.statLabel}>{Object.keys(espCounts).length === 1 ? 'Jogo' : 'Jogos'}</span>
+          </div>
+        </div>
       </section>
 
-      {/* Destaque Premium (so na visao padrao, sem filtro) */}
-      {!temFiltro && <LojasDestaque lojas={premiumLojas} ratings={ratingMap} />}
-
-      {/* ─── Filtros ────────────────────────────────────────────── */}
-      <FiltrosGuia
-        initialQ={qParam}
-        initialEstado={estadoParam}
-        initialTipo={tipoParam}
-        initialEspecialidade={especialidadeParam}
-        estadosDisponiveis={estadosDisponiveis}
-        tiposDisponiveis={tiposDisponiveis}
+      {/* ─── Filtros: barra sticky que abre gaveta (so aparece no mobile) ─── */}
+      <FiltrosGaveta
+        atual={atual}
+        estados={estadosOpcoes}
+        tipos={tiposOpcoes}
+        especialidades={especialidadesOpcoes}
+        totalLojas={todas.length}
+        resultCount={totalResultados}
       />
 
-      {/* ─── Resultados ─────────────────────────────────────────── */}
-      <section className="bx-gutter" style={S.resultsSection}>
-        {error && (
-          <div style={S.errorBox}>
-            Erro ao carregar lojas. Tente recarregar a página.
-          </div>
-        )}
+      {/* ─── Corpo: sidebar de filtro (desktop) + resultados ─── */}
+      <div className="bx-gutter" style={S.bodyWrap}>
+        <FiltrosSidebar
+          atual={atual}
+          estados={estadosOpcoes}
+          tipos={tiposOpcoes}
+          especialidades={especialidadesOpcoes}
+          totalLojas={todas.length}
+        />
 
-        {!error && (
-          <>
-            <p style={S.resultCount}>
-              {totalResultados === 0
-                ? (temFiltro ? 'Nenhuma loja encontrada para esses filtros.' : 'Nenhuma loja cadastrada ainda.')
-                : `${totalResultados} ${totalResultados === 1 ? 'loja encontrada' : 'lojas encontradas'}`}
-            </p>
+        <section style={S.content}>
+          {error && (
+            <div style={S.errorBox}>
+              Erro ao carregar lojas. Tente recarregar a página.
+            </div>
+          )}
 
-            {totalResultados > 0 && (
-              <div style={S.grid}>
-                {lojas.map(loja => (
-                  <CardLoja key={loja.id} loja={loja} />
-                ))}
-              </div>
-            )}
+          {!error && (
+            <>
+              {pills.length > 0 && (
+                <div style={S.pillsRow}>
+                  {pills.map(p => (
+                    <Link key={p.key} href={p.href} style={S.pill}>
+                      {p.label}
+                      <IconClose size={10} color="var(--ac-1)" />
+                    </Link>
+                  ))}
+                </div>
+              )}
 
-            {totalResultados === 0 && temFiltro && (
-              <Link href="/lojas" style={S.clearFiltersLink}>
-                Limpar filtros
-              </Link>
-            )}
-          </>
-        )}
-      </section>
+              <p style={S.resultCount}>
+                {totalResultados === 0
+                  ? (temFiltro ? 'Nenhuma loja encontrada para esses filtros.' : 'Nenhuma loja cadastrada ainda.')
+                  : `${totalResultados} ${totalResultados === 1 ? 'loja encontrada' : 'lojas encontradas'}`}
+              </p>
+
+              {/* Destaque Premium (so na visao padrao, sem filtro) */}
+              {!temFiltro && <LojasDestaque lojas={premiumLojas} ratings={ratingMap} />}
+
+              {totalResultados > 0 && (
+                <div style={S.grid}>
+                  {lojas.map(loja => (
+                    <CardLoja key={loja.id} loja={loja} />
+                  ))}
+                </div>
+              )}
+
+              {totalResultados === 0 && temFiltro && (
+                <Link href="/lojas" style={S.clearFiltersLink}>
+                  Limpar filtros
+                </Link>
+              )}
+            </>
+          )}
+        </section>
+      </div>
 
       {/* ─── CTA Lojista ────────────────────────────────────────── */}
       <section className="bx-gutter" style={S.ctaSection}>
@@ -279,71 +358,117 @@ function capitalize(s: string) {
 const S: Record<string, CSSProperties> = {
   page: {
     minHeight: '100vh',
-    background: '#080a0f',
-    color: '#f0f0f0',
+    background: 'var(--bx-bg)',
+    color: 'var(--bx-text)',
     fontFamily: "'DM Sans', system-ui, sans-serif",
     display: 'flex',
     flexDirection: 'column',
   },
 
   hero: {
+    position: 'relative',
     maxWidth: 1200,
     margin: '0 auto',
-    padding: '64px 24px 32px',
+    padding: '52px 24px 28px',
     textAlign: 'center',
     width: '100%',
     boxSizing: 'border-box',
+    background: 'var(--bx-hero-wash)',
+  },
+  heroEyebrow: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: 'var(--ac-1)',
+    background: 'rgba(245,158,11,0.1)',
+    border: '1px solid rgba(245,158,11,0.25)',
+    padding: '5px 12px',
+    borderRadius: 999,
+    marginBottom: 16,
   },
   heroTitle: {
-    fontSize: 44,
+    fontSize: 40,
     fontWeight: 800,
     letterSpacing: '-0.03em',
-    margin: 0,
-    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    lineHeight: 1.1,
+    margin: '0 auto 12px',
+    maxWidth: 620,
+    textWrap: 'balance',
+    background: 'var(--ac-grad)',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
   },
   heroSubtitle: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.55)',
-    margin: '12px auto 0',
+    color: 'var(--bx-text-2)',
+    margin: '0 auto 24px',
     maxWidth: 580,
     lineHeight: 1.6,
   },
+  heroStats: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 28,
+    flexWrap: 'wrap',
+  },
+  stat: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 },
+  statNum: { fontSize: 19, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--bx-text)' },
+  statLabel: { fontSize: 11, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' },
 
-  resultsSection: {
+  bodyWrap: {
     maxWidth: 1200,
     margin: '0 auto',
-    padding: '20px 24px 48px',
     width: '100%',
     boxSizing: 'border-box',
-    flex: 1,
+    display: 'flex',
+    alignItems: 'flex-start',
+    padding: '20px 0 48px',
   },
+  content: { flex: 1, minWidth: 0 },
+
+  pillsRow: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  pill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--ac-1)',
+    background: 'rgba(245,158,11,0.1)',
+    border: '1px solid rgba(245,158,11,0.3)',
+    borderRadius: 999,
+    padding: '6px 8px 6px 12px',
+    textDecoration: 'none',
+  },
+
   resultCount: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.4)',
-    margin: '0 0 20px',
+    color: 'var(--bx-text-3)',
+    margin: '0 0 16px',
     fontWeight: 500,
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: 16,
+    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+    gap: 14,
   },
   errorBox: {
     background: 'rgba(239,68,68,0.08)',
     border: '1px solid rgba(239,68,68,0.25)',
     borderRadius: 12,
     padding: 16,
-    color: '#ef4444',
+    color: 'var(--bx-red)',
     fontSize: 14,
     textAlign: 'center',
   },
   clearFiltersLink: {
     display: 'inline-block',
     marginTop: 16,
-    color: '#f59e0b',
+    color: 'var(--ac-1)',
     fontSize: 14,
     fontWeight: 600,
     textDecoration: 'none',
