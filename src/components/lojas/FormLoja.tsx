@@ -3,7 +3,7 @@
 import { CSSProperties, useState, useMemo, useRef } from 'react'
 import { authFetch } from '@/lib/authFetch'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { uploadFotoLoja, deletarFotoLoja, uploadLogoLoja, deletarLogoLoja } from '@/lib/uploadFoto'
+import { uploadFotoLoja, deletarFotoLoja, uploadLogoLoja, deletarLogoLoja, uploadCapaLoja, deletarCapaLoja } from '@/lib/uploadFoto'
 import { IconKey } from '@/components/ui/Icons'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -24,6 +24,7 @@ export interface LojaFormData {
   instagram: string
   facebook: string
   logo_url: string
+  capa_url: string
   fotos: string[]
   plano?: 'basico' | 'pro' | 'premium'
   status?: 'pendente' | 'ativa' | 'suspensa' | 'inativa'
@@ -131,6 +132,12 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
   const [logoDeleting, setLogoDeleting] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
 
+  // Capa (file upload — banner do topo de /lojas/[slug])
+  const [capaUrl, setCapaUrl] = useState(initialData?.capa_url || '')
+  const [capaUploading, setCapaUploading] = useState(false)
+  const [capaDeleting, setCapaDeleting] = useState(false)
+  const capaInputRef = useRef<HTMLInputElement>(null)
+
   // Galeria
   const [fotos, setFotos] = useState<string[]>(initialData?.fotos || [])
   const [uploadingTotal, setUploadingTotal] = useState(0)
@@ -194,6 +201,39 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       showAlert(err?.message || 'Erro ao remover logo.', 'error')
     } finally {
       setLogoDeleting(false)
+    }
+  }
+
+  // ─── Capa ──────────────────────────────────────────────────
+  async function handleCapaUpload(file: File) {
+    if (!isEditMode || !initialData?.id) {
+      showAlert('Salve a loja primeiro para enviar a capa.', 'warning')
+      return
+    }
+    setCapaUploading(true)
+    try {
+      const result = await uploadCapaLoja(initialData.id, file)
+      setCapaUrl(result.url)
+    } catch (err: any) {
+      console.error('[FormLoja] upload capa falhou', err)
+      showAlert(err?.message || 'Erro ao enviar capa.', 'error')
+    } finally {
+      setCapaUploading(false)
+      if (capaInputRef.current) capaInputRef.current.value = ''
+    }
+  }
+
+  async function handleCapaRemove() {
+    if (!initialData?.id || !capaUrl) return
+    setCapaDeleting(true)
+    try {
+      await deletarCapaLoja(initialData.id)
+      setCapaUrl('')
+    } catch (err: any) {
+      console.error('[FormLoja] delete capa falhou', err)
+      showAlert(err?.message || 'Erro ao remover capa.', 'error')
+    } finally {
+      setCapaDeleting(false)
     }
   }
 
@@ -298,8 +338,9 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     return null
   }
 
-  // OBS: NÃO mandamos logo_url nem fotos no payload.
+  // OBS: NÃO mandamos logo_url, capa_url nem fotos no payload.
   // Logo é gerenciado pelo POST/DELETE /api/lojas/[id]/logo
+  // Capa é gerenciada pelo POST/DELETE /api/lojas/[id]/capa
   // Fotos pelos /api/lojas/[id]/upload-foto e /foto
   function montarPayload() {
     return {
@@ -363,7 +404,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         }
 
         showAlert('Loja atualizada com sucesso!', 'success')
-        onSaved?.({ ...initialData, ...payload, fotos, logo_url: logoUrl, id: data?.loja?.id || initialData.id } as LojaFormData)
+        onSaved?.({ ...initialData, ...payload, fotos, logo_url: logoUrl, capa_url: capaUrl, id: data?.loja?.id || initialData.id } as LojaFormData)
 
       } else {
         const res = await authFetch('/api/lojas', {
@@ -520,6 +561,76 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
             }}
             style={{ display: 'none' }}
             disabled={logoUploading}
+          />
+        </div>
+
+        {/* ─── CAPA (banner do topo da pagina publica) ────────── */}
+        <div>
+          <label style={LABEL}>Capa da loja</label>
+
+          <div style={S.capaPreview}>
+            {capaUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={capaUrl} alt="Capa da loja" style={S.capaImg} />
+            ) : (
+              <div style={S.capaPlaceholder}>
+                <span style={{ fontSize: 32, lineHeight: 1, color: 'rgba(var(--ac-1-rgb), 0.5)' }}>+</span>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Sem capa — a loja usa o fundo padrão da Bynx</span>
+              </div>
+            )}
+            {capaUploading && (
+              <div style={S.logoOverlay}>
+                <span style={{ fontSize: 11, color: 'var(--ac-1)', fontWeight: 700 }}>enviando…</span>
+              </div>
+            )}
+          </div>
+
+          <div style={{ ...S.logoActions, marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={() => capaInputRef.current?.click()}
+              disabled={capaUploading || capaDeleting || !isEditMode || !initialData?.id}
+              style={{
+                ...S.btnSecondaryInline,
+                ...((capaUploading || capaDeleting || !isEditMode || !initialData?.id) ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+              }}
+            >
+              {capaUrl ? 'Substituir' : 'Enviar capa'}
+            </button>
+
+            {capaUrl && (
+              <button
+                type="button"
+                onClick={handleCapaRemove}
+                disabled={capaUploading || capaDeleting}
+                style={{
+                  ...S.btnGhostInline,
+                  ...((capaUploading || capaDeleting) ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                }}
+              >
+                {capaDeleting ? 'Removendo…' : 'Remover'}
+              </button>
+            )}
+
+            <p style={{ ...S.hintText, marginTop: 8 }}>
+              {!isEditMode || !initialData?.id ? (
+                <>Salve a loja primeiro para enviar a capa.</>
+              ) : (
+                <>Imagem larga (paisagem funciona melhor) · JPG, PNG ou WebP.</>
+              )}
+            </p>
+          </div>
+
+          <input
+            ref={capaInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={e => {
+              const file = e.target.files?.[0]
+              if (file) handleCapaUpload(file)
+            }}
+            style={{ display: 'none' }}
+            disabled={capaUploading}
           />
         </div>
       </fieldset>
@@ -967,6 +1078,37 @@ const S: Record<string, CSSProperties> = {
     borderRadius: 8,
     cursor: 'pointer',
     fontFamily: 'inherit',
+  },
+
+  // ─── Capa ───
+  capaPreview: {
+    width: '100%',
+    maxWidth: 420,
+    aspectRatio: '3 / 1',
+    borderRadius: 14,
+    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    position: 'relative',
+  },
+  capaImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  capaPlaceholder: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    padding: '0 16px',
+    background: 'rgba(var(--ac-1-rgb), 0.04)',
+    border: '1px dashed rgba(var(--ac-1-rgb), 0.2)',
+    borderRadius: 14,
   },
 
   // ─── Galeria ───
