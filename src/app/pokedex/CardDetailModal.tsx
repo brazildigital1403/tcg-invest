@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { TYPE_COLOR } from './page'
+import { IconHistory } from '@/components/ui/Icons'
 
 // Selo de energia: bolinha na cor do tipo (mesmo TYPE_COLOR dos badges de
 // tipo do header) em vez do emoji de elemento antigo (🔥💧🌿...) -- regra 15
@@ -21,9 +23,36 @@ function EnergyDot({ type, size = 13 }: { type: string; size?: number }) {
   )
 }
 
+// Cor do selo de idioma -- mesma paleta do badge de idioma do CardItem
+// (paleta fixa por familia de idioma, mesma logica do TYPE_COLOR acima).
+const IDIOMA_COR: Record<string, string> = {
+  pt: '#9ca3af', en: '#60a5fa', jp: '#f472b6', es: '#f59e0b', fr: '#a855f7',
+  de: '#94a3b8', it: '#22c55e', cn: '#ef4444', kr: '#818cf8',
+}
+
+const FILTROS_DIAS = [7, 15, 30, 60] as const
+
+interface HistoricoVenda {
+  valor_cents: number
+  variante: string | null
+  condicao: string | null
+  idioma: string | null
+  capturado_em: string
+}
+
 const fmtBRL = (v: any) => v && Number(v) > 0
   ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(Number(v))
   : null
+
+// Data curta pt-BR a partir de um timestamp ISO -- usado nos rodapes
+// "Atualizado em" (achado: liga_updated_at/tcg_updated_at ja chegam no
+// card mas nunca eram mostrados).
+const fmtDataCurta = (iso: any) => {
+  if (!iso) return null
+  try {
+    return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  } catch { return null }
+}
 
 interface Props {
   card: any
@@ -57,6 +86,42 @@ export default function CardDetailModal({
     { key:'pokeball', label:'Pokéball', icon:'⊕', med:c.preco_pokeball_medio,min:c.preco_pokeball_min,max:c.preco_pokeball_max },
   ].filter(v => Number(v.med) > 0 || Number(v.min) > 0)
   if (VARIANTES.length === 0) VARIANTES.push({ key:'normal', label:'Normal', icon:'○', med:null, min:null, max:null })
+
+  // Variantes extras que a tabela fixa acima nao cobre -- o scraper acha
+  // formatos como "prerelease"/"unknown_a" e guarda em outras_variantes
+  // (jsonb: {min,med,max,sigla}). Raro (~1% das cartas) mas e preco de
+  // mercado real que hoje se perdia.
+  const outrasVariantesExtra: { key: string; label: string; med: number | null; min: number | null; max: number | null }[] =
+    c.outras_variantes && typeof c.outras_variantes === 'object'
+      ? Object.entries(c.outras_variantes as Record<string, any>)
+          .filter(([, v]) => Number(v?.med) > 0 || Number(v?.min) > 0)
+          .map(([key, v]) => ({ key, label: v?.sigla || key, med: v?.med ?? null, min: v?.min ?? null, max: v?.max ?? null }))
+      : []
+
+  // "Ultimo vendido" ja vem calculado do banco (montarUltimaVenda em page.tsx,
+  // zero busca nova) -- so faltava ligar nesse modal.
+  const ultimoVendidoFmt = c.ultima_venda?.valor != null
+    ? fmtBRL(Number(c.ultima_venda.valor) / 100)
+    : null
+
+  // Historico de vendas -- so busca quando ha "ultima venda" pra comparar
+  // contra, e refaz quando a carta muda (navegacao prev/next no modal) ou
+  // o filtro de periodo muda. Mesmo endpoint que a Coleção ja usa.
+  const [diasHistorico, setDiasHistorico] = useState<typeof FILTROS_DIAS[number]>(30)
+  const [historicoVendas, setHistoricoVendas] = useState<HistoricoVenda[]>([])
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false)
+
+  useEffect(() => {
+    if (!c.id || !ultimoVendidoFmt) { setHistoricoVendas([]); return }
+    let active = true
+    setCarregandoHistorico(true)
+    fetch(`/api/cards/${encodeURIComponent(c.id)}/historico-vendas?dias=${diasHistorico}`)
+      .then(r => r.ok ? r.json() : { historico: [] })
+      .then(({ historico }) => { if (active) setHistoricoVendas(historico || []) })
+      .catch(() => { if (active) setHistoricoVendas([]) })
+      .finally(() => { if (active) setCarregandoHistorico(false) })
+    return () => { active = false }
+  }, [c.id, ultimoVendidoFmt, diasHistorico])
 
   return (
     <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(10px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
@@ -98,14 +163,20 @@ export default function CardDetailModal({
                 </div>
               )}
               {[
-                { label:'Coleção',     value: c.set_name },
+                { label:'Coleção',     value: c.set_name, valuePt: c.set_name_pt },
+                { label:'Série',       value: c.set_series },
                 { label:'Número',      value: c.number && c.set_total ? `${String(c.number).padStart(3,'0')} / ${String(c.set_total).padStart(3,'0')}` : c.number },
                 { label:'Lançamento',  value: c.set_release_date ? c.set_release_date.split('/').reverse().join('/') : null },
                 { label:'Artista',     value: c.artist },
               ].filter(r => r.value).map(r => (
                 <div key={r.label} style={{ display:'flex', gap:6 }}>
                   <span style={{ fontSize:10, color:'var(--bx-text-3)', fontWeight:700, minWidth:72, flexShrink:0 }}>{r.label}:</span>
-                  <span style={{ fontSize:10, color:'var(--bx-text-2)', lineHeight:1.4 }}>{r.value}</span>
+                  <span style={{ fontSize:10, color:'var(--bx-text-2)', lineHeight:1.4 }}>
+                    {r.value}
+                    {r.valuePt && r.valuePt !== r.value && (
+                      <span style={{ display:'block', color:'var(--bx-text-3)', fontStyle:'italic', marginTop:1 }}>{r.valuePt}</span>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>
@@ -117,11 +188,17 @@ export default function CardDetailModal({
             {/* Header */}
             <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
               <div>
-                <h2 style={{ fontSize:22, fontWeight:900, letterSpacing:'-0.03em', marginBottom:6, color:'var(--bx-text)' }}>{c.name}</h2>
+                <h2 style={{ fontSize:22, fontWeight:900, letterSpacing:'-0.03em', marginBottom: c.name_pt ? 1 : 6, color:'var(--bx-text)' }}>{c.name}</h2>
+                {c.name_pt && c.name_pt !== c.name && (
+                  <p style={{ fontSize:12, color:'var(--bx-text-3)', fontStyle:'italic', margin:'0 0 6px' }}>{c.name_pt}</p>
+                )}
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
                   {c.rarity && <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:100, background:'rgba(var(--ac-1-rgb), 0.15)', color:'var(--ac-1)', border:'1px solid rgba(var(--ac-1-rgb), 0.25)' }}>{c.rarity}</span>}
                   {(c.subtypes||[]).map((s:string) => <span key={s} style={{ fontSize:10, padding:'3px 8px', borderRadius:100, background:'var(--bx-surface-2)', color:'var(--bx-text-2)' }}>{s}</span>)}
                   {(c.types||[]).map((t:string) => <span key={t} style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:100, background:(TYPE_COLOR[t]?.bg||'var(--bx-surface-2)'), color:(TYPE_COLOR[t]?.text||'var(--bx-text)') }}>{t}</span>)}
+                  {c.idioma && (
+                    <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:100, background:`${IDIOMA_COR[c.idioma]||'#9ca3af'}22`, color:IDIOMA_COR[c.idioma]||'#9ca3af', border:`1px solid ${IDIOMA_COR[c.idioma]||'#9ca3af'}44` }}>{String(c.idioma).toUpperCase()}</span>
+                  )}
                 </div>
               </div>
               {c.hp && <div style={{ textAlign:'right', flexShrink:0 }}><p style={{ fontSize:9, color:'var(--bx-text-3)', marginBottom:2 }}>HP</p><p style={{ fontSize:28, fontWeight:900, color:'var(--bx-red)', letterSpacing:'-0.03em' }}>{c.hp}</p></div>}
@@ -196,7 +273,7 @@ export default function CardDetailModal({
             {/* Preços BR */}
             {/* S34: removido sufixo "(Liga Pokemon)" — pagina e publica e indexavel,
                 expor marca externa = risco SEO/juridico */}
-            {VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).length > 0 && (
+            {(VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).length > 0 || outrasVariantesExtra.length > 0) && (
               <div>
                 <p style={{ fontSize:10, color:'var(--bx-text-3)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Preços BR</p>
                 <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
@@ -210,21 +287,100 @@ export default function CardDetailModal({
                       </div>
                     </div>
                   ))}
+                  {/* Variantes extras que a Liga acha mas nao tem coluna fixa
+                      (ex: prerelease, unknown_a) -- raro, mas e preco real. */}
+                  {outrasVariantesExtra.map(v => (
+                    <div key={v.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(96,165,250,0.05)', borderRadius:8, padding:'6px 10px', border:'1px solid rgba(96,165,250,0.12)' }}>
+                      <span style={{ fontSize:11, color:'var(--bx-text-2)', fontWeight:600 }}>◇ {v.label}</span>
+                      <div style={{ display:'flex', gap:12 }}>
+                        {v.min && <span style={{ fontSize:10, color:'var(--bx-text-3)' }}>mín {fmtBRL(v.min)}</span>}
+                        {v.med && <span style={{ fontSize:13, fontWeight:800, color:'var(--bx-blue)' }}>{fmtBRL(v.med)}</span>}
+                        {v.max && <span style={{ fontSize:10, color:'var(--bx-text-3)' }}>máx {fmtBRL(v.max)}</span>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
+                {fmtDataCurta(c.liga_updated_at) && (
+                  <p style={{ fontSize:9.5, color:'var(--bx-text-faint)', margin:'6px 2px 0' }}>Atualizado em {fmtDataCurta(c.liga_updated_at)}</p>
+                )}
+              </div>
+            )}
+
+            {/* Último vendido — preco REALIZADO (fonte externa), nao pedido (Liga).
+                Roxo cravado de proposito, mesmo padrao do modal da Coleção —
+                nao var(--ac-2), que aqui seria vermelho (cor de erro/queda).
+                Zero busca nova: card.ultima_venda ja vem calculado do banco. */}
+            {ultimoVendidoFmt && (
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, background:'rgba(168,85,247,0.07)', border:'1px solid rgba(168,85,247,0.22)', borderRadius:12, padding:'11px 16px' }}>
+                <span style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ color:'#a855f7', display:'flex', flexShrink:0 }}><IconHistory size={14} /></span>
+                  <span style={{ fontSize:11, color:'var(--bx-text-2)', fontWeight:600 }}>Último vendido</span>
+                </span>
+                <span style={{ fontSize:15, fontWeight:800, color:'#a855f7', letterSpacing:'-0.01em' }}>{ultimoVendidoFmt}</span>
+              </div>
+            )}
+
+            {/* Histórico de vendas -- mesmo endpoint que a Coleção ja usa
+                (/api/cards/[id]/historico-vendas), so aparece quando ha
+                "ultima venda" pra comparar contra. */}
+            {ultimoVendidoFmt && (
+              <div style={{ background:'var(--bx-surface)', border:'1px solid var(--bx-border)', borderRadius:12, padding:'12px 14px' }}>
+                <p style={{ fontSize:10, letterSpacing:'0.08em', fontWeight:700, color:'var(--bx-text-3)', textTransform:'uppercase', marginBottom:10 }}>Histórico de vendas</p>
+
+                <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+                  {FILTROS_DIAS.map(d => (
+                    <button key={d} onClick={() => setDiasHistorico(d)}
+                      style={{
+                        flex:1, padding:'6px 0', minHeight:32, borderRadius:999, fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+                        border: '1px solid ' + (diasHistorico === d ? 'rgba(168,85,247,0.4)' : 'var(--bx-border-2)'),
+                        background: diasHistorico === d ? 'rgba(168,85,247,0.16)' : 'var(--bx-surface-2)',
+                        color: diasHistorico === d ? '#a855f7' : 'var(--bx-text-3)',
+                      }}>
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+
+                {carregandoHistorico ? (
+                  <p style={{ fontSize:11, color:'var(--bx-text-faint)', textAlign:'center', padding:'8px 0' }}>Carregando…</p>
+                ) : historicoVendas.length > 0 ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                    {historicoVendas.map((h, i) => {
+                      const dias = Math.floor((Date.now() - new Date(h.capturado_em).getTime()) / 86400000)
+                      const quando = dias <= 0 ? 'Hoje' : dias === 1 ? 'Ontem' : `${dias} dias atrás`
+                      const meta = [h.variante, h.condicao, h.idioma].filter(Boolean).join(' · ')
+                      return (
+                        <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'7px 10px', borderRadius:10, background:'var(--bx-surface-2)' }}>
+                          <span style={{ fontSize:11, color:'var(--bx-text-2)', flexShrink:0 }}>{quando}</span>
+                          {meta && <span style={{ fontSize:10, color:'var(--bx-text-3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{meta}</span>}
+                          <span style={{ fontSize:12, fontWeight:700, color:'var(--bx-text)', flexShrink:0 }}>{fmtBRL(h.valor_cents / 100)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p style={{ fontSize:11, color:'var(--bx-text-faint)', textAlign:'center', padding:'8px 0', lineHeight:1.5 }}>
+                    Coletando desde hoje — histórico completo aparece com o tempo.
+                  </p>
+                )}
               </div>
             )}
 
             {/* Preços internacionais */}
-            {(c.price_usd_normal || c.price_usd_holofoil || c.price_eur_normal || c.price_eur_holofoil) && (
+            {(c.price_usd_normal || c.price_usd_holofoil || c.price_usd_1st_edition || c.price_eur_normal || c.price_eur_holofoil) && (
               <div>
                 <p style={{ fontSize:10, color:'var(--bx-text-3)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Preços Internacionais (TCGPlayer)</p>
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                   {c.price_usd_normal && <div style={{ background:'rgba(96,165,250,0.08)', borderRadius:8, padding:'6px 12px', border:'1px solid rgba(96,165,250,0.15)' }}><p style={{ fontSize:9, color:'rgba(96,165,250,0.6)', marginBottom:2 }}>USD Normal</p><p style={{ fontSize:14, fontWeight:800, color:'var(--bx-blue)' }}>${Number(c.price_usd_normal).toFixed(2)}</p></div>}
                   {c.price_usd_holofoil && <div style={{ background:'rgba(96,165,250,0.08)', borderRadius:8, padding:'6px 12px', border:'1px solid rgba(96,165,250,0.15)' }}><p style={{ fontSize:9, color:'rgba(96,165,250,0.6)', marginBottom:2 }}>USD Foil</p><p style={{ fontSize:14, fontWeight:800, color:'var(--bx-blue)' }}>${Number(c.price_usd_holofoil).toFixed(2)}</p></div>}
                   {c.price_usd_reverse && <div style={{ background:'rgba(96,165,250,0.08)', borderRadius:8, padding:'6px 12px', border:'1px solid rgba(96,165,250,0.15)' }}><p style={{ fontSize:9, color:'rgba(96,165,250,0.6)', marginBottom:2 }}>USD Reverse</p><p style={{ fontSize:14, fontWeight:800, color:'var(--bx-blue)' }}>${Number(c.price_usd_reverse).toFixed(2)}</p></div>}
+                  {c.price_usd_1st_edition && <div style={{ background:'rgba(245,158,11,0.08)', borderRadius:8, padding:'6px 12px', border:'1px solid rgba(245,158,11,0.18)' }}><p style={{ fontSize:9, color:'rgba(245,158,11,0.7)', marginBottom:2 }}>USD 1ª Edição</p><p style={{ fontSize:14, fontWeight:800, color:'var(--ac-1)' }}>${Number(c.price_usd_1st_edition).toFixed(2)}</p></div>}
                   {c.price_eur_normal && <div style={{ background:'rgba(96,165,250,0.06)', borderRadius:8, padding:'6px 12px', border:'1px solid rgba(96,165,250,0.12)' }}><p style={{ fontSize:9, color:'rgba(96,165,250,0.5)', marginBottom:2 }}>EUR Normal</p><p style={{ fontSize:14, fontWeight:800, color:'#93c5fd' }}>€{Number(c.price_eur_normal).toFixed(2)}</p></div>}
                   {c.price_eur_holofoil && <div style={{ background:'rgba(96,165,250,0.06)', borderRadius:8, padding:'6px 12px', border:'1px solid rgba(96,165,250,0.12)' }}><p style={{ fontSize:9, color:'rgba(96,165,250,0.5)', marginBottom:2 }}>EUR Foil</p><p style={{ fontSize:14, fontWeight:800, color:'#93c5fd' }}>€{Number(c.price_eur_holofoil).toFixed(2)}</p></div>}
                 </div>
+                {fmtDataCurta(c.tcg_updated_at) && (
+                  <p style={{ fontSize:9.5, color:'var(--bx-text-faint)', margin:'6px 2px 0' }}>Atualizado em {fmtDataCurta(c.tcg_updated_at)}</p>
+                )}
               </div>
             )}
 
