@@ -107,6 +107,16 @@ export default function Pokedex() {
   const [typeFilter, setTypeFilter] = useState('')
   const [genFilter, setGenFilter]   = useState('')
 
+  // Paginação client-side da grade de Pokémon -- os 1.025 renderizavam de
+  // uma vez (1.025 <button> + 1.025 requisições de sprite simultâneas,
+  // medido na auditoria 02/08/2026). Mostra em lotes; o sentinel no fim da
+  // grade (IntersectionObserver) revela o próximo lote ao rolar perto dele.
+  const [visibleCount, setVisibleCount] = useState(120)
+
+  // Busca dentro da vista 2 (cartas de um Pokémon) -- Charizard sozinho tem
+  // 329 cartas sem nenhum jeito de filtrar, só scroll manual (achado #8).
+  const [cardSearch, setCardSearch] = useState('')
+
   // Pokémons capturados (nomes-base derivados de pokemon_cards.base_pokemon_names).
   // Era um Set populado por cleanPokemonName(card_name) — abandonado por ser
   // frágil (não cobria 'Mega', sufixos com (número), Tag Team, etc).
@@ -347,6 +357,30 @@ export default function Pokedex() {
   const completou        = totalNoFiltro > 0 && capturados === totalNoFiltro
   const stagiou          = userId !== null  // só mostra a stat se logou
 
+  // Filtro mudou → volta pro primeiro lote (senão "Squirtle" com 3 resultados
+  // ficava escondido atrás de um visibleCount de 960 do scroll anterior).
+  useEffect(() => { setVisibleCount(120) }, [search, typeFilter, genFilter])
+
+  const pokemonsVisiveis = filteredPokemons.slice(0, visibleCount)
+  const temMaisPokemons  = visibleCount < filteredPokemons.length
+
+  // Sentinel no fim da grade -- ao entrar no viewport, revela mais um lote.
+  const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setVisibleCount(v => v + 120)
+    }, { rootMargin: '600px' })
+    obs.observe(node)
+    return () => obs.disconnect()
+  }, [])
+
+  // Cartas do Pokémon selecionado, filtradas pela busca da vista 2.
+  const cardsVisiveis = cards.filter(c => {
+    if (!cardSearch) return true
+    const alvo = cardSearch.toLowerCase()
+    return (c.set_name || '').toLowerCase().includes(alvo) || String(c.number || '').includes(alvo)
+  })
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -362,29 +396,29 @@ export default function Pokedex() {
               const prevP = currentIdx > 0 ? filteredPokemons[currentIdx - 1] : null
               const nextP = currentIdx < filteredPokemons.length - 1 ? filteredPokemons[currentIdx + 1] : null
               return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button
-                onClick={() => { setView('grid'); setSelectedPokemon(null) }}
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', padding: '10px 16px', borderRadius: 12, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit' }}
+                onClick={() => { setView('grid'); setSelectedPokemon(null); setCardSearch('') }}
+                style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)', padding: '12px 16px', minHeight: 44, borderRadius: 12, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit', boxSizing: 'border-box' }}
               >
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Pokédex
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {selectedPokemon.sprite && (
-                  <img src={selectedPokemon.sprite} alt={selectedPokemon.name} style={{ width: 48, height: 48, objectFit: 'contain', imageRendering: 'auto' }} />
+                  <img src={selectedPokemon.sprite} alt={selectedPokemon.name} loading="lazy" decoding="async" style={{ width: 48, height: 48, objectFit: 'contain', imageRendering: 'auto' }} />
                 )}
                 <div>
-                  <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 2 }}>{selectedPokemon.name}</h1>
+                  <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 2, color: 'var(--bx-text)' }}>{selectedPokemon.name}</h1>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {selectedPokemon.dexId > 0 && (
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>#{String(selectedPokemon.dexId).padStart(4, '0')}</span>
+                      <span style={{ fontSize: 11, color: 'var(--bx-text-3)', fontWeight: 600 }}>#{String(selectedPokemon.dexId).padStart(4, '0')}</span>
                     )}
                     {(selectedPokemon.types || []).map((t: string) => (
-                      <span key={t} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: TYPE_COLOR[t]?.bg || 'rgba(255,255,255,0.1)', color: TYPE_COLOR[t]?.text || '#f0f0f0' }}>{t}</span>
+                      <span key={t} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: TYPE_COLOR[t]?.bg || 'var(--bx-surface-2)', color: TYPE_COLOR[t]?.text || 'var(--bx-text)' }}>{t}</span>
                     ))}
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 100, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'var(--bx-text-3)' }}>
                       {cards.length} carta{cards.length !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -392,51 +426,72 @@ export default function Pokedex() {
               </div>
               </div>
               {/* Prev / Next */}
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
                 <button
                   onClick={() => prevP && handleSelectPokemon(prevP)}
                   disabled={!prevP}
                   title={prevP ? `← ${prevP.name}` : ''}
-                  style={{ background: prevP ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.1)', color: prevP ? '#f0f0f0' : 'rgba(255,255,255,0.2)', padding: '8px 14px', borderRadius: 10, cursor: prevP ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+                  style={{ background: prevP ? 'var(--bx-surface-2)' : 'var(--bx-surface)', border: '1px solid var(--bx-border-2)', color: prevP ? 'var(--bx-text)' : 'var(--bx-text-faint)', padding: '11px 14px', minHeight: 44, borderRadius: 10, cursor: prevP ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit', boxSizing: 'border-box', maxWidth: 160 }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  {prevP ? prevP.name : '—'}
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prevP ? prevP.name : '—'}</span>
                 </button>
                 <button
                   onClick={() => nextP && handleSelectPokemon(nextP)}
                   disabled={!nextP}
                   title={nextP ? `${nextP.name} →` : ''}
-                  style={{ background: nextP ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.1)', color: nextP ? '#f0f0f0' : 'rgba(255,255,255,0.2)', padding: '8px 14px', borderRadius: 10, cursor: nextP ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+                  style={{ background: nextP ? 'var(--bx-surface-2)' : 'var(--bx-surface)', border: '1px solid var(--bx-border-2)', color: nextP ? 'var(--bx-text)' : 'var(--bx-text-faint)', padding: '11px 14px', minHeight: 44, borderRadius: 10, cursor: nextP ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit', boxSizing: 'border-box', maxWidth: 160 }}
                 >
-                  {nextP ? nextP.name : '—'}
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nextP ? nextP.name : '—'}</span>
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
               </div>
             </div>
               )
             })()}
 
+            {/* Busca dentro das cartas do Pokémon — Charizard sozinho tem 329
+                cartas, antes só dava pra rolar (achado #8). Filtra por coleção
+                ou número; some se o Pokémon tem poucas cartas. */}
+            {cards.length > 8 && (
+              <div style={{ position: 'relative', marginBottom: 16, maxWidth: 320 }}>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--bx-text-3)' }}>
+                  <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M15 15l-3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <input
+                  value={cardSearch} onChange={e => setCardSearch(e.target.value)}
+                  placeholder="Buscar por coleção ou número..."
+                  style={{ width: '100%', background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px 11px 34px', minHeight: 44, color: 'var(--bx-text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+            )}
+
             {/* Grid de cartas */}
             {loadingCards ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-                <div style={{ width: 36, height: 36, border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid #f59e0b', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div className="pkdx-skeleton-grid pkdx-skeleton-cards">
+                {Array.from({ length: 8 }).map((_, i) => <div key={i} className="pkdx-skeleton-card" />)}
               </div>
             ) : cards.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 80, color: 'rgba(255,255,255,0.3)' }}>
-                <IconCard size={34} color="rgba(255,255,255,0.25)" style={{ marginBottom: 10 }} />
+              <div style={{ textAlign: 'center', padding: 80, color: 'var(--bx-text-faint)' }}>
+                <IconCard size={34} color="var(--bx-text-faint)" style={{ marginBottom: 10 }} />
                 <p>Nenhuma carta encontrada para {selectedPokemon.name}</p>
+              </div>
+            ) : cardsVisiveis.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 80, color: 'var(--bx-text-faint)' }}>
+                <p>Nenhuma carta bate com &quot;{cardSearch}&quot;.</p>
               </div>
             ) : (
               <div className="pkdx-cards-grid">
-                {cards.map(card => {
+                {cardsVisiveis.map(card => {
                   const owned = ownedCardIds.has(card.id)
                   return (
                     <div
                       key={card.id}
                       style={{
                         position: 'relative',
-                        background: owned ? 'rgba(245,158,11,0.06)' : 'transparent',
-                        border: owned ? '1px solid rgba(245,158,11,0.25)' : '1px solid transparent',
+                        background: owned ? 'rgba(var(--ac-1-rgb), 0.06)' : 'transparent',
+                        border: owned ? '1px solid rgba(var(--ac-1-rgb), 0.25)' : '1px solid transparent',
                         borderRadius: 16,
                         padding: 6,
                         transition: 'all 0.15s',
@@ -448,12 +503,12 @@ export default function Pokedex() {
                         <div style={{
                           position: 'absolute', top: 12, right: 12, zIndex: 3,
                           width: 22, height: 22, borderRadius: '50%',
-                          background: '#f59e0b',
+                          background: 'var(--ac-1)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
                         }}>
                           <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
-                            <path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M4 10l4.5 4.5L16 6" stroke="var(--bx-brand-ink)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </div>
                       )}
@@ -461,6 +516,7 @@ export default function Pokedex() {
                         card={card}
                         mode="select"
                         exchangeRate={exchangeRate}
+                        hidePriceTable={isMobile}
                         onSelect={() => { setSelectedCard(card); setSelectedCardIndex(cards.indexOf(card)); setSelectedVariante(pickBestVariante(card)) }}
                         badge={
                           // No mobile este botao some: o card inteiro ja abre o
@@ -471,7 +527,7 @@ export default function Pokedex() {
                           <button
                             className="pkdx-badge-detalhes"
                             onClick={e => { e.stopPropagation(); setSelectedCard(card) }}
-                            style={{ background: 'rgba(245,158,11,0.9)', border: 'none', color: '#000', padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}
+                            style={{ background: 'rgba(var(--ac-1-rgb), 0.9)', border: 'none', color: 'var(--bx-brand-ink)', padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}
                           >
                             Ver detalhes
                           </button>
@@ -504,20 +560,20 @@ export default function Pokedex() {
                     <span style={{
                       fontSize: 28, fontWeight: 800,
                       letterSpacing: '-0.02em', lineHeight: 1,
-                      color: completou ? '#22c55e' : '#f59e0b',
+                      color: completou ? 'var(--bx-green)' : 'var(--ac-1)',
                     }}>
                       {fmtNum(capturados)}
                     </span>
                     <span style={{
                       fontSize: 14, fontWeight: 600,
-                      color: 'rgba(255,255,255,0.3)',
+                      color: 'var(--bx-text-3)',
                     }}>
                       / {fmtNum(totalNoFiltro)}
                     </span>
                   </div>
                   <p style={{
                     fontSize: 10, fontWeight: 700,
-                    color: completou ? '#22c55e' : 'rgba(255,255,255,0.4)',
+                    color: completou ? 'var(--bx-green)' : 'var(--bx-text-3)',
                     textTransform: 'uppercase', letterSpacing: '0.08em',
                     margin: 0,
                   }}>
@@ -527,7 +583,7 @@ export default function Pokedex() {
                         ? 'Capturado'
                         : 'Capturados'}
                     {temFiltroAtivo && !completou && (
-                      <span style={{ color: 'rgba(255,255,255,0.25)', fontWeight: 500, marginLeft: 6 }}>
+                      <span style={{ color: 'var(--bx-text-faint)', fontWeight: 500, marginLeft: 6 }}>
                         no filtro
                       </span>
                     )}
@@ -537,30 +593,30 @@ export default function Pokedex() {
             />
 
             {/* Filtros */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+            <div className="pkdx-filtros">
               {/* Busca */}
               <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }}>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--bx-text-3)' }}>
                   <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M15 15l-3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 <input
                   value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Buscar Pokémon..."
-                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 12px 9px 34px', color: '#f0f0f0', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  style={{ width: '100%', background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px 11px 34px', minHeight: 44, color: 'var(--bx-text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                 />
               </div>
 
               {/* Geração */}
               <select value={genFilter} onChange={e => setGenFilter(e.target.value)}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 12px', color: genFilter ? '#f0f0f0' : 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px', minHeight: 44, color: genFilter ? 'var(--bx-text)' : 'var(--bx-text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }}>
                 <option value="">Geração</option>
                 {['I','II','III','IV','V','VI','VII','VIII','IX'].map(g => <option key={g} value={g}>Gen {g}</option>)}
               </select>
 
               {/* Tipo */}
               <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '9px 12px', color: typeFilter ? '#f0f0f0' : 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px', minHeight: 44, color: typeFilter ? 'var(--bx-text)' : 'var(--bx-text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }}>
                 <option value="">Tipo</option>
                 {['Fire','Water','Grass','Lightning','Psychic','Fighting','Darkness','Metal','Dragon','Colorless','Fairy'].map(t => (
                   <option key={t} value={t}>{t}</option>
@@ -570,7 +626,7 @@ export default function Pokedex() {
               {/* Limpa filtros */}
               {(search || typeFilter || genFilter) && (
                 <button onClick={() => { setSearch(''); setTypeFilter(''); setGenFilter('') }}
-                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', padding: '9px 14px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--bx-red)', padding: '11px 14px', minHeight: 44, borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }}>
                   Limpar
                 </button>
               )}
@@ -578,21 +634,22 @@ export default function Pokedex() {
 
             {/* Grid de Pokémon */}
             {loading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-                <div style={{ width: 36, height: 36, border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid #f59e0b', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div className="pkdx-skeleton-grid">
+                {Array.from({ length: 24 }).map((_, i) => <div key={i} className="pkdx-skeleton-mon" />)}
               </div>
             ) : (
+              <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 10 }}>
-                {filteredPokemons.map(pokemon => {
+                {pokemonsVisiveis.map(pokemon => {
                   const owned = ownedNames.has(pokemon.name)
-                  const typeColor = TYPE_COLOR[pokemon.types?.[0]] || { bg: 'rgba(255,255,255,0.03)', text: 'rgba(255,255,255,0.4)' }
+                  const typeColor = TYPE_COLOR[pokemon.types?.[0]] || { bg: 'var(--bx-surface)', text: 'var(--bx-text-3)' }
                   return (
                     <button
                       key={pokemon.name}
                       onClick={() => handleSelectPokemon(pokemon)}
                       style={{
-                        background: owned ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.02)',
-                        border: owned ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.07)',
+                        background: owned ? 'rgba(var(--ac-1-rgb), 0.06)' : 'var(--bx-surface)',
+                        border: owned ? '1px solid rgba(var(--ac-1-rgb), 0.25)' : '1px solid var(--bx-border)',
                         borderRadius: 14, padding: '12px 8px 10px', cursor: 'pointer',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                         transition: 'all 0.15s', fontFamily: 'inherit', position: 'relative',
@@ -600,8 +657,8 @@ export default function Pokedex() {
                     >
                       {/* Badge "tenho" */}
                       {owned && (
-                        <div style={{ position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: '50%', background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        <div style={{ position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: '50%', background: 'var(--ac-1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="var(--bx-brand-ink)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </div>
                       )}
 
@@ -612,6 +669,8 @@ export default function Pokedex() {
                             src={pokemon.sprite}
                             alt={pokemon.name}
                             referrerPolicy="no-referrer"
+                            loading="lazy"
+                            decoding="async"
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                             onError={(e) => {
                               const img = e.target as HTMLImageElement
@@ -628,19 +687,19 @@ export default function Pokedex() {
                             }}
                           />
                         ) : (
-                          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.35)' }}><IconCard size={20} /></div>
+                          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bx-text-3)' }}><IconCard size={20} /></div>
                         )}
                       </div>
 
                       {/* Número */}
                       {pokemon.dexId > 0 && (
-                        <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                        <p style={{ fontSize: 9, color: 'var(--bx-text-3)', fontWeight: 600, letterSpacing: '0.05em' }}>
                           #{String(pokemon.dexId).padStart(4, '0')}
                         </p>
                       )}
 
                       {/* Nome */}
-                      <p style={{ fontSize: 11, fontWeight: 700, color: '#f0f0f0', textAlign: 'center', lineHeight: 1.2, wordBreak: 'break-word' }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--bx-text)', textAlign: 'center', lineHeight: 1.2, wordBreak: 'break-word' }}>
                         {pokemon.name}
                       </p>
 
@@ -654,12 +713,12 @@ export default function Pokedex() {
                       {/* Gen badge + contagem */}
                       <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                         {pokemon.generation && pokemon.generation !== '?' && (
-                          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', fontWeight: 600 }}>
+                          <span style={{ fontSize: 8, color: 'var(--bx-text-faint)', fontWeight: 600 }}>
                             Gen {pokemon.generation}
                           </span>
                         )}
                         {pokemon.card_count > 0 && (
-                          <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)' }}>
+                          <span style={{ fontSize: 8, color: 'var(--bx-text-faint)' }}>
                             · {pokemon.card_count}
                           </span>
                         )}
@@ -668,6 +727,16 @@ export default function Pokedex() {
                   )
                 })}
               </div>
+
+              {/* Sentinel de paginação — 1.025 Pokémon de uma vez sobrecarregava
+                  o DOM (achado #1). Revela mais um lote de 120 ao chegar perto
+                  do fim, em vez de tudo de uma vez. */}
+              {temMaisPokemons && (
+                <div ref={sentinelRef} style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+                  <div style={{ width: 24, height: 24, border: '3px solid var(--bx-border-2)', borderTop: '3px solid var(--ac-1)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                </div>
+              )}
+              </>
             )}
           </div>
         )}
@@ -675,7 +744,40 @@ export default function Pokedex() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        select option { background: #1a1d24; color: #f0f0f0; }
+        select option { background: var(--bx-bg-elev); color: var(--bx-text); }
+
+        /* Filtros (busca/geracao/tipo/limpar) -- em 375px o flex-wrap padrao
+           quebrava de forma assimetrica (Busca+Geracao numa linha, Tipo
+           sozinho na outra, achado #9). Empilha tudo em coluna abaixo de
+           480px pra ficar previsivel. */
+        .pkdx-filtros { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        @media (max-width: 480px) {
+          .pkdx-filtros { flex-direction: column; }
+          .pkdx-filtros > * { width: 100%; box-sizing: border-box; }
+        }
+
+        /* Skeleton de carregamento -- antes era so um spinner generico numa
+           tela que carrega 1.025 itens + sprites externos (achado #10).
+           prefers-reduced-motion mata o pulso, fica so o placeholder estatico. */
+        @keyframes pkdx-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+        .pkdx-skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+        .pkdx-skeleton-mon {
+          height: 148px; border-radius: 14px;
+          background: var(--bx-surface); border: 1px solid var(--bx-border);
+          animation: pkdx-pulse 1.6s ease-in-out infinite;
+        }
+        .pkdx-skeleton-cards.pkdx-skeleton-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .pkdx-skeleton-card {
+          height: 260px; border-radius: 16px;
+          background: var(--bx-surface); border: 1px solid var(--bx-border);
+          animation: pkdx-pulse 1.6s ease-in-out infinite;
+        }
+        @media (min-width: 769px) {
+          .pkdx-skeleton-cards.pkdx-skeleton-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .pkdx-skeleton-mon, .pkdx-skeleton-card { animation: none; opacity: 0.7; }
+        }
 
         /* Grade de cartas do Pokemon aberto.
            No desktop segue o auto-fill de 200px. No mobile o auto-fill nao

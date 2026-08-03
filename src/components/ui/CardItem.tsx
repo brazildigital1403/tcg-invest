@@ -129,6 +129,11 @@ interface CardItemProps {
   footerSlot?: ReactNode
   // Câmbio para estimativas USD/EUR
   exchangeRate?: { usd: number; eur: number }
+  // Esconde a mini-tabela de variantes/preço (fica só o badge de preço na
+  // imagem). Usar quando o card renderiza estreito demais pros 242px que a
+  // tabela precisa (ex: grade de 2 colunas da Pokedex em mobile) -- ali ela
+  // cortava sem nenhuma pista de que dava pra arrastar (auditoria 02/08/2026).
+  hidePriceTable?: boolean
 }
 
 // ── Utilitários ──────────────────────────────────────────────────────────────
@@ -192,6 +197,7 @@ export default function CardItem({
   badge,
   footerSlot,
   exchangeRate = { usd: 6.0, eur: 6.5 },
+  hidePriceTable = false,
 }: CardItemProps) {
   const variante = varianteProp || card.variante || 'normal'
   const idioma = (card.idioma || 'pt').toLowerCase()
@@ -382,7 +388,7 @@ export default function CardItem({
         )}
 
         {/* Seletor de variante com preços — só em modo collection */}
-        {mode !== 'readonly' && availableVariants.length > 0 && (
+        {mode !== 'readonly' && !hidePriceTable && availableVariants.length > 0 && (
           <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid rgba(255,255,255,0.06)' }}>
             {/* Header */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 56px 56px', minWidth: 242, padding: '4px 8px', borderBottom: '1px solid var(--bx-surface-2)' }}>
