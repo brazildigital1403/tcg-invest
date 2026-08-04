@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useAppModal } from '@/components/ui/useAppModal'
+import { IconCheck } from '@/components/ui/Icons'
 
 const GOLD = '#f59e0b'
 const MUTED = 'rgba(255,255,255,0.45)'
@@ -38,15 +40,32 @@ function fmtData(iso: string) {
     d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
+// Normaliza o numero da carta pro dedup -- "23" e "023" sao a MESMA carta,
+// mas comparados crus (.trim() so) viravam chaves diferentes e a coluna
+// "Pediram" sub-contava (confirmado contra dado real de producao, achado
+// de auditoria 04/08/2026).
+function numeroNormalizado(numero: string | null) {
+  return (numero || '').replace(/\D/g, '').replace(/^0+/, '')
+}
+
 export default function AdminCardRequestsPage() {
+  const { showConfirm, showAlert } = useAppModal()
   const [reqs, setReqs] = useState<Req[]>([])
   const [loading, setLoading] = useState(true)
   const [fStatus, setFStatus] = useState('pendente')
   const [fTipo, setFTipo] = useState('')
   const [fOrigem, setFOrigem] = useState('')
+  const [qInput, setQInput] = useState('')
   const [q, setQ] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
   const [notifying, setNotifying] = useState(false)
+
+  // Cada tecla digitada disparava fetch imediato -- notificacoes/page.tsx ja
+  // resolveu isso com debounce de 300ms, aplicado aqui tambem (achado 04/08/2026).
+  useEffect(() => {
+    const t = setTimeout(() => setQ(qInput), 300)
+    return () => clearTimeout(t)
+  }, [qInput])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -66,7 +85,11 @@ export default function AdminCardRequestsPage() {
   useEffect(() => { load() }, [load])
 
   async function enviarResumo() {
-    if (!confirm('Enviar e-mail-resumo para os usuarios com cartas marcadas como Adicionada e ainda nao avisadas? Cada usuario recebe um unico e-mail com todas as cartas dele.')) return
+    const ok = await showConfirm({
+      message: 'Enviar e-mail-resumo para os usuários com cartas marcadas como Adicionada e ainda não avisadas? Cada usuário recebe um único e-mail com todas as cartas dele.',
+      confirmLabel: 'Enviar',
+    })
+    if (!ok) return
     setNotifying(true)
     try {
       const r = await fetch('/api/admin/card-requests', {
@@ -75,20 +98,20 @@ export default function AdminCardRequestsPage() {
         body: JSON.stringify({}),
       })
       const d = await r.json()
-      if (d.ok) alert(`${d.emails} e-mail(s) enviado(s) para ${d.usuarios} usuario(s) - ${d.cartas} carta(s).`)
-      else alert(d.error || 'Falha ao enviar.')
+      if (d.ok) showAlert(`${d.emails} e-mail(s) enviado(s) para ${d.usuarios} usuário(s) — ${d.cartas} carta(s).`, 'success')
+      else showAlert(d.error || 'Falha ao enviar.', 'error')
       await load()
-    } catch { alert('Erro ao enviar resumo.') }
+    } catch { showAlert('Erro ao enviar resumo.', 'error') }
     setNotifying(false)
   }
 
   const dup: Record<string, Set<string>> = {}
   for (const r of reqs) {
-    const key = `${(r.nome || '').toLowerCase().trim()}|${(r.numero || '').trim()}`
+    const key = `${(r.nome || '').toLowerCase().trim()}|${numeroNormalizado(r.numero)}`
     if (!dup[key]) dup[key] = new Set()
     if (r.user_id) dup[key].add(r.user_id)
   }
-  const dupCount = (r: Req) => dup[`${(r.nome || '').toLowerCase().trim()}|${(r.numero || '').trim()}`]?.size || 1
+  const dupCount = (r: Req) => dup[`${(r.nome || '').toLowerCase().trim()}|${numeroNormalizado(r.numero)}`]?.size || 1
 
   async function setStatus(id: string, status: string) {
     setSaving(id)
@@ -137,7 +160,7 @@ export default function AdminCardRequestsPage() {
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <FilterRow value={fTipo} set={setFTipo} opts={[{ v: '', label: 'Tipo: todos' }, { v: 'faltando', label: 'Faltando' }, { v: 'erro', label: 'Erro' }]} />
           <FilterRow value={fOrigem} set={setFOrigem} opts={[{ v: '', label: 'Origem: todas' }, { v: 'form', label: 'Form' }, { v: 'auto', label: 'Auto' }]} />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar nome/numero/termo..."
+          <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="Buscar nome/numero/termo..."
             style={{ fontSize: 13, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px', color: '#f0f0f0', outline: 'none', minWidth: 220 }} />
         </div>
       </div>
@@ -152,10 +175,13 @@ export default function AdminCardRequestsPage() {
             </tr>
           </thead>
           <tbody>
+            {loading && (
+              <tr><td colSpan={9} style={{ padding: 28, textAlign: 'center', color: MUTED }}>Carregando...</td></tr>
+            )}
             {!loading && reqs.length === 0 && (
               <tr><td colSpan={9} style={{ padding: 28, textAlign: 'center', color: MUTED }}>Nenhum pedido com esses filtros.</td></tr>
             )}
-            {reqs.map(r => {
+            {!loading && reqs.map(r => {
               const isErro = r.tipo === 'erro'
               const n = dupCount(r)
               return (
@@ -200,7 +226,7 @@ export default function AdminCardRequestsPage() {
                       style={{ fontSize: 12, fontWeight: 600, background: '#15161e', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 8px', color: STATUS_OPTS.find(s => s.v === r.status)?.color || '#f0f0f0', cursor: 'pointer', opacity: saving === r.id ? 0.5 : 1 }}>
                       {STATUS_OPTS.map(s => <option key={s.v} value={s.v} style={{ background: '#15161e', color: '#f0f0f0' }}>{s.label}</option>)}
                     </select>
-                    {r.notificado && <div style={{ fontSize: 9, color: '#22c55e', marginTop: 3 }}>✓ avisado</div>}
+                    {r.notificado && <div style={{ fontSize: 9, color: '#22c55e', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}><IconCheck size={9} color="#22c55e" /> avisado</div>}
                   </td>
                 </tr>
               )

@@ -28,6 +28,7 @@ import {
   IconClock, IconCalendar, IconChart, IconTag, IconStar,
   IconEdit, IconArrowUp, IconArrowDown, IconTrash, IconPlus, IconClose, IconHistory,
 } from '@/components/ui/Icons'
+import { useAppModal } from '@/components/ui/useAppModal'
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 const AC = 'var(--ac-1)'
@@ -279,6 +280,7 @@ type HistoricoItem = {
 type Canal = { nome: string; total: number }
 
 export default function GestaoConteudo() {
+  const { showAlert, showConfirm } = useAppModal()
   const [aba, setAba] = useState('fila')
   const [checklist, setChecklist] = useState<Record<string, boolean>>({})
   const [fila, setFila] = useState<FilaItem[]>([])
@@ -363,37 +365,65 @@ export default function GestaoConteudo() {
   }
 
   // ─── Fila ────────────────────────────────────────────────────────────────
+  // As 5 funcoes abaixo faziam update otimista (ou nem isso) sem try/catch
+  // nem revalidacao em falha -- se o fetch caisse, o item sumia da tela ate
+  // um F5 manual, sem nenhum aviso (achado de auditoria 04/08/2026). Todas
+  // agora recarregam a fila real do servidor em caso de erro, e avisam.
   async function postarItem(id: string) {
     setFila((f) => f.filter((i) => i.id !== id))   // otimista: some da fila na hora
-    await fetch('/api/admin/conteudo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'fila_postar', id }),
-    })
-    carregar()
+    try {
+      const r = await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'fila_postar', id }),
+      })
+      if (!r.ok) throw new Error()
+    } catch {
+      showAlert('Não deu pra marcar como postado. Recarregando a fila.', 'error')
+    } finally {
+      carregar()
+    }
   }
 
   async function despostarItem(id: string) {
-    await fetch('/api/admin/conteudo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'fila_despostar', id }),
-    })
-    carregar()
+    try {
+      const r = await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'fila_despostar', id }),
+      })
+      if (!r.ok) throw new Error()
+    } catch {
+      showAlert('Não deu pra desfazer o post.', 'error')
+    } finally {
+      carregar()
+    }
   }
 
   async function marcarPronto(id: string) {
-    await fetch('/api/admin/conteudo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'fila_atualizar', id, marcarPronto: true }),
-    })
-    carregar()
+    try {
+      const r = await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'fila_atualizar', id, marcarPronto: true }),
+      })
+      if (!r.ok) throw new Error()
+    } catch {
+      showAlert('Não deu pra marcar como pronto.', 'error')
+    } finally {
+      carregar()
+    }
   }
 
   async function removerRascunho(id: string) {
     setFila((f) => f.filter((i) => i.id !== id))
-    await fetch('/api/admin/conteudo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'fila_remover', id }),
-    })
+    try {
+      const r = await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'fila_remover', id }),
+      })
+      if (!r.ok) throw new Error()
+    } catch {
+      showAlert('Não deu pra remover o rascunho. Recarregando a fila.', 'error')
+      carregar()
+    }
   }
 
   async function mover(id: string, direcao: -1 | 1) {
@@ -408,10 +438,16 @@ export default function GestaoConteudo() {
       return f
     })
     setFila(novaFila)
-    await fetch('/api/admin/conteudo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'fila_reordenar', itens: [{ id: atual.id, ordem: alvo.ordem }, { id: alvo.id, ordem: atual.ordem }] }),
-    })
+    try {
+      const r = await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'fila_reordenar', itens: [{ id: atual.id, ordem: alvo.ordem }, { id: alvo.id, ordem: atual.ordem }] }),
+      })
+      if (!r.ok) throw new Error()
+    } catch {
+      showAlert('Não deu pra reordenar. Recarregando a fila.', 'error')
+      carregar()
+    }
   }
 
   function abrirEdicao(item: FilaItem) {
@@ -439,24 +475,43 @@ export default function GestaoConteudo() {
 
   async function salvarForm(marcarProntoAoSalvar: boolean) {
     const corpo = { pilar: formPilar, formato: formFormato, gancho: formGancho, observacao: formObs }
-    if (rascunhoNovo) {
-      await fetch('/api/admin/conteudo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acao: 'fila_criar', ...corpo, status: marcarProntoAoSalvar ? 'pronto' : 'rascunho' }),
-      })
-    } else if (editandoId) {
-      await fetch('/api/admin/conteudo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acao: 'fila_atualizar', id: editandoId, ...corpo, marcarPronto: marcarProntoAoSalvar }),
-      })
+    try {
+      let r: Response
+      if (rascunhoNovo) {
+        r = await fetch('/api/admin/conteudo', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ acao: 'fila_criar', ...corpo, status: marcarProntoAoSalvar ? 'pronto' : 'rascunho' }),
+        })
+      } else if (editandoId) {
+        r = await fetch('/api/admin/conteudo', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ acao: 'fila_atualizar', id: editandoId, ...corpo, marcarPronto: marcarProntoAoSalvar }),
+        })
+      } else {
+        return
+      }
+      if (!r.ok) throw new Error()
+      fecharForm()
+    } catch {
+      showAlert('Não deu pra salvar. Tenta de novo.', 'error')
+    } finally {
+      carregar()
     }
-    fecharForm()
-    carregar()
   }
 
   // "Preencher a semana" — usa a grade-modelo pra gerar 7 rascunhos de uma vez,
   // com um gancho sugerido por pilar (o Du refina cada um antes de marcar pronto).
+  // Nao olhava o estado atual da fila antes de inserir -- clicar de novo (mesmo
+  // dias depois, por esquecimento) duplicava 7 rascunhos por cima dos que ja
+  // existiam, sem aviso nenhum (achado de auditoria 04/08/2026).
   async function preencherSemana() {
+    if (rascunhos.length > 0) {
+      const ok = await showConfirm({
+        message: `Já existem ${rascunhos.length} rascunho${rascunhos.length === 1 ? '' : 's'} na fila. "Preencher a semana" cria mais 7 por cima, sem checar se já cobrem os mesmos dias. Continuar mesmo assim?`,
+        confirmLabel: 'Criar mais 7',
+      })
+      if (!ok) return
+    }
     const usados = new Set<string>()
     const itens = GRADE.map((g) => {
       const opcoes = GANCHOS.filter((h) => h.p === g.pilar && !usados.has(h.t))
@@ -464,11 +519,17 @@ export default function GestaoConteudo() {
       if (escolhido) usados.add(escolhido.t)
       return { pilar: g.pilar, formato: g.fmt, gancho: escolhido?.t || '' }
     })
-    await fetch('/api/admin/conteudo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'fila_criar_lote', itens }),
-    })
-    carregar()
+    try {
+      const r = await fetch('/api/admin/conteudo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'fila_criar_lote', itens }),
+      })
+      if (!r.ok) throw new Error()
+    } catch {
+      showAlert('Não deu pra preencher a semana.', 'error')
+    } finally {
+      carregar()
+    }
   }
 
   const ganchosFiltrados = GANCHOS.filter((g) => filtroGancho === 'todos' || g.p === filtroGancho)
@@ -727,7 +788,7 @@ export default function GestaoConteudo() {
               <div style={{ fontSize: 12, color: TXT3, marginBottom: 5 }}>Postados nos últimos 7 dias</div>
               <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: TXT }}>
                 {historico.filter((h) => Date.now() - new Date(h.postado_em).getTime() < 7 * 86400_000).length}
-                <span style={{ fontSize: 14, color: TXT3 }}> de 7</span>
+                <span style={{ fontSize: 14, color: TXT3 }}> · meta 6-7/semana</span>
               </div>
             </div>
           </div>

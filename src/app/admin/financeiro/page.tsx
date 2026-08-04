@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconWallet, IconWarning, IconKey } from '@/components/ui/Icons'
 
@@ -448,8 +448,8 @@ export default function AdminFinanceiroPage() {
                   const aberto = expandedIds.has(l.id)
                   const isStripe = l.fonte === 'stripe'
                   return (
-                    <>
-                      <tr key={l.id}
+                    <Fragment key={l.id}>
+                      <tr
                         style={{
                           borderTop: '1px solid rgba(255,255,255,0.05)',
                           background: aberto ? 'rgba(245,158,11,0.04)' : undefined,
@@ -553,7 +553,7 @@ export default function AdminFinanceiroPage() {
                                       {fmtBRL(Number(item.valor))}
                                     </td>
                                     <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.55)' }}>
-                                      {fmtBRL(Number((item as any).taxa) || 0)}
+                                      {fmtBRL(Number(item.taxa) || 0)}
                                     </td>
                                   </tr>
                                 ))}
@@ -565,7 +565,7 @@ export default function AdminFinanceiroPage() {
                                     {fmtBRL(Number(l.valor_bruto))}
                                   </td>
                                   <td style={{ padding: '8px 10px', borderTop: '1px solid rgba(245,158,11,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: '#f97316' }}>
-                                    {fmtBRL(l.detalhes!.reduce((s, it) => s + (Number((it as any).taxa) || 0), 0))}
+                                    {fmtBRL(l.detalhes!.reduce((s, it) => s + (Number(it.taxa) || 0), 0))}
                                   </td>
                                 </tr>
                               </tbody>
@@ -573,7 +573,7 @@ export default function AdminFinanceiroPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   )
                 })}
               </tbody>
@@ -857,7 +857,7 @@ function ModalLancamento({ editing, onClose, onSaved, showAlert }: {
 
   // Sub-itens
   const inicialDetalhes: SubItemForm[] = editing?.detalhes && editing.detalhes.length > 0
-    ? editing.detalhes.map(d => ({ descricao: d.descricao, valor: String(d.valor), taxa: (d as any).taxa != null ? String((d as any).taxa) : '' }))
+    ? editing.detalhes.map(d => ({ descricao: d.descricao, valor: String(d.valor), taxa: d.taxa != null ? String(d.taxa) : '' }))
     : [{ descricao: '', valor: '', taxa: '' }]
 
   const [usaSubItens, setUsaSubItens] = useState(!!(editing?.detalhes && editing.detalhes.length > 0))
