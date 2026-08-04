@@ -11,7 +11,7 @@ import OnboardingModal from '@/components/ui/OnboardingModal'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import CardDetailModal from '@/components/dashboard/CardDetailModal'
 import AnunciarModal from '@/components/marketplace/AnunciarModal'
-import { IconTrendingUp, IconHistory, IconCollection, IconFire, IconWarning, IconWallet, IconMarketplace, IconChart, IconCard, IconSearch, IconArrowRight } from '@/components/ui/Icons'
+import { IconTrendingUp, IconHistory, IconCollection, IconFire, IconWarning, IconWallet, IconMarketplace, IconChart, IconCard, IconSearch, IconArrowRight, IconPokeball } from '@/components/ui/Icons'
 import { montarUltimaVenda } from '@/components/ui/CardItem'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { GRADUADORA_MAP, notaCurta } from '@/lib/graduadoras'
@@ -47,8 +47,8 @@ function StatChip({ label, value, color }: { label: string; value: string; color
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>{children}</p>
+function SectionTitle({ children, color }: { children: React.ReactNode; color?: string }) {
+  return <p style={{ fontSize: 11, fontWeight: 700, color: color || 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>{children}</p>
 }
 
 function EmptyRow({ label }: { label: string }) {
@@ -279,7 +279,7 @@ export default function DashboardFinanceiro() {
             enrichedCards.push({
               ...(p || {}), card_name: card.card_name, variante, precoVariante: val, variation: 0,
               graduada: isGraduada, graduadora: card.graduadora || null, nota: card.nota || null, blackLabel: !!card.black_label,
-              userCardId: card.id,
+              userCardId: card.id, card_image: card.card_image || null,
             })
           }
         }
@@ -424,12 +424,18 @@ export default function DashboardFinanceiro() {
 
         {/* ── HERO ── */}
         <div style={{
-          background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.06))',
+          position: 'relative', overflow: 'hidden',
+          background:
+            'radial-gradient(120% 140% at 8% 10%, rgba(245,158,11,0.18), transparent 55%),' +
+            'radial-gradient(120% 140% at 95% 100%, rgba(239,68,68,0.14), transparent 55%),' +
+            'var(--bx-surface)',
           border: '1px solid rgba(245,158,11,0.2)',
           borderRadius: 20, padding: '28px 32px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20
         }} className="dash-hero">
-          <div>
+          {/* Pokebola gigante e translucida -- mesma receita da capa de /lojas/[slug] sem foto */}
+          <IconPokeball size={280} color="var(--ac-1)" strokeWidth={0.6} style={{ position: 'absolute', right: -30, top: '50%', transform: 'translateY(-50%)', opacity: 0.08, pointerEvents: 'none' }} />
+          <div style={{ position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <p style={{ fontSize: 11, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 Patrimônio total da coleção
@@ -484,7 +490,7 @@ export default function DashboardFinanceiro() {
             {/* Seletor de carta + gráfico */}
             <div style={{ ...SURFACE, padding: 24, marginBottom: 16 }} className="dash-surface">
               <div style={{ marginBottom: 16 }}>
-                <SectionTitle><IconTrendingUp size={14} color="var(--bx-text-3)" />Histórico de preço</SectionTitle>
+                <SectionTitle color="var(--ac-1)"><IconTrendingUp size={14} color="var(--ac-1)" />Histórico de preço</SectionTitle>
 
                 {/* Busca por nome */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 10, padding: '9px 12px', marginTop: 12, marginBottom: 10 }}>
@@ -682,7 +688,7 @@ export default function DashboardFinanceiro() {
 
             {/* Últimas transações */}
             <div style={{ ...SURFACE, padding: 24 }} className="dash-surface">
-              <SectionTitle><IconHistory size={14} color="var(--bx-text-3)" />Últimas transações</SectionTitle>
+              <SectionTitle color="var(--bx-blue)"><IconHistory size={14} color="var(--bx-blue)" />Últimas transações</SectionTitle>
               {transactions.length === 0 ? (
                 <>
                   <EmptyRow label="Nenhuma transação ainda" />
@@ -736,7 +742,7 @@ export default function DashboardFinanceiro() {
 
             {/* Cartas mais valiosas */}
             <div style={{ ...SURFACE, padding: 24 }} className="dash-surface">
-              <SectionTitle><IconCollection size={14} color="var(--bx-text-3)" />Cartas mais valiosas</SectionTitle>
+              <SectionTitle color="var(--ac-1)"><IconCollection size={14} color="var(--ac-1)" />Cartas mais valiosas</SectionTitle>
               {rankingWithVariation.length === 0 ? (
                 <>
                   {['Adicione cartas para ver o ranking', 'Busque cartas pelo nome', 'Os preços aparecem automaticamente'].map(l => (
@@ -751,6 +757,16 @@ export default function DashboardFinanceiro() {
                   const vLabel = varLabels[r.variante || 'normal'] || 'Normal'
                   const vColor = varColors[r.variante || 'normal'] || '#60a5fa'
                   const gradMeta = r.graduada ? GRADUADORA_MAP[r.graduadora || ''] : null
+                  // Medalha pro top 3 -- ouro/prata/bronze sao cor fixa de metal,
+                  // mesma logica de varColors/GRADUADORA_MAP (paleta semantica
+                  // intencional, nao token de UI generica).
+                  const medalha = i === 0
+                    ? { bg: 'rgba(245,158,11,0.18)', cor: 'var(--ac-1)', borda: 'rgba(245,158,11,0.4)' }
+                    : i === 1
+                    ? { bg: 'rgba(203,213,225,0.14)', cor: '#cbd5e1', borda: 'rgba(203,213,225,0.3)' }
+                    : i === 2
+                    ? { bg: 'rgba(217,119,6,0.14)', cor: '#d97706', borda: 'rgba(217,119,6,0.3)' }
+                    : { bg: 'var(--bx-surface-2)', cor: 'var(--bx-text-faint)', borda: 'var(--bx-border)' }
                   return (
                     <button
                       key={r.id || i}
@@ -760,7 +776,17 @@ export default function DashboardFinanceiro() {
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: i === 0 ? 'var(--ac-1)' : 'var(--bx-text-faint)', minWidth: 20, flexShrink: 0 }}>#{i + 1}</span>
+                        <span style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                          fontSize: 10, fontWeight: 800,
+                          background: medalha.bg, color: medalha.cor, border: `1px solid ${medalha.borda}`,
+                        }}>{i + 1}</span>
+                        {r.card_image ? (
+                          <img src={r.card_image} alt={r.card_name} style={{ width: 30, height: 42, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--bx-border-2)', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: 30, height: 42, borderRadius: 5, background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconCard size={14} color="var(--bx-text-3)" /></div>
+                        )}
                         <div style={{ minWidth: 0 }}>
                           <p style={{ fontSize: 13, color: 'var(--bx-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {r.card_name}
@@ -792,8 +818,8 @@ export default function DashboardFinanceiro() {
 
             {/* Oportunidades */}
             <div style={{ ...SURFACE, padding: 24 }} className="dash-surface">
-              <SectionTitle>
-                <IconFire size={14} color="var(--bx-text-3)" />Oportunidades de compra
+              <SectionTitle color="var(--bx-green)">
+                <IconFire size={14} color="var(--bx-green)" />Oportunidades de compra
                 <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--bx-text-faint)', textTransform: 'none', letterSpacing: 0, background: 'var(--bx-surface-2)', padding: '2px 8px', borderRadius: 100 }}>30 dias</span>
               </SectionTitle>
               {rankingWithVariation.filter(r => r.variation > 10).length === 0 ? (
@@ -808,10 +834,17 @@ export default function DashboardFinanceiro() {
                     onClick={() => abrirDetalhe(r.userCardId)}
                     title="Ver detalhe da carta"
                     className="dash-oport-row dash-clickable-row"
-                    style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
                   >
-                    <p style={{ fontSize: 13, color: 'var(--bx-text)' }}>{r.card_name}</p>
-                    <span className="dash-oport-val" style={{ fontSize: 11, color: 'var(--bx-green)', fontWeight: 700 }}>+{r.variation.toFixed(0)}%</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                      {r.card_image ? (
+                        <img src={r.card_image} alt={r.card_name} style={{ width: 30, height: 42, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--bx-border-2)', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 30, height: 42, borderRadius: 5, background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconCard size={14} color="var(--bx-text-3)" /></div>
+                      )}
+                      <p style={{ fontSize: 13, color: 'var(--bx-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.card_name}</p>
+                    </div>
+                    <span className="dash-oport-val" style={{ fontSize: 11, color: 'var(--bx-green)', fontWeight: 700, flexShrink: 0 }}>+{r.variation.toFixed(0)}%</span>
                   </button>
                 ))
               )}
@@ -819,8 +852,8 @@ export default function DashboardFinanceiro() {
 
             {/* Alertas */}
             <div style={{ ...SURFACE, padding: 24 }} className="dash-surface">
-              <SectionTitle>
-                <IconWarning size={14} color="var(--bx-text-3)" />Alertas de mercado
+              <SectionTitle color="var(--bx-red)">
+                <IconWarning size={14} color="var(--bx-red)" />Alertas de mercado
                 <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--bx-text-faint)', textTransform: 'none', letterSpacing: 0, background: 'var(--bx-surface-2)', padding: '2px 8px', borderRadius: 100 }}>30 dias</span>
               </SectionTitle>
               {rankingWithVariation.filter(r => r.variation < -10).length === 0 ? (
@@ -835,10 +868,17 @@ export default function DashboardFinanceiro() {
                     onClick={() => abrirDetalhe(r.userCardId)}
                     title="Ver detalhe da carta"
                     className="dash-oport-row dash-clickable-row"
-                    style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
                   >
-                    <p style={{ fontSize: 13, color: 'var(--bx-text)' }}>{r.card_name}</p>
-                    <span className="dash-oport-val" style={{ fontSize: 11, color: 'var(--bx-red)', fontWeight: 700 }}>{r.variation.toFixed(0)}%</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                      {r.card_image ? (
+                        <img src={r.card_image} alt={r.card_name} style={{ width: 30, height: 42, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--bx-border-2)', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 30, height: 42, borderRadius: 5, background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconCard size={14} color="var(--bx-text-3)" /></div>
+                      )}
+                      <p style={{ fontSize: 13, color: 'var(--bx-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.card_name}</p>
+                    </div>
+                    <span className="dash-oport-val" style={{ fontSize: 11, color: 'var(--bx-red)', fontWeight: 700, flexShrink: 0 }}>{r.variation.toFixed(0)}%</span>
                   </button>
                 ))
               )}
