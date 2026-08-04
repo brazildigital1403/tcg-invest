@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
@@ -8,7 +9,7 @@ import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
 import OnboardingModal from '@/components/ui/OnboardingModal'
 import AddCardModal from '@/components/dashboard/AddCardModal'
-import { IconTrendingUp, IconHistory, IconCollection, IconFire, IconWarning, IconWallet, IconMarketplace, IconChart, IconCard } from '@/components/ui/Icons'
+import { IconTrendingUp, IconHistory, IconCollection, IconFire, IconWarning, IconWallet, IconMarketplace, IconChart, IconCard, IconSearch, IconArrowRight } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { GRADUADORA_MAP, notaCurta } from '@/lib/graduadoras'
 
@@ -75,6 +76,13 @@ export default function DashboardFinanceiro() {
   const [userId, setUserId] = useState<string | null>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [cardSortOrder, setCardSortOrder] = useState<'alpha' | 'recent'>('alpha')
+  const [cardSearch, setCardSearch] = useState('')
+  const historicoRef = useRef<HTMLDivElement>(null)
+
+  function selecionarNoHistorico(userCardId: string) {
+    setSelectedCardId(userCardId)
+    historicoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   // ── Load data ───────────────────────────────────────────────────────────
 
@@ -212,18 +220,25 @@ export default function DashboardFinanceiro() {
             enrichedCards.push({
               ...(p || {}), card_name: card.card_name, variante, precoVariante: val, variation: 0,
               graduada: isGraduada, graduadora: card.graduadora || null, nota: card.nota || null, blackLabel: !!card.black_label,
+              userCardId: card.id,
             })
           }
         }
 
         // ── Variação por carta — 1 QUERY BATCH em price_history (em vez de N chamadas /api/historico) ──
+        // Janela fixa de 30 dias -- sem isso cada carta era medida desde o seu
+        // 1o registro (uma com dias de historico, outra com meses), o que
+        // tornava "Oportunidades"/"Alertas" incomparaveis entre cartas
+        // (achado de auditoria 04/08/2026).
         const rankIds = [...new Set(enrichedCards.map((c: any) => c.id).filter(Boolean))]
         const variationById: Record<string, number> = {}
         if (rankIds.length > 0) {
+          const desde30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
           const { data: hist } = await supabase
             .from('price_history')
             .select('card_id, preco_medio, preco_normal, recorded_at')
             .in('card_id', rankIds)
+            .gte('recorded_at', desde30d)
             .order('recorded_at', { ascending: true })
           const byCard: Record<string, any[]> = {}
           for (const h of hist || []) {
@@ -251,7 +266,11 @@ export default function DashboardFinanceiro() {
         }
 
         if (cards && cards.length > 0) {
-          setSelectedCardId(cards[0].id)
+          // Ordem alfabetica pra bater com a ordem visual da lista (que abre
+          // em 'alpha' por padrao) -- senao a carta pre-selecionada podia
+          // cair fora da area visivel do seletor sem nenhum scroll ate ela.
+          const primeiraDaLista = [...cards].sort((a, b) => a.card_name.localeCompare(b.card_name))[0]
+          setSelectedCardId(primeiraDaLista.id)
         }
       } catch (e) { console.error(e) }
       setLoading(false)
@@ -307,6 +326,12 @@ export default function DashboardFinanceiro() {
 
   const saldo = stats.totalVendas - stats.totalCompras
   const variation = getVariation(priceHistory)
+  const cardsFiltradas = [...userCards]
+    .filter(c => c.card_name.toLowerCase().includes(cardSearch.trim().toLowerCase()))
+    .sort((a, b) => cardSortOrder === 'alpha'
+      ? a.card_name.localeCompare(b.card_name)
+      : new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    )
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -322,6 +347,8 @@ export default function DashboardFinanceiro() {
   return (
     <AppLayout>
       <style>{`
+        .dash-clickable-row { transition: background 0.15s ease; border-radius: 8px; }
+        .dash-clickable-row:hover { background: var(--bx-surface-2); }
         @media (max-width: 768px) {
           .dash-hero { flex-direction: column !important; padding: 20px 16px !important; }
           .dash-hero h1 { font-size: 32px !important; }
@@ -366,10 +393,6 @@ export default function DashboardFinanceiro() {
                 <p style={{ fontSize: 15, fontWeight: 700, color: saldo >= 0 ? 'var(--bx-green)' : 'var(--bx-red)' }}>{saldo >= 0 ? '+' : ''}{fmt(saldo)}</p>
               </div>
               <div>
-                <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 3 }}>Performance</p>
-                <p style={{ fontSize: 15, fontWeight: 700, color: variation >= 0 ? 'var(--bx-green)' : 'var(--bx-red)' }}>{pct(variation)}</p>
-              </div>
-              <div>
                 <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 3 }}>Cartas</p>
                 <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--bx-text)' }}>{stats.quantidade}</p>
               </div>
@@ -400,18 +423,29 @@ export default function DashboardFinanceiro() {
           <div>
 
             {/* Seletor de carta + gráfico */}
-            <div style={{ ...SURFACE, padding: 24, marginBottom: 16 }}>
+            <div ref={historicoRef} style={{ ...SURFACE, padding: 24, marginBottom: 16 }} className="dash-surface">
               <div style={{ marginBottom: 16 }}>
                 <SectionTitle><IconTrendingUp size={14} color="var(--bx-text-3)" />Histórico de preço</SectionTitle>
 
+                {/* Busca por nome */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 10, padding: '9px 12px', marginTop: 12, marginBottom: 10 }}>
+                  <IconSearch size={14} color="var(--bx-text-3)" style={{ flexShrink: 0 }} />
+                  <input
+                    value={cardSearch}
+                    onChange={e => setCardSearch(e.target.value)}
+                    placeholder="Buscar carta na coleção..."
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: 'var(--bx-text)', fontFamily: 'inherit' }}
+                  />
+                </div>
+
                 {/* Filtros de ordenação */}
-                <div style={{ display: 'flex', gap: 8, marginTop: 12, marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                   {(['alpha', 'recent'] as const).map(opt => (
                     <button
                       key={opt}
                       onClick={() => setCardSortOrder(opt)}
                       style={{
-                        fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none',
+                        fontSize: 11, fontWeight: 600, padding: '8px 14px', minHeight: 40, borderRadius: 20, cursor: 'pointer', border: 'none',
                         background: cardSortOrder === opt ? 'rgba(var(--ac-1-rgb), 0.2)' : 'var(--bx-surface-2)',
                         color: cardSortOrder === opt ? 'var(--ac-1)' : 'var(--bx-text-3)',
                         transition: 'all 0.2s',
@@ -432,12 +466,10 @@ export default function DashboardFinanceiro() {
                   {userCards.length === 0 && (
                     <p style={{ fontSize: 13, color: 'var(--bx-text-3)' }}>Nenhuma carta na coleção</p>
                   )}
-                  {[...userCards]
-                    .sort((a, b) => cardSortOrder === 'alpha'
-                      ? a.card_name.localeCompare(b.card_name)
-                      : new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-                    )
-                    .map(c => {
+                  {userCards.length > 0 && cardsFiltradas.length === 0 && (
+                    <p style={{ fontSize: 13, color: 'var(--bx-text-3)' }}>Nenhuma carta encontrada</p>
+                  )}
+                  {cardsFiltradas.map(c => {
                       const isSelected = selectedCardId === c.id
                       const varLabels: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
                       const vLabel = varLabels[c.variante || 'normal'] || 'Normal'
@@ -545,6 +577,17 @@ export default function DashboardFinanceiro() {
                         )}
                       </div>
                     </div>
+                    {priceHistory.length >= 2 && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700,
+                        color: variation >= 0 ? 'var(--bx-green)' : 'var(--bx-red)',
+                        background: variation >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                        border: `1px solid ${variation >= 0 ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'}`,
+                        padding: '3px 9px', borderRadius: 100,
+                      }}>
+                        {pct(variation)} — performance desta carta
+                      </span>
+                    )}
                   </div>
                 )
               })()}
@@ -566,7 +609,7 @@ export default function DashboardFinanceiro() {
             </div>
 
             {/* Últimas transações */}
-            <div style={{ ...SURFACE, padding: 24 }}>
+            <div style={{ ...SURFACE, padding: 24 }} className="dash-surface">
               <SectionTitle><IconHistory size={14} color="var(--bx-text-3)" />Últimas transações</SectionTitle>
               {transactions.length === 0 ? (
                 <>
@@ -582,7 +625,7 @@ export default function DashboardFinanceiro() {
                   const valor = isCompra ? Number(t.total_comprador_cents || 0) / 100 : Number(t.liquido_loja_cents || 0) / 100
                   const data = t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : ''
                   return (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--bx-border)', overflow: 'hidden' }}>
+                    <Link key={t.id} href={`/pedido/${t.id}`} className="dash-clickable-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
                       {/* Ícone */}
                       <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
                         background: isCompra ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
@@ -608,7 +651,7 @@ export default function DashboardFinanceiro() {
                           {isCompra ? 'compra' : 'venda'}{!isCompra ? ' · líquido' : ''}
                         </p>
                       </div>
-                    </div>
+                    </Link>
                   )
                 })
               )}
@@ -620,7 +663,7 @@ export default function DashboardFinanceiro() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
             {/* Cartas mais valiosas */}
-            <div style={{ ...SURFACE, padding: 24 }}>
+            <div style={{ ...SURFACE, padding: 24 }} className="dash-surface">
               <SectionTitle><IconCollection size={14} color="var(--bx-text-3)" />Cartas mais valiosas</SectionTitle>
               {rankingWithVariation.length === 0 ? (
                 <>
@@ -637,7 +680,12 @@ export default function DashboardFinanceiro() {
                   const vColor = varColors[r.variante || 'normal'] || '#60a5fa'
                   const gradMeta = r.graduada ? GRADUADORA_MAP[r.graduadora || ''] : null
                   return (
-                    <div key={r.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
+                    <button
+                      key={r.id || i}
+                      onClick={() => r.userCardId && selecionarNoHistorico(r.userCardId)}
+                      className="dash-clickable-row"
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                         <span style={{ fontSize: 12, fontWeight: 800, color: i === 0 ? 'var(--ac-1)' : 'var(--bx-text-faint)', minWidth: 20, flexShrink: 0 }}>#{i + 1}</span>
                         <div style={{ minWidth: 0 }}>
@@ -652,51 +700,60 @@ export default function DashboardFinanceiro() {
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: `${vColor}18`, color: vColor, border: `1px solid ${vColor}40` }}>{vLabel}</span>
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-text)' }}>{fmt(price)}</p>
-                        {r.variation !== 0 && (
-                          <p style={{ fontSize: 10, color: r.variation >= 0 ? 'var(--bx-green)' : 'var(--bx-red)' }}>
-                            {r.variation >= 0 ? '+' : ''}{r.variation.toFixed(1)}%
-                          </p>
-                        )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-text)' }}>{fmt(price)}</p>
+                          {r.variation !== 0 && (
+                            <p style={{ fontSize: 10, color: r.variation >= 0 ? 'var(--bx-green)' : 'var(--bx-red)' }}>
+                              {r.variation >= 0 ? '+' : ''}{r.variation.toFixed(1)}%
+                            </p>
+                          )}
+                        </div>
+                        {r.userCardId && <IconArrowRight size={14} color="var(--bx-text-faint)" />}
                       </div>
-                    </div>
+                    </button>
                   )
                 })
               )}
             </div>
 
             {/* Oportunidades */}
-            <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconFire size={14} color="var(--bx-text-3)" />Oportunidades de compra</SectionTitle>
+            <div style={{ ...SURFACE, padding: 24 }} className="dash-surface">
+              <SectionTitle>
+                <IconFire size={14} color="var(--bx-text-3)" />Oportunidades de compra
+                <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--bx-text-faint)', textTransform: 'none', letterSpacing: 0, background: 'var(--bx-surface-2)', padding: '2px 8px', borderRadius: 100 }}>30 dias</span>
+              </SectionTitle>
               {rankingWithVariation.filter(r => r.variation > 10).length === 0 ? (
                 <>
-                  <EmptyRow label="Carta valorizando +10% no período" />
+                  <EmptyRow label="Carta valorizando +10% em 30 dias" />
                   <EmptyRow label="Carta abaixo do preço médio" />
                 </>
               ) : (
                 rankingWithVariation.filter(r => r.variation > 10).slice(0, 3).map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
+                  <div key={i} className="dash-oport-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
                     <p style={{ fontSize: 13, color: 'var(--bx-text)' }}>{r.card_name}</p>
-                    <span style={{ fontSize: 11, color: 'var(--bx-green)', fontWeight: 700 }}>+{r.variation.toFixed(0)}%</span>
+                    <span className="dash-oport-val" style={{ fontSize: 11, color: 'var(--bx-green)', fontWeight: 700 }}>+{r.variation.toFixed(0)}%</span>
                   </div>
                 ))
               )}
             </div>
 
             {/* Alertas */}
-            <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconWarning size={14} color="var(--bx-text-3)" />Alertas de mercado</SectionTitle>
+            <div style={{ ...SURFACE, padding: 24 }} className="dash-surface">
+              <SectionTitle>
+                <IconWarning size={14} color="var(--bx-text-3)" />Alertas de mercado
+                <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--bx-text-faint)', textTransform: 'none', letterSpacing: 0, background: 'var(--bx-surface-2)', padding: '2px 8px', borderRadius: 100 }}>30 dias</span>
+              </SectionTitle>
               {rankingWithVariation.filter(r => r.variation < -10).length === 0 ? (
                 <>
-                  <EmptyRow label="Carta em queda -10% no período" />
+                  <EmptyRow label="Carta em queda -10% em 30 dias" />
                   <EmptyRow label="Carta acima do preço médio" />
                 </>
               ) : (
                 rankingWithVariation.filter(r => r.variation < -10).slice(0, 3).map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
+                  <div key={i} className="dash-oport-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
                     <p style={{ fontSize: 13, color: 'var(--bx-text)' }}>{r.card_name}</p>
-                    <span style={{ fontSize: 11, color: 'var(--bx-red)', fontWeight: 700 }}>{r.variation.toFixed(0)}%</span>
+                    <span className="dash-oport-val" style={{ fontSize: 11, color: 'var(--bx-red)', fontWeight: 700 }}>{r.variation.toFixed(0)}%</span>
                   </div>
                 ))
               )}
