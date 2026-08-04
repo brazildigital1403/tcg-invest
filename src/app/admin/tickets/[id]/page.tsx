@@ -59,19 +59,30 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
   const { showAlert, showConfirm } = useAppModal()
 
   const [loading, setLoading]   = useState(true)
+  const [erro, setErro]         = useState(false)
   const [ticket, setTicket]     = useState<Ticket | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [reply, setReply]       = useState('')
   const [newStatus, setNewStatus] = useState<'' | Ticket['status']>('')
   const [sending, setSending]   = useState(false)
+  const [mudandoStatus, setMudandoStatus] = useState(false)
 
+  // 500/rede virava a mesma tela de "ticket nao existe" que um 404 real --
+  // achado de auditoria 04/08/2026.
   async function load() {
-    const res = await fetch(`/api/admin/tickets/${id}`)
-    setLoading(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setTicket(d.ticket)
-    setMessages(d.messages || [])
+    setLoading(true)
+    setErro(false)
+    try {
+      const res = await fetch(`/api/admin/tickets/${id}`)
+      if (!res.ok) { setErro(true); return }
+      const d = await res.json()
+      setTicket(d.ticket)
+      setMessages(d.messages || [])
+    } catch {
+      setErro(true)
+    } finally {
+      setLoading(false)
+    }
   }
   useEffect(() => { load() /* eslint-disable-next-line */ }, [id])
 
@@ -103,18 +114,34 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
     })
     if (!ok) return
 
-    const res = await fetch(`/api/admin/tickets/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: to, notify: true }),
-    })
-    if (!res.ok) return showAlert('Erro ao atualizar status.', 'error')
-    await load()
-    showAlert(`Status atualizado para "${STATUS[to].label}".`, 'success')
+    setMudandoStatus(true)
+    try {
+      const res = await fetch(`/api/admin/tickets/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: to, notify: true }),
+      })
+      if (!res.ok) return showAlert('Erro ao atualizar status.', 'error')
+      await load()
+      showAlert(`Status atualizado para "${STATUS[to].label}".`, 'success')
+    } finally {
+      setMudandoStatus(false)
+    }
   }
 
   if (loading) {
     return <div style={{ padding: 40, color: 'rgba(255,255,255,0.4)', fontFamily: 'DM Sans', textAlign: 'center' }}>Carregando...</div>
+  }
+
+  if (erro) {
+    return (
+      <div style={{ padding: 40, fontFamily: 'DM Sans', textAlign: 'center' }}>
+        <p style={{ color: '#ef4444', marginBottom: 12 }}>Não deu pra carregar este ticket.</p>
+        <button onClick={load} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 14 }}>Tentar de novo</button>
+        <br />
+        <Link href="/admin/tickets" style={{ color: '#f59e0b', fontSize: 14, textDecoration: 'none' }}>← Voltar</Link>
+      </div>
+    )
   }
 
   if (!ticket) {
@@ -170,14 +197,15 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
           {(['open', 'in_progress', 'resolved', 'closed'] as const)
             .filter(k => k !== ticket.status)
             .map(k => (
-              <button key={k} onClick={() => mudarStatus(k)} style={{
+              <button key={k} onClick={() => mudarStatus(k)} disabled={mudandoStatus} style={{
                 padding: '6px 12px', borderRadius: 100,
                 fontSize: 11, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
+                cursor: mudandoStatus ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
                 border: `1px solid ${STATUS[k].border}`,
                 background: 'transparent',
                 color: STATUS[k].color,
-                transition: 'background .15s',
+                opacity: mudandoStatus ? 0.5 : 1,
+                transition: 'background .15s, opacity .15s',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = STATUS[k].bg }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}

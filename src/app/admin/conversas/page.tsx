@@ -34,33 +34,41 @@ export default function AdminConversasPage() {
   const [q, setQ] = useState('')
   const [conversas, setConversas] = useState<Conversa[]>([])
   const [loading, setLoading] = useState(true)
+  const [erroLista, setErroLista] = useState(false)
   const [sel, setSel] = useState<Conversa | null>(null)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [loadingThread, setLoadingThread] = useState(false)
+  const [erroThread, setErroThread] = useState(false)
   const [aviso, setAviso] = useState<{ user_id: string; nome: string } | null>(null)
   const [avisoTexto, setAvisoTexto] = useState('')
   const [busy, setBusy] = useState(false)
-  const [flash, setFlash] = useState<string | null>(null)
+  // Erro e sucesso NUNCA podem ter a mesma cor -- se "Excluir" falhar e o
+  // banner ficar verde, o Du acha que a mensagem saiu do ar quando nao saiu
+  // (achado de auditoria 04/08/2026).
+  const [flash, setFlash] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
 
   const fetchConversas = useCallback(async (busca: string) => {
     setLoading(true)
+    setErroLista(false)
     try {
       const r = await fetch(`/api/admin/conversas?q=${encodeURIComponent(busca)}`)
       const j = await r.json()
-      setConversas(j.conversas || [])
-    } catch { setConversas([]) }
+      if (!r.ok || j.error) { setConversas([]); setErroLista(true) }
+      else setConversas(j.conversas || [])
+    } catch { setConversas([]); setErroLista(true) }
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchConversas('') }, [fetchConversas])
 
   async function fetchThread(c: Conversa) {
-    setSel(c); setLoadingThread(true); setMsgs([])
+    setSel(c); setLoadingThread(true); setMsgs([]); setErroThread(false)
     try {
       const r = await fetch(`/api/admin/conversas/${c.anuncio_id}`)
       const j = await r.json()
-      setMsgs(j.mensagens || [])
-    } catch { setMsgs([]) }
+      if (!r.ok || j.error) { setMsgs([]); setErroThread(true) }
+      else setMsgs(j.mensagens || [])
+    } catch { setMsgs([]); setErroThread(true) }
     setLoadingThread(false)
   }
 
@@ -71,9 +79,9 @@ export default function AdminConversasPage() {
     try {
       const r = await fetch('/api/admin/conversas/moderar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg_id: msgId, acao }) })
       const j = await r.json()
-      if (j?.ok) { setFlash(acao === 'excluir' ? 'Mensagem excluída.' : 'Mensagem ocultada.'); if (sel) await fetchThread(sel); fetchConversas(q) }
-      else setFlash(j?.erro || j?.error || 'Falha na ação.')
-    } catch { setFlash('Erro de rede.') }
+      if (r.ok && j?.ok) { setFlash({ tipo: 'ok', texto: acao === 'excluir' ? 'Mensagem excluída.' : 'Mensagem ocultada.' }); if (sel) await fetchThread(sel); fetchConversas(q) }
+      else setFlash({ tipo: 'erro', texto: j?.erro || j?.error || 'Falha na ação.' })
+    } catch { setFlash({ tipo: 'erro', texto: 'Erro de rede.' }) }
     setBusy(false)
     setTimeout(() => setFlash(null), 2500)
   }
@@ -84,9 +92,9 @@ export default function AdminConversasPage() {
     try {
       const r = await fetch('/api/admin/conversas/aviso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: aviso.user_id, mensagem: avisoTexto.trim() }) })
       const j = await r.json()
-      if (j?.ok) { setFlash(`Aviso enviado para ${aviso.nome}.`); setAviso(null); setAvisoTexto('') }
-      else setFlash(j?.error || 'Falha ao enviar aviso.')
-    } catch { setFlash('Erro de rede.') }
+      if (r.ok && j?.ok) { setFlash({ tipo: 'ok', texto: `Aviso enviado para ${aviso.nome}.` }); setAviso(null); setAvisoTexto('') }
+      else setFlash({ tipo: 'erro', texto: j?.error || 'Falha ao enviar aviso.' })
+    } catch { setFlash({ tipo: 'erro', texto: 'Erro de rede.' }) }
     setBusy(false)
     setTimeout(() => setFlash(null), 2500)
   }
@@ -96,7 +104,14 @@ export default function AdminConversasPage() {
       <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px' }}>Conversas</h1>
       <p style={{ color: MUTED, fontSize: 13, margin: '0 0 20px' }}>Moderação das negociações do marketplace. Você pode <b style={{ color: '#f0f0f0' }}>ocultar</b> ou <b style={{ color: '#f0f0f0' }}>excluir</b> mensagens e <b style={{ color: '#f0f0f0' }}>enviar um aviso</b> no sino do usuário. O texto original fica registrado no log.</p>
 
-      {flash && <div style={{ marginBottom: 14, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', borderRadius: 10, padding: '10px 14px', fontSize: 13 }}>{flash}</div>}
+      {flash && (
+        <div style={{
+          marginBottom: 14, borderRadius: 10, padding: '10px 14px', fontSize: 13,
+          background: flash.tipo === 'ok' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+          border: `1px solid ${flash.tipo === 'ok' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+          color: flash.tipo === 'ok' ? '#22c55e' : '#ef4444',
+        }}>{flash.texto}</div>
+      )}
 
       {/* Busca */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -112,7 +127,13 @@ export default function AdminConversasPage() {
           <div style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: MUTED, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{conversas.length} conversa(s)</div>
           <div style={{ maxHeight: 560, overflowY: 'auto' }}>
             {loading && <p style={{ padding: 24, textAlign: 'center', color: MUTED, fontSize: 13 }}>Carregando...</p>}
-            {!loading && conversas.length === 0 && <p style={{ padding: 24, textAlign: 'center', color: MUTED, fontSize: 13 }}>Nenhuma conversa.</p>}
+            {!loading && erroLista && (
+              <div style={{ padding: 24, textAlign: 'center' }}>
+                <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 10 }}>Não deu pra carregar as conversas.</p>
+                <button onClick={() => fetchConversas(q)} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 12, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Tentar de novo</button>
+              </div>
+            )}
+            {!loading && !erroLista && conversas.length === 0 && <p style={{ padding: 24, textAlign: 'center', color: MUTED, fontSize: 13 }}>Nenhuma conversa.</p>}
             {conversas.map(c => {
               const cor = STATUS_COR[c.status] || '#94a3b8'
               const ativa = sel?.anuncio_id === c.anuncio_id
@@ -152,7 +173,13 @@ export default function AdminConversasPage() {
               {/* Mensagens */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 480 }}>
                 {loadingThread && <p style={{ textAlign: 'center', color: MUTED, fontSize: 13 }}>Carregando...</p>}
-                {!loadingThread && msgs.length === 0 && <p style={{ textAlign: 'center', color: MUTED, fontSize: 13 }}>Sem mensagens.</p>}
+                {!loadingThread && erroThread && (
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 10 }}>Não deu pra carregar as mensagens.</p>
+                    <button onClick={() => fetchThread(sel)} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 12, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Tentar de novo</button>
+                  </div>
+                )}
+                {!loadingThread && !erroThread && msgs.length === 0 && <p style={{ textAlign: 'center', color: MUTED, fontSize: 13 }}>Sem mensagens.</p>}
                 {msgs.map(m => (
                   <div key={m.id} style={{ background: m.oculta ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${m.oculta ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.06)'}`, borderRadius: 10, padding: '10px 12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>

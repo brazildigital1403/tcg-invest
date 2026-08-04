@@ -49,18 +49,27 @@ function TicketsView() {
   const [q, setQ]             = useState('')
   const [rows, setRows]       = useState<Ticket[] | null>(null)
   const [loading, setLoading] = useState(true)
+  const [erro, setErro] = useState(false)
   const [novaAberta, setNovaAberta] = useState(false)
 
+  // 500/rede sem try-catch caia igual a "sem tickets" -- Du achava a caixa
+  // de suporte vazia quando na verdade a API tinha caido (achado 04/08/2026).
   async function load() {
     setLoading(true)
-    const p = new URLSearchParams()
-    if (status) p.set('status', status)
-    if (q.trim()) p.set('q', q.trim())
-    const res = await fetch(`/api/admin/tickets?${p}`)
-    setLoading(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setRows(d.tickets || [])
+    setErro(false)
+    try {
+      const p = new URLSearchParams()
+      if (status) p.set('status', status)
+      if (q.trim()) p.set('q', q.trim())
+      const res = await fetch(`/api/admin/tickets?${p}`)
+      if (!res.ok) { setErro(true); return }
+      const d = await res.json()
+      setRows(d.tickets || [])
+    } catch {
+      setErro(true)
+    } finally {
+      setLoading(false)
+    }
   }
   useEffect(() => { load() /* eslint-disable-next-line */ }, [status])
 
@@ -141,6 +150,16 @@ function TicketsView() {
       {/* ── Lista ── */}
       {loading ? (
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Carregando...</p>
+      ) : erro ? (
+        <div style={{
+          background: 'rgba(239,68,68,0.06)',
+          border: '1px dashed rgba(239,68,68,0.3)',
+          borderRadius: 14, padding: '40px 20px',
+          textAlign: 'center',
+        }}>
+          <p style={{ fontSize: 14, color: '#ef4444', margin: '0 0 12px' }}>Não deu pra carregar os tickets.</p>
+          <button onClick={load} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 12, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Tentar de novo</button>
+        </div>
       ) : !rows || rows.length === 0 ? (
         <div style={{
           background: 'rgba(255,255,255,0.02)',

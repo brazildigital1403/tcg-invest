@@ -95,23 +95,33 @@ function UsersView() {
   const [total, setTotal]   = useState(0)
   const [page, setPage]     = useState(1)
   const [loading, setLoading] = useState(true)
+  const [erro, setErro]       = useState(false)
   const [sortBy, setSortBy]   = useState<SortKey>('created_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
+  // Sem try/catch, uma falha de rede deixava a tela travada em "Carregando..."
+  // pra sempre (a excecao nunca chegava no setLoading(false) abaixo) --
+  // achado de auditoria 04/08/2026.
   async function load() {
     setLoading(true)
-    const p = new URLSearchParams()
-    if (filter) p.set('filter', filter)
-    if (q.trim()) p.set('q', q.trim())
-    p.set('page', '1')
-    p.set('perPage', '1000')
+    setErro(false)
+    try {
+      const p = new URLSearchParams()
+      if (filter) p.set('filter', filter)
+      if (q.trim()) p.set('q', q.trim())
+      p.set('page', '1')
+      p.set('perPage', '1000')
 
-    const res = await fetch(`/api/admin/users?${p}`)
-    setLoading(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setUsers(d.users || [])
-    setTotal(d.total || 0)
+      const res = await fetch(`/api/admin/users?${p}`)
+      if (!res.ok) { setErro(true); return }
+      const d = await res.json()
+      setUsers(d.users || [])
+      setTotal(d.total || 0)
+    } catch {
+      setErro(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() /* eslint-disable-next-line */ }, [filter])
@@ -257,6 +267,16 @@ function UsersView() {
       {/* ── Tabela ── */}
       {loading ? (
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Carregando...</p>
+      ) : erro ? (
+        <div style={{
+          background: 'rgba(239,68,68,0.06)',
+          border: '1px dashed rgba(239,68,68,0.3)',
+          borderRadius: 14, padding: '40px 20px',
+          textAlign: 'center',
+        }}>
+          <p style={{ fontSize: 14, color: '#ef4444', margin: '0 0 12px' }}>Não deu pra carregar os usuários.</p>
+          <button onClick={load} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 12, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Tentar de novo</button>
+        </div>
       ) : !users || users.length === 0 ? (
         <div style={{
           background: 'rgba(255,255,255,0.02)',
