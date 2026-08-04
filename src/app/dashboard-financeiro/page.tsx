@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
@@ -9,7 +9,10 @@ import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
 import OnboardingModal from '@/components/ui/OnboardingModal'
 import AddCardModal from '@/components/dashboard/AddCardModal'
+import CardDetailModal from '@/components/dashboard/CardDetailModal'
+import AnunciarModal from '@/components/marketplace/AnunciarModal'
 import { IconTrendingUp, IconHistory, IconCollection, IconFire, IconWarning, IconWallet, IconMarketplace, IconChart, IconCard, IconSearch, IconArrowRight } from '@/components/ui/Icons'
+import { montarUltimaVenda } from '@/components/ui/CardItem'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { GRADUADORA_MAP, notaCurta } from '@/lib/graduadoras'
 
@@ -60,7 +63,7 @@ function EmptyRow({ label }: { label: string }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function DashboardFinanceiro() {
-  const { showAlert } = useAppModal()
+  const { showAlert, showConfirm } = useAppModal()
   const [stats, setStats] = useState({ totalCompras: 0, totalVendas: 0, quantidade: 0, valorColecao: 0 })
   const [transactions, setTransactions] = useState<any[]>([])
   const [rankingWithVariation, setRankingWithVariation] = useState<any[]>([])
@@ -77,11 +80,57 @@ export default function DashboardFinanceiro() {
   const [openAddModal, setOpenAddModal] = useState(false)
   const [cardSortOrder, setCardSortOrder] = useState<'alpha' | 'recent'>('alpha')
   const [cardSearch, setCardSearch] = useState('')
-  const historicoRef = useRef<HTMLDivElement>(null)
+  const [detalheCard, setDetalheCard] = useState<any>(null)
+  const [anunciarCard, setAnunciarCard] = useState<any>(null)
+  const [exchangeRate, setExchangeRate] = useState({ usd: 6.0, eur: 6.5 })
 
-  function selecionarNoHistorico(userCardId: string) {
-    setSelectedCardId(userCardId)
-    historicoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // Modal padrao de detalhe (mesmo componente do /minha-colecao) --
+  // "Cartas mais valiosas"/"Oportunidades"/"Alertas" nao tem foto nenhuma e a
+  // imagem do seletor de "Historico de preco" e pequena demais pra dar
+  // qualquer poder de decisao ao colecionador; abrir o detalhe completo
+  // resolve os dois (achado 04/08/2026).
+  function abrirDetalhe(userCardId: string | null | undefined) {
+    if (!userCardId) return
+    const c = userCards.find(x => x.id === userCardId)
+    if (c) setDetalheCard(c)
+  }
+
+  // ── Ações do modal de detalhe (mesmos handlers do /minha-colecao) ──────────
+  // Variante/quantidade/graduacao entram na conta do patrimonio e do ranking
+  // desta tela -- em vez de duplicar a formula de valuation aqui pra fazer
+  // update otimista, recarrega a pagina inteira apos gravar. Mesmo padrao
+  // que AddCardModal/ScanModal ja usam (onAdded -> window.location.reload()).
+
+  async function handleVarianteChange(card: any, novaVariante: string) {
+    const { error } = await supabase.from('user_cards').update({ variante: novaVariante }).eq('id', card.id)
+    if (!error) window.location.reload()
+  }
+
+  async function handleIdiomaChange(card: any, novoIdioma: string) {
+    const { error } = await supabase.from('user_cards').update({ idioma: novoIdioma }).eq('id', card.id)
+    if (!error) setUserCards(prev => prev.map(c => c.id === card.id ? { ...c, idioma: novoIdioma } : c))
+  }
+
+  async function handleSetQuantity(card: any, novaQty: number) {
+    if (novaQty < 1) return
+    const { error } = await supabase.from('user_cards').update({ quantity: novaQty }).eq('id', card.id)
+    if (error) { showAlert('Erro ao atualizar quantidade.', 'error'); return }
+    window.location.reload()
+  }
+
+  async function handleRemove(id: string, cardName?: string) {
+    const confirmed = await showConfirm({
+      message: `Tem certeza que deseja remover "${cardName || 'esta carta'}" da sua coleção? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Sim, remover',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    })
+    if (!confirmed) return
+    if (!userId) return
+    const { data, error } = await supabase.from('user_cards').delete().eq('id', id).eq('user_id', userId).select()
+    if (error) { showAlert('Erro ao remover a carta.', 'error'); return }
+    if (!data || data.length === 0) { showAlert('Nada foi deletado. Verifique as políticas RLS no Supabase.', 'warning'); return }
+    window.location.reload()
   }
 
   // ── Load data ───────────────────────────────────────────────────────────
@@ -136,14 +185,14 @@ export default function DashboardFinanceiro() {
         const compras = (pedidos || []).filter(t => t.comprador_user_id === uid).reduce((a, t) => a + Number(t.total_comprador_cents || 0) / 100, 0)
         const vendas = (pedidos || []).filter(t => t.vendedor_user_id === uid).reduce((a, t) => a + Number(t.liquido_loja_cents || 0) / 100, 0)
         const { data: cards } = await supabase.from('user_cards').select('*').eq('user_id', uid)
-        setUserCards(cards || [])
 
         // ── Busca câmbio para estimativas USD/EUR ──────────────────────────
-        let exchangeRate = { usd: 6.0, eur: 6.5 }
+        let rate = { usd: 6.0, eur: 6.5 }
         try {
           const er = await fetch('/api/exchange-rate').then(r => r.json())
-          exchangeRate = { usd: er.usd || 6.0, eur: er.eur || 6.5 }
+          rate = { usd: er.usd || 6.0, eur: er.eur || 6.5 }
         } catch {}
+        setExchangeRate(rate)
 
 
 
@@ -196,11 +245,21 @@ export default function DashboardFinanceiro() {
           const brl = parseFloat(p[CAMPOS[variante]] || p.preco_medio || 0)
           if (brl > 0) return brl
           const usd = Math.max(parseFloat(p.price_usd_holofoil || 0), parseFloat(p.price_usd_normal || 0))
-          if (usd > 0) return usd * exchangeRate.usd
+          if (usd > 0) return usd * rate.usd
           const eur = Math.max(parseFloat(p.price_eur_holofoil || 0), parseFloat(p.price_eur_normal || 0))
-          if (eur > 0) return eur * exchangeRate.eur
+          if (eur > 0) return eur * rate.eur
           return 0
         }
+
+        // Coleção enriquecida com o preco (.price) e "ultima venda", mesmo
+        // formato que o /minha-colecao monta pro CardDetailModal -- e o
+        // modal padrao exige esse shape pra funcionar (rarity, set_name,
+        // numero etc. vem de card.price, nao de user_cards puro).
+        const mergedCards = (cards || []).map((c: any) => {
+          const p = getP(c)
+          return { ...c, price: p, number: p?.number || c.number || null, set_total: p?.set_total || c.set_total || null, ultima_venda: montarUltimaVenda(p || {}) }
+        })
+        setUserCards(mergedCards)
 
         let valorTotal = 0
         const enrichedCards: any[] = []
@@ -423,7 +482,7 @@ export default function DashboardFinanceiro() {
           <div>
 
             {/* Seletor de carta + gráfico */}
-            <div ref={historicoRef} style={{ ...SURFACE, padding: 24, marginBottom: 16 }} className="dash-surface">
+            <div style={{ ...SURFACE, padding: 24, marginBottom: 16 }} className="dash-surface">
               <div style={{ marginBottom: 16 }}>
                 <SectionTitle><IconTrendingUp size={14} color="var(--bx-text-3)" />Histórico de preço</SectionTitle>
 
@@ -480,9 +539,12 @@ export default function DashboardFinanceiro() {
                       const cardNum = numMatch?.[1] || ''
                       const cardBaseName = c.card_name.replace(/\s*\([^)]*\)/, '').trim()
                       return (
-                        <button
+                        <div
                           key={c.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => setSelectedCardId(c.id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedCardId(c.id) }}
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             width: '100%', padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
@@ -511,8 +573,12 @@ export default function DashboardFinanceiro() {
                             </div>
                           </div>
 
-                          {/* Coluna direita: Imagem da carta */}
-                          <div style={{ position: 'relative', flexShrink: 0 }}>
+                          {/* Coluna direita: Imagem da carta -- clique abre o detalhe completo (imagem pequena demais aqui pra decidir algo) */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); abrirDetalhe(c.id) }}
+                            title="Ver detalhe da carta"
+                            style={{ position: 'relative', flexShrink: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          >
                             {c.card_image ? (
                               <img
                                 src={c.card_image}
@@ -525,8 +591,8 @@ export default function DashboardFinanceiro() {
                             {isSelected && (
                               <div style={{ position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: '50%', background: 'var(--ac-1)', border: '2px solid var(--bx-bg)' }} />
                             )}
-                          </div>
-                        </button>
+                          </button>
+                        </div>
                       )
                     })}
                 </div>
@@ -540,11 +606,17 @@ export default function DashboardFinanceiro() {
                   <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--bx-surface)', borderRadius: 12 }}>
                     {/* Linha superior: imagem + nome + preços */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                      {cardImage ? (
-                        <img src={cardImage} alt={selectedUserCard.card_name} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
-                      ) : (
-                        <div style={{ width: 44, height: 60, background: 'var(--bx-surface-2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconCard size={18} color="var(--bx-text-3)" /></div>
-                      )}
+                      <button
+                        onClick={() => abrirDetalhe(selectedUserCard.id)}
+                        title="Ver detalhe da carta"
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
+                      >
+                        {cardImage ? (
+                          <img src={cardImage} alt={selectedUserCard.card_name} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6, display: 'block' }} />
+                        ) : (
+                          <div style={{ width: 44, height: 60, background: 'var(--bx-surface-2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconCard size={18} color="var(--bx-text-3)" /></div>
+                        )}
+                      </button>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUserCard.card_name}</p>
                         {selectedCardPrice ? (() => {
@@ -682,7 +754,8 @@ export default function DashboardFinanceiro() {
                   return (
                     <button
                       key={r.id || i}
-                      onClick={() => r.userCardId && selecionarNoHistorico(r.userCardId)}
+                      onClick={() => abrirDetalhe(r.userCardId)}
+                      title="Ver detalhe da carta"
                       className="dash-clickable-row"
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
                     >
@@ -730,10 +803,16 @@ export default function DashboardFinanceiro() {
                 </>
               ) : (
                 rankingWithVariation.filter(r => r.variation > 10).slice(0, 3).map((r, i) => (
-                  <div key={i} className="dash-oport-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
+                  <button
+                    key={i}
+                    onClick={() => abrirDetalhe(r.userCardId)}
+                    title="Ver detalhe da carta"
+                    className="dash-oport-row dash-clickable-row"
+                    style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
+                  >
                     <p style={{ fontSize: 13, color: 'var(--bx-text)' }}>{r.card_name}</p>
                     <span className="dash-oport-val" style={{ fontSize: 11, color: 'var(--bx-green)', fontWeight: 700 }}>+{r.variation.toFixed(0)}%</span>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -751,10 +830,16 @@ export default function DashboardFinanceiro() {
                 </>
               ) : (
                 rankingWithVariation.filter(r => r.variation < -10).slice(0, 3).map((r, i) => (
-                  <div key={i} className="dash-oport-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
+                  <button
+                    key={i}
+                    onClick={() => abrirDetalhe(r.userCardId)}
+                    title="Ver detalhe da carta"
+                    className="dash-oport-row dash-clickable-row"
+                    style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
+                  >
                     <p style={{ fontSize: 13, color: 'var(--bx-text)' }}>{r.card_name}</p>
                     <span className="dash-oport-val" style={{ fontSize: 11, color: 'var(--bx-red)', fontWeight: 700 }}>{r.variation.toFixed(0)}%</span>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -772,6 +857,30 @@ export default function DashboardFinanceiro() {
           userId={userId || ''}
           onClose={() => setShowOnboarding(false)}
           onAllDone={() => setShowOnboarding(false)}
+        />
+      )}
+      {detalheCard && (
+        <CardDetailModal
+          key={detalheCard.id}
+          card={detalheCard}
+          isPro={isPro}
+          exchangeRate={exchangeRate}
+          onClose={() => setDetalheCard(null)}
+          onVarianteChange={(v) => handleVarianteChange(detalheCard, v)}
+          onIdiomaChange={(i) => handleIdiomaChange(detalheCard, i)}
+          onQuantitySet={(novaQty) => handleSetQuantity(detalheCard, novaQty)}
+          onCondicoesSaved={(novas) => setUserCards(prev => prev.map(x => x.id === detalheCard.id ? { ...x, condicoes: novas } : x))}
+          onAnunciar={() => { setAnunciarCard(detalheCard); setDetalheCard(null) }}
+          onGradSaved={() => window.location.reload()}
+          onRemove={() => handleRemove(detalheCard.id, detalheCard.card_name)}
+        />
+      )}
+      {anunciarCard && userId && (
+        <AnunciarModal
+          userId={userId}
+          initialCard={anunciarCard}
+          onClose={() => setAnunciarCard(null)}
+          onAdded={() => setAnunciarCard(null)}
         />
       )}
     </AppLayout>
