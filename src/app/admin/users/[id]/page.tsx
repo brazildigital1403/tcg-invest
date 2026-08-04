@@ -184,78 +184,115 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   const [loadingPastas, setLoadingPastas] = useState(false)
 
   const [busy, setBusy] = useState(false)
+  // Nenhum fetch desta tela tinha try/catch -- uma falha de rede deixava a
+  // pagina presa em "Carregando..." pra sempre, inclusive com os botoes de
+  // acao (suspender/excluir/conceder Pro) travados sem explicacao nenhuma
+  // (achado de auditoria 04/08/2026).
+  const [erro, setErro] = useState(false)
 
   async function load() {
-    const res = await fetch(`/api/admin/users/${id}`)
-    setLoading(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setUser(d.user)
-    setStats(d.stats)
-    setEditName(d.user.name || '')
-    setEditUsername(d.user.username || '')
-    setEditCity(d.user.city || '')
-    setEditWhatsapp(d.user.whatsapp || '')
+    setLoading(true)
+    setErro(false)
+    try {
+      const res = await fetch(`/api/admin/users/${id}`)
+      if (!res.ok) { setErro(true); return }
+      const d = await res.json()
+      setUser(d.user)
+      setStats(d.stats)
+      setEditName(d.user.name || '')
+      setEditUsername(d.user.username || '')
+      setEditCity(d.user.city || '')
+      setEditWhatsapp(d.user.whatsapp || '')
+    } catch {
+      setErro(true)
+    } finally {
+      setLoading(false)
+    }
   }
   useEffect(() => { load() /* eslint-disable-next-line */ }, [id])
 
   async function loadCollection() {
     if (collection) return
     setLoadingCol(true)
-    const res = await fetch(`/api/admin/users/${id}/collection`)
-    setLoadingCol(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setCollection(d)
+    try {
+      const res = await fetch(`/api/admin/users/${id}/collection`)
+      if (!res.ok) return
+      const d = await res.json()
+      setCollection(d)
+    } catch {
+      showAlert('Não deu pra carregar a coleção.', 'error')
+    } finally {
+      setLoadingCol(false)
+    }
   }
 
   // S32: fetch on-demand de anúncios e compras (igual padrão da coleção)
   async function loadAnuncios() {
     if (anuncios) return
     setLoadingAnuncios(true)
-    const res = await fetch(`/api/admin/users/${id}/anuncios`)
-    setLoadingAnuncios(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setAnuncios(d)
+    try {
+      const res = await fetch(`/api/admin/users/${id}/anuncios`)
+      if (!res.ok) return
+      const d = await res.json()
+      setAnuncios(d)
+    } catch {
+      showAlert('Não deu pra carregar os anúncios.', 'error')
+    } finally {
+      setLoadingAnuncios(false)
+    }
   }
 
   async function loadCompras() {
     if (compras) return
     setLoadingCompras(true)
-    const res = await fetch(`/api/admin/users/${id}/compras`)
-    setLoadingCompras(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setCompras(d)
+    try {
+      const res = await fetch(`/api/admin/users/${id}/compras`)
+      if (!res.ok) return
+      const d = await res.json()
+      setCompras(d)
+    } catch {
+      showAlert('Não deu pra carregar as compras.', 'error')
+    } finally {
+      setLoadingCompras(false)
+    }
   }
 
   async function loadPastas() {
     if (pastas) return
     setLoadingPastas(true)
-    const res = await fetch(`/api/admin/users/${id}/pastas`)
-    setLoadingPastas(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setPastas(d)
+    try {
+      const res = await fetch(`/api/admin/users/${id}/pastas`)
+      if (!res.ok) return
+      const d = await res.json()
+      setPastas(d)
+    } catch {
+      showAlert('Não deu pra carregar as pastas.', 'error')
+    } finally {
+      setLoadingPastas(false)
+    }
   }
 
   // ─── Ações ────────────────────────────────────────────────────────────────
 
   async function doAction(action: string, value: any, successMsg: string) {
     setBusy(true)
-    const res = await fetch(`/api/admin/users/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, value }),
-    })
-    setBusy(false)
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      return showAlert(err.error || 'Erro ao executar ação.', 'error')
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, value }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        return showAlert(err.error || 'Erro ao executar ação.', 'error')
+      }
+      showAlert(successMsg, 'success')
+      await load()
+    } catch {
+      showAlert('Erro de rede ao executar ação.', 'error')
+    } finally {
+      setBusy(false)
     }
-    showAlert(successMsg, 'success')
-    await load()
   }
 
   async function grantPro() {
@@ -399,6 +436,17 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
 
   if (loading) {
     return <div style={{ padding: 40, color: 'rgba(255,255,255,0.4)', fontFamily: 'DM Sans', textAlign: 'center' }}>Carregando...</div>
+  }
+
+  if (erro) {
+    return (
+      <div style={{ padding: 40, fontFamily: 'DM Sans', textAlign: 'center' }}>
+        <p style={{ color: '#ef4444', marginBottom: 12 }}>Não deu pra carregar este usuário.</p>
+        <button onClick={load} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 14 }}>Tentar de novo</button>
+        <br />
+        <Link href="/admin/users" style={{ color: '#f59e0b', fontSize: 14, textDecoration: 'none' }}>← Voltar</Link>
+      </div>
+    )
   }
 
   if (!user) {

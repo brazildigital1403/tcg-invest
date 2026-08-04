@@ -355,11 +355,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="adm-content">{children}</div>
         </div>
 
+        {/* 10 itens + sair nao cabem lado a lado em 390px (39px cada, texto
+            "Dashboard"/"Marketplace" com nowrap vazava) -- vira barra com
+            scroll horizontal, cada item com largura minima legivel, em vez
+            de espremer tudo com flex:1 (achado de auditoria 04/08/2026). */}
         <nav className="adm-bottom-nav" style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
           background: 'rgba(8,10,15,0.98)',
           borderTop: '1px solid rgba(255,255,255,0.1)',
           alignItems: 'stretch',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}>
           {adminMenu.map(item => {
             const active = item.href === '/admin'
@@ -368,7 +374,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const badge = item.countKey ? (counts[item.countKey] || 0) : 0
             return (
               <Link key={item.href} href={item.href} style={{
-                flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center',
+                minWidth: 68, flexShrink: 0, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
                 textDecoration: 'none',
                 color: active ? '#f59e0b' : 'rgba(255,255,255,0.35)',
@@ -385,7 +391,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )
           })}
           <button onClick={handleLogout} style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            minWidth: 68, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', gap: 3, padding: '8px 4px 10px',
             background: 'none', border: 'none',
             color: 'rgba(239,68,68,0.6)',

@@ -9,7 +9,10 @@ import { IconShield } from '@/components/ui/Icons'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Estado = 'loading' | 'nao_admin' | 'nao_encontrada' | 'pronto'
+// 'erro' e 'nao_encontrada' eram o mesmo estado -- um 500/rede real mostrava
+// "loja nao existe ou foi removida", contradizendo o toast de erro que ja
+// disparava certo (achado de auditoria 04/08/2026).
+type Estado = 'loading' | 'nao_admin' | 'nao_encontrada' | 'erro' | 'pronto'
 
 interface LojaFull extends LojaFormData {
   id: string
@@ -83,7 +86,7 @@ export default function AdminLojaEditarPage({
 
         if (!res.ok) {
           showAlert('Erro ao carregar loja. Tente novamente.', 'error')
-          setEstado('nao_encontrada')
+          setEstado('erro')
           return
         }
 
@@ -95,7 +98,7 @@ export default function AdminLojaEditarPage({
         setEstado('pronto')
       } catch (err) {
         console.error('[admin/lojas/editar] erro ao carregar', err)
-        if (alive) setEstado('nao_encontrada')
+        if (alive) setEstado('erro')
       }
     }
 
@@ -128,6 +131,23 @@ export default function AdminLojaEditarPage({
         <Link href="/admin/lojas" style={S.btnVoltar}>
           ← Voltar para Moderação de Lojas
         </Link>
+      </div>
+    )
+  }
+
+  if (estado === 'erro') {
+    return (
+      <div style={S.wrap}>
+        <h2 style={{ ...S.errorTitle, color: '#ef4444' }}>Não deu pra carregar a loja</h2>
+        <p style={S.errorText}>
+          Pode ter sido falha de rede ou do servidor. A loja não necessariamente deixou de existir.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => window.location.reload()} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 13, padding: '9px 18px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}>Tentar de novo</button>
+          <Link href="/admin/lojas" style={S.btnVoltar}>
+            ← Voltar para Moderação de Lojas
+          </Link>
+        </div>
       </div>
     )
   }

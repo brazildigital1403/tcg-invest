@@ -80,7 +80,14 @@ function LojasView() {
   const [page, setPage]     = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [erro, setErro]       = useState(false)
   const [busy, setBusy]       = useState(false)
+  // Acao de UMA loja apagava visualmente os botoes de TODAS as ~50 lojas da
+  // pagina (busy era um unico state global) -- agora so a linha da loja em
+  // acao fica desabilitada (achado de auditoria 04/08/2026). `busy` continua
+  // servindo os botoes de dentro dos modais (Suspender/Plano), que so tem
+  // uma acao possivel por vez de qualquer forma.
+  const [busyRowId, setBusyRowId] = useState<string | null>(null)
 
   // Modal de suspender
   const [suspendingLoja, setSuspendingLoja] = useState<Loja | null>(null)
@@ -112,22 +119,30 @@ function LojasView() {
     }
   }, [planoDropdownLojaId])
 
+  // Erro de rede/servidor virava "Nenhuma loja encontrada", indistinguivel
+  // do filtro nao achar nada de verdade -- achado de auditoria 04/08/2026.
   async function load() {
     setLoading(true)
-    const p = new URLSearchParams()
-    if (status) p.set('status', status)
-    if (q.trim()) p.set('q', q.trim())
-    p.set('page', String(page))
-    p.set('perPage', '50')
+    setErro(false)
+    try {
+      const p = new URLSearchParams()
+      if (status) p.set('status', status)
+      if (q.trim()) p.set('q', q.trim())
+      p.set('page', String(page))
+      p.set('perPage', '50')
 
-    const res = await fetch(`/api/admin/lojas?${p}`)
-    setLoading(false)
-    if (!res.ok) return
-    const d = await res.json()
-    setLojas(d.lojas || [])
-    setCounts(d.counts || null)
-    setTotal(d.total || 0)
-    setTotalPages(d.totalPages || 1)
+      const res = await fetch(`/api/admin/lojas?${p}`)
+      if (!res.ok) { setErro(true); return }
+      const d = await res.json()
+      setLojas(d.lojas || [])
+      setCounts(d.counts || null)
+      setTotal(d.total || 0)
+      setTotalPages(d.totalPages || 1)
+    } catch {
+      setErro(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() /* eslint-disable-next-line */ }, [status, page])
@@ -151,7 +166,7 @@ function LojasView() {
       confirmLabel: 'Enviar pedido',
     })
     if (!ok) return
-    setBusy(true)
+    setBusyRowId(loja.id)
     try {
       const res = await fetch(`/api/admin/lojas/${loja.id}/verificacao`, { method: 'POST' })
       const d = await res.json().catch(() => ({}))
@@ -167,7 +182,7 @@ function LojasView() {
       load()
     } catch (e: any) {
       showAlert(e?.message || 'Erro de rede', 'error')
-    } finally { setBusy(false) }
+    } finally { setBusyRowId(null) }
   }
 
   async function aprovar(loja: Loja) {
@@ -176,15 +191,16 @@ function LojasView() {
       confirmLabel: 'Aprovar',
     })
     if (!ok) return
-    setBusy(true)
-    const res = await fetch(`/api/admin/lojas/${loja.id}/approve`, { method: 'POST' })
-    setBusy(false)
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({}))
-      return showAlert(e.error || 'Erro ao aprovar', 'error')
-    }
-    showAlert('Loja aprovada.', 'success')
-    await load()
+    setBusyRowId(loja.id)
+    try {
+      const res = await fetch(`/api/admin/lojas/${loja.id}/approve`, { method: 'POST' })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        return showAlert(e.error || 'Erro ao aprovar', 'error')
+      }
+      showAlert('Loja aprovada.', 'success')
+      await load()
+    } finally { setBusyRowId(null) }
   }
 
   function abrirSuspender(loja: Loja) {
@@ -221,14 +237,15 @@ function LojasView() {
         : `Marcar "${loja.nome}" como verificada? (badge âmbar no card público)`,
     })
     if (!ok) return
-    setBusy(true)
-    const res = await fetch(`/api/admin/lojas/${loja.id}/toggle-verified`, { method: 'POST' })
-    setBusy(false)
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({}))
-      return showAlert(e.error || 'Erro ao alterar', 'error')
-    }
-    await load()
+    setBusyRowId(loja.id)
+    try {
+      const res = await fetch(`/api/admin/lojas/${loja.id}/toggle-verified`, { method: 'POST' })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        return showAlert(e.error || 'Erro ao alterar', 'error')
+      }
+      await load()
+    } finally { setBusyRowId(null) }
   }
 
   // ─── Plano ────────────────────────────────────────────────────────────
@@ -370,6 +387,16 @@ function LojasView() {
       {/* Lista */}
       {loading ? (
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Carregando...</p>
+      ) : erro ? (
+        <div style={{
+          background: 'rgba(239,68,68,0.06)',
+          border: '1px dashed rgba(239,68,68,0.3)',
+          borderRadius: 14, padding: '40px 20px',
+          textAlign: 'center',
+        }}>
+          <p style={{ fontSize: 14, color: '#ef4444', margin: '0 0 12px' }}>Não deu pra carregar as lojas.</p>
+          <button onClick={load} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 12, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Tentar de novo</button>
+        </div>
       ) : !lojas || lojas.length === 0 ? (
         <div style={{
           background: 'rgba(255,255,255,0.02)',
@@ -489,17 +516,17 @@ function LojasView() {
                   {/* Ações */}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', position: 'relative' }}>
                     {(l.status === 'pendente' || l.status === 'suspensa') && (
-                      <BtnAction onClick={() => aprovar(l)} busy={busy} color="#22c55e">
+                      <BtnAction onClick={() => aprovar(l)} busy={busyRowId === l.id} color="#22c55e">
                         {l.status === 'suspensa' ? 'Reativar' : 'Aprovar'}
                       </BtnAction>
                     )}
                     {(l.status === 'pendente' || l.status === 'ativa') && (
-                      <BtnAction onClick={() => abrirSuspender(l)} busy={busy} color="#ef4444">
+                      <BtnAction onClick={() => abrirSuspender(l)} busy={busyRowId === l.id} color="#ef4444">
                         Suspender
                       </BtnAction>
                     )}
                     {l.status === 'ativa' && (
-                      <BtnAction onClick={() => toggleVerificada(l)} busy={busy} color={l.verificada ? 'rgba(255,255,255,0.5)' : '#f59e0b'}>
+                      <BtnAction onClick={() => toggleVerificada(l)} busy={busyRowId === l.id} color={l.verificada ? 'rgba(255,255,255,0.5)' : '#f59e0b'}>
                         {l.verificada ? 'Remover ✓' : 'Verificar'}
                       </BtnAction>
                     )}
@@ -507,12 +534,12 @@ function LojasView() {
                     {/* Falar com o dono — pedir documento/informacao antes de aprovar.
                         Abre um ticket, entao a resposta dele volta pro painel. */}
                     {l.owner_email && (
-                      <BtnAction onClick={() => setConversaLoja(l)} busy={busy} color="#a855f7">
+                      <BtnAction onClick={() => setConversaLoja(l)} busy={busyRowId === l.id} color="#a855f7">
                         Falar com dono
                       </BtnAction>
                     )}
                     {l.owner_email && (
-                      <BtnAction onClick={() => pedirVerificacao(l)} busy={busy} color="#60a5fa">
+                      <BtnAction onClick={() => pedirVerificacao(l)} busy={busyRowId === l.id} color="#60a5fa">
                         Pedir documentos
                       </BtnAction>
                     )}
@@ -521,7 +548,7 @@ function LojasView() {
                     <div style={{ position: 'relative' }} ref={planoDropdownLojaId === l.id ? dropdownRef : undefined}>
                       <BtnAction
                         onClick={() => setPlanoDropdownLojaId(planoDropdownLojaId === l.id ? null : l.id)}
-                        busy={busy}
+                        busy={busyRowId === l.id}
                         color="#60a5fa"
                       >
                         Plano ▾
@@ -593,7 +620,7 @@ function LojasView() {
                       <IconEdit size={13} /> Editar
                     </Link>
 
-                    <BtnAction onClick={() => setDetailsLoja(l)} busy={busy} color="rgba(255,255,255,0.6)" variant="ghost">
+                    <BtnAction onClick={() => setDetailsLoja(l)} busy={busyRowId === l.id} color="rgba(255,255,255,0.6)" variant="ghost">
                       Detalhes
                     </BtnAction>
 
@@ -628,8 +655,8 @@ function LojasView() {
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={pgBtn(page === 1)}>
                 ← Anterior
               </button>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', minWidth: 80, textAlign: 'center' }}>
-                Página {page} de {totalPages}
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', minWidth: 120, textAlign: 'center' }}>
+                Página {page} de {totalPages} · {total.toLocaleString('pt-BR')} loja{total === 1 ? '' : 's'}
               </span>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={pgBtn(page >= totalPages)}>
                 Próxima →
@@ -759,7 +786,7 @@ function LojasView() {
                 color: 'rgba(255,255,255,0.55)',
                 lineHeight: 1.5,
               }}>
-                ℹ️ Plano Básico não tem expiração. A mudança é permanente.
+                <IconWarning size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />Plano Básico não tem expiração. A mudança é permanente.
               </div>
             )}
 

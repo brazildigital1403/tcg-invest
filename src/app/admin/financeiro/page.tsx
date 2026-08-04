@@ -389,8 +389,8 @@ export default function AdminFinanceiroPage() {
                       </span>
                     </td>
                     <td style={{ ...td, textAlign: 'right' }}>
-                      <button onClick={() => { setEditingRec(d); setShowModalRec(true) }} style={btnIcon('rgba(255,255,255,0.7)')}>Editar</button>
-                      <button onClick={() => deletarRec(d)} disabled={busy} style={btnIcon('#ef4444')}>Excluir</button>
+                      <button onClick={() => { setEditingRec(d); setShowModalRec(true) }} disabled={busy} style={btnIcon('rgba(255,255,255,0.7)', busy)}>Editar</button>
+                      <button onClick={() => deletarRec(d)} disabled={busy} style={btnIcon('#ef4444', busy)}>Excluir</button>
                     </td>
                   </tr>
                 ))}
@@ -523,13 +523,13 @@ export default function AdminFinanceiroPage() {
                           </span>
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
-                          <button onClick={() => marcarPago(l)} disabled={busy} style={btnIcon(ok ? 'rgba(255,255,255,0.5)' : '#22c55e')}>
+                          <button onClick={() => marcarPago(l)} disabled={busy} style={btnIcon(ok ? 'rgba(255,255,255,0.5)' : '#22c55e', busy)}>
                             {ok ? 'Reverter' : isReceita ? 'Receber' : 'Pagar'}
                           </button>
-                          <button onClick={() => abrirEdicao(l)} disabled={busy} style={btnIcon('rgba(255,255,255,0.7)')}>
+                          <button onClick={() => abrirEdicao(l)} disabled={busy} style={btnIcon('rgba(255,255,255,0.7)', busy)}>
                             Editar
                           </button>
-                          <button onClick={() => deletarLanc(l)} disabled={busy} style={btnIcon('#ef4444')}>Excluir</button>
+                          <button onClick={() => deletarLanc(l)} disabled={busy} style={btnIcon('#ef4444', busy)}>Excluir</button>
                         </td>
                       </tr>
 
@@ -1275,14 +1275,18 @@ const btnGhost: React.CSSProperties = {
   fontFamily: 'inherit',
 }
 
-const btnIcon = (color: string): React.CSSProperties => ({
+// `disabled` muda opacity/cursor -- antes o botao ficava com a MESMA
+// aparencia clicavel mesmo travado por `busy`, entao um clique em rede
+// lenta parecia nao ter feito nada (achado de auditoria 04/08/2026).
+const btnIcon = (color: string, disabled?: boolean): React.CSSProperties => ({
   background: 'transparent',
   border: `1px solid ${color}33`,
   color,
   padding: '5px 10px', borderRadius: 7,
   fontSize: 11, fontWeight: 700,
-  cursor: 'pointer', marginLeft: 4,
+  cursor: disabled ? 'not-allowed' : 'pointer', marginLeft: 4,
   fontFamily: 'inherit',
+  opacity: disabled ? 0.45 : 1,
 })
 
 const tabButton = (active: boolean, color: string): React.CSSProperties => ({
