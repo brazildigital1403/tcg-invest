@@ -59,7 +59,7 @@ function LoginForm() {
           </p>
         </div>
 
-        <label style={{
+        <label htmlFor="admin-password" style={{
           fontSize: 11,
           color: 'rgba(255,255,255,0.4)',
           textTransform: 'uppercase',
@@ -69,7 +69,10 @@ function LoginForm() {
         }}>Senha de acesso</label>
 
         <input
+          id="admin-password"
+          name="password"
           type="password"
+          autoComplete="current-password"
           value={password}
           onChange={e => setPassword(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
