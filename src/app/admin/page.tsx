@@ -18,7 +18,8 @@ export default function AdminDashboard() {
   const [m, setM] = useState<Metrics | null>(null)
   const [error, setError] = useState(false)
 
-  useEffect(() => {
+  function load() {
+    setError(false)
     fetch('/api/admin/metrics')
       .then(async r => {
         if (!r.ok) throw new Error()
@@ -26,7 +27,9 @@ export default function AdminDashboard() {
       })
       .then(setM)
       .catch(() => setError(true))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   return (
     <div style={{ padding: '32px 24px', maxWidth: 1200, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -49,8 +52,10 @@ export default function AdminDashboard() {
           borderRadius: 10,
           fontSize: 13,
           marginBottom: 20,
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
         }}>
-          Erro ao carregar métricas. Tenta recarregar a página.
+          <span>Erro ao carregar métricas.</span>
+          <button onClick={load} style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444', fontWeight: 700, fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Tentar de novo</button>
         </div>
       )}
 
