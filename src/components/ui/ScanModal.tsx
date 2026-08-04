@@ -375,15 +375,19 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         await supabase.from('user_cards').update(updates).eq('id', existing.id)
       } else {
         // card_id/pokemon_api_id usam o id real do catalogo quando o enrich
-        // achou a carta (card._matchedId) -- so cai pro numero impresso quando
-        // o Claude Vision leu uma carta que a Bynx nao tem casada (raro, mas
-        // aí nao ha id nenhum pra usar). Gravar so o numero quebrava o vinculo
-        // com pokemon_cards pra toda carta adicionada por scan (achado em
-        // auditoria 01/08/2026 -- via bug identico no AddCardModal/Pokedex).
+        // achou a carta (card._matchedId) -- NULL quando o Claude Vision leu
+        // uma carta que a Bynx nao tem casada (raro, mas aí nao ha id nenhum
+        // pra usar). card.number NAO serve de fallback: e o texto bruto que a
+        // IA devolve do scan (numero impresso + total juntos, ex "122/088"),
+        // nao um id -- gravar isso como card_id quebra qualquer link que trate
+        // o campo como identificador real ("Ver no Pokedex", anuncio no
+        // Mercado). Achado em auditoria 03/08/2026: um scan sem match (carta
+        // real, so em PT-BR, catalogo sem essa ficha) gravou card_id="122/088"
+        // e o link /carta/122/088 quebrou (a barra vira 2 segmentos de rota).
         await supabase.from('user_cards').insert({
           user_id: user.id,
           card_name: cardName,
-          card_id: card._matchedId || card.number || null,
+          card_id: card._matchedId || null,
           pokemon_api_id: card._matchedId || null,
           set_name: card.set || null,
           variante: 'normal',
