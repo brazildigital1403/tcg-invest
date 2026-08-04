@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import NovaConversaModal from '@/components/admin/NovaConversaModal'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { IconBolt } from '@/components/ui/Icons'
 
 type Ticket = {
   id: string
@@ -47,6 +48,7 @@ function TicketsView() {
   const qp = useSearchParams()
   const [status, setStatus]   = useState(qp.get('status') || '')
   const [q, setQ]             = useState('')
+  const [soUrgentes, setSoUrgentes] = useState(false)
   const [rows, setRows]       = useState<Ticket[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState(false)
@@ -145,6 +147,21 @@ function TicketsView() {
             marginLeft: 'auto',
           }}
         />
+
+        <button
+          onClick={() => setSoUrgentes(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '7px 14px', borderRadius: 100,
+            fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            border: `1px solid ${soUrgentes ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            background: soUrgentes ? 'rgba(239,68,68,0.14)' : 'transparent',
+            color: soUrgentes ? '#ef4444' : 'rgba(255,255,255,0.55)',
+          }}
+        >
+          <IconBolt size={12} color={soUrgentes ? '#ef4444' : 'rgba(255,255,255,0.55)'} />
+          Só urgentes
+        </button>
       </div>
 
       {/* ── Lista ── */}
@@ -169,9 +186,18 @@ function TicketsView() {
         }}>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Nenhum ticket encontrado.</p>
         </div>
+      ) : (soUrgentes ? rows.filter(t => t.priority === 'high') : rows).length === 0 ? (
+        <div style={{
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px dashed rgba(255,255,255,0.12)',
+          borderRadius: 14, padding: '40px 20px',
+          textAlign: 'center',
+        }}>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Nenhum ticket urgente agora.</p>
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {rows.map(t => {
+          {(soUrgentes ? rows.filter(t => t.priority === 'high') : rows).map(t => {
             const s = STATUS[t.status]
             return (
               <Link key={t.id} href={`/admin/tickets/${t.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -198,6 +224,19 @@ function TicketsView() {
                     width: 8, height: 8, borderRadius: '50%',
                     background: s.color, flexShrink: 0,
                   }} />
+
+                  {/* Prioridade -- so mostra o flag de Alta, senao vira ruido
+                      visual numa lista onde a maioria e Normal (item 3 do
+                      relatorio de auditoria, 04/08/2026) */}
+                  {t.priority === 'high' && (
+                    <span title="Prioridade alta" style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: 22, height: 22, borderRadius: 7, flexShrink: 0,
+                      background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.35)',
+                    }}>
+                      <IconBolt size={12} color="#ef4444" />
+                    </span>
+                  )}
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{

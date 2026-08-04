@@ -44,6 +44,14 @@ const STATUS: Record<Ticket['status'], { label: string; color: string; bg: strin
   closed:      { label: 'Fechado',      color: '#64748b', bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.28)' },
 }
 
+// A API ja aceitava gravar priority, mas nada na UI lia nem mudava o campo
+// (achado de auditoria 04/08/2026, item 3 -- Du decidiu expor a feature).
+const PRIORIDADE: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  low:    { label: 'Baixa',  color: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.14)' },
+  normal: { label: 'Normal', color: '#60a5fa', bg: 'rgba(96,165,250,0.10)', border: 'rgba(96,165,250,0.28)' },
+  high:   { label: 'Alta',   color: '#ef4444', bg: 'rgba(239,68,68,0.10)', border: 'rgba(239,68,68,0.28)' },
+}
+
 function formatDateTime(iso?: string) {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -66,6 +74,7 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
   const [newStatus, setNewStatus] = useState<'' | Ticket['status']>('')
   const [sending, setSending]   = useState(false)
   const [mudandoStatus, setMudandoStatus] = useState(false)
+  const [mudandoPrioridade, setMudandoPrioridade] = useState(false)
 
   // 500/rede virava a mesma tela de "ticket nao existe" que um 404 real --
   // achado de auditoria 04/08/2026.
@@ -129,6 +138,21 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
     }
   }
 
+  async function mudarPrioridade(to: string) {
+    setMudandoPrioridade(true)
+    try {
+      const res = await fetch(`/api/admin/tickets/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: to }),
+      })
+      if (!res.ok) return showAlert('Erro ao atualizar prioridade.', 'error')
+      await load()
+    } finally {
+      setMudandoPrioridade(false)
+    }
+  }
+
   if (loading) {
     return <div style={{ padding: 40, color: 'rgba(255,255,255,0.4)', fontFamily: 'DM Sans', textAlign: 'center' }}>Carregando...</div>
   }
@@ -154,6 +178,7 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
   }
 
   const s = STATUS[ticket.status]
+  const pr = PRIORIDADE[ticket.priority || 'normal'] || PRIORIDADE.normal
   const u = ticket.user_info
 
   const isTrial = u?.trial_expires_at && new Date(u.trial_expires_at) > new Date() && !u?.is_pro
@@ -182,14 +207,24 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
               Criado em {formatDateTime(ticket.created_at)}
             </p>
           </div>
-          <span style={{
-            fontSize: 11, fontWeight: 800,
-            padding: '6px 14px', borderRadius: 100,
-            color: s.color, background: s.bg,
-            border: `1px solid ${s.border}`,
-          }}>
-            {s.label}
-          </span>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 800,
+              padding: '6px 14px', borderRadius: 100,
+              color: pr.color, background: pr.bg,
+              border: `1px solid ${pr.border}`,
+            }}>
+              {pr.label}
+            </span>
+            <span style={{
+              fontSize: 11, fontWeight: 800,
+              padding: '6px 14px', borderRadius: 100,
+              color: s.color, background: s.bg,
+              border: `1px solid ${s.border}`,
+            }}>
+              {s.label}
+            </span>
+          </div>
         </div>
 
         {/* Ações de status */}
@@ -211,6 +246,30 @@ export default function AdminTicketDetail({ params }: { params: Promise<{ id: st
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
               >
                 → {STATUS[k].label}
+              </button>
+            ))}
+        </div>
+
+        {/* Ações de prioridade */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Prioridade:</span>
+          {(['low', 'normal', 'high'] as const)
+            .filter(k => k !== (ticket.priority || 'normal'))
+            .map(k => (
+              <button key={k} onClick={() => mudarPrioridade(k)} disabled={mudandoPrioridade} style={{
+                padding: '5px 11px', borderRadius: 100,
+                fontSize: 11, fontWeight: 700,
+                cursor: mudandoPrioridade ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                border: `1px solid ${PRIORIDADE[k].border}`,
+                background: 'transparent',
+                color: PRIORIDADE[k].color,
+                opacity: mudandoPrioridade ? 0.5 : 1,
+                transition: 'background .15s, opacity .15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = PRIORIDADE[k].bg }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              >
+                → {PRIORIDADE[k].label}
               </button>
             ))}
         </div>
