@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { IconCard } from '@/components/ui/Icons'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -73,21 +74,34 @@ export default function AdminMarketplace() {
   const [busca, setBusca]     = useState('')
   const [anuncios, setAnuncios] = useState<Anuncio[] | null>(null)
   const [loading, setLoading] = useState(true)
+  // Sem isso, clique duplo em Remover/Restaurar (rede lenta) disparava duas
+  // requisicoes -- achado de auditoria 04/08/2026.
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [erro, setErro] = useState(false)
 
   async function load() {
     setLoading(true)
-    const p = new URLSearchParams()
-    p.set('view', view)
-    if (busca.trim()) p.set('q', busca.trim())
-    const res = await fetch(`/api/admin/marketplace?${p}`)
-    setLoading(false)
-    if (!res.ok) {
+    setErro(false)
+    try {
+      const p = new URLSearchParams()
+      p.set('view', view)
+      if (busca.trim()) p.set('q', busca.trim())
+      const res = await fetch(`/api/admin/marketplace?${p}`)
+      if (!res.ok) {
+        setAnuncios([])
+        setErro(true)
+        showAlert('Erro ao carregar anúncios. Tenta recarregar.', 'error')
+        return
+      }
+      const d = await res.json()
+      setAnuncios(d.anuncios || [])
+    } catch {
       setAnuncios([])
-      showAlert('Erro ao carregar anúncios. Tenta recarregar.', 'error')
-      return
+      setErro(true)
+      showAlert('Erro de rede ao carregar anúncios.', 'error')
+    } finally {
+      setLoading(false)
     }
-    const d = await res.json()
-    setAnuncios(d.anuncios || [])
   }
 
   useEffect(() => { load() /* eslint-disable-next-line */ }, [view])
@@ -100,18 +114,23 @@ export default function AdminMarketplace() {
     })
     if (!motivo || !motivo.trim()) return
 
-    const res = await fetch('/api/admin/marketplace/moderar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: card.id, action: 'remover', motivo: motivo.trim() }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      showAlert(err.error || 'Erro ao remover anúncio.', 'error')
-      return
+    setBusyId(card.id)
+    try {
+      const res = await fetch('/api/admin/marketplace/moderar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: card.id, action: 'remover', motivo: motivo.trim() }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        showAlert(err.error || 'Erro ao remover anúncio.', 'error')
+        return
+      }
+      showAlert('Anúncio removido.', 'success')
+      load()
+    } finally {
+      setBusyId(null)
     }
-    showAlert('Anúncio removido.', 'success')
-    load()
   }
 
   async function handleRestaurar(card: Anuncio) {
@@ -121,18 +140,23 @@ export default function AdminMarketplace() {
     })
     if (!ok) return
 
-    const res = await fetch('/api/admin/marketplace/moderar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: card.id, action: 'restaurar' }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      showAlert(err.error || 'Erro ao restaurar anúncio.', 'error')
-      return
+    setBusyId(card.id)
+    try {
+      const res = await fetch('/api/admin/marketplace/moderar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: card.id, action: 'restaurar' }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        showAlert(err.error || 'Erro ao restaurar anúncio.', 'error')
+        return
+      }
+      showAlert('Anúncio restaurado.', 'success')
+      load()
+    } finally {
+      setBusyId(null)
     }
-    showAlert('Anúncio restaurado.', 'success')
-    load()
   }
 
   // Filtro de busca local (não precisa nova request)
@@ -206,6 +230,16 @@ export default function AdminMarketplace() {
       {/* ── Lista ── */}
       {loading ? (
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Carregando...</p>
+      ) : erro ? (
+        <div style={{
+          background: 'rgba(239,68,68,0.06)',
+          border: '1px dashed rgba(239,68,68,0.3)',
+          borderRadius: 14, padding: '40px 20px',
+          textAlign: 'center',
+        }}>
+          <p style={{ fontSize: 14, color: '#ef4444', margin: '0 0 12px' }}>Não deu pra carregar os anúncios.</p>
+          <button onClick={load} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', fontWeight: 700, fontSize: 12, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>Tentar de novo</button>
+        </div>
       ) : visible.length === 0 ? (
         <div style={{
           background: 'rgba(255,255,255,0.02)',
@@ -236,7 +270,9 @@ export default function AdminMarketplace() {
                 display: 'flex',
                 gap: 12,
               }}>
-                {/* Foto */}
+                {/* Foto -- onError cobre URL quebrada, nao so card_image nulo
+                    (achado de auditoria 04/08/2026: imagem quebrada mostrava
+                    o icone padrao do navegador, atrapalhando a moderacao) */}
                 <div style={{
                   width: 80, flexShrink: 0,
                   borderRadius: 10, overflow: 'hidden',
@@ -248,12 +284,17 @@ export default function AdminMarketplace() {
                       src={card.card_image}
                       alt={card.card_name}
                       style={{ width: '100%', height: 'auto', display: 'block' }}
+                      onError={e => {
+                        const img = e.currentTarget
+                        img.style.display = 'none'
+                        const fallback = img.nextElementSibling as HTMLElement | null
+                        if (fallback) fallback.style.display = 'flex'
+                      }}
                     />
-                  ) : (
-                    <div style={{ width: '100%', paddingBottom: '140%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: 24 }}>🃏</span>
-                    </div>
-                  )}
+                  ) : null}
+                  <div style={{ width: '100%', paddingBottom: '140%', display: card.card_image ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconCard size={24} color="rgba(255,255,255,0.3)" />
+                  </div>
                 </div>
 
                 {/* Conteúdo */}
@@ -350,32 +391,36 @@ export default function AdminMarketplace() {
                     {removido ? (
                       <button
                         onClick={() => handleRestaurar(card)}
+                        disabled={busyId === card.id}
                         style={{
                           fontSize: 11, fontWeight: 700,
                           padding: '6px 10px', borderRadius: 8,
                           background: 'rgba(34,197,94,0.1)',
                           border: '1px solid rgba(34,197,94,0.3)',
                           color: '#22c55e',
-                          cursor: 'pointer',
+                          cursor: busyId === card.id ? 'not-allowed' : 'pointer',
+                          opacity: busyId === card.id ? 0.5 : 1,
                           fontFamily: 'inherit',
                         }}
                       >
-                        Restaurar
+                        {busyId === card.id ? 'Restaurando…' : 'Restaurar'}
                       </button>
                     ) : (
                       <button
                         onClick={() => handleRemover(card)}
+                        disabled={busyId === card.id}
                         style={{
                           fontSize: 11, fontWeight: 700,
                           padding: '6px 10px', borderRadius: 8,
                           background: 'rgba(239,68,68,0.1)',
                           border: '1px solid rgba(239,68,68,0.3)',
                           color: '#ef4444',
-                          cursor: 'pointer',
+                          cursor: busyId === card.id ? 'not-allowed' : 'pointer',
+                          opacity: busyId === card.id ? 0.5 : 1,
                           fontFamily: 'inherit',
                         }}
                       >
-                        Remover
+                        {busyId === card.id ? 'Removendo…' : 'Remover'}
                       </button>
                     )}
                   </div>
