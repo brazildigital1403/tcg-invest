@@ -307,7 +307,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         setPatrimonio(0)
       } else {
         const { data: cards } = await supabase
-          .from('user_cards').select('id, card_name, card_link, pokemon_api_id, variante, quantity').eq('user_id', authData.user.id)
+          .from('user_cards').select('id, card_name, card_link, pokemon_api_id, variante, quantity, graduada, valor_graduada').eq('user_id', authData.user.id)
 
         if (!cards || cards.length === 0) {
           setPatrimonio(0)
@@ -340,10 +340,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           let total = 0
           for (const card of cards) {
+            const c: any = card
+            const qty = c.quantity || 1
+            // Carta graduada: o preco de mercado da carta CRUA nao serve --
+            // o valor e o que o dono declarou pro slab (mesma regra do
+            // CardItem.tsx). Sem isso o patrimonio contava a Bianca's
+            // Devotion PSA 10 do Du a R$37,22 em vez de R$1.553,10
+            // (auditoria 03/08/2026).
+            if (c.graduada && Number(c.valor_graduada) > 0) {
+              total += Number(c.valor_graduada) * qty
+              continue
+            }
             const p = card.pokemon_api_id ? priceById[card.pokemon_api_id]
               : card.card_link ? priceByLink[card.card_link] : null
             if (!p) continue
-            const qty = (card as any).quantity || 1
             const v = card.variante || 'normal'
             let val = parseFloat(p[CAMPOS[v]] || p.preco_medio || 0)
             if (!val) {

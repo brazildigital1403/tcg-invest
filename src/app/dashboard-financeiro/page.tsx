@@ -4,13 +4,13 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
-import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
 import OnboardingModal from '@/components/ui/OnboardingModal'
 import AddCardModal from '@/components/dashboard/AddCardModal'
-import { IconSearch, IconDownload, IconTrendingUp, IconTrendingDown, IconScan, IconHistory, IconCollection, IconFire, IconWarning, IconWallet, IconMarketplace, IconChart } from '@/components/ui/Icons'
+import { IconTrendingUp, IconHistory, IconCollection, IconFire, IconWarning, IconWallet, IconMarketplace, IconChart, IconCard } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
+import { GRADUADORA_MAP, notaCurta } from '@/lib/graduadoras'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -27,42 +27,31 @@ const getVariation = (history: any[]) => {
   return ((last - first) / first) * 100
 }
 
-async function matchPokemonApiId(cardName: string, cardNumber?: string) {
-  try {
-    const cleanName = cardName.split('(')[0].trim().toLowerCase()
-    const number = cardNumber || ''
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${cleanName}"${number ? ` number:${number}` : ''}`)
-    const data = await res.json()
-    if (data?.data?.length > 0) return { id: data.data[0].id, score: 1 }
-    return { id: null, score: 0 }
-  } catch { return { id: null, score: 0 } }
-}
-
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
-const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16 }
-const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
+const SURFACE = { background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', borderRadius: 16 }
+const BRAND = 'var(--ac-grad)'
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 function StatChip({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div style={{ ...SURFACE, padding: '16px 20px', textAlign: 'center' }}>
-      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{label}</p>
-      <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: color || '#f0f0f0' }}>{value}</p>
+      <p style={{ fontSize: 11, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{label}</p>
+      <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: color || 'var(--bx-text)' }}>{value}</p>
     </div>
   )
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>{children}</p>
+  return <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>{children}</p>
 }
 
 function EmptyRow({ label }: { label: string }) {
   return (
     <div style={{ ...SURFACE, padding: '12px 16px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.4 }}>
-      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>{label}</p>
-      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>—</p>
+      <p style={{ fontSize: 13, color: 'var(--bx-text-2)', fontStyle: 'italic' }}>{label}</p>
+      <p style={{ fontSize: 13, color: 'var(--bx-text-3)' }}>—</p>
     </div>
   )
 }
@@ -70,7 +59,7 @@ function EmptyRow({ label }: { label: string }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function DashboardFinanceiro() {
-  const { showAlert, showPrompt } = useAppModal()
+  const { showAlert } = useAppModal()
   const [stats, setStats] = useState({ totalCompras: 0, totalVendas: 0, quantidade: 0, valorColecao: 0 })
   const [transactions, setTransactions] = useState<any[]>([])
   const [rankingWithVariation, setRankingWithVariation] = useState<any[]>([])
@@ -83,25 +72,9 @@ export default function DashboardFinanceiro() {
   const [isPro, setIsPro] = useState(false)
   const [isTrial, setIsTrial] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
-  const [userName, setUserName] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const [openAddModal, setOpenAddModal] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [importingMsg, setImportingMsg] = useState('')
   const [cardSortOrder, setCardSortOrder] = useState<'alpha' | 'recent'>('alpha')
-
-  const SECS_PER_CARD = 6
-
-  const LOADING_MSGS = [
-    'Procurando a carta...',
-    'Buscando preços de mercado...',
-    'Varrendo o mercado TCG...',
-    'Consultando preços das cartas...',
-    'Calculando o valor do patrimônio...',
-    'Analisando variações de mercado...',
-    'Consultando fontes de preços...',
-    'Analisando Normal, Foil e Promo...',
-  ]
 
   // ── Load data ───────────────────────────────────────────────────────────
 
@@ -118,16 +91,22 @@ export default function DashboardFinanceiro() {
         if (ENFORCEMENT_ATIVO && !caps.podeDashboard) { window.location.href = '/minha-colecao'; return }
         setIsPro(pro || trial)
         setIsTrial(trial) // trial já indica trial, independente de isPro
-        const { data: txns } = await supabase
-          .from('transactions')
-          .select('*')
-          .or(`buyer_id.eq.${uid},seller_id.eq.${uid}`)
+        // Historico de compra/venda -- le de `pedidos` (marketplace real), nao
+        // mais de `transactions` (tabela abandonada, 0 linhas -- essa secao
+        // ficava sempre vazia pra todo mundo). Mesma regra de "venda de
+        // verdade" que o painel da loja ja usa: fora aguardando_pagamento e
+        // reembolsado (auditoria 03/08/2026).
+        const { data: pedidos } = await supabase
+          .from('pedidos')
+          .select('id, item_nome, item_imagem, comprador_user_id, vendedor_user_id, total_comprador_cents, liquido_loja_cents, status, created_at')
+          .or(`comprador_user_id.eq.${uid},vendedor_user_id.eq.${uid}`)
+          .in('status', ['pago', 'enviado', 'entregue'])
           .order('created_at', { ascending: false })
-          .limit(10)
+          .limit(200)
         // Enrich com nomes dos usuários
         const userIds = [...new Set([
-          ...(txns || []).map(t => t.buyer_id),
-          ...(txns || []).map(t => t.seller_id),
+          ...(pedidos || []).map(t => t.comprador_user_id),
+          ...(pedidos || []).map(t => t.vendedor_user_id),
         ].filter(Boolean))]
         let usersMap: Record<string, any> = {}
         if (userIds.length > 0) {
@@ -135,16 +114,19 @@ export default function DashboardFinanceiro() {
           const { data: usersData } = await supabase.from('public_users').select('id, name, city').in('id', userIds)
           usersMap = (usersData || []).reduce((acc: any, u: any) => { acc[u.id] = u; return acc }, {})
         }
-        const txnsEnriched = (txns || []).map(t => ({
+        const pedidosEnriched = (pedidos || []).map(t => ({
           ...t,
-          buyer_name: usersMap[t.buyer_id]?.name || 'Comprador',
-          seller_name: usersMap[t.seller_id]?.name || 'Vendedor',
-          buyer_city: usersMap[t.buyer_id]?.city || '',
-          seller_city: usersMap[t.seller_id]?.city || '',
+          buyer_id: t.comprador_user_id,
+          seller_id: t.vendedor_user_id,
+          card_name: t.item_nome,
+          buyer_name: usersMap[t.comprador_user_id]?.name || 'Comprador',
+          seller_name: usersMap[t.vendedor_user_id]?.name || 'Vendedor',
+          buyer_city: usersMap[t.comprador_user_id]?.city || '',
+          seller_city: usersMap[t.vendedor_user_id]?.city || '',
         }))
-        setTransactions(txnsEnriched)
-        const compras = (txns || []).filter(t => t.buyer_id === uid).reduce((a, t) => a + Number(t.price), 0)
-        const vendas = (txns || []).filter(t => t.seller_id === uid).reduce((a, t) => a + Number(t.price), 0)
+        setTransactions(pedidosEnriched)
+        const compras = (pedidos || []).filter(t => t.comprador_user_id === uid).reduce((a, t) => a + Number(t.total_comprador_cents || 0) / 100, 0)
+        const vendas = (pedidos || []).filter(t => t.vendedor_user_id === uid).reduce((a, t) => a + Number(t.liquido_loja_cents || 0) / 100, 0)
         const { data: cards } = await supabase.from('user_cards').select('*').eq('user_id', uid)
         setUserCards(cards || [])
 
@@ -216,13 +198,21 @@ export default function DashboardFinanceiro() {
         const enrichedCards: any[] = []
 
         for (const card of cards || []) {
+          // Carta graduada: o preco de mercado da carta CRUA nao serve -- o
+          // valor e o que o dono declarou pro slab (mesma regra do
+          // CardItem.tsx). Sem isso o patrimonio contava a Bianca's Devotion
+          // PSA 10 do Du a R$37,22 em vez de R$1.553,10 (auditoria 03/08/2026).
+          const isGraduada = !!(card.graduada && Number(card.valor_graduada) > 0)
           const p = getP(card)
           const variante = card.variante || 'normal'
-          const val = getBestVal(p, variante)
+          const val = isGraduada ? Number(card.valor_graduada) : getBestVal(p, variante)
           const qty = card.quantity || 1
           valorTotal += val * qty
-          if (p && val > 0) {
-            enrichedCards.push({ ...p, card_name: card.card_name, variante, precoVariante: val, variation: 0 })
+          if (isGraduada || (p && val > 0)) {
+            enrichedCards.push({
+              ...(p || {}), card_name: card.card_name, variante, precoVariante: val, variation: 0,
+              graduada: isGraduada, graduadora: card.graduadora || null, nota: card.nota || null, blackLabel: !!card.black_label,
+            })
           }
         }
 
@@ -260,9 +250,6 @@ export default function DashboardFinanceiro() {
           setShowOnboarding(true)
         }
 
-        // Busca nome do usuário
-        const { data: profile } = await supabase.from('users').select('name').eq('id', uid).single()
-        if (profile?.name) setUserName(profile.name)
         if (cards && cards.length > 0) {
           setSelectedCardId(cards[0].id)
         }
@@ -325,8 +312,8 @@ export default function DashboardFinanceiro() {
 
   if (loading) return (
     <AppLayout>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'rgba(255,255,255,0.3)', flexDirection: 'column', gap: 12 }}>
-        <IconChart size={32} color="rgba(255,255,255,0.2)" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--bx-text-3)', flexDirection: 'column', gap: 12 }}>
+        <IconChart size={32} color="var(--bx-text-faint)" />
         <p style={{ fontSize: 14 }}>Carregando dashboard...</p>
       </div>
     </AppLayout>
@@ -334,41 +321,6 @@ export default function DashboardFinanceiro() {
 
   return (
     <AppLayout>
-      {/* Loading overlay para importação */}
-      {importing && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 9998,
-          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24,
-        }}>
-          {/* Pokébola animada */}
-          <div style={{ animation: 'spin 1.2s linear infinite', width: 72, height: 72 }}>
-            <svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="36" cy="36" r="34" fill="#fff" stroke="#222" strokeWidth="3"/>
-              <path d="M2 36 Q2 2 36 2 Q70 2 70 36Z" fill="#e53e3e"/>
-              <rect x="2" y="33" width="68" height="6" fill="#222"/>
-              <circle cx="36" cy="36" r="10" fill="#fff" stroke="#222" strokeWidth="3"/>
-              <circle cx="36" cy="36" r="5" fill="#f0f0f0" stroke="#888" strokeWidth="1.5"/>
-            </svg>
-          </div>
-          <div style={{
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 20, padding: '28px 40px', maxWidth: 420, textAlign: 'center',
-          }}>
-            <p style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b', marginBottom: 12 }}>
-              Importando carta(s)...
-            </p>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
-              {importingMsg}
-            </p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 16 }}>
-              Aguarde...
-            </p>
-          </div>
-          <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
-        </div>
-      )}
-
       <style>{`
         @media (max-width: 768px) {
           .dash-hero { flex-direction: column !important; padding: 20px 16px !important; }
@@ -393,14 +345,14 @@ export default function DashboardFinanceiro() {
         }} className="dash-hero">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <p style={{ fontSize: 11, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 Patrimônio total da coleção
               </p>
               <span style={{
                 fontSize: 10, fontWeight: 800, padding: '2px 9px', borderRadius: 100, letterSpacing: '0.08em',
-                background: isTrial ? 'rgba(96,165,250,0.12)' : isPro ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${isTrial ? 'rgba(96,165,250,0.35)' : isPro ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.12)'}`,
-                color: isTrial ? '#60a5fa' : isPro ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                background: isTrial ? 'rgba(96,165,250,0.12)' : isPro ? 'rgba(245,158,11,0.15)' : 'var(--bx-surface-2)',
+                border: `1px solid ${isTrial ? 'rgba(96,165,250,0.35)' : isPro ? 'rgba(245,158,11,0.4)' : 'var(--bx-border-2)'}`,
+                color: isTrial ? 'var(--bx-blue)' : isPro ? 'var(--ac-1)' : 'var(--bx-text-3)',
               }}>
                 {isPro && !isTrial ? 'PRO ✦' : isTrial ? 'TRIAL ✦' : 'FREE'}
               </span>
@@ -410,34 +362,35 @@ export default function DashboardFinanceiro() {
             </h1>
             <div style={{ display: 'flex', gap: 28 }}>
               <div>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 3 }}>Saldo</p>
-                <p style={{ fontSize: 15, fontWeight: 700, color: saldo >= 0 ? '#22c55e' : '#ef4444' }}>{saldo >= 0 ? '+' : ''}{fmt(saldo)}</p>
+                <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 3 }}>Saldo</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: saldo >= 0 ? 'var(--bx-green)' : 'var(--bx-red)' }}>{saldo >= 0 ? '+' : ''}{fmt(saldo)}</p>
               </div>
               <div>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 3 }}>Performance</p>
-                <p style={{ fontSize: 15, fontWeight: 700, color: variation >= 0 ? '#22c55e' : '#ef4444' }}>{pct(variation)}</p>
+                <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 3 }}>Performance</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: variation >= 0 ? 'var(--bx-green)' : 'var(--bx-red)' }}>{pct(variation)}</p>
               </div>
               <div>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 3 }}>Cartas</p>
-                <p style={{ fontSize: 15, fontWeight: 700, color: '#f0f0f0' }}>{stats.quantidade}</p>
+                <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 3 }}>Cartas</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--bx-text)' }}>{stats.quantidade}</p>
               </div>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 200 }} className="dash-hero-btns">
             {userId && (
-              <button onClick={() => setOpenAddModal(true)} style={{ background: BRAND, border: 'none', color: '#000', padding: '13px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 24px rgba(245,158,11,0.25)' }}>
+              <button onClick={() => setOpenAddModal(true)} style={{ background: BRAND, border: 'none', color: 'var(--bx-brand-ink)', padding: '13px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 0 24px rgba(245,158,11,0.25)' }}>
                 Adicionar carta
               </button>
             )}
           </div>
         </div>
 
-        {/* ── 4 CHIPS ── */}
+        {/* ── CHIPS ── */}
+        {/* Era 4 (Total cartas / Total compras / Total vendas / Saldo) --
+            "Total cartas" e "Saldo" ja aparecem no hero, redundante. Fica so
+            o que e informacao nova (achado 03/08/2026). */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }} className="dash-chips">
-          <StatChip label="Total cartas" value={String(stats.quantidade)} />
-          <StatChip label="Total compras" value={fmt(stats.totalCompras)} color="#ef4444" />
-          <StatChip label="Total vendas" value={fmt(stats.totalVendas)} color="#22c55e" />
-          <StatChip label="Saldo" value={fmt(saldo)} color={saldo >= 0 ? '#22c55e' : '#ef4444'} />
+          <StatChip label="Total compras" value={fmt(stats.totalCompras)} color="var(--bx-red)" />
+          <StatChip label="Total vendas" value={fmt(stats.totalVendas)} color="var(--bx-green)" />
         </div>
 
         {/* ── 2 COLUNAS ── */}
@@ -449,7 +402,7 @@ export default function DashboardFinanceiro() {
             {/* Seletor de carta + gráfico */}
             <div style={{ ...SURFACE, padding: 24, marginBottom: 16 }}>
               <div style={{ marginBottom: 16 }}>
-                <SectionTitle><IconTrendingUp size={14} color="rgba(255,255,255,0.5)" />Histórico de preço</SectionTitle>
+                <SectionTitle><IconTrendingUp size={14} color="var(--bx-text-3)" />Histórico de preço</SectionTitle>
 
                 {/* Filtros de ordenação */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, marginBottom: 10 }}>
@@ -459,8 +412,8 @@ export default function DashboardFinanceiro() {
                       onClick={() => setCardSortOrder(opt)}
                       style={{
                         fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none',
-                        background: cardSortOrder === opt ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.06)',
-                        color: cardSortOrder === opt ? '#f59e0b' : 'rgba(255,255,255,0.4)',
+                        background: cardSortOrder === opt ? 'rgba(var(--ac-1-rgb), 0.2)' : 'var(--bx-surface-2)',
+                        color: cardSortOrder === opt ? 'var(--ac-1)' : 'var(--bx-text-3)',
                         transition: 'all 0.2s',
                       }}
                     >
@@ -470,14 +423,14 @@ export default function DashboardFinanceiro() {
                 </div>
 
                 {/* Label */}
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                   Selecione sua carta
                 </p>
 
                 {/* Lista de cartas — uma por linha */}
                 <div style={{ maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2 }}>
                   {userCards.length === 0 && (
-                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Nenhuma carta na coleção</p>
+                    <p style={{ fontSize: 13, color: 'var(--bx-text-3)' }}>Nenhuma carta na coleção</p>
                   )}
                   {[...userCards]
                     .sort((a, b) => cardSortOrder === 'alpha'
@@ -501,8 +454,8 @@ export default function DashboardFinanceiro() {
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             width: '100%', padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                            border: isSelected ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(255,255,255,0.06)',
-                            background: isSelected ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)',
+                            border: isSelected ? '1px solid rgba(var(--ac-1-rgb), 0.4)' : '1px solid var(--bx-surface-2)',
+                            background: isSelected ? 'rgba(var(--ac-1-rgb), 0.08)' : 'var(--bx-surface)',
                             transition: 'all 0.15s', textAlign: 'left',
                           }}
                         >
@@ -510,14 +463,14 @@ export default function DashboardFinanceiro() {
                           <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
                             <p style={{
                               fontSize: 13, fontWeight: isSelected ? 700 : 500,
-                              color: isSelected ? '#f0f0f0' : 'rgba(255,255,255,0.75)',
+                              color: isSelected ? 'var(--bx-text)' : 'var(--bx-text-2)',
                               marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             }}>
                               {cardBaseName}
                             </p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               {cardNum && (
-                                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>#{cardNum}</span>
+                                <span style={{ fontSize: 11, color: 'var(--bx-text-3)' }}>#{cardNum}</span>
                               )}
                               <span style={{
                                 fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
@@ -532,13 +485,13 @@ export default function DashboardFinanceiro() {
                               <img
                                 src={c.card_image}
                                 alt={c.card_name}
-                                style={{ width: 36, height: 50, objectFit: 'cover', borderRadius: 5, display: 'block', border: isSelected ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(255,255,255,0.1)' }}
+                                style={{ width: 36, height: 50, objectFit: 'cover', borderRadius: 5, display: 'block', border: isSelected ? '1px solid rgba(var(--ac-1-rgb), 0.5)' : '1px solid var(--bx-border-2)' }}
                               />
                             ) : (
-                              <div style={{ width: 36, height: 50, borderRadius: 5, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🃏</div>
+                              <div style={{ width: 36, height: 50, borderRadius: 5, background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconCard size={16} color="var(--bx-text-3)" /></div>
                             )}
                             {isSelected && (
-                              <div style={{ position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: '50%', background: '#f59e0b', border: '2px solid #0f1117' }} />
+                              <div style={{ position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: '50%', background: 'var(--ac-1)', border: '2px solid var(--bx-bg)' }} />
                             )}
                           </div>
                         </button>
@@ -552,13 +505,13 @@ export default function DashboardFinanceiro() {
                 const selectedUserCard = userCards.find(c => c.id === selectedCardId)
                 if (!selectedUserCard) return null
                 return (
-                  <div style={{ marginBottom: 16, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12 }}>
+                  <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--bx-surface)', borderRadius: 12 }}>
                     {/* Linha superior: imagem + nome + preços */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                       {cardImage ? (
                         <img src={cardImage} alt={selectedUserCard.card_name} style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
                       ) : (
-                        <div style={{ width: 44, height: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🃏</div>
+                        <div style={{ width: 44, height: 60, background: 'var(--bx-surface-2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconCard size={18} color="var(--bx-text-3)" /></div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUserCard.card_name}</p>
@@ -577,18 +530,18 @@ export default function DashboardFinanceiro() {
                             : { min: selectedCardPrice.preco_min, medio: selectedCardPrice.preco_medio, max: selectedCardPrice.preco_max }
                           return (
                             <>
-                              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>
-                                Variante: <strong style={{ color: '#f59e0b' }}>{variantLabel[cardVariante] || cardVariante}</strong>
+                              <p style={{ fontSize: 10, color: 'var(--bx-text-3)', marginBottom: 4 }}>
+                                Variante: <strong style={{ color: 'var(--ac-1)' }}>{variantLabel[cardVariante] || cardVariante}</strong>
                               </p>
                               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                                <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: '#22c55e' }}>{fmt(precos.min)}</p></div>
-                                <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{fmt(precos.medio)}</p></div>
-                                <div><p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{fmt(precos.max)}</p></div>
+                                <div><p style={{ fontSize: 10, color: 'var(--bx-text-3)' }}>Mín</p><p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-green)' }}>{fmt(precos.min)}</p></div>
+                                <div><p style={{ fontSize: 10, color: 'var(--bx-text-3)' }}>Médio</p><p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-blue)' }}>{fmt(precos.medio)}</p></div>
+                                <div><p style={{ fontSize: 10, color: 'var(--bx-text-3)' }}>Máx</p><p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ac-1)' }}>{fmt(precos.max)}</p></div>
                               </div>
                             </>
                           )
                         })() : (
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Sem dados de preço disponíveis</p>
+                          <p style={{ fontSize: 12, color: 'var(--bx-text-3)', fontStyle: 'italic' }}>Sem dados de preço disponíveis</p>
                         )}
                       </div>
                     </div>
@@ -603,18 +556,18 @@ export default function DashboardFinanceiro() {
                 <div style={{ height: 180, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 60, opacity: 0.15 }}>
                     {[40, 55, 45, 70, 60, 80, 65, 90, 75, 85].map((h, i) => (
-                      <div key={i} style={{ width: 16, height: h, background: '#f59e0b', borderRadius: '3px 3px 0 0' }} />
+                      <div key={i} style={{ width: 16, height: h, background: 'var(--ac-1)', borderRadius: '3px 3px 0 0' }} />
                     ))}
                   </div>
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Histórico ainda sendo coletado</p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>Dados aparecem em até 24h após o primeiro scan diário</p>
+                  <p style={{ fontSize: 13, color: 'var(--bx-text-3)' }}>Histórico ainda sendo coletado</p>
+                  <p style={{ fontSize: 11, color: 'var(--bx-text-faint)' }}>Dados aparecem em até 24h após o primeiro scan diário</p>
                 </div>
               )}
             </div>
 
             {/* Últimas transações */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconHistory size={14} color="rgba(255,255,255,0.5)" />Últimas transações</SectionTitle>
+              <SectionTitle><IconHistory size={14} color="var(--bx-text-3)" />Últimas transações</SectionTitle>
               {transactions.length === 0 ? (
                 <>
                   <EmptyRow label="Nenhuma transação ainda" />
@@ -626,9 +579,10 @@ export default function DashboardFinanceiro() {
                   const isCompra = t.buyer_id === userId
                   const contato = isCompra ? t.seller_name : t.buyer_name
                   const cidade = isCompra ? t.seller_city : t.buyer_city
+                  const valor = isCompra ? Number(t.total_comprador_cents || 0) / 100 : Number(t.liquido_loja_cents || 0) / 100
                   const data = t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : ''
                   return (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--bx-border)', overflow: 'hidden' }}>
                       {/* Ícone */}
                       <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
                         background: isCompra ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
@@ -638,20 +592,20 @@ export default function DashboardFinanceiro() {
                       </div>
                       {/* Info */}
                       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--bx-text)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {t.card_name}
                         </p>
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                        <p style={{ fontSize: 11, color: 'var(--bx-text-3)' }}>
                           {isCompra ? 'Compra de' : 'Venda para'} {contato}{cidade ? ` · ${cidade}` : ''}{data ? ` · ${data}` : ''}
                         </p>
                       </div>
                       {/* Valor */}
                       <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 80 }}>
-                        <p style={{ fontSize: 14, fontWeight: 700, color: isCompra ? '#ef4444' : '#22c55e' }}>
-                          {isCompra ? '-' : '+'}{fmt(Number(t.price))}
+                        <p style={{ fontSize: 14, fontWeight: 700, color: isCompra ? 'var(--bx-red)' : 'var(--bx-green)' }}>
+                          {isCompra ? '-' : '+'}{fmt(valor)}
                         </p>
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
-                          {isCompra ? 'compra' : 'venda'}
+                        <p style={{ fontSize: 10, color: 'var(--bx-text-3)' }}>
+                          {isCompra ? 'compra' : 'venda'}{!isCompra ? ' · líquido' : ''}
                         </p>
                       </div>
                     </div>
@@ -667,7 +621,7 @@ export default function DashboardFinanceiro() {
 
             {/* Cartas mais valiosas */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconCollection size={14} color="rgba(255,255,255,0.5)" />Cartas mais valiosas</SectionTitle>
+              <SectionTitle><IconCollection size={14} color="var(--bx-text-3)" />Cartas mais valiosas</SectionTitle>
               {rankingWithVariation.length === 0 ? (
                 <>
                   {['Adicione cartas para ver o ranking', 'Busque cartas pelo nome', 'Os preços aparecem automaticamente'].map(l => (
@@ -681,19 +635,27 @@ export default function DashboardFinanceiro() {
                   const varColors: Record<string, string> = { normal: '#60a5fa', foil: '#f59e0b', promo: '#a78bfa', reverse: '#34d399', pokeball: '#fb923c' }
                   const vLabel = varLabels[r.variante || 'normal'] || 'Normal'
                   const vColor = varColors[r.variante || 'normal'] || '#60a5fa'
+                  const gradMeta = r.graduada ? GRADUADORA_MAP[r.graduadora || ''] : null
                   return (
-                    <div key={r.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div key={r.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: i === 0 ? '#f59e0b' : 'rgba(255,255,255,0.2)', minWidth: 20, flexShrink: 0 }}>#{i + 1}</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: i === 0 ? 'var(--ac-1)' : 'var(--bx-text-faint)', minWidth: 20, flexShrink: 0 }}>#{i + 1}</span>
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ fontSize: 13, color: '#f0f0f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.card_name}</p>
+                          <p style={{ fontSize: 13, color: 'var(--bx-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {r.card_name}
+                            {gradMeta && (
+                              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 6, background: `${gradMeta.cor}26`, color: gradMeta.cor, border: `1px solid ${gradMeta.cor}4d`, marginLeft: 6 }}>
+                                {gradMeta.curto} {notaCurta(r.nota, r.blackLabel)}
+                              </span>
+                            )}
+                          </p>
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: `${vColor}18`, color: vColor, border: `1px solid ${vColor}40` }}>{vLabel}</span>
                         </div>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0' }}>{fmt(price)}</p>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-text)' }}>{fmt(price)}</p>
                         {r.variation !== 0 && (
-                          <p style={{ fontSize: 10, color: r.variation >= 0 ? '#22c55e' : '#ef4444' }}>
+                          <p style={{ fontSize: 10, color: r.variation >= 0 ? 'var(--bx-green)' : 'var(--bx-red)' }}>
                             {r.variation >= 0 ? '+' : ''}{r.variation.toFixed(1)}%
                           </p>
                         )}
@@ -706,7 +668,7 @@ export default function DashboardFinanceiro() {
 
             {/* Oportunidades */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconFire size={14} color="rgba(255,255,255,0.5)" />Oportunidades de compra</SectionTitle>
+              <SectionTitle><IconFire size={14} color="var(--bx-text-3)" />Oportunidades de compra</SectionTitle>
               {rankingWithVariation.filter(r => r.variation > 10).length === 0 ? (
                 <>
                   <EmptyRow label="Carta valorizando +10% no período" />
@@ -714,9 +676,9 @@ export default function DashboardFinanceiro() {
                 </>
               ) : (
                 rankingWithVariation.filter(r => r.variation > 10).slice(0, 3).map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <p style={{ fontSize: 13, color: '#f0f0f0' }}>{r.card_name}</p>
-                    <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>+{r.variation.toFixed(0)}%</span>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
+                    <p style={{ fontSize: 13, color: 'var(--bx-text)' }}>{r.card_name}</p>
+                    <span style={{ fontSize: 11, color: 'var(--bx-green)', fontWeight: 700 }}>+{r.variation.toFixed(0)}%</span>
                   </div>
                 ))
               )}
@@ -724,7 +686,7 @@ export default function DashboardFinanceiro() {
 
             {/* Alertas */}
             <div style={{ ...SURFACE, padding: 24 }}>
-              <SectionTitle><IconWarning size={14} color="rgba(255,255,255,0.5)" />Alertas de mercado</SectionTitle>
+              <SectionTitle><IconWarning size={14} color="var(--bx-text-3)" />Alertas de mercado</SectionTitle>
               {rankingWithVariation.filter(r => r.variation < -10).length === 0 ? (
                 <>
                   <EmptyRow label="Carta em queda -10% no período" />
@@ -732,9 +694,9 @@ export default function DashboardFinanceiro() {
                 </>
               ) : (
                 rankingWithVariation.filter(r => r.variation < -10).slice(0, 3).map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <p style={{ fontSize: 13, color: '#f0f0f0' }}>{r.card_name}</p>
-                    <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>{r.variation.toFixed(0)}%</span>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--bx-border)' }}>
+                    <p style={{ fontSize: 13, color: 'var(--bx-text)' }}>{r.card_name}</p>
+                    <span style={{ fontSize: 11, color: 'var(--bx-red)', fontWeight: 700 }}>{r.variation.toFixed(0)}%</span>
                   </div>
                 ))
               )}
