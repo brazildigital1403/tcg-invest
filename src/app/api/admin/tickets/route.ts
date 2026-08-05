@@ -55,10 +55,32 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Hidrata com quem mandou a ULTIMA mensagem de cada ticket -- e o sinal
+    // que decide de quem e a vez de responder (redesign 05/08/2026). Sem
+    // isso a lista nao distingue um ticket esperando o ADMIN responder de
+    // um esperando o USUARIO (ex.: pedido de verificacao de loja) -- os dois
+    // ficavam com o mesmo status "Aberto".
+    // Query global ordenada por created_at desc: a primeira ocorrencia de
+    // cada ticket_id na iteracao e sempre a mensagem mais recente dele.
+    const ticketIds = (tickets || []).map(t => t.id)
+    const lastSenderMap: Record<string, string> = {}
+    if (ticketIds.length > 0) {
+      const { data: msgs } = await sb
+        .from('ticket_messages')
+        .select('ticket_id, sender_type, created_at')
+        .in('ticket_id', ticketIds)
+        .order('created_at', { ascending: false })
+        .limit(2000)
+      for (const m of msgs || []) {
+        if (!lastSenderMap[m.ticket_id]) lastSenderMap[m.ticket_id] = m.sender_type
+      }
+    }
+
     const enriched = (tickets || []).map(t => ({
       ...t,
       user_email: userMap[t.user_id]?.email || null,
       user_name:  userMap[t.user_id]?.name  || null,
+      last_sender: lastSenderMap[t.id] || null,
     }))
 
     return NextResponse.json({ tickets: enriched })
