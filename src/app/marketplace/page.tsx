@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard } from '@/components/ui/Icons'
+import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
 import { authFetch } from '@/lib/authFetch'
@@ -834,6 +834,22 @@ function MarketplaceInner() {
   const [filtroCondicao, setFiltroCondicao] = useState('')
   const [filtroGraduadora, setFiltroGraduadora] = useState('')
   const [showFiltrosAvancados, setShowFiltrosAvancados] = useState(false)
+
+  // Painel de filtros avançados vira overlay fixo (mesmo padrão de FiltrosGuia.tsx
+  // em /lojas) -- antes abria inline no fluxo do documento, sem scroll nem foco,
+  // então em telas curtas o painel abria fora do campo de visão do usuário.
+  useEffect(() => {
+    document.body.style.overflow = showFiltrosAvancados ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [showFiltrosAvancados])
+
+  useEffect(() => {
+    if (!showFiltrosAvancados) return
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setShowFiltrosAvancados(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showFiltrosAvancados])
+
   const [busca, setBusca]       = useState('')
   const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior' | 'desconto'>('recente')
   // Lentes de descoberta da barra principal (eixo separado dos filtros avançados)
@@ -1301,18 +1317,42 @@ function MarketplaceInner() {
               })}
             </div>
 
-            {/* Filtros avançados — colapsáveis (status, variante, condição, graduadora) */}
+            {/* Filtros avançados — overlay fixo (status, variante, condição, graduadora).
+                Antes abria inline no fluxo do documento; em tela curta o painel
+                nascia fora do campo de visão, sem scroll nem foco pra ele. */}
             {showFiltrosAvancados && (
-              <div style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: 12,
-                padding: 14,
-                marginBottom: 18,
-                display: 'flex',
-                gap: 16,
-                flexWrap: 'wrap',
-              }}>
+              <div
+                onClick={() => setShowFiltrosAvancados(false)}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9998, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+              >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  position: 'relative',
+                  zIndex: 9999,
+                  width: '100%',
+                  maxWidth: 640,
+                  maxHeight: '85vh',
+                  overflowY: 'auto',
+                  background: '#0d0f14',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '20px 20px 0 0',
+                  boxShadow: '0 -20px 50px rgba(0,0,0,0.5)',
+                  padding: '10px 18px 22px',
+                }}
+              >
+                <div style={{ width: 36, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.15)', margin: '6px auto 14px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <b style={{ fontSize: 15, fontWeight: 800, color: '#f0f0f0' }}>Filtros</b>
+                  <button
+                    onClick={() => setShowFiltrosAvancados(false)}
+                    aria-label="Fechar"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', display: 'flex' }}
+                  >
+                    <IconClose size={16} color="rgba(255,255,255,0.7)" />
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6, fontWeight: 600 }}>Status</label>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -1406,6 +1446,8 @@ function MarketplaceInner() {
                     Limpar
                   </button>
                 )}
+                </div>
+              </div>
               </div>
             )}
 
