@@ -87,7 +87,11 @@ export async function POST(req: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-7',
+        // Haiku 4.5 (08/08/2026, decisao do Du): ~5x mais barato que o modelo
+        // anterior (~R$0,02-0,04/scan vs ~R$0,10-0,16) — e o que viabiliza
+        // Pro 100/mes + Anual ilimitado. Se a taxa de acerto do reconhecimento
+        // cair (acompanhar reclamacoes/pedidos de carta), reavaliar com A/B.
+        model: 'claude-haiku-4-5',
         max_tokens: 1024,
         messages: [
           {
