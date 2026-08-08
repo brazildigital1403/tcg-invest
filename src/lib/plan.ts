@@ -49,14 +49,14 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     isPaid: true, isPro: true,
     limiteCartas: Infinity, limitePastas: Infinity, limiteAnuncios: Infinity,
     podeDashboard: true, pokedexCompleta: true, podeExportar: true,
-    scansMes: 10, separadoresLiberados: true, masterSetsLiberados: false,
+    scansMes: 100, separadoresLiberados: true, masterSetsLiberados: false,
   },
   pro_anual: {
     label: 'Pro Anual',
     isPaid: true, isPro: true,
     limiteCartas: Infinity, limitePastas: Infinity, limiteAnuncios: Infinity,
     podeDashboard: true, pokedexCompleta: true, podeExportar: true,
-    scansMes: 50, separadoresLiberados: true, masterSetsLiberados: true,
+    scansMes: Infinity, separadoresLiberados: true, masterSetsLiberados: true,
   },
 }
 
