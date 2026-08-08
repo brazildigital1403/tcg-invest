@@ -138,6 +138,14 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true)
       try {
+        // v5 (08/08/2026): na busca por fracao ("008/084"), o total impresso
+        // deixou de ser FILTRO e virou RANKING — a v4 escondia qualquer
+        // versao com set_total divergente ou nulo (outro idioma, outra
+        // edicao). Decisao do Du: "mostrar todos os idiomas sempre, todos os
+        // resultados possiveis". Match exato de fracao continua em primeiro.
+        // Medido: plano com Bitmap Index Scan nos dois bracos, 794 buffers,
+        // 9,6ms; zero regressao nos caminhos de nome (clyrex 1=1).
+        //
         // v4 (27/07/2026): v3 + nome do SET em portugues + fuzzy no primeiro
         // token do caminho multi-token. Os dois vieram de pedidos reais
         // parados na fila do admin: "clyrex cavaleiro glacial vmax" nao achava
@@ -157,8 +165,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         // Medido contra a v2 (mediana de 3): ~15% mais lenta no caso comum,
         // 72ms no pior multi-token, contra um teto de 8.000ms. Em troca,
         // maçarico 0->2, martelo esmagador 2->11, bola rapida 7->10.
-        // v1 e v2 continuam no banco — reverter e trocar este nome.
-        const { data, error } = await supabase.rpc('smart_search_cards_v4', {
+        // v1 a v4 continuam no banco — reverter e trocar este nome.
+        const { data, error } = await supabase.rpc('smart_search_cards_v5', {
           q: value,
           limit_n: PAGE_SIZE,
           offset_n: 0,
@@ -188,7 +196,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (loadingMore || !hasMore || !searchTerm.trim()) return
     setLoadingMore(true)
     try {
-      const { data, error } = await supabase.rpc('smart_search_cards_v4', {
+      const { data, error } = await supabase.rpc('smart_search_cards_v5', {
         q: searchTerm,
         limit_n: PAGE_SIZE,
         offset_n: offset,
@@ -551,7 +559,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       <div style={{ padding: '8px 10px' }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f0', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.name}</p>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>{(() => { const n = cardNumberLabel(card); return n ? n + ' · ' : '' })()}{setLabel(card.set_name).slice(0, 12)}</p>
+                          <p style={{ fontSize: 10, color: TEXT_MUTED }}>{(() => { const n = cardNumberLabel(card); return n ? n + ' · ' : '' })()}{setLabel(card.set_name_pt || card.set_name).slice(0, 12)}</p>
                           {cardType && <span style={{ fontSize: 9, color: typeColor, fontWeight: 700 }}>{cardType}</span>}
                         </div>
                       </div>
@@ -615,7 +623,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2, lineHeight: 1.2 }}>{preview.name}</p>
                         <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 8, lineHeight: 1.3 }}>
-                          {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name)}
+                          {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name_pt || preview.set_name)}
                         </p>
                         {(() => {
                           const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
@@ -678,7 +686,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
                       <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 2 }}>{preview.name}</p>
                       <p style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 12 }}>
-                        {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name)} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
+                        {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name_pt || preview.set_name)} {preview.set_release_date ? `(${preview.set_release_date.slice(0, 4)})` : ''}
                       </p>
 
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
