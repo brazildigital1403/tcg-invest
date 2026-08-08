@@ -151,7 +151,10 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
     if (!user) return
     const { data } = await supabase.rpc('get_scan_status', { p_user_id: user.id })
     const st = data as ScanStatus | null
-    if (st) { setScanStatus(st); setCreditos(st.total) } else { setCreditos(0) }
+    // scans_mes/total = -1 e o sentinela de ILIMITADO (Pro Anual). No client
+    // vira Infinity — mesmo padrao de limiteCartas/limitePastas no plan.ts —
+    // pra todos os gates numericos (=== 0, <= 3) funcionarem sem caso especial.
+    if (st) { setScanStatus(st); setCreditos(st.total === -1 ? Infinity : st.total) } else { setCreditos(0) }
   }, [])
 
   useEffect(() => { void refreshStatus() }, [refreshStatus])
@@ -219,7 +222,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       if (!data.cards?.length) {
         // Servidor já debitou e fez rollback se preciso. Atualiza UI com saldo retornado.
         if (typeof data.scan_creditos_restantes === 'number') {
-          setCreditos(data.scan_creditos_restantes)
+          setCreditos(data.scan_creditos_restantes === -1 ? Infinity : data.scan_creditos_restantes)
         }
         void refreshStatus()
         setError('Nenhuma carta identificada. Tente uma foto mais clara e próxima das cartas.')
@@ -296,7 +299,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       // S29: o servidor já debitou 1 crédito atomicamente via RPC.
       // Apenas atualizamos a UI com o saldo retornado. SEM update direto em users.
       if (typeof data.scan_creditos_restantes === 'number') {
-        setCreditos(data.scan_creditos_restantes)
+        setCreditos(data.scan_creditos_restantes === -1 ? Infinity : data.scan_creditos_restantes)
       }
       void refreshStatus()
     } catch (err: any) {
@@ -568,7 +571,18 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                     borderRadius: 10, padding: '10px 14px',
                     display: 'flex', flexDirection: 'column', gap: 6,
                   }}>
-                    {scanStatus && scanStatus.scans_mes > 0 ? (
+                    {scanStatus && scanStatus.scans_mes === -1 ? (
+                      /* Pro Anual: scans ilimitados — sem barra, sem contagem */
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                          <path d="M6.5 10c0-1.4 1.1-2.5 2.5-2.5S11.5 8.6 11.5 10 10.4 12.5 9 12.5 6.5 11.4 6.5 10zM11.5 10c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5-2.5-1.1-2.5-2.5z" stroke="#f59e0b" strokeWidth="1.3" transform="translate(-1.5 0)"/>
+                        </svg>
+                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                          <strong style={{ color: '#f59e0b' }}>Scans ilimitados</strong> no seu plano Anual
+                          {scanStatus.avulso > 0 && <> {'·'} <strong style={{ color: '#f59e0b' }}>{scanStatus.avulso}</strong> avulso{scanStatus.avulso !== 1 ? 's' : ''}</>}
+                        </span>
+                      </div>
+                    ) : scanStatus && scanStatus.scans_mes > 0 ? (
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
@@ -665,7 +679,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                     {scanStatus && scanStatus.scans_mes === 0 && (
                       <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                         <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5, margin: '0 0 8px' }}>
-                          Ou assine o <strong style={{ color: '#f59e0b' }}>Pro</strong> e ganhe <strong style={{ color: '#f0f0f0' }}>10 scans por mês inclusos</strong> {'—'} todo mês.
+                          Ou assine o <strong style={{ color: '#f59e0b' }}>Pro</strong> e ganhe <strong style={{ color: '#f0f0f0' }}>100 scans por mês inclusos</strong> {'—'} todo mês. No <strong style={{ color: '#f59e0b' }}>Anual</strong>, scans ilimitados.
                         </p>
                         <a href="/minha-conta" style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,

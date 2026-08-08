@@ -234,7 +234,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   price: "249.00",
                   priceCurrency: "BRL",
                   name: "Plano Pro Anual",
-                  description: "Pro com desconto anual",
+                  description: "Pro com desconto anual, scan com IA ilimitado e Master Sets liberados",
                 },
               ],
               description: "Plataforma brasileira de coleções Pokémon TCG. Pokédex com 22 mil+ cartas, scan com IA, preços em reais por variante e marketplace.",
