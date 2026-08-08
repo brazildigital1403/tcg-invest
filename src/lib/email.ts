@@ -883,7 +883,7 @@ export async function sendPurchaseConfirmationEmail(
     intro = `${escapeHtml(firstName)}, sua assinatura <strong style="color:#f59e0b;">Pro ${plano === 'anual' ? 'Anual' : 'Mensal'}</strong> foi ativada com sucesso. Obrigado por apoiar a Bynx!`
     detalhes = `
       <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Cartas ilimitadas na sua coleção</p>
-      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Scan de cartas com IA · ${plano === 'anual' ? 'ilimitado' : '100 créditos/mês'}</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Scan de cartas com IA · ilimitado</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🛒 Marketplace completo (compra e venda)</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🗂️ Separadores de fichário em PDF</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📊 Estatísticas e ranking exclusivos</p>

@@ -936,7 +936,7 @@ export default function MinhaConta() {
                   <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Créditos de Scan</p>
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
                     {scanStatus?.scans_mes === -1 ? (
-                      <>Escaneie cartas com IA · <strong style={{ color: '#f59e0b' }}>ilimitado no plano Anual</strong>{scanStatus.avulso > 0 && <> · {scanStatus.avulso} avulso{scanStatus.avulso !== 1 ? 's' : ''}</>}</>
+                      <>Escaneie cartas com IA · <strong style={{ color: '#f59e0b' }}>ilimitado no seu plano</strong>{scanStatus.avulso > 0 && <> · {scanStatus.avulso} avulso{scanStatus.avulso !== 1 ? 's' : ''}</>}</>
                     ) : scanStatus && scanStatus.scans_mes > 0 ? (
                       <>Escaneie cartas com IA · <strong style={{ color: scanStatus.mensal_disp > 0 ? '#f59e0b' : '#ef4444' }}>{scanStatus.mensal_disp} de {scanStatus.scans_mes} este mês</strong>{scanStatus.avulso > 0 && <> · {scanStatus.avulso} avulso{scanStatus.avulso !== 1 ? 's' : ''}</>}</>
                     ) : (
