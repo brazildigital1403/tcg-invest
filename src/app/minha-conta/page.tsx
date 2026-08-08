@@ -137,6 +137,10 @@ export default function MinhaConta() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [scanCreditos, setScanCreditos] = useState<number>(0)
+  // Cota mensal do plano (RPC get_scan_status, mesma fonte do ScanModal).
+  // scans_mes -1 = ilimitado (Pro Anual). Antes a tela mostrava so o saldo
+  // avulso e um Pro com 100/mes via "0 creditos" em vermelho.
+  const [scanStatus, setScanStatus] = useState<{ scans_mes: number; mensal_disp: number; avulso: number } | null>(null)
   const [sepDesbloqueado, setSepDesbloqueado] = useState<boolean>(false)
   const [loadingCompra, setLoadingCompra] = useState<string | null>(null)
 
@@ -200,6 +204,9 @@ export default function MinhaConta() {
         .limit(1)
       setScanCreditos(extrasData?.[0]?.scan_creditos ?? 0)
       setSepDesbloqueado(extrasData?.[0]?.separadores_desbloqueado ?? false)
+
+      const { data: scanSt } = await supabase.rpc('get_scan_status', { p_user_id: authData.user.id })
+      if (scanSt) setScanStatus(scanSt as { scans_mes: number; mensal_disp: number; avulso: number })
 
       // Verifica plano Pro
       const { isPro: pro, isTrial: trial, trialDaysLeft: days } = await getUserPlan(authData.user.id)
@@ -928,7 +935,13 @@ export default function MinhaConta() {
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Créditos de Scan</p>
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
-                    Escaneie cartas com IA · <strong style={{ color: scanCreditos > 0 ? '#f59e0b' : '#ef4444' }}>{scanCreditos} crédito{scanCreditos !== 1 ? 's' : ''}</strong> disponível{scanCreditos !== 1 ? 'is' : ''}
+                    {scanStatus?.scans_mes === -1 ? (
+                      <>Escaneie cartas com IA · <strong style={{ color: '#f59e0b' }}>ilimitado no plano Anual</strong>{scanStatus.avulso > 0 && <> · {scanStatus.avulso} avulso{scanStatus.avulso !== 1 ? 's' : ''}</>}</>
+                    ) : scanStatus && scanStatus.scans_mes > 0 ? (
+                      <>Escaneie cartas com IA · <strong style={{ color: scanStatus.mensal_disp > 0 ? '#f59e0b' : '#ef4444' }}>{scanStatus.mensal_disp} de {scanStatus.scans_mes} este mês</strong>{scanStatus.avulso > 0 && <> · {scanStatus.avulso} avulso{scanStatus.avulso !== 1 ? 's' : ''}</>}</>
+                    ) : (
+                      <>Escaneie cartas com IA · <strong style={{ color: scanCreditos > 0 ? '#f59e0b' : '#ef4444' }}>{scanCreditos} crédito{scanCreditos !== 1 ? 's' : ''}</strong> disponível{scanCreditos !== 1 ? 'is' : ''}</>
+                    )}
                   </p>
                 </div>
               </div>
