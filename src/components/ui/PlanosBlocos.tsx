@@ -77,7 +77,7 @@ const TIERS: Tier[] = [
     feats: [
       { t: 'Tudo do Plus, e mais:', pre: true },
       { t: <><b>Cartas ilimitadas</b></>, ok: true },
-      { t: 'Scan com IA · 100 créditos/mês', ok: true },
+      { t: <>Scan com IA · <b>ilimitado</b></>, ok: true },
       { t: 'Exportar CSV/PDF · Histórico de preços', ok: true },
       { t: 'Separadores liberados', ok: true },
     ],
@@ -89,7 +89,7 @@ const TIERS: Tier[] = [
     feats: [
       { t: 'Tudo do Pro, e mais:', pre: true },
       { t: <><b>Master Sets liberados</b></>, ok: true },
-      { t: <>Scan com IA · <b>ilimitado</b></>, ok: true },
+      { t: '~3 meses grátis no ano', ok: true },
       { t: 'Preço travado o ano todo', ok: true },
     ],
     cta: 'Assinar Anual', btn: 'soft',
@@ -170,7 +170,7 @@ const ROWS: Row[] = [
   { label: 'Pokédex', vals: ['básica', val('completa'), val('completa'), val('completa')] },
   { label: 'Exportar CSV/PDF', vals: [no, no, yes, yes] },
   { label: 'Histórico de preços', vals: [no, no, yes, yes] },
-  { label: 'Scan com IA', vals: [no, no, val('100/mês'), val('Ilimitado')] },
+  { label: 'Scan com IA', vals: [no, no, val('Ilimitado'), val('Ilimitado')] },
   { label: 'Separadores de Fichário', vals: ['avulso', 'avulso', val('liberado'), val('liberado')] },
   { label: 'Master Sets', vals: ['avulso', 'avulso', 'avulso', val('todos liberados')] },
 ]

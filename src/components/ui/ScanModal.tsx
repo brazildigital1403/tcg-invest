@@ -578,7 +578,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                           <path d="M6.5 10c0-1.4 1.1-2.5 2.5-2.5S11.5 8.6 11.5 10 10.4 12.5 9 12.5 6.5 11.4 6.5 10zM11.5 10c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5-2.5-1.1-2.5-2.5z" stroke="#f59e0b" strokeWidth="1.3" transform="translate(-1.5 0)"/>
                         </svg>
                         <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
-                          <strong style={{ color: '#f59e0b' }}>Scans ilimitados</strong> no seu plano Anual
+                          <strong style={{ color: '#f59e0b' }}>Scans ilimitados</strong> no seu plano Pro
                           {scanStatus.avulso > 0 && <> {'·'} <strong style={{ color: '#f59e0b' }}>{scanStatus.avulso}</strong> avulso{scanStatus.avulso !== 1 ? 's' : ''}</>}
                         </span>
                       </div>
@@ -679,7 +679,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
                     {scanStatus && scanStatus.scans_mes === 0 && (
                       <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                         <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5, margin: '0 0 8px' }}>
-                          Ou assine o <strong style={{ color: '#f59e0b' }}>Pro</strong> e ganhe <strong style={{ color: '#f0f0f0' }}>100 scans por mês inclusos</strong> {'—'} todo mês. No <strong style={{ color: '#f59e0b' }}>Anual</strong>, scans ilimitados.
+                          Ou assine o <strong style={{ color: '#f59e0b' }}>Pro</strong> e ganhe <strong style={{ color: '#f0f0f0' }}>scans ilimitados</strong> {'—'} sem contar crédito.
                         </p>
                         <a href="/minha-conta" style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
