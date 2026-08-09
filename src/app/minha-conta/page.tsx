@@ -950,9 +950,9 @@ export default function MinhaConta() {
             {/* Pacotes */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }} className="mc-scan-grid">
               {[
-                { plano: 'scan_basico',       label: '5 scans',  preco: '5,90',  unit: '1,18/scan' },
-                { plano: 'scan_popular',      label: '15 scans', preco: '14,90', unit: '0,99/scan', popular: true },
-                { plano: 'scan_colecionador', label: '40 scans', preco: '34,90', unit: '0,87/scan' },
+                { plano: 'scan_basico',       label: '20 scans',  preco: '5,90',  unit: '0,30/scan' },
+                { plano: 'scan_popular',      label: '60 scans',  preco: '14,90', unit: '0,25/scan', popular: true },
+                { plano: 'scan_colecionador', label: '150 scans', preco: '34,90', unit: '0,23/scan' },
               ].map(pkg => (
                 <button
                   key={pkg.plano}

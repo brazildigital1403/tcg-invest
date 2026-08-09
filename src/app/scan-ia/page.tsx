@@ -95,24 +95,24 @@ const softwareSchema = {
   offers: [
     {
       '@type': 'Offer',
-      name: 'Pacote Básico — 5 scans',
+      name: 'Pacote Básico — 20 scans',
       price: '5.90',
       priceCurrency: 'BRL',
-      description: '5 scans de IA. Ideal pra testar a tecnologia.',
+      description: '20 scans de IA. Ideal pra testar a tecnologia.',
     },
     {
       '@type': 'Offer',
-      name: 'Pacote Popular — 15 scans',
+      name: 'Pacote Popular — 60 scans',
       price: '14.90',
       priceCurrency: 'BRL',
-      description: '15 scans de IA. Pacote mais escolhido pelo custo-benefício.',
+      description: '60 scans de IA. Pacote mais escolhido pelo custo-benefício.',
     },
     {
       '@type': 'Offer',
-      name: 'Pacote Colecionador — 40 scans',
+      name: 'Pacote Colecionador — 150 scans',
       price: '34.90',
       priceCurrency: 'BRL',
-      description: '40 scans de IA. Pra cadastrar coleções inteiras de uma vez.',
+      description: '150 scans de IA. Pra cadastrar coleções inteiras de uma vez.',
     },
   ],
   featureList: [
@@ -166,7 +166,7 @@ const faqSchema = {
       name: 'Como funcionam os pacotes de scan?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Os scans são vendidos em pacotes pré-pagos: Básico (5 scans / R$ 5,90), Popular (15 scans / R$ 14,90) e Colecionador (40 scans / R$ 34,90). Você compra uma vez, os créditos não expiram, e usa quando quiser. Cada foto consome 1 crédito, independente de quantas cartas a IA identificar nela. Quanto maior o pacote, menor o custo por scan.',
+        text: 'Os scans são vendidos em pacotes pré-pagos: Básico (20 scans / R$ 5,90), Popular (60 scans / R$ 14,90) e Colecionador (150 scans / R$ 34,90). Você compra uma vez, os créditos não expiram, e usa quando quiser. Cada foto consome 1 crédito, independente de quantas cartas a IA identificar nela. Quanto maior o pacote, menor o custo por scan.',
       },
     },
     {
@@ -174,7 +174,7 @@ const faqSchema = {
       name: 'Os créditos de scan expiram?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Não. Os créditos comprados não têm validade — você usa quando quiser, sem prazo. Se comprar um pacote de 40 scans hoje e usar 1 por mês durante 3 anos, os 40 estão lá esperando. Sem assinatura recorrente, sem cobrança surpresa.',
+        text: 'Não. Os créditos comprados não têm validade — você usa quando quiser, sem prazo. Se comprar um pacote de 150 scans hoje e usar 1 por mês durante anos, os 150 estão lá esperando. Sem assinatura recorrente, sem cobrança surpresa.',
       },
     },
     {
@@ -198,7 +198,7 @@ const faqSchema = {
       name: 'Posso testar antes de comprar pacote?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. O trial já inclui créditos de scan pra testar. Depois, os planos Pro (mensal e anual) incluem scans ilimitados — e quem preferir sem assinatura pode usar os pacotes pré-pagos, a partir do Básico de R$ 5,90 (5 scans).',
+        text: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. O trial já inclui créditos de scan pra testar. Depois, os planos Pro (mensal e anual) incluem scans ilimitados — e quem preferir sem assinatura pode usar os pacotes pré-pagos, a partir do Básico de R$ 5,90 (20 scans).',
       },
     },
     {
@@ -1330,12 +1330,12 @@ export default function ScanIaLanding() {
             {/* Básico */}
             <div style={S.pkgCard}>
               <div style={S.pkgName}>Básico</div>
-              <div style={S.pkgScans}>5</div>
+              <div style={S.pkgScans}>20</div>
               <div style={S.pkgScansLabel}>scans de IA</div>
               <div style={S.pkgPrice}>R$ 5,90</div>
-              <div style={S.pkgPricePer}>R$ 1,18 por scan</div>
+              <div style={S.pkgPricePer}>R$ 0,30 por scan</div>
               <ul style={S.pkgFeatures}>
-                <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> 5 fotos com IA</li>
+                <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> 20 fotos com IA</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Multi-card por foto</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Créditos não expiram</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Cartas em PT, EN, JP</li>
@@ -1350,12 +1350,12 @@ export default function ScanIaLanding() {
             <div className="scan-pkg-popular" style={{ ...S.pkgCard, ...S.pkgCardPopular }}>
               <span style={S.pkgBadge}><IconStarFilled size={12} /> MAIS ESCOLHIDO</span>
               <div style={S.pkgName}>Popular</div>
-              <div style={S.pkgScans}>15</div>
+              <div style={S.pkgScans}>60</div>
               <div style={S.pkgScansLabel}>scans de IA</div>
               <div style={S.pkgPrice}>R$ 14,90</div>
-              <div style={S.pkgPricePer}>R$ 0,99 por scan · 16% off</div>
+              <div style={S.pkgPricePer}>R$ 0,25 por scan · 16% off</div>
               <ul style={S.pkgFeatures}>
-                <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> 15 fotos com IA</li>
+                <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> 60 fotos com IA</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Tudo do Básico</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Custo por scan menor</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Ideal pra coleção média</li>
@@ -1369,12 +1369,12 @@ export default function ScanIaLanding() {
             {/* Colecionador */}
             <div style={S.pkgCard}>
               <div style={S.pkgName}>Colecionador</div>
-              <div style={S.pkgScans}>40</div>
+              <div style={S.pkgScans}>150</div>
               <div style={S.pkgScansLabel}>scans de IA</div>
               <div style={S.pkgPrice}>R$ 34,90</div>
-              <div style={S.pkgPricePer}>R$ 0,87 por scan · 26% off</div>
+              <div style={S.pkgPricePer}>R$ 0,23 por scan · 21% off</div>
               <ul style={S.pkgFeatures}>
-                <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> 40 fotos com IA</li>
+                <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> 150 fotos com IA</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Tudo do Popular</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Melhor custo por scan</li>
                 <li style={S.pkgFeatureLi}><span style={S.pkgCheck}>✓</span> Ideal pra cadastrar coleções inteiras</li>
@@ -1465,11 +1465,11 @@ export default function ScanIaLanding() {
               },
               {
                 q: 'Como funcionam os pacotes de scan?',
-                a: 'Os scans são vendidos em pacotes pré-pagos: Básico (5 scans / R$ 5,90), Popular (15 scans / R$ 14,90) e Colecionador (40 scans / R$ 34,90). Você compra uma vez, os créditos não expiram, e usa quando quiser. Cada foto consome 1 crédito, independente de quantas cartas a IA identificar nela. Quanto maior o pacote, menor o custo por scan.',
+                a: 'Os scans são vendidos em pacotes pré-pagos: Básico (20 scans / R$ 5,90), Popular (60 scans / R$ 14,90) e Colecionador (150 scans / R$ 34,90). Você compra uma vez, os créditos não expiram, e usa quando quiser. Cada foto consome 1 crédito, independente de quantas cartas a IA identificar nela. Quanto maior o pacote, menor o custo por scan.',
               },
               {
                 q: 'Os créditos de scan expiram?',
-                a: 'Não. Os créditos comprados não têm validade — você usa quando quiser, sem prazo. Se comprar um pacote de 40 scans hoje e usar 1 por mês durante 3 anos, os 40 estão lá esperando. Sem assinatura recorrente, sem cobrança surpresa.',
+                a: 'Não. Os créditos comprados não têm validade — você usa quando quiser, sem prazo. Se comprar um pacote de 150 scans hoje e usar 1 por mês durante anos, os 150 estão lá esperando. Sem assinatura recorrente, sem cobrança surpresa.',
               },
               {
                 q: 'A IA reconhece variantes (Holo, Reverse, Foil)?',
@@ -1481,7 +1481,7 @@ export default function ScanIaLanding() {
               },
               {
                 q: 'Posso testar antes de comprar pacote?',
-                a: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. O trial já inclui créditos de scan pra testar. Depois, os planos Pro (mensal e anual) incluem scans ilimitados — e quem preferir sem assinatura pode usar os pacotes pré-pagos, a partir do Básico de R$ 5,90 (5 scans).',
+                a: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. O trial já inclui créditos de scan pra testar. Depois, os planos Pro (mensal e anual) incluem scans ilimitados — e quem preferir sem assinatura pode usar os pacotes pré-pagos, a partir do Básico de R$ 5,90 (20 scans).',
               },
               {
                 q: 'Como o preço em reais é calculado?',
