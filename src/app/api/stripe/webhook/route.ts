@@ -37,9 +37,9 @@ const DESCRICAO_PLANO: Record<string, string> = {
   'pro_anual':               'Bynx Pro — assinatura anual',
   'separadores':             'Separadores Customizados',
   // Sincronizado com checkout/SCAN_PACKAGES (era 'scan_starter/pro/premium' no v1)
-  'scan_basico':             'Pacote de Scan — Básico (5 créditos)',
-  'scan_popular':            'Pacote de Scan — Popular (15 créditos)',
-  'scan_colecionador':       'Pacote de Scan — Colecionador (40 créditos)',
+  'scan_basico':             'Pacote de Scan — Básico (20 créditos)',
+  'scan_popular':            'Pacote de Scan — Popular (60 créditos)',
+  'scan_colecionador':       'Pacote de Scan — Colecionador (150 créditos)',
   // Lojista
   'lojista_pro_mensal':      'Bynx Lojista Pro — assinatura mensal',
   'lojista_pro_anual':       'Bynx Lojista Pro — assinatura anual',

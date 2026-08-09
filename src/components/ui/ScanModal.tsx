@@ -29,9 +29,9 @@ interface Props {
 
 
 const SCAN_PKGS = [
-  { plano: 'scan_basico',       scans: 5,  preco: 'R$5,90',  unit: 'R$1,18/scan' },
-  { plano: 'scan_popular',      scans: 15, preco: 'R$14,90', unit: 'R$0,99/scan', popular: true as true },
-  { plano: 'scan_colecionador', scans: 40, preco: 'R$34,90', unit: 'R$0,87/scan' },
+  { plano: 'scan_basico',       scans: 20,  preco: 'R$5,90',  unit: 'R$0,30/scan' },
+  { plano: 'scan_popular',      scans: 60,  preco: 'R$14,90', unit: 'R$0,25/scan', popular: true as true },
+  { plano: 'scan_colecionador', scans: 150, preco: 'R$34,90', unit: 'R$0,23/scan' },
 ]
 
 type ScanStatus = { scans_mes: number; mensal_usados: number; mensal_disp: number; avulso: number; total: number; reset: string | null }

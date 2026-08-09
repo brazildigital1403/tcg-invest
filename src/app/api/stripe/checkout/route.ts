@@ -20,9 +20,9 @@ import { createClient } from '@supabase/supabase-js'
 // ─── Configuração de planos ──────────────────────────────────────────────────
 
 const SCAN_PACKAGES: Record<string, { priceEnv: string; creditos: number }> = {
-  scan_basico:       { priceEnv: 'STRIPE_PRICE_SCAN_BASICO',       creditos: 5  },
-  scan_popular:      { priceEnv: 'STRIPE_PRICE_SCAN_POPULAR',      creditos: 15 },
-  scan_colecionador: { priceEnv: 'STRIPE_PRICE_SCAN_COLECIONADOR', creditos: 40 },
+  scan_basico:       { priceEnv: 'STRIPE_PRICE_SCAN_BASICO',       creditos: 20  },
+  scan_popular:      { priceEnv: 'STRIPE_PRICE_SCAN_POPULAR',      creditos: 60  },
+  scan_colecionador: { priceEnv: 'STRIPE_PRICE_SCAN_COLECIONADOR', creditos: 150 },
 }
 
 const PLAN_PRICE_ENV: Record<string, string> = {
