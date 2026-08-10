@@ -6,6 +6,7 @@ type MiniCard = {
   number: string | null
   image_small: string | null
   set_name: string | null
+  slug?: string | null
 }
 
 export default function CartasRelacionadas({
@@ -66,7 +67,7 @@ function RelBlock({ title, cards }: { title: string; cards: MiniCard[] }) {
         {cards.map((c) => (
           <Link
             key={c.id}
-            href={`/carta/${c.id}`}
+            href={`/carta/${c.slug || c.id}`}
             style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
           >
             <div

@@ -65,6 +65,7 @@ type Hub = {
   top_card_image: string | null
   top_card_number: string | null
   top_card_price: number | null
+  top_card_slug: string | null
 }
 
 type HubCard = {
@@ -80,6 +81,7 @@ type HubCard = {
   preco_medio: number | null
   preco_max: number | null
   rarity: string | null
+  slug: string | null
 }
 
 // ─── Tabelas de apoio ──────────────────────────────────────────────────────
@@ -322,7 +324,7 @@ export default async function PokemonHubPage({
       itemListElement: cards.slice(0, 30).map((c, i) => ({
         '@type': 'ListItem',
         position: i + 1,
-        url: `https://bynx.gg/carta/${c.id}`,
+        url: `https://bynx.gg/carta/${c.slug || c.id}`,
         name: c.name,
       })),
     },
@@ -396,7 +398,7 @@ export default async function PokemonHubPage({
           >
             {hub.top_card_image && (
               <Link
-                href={hub.top_card_id ? `/carta/${hub.top_card_id}` : '#'}
+                href={hub.top_card_id ? `/carta/${hub.top_card_slug || hub.top_card_id}` : '#'}
                 style={{ position: 'relative', flex: '0 0 200px', textDecoration: 'none' }}
               >
                 <span
@@ -586,7 +588,7 @@ export default async function PokemonHubPage({
                 {g.cards.map((card) => (
                   <Link
                     key={card.id}
-                    href={`/carta/${card.id}`}
+                    href={`/carta/${card.slug || card.id}`}
                     style={{
                       textDecoration: 'none',
                       color: 'inherit',
