@@ -109,9 +109,9 @@ export default function AdminDashboard() {
         <>
           {/* ── Headline: 4 metricas com tendencia ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 20 }}>
-            <HeadlineCard label="Faturamento do período" value={dash ? fmtBRL(dash.headline.faturamento.valor) : undefined} trendPct={dash?.headline.faturamento.trendPct} serie={dash?.headline.faturamento.serie} color="#22c55e" />
-            <HeadlineCard label={`Novos usuários (${period}d)`} value={dash?.headline.novosUsuarios.valor} trendPct={dash?.headline.novosUsuarios.trendPct} serie={dash?.headline.novosUsuarios.serie} color="#f59e0b" />
-            <HeadlineCard label="GMV marketplace" value={dash ? fmtBRL(dash.headline.gmv.valor) : undefined} trendPct={dash?.headline.gmv.trendPct} serie={dash?.headline.gmv.serie} color="#60a5fa" />
+            <HeadlineCard label="Faturamento do período" value={dash ? fmtBRL(dash.headline.faturamento.valor) : undefined} trendPct={dash?.headline.faturamento.trendPct} serie={dash?.headline.faturamento.serie} color="#22c55e" fmt={fmtBRL} />
+            <HeadlineCard label={`Novos usuários (${period}d)`} value={dash?.headline.novosUsuarios.valor} trendPct={dash?.headline.novosUsuarios.trendPct} serie={dash?.headline.novosUsuarios.serie} color="#f59e0b" fmt={fmtNum} />
+            <HeadlineCard label="GMV marketplace" value={dash ? fmtBRL(dash.headline.gmv.valor) : undefined} trendPct={dash?.headline.gmv.trendPct} serie={dash?.headline.gmv.serie} color="#60a5fa" fmt={fmtBRL} />
             <HeadlineCard label="Tickets precisando resposta" value={dash?.headline.ticketsPrecisandoResposta} color="#ef4444" nota="agora — fila, não tendência" href="/admin/tickets" />
           </div>
 
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
           {/* ── Gráficos ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16, marginBottom: 8 }}>
             <ChartCard title={`Crescimento de usuários (${period}d)`}>
-              <LineChart serie={dash?.headline.novosUsuarios.serie} color="#f59e0b" acumulado />
+              <LineChart serie={dash?.headline.novosUsuarios.serie} color="#f59e0b" acumulado label="Usuários" fmt={fmtNum} />
             </ChartCard>
             <ChartCard title="Receita x Despesa (6 meses)">
               <div style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
@@ -308,13 +308,56 @@ function RankList({ rows }: { rows?: RankRowData[] }) {
 
 // ─── Cockpit: headline, alertas, gráficos ────────────────────────────────────
 
-function HeadlineCard({ label, value, trendPct, serie, color, nota, href }: {
+// Converte um ponto de mouse (coordenadas de tela) pra coordenadas locais do
+// viewBox do SVG -- funciona mesmo quando o SVG renderiza em tamanho diferente
+// do viewBox (width:'100%' etc), o que offsetX/clientX sozinhos nao resolvem.
+function svgPointFromEvent(e: React.MouseEvent<SVGSVGElement>) {
+  const svg = e.currentTarget
+  const ctm = svg.getScreenCTM()
+  if (!ctm) return { x: 0, y: 0 }
+  const pt = svg.createSVGPoint()
+  pt.x = e.clientX
+  pt.y = e.clientY
+  const loc = pt.matrixTransform(ctm.inverse())
+  return { x: loc.x, y: loc.y }
+}
+
+const fmtDiaCurto = (d: string) => {
+  const [, mm, dd] = d.split('-')
+  return dd && mm ? `${dd}/${mm}` : d
+}
+
+const fmtNum = (v: number) => Math.round(v).toLocaleString('pt-BR')
+
+// Tooltip generico em SVG puro (sem overlay HTML) -- se posiciona dentro do
+// viewBox e vira de lado sozinho pra nao vazar pra fora nas bordas.
+function ChartTooltip({ x, y, W, title, rows }: {
+  x: number; y: number; W: number; title: string; rows: { label: string; color: string }[]
+}) {
+  const boxW = Math.max(96, ...rows.map(r => r.label.length * 5.6)) + 20
+  const boxH = 22 + rows.length * 15
+  const flip = x + 12 + boxW > W
+  const boxX = flip ? x - 12 - boxW : x + 12
+  const boxY = Math.max(2, y - boxH / 2)
+  return (
+    <g pointerEvents="none">
+      <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={7} fill="#12141a" stroke="rgba(255,255,255,0.14)" />
+      <text x={boxX + 10} y={boxY + 15} fill="rgba(255,255,255,0.5)" fontSize="9.5" fontWeight="700">{title}</text>
+      {rows.map((r, i) => (
+        <text key={i} x={boxX + 10} y={boxY + 15 + (i + 1) * 15} fill={r.color} fontSize="11" fontWeight="700">{r.label}</text>
+      ))}
+    </g>
+  )
+}
+
+function HeadlineCard({ label, value, trendPct, serie, color, nota, href, fmt }: {
   label: string; value: string | number | undefined; trendPct?: number; serie?: Serie; color: string; nota?: string; href?: string
+  fmt?: (v: number) => string
 }) {
   const inner = (
     <div style={{
       background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: 14, padding: '16px 18px', position: 'relative', overflow: 'hidden', height: '100%',
+      borderRadius: 14, padding: '16px 18px', position: 'relative', height: '100%',
       cursor: href ? 'pointer' : 'default',
     }}>
       <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)', margin: '0 0 8px' }}>{label}</p>
@@ -326,20 +369,44 @@ function HeadlineCard({ label, value, trendPct, serie, color, nota, href }: {
       ) : nota ? (
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{nota}</span>
       ) : null}
-      {serie && serie.length > 1 && <MiniSparkline serie={serie} color={color} />}
+      {serie && serie.length > 1 && <MiniSparkline serie={serie} color={color} fmt={fmt || fmtNum} />}
     </div>
   )
   return href ? <Link href={href} style={{ textDecoration: 'none', color: 'inherit' }}>{inner}</Link> : inner
 }
 
-function MiniSparkline({ serie, color }: { serie: Serie; color: string }) {
+function MiniSparkline({ serie, color, fmt }: { serie: Serie; color: string; fmt: (v: number) => string }) {
+  const [hover, setHover] = useState<number | null>(null)
   const max = Math.max(1, ...serie.map(p => p.v))
   const W = 70, H = 24
   const stepX = serie.length > 1 ? W / (serie.length - 1) : 0
   const path = serie.map((p, i) => `${i === 0 ? 'M' : 'L'} ${i * stepX} ${H - (p.v / max) * H}`).join(' ')
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const { x } = svgPointFromEvent(e)
+    const idx = stepX > 0 ? Math.round(x / stepX) : 0
+    setHover(Math.min(serie.length - 1, Math.max(0, idx)))
+  }
+
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.5 }}>
+    <svg
+      width={W} height={H} viewBox={`0 0 ${W} ${H}`}
+      style={{ position: 'absolute', right: 14, bottom: 14, opacity: hover !== null ? 0.9 : 0.5, overflow: 'visible', cursor: 'crosshair' }}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHover(null)}
+    >
+      <rect x={0} y={0} width={W} height={H} fill="transparent" />
       <path d={path} fill="none" stroke={color} strokeWidth="1.6" />
+      {hover !== null && (
+        <>
+          <circle cx={hover * stepX} cy={H - (serie[hover].v / max) * H} r={2.5} fill={color} stroke="#080a0f" strokeWidth={1} />
+          <ChartTooltip
+            x={hover * stepX} y={H - (serie[hover].v / max) * H} W={W}
+            title={fmtDiaCurto(serie[hover].d)}
+            rows={[{ label: fmt(serie[hover].v), color }]}
+          />
+        </>
+      )}
     </svg>
   )
 }
@@ -390,7 +457,10 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 // Serie diaria de contagem -> linha acumulada (crescimento), ou linha direta
 // (valor por dia) se acumulado=false.
-function LineChart({ serie, color, acumulado }: { serie?: Serie; color: string; acumulado?: boolean }) {
+function LineChart({ serie, color, acumulado, label, fmt }: {
+  serie?: Serie; color: string; acumulado?: boolean; label: string; fmt: (v: number) => string
+}) {
+  const [hover, setHover] = useState<number | null>(null)
   if (!serie) return <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', padding: '40px 0', textAlign: 'center' }}>Carregando…</p>
   if (serie.every(p => p.v === 0)) return <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', padding: '40px 0', textAlign: 'center' }}>Sem dados no período.</p>
 
@@ -404,15 +474,33 @@ function LineChart({ serie, color, acumulado }: { serie?: Serie; color: string; 
   const stepX = valores.length > 1 ? innerW / (valores.length - 1) : 0
   const path = valores.map((v, i) => `${i === 0 ? 'M' : 'L'} ${padX + i * stepX} ${padY + innerH - (v / max) * innerH}`).join(' ')
 
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const { x } = svgPointFromEvent(e)
+    const idx = stepX > 0 ? Math.round((x - padX) / stepX) : 0
+    setHover(Math.min(valores.length - 1, Math.max(0, idx)))
+  }
+
+  const hx = hover !== null ? padX + hover * stepX : 0
+  const hy = hover !== null ? padY + innerH - (valores[hover] / max) * innerH : 0
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', cursor: 'crosshair' }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+      <rect x={0} y={0} width={W} height={H} fill="transparent" />
       <line x1={padX} y1={padY + innerH} x2={W - padX} y2={padY + innerH} stroke="rgba(255,255,255,0.08)" />
       <path d={path} fill="none" stroke={color} strokeWidth="2" />
+      {hover !== null && (
+        <>
+          <line x1={hx} y1={padY} x2={hx} y2={padY + innerH} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
+          <circle cx={hx} cy={hy} r={3.5} fill={color} stroke="#080a0f" strokeWidth={1.5} />
+          <ChartTooltip x={hx} y={hy} W={W} title={fmtDiaCurto(serie[hover].d)} rows={[{ label: `${label}: ${fmt(valores[hover])}`, color }]} />
+        </>
+      )}
     </svg>
   )
 }
 
 function ReceitaDespesaChart({ rows }: { rows?: Dashboard['receitaDespesa6m'] }) {
+  const [hover, setHover] = useState<number | null>(null)
   if (!rows) return <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', padding: '40px 0', textAlign: 'center' }}>Carregando…</p>
   const max = Math.max(1, ...rows.map(r => Math.max(r.receita, r.despesa)))
   const W = 400, H = 140, padX = 30, padY = 16
@@ -424,14 +512,41 @@ function ReceitaDespesaChart({ rows }: { rows?: Dashboard['receitaDespesa6m'] })
     const [, mm] = m.split('-')
     return ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][Number(mm) - 1] || m
   }
+
+  const total = rows.length
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const { x } = svgPointFromEvent(e)
+    const idx = stepX > 0 ? Math.round((x - padX) / stepX) : 0
+    setHover(Math.min(total - 1, Math.max(0, idx)))
+  }
+
+  const hx = hover !== null ? padX + hover * stepX : 0
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', cursor: 'crosshair' }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+      <rect x={0} y={0} width={W} height={H} fill="transparent" />
       <line x1={padX} y1={padY + innerH} x2={W - padX} y2={padY + innerH} stroke="rgba(255,255,255,0.08)" />
       <path d={pathReceita} fill="none" stroke="#22c55e" strokeWidth="2" />
       <path d={pathDespesa} fill="none" stroke="#ef4444" strokeWidth="2" />
       {rows.map((r, i) => (
         <text key={i} x={padX + i * stepX} y={H - 4} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="10">{fmtMes(r.mes)}</text>
       ))}
+      {hover !== null && (
+        <>
+          <line x1={hx} y1={padY} x2={hx} y2={padY + innerH} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
+          <circle cx={hx} cy={padY + innerH - (rows[hover].receita / max) * innerH} r={3.5} fill="#22c55e" stroke="#080a0f" strokeWidth={1.5} />
+          <circle cx={hx} cy={padY + innerH - (rows[hover].despesa / max) * innerH} r={3.5} fill="#ef4444" stroke="#080a0f" strokeWidth={1.5} />
+          <ChartTooltip
+            x={hx} y={padY + innerH - (Math.max(rows[hover].receita, rows[hover].despesa) / max) * innerH} W={W}
+            title={fmtMes(rows[hover].mes)}
+            rows={[
+              { label: `Receita: ${fmtBRL(rows[hover].receita)}`, color: '#22c55e' },
+              { label: `Despesa: ${fmtBRL(rows[hover].despesa)}`, color: '#ef4444' },
+            ]}
+          />
+        </>
+      )}
     </svg>
   )
 }
