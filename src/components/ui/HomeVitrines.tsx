@@ -16,7 +16,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 
 type TopCard = { id: string; name: string; set_name: string | null; image_small: string | null; preco_medio: number | null; slug: string | null }
-type Mover = { window_days: number; direction: 'up' | 'down'; card_id: string; name: string; set_name: string | null; image_small: string | null; preco_atual: number | null; pct: number | null }
+type Mover = { window_days: number; direction: 'up' | 'down'; card_id: string; name: string; set_name: string | null; image_small: string | null; preco_atual: number | null; pct: number | null; slug: string | null }
 type Row = { card_id: string; name: string; set_name: string | null; image_small: string | null; price: number | null; pct: number | null; slug?: string | null }
 
 const brl = (v: number) =>
@@ -67,7 +67,7 @@ export default function HomeVitrines() {
     rows = movers
       .filter((m) => m.window_days === win && m.direction === tab)
       .slice(0, 6)
-      .map((m) => ({ card_id: m.card_id, name: cleanName(m.name), set_name: m.set_name, image_small: m.image_small, price: m.preco_atual, pct: m.pct }))
+      .map((m) => ({ card_id: m.card_id, name: cleanName(m.name), set_name: m.set_name, image_small: m.image_small, price: m.preco_atual, pct: m.pct, slug: m.slug }))
   }
 
   const TabBtn = ({ id, label, icon }: { id: 'up' | 'down' | 'top'; label: string; icon: React.ReactNode }) => (
