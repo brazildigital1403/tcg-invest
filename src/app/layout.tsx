@@ -135,18 +135,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${dmSans.variable} h-full antialiased`}>
       <head>
-        {/* Google Tag Manager — gated por consent LGPD (cookie banner).
-            O IIFE só executa o resto se o usuário aceitou cookies. Caso
-            contrário, retorna cedo e o GTM nunca é injetado.
-            Após "Aceitar todos" o CookieBanner faz reload e o GTM dispara. */}
+        {/* Google Tag Manager — Consent Mode v2. O GTM SEMPRE carrega (nao
+            gated mais); quem controla se os tags disparam e o consent state.
+            Default parte do que ja esta salvo em localStorage (visita
+            repetida com "accepted" libera na hora, sem esperar clique de
+            novo); sem escolha previa, comeca tudo 'denied'. window.gtag fica
+            global pra o CookieBanner chamar 'consent update' no clique, sem
+            reload de pagina. */}
         <Script
           id="gtm-script"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function(w,d,s,l,i){
-              try { if (w.localStorage.getItem('bynx_cookie_consent') !== 'accepted') return; } catch(e) { return; }
-              w[l]=w[l]||[];w[l].push({'gtm.start':
+              w[l]=w[l]||[];
+              w.gtag=w.gtag||function(){w[l].push(arguments)};
+              var consent=null;
+              try { consent = w.localStorage.getItem('bynx_cookie_consent'); } catch(e) {}
+              var granted = consent === 'accepted' ? 'granted' : 'denied';
+              w.gtag('consent','default',{
+                'ad_storage': granted,
+                'analytics_storage': granted,
+                'ad_user_data': granted,
+                'ad_personalization': granted,
+                'wait_for_update': 500
+              });
+              w[l].push({'gtm.start':
               new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
               j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
               'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
