@@ -275,6 +275,7 @@ type MiniCard = {
   number: string | null
   image_small: string | null
   set_name: string | null
+  slug: string | null
 }
 type RelatedCards = {
   pokemon_name: string | null
@@ -360,7 +361,7 @@ export async function generateMetadata({
     openGraph: {
       title: `${title} | Bynx.gg`,
       description,
-      url: `https://bynx.gg/carta/${id}`,
+      url: `https://bynx.gg/carta/${card.slug || id}`,
       type: 'website',
       siteName: 'Bynx',
       locale: 'pt_BR',
@@ -455,7 +456,7 @@ export default async function CartaPage({
       offerCount: 1,
       availability: 'https://schema.org/InStock',
       priceValidUntil: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10),
-      url: `https://bynx.gg/carta/${card.id}`,
+      url: `https://bynx.gg/carta/${card.slug || card.id}`,
     }
   }
 

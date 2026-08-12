@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { IconBolt, IconCard } from '@/components/ui/Icons'
 
-type TopCard = { id: string; name: string; set_name: string | null; image_small: string | null; preco_medio: number | null }
+type TopCard = { id: string; name: string; set_name: string | null; image_small: string | null; preco_medio: number | null; slug: string | null }
 type GenHero = { gen: number; gen_name: string; slug: string; name: string; cards_count: number; top_card_id: string | null; top_card_image: string | null; top_card_price: number | null }
 type Sug = { kind: string; ref: string; label: string; sublabel: string; image: string | null; price: number | null; href: string }
 
@@ -121,7 +121,7 @@ export default function HomeDiscovery() {
           </div>
           <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 14 }}>
             {tops.map((c) => (
-              <Link key={c.id} href={`/carta/${c.id}`} style={{ flex: '0 0 184px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
+              <Link key={c.id} href={`/carta/${c.slug || c.id}`} style={{ flex: '0 0 184px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ background: '#0c0f17', padding: '16px 16px 8px', display: 'flex', justifyContent: 'center' }}>
                   {c.image_small && <img src={c.image_small} alt={c.name} loading="lazy" style={{ width: 128, height: 178, objectFit: 'contain', borderRadius: 6 }} />}
                 </div>
