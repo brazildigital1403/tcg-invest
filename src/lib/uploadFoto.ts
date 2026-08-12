@@ -298,3 +298,36 @@ export async function deletarCapaLoja(lojaId: string): Promise<void> {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data?.error || 'Erro ao remover capa. Tente novamente.')
 }
+
+// ─── Blog (capa de post + imagens de bloco) ──────────────────────────────────
+//
+// Sem escopo por dono (so o Du edita), bucket proprio `blog-fotos`. Passa pela
+// mesma rota /api/admin/blog/upload-imagem tanto pra capa quanto pra imagem de
+// bloco de conteudo — o caller decide o que fazer com a URL retornada.
+
+export interface UploadFotoBlogResult {
+  url: string
+}
+
+export async function uploadFotoBlog(file: File): Promise<UploadFotoBlogResult> {
+  validateFile(file)
+  const blob = await compressToWebP(file, FOTO_MAX_DIMENSION, FOTO_QUALITY)
+  if (blob.size > TAMANHO_MAX_OUTPUT) {
+    throw new Error('Não foi possível comprimir a imagem o suficiente. Tente uma foto menor.')
+  }
+
+  const formData = new FormData()
+  formData.append('file', blob, 'imagem.webp')
+
+  // Rota admin usa o cookie httpOnly `bynx_admin` (mesmo padrao do resto do
+  // /admin), nao o token de sessao do usuario — fetch normal, sem authFetch.
+  const res = await fetch('/api/admin/blog/upload-imagem', {
+    method: 'POST',
+    body: formData,
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data?.error || 'Erro ao enviar imagem. Tente novamente.')
+
+  return { url: data.url }
+}

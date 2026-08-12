@@ -42,6 +42,7 @@ export const STATIC_ROUTES: StaticRoute[] = [
   { path: '/pokedex-pokemon-tcg', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/scan-ia', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/sobre', changeFrequency: 'monthly', priority: 0.6 },
+  { path: '/blog', changeFrequency: 'daily', priority: 0.8 },
 ]
 
 // ─── Helper: ID de carta seguro pra URL ───────────────────────────────────────
@@ -157,4 +158,26 @@ export async function getPokemonSlugs(sb: SupabaseClient): Promise<string[]> {
   return (data || [])
     .map((r: { slug: string }) => r.slug)
     .filter((x): x is string => !!x)
+}
+
+// --- Slugs de posts do blog publicados (com lastmod) ---
+export type BlogSitemapEntry = { slug: string; lastmod: string | null }
+
+export async function getBlogSlugs(sb: SupabaseClient): Promise<BlogSitemapEntry[]> {
+  const { data, error } = await sb
+    .from('blog_posts')
+    .select('slug, published_at, updated_at')
+    .eq('status', 'published')
+    .lte('published_at', new Date().toISOString())
+    .order('published_at', { ascending: false })
+  if (error) {
+    console.error('[sitemap] erro ao buscar slugs de blog:', error)
+    return []
+  }
+  return (data || [])
+    .filter((r: { slug: string | null }) => !!r.slug)
+    .map((r: { slug: string; published_at: string | null; updated_at: string | null }) => ({
+      slug: r.slug,
+      lastmod: r.updated_at || r.published_at,
+    }))
 }

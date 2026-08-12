@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle } from '@/components/ui/Icons'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
 import { lojaCache } from '@/lib/lojaCache'
@@ -102,6 +102,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Avisos', href: '/admin/notificacoes', Icon: IconBell },
   { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, countKey: 'conversas' },
   { label: 'Conteúdo', href: '/admin/conteudo', Icon: IconConteudoAdmin },
+  { label: 'Blog', href: '/admin/blog', Icon: IconArticle },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -55,6 +55,8 @@ export default function robots(): MetadataRoute.Robots {
           '/colecionadores',
           '/pokedex-pokemon-tcg',
           '/scan-ia',
+          '/blog',
+          '/blog/',
         ],
         disallow: [
           '/minha-colecao',

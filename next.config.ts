@@ -47,6 +47,36 @@ const CSP = [
   'report-uri /api/csp-report',
 ].join('; ')
 
+// 'upgrade-insecure-requests' fica de fora daqui: o browser ignora essa
+// diretiva quando entregue via Report-Only e loga warning no console —
+// ruido sem efeito nenhum, ja que a CSP enforcing acima ja aplica ela.
+/**
+ * CSP_BLOG_REPORT_ONLY (blog: embeds de YouTube/Instagram/TikTok).
+ *
+ * Testando em paralelo com a CSP enforcing acima, NAO trocando ela — assim o
+ * site inteiro continua protegido enquanto so validamos os 3 hosts novos.
+ * Depois de confirmar 0 violacao em /api/csp-report numa visita a um post com
+ * os 3 embeds, mover as adicoes pra dentro do CSP enforcing e apagar este
+ * bloco (mesmo processo que ja resolveu o caso do Meta Pixel).
+ */
+const CSP_BLOG_REPORT_ONLY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://www.google-analytics.com https://ssl.google-analytics.com https://tagmanager.google.com https://connect.facebook.net https://www.instagram.com https://www.tiktok.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://tagmanager.google.com https://www.googletagmanager.com",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `connect-src 'self' ${SUPABASE_HOST} ${SUPABASE_WSS} https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://challenges.cloudflare.com https://api.pokemontcg.io https://economia.awesomeapi.com.br https://connect.facebook.net https://www.facebook.com https://viacep.com.br https://www.instagram.com https://www.tiktok.com`,
+  "frame-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.facebook.com https://www.youtube-nocookie.com https://www.instagram.com https://www.tiktok.com",
+  "worker-src 'self' blob:",
+  "media-src 'self' data: https:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self' https://www.facebook.com",
+  "frame-ancestors 'none'",
+  'report-uri /api/csp-report',
+].join('; ')
+
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -145,6 +175,10 @@ const nextConfig: NextConfig = {
           // SE ALGO QUEBRAR: voltar a chave pra 'Content-Security-Policy-Report-Only'
           // e dar push — o site volta ao normal na hora.
           { key: 'Content-Security-Policy', value: CSP },
+          // Blog (embeds YouTube/Instagram/TikTok) em paralelo, so relatando
+          // -- remover esta linha quando as adicoes forem incorporadas ao CSP
+          // enforcing acima (ver comentario de CSP_BLOG_REPORT_ONLY).
+          { key: 'Content-Security-Policy-Report-Only', value: CSP_BLOG_REPORT_ONLY },
           // Impede que o site seja carregado dentro de iframes (clickjacking)
           { key: 'X-Frame-Options', value: 'DENY' },
           // Impede que o browser adivinhe o tipo de arquivo (sniffing)

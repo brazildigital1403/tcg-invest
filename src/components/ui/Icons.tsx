@@ -609,3 +609,33 @@ export function IconArrowRight({ size = 20, color = defaultColor, strokeWidth = 
     </svg>
   )
 }
+
+// ── Blog icons ────────────────────────────────────────────────────────────────
+
+export function IconImage({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <rect x="2.5" y="3.5" width="15" height="13" rx="2" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="7" cy="8" r="1.6" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M3 14l4.5-4.5L11 13l2.5-2.5L17 14" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconPlay({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <circle cx="10" cy="10" r="7.5" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M8.3 7l4.8 3-4.8 3V7z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconArticle({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <rect x="3" y="2.5" width="14" height="15" rx="1.5" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M6 6.5h8M6 9.5h8M6 12.5h5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
