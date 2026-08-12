@@ -13,7 +13,7 @@ import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount,
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
-  IconChat, IconStar, IconStarFilled, IconEye,
+  IconChat, IconStar, IconStarFilled, IconEye, IconArticle,
 } from '@/components/ui/Icons'
 import MuroPosTrial from '@/components/ui/MuroPosTrial'
 
@@ -157,6 +157,7 @@ const ITEM_CONTA: MenuItem = { name: 'Conta', full: 'Minha Conta', href: '/minha
 const ITEM_MINHA_LOJA: MenuItem = { name: 'Loja', full: 'Minha Loja', href: '/minha-loja', Icon: IconMinhaLoja, group: 'conta' }
 const ITEM_VENDER: MenuItem = { name: 'Vender', full: 'Vender na Bynx', href: '/minha-loja/nova', Icon: IconMinhaLoja, group: 'conta' }
 const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas, group: 'explorar' }
+const ITEM_BLOG: MenuItem = { name: 'Blog', full: 'Blog', href: '/blog', Icon: IconArticle, group: 'explorar' }
 const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat, group: 'conta' }
 
 // ─── Componente ─────────────────────────────────────────────────────────────
@@ -240,15 +241,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_SUPORTE])
+      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
     }
     if (isLojistaPuro) {
-      return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
+      return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
     }
     const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     else base.push(ITEM_VENDER)
-    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE)
+    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE)
     return semDash(base)
   }, [temLoja, temCartas, isLojistaPuro, podeDashboard])
 

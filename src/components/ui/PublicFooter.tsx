@@ -71,6 +71,13 @@ export default function PublicFooter({ hideTopBorder = false }: Props) {
         </a>
         <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
         <a
+          href="/blog"
+          style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}
+        >
+          Blog
+        </a>
+        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+        <a
           href="/faq"
           style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}
         >
