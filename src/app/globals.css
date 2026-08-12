@@ -154,3 +154,27 @@ body {
 .bx-blog-rich ul, .bx-blog-rich ol { padding-left: 22px; margin: 0 0 16px; }
 .bx-blog-rich li { margin-bottom: 6px; }
 .bx-blog-rich blockquote { border-left: 3px solid var(--ac-1); padding-left: 14px; margin: 0 0 16px; color: var(--bx-text-2); }
+
+/* Blog: grade de embeds sociais (Instagram/TikTok) consecutivos -- ate 3
+   colunas (BlockRenderer.tsx agrupa blocos seguidos do mesmo jeito). O embed
+   oficial do Instagram exige min-width:326px pra nao quebrar o card, entao a
+   grade estoura a largura da coluna de texto do post (760px) pra caber 3 de
+   verdade -- dentro dos 760px so cabiam 2. */
+.bx-social-grid-breakout {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.bx-social-grid {
+  max-width: 1040px;
+  margin: 24px auto;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  justify-items: center;
+}
+@media (max-width: 768px) {
+  .bx-social-grid { padding: 0 16px; }
+}
