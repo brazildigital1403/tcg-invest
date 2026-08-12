@@ -23,6 +23,7 @@ import type { Metadata } from 'next'
 import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
+import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 
 // ISR: regenera a cada 1h. Como o catálogo cresce (scan contínuo), os agregados
@@ -427,42 +428,7 @@ export default async function SetIndexPage() {
           fontFamily: "'DM Sans', system-ui, sans-serif",
         }}
       >
-        {/* Header */}
-        <header className="bx-gutter"
-          style={{
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-            padding: '14px 24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: 'rgba(8,10,15,0.95)',
-            position: 'sticky',
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <img
-              src="/logo_BYNX.png"
-              alt="Bynx"
-              style={{ height: 30, width: 'auto', objectFit: 'contain' }}
-            />
-          </Link>
-          <Link
-            href="/pokedex"
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-              color: '#000',
-              padding: '8px 18px',
-              borderRadius: 10,
-              fontWeight: 700,
-              fontSize: 13,
-              textDecoration: 'none',
-            }}
-          >
-            Ver Pokédex
-          </Link>
-        </header>
+        <PublicHeader />
 
         <main className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 20px 80px' }}>
           {/* Hero */}

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 
 export const metadata = {
@@ -12,15 +13,7 @@ export default function TermosPage() {
   return (
     <div style={{ background: '#080a0f', minHeight: '100vh', fontFamily: "'DM Sans', system-ui, sans-serif", color: '#f0f0f0' }}>
 
-      {/* Header simples */}
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 28, width: 'auto' }} />
-        </Link>
-        <Link href="/privacidade" style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>
-          Política de Privacidade →
-        </Link>
-      </div>
+      <PublicHeader />
 
       {/* Conteúdo */}
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '60px 24px 100px' }}>

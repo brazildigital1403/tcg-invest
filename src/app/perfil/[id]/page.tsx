@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import PublicHeader from '@/components/ui/PublicHeader'
 import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
@@ -276,15 +277,7 @@ export default function PerfilPage() {
     <div style={{ minHeight: '100vh', background: BG, color: '#f0f0f0', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`.perfil-scroll::-webkit-scrollbar{display:none}.perfil-scroll{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
-      {/* HEADER */}
-      <header className="bx-gutter" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(8,10,15,0.97)', position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(12px)' }}>
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
-        </Link>
-        <Link href="/" style={{ background: BRAND, color: '#000', padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
-          Entrar no app
-        </Link>
-      </header>
+      <PublicHeader />
 
       <main className="bx-gutter" style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px 80px' }}>
 
