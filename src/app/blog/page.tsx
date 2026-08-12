@@ -8,6 +8,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Breadcrumb from '@/components/ui/Breadcrumb'
+import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import PostCard from '@/components/blog/PostCard'
 import { fetchPublishedPostsList, fetchCategories } from '@/lib/blog'
@@ -76,30 +77,7 @@ export default async function BlogIndexPage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
 
       <div style={{ minHeight: '100vh', background: 'var(--bx-bg)', color: 'var(--bx-text)', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-        <header
-          className="bx-gutter"
-          style={{
-            borderBottom: '1px solid var(--bx-border)',
-            padding: '14px 24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: 'rgba(8,10,15,0.95)',
-            position: 'sticky',
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
-          </Link>
-          <Link
-            href="/pokedex"
-            style={{ background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '8px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
-          >
-            Ver Pokédex
-          </Link>
-        </header>
+        <PublicHeader />
 
         <main className="bx-gutter" style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px 80px' }}>
           <Breadcrumb items={breadcrumbItems} />
