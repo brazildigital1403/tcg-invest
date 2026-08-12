@@ -191,6 +191,14 @@ export default async function LojasPage(
   const totalResultados = lojas.length
   const temFiltro = !!(qParam || estadoParam || tipoParam || especialidadeParam)
 
+  // Quem ja aparece no carrossel de Destaque nao repete na grade logo abaixo
+  // (achado do Du, 12/08/2026 -- Castle Games aparecia 2x: uma vez grande no
+  // destaque, outra vez como card normal na grade). So se aplica quando o
+  // destaque de fato renderiza (sem filtro ativo); com filtro, LojasDestaque
+  // nem aparece, entao a grade mostra tudo normalmente.
+  const idsDestaque = new Set(premiumLojas.map(l => l.id))
+  const gridLojas = temFiltro ? lojas : lojas.filter(l => !idsDestaque.has(l.id))
+
   // Contagem por opcao (sobre `todas`, nao filtrado) -- so oferece filtro que
   // tem loja de verdade hoje, mas a opcao selecionada sempre aparece mesmo com
   // 0, senao escolher um filtro faz o proprio filtro sumir da lista embaixo
@@ -314,9 +322,9 @@ export default async function LojasPage(
               {/* Destaque Premium (so na visao padrao, sem filtro) */}
               {!temFiltro && <LojasDestaque lojas={premiumLojas} ratings={ratingMap} />}
 
-              {totalResultados > 0 && (
+              {gridLojas.length > 0 && (
                 <div style={S.grid}>
-                  {lojas.map(loja => (
+                  {gridLojas.map(loja => (
                     <CardLoja key={loja.id} loja={loja} />
                   ))}
                 </div>
