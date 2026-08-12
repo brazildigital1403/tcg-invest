@@ -5,6 +5,7 @@ import {
   STATIC_ROUTES,
   getSupabase,
   getPokemonSlugs,
+  getBlogSlugs,
   isIdSafeForUrl,
   urlsetXml,
   type UrlEntry,
@@ -109,6 +110,23 @@ export async function GET(
       }
     } catch (err) {
       console.error('[sitemap] erro ao buscar pokemon:', err)
+    }
+  }
+
+  // Posts do blog publicados - somente no bloco 0
+  if (chunkIndex === 0 && sb) {
+    try {
+      const blogEntries = await getBlogSlugs(sb)
+      for (const b of blogEntries) {
+        entries.push({
+          loc: `${BASE}/blog/${b.slug}`,
+          lastmod: b.lastmod ? new Date(b.lastmod).toISOString() : now,
+          changefreq: 'weekly',
+          priority: 0.6,
+        })
+      }
+    } catch (err) {
+      console.error('[sitemap] erro ao buscar posts do blog:', err)
     }
   }
 

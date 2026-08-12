@@ -144,3 +144,13 @@ body {
   .loja-mobile-actions { display: flex; }
   .loja-cols { grid-template-columns: 1fr; }
 }
+
+/* Blog: HTML gerado pelo Tiptap (bloco "paragrafo") renderizado via
+   dangerouslySetInnerHTML em ParagraphBlock.tsx -- estiliza as tags que o
+   StarterKit produz (p/strong/em/a/ul/ol/li/blockquote). */
+.bx-blog-rich p { margin: 0 0 16px; }
+.bx-blog-rich strong { color: var(--bx-text); font-weight: 700; }
+.bx-blog-rich a { color: var(--ac-1); text-decoration: underline; }
+.bx-blog-rich ul, .bx-blog-rich ol { padding-left: 22px; margin: 0 0 16px; }
+.bx-blog-rich li { margin-bottom: 6px; }
+.bx-blog-rich blockquote { border-left: 3px solid var(--ac-1); padding-left: 14px; margin: 0 0 16px; color: var(--bx-text-2); }

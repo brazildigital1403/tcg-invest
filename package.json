@@ -11,6 +11,10 @@
   "dependencies": {
     "@sentry/nextjs": "^10.55.0",
     "@supabase/supabase-js": "^2.101.1",
+    "@tiptap/extension-link": "^2.11.5",
+    "@tiptap/pm": "^2.11.5",
+    "@tiptap/react": "^2.11.5",
+    "@tiptap/starter-kit": "^2.11.5",
     "chart.js": "^4.5.1",
     "csv-parser": "^3.2.0",
     "dotenv": "^17.4.1",
