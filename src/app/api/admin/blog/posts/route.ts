@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/admin/blog/posts — cria post novo (sempre como rascunho)
+// POST /api/admin/blog/posts — cria post novo (rascunho por padrao; body.status='published' publica direto)
 export async function POST(req: NextRequest) {
   try {
     const unauth = await requireAdmin(req)
@@ -105,6 +105,8 @@ export async function POST(req: NextRequest) {
       slug = `${baseSlug}-${i}`
     }
 
+    const status: 'draft' | 'published' = body.status === 'published' ? 'published' : 'draft'
+
     const payload = {
       slug,
       title: body.title.trim(),
@@ -113,7 +115,8 @@ export async function POST(req: NextRequest) {
       content: blocks,
       category_id: typeof body.category_id === 'string' && body.category_id ? body.category_id : null,
       tags: Array.isArray(body.tags) ? body.tags.filter((t: unknown) => typeof t === 'string').slice(0, 20) : [],
-      status: 'draft' as const,
+      status,
+      published_at: status === 'published' ? new Date().toISOString() : null,
       seo_title: typeof body.seo_title === 'string' ? body.seo_title.trim() || null : null,
       seo_description: typeof body.seo_description === 'string' ? body.seo_description.trim() || null : null,
       reading_minutes: estimateReadingMinutes(blocks),
