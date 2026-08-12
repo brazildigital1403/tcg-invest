@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/admin-auth'
 import { validateBlocks, estimateReadingMinutes, BlogBlockValidationError } from '@/lib/blogBlocks'
 
@@ -70,16 +71,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       }
     }
 
+    // Le o slug/published_at atuais uma vez so: usado pro carimbo de
+    // published_at (so na 1a vez que publica) e pra saber o path antigo a
+    // revalidar (post pode estar trocando de slug na mesma edicao).
+    const { data: before } = await sb.from('blog_posts').select('slug, published_at').eq('id', id).maybeSingle()
+
     if (typeof body.status === 'string') {
       if (!['draft', 'published'].includes(body.status)) {
         return NextResponse.json({ error: 'Status invalido' }, { status: 400 })
       }
       update.status = body.status
-      if (body.status === 'published') {
+      if (body.status === 'published' && !before?.published_at) {
         // So carimba published_at na PRIMEIRA vez que vira published — edicoes
         // seguintes nao devem "reagendar" o post pra agora.
-        const { data: current } = await sb.from('blog_posts').select('published_at').eq('id', id).maybeSingle()
-        if (!current?.published_at) update.published_at = new Date().toISOString()
+        update.published_at = new Date().toISOString()
       }
     }
 
@@ -93,6 +98,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       console.error('[admin/blog/posts/[id] PATCH]', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Fura o ISR na hora — sem isso, edicao/publicacao/despublicacao so
+    // aparece pro leitor quando o cache de 1h expirar sozinho (achado real:
+    // "despublicar" atualizava o banco mas o post pesado continuava no ar).
+    if (before?.slug) revalidatePath(`/blog/${before.slug}`)
+    if (data.slug && data.slug !== before?.slug) revalidatePath(`/blog/${data.slug}`)
+    revalidatePath('/blog')
+    revalidatePath('/blog/rss.xml')
 
     return NextResponse.json(data)
   } catch (err: any) {
@@ -109,11 +122,18 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
 
     const { id } = await ctx.params
     const sb = supabaseAdmin()
+    const { data: before } = await sb.from('blog_posts').select('slug').eq('id', id).maybeSingle()
+
     const { error } = await sb.from('blog_posts').delete().eq('id', id)
     if (error) {
       console.error('[admin/blog/posts/[id] DELETE]', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    if (before?.slug) revalidatePath(`/blog/${before.slug}`)
+    revalidatePath('/blog')
+    revalidatePath('/blog/rss.xml')
+
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error('[admin/blog/posts/[id] DELETE] erro inesperado', err?.message)

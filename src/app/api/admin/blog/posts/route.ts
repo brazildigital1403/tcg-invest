@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/admin-auth'
 import { validateBlocks, estimateReadingMinutes, BlogBlockValidationError } from '@/lib/blogBlocks'
 
@@ -126,6 +127,13 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error('[admin/blog/posts POST]', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Post novo direto como published entra na listagem/RSS na hora, sem
+    // esperar o cache de 1h expirar sozinho.
+    if (status === 'published') {
+      revalidatePath('/blog')
+      revalidatePath('/blog/rss.xml')
     }
 
     return NextResponse.json(data, { status: 201 })
