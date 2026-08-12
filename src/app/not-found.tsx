@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import PublicHeader from '@/components/ui/PublicHeader'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -28,12 +29,7 @@ export default function NotFound() {
       display: 'flex',
       flexDirection: 'column',
     }}>
-      {/* Header */}
-      <header style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <img src="/logo_BYNX.png" alt="Bynx" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
-        </Link>
-      </header>
+      <PublicHeader />
 
       {/* Conteúdo */}
       <div style={{
