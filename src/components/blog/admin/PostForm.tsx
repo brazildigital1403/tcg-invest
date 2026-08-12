@@ -75,6 +75,7 @@ export default function PostForm({ initialData, isEditMode }: { initialData?: Po
   const [saving, setSaving] = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [savedMsg, setSavedMsg] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/blog/categorias')
@@ -87,11 +88,18 @@ export default function PostForm({ initialData, isEditMode }: { initialData?: Po
     setData((d) => ({ ...d, [key]: value }))
   }
 
+  // nextStatus omitido = so salva o conteudo, sem tocar no status atual do
+  // post (e o que "Salvar alteracoes" faz — nunca despublica por engano).
+  // Passado, e uma troca deliberada (Publicar/Despublicar).
   async function save(nextStatus?: 'draft' | 'published') {
     setSaving(true)
     setError(null)
+    setSavedMsg(null)
     try {
-      const payload = { ...data, ...(nextStatus ? { status: nextStatus } : {}) }
+      const payload: Record<string, unknown> = { ...data }
+      delete payload.status
+      if (nextStatus) payload.status = nextStatus
+
       const url = isEditMode ? `/api/admin/blog/posts/${data.id}` : '/api/admin/blog/posts'
       const method = isEditMode ? 'PATCH' : 'POST'
       const res = await fetch(url, {
@@ -101,7 +109,21 @@ export default function PostForm({ initialData, isEditMode }: { initialData?: Po
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error || 'Erro ao salvar')
-      router.push('/admin/blog')
+
+      if (!isEditMode) {
+        // Post novo: segue direto pra edicao dele, ja com o status escolhido.
+        router.push(`/admin/blog/${json.id}/editar`)
+        router.refresh()
+        return
+      }
+
+      // Edicao: fica na tela (nao navega embora), so confirma o que aconteceu.
+      if (nextStatus) set('status', nextStatus)
+      setSavedMsg(
+        nextStatus === 'published' ? 'Post publicado.'
+        : nextStatus === 'draft' ? 'Post despublicado — voltou a rascunho, saiu do ar.'
+        : 'Alterações salvas.'
+      )
       router.refresh()
     } catch (err: any) {
       setError(err?.message || 'Erro ao salvar')
@@ -255,16 +277,49 @@ export default function PostForm({ initialData, isEditMode }: { initialData?: Po
         </div>
       </details>
 
-      <div style={{ display: 'flex', gap: 10, paddingTop: 16, borderTop: `1px solid ${BORD}` }}>
-        <button type="button" disabled={saving} onClick={() => save('draft')} style={btnSecondary}>
-          Salvar rascunho
-        </button>
-        <button type="button" disabled={saving} onClick={() => save('published')} style={btnPrimary}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <IconCheck size={15} />
-            {data.status === 'published' ? 'Salvar' : 'Publicar'}
-          </span>
-        </button>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', paddingTop: 16, borderTop: `1px solid ${BORD}`, flexWrap: 'wrap' }}>
+        {isEditMode ? (
+          <>
+            {/* Salva o conteudo sem tocar no status — nunca tira um post do ar sozinho. */}
+            <button type="button" disabled={saving} onClick={() => save()} style={btnPrimary}>
+              Salvar alterações
+            </button>
+            {data.status === 'draft' ? (
+              <button type="button" disabled={saving} onClick={() => save('published')} style={btnSecondary}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <IconCheck size={15} />
+                  Publicar
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (window.confirm('Despublicar este post? Ele sai do ar imediatamente.')) save('draft')
+                }}
+                style={{ ...btnSecondary, color: 'var(--bx-red)' }}
+              >
+                Despublicar
+              </button>
+            )}
+            {savedMsg && (
+              <span style={{ fontSize: 13, color: 'var(--bx-green)', fontWeight: 600 }}>{savedMsg}</span>
+            )}
+          </>
+        ) : (
+          <>
+            <button type="button" disabled={saving} onClick={() => save('draft')} style={btnSecondary}>
+              Salvar rascunho
+            </button>
+            <button type="button" disabled={saving} onClick={() => save('published')} style={btnPrimary}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <IconCheck size={15} />
+                Publicar
+              </span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
