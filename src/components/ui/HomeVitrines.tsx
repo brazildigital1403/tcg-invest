@@ -15,9 +15,9 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 
-type TopCard = { id: string; name: string; set_name: string | null; image_small: string | null; preco_medio: number | null }
-type Mover = { window_days: number; direction: 'up' | 'down'; card_id: string; name: string; set_name: string | null; image_small: string | null; preco_atual: number | null; pct: number | null }
-type Row = { card_id: string; name: string; set_name: string | null; image_small: string | null; price: number | null; pct: number | null }
+type TopCard = { id: string; name: string; set_name: string | null; image_small: string | null; preco_medio: number | null; slug: string | null }
+type Mover = { window_days: number; direction: 'up' | 'down'; card_id: string; name: string; set_name: string | null; image_small: string | null; preco_atual: number | null; pct: number | null; slug: string | null }
+type Row = { card_id: string; name: string; set_name: string | null; image_small: string | null; price: number | null; pct: number | null; slug?: string | null }
 
 const brl = (v: number) =>
   `R$ ${Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`
@@ -62,12 +62,12 @@ export default function HomeVitrines() {
 
   let rows: Row[] = []
   if (tab === 'top') {
-    rows = tops.slice(0, 6).map((t) => ({ card_id: t.id, name: cleanName(t.name), set_name: t.set_name, image_small: t.image_small, price: t.preco_medio, pct: null }))
+    rows = tops.slice(0, 6).map((t) => ({ card_id: t.id, name: cleanName(t.name), set_name: t.set_name, image_small: t.image_small, price: t.preco_medio, pct: null, slug: t.slug }))
   } else {
     rows = movers
       .filter((m) => m.window_days === win && m.direction === tab)
       .slice(0, 6)
-      .map((m) => ({ card_id: m.card_id, name: cleanName(m.name), set_name: m.set_name, image_small: m.image_small, price: m.preco_atual, pct: m.pct }))
+      .map((m) => ({ card_id: m.card_id, name: cleanName(m.name), set_name: m.set_name, image_small: m.image_small, price: m.preco_atual, pct: m.pct, slug: m.slug }))
   }
 
   const TabBtn = ({ id, label, icon }: { id: 'up' | 'down' | 'top'; label: string; icon: React.ReactNode }) => (
@@ -134,7 +134,7 @@ export default function HomeVitrines() {
             {backL && <div className="hv-backL">{cardImg(backL.image_small, cleanName(backL.name), 'hv-imgB')}</div>}
             {backR && <div className="hv-backR">{cardImg(backR.image_small, cleanName(backR.name), 'hv-imgB')}</div>}
             {front && (
-              <Link href={`/carta/${front.id}`} className="hv-front" style={{ filter: 'drop-shadow(0 0 30px rgba(245,158,11,0.3))' }}>
+              <Link href={`/carta/${front.slug || front.id}`} className="hv-front" style={{ filter: 'drop-shadow(0 0 30px rgba(245,158,11,0.3))' }}>
                 <span style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%) rotate(-3deg)', zIndex: 4, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#000', fontSize: 9.5, fontWeight: 900, letterSpacing: '0.05em', padding: '4px 11px', borderRadius: 20, whiteSpace: 'nowrap', boxShadow: '0 4px 14px rgba(245,158,11,0.4)' }}>★ MAIS VALIOSA</span>
                 {cardImg(front.image_small, cleanName(front.name), 'hv-imgF')}
                 {front.preco_medio != null && (
@@ -177,7 +177,7 @@ export default function HomeVitrines() {
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', padding: '20px 4px' }}>Sem dados para esta janela ainda.</div>
             )}
             {rows.map((r, i) => (
-              <Link key={r.card_id} href={`/carta/${r.card_id}`} className="hv-row">
+              <Link key={r.card_id} href={`/carta/${r.slug || r.card_id}`} className="hv-row">
                 <span style={{ fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,0.28)', width: 14, textAlign: 'center', flex: '0 0 auto' }}>{i + 1}</span>
                 <span style={{ width: 30, height: 42, borderRadius: 4, background: '#11151f', flex: '0 0 auto', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {r.image_small && <img src={r.image_small} alt={r.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}

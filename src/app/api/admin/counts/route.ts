@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/admin-auth'
+import { ticketsPrecisandoResposta } from '@/lib/adminTickets'
 
 function supabaseAdmin() {
   return createClient(
@@ -25,30 +26,8 @@ export async function GET(req: NextRequest) {
       const { count } = await sb.from('card_requests').select('*', { count: 'exact', head: true }).eq('status', 'pendente')
       return count || 0
     }
-    // Badge do sidebar contava "tickets criados nos ultimos 7 dias" -- nao
-    // dizia nada sobre precisar de resposta (um ticket de 47 dias sem
-    // resposta some do contador so por ser velho). Troca pra contar quem
-    // esta no segmento "Precisa de resposta" da lista (05/08/2026): status
-    // em aberto E a ultima mensagem foi do usuario, nao do admin.
-    const ticketsPrecisandoResposta = async (): Promise<number> => {
-      const { data: abertos } = await sb.from('tickets').select('id').in('status', ['open', 'in_progress'])
-      const ids = (abertos || []).map(t => t.id)
-      if (ids.length === 0) return 0
-      const { data: msgs } = await sb
-        .from('ticket_messages')
-        .select('ticket_id, sender_type, created_at')
-        .in('ticket_id', ids)
-        .order('created_at', { ascending: false })
-        .limit(2000)
-      const ultimoPorTicket: Record<string, string> = {}
-      for (const m of msgs || []) {
-        if (!ultimoPorTicket[m.ticket_id]) ultimoPorTicket[m.ticket_id] = m.sender_type
-      }
-      return Object.values(ultimoPorTicket).filter(s => s === 'user').length
-    }
-
     const [tickets, lojas, marketplace, usuarios, financeiro, cartas] = await Promise.all([
-      ticketsPrecisandoResposta(),
+      ticketsPrecisandoResposta(sb),
       novos('lojas'),
       novos('marketplace'),
       novos('users'),

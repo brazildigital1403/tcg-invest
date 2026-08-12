@@ -13,13 +13,26 @@ const STORAGE_KEY = 'bynx_cookie_consent'
 // Soft banner LGPD no rodapé. Aparece apenas quando o usuário NÃO escolheu
 // nenhuma opção ainda (localStorage vazio).
 //
-// • "Aceitar todos"      → grava 'accepted' + window.location.reload() pra ativar GTM
-// • "Apenas essenciais"  → grava 'rejected' + esconde banner sem reload
+// Consent Mode v2: o GTM (src/app/layout.tsx) já carrega sempre, com
+// 'consent default' denied. Aqui só avisamos o Google do 'consent update'
+// via window.gtag — sem reload de página, os tags liberados disparam na hora.
 //
-// O GTM é carregado em src/app/layout.tsx dentro de um <Script> com checagem
-// `localStorage.getItem('bynx_cookie_consent') === 'accepted'`. Por isso o
-// reload é necessário no aceite — ele faz o GTM (que estava bloqueado no carregamento
-// anterior) finalmente disparar.
+// • "Aceitar todos"      → grava 'accepted' + consent update granted
+// • "Apenas essenciais"  → grava 'rejected' + consent update denied (explícito)
+
+function pushConsentUpdate(granted: boolean) {
+  try {
+    const status = granted ? 'granted' : 'denied'
+    ;(window as any).gtag?.('consent', 'update', {
+      ad_storage: status,
+      analytics_storage: status,
+      ad_user_data: status,
+      ad_personalization: status,
+    })
+  } catch {
+    // gtag indisponivel (bloqueador de script, etc) — nao quebra o banner
+  }
+}
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false)
@@ -43,12 +56,10 @@ export default function CookieBanner() {
     try {
       localStorage.setItem(STORAGE_KEY, 'accepted')
     } catch {
-      // Sem localStorage → reload não vai persistir, então só fecha banner
-      setVisible(false)
-      return
+      /* ignora — só esconde o banner */
     }
-    // Reload pra ativar GTM (que checa o localStorage no início do <Script>)
-    window.location.reload()
+    pushConsentUpdate(true)
+    setVisible(false)
   }
 
   function rejectAll() {
@@ -57,6 +68,7 @@ export default function CookieBanner() {
     } catch {
       /* ignora — só esconde o banner */
     }
+    pushConsentUpdate(false)
     setVisible(false)
   }
 

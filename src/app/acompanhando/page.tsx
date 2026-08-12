@@ -22,6 +22,7 @@ type Item = {
   image_small: string | null
   preco_medio: number | null
   pct: number | null
+  slug: string | null
 }
 
 const brl = (v: number) =>
@@ -72,6 +73,7 @@ export default function AcompanhandoPage() {
         image_small: r.image_small,
         preco_medio: r.preco_medio != null ? Number(r.preco_medio) : null,
         pct: r.pct != null ? Number(r.pct) : null,
+        slug: r.slug ?? null,
       }))
 
       if (active) { setItems(built); setLoaded(true) }
@@ -133,7 +135,7 @@ export default function AcompanhandoPage() {
         {loaded && userId && items.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
             {items.map((it) => (
-              <Link key={it.card_id} href={`/carta/${it.card_id}`} style={{ position: 'relative', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
+              <Link key={it.card_id} href={`/carta/${it.slug || it.card_id}`} style={{ position: 'relative', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ position: 'relative', background: '#0c0f17', height: 178, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}>
                   {it.image_small && <img src={it.image_small} alt={it.name} loading="lazy" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', borderRadius: 6 }} />}
                   <button onClick={(e) => remover(it.card_id, e)} title="Deixar de acompanhar" style={{ position: 'absolute', top: 7, left: 7, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
