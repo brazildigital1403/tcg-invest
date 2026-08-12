@@ -898,15 +898,15 @@ export default function ScanIaLanding() {
           .scan-personas-grid{ grid-template-columns: 1fr !important; }
         }
         @media (max-width: 768px) {
-          .scan-hero         { padding: 56px 20px 40px !important; }
+          .scan-hero         { padding-top: 56px !important; padding-bottom: 40px !important; }
           .scan-stats-grid   { grid-template-columns: repeat(2, 1fr) !important; gap: 24px !important; }
           .scan-tech-grid    { grid-template-columns: 1fr !important; }
           .scan-pkg-grid     { grid-template-columns: 1fr !important; }
           .scan-pkg-popular  { transform: none !important; }
           .scan-guarantees-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .scan-section      { padding: 56px 20px !important; }
-          .scan-stats        { padding: 40px 20px !important; }
-          .scan-final        { padding: 80px 20px !important; }
+          .scan-section      { padding-top: 56px !important; padding-bottom: 56px !important; }
+          .scan-stats        { padding-top: 40px !important; padding-bottom: 40px !important; }
+          .scan-final        { padding-top: 80px !important; padding-bottom: 80px !important; }
           .scan-comp-table-wrap { overflow-x: auto !important; }
           .scan-comp-table   { min-width: 600px !important; }
         }
@@ -1503,7 +1503,7 @@ export default function ScanIaLanding() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 10. CTA FINAL                                                         */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <section className="scan-final" style={S.finalSection}>
+      <section className="scan-final bx-gutter" style={S.finalSection}>
         <div style={S.finalInner}>
           <span style={S.heroBadge}>
             <IconRocket size={15} /> Junte-se à nova geração de colecionadores
