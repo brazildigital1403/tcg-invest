@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AvaliacaoModal from '@/components/marketplace/AvaliacaoModal'
+import TradeAnalyzer from '@/components/marketplace/TradeAnalyzer'
 import { trackFirstCardAdded } from '@/lib/analytics'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -372,6 +373,7 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
   const [enviando, setEnviando] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [showAvaliacao, setShowAvaliacao] = useState(false)
+  const [showTrade, setShowTrade] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -490,6 +492,9 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
           <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)', marginTop: 1 }}>com <b style={{ color: '#f59e0b' }}>{outroNome}</b> · {fmt(anuncio.price)}</p>
         </div>
         <span style={{ fontSize: 9.5, fontWeight: 800, padding: '4px 8px', borderRadius: 100, whiteSpace: 'nowrap', background: `${cor}22`, color: cor }}>{STATUS_LABEL[status] || status}</span>
+        <button onClick={() => setShowTrade(true)} aria-label="Analisar troca" title="Analisar troca" style={iconBtn}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7M17 16l-3-3M17 16l-3 3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
         {desktop && <button onClick={onFechar} style={iconBtn}><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg></button>}
       </div>
 
@@ -557,6 +562,12 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
       )}
 
       {showAvaliacao && role && <AvaliacaoModal card={anuncio} userId={userId} role={role} onClose={() => setShowAvaliacao(false)} />}
+      {showTrade && anuncio && (
+        <TradeAnalyzer
+          initialCardA={{ id: anuncio.card_id || anuncio.id, name: cleanName(anuncio.card_name), image_small: anuncio.card_image, preco: Number(anuncio.price) || 0, fonte: 'BRL' }}
+          onClose={() => setShowTrade(false)}
+        />
+      )}
     </div>
   )
 }
