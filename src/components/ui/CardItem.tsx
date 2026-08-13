@@ -62,6 +62,12 @@ export interface CardItemData {
   idioma?: string
   condicoes?: Record<string, number> | null
   price?: CardPrice // joined price data
+  /** Selo de graduadora (PSA/BGS/CGC/...) — slug que indexa `GRADUADORA_MAP`. */
+  graduada?: boolean | null
+  graduadora?: string | null
+  nota?: number | null
+  black_label?: boolean
+  valor_graduada?: number | null
   /**
    * Ultima venda REGISTRADA da carta — preco realizado, nao pedido.
    *
