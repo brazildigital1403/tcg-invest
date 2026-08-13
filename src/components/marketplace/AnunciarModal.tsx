@@ -474,17 +474,30 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
   async function handlePublicar(dados: any) {
     if (!cartaSel || dados.preco <= 0) return
     setLoading(true)
-    await supabase.from('marketplace').insert({
+    const { data: anuncio } = await supabase.from('marketplace').insert({
       user_id: userId, card_id: cartaSel.card_id || null, card_name: cartaSel.card_name,
       card_image: cartaSel.card_image || null, card_link: cartaSel.card_link || null,
       variante: dados.variante, price: dados.preco,
       condicao: dados.condicao, descricao: dados.descricao || null, fotos: dados.fotos && dados.fotos.length ? dados.fotos : null, status: 'disponivel',
       graduada: dados.graduada || false, graduadora: dados.graduadora || null, nota: dados.nota ?? null,
       black_label: dados.black_label || false, cert_graduacao: dados.cert_graduacao || null, subnotas: dados.subnotas || null,
-    })
+    }).select('id').single()
     setLoading(false)
     onAdded()
     onClose()
+
+    // Watchlist Fase 2: avisa quem acompanha essa carta que ela apareceu no
+    // Marketplace. Fire-and-forget -- nunca deve travar nem falhar o anuncio.
+    if (anuncio?.id) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session?.access_token) return
+        fetch('/api/marketplace/notificar-watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ anuncio_id: anuncio.id }),
+        }).catch(() => { /* silencioso -- o anuncio ja foi criado */ })
+      })
+    }
   }
 
   return (
