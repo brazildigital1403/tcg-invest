@@ -12,7 +12,7 @@
  * em toda a página (manchete, radar, pareamento).
  */
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { TradeCard } from './TradeAnalyzer'
 
@@ -25,12 +25,125 @@ function cleanNome(raw: string | null): string {
   return raw.replace(/&amp;/g, '&').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/\s*\([^)]*\/[^)]*\)\s*$/, '').trim()
 }
 
-function fmt(v: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
-}
-
 function moverToCard(m: Mover): TradeCard {
   return { id: m.card_id, name: cleanNome(m.name), set_name: m.set_name, image_small: m.image_small, preco: Number(m.preco_atual) || 0, fonte: 'BRL' }
+}
+
+// ─── HERO: carrossel dinâmico (pedido do Du 14/08 -- a manchete estática so
+// mostrava a maior alta/queda da semana, sempre a mesma carta ate o cron
+// rodar de novo). Pool de /api/marketplace/comparador-hero (3 sinais: maior
+// alta/queda 7d, mais anunciada, mais adicionada a coleção), embaralhado a
+// cada carregamento da página -- "mais procurada"/"mais acessada" ficaram de
+// fora por enquanto (precisam de tabela de eventos nova, decisão do Du). ───
+
+interface HeroCard {
+  id: string
+  name: string
+  image_small: string | null
+  sinal: 'alta' | 'queda' | 'anunciada' | 'adicionada'
+  badge: string
+  preco: number | null
+}
+
+const SINAL_INFO: Record<HeroCard['sinal'], { eyebrow: string; cor: string; bg: string; texto: string }> = {
+  alta: { eyebrow: 'Em alta essa semana', cor: '#22c55e', bg: 'rgba(34,197,94,0.12)', texto: 'No Mercado Brasileiro — pode valer a pena soltar antes de esfriar.' },
+  queda: { eyebrow: 'Em queda essa semana', cor: '#ef4444', bg: 'rgba(239,68,68,0.12)', texto: 'No Mercado Brasileiro — pode ser a hora de pegar antes de subir de novo.' },
+  anunciada: { eyebrow: 'Bombando no marketplace', cor: '#f59e0b', bg: 'rgba(245,158,11,0.13)', texto: 'Várias pessoas anunciando essa carta agora — bom momento pra comparar preços.' },
+  adicionada: { eyebrow: 'Entrando nas coleções', cor: '#60a5fa', bg: 'rgba(96,165,250,0.13)', texto: 'A carta que mais entrou em coleções esse mês — pode valer a pena ficar de olho.' },
+}
+
+function embaralhar<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+function HeroCarrossel({ onSeed }: { onSeed: (cardA?: TradeCard, cardB?: TradeCard) => void }) {
+  const [pool, setPool] = useState<HeroCard[]>([])
+  const [idx, setIdx] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    fetch('/api/marketplace/comparador-hero')
+      .then(r => r.json())
+      .then(d => setPool(embaralhar(d?.pool || [])))
+      .catch(() => setPool([]))
+  }, [])
+
+  useEffect(() => {
+    if (pool.length < 2) return
+    timerRef.current = setInterval(() => setIdx(i => (i + 1) % pool.length), 6000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [pool.length])
+
+  function irPara(i: number) {
+    setIdx(((i % pool.length) + pool.length) % pool.length)
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => setIdx(prev => (prev + 1) % pool.length), 6000)
+  }
+
+  if (!pool.length) return null
+  const atual = pool[idx]
+  const info = SINAL_INFO[atual.sinal]
+
+  function seed() {
+    const card: TradeCard = { id: atual.id, name: atual.name, set_name: null, image_small: atual.image_small, preco: atual.preco || 0, fonte: 'BRL' }
+    if (atual.sinal === 'queda') onSeed(undefined, card)
+    else onSeed(card, undefined)
+  }
+
+  return (
+    <div style={{ background: 'linear-gradient(120deg, rgba(245,158,11,0.08), rgba(239,68,68,0.03))', border: '1px solid rgba(245,158,11,0.22)', borderRadius: 16, padding: 16 }}>
+      <style>{`
+        @keyframes bx-hero-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+        .bx-hero-slide { animation: bx-hero-fade 0.25s ease; }
+        .bx-hero-arrow { width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.55); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s ease, color 0.15s ease; }
+        .bx-hero-arrow:hover { background: rgba(255,255,255,0.12); color: #f0f0f0; }
+        .bx-hero-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.2); cursor: pointer; transition: width 0.15s ease, background 0.15s ease; }
+        .bx-hero-dot[data-on="1"] { width: 16px; border-radius: 3px; background: #f59e0b; }
+      `}</style>
+
+      <div key={atual.id} className="bx-hero-slide" style={{ display: 'grid', gridTemplateColumns: '96px 1fr', gap: 16, alignItems: 'center' }}>
+        <div style={{ width: 96, height: 134, borderRadius: 8, overflow: 'hidden', background: 'linear-gradient(160deg,#2a2f3a,#1a1d24)', flex: 'none' }}>
+          {atual.image_small && <img src={atual.image_small} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: info.cor, margin: '0 0 6px' }}>
+            {info.eyebrow}
+          </p>
+          <p style={{ fontSize: 19, fontWeight: 700, margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{atual.name}</p>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 20, margin: '4px 0 10px', background: info.bg, color: info.cor }}>
+            {atual.badge}
+          </span>
+          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: '0 0 12px' }}>{info.texto}</p>
+          <button
+            onClick={seed}
+            style={{ fontSize: 12.5, fontWeight: 700, padding: '9px 15px', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#1a0e00', fontFamily: FONT }}>
+            Montar troca com essa carta →
+          </button>
+        </div>
+      </div>
+
+      {pool.length > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 14 }}>
+          <button className="bx-hero-arrow" aria-label="Carta anterior" onClick={() => irPara(idx - 1)}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          <div style={{ display: 'flex', gap: 5 }}>
+            {pool.map((c, i) => (
+              <span key={c.id + i} className="bx-hero-dot" data-on={i === idx ? '1' : '0'} onClick={() => irPara(i)} />
+            ))}
+          </div>
+          <button className="bx-hero-arrow" aria-label="Próxima carta" onClick={() => irPara(idx + 1)}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function ComparadorDestaques({ onSeed }: { onSeed: (cardA?: TradeCard, cardB?: TradeCard) => void }) {
@@ -45,12 +158,6 @@ export default function ComparadorDestaques({ onSeed }: { onSeed: (cardA?: Trade
   const quedas7 = useMemo(() => movers.filter(m => m.window_days === 7 && m.direction === 'down' && m.preco_atual), [movers])
   const altasWin = useMemo(() => movers.filter(m => m.window_days === win && m.direction === 'up' && m.preco_atual).slice(0, 5), [movers, win])
   const quedasWin = useMemo(() => movers.filter(m => m.window_days === win && m.direction === 'down' && m.preco_atual).slice(0, 5), [movers, win])
-
-  const manchete = useMemo(() => {
-    const candidatos = [...altas7, ...quedas7].filter(m => m.pct != null)
-    if (!candidatos.length) return null
-    return candidatos.reduce((a, b) => (Math.abs(b.pct!) > Math.abs(a.pct!) ? b : a))
-  }, [altas7, quedas7])
 
   const pares = useMemo(() => {
     const usados = new Set<string>()
@@ -69,35 +176,9 @@ export default function ComparadorDestaques({ onSeed }: { onSeed: (cardA?: Trade
     return resultado
   }, [altas7, quedas7])
 
-  if (!movers.length) return null
-
   return (
     <div style={{ fontFamily: FONT, color: '#f0f0f0', display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
-      {manchete && (
-        <div style={{ display: 'grid', gridTemplateColumns: '96px 1fr', gap: 16, alignItems: 'center', background: 'linear-gradient(120deg, rgba(245,158,11,0.08), rgba(239,68,68,0.03))', border: '1px solid rgba(245,158,11,0.22)', borderRadius: 16, padding: 16 }}>
-          <div style={{ width: 96, height: 134, borderRadius: 8, overflow: 'hidden', background: 'linear-gradient(160deg,#2a2f3a,#1a1d24)', flex: 'none' }}>
-            {manchete.image_small && <img src={manchete.image_small} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#f59e0b', margin: '0 0 6px' }}>
-              {manchete.direction === 'up' ? 'Maior alta da semana' : 'Maior queda da semana'}
-            </p>
-            <p style={{ fontSize: 19, fontWeight: 700, margin: '0 0 2px' }}>{cleanNome(manchete.name)}</p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '0 0 8px' }}>{manchete.set_name}</p>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 20, marginBottom: 10, background: manchete.direction === 'up' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', color: manchete.direction === 'up' ? '#22c55e' : '#ef4444' }}>
-              {manchete.direction === 'up' ? '↑' : '↓'} {manchete.pct! > 0 ? '+' : ''}{manchete.pct!.toFixed(0)}% em 7 dias
-            </span>
-            <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: '0 0 12px' }}>
-              {manchete.direction === 'up' ? 'No Mercado Brasileiro — pode valer a pena soltar antes de esfriar.' : 'No Mercado Brasileiro — pode ser a hora de pegar antes de subir de novo.'}
-            </p>
-            <button
-              onClick={() => onSeed(manchete.direction === 'up' ? moverToCard(manchete) : undefined, manchete.direction === 'down' ? moverToCard(manchete) : undefined)}
-              style={{ fontSize: 12.5, fontWeight: 700, padding: '9px 15px', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#1a0e00', fontFamily: FONT }}>
-              Montar troca com essa carta →
-            </button>
-          </div>
-        </div>
-      )}
+      <HeroCarrossel onSeed={onSeed} />
 
       {(altasWin.length > 0 || quedasWin.length > 0) && (
         <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16 }}>
