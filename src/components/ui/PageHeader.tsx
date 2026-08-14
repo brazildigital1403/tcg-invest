@@ -65,13 +65,19 @@ export default function PageHeader({
         <Breadcrumb items={trilha} />
       </div>
 
-      {/* Titulo + selo (esquerda) e acao principal (direita) */}
+      {/* Titulo + selo (esquerda) e acao principal (direita).
+          flexWrap:'nowrap' + h1 com minWidth:0 evita que o selo "caia" pra
+          uma linha propria quando o titulo e longo o bastante pra quebrar em
+          2 linhas sozinho (ex: "Colecionadores em Destaque" no mobile) --
+          alignItems:flex-start mantem o selo colado na primeira linha do
+          titulo nesse caso, sem mudar o visual de titulo curto (selo e
+          titulo tem alturas parecidas). */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--bx-text)', margin: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'nowrap', minWidth: 0 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--bx-text)', margin: 0, minWidth: 0 }}>
             {titulo}
           </h1>
-          {selo}
+          {selo && <span style={{ flex: '0 0 auto' }}>{selo}</span>}
         </div>
         {acao}
       </div>

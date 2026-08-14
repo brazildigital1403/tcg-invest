@@ -42,9 +42,12 @@ interface Props {
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const FONT = "'DM Sans', system-ui, sans-serif"
 
+// minWidth:0 evita o bug classico de grid/flex: sem isso, o item nao encolhe
+// abaixo do min-content e o preco (nowrap) empurra a coluna pra fora da tela
+// no mobile (fundo com overflow-x:hidden escondia sem avisar).
 const col: React.CSSProperties = {
   background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 260,
+  borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 260, minWidth: 0,
 }
 const addBtn: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -52,7 +55,7 @@ const addBtn: React.CSSProperties = {
   border: '1px dashed rgba(245,158,11,0.4)', borderRadius: 10, padding: '11px 12px', cursor: 'pointer',
 }
 const cardRow: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: '34px 1fr auto auto', alignItems: 'center', gap: 10,
+  display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) auto auto', alignItems: 'center', gap: 10,
   background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 11, padding: '8px 10px',
 }
 
@@ -292,12 +295,24 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
 
   const conteudo = (
     <div style={{ fontFamily: FONT, color: '#f0f0f0' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 1fr', gap: 14, alignItems: 'start' }}>
+      {/* <=480px: empilha os 2 lados. Lado a lado, a coluna sobra ~135px --
+          menos que o suficiente pra thumb+nome+numero da busca (o motivo
+          da busca ter ganho o numero como diferencial, ver commit 79b3360).
+          Empilhado, cada lado usa a largura cheia do card e a busca respira. */}
+      <style>{`
+        .bx-trade-cols { display: grid; grid-template-columns: minmax(0,1fr) 44px minmax(0,1fr); gap: 14px; align-items: start; }
+        .bx-trade-swap { padding-top: 60px; }
+        @media (max-width: 480px) {
+          .bx-trade-cols { grid-template-columns: 1fr; gap: 10px; }
+          .bx-trade-swap { padding-top: 0; transform: rotate(90deg); justify-self: center; }
+        }
+      `}</style>
+      <div className="bx-trade-cols">
         <Coluna label="Você oferece" cartas={ladoA}
           onAdd={c => setLadoA(p => [...p, c])} onRemove={id => setLadoA(p => p.filter(c => c.id !== id))}
           buscaAberta={buscaAberta === 'A'} onAbrirBusca={() => setBuscaAberta('A')} onFecharBusca={() => setBuscaAberta(null)} />
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
+        <div className="bx-trade-swap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7M17 16l-3-3M17 16l-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </div>
