@@ -14,14 +14,24 @@ import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import TradeAnalyzer, { type TradeCard } from '@/components/marketplace/TradeAnalyzer'
 import ComparadorDestaques from '@/components/marketplace/ComparadorDestaques'
+import ComparadosFeed from '@/components/marketplace/ComparadosFeed'
 
 export default function ComparadorPage() {
-  const [seed, setSeed] = useState<{ a?: TradeCard; b?: TradeCard; v: number }>({ v: 0 })
+  const [seed, setSeed] = useState<{ ladoA: TradeCard[]; ladoB: TradeCard[]; v: number }>({ ladoA: [], ladoB: [], v: 0 })
   const calcRef = useRef<HTMLDivElement>(null)
 
-  function handleSeed(a?: TradeCard, b?: TradeCard) {
-    setSeed(prev => ({ a, b, v: prev.v + 1 }))
+  function irParaCalculadora() {
     calcRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function handleSeed(a?: TradeCard, b?: TradeCard) {
+    setSeed(prev => ({ ladoA: a ? [a] : [], ladoB: b ? [b] : [], v: prev.v + 1 }))
+    irParaCalculadora()
+  }
+
+  function handleReplay(ladoA: TradeCard[], ladoB: TradeCard[]) {
+    setSeed(prev => ({ ladoA, ladoB, v: prev.v + 1 }))
+    irParaCalculadora()
   }
 
   return (
@@ -40,13 +50,15 @@ export default function ComparadorPage() {
 
         <ComparadorDestaques onSeed={handleSeed} />
 
+        <ComparadosFeed onReplay={handleReplay} />
+
         <div ref={calcRef} style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '28px 0 20px' }}>
           <hr style={{ flex: 1, border: 'none', borderTop: '1px dashed rgba(255,255,255,0.15)' }} />
           <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.35)', fontWeight: 700, whiteSpace: 'nowrap' }}>ou monte a sua troca</span>
           <hr style={{ flex: 1, border: 'none', borderTop: '1px dashed rgba(255,255,255,0.15)' }} />
         </div>
 
-        <TradeAnalyzer key={seed.v} initialCardA={seed.a} initialCardB={seed.b} />
+        <TradeAnalyzer key={seed.v} initialLadoA={seed.ladoA} initialLadoB={seed.ladoB} />
       </div>
     </AppLayout>
   )
