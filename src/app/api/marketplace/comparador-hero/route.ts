@@ -38,6 +38,41 @@ function limparNome(raw: string | null): string {
   return raw.replace(/&amp;/g, '&').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/\s*\([^)]*\)\s*$/, '').trim()
 }
 
+/**
+ * ★ O PostgREST corta em 1000 linhas e NAO avisa: `error` vem null e `data`
+ * vem truncado. Foi exatamente o que aconteceu aqui na 1a versao -- user_cards
+ * em 30 dias ja tem 2.060 linhas, entao a contagem "mais adicionada" ranqueava
+ * em cima de 1000 linhas arbitrarias (sem order by) e mostrava carta e numero
+ * errados no hero. Mesmo tropeco ja documentado em api/pokedex/species/route.ts
+ * e lib/sitemap-core.ts.
+ *
+ * Le em paginas ate acabar. Teto de seguranca: passou de MAX_PAGINAS, LANCA em
+ * vez de devolver parcial -- numero errado com cara de certo e pior que hero
+ * sem o sinal (o catch la embaixo cai pros outros sinais). Quando o volume
+ * chegar perto do teto, a saida e agregar por RPC no banco, nao subir o teto.
+ */
+const PAGINA = 1000
+const MAX_PAGINAS = 12
+
+async function lerTudo(tabela: string, colunas: string, desdeISO: string) {
+  const sb = getServiceSupabase()
+  if (!sb) return { data: [] as any[], error: null }
+
+  const acumulado: any[] = []
+  for (let p = 0; p < MAX_PAGINAS; p++) {
+    const { data, error } = await sb
+      .from(tabela)
+      .select(colunas)
+      .gte('created_at', desdeISO)
+      .range(p * PAGINA, (p + 1) * PAGINA - 1)
+    if (error) return { data: [] as any[], error }
+    const lote = (data || []) as any[]
+    acumulado.push(...lote)
+    if (lote.length < PAGINA) return { data: acumulado, error: null }
+  }
+  throw new Error(`[comparador-hero] ${tabela} passou de ${MAX_PAGINAS * PAGINA} linhas -- agregar por RPC em vez de subir o teto`)
+}
+
 export async function GET() {
   const sb = getServiceSupabase()
   if (!sb) return NextResponse.json({ pool: [] })
@@ -47,8 +82,9 @@ export async function GET() {
 
     const [moversRes, anunciadasRes, adicionadasRes] = await Promise.all([
       sb.rpc('get_price_movers', { p_limit: 8 }),
+      // marketplace: 106 linhas no total, cabe numa pagina com folga.
       sb.from('marketplace').select('card_id, card_name, card_image').eq('status', 'disponivel'),
-      sb.from('user_cards').select('card_id, card_name, card_image, created_at').gte('created_at', desde30d),
+      lerTudo('user_cards', 'card_id, card_name, card_image', desde30d),
     ])
 
     const pool: HeroCard[] = []
