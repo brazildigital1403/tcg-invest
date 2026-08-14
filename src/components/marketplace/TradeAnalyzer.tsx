@@ -70,10 +70,15 @@ async function precificar(card: any, usdRate: number): Promise<{ preco: number; 
 
 // ─── Busca de carta (mesma RPC do AddCardModal, smart_search_cards_v5) ──────
 
+const PAGE_SIZE = 12
+
 function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCancel: () => void }) {
   const [termo, setTermo] = useState('')
   const [resultados, setResultados] = useState<any[]>([])
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
   const [buscando, setBuscando] = useState(false)
+  const [carregandoMais, setCarregandoMais] = useState(false)
   const [usdRate, setUsdRate] = useState(6.0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -83,15 +88,32 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (termo.trim().length < 2) { setResultados([]); return }
+    if (termo.trim().length < 2) { setResultados([]); setHasMore(false); return }
     setBuscando(true)
     debounceRef.current = setTimeout(async () => {
-      const { data, error } = await supabase.rpc('smart_search_cards_v5', { q: termo, limit_n: 12, offset_n: 0 })
-      setResultados(error ? [] : (data || []))
+      const { data, error } = await supabase.rpc('smart_search_cards_v5', { q: termo, limit_n: PAGE_SIZE, offset_n: 0 })
+      const rows = error ? [] : (data || [])
+      setResultados(rows)
+      setOffset(rows.length)
+      setHasMore(rows.length === PAGE_SIZE)
       setBuscando(false)
     }, 350)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [termo])
+
+  async function carregarMais() {
+    if (carregandoMais || !hasMore) return
+    setCarregandoMais(true)
+    const { data, error } = await supabase.rpc('smart_search_cards_v5', { q: termo, limit_n: PAGE_SIZE, offset_n: offset })
+    const rows: any[] = error ? [] : (data || [])
+    setResultados(prev => {
+      const vistos = new Set(prev.map((c: any) => c.id))
+      return [...prev, ...rows.filter((c: any) => !vistos.has(c.id))]
+    })
+    setOffset(prev => prev + rows.length)
+    setHasMore(rows.length === PAGE_SIZE)
+    setCarregandoMais(false)
+  }
 
   async function escolher(card: any) {
     const { preco, fonte } = await precificar(card, usdRate)
@@ -110,10 +132,14 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
       </div>
       {buscando && <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.35)', margin: '4px 2px' }}>Buscando…</p>}
       {resultados.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 260, overflowY: 'auto' }}
+          onScroll={e => {
+            const el = e.currentTarget
+            if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) carregarMais()
+          }}>
           {resultados.map(r => (
             <div key={r.id} onClick={() => escolher(r)}
-              style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: 8, alignItems: 'center', padding: '6px 8px', borderRadius: 8, cursor: 'pointer' }}
+              style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 8, alignItems: 'center', padding: '6px 8px', borderRadius: 8, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <div style={{ width: 28, height: 39, borderRadius: 4, overflow: 'hidden', background: '#1a1d24', flexShrink: 0 }}>
@@ -123,8 +149,19 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
                 <p style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cleanNome(r.name_pt || r.name)}</p>
                 <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.set_name_pt || r.set_name}</p>
               </div>
+              {r.number && (
+                <span style={{ fontSize: 10.5, fontFamily: 'ui-monospace, SFMono-Regular, monospace', color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {r.number}{r.set_total ? `/${r.set_total}` : ''}
+                </span>
+              )}
             </div>
           ))}
+          {carregandoMais && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', margin: '4px 0 0' }}>Carregando mais…</p>}
+          {!carregandoMais && hasMore && (
+            <button onClick={carregarMais} style={{ background: 'none', border: 'none', color: '#f59e0b', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', padding: '6px 0', fontFamily: FONT }}>
+              Carregar mais resultados
+            </button>
+          )}
         </div>
       )}
     </div>
