@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { registrarSinal } from '@/lib/sinais'
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -127,6 +128,11 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
   async function escolher(card: any) {
     const { preco, fonte } = await precificar(card, usdRate)
     onPick({ id: card.id, name: cleanNome(card.name_pt || card.name), set_name: card.set_name_pt || card.set_name, image_small: card.image_small, preco, fonte })
+    // Sinal "carta procurada" -- aqui e nao no useEffect da busca: instrumentar
+    // a digitacao poria escrita por tecla. `escolher` e escolha deliberada e
+    // captura intencao de TROCA, que e o proprio contexto do /comparador.
+    // queueMicrotask pra nunca competir com o que o usuario esta esperando.
+    queueMicrotask(() => registrarSinal('busca_troca', card.id, 0))
   }
 
   return (

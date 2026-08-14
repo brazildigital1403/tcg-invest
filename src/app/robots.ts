@@ -64,6 +64,12 @@ export default function robots(): MetadataRoute.Robots {
           '/minha-conta',
           '/minha-loja',
           '/admin',
+          // ★ NAO TIRAR '/api/' daqui sem falar com quem cuida de
+          // src/app/api/marketplace/sinais-carta/route.ts. O renderizador do
+          // Googlebot nao busca subrecurso bloqueado por robots.txt, e e SO
+          // isso que impede o beacon de sinal de disparar nas ~66,9k paginas
+          // de carta. Afrouxar aqui poluiria "carta mais acessada" com a
+          // cadencia de recrawl -- em silencio, sem erro nenhum.
           '/api/',
           '/reset-password',
           '/suporte',

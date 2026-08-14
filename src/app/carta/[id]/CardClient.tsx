@@ -18,6 +18,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
+import SinalCartaVista from '@/components/cards/SinalCartaVista'
 import PromoBanner from '@/components/ui/PromoBanner'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import PriceHistory from '@/components/ui/PriceHistory'
@@ -85,6 +86,11 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
   const imgAlt = 'Carta ' + card.name + (numLabel ? ' ' + numLabel : '') + (card.setName ? ' do set ' + card.setName : '') + ' — Pokémon TCG | Bynx'
 
   return (
+    <>
+    {/* Sinal "carta acessada". card.id (ja resolvido pelo servidor), NUNCA o
+        param da rota: a rota aceita id legado E slug, e contar pelo param
+        contaria a mesma carta duas vezes. */}
+    <SinalCartaVista cardId={card.id} tipo="view_pub" />
     <div
       style={{
         minHeight: '100vh',
@@ -494,5 +500,6 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
       </main>
       <PublicFooter />
     </div>
+    </>
   )
 }
