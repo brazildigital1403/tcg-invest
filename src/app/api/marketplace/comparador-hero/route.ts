@@ -28,9 +28,12 @@ interface HeroCard {
   id: string
   name: string
   image_small: string | null
-  sinal: 'alta' | 'queda' | 'anunciada' | 'adicionada'
+  sinal: 'alta' | 'queda' | 'anunciada' | 'adicionada' | 'procurada' | 'acessada'
   badge: string
   preco: number | null
+  /** So os sinais novos usam: carta sem preco vira CTA "ver a carta". */
+  slug?: string | null
+  cta?: 'troca' | 'ver'
 }
 
 function limparNome(raw: string | null): string {
@@ -80,12 +83,22 @@ export async function GET() {
   try {
     const desde30d = new Date(Date.now() - 30 * 86400000).toISOString()
 
-    const [moversRes, anunciadasRes, adicionadasRes] = await Promise.all([
+    const [moversRes, anunciadasRes, adicionadasRes, sinaisRes] = await Promise.all([
       sb.rpc('get_price_movers', { p_limit: 8 }),
       // marketplace: 106 linhas no total, cabe numa pagina com folga.
       sb.from('marketplace').select('card_id, card_name, card_image').eq('status', 'disponivel'),
       lerTudo('user_cards', 'card_id, card_name, card_image', desde30d),
+      // Agregacao e LIMIT em SQL de proposito -- ler a tabela crua aqui
+      // repetiria o bug de truncamento de cima.
+      sb.rpc('get_sinais_carta', { p_dias: 14, p_limit: 2, p_min_vis: 12, p_min_pico: 2 }),
     ])
+
+    // Sem este log, um grant faltando ou coluna renomeada vira lista vazia
+    // indistinguivel de "a semana foi fraca", e o hero fica bonito com 3
+    // sinais por meses. Mesma armadilha do "RLS bloqueia em silencio".
+    if (sinaisRes.error) {
+      console.error('[api/marketplace/comparador-hero] sinais:', sinaisRes.error.message)
+    }
 
     const pool: HeroCard[] = []
     // Carta sem card_id nao serve (anuncio antigo com card_id null existe no
@@ -109,6 +122,49 @@ export async function GET() {
     }
     for (const m of quedas7.slice(0, 2)) {
       push({ id: m.card_id, name: limparNome(m.name), image_small: m.image_small, sinal: 'queda', badge: `↓ ${m.pct!.toFixed(0)}% em 7 dias`, preco: m.preco_atual })
+    }
+
+    // ── Procurada / acessada (sinais de comportamento) ───────────────────
+    // ★ PRECEDENCIA: entram AQUI, depois de alta/queda e ANTES de anunciada/
+    // adicionada. push() dedupa por NOME e descarta calado quem chega depois,
+    // e as cartas mais vistas/buscadas sao por construcao as MESMAS que
+    // aparecem em "anunciada" e "adicionada". No fim da fila, os sinais novos
+    // seriam absorvidos e a feature nao mudaria um pixel do hero -- sem log,
+    // sem sintoma, sem ninguem descobrir.
+    const s = sinaisRes.data as {
+      eventos_janela: number; cartas_distintas: number; dado_ate: string | null
+      acessadas: { id: string; slug: string | null; nome: string; image_small: string | null; preco: number | null }[]
+      procuradas: { id: string; slug: string | null; nome: string; image_small: string | null; preco: number | null }[]
+    } | null
+
+    if (s && s.eventos_janela === 0) {
+      console.warn('[api/marketplace/comparador-hero] sinais: janela sem nenhum evento -- captura pode estar morta')
+    }
+    // Frescor do DADO, nao do cron: cron "verde" com rollup quebrado serviria
+    // dado velho com cara de novo.
+    const frescoDado = !!s?.dado_ate
+      && (Date.now() - new Date(`${s.dado_ate}T12:00:00-03:00`).getTime()) < 3 * 86400000
+
+    // Gate de ativacao: enquanto nao houver volume, a coleta roda e o hero
+    // segue com os 3 sinais antigos. Superlativo apoiado em 5 eventos e pior
+    // que superlativo nenhum.
+    const sinaisAtivos = frescoDado && s!.eventos_janela >= 500 && s!.cartas_distintas >= 80
+
+    if (sinaisAtivos) {
+      for (const c of s!.acessadas || []) {
+        push({
+          id: c.id, name: limparNome(c.nome), image_small: c.image_small,
+          sinal: 'acessada', badge: 'Muito vista nas últimas duas semanas',
+          preco: c.preco, slug: c.slug, cta: c.preco && c.preco > 0 ? 'troca' : 'ver',
+        })
+      }
+      for (const c of s!.procuradas || []) {
+        push({
+          id: c.id, name: limparNome(c.nome), image_small: c.image_small,
+          sinal: 'procurada', badge: 'Procurada nas trocas',
+          preco: c.preco, slug: c.slug, cta: c.preco && c.preco > 0 ? 'troca' : 'ver',
+        })
+      }
     }
 
     // ── Mais anunciada (agregado em JS -- tabela pequena, ja medido) ─────
@@ -158,9 +214,14 @@ export async function GET() {
       for (const c of pool) if (c.preco == null) c.preco = precoById.get(c.id) ?? null
     }
 
-    // Carta sem preco nenhum nao entra: o CTA do hero e "montar troca com essa
-    // carta", e ela cairia na calculadora valendo R$ 0,00.
-    return NextResponse.json({ pool: pool.filter(c => c.preco != null && c.preco > 0) })
+    // Carta sem preco nao pode cair na calculadora valendo R$ 0,00. Mas o pico
+    // natural de view/busca e lancamento de set, e carta recem-subida
+    // frequentemente ainda nao tem preco BRL -- so descartar deixaria o slide
+    // vazio justo na semana em que o sinal e mais informativo. Entao ela fica,
+    // com CTA "ver a carta" em vez de "montar troca".
+    return NextResponse.json({
+      pool: pool.filter(c => (c.preco != null && c.preco > 0) || (c.cta === 'ver' && c.slug)),
+    })
   } catch {
     return NextResponse.json({ pool: [] })
   }

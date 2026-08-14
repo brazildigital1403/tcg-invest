@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import type { TradeCard } from './TradeAnalyzer'
 
@@ -40,9 +41,11 @@ interface HeroCard {
   id: string
   name: string
   image_small: string | null
-  sinal: 'alta' | 'queda' | 'anunciada' | 'adicionada'
+  sinal: 'alta' | 'queda' | 'anunciada' | 'adicionada' | 'procurada' | 'acessada'
   badge: string
   preco: number | null
+  slug?: string | null
+  cta?: 'troca' | 'ver'
 }
 
 const SINAL_INFO: Record<HeroCard['sinal'], { eyebrow: string; cor: string; bg: string; texto: string }> = {
@@ -50,6 +53,11 @@ const SINAL_INFO: Record<HeroCard['sinal'], { eyebrow: string; cor: string; bg: 
   queda: { eyebrow: 'Em queda essa semana', cor: '#ef4444', bg: 'rgba(239,68,68,0.12)', texto: 'No Mercado Brasileiro — pode ser a hora de pegar antes de subir de novo.' },
   anunciada: { eyebrow: 'Bombando no marketplace', cor: '#f59e0b', bg: 'rgba(245,158,11,0.13)', texto: 'Várias pessoas anunciando essa carta agora — bom momento pra comparar preços.' },
   adicionada: { eyebrow: 'Entrando nas coleções', cor: '#60a5fa', bg: 'rgba(96,165,250,0.13)', texto: 'A carta que mais entrou em coleções esse mês — pode valer a pena ficar de olho.' },
+  // Copy sem numero e sem citar pessoas de proposito: o schema, por desenho,
+  // nao sabe contar pessoas distintas ao longo de varios dias (somar
+  // visitantes/dia da pessoa-dia, nao pessoa).
+  acessada: { eyebrow: 'Muito vista agora', cor: '#a855f7', bg: 'rgba(168,85,247,0.13)', texto: 'Uma das cartas mais abertas na Bynx nas últimas duas semanas.' },
+  procurada: { eyebrow: 'Procurada nas trocas', cor: '#ec4899', bg: 'rgba(236,72,153,0.13)', texto: 'Aparece com frequência nas trocas montadas por aqui.' },
 }
 
 function embaralhar<T>(arr: T[]): T[] {
@@ -119,11 +127,22 @@ function HeroCarrossel({ onSeed }: { onSeed: (cardA?: TradeCard, cardB?: TradeCa
             {atual.badge}
           </span>
           <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: '0 0 12px' }}>{info.texto}</p>
-          <button
-            onClick={seed}
-            style={{ fontSize: 12.5, fontWeight: 700, padding: '9px 15px', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#1a0e00', fontFamily: FONT }}>
-            Montar troca com essa carta →
-          </button>
+          {/* Carta sem preco de mercado (comum em set recem-lancado, que e
+              justamente quando o sinal de view/busca e mais informativo) nao
+              pode cair na calculadora valendo R$ 0,00 -- vira link pra carta. */}
+          {atual.cta === 'ver' && atual.slug ? (
+            <Link
+              href={`/carta/${atual.slug}`}
+              style={{ display: 'inline-block', fontSize: 12.5, fontWeight: 700, padding: '9px 15px', borderRadius: 10, cursor: 'pointer', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#1a0e00', fontFamily: FONT, textDecoration: 'none' }}>
+              Ver a carta →
+            </Link>
+          ) : (
+            <button
+              onClick={seed}
+              style={{ fontSize: 12.5, fontWeight: 700, padding: '9px 15px', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#1a0e00', fontFamily: FONT }}>
+              Montar troca com essa carta →
+            </button>
+          )}
         </div>
       </div>
 

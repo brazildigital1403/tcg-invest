@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { TYPE_COLOR } from './page'
 import { IconHistory } from '@/components/ui/Icons'
+import SinalCartaVista from '@/components/cards/SinalCartaVista'
 
 // Selo de energia: bolinha na cor do tipo (mesmo TYPE_COLOR dos badges de
 // tipo do header) em vez do emoji de elemento antigo (🔥💧🌿...) -- regra 15
@@ -125,6 +126,11 @@ export default function CardDetailModal({
 
   return (
     <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(10px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      {/* Sinal "carta acessada" na area logada. cardId na dep do useEffect
+          reinicia o relogio a cada troca de carta -- carta atravessada pela
+          seta em 200ms nunca dispara, senao folhear um Pokemon popular
+          creditaria dezenas de cartas que a pessoa nao olhou. */}
+      <SinalCartaVista cardId={c.id} tipo="view_app" />
       <div onClick={e => e.stopPropagation()} style={{ background:'var(--bx-bg-elev)', border:'1px solid var(--bx-border-2)', borderRadius:24, width:'100%', maxWidth:900, maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:'0 32px 100px rgba(0,0,0,0.7)', overflow:'hidden' }}>
 
         {/* Nav entre cartas */}

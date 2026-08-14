@@ -5,6 +5,7 @@ import { IconSearch, IconWallet } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
 import { trackFirstCardAdded } from '@/lib/analytics'
+import { registrarSinal } from '@/lib/sinais'
 import { useAppModal } from '@/components/ui/useAppModal'
 import CardRequestBox from './CardRequestBox'
 import ImportarCartasModal from './ImportarCartasModal'
@@ -275,6 +276,14 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       const cardName = number ? `${card.name} (${numFmt}${total})` : card.name
       const variante = variantMap[card.id] || 'normal'
       const idioma = idiomaMap[card.id] || card.idioma || 'pt'
+
+      // Sinal "carta procurada" -- no COMMIT, nao no clique. handleCardClick e
+      // um toggle que tambem abre o preview: no mobile, tocar no resultado e
+      // como a pessoa ESPIA a carta, e tocar de novo pra desmarcar (rejeicao
+      // explicita) seria engolido pelo dedup em vez de subtrair. Carta de arte
+      // chamativa colheria toque exploratorio e depois pareceria "a mais
+      // procurada".
+      queueMicrotask(() => registrarSinal('busca_colecao', card.id, 0))
 
       const usandoSplit = isPro && splitOn[card.id]
       let quantity = qtyMap[card.id] || 1
