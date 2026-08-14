@@ -25,8 +25,10 @@ export interface TradeCard {
 }
 
 interface Props {
-  /** Pré-carrega o lado "você oferece" — usado pelo ChatDock com a carta do anúncio. */
+  /** Pré-carrega o lado "você oferece" — usado pelo ChatDock com a carta do anúncio, e pelos destaques do /comparador. */
   initialCardA?: TradeCard | null
+  /** Pré-carrega o lado "você recebe" — usado pelas sugestões de troca pareadas do /comparador. */
+  initialCardB?: TradeCard | null
   /** Presente = renderiza como modal overlay (ChatDock). Ausente = inline (página /comparador). */
   onClose?: () => void
 }
@@ -218,9 +220,9 @@ function Coluna({ label, cartas, onAdd, onRemove, buscaAberta, onAbrirBusca, onF
 
 // ─── Componente principal ───────────────────────────────────────────────────
 
-export default function TradeAnalyzer({ initialCardA, onClose }: Props) {
+export default function TradeAnalyzer({ initialCardA, initialCardB, onClose }: Props) {
   const [ladoA, setLadoA] = useState<TradeCard[]>(initialCardA ? [initialCardA] : [])
-  const [ladoB, setLadoB] = useState<TradeCard[]>([])
+  const [ladoB, setLadoB] = useState<TradeCard[]>(initialCardB ? [initialCardB] : [])
   const [buscaAberta, setBuscaAberta] = useState<'A' | 'B' | null>(null)
 
   const totalA = ladoA.reduce((s, c) => s + c.preco, 0)

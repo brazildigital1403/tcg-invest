@@ -9,11 +9,21 @@
  * Não precisa de login: é calculadora, não mexe em dado de ninguém.
  */
 
+import { useState, useRef } from 'react'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
-import TradeAnalyzer from '@/components/marketplace/TradeAnalyzer'
+import TradeAnalyzer, { type TradeCard } from '@/components/marketplace/TradeAnalyzer'
+import ComparadorDestaques from '@/components/marketplace/ComparadorDestaques'
 
 export default function ComparadorPage() {
+  const [seed, setSeed] = useState<{ a?: TradeCard; b?: TradeCard; v: number }>({ v: 0 })
+  const calcRef = useRef<HTMLDivElement>(null)
+
+  function handleSeed(a?: TradeCard, b?: TradeCard) {
+    setSeed(prev => ({ a, b, v: prev.v + 1 }))
+    calcRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <AppLayout>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 0 60px' }}>
@@ -28,7 +38,15 @@ export default function ComparadorPage() {
           }
         />
 
-        <TradeAnalyzer />
+        <ComparadorDestaques onSeed={handleSeed} />
+
+        <div ref={calcRef} style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '28px 0 20px' }}>
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px dashed rgba(255,255,255,0.15)' }} />
+          <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.35)', fontWeight: 700, whiteSpace: 'nowrap' }}>ou monte a sua troca</span>
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px dashed rgba(255,255,255,0.15)' }} />
+        </div>
+
+        <TradeAnalyzer key={seed.v} initialCardA={seed.a} initialCardB={seed.b} />
       </div>
     </AppLayout>
   )
