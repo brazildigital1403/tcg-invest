@@ -25,10 +25,14 @@ export interface TradeCard {
 }
 
 interface Props {
-  /** Pré-carrega o lado "você oferece" — usado pelo ChatDock com a carta do anúncio, e pelos destaques do /comparador. */
+  /** Pré-carrega o lado "você oferece" com 1 carta — usado pelo ChatDock e pelos destaques do /comparador. */
   initialCardA?: TradeCard | null
-  /** Pré-carrega o lado "você recebe" — usado pelas sugestões de troca pareadas do /comparador. */
+  /** Pré-carrega o lado "você recebe" com 1 carta — usado pelas sugestões pareadas do /comparador. */
   initialCardB?: TradeCard | null
+  /** Pré-carrega "você oferece" com várias cartas — usado pelo replay do feed (Fase 2). Tem prioridade sobre initialCardA. */
+  initialLadoA?: TradeCard[]
+  /** Pré-carrega "você recebe" com várias cartas — usado pelo replay do feed (Fase 2). Tem prioridade sobre initialCardB. */
+  initialLadoB?: TradeCard[]
   /** Presente = renderiza como modal overlay (ChatDock). Ausente = inline (página /comparador). */
   onClose?: () => void
 }
@@ -220,10 +224,26 @@ function Coluna({ label, cartas, onAdd, onRemove, buscaAberta, onAbrirBusca, onF
 
 // ─── Componente principal ───────────────────────────────────────────────────
 
-export default function TradeAnalyzer({ initialCardA, initialCardB, onClose }: Props) {
-  const [ladoA, setLadoA] = useState<TradeCard[]>(initialCardA ? [initialCardA] : [])
-  const [ladoB, setLadoB] = useState<TradeCard[]>(initialCardB ? [initialCardB] : [])
+export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA, initialLadoB, onClose }: Props) {
+  const [ladoA, setLadoA] = useState<TradeCard[]>(initialLadoA?.length ? initialLadoA : initialCardA ? [initialCardA] : [])
+  const [ladoB, setLadoB] = useState<TradeCard[]>(initialLadoB?.length ? initialLadoB : initialCardB ? [initialCardB] : [])
   const [buscaAberta, setBuscaAberta] = useState<'A' | 'B' | null>(null)
+
+  // Fase 2: opt-in de publicar no feed "comparado agora pela comunidade".
+  const [temPerfilPublico, setTemPerfilPublico] = useState(false)
+  const [mostrarComoUsuario, setMostrarComoUsuario] = useState(false)
+  const [publicando, setPublicando] = useState(false)
+  const [publicado, setPublicado] = useState(false)
+  const [tokenAuth, setTokenAuth] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.access_token || !session.user) return
+      setTokenAuth(session.access_token)
+      const { data: perfil } = await supabase.from('public_users').select('perfil_publico').eq('id', session.user.id).maybeSingle()
+      setTemPerfilPublico(!!perfil?.perfil_publico)
+    })
+  }, [])
 
   const totalA = ladoA.reduce((s, c) => s + c.preco, 0)
   const totalB = ladoB.reduce((s, c) => s + c.preco, 0)
@@ -253,6 +273,22 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, onClose }: P
   const verdictBg = verdict?.tom === 'ok' ? 'rgba(34,197,94,0.12)' : verdict?.tom === 'bad' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.1)'
   const verdictBorder = verdict?.tom === 'ok' ? 'rgba(34,197,94,0.35)' : verdict?.tom === 'bad' ? 'rgba(239,68,68,0.35)' : 'rgba(245,158,11,0.35)'
   const verdictColor = verdict?.tom === 'ok' ? '#22c55e' : verdict?.tom === 'bad' ? '#ef4444' : '#f59e0b'
+  const veredictoDb = verdict?.tom === 'ok' ? 'equilibrada' : verdict?.tom === 'bad' ? 'muito_desequilibrada' : 'desequilibrada'
+
+  async function publicar() {
+    if (publicando || publicado || !verdict) return
+    setPublicando(true)
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (tokenAuth) headers.Authorization = `Bearer ${tokenAuth}`
+      const res = await fetch('/api/marketplace/trade-comparisons', {
+        method: 'POST', headers,
+        body: JSON.stringify({ ladoA, ladoB, totalA, totalB, pct, veredito: veredictoDb, mostrarUsuario: mostrarComoUsuario }),
+      })
+      if (res.ok) setPublicado(true)
+    } catch { /* silencioso -- publicar e opcional */ }
+    setPublicando(false)
+  }
 
   const conteudo = (
     <div style={{ fontFamily: FONT, color: '#f0f0f0' }}>
@@ -288,6 +324,37 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, onClose }: P
             <p style={{ fontSize: 14.5, fontWeight: 700, margin: '0 0 2px' }}>{verdict.titulo}</p>
             <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: 0 }}>{verdict.texto}</p>
           </div>
+        </div>
+      )}
+
+      {verdict && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed rgba(255,255,255,0.12)' }}>
+          {publicado ? (
+            <p style={{ fontSize: 12.5, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              Publicada no feed da comunidade.
+            </p>
+          ) : (
+            <>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: publicando ? 'default' : 'pointer' }}>
+                <span
+                  onClick={() => !publicando && publicar()}
+                  style={{ width: 34, height: 19, borderRadius: 20, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', position: 'relative', flexShrink: 0, opacity: publicando ? 0.6 : 1 }}>
+                  <span style={{ width: 13, height: 13, borderRadius: '50%', background: 'rgba(255,255,255,0.4)', position: 'absolute', top: 2, left: 2 }} />
+                </span>
+                <span>
+                  <p style={{ fontSize: 12.5, fontWeight: 600, margin: 0 }}>{publicando ? 'Publicando…' : 'Publicar essa troca (anônima) no feed da comunidade'}</p>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Sem seu nome, só as cartas e o resultado.</span>
+                </span>
+              </label>
+              {temPerfilPublico && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, marginLeft: 44, fontSize: 11.5, color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={mostrarComoUsuario} onChange={e => setMostrarComoUsuario(e.target.checked)} style={{ margin: 0 }} />
+                  mostrar como @usuário em vez de anônimo
+                </label>
+              )}
+            </>
+          )}
         </div>
       )}
 
