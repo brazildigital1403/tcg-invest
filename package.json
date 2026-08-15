@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gerar-artes": "node scripts/gerar-artes-lendarias.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.55.0",

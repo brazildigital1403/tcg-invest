@@ -142,6 +142,16 @@ export const PAGINAS_LENDARIAS: PaginaLendaria[] = [
   },
 ]
 
+// ─── Artes curadas (nivel 2) ────────────────────────────────────────────────
+// Manifest escrito pelo scripts/gerar-artes-lendarias.mjs (Nano Banana).
+// Arte gerada vence o eco do nivel 1; pagina sem entrada continua no eco.
+import artesGeradas from './paginas-lendarias-artes.json'
+
+for (const p of PAGINAS_LENDARIAS) {
+  const arte = (artesGeradas as Record<string, string>)[p.id]
+  if (arte) p.arteUrl = arte
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const POR_ID = new Map(PAGINAS_LENDARIAS.map(p => [p.id, p]))
