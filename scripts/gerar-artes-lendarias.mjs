@@ -74,8 +74,12 @@ function montarPrompt(pagina) {
   const varias = pagina.cartas.length > 1
   const base = [
     'You are painting the background of an "extended art" trading card binder page.',
-    'Create ONE full-page portrait painting (3:4) that seamlessly EXTENDS the scene of the provided official card artwork(s): same environment, lighting, color palette, rendering style and brush feel. It must look like the illustration simply continues beyond the card borders.',
-    'STRICT RULES: pure scenery continuation only. Do NOT paint any card, card frame, borders, text, letters, numbers, logos or watermarks. Do NOT duplicate the main creature(s) anywhere outside where their card sits - the page shows their WORLD, not copies of them.',
+    'The reference image(s) are cropped scenes from illustration artwork. Create ONE full-page portrait painting (3:4) that seamlessly EXTENDS that scene in every direction: same environment, lighting, color palette, rendering style and brush feel. It must look like the original illustration simply continues across the whole page.',
+    'STRICT RULES - the output is pure scenery, edge to edge:',
+    '- NO trading card, card frame, rounded rectangle, or floating panel anywhere.',
+    '- NO text, letters, numbers, logos, watermarks or symbols of any kind.',
+    '- NO grid lines, ruled lines, dividers or border marks - the pocket grid is physical, never painted.',
+    '- Do NOT paint the main creature(s) again - the page shows their WORLD, not them.',
   ]
   if (varias) {
     const posicoes = pagina.cartas
@@ -101,8 +105,25 @@ async function baixarCarta(url) {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`carta ${url}: HTTP ${res.status}`)
   const buf = Buffer.from(await res.arrayBuffer())
-  const mime = res.headers.get('content-type') || 'image/png'
-  return { mime, b64: buf.toString('base64') }
+
+  // Mandar a CARTA inteira faz o modelo pintar uma carta no meio da cena
+  // (aconteceu na primeira Moonbreon: moldura + texto embaralhado). Recorte
+  // generico da janela de arte das full arts: fora a faixa do nome (topo) e
+  // a caixa de ataque (base), sobra a cena. 6% laterais, 12% topo, corta em
+  // 68% da altura.
+  const meta = await sharp(buf).metadata()
+  const w = meta.width || 0, h = meta.height || 0
+  if (!w || !h) throw new Error(`imagem sem dimensao: ${url}`)
+  const recorte = await sharp(buf)
+    .extract({
+      left: Math.round(w * 0.06),
+      top: Math.round(h * 0.12),
+      width: Math.round(w * 0.88),
+      height: Math.round(h * 0.56),
+    })
+    .png()
+    .toBuffer()
+  return { mime: 'image/png', b64: recorte.toString('base64') }
 }
 
 async function chamarGemini(chave, prompt, imagens, tentativa = 0) {
