@@ -57,6 +57,23 @@ const GALERIA: { id: string; nome: string }[] = [
   { id: 'mega-gardevoir-ex', nome: 'Mega Gardevoir ex' }, { id: 'lugia-vstar', nome: 'Lugia VSTAR' },
   { id: 'giratina-vstar', nome: 'Giratina VSTAR' }, { id: 'eeveelutions', nome: 'Eeveelutions' },
   { id: 'kanto-151', nome: 'Kanto 151' },
+  { id: 'umbreon-v', nome: 'Umbreon V' }, { id: 'charizard-v-bs', nome: 'Charizard V' },
+  { id: 'espeon-vmax', nome: 'Espeon VMAX' }, { id: 'lugia-v', nome: 'Lugia V' },
+  { id: 'giratina-v', nome: 'Giratina V' }, { id: 'sylveon-v', nome: 'Sylveon V' },
+  { id: 'leafeon-v', nome: 'Leafeon V' }, { id: 'vaporeon-v', nome: 'Vaporeon V' },
+  { id: 'machamp-v', nome: 'Machamp V' }, { id: 'tyranitar-v', nome: 'Tyranitar V' },
+  { id: 'rayquaza-amazing', nome: 'Rayquaza Amazing' }, { id: 'zamazenta-amazing', nome: 'Zamazenta Amazing' },
+  { id: 'magikarp-scroll', nome: 'Magikarp' }, { id: 'charmander-151', nome: 'Charmander' },
+  { id: 'charmeleon-151', nome: 'Charmeleon' }, { id: 'squirtle-151', nome: 'Squirtle' },
+  { id: 'bulbasaur-151', nome: 'Bulbasaur' }, { id: 'mew-ex-pf', nome: 'Mew ex Shiny' },
+  { id: 'tr-mewtwo', nome: "TR Mewtwo" }, { id: 'tr-nidoking', nome: "TR Nidoking" },
+  { id: 'cynthia-garchomp', nome: 'Garchomp da Cynthia' }, { id: 'gardevoir-ex-svi', nome: 'Gardevoir ex' },
+  { id: 'charizard-ex-of', nome: 'Charizard ex OF' }, { id: 'roaring-moon', nome: 'Roaring Moon' },
+  { id: 'terapagos-ex', nome: 'Terapagos ex' }, { id: 'victini-wf', nome: 'Victini' },
+  { id: 'pikachu-ex-ah', nome: 'Pikachu ex AH' }, { id: 'mega-gengar-ex', nome: 'Mega Gengar ex' },
+  { id: 'mega-dragonite-ex', nome: 'Mega Dragonite ex' }, { id: 'meowth-pf', nome: 'Meowth' },
+  { id: 'clefairy-po', nome: 'Clefairy' }, { id: 'flareon-v', nome: 'Flareon V' },
+  { id: 'glaceon-v', nome: 'Glaceon V' },
 ]
 
 // Versoes otimizadas pra landing (LCP < 2,5s no 4G): -lp 760px (~60KB) no
@@ -326,8 +343,8 @@ export default function LandingLendarias() {
             <h1 className="lp-h1">A arte da carta não precisa acabar na borda.</h1>
             <p className="lp-sub">
               Sabe quando você para de folhear o fichário só pra olhar UMA carta? Agora a página inteira
-              é o cenário dela. A ilustração continua pelos 9 bolsos — no fichário virtual da Bynx e numa
-              folha A4 pronta pra imprimir, recortar e montar no seu fichário de verdade.
+              é o cenário dela. São 52 páginas com a ilustração continuando pelos 9 bolsos — no fichário
+              virtual da Bynx e numa folha A4 pronta pra imprimir, recortar e montar no seu fichário de verdade.
             </p>
             <div className="lp-hero-acoes">
               <Link className="lp-cta" href="/paginas-lendarias">Folhear a página grátis</Link>
@@ -413,10 +430,11 @@ export default function LandingLendarias() {
       <section>
         <div className="bx-gutter" style={{ maxWidth: 1080, margin: '0 auto' }}>
           <p className="lp-eyebrow">A coleção</p>
-          <h2 className="lp-h2">19 páginas. As 30 cartas que todo mundo caça.</h2>
+          <h2 className="lp-h2">52 páginas. As cartas que todo mundo caça.</h2>
           <p className="lp-sub">
-            Moonbreon, as 9 Eeveelutions de Prismatic, o trio de Kanto do 151, as alt arts de Evolving Skies
-            e a era Mega Evolution. Toque em qualquer página pra ver em tamanho grande.
+            Moonbreon, a página Eeveelution com as 9 SIR de Prismatic, o trio de Kanto do 151, as alt arts
+            de Evolving Skies e a era Mega Evolution — 63 cartas ao todo, uma página de cada vez.
+            Toque em qualquer arte pra ver em tamanho grande.
           </p>
           <div className="lp-galeria">
             {GALERIA.map(p => (
@@ -452,10 +470,10 @@ export default function LandingLendarias() {
             </div>
             <div className="lp-preco destaque">
               <span className="nome">Coleção Lendária</span>
-              <span className="valor">R$ 79,90 <small>as 19 páginas</small></span>
-              <span className="por">avulsas custariam R$ 245,10 — você economiza R$ 165,20</span>
+              <span className="valor">R$ 79,90 <small>as 52 páginas</small></span>
+              <span className="por">avulsas custariam R$ 670,80 — você economiza R$ 590,90</span>
               <ul>
-                <li><IcCheck /> As 19 páginas, de uma vez</li>
+                <li><IcCheck /> As 52 páginas — 50 de 1 carta + 2 especiais</li>
                 <li><IcCheck /> Página de 9 cartas custa o mesmo da de 1</li>
                 <li><IcCheck /> Novas páginas do trimestre já inclusas</li>
                 <li><IcCheck /> Vitalícia, impressão ilimitada</li>
@@ -559,7 +577,7 @@ export default function LandingLendarias() {
       {/* CTA fixo mobile */}
       <div className="lp-sticky">
         <div className="info">
-          <b>19 páginas por R$ 79,90</b>
+          <b>52 páginas por R$ 79,90</b>
           Vitalício. Primeira grátis.
         </div>
         <Link className="lp-cta" href="/paginas-lendarias">Começar grátis</Link>
