@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/ui/AppLayout'
 import { supabase } from '@/lib/supabaseClient'
+import FicharioVirtual from '@/components/master-sets/FicharioVirtual'
 
 interface Detail {
   set_id: string
@@ -23,6 +24,8 @@ interface Card {
   nome: string
   image_small: string | null
   owned: boolean
+  /** Preco BRL vindo da RPC v2 -- so o fichario virtual usa. */
+  preco: number | null
 }
 
 const GRAD = 'linear-gradient(135deg,#f59e0b,#ef4444)'
@@ -45,6 +48,10 @@ export default function MasterSetSheetPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [soFalta, setSoFalta] = useState(false)
   const [modo, setModo] = useState<'imagem' | 'economia'>('imagem')
+  // 'fichario' = experiencia de folhear na tela (padrao). 'folha' = os
+  // separadores 63x88mm como saem na impressora. A impressao SEMPRE usa a
+  // folha, independente da vista escolhida (o @media print cuida disso).
+  const [vista, setVista] = useState<'fichario' | 'folha'>('fichario')
   const [comprando, setComprando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
 
@@ -143,6 +150,11 @@ export default function MasterSetSheetPage() {
           .no-print, .tcg-sidebar, .tcg-header, .tcg-bottom-nav,
           footer, header, nav, aside { display: none !important; }
 
+          /* Na tela a folha fica com display:none quando a vista e o fichario.
+             O !important aqui vence o style inline -- sem isto, imprimir a
+             partir da vista de fichario sairia em branco. */
+          .ms-folha-print { display: block !important; }
+
           html, body {
             background: white !important;
             margin: 0 !important; padding: 0 !important;
@@ -237,7 +249,14 @@ export default function MasterSetSheetPage() {
                 )}
               </div>
 
-              {!locked && (
+              {/* Alternar vista: vale pra quem comprou E pra quem esta na
+                  amostra -- o fichario e justamente o que a amostra mostra. */}
+              <div style={{ display: 'inline-flex', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, overflow: 'hidden', marginTop: 16 }}>
+                <button onClick={() => setVista('fichario')} style={{ fontSize: 12.5, fontWeight: 600, color: vista === 'fichario' ? '#000' : 'rgba(255,255,255,0.6)', background: vista === 'fichario' ? GRAD : 'transparent', border: 'none', padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Fichário</button>
+                <button onClick={() => setVista('folha')} style={{ fontSize: 12.5, fontWeight: 600, color: vista === 'folha' ? '#000' : 'rgba(255,255,255,0.6)', background: vista === 'folha' ? GRAD : 'transparent', border: 'none', padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit' }}>Folha de impressão</button>
+              </div>
+
+              {!locked && vista === 'folha' && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
                     <button onClick={() => setSoFalta(v => !v)} style={{ fontSize: 13, fontWeight: 600, color: soFalta ? '#000' : '#fff', background: soFalta ? GRAD : 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '8px 14px', cursor: 'pointer' }}>
@@ -270,13 +289,13 @@ export default function MasterSetSheetPage() {
                   <div style={{ minWidth: 220, flex: 1 }}>
                     <p style={{ fontSize: 'clamp(15px,4vw,18px)', fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8, color: '#fff' }}>
                       <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="4" y="9" width="12" height="9" rx="2" stroke="#f59e0b" strokeWidth="1.4" /><path d="M7 9V6a3 3 0 016 0v3" stroke="#f59e0b" strokeWidth="1.4" strokeLinecap="round" /></svg>
-                      Preview — 9 cartas de amostra
+                      Amostra — 2 páginas liberadas
                     </p>
                     <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
                       Desbloqueie o master set <strong style={{ color: '#f59e0b' }}>{detail.nome}</strong> ({detail.total_cartas} cartas) por apenas <strong style={{ color: '#f59e0b' }}>{precoFmt(detail.preco_centavos)} uma unica vez</strong>. Acesso vitalicio, com a sua colecao ja marcada.
                     </p>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
-                      ✓ {detail.total_cartas} cartas · ✓ Sua colecao marcada · ✓ Para sempre · ✓ Impressao ilimitada
+                      {detail.total_cartas} cartas · Sua colecao marcada · Para sempre · Impressao ilimitada
                     </p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
@@ -293,8 +312,27 @@ export default function MasterSetSheetPage() {
           )}
         </div>
 
+        {!loading && !erro && detail && vista === 'fichario' && (
+          <div style={{ marginTop: 18 }}>
+            <FicharioVirtual
+              cards={cards}
+              totalCartas={detail.total_cartas}
+              nomeSet={detail.nome}
+              serie={detail.series}
+              bloqueado={locked}
+              onDesbloquear={comprar}
+            />
+          </div>
+        )}
+
+        {/* A folha de impressao continua montada mesmo na vista de fichario:
+            e ela que o @media print imprime. Na tela fica escondida por
+            display:none quando a vista e o fichario. */}
         {!loading && !erro && detail && (
-          <div className={locked ? 'print-blocked' : undefined} style={{ marginTop: 18 }}>
+          <div
+            className={`ms-folha-print${locked ? ' print-blocked' : ''}`}
+            style={{ marginTop: 18, display: vista === 'folha' ? 'block' : 'none' }}
+          >
             {pages.map((page, pi) => (
               <div key={pi} className="print-page" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, padding: 16, marginBottom: 18, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12 }}>
                 {page.map((c) => <MSPocket key={c.card_id} card={c} modo={modo} total={detail.printed_total || detail.total_cartas} />)}
