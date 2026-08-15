@@ -16,6 +16,15 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
+import { PAGINAS_LENDARIAS } from '@/lib/paginas-lendarias'
+
+// Cartas de cada pagina (do catalogo) pro overlay do lightbox: mostrar a
+// carta em cima da arte e o que faz o visitante ENTENDER o produto.
+const CARTAS_LB = new Map(PAGINAS_LENDARIAS.map(p => [p.id, p.cartas]))
+const cardUrlDe = (cardId: string) => {
+  const i = cardId.lastIndexOf('-')
+  return `https://images.pokemontcg.io/${cardId.slice(0, i)}/${cardId.slice(i + 1)}.png`
+}
 
 // ─── Dados das paginas exibidas (subset das 19, as mais vendedoras) ─────────
 
@@ -284,6 +293,10 @@ export default function LandingLendarias() {
           box-shadow: 0 40px 90px -20px rgba(0,0,0,.9); cursor: default; }
         .lp-lb-seta { position: fixed; top: 50%; transform: translateY(-50%); z-index: 2;
           background: rgba(255,255,255,.09); }
+        .lp-lb-carta { position: absolute; width: 30%; aspect-ratio: 63/88; border-radius: 5px;
+          overflow: hidden; border: 1.5px solid rgba(255,255,255,.6);
+          box-shadow: 0 0 20px rgba(0,0,0,.55), 0 8px 22px -6px rgba(0,0,0,.8); }
+        .lp-lb-carta img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 0; box-shadow: none; }
 
         /* passos */
         .lp-passos { counter-reset: p; display: grid; gap: 12px; margin-top: 26px; }
@@ -666,10 +679,18 @@ export default function LandingLendarias() {
         <div className="lp-lightbox" onClick={() => setLightbox(null)} role="dialog" aria-label="Arte em tamanho grande">
           <button className="lp-seta lp-lb-seta" style={{ left: 'max(10px, 3vw)' }} onClick={e => { e.stopPropagation(); navLightbox(-1) }} aria-label="Arte anterior"><IcSeta dir="esq" /></button>
           <figure style={{ margin: 0, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-            {/* -lp (760px) e nao a arte cheia: no max de 560px de exibicao a
-                diferenca e invisivel e a navegacao por seta/teclado troca na
-                hora em vez de esperar 600KB por arte. */}
-            <img src={arte(lightbox)} alt={`Página Lendária ${lightbox}`} />
+            {/* -lp (760px, troca instantanea) + overlay das cartas do catalogo
+                na posicao dos bolsos: o visitante VE como fica com a carta. */}
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img src={arte(lightbox)} alt={`Página Lendária ${lightbox}`} />
+              {(CARTAS_LB.get(lightbox) || []).map(c => (
+                <div key={c.cardId} className="lp-lb-carta" style={(CARTAS_LB.get(lightbox) || []).length === 1
+                  ? { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
+                  : { left: `${5 + (c.slot % 3) * 31.5}%`, top: `${4 + Math.floor(c.slot / 3) * 31.6}%` }}>
+                  <img src={cardUrlDe(c.cardId)} alt="" loading="lazy" />
+                </div>
+              ))}
+            </div>
             <figcaption style={{ marginTop: 10, fontSize: 12.5, color: 'rgba(255,255,255,.65)', fontVariantNumeric: 'tabular-nums' }}>
               {GALERIA.find(p => p.id === lightbox)?.nome} · {GALERIA.findIndex(p => p.id === lightbox) + 1} / {GALERIA.length}
             </figcaption>
