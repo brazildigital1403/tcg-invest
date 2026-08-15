@@ -69,6 +69,16 @@ export async function GET(req: NextRequest) {
               await sb.from('users').update({ stripe_customer_id: session.customer as string }).eq('id', userId)
             }
 
+          } else if ((plano === 'pagina_lendaria' || plano === 'colecao_lendaria') && session.metadata?.paginaId) {
+            await sb.from('user_paginas_lendarias').upsert({
+              user_id: userId,
+              pagina_id: session.metadata.paginaId,
+              source: 'stripe',
+            }, { onConflict: 'user_id,pagina_id' })
+            if (session.customer) {
+              await sb.from('users').update({ stripe_customer_id: session.customer as string }).eq('id', userId)
+            }
+
           } else if (plano.startsWith('lojista_') && session.subscription && session.metadata?.lojaId) {
             const tier = plano.startsWith('lojista_premium_') ? 'premium' : 'pro'
             const sub = await stripe.subscriptions.retrieve(session.subscription as string)
@@ -121,6 +131,11 @@ export async function GET(req: NextRequest) {
     if (plano === 'master_set') {
       const setId = session.metadata?.setId
       return NextResponse.redirect(setId ? `${APP}/master-sets/${setId}?desbloqueado=1` : `${APP}/master-sets`)
+    }
+
+    // Paginas Lendarias (avulsa ou pacote)
+    if (plano === 'pagina_lendaria' || plano === 'colecao_lendaria') {
+      return NextResponse.redirect(`${APP}/paginas-lendarias?desbloqueado=1`)
     }
 
     // Lojista
