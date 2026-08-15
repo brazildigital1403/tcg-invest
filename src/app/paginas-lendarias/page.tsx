@@ -180,7 +180,7 @@ export default function PaginasLendariasPage() {
           />
 
           <p style={{ fontSize: 14, color: 'var(--bx-text-2)', margin: '-10px 0 20px', lineHeight: 1.5 }}>
-            As 30 cartas mais desejadas do mercado, cada uma com fundo contínuo no fichário virtual. A primeira página é grátis — folheie, compartilhe no Instagram e imprima em A4 com linhas de recorte pra levar pro fichário físico.
+            {paginas.length > 0 ? `${paginas.length} páginas` : 'Páginas'} com as cartas mais desejadas do mercado, cada uma com fundo contínuo no fichário virtual. A primeira página é grátis — folheie, compartilhe no Instagram e imprima em A4 com linhas de recorte pra levar pro fichário físico.
           </p>
 
           {sucesso && (

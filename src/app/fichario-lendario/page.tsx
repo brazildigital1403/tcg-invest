@@ -8,7 +8,7 @@ import LandingLendarias from '@/components/paginas-lendarias/LandingLendarias'
 export const metadata: Metadata = {
   title: 'Fichário Lendário — Bynx | Páginas de fichário com a arte da carta estendida',
   description:
-    'A arte da carta continua pela página inteira do fichário. 19 páginas com as 30 cartas mais desejadas do Pokémon TCG, no fichário virtual e em folha A4 pra imprimir e recortar. A primeira página é grátis.',
+    'A arte da carta continua pela página inteira do fichário. 52 páginas com as cartas mais desejadas do Pokémon TCG, no fichário virtual e em folha A4 pra imprimir e recortar. A primeira página é grátis.',
   keywords: [
     'arte estendida pokemon', 'fichario pokemon', 'binder art pokemon', 'pagina de fichario pokemon',
     'arte estendida fichario', 'extended art binder', 'fichario 9 bolsos pokemon', 'moonbreon',
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Fichário Lendário — a arte da carta não acaba na borda',
     description:
-      'Páginas de fichário onde o cenário da carta continua pelos 9 bolsos. 30 cartas lendárias, fichário virtual + folha A4 pra imprimir. Primeira página grátis.',
+      'Páginas de fichário onde o cenário da carta continua pelos 9 bolsos. 52 páginas lendárias, fichário virtual + folha A4 pra imprimir. Primeira página grátis.',
     url: 'https://bynx.gg/fichario-lendario',
     siteName: 'Bynx',
     locale: 'pt_BR',
@@ -39,7 +39,7 @@ const productSchema = {
   '@type': 'Product',
   name: 'Páginas Lendárias — Bynx',
   description:
-    'Páginas de fichário com a arte da carta estendida pelos 9 bolsos. Fichário virtual + folha A4 com linhas de recorte pra imprimir. 19 páginas com as 30 cartas mais desejadas do Pokémon TCG.',
+    'Páginas de fichário com a arte da carta estendida pelos 9 bolsos. Fichário virtual + folha A4 com linhas de recorte pra imprimir. 52 páginas com as cartas mais desejadas do Pokémon TCG.',
   image: 'https://bynx.gg/paginas-lendarias/moonbreon.webp',
   brand: { '@type': 'Brand', name: 'Bynx' },
   category: 'Acessórios para Trading Card Game',
@@ -56,7 +56,7 @@ const productSchema = {
     },
     {
       '@type': 'Offer',
-      name: 'Coleção Lendária — 19 páginas',
+      name: 'Coleção Lendária — 52 páginas',
       url: 'https://bynx.gg/fichario-lendario',
       price: '79.90',
       priceCurrency: 'BRL',
