@@ -48,6 +48,7 @@ const DRY = args.includes('--dry')
 const MODEL = typeof flag('model') === 'string' ? flag('model') : 'gemini-3-pro-image'
 const SIZE = typeof flag('size') === 'string' ? flag('size') : '2K'
 const BASE = typeof flag('base') === 'string' ? flag('base') : 'http://localhost:3000'
+const TIGHT = args.includes('--tight')
 
 // ─── API key: env primeiro, senao .env.local/.env ───────────────────────────
 
@@ -91,6 +92,7 @@ function montarPrompt(pagina) {
       'The attached image is a canvas with a painted fragment at its exact center. ALL the flat gray around it is UNPAINTED PLACEHOLDER.',
       'OUTPAINT: replace 100% of the gray placeholder with the seamless continuation of the painting — top, sides AND bottom, edge to edge. Not one pixel of flat gray or empty darkness may remain. Every element touching the fragment borders (sky, terrain, water, light, foliage, clouds, energy) flows outward in the exact same art style, palette, lighting and brushwork, as if the illustration was always this size.',
       'The creature must stay ENTIRELY inside the central fragment: never redraw it, never extend any part of its body into the outpainted area (the fragment region will be covered by the physical card).',
+      'The fragment is a CROPPED PAINTING, not a trading card: never paint a white border, margin, frame or card shape around it — its edges must dissolve directly into the surrounding scene.',
       'STRICT RULES: no card, no frame, no border, no panel or rectangle shapes, no text, letters, numbers, logos or watermarks anywhere.',
       `Mood hint (Portuguese, secondary to the fragment itself): ${pagina.tema}`,
     ].join('\n')
@@ -128,12 +130,16 @@ async function baixarCarta(url) {
   const meta = await sharp(buf).metadata()
   const w = meta.width || 0, h = meta.height || 0
   if (!w || !h) throw new Error(`imagem sem dimensao: ${url}`)
+  // tight: layouts com caixa de texto DENTRO da janela de arte (Amazing
+  // Rare, V alt, VSTAR) — recorte generoso leva texto junto e o modelo
+  // pinta "uma carta". Corta so o miolo visual.
+  const t = TIGHT ? { l: 0.12, t: 0.16, w: 0.76, h: 0.34 } : { l: 0.06, t: 0.12, w: 0.88, h: 0.56 }
   const recorte = await sharp(buf)
     .extract({
-      left: Math.round(w * 0.06),
-      top: Math.round(h * 0.12),
-      width: Math.round(w * 0.88),
-      height: Math.round(h * 0.56),
+      left: Math.round(w * t.l),
+      top: Math.round(h * t.t),
+      width: Math.round(w * t.w),
+      height: Math.round(h * t.h),
     })
     .png()
     .toBuffer()
@@ -265,10 +271,27 @@ async function main() {
         imagens = [{ mime: 'image/png', b64: base.toString('base64') }]
       }
 
-      const bruto = await comBackoff(
+      let bruto = await comBackoff(
         () => chamarGemini(chave, montarPrompt(pagina), imagens),
         rotulo
       )
+
+      // Guarda anti-cinza: se sobrou placeholder sem pintar (aconteceu no
+      // mega-charizard-x e squirtle-151), rejeita e tenta mais uma vez.
+      const stats = await sharp(bruto).resize(64, 85, { fit: 'fill' }).removeAlpha().raw().toBuffer()
+      let cinza = 0
+      for (let px = 0; px < stats.length; px += 3) {
+        const r = stats[px], g = stats[px + 1], b = stats[px + 2]
+        if (Math.abs(r - 138) < 14 && Math.abs(g - 138) < 14 && Math.abs(b - 138) < 14) cinza++
+      }
+      if (cinza / (stats.length / 3) > 0.04) {
+        console.log(`  ${Math.round(cinza / (stats.length / 3) * 100)}% de cinza sem pintar — regenerando 1x...`)
+        const bruto2 = await comBackoff(
+          () => chamarGemini(chave, montarPrompt(pagina), imagens),
+          rotulo + ' (retry cinza)'
+        )
+        if (bruto2) bruto = bruto2
+      }
 
       const arquivo = path.join(OUT_DIR, `${pagina.id}.webp`)
       const img = sharp(bruto)
