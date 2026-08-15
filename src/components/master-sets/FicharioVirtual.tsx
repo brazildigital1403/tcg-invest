@@ -20,6 +20,7 @@
  */
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { heroiEntre } from '@/lib/paginas-lendarias'
 
 export interface FicharioCard {
   card_id: string
@@ -141,8 +142,27 @@ export default function FicharioVirtual({
     if (idx === null) return <div className="fv-vazia" aria-hidden="true" />
     const disponivel = idx < paginasReais.length
     const cartas = disponivel ? paginasReais[idx] : []
+
+    // Teaser do fundo continuo: se a pagina contem a carta-heroi de uma
+    // Pagina Lendaria, a arte dela vaza pro fundo da pagina (nivel 1 — eco
+    // desfocado da propria imagem que os bolsos ja exibem). A experiencia
+    // completa (arte nitida, compartilhar, imprimir) vive em /paginas-lendarias.
+    const lend = disponivel ? heroiEntre(cartas.map(c => c.card_id)) : null
+    const lendImg = lend ? (cartas.find(c => c.card_id === lend.cardId)?.image_small || null) : null
+
     return (
-      <div className="fv-pagina">
+      <div className={`fv-pagina${lendImg ? ' fv-lend' : ''}`}>
+        {lendImg && (
+          <>
+            <div className="fv-lend-cam1" style={{ backgroundImage: `url("${lendImg}")` }} aria-hidden="true" />
+            <div className="fv-lend-cam2" style={{ backgroundImage: `url("${lendImg}")` }} aria-hidden="true" />
+            <div className="fv-lend-vinheta" aria-hidden="true" />
+            <a className="fv-lend-chip" href="/paginas-lendarias" title={`Pagina Lendaria: ${lend?.pagina.nome}`}>
+              <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M16.5 12.2A7 7 0 018.3 3.6a7 7 0 108.2 8.6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+              Página Lendária
+            </a>
+          </>
+        )}
         <div className="fv-grade">
           {disponivel
             ? cartas.map(c => <Bolso key={c.card_id} card={c} />)
@@ -180,6 +200,24 @@ export default function FicharioVirtual({
 
         .fv-pagina { position:relative; background:rgba(0,0,0,0.26); border:1px solid rgba(245,158,11,0.14);
           border-radius:10px; padding:11px 11px 20px; }
+
+        /* Fundo continuo (teaser das Paginas Lendarias) */
+        .fv-lend { overflow:hidden; }
+        .fv-lend-cam1 { position:absolute; inset:-14%; background-size:cover; background-position:center 18%;
+          filter:blur(26px) saturate(1.4) brightness(0.72); transform:scale(1.3); pointer-events:none; }
+        .fv-lend-cam2 { position:absolute; inset:-4%; background-size:cover; background-position:center 12%;
+          filter:blur(8px) saturate(1.2) brightness(0.55); opacity:0.6; mix-blend-mode:screen; pointer-events:none; }
+        .fv-lend-vinheta { position:absolute; inset:0; pointer-events:none; background:
+          radial-gradient(120% 90% at 50% 42%, transparent 28%, rgba(8,6,4,0.72) 100%),
+          linear-gradient(rgba(8,6,4,0.4), transparent 24% 68%, rgba(8,6,4,0.55)); }
+        .fv-lend .fv-grade, .fv-lend .fv-numpag { position:relative; z-index:2; }
+        .fv-lend .fv-bolso { background:rgba(10,8,6,0.32); border-color:rgba(255,255,255,0.2); }
+        .fv-lend-chip { position:absolute; top:5px; left:50%; transform:translateX(-50%); z-index:3;
+          display:inline-flex; align-items:center; gap:4px; font-size:8.5px; font-weight:800;
+          letter-spacing:0.08em; text-transform:uppercase; text-decoration:none; white-space:nowrap;
+          color:#fbbf24; background:rgba(0,0,0,0.55); border:1px solid rgba(245,158,11,0.4);
+          border-radius:999px; padding:3px 8px; }
+        .fv-lend-chip:hover { background:rgba(0,0,0,0.75); }
         .fv-vazia { border-radius:10px; border:1px dashed rgba(255,255,255,0.06); min-height:100%; }
         .fv-grade { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
         .fv-numpag { position:absolute; bottom:5px; left:0; right:0; text-align:center; font-size:9.5px;

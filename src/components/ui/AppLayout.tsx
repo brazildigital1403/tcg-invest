@@ -85,6 +85,16 @@ function IconMasterSets({ size = 20, color = 'currentColor' }: { size?: number; 
   )
 }
 
+// Icone "Paginas Lendarias" — lua crescente com brilho (fundo continuo)
+function IconLendarias({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <path d='M16.5 12.2A7 7 0 018.3 3.6a7 7 0 108.2 8.6z' stroke={color} strokeWidth='1.4' strokeLinejoin='round' />
+      <path d='M14.5 4.5v3M13 6h3' stroke={color} strokeWidth='1.3' strokeLinecap='round' />
+    </svg>
+  )
+}
+
 function IconMais({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
@@ -163,6 +173,7 @@ const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/supor
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 const ITEM_MASTER_SETS: MenuItem = { name: 'Master Sets', full: 'Master Sets', href: '/master-sets', Icon: IconMasterSets, group: 'imprimir' }
+const ITEM_PAGINAS_LENDARIAS: MenuItem = { name: 'Lendárias', full: 'Páginas Lendárias', href: '/paginas-lendarias', Icon: IconLendarias, group: 'imprimir' }
 
 const GROUP_ORDER: { key: GroupKey; label: string }[] = [
   { key: 'colecao', label: 'Minha coleção' },
@@ -241,12 +252,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
+      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
     }
     if (isLojistaPuro) {
       return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
     }
-    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
+    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     else base.push(ITEM_VENDER)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE)

@@ -942,6 +942,25 @@ export async function sendPurchaseConfirmationEmail(
     preheader = 'Sua assinatura Plus foi ativada.'
     subject = subjUser('✨ Bem-vindo ao Plus!')
 
+  } else if (tipo === 'pagina_lendaria' || tipo === 'colecao_lendaria') {
+    const pacote = tipo === 'colecao_lendaria'
+    badgeLabel = pacote ? 'Coleção Lendária' : 'Página Lendária'
+    badgeColor = '#f59e0b'
+    badgeBg = 'rgba(245,158,11,0.15)'
+    titulo = pacote ? 'Coleção Lendária desbloqueada! 🌙' : 'Página Lendária desbloqueada! 🌙'
+    intro = pacote
+      ? `${escapeHtml(firstName)}, sua compra da <strong style="color:#f59e0b;">Coleção Lendária</strong> foi confirmada. Todas as páginas com arte contínua — incluindo as novas de cada trimestre — já estão liberadas no seu fichário.`
+      : `${escapeHtml(firstName)}, sua <strong style="color:#f59e0b;">Página Lendária</strong> foi confirmada e já está liberada no seu fichário.`
+    detalhes = `
+      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">🎨 A arte da carta se estende pela página inteira do fichário</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📱 Compartilhe a página direto no seu Instagram</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">♾️ Acesso vitalício, com a sua coleção já marcada</p>
+    `
+    ctaLabel = 'Abrir meu fichário'
+    ctaHref = `${APP_URL}/paginas-lendarias`
+    preheader = pacote ? 'Sua Coleção Lendária já está liberada.' : 'Sua Página Lendária já está liberada.'
+    subject = subjUser(pacote ? '🌙 Sua Coleção Lendária está liberada!' : '🌙 Sua Página Lendária está liberada!')
+
   } else {
     // Fallback genérico — não deveria acontecer em produção, mas é seguro
     badgeLabel = 'Compra Confirmada'

@@ -20,6 +20,7 @@ export interface PlanCaps {
   scansMes: number             // creditos de Scan IA por mes
   separadoresLiberados: boolean// separadores liberados (vs avulso)
   masterSetsLiberados: boolean // todos os Master Sets liberados (vs avulso)
+  paginasLendariasLiberadas: boolean // Paginas Lendarias (fundo continuo) liberadas (vs avulso)
 }
 
 // Precos de referencia (centralizados; a UI e o Stripe leem daqui)
@@ -36,6 +37,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     limiteCartas: 100, limitePastas: 1, limiteAnuncios: 3,
     podeDashboard: false, pokedexCompleta: false, podeExportar: false,
     scansMes: 0, separadoresLiberados: false, masterSetsLiberados: false,
+    paginasLendariasLiberadas: false,
   },
   plus: {
     label: 'Plus',
@@ -43,6 +45,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     limiteCartas: 500, limitePastas: Infinity, limiteAnuncios: Infinity,
     podeDashboard: true, pokedexCompleta: true, podeExportar: false,
     scansMes: 0, separadoresLiberados: false, masterSetsLiberados: false,
+    paginasLendariasLiberadas: false,
   },
   pro: {
     label: 'Pro',
@@ -50,6 +53,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     limiteCartas: Infinity, limitePastas: Infinity, limiteAnuncios: Infinity,
     podeDashboard: true, pokedexCompleta: true, podeExportar: true,
     scansMes: Infinity, separadoresLiberados: true, masterSetsLiberados: false,
+    paginasLendariasLiberadas: false,
   },
   pro_anual: {
     label: 'Pro Anual',
@@ -57,6 +61,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     limiteCartas: Infinity, limitePastas: Infinity, limiteAnuncios: Infinity,
     podeDashboard: true, pokedexCompleta: true, podeExportar: true,
     scansMes: Infinity, separadoresLiberados: true, masterSetsLiberados: true,
+    paginasLendariasLiberadas: true,
   },
 }
 

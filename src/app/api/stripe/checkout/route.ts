@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     // ── Body: plano + lojaId + setId ──────────────────────────────────────
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
     const body = await req.json().catch(() => ({}))
-    const { plano, lojaId, setId } = body as { plano?: string; lojaId?: string; setId?: string }
+    const { plano, lojaId, setId, paginaId } = body as { plano?: string; lojaId?: string; setId?: string; paginaId?: string }
 
     if (!plano || typeof plano !== 'string') {
       return NextResponse.json({ error: 'Plano não informado' }, { status: 400 })
@@ -209,6 +209,64 @@ export async function POST(req: NextRequest) {
         metadata: { userId, plano: 'master_set', setId },
         success_url: `${APP}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url:  `${APP}/master-sets`,
+      })
+      return NextResponse.json({ url: session.url })
+    }
+
+    // ── Fluxo: Pagina Lendaria (one-time, por pagina) e Colecao Lendaria ──────
+    // Espelha o master_set: compra avulsa vitalicia. A tabela
+    // user_paginas_lendarias pode nao existir ainda (migration pendente) —
+    // erro na consulta de "ja tem" nao bloqueia o checkout, so pula o atalho.
+    if (plano === 'pagina_lendaria' || plano === 'colecao_lendaria') {
+      const { getPaginaLendaria, PL_PACOTE } = await import('@/lib/paginas-lendarias')
+      const { resolvePlan } = await import('@/lib/plan')
+
+      const ehPacote = plano === 'colecao_lendaria'
+      if (!ehPacote && (!paginaId || !getPaginaLendaria(paginaId))) {
+        return NextResponse.json({ error: 'Pagina Lendaria inválida' }, { status: 400 })
+      }
+      const alvoId = ehPacote ? PL_PACOTE : (paginaId as string)
+
+      const priceEnv = ehPacote ? 'STRIPE_PRICE_COLECAO_LENDARIA' : 'STRIPE_PRICE_PAGINA_LENDARIA'
+      const priceId = process.env[priceEnv]
+      if (!priceId) {
+        console.error(`[stripe/checkout] env vazia: ${priceEnv}`)
+        return NextResponse.json({ error: 'Páginas Lendárias ainda não configuradas' }, { status: 503 })
+      }
+
+      // Plano anual ja inclui tudo
+      const { data: uPlano } = await supabase
+        .from('users')
+        .select('is_pro, plano, pro_expira_em, trial_expires_at')
+        .eq('id', userId)
+        .limit(1)
+      if (resolvePlan(uPlano?.[0]).caps.paginasLendariasLiberadas) {
+        return NextResponse.json({ error: 'Seu plano anual já inclui todas as Páginas Lendárias', code: 'INCLUDED_ANNUAL' }, { status: 400 })
+      }
+
+      // Ja comprou (a pagina, ou o pacote)?
+      const { data: jaTem, error: jaTemErr } = await supabase
+        .from('user_paginas_lendarias')
+        .select('pagina_id')
+        .eq('user_id', userId)
+        .in('pagina_id', ehPacote ? [PL_PACOTE] : [alvoId, PL_PACOTE])
+        .limit(1)
+      if (jaTemErr) {
+        console.warn('[stripe/checkout] user_paginas_lendarias indisponivel (migration pendente?):', jaTemErr.message)
+      } else if (jaTem?.[0]) {
+        return NextResponse.json({ error: 'Você já desbloqueou isto', code: 'ALREADY_OWNED' }, { status: 400 })
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        locale: 'pt-BR',
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        ...customerParam,
+        ...(existingCustomerId ? {} : { customer_creation: 'always' as const }),
+        metadata: { userId, plano, paginaId: alvoId },
+        success_url: `${APP}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url:  `${APP}/paginas-lendarias`,
       })
       return NextResponse.json({ url: session.url })
     }

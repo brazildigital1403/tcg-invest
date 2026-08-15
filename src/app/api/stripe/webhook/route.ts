@@ -723,6 +723,63 @@ export async function POST(req: NextRequest) {
           break
         }
 
+        // ─── PAGINA LENDARIA / COLECAO LENDARIA (one-time) ──────────────
+        // Mesmo desenho do master_set: upsert idempotente (a Stripe
+        // re-entrega) + receita como venda avulsa, nunca assinatura.
+        // A tabela pode nao existir ainda (migration pendente): o erro fica
+        // logado como CRITICAL e o success/route ja fez o fallback — nada
+        // de dinheiro se perde, so o registro do desbloqueio, que o resend
+        // do evento refaz depois que a migration rodar.
+        if (planoMeta === 'pagina_lendaria' || planoMeta === 'colecao_lendaria') {
+          const paginaId = session.metadata?.paginaId
+          if (!paginaId) {
+            console.warn(`[webhook] ${planoMeta} sem paginaId — ignorando`)
+            break
+          }
+          const piId = await extrairPaymentIntentDeSession(stripe, session)
+          try {
+            await supabase.from('user_paginas_lendarias').upsert({
+              user_id: userId,
+              pagina_id: paginaId,
+              source: 'stripe',
+              stripe_payment_intent_id: piId || null,
+            }, { onConflict: 'user_id,pagina_id' })
+            await supabase.from('users').update({
+              stripe_customer_id: session.customer as string || null,
+            }).eq('id', userId)
+            console.log(`[webhook] Pagina Lendaria ${paginaId} desbloqueada para ${userId}`)
+          } catch (err: any) {
+            console.error(`[webhook] CRITICAL: falha desbloqueando pagina lendaria ${paginaId} para ${userId}:`, err.message)
+          }
+
+          try {
+            const descricao = paginaId === '*'
+              ? 'Colecao Lendaria — pacote completo'
+              : `Pagina Lendaria — ${paginaId}`
+            await registrarReceitaStripe(supabase, {
+              stripe,
+              paymentIntentId:    piId,
+              valorTotalCentavos: session.amount_total || 0,
+              descricao,
+              categoria:          'master_set',
+              dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
+              userId,
+            })
+          } catch (err: any) {
+            console.error(`[webhook] CRITICAL: falha registrando receita pagina lendaria:`, err.message)
+          }
+
+          try {
+            const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
+            if (uData?.[0]?.email) {
+              await sendPurchaseConfirmationEmail(uData[0].email, uData[0].name || '', planoMeta).catch(console.error)
+            }
+          } catch (err: any) {
+            console.error(`[webhook] falha enviando email pagina lendaria:`, err.message)
+          }
+          break
+        }
+
         // ─── LOJISTA (subscription com trial 14 dias) ───────────────────
         if (planoMeta.startsWith('lojista_')) {
           if (!lojaId) {
