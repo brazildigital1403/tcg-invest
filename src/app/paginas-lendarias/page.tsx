@@ -38,7 +38,10 @@ export default function PaginasLendariasPage() {
   const fetchSheet = useCallback(async (): Promise<boolean> => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/paginas-lendarias/sheet', {
+      // ?preview_artes=1 repassado pra API: modo de revisao de arte, dev-only
+      // (a API ignora em producao).
+      const preview = typeof window !== 'undefined' && window.location.search.includes('preview_artes=1')
+      const res = await fetch(`/api/paginas-lendarias/sheet${preview ? '?preview_artes=1' : ''}`, {
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       })
       const json = await res.json()
