@@ -284,6 +284,44 @@ export default function LandingLendarias() {
         .lp-passo h3 { font-size: 15.5px; font-weight: 700; margin: 8px 0 6px; }
         .lp-passo p { font-size: 13.5px; color: var(--bx-text-2, rgba(255,255,255,.6)); line-height: 1.55; margin: 0; }
 
+        /* visuais dos passos: a MESMA pagina (Moonbreon) atravessando o processo */
+        .lp-viz { position: relative; aspect-ratio: 5/6; border-radius: 10px; overflow: hidden;
+          margin: 12px 0 14px; background: var(--bx-surface-2, rgba(255,255,255,.06)); }
+        /* 1: folha A4 saindo da impressora */
+        .lp-viz-a4 { position: absolute; inset: 8% 16%; background: #f5f3ee; border-radius: 3px;
+          padding: 5%; box-shadow: 0 10px 26px -8px rgba(0,0,0,.6); }
+        .lp-viz-a4 img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+        .lp-viz-a4::after { content: ''; position: absolute; inset: 5%;
+          background:
+            linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.75)) 33.3% 0 / 1.5px 100% no-repeat,
+            linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.75)) 66.6% 0 / 1.5px 100% no-repeat,
+            linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.75)) 0 33.3% / 100% 1.5px no-repeat,
+            linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.75)) 0 66.6% / 100% 1.5px no-repeat; }
+        .lp-viz-impressora { position: absolute; left: 0; right: 0; top: 0; height: 9%;
+          background: var(--bx-surface-3, #1b1f27); border-bottom: 2px solid rgba(0,0,0,.5); }
+        /* 2: as 9 pecas recortadas, separadas */
+        .lp-viz-pecas { position: absolute; inset: 9% 13%; display: grid;
+          grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); gap: 7%; }
+        .lp-viz-pecas i { background-image: var(--pg); background-size: 300% 300%; border-radius: 3px;
+          box-shadow: 0 5px 12px -4px rgba(0,0,0,.7); }
+        .lp-viz-pecas i:nth-child(2) { transform: rotate(3deg); }
+        .lp-viz-pecas i:nth-child(4) { transform: rotate(-2.5deg); }
+        .lp-viz-pecas i:nth-child(8) { transform: rotate(2deg); }
+        .lp-viz-tesoura { position: absolute; right: 5%; bottom: 4%; color: var(--ac-1, #f59e0b); }
+        /* 3 e 4: pagina montada no fichario */
+        .lp-viz-fich { position: absolute; inset: 6% 13%; border-radius: 8px; overflow: hidden;
+          border: 1px solid rgba(var(--ac-1-rgb,245,158,11), .4); }
+        .lp-viz-fich img.fundo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .lp-viz-fich .bolsos { position: absolute; inset: 5%; display: grid;
+          grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); gap: 5px; }
+        .lp-viz-fich .bolsos i { border: 1px solid rgba(255,255,255,.3); border-radius: 4px;
+          background: rgba(8,6,4,.12); }
+        .lp-viz-carta { position: absolute; left: 50%; top: 50%; width: 31%; aspect-ratio: 63/88;
+          transform: translate(-50%, -52%); border-radius: 4px; overflow: hidden; z-index: 2;
+          border: 1.5px solid rgba(255,255,255,.65); box-shadow: 0 0 22px rgba(var(--ac-1-rgb,245,158,11), .45),
+          0 10px 24px -6px rgba(0,0,0,.8); }
+        .lp-viz-carta img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
         /* precos */
         .lp-precos { display: grid; gap: 14px; margin-top: 28px; }
         @media (min-width: 820px) { .lp-precos { grid-template-columns: repeat(3, 1fr); align-items: stretch; } }
@@ -509,18 +547,47 @@ export default function LandingLendarias() {
           </p>
           <div className="lp-passos" style={{ ['--cols' as any]: 4 }}>
             <div className="lp-passo">
+              <div className="lp-viz">
+                <div className="lp-viz-impressora" />
+                <div className="lp-viz-a4">
+                  <img src={arte('moonbreon')} alt="Folha A4 da Moonbreon com linhas de recorte" loading="lazy" />
+                </div>
+              </div>
               <h3>Imprima a folha A4</h3>
               <p>Pelo computador, escala 100% (nunca "ajustar à página"), sem margens. Papel couché ou fotográfico FOSCO 180-230g dá o acabamento de loja.</p>
             </div>
             <div className="lp-passo">
+              <div className="lp-viz" style={{ ['--pg' as any]: `url("${arte('moonbreon')}")` }}>
+                <div className="lp-viz-pecas" aria-hidden="true">
+                  {Array.from({ length: 9 }).map((_, i) => (
+                    <i key={i} style={{ backgroundPosition: `${(i % 3) * 50}% ${Math.floor(i / 3) * 50}%` }} />
+                  ))}
+                </div>
+                <svg className="lp-viz-tesoura" width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.6"/><circle cx="6" cy="18" r="2.5" stroke="currentColor" strokeWidth="1.6"/><path d="M8.2 7.6L20 16M8.2 16.4L20 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+              </div>
               <h3>Recorte nas linhas</h3>
               <p>As 9 peças saem no tamanho exato do bolso (63x88mm). Tesoura resolve; régua e estilete deixam perfeito.</p>
             </div>
             <div className="lp-passo">
+              <div className="lp-viz">
+                <div className="lp-viz-fich">
+                  <img className="fundo" src={arte('moonbreon')} alt="Página montada no fichário" loading="lazy" />
+                  <div className="bolsos" aria-hidden="true">{Array.from({ length: 9 }).map((_, i) => <i key={i} />)}</div>
+                </div>
+              </div>
               <h3>Monte a página</h3>
               <p>Cada peça entra num bolso do fichário, na ordem da grade. A arte se reconstrói atravessando os 9 bolsos.</p>
             </div>
             <div className="lp-passo">
+              <div className="lp-viz">
+                <div className="lp-viz-fich">
+                  <img className="fundo" src={arte('moonbreon')} alt="" loading="lazy" />
+                  <div className="bolsos" aria-hidden="true">{Array.from({ length: 9 }).map((_, i) => <i key={i} />)}</div>
+                  <div className="lp-viz-carta">
+                    <img src={CARD('swsh7/215')} alt="Umbreon VMAX pousada no bolso central" loading="lazy" />
+                  </div>
+                </div>
+              </div>
               <h3>Pouse a carta</h3>
               <p>A carta real entra no bolso marcado, por cima da arte. O cenário dela continua página afora.</p>
             </div>
