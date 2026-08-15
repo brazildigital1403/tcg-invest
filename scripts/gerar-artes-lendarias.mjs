@@ -79,6 +79,7 @@ function montarPrompt(pagina) {
     '- NO trading card, card frame, rounded rectangle, or floating panel anywhere.',
     '- NO text, letters, numbers, logos, watermarks or symbols of any kind.',
     '- NO grid lines, ruled lines, dividers or border marks - the pocket grid is physical, never painted.',
+    '- NO rectangular or rounded-rectangle shape of ANY kind: no panel, window, glow outline, vignette or lighter/darker rectangle in the middle. The center of the page is ordinary continuous scenery, indistinguishable from the rest.',
     '- Do NOT paint the main creature(s) again - the page shows their WORLD, not them.',
   ]
   if (varias) {

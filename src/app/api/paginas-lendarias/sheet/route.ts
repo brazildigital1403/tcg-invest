@@ -37,6 +37,12 @@ interface CartaOut {
 
 export async function GET(req: NextRequest) {
   try {
+    // Modo de revisao de arte, SO em dev local: ?preview_artes=1 libera as
+    // paginas pra conferir a arte aplicada no fichario sem entitlement.
+    // Em producao o parametro e ignorado (NODE_ENV === 'production').
+    const previewArtes = process.env.NODE_ENV === 'development'
+      && req.nextUrl.searchParams.get('preview_artes') === '1'
+
     let userId: string | null = null
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (token) {
@@ -109,7 +115,7 @@ export async function GET(req: NextRequest) {
       .slice()
       .sort((a, b) => a.ordem - b.ordem)
       .map(p => {
-        const liberada = !!p.gratis || planoLibera || pacote || compradas.has(p.id)
+        const liberada = previewArtes || !!p.gratis || planoLibera || pacote || compradas.has(p.id)
         const cartas: CartaOut[] = p.cartas.map(c => {
           const row: any = porId.get(c.cardId) || null
           const preco = row
