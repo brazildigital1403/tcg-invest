@@ -82,6 +82,19 @@ function montarPrompt(pagina) {
     '- NO rectangular or rounded-rectangle shape of ANY kind: no panel, window, glow outline, vignette or lighter/darker rectangle in the middle. The center of the page is ordinary continuous scenery, indistinguishable from the rest.',
     '- Do NOT paint the main creature(s) again - the page shows their WORLD, not them.',
   ]
+  if (pagina.cartas.length === 1) {
+    // Outpainting de verdade (correcao 15/08, feedback do Du): o input e um
+    // canvas 3:4 com a ARTE DA CARTA ja colada no retangulo central. O
+    // modelo nao inventa uma cena do tema — ele CONTINUA a pintura a partir
+    // das bordas do fragmento, como nas referencias da concorrencia.
+    return [
+      'The attached image is a canvas with a painted fragment at its exact center. ALL the flat gray around it is UNPAINTED PLACEHOLDER.',
+      'OUTPAINT: replace 100% of the gray placeholder with the seamless continuation of the painting — top, sides AND bottom, edge to edge. Not one pixel of flat gray or empty darkness may remain. Every element touching the fragment borders (sky, terrain, water, light, foliage, clouds, energy) flows outward in the exact same art style, palette, lighting and brushwork, as if the illustration was always this size.',
+      'The creature must stay ENTIRELY inside the central fragment: never redraw it, never extend any part of its body into the outpainted area (the fragment region will be covered by the physical card).',
+      'STRICT RULES: no card, no frame, no border, no panel or rectangle shapes, no text, letters, numbers, logos or watermarks anywhere.',
+      `Mood hint (Portuguese, secondary to the fragment itself): ${pagina.tema}`,
+    ].join('\n')
+  }
   if (varias) {
     const posicoes = pagina.cartas
       .map(c => `- slot ${SLOT_NOMES[c.slot]}: artwork of reference image ${pagina.cartas.indexOf(c) + 1}`)
@@ -230,14 +243,27 @@ async function main() {
       if (urls.length === 0) throw new Error('nenhuma imagem de referencia')
 
       console.log(`${rotulo} ${pagina.nome} — ${urls.length} referencia(s)`)
+      // Pagina de 1 carta: input vira canvas com a arte colada no bolso
+      // central (outpainting). Multi-carta segue o fluxo de referencias.
+      const outpaint = pagina.cartas.length === 1
       if (DRY) {
         console.log(`  prompt:\n${montarPrompt(pagina).split('\n').map(l => '    ' + l).join('\n')}`)
         ok++
         continue
       }
 
-      const imagens = []
+      let imagens = []
       for (const u of urls) imagens.push(await baixarCarta(u))
+      if (outpaint) {
+        const W = 1536, H = 2048
+        const cw = Math.round(W * 0.34), ch = Math.round(H * 0.32)
+        const frag = await sharp(Buffer.from(imagens[0].b64, 'base64'))
+          .resize(cw, ch, { fit: 'fill' }).png().toBuffer()
+        const base = await sharp({ create: { width: W, height: H, channels: 3, background: '#8a8a8a' } })
+          .composite([{ input: frag, left: Math.round((W - cw) / 2), top: Math.round((H - ch) / 2) }])
+          .png().toBuffer()
+        imagens = [{ mime: 'image/png', b64: base.toString('base64') }]
+      }
 
       const bruto = await comBackoff(
         () => chamarGemini(chave, montarPrompt(pagina), imagens),
