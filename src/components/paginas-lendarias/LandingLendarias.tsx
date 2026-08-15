@@ -81,7 +81,6 @@ const GALERIA: { id: string; nome: string }[] = [
 // carrega no lightbox, sob demanda.
 const arte = (id: string) => `/paginas-lendarias/${id}-lp.webp`
 const arteMini = (id: string) => `/paginas-lendarias/${id}-mini.webp`
-const arteCheia = (id: string) => `/paginas-lendarias/${id}.webp`
 
 // ─── Icones locais (outline, padrao Icons.tsx) ──────────────────────────────
 
@@ -142,12 +141,24 @@ export default function LandingLendarias() {
     setIdx((n + DESTAQUES.length) % DESTAQUES.length)
   }, [])
 
+  const navLightbox = useCallback((delta: number) => {
+    setLightbox(atual => {
+      if (!atual) return atual
+      const i = GALERIA.findIndex(p => p.id === atual)
+      return GALERIA[(i + delta + GALERIA.length) % GALERIA.length].id
+    })
+  }, [])
+
   useEffect(() => {
     if (!lightbox) return
-    function tecla(e: KeyboardEvent) { if (e.key === 'Escape') setLightbox(null) }
+    function tecla(e: KeyboardEvent) {
+      if (e.key === 'Escape') setLightbox(null)
+      if (e.key === 'ArrowRight') navLightbox(1)
+      if (e.key === 'ArrowLeft') navLightbox(-1)
+    }
     window.addEventListener('keydown', tecla)
     return () => window.removeEventListener('keydown', tecla)
-  }, [lightbox])
+  }, [lightbox, navLightbox])
 
   // ── Drag da carta pro bolso (pointer events; tap tambem encaixa) ──────────
   function dragStart(e: React.PointerEvent) {
@@ -271,8 +282,10 @@ export default function LandingLendarias() {
           color: #fff; text-align: center; padding: 16px 4px 6px; background: linear-gradient(transparent, rgba(0,0,0,.85)); }
         .lp-lightbox { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.88); backdrop-filter: blur(10px);
           display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
-        .lp-lightbox img { max-width: min(92vw, 560px); max-height: 88vh; border-radius: 14px;
-          box-shadow: 0 40px 90px -20px rgba(0,0,0,.9); }
+        .lp-lightbox img { max-width: min(80vw, 560px); max-height: 82vh; border-radius: 14px;
+          box-shadow: 0 40px 90px -20px rgba(0,0,0,.9); cursor: default; }
+        .lp-lb-seta { position: fixed; top: 50%; transform: translateY(-50%); z-index: 2;
+          background: rgba(255,255,255,.09); }
 
         /* passos */
         .lp-passos { counter-reset: p; display: grid; gap: 12px; margin-top: 26px; }
@@ -653,7 +666,17 @@ export default function LandingLendarias() {
       {/* Lightbox */}
       {lightbox && (
         <div className="lp-lightbox" onClick={() => setLightbox(null)} role="dialog" aria-label="Arte em tamanho grande">
-          <img src={arteCheia(lightbox)} alt={`Página Lendária ${lightbox}`} />
+          <button className="lp-seta lp-lb-seta" style={{ left: 'max(10px, 3vw)' }} onClick={e => { e.stopPropagation(); navLightbox(-1) }} aria-label="Arte anterior"><IcSeta dir="esq" /></button>
+          <figure style={{ margin: 0, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            {/* -lp (760px) e nao a arte cheia: no max de 560px de exibicao a
+                diferenca e invisivel e a navegacao por seta/teclado troca na
+                hora em vez de esperar 600KB por arte. */}
+            <img src={arte(lightbox)} alt={`Página Lendária ${lightbox}`} />
+            <figcaption style={{ marginTop: 10, fontSize: 12.5, color: 'rgba(255,255,255,.65)', fontVariantNumeric: 'tabular-nums' }}>
+              {GALERIA.find(p => p.id === lightbox)?.nome} · {GALERIA.findIndex(p => p.id === lightbox) + 1} / {GALERIA.length}
+            </figcaption>
+          </figure>
+          <button className="lp-seta lp-lb-seta" style={{ right: 'max(10px, 3vw)' }} onClick={e => { e.stopPropagation(); navLightbox(1) }} aria-label="Próxima arte"><IcSeta dir="dir" /></button>
         </div>
       )}
     </div>
