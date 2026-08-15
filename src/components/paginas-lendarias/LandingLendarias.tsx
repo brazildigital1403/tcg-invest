@@ -37,13 +37,11 @@ const DESTAQUES: LpPagina[] = [
     { img: CARD('sv8pt5/155'), slot: 3 }, { img: CARD('sv8pt5/167'), slot: 4 }, { img: CARD('sv8pt5/161'), slot: 5 },
     { img: CARD('sv8pt5/144'), slot: 6 }, { img: CARD('sv8pt5/150'), slot: 7 }, { img: CARD('sv8pt5/156'), slot: 8 },
   ] },
-  { id: 'mega-charizard-x', nome: 'Mega Charizard X', carta: 'Phantasmal Flames · SIR', valor: 'R$ 4.999', cartas: [{ img: CARD('me2/125'), slot: 4 }] },
-  { id: 'kanto-151', nome: 'Kanto 151', carta: 'Trio inicial + Mew · 151', valor: 'R$ 6.173', cartas: [
-    { img: CARD('sv3pt5/198'), slot: 0 }, { img: CARD('sv3pt5/199'), slot: 1 }, { img: CARD('sv3pt5/200'), slot: 2 },
-    { img: CARD('sv3pt5/205'), slot: 7 },
-  ] },
-  { id: 'gengar-vmax', nome: 'Gengar VMAX', carta: 'Fusion Strike · Alt Art', valor: 'R$ 6.074', cartas: [{ img: CARD('swsh8/271'), slot: 4 }] },
-  { id: 'rayquaza-vmax', nome: 'Rayquaza VMAX', carta: 'Evolving Skies · Alt Art', valor: 'R$ 4.998', cartas: [{ img: CARD('swsh7/218'), slot: 4 }] },
+  { id: 'magikarp-scroll', nome: 'Magikarp', carta: 'Paldea Evolved · IR', valor: 'R$ 1.850', cartas: [{ img: CARD('sv2/203'), slot: 4 }] },
+  { id: 'sylveon-v', nome: 'Sylveon V', carta: 'Evolving Skies · Alt Art', valor: 'R$ 3.800', cartas: [{ img: CARD('swsh7/183'), slot: 4 }] },
+  { id: 'squirtle-151', nome: 'Squirtle', carta: '151 · IR', valor: 'R$ 689', cartas: [{ img: CARD('sv3pt5/170'), slot: 4 }] },
+  { id: 'machamp-v', nome: 'Machamp V', carta: 'Astral Radiance · Alt Art', valor: 'R$ 788', cartas: [{ img: CARD('swsh10/172'), slot: 4 }] },
+  { id: 'rayquaza-amazing', nome: 'Rayquaza Amazing', carta: 'Vivid Voltage · Amazing Rare', valor: 'R$ 1.999', cartas: [{ img: CARD('swsh4/138'), slot: 4 }] },
 ]
 
 const GALERIA: { id: string; nome: string }[] = [
