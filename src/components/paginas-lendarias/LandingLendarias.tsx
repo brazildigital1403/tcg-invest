@@ -584,11 +584,11 @@ export default function LandingLendarias() {
                   <img className="fundo" src={arte('moonbreon')} alt="" loading="lazy" />
                   <div className="bolsos" aria-hidden="true">{Array.from({ length: 9 }).map((_, i) => <i key={i} />)}</div>
                   <div className="lp-viz-carta">
-                    <img src={CARD('swsh7/215')} alt="Umbreon VMAX pousada no bolso central" loading="lazy" />
+                    <img src={CARD('swsh7/215')} alt="Umbreon VMAX colocada no bolso central" loading="lazy" />
                   </div>
                 </div>
               </div>
-              <h3>Pouse a carta</h3>
+              <h3>Coloque a carta</h3>
               <p>A carta real entra no bolso marcado, por cima da arte. O cenário dela continua página afora.</p>
             </div>
           </div>
