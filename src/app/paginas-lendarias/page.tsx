@@ -107,7 +107,7 @@ export default function PaginasLendariasPage() {
     <AppLayout>
       <style>{`
         @media print {
-          .no-print, .tcg-sidebar, .tcg-header, .tcg-bottom-nav,
+          .no-print, .tcg-sidebar, .tcg-header, .tcg-bottom-nav, .tcg-switchbar,
           footer, header, nav, aside { display: none !important; }
 
           .plp-print { display: block !important; }

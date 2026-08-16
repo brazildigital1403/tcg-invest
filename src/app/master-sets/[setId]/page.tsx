@@ -147,7 +147,7 @@ export default function MasterSetSheetPage() {
     <AppLayout>
       <style>{`
         @media print {
-          .no-print, .tcg-sidebar, .tcg-header, .tcg-bottom-nav,
+          .no-print, .tcg-sidebar, .tcg-header, .tcg-bottom-nav, .tcg-switchbar,
           footer, header, nav, aside { display: none !important; }
 
           /* Na tela a folha fica com display:none quando a vista e o fichario.
