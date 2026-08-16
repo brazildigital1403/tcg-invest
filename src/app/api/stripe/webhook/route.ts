@@ -24,7 +24,7 @@
 // 5. Renovação detecta se sub é de user ou de loja (busca em ambas as tabelas).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sendPurchaseConfirmationEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail, sendConnectAtivoEmail, sendConnectPendenciaEmail, sendVendaLojistaEmail, sendPedidoCompradorEmail } from '@/lib/email'
+import { sendPurchaseConfirmationEmail, sendPaginaLendariaEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail, sendConnectAtivoEmail, sendConnectPendenciaEmail, sendVendaLojistaEmail, sendPedidoCompradorEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
@@ -783,7 +783,9 @@ export async function POST(req: NextRequest) {
           try {
             const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
             if (uData?.[0]?.email) {
-              await sendPurchaseConfirmationEmail(uData[0].email, uData[0].name || '', planoMeta).catch(console.error)
+              // Email dedicado: mostra a ARTE da pagina comprada (ou o trio
+              // do pacote), tema da cena e passo a passo de uso.
+              await sendPaginaLendariaEmail(uData[0].email, uData[0].name || '', paginaId).catch(console.error)
             }
           } catch (err: any) {
             console.error(`[webhook] falha enviando email pagina lendaria:`, err.message)
