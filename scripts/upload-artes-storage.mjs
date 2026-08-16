@@ -51,7 +51,9 @@ for (const f of fulls) {
       body: fs.readFileSync(path.join(DIR, f)),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`)
-    manifest[id] = `${PROJETO}/storage/v1/object/public/${BUCKET}/${f}`
+    // ?v= fura o cache immutable de 1 ano quando a arte e regenerada com o
+    // mesmo nome (aprendido no redesign da kanto-151, 16/08)
+    manifest[id] = `${PROJETO}/storage/v1/object/public/${BUCKET}/${f}?v=${Date.now()}`
     ok++
   } catch (e) {
     console.error(`  FALHOU ${id}: ${e.message}`)

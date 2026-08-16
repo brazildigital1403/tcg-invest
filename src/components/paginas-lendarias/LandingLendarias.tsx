@@ -531,7 +531,7 @@ export default function LandingLendarias() {
           <h2 className="lp-h2">52 páginas. As cartas que todo mundo caça.</h2>
           <p className="lp-sub">
             Moonbreon, a página Eeveelution com as 9 SIR de Prismatic, o trio de Kanto do 151, as alt arts
-            de Evolving Skies e a era Mega Evolution — 63 cartas ao todo, uma página de cada vez.
+            de Evolving Skies e a era Mega Evolution — 62 cartas ao todo, uma página de cada vez.
             Toque em qualquer arte pra ver em tamanho grande.
           </p>
           <div className="lp-galeria">
