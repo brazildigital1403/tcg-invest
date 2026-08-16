@@ -90,7 +90,8 @@ function montarPrompt(pagina) {
     // das bordas do fragmento, como nas referencias da concorrencia.
     return [
       'The attached image is a canvas with a painted fragment at its exact center. ALL the flat gray around it is UNPAINTED PLACEHOLDER.',
-      'OUTPAINT: replace 100% of the gray placeholder with the seamless continuation of the painting — top, sides AND bottom, edge to edge. Not one pixel of flat gray or empty darkness may remain. Every element touching the fragment borders (sky, terrain, water, light, foliage, clouds, energy) flows outward in the exact same art style, palette, lighting and brushwork, as if the illustration was always this size.',
+      'OUTPAINT: replace 100% of the gray placeholder with the seamless continuation of the painting — top, sides AND bottom, edge to edge. Not one pixel of flat gray or empty darkness may remain.',
+      'CONTINUITY IS THE WHOLE JOB: the first centimeters around the fragment must be an EXACT continuation of the pixels at each of its four borders — the same objects, lines, gradients and light sources extended outward, so no seam or boundary is visible. Do NOT invent a different scene, angle or environment around it; the fragment dictates everything. Farther from the fragment the scene may open up, always as the same place.',
       'The creature must stay ENTIRELY inside the central fragment: never redraw it, never extend any part of its body into the outpainted area (the fragment region will be covered by the physical card).',
       'The fragment is a CROPPED PAINTING, not a trading card: never paint a white border, margin, frame or card shape around it — its edges must dissolve directly into the surrounding scene.',
       'STRICT RULES: no card, no frame, no border, no panel or rectangle shapes, no text, letters, numbers, logos or watermarks anywhere.',
@@ -133,7 +134,10 @@ async function baixarCarta(url) {
   // tight: layouts com caixa de texto DENTRO da janela de arte (Amazing
   // Rare, V alt, VSTAR) — recorte generoso leva texto junto e o modelo
   // pinta "uma carta". Corta so o miolo visual.
-  const t = TIGHT ? { l: 0.12, t: 0.16, w: 0.76, h: 0.34 } : { l: 0.06, t: 0.12, w: 0.88, h: 0.56 }
+  // tight alargado (16/08): 34% de altura deixava o fragmento pequeno demais
+  // e o modelo inventava cena em vez de continuar. 42% mantem o texto de
+  // ataque fora (comeca ~55-58% nos layouts V\VMAX) com mais contexto.
+  const t = TIGHT ? { l: 0.10, t: 0.14, w: 0.80, h: 0.42 } : { l: 0.06, t: 0.12, w: 0.88, h: 0.56 }
   const recorte = await sharp(buf)
     .extract({
       left: Math.round(w * t.l),

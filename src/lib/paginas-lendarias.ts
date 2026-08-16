@@ -130,14 +130,15 @@ export const PAGINAS_LENDARIAS: PaginaLendaria[] = [
   {
     id: 'kanto-151',
     nome: 'Kanto 151',
-    sub: '151 · trio inicial + Mew',
+    sub: '151 · o trio inicial',
     ordem: 19,
-    tema: 'A paisagem de Kanto emenda os quatro cenarios: selva, vulcao, oceano e o ceu estrelado do Mew.',
+    // Redesign 16/08 (decisao do Du): SO os 3 iniciais, lado a lado na
+    // fileira do meio — o poster definitivo de Kanto na parede do usuario.
+    tema: 'Os tres cenarios originais emendados lado a lado: a selva do Venusaur a esquerda, o vulcao do Charizard no centro e a baia do Blastoise a direita, com um unico ceu de Kanto atravessando o topo e os terrenos se encontrando na base.',
     cartas: [
-      { cardId: 'sv3pt5-198', slot: 0 },              // Venusaur ex
-      { cardId: 'sv3pt5-199', slot: 1, heroi: true }, // Charizard ex — da o fundo
-      { cardId: 'sv3pt5-200', slot: 2 },              // Blastoise ex
-      { cardId: 'sv3pt5-205', slot: 7 },              // Mew ex
+      { cardId: 'sv3pt5-198', slot: 3 },              // Venusaur ex
+      { cardId: 'sv3pt5-199', slot: 4, heroi: true }, // Charizard ex — centro
+      { cardId: 'sv3pt5-200', slot: 5 },              // Blastoise ex
     ],
   },
 
