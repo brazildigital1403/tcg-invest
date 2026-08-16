@@ -252,12 +252,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
+      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
     }
     if (isLojistaPuro) {
       return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
     }
-    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS]
+    // ITEM_PAGINAS_LENDARIAS fica FORA do menu ate o Du validar a compra de
+    // teste (16/08). A rota /paginas-lendarias segue no ar (landing aponta
+    // pra ela) — so nao tem entrada no menu ainda.
+    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     else base.push(ITEM_VENDER)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE)
