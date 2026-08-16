@@ -34,6 +34,7 @@ export default function PaginasLendariasPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [comprando, setComprando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
+  const [paginaAtual, setPaginaAtual] = useState<PaginaLend | null>(null)
 
   const fetchSheet = useCallback(async (): Promise<boolean> => {
     try {
@@ -229,17 +230,19 @@ export default function PaginasLendariasPage() {
               precoPacote={precoPacote}
               onComprar={logado ? comprarPagina : () => router.push('/')}
               onComprarPacote={logado ? comprarPacote : () => router.push('/')}
+              onPagina={setPaginaAtual}
               comprando={comprando}
             />
           )}
         </div>
 
-        {/* Folha A4 (so imprime; na tela fica display:none). Bolso padrao de
-            fichario 3x3: grade de 63x88mm com 3mm de vao, centrada — a pessoa
-            recorta as 9 pecas e monta a pagina com a arte continua; a carta
-            real entra no bolso do heroi, por cima da arte. */}
-        <div className={`plp-print${liberadas.length === 0 ? ' plp-blocked' : ''}`}>
-          {liberadas.map(p => {
+        {/* Folha A4 (so imprime; na tela fica display:none). Imprime SO a
+            pagina ABERTA no fichario — imprimir todas as liberadas de uma vez
+            gerava dezenas de folhas e paginas em branco intercaladas (achado
+            do Du na compra de teste). Bolso padrao 3x3 de 63x88mm; a pessoa
+            recorta as 9 pecas e a carta real entra por cima da arte. */}
+        <div className={`plp-print${!paginaAtual || !paginaAtual.liberada ? ' plp-blocked' : ''}`}>
+          {(paginaAtual && paginaAtual.liberada ? [paginaAtual] : []).map(p => {
             const heroi = p.cartas.find(c => c.heroi) || p.cartas[0]
             const fundo = p.arte_url || heroi?.image_large || heroi?.image_small
             // Grade centrada: 3x63 + 2x3 = 195mm em 210 -> margem 7.5mm;
