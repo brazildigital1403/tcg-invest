@@ -158,6 +158,23 @@ export default function LandingLendarias() {
     })
   }, [])
 
+  // Reveal na rolagem — mesmo mecanismo da Home (HomeMotion): IO 0.12 /
+  // -8%, classe 'in', unobserve apos entrar. Hero fica FORA de proposito:
+  // pinta instantaneo pra nao atrasar o LCP do trafego pago.
+  useEffect(() => {
+    const els = document.querySelectorAll('.lp-root .lp-reveal')
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      els.forEach(el => el.classList.add('in'))
+      return
+    }
+    const io = new IntersectionObserver(
+      es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } }),
+      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+    )
+    els.forEach(el => io.observe(el))
+    return () => io.disconnect()
+  }, [])
+
   useEffect(() => {
     if (!lightbox) return
     function tecla(e: KeyboardEvent) {
@@ -203,6 +220,10 @@ export default function LandingLendarias() {
         .lp-root { background: var(--bx-bg, #080a0f); color: var(--bx-text, #f0f0f0); min-height: 100vh;
           font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif; }
         .lp-root section { padding: clamp(56px, 8vw, 96px) 0; }
+        /* reveal na rolagem — valores identicos ao .reveal da Home */
+        .lp-reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s ease, transform .55s ease; }
+        .lp-reveal.in { opacity: 1; transform: none; }
+        @media (prefers-reduced-motion: reduce) { .lp-reveal { opacity: 1; transform: none; transition: none; } }
         .lp-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
           color: var(--ac-1, #f59e0b); margin: 0 0 12px; }
         .lp-h1 { font-size: clamp(36px, 5.5vw, 60px); line-height: 1.06; letter-spacing: -0.035em; font-weight: 800;
@@ -463,7 +484,7 @@ export default function LandingLendarias() {
 
       {/* ═══ DRAG DEMO ═══ */}
       <section style={{ background: 'var(--bx-bg-elev, #0d0f14)', borderTop: '1px solid var(--bx-border, rgba(255,255,255,.06))', borderBottom: '1px solid var(--bx-border, rgba(255,255,255,.06))' }}>
-        <div className="bx-gutter lp-drag-wrap" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div className="bx-gutter lp-drag-wrap lp-reveal" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div>
             <p className="lp-eyebrow">Experimente agora</p>
             <h2 className="lp-h2">Arrasta a carta pro bolso do meio.</h2>
@@ -505,7 +526,7 @@ export default function LandingLendarias() {
 
       {/* ═══ GALERIA ═══ */}
       <section>
-        <div className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div className="bx-gutter lp-reveal" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">A coleção</p>
           <h2 className="lp-h2">52 páginas. As cartas que todo mundo caça.</h2>
           <p className="lp-sub">
@@ -526,7 +547,7 @@ export default function LandingLendarias() {
 
       {/* ═══ PRECOS ═══ */}
       <section id="precos">
-        <div className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div className="bx-gutter lp-reveal" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">Preços</p>
           <h2 className="lp-h2">Comece de graça. Complete quando quiser.</h2>
           <p className="lp-sub">
@@ -577,7 +598,7 @@ export default function LandingLendarias() {
 
       {/* ═══ IMPRESSAO ═══ */}
       <section style={{ background: 'var(--bx-bg-elev, #0d0f14)', borderTop: '1px solid var(--bx-border, rgba(255,255,255,.06))', borderBottom: '1px solid var(--bx-border, rgba(255,255,255,.06))' }}>
-        <div className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div className="bx-gutter lp-reveal" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">Do virtual pro fichário real</p>
           <h2 className="lp-h2">Imprimiu, recortou, montou.</h2>
           <p className="lp-sub">
@@ -636,7 +657,7 @@ export default function LandingLendarias() {
 
       {/* ═══ FAQ ═══ */}
       <section style={{ paddingTop: 0 }}>
-        <div className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div className="bx-gutter lp-reveal" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">Dúvidas</p>
           <h2 className="lp-h2">O que todo mundo pergunta</h2>
           <div className="lp-faq">
