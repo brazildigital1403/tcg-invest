@@ -55,3 +55,9 @@ BYNX_SCAN_DEEP_DIVE.md
 BYNX_MASTER_v7.md
 BYNX_MASTER*.md
 docs/features/
+
+# Artes cheias das Paginas Lendarias vivem no Supabase Storage (bucket paginas-lendarias)
+# No repo ficam so as versoes leves da landing (-lp 760px / -mini 320px)
+public/paginas-lendarias/*.webp
+!public/paginas-lendarias/*-lp.webp
+!public/paginas-lendarias/*-mini.webp

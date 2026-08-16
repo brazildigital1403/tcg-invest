@@ -228,10 +228,21 @@ export async function POST(req: NextRequest) {
       const alvoId = ehPacote ? PL_PACOTE : (paginaId as string)
 
       const priceEnv = ehPacote ? 'STRIPE_PRICE_COLECAO_LENDARIA' : 'STRIPE_PRICE_PAGINA_LENDARIA'
-      const priceId = process.env[priceEnv]
+      let priceId = process.env[priceEnv]
       if (!priceId) {
         console.error(`[stripe/checkout] env vazia: ${priceEnv}`)
         return NextResponse.json({ error: 'Páginas Lendárias ainda não configuradas' }, { status: 503 })
+      }
+      // A env pode vir com o id do PRODUTO (prod_...) em vez do price — o Du
+      // colou o que o dashboard mostra primeiro. Resolve pro default_price.
+      if (priceId.startsWith('prod_')) {
+        const produto = await stripe.products.retrieve(priceId)
+        const def = typeof produto.default_price === 'string' ? produto.default_price : produto.default_price?.id
+        if (!def) {
+          console.error(`[stripe/checkout] produto ${priceId} sem default_price`)
+          return NextResponse.json({ error: 'Produto sem preço configurado na Stripe' }, { status: 503 })
+        }
+        priceId = def
       }
 
       // Plano anual ja inclui tudo
