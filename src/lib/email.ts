@@ -856,6 +856,77 @@ export async function sendEmailLojaPlanoAlterado(args: {
 //
 // Fluxos B2B (Lojista) NÃO chamam essa função — usam sendEmailLojaPlanoAlterado.
 
+/**
+ * Email dedicado das Paginas Lendarias — mostra A PAGINA COMPRADA (arte em
+ * destaque via URL publica), o tema da cena e o passo a passo de uso.
+ * paginaId '*' = Colecao Lendaria (pacote completo).
+ */
+export async function sendPaginaLendariaEmail(
+  to: string,
+  name: string,
+  paginaId: string
+) {
+  const { getPaginaLendaria, PAGINAS_LENDARIAS } = await import('./paginas-lendarias')
+  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const pacote = paginaId === '*'
+  const pagina = pacote ? null : getPaginaLendaria(paginaId)
+
+  const arteUrl = (id: string) => `${APP_URL}/paginas-lendarias/${id}-lp.webp`
+
+  const heroImg = pacote
+    ? `
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        ${['moonbreon', 'eeveelutions', 'mega-charizard-x'].map(id => `
+          <td align="center" style="padding:0 4px;">
+            <img src="${arteUrl(id)}" width="140" alt="Página Lendária" style="width:140px;border-radius:10px;border:1px solid rgba(245,158,11,0.35);display:block;" />
+          </td>`).join('')}
+      </tr></table>
+      <p style="margin:10px 0 0;font-size:12px;color:rgba(255,255,255,0.4);text-align:center;">...e mais ${PAGINAS_LENDARIAS.length - 3} páginas te esperando no fichário 🔥</p>`
+    : `
+      <img src="${arteUrl(paginaId)}" width="280" alt="Página Lendária ${escapeHtml(pagina?.nome || paginaId)}" style="width:280px;max-width:100%;border-radius:14px;border:1px solid rgba(245,158,11,0.4);display:block;margin:0 auto;" />
+      <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#ffffff;text-align:center;">${escapeHtml(pagina?.nome || paginaId)}</p>
+      ${pagina?.sub ? `<p style="margin:2px 0 0;font-size:12px;color:rgba(255,255,255,0.45);text-align:center;">${escapeHtml(pagina.sub)}</p>` : ''}
+      ${pagina?.tema ? `<p style="margin:12px 0 0;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6;text-align:center;font-style:italic;">"${escapeHtml(pagina.tema)}"</p>` : ''}`
+
+  const titulo = pacote ? 'A Coleção Lendária é sua! 🌙' : `${escapeHtml(pagina?.nome || 'Sua página')} é sua! 🌙`
+  const intro = pacote
+    ? `${escapeHtml(firstName)}, todas as <strong style="color:#f59e0b;">${PAGINAS_LENDARIAS.length} Páginas Lendárias</strong> estão liberadas no seu fichário — incluindo as novas de cada trimestre, sem pagar mais nada.`
+    : `${escapeHtml(firstName)}, sua página <strong style="color:#f59e0b;">${escapeHtml(pagina?.nome || paginaId)}</strong> está liberada no seu fichário. A arte da carta agora continua pela página inteira — olha ela aí embaixo. 👇`
+
+  const passos = `
+    <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);">Seus próximos 3 minutos:</p>
+    <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.7;">📖 <strong style="color:rgba(255,255,255,0.8);">Folheie</strong> — abra o fichário e veja sua carta no cenário completo</p>
+    <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.7;">🖨️ <strong style="color:rgba(255,255,255,0.8);">Imprima</strong> — botão "Imprimir A4": escala 100%, sem margens, papel couché fosco 180-230g. Recorte nas linhas e monte no fichário físico (bolso 63x88mm)</p>
+    <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.7;">📱 <strong style="color:rgba(255,255,255,0.8);">Compartilhe</strong> — botão "Compartilhar" gera a imagem da página pronta pro Instagram</p>`
+
+  const upsell = pacote ? '' : `
+    ${divider()}
+    <p style="margin:0;font-size:12.5px;color:rgba(255,255,255,0.5);line-height:1.6;text-align:center;">Gostou? A <strong style="color:#f59e0b;">Coleção Lendária</strong> libera as ${PAGINAS_LENDARIAS.length} páginas de uma vez por R$ 79,90 — avulsas custariam R$ ${(PAGINAS_LENDARIAS.length * 12.9).toFixed(2).replace('.', ',')}.</p>`
+
+  const html = baseLayout(`
+    ${badge(pacote ? 'Coleção Lendária' : 'Página Lendária', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1(titulo)}
+    ${p(intro)}
+    <div style="height:18px;"></div>
+    ${heroImg}
+    <div style="height:6px;"></div>
+    ${divider()}
+    ${passos}
+    ${btn('Abrir meu fichário', addUtm(`${APP_URL}/paginas-lendarias`, 'pagina-lendaria-unlocked', 'cta-button'))}
+    ${upsell}
+    ${divider()}
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Compra única, vitalícia, com impressão ilimitada. Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
+  `, pacote ? 'Todas as Páginas Lendárias estão liberadas no seu fichário.' : `${pagina?.nome || 'Sua Página Lendária'} está liberada no seu fichário.`)
+
+  return enviar({
+    from: FROM,
+    to,
+    subject: subjUser(pacote ? '🌙 A Coleção Lendária é sua — todas as páginas liberadas!' : `🌙 ${pagina?.nome || 'Sua Página Lendária'} é sua — vem ver no fichário!`),
+    html,
+  })
+}
+
 export async function sendPurchaseConfirmationEmail(
   to: string,
   name: string,
