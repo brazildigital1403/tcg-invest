@@ -221,6 +221,7 @@ export default function FicharioLendario({
   precoPacote,
   onComprar,
   onComprarPacote,
+  onPagina,
   comprando,
 }: {
   paginas: PaginaLend[]
@@ -228,6 +229,8 @@ export default function FicharioLendario({
   precoPacote: number
   onComprar?: (paginaId: string) => void
   onComprarPacote?: () => void
+  /** avisa a page qual pagina esta aberta — a impressao usa pra imprimir SO ela */
+  onPagina?: (p: PaginaLend) => void
   comprando: boolean
 }) {
   const [idx, setIdx] = useState(0)
@@ -236,6 +239,8 @@ export default function FicharioLendario({
   const toqueX = useRef<number | null>(null)
 
   const pagina = paginas[idx] || null
+
+  useEffect(() => { if (pagina) onPagina?.(pagina) }, [pagina, onPagina])
 
   const irPara = useCallback((n: number) => {
     setIdx(() => Math.max(0, Math.min(paginas.length - 1, n)))
