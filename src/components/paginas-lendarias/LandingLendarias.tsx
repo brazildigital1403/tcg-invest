@@ -16,6 +16,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
+import { IconCheck } from '@/components/ui/Icons'
 import { PAGINAS_LENDARIAS } from '@/lib/paginas-lendarias'
 
 // Cartas de cada pagina (do catalogo) pro overlay do lightbox: mostrar a
@@ -101,8 +102,9 @@ function IcSeta({ dir }: { dir: 'esq' | 'dir' }) {
   )
 }
 
+// Icone da casa (Icons.tsx), so com o wrapper de cor/tamanho da landing.
 function IcCheck() {
-  return <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M4 10.5l4 4L16 6" stroke="var(--bx-green, #22c55e)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  return <IconCheck size={15} color="var(--bx-green, #22c55e)" style={{ flexShrink: 0 }} />
 }
 
 // ─── Pagina do fichario (render compartilhado hero/drag) ────────────────────
@@ -195,27 +197,30 @@ export default function LandingLendarias() {
   return (
     <div className="lp-root">
       <style>{`
-        .lp-root { background: var(--bx-bg, #080a0f); color: var(--bx-text, #f5f5f4); min-height: 100vh; }
-        .lp-root section { padding: clamp(44px, 8vw, 84px) 0; }
-        .lp-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;
-          background: var(--ac-grad, linear-gradient(135deg,#f59e0b,#ef4444)); -webkit-background-clip: text;
-          background-clip: text; color: transparent; margin: 0 0 12px; }
-        .lp-h1 { font-size: clamp(30px, 7vw, 52px); line-height: 1.06; letter-spacing: -.025em; font-weight: 800;
+        /* O body do site e Arial; as paginas publicas declaram DM Sans no
+           wrapper (padrao separadores/scan-ia). Sem isto a landing inteira
+           renderiza em Arial — achado da auditoria de design system. */
+        .lp-root { background: var(--bx-bg, #080a0f); color: var(--bx-text, #f0f0f0); min-height: 100vh;
+          font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif; }
+        .lp-root section { padding: clamp(56px, 8vw, 96px) 0; }
+        .lp-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+          color: var(--ac-1, #f59e0b); margin: 0 0 12px; }
+        .lp-h1 { font-size: clamp(36px, 5.5vw, 60px); line-height: 1.06; letter-spacing: -0.035em; font-weight: 800;
           margin: 0 0 14px; text-wrap: balance; }
-        .lp-h2 { font-size: clamp(22px, 4.5vw, 32px); line-height: 1.15; letter-spacing: -.02em; font-weight: 800;
+        .lp-h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.15; letter-spacing: -0.03em; font-weight: 800;
           margin: 0 0 10px; text-wrap: balance; }
-        .lp-sub { font-size: clamp(15px, 2.4vw, 17px); color: var(--bx-text-2, rgba(255,255,255,.65));
+        .lp-sub { font-size: clamp(15px, 2.4vw, 17px); color: var(--bx-text-2, rgba(255,255,255,0.62));
           line-height: 1.6; max-width: 56ch; margin: 0; }
-        .lp-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800;
+        .lp-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;
           font-size: 15px; border: none; border-radius: 12px; padding: 15px 28px; cursor: pointer;
           background: var(--ac-grad, linear-gradient(135deg,#f59e0b,#ef4444)); color: var(--bx-brand-ink, #0a0a0a);
           text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
         .lp-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 30px -10px rgba(var(--ac-1-rgb,245,158,11), .5); }
         .lp-cta-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;
           font-size: 14px; border-radius: 12px; padding: 14px 24px; cursor: pointer; text-decoration: none;
-          background: transparent; border: 1px solid var(--bx-border-2, rgba(255,255,255,.16));
-          color: var(--bx-text-2, rgba(255,255,255,.7)); transition: color .15s ease, border-color .15s ease; }
-        .lp-cta-ghost:hover { color: var(--bx-text, #fff); border-color: rgba(var(--ac-1-rgb,245,158,11), .5); }
+          background: transparent; border: 1px solid var(--bx-border-2, rgba(255,255,255,0.14));
+          color: var(--bx-text-2, rgba(255,255,255,0.62)); transition: color .15s ease, border-color .15s ease; }
+        .lp-cta-ghost:hover { color: var(--bx-text, #f0f0f0); border-color: rgba(var(--ac-1-rgb,245,158,11), .5); }
 
         /* hero */
         .lp-hero { display: grid; gap: 34px; align-items: center; grid-template-columns: 1fr;
@@ -223,14 +228,14 @@ export default function LandingLendarias() {
         @media (min-width: 900px) { .lp-hero-in { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; } }
         .lp-hero-acoes { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
         .lp-hero-provas { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 22px; font-size: 13px;
-          color: var(--bx-text-3, rgba(255,255,255,.45)); }
+          color: var(--bx-text-3, rgba(255,255,255,0.40)); }
         .lp-hero-provas span { display: inline-flex; align-items: center; gap: 6px; }
 
         /* folha do fichario */
         .lp-palco { position: relative; display: flex; align-items: center; gap: 10px; justify-content: center; }
         .lp-folha { position: relative; width: min(100%, 380px); aspect-ratio: 3/4; border-radius: 16px; overflow: hidden;
           border: 1px solid rgba(var(--ac-1-rgb,245,158,11), .35); box-shadow: 0 30px 70px -24px rgba(0,0,0,.8);
-          transition: filter .3s ease; }
+          transition: filter .2s ease; }
         .lp-folha-arte { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
         .lp-folha-grade { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3,1fr);
           grid-template-rows: repeat(3,1fr); gap: 7px; padding: 16px 14px 40px; }
@@ -244,16 +249,26 @@ export default function LandingLendarias() {
           background: linear-gradient(transparent, rgba(5,4,3,.8)); color: rgba(255,255,255,.9); }
         .lp-folha-rodape b { font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
         .lp-folha-rodape span { color: rgba(255,255,255,.6); }
-        .lp-seta { width: 38px; height: 38px; border-radius: 50%; flex: none; cursor: pointer; z-index: 2;
-          border: 1px solid var(--bx-border-2, rgba(255,255,255,.16)); background: var(--bx-surface, rgba(255,255,255,.05));
-          color: var(--bx-text-2, rgba(255,255,255,.65)); display: grid; place-items: center;
+        /* 44px = alvo de toque minimo; absolute sobre a folha devolve ~96px
+           de largura pro produto no mobile (achado do bynx-mobile). */
+        .lp-palco { position: relative; }
+        .lp-palco > .lp-seta { position: absolute; top: 50%; transform: translateY(-50%); }
+        .lp-palco > .lp-seta:first-of-type { left: 0; }
+        .lp-palco > .lp-seta:last-of-type { right: 0; }
+        .lp-seta { width: 44px; height: 44px; border-radius: 50%; flex: none; cursor: pointer; z-index: 2;
+          border: 1px solid var(--bx-border-2, rgba(255,255,255,0.14)); background: var(--bx-surface, rgba(255,255,255,0.03));
+          color: var(--bx-text-2, rgba(255,255,255,0.62)); display: grid; place-items: center;
           transition: background .15s ease, color .15s ease; }
-        .lp-seta:hover { background: var(--bx-surface-2, rgba(255,255,255,.1)); color: #fff; }
+        .lp-seta:hover { background: var(--bx-surface-2, rgba(255,255,255,0.05)); color: #fff; }
         .lp-dots { display: flex; gap: 6px; justify-content: center; margin-top: 14px; }
-        .lp-dot { width: 7px; height: 7px; border-radius: 50%; border: none; padding: 0; cursor: pointer;
-          background: var(--bx-border-2, rgba(255,255,255,.18)); transition: background .15s ease; }
-        .lp-dot[data-on="1"] { background: var(--ac-1, #f59e0b); }
-        .lp-valor { margin-top: 12px; text-align: center; font-size: 12.5px; color: var(--bx-text-3, rgba(255,255,255,.45)); }
+        /* dot visual de 7px dentro de um alvo de toque de 24px */
+        .lp-dot { position: relative; width: 24px; height: 24px; border-radius: 50%; border: none; padding: 0;
+          cursor: pointer; background: transparent; }
+        .lp-dot::before { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+          width: 7px; height: 7px; border-radius: 50%;
+          background: var(--bx-border-2, rgba(255,255,255,0.14)); transition: background .15s ease; }
+        .lp-dot[data-on="1"]::before { background: var(--ac-1, #f59e0b); }
+        .lp-valor { margin-top: 12px; text-align: center; font-size: 12.5px; color: var(--bx-text-3, rgba(255,255,255,0.40)); }
         .lp-valor b { color: var(--ac-1, #f59e0b); font-variant-numeric: tabular-nums; }
 
         /* drag demo */
@@ -273,15 +288,15 @@ export default function LandingLendarias() {
           background: rgba(5,4,3,.25); backdrop-filter: blur(1px); }
         .lp-drag-alvo[data-ok="1"] { border-style: solid; border-color: transparent; background: transparent; }
         .lp-drag-alvo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-          border-radius: 6px; animation: lp-pousa .35s ease; }
+          border-radius: 6px; animation: lp-pousa .25s ease; }
         @keyframes lp-pousa { from { transform: scale(1.12); opacity: .4; } to { transform: scale(1); opacity: 1; } }
-        .lp-drag-refazer { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--bx-text-3, rgba(255,255,255,.45));
+        .lp-drag-refazer { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--bx-text-3, rgba(255,255,255,0.40));
           background: none; border: none; cursor: pointer; margin-top: 12px; text-decoration: underline; }
 
         /* galeria */
         .lp-galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 26px; }
         .lp-mini { position: relative; aspect-ratio: 3/4; border-radius: 12px; overflow: hidden; cursor: zoom-in;
-          border: 1px solid var(--bx-border, rgba(255,255,255,.09)); padding: 0; background: var(--bx-surface, #101318);
+          border: 1px solid var(--bx-border, rgba(255,255,255,.09)); padding: 0; background: var(--bx-surface, rgba(255,255,255,0.03));
           transition: transform .15s ease, border-color .15s ease; }
         .lp-mini:hover { transform: translateY(-2px); border-color: rgba(var(--ac-1-rgb,245,158,11), .45); }
         .lp-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -306,11 +321,11 @@ export default function LandingLendarias() {
         .lp-passo::before { content: counter(p, decimal-leading-zero); font-size: 12px; font-weight: 800;
           letter-spacing: .1em; color: var(--ac-1, #f59e0b); font-variant-numeric: tabular-nums; }
         .lp-passo h3 { font-size: 15.5px; font-weight: 700; margin: 8px 0 6px; }
-        .lp-passo p { font-size: 13.5px; color: var(--bx-text-2, rgba(255,255,255,.6)); line-height: 1.55; margin: 0; }
+        .lp-passo p { font-size: 13.5px; color: var(--bx-text-2, rgba(255,255,255,0.62)); line-height: 1.55; margin: 0; }
 
         /* visuais dos passos: a MESMA pagina (Moonbreon) atravessando o processo */
         .lp-viz { position: relative; aspect-ratio: 5/6; border-radius: 10px; overflow: hidden;
-          margin: 12px 0 14px; background: var(--bx-surface-2, rgba(255,255,255,.06)); }
+          margin: 12px 0 14px; background: var(--bx-surface-2, rgba(255,255,255,0.05)); }
         /* 1: folha A4 saindo da impressora */
         .lp-viz-a4 { position: absolute; inset: 8% 16%; background: #f5f3ee; border-radius: 3px;
           padding: 5%; box-shadow: 0 10px 26px -8px rgba(0,0,0,.6); }
@@ -322,7 +337,7 @@ export default function LandingLendarias() {
             linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.75)) 0 33.3% / 100% 1.5px no-repeat,
             linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.75)) 0 66.6% / 100% 1.5px no-repeat; }
         .lp-viz-impressora { position: absolute; left: 0; right: 0; top: 0; height: 9%;
-          background: var(--bx-surface-3, #1b1f27); border-bottom: 2px solid rgba(0,0,0,.5); }
+          background: var(--bx-surface-3, rgba(255,255,255,0.08)); border-bottom: 2px solid rgba(0,0,0,.5); }
         /* 2: as 9 pecas recortadas, separadas */
         .lp-viz-pecas { position: absolute; inset: 9% 13%; display: grid;
           grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); gap: 7%; }
@@ -354,14 +369,14 @@ export default function LandingLendarias() {
         .lp-preco.destaque { border-color: rgba(var(--ac-1-rgb,245,158,11), .5);
           background: linear-gradient(170deg, rgba(var(--ac-1-rgb,245,158,11), .1), var(--bx-surface, rgba(255,255,255,.03)) 55%); }
         .lp-preco .nome { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
-          color: var(--bx-text-3, rgba(255,255,255,.45)); }
+          color: var(--bx-text-3, rgba(255,255,255,0.40)); }
         .lp-preco.destaque .nome { color: var(--ac-1, #f59e0b); }
         .lp-preco .valor { font-size: 34px; font-weight: 800; letter-spacing: -.02em; margin: 10px 0 2px;
           font-variant-numeric: tabular-nums; }
-        .lp-preco .valor small { font-size: 14px; font-weight: 600; color: var(--bx-text-3, rgba(255,255,255,.45)); }
-        .lp-preco .por { font-size: 12.5px; color: var(--bx-text-3, rgba(255,255,255,.45)); margin-bottom: 16px; }
+        .lp-preco .valor small { font-size: 14px; font-weight: 600; color: var(--bx-text-3, rgba(255,255,255,0.40)); }
+        .lp-preco .por { font-size: 12.5px; color: var(--bx-text-3, rgba(255,255,255,0.40)); margin-bottom: 16px; }
         .lp-preco ul { list-style: none; padding: 0; margin: 0 0 20px; display: grid; gap: 9px; font-size: 13.5px;
-          color: var(--bx-text-2, rgba(255,255,255,.65)); }
+          color: var(--bx-text-2, rgba(255,255,255,0.62)); }
         .lp-preco li { display: flex; gap: 8px; align-items: flex-start; line-height: 1.45; }
         .lp-preco .lp-cta, .lp-preco .lp-cta-ghost { margin-top: auto; width: 100%; }
 
@@ -374,7 +389,7 @@ export default function LandingLendarias() {
         .lp-faq summary::-webkit-details-marker { display: none; }
         .lp-faq summary::after { content: '+'; font-size: 18px; font-weight: 400; color: var(--ac-1, #f59e0b); }
         .lp-faq details[open] summary::after { content: '\\2212'; }
-        .lp-faq details p { font-size: 13.5px; color: var(--bx-text-2, rgba(255,255,255,.6)); line-height: 1.6;
+        .lp-faq details p { font-size: 13.5px; color: var(--bx-text-2, rgba(255,255,255,0.62)); line-height: 1.6;
           margin: 0; padding: 0 0 16px; }
 
         /* sticky mobile */
@@ -382,11 +397,11 @@ export default function LandingLendarias() {
           align-items: center; justify-content: space-between; padding: 10px max(16px, env(safe-area-inset-left))
           calc(10px + env(safe-area-inset-bottom)); background: rgba(8,10,15,.92); backdrop-filter: blur(12px);
           border-top: 1px solid var(--bx-border, rgba(255,255,255,.09)); }
-        .lp-sticky .info { font-size: 12px; color: var(--bx-text-2, rgba(255,255,255,.6)); line-height: 1.3; }
-        .lp-sticky .info b { color: var(--bx-text, #fff); font-size: 13.5px; display: block; }
+        .lp-sticky .info { font-size: 12px; color: var(--bx-text-2, rgba(255,255,255,0.62)); line-height: 1.3; }
+        .lp-sticky .info b { color: var(--bx-text, #f0f0f0); font-size: 13.5px; display: block; }
         .lp-sticky .lp-cta { padding: 12px 20px; font-size: 14px; white-space: nowrap; }
         @media (min-width: 900px) { .lp-sticky { display: none; } }
-        .lp-root { padding-bottom: 76px; }
+        .lp-root { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
         @media (min-width: 900px) { .lp-root { padding-bottom: 0; } }
 
         @media (prefers-reduced-motion: reduce) {
@@ -399,7 +414,7 @@ export default function LandingLendarias() {
 
       {/* ═══ HERO ═══ */}
       <section className="lp-hero">
-        <div className="bx-gutter lp-hero-in" style={{ maxWidth: 1080, margin: '0 auto', width: '100%' }}>
+        <div className="bx-gutter lp-hero-in" style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
           <div>
             <p className="lp-eyebrow">Páginas Lendárias</p>
             <h1 className="lp-h1">A arte da carta não precisa acabar na borda.</h1>
@@ -447,8 +462,8 @@ export default function LandingLendarias() {
       </section>
 
       {/* ═══ DRAG DEMO ═══ */}
-      <section style={{ background: 'var(--bx-bg-elev, #0b0e14)', borderTop: '1px solid var(--bx-border, rgba(255,255,255,.06))', borderBottom: '1px solid var(--bx-border, rgba(255,255,255,.06))' }}>
-        <div className="bx-gutter lp-drag-wrap" style={{ maxWidth: 1080, margin: '0 auto' }}>
+      <section style={{ background: 'var(--bx-bg-elev, #0d0f14)', borderTop: '1px solid var(--bx-border, rgba(255,255,255,.06))', borderBottom: '1px solid var(--bx-border, rgba(255,255,255,.06))' }}>
+        <div className="bx-gutter lp-drag-wrap" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div>
             <p className="lp-eyebrow">Experimente agora</p>
             <h2 className="lp-h2">Arrasta a carta pro bolso do meio.</h2>
@@ -490,7 +505,7 @@ export default function LandingLendarias() {
 
       {/* ═══ GALERIA ═══ */}
       <section>
-        <div className="bx-gutter" style={{ maxWidth: 1080, margin: '0 auto' }}>
+        <div className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">A coleção</p>
           <h2 className="lp-h2">52 páginas. As cartas que todo mundo caça.</h2>
           <p className="lp-sub">
@@ -511,7 +526,7 @@ export default function LandingLendarias() {
 
       {/* ═══ PRECOS ═══ */}
       <section id="precos">
-        <div className="bx-gutter" style={{ maxWidth: 1080, margin: '0 auto' }}>
+        <div className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">Preços</p>
           <h2 className="lp-h2">Comece de graça. Complete quando quiser.</h2>
           <p className="lp-sub">
@@ -533,7 +548,7 @@ export default function LandingLendarias() {
             <div className="lp-preco destaque">
               <span className="nome">Coleção Lendária</span>
               <span className="valor">R$ 79,90 <small>as 52 páginas</small></span>
-              <span className="por">avulsas custariam R$ 670,80 — você economiza R$ 590,90</span>
+              <span className="por">avulsas custariam R$&nbsp;670,80 — você economiza R$&nbsp;590,90</span>
               <ul>
                 <li><IcCheck /> As 52 páginas — 50 de 1 carta + 2 especiais</li>
                 <li><IcCheck /> Página de 9 cartas custa o mesmo da de 1</li>
@@ -561,8 +576,8 @@ export default function LandingLendarias() {
       </section>
 
       {/* ═══ IMPRESSAO ═══ */}
-      <section style={{ background: 'var(--bx-bg-elev, #0b0e14)', borderTop: '1px solid var(--bx-border, rgba(255,255,255,.06))', borderBottom: '1px solid var(--bx-border, rgba(255,255,255,.06))' }}>
-        <div className="bx-gutter" style={{ maxWidth: 1080, margin: '0 auto' }}>
+      <section style={{ background: 'var(--bx-bg-elev, #0d0f14)', borderTop: '1px solid var(--bx-border, rgba(255,255,255,.06))', borderBottom: '1px solid var(--bx-border, rgba(255,255,255,.06))' }}>
+        <div className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">Do virtual pro fichário real</p>
           <h2 className="lp-h2">Imprimiu, recortou, montou.</h2>
           <p className="lp-sub">
@@ -621,7 +636,7 @@ export default function LandingLendarias() {
 
       {/* ═══ FAQ ═══ */}
       <section style={{ paddingTop: 0 }}>
-        <div className="bx-gutter" style={{ maxWidth: 1080, margin: '0 auto' }}>
+        <div className="bx-gutter" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">Dúvidas</p>
           <h2 className="lp-h2">O que todo mundo pergunta</h2>
           <div className="lp-faq">
