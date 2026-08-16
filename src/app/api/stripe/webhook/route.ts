@@ -142,12 +142,23 @@ async function buscarTaxaStripeCentavos(
   paymentIntentId: string
 ): Promise<number | null> {
   try {
-    const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
-      expand: ['latest_charge.balance_transaction'],
-    })
-    const charge = pi.latest_charge as Stripe.Charge | null
-    const bt = charge?.balance_transaction as Stripe.BalanceTransaction | null
-    return typeof bt?.fee === 'number' ? bt.fee : null
+    // A balance_transaction pode ainda NAO existir logo apos o checkout (a
+    // 1a venda de Pagina Lendaria em 16/08 chegou ~1s depois e a taxa veio
+    // null SEM log — lancamento nasceu com taxa 0). Retry curto + warn no
+    // caminho que antes era silencioso.
+    for (let tentativa = 0; tentativa < 3; tentativa++) {
+      if (tentativa > 0) await new Promise(r => setTimeout(r, 1500 * tentativa))
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
+        expand: ['latest_charge.balance_transaction'],
+      })
+      const charge = pi.latest_charge as Stripe.Charge | null
+      const bt = charge?.balance_transaction as Stripe.BalanceTransaction | null
+      if (typeof bt?.fee === 'number') return bt.fee
+    }
+    console.warn(
+      `[webhook/financeiro] balance_transaction sem fee apos 3 tentativas no PI ${paymentIntentId} — lancamento vai nascer com taxa 0, corrigir a mao`
+    )
+    return null
   } catch (err: any) {
     console.warn(
       `[webhook/financeiro] nao consegui ler a taxa do PI ${paymentIntentId}: ${err.message}`
