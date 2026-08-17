@@ -19,6 +19,20 @@ export interface CartaLendaria {
   slot: number
   /** carta que da o fundo continuo da pagina */
   heroi?: boolean
+  /**
+   * URL da imagem quando ela NAO segue o padrao images.pokemontcg.io/{set}/{n}.png.
+   * 4 cartas do catalogo vivem no images.scrydex.com — sem isto, quem monta a
+   * URL na mao (landing publica) recebe o VERSO da carta. A API do fichario
+   * nao precisa: ela le image_small\image_large do banco.
+   */
+  img?: string
+}
+
+/** URL da imagem da carta pra quem NAO le do banco (landing publica). */
+export function imgDaCarta(c: CartaLendaria): string {
+  if (c.img) return c.img
+  const i = c.cardId.lastIndexOf('-')
+  return `https://images.pokemontcg.io/${c.cardId.slice(0, i)}/${c.cardId.slice(i + 1)}.png`
 }
 
 export interface PaginaLendaria {
@@ -176,12 +190,12 @@ export const PAGINAS_LENDARIAS: PaginaLendaria[] = [
   hero('roaring-moon', 'Roaring Moon ex', 'Paradox Rift · SIR', 43, 'O canion ancestral sob o ceu do paradoxo.', 'sv4-251'),
   hero('terapagos-ex', 'Terapagos ex', 'Stellar Crown · SIR', 44, 'A caverna de cristais tera refletindo constelacoes.', 'sv7-170'),
   hero('victini-wf', 'Victini', 'White Flare · IR', 45, 'A chama branca da vitoria dancando pela pagina.', 'rsv10pt5-172'),
-  hero('pikachu-ex-ah', 'Pikachu ex', 'Ascended Heroes · SIR', 46, 'A ascensao eletrica em ceu dourado — era atual.', 'me2pt5-276'),
-  hero('mega-gengar-ex', 'Mega Gengar ex', 'Ascended Heroes · SIR', 47, 'O pesadelo roxo da mega evolucao engole a pagina.', 'me2pt5-284'),
-  hero('mega-dragonite-ex', 'Mega Dragonite ex', 'Ascended Heroes · SIR', 48, 'O voo sobre o mar ao amanhecer, escamas douradas.', 'me2pt5-290'),
-  hero('meowth-pf', 'Meowth', 'Phantasmal Flames · IR', 49, 'A rua noturna do gato — a carta com mais donos na Bynx (18).', 'me2-106'),
-  hero('clefairy-po', 'Clefairy', 'Perfect Order · IR', 50, 'A dança sob a lua cheia em campo estrelado.', 'me3-94'),
-  hero('flareon-v', 'Flareon V', 'Evolving Skies · Alt Art', 51, 'O fim de tarde em brasa da alt art aquece a pagina.', 'swsh7-169'),
+  hero('pikachu-ex-ah', 'Pikachu ex', 'Ascended Heroes · SIR', 46, 'ESCALA 1:1 COM A CARTA — a pagina e uma JANELA MAIOR da mesma pintura, nunca um zoom. PROFUNDIDADE IGUAL A DA CARTA: os troncos da floresta sao FINOS, distantes e ESBATIDOS pela nevoa dourada (nada de tronco grosso em primeiro plano ocupando a lateral). Apenas o tronco musgoso da borda DIREITA continua grande, com a mesma largura que tem na carta. Luz do sol difusa dourado-esverdeada filtrando entre as arvores, atmosfera clara e enevoada como na carta (nao escurecer, nao saturar o verde). BASE: folhagem verde desfocada em bokeh no primeiro plano e o tronco caido musgoso continuando pros lados. Pintura digital suave com profundidade de campo.', 'me2pt5-276', { cartas: [{ cardId: 'me2pt5-276', slot: 4, heroi: true, img: 'https://images.scrydex.com/pokemon/me2pt5-276/small' }] }),
+  hero('mega-gengar-ex', 'Mega Gengar ex', 'Ascended Heroes · SIR', 47, 'ESCALA 1:1 COM A CARTA — a pagina e uma JANELA MAIOR da mesma pintura, nunca um zoom: as pinceladas psicodelicas continuam FINAS e DENSAS como na carta, nunca pinceladas gigantes e espacadas. Zonas de cor seguindo as bordas: TOPO em carmesim escuro, laranja e roxo profundo; ESQUERDA com o redemoinho AMARELO e laranja; DIREITA em vermelho, rosa-choque e roxo; BASE dominada por VERDE-LIMAO vibrante com amarelo e roxo. Textura de tinta a oleo espessa e expressiva, contraste alto e saturacao maxima. PROIBIDO: qualquer parte do Gengar (espinho, orelha, sombra roxa com forma de corpo) fora da carta — so tinta abstrata.', 'me2pt5-284', { cartas: [{ cardId: 'me2pt5-284', slot: 4, heroi: true, img: 'https://images.scrydex.com/pokemon/me2pt5-284/small' }] }),
+  hero('mega-dragonite-ex', 'Mega Dragonite ex', 'Ascended Heroes · SIR', 48, 'ESCALA 1:1 COM A CARTA — a pagina e uma JANELA MAIOR da mesma pintura, nunca um zoom: as faixas de luz pastel (rosa, azul-claro, amarelo, verde-agua) que irradiam do centro continuam com a MESMA largura FINA que tem na borda da carta, so mais compridas; as nuvens branco-creme mantem o MESMO tamanho pequeno; as estrelas douradas de contorno ficam do mesmo tamanho e na mesma densidade. As silhuetas azul-claras de Dragonair e a rosa de Dragonite aparecem discretas nas laterais, do tamanho que tem na carta. TEXTURA DE PINTURA MACIA como a carta: tudo pintado com bordas SUAVES e difusas, nevoa, veladuras e granulado de aquarela\aerografo. As faixas de luz sao esfumacadas nas beiradas (NUNCA raios chapados de vetor com borda dura), as nuvens sao massas de vapor macias sem contorno desenhado, as estrelas sao brilhos dourados pequenos com halo difuso (NAO estrelas geometricas chapadas). PROIBIDO: aparencia de clipart\vetor, contorno duro, Dragonite gigante ou asas gigantes no topo, mar\oceano, horizonte, qualquer elemento maior do que ja existe na carta.', 'me2pt5-290', { cartas: [{ cardId: 'me2pt5-290', slot: 4, heroi: true, img: 'https://images.scrydex.com/pokemon/me2pt5-290/small' }] }),
+  hero('meowth-pf', 'Meowth', 'Phantasmal Flames · IR', 49, 'ESCALA 1:1 COM A CARTA — a pagina e uma JANELA MAIOR da mesma pintura, nunca um zoom: um elemento que mede X na carta mede X na pagina. O tronco de arvore continua com a MESMA largura estreita que tem na carta (nao engrossar, nao virar arvore gigante); o galho horizontal onde o gato deita atravessa a pagina na mesma espessura; as casinhas japonesas de telhado azul e vermelho ficam PEQUENAS ao fundo, do mesmo tamanho que aparecem na carta, alinhadas na mesma linha de horizonte; a folhagem verde-agua e os arbustos com florzinhas rosa mantem o tamanho de folha da carta. Aquarela clara com contorno de nanquim fino, mesma luz de dia suave.', 'me2-106'),
+  hero('clefairy-po', 'Clefairy', 'Perfect Order · IR', 50, 'CORES SATURADAS como a carta, NUNCA pastel lavado. DIREITA: um PAREDAO DE ROCHA vertical cinza-azulado escuro com veios verticais (NAO e tronco de arvore, nao usar marrom) coberto de MUSGO TURQUESA e VERDE-AGUA vibrante e folhagem azulada, continuando reto pra cima ate o topo e pra baixo ate a base da pagina, com a mesma largura que tem na borda. TOPO e ESQUERDA: ceu AZUL-NOITE profundo com nuvens ROSA-CHOQUE, lilas e creme empilhadas em camadas, estrelinhas e brilhos circulares dourados com anel. BASE: o penhasco desce em degraus de pedra musgosa com vegetacao verde-azulada escura, flores brancas e azuis pequenas. Mesma pincelada de aquarela densa e mesmo contraste da carta.', 'me3-94', { cartas: [{ cardId: 'me3-94', slot: 4, heroi: true, img: 'https://images.scrydex.com/pokemon/me3-94/small' }] }),
+  hero('flareon-v', 'Flareon V', 'Evolving Skies · Alt Art', 51, 'FUNDO ABSTRATO DE PINCELADAS, sem cenario e sem criatura: continuar exatamente a pintura de pinceladas largas e visiveis da carta em todas as direcoes, mesmo tracado diagonal e mesma textura de tinta a seco. Cores seguindo as bordas: VERDE-AGUA e turquesa dominando a esquerda, AMARELO-esverdeado subindo no centro do topo, LILAS e roxo-claro na direita, azul-turquesa com toques de ROSA suave na base. Sem degrade liso, sem paisagem, sem objetos. PROIBIDO desenhar Flareon ou qualquer criatura fora da carta.', 'swsh7-169'),
   hero('glaceon-v', 'Glaceon V', 'Evolving Skies · Alt Art', 52, 'O gelo azul silencioso da alt art cobre os bolsos.', 'swsh7-175'),
 ]
 
