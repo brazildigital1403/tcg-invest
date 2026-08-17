@@ -38,6 +38,13 @@ export interface PaginaLendaria {
    * Producao documentada em public/paginas-lendarias/README.md.
    */
   arteUrl?: string
+  /**
+   * Outpainting: permite CONTINUAR partes do corpo da criatura cortadas na
+   * borda da carta (pernas, rabo, asas) — para artes onde o Pokemon e
+   * cortado sem completar (ex: Charizard VMAX rainbow sem os pes). O padrao
+   * segue proibindo redesenhar a criatura.
+   */
+  corpoContinua?: boolean
   cartas: CartaLendaria[]
 }
 
@@ -62,22 +69,22 @@ export const PAGINAS_LENDARIAS: PaginaLendaria[] = [
     'A lua cheia da carta toma a pagina inteira; o campo de estrelas atravessa os 9 bolsos.',
     'swsh7-215', { gratis: true }),
   hero('gengar-vmax', 'Gengar VMAX', 'Fusion Strike · Alt Art', 2,
-    'A rua noturna de neon roxo continua pelos bolsos vizinhos.',
+    'A lingua-estrada termina DENTRO da carta — abaixo dela NAO existe estrada nem doces. Da borda inferior da carta pra baixo continua o jardim etereo em tons de AZUL e VERDE-AGUA (mesma paleta da base da carta), com vegetacao fantasmagorica esparsa. O ceu segue os azuis e verde-agua da carta com a lua; a vila assombrada fica nas laterais e no horizonte.',
     'swsh8-271'),
   hero('mega-charizard-x', 'Mega Charizard X', 'Phantasmal Flames · SIR', 3,
-    'Chamas azuis escorrendo da carta pros bolsos vizinhos.',
+    'PRECISAO nas bordas: cada lingua de chama e faisca que toca a borda da carta continua do lado de fora NO MESMO angulo, espessura e cor — chama AZUL segue azul, brasa LARANJA segue laranja, sem inventar chamas novas coladas na carta. O cenario e a noite vulcanica escura da carta: rocha negra, fumaca e o redemoinho de fogo azul e laranja abrindo conforme se afasta, com o centro da pagina mais escuro pra carta respirar.',
     'me2-125'),
   hero('rayquaza-vmax', 'Rayquaza', 'Rayquaza VMAX · Evolving Skies', 4,
     'A tempestade no ceu se abre pela pagina, com o corpo da serpente sugerido entre os bolsos.',
     'swsh7-218'),
   hero('charizard-vmax-cp', 'Charizard VMAX', "Champion's Path · Rainbow", 5,
-    'O arco-iris de fogo da rainbow explode alem da moldura.',
+    'SOMENTE FUNDO, nenhuma criatura: o gradiente holografico perolado suave da carta (branco, arco-iris pastel) se estendendo limpo pela pagina inteira, com losangos brancos e amarelos esparsos flutuando e um leve brilho radial atras da carta. Minimalista, elegante, zero Charizard fora da carta.',
     'swsh35-74'),
   hero('sylveon-vmax', 'Sylveon VMAX', 'Evolving Skies · Alt Art', 6,
     'As fitas e o ceu rosa do fim de tarde cruzam a pagina.',
     'swsh7-212'),
   hero('leafeon-vmax', 'Leafeon VMAX', 'Evolving Skies · Alt Art', 7,
-    'A floresta da cena original vira dossel cobrindo os 9 bolsos.',
+    'Continuar a arte da carta em todas as direções no mesmo estilo flat gouache de bordas duras e contornos deslocados rosa/ciano, mantendo o horizonte da página exatamente na altura do horizonte da arte (36% a partir do topo). Para cima: a nuvem de fumaça Dynamax vinho-bordô #7C2230 de miolo quase preto nasce colada na borda superior APENAS na faixa central entre 25% e 55% da largura da carta (onde a arte mostra a fumaça cortada) e sobe em lóbulos encadeados sem vão de céu azul; À DIREITA de 55% a arte mostra CÉU CIANO ABERTO encostando na borda — ali o céu continua limpo, sem fumaça encostada na carta, o restante do céu segue azul-celeste chapado #54BEE6, e a folha-cauda teal #57907B com listra verde-floresta #2E5D46 e contorno rosa-choque #F06EA9 continua na diagonal do canto superior direito, com o feixe de luz rosa vertical nascendo à esquerda. Para a esquerda, completar o fardo de feno cilíndrico amarelo-palha #F2C877 e estender o campo de trigo dourado-alaranjado #E8A94F em pinceladas horizontais, colinas de mata verde #3E7A3C e cordilheira azul-fria #7FA8C9; para a direita, prolongar a cerca branca de piquetes quase horizontal, o campo dourado, o muro de pedras cinza-azulado #8A8D94 em diagonal e o rastro rosa-magenta apenas como glow suave e difuso rente ao chão no plano médio, nunca faixa chapada saturada. Para baixo, cada material da borda inferior DEVE continuar idêntico e alinhado na costura: o calçamento de pedras cinza-azulado #8A8D94 com juntas escuras do trecho esquerdo (5% a 25% da largura) desce como mais calçamento cinza, e todo o restante desce como gramado verde-vivo saturado #5FAE3C a #4E9E33 com pinceladas diagonais mais escuras — chão puro até o rodapé, sem palha, sem riscos rosa e sem nenhum elemento novo. Proibido: qualquer pata, perna, cauda ou parte de criatura pendendo ou cruzando a borda inferior (o Leafeon da carta está completo com as quatro patas plantadas dentro da arte), repetir ou desenhar qualquer Leafeon ou outra criatura, faixa magenta nascendo na linha da costura, trocar pedra por palha na base, inventar construções ou cena que não exista na carta, dessaturar a paleta, e renderizar moldura, texto ou elementos de carta.',
     'swsh7-205'),
   hero('glaceon-vmax', 'Glaceon VMAX', 'Evolving Skies · Alt Art', 8,
     'A geleira se estende em silencio azul pela pagina.',

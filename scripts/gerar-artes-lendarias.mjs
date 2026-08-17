@@ -92,7 +92,9 @@ function montarPrompt(pagina) {
       'The attached image is a canvas with a painted fragment at its exact center. ALL the flat gray around it is UNPAINTED PLACEHOLDER.',
       'OUTPAINT: replace 100% of the gray placeholder with the seamless continuation of the painting — top, sides AND bottom, edge to edge. Not one pixel of flat gray or empty darkness may remain.',
       'CONTINUITY IS THE WHOLE JOB: the first centimeters around the fragment must be an EXACT continuation of the pixels at each of its four borders — the same objects, lines, gradients and light sources extended outward, so no seam or boundary is visible. Do NOT invent a different scene, angle or environment around it; the fragment dictates everything. Farther from the fragment the scene may open up, always as the same place.',
-      'The creature must stay ENTIRELY inside the central fragment: never redraw it, never extend any part of its body into the outpainted area (the fragment region will be covered by the physical card).',
+      pagina.corpoContinua
+        ? 'The creature is CUT OFF at the fragment borders: CONTINUE only its cut body parts outward, AT THE EXACT SAME SCALE as they appear inside the fragment — a leg cut at the border finishes just below it, a wing tip finishes just above it. The creature must occupy barely more area than the fragment itself; it must NOT grow into a page-sized giant behind the fragment. THE BORDER PIXELS DICTATE THE COLORS: sample the exact hues and patterns where each part touches the edge (rainbow-holographic stays rainbow-holographic, sparkles stay). EVERYTHING ELSE on the page is pure BACKGROUND continuation only. Never paint a second copy of the creature.'
+        : 'The creature must stay ENTIRELY inside the central fragment: never redraw it, never extend any part of its body into the outpainted area (the fragment region will be covered by the physical card).',
       'The fragment is a CROPPED PAINTING, not a trading card: never paint a white border, margin, frame or card shape around it — its edges must dissolve directly into the surrounding scene.',
       'STRICT RULES: no card, no frame, no border, no panel or rectangle shapes, no text, letters, numbers, logos or watermarks anywhere.',
       `Mood hint (Portuguese, secondary to the fragment itself): ${pagina.tema}`,
@@ -266,7 +268,10 @@ async function main() {
       for (const u of urls) imagens.push(await baixarCarta(u))
       if (outpaint) {
         const W = 1536, H = 2048
-        const cw = Math.round(W * 0.34), ch = Math.round(H * 0.32)
+        // 30% x 29.5%: MENOR que a area que a carta real cobre (31%), pra
+        // qualquer sobra de borda do fragmento ficar escondida atras dela
+        // (a v2 do gengar vazou texto de moldura acima da carta).
+        const cw = Math.round(W * 0.30), ch = Math.round(H * 0.295)
         const frag = await sharp(Buffer.from(imagens[0].b64, 'base64'))
           .resize(cw, ch, { fit: 'fill' }).png().toBuffer()
         const base = await sharp({ create: { width: W, height: H, channels: 3, background: '#8a8a8a' } })
