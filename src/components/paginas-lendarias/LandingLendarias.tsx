@@ -17,15 +17,13 @@ import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { IconCheck } from '@/components/ui/Icons'
-import { PAGINAS_LENDARIAS } from '@/lib/paginas-lendarias'
+import { PAGINAS_LENDARIAS, imgDaCarta } from '@/lib/paginas-lendarias'
 
 // Cartas de cada pagina (do catalogo) pro overlay do lightbox: mostrar a
 // carta em cima da arte e o que faz o visitante ENTENDER o produto.
+// A URL sai de imgDaCarta (respeita as cartas hospedadas fora do
+// pokemontcg.io) — montar na mao devolvia o VERSO da carta em 4 delas.
 const CARTAS_LB = new Map(PAGINAS_LENDARIAS.map(p => [p.id, p.cartas]))
-const cardUrlDe = (cardId: string) => {
-  const i = cardId.lastIndexOf('-')
-  return `https://images.pokemontcg.io/${cardId.slice(0, i)}/${cardId.slice(i + 1)}.png`
-}
 
 // ─── Dados das paginas exibidas (subset das 19, as mais vendedoras) ─────────
 
@@ -723,7 +721,7 @@ export default function LandingLendarias() {
                 <div key={c.cardId} className="lp-lb-carta" style={(CARTAS_LB.get(lightbox) || []).length === 1
                   ? { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
                   : { left: `${5 + (c.slot % 3) * 31.5}%`, top: `${4 + Math.floor(c.slot / 3) * 31.6}%` }}>
-                  <img src={cardUrlDe(c.cardId)} alt="" loading="lazy" />
+                  <img src={imgDaCarta(c)} alt="" loading="lazy" />
                 </div>
               ))}
             </div>
