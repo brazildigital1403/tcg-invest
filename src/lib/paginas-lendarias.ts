@@ -59,6 +59,22 @@ export interface PaginaLendaria {
    * segue proibindo redesenhar a criatura.
    */
   corpoContinua?: boolean
+  /**
+   * Recorte custom da arte da carta que vira o fragmento do outpainting
+   * (fracoes 0-1). Existe pras cartas onde o recorte padrao pega os
+   * PERSONAGENS: o modelo completa quem esta cortado e a pagina nasce com
+   * a criatura\pessoa duplicada espiando por tras da carta (caso gardevoir
+   * ex SVI). Apontar pra uma faixa que tenha SO cenario resolve.
+   */
+  recorte?: { l: number; t: number; w: number; h: number }
+  /**
+   * Usa a arte INTEIRA da carta como fragmento, colada na proporcao e
+   * posicao exatas do bolso (31% da largura, 63x88). O alinhamento vira
+   * consequencia da CONSTRUCAO — horizonte e elementos ja nascem na altura
+   * certa e o modelo so continua pra fora. Serve pras cartas de paisagem,
+   * onde qualquer degrau na linha do horizonte denuncia a emenda.
+   */
+  fragmentoCarta?: boolean
   cartas: CartaLendaria[]
 }
 
@@ -177,18 +193,33 @@ export const PAGINAS_LENDARIAS: PaginaLendaria[] = [
   hero('rayquaza-amazing', 'Rayquaza Amazing', 'Vivid Voltage · Amazing Rare', 30, 'O arco de cores do Amazing explode alem da moldura.', 'swsh4-138'),
   hero('zamazenta-amazing', 'Zamazenta Amazing', 'Vivid Voltage · Amazing Rare', 31, 'O escudo de luz multicolorida irradia do centro.', 'swsh4-102'),
   hero('magikarp-scroll', 'Magikarp', 'Paldea Evolved · IR', 32, 'A pintura oriental do cardume sobe a pagina como um pergaminho.', 'sv2-203'),
-  hero('charmander-151', 'Charmander', '151 · IR', 33, 'A trilha do filhote continua pela floresta de Kanto.', 'sv3pt5-168'),
+  hero('charmander-151', 'Charmander', '151 · IR', 33, 'ESCALA 1:1 COM A CARTA — a pagina e o mesmo desfiladeiro apenas mais largo, nunca um zoom: as paredes de rocha estratificada em tons TERRACOTA, salmao e marrom-avermelhado continuam com a MESMA espessura de camada que tem na carta, e as folhagens VERDE-AZULADAS (samambaias e palmas) ficam PEQUENAS e esparsas nas beiradas, do tamanhinho que tem na carta. Os feixes de LUZ claros descem do alto entre as paredes, como na arte. PROIBIDO: planta gigante em primeiro plano, moita cobrindo a base, chama solta, segundo Charmander, ceu aberto, horizonte, e qualquer elemento novo — area de rocha calma e vazia e o certo.', 'sv3pt5-168', { fragmentoCarta: true }),
   hero('charmeleon-151', 'Charmeleon', '151 · IR', 34, 'O crepusculo rochoso entre a chama e a evolucao.', 'sv3pt5-169'),
   hero('squirtle-151', 'Squirtle', '151 · IR', 35, 'O riacho da cena original serpenteia pelos bolsos.', 'sv3pt5-170'),
   hero('bulbasaur-151', 'Bulbasaur', '151 · IR', 36, 'O jardim ensolarado cresce em folhagem pagina afora.', 'sv3pt5-166'),
-  hero('mew-ex-pf', 'Mew ex', 'Paldean Fates · SIR', 37, 'O voo rosa-choque em ceu de sonho shiny.', 'sv4pt5-232'),
-  hero('tr-mewtwo', "Team Rocket's Mewtwo", 'Destined Rivals · SIR', 38, 'O laboratorio sombrio da equipe Rocket em roxo e preto.', 'sv10-231'),
-  hero('tr-nidoking', "Team Rocket's Nidoking", 'Destined Rivals · SIR', 39, 'A cidade tomada pela Rocket, neon e fumaca.', 'sv10-233'),
-  hero('cynthia-garchomp', "Cynthia's Garchomp", 'Destined Rivals · UR', 40, 'A arena da campea em velocidade e areia.', 'sv10-215'),
-  hero('gardevoir-ex-svi', 'Gardevoir ex', 'Scarlet & Violet · SIR', 41, 'O veu psiquico esvoacante toma a pagina em luz branca.', 'sv1-245'),
-  hero('charizard-ex-of', 'Charizard ex', 'Obsidian Flames · SIR', 42, 'A cratera vulcanica em brasas negras e laranja.', 'sv3-223'),
-  hero('roaring-moon', 'Roaring Moon ex', 'Paradox Rift · SIR', 43, 'O canion ancestral sob o ceu do paradoxo.', 'sv4-251'),
-  hero('terapagos-ex', 'Terapagos ex', 'Stellar Crown · SIR', 44, 'A caverna de cristais tera refletindo constelacoes.', 'sv7-170'),
+  hero('mew-ex-pf', 'Mew ex', 'Paldean Fates · SIR', 37, 'Continuar a MESMA cena da carta pra fora, no mesmo desenho infantil de contorno preto FINO e cores chapadas: o ceu azul-claro com nuvens brancas e risquinhos segue por cima, a colina verde-limao segue pros lados na MESMA altura em que toca a borda da carta, e o gramado desce ate a base. Poucos bichinhos MINUSCULOS espalhados (Diglett, Oddish azul shiny, Poliwag), do tamanhinho que tem na carta, mais risquinhos de grama. PROIBIDO: montanha, lago grande, arvore alta, caminho, casa, textura de tela ou canvas, sombreado, segundo Mew e texto.', 'sv4pt5-232', { fragmentoCarta: true }),
+  hero('tr-mewtwo', "Team Rocket's Mewtwo", 'Destined Rivals · SIR', 38, 'PALETA DE NEON EM CONTRASTE, nao roxo lavado: MAGENTA e ROSA-CHOQUE dominando, cortados por CIANO eletrico e fios de VERDE-LIMAO nas bordas de luz, sobre preto profundo — mesma saturacao dura da carta. ENQUADRAMENTO FECHADO: as estruturas industriais do laboratorio continuam BEM PROXIMAS (tubos, dutos, paineis, vidros e vigas cortados pela borda), sem salao gigante, sem chao vazio e sem perspectiva de fuga. PROIBIDO: silhueta ou figura de pessoa, Giovanni, segundo Mewtwo, cidade ao fundo, ceu, relampago e texto.', 'sv10-231'),
+  hero('tr-nidoking', "Team Rocket's Nidoking", 'Destined Rivals · SIR', 39, 'CAVERNA SUBTERRANEA FECHADA como a carta, nunca cidade: paredes e teto de PEDRA CINZA-ESCURA continuando bem proximos, blocos de rocha quebrada e lascas suspensas no ar com poeira, e o CHAO RACHADO com fendas irradiando ENERGIA VERMELHO-LARANJA quente que ilumina de baixo. Mesma escala de pedra e destroco da carta, mesma pintura sombria de contraste alto. PROIBIDO: cidade, predios, ruas, placas ou letreiros com R, neon, ceu, relampago, qualquer pessoa (nem Giovanni nem recrutas da Rocket), qualquer Pokemon fora da carta e texto.', 'sv10-233'),
+  hero('cynthia-garchomp', "Cynthia's Garchomp", 'Destined Rivals · UR', 40, 'FLAT DESIGN GRAFICO, sem textura e sem cena: fundo AMARELO-DOURADO chapado tomando a pagina inteira, com as MECHAS LONGAS do cabelo louro da Cynthia se espalhando em ondas suaves pra fora da carta, desenhadas so com CONTORNO MARROM FINO (linha de nanquim), do mesmo peso de traco da carta. ESCALA 1:1: o retrato dela nao cresce — a pagina mostra apenas a continuacao das mechas e do fundo amarelo, nunca um rosto gigante. PROIBIDO: pinceladas texturizadas, rochas, areia, arena, sombra, degrade forte, segundo Garchomp e qualquer texto. Amarelo chapado + linha marrom, so isso.', 'sv10-215'),
+  {
+    id: 'gardevoir-ex-svi',
+    nome: 'Familia Gardevoir',
+    sub: 'Scarlet & Violet · a linha evolutiva completa',
+    ordem: 41,
+    // Pagina especial (17/08, referencia do Du): Ralts IR, Kirlia IR e
+    // Gardevoir ex SIR contam a MESMA historia na mesma casa — as tres artes
+    // do SVI sao uma sequencia. Lado a lado na fileira do meio, com a sala
+    // atravessando as tres.
+    tema: 'A MESMA CASA atravessa as tres cartas numa unica cena continua, vista de frente e na mesma escala: parede VERDE-LIMAO clara coberta de quadrinhos emoldurados de Pokemon e flores, rodape de madeira, cortina de LOSANGOS VERMELHOS E BRANCOS na janela a esquerda, armario alto de madeira VERDE-ESCURA, poltrona de estampa floral rosa-salmao, cesta de vime com novelos de la coloridos, limoeiro em vaso com limoes amarelos a direita, mesa redonda de madeira clara com cafeteira e xicaras, tapete estampado e assoalho de madeira quente. Gouache DENSO e SATURADO, luz quente de tarde, muito detalhe caseiro. PROIBIDO: qualquer PESSOA, Gardevoir, Kirlia ou Ralts no fundo (eles vivem so dentro das cartas), texto, numero, moldura de carta e retangulos vazios.',
+    cartas: [
+      { cardId: 'sv1-211', slot: 3 },              // Ralts IR — a mudanca
+      { cardId: 'sv1-212', slot: 4 },              // Kirlia IR — a infancia
+      { cardId: 'sv1-245', slot: 5, heroi: true }, // Gardevoir ex SIR — hoje
+    ],
+  },
+  hero('charizard-ex-of', 'Charizard ex', 'Obsidian Flames · SIR', 42, 'CAMPO DE CRISTAIS TERA, nao vulcao: continuar as facetas de cristal quebrado em BRANCO, PRATA e cinza-gelo que tomam a carta, com reflexos prismaticos arco-iris (azul, verde, rosa, amarelo) nas quinas e brilhos de estrela espalhados. As facetas seguem o mesmo tamanho e angulo das da carta, irradiando do centro. PROIBIDO: lava, magma, rocha vulcanica, montanha, fogo laranja dominando, qualquer parte do Charizard fora da carta e QUALQUER texto ou numero.', 'sv3-223'),
+  hero('roaring-moon', 'Roaring Moon ex', 'Paradox Rift · SIR', 43, 'ENQUADRAMENTO FECHADO como a carta: selva primitiva umida vista de PERTO, sem horizonte e SEM CEU visivel. Continuar os rochedos cobertos de musgo e samambaias bem proximos, a vegetacao tropical densa de folhas grandes, a nevoa branca entre as plantas e os raios de luz difusos atravessando o vapor — tudo na MESMA escala da carta (folha e pedra do mesmo tamanho). Paleta: verde-esmeralda, verde-agua, cinza-pedra umido, com respingos de rosa e vermelho da vegetacao. PROIBIDO: ceu aberto, por do sol, panorama de vale, cachoeiras gigantes, ruinas de colunas ou templos, rio em primeiro plano, qualquer parte do Roaring Moon e os outros Pokemon paradoxo duplicados.', 'sv4-251'),
+  hero('terapagos-ex', 'Terapagos ex', 'Stellar Crown · SIR', 44, 'MOSAICO DE TESSELAS MINUSCULAS, como a carta: milhares de quadradinhos e tijolinhos de vidro bem pequenos (cada um do tamanho que tem na carta, nao aumentar), separados por linhas de chumbo FINAS, formando arcos e circulos concentricos e leques de escamas que irradiam do centro. Paleta exata: azul-marinho, azul-medio, turquesa, BEGE-CREME claro, branco-gelo e toques de lilas, com brilho iridescente arco-iris sutil entre os vidros e estrelinhas brancas de quatro pontas espalhadas. PROIBIDO: tesselas grandes ou chumbo grosso, rosacea gotica simetrica, catedral, arcos de pedra, colunas, perspectiva 3D, qualquer parte do Terapagos e as gemas Tera coloridas repetidas. Superficie chapada de vitral, vista de frente.', 'sv7-170'),
   hero('victini-wf', 'Victini', 'White Flare · IR', 45, 'A chama branca da vitoria dancando pela pagina.', 'rsv10pt5-172'),
   hero('pikachu-ex-ah', 'Pikachu ex', 'Ascended Heroes · SIR', 46, 'ESCALA 1:1 COM A CARTA — a pagina e uma JANELA MAIOR da mesma pintura, nunca um zoom. PROFUNDIDADE IGUAL A DA CARTA: os troncos da floresta sao FINOS, distantes e ESBATIDOS pela nevoa dourada (nada de tronco grosso em primeiro plano ocupando a lateral). Apenas o tronco musgoso da borda DIREITA continua grande, com a mesma largura que tem na carta. Luz do sol difusa dourado-esverdeada filtrando entre as arvores, atmosfera clara e enevoada como na carta (nao escurecer, nao saturar o verde). BASE: folhagem verde desfocada em bokeh no primeiro plano e o tronco caido musgoso continuando pros lados. Pintura digital suave com profundidade de campo.', 'me2pt5-276', { cartas: [{ cardId: 'me2pt5-276', slot: 4, heroi: true, img: 'https://images.scrydex.com/pokemon/me2pt5-276/small' }] }),
   hero('mega-gengar-ex', 'Mega Gengar ex', 'Ascended Heroes · SIR', 47, 'ESCALA 1:1 COM A CARTA — a pagina e uma JANELA MAIOR da mesma pintura, nunca um zoom: as pinceladas psicodelicas continuam FINAS e DENSAS como na carta, nunca pinceladas gigantes e espacadas. Zonas de cor seguindo as bordas: TOPO em carmesim escuro, laranja e roxo profundo; ESQUERDA com o redemoinho AMARELO e laranja; DIREITA em vermelho, rosa-choque e roxo; BASE dominada por VERDE-LIMAO vibrante com amarelo e roxo. Textura de tinta a oleo espessa e expressiva, contraste alto e saturacao maxima. PROIBIDO: qualquer parte do Gengar (espinho, orelha, sombra roxa com forma de corpo) fora da carta — so tinta abstrata.', 'me2pt5-284', { cartas: [{ cardId: 'me2pt5-284', slot: 4, heroi: true, img: 'https://images.scrydex.com/pokemon/me2pt5-284/small' }] }),

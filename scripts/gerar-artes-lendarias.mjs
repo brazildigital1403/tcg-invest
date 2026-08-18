@@ -91,11 +91,13 @@ function montarPrompt(pagina) {
     return [
       'The attached image is a canvas with a painted fragment at its exact center. ALL the flat gray around it is UNPAINTED PLACEHOLDER.',
       'OUTPAINT: replace 100% of the gray placeholder with the seamless continuation of the painting — top, sides AND bottom, edge to edge. Not one pixel of flat gray or empty darkness may remain.',
-      'CONTINUITY IS THE WHOLE JOB: the first centimeters around the fragment must be an EXACT continuation of the pixels at each of its four borders — the same objects, lines, gradients and light sources extended outward, so no seam or boundary is visible. Do NOT invent a different scene, angle or environment around it; the fragment dictates everything. Farther from the fragment the scene may open up, always as the same place.',
+      'CONTINUITY IS THE WHOLE JOB: the first centimeters around the fragment must be an EXACT continuation of the pixels at each of its four borders — the same objects, lines, gradients and light sources extended outward, so no seam or boundary is visible. Do NOT invent a different scene, angle or environment around it; the fragment dictates everything.',
+      'SAME ZOOM, NEVER WIDER: the page is the SAME framing simply STRETCHED — identical plane, depth and camera distance as the fragment. Think of it as the same photograph printed larger, not a zoomed-out shot. The scene must NOT open up: do NOT add mountains, horizons, lakes, rivers, paths, buildings, trees, crowds or any landscape element that is not already touching the fragment edges. If the fragment shows a patch of hill and sky, the page shows MORE OF THAT SAME hill and sky and nothing else. Empty, calm areas are correct and desirable.',
       pagina.corpoContinua
         ? 'The creature is CUT OFF at the fragment borders: CONTINUE only its cut body parts outward, AT THE EXACT SAME SCALE as they appear inside the fragment — a leg cut at the border finishes just below it, a wing tip finishes just above it. The creature must occupy barely more area than the fragment itself; it must NOT grow into a page-sized giant behind the fragment. THE BORDER PIXELS DICTATE THE COLORS: sample the exact hues and patterns where each part touches the edge (rainbow-holographic stays rainbow-holographic, sparkles stay). EVERYTHING ELSE on the page is pure BACKGROUND continuation only. Never paint a second copy of the creature.'
         : 'The creature must stay ENTIRELY inside the central fragment: never redraw it, never extend any part of its body into the outpainted area (the fragment region will be covered by the physical card).',
       'The fragment is a CROPPED PAINTING, not a trading card: never paint a white border, margin, frame or card shape around it — its edges must dissolve directly into the surrounding scene.',
+      'The OUTPUT IS THE ARTWORK ITSELF, bleeding to all four edges of the canvas. NEVER render a photograph of a framed picture, a canvas hanging on a wall, a poster, a mockup, a border, a passe-partout, a shadow or any wall\\room around the art.',
       'STRICT RULES: no card, no frame, no border, no panel or rectangle shapes, no text, letters, numbers, logos or watermarks anywhere.',
       `Mood hint (Portuguese, secondary to the fragment itself): ${pagina.tema}`,
     ].join('\n')
@@ -120,7 +122,7 @@ function montarPrompt(pagina) {
 
 // ─── Gemini ─────────────────────────────────────────────────────────────────
 
-async function baixarCarta(url) {
+async function baixarCarta(url, recorte) {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`carta ${url}: HTTP ${res.status}`)
   const buf = Buffer.from(await res.arrayBuffer())
@@ -139,8 +141,8 @@ async function baixarCarta(url) {
   // tight alargado (16/08): 34% de altura deixava o fragmento pequeno demais
   // e o modelo inventava cena em vez de continuar. 42% mantem o texto de
   // ataque fora (comeca ~55-58% nos layouts V\VMAX) com mais contexto.
-  const t = TIGHT ? { l: 0.10, t: 0.14, w: 0.80, h: 0.42 } : { l: 0.06, t: 0.12, w: 0.88, h: 0.56 }
-  const recorte = await sharp(buf)
+  const t = recorte || (TIGHT ? { l: 0.10, t: 0.14, w: 0.80, h: 0.42 } : { l: 0.06, t: 0.12, w: 0.88, h: 0.56 })
+  const fragmento = await sharp(buf)
     .extract({
       left: Math.round(w * t.l),
       top: Math.round(h * t.t),
@@ -149,7 +151,7 @@ async function baixarCarta(url) {
     })
     .png()
     .toBuffer()
-  return { mime: 'image/png', b64: recorte.toString('base64') }
+  return { mime: 'image/png', b64: fragmento.toString('base64') }
 }
 
 async function chamarGemini(chave, prompt, imagens, tentativa = 0) {
@@ -265,13 +267,17 @@ async function main() {
       }
 
       let imagens = []
-      for (const u of urls) imagens.push(await baixarCarta(u))
+      for (const u of urls) imagens.push(await baixarCarta(u, pagina.recorte))
       if (outpaint) {
         const W = 1536, H = 2048
-        // 30% x 29.5%: MENOR que a area que a carta real cobre (31%), pra
-        // qualquer sobra de borda do fragmento ficar escondida atras dela
-        // (a v2 do gengar vazou texto de moldura acima da carta).
-        const cw = Math.round(W * 0.30), ch = Math.round(H * 0.295)
+        // ALINHAMENTO POR CONSTRUCAO (17/08): com fragmentoCarta, o canvas
+        // recebe a arte INTEIRA da carta na proporcao e posicao EXATAS que a
+        // carta fisica ocupa no bolso (31% da largura, 63x88). Assim o
+        // horizonte e cada elemento ja nascem no lugar certo e o modelo so
+        // precisa continuar pra fora — some o degrau que nenhum prompt
+        // resolvia. Sem a flag, segue o recorte menor de sempre.
+        const cw = pagina.fragmentoCarta ? Math.round(W * 0.31) : Math.round(W * 0.30)
+        const ch = pagina.fragmentoCarta ? Math.round(cw * 88 / 63) : Math.round(H * 0.295)
         const frag = await sharp(Buffer.from(imagens[0].b64, 'base64'))
           .resize(cw, ch, { fit: 'fill' }).png().toBuffer()
         const base = await sharp({ create: { width: W, height: H, channels: 3, background: '#8a8a8a' } })
