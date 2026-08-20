@@ -63,6 +63,11 @@ type CardProps = {
     precoMedio: number | null
     precoMax: number | null
     variantes?: Array<{ key: string; label: string; min: number | null; med: number | null; max: number | null }>
+    // Range da varredura de listagem. Tri-estado, e os tres significam coisas
+    // diferentes: null = nunca varrida · 0 = varrida e sem oferta · >0 = tem
+    // oferta. NAO usar como preco (cruza variante) — so no estado vazio.
+    ligaRangeMin?: number | null
+    ligaRangeMax?: number | null
   }
   breadcrumb?: { name: string; href: string }[]
   children?: ReactNode
@@ -73,6 +78,27 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
   const variantes = card.variantes && card.variantes.length ? card.variantes : []
   const [varSel, setVarSel] = useState<string>(variantes[0]?.key || 'normal')
   const vAtual = variantes.find((v) => v.key === varSel) || variantes[0] || null
+
+  // ─── Estado vazio: por que a carta nao tem preco? (BRIEF-LIGA-ZENROWS 10.8)
+  //
+  // Ate 21/08/2026 toda carta sem preco dizia "Preco ainda nao cadastrado" —
+  // texto que poe a culpa na Bynx quando, na maioria das 11.792 cartas nessa
+  // situacao, a verdade e outra: ninguem esta vendendo. A varredura de
+  // listagem sabe diferenciar, e "ninguem esta vendendo" e INFORMACAO pra quem
+  // coleciona, nao ausencia de dado.
+  //
+  // O range NAO vira "Minimo"/"Maximo" aqui: ele cruza variante (o min pode
+  // ser do normal e o max do reverse), e o grid logo acima e por variante.
+  // Duas coisas com o mesmo nome e escopo diferente, lado a lado, e como o
+  // leitor confunde uma com a outra. Por isso so entra como "a partir de".
+  const rangeMin = card.ligaRangeMin
+  const semOferta = rangeMin != null && rangeMin <= 0
+  const temOfertaSemDetalhe = rangeMin != null && rangeMin > 0
+  const vazioTitulo = semOferta
+    ? 'Sem oferta no Mercado Brasileiro no momento'
+    : temOfertaSemDetalhe
+      ? `Ofertas a partir de ${fmt(rangeMin)}`
+      : 'Preço ainda não cadastrado.'
 
   const color = TYPE_COLORS[card.types[0]] || '#f59e0b'
 
@@ -325,12 +351,23 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
                   <p
                     style={{
                       fontSize: 13,
-                      color: 'rgba(255,255,255,0.3)',
+                      color: semOferta ? 'var(--bx-text-2)' : 'rgba(255,255,255,0.3)',
                       marginBottom: 8,
                     }}
                   >
-                    Preço ainda não cadastrado.
+                    {vazioTitulo}
                   </p>
+                  {temOfertaSemDetalhe && (
+                    <p
+                      style={{
+                        fontSize: 11,
+                        color: 'rgba(255,255,255,0.35)',
+                        marginBottom: 8,
+                      }}
+                    >
+                      Fonte: <b style={{ color: 'var(--ac-1)', fontWeight: 700 }}>Mercado Brasileiro</b>
+                    </p>
+                  )}
                   <p
                     style={{
                       fontSize: 12,
@@ -344,8 +381,9 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
                     >
                       Entre na Bynx
                     </Link>{' '}
-                    e adicione essa carta na sua coleção pra acompanhar a evolução
-                    do preço.
+                    {semOferta
+                      ? 'e acompanhe essa carta pra ser avisado quando alguém anunciar.'
+                      : 'e adicione essa carta na sua coleção pra acompanhar a evolução do preço.'}
                   </p>
                 </div>
               )}
