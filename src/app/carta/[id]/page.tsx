@@ -135,6 +135,20 @@ type NormalizedCard = {
   precoMin: number | null
   precoMedio: number | null
   precoMax: number | null
+  // `variantes` ja era devolvido por fetchCardData desde a S43, mas nunca foi
+  // declarado aqui — o excess property check reclamava dele desde entao.
+  variantes?: Array<{
+    key: string
+    label: string
+    min: number | null
+    med: number | null
+    max: number | null
+  }>
+  // Range da varredura de listagem. Tri-estado: null = nunca varrida ·
+  // 0 = varrida e sem oferta · >0 = tem oferta. Cruza variante, entao alimenta
+  // so o estado vazio da UI — nunca o grid de preco (ver BRIEF 10.2/10.8).
+  ligaRangeMin: number | null
+  ligaRangeMax: number | null
 }
 
 // ─── Helper: normaliza attacks (pode vir como array da API TCG, ou como
@@ -175,7 +189,11 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
       'preco_foil_min, preco_foil_medio, preco_foil_max, ' +
       'preco_reverse_min, preco_reverse_medio, preco_reverse_max, ' +
       'preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, ' +
-      'preco_promo_min, preco_promo_medio, preco_promo_max'
+      'preco_promo_min, preco_promo_medio, preco_promo_max, ' +
+      // Range da varredura de listagem (BRIEF-LIGA-ZENROWS.md 10.8). NAO e
+      // preco de variante: cruza variantes, entao so alimenta o estado vazio
+      // da UI, nunca o grid de Minimo/Medio/Maximo.
+      'liga_range_min, liga_range_max'
     const porSlug = await sb.from('pokemon_cards').select(COLS).eq('slug', idOrSlug).maybeSingle()
     bynx = porSlug.data
     if (!bynx) {
@@ -265,6 +283,13 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
     precoMedio: bynx?.preco_medio ? Number(bynx.preco_medio) : null,
     precoMax: bynx?.preco_max ? Number(bynx.preco_max) : null,
     variantes: buildVariantesCarta(bynx),
+    // ATENCAO ao `!= null`: aqui 0 e um valor CARREGADO DE SENTIDO ("a
+    // varredura passou e ninguem esta vendendo"), diferente de null ("a
+    // varredura nunca passou"). O `? :` usado nos precos acima achataria os
+    // dois em null e mataria justamente a distincao que essa coluna existe
+    // pra fazer.
+    ligaRangeMin: bynx?.liga_range_min != null ? Number(bynx.liga_range_min) : null,
+    ligaRangeMax: bynx?.liga_range_max != null ? Number(bynx.liga_range_max) : null,
   }
 }
 
