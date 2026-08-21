@@ -64,6 +64,17 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+// Data + hora exata — pedido do Du (12/08/2026): relativo ("há 3d") esconde
+// precisao demais pra decidir quem realmente sumiu. Exata vira a linha
+// principal da celula, relativo continua por baixo como referencia rapida.
+function formatExactDateTime(iso: string | null): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  if (isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
 // S32: tempo relativo legível pro "Último acesso" — "agora", "há 23min", "hoje 14h",
 // "ontem", "há 3d", "há 2mes", "há 1a". Optimizado pra varredura visual rápida.
 function formatRelativeTime(iso: string | null): string {
@@ -198,13 +209,26 @@ function UsersView() {
   return (
     <div style={{ padding: '32px 24px', maxWidth: 1380, margin: '0 auto', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px', color: '#f0f0f0' }}>
-          Usuários
-        </h1>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-          {total.toLocaleString('pt-BR')} usuário{total === 1 ? '' : 's'} · ordenado por {SORT_LABELS[sortBy]} ({sortDir === 'asc' ? 'crescente' : 'decrescente'})
-        </p>
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px', color: '#f0f0f0' }}>
+            Usuários
+          </h1>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+            {total.toLocaleString('pt-BR')} usuário{total === 1 ? '' : 's'} · ordenado por {SORT_LABELS[sortBy]} ({sortDir === 'asc' ? 'crescente' : 'decrescente'})
+          </p>
+        </div>
+        <Link
+          href="/admin/users/acessos"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)',
+            color: '#60a5fa', fontSize: 12, fontWeight: 700,
+            padding: '8px 14px', borderRadius: 10, textDecoration: 'none', whiteSpace: 'nowrap',
+          }}
+        >
+          Ver acessos e inatividade →
+        </Link>
       </div>
 
       {/* ── Filtros ── */}
@@ -395,11 +419,25 @@ function UsersView() {
                       <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.7)' }}>
                         {u.scan_creditos ?? 0}
                       </td>
-                      <td style={{ ...td, textAlign: 'right', color: u.last_sign_in_at ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontSize: 12, whiteSpace: 'nowrap' }}>
-                        {formatRelativeTime(u.last_sign_in_at)}
+                      <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ color: u.last_sign_in_at ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontSize: 12 }}>
+                          {formatExactDateTime(u.last_sign_in_at)}
+                        </div>
+                        {u.last_sign_in_at && (
+                          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 1 }}>
+                            {formatRelativeTime(u.last_sign_in_at)}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ ...td, textAlign: 'right', color: u.last_seen_at ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontSize: 12, whiteSpace: 'nowrap' }}>
-                        {formatRelativeTime(u.last_seen_at)}
+                      <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ color: u.last_seen_at ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontSize: 12 }}>
+                          {formatExactDateTime(u.last_seen_at)}
+                        </div>
+                        {u.last_seen_at && (
+                          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 1 }}>
+                            {formatRelativeTime(u.last_seen_at)}
+                          </div>
+                        )}
                       </td>
                       <td style={{ ...td, textAlign: 'right', color: 'rgba(255,255,255,0.5)', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {formatDate(u.created_at)}

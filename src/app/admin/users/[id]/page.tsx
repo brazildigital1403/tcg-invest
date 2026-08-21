@@ -85,6 +85,15 @@ type Compra = {
   created_at: string
 }
 
+// Feed de atividades (pedido do Du, 12/08/2026) — junta o que já tem
+// timestamp confiável em tabela própria; não existe log de eventos hoje.
+type Atividade = {
+  tipo: string
+  quando: string
+  titulo: string
+  detalhe?: string
+}
+
 type Pasta = {
   id: string
   nome: string
@@ -107,6 +116,18 @@ const PLANO_STYLE: Record<User['plano_efetivo'], { label: string; color: string;
   pro:   { label: 'Pro',   color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.28)' },
   trial: { label: 'Trial', color: '#60a5fa', bg: 'rgba(96,165,250,0.10)', border: 'rgba(96,165,250,0.28)' },
   free:  { label: 'Free',  color: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)' },
+}
+
+const ATIVIDADE_STYLE: Record<string, { color: string }> = {
+  carta:      { color: '#60a5fa' },
+  pasta:      { color: '#a855f7' },
+  anuncio:    { color: '#60a5fa' },
+  compra:     { color: '#22c55e' },
+  venda:      { color: '#f59e0b' },
+  ticket:     { color: '#ef4444' },
+  indicacao:  { color: '#22c55e' },
+  watchlist:  { color: 'rgba(255,255,255,0.4)' },
+  default:    { color: 'rgba(255,255,255,0.4)' },
 }
 
 const fmtBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -161,7 +182,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   // R6 Commit 3: aba 'resync' removida (endpoint /api/admin/resync-price foi deletado).
   // Refactor futuro: criar nova aba "Re-scan ZenRows" que dispara scan sob demanda.
   // S32: adicionadas abas 'anuncios' e 'compras'
-  const [tab, setTab] = useState<'info' | 'collection' | 'pastas' | 'anuncios' | 'compras'>('info')
+  const [tab, setTab] = useState<'info' | 'collection' | 'pastas' | 'anuncios' | 'compras' | 'atividades'>('info')
 
   const [editing, setEditing] = useState(false)
   const [editName, setEditName]       = useState('')
@@ -182,6 +203,10 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
   // Pastas do usuário (aba Pastas) — carregada sob demanda
   const [pastas, setPastas] = useState<{ pastas: Pasta[]; total: number; total_cards: number; total_value: number } | null>(null)
   const [loadingPastas, setLoadingPastas] = useState(false)
+
+  // Feed de atividades (aba Atividades) — carregada sob demanda
+  const [atividades, setAtividades] = useState<Atividade[] | null>(null)
+  const [loadingAtividades, setLoadingAtividades] = useState(false)
 
   const [busy, setBusy] = useState(false)
   // Nenhum fetch desta tela tinha try/catch -- uma falha de rede deixava a
@@ -269,6 +294,21 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
       showAlert('Não deu pra carregar as pastas.', 'error')
     } finally {
       setLoadingPastas(false)
+    }
+  }
+
+  async function loadAtividades() {
+    if (atividades) return
+    setLoadingAtividades(true)
+    try {
+      const res = await fetch(`/api/admin/users/${id}/atividades`)
+      if (!res.ok) return
+      const d = await res.json()
+      setAtividades(d.eventos || [])
+    } catch {
+      showAlert('Não deu pra carregar as atividades.', 'error')
+    } finally {
+      setLoadingAtividades(false)
     }
   }
 
@@ -578,6 +618,7 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
         <TabButton active={tab === 'pastas'}     onClick={() => { setTab('pastas');     loadPastas()     }}>Pastas</TabButton>
         <TabButton active={tab === 'anuncios'}   onClick={() => { setTab('anuncios');   loadAnuncios()   }}>Anúncios</TabButton>
         <TabButton active={tab === 'compras'}    onClick={() => { setTab('compras');    loadCompras()    }}>Compras</TabButton>
+        <TabButton active={tab === 'atividades'} onClick={() => { setTab('atividades'); loadAtividades() }}>Atividades</TabButton>
       </div>
 
       {/* ── Aba: Info & Ações ── */}
@@ -928,6 +969,53 @@ export default function AdminUserDetail({ params }: { params: Promise<{ id: stri
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Aba: Atividades ── */}
+      {tab === 'atividades' && (
+        <div style={surface}>
+          {loadingAtividades ? (
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Carregando atividades...</p>
+          ) : !atividades || atividades.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Nenhuma atividade registrada ainda.</p>
+            </div>
+          ) : (
+            <>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: '0 0 16px', lineHeight: 1.5 }}>
+                Cartas adicionadas, pastas, anúncios, compras/vendas, tickets e indicações — o que já tem data confiável.
+                Scan não entra aqui (não é logado individualmente hoje, só o saldo de créditos).
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {atividades.map((a, i) => {
+                  const s = ATIVIDADE_STYLE[a.tipo] || ATIVIDADE_STYLE.default
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 12,
+                      padding: '10px 8px', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                    }}>
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%', background: s.color,
+                        marginTop: 5, flexShrink: 0,
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, color: '#f0f0f0', margin: 0, fontWeight: 600 }}>{a.titulo}</p>
+                        {a.detalhe && (
+                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {a.detalhe}
+                          </p>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap', flexShrink: 0, paddingTop: 2 }}>
+                        {fmtDateTime(a.quando)}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </>
           )}
