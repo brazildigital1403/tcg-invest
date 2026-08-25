@@ -384,9 +384,14 @@ export default function FicharioLendario({
           text-align:center; padding:3px 1px; color:#fbbf24; font-variant-numeric:tabular-nums;
           background:linear-gradient(transparent, rgba(0,0,0,0.85) 55%); }
 
+        /* A arte E o produto: quem ainda nao comprou precisa VER o que compra.
+           O veu escurece so o miolo, onde ficam nome e CTA — as bordas ficam
+           quase limpas pra arte aparecer. Blur baixo (2.5px) so pra tirar o
+           detalhe fino, nunca a composicao. */
         .pl-trava { position:relative; z-index:2; min-height:380px; display:flex; flex-direction:column;
           align-items:center; justify-content:center; gap:10px; padding:26px 22px; text-align:center;
-          color:rgba(255,255,255,0.85); background:rgba(8,6,4,0.28); backdrop-filter:blur(9px); }
+          color:rgba(255,255,255,0.85); backdrop-filter:blur(2.5px);
+          background:radial-gradient(78% 52% at 50% 50%, rgba(8,6,4,0.62) 0%, rgba(8,6,4,0.34) 62%, rgba(8,6,4,0.12) 100%); }
         .pl-trava-nome { font-size:17px; font-weight:800; letter-spacing:-0.01em; margin:0; color:#fff; }
         .pl-trava-tema { font-size:12.5px; color:rgba(255,255,255,0.6); margin:0; max-width:300px; line-height:1.5; }
         .pl-cta { font:inherit; font-size:13.5px; font-weight:800; border:none; border-radius:11px; padding:11px 20px;
@@ -427,7 +432,7 @@ export default function FicharioLendario({
           text-align:center; padding:14px 4px 5px; background:linear-gradient(transparent, rgba(0,0,0,0.85)); }
         .pl-mini-trava { position:absolute; top:5px; right:5px; color:rgba(255,255,255,0.85);
           background:rgba(0,0,0,0.55); border-radius:6px; padding:3px; display:grid; place-items:center; }
-        .pl-mini-blur { filter:blur(6px) brightness(0.6); position:absolute; inset:0; background-size:cover; background-position:center; }
+        .pl-mini-blur { filter:blur(2px) brightness(0.78); position:absolute; inset:0; background-size:cover; background-position:center; }
 
         @media (max-width: 640px) {
           .pl-palco { padding:14px 8px; }
