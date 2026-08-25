@@ -103,8 +103,8 @@ async function getData(): Promise<{ lojas: number; marquee: string[] }> {
         sb.from('lojas').select('id', { count: 'exact', head: true }).eq('status', 'ativa'),
         sb.from('pokemon_cards').select('image_small')
           .ilike('image_small', 'https://images.pokemontcg.io/%')
-          .gt('preco_medio', 0)
-          .order('preco_medio', { ascending: false })
+          .gt('preco_min', 0)
+          .order('preco_min', { ascending: false })
           .limit(22),
       ])
       if (typeof count === 'number' && count > 0) lojas = count

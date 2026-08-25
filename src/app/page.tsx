@@ -84,7 +84,7 @@ const SIGNUP = '?auth=signup'
 
 const FAQ: { q: string; a: string }[] = [
   { q: 'A Bynx é grátis mesmo?', a: 'É. Você cria a conta, monta a sua coleção, vê o preço em reais e já entra no marketplace sem pagar nada. O Pro (R$ 29,90/mês) libera o Scan, o histórico de preço e os alertas.' },
-  { q: 'De onde vem esse preço?', a: 'Do mercado brasileiro, em reais, não é conversão de dólar. Mínimo, médio e máximo por variante, atualizado todo dia. É o motivo da Bynx existir pra quem coleciona no Brasil.' },
+  { q: 'De onde vem esse preço?', a: 'Do mercado brasileiro, em reais, não é conversão de dólar. Mostramos o menor preço anunciado — que é o que você paga de verdade — e a faixa completa por variante, atualizado todo dia. É o motivo da Bynx existir pra quem coleciona no Brasil.' },
   { q: 'Como funciona o Scan?', a: 'Você aponta a câmera na carta e ela entra na coleção com o nome, o set, a variante e o preço. Salva a vida de quem tem coleção grande. Fica no Pro.' },
   { q: 'Dá pra vender minhas cartas?', a: 'Dá. Você anuncia no marketplace com preço em reais, o comprador fecha com pagamento e frete calculado pelo CEP, e o dinheiro cai na sua conta.' },
 ]
@@ -110,8 +110,8 @@ async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[
           .ilike('image_small', 'https://images.pokemontcg.io/%').gte('preco_atual', 15)
           .order('pct', { ascending: true }).limit(4),
         sb.from('pokemon_cards').select('image_small')
-          .ilike('image_small', 'https://images.pokemontcg.io/%').gt('preco_medio', 0)
-          .order('preco_medio', { ascending: false }).limit(18),
+          .ilike('image_small', 'https://images.pokemontcg.io/%').gt('preco_min', 0)
+          .order('preco_min', { ascending: false }).limit(18),
       ])
       if (u.data && u.data.length) up = u.data as Mover[]
       if (d.data && d.data.length) down = d.data as Mover[]
@@ -241,7 +241,7 @@ export default async function HomePage() {
                 ))}
               </div>
             </div>
-            <div className="live-note">Preço médio de mercado, atualizado todo dia. A sua carta tá aqui dentro.</div>
+            <div className="live-note">Menor preço do mercado, atualizado todo dia. A sua carta tá aqui dentro.</div>
           </div>
         </section>
 
@@ -306,7 +306,7 @@ export default async function HomePage() {
                   <div className="sv-var hl"><span>Holo</span><b>R$ 249,90</b></div>
                   <div className="sv-var"><span>Reverse</span><b>R$ 134,90</b></div>
                 </div>
-                <div className="step-body"><div className="n">02</div><h3>Veja o valor em reais</h3><p>Cada variante com o seu preço. Mínimo, médio e máximo do mercado.</p></div>
+                <div className="step-body"><div className="n">02</div><h3>Veja o valor em reais</h3><p>Cada variante com o seu preço. O menor, o médio e o máximo do mercado.</p></div>
               </div>
               <div className="step reveal">
                 <div className="step-vis">

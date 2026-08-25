@@ -415,7 +415,7 @@ export default async function ColecionadoresPage() {
               <PersonaCard
                 icone={IconTrendingUp}
                 title="O estrategista"
-                desc="Você compra com olho no valor. Acompanha mercado, faz trade, sabe que carta valoriza. Bynx te dá preço médio em reais por variante, histórico de oscilação, e patrimônio total da coleção atualizado."
+                desc="Você compra com olho no valor. Acompanha mercado, faz trade, sabe que carta valoriza. Bynx te dá o menor preço em reais por variante, histórico de oscilação, e patrimônio total da coleção atualizado."
                 tags={['Preços por variante', 'Histórico de preço', 'Patrimônio total']}
               />
               <PersonaCard

@@ -206,7 +206,7 @@ const faqSchema = {
       name: 'Como o preço em reais é calculado?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Após a IA identificar a carta, a Bynx busca os preços em marketplaces brasileiros e exibe mínimo, médio e máximo por variante (Normal, Holo, Reverse, Foil, Promo). É a média real do mercado BR — nada de dólar convertido na correria. Você vê quanto sua carta vale hoje, em reais, sem precisar fazer conta.',
+        text: 'Após a IA identificar a carta, a Bynx busca os preços em marketplaces brasileiros e exibe a faixa por variante (Normal, Holo, Reverse, Foil, Promo) e destaca o menor preço — que é por quanto a carta realmente sai. Tudo do mercado BR em reais, nada de dólar convertido na correria.',
       },
     },
   ],
@@ -1091,7 +1091,7 @@ export default function ScanIaLanding() {
               <div style={S.stepIcon}><IconCheck size={22} /></div>
               <div style={S.stepTitle}>Confirma e pronto</div>
               <p style={S.stepDesc}>
-                Cartas reconhecidas aparecem com imagem oficial, set, número e preço médio em reais.
+                Cartas reconhecidas aparecem com imagem oficial, set, número e o menor preço em reais.
                 Você só confirma a variante (Normal, Holo, Reverse) e clica em adicionar.
               </p>
               <div style={S.stepFooter}>Coleção, patrimônio e marketplace atualizam sozinhos</div>
@@ -1152,7 +1152,7 @@ export default function ScanIaLanding() {
               <div style={S.techIcon}><IconWallet size={19} /></div>
               <div style={S.techTitle}>Preço R$ em tempo real</div>
               <p style={S.techDesc}>
-                Mínimo, médio e máximo coletados de marketplaces brasileiros. Nada de dólar
+                Menor preço, médio e máximo coletados de marketplaces brasileiros. Nada de dólar
                 convertido na correria — você vê quanto a carta vale aqui, hoje, em reais.
               </p>
             </div>
@@ -1200,7 +1200,7 @@ export default function ScanIaLanding() {
               <div style={S.personaTitle}>O Negociador Ágil</div>
               <p style={S.personaDesc}>
                 Vai em eventos, vê um lote, quer saber valor antes de fazer proposta. Aponta a câmera,
-                a IA identifica e mostra preço médio em R$. Decisão em segundos, não minutos.
+                a IA identifica e mostra o menor preço em R$. Decisão em segundos, não minutos.
               </p>
               <div style={S.personaQuote}>
                 "Antes de fechar negócio, eu já sei se tô ganhando ou perdendo."
@@ -1485,7 +1485,7 @@ export default function ScanIaLanding() {
               },
               {
                 q: 'Como o preço em reais é calculado?',
-                a: 'Após a IA identificar a carta, a Bynx busca os preços em marketplaces brasileiros e exibe mínimo, médio e máximo por variante (Normal, Holo, Reverse, Foil, Promo). É a média real do mercado BR — nada de dólar convertido na correria. Você vê quanto sua carta vale hoje, em reais, sem precisar fazer conta.',
+                a: 'Após a IA identificar a carta, a Bynx busca os preços em marketplaces brasileiros e exibe a faixa por variante (Normal, Holo, Reverse, Foil, Promo) e destaca o menor preço — que é por quanto a carta realmente sai. Tudo do mercado BR em reais, nada de dólar convertido na correria.',
               },
             ].map((item, idx) => (
               <details key={idx} name="scan-faq" style={S.faqItem}>

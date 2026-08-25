@@ -33,7 +33,7 @@
  * mostrar dispersão (página de carta, coleção); esta constante governa o
  * número ÚNICO que representa a carta: patrimônio, título, e-mail, ranking.
  */
-export const CAMPO_VALOR: 'min' | 'medio' | 'max' = 'medio'
+export const CAMPO_VALOR: 'min' | 'medio' | 'max' = 'min'
 
 // ─────────────────────────────────────────────────────────────────────────────
 

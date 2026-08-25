@@ -283,8 +283,12 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
 
           if (card.preco_mercado > 0 && card.price > 0) {
             const desconto = (card.preco_mercado - card.price) / card.preco_mercado
-            if (desconto >= 0.25) badges.push({ Icon: IconFire, label: 'Imperdível', bg: 'rgba(239,68,68,0.85)', color: '#fff' })
-            else if (desconto >= 0.10) badges.push({ Icon: IconTag, label: 'Bom preço', bg: 'rgba(34,197,94,0.85)', color: '#0a0e16' })
+            // Cortes recalibrados com a virada pro menor preco (25/08/2026).
+            // Eram 25%/10% contra a MEDIA, que e ~20% mais alta -- mantidos,
+            // esvaziariam a vitrine. O que se preserva e o SIGNIFICADO: estar
+            // abaixo do MENOR preco anunciado no mercado ja e barganha.
+            if (desconto >= 0.20) badges.push({ Icon: IconFire, label: 'Imperdível', bg: 'rgba(239,68,68,0.85)', color: '#fff' })
+            else if (desconto >= 0.05) badges.push({ Icon: IconTag, label: 'Bom preço', bg: 'rgba(34,197,94,0.85)', color: '#0a0e16' })
           }
 
           if (badges.length === 0) return null
@@ -939,7 +943,7 @@ function MarketplaceInner() {
         // Sem badge é melhor que badge mentiroso — era o que fazia um anúncio
         // de R$ 58,91 aparecer como "94% abaixo do mercado" porque a fonte
         // tinha um único anúncio de R$ 999 parado há um mês.
-        acc[p.id] = p.preco_nao_confiavel ? 0 : (p.preco_medio || 0)
+        acc[p.id] = p.preco_nao_confiavel ? 0 : (p.preco_min || 0)
         return acc
       }, {})
     }
@@ -1001,8 +1005,8 @@ function MarketplaceInner() {
     if (filtroGraduadora && c.graduadora !== filtroGraduadora) return false
     if (busca && !c.card_name.toLowerCase().includes(busca.toLowerCase())) return false
     // Lentes de descoberta (chips da barra principal)
-    if (discovery === 'ofertas' && descontoDe(c) < 0.15) return false
-    if (discovery === 'bompreco') { const d = descontoDe(c); if (!(d >= 0.05 && d < 0.15)) return false }
+    if (discovery === 'ofertas' && descontoDe(c) < 0.10) return false
+    if (discovery === 'bompreco') { const d = descontoDe(c); if (!(d >= 0.02 && d < 0.10)) return false }
     if (discovery === 'graduadas' && !c.graduada) return false
     if (discovery === 'novidades' && !isNovo24(c)) return false
     if (discovery === 'perto' && !mesmaCidade(c)) return false
@@ -1059,7 +1063,7 @@ function MarketplaceInner() {
 
     // Maior desconto — piso de 10% pra nao chamar de oferta o que nao e.
     pegar(
-      disponiveis.filter(c => descontoDe(c) >= 0.10).sort((a, b) => descontoDe(b) - descontoDe(a)),
+      disponiveis.filter(c => descontoDe(c) >= 0.05).sort((a, b) => descontoDe(b) - descontoDe(a)),
       c => ({
         key: 'oferta',
         fita: `${Math.round(descontoDe(c) * 100)}% OFF`,
@@ -1134,7 +1138,7 @@ function MarketplaceInner() {
 
   // 3) Trilhos (excluem o que já está em hero/trio pra não repetir).
   const railOfertas = useMemo(
-    () => disponiveis.filter(c => !heroTrioIds.has(c.id) && descontoDe(c) >= 0.15)
+    () => disponiveis.filter(c => !heroTrioIds.has(c.id) && descontoDe(c) >= 0.10)
       .sort((a, b) => descontoDe(b) - descontoDe(a)).slice(0, 12),
     [disponiveis, heroTrioIds]
   )
@@ -1153,8 +1157,8 @@ function MarketplaceInner() {
   // Contadores das lentes de descoberta
   const baseAtivos = listings.filter(c => c.user_id !== userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel'))
   const countTodos = baseAtivos.length
-  const countOfertas = baseAtivos.filter(c => descontoDe(c) >= 0.15).length
-  const countBom = baseAtivos.filter(c => { const d = descontoDe(c); return d >= 0.05 && d < 0.15 }).length
+  const countOfertas = baseAtivos.filter(c => descontoDe(c) >= 0.10).length
+  const countBom = baseAtivos.filter(c => { const d = descontoDe(c); return d >= 0.02 && d < 0.10 }).length
   const countGrad = baseAtivos.filter(c => c.graduada).length
   const countNovi = baseAtivos.filter(c => isNovo24(c)).length
   const countPerto = userCity ? baseAtivos.filter(c => mesmaCidade(c)).length : 0

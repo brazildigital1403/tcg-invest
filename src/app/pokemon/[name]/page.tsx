@@ -166,7 +166,7 @@ function textoSEO(h: Hub): string {
 
   if (h.preco_min && h.preco_max) {
     let pr = `Os preços de mercado vão de ${brl(Number(h.preco_min))} a ${brl(Number(h.preco_max))}`
-    if (h.preco_avg) pr += `, com média de ${brl(Number(h.preco_avg))}`
+    if (h.preco_avg) pr += `, com menor preço médio de ${brl(Number(h.preco_avg))}`
     pr += '.'
     p.push(pr)
   }
@@ -591,9 +591,9 @@ export default async function PokemonHubPage({
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {card.set_name || ''}{card.number ? ` · #${card.number}` : ''}
                     </p>
-                    {card.preco_medio && Number(card.preco_medio) > 0 && (
+                    {card.preco_min && Number(card.preco_min) > 0 && (
                       <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', marginTop: 4 }}>
-                        {brl(Number(card.preco_medio))}
+                        {brl(Number(card.preco_min))}
                       </p>
                     )}
                   </Link>

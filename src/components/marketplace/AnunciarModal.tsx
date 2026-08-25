@@ -6,6 +6,7 @@ import CardItem, { montarUltimaVenda } from '@/components/ui/CardItem'
 import MarketplaceFotosInput from './MarketplaceFotosInput'
 import { supabase } from '@/lib/supabaseClient'
 import { GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
+import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -251,7 +252,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
               - USD convertido: azul (#60a5fa) — TCG Player, valor estimado */}
           {!grad && precoMercado > 0 && precoFonte && (() => {
             const fonteCfg = {
-              BRL:         { label: 'PREÇO DE MERCADO',         badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
+              BRL:         { label: 'MENOR PREÇO',              badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
               BRL_FOIL:    { label: 'PREÇO MERCADO · FOIL',     badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
               BRL_REVERSE: { label: 'PREÇO MERCADO · REVERSE',  badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
               BRL_PROMO:   { label: 'PREÇO MERCADO · PROMO',    badge: 'Mercado Brasileiro',          color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.25)' },
@@ -295,7 +296,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
           </div>
           {diff !== null && (
             <p style={{ fontSize: 12, marginTop: 5, color: diff > 0 ? '#22c55e' : diff < 0 ? '#f59e0b' : 'rgba(255,255,255,0.35)' }}>
-              {diff === 0 ? '= No preço médio de mercado'
+              {diff === 0 ? '= No menor preço de mercado'
                 : diff > 0 ? `▲ ${diff.toFixed(1)}% acima do mercado`
                 : `▼ ${Math.abs(diff).toFixed(1)}% abaixo do mercado`}
             </p>
@@ -453,17 +454,25 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
 
       if (priceData) {
         // Tenta na ordem de prioridade
-        if (priceData.preco_medio && Number(priceData.preco_medio) > 0) {
-          preco = Number(priceData.preco_medio)
+        // ★ Sugestao de preco = MENOR preco (25/08/2026). Sugerir a media
+        // faria o vendedor anunciar acima do que o comprador encontra.
+        // As colunas sem faixa (preco_foil, preco_reverse, preco_promo) sairam
+        // da cascata: elas guardam a MEDIA daquela variante.
+        const brlNormal = getPrecoVariante(priceData, 'normal')[CAMPO_VALOR]
+        const brlFoil = getPrecoVariante(priceData, 'foil', { fallbackNormal: false })[CAMPO_VALOR]
+        const brlReverse = getPrecoVariante(priceData, 'reverse', { fallbackNormal: false })[CAMPO_VALOR]
+        const brlPromo = getPrecoVariante(priceData, 'promo', { fallbackNormal: false })[CAMPO_VALOR]
+        if (brlNormal > 0) {
+          preco = brlNormal
           fonte = 'BRL'
-        } else if (priceData.preco_foil && Number(priceData.preco_foil) > 0) {
-          preco = Number(priceData.preco_foil)
+        } else if (brlFoil > 0) {
+          preco = brlFoil
           fonte = 'BRL_FOIL'
-        } else if (priceData.preco_reverse && Number(priceData.preco_reverse) > 0) {
-          preco = Number(priceData.preco_reverse)
+        } else if (brlReverse > 0) {
+          preco = brlReverse
           fonte = 'BRL_REVERSE'
-        } else if (priceData.preco_promo && Number(priceData.preco_promo) > 0) {
-          preco = Number(priceData.preco_promo)
+        } else if (brlPromo > 0) {
+          preco = brlPromo
           fonte = 'BRL_PROMO'
         } else {
           // Fallback USD: pega o melhor disponível (normal > holofoil) e converte
