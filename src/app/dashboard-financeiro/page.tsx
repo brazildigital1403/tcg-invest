@@ -817,7 +817,7 @@ export default function DashboardFinanceiro() {
               {rankingWithVariation.filter(r => r.variation > 10).length === 0 ? (
                 <>
                   <EmptyRow label="Carta valorizando +10% em 30 dias" />
-                  <EmptyRow label="Carta abaixo do preço médio" />
+                  <EmptyRow label="Carta abaixo do preço de mercado" />
                 </>
               ) : (
                 rankingWithVariation.filter(r => r.variation > 10).slice(0, 3).map((r, i) => (
@@ -851,7 +851,7 @@ export default function DashboardFinanceiro() {
               {rankingWithVariation.filter(r => r.variation < -10).length === 0 ? (
                 <>
                   <EmptyRow label="Carta em queda -10% em 30 dias" />
-                  <EmptyRow label="Carta acima do preço médio" />
+                  <EmptyRow label="Carta acima do preço de mercado" />
                 </>
               ) : (
                 rankingWithVariation.filter(r => r.variation < -10).slice(0, 3).map((r, i) => (

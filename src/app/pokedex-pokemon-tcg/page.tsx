@@ -500,7 +500,7 @@ export default async function PokedexPokemonTcgPage() {
                 <SpecCard label="Set" value="Prismatic Evolutions" />
                 <SpecCard label="Raridade" value="Special Illustration" highlight />
                 <SpecCard label="Número" value="161/131" />
-                <SpecCard label="Preço médio (BRL)" value={umbreon} highlight />
+                <SpecCard label="Menor preço (BRL)" value={umbreon} highlight />
                 <SpecCard label="Variante" value="Foil" />
               </div>
 

@@ -15,7 +15,7 @@
  * SEO crítico:
  * - canonical: `https://bynx.gg/carta/{id}` (não mais "/")
  * - title: "Charizard ex 199/091 — Destinos de Paldea | Bynx"
- * - description: inclui preço médio em BRL pra atrair clique
+ * - description: inclui o MENOR preço em BRL pra atrair clique (regra de 25/08/2026)
  * - schema.org Product + AggregateOffer (rich snippet com R$ no Google)
  */
 
@@ -358,7 +358,10 @@ export async function generateMetadata({
       : ` #${card.number}`
     : ''
   const setStr = card.setName ? ` — ${card.setName}` : ''
-  const precoStr = formatBRL(card.precoMedio)
+  // ★ O preco que representa a carta no Google e o MENOR (25/08/2026).
+  // Quem compra leva pelo menor, entao e esse que o SERP deve anunciar --
+  // prometer a media e prometer um numero que ninguem paga.
+  const precoStr = formatBRL(card.precoMin)
 
   // Title com preco em R$ no SERP (diferencial Bynx). Guarda de tamanho:
   // nome+numero+preco sempre; set so entra se couber (~50 chars antes de " | Bynx.gg").
@@ -372,7 +375,7 @@ export async function generateMetadata({
     title = `${card.name}${numStr}${setStr}`
   }
   const description = precoStr
-    ? `Quanto vale ${card.name}${numStr} de ${card.setName || 'Pokémon TCG'}? Preço médio ${precoStr}, atualizado em reais na Bynx. Veja a faixa (mín–máx), as variantes e acompanhe na sua coleção.`
+    ? `Quanto vale ${card.name}${numStr} de ${card.setName || 'Pokémon TCG'}? A partir de ${precoStr}, atualizado em reais na Bynx. Veja a faixa (mín–máx), as variantes e acompanhe na sua coleção.`
     : `Quanto vale ${card.name}${numStr}${card.setName ? ` de ${card.setName}` : ''}? Veja o preço em reais, variantes, raridade e ataques, e acompanhe na sua coleção Pokémon TCG na Bynx.`
 
   const ogImage = card.imageLarge || card.imageSmall || 'https://bynx.gg/og-image.jpg'
@@ -471,13 +474,15 @@ export default async function CartaPage({
     category: 'Trading Card Game',
   }
 
-  // Adiciona AggregateOffer só se tiver preço (evita lowPrice undefined)
-  if (card.precoMedio) {
+  // AggregateOffer só com preço (evita lowPrice undefined). O GATE passou a
+  // ser o precoMin junto com a regra: com o gate no médio, uma carta que tem
+  // mínimo mas não tem médio sairia do rich snippet sem oferta nenhuma.
+  if (card.precoMin) {
     productSchema.offers = {
       '@type': 'AggregateOffer',
       priceCurrency: 'BRL',
-      lowPrice: card.precoMin ?? card.precoMedio,
-      highPrice: card.precoMax ?? card.precoMedio,
+      lowPrice: card.precoMin,
+      highPrice: card.precoMax ?? card.precoMin,
       offerCount: 1,
       availability: 'https://schema.org/InStock',
       priceValidUntil: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10),

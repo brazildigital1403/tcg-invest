@@ -770,7 +770,7 @@ export default function MinhaColecao() {
           <div className="colecao-resumo-card" style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)' }}>
             <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Valor Médio</p>
             <p style={{ fontSize: 26, fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.02em' }}>{fmt(totais.medio)}</p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Preço médio de mercado</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Menor preço de mercado</p>
             {usdEstimado.valor > 0 && (
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(96,165,250,0.15)' }}>
                 <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.5)', marginBottom: 2 }}>

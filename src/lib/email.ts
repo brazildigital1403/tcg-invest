@@ -362,7 +362,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     ${p('Sua conta foi criada com sucesso. Você ganhou <strong style="color:#f59e0b;">7 dias de Pro grátis</strong> para explorar tudo que a Bynx tem a oferecer.')}
     ${divider()}
     <table width="100%" cellpadding="0" cellspacing="0">
-      ${['📚 Catalogue suas cartas — busca por nome ou número', '📷 Scan IA — adicione cartas direto pela foto', '📊 Dashboard em BRL — min, médio e máx em tempo real', '📈 Histórico de preços — veja a evolução do mercado', '🛒 Marketplace brasileiro — compre e venda com segurança', '🎁 Indique e Ganhe — recompensas mensais indicando amigos'].map(f => `
+      ${['📚 Catalogue suas cartas — busca por nome ou número', '📷 Scan IA — adicione cartas direto pela foto', '📊 Dashboard em BRL — menor preço, médio e máx em tempo real', '📈 Histórico de preços — veja a evolução do mercado', '🛒 Marketplace brasileiro — compre e venda com segurança', '🎁 Indique e Ganhe — recompensas mensais indicando amigos'].map(f => `
         <tr><td style="padding:6px 0;">
           <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">${f}</p>
         </td></tr>`).join('')}

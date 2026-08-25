@@ -29,23 +29,25 @@ export async function GET(req: NextRequest) {
 
       const { data: cardsAtuais } = await supabase
         .from('pokemon_cards')
-        .select('id, name, preco_medio')
+        .select('id, name, preco_min')
         .in('id', cardIds)
       const atualById: Record<string, { name: string; preco: number }> = {}
       for (const c of cardsAtuais || []) {
-        atualById[(c as any).id] = { name: (c as any).name, preco: Number((c as any).preco_medio) || 0 }
+        atualById[(c as any).id] = { name: (c as any).name, preco: Number((c as any).preco_min) || 0 }
       }
 
       const desde = new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10)
       const { data: snaps } = await supabase
         .from('price_snapshots')
-        .select('card_id, preco_medio, snapshot_date')
+        .select('card_id, preco_min, snapshot_date')
         .in('card_id', cardIds)
         .gte('snapshot_date', desde)
         .order('snapshot_date', { ascending: true })
       const baseById: Record<string, number> = {}
       for (const sn of snaps || []) {
-        if (baseById[(sn as any).card_id] === undefined) baseById[(sn as any).card_id] = Number((sn as any).preco_medio) || 0
+        // Base e atual na MESMA metrica: comparar minimo de hoje com media
+        // historica produziria alerta de queda fantasma pra carteira inteira.
+        if (baseById[(sn as any).card_id] === undefined) baseById[(sn as any).card_id] = Number((sn as any).preco_min) || 0
       }
 
       const cleanNome = (raw: string) =>
