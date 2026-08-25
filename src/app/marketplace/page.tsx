@@ -964,7 +964,18 @@ function MarketplaceInner() {
       buyer_name: buyerMap[c.buyer_id]?.name,
       buyer_whatsapp: buyerMap[c.buyer_id]?.whatsapp,
       buyer_city: buyerMap[c.buyer_id]?.city,
-      preco_mercado: c.card_id ? (priceMap[c.card_id] || 0) : 0,
+      // ★ Carta GRADUADA nao entra na comparacao (decisao do Du, 24/08/2026).
+      //
+      // O preco de referencia do catalogo e o da carta CRUA. Uma CGC 10 e
+      // outro produto: o slab custa mais por definicao, entao a comparacao
+      // so sabia produzir "acima do mercado" — nas 4 graduadas vivas dava
+      // +197%, +292%, +410% e +421%. Numero que sempre sai pro mesmo lado
+      // nao informa nada, so faz o anuncio legitimo parecer caro.
+      //
+      // Zerar aqui, no ponto unico, tira a % do badge E impede que uma
+      // graduada barata ganhe selo "Imperdivel" ou lidere o "Maior desconto"
+      // apoiada na mesma comparacao invalida.
+      preco_mercado: (c.card_id && !c.graduada) ? (priceMap[c.card_id] || 0) : 0,
     }))
 
     setListings(enriched)

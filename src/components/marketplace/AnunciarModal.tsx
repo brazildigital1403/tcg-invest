@@ -210,7 +210,11 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
   const [fotos, setFotos] = useState<string[]>([])
 
   const precoNum = parseFloat(String(preco).replace(',', '.')) || 0
-  const diff = precoMercado > 0 && precoNum > 0 ? ((precoNum - precoMercado) / precoMercado * 100) : null
+  // Graduada nao compara: o preco do catalogo e o da carta crua, e o slab
+  // custa mais por definicao — a conta so sabia dar "acima do mercado". Mesma
+  // regra da vitrine (marketplace/page.tsx), pra o vendedor nao ver aqui um
+  // numero que o comprador nao ve la.
+  const diff = !grad && precoMercado > 0 && precoNum > 0 ? ((precoNum - precoMercado) / precoMercado * 100) : null
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
