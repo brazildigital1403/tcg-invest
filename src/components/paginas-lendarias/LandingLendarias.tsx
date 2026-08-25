@@ -17,7 +17,7 @@ import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { STORAGE_KEY as COOKIE_STORAGE_KEY, CONSENT_EVENT as COOKIE_CONSENT_EVENT } from '@/components/ui/CookieBanner'
-import { IconCheck } from '@/components/ui/Icons'
+import { IconCheck, IconCard as IconCartao, IconShield, IconAccount } from '@/components/ui/Icons'
 import { PAGINAS_LENDARIAS, imgDaCarta } from '@/lib/paginas-lendarias'
 
 // Cartas de cada pagina (do catalogo) pro overlay do lightbox: mostrar a
@@ -156,6 +156,13 @@ export default function LandingLendarias() {
   // adivinhar a altura do banner e empilhar os dois, a sticky fica escondida
   // enquanto o consentimento nao foi dado -- some a disputa de espaco.
   const [cookieBannerAtivo, setCookieBannerAtivo] = useState(true)
+  // Numero real de usuarios da BYNX (nao deste produto -- ver comentario do
+  // .lp-hero-trust). Buscado, nunca cravado: 1 compra real de Pagina
+  // Lendaria hoje, mostrar um numero fixo aqui envelheceria rapido e viraria
+  // exatamente o tipo de dado inventado que a auditoria de 05/08/2026 pediu
+  // pra evitar. null = ainda carregando ou falhou -- a linha some, nunca
+  // mostra "0" ou um valor desatualizado.
+  const [totalUsuarios, setTotalUsuarios] = useState<number | null>(null)
   const toqueX = useRef<number | null>(null)
   const dragRef = useRef<HTMLDivElement | null>(null)
   const alvoRef = useRef<HTMLDivElement | null>(null)
@@ -188,6 +195,13 @@ export default function LandingLendarias() {
     function aoDecidir() { setCookieBannerAtivo(false) }
     window.addEventListener(COOKIE_CONSENT_EVENT, aoDecidir)
     return () => window.removeEventListener(COOKIE_CONSENT_EVENT, aoDecidir)
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/stats/publico')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.usuarios) setTotalUsuarios(d.usuarios) })
+      .catch(() => {})
   }, [])
 
   // Reveal na rolagem — mesmo mecanismo da Home (HomeMotion): IO 0.12 /
@@ -283,6 +297,27 @@ export default function LandingLendarias() {
         .lp-hero-provas { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 22px; font-size: 13px;
           color: var(--bx-text-3, rgba(255,255,255,0.40)); }
         .lp-hero-provas span { display: inline-flex; align-items: center; gap: 6px; }
+
+        /* Esclarecimento "nao vem carta" -- achado de auditoria de conversao
+           05/08/2026: so ficava claro na 3a secao da pagina (#precos), quem
+           saia antes podia achar que comprava a carta fisica. */
+        .lp-hero-clareza { display: flex; gap: 8px; align-items: flex-start; font-size: 13px;
+          color: var(--bx-text-2, rgba(255,255,255,0.62)); background: rgba(96,165,250,.08);
+          border: 1px solid rgba(96,165,250,.25); border-radius: 10px; padding: 10px 12px;
+          margin-top: 18px; line-height: 1.5; max-width: 52ch; }
+        .lp-hero-clareza b { color: var(--bx-blue, #60a5fa); }
+
+        /* Confianca sem depender de volume -- so 1 compra real do produto
+           hoje, mostrar isso seria pior que nada (achado de auditoria
+           05/08/2026). Selo de pagamento + risco zero + o numero real da
+           PLATAFORMA (nao deste produto), buscado ao vivo. */
+        .lp-hero-trust { display: flex; flex-direction: column; gap: 8px; margin-top: 18px;
+          padding-top: 18px; border-top: 1px solid var(--bx-border, rgba(255,255,255,.08)); }
+        .lp-hero-trust .linha { display: flex; align-items: center; gap: 9px; font-size: 12.5px;
+          color: var(--bx-text-2, rgba(255,255,255,0.62)); }
+        .lp-hero-trust .ic { width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+          background: var(--bx-surface-2, rgba(255,255,255,.05)); display: flex; align-items: center; justify-content: center;
+          color: var(--ac-1, #f59e0b); }
 
         /* folha do fichario */
         .lp-palco { position: relative; display: flex; align-items: center; gap: 10px; justify-content: center; }
@@ -488,6 +523,10 @@ export default function LandingLendarias() {
               é o cenário dela. São 52 páginas com a ilustração continuando pelos 9 bolsos — no fichário
               virtual da Bynx e numa folha A4 pronta pra imprimir, recortar e montar no seu fichário de verdade.
             </p>
+            <p className="lp-hero-clareza">
+              <b>Você compra a arte da página, não a carta.</b> As cartas continuam sendo as da sua
+              coleção real — a Bynx marca automaticamente quais você já tem.
+            </p>
             <div className="lp-hero-acoes">
               <Link className="lp-cta" href="/paginas-lendarias">Folhear a página grátis</Link>
               <a className="lp-cta-ghost" href="#precos">Ver preços</a>
@@ -496,6 +535,22 @@ export default function LandingLendarias() {
               <span><IcCheck /> Primeira página grátis, sem cartão</span>
               <span><IcCheck /> A partir de R$ 12,90, compra única e vitalícia</span>
               <span><IcCheck /> Impressão ilimitada · bolso padrão 63x88mm</span>
+            </div>
+            <div className="lp-hero-trust">
+              <div className="linha">
+                <span className="ic"><IconCartao size={14} color="currentColor" /></span>
+                Pagamento processado pela Stripe — a Bynx nunca vê seu cartão
+              </div>
+              <div className="linha">
+                <span className="ic"><IconShield size={14} color="currentColor" /></span>
+                Zero risco: teste a primeira página de graça antes de decidir
+              </div>
+              {totalUsuarios !== null && (
+                <div className="linha">
+                  <span className="ic"><IconAccount size={14} color="currentColor" /></span>
+                  Parte da Bynx — {totalUsuarios.toLocaleString('pt-BR')} colecionadores já organizam a coleção por lá
+                </div>
+              )}
             </div>
           </div>
 
