@@ -75,6 +75,12 @@ export default function robots(): MetadataRoute.Robots {
           '/suporte',
           '/indique-e-ganhe',
           '/recompensas',
+          // Produto logado do Fichario Lendario -- nao funciona deslogado,
+          // entao pro Google e uma pagina sem conteudo util que ainda por
+          // cima competiria com a landing /fichario-lendario pela mesma
+          // busca. A landing (essa sim publica) segue no sitemap e indexavel.
+          // Decisao do Du, 06/08/2026.
+          '/paginas-lendarias',
         ],
       },
       {
