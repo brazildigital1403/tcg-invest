@@ -100,6 +100,35 @@ async function fetchBy(
   return results.flat()
 }
 
+// Ids marcados como preço não-confiável. Lookup por PK numa tabela de ~14k
+// linhas — barato. Falha aqui NÃO derruba o lookup: sem a marca a tela volta
+// ao comportamento anterior, que é degradar, não quebrar.
+async function fetchSuspeitos(
+  sb: ReturnType<typeof getServiceSupabase>,
+  ids: string[],
+): Promise<Set<string>> {
+  const marcados = new Set<string>()
+  if (!sb || ids.length === 0) return marcados
+  try {
+    const chunks: string[][] = []
+    for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
+    const results = await Promise.all(
+      chunks.map(async (chunk) => {
+        const { data } = await sb
+          .from('card_preco_baseline')
+          .select('card_id')
+          .in('card_id', chunk)
+          .eq('suspeito', true)
+        return data || []
+      }),
+    )
+    for (const row of results.flat()) marcados.add((row as any).card_id)
+  } catch (err) {
+    console.error('[api/cards/lookup] marca de preço:', (err as Error)?.message)
+  }
+  return marcados
+}
+
 export async function POST(req: NextRequest) {
   try {
     // ─── Rate-limit ────────────────────────────────────────
@@ -148,6 +177,26 @@ export async function POST(req: NextRequest) {
     const map = new Map<string, any>()
     for (const row of [...byId, ...byLink, ...byName]) {
       if (row && row.id != null) map.set(row.id, row)
+    }
+
+    // ★ Marca de preço não-confiável (card_preco_baseline, 25/08/2026).
+    //
+    // O preço do catálogo é fiel à fonte, mas a fonte às vezes serve uma
+    // oferta única e inflada que vira "preço de mercado". O caso que trouxe
+    // isso à tona: Surfing Pikachu VMAX valia R$ 49-61 por meses, saltou pra
+    // R$ 1.200 e está em R$ 999 desde 01/08 — e fazia um anúncio legítimo de
+    // R$ 58,91 exibir "94% abaixo do mercado".
+    //
+    // Quem consome decide o que fazer: o dado continua vindo em preco_medio
+    // (nada é escondido), mas `preco_nao_confiavel` avisa que ele não serve
+    // pra comparação. O cron diário desmarca sozinho quando a mediana alcança.
+    const idsAchados = [...map.keys()]
+    if (idsAchados.length > 0) {
+      const marcados = await fetchSuspeitos(sb, idsAchados)
+      for (const id of marcados) {
+        const row = map.get(id)
+        if (row) row.preco_nao_confiavel = true
+      }
     }
 
     return NextResponse.json({ cards: [...map.values()] }, { status: 200 })

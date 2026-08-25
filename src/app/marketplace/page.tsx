@@ -934,7 +934,12 @@ function MarketplaceInner() {
         body: JSON.stringify({ ids: cardIds }),
       }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
       priceMap = (pokemons || []).reduce((acc: any, p: any) => {
-        acc[p.id] = p.preco_medio || 0
+        // `preco_nao_confiavel` vem do guard de preço (card_preco_baseline):
+        // oferta única muito acima da mediana histórica da própria carta.
+        // Sem badge é melhor que badge mentiroso — era o que fazia um anúncio
+        // de R$ 58,91 aparecer como "94% abaixo do mercado" porque a fonte
+        // tinha um único anúncio de R$ 999 parado há um mês.
+        acc[p.id] = p.preco_nao_confiavel ? 0 : (p.preco_medio || 0)
         return acc
       }, {})
     }
