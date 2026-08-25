@@ -59,10 +59,11 @@ function fundoDe(p: PaginaLend): string | null {
 // ─── Canvas: imagem de compartilhamento (1080x1350, retrato de feed) ────────
 
 /**
- * images.pokemontcg.io NAO manda header CORS (testado 15/08/2026): carregar
- * direto com crossOrigin taintaria o canvas e o toBlob falharia. O host esta
- * no images.remotePatterns do next.config, entao o otimizador do Next serve
- * a MESMA imagem em same-origin — canvas limpo sem depender do host.
+ * Rota de ESCAPE, nao mais o caminho padrao (ver loadImg abaixo).
+ * Em 15/08/2026 images.pokemontcg.io nao mandava CORS, entao tudo passava pelo
+ * otimizador do Next pra virar same-origin e nao taintar o canvas. Em
+ * 25/08/2026 o host passou a mandar Access-Control-Allow-Origin: * — mas ele
+ * pode voltar atras, e o Storage tambem pode mudar, entao isto fica de pe.
  * q=75 e o unico quality permitido por padrao no Next 16; w=1080 esta nos
  * deviceSizes default.
  */
@@ -71,13 +72,28 @@ function proxied(url: string): string {
   return `/_next/image?url=${encodeURIComponent(url)}&w=1080&q=75`
 }
 
-function loadImg(url: string): Promise<HTMLImageElement> {
+function carregar(src: string, comCors: boolean): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    if (comCors) img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
     img.onerror = () => reject(new Error('img'))
-    img.src = proxied(url)
+    img.src = src
   })
+}
+
+/**
+ * Carrega DIRETO da origem quando ela manda CORS — e hoje as duas mandam
+ * (Storage e images.pokemontcg.io, reconferido 25/08/2026; o comentario acima
+ * vale pro que era verdade em 15/08). Passar pelo otimizador punha uma CAMADA
+ * DE CACHE a mais entre a arte e o canvas: depois de regenerar uma arte, o
+ * compartilhar continuava exportando a versao anterior.
+ * Se o CORS cair de novo, o proxy same-origin volta a atender pelo catch —
+ * sem ele o canvas fica tainted e o toBlob lanca.
+ */
+function loadImg(url: string): Promise<HTMLImageElement> {
+  if (!/^https?:\/\//.test(url)) return carregar(url, false)
+  return carregar(url, true).catch(() => carregar(proxied(url), false))
 }
 
 function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
