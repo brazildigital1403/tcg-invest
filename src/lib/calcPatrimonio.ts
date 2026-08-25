@@ -45,6 +45,26 @@ const EXTRAS_VARIANTE: Record<string, { min: string; medio: string; max: string 
   pokeball: { min: 'preco_pokeball_min', medio: 'preco_pokeball_medio', max: 'preco_pokeball_max' },
 }
 
+/**
+ * As colunas de `pokemon_cards` que esta biblioteca consulta.
+ *
+ * Quem faz `select` direto no banco (rotas de API, crons) precisa pedir estas
+ * — senão a cascata cai em degraus que não existem no payload e o valor sai
+ * menor sem erro nenhum. Foi o caso do cron-portfolio, que selecionava só as
+ * `_medio` e por isso nunca batia com o "PATRIMÔNIO" do topo.
+ *
+ * O `/api/cards/lookup` já devolve tudo isto (ver CARD_FIELDS lá), então quem
+ * passa por ele não precisa se preocupar.
+ */
+export const COLUNAS_PRECO =
+  'id, ' +
+  'preco_min, preco_medio, preco_max, ' +
+  'preco_foil_min, preco_foil_medio, preco_foil_max, ' +
+  'preco_promo_min, preco_promo_medio, preco_promo_max, ' +
+  'preco_reverse_min, preco_reverse_medio, preco_reverse_max, ' +
+  'preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, ' +
+  'price_usd_normal, price_usd_holofoil, price_eur_normal, price_eur_holofoil'
+
 export type FaixaPreco = { min: number; medio: number; max: number }
 
 export type CartaDoUsuario = {

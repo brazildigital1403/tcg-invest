@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { calcPatrimonio, COLUNAS_PRECO } from '@/lib/calcPatrimonio'
 
 export const maxDuration = 60
 
-const CAMPOS: Record<string, string> = {
-  normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
-  reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
-}
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
@@ -25,7 +22,7 @@ export async function GET(req: NextRequest) {
     // R6: trazemos pokemon_api_id pra usar como chave de lookup em pokemon_cards.
     const { data: allCards } = await supabase
       .from('user_cards')
-      .select('user_id, pokemon_api_id, variante, quantity')
+      .select('user_id, pokemon_api_id, card_id, card_link, variante, quantity, graduada, valor_graduada')
 
     if (!allCards || allCards.length === 0) {
       return NextResponse.json({ message: 'Nenhuma carta', snapshots: 0 })
@@ -51,25 +48,16 @@ export async function GET(req: NextRequest) {
       if (ids.length > 0) {
         const { data: prices } = await supabase
           .from('pokemon_cards')
-          .select('id, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
+          .select(COLUNAS_PRECO)
           .in('id', ids)
-        prices?.forEach(p => { priceMap[p.id] = p })
+        ;(prices as any[] | null)?.forEach((p: any) => { priceMap[p.id] = p })
       }
 
-      let total = 0
-      for (const card of cards) {
-        const p = card.pokemon_api_id ? priceMap[card.pokemon_api_id] : null
-        if (!p) continue
-        const v = card.variante || 'normal'
-        let campo = CAMPOS[v] || 'preco_medio'
-        // Fallback se variante não tem preço
-        if (!Number(p[campo] || 0)) {
-          campo = Object.keys(CAMPOS).find(k => Number(p[CAMPOS[k]] || 0) > 0)
-            ? CAMPOS[Object.keys(CAMPOS).find(k => Number(p[CAMPOS[k]] || 0) > 0)!]
-            : 'preco_medio'
-        }
-        total += Number(p[campo] || 0) * (card.quantity || 1)
-      }
+      // Fonte unica (src/lib/calcPatrimonio.ts) -- a mesma que o topo usa.
+      // Sem cotacao aqui de proposito: o cron nao deve depender de API externa
+      // pra fechar o snapshot do dia. Sao 5 cartas de 5.041 que so tem preco
+      // em USD; elas entram como zero no historico, igual a antes.
+      const { valor: total } = calcPatrimonio(cards as any[], priceMap)
 
       // Salva snapshot do dia (upsert — 1 por dia)
       await supabase.from('portfolio_history').upsert({

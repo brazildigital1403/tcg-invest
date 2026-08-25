@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/admin-auth'
+import { valorCarta, acharPreco, COLUNAS_PRECO } from '@/lib/calcPatrimonio'
 
 function supabaseAdmin() {
   return createClient(
@@ -41,32 +42,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (ids.length > 0) {
       const { data: prices } = await sb
         .from('pokemon_cards')
-        .select('id, preco_medio, preco_foil_medio, preco_promo_medio, preco_reverse_medio, preco_pokeball_medio')
+        .select(COLUNAS_PRECO)
         .in('id', ids)
-      for (const p of prices || []) {
+      for (const p of (prices as any[] | null) || []) {
         priceMap[p.id] = p
       }
     }
 
-    const CAMPOS: Record<string, string> = {
-      normal:   'preco_medio',
-      foil:     'preco_foil_medio',
-      promo:    'preco_promo_medio',
-      reverse:  'preco_reverse_medio',
-      pokeball: 'preco_pokeball_medio',
-    }
-
+    // Fonte unica (src/lib/calcPatrimonio.ts) -- a mesma do topo e do cron.
     let totalValue = 0
     const enriched = cards.map((card: any) => {
-      const p = card.pokemon_api_id ? priceMap[card.pokemon_api_id] : null
-      let preco = 0
-      if (p) {
-        let v = card.variante || 'normal'
-        if (!Number(p[CAMPOS[v]] || 0)) {
-          v = Object.keys(CAMPOS).find(k => Number(p[CAMPOS[k]] || 0) > 0) || 'normal'
-        }
-        preco = Number(p[CAMPOS[v]] || 0)
-      }
+      const preco = valorCarta(card, acharPreco(card, priceMap))
       const qty = Number(card.quantity) || 1
       const valor = preco * qty
       totalValue += valor
