@@ -1,0 +1,38 @@
+-- Espelho das migrations aplicadas em 25/08/2026 (fase 2).
+-- A REGRA da Bynx: o valor de divulgacao e sempre o MENOR preco.
+-- Lado TypeScript: src/lib/calcPatrimonio.ts, constante CAMPO_VALOR.
+--
+-- Migrations aplicadas, na ordem:
+--   valor_de_divulgacao_vira_menor_preco     -> bynx_valor_carta() usa _min
+--   menor_preco_agregados_e_rankings         -> admin_catalog_total_value,
+--        admin_registered_cards_value, admin_top_owned_cards, busca_global,
+--        get_top_cards, get_watchlist
+--   mv_set_index_stats_v3_menor_preco        -> matview nova, populada sem lock
+--   mv_set_index_stats_troca_para_v3         -> rename (instantaneo)
+--   mv_price_movers_v3_menor_preco           -> idem
+--   mv_price_movers_troca_para_v3            -> rename
+--   menor_preco_hub_pokemon_e_heroes         -> get_pokemon_hub,
+--        get_pokemon_hub_cards, get_generation_heroes
+--   menor_preco_pokedex_landing_e_master_set -> pokedex_landing_data,
+--        get_master_set_sheet_v2
+--   menor_preco_get_sinais_carta             -> replace validado sobre o
+--        functiondef (aborta se algum trecho nao casar)
+--   guard_preco_acompanha_menor_preco        -> card_preco_baseline vigia
+--        preco_min; 45 -> 125 cartas marcadas
+--
+-- ★ NOMES DE COLUNA DE RETORNO mantidos como `preco_medio` de proposito em
+-- admin_top_owned_cards, get_top_cards e get_watchlist: sao lidos por nome em
+-- varias telas do TypeScript. O nome e legado, o VALOR e o menor preco.
+--
+-- ★ VALOR E BASE trocaram JUNTOS onde ha comparacao historica
+-- (mv_price_movers, get_watchlist, cron-notificacoes). Trocar so o atual faria
+-- toda a carteira parecer despencar ~20% no dia da virada -- diferenca entre
+-- metricas, nao movimento de mercado.
+--
+-- ★ MATVIEWS pelo padrao da casa: criar _v3, popular sem lock, trocar por
+-- `alter ... rename`. Recriar quente seria 8,1s de ACCESS EXCLUSIVE e a /set
+-- estoura os 8s do authenticator. As antigas ficaram como *_v2_old para
+-- rollback. `refresh concurrently` testado nas duas depois da troca.
+--
+-- ROLLBACK: reverter CAMPO_VALOR para 'medio', trocar as colunas _min de
+-- volta nas funcoes, e renomear as matviews *_v2_old de volta.
