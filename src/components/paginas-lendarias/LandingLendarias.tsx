@@ -710,18 +710,22 @@ export default function LandingLendarias() {
 
       {/* Lightbox */}
       {lightbox && (
-        <div className="lp-lightbox" onClick={() => setLightbox(null)} role="dialog" aria-label="Arte em tamanho grande">
+        <div className="lp-lightbox" onClick={() => setLightbox(null)} onContextMenu={e => e.preventDefault()} role="dialog" aria-label="Arte em tamanho grande">
           <button className="lp-seta lp-lb-seta" style={{ left: 'max(10px, 3vw)' }} onClick={e => { e.stopPropagation(); navLightbox(-1) }} aria-label="Arte anterior"><IcSeta dir="esq" /></button>
           <figure style={{ margin: 0, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
             {/* -lp (760px, troca instantanea) + overlay das cartas do catalogo
-                na posicao dos bolsos: o visitante VE como fica com a carta. */}
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <img src={arte(lightbox)} alt={`Página Lendária ${lightbox}`} />
+                na posicao dos bolsos: o visitante VE como fica com a carta.
+                onContextMenu+draggable=false tiram "Salvar imagem" do menu do
+                botao direito e o arrastar-pro-desktop -- nao e protecao real
+                (print/devtools sempre furam), so tira o caminho de 1 clique
+                que a arte VENDIDA nao devia oferecer de graca (05/08/2026). */}
+            <div style={{ position: 'relative', display: 'inline-block' }} onContextMenu={e => e.preventDefault()}>
+              <img src={arte(lightbox)} alt={`Página Lendária ${lightbox}`} draggable={false} onContextMenu={e => e.preventDefault()} style={{ WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties} />
               {(CARTAS_LB.get(lightbox) || []).map(c => (
                 <div key={c.cardId} className="lp-lb-carta" style={(CARTAS_LB.get(lightbox) || []).length === 1
                   ? { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
                   : { left: `${5 + (c.slot % 3) * 31.5}%`, top: `${4 + Math.floor(c.slot / 3) * 31.6}%` }}>
-                  <img src={imgDaCarta(c)} alt="" loading="lazy" />
+                  <img src={imgDaCarta(c)} alt="" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
                 </div>
               ))}
             </div>
