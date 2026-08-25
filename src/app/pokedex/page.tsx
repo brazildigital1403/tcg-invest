@@ -274,11 +274,14 @@ export default function Pokedex() {
 
   // ── Seleciona Pokémon → carrega cartas ─────────────────────────────────────
 
+  // Qual variante abrir por padrao. Testa pela mesma regra que a tela exibe
+  // (menor preco) -- testar pela media abriria uma variante que aparece sem
+  // valor, ou pularia uma que tem.
   function pickBestVariante(card: any): string {
-    if (Number(card.preco_foil_medio) > 0) return 'foil'
-    if (Number(card.preco_normal) > 0 || Number(card.preco_medio) > 0) return 'normal'
-    if (Number(card.preco_reverse_medio) > 0) return 'reverse'
-    if (Number(card.preco_promo_medio) > 0) return 'promo'
+    if (Number(card.preco_foil_min) > 0) return 'foil'
+    if (Number(card.preco_min) > 0) return 'normal'
+    if (Number(card.preco_reverse_min) > 0) return 'reverse'
+    if (Number(card.preco_promo_min) > 0) return 'promo'
     return 'normal'
   }
 

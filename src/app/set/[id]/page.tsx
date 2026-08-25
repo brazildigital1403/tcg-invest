@@ -73,7 +73,7 @@ type CardLite = {
   number: string | null
   image_small: string | null
   rarity: string | null
-  preco_medio: number | null
+  preco_min: number | null
 }
 
 // ─── Fetch server-side (com ISR cache) ─────────────────────────────────────
@@ -103,7 +103,7 @@ async function fetchSetData(
       .maybeSingle(),
     sb
       .from('pokemon_cards')
-      .select('id, slug, name, number, image_small, rarity, preco_medio, set_name')
+      .select('id, slug, name, number, image_small, rarity, preco_min, set_name')
       .eq('set_id', id)
       .order('number', { ascending: true, nullsFirst: false })
       .limit(1000),
@@ -124,7 +124,7 @@ async function fetchSetData(
 
   // Calcula valor total catalogado
   const totalValueBrl = cards.reduce(
-    (sum, c) => sum + (Number(c.preco_medio) || 0),
+    (sum, c) => sum + (Number(c.preco_min) || 0),
     0,
   )
 
@@ -481,7 +481,7 @@ export default async function SetPage({
                       : ''}
                   {card.rarity ? ` · ${card.rarity}` : ''}
                 </p>
-                {card.preco_medio && Number(card.preco_medio) > 0 && (
+                {card.preco_min && Number(card.preco_min) > 0 && (
                   <p
                     style={{
                       fontSize: 13,
@@ -490,7 +490,7 @@ export default async function SetPage({
                       marginTop: 4,
                     }}
                   >
-                    {formatBRL(Number(card.preco_medio))}
+                    {formatBRL(Number(card.preco_min))}
                   </p>
                 )}
                 </Link>
