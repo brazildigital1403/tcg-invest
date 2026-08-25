@@ -1,0 +1,15 @@
+-- Espelho da migration aplicada em 25/08/2026 (fonte unica do valor da carta).
+-- Ver src/lib/calcPatrimonio.ts para o lado TypeScript (constante CAMPO_VALOR).
+--
+-- 1) bynx_valor_carta(pokemon_cards, text) -- a cascata, num lugar so
+-- 2) os 6 RPCs de pasta passam a chamar a funcao em vez de repetir o CASE
+--
+-- Conferido: assinaturas, SECURITY DEFINER e grants preservados; nenhuma
+-- funcao ficou com o `case uc.variante` antigo.
+--
+-- Efeito medido: 111 de 5.041 cartas vinculadas apareciam valendo ZERO nas
+-- pastas (variante sem preco proprio, sem fallback pro normal). Soma das
+-- pastas: R$ 681.700,96 -> R$ 696.519,04.
+--
+-- O patrimonio do TOPO nao muda: simulado sobre os 227 usuarios com colecao,
+-- zero diferenca (R$ 746.287,66 antes e depois).
