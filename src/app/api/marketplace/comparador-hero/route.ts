@@ -203,12 +203,12 @@ export async function GET() {
     if (semPreco.length) {
       const { data: precos } = await sb
         .from('pokemon_cards')
-        .select('id, preco_medio, preco_normal, preco_foil_medio, preco_reverse_medio, preco_promo_medio')
+        .select('id, preco_min, preco_foil_min, preco_reverse_min, preco_promo_min')
         .in('id', semPreco)
       const precoById = new Map<string, number>()
       for (const p of precos || []) {
-        const brl = Number(p.preco_medio) || Number(p.preco_normal) || Number(p.preco_foil_medio)
-          || Number(p.preco_reverse_medio) || Number(p.preco_promo_medio) || 0
+        const brl = Number(p.preco_min) || Number(p.preco_foil_min)
+          || Number(p.preco_reverse_min) || Number(p.preco_promo_min) || 0
         if (brl > 0) precoById.set(p.id, brl)
       }
       for (const c of pool) if (c.preco == null) c.preco = precoById.get(c.id) ?? null

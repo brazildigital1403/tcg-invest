@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     const { data: cardsRaw, error: cardsErr } = await svc
       .from('pokemon_cards')
-      .select('id, name, number, set_name, image_small, image_large, preco_medio, preco_foil_medio, preco_promo_medio')
+      .select('id, name, number, set_name, image_small, image_large, preco_min, preco_foil_min, preco_promo_min')
       .in('id', ids)
     if (cardsErr) {
       console.error('[paginas-lendarias/sheet] cards', cardsErr.message)
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
         const cartas: CartaOut[] = p.cartas.map(c => {
           const row: any = porId.get(c.cardId) || null
           const preco = row
-            ? Math.max(row.preco_medio || 0, row.preco_foil_medio || 0, row.preco_promo_medio || 0) || null
+            ? Math.max(row.preco_min || 0, row.preco_foil_min || 0, row.preco_promo_min || 0) || null
             : null
           return {
             card_id: c.cardId,
