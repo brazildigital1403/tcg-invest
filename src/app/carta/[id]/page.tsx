@@ -132,6 +132,8 @@ type NormalizedCard = {
   imageLarge: string | null
   attacks: Array<{ name: string; text?: string; damage?: string }> | null
   // Preço (apenas Bynx tem)
+  /** Guard de preco: true = valor nao serve pra divulgacao (ver card_preco_baseline). */
+  precoSuspeito: boolean
   precoMin: number | null
   precoMedio: number | null
   precoMax: number | null
@@ -180,6 +182,7 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
   // uma chamada desperdicada em toda visita.
   let bynx: any = null
   let printedTotal: number | null = null
+  let precoSuspeito = false
   const sb = getServiceSupabase()
   if (sb) {
     const COLS =
@@ -199,6 +202,30 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
     if (!bynx) {
       const porId = await sb.from('pokemon_cards').select(COLS).eq('id', idOrSlug).maybeSingle()
       bynx = porId.data
+    }
+
+    // ★ Marca do guard de preco (card_preco_baseline).
+    //
+    // A carta pode ter um preco que o guard ja considera nao-confiavel --
+    // oferta unica muito acima da mediana historica dela mesma. O marketplace
+    // ja respeitava isso; a pagina de carta nao, e era JUSTAMENTE ela que
+    // levava o numero pro <title> e pro JSON-LD do Google. Caso concreto: o
+    // Surfing Pikachu VMAX anunciava R$ 999 no SERP com mercado real em ~R$ 60.
+    //
+    // Lookup por PK numa tabela de ~14k linhas, e a rota e ISR de 24h: custa
+    // uma vez por revalidacao. Falha aqui NAO derruba a pagina -- sem a marca
+    // ela volta ao comportamento anterior, que e degradar, nao quebrar.
+    if (bynx?.id) {
+      try {
+        const { data: marca } = await sb
+          .from('card_preco_baseline')
+          .select('suspeito')
+          .eq('card_id', bynx.id)
+          .maybeSingle()
+        precoSuspeito = !!(marca as any)?.suspeito
+      } catch (err) {
+        console.error('[carta] marca de preco:', (err as Error)?.message)
+      }
     }
   }
 
@@ -279,6 +306,7 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
     imageSmall: tcg?.images?.small || bynx?.image_small || null,
     imageLarge: tcg?.images?.large || bynx?.image_large || null,
     attacks: normalizeAttacks(tcg?.attacks || bynx?.attacks),
+    precoSuspeito,
     precoMin: bynx?.preco_min ? Number(bynx.preco_min) : null,
     precoMedio: bynx?.preco_medio ? Number(bynx.preco_medio) : null,
     precoMax: bynx?.preco_max ? Number(bynx.preco_max) : null,
@@ -329,7 +357,7 @@ async function fetchRelatedCards(id: string): Promise<RelatedCards> {
 // ─── Helper: formata BRL ───────────────────────────────────────────────────
 
 const formatBRL = (v: number | null) =>
-  v ? `R$ ${v.toFixed(2).replace('.', ',')}` : null
+  v ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v) : null
 
 // ─── generateMetadata (DINÂMICO POR CARTA — KEY do SEO) ───────────────────
 
@@ -361,7 +389,10 @@ export async function generateMetadata({
   // ★ O preco que representa a carta no Google e o MENOR (25/08/2026).
   // Quem compra leva pelo menor, entao e esse que o SERP deve anunciar --
   // prometer a media e prometer um numero que ninguem paga.
-  const precoStr = formatBRL(card.precoMin)
+  // Carta marcada pelo guard nao leva preco pro SERP: um numero errado no
+  // titulo do Google e pior que titulo sem numero -- ele atrai o clique e
+  // quebra a confianca na chegada.
+  const precoStr = card.precoSuspeito ? null : formatBRL(card.precoMin)
 
   // Title com preco em R$ no SERP (diferencial Bynx). Guarda de tamanho:
   // nome+numero+preco sempre; set so entra se couber (~50 chars antes de " | Bynx.gg").
@@ -477,7 +508,7 @@ export default async function CartaPage({
   // AggregateOffer só com preço (evita lowPrice undefined). O GATE passou a
   // ser o precoMin junto com a regra: com o gate no médio, uma carta que tem
   // mínimo mas não tem médio sairia do rich snippet sem oferta nenhuma.
-  if (card.precoMin) {
+  if (card.precoMin && !card.precoSuspeito) {
     productSchema.offers = {
       '@type': 'AggregateOffer',
       priceCurrency: 'BRL',
