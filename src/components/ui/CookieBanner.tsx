@@ -6,7 +6,15 @@ import { IconShield } from '@/components/ui/Icons'
 
 // ─── Storage key (compartilhada com o gate do GTM em src/app/layout.tsx) ─────
 
-const STORAGE_KEY = 'bynx_cookie_consent'
+export const STORAGE_KEY = 'bynx_cookie_consent'
+
+// Evento disparado ao aceitar/rejeitar -- 'storage' so avisa OUTRAS abas, nao
+// a propria pagina que fez a mudanca. Paginas com elemento fixo proprio (ex.
+// LandingLendarias.tsx, sticky de CTA) escutam isso pra saber a hora exata
+// de voltar a aparecer, sem precisar dar reload (achado de auditoria
+// 05/08/2026: o banner ficava por cima da CTA principal pra todo visitante
+// novo -- justo o trafego pago que a landing existe pra converter).
+export const CONSENT_EVENT = 'bynx-cookie-consent-changed'
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 //
@@ -60,6 +68,7 @@ export default function CookieBanner() {
     }
     pushConsentUpdate(true)
     setVisible(false)
+    window.dispatchEvent(new Event(CONSENT_EVENT))
   }
 
   function rejectAll() {
@@ -70,6 +79,7 @@ export default function CookieBanner() {
     }
     pushConsentUpdate(false)
     setVisible(false)
+    window.dispatchEvent(new Event(CONSENT_EVENT))
   }
 
   // Não renderiza no SSR pra evitar hydration mismatch (localStorage é client-only)

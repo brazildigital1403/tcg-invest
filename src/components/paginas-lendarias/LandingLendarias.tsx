@@ -16,6 +16,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
+import { STORAGE_KEY as COOKIE_STORAGE_KEY, CONSENT_EVENT as COOKIE_CONSENT_EVENT } from '@/components/ui/CookieBanner'
 import { IconCheck } from '@/components/ui/Icons'
 import { PAGINAS_LENDARIAS, imgDaCarta } from '@/lib/paginas-lendarias'
 
@@ -107,11 +108,22 @@ function IcCheck() {
 
 // ─── Pagina do fichario (render compartilhado hero/drag) ────────────────────
 
-function PaginaFichario({ pagina, cartaVisivel = true, brilho = 1 }: { pagina: LpPagina; cartaVisivel?: boolean; brilho?: number }) {
+function PaginaFichario({ pagina, cartaVisivel = true, brilho = 1, prioridade = false }: { pagina: LpPagina; cartaVisivel?: boolean; brilho?: number; prioridade?: boolean }) {
   const porSlot = new Map(pagina.cartas.map(c => [c.slot, c]))
   return (
     <div className="lp-folha" style={{ filter: `brightness(${brilho})` }}>
-      <img className="lp-folha-arte" src={arte(pagina.id)} alt={`Página Lendária ${pagina.nome}`} loading="lazy" />
+      {/* prioridade=true so na instancia do hero -- lazy fixo aqui
+          contradizia o comentario do topo do arquivo ("hero fica fora do
+          reveal-on-scroll pra nao atrasar o LCP"), achado de auditoria
+          05/08/2026. As demais instancias (demo de arrastar etc.) ficam
+          lazy como sempre foram. */}
+      <img
+        className="lp-folha-arte"
+        src={arte(pagina.id)}
+        alt={`Página Lendária ${pagina.nome}`}
+        loading={prioridade ? 'eager' : 'lazy'}
+        fetchPriority={prioridade ? 'high' : undefined}
+      />
       <div className="lp-folha-grade">
         {Array.from({ length: 9 }).map((_, s) => {
           const c = porSlot.get(s)
@@ -137,6 +149,13 @@ export default function LandingLendarias() {
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [encaixada, setEncaixada] = useState(false)
   const [arrastando, setArrastando] = useState(false)
+  // O CookieBanner (rodape, sitewide) e a CTA sticky daqui sao dois fixed
+  // independentes disputando o mesmo bottom:0 -- pra QUALQUER visitante novo
+  // (100% do trafego pago que acabou de clicar no anuncio), o banner cobria
+  // a CTA principal por cima (achado de auditoria 05/08/2026). Em vez de
+  // adivinhar a altura do banner e empilhar os dois, a sticky fica escondida
+  // enquanto o consentimento nao foi dado -- some a disputa de espaco.
+  const [cookieBannerAtivo, setCookieBannerAtivo] = useState(true)
   const toqueX = useRef<number | null>(null)
   const dragRef = useRef<HTMLDivElement | null>(null)
   const alvoRef = useRef<HTMLDivElement | null>(null)
@@ -154,6 +173,21 @@ export default function LandingLendarias() {
       const i = GALERIA.findIndex(p => p.id === atual)
       return GALERIA[(i + delta + GALERIA.length) % GALERIA.length].id
     })
+  }, [])
+
+  // Consentimento de cookie: mesma STORAGE_KEY do CookieBanner. Confere no
+  // mount (pode já ter sido respondido em visita anterior) e escuta o
+  // CONSENT_EVENT que ele dispara ao clicar Aceitar/Rejeitar, sem reload.
+  useEffect(() => {
+    try {
+      const consent = localStorage.getItem(COOKIE_STORAGE_KEY)
+      setCookieBannerAtivo(consent !== 'accepted' && consent !== 'rejected')
+    } catch {
+      setCookieBannerAtivo(true)
+    }
+    function aoDecidir() { setCookieBannerAtivo(false) }
+    window.addEventListener(COOKIE_CONSENT_EVENT, aoDecidir)
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, aoDecidir)
   }, [])
 
   // Reveal na rolagem — mesmo mecanismo da Home (HomeMotion): IO 0.12 /
@@ -323,7 +357,11 @@ export default function LandingLendarias() {
           color: #fff; text-align: center; padding: 16px 4px 6px; background: linear-gradient(transparent, rgba(0,0,0,.85)); }
         .lp-lightbox { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.88); backdrop-filter: blur(10px);
           display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
-        .lp-lightbox img { max-width: min(80vw, 560px); max-height: 82vh; border-radius: 14px;
+        /* 80vw deixava so ~37px de margem num viewport de 375px -- a seta de
+           44px (abaixo) invadia ~17px da borda da arte, bem no ponto que
+           vende o produto (achado de auditoria 05/08/2026). 68vw da folga
+           real pra seta caber do lado sem sobrepor. */
+        .lp-lightbox img { max-width: min(68vw, 560px); max-height: 82vh; border-radius: 14px;
           box-shadow: 0 40px 90px -20px rgba(0,0,0,.9); cursor: default; }
         .lp-lb-seta { position: fixed; top: 50%; transform: translateY(-50%); z-index: 2;
           background: rgba(255,255,255,.09); }
@@ -383,6 +421,11 @@ export default function LandingLendarias() {
         /* precos */
         .lp-precos { display: grid; gap: 14px; margin-top: 28px; }
         @media (min-width: 820px) { .lp-precos { grid-template-columns: repeat(3, 1fr); align-items: stretch; } }
+        /* Folga extra no mobile pra a CTA "Desbloquear a colecao" nunca
+           pousar embaixo da barra sticky (achado de auditoria 05/08/2026:
+           a barra cobria a CTA principal de preco durante a rolagem, o
+           .lp-root so reserva espaco no FIM da pagina, nao no meio). */
+        @media (max-width: 899px) { .lp-precos { margin-bottom: calc(76px + env(safe-area-inset-bottom)); } }
         .lp-preco { display: flex; flex-direction: column; background: var(--bx-surface, rgba(255,255,255,.03));
           border: 1px solid var(--bx-border, rgba(255,255,255,.08)); border-radius: 16px; padding: 24px 22px; }
         .lp-preco.destaque { border-color: rgba(var(--ac-1-rgb,245,158,11), .5);
@@ -393,7 +436,10 @@ export default function LandingLendarias() {
         .lp-preco .valor { font-size: 34px; font-weight: 800; letter-spacing: -.02em; margin: 10px 0 2px;
           font-variant-numeric: tabular-nums; }
         .lp-preco .valor small { font-size: 14px; font-weight: 600; color: var(--bx-text-3, rgba(255,255,255,0.40)); }
-        .lp-preco .por { font-size: 12.5px; color: var(--bx-text-3, rgba(255,255,255,0.40)); margin-bottom: 16px; }
+        /* Contraste medido em ~3,76:1 (abaixo do minimo AA 4,5:1) --
+           achado de auditoria 05/08/2026. Essa linha carrega a ancoragem
+           de preco ("economize R$X"), texto de decisao, nao rodape. */
+        .lp-preco .por { font-size: 12.5px; color: var(--bx-text-2, rgba(255,255,255,0.62)); margin-bottom: 16px; }
         .lp-preco ul { list-style: none; padding: 0; margin: 0 0 20px; display: grid; gap: 9px; font-size: 13.5px;
           color: var(--bx-text-2, rgba(255,255,255,0.62)); }
         .lp-preco li { display: flex; gap: 8px; align-items: flex-start; line-height: 1.45; }
@@ -466,7 +512,7 @@ export default function LandingLendarias() {
                 }}
                 style={{ width: 'min(100%, 380px)' }}
               >
-                <PaginaFichario pagina={pagina} />
+                <PaginaFichario pagina={pagina} prioridade />
               </div>
               <button className="lp-seta" onClick={() => irPara(idx + 1)} aria-label="Próxima página"><IcSeta dir="dir" /></button>
             </div>
@@ -699,19 +745,22 @@ export default function LandingLendarias() {
 
       <PublicFooter />
 
-      {/* CTA fixo mobile */}
-      <div className="lp-sticky">
-        <div className="info">
-          <b>52 páginas por R$ 79,90</b>
-          Vitalício. Primeira grátis.
+      {/* CTA fixo mobile -- escondida enquanto o banner de cookie disputa o
+          mesmo rodape (ver comentario do estado cookieBannerAtivo acima) */}
+      {!cookieBannerAtivo && (
+        <div className="lp-sticky">
+          <div className="info">
+            <b>52 páginas por R$ 79,90</b>
+            Vitalício. Primeira grátis.
+          </div>
+          <Link className="lp-cta" href="/paginas-lendarias">Começar grátis</Link>
         </div>
-        <Link className="lp-cta" href="/paginas-lendarias">Começar grátis</Link>
-      </div>
+      )}
 
       {/* Lightbox */}
       {lightbox && (
         <div className="lp-lightbox" onClick={() => setLightbox(null)} onContextMenu={e => e.preventDefault()} role="dialog" aria-label="Arte em tamanho grande">
-          <button className="lp-seta lp-lb-seta" style={{ left: 'max(10px, 3vw)' }} onClick={e => { e.stopPropagation(); navLightbox(-1) }} aria-label="Arte anterior"><IcSeta dir="esq" /></button>
+          <button className="lp-seta lp-lb-seta" style={{ left: 'max(8px, 2vw)' }} onClick={e => { e.stopPropagation(); navLightbox(-1) }} aria-label="Arte anterior"><IcSeta dir="esq" /></button>
           <figure style={{ margin: 0, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
             {/* -lp (760px, troca instantanea) + overlay das cartas do catalogo
                 na posicao dos bolsos: o visitante VE como fica com a carta.
@@ -733,7 +782,7 @@ export default function LandingLendarias() {
               {GALERIA.find(p => p.id === lightbox)?.nome} · {GALERIA.findIndex(p => p.id === lightbox) + 1} / {GALERIA.length}
             </figcaption>
           </figure>
-          <button className="lp-seta lp-lb-seta" style={{ right: 'max(10px, 3vw)' }} onClick={e => { e.stopPropagation(); navLightbox(1) }} aria-label="Próxima arte"><IcSeta dir="dir" /></button>
+          <button className="lp-seta lp-lb-seta" style={{ right: 'max(8px, 2vw)' }} onClick={e => { e.stopPropagation(); navLightbox(1) }} aria-label="Próxima arte"><IcSeta dir="dir" /></button>
         </div>
       )}
     </div>
