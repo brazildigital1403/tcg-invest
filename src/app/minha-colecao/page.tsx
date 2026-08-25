@@ -19,6 +19,7 @@ import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
 import CardDetailModal from '@/components/dashboard/CardDetailModal'
 import AnunciarModal from '@/components/marketplace/AnunciarModal'
+import { getPrecoVariante as faixaVariante } from '@/lib/calcPatrimonio'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -28,16 +29,13 @@ const fmt = (v: any) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
 }
 
+// Faixa da variante, SEM cair pro normal: a Coleção respeita a escolha salva
+// pelo usuário e nunca a sobrescreve (ver OpcoesPreco em lib/calcPatrimonio).
+// Se ele marcou foil e não há preço foil, mostrar o do normal seria afirmar
+// que a foil dele vale o que a comum vale.
 function getVariantePrices(price: any, variante: string) {
   if (!price) return { min: null, medio: null, max: null }
-  const p = (v: any) => n(v)
-  switch (variante) {
-    case 'foil':     return { min: p(price.preco_foil_min),     medio: p(price.preco_foil_medio),     max: p(price.preco_foil_max) }
-    case 'promo':    return { min: p(price.preco_promo_min),    medio: p(price.preco_promo_medio),    max: p(price.preco_promo_max) }
-    case 'reverse':  return { min: p(price.preco_reverse_min),  medio: p(price.preco_reverse_medio),  max: p(price.preco_reverse_max) }
-    case 'pokeball': return { min: p(price.preco_pokeball_min), medio: p(price.preco_pokeball_medio), max: p(price.preco_pokeball_max) }
-    default:         return { min: p(price.preco_min),          medio: p(price.preco_medio),          max: p(price.preco_max) }
-  }
+  return faixaVariante(price, variante, { fallbackNormal: false })
 }
 
 function getVarianteEfetiva(_price: any, varianteSalva: string): string {

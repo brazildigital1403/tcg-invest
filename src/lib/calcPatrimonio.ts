@@ -110,7 +110,20 @@ function num(v: any): number {
  * a regra para mínimo, a escolha de variante continuaria decidida por um
  * número que ninguém mais exibe.
  */
-export function getPrecoVariante(price: any, variante: string): FaixaPreco {
+/**
+ * `fallbackNormal: false` devolve a variante crua, sem cair pro normal.
+ *
+ * Não é capricho: a Coleção decidiu de propósito **respeitar a escolha do
+ * usuário e nunca sobrescrevê-la** — se ele marcou foil e não há preço foil,
+ * mostrar o preço do normal seria dizer que a foil dele vale o que a comum
+ * vale. As telas de patrimônio agregado fazem o oposto (preferem um valor
+ * aproximado a um zero), e as duas posturas são defensáveis.
+ *
+ * Fica como opção explícita em vez de virar duas implementações de novo.
+ */
+export type OpcoesPreco = { fallbackNormal?: boolean }
+
+export function getPrecoVariante(price: any, variante: string, opts?: OpcoesPreco): FaixaPreco {
   if (!price) return { min: 0, medio: 0, max: 0 }
 
   const fields = EXTRAS_VARIANTE[variante] || EXTRAS_VARIANTE.normal
@@ -120,7 +133,8 @@ export function getPrecoVariante(price: any, variante: string): FaixaPreco {
     max:   num(price[fields.max]),
   }
 
-  if (faixa[CAMPO_VALOR] === 0 && variante !== 'normal') {
+  const cair = opts?.fallbackNormal !== false
+  if (cair && faixa[CAMPO_VALOR] === 0 && variante !== 'normal') {
     return {
       min:   num(price.preco_min),
       medio: num(price.preco_medio),
