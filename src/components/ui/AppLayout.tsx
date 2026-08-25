@@ -9,6 +9,7 @@ import { lojaCache } from '@/lib/lojaCache'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { resolvePlan } from '@/lib/plan'
 import { ENFORCEMENT_ATIVO, MURO_POSTRIAL_ATIVO, LIMITE_FREE, checkCardLimit } from '@/lib/checkCardLimit'
+import { calcPatrimonio } from '@/lib/calcPatrimonio'
 import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount,
@@ -345,36 +346,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             ;(byLink || []).forEach((p: any) => { if (p.liga_link) priceByLink[p.liga_link] = p })
           }
 
-          const CAMPOS: any = {
-            normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio',
-            reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio',
-          }
-
-          let total = 0
-          for (const card of cards) {
-            const c: any = card
-            const qty = c.quantity || 1
-            // Carta graduada: o preco de mercado da carta CRUA nao serve --
-            // o valor e o que o dono declarou pro slab (mesma regra do
-            // CardItem.tsx). Sem isso o patrimonio contava a Bianca's
-            // Devotion PSA 10 do Du a R$37,22 em vez de R$1.553,10
-            // (auditoria 03/08/2026).
-            if (c.graduada && Number(c.valor_graduada) > 0) {
-              total += Number(c.valor_graduada) * qty
-              continue
-            }
-            const p = card.pokemon_api_id ? priceById[card.pokemon_api_id]
-              : card.card_link ? priceByLink[card.card_link] : null
-            if (!p) continue
-            const v = card.variante || 'normal'
-            let val = parseFloat(p[CAMPOS[v]] || p.preco_medio || 0)
-            if (!val) {
-              const usd = Math.max(parseFloat(p.price_usd_holofoil || 0), parseFloat(p.price_usd_normal || 0))
-              val = usd > 0 ? usd * usdRate : Math.max(parseFloat(p.price_eur_holofoil || 0), parseFloat(p.price_eur_normal || 0)) * eurRate
-            }
-            total += val * qty
-          }
-          setPatrimonio(total)
+          // ★ Fonte única: src/lib/calcPatrimonio.ts.
+          //
+          // Esta conta era escrita à mão aqui, e mais 7 vezes em outras telas
+          // + 6 vezes em SQL -- e as cópias divergiam. A graduada, por
+          // exemplo, só era respeitada aqui e no dashboard: nos RPCs de pasta
+          // um Machamp graduado valia R$ 320 em vez de R$ 9.500 (medido em
+          // 25/08/2026). A regra de graduada continua valendo, agora dentro
+          // da função: o preço da carta CRUA não serve pra um slab (era o que
+          // contava a Bianca's Devotion PSA 10 do Du a R$ 37,22 em vez de
+          // R$ 1.553,10 — auditoria 03/08/2026).
+          const priceMap: Record<string, any> = { ...priceById, ...priceByLink }
+          const { valor } = calcPatrimonio(cards as any[], priceMap, { usd: usdRate, eur: eurRate })
+          setPatrimonio(valor)
         }
       }
 
