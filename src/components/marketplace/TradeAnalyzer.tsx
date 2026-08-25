@@ -70,8 +70,9 @@ function cleanNome(raw: string) {
 
 /** Mesma cascata de preço do AnunciarModal: BRL primeiro, USD convertido como último recurso. */
 async function precificar(card: any, usdRate: number): Promise<{ preco: number; fonte: 'BRL' | 'USD' }> {
-  const brl = Number(card.preco_medio) || Number(card.preco_normal) || Number(card.preco_foil_medio)
-    || Number(card.preco_reverse_medio) || Number(card.preco_promo_medio) || 0
+  const brl = // Menor preco (25/08/2026). `preco_normal` saiu da cascata: guarda o MEDIO.
+  Number(card.preco_min) || Number(card.preco_foil_min)
+    || Number(card.preco_reverse_min) || Number(card.preco_promo_min) || 0
   if (brl > 0) return { preco: brl, fonte: 'BRL' }
   const usd = Number(card.price_usd_holofoil) || Number(card.price_usd_normal) || 0
   if (usd > 0) return { preco: usd * usdRate, fonte: 'USD' }
