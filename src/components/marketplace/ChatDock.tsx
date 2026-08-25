@@ -26,7 +26,7 @@ import { dispararMarco } from '@/lib/marketplaceMarco'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AvaliacaoModal from '@/components/marketplace/AvaliacaoModal'
 import TradeAnalyzer from '@/components/marketplace/TradeAnalyzer'
-import { trackFirstCardAdded } from '@/lib/analytics'
+import { transferirCartaAoComprador } from '@/lib/concluirCompra'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -453,10 +453,13 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
     if (!anuncio) return
     const ok = await showConfirm({ message: `Confirma que recebeu "${anuncio.card_name}"?`, confirmLabel: 'Sim, recebi a carta!', description: 'A carta será adicionada à sua coleção e a venda será concluída.' })
     if (!ok) return
-    await supabase.from('user_cards').insert({ user_id: userId, card_name: anuncio.card_name, card_image: anuncio.card_image || null, card_link: anuncio.card_link || null, variante: anuncio.variante || 'normal' })
-    trackFirstCardAdded(userId)
-    await supabase.from('user_cards').delete().eq('user_id', anuncio.user_id).eq('card_name', anuncio.card_name).limit(1)
-    await supabase.from('transactions').insert({ buyer_id: userId, seller_id: anuncio.user_id, card_name: anuncio.card_name, price: anuncio.price })
+    const r = await transferirCartaAoComprador(anuncio, userId)
+    if (!r.ok) {
+      // Sem carta na colecao a venda NAO se conclui: antes o fluxo seguia e
+      // marcava 'concluido' mesmo tendo perdido a carta no caminho.
+      showAlert('Nao foi possivel adicionar a carta a sua colecao. Nada foi concluido — tente de novo.', 'error')
+      return
+    }
     await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', anuncioId)
     await dispararMarco(anuncioId, 'concluido')
     showAlert('Compra concluída! A carta foi adicionada à sua coleção.', 'success')

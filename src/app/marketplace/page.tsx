@@ -9,7 +9,7 @@ import { authFetch } from '@/lib/authFetch'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
 import { getUserPlan } from '@/lib/isPro'
-import { trackFirstCardAdded } from '@/lib/analytics'
+import { transferirCartaAoComprador } from '@/lib/concluirCompra'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
@@ -184,32 +184,15 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
   }
 
   async function handleConfirmarRecebimento() {
+    if (!userId) return
     const ok = await showConfirm({ message: `Confirma que recebeu a carta "${card.card_name}"?`, confirmLabel: 'Sim, recebi a carta' })
     if (!ok) return
 
-    // Transfere carta para coleção do comprador
-    await supabase.from('user_cards').insert({
-      user_id: userId,
-      card_name: card.card_name,
-      card_image: card.card_image,
-      card_link: card.card_link || null,
-      variante: card.variante || 'normal',
-    })
-    trackFirstCardAdded(userId)
-
-    // Remove da coleção do vendedor
-    await supabase.from('user_cards').delete()
-      .eq('user_id', card.user_id)
-      .eq('card_name', card.card_name)
-      .limit(1)
-
-    // Registra transação
-    await supabase.from('transactions').insert({
-      buyer_id: userId,
-      seller_id: card.user_id,
-      card_name: card.card_name,
-      price: card.price,
-    })
+    const r = await transferirCartaAoComprador(card, userId)
+    if (!r.ok) {
+      showAlert('Nao foi possivel adicionar a carta a sua colecao. Nada foi concluido — tente de novo.', 'error')
+      return
+    }
 
     // Conclui anúncio
     await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', card.id)

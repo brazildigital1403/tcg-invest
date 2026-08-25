@@ -6,7 +6,7 @@ import { IconClock, IconMarketplace, IconChat, IconBox, IconCheck, IconEye, Icon
 import { supabase } from '@/lib/supabaseClient'
 import AvaliacaoModal from './AvaliacaoModal'
 import { dispararMarco } from '@/lib/marketplaceMarco'
-import { trackFirstCardAdded } from '@/lib/analytics'
+import { transferirCartaAoComprador } from '@/lib/concluirCompra'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { authFetch } from '@/lib/authFetch'
 
@@ -170,23 +170,11 @@ function NegociacaoCard({ card, role, onAction, userId }: {
     const uid = authData.user?.id
     if (!uid) return
 
-    // Transfere carta para coleção do comprador
-    await supabase.from('user_cards').insert({
-      user_id: uid, card_name: card.card_name,
-      card_image: card.card_image || null, card_link: card.card_link || null,
-      variante: card.variante || 'normal',
-    })
-    trackFirstCardAdded(uid)
-
-    // Remove da coleção do vendedor
-    await supabase.from('user_cards')
-      .delete().eq('user_id', card.user_id).eq('card_name', card.card_name).limit(1)
-
-    // Registra transação
-    await supabase.from('transactions').insert({
-      buyer_id: uid, seller_id: card.user_id,
-      card_name: card.card_name, price: card.price,
-    })
+    const r = await transferirCartaAoComprador(card, uid)
+    if (!r.ok) {
+      showAlert('Nao foi possivel adicionar a carta a sua colecao. Nada foi concluido — tente de novo.', 'error')
+      return
+    }
 
     // Conclui anúncio
     await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', card.id)
