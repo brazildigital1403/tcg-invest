@@ -5,10 +5,15 @@ import LandingLendarias from '@/components/paginas-lendarias/LandingLendarias'
 // Fora do AppLayout de proposito: pagina de anuncio, sem chrome de app.
 // A rota do PRODUTO logado segue /paginas-lendarias; esta aqui e a vitrine.
 
+// ★ O layout raiz ja aplica o template "%s | Bynx.gg" -- NAO repetir "Bynx"
+// aqui. O title anterior fechava em 86 chars com "Bynx" duas vezes, e o
+// Google corta em ~60: a keyword ("arte estendida") nem aparecia no
+// resultado. Agora fecha em 58. Mesma logica na description (200 -> 152,
+// corte do Google e ~155).
 export const metadata: Metadata = {
-  title: 'Fichário Lendário — Bynx | Páginas de fichário com a arte da carta estendida',
+  title: 'Fichário Lendário — arte estendida pelos 9 bolsos',
   description:
-    'A arte da carta continua pela página inteira do fichário. 52 páginas com as cartas mais desejadas do Pokémon TCG, no fichário virtual e em folha A4 pra imprimir e recortar. A primeira página é grátis.',
+    'A arte da carta continua pelos 9 bolsos do fichário. 52 páginas das cartas mais desejadas do Pokémon TCG, em folha A4 pra imprimir. A primeira é grátis.',
   keywords: [
     'arte estendida pokemon', 'fichario pokemon', 'binder art pokemon', 'pagina de fichario pokemon',
     'arte estendida fichario', 'extended art binder', 'fichario 9 bolsos pokemon', 'moonbreon',
@@ -67,35 +72,64 @@ const productSchema = {
   ],
 }
 
+// ★ ESTE SCHEMA TEM QUE ESPELHAR O FAQ VISIVEL da LandingLendarias.tsx,
+// pergunta por pergunta, no texto exato. O Google exige que o conteudo do
+// FAQPage esteja visivel na pagina -- schema com pergunta que nao existe
+// na tela faz o rich result ser rejeitado. Antes daqui tinha 5 perguntas
+// (uma delas, "O que e uma Pagina Lendaria?", nao existia na pagina) contra
+// as 7 renderizadas. Mexeu no FAQ da landing? Mexe aqui junto.
 const faqSchema = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'O que é uma Página Lendária?',
-      acceptedAnswer: { '@type': 'Answer', text: 'É uma página de fichário 3x3 onde o cenário da ilustração da carta continua pelos 9 bolsos. No fichário virtual da Bynx ela aparece atrás das suas cartas; na versão impressa, você recorta a folha A4 nas linhas marcadas e monta no seu fichário físico, com a carta real por cima.' },
-    },
-    {
-      '@type': 'Question',
       name: 'As cartas vêm junto?',
-      acceptedAnswer: { '@type': 'Answer', text: 'Não. Você compra a arte da página, digital e vitalícia. As cartas são as da sua coleção — a Bynx inclusive marca automaticamente quais você já tem e quanto custa fechar a página.' },
+      acceptedAnswer: { '@type': 'Answer', text: 'Não — as cartas são as da sua coleção. Você compra a arte da página, digital e vitalícia. A Bynx marca automaticamente quais das 30 cartas você já tem e soma quanto custa fechar cada página no Mercado Brasileiro.' },
     },
     {
       '@type': 'Question',
-      name: 'Funciona em qualquer fichário?',
-      acceptedAnswer: { '@type': 'Answer', text: 'Sim. O recorte segue o bolso padrão de 63x88mm dos fichários 9-pocket. A folha sai em A4 com linhas de corte marcadas.' },
+      name: 'Serve no meu fichário?',
+      acceptedAnswer: { '@type': 'Answer', text: 'Serve em qualquer fichário 9-pocket padrão: o recorte segue o bolso de 63x88mm, o mesmo das cartas. A folha sai em A4 com as linhas de corte marcadas.' },
     },
     {
       '@type': 'Question',
-      name: 'Posso imprimir quantas vezes quiser?',
-      acceptedAnswer: { '@type': 'Answer', text: 'Sim. A compra é única e vitalícia, com impressão ilimitada — em casa ou na gráfica.' },
+      name: 'Quantas vezes posso imprimir?',
+      acceptedAnswer: { '@type': 'Answer', text: 'Quantas quiser, pra sempre. Errou o corte, mudou de fichário, quer uma cópia na gráfica e outra em casa? É só imprimir de novo.' },
     },
     {
       '@type': 'Question',
-      name: 'Tem página grátis pra testar?',
-      acceptedAnswer: { '@type': 'Answer', text: 'Tem. A página da Moonbreon (Umbreon VMAX de Evolving Skies) é liberada de graça pra qualquer pessoa, sem cartão.' },
+      name: 'E se eu não gostar?',
+      acceptedAnswer: { '@type': 'Answer', text: 'Você testa antes: a página da Moonbreon é grátis, sem cartão — dá pra folhear, ver o encaixe e imprimir a amostra antes de gastar um real.' },
     },
+    {
+      '@type': 'Question',
+      name: 'Que papel usar na impressão?',
+      acceptedAnswer: { '@type': 'Answer', text: 'Sulfite comum já funciona pra testar. Pro acabamento de loja, couché ou papel fotográfico fosco de 180g a 230g — o fosco não briga com o brilho da carta. Qualquer gráfica rápida imprime uma folha A4 por poucos reais.' },
+    },
+    {
+      '@type': 'Question',
+      name: 'Encaixa certinho no meu fichário?',
+      acceptedAnswer: { '@type': 'Answer', text: 'As linhas de corte seguem o bolso padrão de 63x88mm. Marcas de fichário variam alguns milímetros entre si, então a primeira peça pode pedir um ajuste fino de tesoura — imprima uma folha de teste em sulfite antes da definitiva.' },
+    },
+    {
+      '@type': 'Question',
+      name: 'Preciso de conta na Bynx?',
+      acceptedAnswer: { '@type': 'Answer', text: 'Pra folhear a página grátis, não. Pra desbloquear e imprimir, sim — a conta é grátis e é ela que guarda suas páginas pra sempre (e marca as cartas que você já tem).' },
+    },
+  ],
+}
+
+// Breadcrumb estruturado -- padrao da casa (seo-hub sec A2: hrefs relativos
+// na UI, absolutos no JSON-LD). So o structured data: numa landing de
+// trafego pago a trilha visivel daria uma saida antes da conversao, mas o
+// Google usa isso pro rich result de caminho no resultado de busca.
+const breadcrumbSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Início', item: 'https://bynx.gg' },
+    { '@type': 'ListItem', position: 2, name: 'Fichário Lendário', item: 'https://bynx.gg/fichario-lendario' },
   ],
 }
 
@@ -104,6 +138,7 @@ export default function FicharioLendarioPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       <LandingLendarias />
     </>
   )

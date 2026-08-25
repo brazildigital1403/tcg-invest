@@ -324,6 +324,12 @@ export default function LandingLendarias() {
           color: var(--ac-1, #f59e0b); margin: 0 0 12px; }
         .lp-h1 { font-size: clamp(36px, 5.5vw, 60px); line-height: 1.06; letter-spacing: -0.035em; font-weight: 800;
           margin: 0 0 14px; text-wrap: balance; }
+        /* Trecho em gradiente de marca dentro do titulo -- mesmo padrao do
+           HomeSearchBand/HomeDiscovery ("Busque qualquer <span>Pokemon ou
+           carta</span>"), mas via token em vez do hex cravado que aqueles
+           dois usam. */
+        .lp-grad { background: var(--ac-grad, linear-gradient(135deg,#f59e0b,#ef4444));
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .lp-h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.15; letter-spacing: -0.03em; font-weight: 800;
           margin: 0 0 10px; text-wrap: balance; }
         .lp-sub { font-size: clamp(15px, 2.4vw, 17px); color: var(--bx-text-2, rgba(255,255,255,0.62));
@@ -620,7 +626,7 @@ export default function LandingLendarias() {
         <div className="bx-gutter lp-hero-in" style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
           <div>
             <p className="lp-eyebrow">Páginas Lendárias</p>
-            <h1 className="lp-h1">A arte da carta não precisa acabar na borda.</h1>
+            <h1 className="lp-h1">A arte da carta <span className="lp-grad">não precisa</span> acabar na borda.</h1>
             <p className="lp-sub">
               Sabe quando você para de folhear o fichário só pra olhar UMA carta? Agora a página inteira
               é o cenário dela. São 52 páginas com a ilustração continuando pelos 9 bolsos — no fichário
