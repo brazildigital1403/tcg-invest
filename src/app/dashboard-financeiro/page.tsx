@@ -15,6 +15,7 @@ import { IconTrendingUp, IconHistory, IconCollection, IconFire, IconWarning, Ico
 import { montarUltimaVenda } from '@/components/ui/CardItem'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { GRADUADORA_MAP, notaCurta } from '@/lib/graduadoras'
+import { valorCarta } from '@/lib/calcPatrimonio'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -238,18 +239,9 @@ export default function DashboardFinanceiro() {
           return priceByLink[`legacy:${c.id}`] || null
         }
 
-        // Melhor preço por variante (BRL > USD > EUR)
-        const getBestVal = (p: any, variante: string): number => {
-          if (!p) return 0
-          const CAMPOS: any = { normal: 'preco_medio', foil: 'preco_foil_medio', promo: 'preco_promo_medio', reverse: 'preco_reverse_medio', pokeball: 'preco_pokeball_medio' }
-          const brl = parseFloat(p[CAMPOS[variante]] || p.preco_medio || 0)
-          if (brl > 0) return brl
-          const usd = Math.max(parseFloat(p.price_usd_holofoil || 0), parseFloat(p.price_usd_normal || 0))
-          if (usd > 0) return usd * rate.usd
-          const eur = Math.max(parseFloat(p.price_eur_holofoil || 0), parseFloat(p.price_eur_normal || 0))
-          if (eur > 0) return eur * rate.eur
-          return 0
-        }
+        // Valor da carta: fonte única (src/lib/calcPatrimonio.ts). A cascata
+        // BRL > USD > EUR e a regra de graduada vivem lá.
+        const cotacoes = { usd: rate.usd, eur: rate.eur }
 
         // Coleção enriquecida com o preco (.price) e "ultima venda", mesmo
         // formato que o /minha-colecao monta pro CardDetailModal -- e o
@@ -272,7 +264,7 @@ export default function DashboardFinanceiro() {
           const isGraduada = !!(card.graduada && Number(card.valor_graduada) > 0)
           const p = getP(card)
           const variante = card.variante || 'normal'
-          const val = isGraduada ? Number(card.valor_graduada) : getBestVal(p, variante)
+          const val = valorCarta(card, p, cotacoes)
           const qty = card.quantity || 1
           valorTotal += val * qty
           if (isGraduada || (p && val > 0)) {

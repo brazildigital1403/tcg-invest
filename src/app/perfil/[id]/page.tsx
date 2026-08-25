@@ -11,6 +11,7 @@ import MinhasLojasBox from '@/components/perfil/MinhasLojasBox'
 import { manifestarInteresse } from '@/lib/marketplaceInteresse'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { setLabel } from '@/lib/setLabel'
+import { calcPatrimonio, valorCarta, acharPreco } from '@/lib/calcPatrimonio'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -33,16 +34,6 @@ const VARIANTE_COLOR: Record<string, string> = {
   normal: '#60a5fa', foil: '#f59e0b', promo: '#a78bfa', reverse: '#34d399', pokeball: '#fb923c'
 }
 
-function getPrecoVariante(price: any, variante: string): number {
-  if (!price) return 0
-  switch (variante) {
-    case 'foil':     return price.preco_foil_medio     || price.preco_medio || 0
-    case 'promo':    return price.preco_promo_medio    || price.preco_medio || 0
-    case 'reverse':  return price.preco_reverse_medio  || price.preco_medio || 0
-    case 'pokeball': return price.preco_pokeball_medio || price.preco_medio || 0
-    default:         return price.preco_medio || 0
-  }
-}
 
 export default function PerfilPage() {
   const params = useParams()
@@ -140,27 +131,24 @@ export default function PerfilPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids }),
           }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
-          prices?.forEach(p => { priceMap[p.id] = p })
+          prices?.forEach((p: any) => { priceMap[p.id] = p })
         }
 
-        // Patrimônio
-        let total = 0
-        for (const card of cards) {
-          const p = card.pokemon_api_id ? priceMap[card.pokemon_api_id] : null
-          if (!p) continue
-          total += getPrecoVariante(p, card.variante || 'normal') * (card.quantity || 1)
-        }
-        setPatrimonio(total)
+        // Patrimônio — fonte única (src/lib/calcPatrimonio.ts)
+        const { valor } = calcPatrimonio(cards as any[], priceMap)
+        setPatrimonio(valor)
 
         // Showcase: 6 cartas mais caras pelo maior valor
+        // Showcase: as 6 mais valiosas.
+        //
+        // Ordenava E exibia pelo `preco_*_max` -- o TETO da faixa, que é a
+        // oferta mais cara que alguém pediu, não o valor da carta. Numa carta
+        // com faixa aberta isso vira ficção: o Dialga-EX tem máximo de
+        // R$ 49.999 contra mercado real na casa das centenas. Passa a usar o
+        // mesmo valor do resto da plataforma.
         const withPrices = cards.map(c => {
-          const p = c.pokemon_api_id ? priceMap[c.pokemon_api_id] : null
-          const varMax = c.variante === 'foil'     ? (p?.preco_foil_max     || p?.preco_max || 0)
-            : c.variante === 'promo'    ? (p?.preco_promo_max    || p?.preco_max || 0)
-            : c.variante === 'reverse'  ? (p?.preco_reverse_max  || p?.preco_max || 0)
-            : c.variante === 'pokeball' ? (p?.preco_pokeball_max || p?.preco_max || 0)
-            : (p?.preco_max || 0)
-          return { ...c, maxValue: Number(varMax || 0), medioValue: getPrecoVariante(p, c.variante || 'normal') }
+          const p = acharPreco(c as any, priceMap)
+          return { ...c, maxValue: valorCarta(c as any, p), medioValue: valorCarta(c as any, p) }
         }).filter(c => c.maxValue > 0 || c.card_image)
           .sort((a, b) => b.maxValue - a.maxValue)
           .slice(0, 6)
