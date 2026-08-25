@@ -41,6 +41,11 @@ export const STATIC_ROUTES: StaticRoute[] = [
   { path: '/colecionadores', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/pokedex-pokemon-tcg', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/scan-ia', changeFrequency: 'monthly', priority: 0.85 },
+  // Landing publica do Fichario Lendario. Mesma prioridade das outras
+  // landings de produto acima. A rota do PRODUTO (/paginas-lendarias) fica
+  // FORA daqui de proposito -- so funciona logada, e esta no disallow do
+  // robots.ts (decisao do Du, 06/08/2026).
+  { path: '/fichario-lendario', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/sobre', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/blog', changeFrequency: 'daily', priority: 0.8 },
 ]
