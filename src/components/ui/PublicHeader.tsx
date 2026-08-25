@@ -45,6 +45,7 @@ const EXPLORAR_FERRAMENTAS = [
   { href: '/pokedex-pokemon-tcg', label: 'Pokédex', sub: 'Todas as cartas por Pokémon', Icon: IconPokedex },
   { href: '/scan-ia', label: 'Scan IA', sub: 'Escaneie e catalogue', Icon: IconScan },
   { href: '/separadores-pokemon', label: 'Separadores', sub: 'Organize suas pastas', Icon: IconSeparador },
+  { href: '/fichario-lendario', label: 'Páginas Lendárias', sub: 'Fundo contínuo pro fichário', Icon: IconLendariasMini },
 ]
 const EXPLORAR_COMUNIDADE = [
   { href: '/colecionadores', label: 'Colecionadores', sub: 'Perfis e coleções', Icon: IconAccount },
@@ -408,6 +409,15 @@ function IconSeparador({ size = 18, color = 'currentColor' }: { size?: number; c
       <rect x="3" y="2" width="14" height="16" rx="2" stroke={color} strokeWidth="1.4" />
       <path d="M3 7h14M3 12h14" stroke={color} strokeWidth="1.4" />
       <path d="M7 2v5M7 12v6" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconLendariasMini({ size = 18, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M16.5 12.2A7 7 0 018.3 3.6a7 7 0 108.2 8.6z" stroke={color} strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M14.5 4.5v3M13 6h3" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   )
 }
