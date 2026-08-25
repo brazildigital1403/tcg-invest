@@ -922,32 +922,36 @@ function MarketplaceInner() {
       }, {})
     }
 
-    // S29 UX v2: enrich com preço de mercado canonical pra calcular badges.
+    // Preço de mercado que alimenta o badge "% abaixo/acima do mercado".
     //
-    // BUG ANTERIOR: o `.in('name', cardNames)` pedia match EXATO. Mas no
-    // marketplace o card_name vem como "Charmander (017/034)" enquanto em
-    // pokemon_cards vem só "Charmander" — então quase nenhum match acontecia
-    // e os badges nunca apareciam.
+    // ★ RESOLVE POR card_id, NUNCA POR NOME (achado de 24/08/2026).
     //
-    // FIX: extrai o nome-base removendo o sufixo "(NNN/NNN)" antes do match.
-    const stripCardNumber = (name: string) =>
-      name.replace(/\s*\([^)]*\)\s*$/, '').trim()
-
-    const baseNames = [...new Set(
-      listings.map((c: any) => c.card_name ? stripCardNumber(c.card_name) : null).filter(Boolean)
-    )]
+    // A versão anterior tirava o sufixo "(NNN/TTT)" do card_name, buscava por
+    // `names` e ficava com o MAIOR preco_medio entre os homônimos. Como 59 dos
+    // 62 anúncios vivos tinham nome ambíguo, o badge saía errado em 30 deles e
+    // INVERTIA o sinal em 11 — a vitrine anunciava "abaixo do mercado" uma
+    // carta que estava acima:
+    //
+    //   "Charizard" tem 76 cartas no catálogo. Um Charizard de R$ 300 era
+    //   comparado com uma promo japonesa de R$ 19.000 e exibia "95% abaixo do
+    //   mercado". Charizard ex (215/197): R$ 45 comparado contra R$ 4.400.
+    //
+    // O id certo já estava no banco em 27 dos 40 casos conferidos — o defeito
+    // era só a tela ignorá-lo. É a mesma família dos incidentes de casar carta
+    // por nome, só que na camada de exibição em vez da de escrita.
+    //
+    // Sem card_id que exista no catálogo, o badge NÃO aparece: afirmar um
+    // desconto errado é pior que não afirmar nada.
+    const cardIds = [...new Set(listings.map((c: any) => c.card_id).filter(Boolean))]
     let priceMap: Record<string, number> = {}
-    if (baseNames.length > 0) {
+    if (cardIds.length > 0) {
       const pokemons = await fetch('/api/cards/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ names: baseNames }),
+        body: JSON.stringify({ ids: cardIds }),
       }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
       priceMap = (pokemons || []).reduce((acc: any, p: any) => {
-        // Mantém maior preco_medio se houver duplicatas (variantes)
-        if (!acc[p.name] || (p.preco_medio || 0) > acc[p.name]) {
-          acc[p.name] = p.preco_medio || 0
-        }
+        acc[p.id] = p.preco_medio || 0
         return acc
       }, {})
     }
@@ -960,7 +964,7 @@ function MarketplaceInner() {
       buyer_name: buyerMap[c.buyer_id]?.name,
       buyer_whatsapp: buyerMap[c.buyer_id]?.whatsapp,
       buyer_city: buyerMap[c.buyer_id]?.city,
-      preco_mercado: c.card_name ? (priceMap[stripCardNumber(c.card_name)] || 0) : 0,
+      preco_mercado: c.card_id ? (priceMap[c.card_id] || 0) : 0,
     }))
 
     setListings(enriched)
