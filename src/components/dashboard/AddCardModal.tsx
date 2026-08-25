@@ -10,6 +10,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import CardRequestBox from './CardRequestBox'
 import ImportarCartasModal from './ImportarCartasModal'
 import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
+import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
 
 interface Props {
   userId: string | null
@@ -124,8 +125,12 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     })
   }, [])
 
+  // `preco_normal` NAO e o preco da variante normal: a ingestao grava o MEDIO
+  // nessa coluna (92% das cartas tem preco_normal = preco_medio). Passa a ler
+  // a faixa de verdade, pela regra central (CAMPO_VALOR).
   function getBestPrice(card: any): { valor: number; tipo: 'brl' | 'usd' | 'eur' } | null {
-    if (card.preco_normal > 0) return { valor: card.preco_normal, tipo: 'brl' }
+    const brl = getPrecoVariante(card, 'normal')[CAMPO_VALOR]
+    if (brl > 0) return { valor: brl, tipo: 'brl' }
     if (card.price_usd_normal > 0) return { valor: card.price_usd_normal * exchangeRate.usd, tipo: 'usd' }
     if (card.price_usd_holofoil > 0) return { valor: card.price_usd_holofoil * exchangeRate.usd, tipo: 'usd' }
     if (card.price_eur_normal > 0) return { valor: card.price_eur_normal * exchangeRate.eur, tipo: 'eur' }
@@ -635,10 +640,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                           {(() => { const n = cardNumberLabel(preview); return n ? n + ' · ' : '' })()}{setLabel(preview.set_name_pt || preview.set_name)}
                         </p>
                         {(() => {
-                          const hasBRL = preview.preco_normal > 0 || preview.preco_foil > 0
-                          const best = getBestPrice(preview)
                           const variant = variantMap[preview.id] || 'normal'
-                          const variantPrice = preview[`preco_${variant}`]
+                          const variantPrice = getPrecoVariante(preview, variant, { fallbackNormal: false })[CAMPO_VALOR]
+                          const hasBRL = getPrecoVariante(preview, 'normal')[CAMPO_VALOR] > 0 || variantPrice > 0
+                          const best = getBestPrice(preview)
 
                           if (hasBRL && variantPrice > 0) {
                             return (
