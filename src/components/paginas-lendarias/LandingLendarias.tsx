@@ -588,6 +588,7 @@ export default function LandingLendarias() {
         {/* max-width sem margin:auto grudava a lista de perguntas na
             esquerda em telas largas, sobrando vazio a direita (pedido do
             Du apos o redesign, 06/08/2026). */}
+        .lp-faq-head { text-align: center; }
         .lp-faq { display: grid; gap: 10px; margin: 24px auto 0; max-width: 760px; }
         .lp-faq details { background: var(--bx-surface, rgba(255,255,255,.03));
           border: 1px solid var(--bx-border, rgba(255,255,255,.08)); border-radius: 12px; padding: 0 18px;
@@ -873,10 +874,15 @@ export default function LandingLendarias() {
       </section>
 
       {/* ═══ FAQ ═══ */}
-      <section style={{ paddingTop: 0 }}>
+      {/* paddingTop: 0 colava o "DUVIDAS" na borda da secao de cima. Agora
+          usa o padding padrao da secao, e o cabecalho centraliza junto com a
+          lista (que ja e centrada desde o fix do FAQ no desktop). */}
+      <section>
         <div className="bx-gutter lp-reveal" style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <p className="lp-eyebrow">Dúvidas</p>
-          <h2 className="lp-h2">O que todo mundo pergunta</h2>
+          <div className="lp-faq-head">
+            <p className="lp-eyebrow">Dúvidas</p>
+            <h2 className="lp-h2">O que todo mundo pergunta</h2>
+          </div>
           <div className="lp-faq">
             <details>
               <summary>As cartas vêm junto?</summary>
