@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { IconCamera, IconScan, IconClose, IconWarning } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { trackFirstCardAdded } from '@/lib/analytics'
+import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 } as const
@@ -266,7 +267,11 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       // Resolve preço com mesma estratégia do AnunciarModal (5 níveis de fallback)
       function resolvePrecoMercado(p: any): { valor: number; fonte: 'BRL' | 'USD' | null } {
         if (!p) return { valor: 0, fonte: null }
-        const candidatosBRL = [p.preco_medio, p.preco_foil, p.preco_reverse, p.preco_promo]
+        // Usava `preco_foil`/`preco_reverse`/`preco_promo` -- as colunas SEM
+        // faixa, que sao a media geral daquela variante. Passa a ler a faixa
+        // de verdade pela regra central (CAMPO_VALOR).
+        const candidatosBRL = ['normal', 'foil', 'reverse', 'promo']
+          .map(v => getPrecoVariante(p, v, { fallbackNormal: false })[CAMPO_VALOR])
           .map(Number).filter(v => v > 0)
         if (candidatosBRL.length > 0) return { valor: candidatosBRL[0], fonte: 'BRL' }
         const usd = Number(p.price_usd_holofoil) > 0 ? Number(p.price_usd_holofoil)

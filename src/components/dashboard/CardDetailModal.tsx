@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, isNotaTop, notaCurta } from '@/lib/graduadoras'
 import { IconHistory } from '@/components/ui/Icons'
+import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 
 interface Props {
   card: any
@@ -85,20 +86,23 @@ function precoVariante(price: any, v: string, rate?: { usd: number; eur: number 
     reverse:  [p.preco_reverse_min, p.preco_reverse_medio, p.preco_reverse_max],
     pokeball: [p.preco_pokeball_min, p.preco_pokeball_medio, p.preco_pokeball_max],
   }
+  // O gate era o indice [1] cravado -- o MEDIO. Com a regra em CAMPO_VALOR,
+  // uma carta que tem minimo mas nao tem medio cairia pro USD sem motivo.
+  const IDX = CAMPO_VALOR === 'min' ? 0 : CAMPO_VALOR === 'max' ? 2 : 1
   const brl = brlMap[v]
-  if (brl && Number(brl[1]) > 0) {
-    return { medio: Number(brl[1]), min: Number(brl[0]) || 0, max: Number(brl[2]) || 0, fonte: 'BRL', label: 'Mercado Brasileiro' }
+  if (brl && Number(brl[IDX]) > 0) {
+    return { medio: Number(brl[1]), min: Number(brl[0]) || 0, max: Number(brl[2]) || 0, valor: Number(brl[IDX]), fonte: 'BRL', label: 'Mercado Brasileiro' }
   }
   const ov = p.outras_variantes?.[v]
-  if (ov && Number(ov.medio) > 0) {
-    return { medio: Number(ov.medio), min: Number(ov.min) || 0, max: Number(ov.max) || 0, fonte: 'BRL', label: 'Mercado Brasileiro' }
+  if (ov && Number(ov[CAMPO_VALOR === 'min' ? 'min' : CAMPO_VALOR === 'max' ? 'max' : 'medio']) > 0) {
+    return { medio: Number(ov.medio), min: Number(ov.min) || 0, max: Number(ov.max) || 0, valor: Number(ov[CAMPO_VALOR === 'min' ? 'min' : CAMPO_VALOR === 'max' ? 'max' : 'medio']), fonte: 'BRL', label: 'Mercado Brasileiro' }
   }
   const usdMap: Record<string, any> = { normal: p.price_usd_normal, foil: p.price_usd_holofoil, reverse: p.price_usd_reverse }
   const usd = usdMap[v]
   if (Number(usd) > 0 && rate?.usd) {
-    return { medio: Number(usd) * rate.usd, min: 0, max: 0, fonte: 'USD', label: 'TCG Player · USD convertido' }
+    return { medio: Number(usd) * rate.usd, min: 0, max: 0, valor: Number(usd) * rate.usd, fonte: 'USD', label: 'TCG Player · USD convertido' }
   }
-  return { medio: 0, min: 0, max: 0, fonte: null as string | null, label: null as string | null }
+  return { medio: 0, min: 0, max: 0, valor: 0, fonte: null as string | null, label: null as string | null }
 }
 
 export default function CardDetailModal({

@@ -9,6 +9,7 @@ import { ReactNode } from 'react'
 import Image from 'next/image'
 import { GRADUADORA_MAP, isNotaTop, notaCurta } from '@/lib/graduadoras'
 import { IconHistory } from '@/components/ui/Icons'
+import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 
 // Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
 // "Liga BR — MEP" -> "Set MEP" ; "Liga BR" -> "Set" ; demais nomes inalterados
@@ -170,6 +171,14 @@ const rarityColor = (r: string) => {
   return null
 }
 
+// Qual dos tres valores da faixa representa a carta. A REGRA vive em
+// lib/calcPatrimonio (CAMPO_VALOR) -- aqui so se le, nunca se decide.
+// A cascata de USD/EUR abaixo continua local de proposito: ela escolhe a
+// cotacao POR VARIANTE (foil -> holofoil, reverse -> reverse), nuance que a
+// lib de patrimonio nao tem.
+const valorDaFaixa = (f: { min: number | null; med: number | null; max: number | null }) =>
+  CAMPO_VALOR === 'min' ? f.min : CAMPO_VALOR === 'max' ? f.max : f.med
+
 const VARIANTS = [
   { key: 'normal', label: 'Normal', color: 'var(--bx-text)',
     priceKey: (p: CardPrice) => ({ min: n(p.preco_min), med: n(p.preco_medio), max: n(p.preco_max) }) },
@@ -237,7 +246,7 @@ export default function CardItem({
   const getBestEstimate = (): { valor: number; tipo: string } | null => {
     if (!price) return null
     const variantPrice = VARIANTS.find(v => v.key === variante)?.priceKey(price)
-    const brl = variantPrice?.med
+    const brl = variantPrice ? valorDaFaixa(variantPrice) : null
     if (brl) return null // tem BRL, não precisa de estimativa
 
     const usdFoil = n(price.price_usd_holofoil)
@@ -262,7 +271,7 @@ export default function CardItem({
     : null
   const curVariant = VARIANTS.find(v => v.key === variante)
   const curPrices = curVariant && price ? curVariant.priceKey(price) : { min: null, med: null, max: null }
-  const isValuable = (curPrices.med || estimate?.valor || 0) > 100
+  const isValuable = (valorDaFaixa(curPrices) || estimate?.valor || 0) > 100
   const qty = card.quantity || 1
   const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
   const gradCor = grad?.cor || '#f59e0b'
@@ -347,9 +356,9 @@ export default function CardItem({
                 {fmt(card.valor_graduada)}
               </div>
             ) : null
-          ) : (curPrices.med || estimate) ? (
-            <div style={{ background: estimate && !curPrices.med ? 'rgba(96,165,250,0.9)' : 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>
-              {estimate && !curPrices.med ? '~' : ''}{fmt(curPrices.med || estimate?.valor)}
+          ) : (valorDaFaixa(curPrices) || estimate) ? (
+            <div style={{ background: estimate && !valorDaFaixa(curPrices) ? 'rgba(96,165,250,0.9)' : 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>
+              {estimate && !valorDaFaixa(curPrices) ? '~' : ''}{fmt(valorDaFaixa(curPrices) || estimate?.valor)}
             </div>
           ) : null}
         </div>
