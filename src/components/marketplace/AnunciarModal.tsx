@@ -396,6 +396,11 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
   const [precoFonte, setPrecoFonte] = useState<'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null>(null)
   const [loading, setLoading]   = useState(false)
 
+  // A carta do CATALOGO que casou com a carta da colecao (resolvida no
+  // handleSelectCard). E ela que manda no card_id do anuncio -- ver o comentario
+  // do handlePublicar. null = nao casou com nada visivel no catalogo.
+  const [cartaCatalogo, setCartaCatalogo] = useState<any | null>(null)
+
   const [isPro, setIsPro] = useState(false)
   useEffect(() => {
     supabase.from('users').select('is_pro').eq('id', userId).single().then(({ data }) => setIsPro(!!(data as any)?.is_pro))
@@ -422,12 +427,25 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
     let preco = 0
     let fonte: typeof precoFonte = null
 
-    if (card.pokemon_api_id) {
-      const priceData = await fetch('/api/cards/lookup', {
+    // Manda os DOIS ids que o user_card pode ter. O lookup le a view
+    // `pokemon_cards`, que ja filtra oculto=false -- entao o que voltar e,
+    // por construcao, uma carta viva no catalogo. E assim que a gente
+    // descobre qual dos dois campos presta (ver handlePublicar).
+    const idsCandidatos = [...new Set([card.pokemon_api_id, card.card_id].filter(Boolean))]
+
+    if (idsCandidatos.length > 0) {
+      const achadas = await fetch('/api/cards/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: [card.pokemon_api_id] }),
-      }).then((r) => r.json()).then((d) => (d.cards && d.cards[0]) || null).catch(() => null)
+        body: JSON.stringify({ ids: idsCandidatos }),
+      }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
+
+      // Respeita a ordem dos candidatos: pokemon_api_id (canonico) ganha do
+      // card_id quando os dois existem.
+      const priceData =
+        idsCandidatos.map((id: string) => achadas.find((c: any) => c.id === id)).find(Boolean) || null
+
+      setCartaCatalogo(priceData)
 
       if (priceData) {
         // Tenta na ordem de prioridade
@@ -474,9 +492,29 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
   async function handlePublicar(dados: any) {
     if (!cartaSel || dados.preco <= 0) return
     setLoading(true)
+    // ★ card_id sai do CATALOGO, nao do user_card (achado 23/08/2026).
+    //
+    // Ate aqui gravava `cartaSel.card_id` cru, e isso nasceu quebrado em 45
+    // anuncios (18 ativos): sem foto, sem link pra carta, sem preco de
+    // referencia. Tres formas do mesmo defeito, porque o user_card guarda dois
+    // campos de id e nenhum e confiavel sozinho:
+    //   - card_id com so o NUMERO ("94", "108") -> nao existe no catalogo
+    //   - card_id apontando pra carta que uma fusao de set ocultou depois
+    //   - os dois null, quando a carta entrou na colecao sem casar (o proprio
+    //     arquivo ja tratava pokemon_api_id como o canonico na busca de preco,
+    //     mas gravava o outro na hora de publicar)
+    //
+    // `cartaCatalogo` veio do lookup, que le a view `pokemon_cards` (oculto
+    // filtrado): se tem valor, o id existe e esta vivo. O fallback antigo fica
+    // como ultimo recurso pra nao regredir caso o lookup falhe por rede.
+    const cardIdFinal = cartaCatalogo?.id || cartaSel.pokemon_api_id || cartaSel.card_id || null
+
     const { data: anuncio } = await supabase.from('marketplace').insert({
-      user_id: userId, card_id: cartaSel.card_id || null, card_name: cartaSel.card_name,
-      card_image: cartaSel.card_image || null, card_link: cartaSel.card_link || null,
+      user_id: userId, card_id: cardIdFinal, card_name: cartaSel.card_name,
+      // Imagem e link tambem herdam do catalogo quando o user_card nao tem --
+      // e o que faz a foto aparecer no card do marketplace.
+      card_image: cartaSel.card_image || cartaCatalogo?.image_small || null,
+      card_link: cartaSel.card_link || null,
       variante: dados.variante, price: dados.preco,
       condicao: dados.condicao, descricao: dados.descricao || null, fotos: dados.fotos && dados.fotos.length ? dados.fotos : null, status: 'disponivel',
       graduada: dados.graduada || false, graduadora: dados.graduadora || null, nota: dados.nota ?? null,
