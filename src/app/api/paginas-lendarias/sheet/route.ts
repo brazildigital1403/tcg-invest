@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
     // Modo de revisao de arte, SO em dev local: ?preview_artes=1 libera as
     // paginas pra conferir a arte aplicada no fichario sem entitlement.
     // Em producao o parametro e ignorado (NODE_ENV === 'production').
-    const previewArtes = process.env.NODE_ENV === 'development'
+    const souDev = process.env.NODE_ENV === 'development'
+    const previewArtes = souDev
       && req.nextUrl.searchParams.get('preview_artes') === '1'
 
     let userId: string | null = null
@@ -140,7 +141,10 @@ export async function GET(req: NextRequest) {
           sub: p.sub,
           ordem: p.ordem,
           gratis: !!p.gratis,
-          tema: p.tema,
+          // `tema` e o BRIEFING DE GERACAO da arte (o prompt), nao copy de
+          // produto — ja vazou pra UI e pro email de compra. So sai em dev,
+          // porque scripts/gerar-artes-lendarias.mjs le o catalogo por aqui.
+          ...(souDev ? { tema: p.tema } : {}),
           arte_url: p.arteUrl || null,
           liberada,
           cartas,
