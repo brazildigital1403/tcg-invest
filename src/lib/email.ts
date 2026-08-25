@@ -886,7 +886,7 @@ export async function sendPaginaLendariaEmail(
       <img src="${arteUrl(paginaId)}" width="280" alt="Página Lendária ${escapeHtml(pagina?.nome || paginaId)}" style="width:280px;max-width:100%;border-radius:14px;border:1px solid rgba(245,158,11,0.4);display:block;margin:0 auto;" />
       <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#ffffff;text-align:center;">${escapeHtml(pagina?.nome || paginaId)}</p>
       ${pagina?.sub ? `<p style="margin:2px 0 0;font-size:12px;color:rgba(255,255,255,0.45);text-align:center;">${escapeHtml(pagina.sub)}</p>` : ''}
-      ${pagina?.tema ? `<p style="margin:12px 0 0;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6;text-align:center;font-style:italic;">"${escapeHtml(pagina.tema)}"</p>` : ''}`
+`
 
   const titulo = pacote ? 'A Coleção Lendária é sua! 🌙' : `${escapeHtml(pagina?.nome || 'Sua página')} é sua! 🌙`
   const intro = pacote

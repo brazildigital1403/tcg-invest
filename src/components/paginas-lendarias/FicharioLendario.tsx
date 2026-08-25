@@ -38,7 +38,6 @@ export interface PaginaLend {
   sub: string
   ordem: number
   gratis: boolean
-  tema: string
   arte_url: string | null
   liberada: boolean
   cartas: CartaLend[]
@@ -311,7 +310,7 @@ export default function FicharioLendario({
               <path d="M7 9V6.5a3 3 0 016 0V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             <p className="pl-trava-nome">{p.nome}</p>
-            <p className="pl-trava-tema">{p.tema}</p>
+            <p className="pl-trava-tema">{p.sub}</p>
             {onComprar && (
               <button className="pl-cta" disabled={comprando} onClick={() => onComprar(p.id)}>
                 {comprando ? 'Aguarde...' : `Desbloquear por ${fmtBRL(precoAvulsa)}`}
@@ -475,7 +474,6 @@ export default function FicharioLendario({
       </div>
 
       <div className="pl-rodape">
-        <span className="pl-tema">{pagina.tema}</span>
         {pagina.liberada && custoFechar > 0 && (
           <span className="pl-custo">
             Falta{faltando.length === 1 ? '' : 'm'} {faltando.length} — <strong>{fmtBRL(custoFechar)}</strong> pra fechar a página
