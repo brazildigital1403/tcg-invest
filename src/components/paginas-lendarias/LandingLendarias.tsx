@@ -13,7 +13,6 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Fraunces } from 'next/font/google'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
@@ -26,20 +25,6 @@ import { PAGINAS_LENDARIAS, imgDaCarta } from '@/lib/paginas-lendarias'
 // A URL sai de imgDaCarta (respeita as cartas hospedadas fora do
 // pokemontcg.io) — montar na mao devolvia o VERSO da carta em 4 delas.
 const CARTAS_LB = new Map(PAGINAS_LENDARIAS.map(p => [p.id, p.cartas]))
-
-// Serifada editorial so nesta landing (fora do AppLayout, identidade propria
-// -- ver skill bynx-ui sec "acento contextual"). Peso 600/700 com contraste
-// alto no traco -- Fraunces tem o carater "catalogo de exposicao", nao serif
-// neutra de livro. DM Sans (--font-dm-sans, herdado do layout raiz) continua
-// em todo o corpo de texto. Achado de auditoria 05/08/2026: "vibecode" e
-// tudo DM Sans 800 sem contraste de familia tipografica nenhum.
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  weight: ['600', '700'],
-  style: ['normal', 'italic'],
-  display: 'swap',
-  variable: '--font-fraunces',
-})
 
 // ─── Dados das paginas exibidas (subset das 19, as mais vendedoras) ─────────
 
@@ -312,25 +297,20 @@ export default function LandingLendarias() {
   }
 
   return (
-    <div className={`lp-root ${fraunces.variable}`}>
+    <div className="lp-root">
       <style>{`
         /* O body do site e Arial; as paginas publicas declaram DM Sans no
            wrapper (padrao separadores/scan-ia). Sem isto a landing inteira
            renderiza em Arial — achado da auditoria de design system.
-           Paleta propria desta landing (aurora verde-violeta, inspirada na
-           propria arte da Moonbreon) em vez do ambar-vermelho do app --
-           mesmo mecanismo de "acento contextual" que a loja ja usa pra
-           azul-roxo (skill bynx-ui): sobrescreve as MESMAS variaveis que o
-           resto do arquivo ja consome via var(--ac-1, fallback), entao nao
-           precisa tocar em cada declaracao de cor uma por uma. Quem chega
-           pelo anuncio do Instagram nao tem associacao previa de cor com a
-           Bynx -- so custaria reconhecimento se fosse tela de retencao
-           dentro do produto logado (achado de auditoria 05/08/2026). */
+           ★ NAO sobrescrever --ac-* aqui. Existem exatamente 3 acentos na
+           Bynx (skill bynx-ui sec 1): app = ambar->vermelho, loja =
+           azul->roxo, fluxo do comprador = roxo->rosa. Landing publica e
+           contexto de APP, entao herda o ambar-vermelho do :root e pronto.
+           Em 06/08/2026 eu inventei uma 4a paleta ("aurora") aqui e subi
+           pra producao -- quebrou a identidade da marca na tela que recebe
+           o trafego pago. Nao repetir. */
         .lp-root { background: var(--bx-bg, #080a0f); color: var(--bx-text, #f0f0f0); min-height: 100vh;
-          font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
-          --ac-1: #5eead4; --ac-2: #a78bfa; --ac-1-rgb: 94,234,212;
-          --ac-grad: linear-gradient(135deg, #5eead4, #a78bfa);
-          --bx-hero-wash: radial-gradient(90% 60% at 50% 0%, rgba(94,234,212,.09), transparent 65%); }
+          font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif; }
         .lp-root section { padding: 48px 0; }
         @media (min-width: 700px) { .lp-root section { padding: 72px 0; } }
         @media (min-width: 1100px) { .lp-root section { padding: 96px 0; } }
@@ -338,28 +318,30 @@ export default function LandingLendarias() {
         .lp-reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s ease, transform .55s ease; }
         .lp-reveal.in { opacity: 1; transform: none; }
         @media (prefers-reduced-motion: reduce) { .lp-reveal { opacity: 1; transform: none; transition: none; } }
-        .lp-eyebrow { font-family: var(--font-fraunces), Georgia, serif; font-style: italic; font-weight: 600;
-          font-size: 14px; letter-spacing: .02em; color: var(--ac-1, #5eead4); margin: 0 0 12px; }
-        .lp-h1 { font-family: var(--font-fraunces), Georgia, serif; font-size: clamp(38px, 5.8vw, 64px);
-          line-height: 1.05; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 14px; text-wrap: balance; }
-        .lp-h2 { font-family: var(--font-fraunces), Georgia, serif; font-size: clamp(30px, 3.8vw, 42px);
-          line-height: 1.12; letter-spacing: -0.015em; font-weight: 600; margin: 0 0 10px; text-wrap: balance; }
+        /* DM Sans em TUDO (skill bynx-ui sec 5): hierarquia por PESO, nunca
+           por familia nova. Em 06/08 eu tinha posto uma serifada aqui. */
+        .lp-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+          color: var(--ac-1, #f59e0b); margin: 0 0 12px; }
+        .lp-h1 { font-size: clamp(36px, 5.5vw, 60px); line-height: 1.06; letter-spacing: -0.035em; font-weight: 800;
+          margin: 0 0 14px; text-wrap: balance; }
+        .lp-h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.15; letter-spacing: -0.03em; font-weight: 800;
+          margin: 0 0 10px; text-wrap: balance; }
         .lp-sub { font-size: clamp(15px, 2.4vw, 17px); color: var(--bx-text-2, rgba(255,255,255,0.62));
           line-height: 1.6; max-width: 56ch; margin: 0; }
         .lp-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;
           font-size: 15px; border: none; border-radius: 12px; padding: 15px 28px; cursor: pointer;
-          background: var(--ac-grad, linear-gradient(135deg,#5eead4,#a78bfa)); color: var(--bx-brand-ink, #0a0a0a);
+          background: var(--ac-grad, linear-gradient(135deg,#f59e0b,#ef4444)); color: var(--bx-brand-ink, #0a0a0a);
           text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
-        .lp-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 30px -10px rgba(var(--ac-1-rgb,94,234,212), .5); }
+        .lp-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 30px -10px rgba(var(--ac-1-rgb,245,158,11), .5); }
         .lp-cta-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;
           font-size: 14px; border-radius: 12px; padding: 14px 24px; cursor: pointer; text-decoration: none;
           background: transparent; border: 1px solid var(--bx-border-2, rgba(255,255,255,0.14));
           color: var(--bx-text-2, rgba(255,255,255,0.62)); transition: color .15s ease, border-color .15s ease; }
-        .lp-cta-ghost:hover { color: var(--bx-text, #f0f0f0); border-color: rgba(var(--ac-1-rgb,94,234,212), .5); }
+        .lp-cta-ghost:hover { color: var(--bx-text, #f0f0f0); border-color: rgba(var(--ac-1-rgb,245,158,11), .5); }
 
         /* hero */
         .lp-hero { display: grid; gap: 48px; align-items: center; grid-template-columns: 1fr;
-          background: var(--bx-hero-wash, radial-gradient(90% 60% at 50% 0%, rgba(94,234,212,.09), transparent 65%));
+          background: var(--bx-hero-wash, radial-gradient(90% 60% at 50% 0%, rgba(245,158,11,.07), transparent 65%));
           position: relative; overflow: hidden; }
         @media (min-width: 900px) { .lp-hero-in { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; } }
         .lp-hero-acoes { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
@@ -371,10 +353,10 @@ export default function LandingLendarias() {
            05/08/2026: so ficava claro na 3a secao da pagina (#precos), quem
            saia antes podia achar que comprava a carta fisica. */
         .lp-hero-clareza { display: flex; gap: 8px; align-items: flex-start; font-size: 13px;
-          color: var(--bx-text-2, rgba(255,255,255,0.62)); background: rgba(94,234,212,.08);
-          border: 1px solid rgba(94,234,212,.25); border-radius: 12px; padding: 12px;
+          color: var(--bx-text-2, rgba(255,255,255,0.62)); background: rgba(96,165,250,.08);
+          border: 1px solid rgba(96,165,250,.25); border-radius: 12px; padding: 12px;
           margin-top: 24px; line-height: 1.5; max-width: 52ch; }
-        .lp-hero-clareza b { color: var(--ac-1, #5eead4); }
+        .lp-hero-clareza b { color: var(--bx-blue, #60a5fa); }
 
         /* Confianca sem depender de volume -- so 1 compra real do produto
            hoje, mostrar isso seria pior que nada (achado de auditoria
@@ -386,12 +368,12 @@ export default function LandingLendarias() {
           color: var(--bx-text-2, rgba(255,255,255,0.62)); }
         .lp-hero-trust .ic { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
           background: var(--bx-surface-2, rgba(255,255,255,.05)); display: flex; align-items: center; justify-content: center;
-          color: var(--ac-1, #5eead4); }
+          color: var(--ac-1, #f59e0b); }
 
         /* folha do fichario */
         .lp-palco { position: relative; display: flex; align-items: center; gap: 10px; justify-content: center; }
-        .lp-folha { position: relative; width: min(100%, 380px); aspect-ratio: 3/4; border-radius: 20px; overflow: hidden;
-          border: 1px solid rgba(var(--ac-1-rgb,94,234,212), .35); box-shadow: 0 30px 70px -24px rgba(0,0,0,.8);
+        .lp-folha { position: relative; width: min(100%, 380px); aspect-ratio: 3/4; border-radius: 16px; overflow: hidden;
+          border: 1px solid rgba(var(--ac-1-rgb,245,158,11), .35); box-shadow: 0 30px 70px -24px rgba(0,0,0,.8);
           transition: filter .15s ease; }
         .lp-folha-arte { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
         .lp-folha-grade { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3,1fr);
@@ -407,7 +389,9 @@ export default function LandingLendarias() {
            gerar mismatch de hidratacao entre servidor e cliente. */
         .lp-assemble { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3,1fr);
           grid-template-rows: repeat(3,1fr); pointer-events: none; }
-        .lp-assemble i { background-size: 300% 300%; animation: lp-assemble-peca .7s cubic-bezier(.16,.9,.28,1) both; }
+        /* cubic-bezier da casa (skill bynx-ui sec 4: so em momento pontual
+           orquestrado -- e o caso, e uma entrada unica no load, nao hover). */
+        .lp-assemble i { background-size: 300% 300%; animation: lp-assemble-peca .6s cubic-bezier(.22,.61,.36,1) both; }
         @keyframes lp-assemble-peca {
           from { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(.94); opacity: 0; }
           to   { transform: none; opacity: 1; }
@@ -441,9 +425,9 @@ export default function LandingLendarias() {
         .lp-dot::before { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
           width: 7px; height: 7px; border-radius: 50%;
           background: var(--bx-border-2, rgba(255,255,255,0.14)); transition: background .15s ease; }
-        .lp-dot[data-on="1"]::before { background: var(--ac-1, #5eead4); }
+        .lp-dot[data-on="1"]::before { background: var(--ac-1, #f59e0b); }
         .lp-valor { margin-top: 12px; text-align: center; font-size: 12.5px; color: var(--bx-text-3, rgba(255,255,255,0.40)); }
-        .lp-valor b { color: var(--ac-1, #5eead4); font-variant-numeric: tabular-nums; }
+        .lp-valor b { color: var(--ac-1, #f59e0b); font-variant-numeric: tabular-nums; }
 
         /* drag demo */
         .lp-drag-wrap { display: grid; gap: 24px; align-items: center; }
@@ -483,9 +467,9 @@ export default function LandingLendarias() {
           border: 1px solid var(--bx-border, rgba(255,255,255,.09)); padding: 0; background: var(--bx-surface, rgba(255,255,255,0.03));
           box-shadow: 0 2px 8px -4px rgba(0,0,0,.4);
           transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
-        .lp-mini:hover { transform: translateY(-2px); border-color: rgba(var(--ac-1-rgb,94,234,212), .45);
+        .lp-mini:hover { transform: translateY(-2px); border-color: rgba(var(--ac-1-rgb,245,158,11), .45);
           box-shadow: 0 8px 20px -6px rgba(0,0,0,.5); }
-        .lp-mini[data-destaque="1"] { border-color: rgba(var(--ac-1-rgb,94,234,212), .5); }
+        .lp-mini[data-destaque="1"] { border-color: rgba(var(--ac-1-rgb,245,158,11), .5); }
         @media (min-width: 480px) { .lp-mini[data-destaque="1"] { grid-column: span 2; grid-row: span 2; } }
         .lp-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .lp-mini span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; font-weight: 700;
@@ -497,7 +481,7 @@ export default function LandingLendarias() {
            44px (abaixo) invadia ~17px da borda da arte, bem no ponto que
            vende o produto (achado de auditoria 05/08/2026). 68vw da folga
            real pra seta caber do lado sem sobrepor. */
-        .lp-lightbox img { max-width: min(68vw, 560px); max-height: 82vh; border-radius: 20px;
+        .lp-lightbox img { max-width: min(68vw, 560px); max-height: 82vh; border-radius: 16px;
           box-shadow: 0 40px 90px -20px rgba(0,0,0,.9); cursor: default; }
         .lp-lb-seta { position: fixed; top: 50%; transform: translateY(-50%); z-index: 2;
           background: rgba(255,255,255,.09); }
@@ -513,9 +497,8 @@ export default function LandingLendarias() {
           border: 1px solid var(--bx-border, rgba(255,255,255,.08)); border-radius: 12px; padding: 18px;
           box-shadow: 0 2px 8px -4px rgba(0,0,0,.4); transition: box-shadow .15s ease, transform .15s ease; }
         .lp-passo:hover { box-shadow: 0 8px 20px -6px rgba(0,0,0,.5); transform: translateY(-2px); }
-        .lp-passo::before { content: counter(p, decimal-leading-zero); font-family: var(--font-fraunces), Georgia, serif;
-          font-size: 13px; font-weight: 600; font-style: italic; letter-spacing: .04em;
-          color: var(--ac-1, #5eead4); font-variant-numeric: tabular-nums; }
+        .lp-passo::before { content: counter(p, decimal-leading-zero); font-size: 12px; font-weight: 800;
+          letter-spacing: .1em; color: var(--ac-1, #f59e0b); font-variant-numeric: tabular-nums; }
         .lp-passo h3 { font-size: 15.5px; font-weight: 700; margin: 8px 0 6px; }
         .lp-passo p { font-size: 13.5px; color: var(--bx-text-2, rgba(255,255,255,0.62)); line-height: 1.55; margin: 0; }
 
@@ -542,10 +525,10 @@ export default function LandingLendarias() {
         .lp-viz-pecas i:nth-child(2) { transform: rotate(3deg); }
         .lp-viz-pecas i:nth-child(4) { transform: rotate(-2.5deg); }
         .lp-viz-pecas i:nth-child(8) { transform: rotate(2deg); }
-        .lp-viz-tesoura { position: absolute; right: 5%; bottom: 4%; color: var(--ac-1, #5eead4); }
+        .lp-viz-tesoura { position: absolute; right: 5%; bottom: 4%; color: var(--ac-1, #f59e0b); }
         /* 3 e 4: pagina montada no fichario */
         .lp-viz-fich { position: absolute; inset: 6% 13%; border-radius: 12px; overflow: hidden;
-          border: 1px solid rgba(var(--ac-1-rgb,94,234,212), .4); }
+          border: 1px solid rgba(var(--ac-1-rgb,245,158,11), .4); }
         .lp-viz-fich img.fundo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
         .lp-viz-fich .bolsos { position: absolute; inset: 5%; display: grid;
           grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); gap: 5px; }
@@ -553,7 +536,7 @@ export default function LandingLendarias() {
           background: rgba(8,6,4,.12); }
         .lp-viz-carta { position: absolute; left: 50%; top: 50%; width: 31%; aspect-ratio: 63/88;
           transform: translate(-50%, -52%); border-radius: 6px; overflow: hidden; z-index: 2;
-          border: 1.5px solid rgba(255,255,255,.65); box-shadow: 0 0 22px rgba(var(--ac-1-rgb,94,234,212), .45),
+          border: 1.5px solid rgba(255,255,255,.65); box-shadow: 0 0 22px rgba(var(--ac-1-rgb,245,158,11), .45),
           0 10px 24px -6px rgba(0,0,0,.8); }
         .lp-viz-carta img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -574,17 +557,17 @@ export default function LandingLendarias() {
            Agora ocupa mais espaco fisico de verdade, como cartao de
            assinatura premium: padding maior, eleva no desktop, sombra
            tingida do accent. */
-        .lp-preco.destaque { border-color: rgba(var(--ac-1-rgb,94,234,212), .5); padding: 28px 24px;
-          background: linear-gradient(170deg, rgba(var(--ac-1-rgb,94,234,212), .1), var(--bx-surface, rgba(255,255,255,.03)) 55%);
-          box-shadow: 0 20px 40px -18px rgba(var(--ac-1-rgb,94,234,212), .35); }
+        .lp-preco.destaque { border-color: rgba(var(--ac-1-rgb,245,158,11), .5); padding: 28px 24px;
+          background: linear-gradient(170deg, rgba(var(--ac-1-rgb,245,158,11), .1), var(--bx-surface, rgba(255,255,255,.03)) 55%);
+          box-shadow: 0 20px 40px -18px rgba(var(--ac-1-rgb,245,158,11), .35); }
         @media (min-width: 820px) { .lp-preco.destaque { transform: translateY(-8px); } }
-        .lp-preco.destaque:hover { box-shadow: 0 24px 48px -16px rgba(var(--ac-1-rgb,94,234,212), .45); }
+        .lp-preco.destaque:hover { box-shadow: 0 24px 48px -16px rgba(var(--ac-1-rgb,245,158,11), .45); }
         @media (min-width: 820px) { .lp-preco.destaque:hover { transform: translateY(-10px); } }
         .lp-preco .nome { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
           color: var(--bx-text-3, rgba(255,255,255,0.40)); }
-        .lp-preco.destaque .nome { color: var(--ac-1, #5eead4); }
-        .lp-preco .valor { font-family: var(--font-fraunces), Georgia, serif; font-size: 32px; font-weight: 600;
-          letter-spacing: -.01em; margin: 10px 0 2px; font-variant-numeric: tabular-nums; }
+        .lp-preco.destaque .nome { color: var(--ac-1, #f59e0b); }
+        .lp-preco .valor { font-size: 34px; font-weight: 800; letter-spacing: -.02em; margin: 10px 0 2px;
+          font-variant-numeric: tabular-nums; }
         .lp-preco .valor small { font-size: 14px; font-weight: 600; color: var(--bx-text-3, rgba(255,255,255,0.40)); }
         /* Contraste medido em ~3,76:1 (abaixo do minimo AA 4,5:1) --
            achado de auditoria 05/08/2026. Essa linha carrega a ancoragem
@@ -607,7 +590,7 @@ export default function LandingLendarias() {
         .lp-faq summary { font-size: 14.5px; font-weight: 700; padding: 15px 0; cursor: pointer; list-style: none;
           display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .lp-faq summary::-webkit-details-marker { display: none; }
-        .lp-faq summary::after { content: '+'; font-size: 18px; font-weight: 400; color: var(--ac-1, #5eead4); }
+        .lp-faq summary::after { content: '+'; font-size: 18px; font-weight: 400; color: var(--ac-1, #f59e0b); }
         .lp-faq details[open] summary::after { content: '\\2212'; }
         .lp-faq details p { font-size: 13.5px; color: var(--bx-text-2, rgba(255,255,255,0.62)); line-height: 1.6;
           margin: 0; padding: 0 0 16px; }
@@ -774,7 +757,7 @@ export default function LandingLendarias() {
       {/* Wash radial fraco ecoando o hero -- a pagina inteira era retangulo
           com borda sobre fundo solido fora da secao de passos (achado de
           craft, 05/08/2026). Dar respiro visual sem virar mais um card. */}
-      <section id="precos" style={{ background: 'radial-gradient(70% 50% at 50% 0%, rgba(94,234,212,.05), transparent 65%)' }}>
+      <section id="precos" style={{ background: 'radial-gradient(70% 50% at 50% 0%, rgba(245,158,11,.05), transparent 65%)' }}>
         <div className="bx-gutter lp-reveal" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <p className="lp-eyebrow">Preços</p>
           <h2 className="lp-h2">Comece de graça. Complete quando quiser.</h2>
