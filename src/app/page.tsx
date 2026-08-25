@@ -53,15 +53,15 @@ const FALLBACK_DOWN = [
 ]
 
 const POKEDEX = [
-  { img: 'neo4/107', dex: '006', name: 'Charizard', tp: 'Fogo', tc: '#f97316', cards: 329, faixa: 'R$ 1,99 a R$ 32.944' },
-  { img: 'ex6/104', dex: '009', name: 'Blastoise', tp: 'Água', tc: '#3b82f6', cards: 147, faixa: 'R$ 3,68 a R$ 14.000' },
-  { img: 'svp/85', dex: '025', name: 'Pikachu', tp: 'Elétrico', tc: '#eab308', cards: 661, faixa: 'R$ 0,71 a R$ 40.000' },
-  { img: 'ex6/108', dex: '094', name: 'Gengar', tp: 'Psíquico', tc: '#a855f7', cards: 171, faixa: 'R$ 0,50 a R$ 11.730' },
-  { img: 'sm115/49', dex: '133', name: 'Eevee', tp: 'Incolor', tc: '#a8a29e', cards: 300, faixa: 'R$ 0,55 a R$ 9.500' },
-  { img: 'ex7/104', dex: '143', name: 'Snorlax', tp: 'Incolor', tc: '#a8a29e', cards: 158, faixa: 'R$ 0,25 a R$ 3.824' },
-  { img: 'neo4/109', dex: '150', name: 'Mewtwo', tp: 'Psíquico', tc: '#a855f7', cards: 278, faixa: 'R$ 1,42 a R$ 70.000' },
-  { img: 'pop5/17', dex: '197', name: 'Umbreon', tp: 'Noturno', tc: '#64748b', cards: 160, faixa: 'R$ 2,90 a R$ 39.800' },
-  { img: 'ex8/107', dex: '384', name: 'Rayquaza', tp: 'Dragão', tc: '#d97706', cards: 188, faixa: 'R$ 1,00 a R$ 40.000' },
+  { img: 'neo4/107', dex: '006', name: 'Charizard', tp: 'Fogo', tc: '#f97316', cards: 331, faixa: 'R$ 1,99 a R$ 29.999,99' },
+  { img: 'ex6/104', dex: '009', name: 'Blastoise', tp: 'Água', tc: '#3b82f6', cards: 145, faixa: 'R$ 2,99 a R$ 11.899,92' },
+  { img: 'svp/85', dex: '025', name: 'Pikachu', tp: 'Elétrico', tc: '#eab308', cards: 664, faixa: 'R$ 0,13 a R$ 70.000,00' },
+  { img: 'ex6/108', dex: '094', name: 'Gengar', tp: 'Psíquico', tc: '#a855f7', cards: 163, faixa: 'R$ 0,30 a R$ 11.730,00' },
+  { img: 'sm115/49', dex: '133', name: 'Eevee', tp: 'Incolor', tc: '#a8a29e', cards: 305, faixa: 'R$ 0,15 a R$ 9.500,00' },
+  { img: 'ex7/104', dex: '143', name: 'Snorlax', tp: 'Incolor', tc: '#a8a29e', cards: 160, faixa: 'R$ 0,14 a R$ 1.800,00' },
+  { img: 'neo4/109', dex: '150', name: 'Mewtwo', tp: 'Psíquico', tc: '#a855f7', cards: 284, faixa: 'R$ 0,25 a R$ 70.000,00' },
+  { img: 'pop5/17', dex: '197', name: 'Umbreon', tp: 'Noturno', tc: '#64748b', cards: 171, faixa: 'R$ 2,90 a R$ 39.599,90' },
+  { img: 'ex8/107', dex: '384', name: 'Rayquaza', tp: 'Dragão', tc: '#d97706', cards: 187, faixa: 'R$ 0,15 a R$ 39.999,95' },
 ]
 
 const PRODUTOS = [
