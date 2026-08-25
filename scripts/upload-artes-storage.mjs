@@ -11,6 +11,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import sharp from 'sharp'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DIR = path.join(ROOT, 'public', 'paginas-lendarias')
@@ -34,6 +35,28 @@ if (!chave) { console.error('SUPABASE_SERVICE_KEY nao encontrada. Aborta.'); pro
 
 const fulls = fs.readdirSync(DIR).filter(f => f.endsWith('.webp') && !f.includes('-lp') && !f.includes('-mini'))
 console.log(`${fulls.length} artes cheias pra subir`)
+
+// As leves sao o que a LANDING PUBLICA serve. Ficam no git (as cheias nao),
+// entao regenerar arte sem refazer as leves deixa a vitrine mostrando a versao
+// ANTIGA — foi o que aconteceu na revisao de 25/08: cheias novas no Storage,
+// -lp/-mini de 16/08 na landing. Por isso nasce aqui dentro: este script ja e
+// o passo obrigatorio antes de commitar qualquer regeneracao.
+const VARIANTES = [{ sufixo: '-lp', largura: 760 }, { sufixo: '-mini', largura: 320 }]
+let refeitas = 0
+for (const f of fulls) {
+  const id = f.replace('.webp', '')
+  const cheia = path.join(DIR, f)
+  const mtimeCheia = fs.statSync(cheia).mtimeMs
+  for (const { sufixo, largura } of VARIANTES) {
+    const alvo = path.join(DIR, `${id}${sufixo}.webp`)
+    // so refaz o que esta velho: variante ausente ou mais antiga que a cheia
+    if (fs.existsSync(alvo) && fs.statSync(alvo).mtimeMs >= mtimeCheia) continue
+    await sharp(cheia).resize({ width: largura }).webp({ quality: 82 }).toFile(alvo + '.tmp')
+    fs.renameSync(alvo + '.tmp', alvo)
+    refeitas++
+  }
+}
+console.log(refeitas ? `${refeitas} variantes -lp/-mini refeitas (estavam mais velhas que a arte)` : 'variantes -lp/-mini ja estavam em dia')
 
 const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'))
 let ok = 0, falha = 0
