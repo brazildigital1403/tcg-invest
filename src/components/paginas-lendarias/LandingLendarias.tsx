@@ -596,7 +596,10 @@ export default function LandingLendarias() {
         .lp-preco .lp-cta, .lp-preco .lp-cta-ghost { margin-top: auto; width: 100%; }
 
         /* faq */
-        .lp-faq { display: grid; gap: 10px; margin-top: 24px; max-width: 760px; }
+        {/* max-width sem margin:auto grudava a lista de perguntas na
+            esquerda em telas largas, sobrando vazio a direita (pedido do
+            Du apos o redesign, 06/08/2026). */}
+        .lp-faq { display: grid; gap: 10px; margin: 24px auto 0; max-width: 760px; }
         .lp-faq details { background: var(--bx-surface, rgba(255,255,255,.03));
           border: 1px solid var(--bx-border, rgba(255,255,255,.08)); border-radius: 12px; padding: 0 18px;
           box-shadow: 0 2px 8px -4px rgba(0,0,0,.4); transition: box-shadow .15s ease; }
