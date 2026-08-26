@@ -1,0 +1,10 @@
+-- Espelho da migration aplicada em 25/08/2026.
+-- home_faixas_pokemon(text[]) -> faixa (piso/teto pelo MENOR preco) e contagem
+-- de cartas por Pokemon, para a vitrine da home.
+--
+-- Substitui 9 strings cravadas em src/app/page.tsx que ninguem recalculava.
+-- Medido: 10,4 ms, 2.163 buffers, Bitmap Index Scan no GIN de
+-- base_pokemon_names, zero seq scan. Roda 1x a cada 10 min pelo ISR da home.
+--
+-- `@> array[p]` de proposito: `= ANY` nao usa o GIN e viraria seq scan em
+-- 227 MB.
