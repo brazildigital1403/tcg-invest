@@ -52,6 +52,8 @@ const FALLBACK_DOWN = [
   { name: 'Pikachu-EX', set_name: 'XY Promos', image_small: IMG('xyp/XY124'), preco_atual: 1039.46, pct: -70.1 },
 ]
 
+// Fallback: valores da ultima medicao. So aparecem se a consulta falhar --
+// a home nunca fica sem a vitrine por causa do banco.
 const POKEDEX = [
   { img: 'neo4/107', dex: '006', name: 'Charizard', tp: 'Fogo', tc: '#f97316', cards: 331, faixa: 'R$ 1,99 a R$ 29.999,99' },
   { img: 'ex6/104', dex: '009', name: 'Blastoise', tp: 'Água', tc: '#3b82f6', cards: 145, faixa: 'R$ 2,99 a R$ 11.899,92' },
@@ -94,11 +96,14 @@ type Mover = { name: string; set_name: string; image_small: string; preco_atual:
 const brl = (v: number) => `R$ ${Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`
 const pctFmt = (n: number) => `${n > 0 ? '+' : ''}${Number(n).toFixed(1).replace('.', ',')}%`
 
-async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[] }> {
+type FaixaPkmn = { nome: string; cartas: number; piso: number | null; teto: number | null }
+
+async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[]; pokedex: typeof POKEDEX }> {
   const sb = getServiceSupabase()
   let up = FALLBACK_UP as Mover[]
   let down = FALLBACK_DOWN as Mover[]
   let marquee = FALLBACK_MARQUEE
+  let pokedex = POKEDEX
   if (sb) {
     try {
       const cols = 'name,set_name,image_small,preco_atual,pct'
@@ -113,6 +118,23 @@ async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[
           .ilike('image_small', 'https://images.pokemontcg.io/%').gt('preco_min', 0)
           .order('preco_min', { ascending: false }).limit(18),
       ])
+      // Faixas da vitrine de Pokemon: eram strings cravadas e envelheciam sem
+      // ninguem notar (a home chegou a dizer Pikachu "a partir de R$ 0,71"
+      // quando o piso real era R$ 0,13). Medido: 10ms, 2.163 buffers, usando o
+      // indice GIN de base_pokemon_names -- e roda 1x a cada 10min pelo ISR,
+      // nunca por request.
+      const { data: faixas } = await sb.rpc('home_faixas_pokemon', {
+        p_nomes: POKEDEX.map(x => x.name),
+      })
+      if (faixas && (faixas as FaixaPkmn[]).length) {
+        const porNome = new Map((faixas as FaixaPkmn[]).map(f => [f.nome, f]))
+        pokedex = POKEDEX.map(x => {
+          const f = porNome.get(x.name)
+          if (!f || !f.piso || !f.teto) return x
+          return { ...x, cards: Number(f.cartas) || x.cards, faixa: `${brl(Number(f.piso))} a ${brl(Number(f.teto))}` }
+        })
+      }
+
       if (u.data && u.data.length) up = u.data as Mover[]
       if (d.data && d.data.length) down = d.data as Mover[]
       const urls = (m.data || []).map(x => x.image_small).filter(Boolean) as string[]
@@ -121,7 +143,7 @@ async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[
       // mantem fallback
     }
   }
-  return { up, down, marquee }
+  return { up, down, marquee, pokedex }
 }
 
 function jsonLd() {
@@ -159,7 +181,7 @@ const IcChevL = () => (<svg className="ico" viewBox="0 0 24 24"><path d="M15 6l-
 const IcChevR = () => (<svg className="ico" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>)
 
 export default async function HomePage() {
-  const { up, down, marquee } = await getData()
+  const { up, down, marquee, pokedex } = await getData()
   const marqueeAll = [...marquee, ...marquee]
 
   return (
@@ -397,7 +419,7 @@ export default async function HomePage() {
               </div>
               <div className="pkx-screen">
                 <div className="pkx-grid">
-                  {POKEDEX.map(p => (
+                  {pokedex.map(p => (
                     <div key={p.dex} className="pkx-entry" style={{ ['--tc']: p.tc } as CSSProperties}>
                       <img loading="lazy" decoding="async" src={IMG(p.img)} alt="" />
                       <div className="pkx-e-info">
