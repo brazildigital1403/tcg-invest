@@ -194,6 +194,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { openContactModal } = useContactModal()
   const [patrimonio, setPatrimonio] = useState<number | null>(null)
+  // Quanto do patrimonio vem de carta marcada pelo guard. O topo so mostra a
+  // proporcao (barra de 3px); quem explica em texto e a Colecao.
+  const [patrSobRevisao, setPatrSobRevisao] = useState(0)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifs, setNotifs] = useState<any[]>([])
   const [notifOpen, setNotifOpen] = useState(false)
@@ -357,8 +360,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           // contava a Bianca's Devotion PSA 10 do Du a R$ 37,22 em vez de
           // R$ 1.553,10 — auditoria 03/08/2026).
           const priceMap: Record<string, any> = { ...priceById, ...priceByLink }
-          const { valor } = calcPatrimonio(cards as any[], priceMap, { usd: usdRate, eur: eurRate })
+          const { valor, sobRevisao } = calcPatrimonio(cards as any[], priceMap, { usd: usdRate, eur: eurRate })
           setPatrimonio(valor)
+          setPatrSobRevisao(sobRevisao)
         }
       }
 
@@ -722,6 +726,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <p style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>
                   {patrimonio === null ? '...' : fmt(patrimonio)}
                 </p>
+                {patrimonio !== null && patrimonio > 0 && patrSobRevisao > 0 && (
+                  <div
+                    title={`${fmt(patrSobRevisao)} vem de carta com preço sob revisão`}
+                    style={{ display: 'flex', height: 3, borderRadius: 99, overflow: 'hidden', background: 'rgba(255,255,255,0.10)', marginTop: 3 }}
+                  >
+                    <div style={{ flex: Math.max(0, patrimonio - patrSobRevisao), background: '#22c55e' }} />
+                    <div style={{ flex: patrSobRevisao, background: 'var(--ac-1, #f59e0b)' }} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -883,6 +896,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <p style={{ fontSize: 20, fontWeight: 800, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                     {patrimonio === null ? '...' : fmt(patrimonio)}
                   </p>
+                  {patrimonio !== null && patrimonio > 0 && patrSobRevisao > 0 && (
+                    <div
+                      title={`${fmt(patrSobRevisao)} vem de carta com preço sob revisão`}
+                      style={{ display: 'flex', height: 3, borderRadius: 99, overflow: 'hidden', background: 'rgba(255,255,255,0.10)', marginTop: 3 }}
+                    >
+                      <div style={{ flex: Math.max(0, patrimonio - patrSobRevisao), background: '#22c55e' }} />
+                      <div style={{ flex: patrSobRevisao, background: 'var(--ac-1, #f59e0b)' }} />
+                    </div>
+                  )}
                 </div>
               )}
 

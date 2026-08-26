@@ -59,6 +59,8 @@ type CardProps = {
     imageSmall: string | null
     imageLarge: string | null
     attacks: Array<{ name: string; text?: string; damage?: string }> | null
+    /** Guard de preco: valor nao serve como referencia (card_preco_baseline). */
+    precoSuspeito?: boolean
     precoMin: number | null
     precoMedio: number | null
     precoMax: number | null
@@ -298,11 +300,49 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
                       })}
                     </div>
                   )}
+
+                  {/* ★ Guard de preco: a carta esta marcada como nao-confiavel.
+                      A faixa CONTINUA visivel (opcao A, decisao do Du) -- o
+                      numero e o que a fonte diz de fato, e esconder o dado
+                      bruto seria esconder informacao. O que muda e que ele
+                      para de ser afirmado como referencia: entra apagado,
+                      atras de um aviso que explica por que nao serve. */}
+                  {card.precoSuspeito && (
+                    <div
+                      style={{
+                        background: 'rgba(245,158,11,0.08)',
+                        border: '1px solid rgba(245,158,11,0.28)',
+                        borderRadius: 8,
+                        padding: '11px 13px',
+                        display: 'flex',
+                        gap: 10,
+                        alignItems: 'flex-start',
+                        marginBottom: 14,
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true" style={{ flex: 'none', marginTop: 1 }}>
+                        <path d="M10 3.5 2.5 16.5h15L10 3.5z" stroke="var(--ac-1, #f59e0b)" strokeWidth="1.4" strokeLinejoin="round" />
+                        <path d="M10 8.5v3.2M10 14.2v.1" stroke="var(--ac-1, #f59e0b)" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--ac-1, #f59e0b)' }}>
+                          Preço sob revisão
+                        </p>
+                        <p style={{ margin: '4px 0 0', fontSize: 12.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.64)' }}>
+                          Só existe uma oferta desta carta hoje, e ela está muito acima do histórico. Não usamos esse valor como referência.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(3, 1fr)',
                       gap: 12,
+                      // Marcada pelo guard: a faixa continua legivel, mas
+                      // recuada -- o aviso acima e que manda na leitura.
+                      opacity: card.precoSuspeito ? 0.45 : 1,
                     }}
                   >
                     {[

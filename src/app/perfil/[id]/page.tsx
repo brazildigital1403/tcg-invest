@@ -148,8 +148,13 @@ export default function PerfilPage() {
         // mesmo valor do resto da plataforma.
         const withPrices = cards.map(c => {
           const p = acharPreco(c as any, priceMap)
-          return { ...c, maxValue: valorCarta(c as any, p), medioValue: valorCarta(c as any, p) }
-        }).filter(c => c.maxValue > 0 || c.card_image)
+          return { ...c, maxValue: valorCarta(c as any, p), medioValue: valorCarta(c as any, p), _suspeita: !!p?.preco_nao_confiavel }
+        })
+          // Carta marcada pelo guard fica FORA do showcase. Ela costuma ser a
+          // mais "valiosa" justamente por causa do preço inflado -- entraria em
+          // primeiro lugar num perfil público, que é onde menos se pode errar.
+          .filter(c => !c._suspeita)
+          .filter(c => c.maxValue > 0 || c.card_image)
           .sort((a, b) => b.maxValue - a.maxValue)
           .slice(0, 6)
 

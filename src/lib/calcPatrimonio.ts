@@ -191,6 +191,15 @@ export function valorCarta(carta: CartaDoUsuario, price: any, cotacoes?: Cotacoe
 export interface PatrimonioTotais {
   /** O total pela regra vigente (CAMPO_VALOR). É este que se exibe. */
   valor: number
+  /**
+   * Quanto do total vem de carta marcada pelo guard de preço.
+   *
+   * A carta SOMA normalmente (decisão do Du) — isto existe para a tela poder
+   * mostrar a proporção, que costuma não ser pequena: há usuário com 4 cartas
+   * onde uma responde por 97% do patrimônio.
+   */
+  sobRevisao: number
+  qtdSobRevisao: number
   min: number
   medio: number
   max: number
@@ -213,6 +222,7 @@ export function calcPatrimonio(
   cotacoes?: Cotacoes,
 ): PatrimonioTotais {
   let valor = 0, min = 0, medio = 0, max = 0, totalCartas = 0, semPreco = 0
+  let sobRevisao = 0, qtdSobRevisao = 0
 
   for (const card of cards || []) {
     const price = acharPreco(card, priceMap)
@@ -222,6 +232,10 @@ export function calcPatrimonio(
     valor += unit * qty
     totalCartas += qty
     if (unit === 0) semPreco += qty
+    if (price?.preco_nao_confiavel && unit > 0) {
+      sobRevisao += unit * qty
+      qtdSobRevisao += 1
+    }
 
     // A faixa segue só o catálogo (uma graduada não tem faixa de mercado).
     if (price) {
@@ -232,5 +246,5 @@ export function calcPatrimonio(
     }
   }
 
-  return { valor, min, medio, max, totalCartas, semPreco }
+  return { valor, sobRevisao, qtdSobRevisao, min, medio, max, totalCartas, semPreco }
 }
