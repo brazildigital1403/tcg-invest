@@ -17,6 +17,7 @@
  */
 
 import { useContactModal } from './ContactModalProvider'
+import { IconInstagram } from './Icons'
 
 interface Props {
   /** Quando true, esconde a borda superior (útil em páginas curtas). Default: false */
@@ -96,6 +97,24 @@ export default function PublicFooter({ hideTopBorder = false }: Props) {
           style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}
         >
           Termos de uso
+        </a>
+        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+        <a
+          href="https://instagram.com/bynx.gg"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Instagram da Bynx"
+          style={{
+            color: 'rgba(255,255,255,0.35)',
+            textDecoration: 'none',
+            fontSize: 13,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <IconInstagram size={15} color="currentColor" />
+          Instagram
         </a>
       </div>
       <p style={{ margin: 0 }}>
