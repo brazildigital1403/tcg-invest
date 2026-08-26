@@ -282,6 +282,21 @@ export default function CardDetailModal({
             {(VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).length > 0 || outrasVariantesExtra.length > 0) && (
               <div>
                 <p style={{ fontSize:10, color:'var(--bx-text-3)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>Preços BR</p>
+                {/* Guard de preco: mesma leitura da pagina de carta -- os
+                    numeros continuam (sao o que a fonte diz), mas param de ser
+                    afirmados como referencia. */}
+                {(c as any)?.preco_nao_confiavel && (
+                  <div style={{ display:'flex', gap:8, alignItems:'flex-start', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.28)', borderRadius:8, padding:'8px 10px', marginBottom:8 }}>
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true" style={{ flex:'none', marginTop:1 }}>
+                      <path d="M10 3.5 2.5 16.5h15L10 3.5z" stroke="var(--ac-1)" strokeWidth="1.4" strokeLinejoin="round" />
+                      <path d="M10 8.5v3.2M10 14.2v.1" stroke="var(--ac-1)" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                    <p style={{ margin:0, fontSize:11.5, lineHeight:1.45, color:'var(--bx-text-2)' }}>
+                      <b style={{ color:'var(--ac-1)', fontWeight:600 }}>Preço sob revisão.</b>{' '}
+                      Uma oferta só, muito acima do histórico desta carta.
+                    </p>
+                  </div>
+                )}
                 <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                   {VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).map(v => (
                     <div key={v.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(34,197,94,0.05)', borderRadius:8, padding:'6px 10px', border:'1px solid rgba(34,197,94,0.1)' }}>

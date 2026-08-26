@@ -550,17 +550,28 @@ export default function MinhaColecao() {
   // ✅ Total real de cartas (soma de quantities, não count de tipos)
   const totalQty = cards.reduce((s, c) => s + (c.quantity || 1), 0)
 
-  // ✅ Totais da carteira baseados na VARIANTE selecionada de cada carta
+  // ✅ Totais da carteira baseados na VARIANTE selecionada de cada carta.
+  //
+  // `sobRevisao` acompanha quanto do total vem de carta marcada pelo guard
+  // (preco_nao_confiavel, do /api/cards/lookup). A carta CONTINUA somando --
+  // decisao do Du -- mas o usuario ve a proporcao, porque ela costuma nao ser
+  // pequena: ha quem tenha 4 cartas e uma delas responda por 97% do total.
   const totais = cards.reduce((acc, c) => {
     const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
     const p = getVariantePrices(c.price, variante)
     const qty = c.quantity || 1
+    const val = (p.medio || 0) * qty
+    const suspeita = !!c.price?.preco_nao_confiavel
     return {
       min: acc.min + (p.min || 0) * qty,
-      medio: acc.medio + (p.medio || 0) * qty,
+      medio: acc.medio + val,
       max: acc.max + (p.max || 0) * qty,
+      sobRevisao: acc.sobRevisao + (suspeita ? val : 0),
+      qtdSobRevisao: acc.qtdSobRevisao + (suspeita && val > 0 ? 1 : 0),
     }
-  }, { min: 0, medio: 0, max: 0 })
+  }, { min: 0, medio: 0, max: 0, sobRevisao: 0, qtdSobRevisao: 0 })
+
+  const pctSobRevisao = totais.medio > 0 ? (totais.sobRevisao / totais.medio) * 100 : 0
 
   // Estimativa USD para cartas sem preço BRL
   const usdEstimado = cards.reduce((acc, c) => {
@@ -770,7 +781,20 @@ export default function MinhaColecao() {
           <div className="colecao-resumo-card" style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)' }}>
             <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Valor Médio</p>
             <p style={{ fontSize: 26, fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.02em' }}>{fmt(totais.medio)}</p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Menor preço de mercado</p>
+            {totais.sobRevisao > 0 ? (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', height: 6, borderRadius: 99, overflow: 'hidden', background: 'rgba(255,255,255,0.07)' }}>
+                  <div style={{ width: `${Math.max(0, 100 - pctSobRevisao)}%`, background: '#22c55e' }} />
+                  <div style={{ width: `${Math.min(100, pctSobRevisao)}%`, background: 'var(--ac-1, #f59e0b)' }} />
+                </div>
+                <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, lineHeight: 1.45 }}>
+                  <b style={{ color: 'var(--ac-1, #f59e0b)', fontWeight: 600 }}>{fmt(totais.sobRevisao)}</b>
+                  {' '}vem de {totais.qtdSobRevisao} carta{totais.qtdSobRevisao !== 1 ? 's' : ''} com preço sob revisão
+                </p>
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Menor preço de mercado</p>
+            )}
             {usdEstimado.valor > 0 && (
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(96,165,250,0.15)' }}>
                 <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.5)', marginBottom: 2 }}>
