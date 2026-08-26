@@ -152,6 +152,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               w.gtag=w.gtag||function(){w[l].push(arguments)};
               var consent=null;
               try { consent = w.localStorage.getItem('bynx_cookie_consent'); } catch(e) {}
+              try {
+                if (w.localStorage.getItem('bynx_trafego_interno') === '1') {
+                  w[l].push({'traffic_type':'internal'});
+                }
+              } catch(e) {}
               var granted = consent === 'accepted' ? 'granted' : 'denied';
               w.gtag('consent','default',{
                 'ad_storage': granted,

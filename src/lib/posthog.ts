@@ -96,9 +96,13 @@ export function initPostHog() {
 
     loaded: (ph) => {
       // Lê consent do localStorage (mesmo gate usado pelo GTM).
-      // Se user aceitou, ativa capture.
+      // Se user aceitou, ativa capture — exceto tráfego interno (#76):
+      // navegador que já abriu o admin nunca entra nas métricas.
       try {
-        if (window.localStorage.getItem('bynx_cookie_consent') === 'accepted') {
+        if (
+          window.localStorage.getItem('bynx_trafego_interno') !== '1' &&
+          window.localStorage.getItem('bynx_cookie_consent') === 'accepted'
+        ) {
           ph.opt_in_capturing()
         }
       } catch {
