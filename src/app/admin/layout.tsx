@@ -7,6 +7,7 @@ import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, Ic
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
 import { lojaCache } from '@/lib/lojaCache'
+import { marcarTrafegoInterno } from '@/lib/trafego-interno'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -134,7 +135,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (pathname === '/admin/login') return
     let alive = true
     fetch('/api/admin/counts')
-      .then(r => (r.ok ? r.json() : null))
+      .then(r => {
+        // Sessão de admin confirmada → este navegador é tráfego interno (#76).
+        if (r.ok) marcarTrafegoInterno()
+        return r.ok ? r.json() : null
+      })
       .then(d => { if (alive && d) setCounts(d) })
       .catch(() => {})
     return () => { alive = false }

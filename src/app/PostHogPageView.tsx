@@ -19,6 +19,7 @@ import { useEffect } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { posthog } from '@/lib/posthog'
 import { capturarAtribuicao } from '@/lib/atribuicao'
+import { isTrafegoInterno } from '@/lib/trafego-interno'
 
 export default function PostHogPageView() {
   const pathname = usePathname()
@@ -42,6 +43,9 @@ export default function PostHogPageView() {
     capturarAtribuicao()
 
     if (!posthog) return
+
+    // Tráfego interno (#76): admin e telas /admin ficam fora das métricas.
+    if (pathname.startsWith('/admin') || isTrafegoInterno()) return
 
     let url = window.origin + pathname
     const search = searchParams?.toString()
