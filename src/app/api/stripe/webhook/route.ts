@@ -28,6 +28,7 @@ import { sendPurchaseConfirmationEmail, sendPaginaLendariaEmail, sendEmailLojaPl
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
+import { registrarVendaParceiro, registrarRenovacaoParceiro, reverterComissaoParceiro } from '@/lib/parceiros'
 
 // ─── Mapas de descrição (sincronizados com checkout/SCAN_PACKAGES) ──────────
 
@@ -942,6 +943,21 @@ export async function POST(req: NextRequest) {
             dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
             userId,
           })
+
+          // ── Programa de Parceiros: cupom de influenciador comissiona a venda ──
+          // Mesmo rótulo de plano da renovação (pro_mensal/pro_anual/plus),
+          // senão a mesma assinatura aparece com dois nomes no ledger.
+          try {
+            await registrarVendaParceiro(supabase, stripe, {
+              session,
+              plano: isPlus ? 'plus' : (plano === 'anual' ? 'pro_anual' : 'pro_mensal'),
+              userId,
+              paymentIntentId: piId,
+              eventId: event.id,
+            })
+          } catch (err: any) {
+            console.error(`[webhook] registrarVendaParceiro falhou (não crítico):`, err?.message)
+          }
         } catch (err: any) {
           console.error(`[webhook] CRITICAL: falha ativando Pro para ${userId}:`, err.message, err.stack)
         }
@@ -1032,6 +1048,19 @@ export async function POST(req: NextRequest) {
             dataCompetencia:    new Date(event.created * 1000).toISOString().slice(0, 10),
             userId:             userData?.[0]?.id,
           })
+
+          // ── Programa de Parceiros: renovação comissiona dentro da janela ──
+          try {
+            await registrarRenovacaoParceiro(supabase, {
+              subscriptionId: invoice.subscription as string,
+              plano: planoTag,
+              amountPaidCents: invoice.amount_paid || 0,
+              paymentIntentId: piId,
+              eventId: event.id,
+            })
+          } catch (err: any) {
+            console.error(`[webhook] registrarRenovacaoParceiro falhou (não crítico):`, err?.message)
+          }
         } catch (err: any) {
           console.error(`[webhook] CRITICAL: falha em invoice.payment_succeeded ${invoice.id}:`, err.message, err.stack)
         }
@@ -1208,6 +1237,18 @@ export async function POST(req: NextRequest) {
           }
         } catch (err) {
           console.error('[webhook] CRITICAL: excecao revertendo lancamento:', (err as Error)?.message)
+        }
+
+        // ── 1b. Programa de Parceiros: reverte comissão na mesma proporção ──
+        try {
+          await reverterComissaoParceiro(supabase, {
+            paymentIntentId: pi,
+            devolvidoCents: devolvido,
+            brutoCents: bruto,
+            eventId: event.id,
+          })
+        } catch (err) {
+          console.error('[webhook] reverterComissaoParceiro falhou (não crítico):', (err as Error)?.message)
         }
 
         // ── 2. Pedido ────────────────────────────────────────────────────
