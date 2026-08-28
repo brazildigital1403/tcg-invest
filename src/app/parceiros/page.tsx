@@ -28,6 +28,7 @@ interface Parceiro {
   cupom: string
   descontoPct: number
   comissaoPrimeiraPct: number
+  capPrimeiraCents: number | null
   comissaoRenovacaoPct: number
   recorrenteMeses: number
   ativo: boolean
@@ -209,6 +210,9 @@ export default function ParceirosPage() {
                 </div>
                 <div style={S.couponLine}>
                   Sua comissão: <strong style={S.couponStrong}>{data.parceiro.comissaoPrimeiraPct}% da 1ª cobrança</strong>
+                  {data.parceiro.capPrimeiraCents != null && (
+                    <> (até {(data.parceiro.capPrimeiraCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</>
+                  )}
                   {' + '}
                   <strong style={S.couponStrong}>{data.parceiro.comissaoRenovacaoPct}% das renovações</strong>
                   {' por '}{data.parceiro.recorrenteMeses} meses

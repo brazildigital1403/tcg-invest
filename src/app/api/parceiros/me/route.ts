@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     const { data: parceiros, error: pErr } = await supabase
       .from('parceiros')
-      .select('id, nome, cupom_code, desconto_pct, comissao_primeira_pct, comissao_renovacao_pct, recorrente_meses, ativo, criado_em')
+      .select('id, nome, cupom_code, desconto_pct, comissao_primeira_pct, comissao_primeira_cap_cents, comissao_renovacao_pct, recorrente_meses, ativo, criado_em')
       .limit(1)
 
     if (pErr) {
@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
         cupom: parceiro.cupom_code,
         descontoPct: Number(parceiro.desconto_pct),
         comissaoPrimeiraPct: Number(parceiro.comissao_primeira_pct),
+        capPrimeiraCents: parceiro.comissao_primeira_cap_cents != null ? Number(parceiro.comissao_primeira_cap_cents) : null,
         comissaoRenovacaoPct: Number(parceiro.comissao_renovacao_pct),
         recorrenteMeses: parceiro.recorrente_meses,
         ativo: parceiro.ativo,

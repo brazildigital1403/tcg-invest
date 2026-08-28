@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     const { data: parceiros, error } = await supabase
       .from('parceiros')
-      .select('id, nome, cupom_code, desconto_pct, comissao_primeira_pct, comissao_renovacao_pct, recorrente_meses, pix_chave, ativo, criado_em')
+      .select('id, nome, cupom_code, desconto_pct, comissao_primeira_pct, comissao_primeira_cap_cents, comissao_renovacao_pct, recorrente_meses, pix_chave, ativo, criado_em')
       .order('criado_em', { ascending: true })
 
     if (error) {
@@ -79,6 +79,11 @@ export async function POST(req: NextRequest) {
     const comissaoPrimeiraPct = Number(body.comissao_primeira_pct ?? 100)
     const comissaoRenovacaoPct = Number(body.comissao_renovacao_pct ?? 20)
     const recorrenteMeses = Number(body.recorrente_meses ?? 12)
+    // Teto da 1a cobranca em reais (default R$ 100 — regra da casa pro anual).
+    // null explicito = sem teto (decisao consciente do admin).
+    const capPrimeiraCents = body.cap_primeira_reais === null
+      ? null
+      : Math.round(Number(body.cap_primeira_reais ?? 100) * 100)
     const pixChave = String(body.pix_chave || '').trim() || null
 
     if (!email || !nome || !cupomCode) {
@@ -99,6 +104,9 @@ export async function POST(req: NextRequest) {
     }
     if (recorrenteMeses < 1 || recorrenteMeses > 36) {
       return NextResponse.json({ error: 'Meses de recorrência: entre 1 e 36' }, { status: 400 })
+    }
+    if (capPrimeiraCents !== null && (!Number.isFinite(capPrimeiraCents) || capPrimeiraCents < 100)) {
+      return NextResponse.json({ error: 'Teto da 1ª cobrança: mínimo R$ 1 (ou vazio pra sem teto)' }, { status: 400 })
     }
 
     const supabase = supabaseAdmin()
@@ -182,6 +190,7 @@ export async function POST(req: NextRequest) {
         stripe_promotion_code_id: promotionCode.id,
         desconto_pct: descontoPct,
         comissao_primeira_pct: comissaoPrimeiraPct,
+        comissao_primeira_cap_cents: capPrimeiraCents,
         comissao_renovacao_pct: comissaoRenovacaoPct,
         recorrente_meses: recorrenteMeses,
         pix_chave: pixChave,
