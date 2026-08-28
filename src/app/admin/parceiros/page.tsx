@@ -30,6 +30,7 @@ const FORM_INICIAL = {
   cupom_code: '',
   desconto_pct: '15',
   comissao_primeira_pct: '100',
+  cap_primeira_reais: '100',
   comissao_renovacao_pct: '20',
   recorrente_meses: '12',
   pix_chave: '',
@@ -94,6 +95,8 @@ export default function AdminParceirosPage() {
         cupom_code: form.cupom_code.trim(),
         desconto_pct: Number(form.desconto_pct),
         comissao_primeira_pct: Number(form.comissao_primeira_pct),
+        // Campo vazio = sem teto (decisao explicita do admin).
+        cap_primeira_reais: form.cap_primeira_reais.trim() === '' ? null : Number(form.cap_primeira_reais),
         comissao_renovacao_pct: Number(form.comissao_renovacao_pct),
         recorrente_meses: Number(form.recorrente_meses),
         pix_chave: form.pix_chave.trim() || null,
@@ -224,6 +227,11 @@ export default function AdminParceirosPage() {
             <Campo label="% comissão 1ª cobrança">
               <input type="number" min={0} max={100} value={form.comissao_primeira_pct}
                 onChange={e => setCampo('comissao_primeira_pct', e.target.value)} style={inputStyle} />
+            </Campo>
+            <Campo label="Teto 1ª cobrança (R$)">
+              <input type="number" min={1} value={form.cap_primeira_reais}
+                onChange={e => setCampo('cap_primeira_reais', e.target.value)}
+                placeholder="100" style={inputStyle} />
             </Campo>
             <Campo label="% comissão renovação">
               <input type="number" min={0} max={100} value={form.comissao_renovacao_pct}

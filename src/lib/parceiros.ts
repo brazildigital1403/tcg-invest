@@ -24,6 +24,7 @@ interface ParceiroRow {
   nome: string
   ativo: boolean
   comissao_primeira_pct: number
+  comissao_primeira_cap_cents: number | null
   comissao_renovacao_pct: number
   recorrente_meses: number
 }
@@ -84,7 +85,7 @@ export async function registrarVendaParceiro(
 
   const { data: parceiros, error: pErr } = await supabase
     .from('parceiros')
-    .select('id, nome, ativo, comissao_primeira_pct, comissao_renovacao_pct, recorrente_meses')
+    .select('id, nome, ativo, comissao_primeira_pct, comissao_primeira_cap_cents, comissao_renovacao_pct, recorrente_meses')
     .eq('stripe_promotion_code_id', promoId)
     .limit(1)
 
@@ -124,7 +125,11 @@ export async function registrarVendaParceiro(
 
   const valorBase = params.session.amount_total || 0
   if (valorBase <= 0) return
-  const comissao = Math.round(valorBase * Number(parceiro.comissao_primeira_pct) / 100)
+  // Teto por venda: "100% da 1a cobranca ate R$ X". Sem ele, o plano ANUAL
+  // repassava a fatura do ano inteiro e a venda saia negativa pra casa.
+  let comissao = Math.round(valorBase * Number(parceiro.comissao_primeira_pct) / 100)
+  const cap = parceiro.comissao_primeira_cap_cents
+  if (cap != null && comissao > Number(cap)) comissao = Number(cap)
 
   const { error } = await supabase.from('parceiro_comissoes').insert({
     parceiro_id: parceiro.id,
