@@ -317,6 +317,13 @@ export async function POST(req: NextRequest) {
       ? { customer_creation: 'always' as const }
       : {}
 
+    // Campo de cupom só nos planos de usuário (mensal/plus/anual): é onde os
+    // promotion codes de parceria valem. Lojista e one-time ficam sem o campo
+    // pra não induzir caça a cupom que não existe.
+    const promoParam = (mode === 'subscription' && !isLojistaPlano(plano))
+      ? { allow_promotion_codes: true }
+      : {}
+
     const session = await stripe.checkout.sessions.create({
       mode,
       locale: 'pt-BR',
@@ -324,6 +331,7 @@ export async function POST(req: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       ...customerParam,
       ...customerCreationParam,
+      ...promoParam,
       metadata,
       ...subscriptionData,
       success_url: `${APP}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
