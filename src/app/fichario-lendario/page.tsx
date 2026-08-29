@@ -39,6 +39,24 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://bynx.gg/fichario-lendario' },
 }
 
+/**
+ * Product + Offer da landing.
+ *
+ * O Search Console lista 5 campos como AUSENTES (OPCIONAL) — sao avisos, nao
+ * erros: a pagina ja e elegivel a rich result sem eles. Decisao por campo:
+ *
+ * - aggregateRating / review: FICAM DE FORA ate existir avaliacao real de
+ *   comprador. Inventar nota viola as diretrizes de spam de dados estruturados
+ *   do Google (ação manual derruba os rich results do dominio inteiro, nao so
+ *   desta pagina) e e propaganda enganosa pelo CDC.
+ * - shippingDetails: nao se aplica. E arte DIGITAL, entregue na conta — nao ha
+ *   envio, e declarar frete zero afirmaria um envio que nao existe.
+ * - hasMerchantReturnPolicy: cabivel, mas exige politica de reembolso escrita.
+ *   Os Termos hoje so tratam de assinatura e cobranca indevida, nada sobre
+ *   compra avulsa de produto digital. Schema nao pode prometer o que a pagina
+ *   de Termos nao sustenta.
+ * - validFrom: preenchido abaixo.
+ */
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
@@ -56,7 +74,14 @@ const productSchema = {
       price: '12.90',
       priceCurrency: 'BRL',
       availability: 'https://schema.org/InStock',
+      // validFrom: dia em que a oferta entrou no ar. Factual — os outros
+      // campos que o Search Console pede como opcionais NAO entram:
+      // shippingDetails nao se aplica (produto digital, sem envio) e
+      // hasMerchantReturnPolicy exigiria declarar uma politica que os Termos
+      // ainda nao tem. Ver comentario acima do schema.
+      validFrom: '2026-08-16',
       priceValidUntil: '2027-12-31',
+      itemCondition: 'https://schema.org/NewCondition',
       seller: { '@type': 'Organization', name: 'Bynx' },
     },
     {
@@ -66,7 +91,14 @@ const productSchema = {
       price: '79.90',
       priceCurrency: 'BRL',
       availability: 'https://schema.org/InStock',
+      // validFrom: dia em que a oferta entrou no ar. Factual — os outros
+      // campos que o Search Console pede como opcionais NAO entram:
+      // shippingDetails nao se aplica (produto digital, sem envio) e
+      // hasMerchantReturnPolicy exigiria declarar uma politica que os Termos
+      // ainda nao tem. Ver comentario acima do schema.
+      validFrom: '2026-08-16',
       priceValidUntil: '2027-12-31',
+      itemCondition: 'https://schema.org/NewCondition',
       seller: { '@type': 'Organization', name: 'Bynx' },
     },
   ],
