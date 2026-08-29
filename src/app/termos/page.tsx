@@ -84,6 +84,16 @@ export default function TermosPage() {
           <P>Cada cadastro de loja passa por aprovação manual da equipe Bynx, com prazo de até 48 (quarenta e oito) horas úteis. A Bynx pode solicitar documentação adicional (como CNPJ, comprovante de atividade) e reserva-se o direito de recusar cadastros que não atendam aos critérios de qualidade da plataforma.</P>
         </Section>
 
+        <Section title="4.2 Produtos Digitais Avulsos (Páginas Lendárias)">
+          <P>Além dos planos por assinatura, a Bynx comercializa <strong>produtos digitais de compra única</strong>, sem renovação automática. É o caso das <strong>Páginas Lendárias</strong>: artes de fichário adquiridas individualmente ou em coleção, liberadas na conta do usuário em caráter vitalício, com impressão para uso pessoal ilimitada.</P>
+          <P>A entrega é <strong>imediata e digital</strong>, dentro da própria conta do usuário na plataforma, sem envio físico e sem custo de frete. Não há prazo de entrega nem rastreio: a liberação ocorre assim que o pagamento é confirmado pela Stripe.</P>
+
+          <SubTitle>4.2.1 Direito de Arrependimento</SubTitle>
+          <P>Nos termos do <strong>artigo 49 do Código de Defesa do Consumidor</strong>, o usuário pode desistir da compra no prazo de <strong>7 (sete) dias corridos</strong> contados da data do pagamento, sem necessidade de justificativa.</P>
+          <P>Para exercer o direito, basta escrever para <strong>suporte@bynx.gg</strong> a partir do e-mail cadastrado, informando a compra. O <strong>estorno é integral</strong>, sem qualquer taxa de cancelamento, e é solicitado à Stripe em até 5 (cinco) dias úteis do pedido — o prazo de crédito efetivo depois disso segue as regras da operadora do cartão. Ao ser processado o estorno, o acesso à página adquirida é removido da conta.</P>
+          <P>Antes de comprar, o usuário pode avaliar o produto sem custo: a página da Moonbreon é liberada gratuitamente para qualquer pessoa, permitindo folhear e imprimir uma amostra.</P>
+        </Section>
+
         <Section title="5. Marketplace e Negociações">
           <P>O Marketplace da Bynx é um ambiente para que colecionadores anunciem e encontrem cartas para negociação direta. O contato entre compradores e vendedores é facilitado via WhatsApp, e cada anúncio percorre status de venda (disponível, reservado, em negociação, enviado, concluído ou cancelado) registrados na plataforma.</P>
           <P>Após a finalização da venda, ambas as partes (comprador e vendedor) podem deixar uma avaliação pública sobre a transação, contribuindo para a reputação dos usuários na plataforma.</P>
