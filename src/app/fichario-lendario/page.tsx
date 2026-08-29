@@ -117,7 +117,7 @@ const faqSchema = {
     {
       '@type': 'Question',
       name: 'As cartas vêm junto?',
-      acceptedAnswer: { '@type': 'Answer', text: 'Não — as cartas são as da sua coleção. Você compra a arte da página, digital e vitalícia. A Bynx marca automaticamente quais das 30 cartas você já tem e soma quanto custa fechar cada página no Mercado Brasileiro.' },
+      acceptedAnswer: { '@type': 'Answer', text: 'Não — as cartas são as da sua coleção. Você compra a arte da página, digital e vitalícia. A Bynx marca automaticamente quais das 64 cartas você já tem e soma quanto custa fechar cada página no Mercado Brasileiro.' },
     },
     {
       '@type': 'Question',

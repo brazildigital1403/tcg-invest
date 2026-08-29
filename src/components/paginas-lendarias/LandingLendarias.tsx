@@ -740,7 +740,7 @@ export default function LandingLendarias() {
           <h2 className="lp-h2">52 páginas. As cartas que todo mundo caça.</h2>
           <p className="lp-sub">
             Moonbreon, a página Eeveelution com as 9 SIR de Prismatic, o trio de Kanto do 151, as alt arts
-            de Evolving Skies e a era Mega Evolution — 62 cartas ao todo, uma página de cada vez.
+            de Evolving Skies e a era Mega Evolution — 64 cartas ao todo, uma página de cada vez.
             Toque em qualquer arte pra ver em tamanho grande.
           </p>
           <div className="lp-galeria">
@@ -789,7 +789,7 @@ export default function LandingLendarias() {
               <span className="valor">R$ 79,90 <small>as 52 páginas</small></span>
               <span className="por">avulsas custariam R$&nbsp;670,80 — você economiza R$&nbsp;590,90</span>
               <ul>
-                <li><IcCheck /> As 52 páginas — 50 de 1 carta + 2 especiais</li>
+                <li><IcCheck /> As 52 páginas — 49 de 1 carta + 3 especiais</li>
                 <li><IcCheck /> Página de 9 cartas custa o mesmo da de 1</li>
                 <li><IcCheck /> Novas páginas do trimestre já inclusas</li>
                 <li><IcCheck /> Vitalícia, impressão ilimitada</li>
@@ -886,7 +886,7 @@ export default function LandingLendarias() {
           <div className="lp-faq">
             <details>
               <summary>As cartas vêm junto?</summary>
-              <p>Não — as cartas são as da sua coleção. Você compra a arte da página, digital e vitalícia. A Bynx marca automaticamente quais das 30 cartas você já tem e soma quanto custa fechar cada página no Mercado Brasileiro.</p>
+              <p>Não — as cartas são as da sua coleção. Você compra a arte da página, digital e vitalícia. A Bynx marca automaticamente quais das 64 cartas você já tem e soma quanto custa fechar cada página no Mercado Brasileiro.</p>
             </details>
             <details>
               <summary>Serve no meu fichário?</summary>
