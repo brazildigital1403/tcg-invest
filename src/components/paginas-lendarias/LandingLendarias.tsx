@@ -787,7 +787,11 @@ export default function LandingLendarias() {
             <div className="lp-preco destaque">
               <span className="nome">Coleção Lendária</span>
               <span className="valor">R$ 79,90 <small>as 52 páginas</small></span>
-              <span className="por">avulsas custariam R$&nbsp;670,80 — você economiza R$&nbsp;590,90</span>
+              {/* 51 x 12,90: a Moonbreon e gratis e NAO e vendida avulsa, entao
+                  ela nao entra na conta do "custaria". 52 x 12,90 (670,80)
+                  inflava a economia em R$ 12,90 num numero que o comprador
+                  consegue conferir. */}
+              <span className="por">avulsas custariam R$&nbsp;657,90 — você economiza R$&nbsp;578,00</span>
               <ul>
                 <li><IcCheck /> As 52 páginas — 49 de 1 carta + 3 especiais</li>
                 <li><IcCheck /> Página de 9 cartas custa o mesmo da de 1</li>

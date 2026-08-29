@@ -51,12 +51,22 @@ export const metadata: Metadata = {
  *   desta pagina) e e propaganda enganosa pelo CDC.
  * - shippingDetails: nao se aplica. E arte DIGITAL, entregue na conta — nao ha
  *   envio, e declarar frete zero afirmaria um envio que nao existe.
- * - hasMerchantReturnPolicy: cabivel, mas exige politica de reembolso escrita.
- *   Os Termos hoje so tratam de assinatura e cobranca indevida, nada sobre
- *   compra avulsa de produto digital. Schema nao pode prometer o que a pagina
- *   de Termos nao sustenta.
+ * - hasMerchantReturnPolicy: preenchido, e o texto ESPELHA a secao 4.2.1 dos
+ *   Termos (7 dias do art. 49 do CDC, estorno integral, sem taxa). Mexeu em um,
+ *   mexe no outro: schema nao pode prometer o que os Termos nao sustentam.
  * - validFrom: preenchido abaixo.
  */
+
+// Espelha /termos secao 4.2.1. returnMethod fica de fora de proposito: nao ha
+// devolucao fisica de arte digital, e o Google aceita a politica sem ele.
+const RETURN_POLICY = {
+  '@type': 'MerchantReturnPolicy',
+  applicableCountry: 'BR',
+  returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+  merchantReturnDays: 7,
+  returnFees: 'https://schema.org/FreeReturn',
+  merchantReturnLink: 'https://bynx.gg/termos',
+}
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
@@ -82,6 +92,7 @@ const productSchema = {
       validFrom: '2026-08-16',
       priceValidUntil: '2027-12-31',
       itemCondition: 'https://schema.org/NewCondition',
+      hasMerchantReturnPolicy: RETURN_POLICY,
       seller: { '@type': 'Organization', name: 'Bynx' },
     },
     {
@@ -99,6 +110,7 @@ const productSchema = {
       validFrom: '2026-08-16',
       priceValidUntil: '2027-12-31',
       itemCondition: 'https://schema.org/NewCondition',
+      hasMerchantReturnPolicy: RETURN_POLICY,
       seller: { '@type': 'Organization', name: 'Bynx' },
     },
   ],
