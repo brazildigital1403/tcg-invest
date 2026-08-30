@@ -7,7 +7,7 @@ export const metadata = {
   description: 'Saiba como a Bynx coleta, usa e protege seus dados pessoais conforme a LGPD.',
 }
 
-const UPDATED = '30 de abril de 2026'
+const UPDATED = '30 de agosto de 2026'
 
 export default function PrivacidadePage() {
   return (
@@ -147,8 +147,8 @@ export default function PrivacidadePage() {
             <li><strong style={{ color: '#f0f0f0' }}>Informação sobre compartilhamento:</strong> obter informação sobre com quais entidades seus dados são compartilhados;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Oposição:</strong> opor-se a tratamentos realizados com base em legítimo interesse.</li>
           </ul>
-          <P>Para exercer seus direitos, entre em contato por <a href="mailto:privacidade@bynx.gg" style={{ color: '#f59e0b' }}>privacidade@bynx.gg</a>. Responderemos em até 15 (quinze) dias úteis.</P>
-          <P>Você também pode exercer seus direitos diretamente na plataforma, na seção <strong>Minha Conta → Zona de Perigo</strong>, onde é possível solicitar a exclusão completa da conta e dos dados.</P>
+          <P>Para exercer seus direitos, entre em contato por <a href="mailto:privacidade@bynx.gg" style={{ color: '#f59e0b' }}>privacidade@bynx.gg</a>. Responderemos em até 15 (quinze) dias, conforme o art. 19 da LGPD.</P>
+          <P>A <strong>exclusão da conta e dos dados</strong> é solicitada pelo mesmo endereço, a partir do e-mail cadastrado. Confirmamos o recebimento do pedido e executamos a exclusão dentro do prazo acima, ressalvados os dados que a lei nos obriga a manter — descritos na seção 5 (Retenção de Dados).</P>
         </Section>
 
         <Section title="7. Segurança dos Dados">
