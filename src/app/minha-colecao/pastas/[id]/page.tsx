@@ -8,7 +8,7 @@ import { setLabel } from '@/lib/setLabel'
 import { getUserPlan } from '@/lib/isPro'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { IconSearch, IconClose, IconKey } from '@/components/ui/Icons'
+import { IconSearch, IconClose, IconKey, IconCollection } from '@/components/ui/Icons'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
 
 const LIMITE_CARTAS_FREE = 100
@@ -419,7 +419,7 @@ export default function PastaDetalhe() {
         {/* Vazio */}
         {cards.length === 0 && (
           <div style={{ textAlign: 'center', padding: '70px 24px', color: 'rgba(255,255,255,0.3)' }}>
-            <p style={{ fontSize: 44, marginBottom: 12 }}>🃏</p>
+            <div style={{ marginBottom: 12 }}><IconCollection size={44} color="rgba(255,255,255,0.3)" /></div>
             <p style={{ fontSize: 15 }}>Nenhuma carta nesta pasta ainda.</p>
             <p style={{ fontSize: 13, marginTop: 6 }}>Clique em "Adicionar cartas" para trazer cartas da sua coleção.</p>
           </div>
@@ -440,7 +440,7 @@ export default function PastaDetalhe() {
                 <div style={{ aspectRatio: '63/88', background: '#0d0f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {c.card_image
                     ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    : <span style={{ fontSize: 30 }}>🃏</span>}
+                    : <IconCollection size={30} color="rgba(255,255,255,0.3)" />}
                 </div>
                 <div style={{ padding: 10 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.card_name.replace(/\s*\([^)]*\)/, '')}</p>
@@ -462,7 +462,7 @@ export default function PastaDetalhe() {
             {filtered.map((c) => (
               <div key={c.user_card_id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '8px 12px' }}>
                 <div style={{ width: 34, height: 47, flexShrink: 0, background: '#0d0f14', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span>🃏</span>}
+                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <IconCollection size={22} color="rgba(255,255,255,0.3)" />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.card_name.replace(/\s*\([^)]*\)/, '')}</p>
@@ -686,7 +686,7 @@ function Binder({
                         >
                           {card.card_image
                             ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }} />
-                            : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 24 }}>🃏</div>}
+                            : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 24 }}><IconCollection size={24} color="rgba(255,255,255,0.3)" /></div>}
                           {card.quantity > 1 && (
                             <span style={{ position: 'absolute', bottom: 5, left: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(0,0,0,0.7)', color: '#fff' }}>x{card.quantity}</span>
                           )}
@@ -713,7 +713,7 @@ function Binder({
         <div style={{ position: 'fixed', left: ghost.x, top: ghost.y, transform: 'translate(-50%, -50%) rotate(-4deg)', width: 92, aspectRatio: '63/88', zIndex: 9999, pointerEvents: 'none', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', border: '1px solid rgba(245,158,11,0.6)' }}>
           {ghost.card.card_image
             ? <img src={ghost.card.card_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#0d0f14' }} />
-            : <div style={{ width: '100%', height: '100%', background: '#0d0f14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🃏</div>}
+            : <div style={{ width: '100%', height: '100%', background: '#0d0f14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}><IconCollection size={28} color="rgba(255,255,255,0.3)" /></div>}
         </div>
       )}
     </div>
@@ -791,7 +791,7 @@ function AddCardsModal({
                   {isSel && <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-9" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
                 <div style={{ width: 28, height: 39, flexShrink: 0, background: '#0d0f14', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 14 }}>🃏</span>}
+                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <IconCollection size={14} color="rgba(255,255,255,0.3)" />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.card_name.replace(/\s*\([^)]*\)/, '')}</p>

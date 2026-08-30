@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { IconSearch, IconClose, IconRocket } from '@/components/ui/Icons'
+import { IconSearch, IconClose, IconRocket, IconCollection } from '@/components/ui/Icons'
 import CardItem, { montarUltimaVenda } from '@/components/ui/CardItem'
 import MarketplaceFotosInput from './MarketplaceFotosInput'
 import { supabase } from '@/lib/supabaseClient'
@@ -159,7 +159,7 @@ function EscolherCarta({
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.3)' }}>
-            <p style={{ fontSize: 36, marginBottom: 12 }}>🃏</p>
+            <div style={{ marginBottom: 12 }}><IconCollection size={36} color="rgba(255,255,255,0.3)" /></div>
             <p>{search ? `Nenhuma carta com "${search}"` : 'Sua coleção está vazia'}</p>
           </div>
         ) : (

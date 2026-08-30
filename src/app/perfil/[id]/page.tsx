@@ -420,7 +420,7 @@ export default function PerfilPage() {
                     {/* Imagem */}
                     {card.card_image
                       ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
-                      : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 32 }}>🃏</span></div>
+                      : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconCollection size={32} color="rgba(255,255,255,0.3)" /></div>
                     }
                     {/* Info */}
                     <div style={{ padding: '10px 12px' }}>

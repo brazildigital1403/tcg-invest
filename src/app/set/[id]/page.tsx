@@ -32,6 +32,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import MercadoLivre from '@/components/ui/MercadoLivre'
 import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
 import Breadcrumb from '@/components/ui/Breadcrumb'
+import { IconCollection } from '@/components/ui/Icons'
 
 // ISR: regenera a cada 1h. Após o rename dos sets, os títulos precisam
 // refletir o nome novo sem esperar 24h; preços/contagens também mudam.
@@ -460,7 +461,7 @@ export default async function SetPage({
                       opacity: 0.3,
                     }}
                   >
-                    🃏
+                    <IconCollection size={30} color="rgba(255,255,255,0.3)" />
                   </div>
                 )}
                 <p
