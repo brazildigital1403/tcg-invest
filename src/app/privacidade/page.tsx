@@ -117,6 +117,7 @@ export default function PrivacidadePage() {
             <li><strong style={{ color: '#f0f0f0' }}>Anthropic (Claude)</strong> — processamento de imagens no recurso de Scan com IA. As imagens são enviadas apenas durante o escaneamento e não são armazenadas pela Anthropic para treinamento;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Vercel</strong> — infraestrutura de hospedagem;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Google (Tag Manager e Analytics 4)</strong> — métricas de uso e analytics agregados, sem identificação direta do usuário, conforme a seção 8 desta Política;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Meta (Facebook/Instagram)</strong> — medição de resultado dos anúncios da própria Bynx, por meio do Meta Pixel, <strong>somente mediante consentimento</strong>, conforme a seção 8.3;</li>
             <li><strong style={{ color: '#f0f0f0' }}>ZenRows</strong> — coleta automatizada de preços públicos de fontes do mercado brasileiro de TCG. Não trata dados pessoais dos usuários da Bynx;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Pokémon TCG API</strong> — consulta de dados de cartas (apenas nome/código da carta, sem dados pessoais).</li>
           </ul>
@@ -175,15 +176,17 @@ export default function PrivacidadePage() {
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
             <li>Configurando seu navegador para bloquear cookies de terceiros;</li>
             <li>Instalando o complemento oficial do Google em <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" style={{ color: '#f59e0b' }}>tools.google.com/dlpage/gaoptout</a>;</li>
-            <li>Utilizando o modo de navegação anônima do navegador.</li>
+            <li>Utilizando o modo de navegação anônima do navegador;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Recusando no banner de cookies</strong> exibido no seu primeiro acesso — é o controle direto, e vale tanto para os cookies analíticos quanto para os publicitários da seção 8.3.</li>
           </ul>
 
-          <SubTitle>8.3 Cookies publicitários:</SubTitle>
-          <P>A Bynx <strong>não utiliza</strong> cookies publicitários nem exibe anúncios de terceiros. Nossa plataforma é livre de publicidade externa.</P>
+          <SubTitle>8.3 Cookies publicitários (Meta Pixel via GTM):</SubTitle>
+          <P>A Bynx <strong>não exibe anúncios de terceiros dentro da plataforma</strong> — você não verá publicidade navegando pelo site. Utilizamos, porém, o <strong>Meta Pixel</strong> para medir o resultado dos nossos próprios anúncios em plataformas da Meta (Facebook e Instagram): ele registra ações como cadastro e conclusão de compra, permitindo saber quais campanhas trouxeram novos usuários.</P>
+          <P>Esses cookies <strong>só são ativados com o seu consentimento</strong>. Enquanto você não aceitar no banner de cookies, os sinais de publicidade permanecem negados e o Pixel não dispara. Você pode recusar a qualquer momento, e a recusa não afeta nenhuma funcionalidade da plataforma.</P>
         </Section>
 
         <Section title="9. Transferência Internacional de Dados">
-          <P>Alguns de nossos fornecedores (Supabase, Stripe, Resend, Anthropic, Vercel, Google) processam dados em servidores localizados nos Estados Unidos. Essas transferências são realizadas com base em cláusulas contratuais padrão e garantias adequadas de proteção, conforme exigido pela LGPD.</P>
+          <P>Alguns de nossos fornecedores (Supabase, Stripe, Resend, Anthropic, Vercel, Google, Meta) processam dados em servidores localizados nos Estados Unidos. Essas transferências são realizadas com base em cláusulas contratuais padrão e garantias adequadas de proteção, conforme exigido pela LGPD.</P>
         </Section>
 
         <Section title="10. Dados de Crianças e Adolescentes">
