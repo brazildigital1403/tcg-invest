@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 
 // R6 Commit 3: este endpoint agora é pure-read de pokemon_cards (canonical).
-// Scraping LigaPokemon + upsert em card_prices foram removidos —
-// pokemon_cards é populado via ZenRows nos scripts scan-*.
+// O scraping e o upsert em card_prices foram removidos —
+// pokemon_cards e populado pelos scripts de scan, fora deste repo.
 //
 // GET /api/preco?name=...
 

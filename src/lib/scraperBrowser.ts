@@ -1,5 +1,5 @@
 /**
- * Faz scraping da LigaPokemon DIRETAMENTE NO BROWSER do usuário.
+ * Faz a leitura da fonte de preco DIRETAMENTE NO BROWSER do usuario.
  * O browser do usuário tem IP residencial — sem bloqueio do Cloudflare!
  */
 export async function scrapeCardFromBrowser(url: string): Promise<{

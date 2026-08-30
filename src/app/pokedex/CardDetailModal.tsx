@@ -155,7 +155,7 @@ export default function CardDetailModal({
         <div style={{ flex:1, overflow: isMobile ? 'auto' : 'hidden', display:'flex', flexDirection: isMobile ? 'column' : 'row' }}>
 
           {/* Coluna esquerda */}
-          {/* S34: removido botao "Ver na Liga Pokemon" — pagina /pokedex e publica
+          {/* S34: removido o botao que levava a fonte de preco — pagina /pokedex e publica
               e indexavel pelo Google, expor link externo a Liga = risco SEO/juridico */}
           <div style={{ padding:20, background:'var(--bx-surface)', borderRight: isMobile ? 'none' : '1px solid var(--bx-border)', borderBottom: isMobile ? '1px solid var(--bx-border)' : 'none', display:'flex', flexDirection:'row', flexWrap:'wrap', alignItems:'flex-start', gap:12, overflowY: isMobile ? 'visible' : 'auto', maxHeight: isMobile ? undefined : undefined, flexShrink:0 }}>
             {(c.image_large || c.image_small) && (
@@ -277,7 +277,7 @@ export default function CardDetailModal({
             )}
 
             {/* Preços BR */}
-            {/* S34: removido sufixo "(Liga Pokemon)" — pagina e publica e indexavel,
+            {/* S34: removido o sufixo que nomeava a fonte — pagina e publica e indexavel,
                 expor marca externa = risco SEO/juridico */}
             {(VARIANTES.filter(v => Number(v.med) > 0 || Number(v.min) > 0).length > 0 || outrasVariantesExtra.length > 0) && (
               <div>

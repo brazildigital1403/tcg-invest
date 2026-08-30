@@ -236,8 +236,8 @@ export default async function ParaLojistasPage() {
         <section className="metrics-sec">
           <div className="wrap">
             <div className="metrics reveal">
-              <div className="metric"><div className="m-val" data-target="70000" data-suffix="+">70 mil+</div><div className="m-lab">Cartas Pokémon catalogadas</div></div>
-              <div className="metric"><div className="m-val" data-target="249" data-suffix="">249</div><div className="m-lab">Coleções (sets) cobertas</div></div>
+              <div className="metric"><div className="m-val" data-target="66529" data-suffix="+">66 mil+</div><div className="m-lab">Cartas Pokémon catalogadas</div></div>
+              <div className="metric"><div className="m-val" data-target="853" data-suffix="">853</div><div className="m-lab">Coleções (sets) cobertas</div></div>
               <div className="metric"><div className="m-val" data-target="1025" data-suffix="">1.025</div><div className="m-lab">Pokémon no hub de busca</div></div>
               <div className="metric"><div className="m-val" data-target={String(lojas)} data-suffix="">{lojas}</div><div className="m-lab"><span className="m-live">lojas ativas agora</span></div></div>
             </div>

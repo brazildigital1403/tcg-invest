@@ -736,7 +736,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
                 {cards.map((card, i) => {
                   // S29 UX v6: cores do preço seguem padrão canonical
-                  // (BRL = laranja Liga Pokémon, USD = azul TCG Player convertido)
+                  // (BRL = laranja Mercado Brasileiro, USD = azul internacional convertido)
                   const precoColor = card._fonte === 'BRL' ? '#f59e0b'
                                    : card._fonte === 'USD' ? '#60a5fa'
                                    : 'rgba(255,255,255,0.3)'

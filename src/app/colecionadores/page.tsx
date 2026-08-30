@@ -441,7 +441,7 @@ export default async function ColecionadoresPage() {
               <ToolCard
                 icon={<IconPokedex />}
                 title={`Pokédex de ${cartasFmt} cartas`}
-                desc="Catálogo completo dos sets internacionais (TCG global) e das edições brasileiras Liga Pokémon. Busca por nome com autocomplete. Filtro por tipo, raridade e geração."
+                desc="Catálogo completo dos sets internacionais (TCG global) e das edições brasileiras. Busca por nome com autocomplete. Filtro por tipo, raridade e geração."
               />
               <ToolCard
                 icon={<IconCollection />}
@@ -570,7 +570,7 @@ export default async function ColecionadoresPage() {
                 },
                 {
                   q: 'Funciona com cartas em português, inglês e japonês?',
-                  a: 'Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras da Liga Pokémon. Os preços são exibidos em reais (R$) atualizados.',
+                  a: 'Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras. Os preços são exibidos em reais (R$) atualizados.',
                 },
                 {
                   q: 'Como a Bynx separa as variantes (Normal, Holo, Reverse, Foil, Promo)?',

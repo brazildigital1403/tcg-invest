@@ -19,13 +19,13 @@ export async function GET() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
     const data = await res.json()
-    const usd = parseFloat(data.USDBRL?.bid || '6.0')
-    const eur = parseFloat(data.EURBRL?.bid || '6.5')
+    const usd = parseFloat(data.USDBRL?.bid || '5.19')
+    const eur = parseFloat(data.EURBRL?.bid || '6.01')
 
     cache = { usd, eur, updatedAt: Date.now() }
     return NextResponse.json(cache)
   } catch {
     // Fallback com valores aproximados se a API falhar
-    return NextResponse.json({ usd: 6.0, eur: 6.5, updatedAt: Date.now() })
+    return NextResponse.json({ usd: 5.19, eur: 6.01, updatedAt: Date.now() })
   }
 }

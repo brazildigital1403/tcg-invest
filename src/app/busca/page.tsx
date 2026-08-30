@@ -57,7 +57,7 @@ export async function generateMetadata({
   return {
     title: 'Buscar cartas Pokemon TCG e precos em reais',
     description:
-      'Busque qualquer Pokemon ou carta e veja o preco real em reais. Mais de 69 mil cartas catalogadas na Bynx.',
+      'Busque qualquer Pokemon ou carta e veja o preco real em reais. Mais de 66 mil cartas catalogadas na Bynx.',
     alternates: { canonical: 'https://bynx.gg/busca' },
   }
 }

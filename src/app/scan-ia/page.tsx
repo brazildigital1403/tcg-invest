@@ -91,7 +91,7 @@ const softwareSchema = {
   operatingSystem: 'Web, iOS, Android',
   inLanguage: 'pt-BR',
   description:
-    'Reconhecimento de cartas Pokémon TCG por foto com IA. Multi-card detection, suporte a português, inglês e japonês, integração com banco de 22.861 cartas e preços em reais.',
+    'Reconhecimento de cartas Pokémon TCG por foto com IA. Multi-card detection, suporte a português, inglês e japonês, integração com banco de 66 mil cartas e preços em reais.',
   offers: [
     {
       '@type': 'Offer',
@@ -118,7 +118,7 @@ const softwareSchema = {
   featureList: [
     'Multi-card por foto (até 8 cartas)',
     'Suporte a português, inglês, japonês',
-    'Cross-reference com banco de 22.861 cartas',
+    'Cross-reference com banco de 66 mil cartas',
     'Preço em reais atualizado',
     'Powered by IA de ponta',
     'Mobile-first',
@@ -134,7 +134,7 @@ const faqSchema = {
       name: 'Como funciona o Scan IA da Bynx?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA da Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
+        text: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA da Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 66 mil cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
       },
     },
     {
@@ -932,7 +932,7 @@ export default function ScanIaLanding() {
               A primeira IA brasileira que identifica suas cartas Pokémon TCG por foto.{' '}
               <strong style={{ color: '#f0f0f0' }}>Multi-card</strong>: até 8 cartas em uma só imagem.{' '}
               <strong style={{ color: '#f0f0f0' }}>Multilíngue</strong>: PT, EN, JP. E o preço em reais aparece já,{' '}
-              cruzado com nossa Pokédex de 22.861 cartas.
+              cruzado com nossa Pokédex de 66 mil cartas.
             </p>
 
             <div style={S.heroCtas}>
@@ -1034,7 +1034,7 @@ export default function ScanIaLanding() {
       <section className="scan-stats bx-gutter" style={S.statsSection}>
         <div className="scan-stats-grid" style={S.statsInner}>
           <div style={S.statBox}>
-            <div style={S.statNumber}>22.861</div>
+            <div style={S.statNumber}>66 mil</div>
             <div style={S.statLabel}>Cartas reconhecíveis</div>
           </div>
           <div style={S.statBox}>
@@ -1083,7 +1083,7 @@ export default function ScanIaLanding() {
                 A imagem é enviada pra IA de ponta — modelo de visão mais avançado
                 do mercado. Identifica nome, número, set, raridade e idioma de cada carta.
               </p>
-              <div style={S.stepFooter}>Cross-reference com banco de 22.861 cartas</div>
+              <div style={S.stepFooter}>Cross-reference com banco de 66 mil cartas</div>
             </div>
 
             <div style={S.stepCard}>
@@ -1143,7 +1143,7 @@ export default function ScanIaLanding() {
               <div style={S.techIcon}><IconLink size={19} /></div>
               <div style={S.techTitle}>Cross-reference automático</div>
               <p style={S.techDesc}>
-                Após reconhecer, a carta é automaticamente cruzada com a Pokédex Bynx (22.861 cartas)
+                Após reconhecer, a carta é automaticamente cruzada com a Pokédex Bynx (66 mil cartas)
                 pra trazer imagem oficial, raridade, set e variantes disponíveis.
               </p>
             </div>
@@ -1449,7 +1449,7 @@ export default function ScanIaLanding() {
             {[
               {
                 q: 'Como funciona o Scan IA da Bynx?',
-                a: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA da Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 22.861 cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
+                a: 'Você abre o app, aponta a câmera pra uma ou várias cartas Pokémon TCG, e a IA da Bynx analisa a imagem em segundos. Cada carta é identificada com nome, número, set e raridade, e automaticamente cruzada com nossa Pokédex de 66 mil cartas pra trazer o preço em reais. Aí é só confirmar e a coleção atualiza sozinha.',
               },
               {
                 q: 'Funciona com cartas em japonês ou inglês?',
