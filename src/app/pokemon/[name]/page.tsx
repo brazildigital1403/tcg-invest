@@ -28,6 +28,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import PriceHistory from '@/components/ui/PriceHistory'
 import WatchButton from '@/components/ui/WatchButton'
+import { IconCollection } from '@/components/ui/Icons'
 
 export const revalidate = 3600
 
@@ -582,7 +583,7 @@ export default async function PokemonHubPage({
                       />
                     ) : (
                       <div style={{ width: '100%', aspectRatio: '63/88', borderRadius: 8, marginBottom: 8, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, opacity: 0.3 }}>
-                        🃏
+                        <IconCollection size={32} color="rgba(255,255,255,0.3)" />
                       </div>
                     )}
                     <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 2, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

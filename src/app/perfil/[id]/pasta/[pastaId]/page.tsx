@@ -6,6 +6,7 @@ import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import { supabase } from '@/lib/supabaseClient'
 import { setLabel } from '@/lib/setLabel'
+import { IconCollection } from '@/components/ui/Icons'
 
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -112,7 +113,7 @@ export default function PastaPublica() {
 
         {cards.length === 0 && (
           <div style={{ textAlign: 'center', padding: '60px 24px', color: 'rgba(255,255,255,0.3)' }}>
-            <p style={{ fontSize: 40, marginBottom: 10 }}>🃏</p>
+            <div style={{ marginBottom: 10 }}><IconCollection size={40} color="rgba(255,255,255,0.3)" /></div>
             <p style={{ fontSize: 15 }}>Esta pasta ainda não tem cartas.</p>
           </div>
         )}
@@ -123,7 +124,7 @@ export default function PastaPublica() {
             {cards.map((c) => (
               <div key={c.user_card_id} style={{ ...SURFACE, overflow: 'hidden' }}>
                 <div style={{ aspectRatio: '63/88', background: '#0d0f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 28 }}>🃏</span>}
+                  {c.card_image ? <img loading="lazy" decoding="async" src={c.card_image} alt={c.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <IconCollection size={28} color="rgba(255,255,255,0.3)" />}
                 </div>
                 <div style={{ padding: 10 }}>
                   <p style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.card_name.replace(/\s*\([^)]*\)/, '')}</p>
@@ -228,7 +229,7 @@ function ReadOnlyBinder({ cards }: { cards: Card[] }) {
                     <div key={globalIndex} title={card?.card_name} style={{ position: 'relative', aspectRatio: '63/88', borderRadius: 8, background: card ? '#0d0f14' : 'rgba(255,255,255,0.015)', border: card ? '1px solid rgba(255,255,255,0.1)' : '1.5px dashed rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                       {card && (card.card_image
                         ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 24 }}>🃏</div>)}
+                        : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 24 }}><IconCollection size={24} color="rgba(255,255,255,0.3)" /></div>)}
                       {card && card.quantity > 1 && (
                         <span style={{ position: 'absolute', bottom: 5, left: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(0,0,0,0.7)', color: '#fff' }}>x{card.quantity}</span>
                       )}

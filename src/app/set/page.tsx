@@ -25,6 +25,7 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
+import { IconCollection } from '@/components/ui/Icons'
 
 // ISR: regenera a cada 1h. Como o catálogo cresce (scan contínuo), os agregados
 // do topo (sets/cartas/valor) precisam refletir mudanças sem esperar 24h.
@@ -653,7 +654,7 @@ export default async function SetIndexPage() {
                             opacity: 0.3,
                           }}
                         >
-                          🃏
+                          <IconCollection size={30} color="rgba(255,255,255,0.3)" />
                         </div>
                       )}
                     </div>

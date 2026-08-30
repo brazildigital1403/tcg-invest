@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import PublicHeader from '@/components/ui/PublicHeader'
+import { IconCollection } from '@/components/ui/Icons'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 
@@ -64,7 +65,7 @@ export default function NotFound() {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <span style={{ fontSize: 'clamp(60px, 12vw, 100px)' }}>🃏</span>
+            <IconCollection size={84} color="rgba(255,255,255,0.28)" />
           </div>
         </div>
 

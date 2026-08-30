@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconClock, IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, IconWhatsApp, IconShield, IconTag } from '@/components/ui/Icons'
+import { IconClock, IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, IconWhatsApp, IconShield, IconTag, IconCollection } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import AvaliacaoModal from './AvaliacaoModal'
 import { dispararMarco } from '@/lib/marketplaceMarco'
@@ -216,7 +216,7 @@ function NegociacaoCard({ card, role, onAction, userId }: {
         <div style={{ width: 100, flexShrink: 0 }}>
           {card.card_image
             ? <img src={card.card_image} alt={card.card_name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            : <div style={{ width: '100%', height: 120, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>🃏</div>
+            : <div style={{ width: '100%', height: 120, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}><IconCollection size={32} color="rgba(255,255,255,0.3)" /></div>
           }
         </div>
 
