@@ -97,9 +97,14 @@ export async function GET(req: NextRequest) {
     const saldoProjeto = Math.round((despesaTotalAll - receitaLiqAll) * 100) / 100
 
     // ─── Tendência vs mês anterior ─────────────────────────────────
-    let fatMesAnt = 0, despMesAnt = 0
+    // `feeMesAnt` existe pra base da tendencia do Resultado bater com o valor
+    // atual: `resultado` ja e liquido de Stripe fee, mas a base comparava
+    // (faturamento - despesas) SEM descontar a fee do mes anterior. Base
+    // inflada = tendencia sistematicamente mais pessimista do que a realidade,
+    // justamente no card que diz se o mes foi melhor ou pior.
+    let fatMesAnt = 0, despMesAnt = 0, feeMesAnt = 0
     for (const l of lancMesAnt) {
-      if (l.tipo === 'receita')           fatMesAnt  += Number(l.valor_bruto)
+      if (l.tipo === 'receita')         { fatMesAnt  += Number(l.valor_bruto); feeMesAnt += Number(l.taxa || 0) }
       else if (l.pago)                    despMesAnt += Number(l.valor_bruto) + Number(l.taxa)
     }
     const trend = (atual: number, anterior: number) => {
@@ -137,7 +142,7 @@ export async function GET(req: NextRequest) {
     // ─── Gráfico 1: Linha 6 meses ─────────────────────────────────
     const seisMesesAtras = startOfMonth(new Date(now.getFullYear(), now.getMonth() - 5, 1))
     const { data: lanc6m } = await sb.from('lancamentos')
-      .select('tipo, valor_bruto, data_competencia, pago')
+      .select('tipo, valor_bruto, taxa, data_competencia, pago')
       .gte('data_competencia', ymd(seisMesesAtras))
       .lte('data_competencia', ymd(endMes))
 
@@ -150,8 +155,11 @@ export async function GET(req: NextRequest) {
     for (const l of lanc6m || []) {
       const key = String(l.data_competencia).slice(0, 7)
       if (!meses[key]) continue
+      // Soma valor_bruto + taxa, igual ao card "Despesas pagas" do topo. Antes
+      // o card somava a taxa e este grafico nao: R$ 100,04 apareciam em cima e
+      // sumiam logo abaixo, no mesmo mes.
       if (l.tipo === 'receita') meses[key].receita += Number(l.valor_bruto)
-      else if (l.pago)          meses[key].despesa += Number(l.valor_bruto)
+      else if (l.pago)          meses[key].despesa += Number(l.valor_bruto) + Number(l.taxa || 0)
     }
     const chartLinha = Object.entries(meses).map(([mes, v]) => ({ mes, ...v }))
 
@@ -159,7 +167,7 @@ export async function GET(req: NextRequest) {
     const porCategoria: Record<string, number> = {}
     for (const l of lancMes) {
       if (l.tipo === 'despesa' && l.pago) {
-        porCategoria[l.categoria] = (porCategoria[l.categoria] || 0) + Number(l.valor_bruto)
+        porCategoria[l.categoria] = (porCategoria[l.categoria] || 0) + Number(l.valor_bruto) + Number(l.taxa || 0)
       }
     }
     const chartPizza = Object.entries(porCategoria)
@@ -179,7 +187,7 @@ export async function GET(req: NextRequest) {
         },
         resultado: {
           valor: resultado,
-          trend: trend(resultado, fatMesAnt - despMesAnt),
+          trend: trend(resultado, fatMesAnt - feeMesAnt - despMesAnt),
         },
         a_pagar: {
           valor: despesasAPagar,

@@ -30,14 +30,19 @@ type Anuncio = {
   removido_por_nome: string | null
 }
 
+// `vendido` e `em_negociacao` faltavam aqui, e o fallback mandava os dois pra
+// "Disponivel" em verde -- um anuncio JA VENDIDO aparecia como a venda. Os
+// chips somavam 89 enquanto o chip "Todos" mostrava 91.
 const STATUS_VENDA: Record<string, { label: string; color: string }> = {
-  disponivel: { label: 'Disponível', color: '#22c55e' },
-  reservado:  { label: 'Reservado',  color: '#f59e0b' },
-  enviado:    { label: 'Enviado',    color: '#a855f7' },
-  concluido:  { label: 'Concluído',  color: '#22c55e' },
-  cancelado:  { label: 'Cancelado',  color: '#ef4444' },
+  disponivel:     { label: 'Disponível',     color: '#22c55e' },
+  reservado:      { label: 'Reservado',      color: '#f59e0b' },
+  em_negociacao:  { label: 'Em negociação',  color: '#60a5fa' },
+  enviado:        { label: 'Enviado',        color: '#a855f7' },
+  vendido:        { label: 'Vendido',        color: '#14b8a6' },
+  concluido:      { label: 'Concluído',      color: '#22c55e' },
+  cancelado:      { label: 'Cancelado',      color: '#ef4444' },
 }
-const STATUS_ORDEM = ['disponivel', 'reservado', 'enviado', 'concluido', 'cancelado']
+const STATUS_ORDEM = ['disponivel', 'reservado', 'em_negociacao', 'enviado', 'vendido', 'concluido', 'cancelado']
 
 const VARIANTE_LBL: Record<string, string> = {
   normal:  'Normal',

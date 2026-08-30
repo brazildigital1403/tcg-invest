@@ -22,14 +22,28 @@ export async function GET(req: NextRequest) {
       const { count } = await sb.from(table).select('*', { count: 'exact', head: true }).gte('created_at', since)
       return count || 0
     }
+    // Anuncio novo tem que respeitar o soft-delete, senao o badge conta o que ja
+    // foi removido: na semana de 27/07 mostraria 19 quando so 9 sobreviveram.
+    const novosAnuncios = async (): Promise<number> => {
+      const { count } = await sb.from('marketplace').select('*', { count: 'exact', head: true })
+        .gte('created_at', since).is('removido_em', null)
+      return count || 0
+    }
+    // O badge de Lojas existe pra chamar atencao pro que PRECISA de acao, nao
+    // pro que e recente -- mesma regra que adminTickets.ts ja aplica a tickets.
+    // Havia 1 loja pendente ha 34 dias com o badge zerado.
+    const lojasPendentes = async (): Promise<number> => {
+      const { count } = await sb.from('lojas').select('*', { count: 'exact', head: true }).eq('status', 'pendente')
+      return count || 0
+    }
     const cartasPendentes = async (): Promise<number> => {
       const { count } = await sb.from('card_requests').select('*', { count: 'exact', head: true }).eq('status', 'pendente')
       return count || 0
     }
     const [tickets, lojas, marketplace, usuarios, financeiro, cartas] = await Promise.all([
       ticketsPrecisandoResposta(sb),
-      novos('lojas'),
-      novos('marketplace'),
+      lojasPendentes(),
+      novosAnuncios(),
       novos('users'),
       novos('transactions'),
       cartasPendentes(),
