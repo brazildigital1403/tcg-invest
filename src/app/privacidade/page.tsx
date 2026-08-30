@@ -41,7 +41,7 @@ export default function PrivacidadePage() {
             <li>CPF (Cadastro de Pessoas Físicas) — coletado para fins fiscais e de identificação;</li>
             <li>Data de nascimento — coletada para verificação de idade mínima (Art. 14 LGPD);</li>
             <li>Cidade;</li>
-            <li>Número de WhatsApp (opcional, para exibição no Marketplace);</li>
+            <li>Número de WhatsApp (obrigatório). Ele <strong>não fica visível publicamente</strong>: é revelado apenas à contraparte de uma negociação já iniciada no Marketplace — o comprador vê o do vendedor e vice-versa — para que vocês combinem a entrega;</li>
             <li>Aceite opcional para comunicações de marketing (revogável a qualquer momento);</li>
             <li>Senha (armazenada com criptografia, nunca em texto puro).</li>
           </ul>
