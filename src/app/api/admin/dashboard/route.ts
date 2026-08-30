@@ -98,15 +98,19 @@ export async function GET(req: NextRequest) {
     // e /dashboard-financeiro) ────────────────────────────────────────────
     const { data: pedidosPeriodo } = await sb
       .from('pedidos')
-      .select('total_comprador_cents, pago_em, created_at')
+      .select('valor_item_cents, total_comprador_cents, pago_em, created_at')
       .in('status', ['pago', 'enviado', 'entregue'])
       .gte('pago_em', startAnterior.toISOString())
       .lte('pago_em', now.toISOString())
 
     let gmvAtual = 0, gmvAnterior = 0
     const gmvPontos: { dia: string; valor: number }[] = []
+    // GMV = valor da MERCADORIA, sem frete. Antes somava total_comprador_cents,
+    // que inclui frete -- e frete vai 100% pra loja, nao e volume de mercadoria
+    // nem receita da Bynx (comissao.ts:113 ja documentava isso). No unico pedido
+    // entregue ate hoje o frete era 79% da metrica: item R$ 2,00, frete R$ 11,93.
     for (const p of pedidosPeriodo || []) {
-      const v = Number(p.total_comprador_cents || 0) / 100
+      const v = Number(p.valor_item_cents || 0) / 100
       const dia = String(p.pago_em || p.created_at).slice(0, 10)
       if (dia >= ymd(startAtual)) { gmvAtual += v; gmvPontos.push({ dia, valor: v }) }
       else gmvAnterior += v

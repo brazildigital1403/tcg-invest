@@ -95,13 +95,17 @@ function AcessosView() {
   // ── Resumo de saúde de retenção ──────────────────────────────────────────
   const resumo = useMemo(() => {
     if (!users) return null
+    // Os buckets aqui tem que casar com o `filtered` abaixo, senao o card diz
+    // um numero e o clique nele lista outro. Estavam com `else if` encadeado
+    // (exclusivo) enquanto o filtro usa `d >= 30` (inclusivo): o card mostrava
+    // 200 inativos e o filtro listava 239 -- subestimava churn em 16%.
     let nunca = 0, inativos30 = 0, inativos90 = 0, ativos7 = 0
     for (const u of users) {
       const d = diasDesde(u.last_sign_in_at)
-      if (d === null) nunca++
-      else if (d >= 90) inativos90++
-      else if (d >= 30) inativos30++
-      else if (d <= 7) ativos7++
+      if (d === null) { nunca++; continue }
+      if (d >= 30) inativos30++
+      if (d >= 90) inativos90++
+      if (d <= 7) ativos7++
     }
     return { total: users.length, nunca, inativos30, inativos90, ativos7 }
   }, [users])

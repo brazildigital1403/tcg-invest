@@ -38,13 +38,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     // S32: adicionado last_sign_in_at (RPC auth.users) + total_anuncios + total_compras.
     // 5 queries paralelas — 1 round-trip único.
     const [
-      { count: totalCards },
+      { data: cardRows },
       { count: totalTickets },
       { count: totalAnuncios },
       { count: totalCompras },
       authRes,
     ] = await Promise.all([
-      sb.from('user_cards').select('id', { count: 'exact', head: true }).eq('user_id', id),
+      // Conta pela SOMA de quantity, igual a lista /admin/users. Antes esta
+      // ficha contava LINHAS: um usuario aparecia com 891 na lista e 229 aqui.
+      sb.from('user_cards').select('quantity').eq('user_id', id),
       sb.from('tickets').select('id', { count: 'exact', head: true }).eq('user_id', id),
       sb.from('marketplace')
         .select('id', { count: 'exact', head: true })
@@ -71,7 +73,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         last_sign_in_at: lastSignInAt,
       },
       stats: {
-        total_cards:    totalCards    || 0,
+        total_cards:    (cardRows || []).reduce((n: number, r: { quantity: number | null }) => n + (Number(r.quantity) || 0), 0),
         total_tickets:  totalTickets  || 0,
         total_anuncios: totalAnuncios || 0,
         total_compras:  totalCompras  || 0,

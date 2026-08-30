@@ -116,7 +116,12 @@ export default function PerfilPage() {
       // R6: usamos pokemon_api_id como chave de lookup em pokemon_cards (canonical).
       const { data: cards } = await supabase
         .from('user_cards')
-        .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id')
+        // `graduada` e `valor_graduada` sao obrigatorios: calcPatrimonio trata
+        // slab como outro produto (degrau 1 da cascata), mas sem os campos no
+        // payload o degrau nunca dispara. O grafico logo abaixo desta tela usa
+        // portfolio_history, que JA conta o slab -- entao o numero grande do
+        // perfil ficava abaixo do ultimo ponto do proprio grafico.
+        .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id, card_link, graduada, valor_graduada')
         .eq('user_id', uid)
 
       if (cards && cards.length > 0) {
