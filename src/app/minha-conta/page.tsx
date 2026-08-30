@@ -143,6 +143,7 @@ export default function MinhaConta() {
   const [scanStatus, setScanStatus] = useState<{ scans_mes: number; mensal_disp: number; avulso: number } | null>(null)
   const [sepDesbloqueado, setSepDesbloqueado] = useState<boolean>(false)
   const [loadingCompra, setLoadingCompra] = useState<string | null>(null)
+  const [abrindoPortal, setAbrindoPortal] = useState(false)
 
   // Campos editáveis
   const [name, setName] = useState('')
@@ -251,6 +252,65 @@ export default function MinhaConta() {
       showAlert('Erro ao processar pagamento. Tente novamente.', 'error')
     }
     setLoadingCompra(null)
+  }
+
+  // ── Portal de assinatura (Stripe Customer Portal) ───────────────────────────
+  //
+  // Antes daqui, o botao "Cancelar plano" so mostrava um alerta mandando o
+  // usuario falar no WhatsApp -- canal que nem consta dos Termos. Quem assinou
+  // com dois cliques precisava de conversa pra sair, o que contraria o Decreto
+  // 7.962/2013 (rescisao pelo mesmo meio da contratacao).
+  //
+  // O portal ja existia e ja funcionava; estava ligado so no painel de loja.
+  // Aqui ele resolve cancelamento, troca de cartao e 2a via de fatura de uma vez.
+
+  async function handleAbrirPortal() {
+    setAbrindoPortal(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        showAlert('Sessão expirada. Faça login novamente.', 'error')
+        setAbrindoPortal(false)
+        return
+      }
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ returnUrl: `${window.location.origin}/minha-conta` }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        // NO_CUSTOMER: assinatura que nunca passou pela Stripe (cortesia, plano
+        // manual). Nao adianta mandar pro portal -- nao ha o que gerenciar la.
+        // PORTAL_NOT_CONFIGURED: erro de configuracao NOSSO. A mensagem da API
+        // diz "acesse o Stripe Dashboard", que e instrucao interna -- o usuario
+        // ve texto neutro e o detalhe fica no console pra quem for depurar.
+        if (data.code === 'PORTAL_NOT_CONFIGURED') {
+          console.error('[minha-conta] portal:', data.error)
+          showAlert('Não foi possível abrir o portal agora. Escreva pra suporte@bynx.gg que a gente resolve.', 'error')
+        } else {
+          showAlert(
+            data.code === 'NO_CUSTOMER'
+              ? 'Não encontramos uma assinatura ativa nesta conta. Fale com o suporte em suporte@bynx.gg.'
+              : data.error || 'Não foi possível abrir o portal agora. Tente de novo em instantes.',
+            data.code === 'NO_CUSTOMER' ? 'info' : 'error',
+          )
+        }
+        setAbrindoPortal(false)
+        return
+      }
+      if (data.url) window.location.href = data.url
+      else {
+        showAlert('Não foi possível abrir o portal agora. Tente de novo em instantes.', 'error')
+        setAbrindoPortal(false)
+      }
+    } catch {
+      showAlert('Não foi possível abrir o portal agora. Tente de novo em instantes.', 'error')
+      setAbrindoPortal(false)
+    }
   }
 
   // ── Salvar dados pessoais ───────────────────────────────────────────────────
@@ -865,12 +925,14 @@ export default function MinhaConta() {
                     <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.15)', color: '#22c55e', padding: '2px 8px', borderRadius: 100, fontWeight: 700 }}>ATIVO</span>
                   </div>
                   <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Cartas ilimitadas · Anúncios ilimitados · Perfil público</p>
+                  <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Cancelar, trocar o cartão ou ver suas faturas</p>
                 </div>
                 <button
-                  style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '9px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
-                  onClick={() => showAlert('Para cancelar sua assinatura, entre em contato pelo WhatsApp cadastrado.', 'info')}
+                  onClick={handleAbrirPortal}
+                  disabled={abrindoPortal}
+                  style={{ background: 'none', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)', padding: '9px 18px', borderRadius: 10, fontSize: 13, cursor: abrindoPortal ? 'default' : 'pointer', fontWeight: 600, opacity: abrindoPortal ? 0.55 : 1, transition: 'border-color 0.2s, color 0.2s' }}
                 >
-                  Cancelar plano
+                  {abrindoPortal ? 'Abrindo...' : 'Gerenciar assinatura'}
                 </button>
               </div>
             </div>
