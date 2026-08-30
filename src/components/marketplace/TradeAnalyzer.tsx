@@ -6,13 +6,14 @@
  * Reaproveitável: usado standalone em /comparador e embutido no ChatDock
  * (pré-carregado com a carta do anúncio em negociação). Calculadora pura —
  * não salva nada, não abre negociação. Preço vem do Mercado Brasileiro que
- * a Bynx já calcula por carta (mesma cascata de fallback do AnunciarModal:
- * BRL normal -> foil -> reverse -> promo -> USD convertido).
+ * a Bynx já calcula por carta, pela fonte única (src/lib/calcPatrimonio.ts):
+ * variante escolhida -> queda pro normal -> USD convertido.
  */
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { registrarSinal } from '@/lib/sinais'
+import { CAMPO_VALOR, getPrecoVariante, getVarianteEfetiva } from '@/lib/calcPatrimonio'
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -68,11 +69,22 @@ function cleanNome(raw: string) {
   return (raw || '').replace(/\s*\(\d+\/\d+\)\s*$/, '').trim()
 }
 
-/** Mesma cascata de preço do AnunciarModal: BRL primeiro, USD convertido como último recurso. */
+/**
+ * Preco de um lado da troca, pela fonte unica (src/lib/calcPatrimonio.ts).
+ *
+ * Antes esta funcao reimplementava a cascata e divergia em dois pontos que
+ * mudavam o resultado da troca:
+ *   - encadeava min || foil_min || reverse_min || promo_min IGNORANDO a
+ *     variante da carta, entao uma normal sem preco herdava o valor da foil;
+ *   - ignorava `valor_graduada`, entao carta graduada entrava pelo preco da crua.
+ * Agora usa getVarianteEfetiva/getPrecoVariante/CAMPO_VALOR como o resto do app.
+ */
 async function precificar(card: any, usdRate: number): Promise<{ preco: number; fonte: 'BRL' | 'USD' }> {
-  const brl = // Menor preco (25/08/2026). `preco_normal` saiu da cascata: guarda o MEDIO.
-  Number(card.preco_min) || Number(card.preco_foil_min)
-    || Number(card.preco_reverse_min) || Number(card.preco_promo_min) || 0
+  if (card?.graduada && Number(card.valor_graduada) > 0) {
+    return { preco: Number(card.valor_graduada), fonte: 'BRL' }
+  }
+  const variante = getVarianteEfetiva(card, card?.variante)
+  const brl = getPrecoVariante(card, variante)[CAMPO_VALOR] || 0
   if (brl > 0) return { preco: brl, fonte: 'BRL' }
   const usd = Number(card.price_usd_holofoil) || Number(card.price_usd_normal) || 0
   if (usd > 0) return { preco: usd * usdRate, fonte: 'USD' }
@@ -90,7 +102,7 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
   const [hasMore, setHasMore] = useState(false)
   const [buscando, setBuscando] = useState(false)
   const [carregandoMais, setCarregandoMais] = useState(false)
-  const [usdRate, setUsdRate] = useState(6.0)
+  const [usdRate, setUsdRate] = useState(5.19)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {

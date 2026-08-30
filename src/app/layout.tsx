@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     template: "%s | Bynx.gg",
   },
   description:
-    "A plataforma brasileira para colecionadores de Pokémon TCG. Adicione cartas em segundos, acompanhe preços por variante em reais, use o scan com IA e negocie no Marketplace. Pokédex com 22.000+ cartas em 240+ coleções.",
+    "A plataforma brasileira para colecionadores de Pokémon TCG. Adicione cartas em segundos, acompanhe preços por variante em reais, use o scan com IA e negocie no Marketplace. Pokédex com 66 mil+ cartas em 850+ coleções.",
 
   keywords: [
     "Pokémon TCG", "cartas Pokémon", "coleção Pokémon", "preço carta Pokémon",
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
     creator: "@bynxgg",
     title: "Bynx.gg — Quanto vale sua coleção Pokémon TCG hoje?",
     description:
-      "A plataforma brasileira de coleções Pokémon TCG. Pokédex de 22 mil+ cartas, scan com IA, preços em reais e Marketplace. 7 dias Pro grátis.",
+      "A plataforma brasileira de coleções Pokémon TCG. Pokédex de 66 mil+ cartas, scan com IA, preços em reais e Marketplace. 7 dias Pro grátis.",
     images: ["https://bynx.gg/og-image.jpg"],
   },
 
@@ -256,7 +256,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   description: "Pro com desconto anual e Master Sets liberados",
                 },
               ],
-              description: "Plataforma brasileira de coleções Pokémon TCG. Pokédex com 22 mil+ cartas, scan com IA, preços em reais por variante e marketplace.",
+              description: "Plataforma brasileira de coleções Pokémon TCG. Pokédex com 66 mil+ cartas, scan com IA, preços em reais por variante e marketplace.",
             }),
           }}
         />

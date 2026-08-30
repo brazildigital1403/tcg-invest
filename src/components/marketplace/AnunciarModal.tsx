@@ -71,7 +71,11 @@ function EscolherCarta({
   const [cards, setCards]     = useState<any[]>([])
   const [search, setSearch]   = useState('')
   const [loading, setLoading] = useState(true)
-  const [usdRate, setUsdRate] = useState(6.0)
+  // /api/exchange-rate ja devolve usd E eur (cache de 1h). O eur estava cravado
+  // em 6.5 no JSX e nunca era buscado -- toda carta em euro saia inflada.
+  // Os defaults abaixo sao so o estado inicial ate a API responder.
+  const [usdRate, setUsdRate] = useState(5.19)
+  const [eurRate, setEurRate] = useState(6.01)
 
   useEffect(() => {
     async function load() {
@@ -106,8 +110,9 @@ function EscolherCarta({
       try {
         const rateRes = await fetch('/api/exchange-rate')
         const rate = await rateRes.json()
-        setUsdRate(rate?.usd || 6.0)
-      } catch { /* mantém default 6.0 */ }
+        if (rate?.usd) setUsdRate(rate.usd)
+        if (rate?.eur) setEurRate(rate.eur)
+      } catch { /* mantem o estado inicial */ }
 
       // Anexa _priceData (objeto inteiro de pokemon_cards) em cada user_card.
       // O CardItem usa a prop `price` pra renderizar valores com cores canonical.
@@ -180,7 +185,7 @@ function EscolherCarta({
                   mode="select"
                   selected={cartaSel?.id === card.id}
                   price={card._priceData}
-                  exchangeRate={{ usd: usdRate, eur: 6.5 }}
+                  exchangeRate={{ usd: usdRate, eur: eurRate }}
                 />
               </div>
             ))}
@@ -247,7 +252,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
           )}
           {/* S29 UX v5: card de preço de mercado com fonte explícita.
               Cores seguem padrão canonical (CardItem em /minha-colecao e /pokedex):
-              - BRL puro: laranja (#f59e0b) — Liga Pokémon, fonte oficial BR
+              - BRL puro: laranja (#f59e0b) — Mercado Brasileiro
               - BRL variante: laranja com label da variante
               - USD convertido: azul (#60a5fa) — TCG Player, valor estimado */}
           {!grad && precoMercado > 0 && precoFonte && (() => {
@@ -419,14 +424,13 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
   }, [])
 
   async function handleSelectCard(card: any) {
-    // R6 + S29 UX v4: estratégia de resolução de preço com fallback.
+    // Estrategia de resolucao de preco com fallback.
     //
-    // PRIORIDADE:
-    // 1. preco_medio (REAL · Liga Pokémon · variante normal)
-    // 2. preco_<variante>_medio se vendedor escolheu Foil/Reverse/Promo
-    // 3. preco_foil/reverse/promo (média geral em BRL — sem min/max)
-    // 4. price_usd_normal × cotação USD→BRL (TCG Player)
-    // 5. price_usd_holofoil × cotação USD→BRL (TCG Player Foil)
+    // A cascata canonica vive em src/lib/calcPatrimonio.ts -- este bloco usa
+    // getPrecoVariante/CAMPO_VALOR de la, nao reimplementa. A ordem efetiva e:
+    // 1. faixa da variante escolhida, no campo que CAMPO_VALOR define (hoje min)
+    // 2. queda para a variante normal se a escolhida nao tem preco
+    // 3. cotacao USD->BRL sobre o preco em dolar do catalogo
     //
     // Se nenhum bater, vendedor digita manualmente (precoMercado = 0, sem badge).
     let preco = 0
@@ -483,12 +487,12 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
             try {
               const rateRes = await fetch('/api/exchange-rate')
               const rate = await rateRes.json()
-              const usdBrl = rate?.usd || 6.0
+              const usdBrl = rate?.usd || 5.19
               preco = usd * usdBrl
               fonte = 'USD'
             } catch {
               // Sem internet ou API offline — fallback hardcoded
-              preco = usd * 6.0
+              preco = usd * 5.19
               fonte = 'USD'
             }
           }

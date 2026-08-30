@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { setLabel } from '@/lib/setLabel'
 import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
+import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 import { getUserPlan } from '@/lib/isPro'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
@@ -122,7 +123,10 @@ export default function MinhaColecao() {
             : variante === 'pokeball' ? { min: p.preco_pokeball_min || 0, medio: p.preco_pokeball_medio || 0, max: p.preco_pokeball_max || 0 }
             : { min: p.preco_min || 0, medio: p.preco_medio || 0, max: p.preco_max || 0 }
           const qty = c.quantity || 1
-          const valorTotal = (precos.medio * qty).toFixed(2).replace('.', ',')
+          // Coluna "Valor Total" segue CAMPO_VALOR, igual ao resto da plataforma.
+          // Antes usava `medio`: o arquivo que o assinante Pro baixava nao batia
+          // com nenhum numero da tela de onde ele saiu.
+          const valorTotal = (precos[CAMPO_VALOR] * qty).toFixed(2).replace('.', ',')
           const numMatch = c.card_name?.match(/\(([^)]+)\)/)
           const addedAt = c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : ''
           const fmtPreco = (v: number) => v > 0 ? v.toFixed(2).replace('.', ',') : ''
@@ -159,22 +163,19 @@ export default function MinhaColecao() {
       showAlert('Exportar PDF é exclusivo do plano Pro. Acesse Minha Conta para fazer upgrade.', 'warning')
       return
     }
-    const totalMedio = totais.medio
+    const totalMedio = totais.valor
     const date = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
     const variantLabel: Record<string, string> = { normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil' }
 
+    // Usa a mesma resolucao de variante do resto da tela e o campo que
+    // CAMPO_VALOR define -- antes montava a cascata na mao sobre `_medio`,
+    // e o PDF saia com numero que nao existia em nenhuma outra tela.
     const rows = cards.map(c => {
       const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
-      const p = c.price
-      const medio = !p ? 0
-        : variante === 'foil'     ? (p.preco_foil_medio || 0)
-        : variante === 'promo'    ? (p.preco_promo_medio || 0)
-        : variante === 'reverse'  ? (p.preco_reverse_medio || 0)
-        : variante === 'pokeball' ? (p.preco_pokeball_medio || 0)
-        : (p.preco_medio || 0)
-      const total = medio * (c.quantity || 1)
-      return { name: c.card_name || '', variante, rarity: c.rarity || '—', qty: c.quantity || 1, medio, total, image: c.card_image }
+      const unit = getVariantePrices(c.price, variante)[CAMPO_VALOR] || 0
+      const total = unit * (c.quantity || 1)
+      return { name: c.card_name || '', variante, rarity: c.rarity || '—', qty: c.quantity || 1, medio: unit, total, image: c.card_image }
     }).sort((a, b) => b.total - a.total)
 
     const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -556,22 +557,28 @@ export default function MinhaColecao() {
   // (preco_nao_confiavel, do /api/cards/lookup). A carta CONTINUA somando --
   // decisao do Du -- mas o usuario ve a proporcao, porque ela costuma nao ser
   // pequena: ha quem tenha 4 cartas e uma delas responda por 97% do total.
+  // ★ `valor` segue CAMPO_VALOR (a mesma constante que o PATRIMONIO do topo usa
+  // via calcPatrimonio). Antes este bloco somava `medio` fixo enquanto o topo
+  // somava `min`: a MESMA tela exibia dois patrimonios, e o card inflava 44,8%
+  // sobre a base toda. A legenda ja dizia "Menor preco de mercado" -- a copy
+  // tinha migrado na virada de 25/08 e a conta nao.
   const totais = cards.reduce((acc, c) => {
     const variante = getVarianteEfetiva(c.price, c.variante || 'normal')
     const p = getVariantePrices(c.price, variante)
     const qty = c.quantity || 1
-    const val = (p.medio || 0) * qty
+    const val = (p[CAMPO_VALOR] || 0) * qty
     const suspeita = !!c.price?.preco_nao_confiavel
     return {
+      valor: acc.valor + val,
       min: acc.min + (p.min || 0) * qty,
-      medio: acc.medio + val,
+      medio: acc.medio + (p.medio || 0) * qty,
       max: acc.max + (p.max || 0) * qty,
       sobRevisao: acc.sobRevisao + (suspeita ? val : 0),
       qtdSobRevisao: acc.qtdSobRevisao + (suspeita && val > 0 ? 1 : 0),
     }
-  }, { min: 0, medio: 0, max: 0, sobRevisao: 0, qtdSobRevisao: 0 })
+  }, { valor: 0, min: 0, medio: 0, max: 0, sobRevisao: 0, qtdSobRevisao: 0 })
 
-  const pctSobRevisao = totais.medio > 0 ? (totais.sobRevisao / totais.medio) * 100 : 0
+  const pctSobRevisao = totais.valor > 0 ? (totais.sobRevisao / totais.valor) * 100 : 0
 
   // Estimativa USD para cartas sem preço BRL
   const usdEstimado = cards.reduce((acc, c) => {
@@ -616,7 +623,7 @@ export default function MinhaColecao() {
       }
       case 'valor_desc':
       case 'valor_asc': {
-        const valMedio = (c: any) => getVariantePrices(c.price, getVarianteEfetiva(c.price, c.variante || 'normal')).medio || 0
+        const valMedio = (c: any) => getVariantePrices(c.price, getVarianteEfetiva(c.price, c.variante || 'normal'))[CAMPO_VALOR] || 0
         return ordenacao === 'valor_asc' ? valMedio(a) - valMedio(b) : valMedio(b) - valMedio(a)
       }
       default: return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
@@ -779,8 +786,8 @@ export default function MinhaColecao() {
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Pior cenário de venda</p>
           </div>
           <div className="colecao-resumo-card" style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)' }}>
-            <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Valor Médio</p>
-            <p style={{ fontSize: 26, fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.02em' }}>{fmt(totais.medio)}</p>
+            <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Valor de mercado</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.02em' }}>{fmt(totais.valor)}</p>
             {totais.sobRevisao > 0 ? (
               <div style={{ marginTop: 8 }}>
                 <div style={{ display: 'flex', height: 6, borderRadius: 99, overflow: 'hidden', background: 'rgba(255,255,255,0.07)' }}>

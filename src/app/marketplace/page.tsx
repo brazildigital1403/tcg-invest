@@ -82,6 +82,26 @@ const stripAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/
 const normCidade = (s: string | null | undefined) => stripAccents((s || '').toLowerCase().trim())
 // Desconto vs mercado (fração 0..1). Sem mercado conhecido => -Infinity (nunca entra em ofertas)
 const descontoDe = (c: any) => (c.preco_mercado > 0 && c.price > 0) ? (c.preco_mercado - c.price) / c.preco_mercado : -Infinity
+
+/**
+ * ★ FONTE UNICA dos cortes de desconto desta tela.
+ *
+ * A mesma nocao de "oferta" estava escrita em QUATRO lugares com QUATRO faixas
+ * diferentes (selo 0.20/0.05, chip 0.10/0.02, trilho 0.10, heroi 0.05). O
+ * resultado media: 5 anuncios apareciam dentro do trilho "Ofertas imperdiveis"
+ * carregando o selo "Bom preco" na propria arte, e o chip "Ofertas" mostrava
+ * contagem 8 quando so 3 batiam o corte.
+ *
+ * Regra: quem entra num lugar chamado "imperdivel" TEM que carregar o selo
+ * "Imperdivel". Por isso os dois usam a mesma constante.
+ *
+ * Os valores foram calibrados na virada pro menor preco (25/08/2026): eram
+ * 25%/10% contra a MEDIA, que e ~20% mais alta -- mantidos, esvaziariam a
+ * vitrine. O que se preserva e o SIGNIFICADO: estar abaixo do MENOR preco
+ * anunciado no mercado ja e barganha.
+ */
+const CORTE_IMPERDIVEL = 0.20
+const CORTE_BOM_PRECO  = 0.05
 const isNovo24 = (c: any) => !!c.created_at && (Date.now() - new Date(c.created_at).getTime()) < 24 * 60 * 60 * 1000
 
 const VARIANTES = [
@@ -274,7 +294,8 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
         </span>
 
         {/* Badges contextuais sobrepostos — só em anúncios disponíveis.
-            Novo: criado nas últimas 24h · Imperdível: >25% abaixo · Bom preço: >10% abaixo.
+            Novo: criado nas ultimas 24h. Os cortes de desconto vem de
+            CORTE_IMPERDIVEL / CORTE_BOM_PRECO (topo do arquivo) -- nunca cravar aqui.
             Todos com ícone outline (zero emoji). */}
         {(card.status || 'disponivel') === 'disponivel' && (() => {
           const badges: Array<{ Icon: any; label: string; bg: string; color: string }> = []
@@ -283,12 +304,8 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
 
           if (card.preco_mercado > 0 && card.price > 0) {
             const desconto = (card.preco_mercado - card.price) / card.preco_mercado
-            // Cortes recalibrados com a virada pro menor preco (25/08/2026).
-            // Eram 25%/10% contra a MEDIA, que e ~20% mais alta -- mantidos,
-            // esvaziariam a vitrine. O que se preserva e o SIGNIFICADO: estar
-            // abaixo do MENOR preco anunciado no mercado ja e barganha.
-            if (desconto >= 0.20) badges.push({ Icon: IconFire, label: 'Imperdível', bg: 'rgba(239,68,68,0.85)', color: '#fff' })
-            else if (desconto >= 0.05) badges.push({ Icon: IconTag, label: 'Bom preço', bg: 'rgba(34,197,94,0.85)', color: '#0a0e16' })
+            if (desconto >= CORTE_IMPERDIVEL) badges.push({ Icon: IconFire, label: 'Imperdível', bg: 'rgba(239,68,68,0.85)', color: '#fff' })
+            else if (desconto >= CORTE_BOM_PRECO) badges.push({ Icon: IconTag, label: 'Bom preço', bg: 'rgba(34,197,94,0.85)', color: '#0a0e16' })
           }
 
           if (badges.length === 0) return null
@@ -1005,8 +1022,8 @@ function MarketplaceInner() {
     if (filtroGraduadora && c.graduadora !== filtroGraduadora) return false
     if (busca && !c.card_name.toLowerCase().includes(busca.toLowerCase())) return false
     // Lentes de descoberta (chips da barra principal)
-    if (discovery === 'ofertas' && descontoDe(c) < 0.10) return false
-    if (discovery === 'bompreco') { const d = descontoDe(c); if (!(d >= 0.02 && d < 0.10)) return false }
+    if (discovery === 'ofertas' && descontoDe(c) < CORTE_IMPERDIVEL) return false
+    if (discovery === 'bompreco') { const d = descontoDe(c); if (!(d >= CORTE_BOM_PRECO && d < CORTE_IMPERDIVEL)) return false }
     if (discovery === 'graduadas' && !c.graduada) return false
     if (discovery === 'novidades' && !isNovo24(c)) return false
     if (discovery === 'perto' && !mesmaCidade(c)) return false
@@ -1061,9 +1078,9 @@ function MarketplaceInner() {
       out.push({ card: c, motivo: montar(c) })
     }
 
-    // Maior desconto — piso de 10% pra nao chamar de oferta o que nao e.
+    // Maior desconto — piso em CORTE_BOM_PRECO pra nao chamar de oferta o que nao e.
     pegar(
-      disponiveis.filter(c => descontoDe(c) >= 0.05).sort((a, b) => descontoDe(b) - descontoDe(a)),
+      disponiveis.filter(c => descontoDe(c) >= CORTE_BOM_PRECO).sort((a, b) => descontoDe(b) - descontoDe(a)),
       c => ({
         key: 'oferta',
         fita: `${Math.round(descontoDe(c) * 100)}% OFF`,
@@ -1138,7 +1155,7 @@ function MarketplaceInner() {
 
   // 3) Trilhos (excluem o que já está em hero/trio pra não repetir).
   const railOfertas = useMemo(
-    () => disponiveis.filter(c => !heroTrioIds.has(c.id) && descontoDe(c) >= 0.10)
+    () => disponiveis.filter(c => !heroTrioIds.has(c.id) && descontoDe(c) >= CORTE_IMPERDIVEL)
       .sort((a, b) => descontoDe(b) - descontoDe(a)).slice(0, 12),
     [disponiveis, heroTrioIds]
   )
@@ -1157,8 +1174,8 @@ function MarketplaceInner() {
   // Contadores das lentes de descoberta
   const baseAtivos = listings.filter(c => c.user_id !== userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel'))
   const countTodos = baseAtivos.length
-  const countOfertas = baseAtivos.filter(c => descontoDe(c) >= 0.10).length
-  const countBom = baseAtivos.filter(c => { const d = descontoDe(c); return d >= 0.02 && d < 0.10 }).length
+  const countOfertas = baseAtivos.filter(c => descontoDe(c) >= CORTE_IMPERDIVEL).length
+  const countBom = baseAtivos.filter(c => { const d = descontoDe(c); return d >= CORTE_BOM_PRECO && d < CORTE_IMPERDIVEL }).length
   const countGrad = baseAtivos.filter(c => c.graduada).length
   const countNovi = baseAtivos.filter(c => isNovo24(c)).length
   const countPerto = userCity ? baseAtivos.filter(c => mesmaCidade(c)).length : 0

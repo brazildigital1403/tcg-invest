@@ -98,12 +98,24 @@ const pctFmt = (n: number) => `${n > 0 ? '+' : ''}${Number(n).toFixed(1).replace
 
 type FaixaPkmn = { nome: string; cartas: number; piso: number | null; teto: number | null }
 
-async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[]; pokedex: typeof POKEDEX }> {
+/**
+ * Numeros do bloco METRICS. Eram cravados no JSX e envelheceram feio: a home
+ * dizia "70 mil+ cartas com preco" (real 54.583), "249 colecoes" (real 853, a
+ * propria /set mostrava outro numero) e "R$ 125 mil em colecoes" quando o real
+ * ja passava de R$ 500 mil -- subvendia a plataforma em 4x.
+ * Medido: landing_stats() e RPC pronta; a soma de portfolio da 8ms/Index Scan.
+ * Roda 1x a cada 10min pelo ISR, nunca por request.
+ */
+type Metricas = { cartas: number; colecoes: number; valorColecoes: number }
+const METRICAS_FALLBACK: Metricas = { cartas: 66529, colecoes: 853, valorColecoes: 503152 }
+
+async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[]; pokedex: typeof POKEDEX; metricas: Metricas }> {
   const sb = getServiceSupabase()
   let up = FALLBACK_UP as Mover[]
   let down = FALLBACK_DOWN as Mover[]
   let marquee = FALLBACK_MARQUEE
   let pokedex = POKEDEX
+  let metricas = METRICAS_FALLBACK
   if (sb) {
     try {
       const cols = 'name,set_name,image_small,preco_atual,pct'
@@ -139,11 +151,22 @@ async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[
       if (d.data && d.data.length) down = d.data as Mover[]
       const urls = (m.data || []).map(x => x.image_small).filter(Boolean) as string[]
       if (urls.length >= 8) marquee = urls
+
+      const [{ data: stats }, { data: carteiras }] = await Promise.all([
+        sb.rpc('landing_stats'),
+        sb.rpc('home_valor_colecoes'),
+      ])
+      const s = Array.isArray(stats) ? stats[0] : stats
+      metricas = {
+        cartas: Number(s?.total_cards) || METRICAS_FALLBACK.cartas,
+        colecoes: Number(s?.total_sets) || METRICAS_FALLBACK.colecoes,
+        valorColecoes: Number(carteiras) || METRICAS_FALLBACK.valorColecoes,
+      }
     } catch {
       // mantem fallback
     }
   }
-  return { up, down, marquee, pokedex }
+  return { up, down, marquee, pokedex, metricas }
 }
 
 function jsonLd() {
@@ -181,7 +204,9 @@ const IcChevL = () => (<svg className="ico" viewBox="0 0 24 24"><path d="M15 6l-
 const IcChevR = () => (<svg className="ico" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>)
 
 export default async function HomePage() {
-  const { up, down, marquee, pokedex } = await getData()
+  const { up, down, marquee, pokedex, metricas } = await getData()
+  const cartasMil = Math.floor(metricas.cartas / 1000)
+  const valorMil = Math.floor(metricas.valorColecoes / 1000)
   const marqueeAll = [...marquee, ...marquee]
 
   return (
@@ -205,7 +230,7 @@ export default async function HomePage() {
               </div>
               <div className="hero-trust">
                 <span><span className="dot-g" /> Grátis pra começar</span><span>·</span>
-                <span><b>70 mil+</b> cartas com preço</span><span>·</span><span>sem cartão</span>
+                <span><b>{cartasMil} mil+</b> cartas catalogadas</span><span>·</span><span>sem cartão</span>
               </div>
             </div>
             <div className="reveal">
@@ -302,10 +327,10 @@ export default async function HomePage() {
         <section style={{ padding: '48px 0 34px' }}>
           <div className="wrap">
             <div className="metrics reveal">
-              <div className="metric"><div className="m-val" data-target="70000" data-suffix="+">70 mil+</div><div className="m-lab">Cartas com preço em reais</div></div>
-              <div className="metric"><div className="m-val" data-target="249">249</div><div className="m-lab">Coleções catalogadas</div></div>
+              <div className="metric"><div className="m-val" data-target={metricas.cartas} data-suffix="+">{cartasMil} mil+</div><div className="m-lab">Cartas catalogadas</div></div>
+              <div className="metric"><div className="m-val" data-target={metricas.colecoes}>{metricas.colecoes}</div><div className="m-lab">Coleções catalogadas</div></div>
               <div className="metric"><div className="m-val" data-target="1025">1.025</div><div className="m-lab">Pokémon no hub</div></div>
-              <div className="metric"><div className="m-val" data-money="125" data-kmi="1">R$ 0</div><div className="m-lab">Em coleções acompanhadas</div></div>
+              <div className="metric"><div className="m-val" data-money={valorMil} data-kmi="1">R$ 0</div><div className="m-lab">Em coleções acompanhadas</div></div>
             </div>
           </div>
         </section>
