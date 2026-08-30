@@ -1,24 +1,25 @@
 // src/app/api/stripe/portal/route.ts
 //
-// R7-PAY Hotfix Customer Portal — 30/abril/2026 (v1.1)
+// Customer Portal do Stripe — v2 (30/08/2026)
 //
-// Bug v1: usava `supabase.auth.getSession()` no servidor como fallback. Isso
-// NÃO funciona em route handlers — getSession() lê de localStorage/cookie do
-// browser, e o cliente Supabase criado no servidor não tem essa storage.
-// Resultado: sempre retornava 401, mesmo com user logado.
+// ★ v2: o Bearer token passou a ser OBRIGATORIO. A v1.1 aceitava `userId` no
+// corpo como fallback, com a justificativa de que validar `loja.owner_user_id`
+// ou a existencia de `stripe_customer_id` bastava. Nao bastava:
 //
-// Fix v1.1: padrão consistente com /api/stripe/checkout — aceita userId no body
-// (validado contra loja.owner_user_id ou contra users.id), e como camada extra
-// de segurança ainda valida Bearer token quando vier (defesa em profundidade).
+//   - `/perfil/<UUID>` e rota publica e ACEITA o UUID; a view `public_users`
+//     devolve a coluna `id` pra leitura anonima. Ou seja, o UUID de qualquer
+//     usuario com perfil publico e obtivel, em massa.
+//   - Com esse UUID no corpo, a rota resolvia o `stripe_customer_id` da VITIMA
+//     e abria o portal de cobranca dela: metodo de pagamento, historico de
+//     faturas, endereco de cobranca -- e o botao de cancelar a assinatura.
+//   - A mitigacao citada na v1.1 ("o Stripe pede confirmacao por email pra
+//     acoes destrutivas") nao cobre a LEITURA desses dados, que ja e o
+//     vazamento; e nao vale pra toda acao do portal.
 //
-// Por que userId no body é seguro aqui:
-//   - Lojista: validamos `loja.owner_user_id === userId`. Se alguém passar userId
-//     de outro user, vai falhar com 403. ✅
-//   - Pro user: validamos que userId tem stripe_customer_id no DB. Se alguém
-//     passar userId arbitrário, vai falhar com 400 NO_CUSTOMER. ✅
-//   - O pior caso (atacante conhece userId + customer_id de outra pessoa) ainda
-//     é mitigado pelo Stripe — o portal pede confirmação por email pra ações
-//     destrutivas como cancelar.
+// A v1 tinha um problema real -- `supabase.auth.getSession()` nao funciona em
+// route handler, porque le storage do browser. A correcao certa era o Bearer,
+// que ja estava aqui como "defesa em profundidade"; o fallback e que sobrava.
+// Todos os chamadores ja enviam o header.
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -34,41 +35,29 @@ export async function POST(req: NextRequest) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
     const body = await req.json().catch(() => ({}))
-    const { lojaId, returnUrl, userId } = body as {
+    const { lojaId, returnUrl } = body as {
       lojaId?: string
       returnUrl?: string
-      userId?: string
     }
 
     // ── Auth ──────────────────────────────────────────────────────────────
-    // Tenta Bearer token primeiro (defesa em profundidade)
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-
-    let userIdAutenticado: string | null = null
-
-    if (token) {
-      const supabaseAuth = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      const { data: { user: authUser } } = await supabaseAuth.auth.getUser(token)
-      if (authUser) {
-        userIdAutenticado = authUser.id
-      }
-    }
-
-    // Fallback: aceita userId do body (padrão Bynx — checkout faz igual)
-    const userIdFinal = userIdAutenticado || userId
-    if (!userIdFinal) {
+    // O Bearer e a UNICA fonte de identidade aqui. `userId` no corpo e
+    // deliberadamente ignorado -- ver o cabecalho do arquivo.
+    const token = req.headers.get('authorization')?.replace('Bearer ', '')
+    if (!token) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    // Se Bearer veio mas userId do body também veio, valida que são o mesmo
-    if (userIdAutenticado && userId && userIdAutenticado !== userId) {
-      console.warn('[stripe/portal] tentativa de impersonation:', { userIdAutenticado, userId })
+    const supabaseAuth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data: { user: authUser } } = await supabaseAuth.auth.getUser(token)
+    if (!authUser) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
+
+    const userIdFinal = authUser.id
 
     // ── Resolve customerId ────────────────────────────────────────────────
     const supabase = createClient(
