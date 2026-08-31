@@ -4,6 +4,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { limparEvento } from '@/lib/sentryScrub';
 
 Sentry.init({
   dsn: "https://8418847aaa5b98e2627ef8bce0850ea4@o4511486328438784.ingest.us.sentry.io/4511486333091841",
@@ -17,4 +18,10 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+
+  // Tira credencial do evento ANTES de sair daqui (ver src/lib/sentryScrub.ts).
+  // Erro, stack, rota, breadcrumbs e o usuario identificado continuam indo --
+  // e isso que faz o alerta servir. O que sai e Authorization e cookie.
+  beforeSend: limparEvento,
+  beforeSendTransaction: limparEvento,
 });
