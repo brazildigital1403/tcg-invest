@@ -70,6 +70,11 @@ Nao existem enums, tipos compostos, domains nem schema `private`.
   Lembrete: a regra de nao nomear fornecedor vale para slug/UI; nomes de objeto como
   `liga_*` ja existem no codigo.
 
+9. **Trigger `handle_new_user` vive em `auth.users`** — o baseline cobre so `public`,
+   entao cadastro via auth NAO cria a linha espelho em `public.users` num banco novo.
+   O `seed-prova.mjs` contorna criando a linha na mao; recriar o trigger exige acesso
+   ao schema auth (fazer via dashboard/SQL se o ambiente de prova precisar de signup real).
+
 ## Conferir manualmente antes de usar
 
 - Rodar num branch Supabase vazio e comparar as contagens da secao 15 (`-- VERIFICACAO`).
