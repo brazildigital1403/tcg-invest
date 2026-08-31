@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import type { TradeCard } from './TradeAnalyzer'
+import { montarTradeCard, type TradeCard } from './TradeAnalyzer'
 
 interface ItemFeed {
   id: string
@@ -29,14 +29,14 @@ const FONT = "'DM Sans', system-ui, sans-serif"
 const EXEMPLOS: ItemFeed[] = [
   {
     id: 'ex1', autor: 'exemplo', exemplo: true,
-    ladoA: [{ id: 'ex-a1', name: 'Charizard ex', set_name: 'Obsidian Flames', image_small: null, preco: 340, fonte: 'BRL' }],
-    ladoB: [{ id: 'ex-b1', name: 'Gengar VMAX', set_name: 'Fusion Strike', image_small: null, preco: 355, fonte: 'BRL' }],
+    ladoA: [montarTradeCard({ id: 'ex-a1', name: 'Charizard ex', set_name: 'Obsidian Flames', preco: 340 })],
+    ladoB: [montarTradeCard({ id: 'ex-b1', name: 'Gengar VMAX', set_name: 'Fusion Strike', preco: 355 })],
     totalA: 340, totalB: 355, pct: 4, veredito: 'equilibrada', criadoEm: new Date().toISOString(),
   },
   {
     id: 'ex2', autor: 'exemplo', exemplo: true,
-    ladoA: [{ id: 'ex-a2', name: 'Pikachu VMAX', set_name: 'Vivid Voltage', image_small: null, preco: 95, fonte: 'BRL' }],
-    ladoB: [{ id: 'ex-b2', name: 'Mew ex', set_name: '151', image_small: null, preco: 210, fonte: 'BRL' }],
+    ladoA: [montarTradeCard({ id: 'ex-a2', name: 'Pikachu VMAX', set_name: 'Vivid Voltage', preco: 95 })],
+    ladoB: [montarTradeCard({ id: 'ex-b2', name: 'Mew ex', set_name: '151', preco: 210 })],
     totalA: 95, totalB: 210, pct: 76, veredito: 'muito_desequilibrada', criadoEm: new Date(Date.now() - 3600e3).toISOString(),
   },
 ]
