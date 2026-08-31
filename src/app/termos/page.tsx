@@ -51,7 +51,7 @@ export default function TermosPage() {
           <P>Você é responsável pela veracidade das informações fornecidas e pela segurança de suas credenciais de acesso.</P>
 
           <SubTitle>3.1 Idade Mínima</SubTitle>
-          <P>Em conformidade com o Art. 14 da LGPD (Lei nº 13.709/2018), o cadastro é vedado a menores de 13 (treze) anos.</P>
+          <P>O cadastro é vedado a menores de 13 (treze) anos. Esse limite é uma política nossa, <strong>mais restritiva do que a lei exige</strong>: no Brasil, criança é quem tem menos de 12 (doze) anos, e é para esse grupo que o Art. 14, §1º da LGPD (Lei nº 13.709/2018) exige consentimento específico e destacado de um dos pais ou do responsável legal.</P>
           <P>Usuários entre 13 e 17 anos só podem se cadastrar com o consentimento expresso e supervisão dos pais ou responsáveis legais. A Bynx pode, a qualquer momento, solicitar comprovação desse consentimento e suspender a conta caso não seja apresentado.</P>
 
           <SubTitle>3.2 Uso da Conta</SubTitle>

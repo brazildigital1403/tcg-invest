@@ -204,9 +204,10 @@ export default function PrivacidadePage() {
         </Section>
 
         <Section title="10. Dados de Crianças e Adolescentes">
-          <P>A Bynx não coleta intencionalmente dados de menores de 13 (treze) anos. O cadastro é bloqueado para usuários abaixo dessa idade conforme verificação por data de nascimento no momento da inscrição.</P>
-          <P>Para usuários entre 13 e 18 anos, é necessário o consentimento dos pais ou responsáveis legais, conforme o Art. 14 da LGPD. A Bynx pode solicitar comprovação desse consentimento e suspender contas em caso de irregularidade.</P>
-          <P>Caso identifiquemos o tratamento de dados de crianças sem o devido consentimento, esses dados serão imediatamente excluídos.</P>
+          <P>A Bynx não coleta intencionalmente dados de menores de 13 (treze) anos. O cadastro é bloqueado abaixo dessa idade por verificação da data de nascimento no momento da inscrição.</P>
+          <P>Esse corte é uma política nossa, <strong>mais restritiva do que a lei exige</strong>: no Brasil, criança é quem tem menos de 12 (doze) anos, e é para esse grupo que o Art. 14, §1º da LGPD exige consentimento específico e destacado de um dos pais ou do responsável legal.</P>
+          <P>Dos 13 aos 17 anos, o cadastro pede que você declare ter autorização de um responsável legal, e o tratamento dos dados observa o melhor interesse do adolescente, na forma do Art. 14 da LGPD. Podemos solicitar comprovação dessa autorização e suspender contas em caso de irregularidade.</P>
+          <P>Caso identifiquemos o tratamento de dados de criança ou adolescente sem a devida autorização, esses dados serão excluídos.</P>
         </Section>
 
         <Section title="11. Alterações nesta Política">
