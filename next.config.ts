@@ -29,8 +29,12 @@ import type { NextConfig } from 'next'
  *   Meta Pixel, incorporado direto aqui (sem passar por Report-Only nova
  *   rodada, ja que o teste anterior nao achou nada alem do esperado).
  */
-const SUPABASE_HOST = 'https://hvkcwfcvizrvhkerupfc.supabase.co'
-const SUPABASE_WSS  = 'wss://hvkcwfcvizrvhkerupfc.supabase.co'
+// Derivado da env pra CSP e imagens seguirem o banco apontado (producao ou
+// branch de prova). Em producao a env e a propria URL de sempre — saida identica.
+const SUPABASE_URL_ENV = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hvkcwfcvizrvhkerupfc.supabase.co'
+const SUPABASE_HOSTNAME = new URL(SUPABASE_URL_ENV).hostname
+const SUPABASE_HOST = `https://${SUPABASE_HOSTNAME}`
+const SUPABASE_WSS  = `wss://${SUPABASE_HOSTNAME}`
 
 const CSP = [
   "default-src 'self'",
@@ -103,6 +107,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'hvkcwfcvizrvhkerupfc.supabase.co',
       },
+      // Ambiente de prova: quando a env aponta pra uma branch, o host dela
+      // tambem precisa valer — os dados do seed carregam URLs da producao.
+      ...(SUPABASE_HOSTNAME !== 'hvkcwfcvizrvhkerupfc.supabase.co'
+        ? [{ protocol: 'https' as const, hostname: SUPABASE_HOSTNAME }]
+        : []),
       {
         protocol: 'https',
         hostname: 'images.pokemontcg.io',
