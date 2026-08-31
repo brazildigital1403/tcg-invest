@@ -115,21 +115,22 @@ export default function PrivacidadePage() {
         <Section title="4. Compartilhamento de Dados com Terceiros">
           <P>A Bynx compartilha seus dados apenas com parceiros essenciais à operação da plataforma, todos com adequada política de privacidade:</P>
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
-            <li><strong style={{ color: '#f0f0f0' }}>Supabase</strong> — banco de dados e autenticação (servidores nos EUA, com cláusulas contratuais padrão da LGPD);</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Stripe</strong> — processamento de pagamentos (certificado PCI-DSS Level 1);</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Supabase</strong> — banco de dados e autenticação;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Stripe</strong> — processamento de pagamentos;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Resend</strong> — envio de e-mails transacionais;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Anthropic (Claude)</strong> — processamento de imagens no recurso de Scan com IA. As imagens são enviadas apenas durante o escaneamento e não são armazenadas pela Anthropic para treinamento;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Serviço de inteligência artificial</strong> — processamento das imagens do Scan. As imagens são enviadas apenas durante o escaneamento e não são usadas para treinamento;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Vercel</strong> — infraestrutura de hospedagem;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Google (Tag Manager e Analytics 4)</strong> — métricas de uso e analytics agregados, sem identificação direta do usuário, conforme a seção 8 desta Política;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Meta (Facebook/Instagram)</strong> — medição de resultado dos anúncios da própria Bynx, por meio do Meta Pixel, <strong>somente mediante consentimento</strong>, conforme a seção 8.3;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Sentry</strong> — monitoramento de erros da aplicação. Quando você está logado, um erro carrega seu identificador, e-mail e nome, para conseguirmos reproduzir o problema (servidores nos EUA);</li>
-            <li><strong style={{ color: '#f0f0f0' }}>PostHog</strong> — análise de uso do produto e gravação de sessão, para entendermos onde as pessoas travam. <strong>Só passa a coletar depois do seu consentimento</strong> no aviso de cookies, e as gravações mascaram o conteúdo digitado em campos de formulário;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Cloudflare</strong> — proteção contra robôs no cadastro e no login (Turnstile). Recebe seu endereço IP e sinais técnicos do dispositivo para distinguir pessoa de automação;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Melhor Envio</strong> — cotação de frete. Recebe apenas os CEPs de origem e destino e as dimensões do pacote;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>ViaCEP</strong> — preenchimento automático do endereço a partir do CEP digitado;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>A loja ou vendedor da sua compra</strong> — quando você compra dentro da plataforma, seu nome e endereço de entrega são enviados a quem vai despachar o pedido. A partir daí essa pessoa ou empresa responde pelos seus dados de forma independente, para cumprir a entrega e as obrigações fiscais dela;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>Pokémon TCG API</strong> — consulta de dados de cartas (apenas nome/código da carta, sem dados pessoais).</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Google (Tag Manager e Analytics 4)</strong> — métricas de uso, conforme a seção 8;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Meta</strong> — medição de resultado dos nossos anúncios, <strong>somente mediante consentimento</strong>, conforme a seção 8.3;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Sentry</strong> — monitoramento de erros. Quando você está logado, o relatório de erro carrega seu identificador, e-mail e nome;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>PostHog</strong> — análise de uso e gravação de sessão. <strong>Só coleta depois do seu consentimento</strong>, e as gravações mascaram o que você digita em formulários;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Cloudflare</strong> — proteção contra robôs no cadastro e no login. Recebe seu endereço IP;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Melhor Envio</strong> — cotação de frete;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>ViaCEP</strong> — preenchimento automático do endereço;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>A loja ou vendedor da sua compra</strong> — recebe seu nome e endereço de entrega para despachar o pedido, e a partir daí responde por esses dados de forma independente;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Catálogos públicos de cartas</strong> — consulta de dados da carta, sem dados pessoais.</li>
           </ul>
+          <P>A identificação completa dos fornecedores está na nossa <a href="/subprocessadores" style={{ color: '#f59e0b' }}>lista de subprocessadores</a>, mantida atualizada.</P>
           <P>Não vendemos, alugamos ou cedemos seus dados pessoais a terceiros para fins comerciais.</P>
         </Section>
 
@@ -195,8 +196,8 @@ export default function PrivacidadePage() {
         </Section>
 
         <Section title="9. Transferência Internacional de Dados">
-          <P>Parte dos fornecedores listados na seção 4 processa dados em servidores fora do Brasil, majoritariamente nos Estados Unidos: <strong>Supabase, Stripe, Resend, Anthropic, Vercel, Google, Meta, Sentry, PostHog e Cloudflare</strong>. Essas transferências acontecem com base em cláusulas contratuais e garantias de proteção, conforme a LGPD.</P>
-          <P>Vale destacar dois casos, porque envolvem dado que identifica você diretamente: o <strong>Sentry</strong> recebe seu e-mail e nome junto do relatório de erro, e o <strong>PostHog</strong> mantém um perfil identificado por e-mail — este último apenas depois do seu consentimento no aviso de cookies.</P>
+          <P>A maior parte dos fornecedores da seção 4 processa dados fora do Brasil, principalmente nos Estados Unidos. Essas transferências acontecem com base em cláusulas contratuais e garantias de proteção, conforme a LGPD. Quais são e onde ficam está na <a href="/subprocessadores" style={{ color: '#f59e0b' }}>lista de subprocessadores</a>.</P>
+          <P>Dois casos merecem destaque por envolverem dado que identifica você diretamente: o <strong>Sentry</strong> recebe seu e-mail e nome no relatório de erro, e o <strong>PostHog</strong> mantém perfil identificado — este apenas após o seu consentimento.</P>
         </Section>
 
         <Section title="10. Dados de Crianças e Adolescentes">
