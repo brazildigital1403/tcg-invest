@@ -7,7 +7,7 @@ export const metadata = {
   description: 'Termos e condições de uso da plataforma Bynx.',
 }
 
-const UPDATED = '30 de abril de 2026'
+const UPDATED = '30 de agosto de 2026'
 
 export default function TermosPage() {
   return (
@@ -42,7 +42,8 @@ export default function TermosPage() {
             <li>Suporte por tickets diretamente na plataforma;</li>
             <li>Notificações in-app sobre atividades da conta.</li>
           </ul>
-          <P>A Bynx é um organizador de coleções e facilitador de contatos entre colecionadores. Não somos parte das negociações realizadas entre usuários no Marketplace, não intermediamos pagamentos entre particulares e não nos responsabilizamos por transações realizadas fora da plataforma.</P>
+          <P>A plataforma também oferece <strong>compra dentro do site</strong>, com pagamento processado pela Bynx através da Stripe (seção 5.2), e a venda de <strong>produtos digitais próprios</strong>, como as Páginas Lendárias (seção 4.2).</P>
+          <P>A Bynx é um organizador de coleções e um ambiente de negociação entre colecionadores e lojas. Quando a negociação acontece por contato direto entre as partes, a Bynx não é parte da transação e não se responsabiliza por acordos firmados fora da plataforma. Quando a compra é feita dentro da plataforma, a Bynx intermedia o pagamento nos termos da seção 5.2 — sem, contudo, ser a vendedora do produto anunciado.</P>
         </Section>
 
         <Section title="3. Cadastro e Conta de Usuário">
@@ -75,7 +76,7 @@ export default function TermosPage() {
           <P><strong style={{ color: '#f59e0b' }}>Premium:</strong> R$ 89,00 (oitenta e nove reais) por mês, por loja. Inclui todas as funcionalidades do Pro, mais destaque nacional, métricas avançadas e prioridade no atendimento ao lojista.</P>
 
           <SubTitle>4.1.1 Beta de Lançamento</SubTitle>
-          <P>Durante a fase de lançamento, há 30 (trinta) vagas no programa beta para lojistas, sendo as 27 (vinte e sete) vagas restantes oferecidas com 6 (seis) meses do plano Pro gratuito. Após o período beta, o lojista pode optar por seguir no plano gratuito Básico, contratar o Pro ou Premium ou cancelar a presença na plataforma.</P>
+          <P>Durante a fase de lançamento, a Bynx pode oferecer condições promocionais de adesão a lojistas, como período de teste gratuito do plano Pro. <strong>As condições vigentes — incluindo prazo e número de vagas — são as informadas na página de contratação no momento da adesão</strong>, e prevalecem sobre qualquer valor citado a título de exemplo. Encerrado o período promocional, o lojista pode seguir no plano gratuito Básico, contratar o Pro ou Premium, ou cancelar a presença na plataforma.</P>
 
           <SubTitle>4.1.2 Multi-loja</SubTitle>
           <P>Um único usuário pode cadastrar e gerenciar múltiplas lojas (por exemplo, filiais ou marcas distintas), sendo cada loja faturada de forma independente. O plano contratado e o estado da assinatura são vinculados a cada loja individualmente.</P>
@@ -95,9 +96,9 @@ export default function TermosPage() {
         </Section>
 
         <Section title="5. Marketplace e Negociações">
-          <P>O Marketplace da Bynx é um ambiente para que colecionadores anunciem e encontrem cartas para negociação direta. O contato entre compradores e vendedores é facilitado via WhatsApp, e cada anúncio percorre status de venda (disponível, reservado, em negociação, enviado, concluído ou cancelado) registrados na plataforma.</P>
+          <P>O Marketplace da Bynx é um ambiente para que colecionadores e lojas anunciem e encontrem cartas. A negociação pode acontecer de duas formas: <strong>(a)</strong> por contato direto entre as partes, facilitado pela plataforma; ou <strong>(b)</strong> por <strong>compra dentro da plataforma</strong>, com pagamento processado pela Bynx através da Stripe, conforme a seção 5.2. Cada anúncio percorre status de venda (disponível, reservado, em negociação, enviado, concluído ou cancelado) registrados na plataforma.</P>
           <P>Após a finalização da venda, ambas as partes (comprador e vendedor) podem deixar uma avaliação pública sobre a transação, contribuindo para a reputação dos usuários na plataforma.</P>
-          <P>A Bynx não é parte das negociações, não garante a entrega de produtos, não responde por vícios ou defeitos das cartas negociadas e não intermedia pagamentos entre usuários.</P>
+          <P>Nas negociações por contato direto (modalidade "a"), a Bynx não é parte da transação, não processa o pagamento e não se responsabiliza por acordos firmados fora da plataforma. Nas compras realizadas dentro da plataforma (modalidade "b"), aplicam-se as regras da seção 5.2.</P>
 
           <SubTitle>5.1 Moderação Ativa</SubTitle>
           <P>A Bynx exerce moderação ativa do Marketplace e pode remover anúncios que, a seu exclusivo critério, sejam considerados:</P>
@@ -109,6 +110,25 @@ export default function TermosPage() {
             <li>Em duplicidade ou em desacordo com estes Termos.</li>
           </ul>
           <P>A remoção é registrada com motivo, podendo ser revertida pela equipe Bynx em caso de equívoco. Anúncios removidos não aparecem publicamente, mas o vendedor pode contestar a decisão via <strong>suporte@bynx.gg</strong>.</P>
+
+          <SubTitle>5.2 Compra e Venda pela Plataforma</SubTitle>
+          <P>Quando a compra é feita dentro da Bynx, o pagamento é processado pela <strong>Stripe</strong>, parceira de pagamentos da plataforma. A Bynx atua como <strong>intermediadora do pagamento</strong>: recebe o valor do comprador, retém sua comissão e repassa o restante ao vendedor. A Bynx <strong>não é a vendedora</strong> do produto — a carta é de propriedade e responsabilidade do vendedor anunciante, que responde pela sua descrição, autenticidade, estado de conservação e envio.</P>
+
+          <SubTitle>5.2.1 Comissão e repasse</SubTitle>
+          <P>Sobre cada venda concluída na plataforma incide a comissão da Bynx, informada ao vendedor <strong>antes</strong> da confirmação de cada anúncio e destacada no resumo do pedido. A comissão varia conforme o prazo de repasse escolhido pelo vendedor: <strong>4,99% + R$ 0,40</strong> para repasse em 14 dias, ou <strong>3,99% + R$ 0,40</strong> para repasse em 30 dias. A parcela fixa de R$ 0,40 incide apenas em pedidos a partir de R$ 20,00.</P>
+          <P>O <strong>frete é integralmente repassado ao vendedor</strong> — a Bynx não retém percentual sobre o valor do frete. O prazo de repasse é contado a partir da confirmação do pagamento e existe para cobrir o período de eventual contestação pelo comprador.</P>
+
+          <SubTitle>5.2.2 Entrega</SubTitle>
+          <P>O envio é de responsabilidade do vendedor, no prazo e pela modalidade informados no anúncio. A Bynx disponibiliza cotação de frete como conveniência, mas <strong>não realiza a postagem nem opera a logística</strong> — a relação de transporte se dá entre o vendedor e a transportadora escolhida. O comprador acompanha o status do pedido na plataforma (aguardando pagamento, pago, enviado, entregue, cancelado ou reembolsado).</P>
+
+          <SubTitle>5.2.3 Cancelamento, devolução e estorno</SubTitle>
+          <P>Por se tratar de compra realizada fora de estabelecimento físico, o comprador tem <strong>direito de arrependimento de 7 (sete) dias corridos</strong> a contar do recebimento do produto, nos termos do art. 49 do Código de Defesa do Consumidor, sem necessidade de justificativa. Nesse caso, o valor pago é <strong>estornado integralmente, incluindo o frete de envio</strong>, cabendo ao comprador devolver a carta nas mesmas condições em que a recebeu.</P>
+          <P>O comprador também pode solicitar reembolso quando o produto <strong>não for entregue</strong> no prazo informado, quando <strong>não corresponder à descrição</strong> do anúncio ou quando apresentar vício não informado. Nessas hipóteses o custo da devolução é do vendedor.</P>
+          <P>A solicitação deve ser feita pelo <strong>suporte@bynx.gg</strong> a partir do e-mail cadastrado. Havendo estorno, a comissão da Bynx é <strong>igualmente estornada</strong> — a plataforma não retém valor sobre venda desfeita — e o lançamento correspondente é revertido. Se o repasse ao vendedor já tiver ocorrido, o valor é compensado em repasses futuros ou cobrado do vendedor.</P>
+          <P>A Bynx pode reter o repasse de um pedido enquanto houver disputa aberta sobre ele, até a conclusão da análise.</P>
+
+          <SubTitle>5.3 Programa de Parceiros</SubTitle>
+          <P>A Bynx pode manter programa de parceria com criadores de conteúdo, no qual um cupom de desconto identificado gera comissão ao parceiro sobre planos contratados por meio dele. Os percentuais, tetos e prazos de cada parceria são definidos em acordo individual. O uso de cupom de parceiro não altera os direitos do assinante nem o preço anunciado além do desconto aplicado.</P>
         </Section>
 
         <Section title="6. Preços de Referência">
