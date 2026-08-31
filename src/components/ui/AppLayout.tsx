@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabaseClient'
 import ChatDock from '@/components/marketplace/ChatDock'
 import { lojaCache } from '@/lib/lojaCache'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
+import GameSwitcher from '@/components/ui/GameSwitcher'
+import { LORCANA_ENABLED } from '@/lib/flags'
 import { resolvePlan } from '@/lib/plan'
 import { ENFORCEMENT_ATIVO, MURO_POSTRIAL_ATIVO, LIMITE_FREE, checkCardLimit } from '@/lib/checkCardLimit'
 import { calcPatrimonio } from '@/lib/calcPatrimonio'
@@ -610,6 +612,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* World switcher App|Loja|Admin */}
           {!collapsed && <WorldSwitcher current="app" temLoja={temLoja === true} mb={18} />}
+
+          {/* Seletor de jogo (epico multi-jogo) — so com a flag ligada (branch de prova ate a F8) */}
+          {LORCANA_ENABLED && !collapsed && (
+            <div style={{ marginBottom: 14 }}>
+              <GameSwitcher game="pokemon" />
+            </div>
+          )}
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
             {!menuPronto && (
