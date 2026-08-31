@@ -75,6 +75,12 @@ Nao existem enums, tipos compostos, domains nem schema `private`.
    O `seed-prova.mjs` contorna criando a linha na mao; recriar o trigger exige acesso
    ao schema auth (fazer via dashboard/SQL se o ambiente de prova precisar de signup real).
 
+10. **Configuracao de Auth nao e schema** — captcha (Turnstile), SMTP, templates de
+    email e redirect URLs vivem na config do projeto, fora do baseline. Numa branch
+    nova o captcha veio habilitado sem o secret valido (login falhava com
+    `invalid-input-secret`); resolvido desabilitando captcha na branch. Conferir
+    essa aba sempre que nascer ambiente novo.
+
 ## Conferir manualmente antes de usar
 
 - Rodar num branch Supabase vazio e comparar as contagens da secao 15 (`-- VERIFICACAO`).
