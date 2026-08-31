@@ -16,6 +16,7 @@
 import type { Metadata } from 'next'
 import { cache } from 'react'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { LORCANA_ENABLED } from '@/lib/flags'
 import { notFound, permanentRedirect } from 'next/navigation'
 import CardClient from './CardClient'
 
@@ -58,6 +59,8 @@ type NormalizedCard = {
 // cache(): generateMetadata e a page consomem a mesma carta no mesmo request.
 const fetchCardData = cache(
   async (idOrSlug: string): Promise<NormalizedCard | null> => {
+    // Gate antes de qualquer query (build de producao nao tem a coluna game)
+    if (!LORCANA_ENABLED) return null
     const sb = getServiceSupabase()
     if (!sb) return null
 

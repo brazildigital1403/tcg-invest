@@ -11,6 +11,7 @@
 
 import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { LORCANA_ENABLED } from '@/lib/flags'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -63,6 +64,8 @@ type CardLite = {
 // cache(): generateMetadata e a page consomem o mesmo dado dentro do request.
 const fetchSetData = cache(
   async (id: string): Promise<{ set: SetData | null; cards: CardLite[] }> => {
+    // Gate antes de qualquer query (build de producao nao tem a coluna game)
+    if (!LORCANA_ENABLED) return { set: null, cards: [] }
     const sb = getServiceSupabase()
     if (!sb) {
       return { set: null, cards: [] }
