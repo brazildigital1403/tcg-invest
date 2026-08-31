@@ -41,10 +41,13 @@ export default function PrivacidadePage() {
             <li>CPF (Cadastro de Pessoas Físicas) — coletado para fins fiscais e de identificação;</li>
             <li>Data de nascimento — coletada para verificação de idade mínima (Art. 14 LGPD);</li>
             <li>Cidade;</li>
+            <li><strong>Endereço residencial completo</strong> — CEP, logradouro, número, complemento, bairro e estado. Usado para calcular frete e para identificar o vendedor nas vendas feitas dentro da plataforma;</li>
+            <li>Perfis de <strong>Instagram e TikTok</strong>, quando informados (opcionais, exibidos no seu perfil público de colecionador);</li>
             <li>Número de WhatsApp (obrigatório). Ele <strong>não fica visível publicamente</strong>: é revelado apenas à contraparte de uma negociação já iniciada no Marketplace — o comprador vê o do vendedor e vice-versa — para que vocês combinem a entrega;</li>
             <li>Aceite opcional para comunicações de marketing (revogável a qualquer momento);</li>
             <li>Senha (armazenada com criptografia, nunca em texto puro).</li>
           </ul>
+          <P>Registramos também, no momento do cadastro, <strong>de onde você chegou até a Bynx</strong>: a página que trouxe você (referenciador) e os parâmetros de campanha presentes no link de origem — incluindo <span style={{ fontFamily: 'monospace', fontSize: 13 }}>utm_source</span>, <span style={{ fontFamily: 'monospace', fontSize: 13 }}>utm_medium</span>, <span style={{ fontFamily: 'monospace', fontSize: 13 }}>utm_campaign</span>, <span style={{ fontFamily: 'monospace', fontSize: 13 }}>utm_content</span>, <span style={{ fontFamily: 'monospace', fontSize: 13 }}>utm_term</span> e os identificadores de clique de anúncio do Google e da Meta. Serve para sabermos quais divulgações funcionam. É informação de origem, vinculada ao seu registro — não acompanha sua navegação depois disso.</P>
 
           <SubTitle>2.2 Dados gerados pelo uso da plataforma:</SubTitle>
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '8px 0 16px' }}>
@@ -52,6 +55,7 @@ export default function PrivacidadePage() {
             <li>Anúncios publicados no Marketplace e seu histórico de status (disponível, reservado, enviado, concluído, cancelado);</li>
             <li>Avaliações dadas e recebidas em transações no Marketplace;</li>
             <li>Histórico de preços consultados;</li>
+            <li><strong>Pedidos de compra e venda</strong> feitos dentro da plataforma, com valores, status, código de rastreio e o <strong>endereço de entrega</strong> informado no checkout;</li>
             <li>Imagens de cartas enviadas para escaneamento por IA;</li>
             <li>Tickets de suporte abertos e mensagens trocadas;</li>
             <li>Dados de uso e navegação (páginas acessadas, funcionalidades utilizadas);</li>
@@ -118,7 +122,12 @@ export default function PrivacidadePage() {
             <li><strong style={{ color: '#f0f0f0' }}>Vercel</strong> — infraestrutura de hospedagem;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Google (Tag Manager e Analytics 4)</strong> — métricas de uso e analytics agregados, sem identificação direta do usuário, conforme a seção 8 desta Política;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Meta (Facebook/Instagram)</strong> — medição de resultado dos anúncios da própria Bynx, por meio do Meta Pixel, <strong>somente mediante consentimento</strong>, conforme a seção 8.3;</li>
-            <li><strong style={{ color: '#f0f0f0' }}>ZenRows</strong> — coleta automatizada de preços públicos de fontes do mercado brasileiro de TCG. Não trata dados pessoais dos usuários da Bynx;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Sentry</strong> — monitoramento de erros da aplicação. Quando você está logado, um erro carrega seu identificador, e-mail e nome, para conseguirmos reproduzir o problema (servidores nos EUA);</li>
+            <li><strong style={{ color: '#f0f0f0' }}>PostHog</strong> — análise de uso do produto e gravação de sessão, para entendermos onde as pessoas travam. <strong>Só passa a coletar depois do seu consentimento</strong> no aviso de cookies, e as gravações mascaram o conteúdo digitado em campos de formulário;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Cloudflare</strong> — proteção contra robôs no cadastro e no login (Turnstile). Recebe seu endereço IP e sinais técnicos do dispositivo para distinguir pessoa de automação;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Melhor Envio</strong> — cotação de frete. Recebe apenas os CEPs de origem e destino e as dimensões do pacote;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>ViaCEP</strong> — preenchimento automático do endereço a partir do CEP digitado;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>A loja ou vendedor da sua compra</strong> — quando você compra dentro da plataforma, seu nome e endereço de entrega são enviados a quem vai despachar o pedido. A partir daí essa pessoa ou empresa responde pelos seus dados de forma independente, para cumprir a entrega e as obrigações fiscais dela;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Pokémon TCG API</strong> — consulta de dados de cartas (apenas nome/código da carta, sem dados pessoais).</li>
           </ul>
           <P>Não vendemos, alugamos ou cedemos seus dados pessoais a terceiros para fins comerciais.</P>
@@ -186,7 +195,8 @@ export default function PrivacidadePage() {
         </Section>
 
         <Section title="9. Transferência Internacional de Dados">
-          <P>Alguns de nossos fornecedores (Supabase, Stripe, Resend, Anthropic, Vercel, Google, Meta) processam dados em servidores localizados nos Estados Unidos. Essas transferências são realizadas com base em cláusulas contratuais padrão e garantias adequadas de proteção, conforme exigido pela LGPD.</P>
+          <P>Parte dos fornecedores listados na seção 4 processa dados em servidores fora do Brasil, majoritariamente nos Estados Unidos: <strong>Supabase, Stripe, Resend, Anthropic, Vercel, Google, Meta, Sentry, PostHog e Cloudflare</strong>. Essas transferências acontecem com base em cláusulas contratuais e garantias de proteção, conforme a LGPD.</P>
+          <P>Vale destacar dois casos, porque envolvem dado que identifica você diretamente: o <strong>Sentry</strong> recebe seu e-mail e nome junto do relatório de erro, e o <strong>PostHog</strong> mantém um perfil identificado por e-mail — este último apenas depois do seu consentimento no aviso de cookies.</P>
         </Section>
 
         <Section title="10. Dados de Crianças e Adolescentes">
