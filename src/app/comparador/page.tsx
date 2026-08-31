@@ -17,19 +17,42 @@ import ComparadorDestaques from '@/components/marketplace/ComparadorDestaques'
 import ComparadosFeed from '@/components/marketplace/ComparadosFeed'
 
 export default function ComparadorPage() {
+  /**
+   * `v` e um TOKEN, nao um `key`. Antes isto era `key={seed.v}` no
+   * TradeAnalyzer: cada toque num destaque remontava o componente inteiro e
+   * levava junto tudo que o usuario tinha adicionado pela BUSCA -- que o pai
+   * nem enxerga. Agora o token so avisa "chegou carta nova"; quem acrescenta e
+   * o proprio TradeAnalyzer, sem perder o que ja estava na tela.
+   */
   const [seed, setSeed] = useState<{ ladoA: TradeCard[]; ladoB: TradeCard[]; v: number }>({ ladoA: [], ladoB: [], v: 0 })
+  /** true = substitui os dois lados (replay do feed). false = acrescenta. */
+  const [substituir, setSubstituir] = useState(false)
   const calcRef = useRef<HTMLDivElement>(null)
 
   function irParaCalculadora() {
     calcRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  /**
+   * ★ Antes isto APAGAVA o trabalho do usuario. `handleSeed` montava
+   * `{ladoA: a?[a]:[], ladoB: b?[b]:[]}` -- sempre substituindo os DOIS lados
+   * -- e o `key={seed.v}` remontava o TradeAnalyzer do zero. Quem ja tinha
+   * montado um lado e tocava numa carta do radar via o lado sumir, sem aviso e
+   * sem desfazer. E a propria copy convida ao toque: "Toque numa carta pra ja
+   * jogar ela na troca aqui embaixo".
+   *
+   * Agora ACRESCENTA no lado certo e preserva o outro.
+   */
   function handleSeed(a?: TradeCard, b?: TradeCard) {
+    setSubstituir(false)
     setSeed(prev => ({ ladoA: a ? [a] : [], ladoB: b ? [b] : [], v: prev.v + 1 }))
     irParaCalculadora()
   }
 
+  /** Replay do feed: aqui SUBSTITUIR e o certo -- e "ver aquela troca", nao
+   *  "somar aquela troca na minha". */
   function handleReplay(ladoA: TradeCard[], ladoB: TradeCard[]) {
+    setSubstituir(true)
     setSeed(prev => ({ ladoA, ladoB, v: prev.v + 1 }))
     irParaCalculadora()
   }
@@ -58,7 +81,7 @@ export default function ComparadorPage() {
           <hr style={{ flex: 1, border: 'none', borderTop: '1px dashed rgba(255,255,255,0.15)' }} />
         </div>
 
-        <TradeAnalyzer key={seed.v} initialLadoA={seed.ladoA} initialLadoB={seed.ladoB} />
+        <TradeAnalyzer seedLadoA={seed.ladoA} seedLadoB={seed.ladoB} seedToken={seed.v} seedSubstitui={substituir} />
       </div>
     </AppLayout>
   )
