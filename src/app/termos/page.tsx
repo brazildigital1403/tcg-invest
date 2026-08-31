@@ -66,7 +66,7 @@ export default function TermosPage() {
           <P><strong style={{ color: '#f59e0b' }}>Plano Pro Mensal:</strong> R$ 29,90 (vinte e nove reais e noventa centavos) por mês, com renovação automática. Libera funcionalidades ilimitadas, incluindo cartas e anúncios sem limite, scan com IA ilimitado, histórico completo de preços e dashboard avançado.</P>
           <P><strong style={{ color: '#f59e0b' }}>Plano Pro Anual:</strong> R$ 249,00 (duzentos e quarenta e nove reais) por ano, equivalente a um desconto significativo sobre o valor mensal. Mesma cobertura do Pro Mensal, com Master Sets liberados.</P>
           <P>Os valores e periodicidades podem ser alterados mediante comunicação prévia de 30 (trinta) dias. Pagamentos são processados pela plataforma <strong>Stripe</strong>. A Bynx não armazena dados de cartão de crédito.</P>
-          <P>Em caso de cobrança indevida, o usuário deve contatar <strong>suporte@bynx.gg</strong> em até 7 (sete) dias da cobrança. O cancelamento da assinatura pode ser solicitado a qualquer momento, com acesso Pro mantido até o fim do período pago.</P>
+          <P>Em caso de cobrança indevida, pedimos que entre em contato pelo <strong>suporte@bynx.gg</strong> o quanto antes — idealmente em até 7 (sete) dias — para agilizarmos a análise e a devolução. Esse prazo é uma conveniência operacional e <strong>não limita</strong> os prazos que a lei garante a você. O cancelamento da assinatura pode ser solicitado a qualquer momento, com acesso Pro mantido até o fim do período pago.</P>
         </Section>
 
         <Section title="4.1 Planos para Lojistas (B2B)">
@@ -74,6 +74,7 @@ export default function TermosPage() {
           <P><strong style={{ color: '#f59e0b' }}>Básico (gratuito):</strong> Perfil público da loja com informações de contato, endereço, redes sociais e botão de WhatsApp. Sem custo.</P>
           <P><strong style={{ color: '#f59e0b' }}>Pro:</strong> R$ 39,00 (trinta e nove reais) por mês, por loja. Inclui métricas básicas de visualização, divulgação de eventos da loja e destaque na busca regional.</P>
           <P><strong style={{ color: '#f59e0b' }}>Premium:</strong> R$ 89,00 (oitenta e nove reais) por mês, por loja. Inclui todas as funcionalidades do Pro, mais destaque nacional, métricas avançadas e prioridade no atendimento ao lojista.</P>
+          <P>Os dois planos também podem ser contratados na modalidade <strong>anual</strong>, com desconto: <strong>Pro por R$ 390,00</strong> e <strong>Premium por R$ 890,00</strong> por ano, por loja. A cobrança é única e antecipada, e a renovação é automática ao fim de cada período, salvo cancelamento.</P>
 
           <SubTitle>4.1.1 Beta de Lançamento</SubTitle>
           <P>Durante a fase de lançamento, a Bynx pode oferecer condições promocionais de adesão a lojistas, como período de teste gratuito do plano Pro. <strong>As condições vigentes — incluindo prazo e número de vagas — são as informadas na página de contratação no momento da adesão</strong>, e prevalecem sobre qualquer valor citado a título de exemplo. Encerrado o período promocional, o lojista pode seguir no plano gratuito Básico, contratar o Pro ou Premium, ou cancelar a presença na plataforma.</P>
@@ -93,6 +94,18 @@ export default function TermosPage() {
           <P>Nos termos do <strong>artigo 49 do Código de Defesa do Consumidor</strong>, o usuário pode desistir da compra no prazo de <strong>7 (sete) dias corridos</strong> contados da data do pagamento, sem necessidade de justificativa.</P>
           <P>Para exercer o direito, basta escrever para <strong>suporte@bynx.gg</strong> a partir do e-mail cadastrado, informando a compra. O <strong>estorno é integral</strong>, sem qualquer taxa de cancelamento, e é solicitado à Stripe em até 5 (cinco) dias úteis do pedido — o prazo de crédito efetivo depois disso segue as regras da operadora do cartão. Ao ser processado o estorno, o acesso à página adquirida é removido da conta.</P>
           <P>Antes de comprar, o usuário pode avaliar o produto sem custo: a página da Moonbreon é liberada gratuitamente para qualquer pessoa, permitindo folhear e imprimir uma amostra.</P>
+        </Section>
+
+
+        <Section title="4.3 Arrependimento na contratação de planos">
+<P>A contratação de qualquer plano pago é feita pela internet, então você tem <strong>7 (sete) dias corridos</strong> a contar da confirmação do pagamento para desistir, sem precisar justificar (art. 49 do Código de Defesa do Consumidor). Nesse prazo o valor é <strong>estornado integralmente</strong>, e o acesso volta ao plano gratuito.</P>
+          <P>Isso vale tanto para os planos mensais quanto para o <strong>anual</strong>. Passado o prazo de arrependimento, o cancelamento continua disponível a qualquer momento e mantém o acesso até o fim do período já pago, sem devolução proporcional.</P>
+
+          </Section>
+
+        <Section title="4.4 Mudança para um plano de menor capacidade">
+          <P>Se você migrar para um plano com limites menores — inclusive de volta ao Gratuito — <strong>nada do que você já cadastrou é apagado</strong>. As cartas, pastas e anúncios que excedam o limite do novo plano continuam armazenados e visíveis; o que fica bloqueado é apenas o cadastro de <em>novos</em> itens até que sua coleção volte ao limite.</P>
+          <P>A Bynx não exclui conteúdo do usuário por mudança de plano.</P>
         </Section>
 
         <Section title="5. Marketplace e Negociações">
@@ -116,19 +129,24 @@ export default function TermosPage() {
 
           <SubTitle>5.2.1 Comissão e repasse</SubTitle>
           <P>Sobre cada venda concluída na plataforma incide a comissão da Bynx, informada ao vendedor <strong>antes</strong> da confirmação de cada anúncio e destacada no resumo do pedido. A comissão varia conforme o prazo de repasse escolhido pelo vendedor: <strong>4,99% + R$ 0,40</strong> para repasse em 14 dias, ou <strong>3,99% + R$ 0,40</strong> para repasse em 30 dias. A parcela fixa de R$ 0,40 incide apenas em pedidos a partir de R$ 20,00.</P>
-          <P>O <strong>frete é integralmente repassado ao vendedor</strong> — a Bynx não retém percentual sobre o valor do frete. O prazo de repasse é contado a partir da confirmação do pagamento e existe para cobrir o período de eventual contestação pelo comprador.</P>
+          <P>O <strong>frete é integralmente repassado ao vendedor</strong> — a Bynx não retém percentual sobre o valor do frete. O prazo de repasse é contado a partir da confirmação do pagamento.</P>
+          <P>Sobre o valor pago pelo <strong>comprador</strong> incide um acréscimo por forma de pagamento, informado de maneira destacada no resumo do pedido <strong>antes</strong> da confirmação: <strong>4,8% no cartão</strong> (mínimo de R$ 1,20). Havendo estorno, esse acréscimo é devolvido junto com o restante do valor pago.</P>
 
           <SubTitle>5.2.2 Entrega</SubTitle>
+          <P>O <strong>risco de perda, extravio ou avaria da carta corre por conta do vendedor até a entrega</strong> no endereço informado pelo comprador. A transportadora é contratada por ele, e eventual problema com o transporte se resolve entre vendedor e transportadora — o comprador não fica no meio dessa relação e tem direito ao reembolso na forma da seção 5.2.3.</P>
           <P>O envio é de responsabilidade do vendedor, no prazo e pela modalidade informados no anúncio. A Bynx disponibiliza cotação de frete como conveniência, mas <strong>não realiza a postagem nem opera a logística</strong> — a relação de transporte se dá entre o vendedor e a transportadora escolhida. O comprador acompanha o status do pedido na plataforma (aguardando pagamento, pago, enviado, entregue, cancelado ou reembolsado).</P>
 
           <SubTitle>5.2.3 Cancelamento, devolução e estorno</SubTitle>
           <P>Por se tratar de compra realizada fora de estabelecimento físico, o comprador tem <strong>direito de arrependimento de 7 (sete) dias corridos</strong> a contar do recebimento do produto, nos termos do art. 49 do Código de Defesa do Consumidor, sem necessidade de justificativa. Nesse caso, o valor pago é <strong>estornado integralmente, incluindo o frete de envio</strong>, cabendo ao comprador devolver a carta nas mesmas condições em que a recebeu.</P>
-          <P>O comprador também pode solicitar reembolso quando o produto <strong>não for entregue</strong> no prazo informado, quando <strong>não corresponder à descrição</strong> do anúncio ou quando apresentar vício não informado. Nessas hipóteses o custo da devolução é do vendedor.</P>
+          <P>No arrependimento, <strong>o custo da devolução é do vendedor</strong>: exercer um direito garantido por lei não pode gerar despesa para você. As instruções de envio da devolução são passadas pelo suporte.</P>
+          <P>O comprador também pode solicitar reembolso quando o produto <strong>não for entregue</strong> no prazo informado, quando <strong>não corresponder à descrição</strong> do anúncio ou quando apresentar vício não informado. Nessas hipóteses o custo da devolução também é do vendedor.</P>
+          <P>Independentemente do arrependimento, você tem a <strong>garantia legal do art. 26 do Código de Defesa do Consumidor</strong>: 90 (noventa) dias para reclamar de vício na carta, contados da entrega quando o defeito for aparente, ou do momento em que ele se tornar evidente quando for oculto.</P>
           <P>A solicitação deve ser feita pelo <strong>suporte@bynx.gg</strong> a partir do e-mail cadastrado. Havendo estorno, a comissão da Bynx é <strong>igualmente estornada</strong> — a plataforma não retém valor sobre venda desfeita — e o lançamento correspondente é revertido. Se o repasse ao vendedor já tiver ocorrido, o valor é compensado em repasses futuros ou cobrado do vendedor.</P>
           <P>A Bynx pode reter o repasse de um pedido enquanto houver disputa aberta sobre ele, até a conclusão da análise.</P>
 
           <SubTitle>5.3 Programa de Parceiros</SubTitle>
-          <P>A Bynx pode manter programa de parceria com criadores de conteúdo, no qual um cupom de desconto identificado gera comissão ao parceiro sobre planos contratados por meio dele. Os percentuais, tetos e prazos de cada parceria são definidos em acordo individual. O uso de cupom de parceiro não altera os direitos do assinante nem o preço anunciado além do desconto aplicado.</P>
+          <P>A Bynx pode manter programa de parceria com criadores de conteúdo, no qual um cupom de desconto identificado gera comissão ao parceiro sobre planos contratados por meio dele. Os percentuais e prazos devidos ao parceiro são definidos em acordo individual e não afetam o assinante.</P>
+          <P>Para quem usa o cupom: <strong>o percentual de desconto e por quantas cobranças ele vale são informados na tela de contratação, antes do pagamento</strong>, junto do valor cheio da renovação. Se o desconto valer apenas para a primeira cobrança, as seguintes voltam ao preço normal do plano — e isso estará escrito ali. O uso de cupom não altera nenhum dos seus direitos previstos nestes Termos, inclusive o arrependimento da seção 4.3.</P>
         </Section>
 
         <Section title="6. Preços de Referência">
@@ -170,7 +188,7 @@ export default function TermosPage() {
         </Section>
 
         <Section title="12. Lei Aplicável e Foro">
-          <P>Estes Termos são regidos pelas leis da República Federativa do Brasil. Fica eleito o foro da Comarca de São Paulo/SP para dirimir quaisquer controvérsias decorrentes deste instrumento, com renúncia expressa a qualquer outro, por mais privilegiado que seja.</P>
+          <P>Estes Termos são regidos pelas leis da República Federativa do Brasil. Fica eleito o foro da Comarca de São Paulo/SP para dirimir controvérsias decorrentes deste instrumento — <strong>sem prejuízo do direito do consumidor de propor ação no foro do seu próprio domicílio</strong>, conforme o art. 101, I do Código de Defesa do Consumidor.</P>
         </Section>
 
         <Section title="13. Contato">
