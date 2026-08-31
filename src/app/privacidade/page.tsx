@@ -56,10 +56,10 @@ export default function PrivacidadePage() {
             <li>Avaliações dadas e recebidas em transações no Marketplace;</li>
             <li>Histórico de preços consultados;</li>
             <li><strong>Pedidos de compra e venda</strong> feitos dentro da plataforma, com valores, status, código de rastreio e o <strong>endereço de entrega</strong> informado no checkout;</li>
-            <li>Imagens de cartas enviadas para escaneamento por IA;</li>
+            <li>Imagens enviadas ao Scan. Elas são processadas no momento do reconhecimento e <strong>não ficam guardadas</strong> — nem por nós, nem pelo serviço de IA (ver seção 5);</li>
             <li>Tickets de suporte abertos e mensagens trocadas;</li>
             <li>Dados de uso e navegação (páginas acessadas, funcionalidades utilizadas);</li>
-            <li>Eventos analíticos anônimos (cliques em loja, conclusão de checkout, primeira carta adicionada);</li>
+            <li>Eventos de uso (cliques em loja, conclusão de checkout, primeira carta adicionada). Enquanto você não entra na conta eles são anônimos; depois do login ficam associados ao seu perfil nas ferramentas de medição descritas na seção 4;</li>
             <li>Status de moderação da conta (eventual suspensão, motivo, data e responsável pela ação);</li>
             <li>Endereço IP e informações do dispositivo/navegador.</li>
           </ul>
@@ -137,12 +137,14 @@ export default function PrivacidadePage() {
         <Section title="5. Retenção de Dados">
           <P>Seus dados são mantidos pelo tempo necessário às finalidades descritas nesta Política:</P>
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
-            <li>Dados da conta: enquanto a conta estiver ativa;</li>
+            <li>Dados da conta: enquanto a conta existir. Uma conta sem acesso por 3 (três) anos é tratada como inativa e pode ser encerrada, com aviso prévio por e-mail;</li>
             <li>Dados fiscais (CPF, histórico de pagamentos): 5 (cinco) anos, conforme obrigação legal tributária;</li>
             <li>Logs de acesso: 6 (seis) meses, conforme Marco Civil da Internet (Lei nº 12.965/2014);</li>
             <li>Imagens de escaneamento: não armazenadas — processadas em tempo real e descartadas;</li>
             <li>Anúncios moderados (removidos pela Bynx): mantidos como histórico interno por até 12 (doze) meses para fins de auditoria;</li>
-            <li>Após exclusão da conta: dados são anonimizados ou excluídos em até 30 (trinta) dias, exceto onde houver obrigação legal de retenção.</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Pedidos de compra e venda</strong> (valores, endereço de entrega, rastreio): 5 (cinco) anos, pelo mesmo motivo fiscal — e porque é o prazo em que uma das partes ainda pode reclamar da transação;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Avaliações públicas do Marketplace</strong>: permanecem após a exclusão da conta de quem avaliou, de forma desvinculada do perfil. Elas fazem parte da reputação de <em>outra</em> pessoa, que não pode perder o histórico dela porque alguém saiu;</li>
+            <li>Após exclusão da conta: dados são anonimizados ou excluídos em até 30 (trinta) dias, exceto os itens acima e onde houver obrigação legal de retenção.</li>
           </ul>
         </Section>
 
@@ -151,6 +153,7 @@ export default function PrivacidadePage() {
           <ul style={{ color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, paddingLeft: 24, margin: '12px 0' }}>
             <li><strong style={{ color: '#f0f0f0' }}>Acesso:</strong> confirmar se tratamos seus dados e obter cópia deles;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Correção:</strong> corrigir dados incompletos, inexatos ou desatualizados;</li>
+            <li><strong style={{ color: '#f0f0f0' }}>Revisão de decisão automatizada (Art. 20):</strong> pedir que uma pessoa revise decisão tomada só por sistema que afete você — por exemplo, um anúncio removido pela moderação ou uma carta identificada errado pelo Scan. Basta escrever para <strong>privacidade@bynx.gg</strong> explicando o caso;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Anonimização/Bloqueio/Eliminação:</strong> solicitar que dados desnecessários ou tratados em desconformidade sejam anonimizados, bloqueados ou eliminados;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Portabilidade:</strong> receber seus dados em formato estruturado e legível por máquina;</li>
             <li><strong style={{ color: '#f0f0f0' }}>Eliminação:</strong> solicitar a exclusão dos dados tratados com base em consentimento;</li>
