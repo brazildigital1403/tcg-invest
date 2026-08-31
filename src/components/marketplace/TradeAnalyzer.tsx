@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { registrarSinal } from '@/lib/sinais'
 import { CAMPO_VALOR, getPrecoVariante, getVarianteEfetiva } from '@/lib/calcPatrimonio'
+import { IconCheck, IconWarning, IconClose, IconPlus } from '@/components/ui/Icons'
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ interface Props {
 
 // ─── Estilos (mesmo padrão do AnunciarModal/ChatDock) ───────────────────────
 
-const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
+const BRAND = 'var(--ac-grad)'
 const FONT = "'DM Sans', system-ui, sans-serif"
 
 // minWidth:0 evita o bug classico de grid/flex: sem isso, o item nao encolhe
@@ -112,8 +113,8 @@ const col: React.CSSProperties = {
 }
 const addBtn: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-  fontSize: 12.5, color: '#f59e0b', fontWeight: 700, background: 'rgba(245,158,11,0.1)',
-  border: '1px dashed rgba(245,158,11,0.4)', borderRadius: 10, padding: '11px 12px', cursor: 'pointer',
+  fontSize: 12.5, color: 'var(--ac-1)', fontWeight: 700, background: 'rgba(var(--ac-1-rgb),0.1)',
+  border: '1px dashed rgba(var(--ac-1-rgb),0.4)', borderRadius: 10, padding: '11px 12px', cursor: 'pointer',
 }
 const cardRow: React.CSSProperties = {
   display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) auto auto', alignItems: 'center', gap: 10,
@@ -258,7 +259,7 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
              campo. Com 13px a pessoa tocava pra buscar a primeira carta e
              ficava com a pagina ampliada o resto da sessao -- e o publico da
              Bynx e majoritariamente mobile. */
-          style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '10px 12px', color: '#f0f0f0', fontSize: 16, fontFamily: FONT, outline: 'none' }}
+          style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '10px 12px', color: 'var(--bx-text)', fontSize: 16, fontFamily: FONT, outline: 'none' }}
         />
         <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', padding: '0 4px' }}>Cancelar</button>
       </div>
@@ -308,7 +309,7 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
           ))}
           {carregandoMais && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', margin: '4px 0 0' }}>Carregando mais…</p>}
           {!carregandoMais && hasMore && (
-            <button onClick={carregarMais} style={{ background: 'none', border: 'none', color: '#f59e0b', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', padding: '6px 0', fontFamily: FONT }}>
+            <button onClick={carregarMais} style={{ background: 'none', border: 'none', color: 'var(--ac-1)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', padding: '6px 0', fontFamily: FONT }}>
               Carregar mais resultados
             </button>
           )}
@@ -356,9 +357,9 @@ function Coluna({ label, cartas, onAdd, onRemove, onTrocarVariante, buscaAberta,
                     <button key={v.variante} onClick={() => onTrocarVariante(c.uid, v.variante)}
                       style={{
                         fontSize: 10, fontWeight: 700, padding: '3px 7px', borderRadius: 6, cursor: 'pointer', fontFamily: FONT,
-                        background: ativa ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
-                        border: `1px solid ${ativa ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                        color: ativa ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                        background: ativa ? 'rgba(var(--ac-1-rgb),0.15)' : 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${ativa ? 'rgba(var(--ac-1-rgb),0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        color: ativa ? 'var(--ac-1)' : 'rgba(255,255,255,0.5)',
                         transition: 'background 0.15s ease, border-color 0.15s ease',
                       }}>
                       {rotulo(v.variante)}
@@ -368,14 +369,14 @@ function Coluna({ label, cartas, onAdd, onRemove, onTrocarVariante, buscaAberta,
               </div>
             )}
             {c.semPreco && (
-              <p style={{ fontSize: 10, color: '#f59e0b', marginTop: 3 }}>Sem preço no Mercado Brasileiro</p>
+              <p style={{ fontSize: 10, color: 'var(--ac-1)', marginTop: 3 }}>Sem preço no Mercado Brasileiro</p>
             )}
           </div>
-          <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', color: c.semPreco ? 'rgba(255,255,255,0.35)' : c.fonte === 'USD' ? '#60a5fa' : '#f0f0f0' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', color: c.semPreco ? 'rgba(255,255,255,0.35)' : c.fonte === 'USD' ? 'var(--bx-blue)' : 'var(--bx-text)' }}>
             {c.semPreco ? '—' : fmt(c.preco)}
           </span>
           <button onClick={() => onRemove(c.uid)} aria-label="Remover" style={{ width: 20, height: 20, borderRadius: '50%', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+            <IconClose size={12} color="currentColor" strokeWidth={1.8} />
           </button>
         </div>
       ))}
@@ -384,7 +385,7 @@ function Coluna({ label, cartas, onAdd, onRemove, onTrocarVariante, buscaAberta,
         ? <BuscaCarta onPick={c => { onAdd(c); onFecharBusca() }} onCancel={onFecharBusca} />
         : (
           <button onClick={onAbrirBusca} style={addBtn}>
-            <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            <IconPlus size={13} color="currentColor" strokeWidth={2} />
             Adicionar carta
           </button>
         )}
@@ -393,7 +394,7 @@ function Coluna({ label, cartas, onAdd, onRemove, onTrocarVariante, buscaAberta,
         <div>
           <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Total</span>
           {semPreco > 0 && (
-            <p style={{ fontSize: 10.5, color: '#f59e0b', margin: '2px 0 0' }}>
+            <p style={{ fontSize: 10.5, color: 'var(--ac-1)', margin: '2px 0 0' }}>
               {semPreco === 1 ? '1 carta sem preço, fora da conta' : `${semPreco} cartas sem preço, fora da conta`}
             </p>
           )}
@@ -519,9 +520,9 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
   }
 
   const barA = media > 0 ? (totalA / (totalA + totalB || 1)) * 100 : 50
-  const verdictBg = verdict?.tom === 'ok' ? 'rgba(34,197,94,0.12)' : verdict?.tom === 'bad' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.1)'
-  const verdictBorder = verdict?.tom === 'ok' ? 'rgba(34,197,94,0.35)' : verdict?.tom === 'bad' ? 'rgba(239,68,68,0.35)' : 'rgba(245,158,11,0.35)'
-  const verdictColor = verdict?.tom === 'ok' ? '#22c55e' : verdict?.tom === 'bad' ? '#ef4444' : '#f59e0b'
+  const verdictBg = verdict?.tom === 'ok' ? 'rgba(34,197,94,0.12)' : verdict?.tom === 'bad' ? 'rgba(239,68,68,0.12)' : 'rgba(var(--ac-1-rgb),0.1)'
+  const verdictBorder = verdict?.tom === 'ok' ? 'rgba(34,197,94,0.35)' : verdict?.tom === 'bad' ? 'rgba(239,68,68,0.35)' : 'rgba(var(--ac-1-rgb),0.35)'
+  const verdictColor = verdict?.tom === 'ok' ? 'var(--bx-green)' : verdict?.tom === 'bad' ? 'var(--bx-red)' : 'var(--ac-1)'
   const veredictoDb = verdict?.tom === 'ok' ? 'equilibrada' : verdict?.tom === 'bad' ? 'muito_desequilibrada' : 'desequilibrada'
 
   async function publicar() {
@@ -540,7 +541,7 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
   }
 
   const conteudo = (
-    <div style={{ fontFamily: FONT, color: '#f0f0f0' }}>
+    <div style={{ fontFamily: FONT, color: 'var(--bx-text)' }}>
       {/* <=480px: empilha os 2 lados. Lado a lado, a coluna sobra ~135px --
           menos que o suficiente pra thumb+nome+numero da busca (o motivo
           da busca ter ganho o numero como diferencial, ver commit 79b3360).
@@ -579,13 +580,26 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
       )}
 
       {verdict && (
-        <div style={{ marginTop: 16, borderRadius: 14, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, background: verdictBg, border: `1px solid ${verdictBorder}` }}>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: verdictBg, color: verdictColor }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 8v5M12 16h.01M12 3l9 16H3l9-16Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <div style={{ marginTop: 16, borderRadius: 14, padding: '18px 18px', display: 'flex', alignItems: 'flex-start', gap: 14, background: verdictBg, border: `1px solid ${verdictBorder}` }}>
+          {/* ★ Era UM triangulo de PERIGO fixo pros tres vereditos -- so a cor
+              mudava. "Troca equilibrada" exibia alerta verde, contradizendo a
+              propria mensagem. E o circulo de 34px tinha o mesmo background do
+              container, entao era invisivel: o icone flutuava solto. */}
+          <div style={{
+            width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, background: 'rgba(0,0,0,0.25)', border: `1px solid ${verdictBorder}`, color: verdictColor,
+          }}>
+            {verdict.tom === 'ok'
+              ? <IconCheck size={17} color="currentColor" strokeWidth={2.2} />
+              : <IconWarning size={17} color="currentColor" strokeWidth={1.9} />}
           </div>
           <div>
-            <p style={{ fontSize: 14.5, fontWeight: 700, margin: '0 0 2px' }}>{verdict.titulo}</p>
-            <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: 0 }}>{verdict.texto}</p>
+            {/* ★ O veredito era a 4a maior tipografia da tela: 14.5px, MENOR
+                que os totais de 20px que o geraram. A informacao mais
+                importante era a que menos pesava. Invertido -- os totais das
+                colunas cairam pra 17px na mesma passada. */}
+            <p style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px', lineHeight: 1.2, letterSpacing: '-0.01em' }}>{verdict.titulo}</p>
+            <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: 0, lineHeight: 1.5 }}>{verdict.texto}</p>
           </div>
         </div>
       )}
@@ -593,8 +607,8 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
       {verdict && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed rgba(255,255,255,0.12)' }}>
           {publicado ? (
-            <p style={{ fontSize: 12.5, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <p style={{ fontSize: 12.5, color: 'var(--bx-green)', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+              <IconCheck size={14} color="currentColor" strokeWidth={2} />
               Publicada no feed da comunidade.
             </p>
           ) : (
@@ -615,7 +629,7 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
                   style={{
                     minHeight: 44, padding: '11px 16px', borderRadius: 10, cursor: publicando ? 'default' : 'pointer',
                     background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
-                    color: '#f0f0f0', fontSize: 12.5, fontWeight: 700, fontFamily: FONT, flexShrink: 0,
+                    color: 'var(--bx-text)', fontSize: 12.5, fontWeight: 700, fontFamily: FONT, flexShrink: 0,
                     opacity: publicando ? 0.6 : 1, transition: 'background 0.15s ease, border-color 0.15s ease',
                   }}>
                   {publicando ? 'Publicando…' : 'Publicar no feed'}
@@ -649,9 +663,9 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
-      <div style={{ background: '#0d0f14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, width: '100%', maxWidth: 640, maxHeight: '86vh', overflowY: 'auto', padding: 22, boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: 'var(--bx-bg-elev)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, width: '100%', maxWidth: 640, maxHeight: '86vh', overflowY: 'auto', padding: 22, boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <p style={{ fontSize: 16, fontWeight: 700, margin: 0, fontFamily: FONT, color: '#f0f0f0' }}>Analisar troca</p>
+          <p style={{ fontSize: 16, fontWeight: 700, margin: 0, fontFamily: FONT, color: 'var(--bx-text)' }}>Analisar troca</p>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
           </button>

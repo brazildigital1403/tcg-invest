@@ -54,9 +54,9 @@ function tempoRelativo(iso: string) {
 }
 
 const VEREDITO_LABEL: Record<ItemFeed['veredito'], { label: string; cor: string; bg: string }> = {
-  equilibrada: { label: 'Equilibrada', cor: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
-  desequilibrada: { label: 'Desequilibrada', cor: '#f59e0b', bg: 'rgba(245,158,11,0.13)' },
-  muito_desequilibrada: { label: 'Muito desequilibrada', cor: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  equilibrada: { label: 'Equilibrada', cor: 'var(--bx-green)', bg: 'rgba(34,197,94,0.12)' },
+  desequilibrada: { label: 'Desequilibrada', cor: 'var(--ac-1)', bg: 'rgba(var(--ac-1-rgb),0.13)' },
+  muito_desequilibrada: { label: 'Muito desequilibrada', cor: 'var(--bx-red)', bg: 'rgba(239,68,68,0.12)' },
 }
 
 function Stack({ cartas }: { cartas: TradeCard[] }) {
@@ -93,7 +93,7 @@ export default function ComparadosFeed({ onReplay }: { onReplay: (ladoA: TradeCa
   if (!itens) return null
 
   return (
-    <div style={{ fontFamily: FONT, color: '#f0f0f0', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, marginBottom: 16 }}>
+    <div style={{ fontFamily: FONT, color: 'var(--bx-text)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, marginBottom: 16 }}>
       <div style={{ marginBottom: 12 }}>
         <h3 style={{ fontSize: 14, margin: '0 0 2px', fontWeight: 700 }}>Comparado agora pela comunidade</h3>
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
@@ -105,6 +105,7 @@ export default function ComparadosFeed({ onReplay }: { onReplay: (ladoA: TradeCa
           const v = VEREDITO_LABEL[item.veredito]
           return (
             <div key={item.id} onClick={() => !item.exemplo && onReplay(item.ladoA, item.ladoB)}
+              className={item.exemplo ? undefined : 'bx-cmp-card'}
               style={{ flex: '0 0 auto', width: 200, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 12, cursor: item.exemplo ? 'default' : 'pointer', position: 'relative' }}>
               {item.exemplo && (
                 <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 10 }}>exemplo</span>
@@ -118,7 +119,7 @@ export default function ComparadosFeed({ onReplay }: { onReplay: (ladoA: TradeCa
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}><path d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7M17 16l-3-3M17 16l-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 <Stack cartas={item.ladoB} />
               </div>
-              <p style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, margin: '0 0 3px' }}>{fmt(item.totalA)} ↔ {fmt(item.totalB)}</p>
+              <p style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, margin: '0 0 3px' }}>{fmt(item.totalA)} por {fmt(item.totalB)}</p>
               <p style={{ textAlign: 'center', fontSize: 10.5, color: 'rgba(255,255,255,0.4)', margin: 0 }}>{item.autor}</p>
             </div>
           )
