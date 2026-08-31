@@ -89,6 +89,13 @@ interface Props {
   initialLadoB?: TradeCard[]
   /** Presente = renderiza como modal overlay (ChatDock). Ausente = inline (página /comparador). */
   onClose?: () => void
+  /** Cartas que o pai quer injetar quando `seedToken` mudar. */
+  seedLadoA?: TradeCard[]
+  seedLadoB?: TradeCard[]
+  /** Muda a cada pedido do pai. Trocar isto injeta o seed SEM remontar. */
+  seedToken?: number
+  /** true = o seed substitui os lados (replay). false = acrescenta (destaques). */
+  seedSubstitui?: boolean
 }
 
 // ─── Estilos (mesmo padrão do AnunciarModal/ChatDock) ───────────────────────
@@ -194,7 +201,11 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (termo.trim().length < 2) { setResultados([]); setHasMore(false); return }
+    // ★ setBuscando(false) aqui: sem ele, apagar um caractere ate o termo
+    // ficar com 1 letra deixava "Buscando..." na tela PARA SEMPRE, inclusive
+    // com o campo vazio. Apagar caractere e o gesto mais comum no teclado
+    // mobile, entao isso pegava quase todo mundo.
+    if (termo.trim().length < 2) { setResultados([]); setHasMore(false); setBuscando(false); return }
     setBuscando(true)
     debounceRef.current = setTimeout(async () => {
       const { data, error } = await supabase.rpc('smart_search_cards_v5', { q: termo, limit_n: PAGE_SIZE, offset_n: 0 })
@@ -242,7 +253,12 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
         <input
           autoFocus value={termo} onChange={e => setTermo(e.target.value)}
           placeholder="Nome da carta..." maxLength={60}
-          style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '9px 12px', color: '#f0f0f0', fontSize: 13, fontFamily: FONT, outline: 'none' }}
+          /* ★ fontSize 16 e obrigatorio, nao estetico: o Safari do iPhone da
+             zoom em qualquer input abaixo de 16px e NAO desfaz ao sair do
+             campo. Com 13px a pessoa tocava pra buscar a primeira carta e
+             ficava com a pagina ampliada o resto da sessao -- e o publico da
+             Bynx e majoritariamente mobile. */
+          style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '10px 12px', color: '#f0f0f0', fontSize: 16, fontFamily: FONT, outline: 'none' }}
         />
         <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', padding: '0 4px' }}>Cancelar</button>
       </div>
@@ -399,10 +415,29 @@ function trocarVariante(lista: TradeCard[], uid: string, variante: string): Trad
 
 // ─── Componente principal ───────────────────────────────────────────────────
 
-export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA, initialLadoB, onClose }: Props) {
+export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA, initialLadoB, onClose, seedLadoA, seedLadoB, seedToken, seedSubstitui }: Props) {
   const [ladoA, setLadoA] = useState<TradeCard[]>(initialLadoA?.length ? initialLadoA : initialCardA ? [initialCardA] : [])
   const [ladoB, setLadoB] = useState<TradeCard[]>(initialLadoB?.length ? initialLadoB : initialCardB ? [initialCardB] : [])
   const [buscaAberta, setBuscaAberta] = useState<'A' | 'B' | null>(null)
+
+  /**
+   * ★ Injeta o seed do pai SEM remontar o componente. Antes o /comparador
+   * usava `key={seed.v}`, o que jogava fora tudo que o usuario tinha montado
+   * pela busca -- e o pai nem enxerga essas cartas, entao nao tinha como
+   * repor. `seedSubstitui` separa os dois casos: replay do feed substitui
+   * ("ver aquela troca"), destaque acrescenta ("joga essa aqui tambem").
+   * O ref garante uma injecao por token, mesmo com o efeito reexecutando.
+   */
+  const seedAplicado = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (seedToken === undefined || seedAplicado.current === seedToken) return
+    seedAplicado.current = seedToken
+    const a = seedLadoA ?? [], b = seedLadoB ?? []
+    if (!a.length && !b.length) return
+    if (seedSubstitui) { setLadoA(a); setLadoB(b); return }
+    if (a.length) setLadoA(p => [...p, ...a])
+    if (b.length) setLadoB(p => [...p, ...b])
+  }, [seedToken, seedLadoA, seedLadoB, seedSubstitui])
 
   // Fase 2: opt-in de publicar no feed "comparado agora pela comunidade".
   const [temPerfilPublico, setTemPerfilPublico] = useState(false)
@@ -564,17 +599,33 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
             </p>
           ) : (
             <>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: publicando ? 'default' : 'pointer' }}>
-                <span
+              {/* ★ Era um SWITCH que publicava no primeiro toque e cujo knob
+                  nunca saia do lugar -- controle que mente sobre o proprio
+                  estado, numa acao publica e sem volta. Pior: o <label> de
+                  343x62 nao tinha htmlFor nem input, entao tocar no texto nao
+                  fazia nada e so o quadradinho de 34x19 respondia. A pessoa
+                  tocava no rotulo, achava que estava quebrado, insistia,
+                  acertava o switch e ja tinha publicado.
+                  Virou botao explicito, com alvo de 44px e o que vai acontecer
+                  escrito nele. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <button
                   onClick={() => !publicando && publicar()}
-                  style={{ width: 34, height: 19, borderRadius: 20, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', position: 'relative', flexShrink: 0, opacity: publicando ? 0.6 : 1 }}>
-                  <span style={{ width: 13, height: 13, borderRadius: '50%', background: 'rgba(255,255,255,0.4)', position: 'absolute', top: 2, left: 2 }} />
+                  disabled={publicando}
+                  style={{
+                    minHeight: 44, padding: '11px 16px', borderRadius: 10, cursor: publicando ? 'default' : 'pointer',
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+                    color: '#f0f0f0', fontSize: 12.5, fontWeight: 700, fontFamily: FONT, flexShrink: 0,
+                    opacity: publicando ? 0.6 : 1, transition: 'background 0.15s ease, border-color 0.15s ease',
+                  }}>
+                  {publicando ? 'Publicando…' : 'Publicar no feed'}
+                </button>
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: 0, lineHeight: 1.4 }}>
+                    Aparece no feed público da comunidade, <strong>sem seu nome</strong> — só as cartas e o resultado.
+                  </p>
                 </span>
-                <span>
-                  <p style={{ fontSize: 12.5, fontWeight: 600, margin: 0 }}>{publicando ? 'Publicando…' : 'Publicar essa troca (anônima) no feed da comunidade'}</p>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Sem seu nome, só as cartas e o resultado.</span>
-                </span>
-              </label>
+              </div>
               {temPerfilPublico && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, marginLeft: 44, fontSize: 11.5, color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>
                   <input type="checkbox" checked={mostrarComoUsuario} onChange={e => setMostrarComoUsuario(e.target.checked)} style={{ margin: 0 }} />
