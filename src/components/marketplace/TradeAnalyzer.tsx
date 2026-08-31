@@ -34,6 +34,8 @@ export interface TradeCard {
   variantes: VariantePreco[]
   /** true = a fonte nao tem preco nenhum pra esta carta, em nenhuma variante. */
   semPreco: boolean
+  /** Quando o preco desta carta foi lido. ISO ou null. */
+  precoEm?: string | null
 }
 
 export interface VariantePreco { variante: string; preco: number }
@@ -59,6 +61,7 @@ const novoUid = () => `t${Date.now().toString(36)}${(seqUid++).toString(36)}`
 export function montarTradeCard(base: {
   id: string; name: string; set_name?: string | null; image_small?: string | null
   preco: number; fonte?: 'BRL' | 'USD'; variante?: string; variantes?: VariantePreco[]
+  precoEm?: string | null
 }): TradeCard {
   return {
     uid: novoUid(),
@@ -71,6 +74,7 @@ export function montarTradeCard(base: {
     variante: base.variante ?? 'normal',
     variantes: base.variantes ?? [],
     semPreco: !(Number(base.preco) > 0),
+    precoEm: base.precoEm ?? null,
   }
 }
 
@@ -223,6 +227,7 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
       uid: novoUid(), id: card.id, name: cleanNome(card.name_pt || card.name),
       set_name: card.set_name_pt || card.set_name, image_small: card.image_small,
       preco, fonte, variante, variantes, semPreco,
+      precoEm: card.liga_updated_at ?? null,
     })
     // Sinal "carta procurada" -- aqui e nao no useEffect da busca: instrumentar
     // a digitacao poria escrita por tecla. `escolher` e escolha deliberada e
@@ -429,7 +434,20 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
   // ★ A ressalva vale nos TRES ramos. Antes ela so aparecia no desequilibrado
   // -- sumia justamente do "Troca equilibrada", que e onde uma variante lida
   // errado faz o maior estrago.
-  const RESSALVA = 'Preço pelo Mercado Brasileiro. Condição, graduação e a versão exata da carta física podem mudar o valor real.'
+  // ★ Frescor. A pagina inteira fala no presente ("agora", "essa semana"),
+  // mas o preco tem mediana de 17 dias e p90 de 91 -- 1 carta em 10 e
+  // precificada com dado de tres meses. Dizer a idade do mais velho da troca
+  // e a forma barata de a tela parar de sugerir que o numero e de hoje.
+  const idades = [...ladoA, ...ladoB]
+    .map(c => c.precoEm ? Math.floor((Date.now() - new Date(c.precoEm).getTime()) / 86400000) : null)
+    .filter((d): d is number => d != null && d >= 0)
+  const maisVelho = idades.length ? Math.max(...idades) : null
+  const frescor = maisVelho == null ? ''
+    : maisVelho <= 1 ? ' Preços lidos hoje.'
+    : maisVelho <= 7 ? ` Preços lidos nos últimos ${maisVelho} dias.`
+    : ` Atenção ao frescor: o preço mais antigo desta troca foi lido há ${maisVelho} dias.`
+
+  const RESSALVA = `Preço pelo Mercado Brasileiro. Condição, graduação e a versão exata da carta física podem mudar o valor real.${frescor}`
 
   let verdict: { tom: 'ok' | 'warn' | 'bad'; titulo: string; texto: string } | null = null
   if (temAmbos) {
