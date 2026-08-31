@@ -65,7 +65,7 @@ export default function ComparadorPage() {
           titulo="Comparador de troca"
           descricao="Monte os dois lados de uma troca e veja se está equilibrada, pelo Mercado Brasileiro."
           selo={
-            <span style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(245,158,11,0.13)', border: '1px solid rgba(245,158,11,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flex: '0 0 auto' }}>
+            <span style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(var(--ac-1-rgb),0.13)', border: '1px solid rgba(var(--ac-1-rgb),0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ac-1)', flex: '0 0 auto' }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7M17 16l-3-3M17 16l-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </span>
           }
