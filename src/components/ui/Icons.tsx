@@ -54,6 +54,22 @@ export function IconMarketplace({ size = 20, color = defaultColor, strokeWidth =
   )
 }
 
+export function IconBalanca({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      {/* Balanca de dois pratos -- "essa troca ta equilibrada?".
+          ★ Nao usar IconMarketplace aqui: aquele e o desenho de duas setas
+          trocando e ja e o icone do Mercado. Dois itens vizinhos no menu com o
+          mesmo desenho e o usuario perde a referencia visual. */}
+      <path d="M10 3.2v12.6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+      <path d="M6.8 16.2h6.4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+      <path d="M3.4 6.4h13.2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+      <path d="M3.4 6.6 1.4 11h4l-2-4.4Z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <path d="M16.6 6.6 14.6 11h4l-2-4.4Z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function IconAccount({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
