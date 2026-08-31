@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     'scan carta pokemon brasil', 'ler carta pokemon foto', 'cadastrar carta pokemon foto',
     'inteligencia artificial pokemon tcg', 'pokemon tcg ia brasil', 'scan multi cartas pokemon',
     'pokellector alternativa brasileira', 'reconhecer carta pokemon japones',
-    'scan carta pokemon portugues', 'claude pokemon tcg', 'identificar valor carta pokemon foto',
+    'scan carta pokemon portugues', 'identificar carta pokemon pelo celular', 'identificar valor carta pokemon foto',
   ],
   openGraph: {
     title: 'Scan IA Pokémon TCG — Bynx | Reconhece sua coleção em segundos',
