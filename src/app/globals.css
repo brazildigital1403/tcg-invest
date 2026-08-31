@@ -67,6 +67,18 @@
   --bx-hero-wash:  radial-gradient(140% 120% at 12% 30%, rgba(245,158,11,0.07), transparent 60%);
 }
 
+/* Acento do contexto Lorcana ("tinta", teal->azul) — mesmo mecanismo da Loja.
+   A casca de /lorcana/* (F4) aplica esta classe no wrapper; todo componente
+   tokenizado em var(--ac-*) herda sozinho. Decisao do Du em 31/08 (opcao A). */
+.bx-game-lorcana {
+  --ac-1:     #2dd4bf;
+  --ac-2:     #38bdf8;
+  --ac-1-rgb: 45, 212, 191;
+  --ac-2-rgb: 56, 189, 248;
+  --ac-grad:  linear-gradient(135deg, #2dd4bf, #38bdf8);
+  --bx-hero-wash: radial-gradient(140% 120% at 12% 30%, rgba(45,212,191,0.07), transparent 60%);
+}
+
 /* Tema CLARO — dormente. So passa a valer quando o <html> tiver
    data-theme="light" (toggle + persistencia entram numa fase futura). */
 [data-theme="light"] {

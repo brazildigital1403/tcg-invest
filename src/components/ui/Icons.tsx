@@ -276,6 +276,15 @@ export function IconPokeball({ size = 20, color = defaultColor, strokeWidth = de
   )
 }
 
+export function IconInk({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M10 2.5c2.5 3.2 5 5.3 5 8.2a5 5 0 0 1-10 0c0-2.9 2.5-5 5-8.2z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <path d="M7.8 11.2a2.2 2.2 0 0 0 2.2 2.2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 export function IconScan({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
@@ -344,6 +353,7 @@ const iconMap: Record<string, (props: IconProps) => JSX.Element> = {
   discord: IconDiscord,
   menu: IconMenu,
   pokeball: IconPokeball,
+  ink: IconInk,
   scan: IconScan,
   chart: IconChart,
   shield: IconShield,
