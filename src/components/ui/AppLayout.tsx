@@ -14,7 +14,7 @@ import { ENFORCEMENT_ATIVO, MURO_POSTRIAL_ATIVO, LIMITE_FREE, checkCardLimit } f
 import { calcPatrimonio } from '@/lib/calcPatrimonio'
 import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
-  IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconAccount,
+  IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconBalanca, IconAccount,
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
   IconChat, IconStar, IconStarFilled, IconEye, IconArticle,
 } from '@/components/ui/Icons'
@@ -163,6 +163,7 @@ const ITEM_COLECAO: MenuItem = { name: 'Coleção', full: 'Minha Coleção', hre
 const ITEM_ACOMPANHANDO: MenuItem = { name: 'Acompanhando', full: 'Acompanhando', href: '/acompanhando', Icon: IconStar, group: 'colecao' }
 const ITEM_POKEDEX: MenuItem = { name: 'Pokédex', full: 'Pokédex', href: '/pokedex', Icon: IconPokedex, group: 'explorar' }
 const ITEM_MARKETPLACE: MenuItem = { name: 'Mercado', full: 'Mercado', href: '/marketplace', Icon: IconMarketplace, group: 'explorar' }
+const ITEM_COMPARADOR: MenuItem = { name: 'Comparador', full: 'Comparador de troca', href: '/comparador', Icon: IconBalanca, group: 'explorar' }
 const ITEM_SEPARADORES: MenuItem = { name: 'Separadores', full: 'Separadores', href: '/separadores', Icon: IconSeparador, group: 'imprimir' }
 const ITEM_INDIQUE: MenuItem = { name: 'Indique', full: 'Indique e Ganhe', href: '/indique-e-ganhe', Icon: IconGift, group: 'conta' }
 const ITEM_COMPRAS: MenuItem = { name: 'Compras', full: 'Minhas Compras', href: '/compras', Icon: IconMarketplace, group: 'conta' }
@@ -258,12 +259,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
+      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
     }
     if (isLojistaPuro) {
       return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
     }
-    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS]
+    const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     else base.push(ITEM_VENDER)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE)
