@@ -14,6 +14,8 @@
 import type { Metadata } from 'next'
 import { cache } from 'react'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { notFound } from 'next/navigation'
+import { LORCANA_ENABLED } from '@/lib/flags'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
@@ -136,6 +138,10 @@ const formatNumber = (v: number) => v.toLocaleString('pt-BR')
 // ─── generateMetadata ──────────────────────────────────────────────────────
 
 export async function generateMetadata(): Promise<Metadata> {
+  // Gate ANTES de qualquer query: o build de producao pre-renderiza esta
+  // pagina estatica, e la a coluna game nao existe ate a F8 (o gate do
+  // layout nao cobre a pre-renderizacao da page — build de 31/08 quebrou).
+  if (!LORCANA_ENABLED) return { title: 'Bynx', robots: { index: false, follow: false } }
   let totalSets = 0
   let totalCards = 0
   try {
@@ -186,6 +192,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // ─── Page Component ────────────────────────────────────────────────────────
 
 export default async function LorcanaHub() {
+  if (!LORCANA_ENABLED) notFound()
   const groups = await fetchAllSets()
 
   // Stats globais
