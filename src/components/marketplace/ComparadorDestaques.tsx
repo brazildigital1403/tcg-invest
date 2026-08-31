@@ -15,7 +15,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
-import type { TradeCard } from './TradeAnalyzer'
+import { montarTradeCard, type TradeCard } from './TradeAnalyzer'
 
 type Mover = { window_days: number; direction: 'up' | 'down'; card_id: string; name: string; set_name: string | null; image_small: string | null; preco_atual: number | null; pct: number | null; slug: string | null }
 
@@ -27,7 +27,7 @@ function cleanNome(raw: string | null): string {
 }
 
 function moverToCard(m: Mover): TradeCard {
-  return { id: m.card_id, name: cleanNome(m.name), set_name: m.set_name, image_small: m.image_small, preco: Number(m.preco_atual) || 0, fonte: 'BRL' }
+  return montarTradeCard({ id: m.card_id, name: cleanNome(m.name), set_name: m.set_name, image_small: m.image_small, preco: Number(m.preco_atual) || 0 })
 }
 
 // ─── HERO: carrossel dinâmico (pedido do Du 14/08 -- a manchete estática so
@@ -98,7 +98,7 @@ function HeroCarrossel({ onSeed }: { onSeed: (cardA?: TradeCard, cardB?: TradeCa
   const info = SINAL_INFO[atual.sinal]
 
   function seed() {
-    const card: TradeCard = { id: atual.id, name: atual.name, set_name: null, image_small: atual.image_small, preco: atual.preco || 0, fonte: 'BRL' }
+    const card = montarTradeCard({ id: atual.id, name: atual.name, image_small: atual.image_small, preco: atual.preco || 0 })
     if (atual.sinal === 'queda') onSeed(undefined, card)
     else onSeed(card, undefined)
   }

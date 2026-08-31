@@ -25,7 +25,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AvaliacaoModal from '@/components/marketplace/AvaliacaoModal'
-import TradeAnalyzer from '@/components/marketplace/TradeAnalyzer'
+import TradeAnalyzer, { montarTradeCard } from '@/components/marketplace/TradeAnalyzer'
 import { transferirCartaAoComprador } from '@/lib/concluirCompra'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -567,7 +567,7 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
       {showAvaliacao && role && <AvaliacaoModal card={anuncio} userId={userId} role={role} onClose={() => setShowAvaliacao(false)} />}
       {showTrade && anuncio && (
         <TradeAnalyzer
-          initialCardA={{ id: anuncio.card_id || anuncio.id, name: cleanName(anuncio.card_name), image_small: anuncio.card_image, preco: Number(anuncio.price) || 0, fonte: 'BRL' }}
+          initialCardA={montarTradeCard({ id: anuncio.card_id || anuncio.id, name: cleanName(anuncio.card_name), image_small: anuncio.card_image, preco: Number(anuncio.price) || 0 })}
           onClose={() => setShowTrade(false)}
         />
       )}
