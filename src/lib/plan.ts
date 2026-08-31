@@ -15,7 +15,7 @@ export interface PlanCaps {
   limitePastas: number         // pastas (fichario)
   limiteAnuncios: number       // anuncios ativos no marketplace
   podeDashboard: boolean       // tela Dashboard
-  pokedexCompleta: boolean     // Pokedex LOGADA in-app (publica nao e afetada)
+  catalogoCompleto: boolean    // catalogo LOGADO in-app completo (Pokedex hoje; vale por jogo — publica nao e afetada)
   podeExportar: boolean        // exportar PDF / CSV
   scansMes: number             // creditos de Scan IA por mes
   separadoresLiberados: boolean// separadores liberados (vs avulso)
@@ -35,7 +35,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     label: 'Grátis',
     isPaid: false, isPro: false,
     limiteCartas: 100, limitePastas: 1, limiteAnuncios: 3,
-    podeDashboard: false, pokedexCompleta: false, podeExportar: false,
+    podeDashboard: false, catalogoCompleto: false, podeExportar: false,
     scansMes: 0, separadoresLiberados: false, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
   },
@@ -43,7 +43,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     label: 'Plus',
     isPaid: true, isPro: false,
     limiteCartas: 500, limitePastas: Infinity, limiteAnuncios: Infinity,
-    podeDashboard: true, pokedexCompleta: true, podeExportar: false,
+    podeDashboard: true, catalogoCompleto: true, podeExportar: false,
     scansMes: 0, separadoresLiberados: false, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
   },
@@ -51,7 +51,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     label: 'Pro',
     isPaid: true, isPro: true,
     limiteCartas: Infinity, limitePastas: Infinity, limiteAnuncios: Infinity,
-    podeDashboard: true, pokedexCompleta: true, podeExportar: true,
+    podeDashboard: true, catalogoCompleto: true, podeExportar: true,
     scansMes: Infinity, separadoresLiberados: true, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
   },
@@ -59,7 +59,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     label: 'Pro Anual',
     isPaid: true, isPro: true,
     limiteCartas: Infinity, limitePastas: Infinity, limiteAnuncios: Infinity,
-    podeDashboard: true, pokedexCompleta: true, podeExportar: true,
+    podeDashboard: true, catalogoCompleto: true, podeExportar: true,
     scansMes: Infinity, separadoresLiberados: true, masterSetsLiberados: true,
     paginasLendariasLiberadas: true,
   },

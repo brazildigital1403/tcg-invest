@@ -167,7 +167,7 @@ export default function Pokedex() {
         setUserId(authData.user.id)
         const { isPro: pro, isTrial, caps } = await getUserPlan(authData.user.id)
         setIsPro(pro || isTrial)
-        setPokedexCompleta(caps.pokedexCompleta)
+        setPokedexCompleta(caps.catalogoCompleto)
         await loadOwnedPokemons(authData.user.id)
       }
       await loadPokemons()
