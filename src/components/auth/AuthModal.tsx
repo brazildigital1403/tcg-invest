@@ -745,7 +745,7 @@ useEffect(() => {
                       )}
                       {entre13e17 && (
                         <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '12px 14px' }}>
-                          <p style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1.5 }}>Ao continuar, declare que possui autorização de um responsável legal (LGPD, Art. 14).</p>
+                          <p style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1.5 }}>Ao continuar, você declara ter autorização de um responsável legal.</p>
                         </div>
                       )}
                     </>
