@@ -46,13 +46,19 @@ interface HeroCard {
   preco: number | null
   slug?: string | null
   cta?: 'troca' | 'ver'
+  /** Texto montado pelo servidor a partir da contagem real; vence o SINAL_INFO. */
+  texto?: string
 }
 
 const SINAL_INFO: Record<HeroCard['sinal'], { eyebrow: string; cor: string; bg: string; texto: string }> = {
   alta: { eyebrow: 'Em alta essa semana', cor: '#22c55e', bg: 'rgba(34,197,94,0.12)', texto: 'No Mercado Brasileiro — pode valer a pena soltar antes de esfriar.' },
   queda: { eyebrow: 'Em queda essa semana', cor: '#ef4444', bg: 'rgba(239,68,68,0.12)', texto: 'No Mercado Brasileiro — pode ser a hora de pegar antes de subir de novo.' },
-  anunciada: { eyebrow: 'Bombando no marketplace', cor: '#f59e0b', bg: 'rgba(245,158,11,0.13)', texto: 'Várias pessoas anunciando essa carta agora — bom momento pra comparar preços.' },
-  adicionada: { eyebrow: 'Entrando nas coleções', cor: '#60a5fa', bg: 'rgba(96,165,250,0.13)', texto: 'A carta que mais entrou em coleções esse mês — pode valer a pena ficar de olho.' },
+  // ★ Estes dois textos agora sao FALLBACK. O servidor manda `texto` proprio,
+  // montado a partir da contagem real -- ver comparador-hero/route.ts. A copy
+  // fixa dizia "varias pessoas" com um vendedor so, e chamava ate quatro
+  // cartas diferentes de "a que mais entrou".
+  anunciada: { eyebrow: 'Anunciada no marketplace', cor: '#f59e0b', bg: 'rgba(245,158,11,0.13)', texto: 'Tem anúncio dessa carta aberto agora — dá pra comparar antes de fechar.' },
+  adicionada: { eyebrow: 'Entrando nas coleções', cor: '#60a5fa', bg: 'rgba(96,165,250,0.13)', texto: 'Uma das cartas que mais entraram em coleções este mês — pode valer a pena ficar de olho.' },
   // Copy sem numero e sem citar pessoas de proposito: o schema, por desenho,
   // nao sabe contar pessoas distintas ao longo de varios dias (somar
   // visitantes/dia da pessoa-dia, nao pessoa).
@@ -126,7 +132,7 @@ function HeroCarrossel({ onSeed }: { onSeed: (cardA?: TradeCard, cardB?: TradeCa
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 20, margin: '4px 0 10px', background: info.bg, color: info.cor }}>
             {atual.badge}
           </span>
-          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: '0 0 12px' }}>{info.texto}</p>
+          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: '0 0 12px' }}>{atual.texto || info.texto}</p>
           {/* Carta sem preco de mercado (comum em set recem-lancado, que e
               justamente quando o sinal de view/busca e mais informativo) nao
               pode cair na calculadora valendo R$ 0,00 -- vira link pra carta. */}
@@ -205,10 +211,19 @@ export default function ComparadorDestaques({ onSeed }: { onSeed: (cardA?: Trade
             <h3 style={{ fontSize: 14, margin: 0, fontWeight: 700 }}>O que está se mexendo</h3>
             <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3 }}>
               {([7, 30] as const).map(w => (
-                <span key={w} onClick={() => setWin(w)} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontWeight: win === w ? 700 : 400, background: win === w ? 'rgba(245,158,11,0.15)' : 'transparent', color: win === w ? '#f59e0b' : 'rgba(255,255,255,0.45)' }}>{w} dias</span>
+                <span key={w} onClick={() => setWin(w)} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontWeight: win === w ? 700 : 400, background: win === w ? 'rgba(245,158,11,0.15)' : 'transparent', color: win === w ? '#f59e0b' : 'rgba(255,255,255,0.45)' }}>{w}d+</span>
               ))}
             </div>
           </div>
+          {/* ★ A janela e um PISO, nao uma medida. A matview compara com o
+              snapshot mais recente que tenha pelo menos N dias, e como o scan
+              nao passa em toda carta toda semana, a base costuma ser bem mais
+              velha -- medido: dos 12 movers no ar, um era de 7 dias e dois de
+              74. Dizer "7 dias" cravado era falso; o "+" e a nota abaixo dizem
+              a verdade sem precisar tocar na matview. */}
+          <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.35)', margin: '-4px 0 12px' }}>
+            Variação desde a última leitura com pelo menos {win} dias — pode cobrir um período maior.
+          </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
               <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#22c55e', fontWeight: 700, margin: '0 0 8px' }}>↑ Em alta</p>

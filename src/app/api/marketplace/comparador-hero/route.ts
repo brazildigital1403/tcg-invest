@@ -34,6 +34,13 @@ interface HeroCard {
   /** So os sinais novos usam: carta sem preco vira CTA "ver a carta". */
   slug?: string | null
   cta?: 'troca' | 'ver'
+  /**
+   * Sobrescreve o texto fixo do SINAL_INFO quando o dado exige.
+   * ★ Existe porque copy fixa mentia: "Varias pessoas anunciando essa carta"
+   * era escrita mesmo quando havia UM vendedor com varios anuncios. A frase
+   * tem que sair da contagem, nao de um dicionario.
+   */
+  texto?: string
 }
 
 function limparNome(raw: string | null): string {
@@ -86,8 +93,11 @@ export async function GET() {
     const [moversRes, anunciadasRes, adicionadasRes, sinaisRes] = await Promise.all([
       sb.rpc('get_price_movers', { p_limit: 8 }),
       // marketplace: 106 linhas no total, cabe numa pagina com folga.
-      sb.from('marketplace').select('card_id, card_name, card_image').eq('status', 'disponivel'),
-      lerTudo('user_cards', 'card_id, card_name, card_image', desde30d),
+      // ★ user_id no select: sem ele nao da pra contar PESSOAS, so linhas --
+      // e era isso que fazia "varias pessoas anunciando" aparecer com um
+      // vendedor so. Coluna a mais no mesmo round-trip, custo zero.
+      sb.from('marketplace').select('card_id, card_name, card_image, user_id').eq('status', 'disponivel'),
+      lerTudo('user_cards', 'card_id, card_name, card_image, user_id', desde30d),
       // Agregacao e LIMIT em SQL de proposito -- ler a tabela crua aqui
       // repetiria o bug de truncamento de cima.
       sb.rpc('get_sinais_carta', { p_dias: 14, p_limit: 2, p_min_vis: 12, p_min_pico: 2 }),
@@ -117,11 +127,23 @@ export async function GET() {
     const movers = (moversRes.data || []) as { window_days: number; direction: 'up' | 'down'; card_id: string; name: string; image_small: string | null; preco_atual: number | null; pct: number | null }[]
     const altas7 = movers.filter(m => m.window_days === 7 && m.direction === 'up' && m.pct != null).sort((a, b) => (b.pct! - a.pct!))
     const quedas7 = movers.filter(m => m.window_days === 7 && m.direction === 'down' && m.pct != null).sort((a, b) => (a.pct! - b.pct!))
+    // ★ "em 7 dias" era FALSO em 11 dos 12 casos em cartaz. A mv_price_movers
+    // compara o preco de hoje com o snapshot mais recente que tenha PELO MENOS
+    // 7 dias -- e como o scan nao passa em toda carta toda semana, esse
+    // snapshot costuma ser bem mais velho. Idades reais medidas em 31/08 nos
+    // 12 movers no ar: 22, 74, 13, 13, 19, 46, 11, 10, 7, 74, 8 e 9 dias. So
+    // UM era de 7 dias; dois eram de 74.
+    //
+    // A RPC nao devolve a data da base (assinatura: window_days, direction,
+    // card_id, name, set_name, image_small, preco_atual, pct, slug), entao
+    // daqui nao da pra dizer a data exata sem mexer na matview -- e matview e
+    // schema, decisao do Du. O que da pra fazer sem mentir e afirmar so o que
+    // a janela garante: 7 dias e o PISO, nao a medida.
     for (const m of altas7.slice(0, 2)) {
-      push({ id: m.card_id, name: limparNome(m.name), image_small: m.image_small, sinal: 'alta', badge: `↑ +${m.pct!.toFixed(0)}% em 7 dias`, preco: m.preco_atual })
+      push({ id: m.card_id, name: limparNome(m.name), image_small: m.image_small, sinal: 'alta', badge: `↑ +${m.pct!.toFixed(0)}% em 7 dias ou mais`, preco: m.preco_atual })
     }
     for (const m of quedas7.slice(0, 2)) {
-      push({ id: m.card_id, name: limparNome(m.name), image_small: m.image_small, sinal: 'queda', badge: `↓ ${m.pct!.toFixed(0)}% em 7 dias`, preco: m.preco_atual })
+      push({ id: m.card_id, name: limparNome(m.name), image_small: m.image_small, sinal: 'queda', badge: `↓ ${m.pct!.toFixed(0)}% em 7 dias ou mais`, preco: m.preco_atual })
     }
 
     // ── Procurada / acessada (sinais de comportamento) ───────────────────
@@ -168,29 +190,50 @@ export async function GET() {
     }
 
     // ── Mais anunciada (agregado em JS -- tabela pequena, ja medido) ─────
-    type Agregado = { name: string; image: string | null; n: number }
+    type Agregado = { name: string; image: string | null; n: number; donos: Set<string> }
     const anunciadasMap = new Map<string, Agregado>()
     for (const r of anunciadasRes.data || []) {
-      const atual = anunciadasMap.get(r.card_id) || { name: limparNome(r.card_name), image: r.card_image, n: 0 }
+      const atual = anunciadasMap.get(r.card_id) || { name: limparNome(r.card_name), image: r.card_image, n: 0, donos: new Set<string>() }
       atual.n += 1
+      if (r.user_id) atual.donos.add(r.user_id)
       anunciadasMap.set(r.card_id, atual)
     }
     const topAnunciadas = [...anunciadasMap.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 3)
     for (const [id, a] of topAnunciadas) {
       if (a.n < 2) continue // 1 anuncio so nao e sinal de nada
-      push({ id, name: a.name, image_small: a.image, sinal: 'anunciada', badge: `${a.n} anúncios ativos`, preco: null })
+      // ★ A frase sai da contagem de PESSOAS. Hoje as cartas mais anunciadas
+      // sao quase todas de um vendedor so com varios anuncios -- dizer "varias
+      // pessoas" ali era falso, e e o tipo de exagero que o usuario checa em
+      // dois cliques.
+      const v = a.donos.size
+      const texto = v > 1
+        ? `${v} vendedores diferentes anunciando essa carta agora — bom momento pra comparar preços.`
+        : `${a.n} anúncios dessa carta abertos agora — dá pra comparar antes de fechar.`
+      push({ id, name: a.name, image_small: a.image, sinal: 'anunciada', badge: `${a.n} anúncios ativos`, preco: null, texto })
     }
 
     // ── Mais adicionada a colecao nos ultimos 30 dias ────────────────────
     const adicionadasMap = new Map<string, Agregado>()
     for (const r of adicionadasRes.data || []) {
-      const atual = adicionadasMap.get(r.card_id) || { name: limparNome(r.card_name), image: r.card_image, n: 0 }
+      const atual = adicionadasMap.get(r.card_id) || { name: limparNome(r.card_name), image: r.card_image, n: 0, donos: new Set<string>() }
       atual.n += 1
+      if (r.user_id) atual.donos.add(r.user_id)
       adicionadasMap.set(r.card_id, atual)
     }
-    const topAdicionadas = [...adicionadasMap.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 4)
+    // ★ Ordena por PESSOAS, nao por linhas: duas copias da mesma carta pelo
+    // mesmo dono contavam como "2 colecionadores".
+    const topAdicionadas = [...adicionadasMap.entries()].sort((a, b) => b[1].donos.size - a[1].donos.size).slice(0, 4)
     for (const [id, a] of topAdicionadas) {
-      push({ id, name: a.name, image_small: a.image, sinal: 'adicionada', badge: `Adicionada por ${a.n} colecionadores este mês`, preco: null })
+      const pessoas = a.donos.size || a.n
+      if (pessoas < 2) continue
+      push({
+        id, name: a.name, image_small: a.image, sinal: 'adicionada', preco: null,
+        badge: `${pessoas} colecionadores este mês`,
+        // ★ Sem superlativo. O bloco empurra as QUATRO primeiras e o carrossel
+        // embaralha, entao "a carta que mais entrou" era escrita por ate quatro
+        // cartas diferentes -- a 4a colocada abria a pagina se dizendo a 1a.
+        texto: `Uma das cartas que mais entraram em coleções este mês — pode valer a pena ficar de olho.`,
+      })
     }
 
     // ── Preço das cartas que vieram sem ele ──────────────────────────────
