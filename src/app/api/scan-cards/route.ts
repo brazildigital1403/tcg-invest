@@ -15,9 +15,47 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isGame, type Game } from '@/lib/game'
+import { LORCANA_ENABLED } from '@/lib/flags'
 
 export const maxDuration = 60
 export const dynamic = 'force-dynamic'
+
+
+// ── Prompt de reconhecimento POR JOGO (F5 do epico multi-jogo) ──────────────
+// O de pokemon e byte a byte o que sempre rodou — regressao zero. O de lorcana
+// pede os campos que identificam a carta la: nome + versao (subtitulo) +
+// numero N/204. A identidade e (set, numero); nome so desempata.
+const SCAN_PROMPTS: Record<Game, string> = {
+  pokemon: `You are a Pokémon TCG card recognition system. Analyze this image and identify ALL visible Pokémon TCG cards.
+
+IMPORTANT: Respond with ONLY a raw JSON array. No markdown, no code blocks, no explanations.
+
+For each card return an object with:
+- "name": card name as shown (Portuguese or English)
+- "number": card number like "004/165" if visible, otherwise null
+- "set": set/expansion name if visible, otherwise null
+- "hp": HP number if visible, otherwise null
+
+If no Pokémon TCG cards are visible, respond with exactly: []
+
+Start your response with [ and end with ]`,
+
+  lorcana: `You are a Disney Lorcana TCG card recognition system. Analyze this image and identify ALL visible Disney Lorcana cards.
+
+IMPORTANT: Respond with ONLY a raw JSON array. No markdown, no code blocks, no explanations.
+
+For each card return an object with:
+- "name": the character or card name (the large name, e.g. "Ariel")
+- "version": the version subtitle below the name if present (e.g. "Spectacular Singer"), otherwise null
+- "number": the collector number like "2/204" from the bottom of the card if visible, otherwise null
+- "set": the set symbol/name if identifiable, otherwise null
+- "ink": the ink cost number from the top-left hexagon if visible, otherwise null
+
+If no Disney Lorcana cards are visible, respond with exactly: []
+
+Start your response with [ and end with ]`,
+}
 
 export async function POST(req: NextRequest) {
   // ── Auth ──────────────────────────────────────────────────────────────
@@ -38,10 +76,20 @@ export async function POST(req: NextRequest) {
 
   // ── Recebe imagem ─────────────────────────────────────────────────────
   let image: string, mediaType: string
+  let game: Game = 'pokemon'
   try {
     const body = await req.json()
     image = body.image
     mediaType = body.mediaType || 'image/jpeg'
+    // Jogo do contexto (epico multi-jogo). Ausente = pokemon: cliente antigo
+    // continua funcionando identico. Lorcana so com a flag ligada (F8).
+    if (body.game !== undefined) {
+      if (!isGame(body.game)) return NextResponse.json({ error: 'Jogo inválido' }, { status: 400 })
+      game = body.game
+    }
+    if (game === 'lorcana' && !LORCANA_ENABLED) {
+      return NextResponse.json({ error: 'Jogo indisponível' }, { status: 404 })
+    }
     if (!image) return NextResponse.json({ error: 'Imagem não recebida' }, { status: 400 })
   } catch {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
@@ -107,19 +155,7 @@ export async function POST(req: NextRequest) {
               },
               {
                 type: 'text',
-                text: `You are a Pokémon TCG card recognition system. Analyze this image and identify ALL visible Pokémon TCG cards.
-
-IMPORTANT: Respond with ONLY a raw JSON array. No markdown, no code blocks, no explanations.
-
-For each card return an object with:
-- "name": card name as shown (Portuguese or English)
-- "number": card number like "004/165" if visible, otherwise null
-- "set": set/expansion name if visible, otherwise null
-- "hp": HP number if visible, otherwise null
-
-If no Pokémon TCG cards are visible, respond with exactly: []
-
-Start your response with [ and end with ]`,
+                text: SCAN_PROMPTS[game],
               },
             ],
           },
@@ -158,7 +194,7 @@ Start your response with [ and end with ]`,
     }
 
     console.debug('[scan-cards] cards:', cards.length)
-    return NextResponse.json({ cards, scan_creditos_restantes: saldoAposDebito })
+    return NextResponse.json({ cards, game, scan_creditos_restantes: saldoAposDebito })
 
   } catch (err: any) {
     console.error('[scan-cards] erro:', err?.message)
