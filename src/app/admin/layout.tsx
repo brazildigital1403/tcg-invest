@@ -90,6 +90,16 @@ function IconConteudoAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { si
   )
 }
 
+// Icone de parceiros inline (megafone — mesmo desenho do menu do app)
+function IconParceirosAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M2.5 9.2 17.5 5v10L2.5 11.7V9.2Z" stroke={color} strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M9.7 14a2.5 2.5 0 1 1-4.8-1.3" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean }
 
 const adminMenu: MenuItem[] = [
@@ -100,6 +110,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, countKey: 'marketplace' },
   { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },
   { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro' },
+  { label: 'Parceiros', href: '/admin/parceiros', Icon: IconParceirosAdmin },
   { label: 'Avisos', href: '/admin/notificacoes', Icon: IconBell },
   { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, countKey: 'conversas' },
   { label: 'Conteúdo', href: '/admin/conteudo', Icon: IconConteudoAdmin },
