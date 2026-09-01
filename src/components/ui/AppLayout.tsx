@@ -72,6 +72,16 @@ function IconGift({ size = 20, color = 'currentColor' }: { size?: number; color?
   )
 }
 
+// Ícone "Central do Parceiro" — megafone (o criador divulgando)
+function IconMegafone({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
+      <path d='M2.5 9.2 17.5 5v10L2.5 11.7V9.2Z' stroke={color} strokeWidth='1.4' strokeLinejoin='round' />
+      <path d='M9.7 14a2.5 2.5 0 1 1-4.8-1.3' stroke={color} strokeWidth='1.4' strokeLinecap='round' />
+    </svg>
+  )
+}
+
 function IconMasterSets({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox='0 0 20 20' fill='none'>
@@ -148,7 +158,7 @@ const fmt = (v: number) =>
 
 // ─── Definições de itens de menu ────────────────────────────────────────────
 
-type GroupKey = 'colecao' | 'explorar' | 'imprimir' | 'conta'
+type GroupKey = 'colecao' | 'explorar' | 'imprimir' | 'parceiros' | 'conta'
 
 type MenuItem = {
   name: string
@@ -173,6 +183,8 @@ const ITEM_VENDER: MenuItem = { name: 'Vender', full: 'Vender na Bynx', href: '/
 const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas, group: 'explorar' }
 const ITEM_BLOG: MenuItem = { name: 'Blog', full: 'Blog', href: '/blog', Icon: IconArticle, group: 'explorar' }
 const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat, group: 'conta' }
+// So aparece pra quem tem linha em `parceiros` (a RLS ja devolve vazio pros demais)
+const ITEM_PARCEIROS: MenuItem = { name: 'Parceiros', full: 'Central do Parceiro', href: '/parceiros', Icon: IconMegafone, group: 'parceiros' }
 
 // ─── Componente ─────────────────────────────────────────────────────────────
 
@@ -183,6 +195,7 @@ const GROUP_ORDER: { key: GroupKey; label: string }[] = [
   { key: 'colecao', label: 'Minha coleção' },
   { key: 'explorar', label: 'Explorar' },
   { key: 'imprimir', label: 'Imprimir' },
+  { key: 'parceiros', label: 'Parceiros' },
   { key: 'conta', label: 'Conta' },
 ]
 const BOTTOM_TAB_HREFS = ['/dashboard-financeiro', '/minha-colecao', '/marketplace', '/pokedex']
@@ -210,6 +223,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Detecção adaptativa do perfil
   const [temCartas, setTemCartas] = useState<boolean | null>(null)
+  const [ehParceiro, setEhParceiro] = useState(false)
   const [temLoja, setTemLoja] = useState<boolean | null>(lojaCache.getHasLoja())
   const [exploreMode, setExploreMode] = useState(false)
 
@@ -262,14 +276,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
     }
     if (isLojistaPuro) {
-      return [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
+      const lojista = [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
+      if (ehParceiro) lojista.push(ITEM_PARCEIROS)
+      return lojista
     }
     const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     else base.push(ITEM_VENDER)
+    if (ehParceiro) base.push(ITEM_PARCEIROS)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE)
     return semDash(base)
-  }, [temLoja, temCartas, isLojistaPuro, podeDashboard])
+  }, [temLoja, temCartas, isLojistaPuro, podeDashboard, ehParceiro])
 
   const primaryTabs = useMemo<MenuItem[]>(() => {
     const inBottom = BOTTOM_TAB_HREFS.map(h => menu.find(m => m.href === h)).filter(Boolean) as MenuItem[]
@@ -312,12 +329,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const { data: authData } = await supabase.auth.getUser()
       if (!authData.user) return
 
-      const [{ data: cardsCheck }, { data: lojasCheck }] = await Promise.all([
+      const [{ data: cardsCheck }, { data: lojasCheck }, { data: parceiroCheck }] = await Promise.all([
         supabase.from('user_cards').select('id', { head: false }).eq('user_id', authData.user.id).limit(1),
         supabase.from('lojas').select('id').eq('owner_user_id', authData.user.id).limit(1),
+        // RLS: so o proprio parceiro recebe a linha — pros demais vem vazio
+        supabase.from('parceiros').select('id').limit(1),
       ])
       const _temCartas = !!cardsCheck && cardsCheck.length > 0
       const _temLoja = !!lojasCheck && lojasCheck.length > 0
+      setEhParceiro(!!parceiroCheck && parceiroCheck.length > 0)
       setTemCartas(_temCartas)
       setTemLoja(_temLoja)
       lojaCache.setHasLoja(_temLoja)
