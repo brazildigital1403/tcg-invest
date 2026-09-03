@@ -231,7 +231,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           metadata: { bynx_pedido_id: String(pedidoIns.id) },
         },
         success_url: `${base}/pedido/${pedidoIns.id}?ok=1`,
-        cancel_url: `${base}/checkout/${p.id}?tipo=produto&cancelado=1`,
+        cancel_url: `${base}/produto/${p.id}?cancelado=1`,
       })
 
       await db

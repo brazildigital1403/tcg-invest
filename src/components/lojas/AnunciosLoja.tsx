@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
@@ -26,6 +27,31 @@ function TipoIcone({ tipo, size, style }: { tipo: string; size?: number; style?:
   return I ? <I size={size} style={style} /> : null
 }
 
+/**
+ * Capa do card. O produto ganhou pagina propria, entao a foto vira porta de
+ * entrada; a carta ainda nao tem detalhe e segue como imagem simples.
+ */
+function Capa({ item }: { item: Item }) {
+  const midia = item.imagem ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={item.imagem}
+      alt={item.nome}
+      style={{ width: '100%', display: 'block', aspectRatio: item.ehCarta ? undefined : '1 / 1', objectFit: item.ehCarta ? undefined : 'cover' }}
+    />
+  ) : (
+    <div style={{ paddingBottom: item.ehCarta ? '140%' : '100%', background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <TipoIcone tipo={item.tipo} size={26} style={{ opacity: 0.4 }} />
+    </div>
+  )
+  if (!item.detalhe) return midia
+  return (
+    <Link href={item.detalhe} aria-label={item.nome} style={{ display: 'block' }}>
+      {midia}
+    </Link>
+  )
+}
+
 const ORDEM_TIPO = ['carta', 'selado', 'pelucia', 'funko', 'fichario', 'acessorio']
 
 const fmt = (v: number) =>
@@ -42,6 +68,8 @@ type Item = {
   badges: string[]
   /** Carta usa o checkout do marketplace; produto passa ?tipo=produto. */
   href: string
+  /** Pagina de detalhe. So produto tem uma; carta ainda nao. */
+  detalhe: string | null
   ehCarta: boolean
 }
 
@@ -69,6 +97,8 @@ const S = {
     color: 'rgba(255,255,255,0.55)', cursor: 'pointer', fontFamily: 'inherit',
   } as React.CSSProperties,
   chipOn: { background: 'rgba(245,158,11,0.14)', borderColor: 'rgba(245,158,11,0.35)', color: BRAND } as React.CSSProperties,
+  nome: { fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3 } as React.CSSProperties,
+  nomeLink: { fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3, color: 'inherit', textDecoration: 'none' } as React.CSSProperties,
   badge: { fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' } as React.CSSProperties,
 }
 
@@ -136,6 +166,7 @@ export default function AnunciosLoja({
           preco: Number(c.price) || 0,
           badges: [VARIANTE_LABEL[c.variante || 'normal'] || 'Normal', c.condicao || 'NM'],
           href: `/checkout/${c.id}`,
+          detalhe: null,
           ehCarta: true,
         }))
       )
@@ -164,6 +195,7 @@ export default function AnunciosLoja({
           preco: (p.preco_cents || 0) / 100,
           badges: [p.estoque > 1 ? `${p.estoque} em estoque` : 'Última unidade'],
           href: `/checkout/${p.id}?tipo=produto`,
+          detalhe: `/produto/${p.id}`,
           ehCarta: false,
         }))
       )
@@ -234,20 +266,13 @@ export default function AnunciosLoja({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 12 }}>
         {visiveis.map(item => (
           <div key={item.id} style={S.surface}>
-            {item.imagem ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={item.imagem}
-                alt={item.nome}
-                style={{ width: '100%', display: 'block', aspectRatio: item.ehCarta ? undefined : '1 / 1', objectFit: item.ehCarta ? undefined : 'cover' }}
-              />
-            ) : (
-              <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <TipoIcone tipo={item.tipo} size={26} style={{ opacity: 0.4 }} />
-              </div>
-            )}
+            <Capa item={item} />
             <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3 }}>{item.nome}</p>
+              {item.detalhe ? (
+                <Link href={item.detalhe} style={S.nomeLink}>{item.nome}</Link>
+              ) : (
+                <p style={S.nome}>{item.nome}</p>
+              )}
               <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
                 {!item.ehCarta && <span style={{ ...S.badge, color: BRAND, display: 'inline-flex', alignItems: 'center', gap: 4 }}><TipoIcone tipo={item.tipo} size={12} /> {TIPO_LABEL[item.tipo]?.replace(/s$/, '')}</span>}
                 {item.badges.map((b, i) => <span key={i} style={S.badge}>{b}</span>)}
