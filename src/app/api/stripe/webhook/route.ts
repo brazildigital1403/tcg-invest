@@ -475,48 +475,81 @@ export async function POST(req: NextRequest) {
             console.warn(`[webhook] venda: taxa <= 0 no pedido ${pedido.numero} — sem lancamento`)
           }
 
-          // ── Baixa do item ────────────────────────────────────────────────
-          // Carta: 1 unidade -> o anuncio sai do ar.
-          // Produto: N unidades -> DECREMENTA. So some da vitrine quando zera
-          // (a policy da vitrine filtra estoque > 0), e volta se o lojista
+          // ── Baixa dos itens ──────────────────────────────────────────────
+          // ★ A VERDADE E `pedido_itens`, nao os campos do pedido.
+          // `pedido.marketplace_id` / `pedido.produto_id` sao ATALHO de item
+          // unico: a rota do carrinho so os preenche quando o pedido tem 1
+          // item. Num pedido de 2+ itens os dois ficam null, e este bloco
+          // (que olhava so pra eles) nao baixava NADA -- a carta continuava
+          // 'disponivel' depois de paga, pronta pra ser vendida de novo, e o
+          // estoque do produto nunca descia. O fallback cobre os pedidos
+          // antigos e o checkout direto, que nao gravam pedido_itens.
+          //
+          // Carta: sai do ar (1 unidade por anuncio, quantidade nao se aplica).
+          // Produto: DECREMENTA a quantidade comprada. So some da vitrine
+          // quando zera (a policy filtra estoque > 0), e volta se o lojista
           // repuser — sem mexer no campo `ativo`.
-          if (pedido.marketplace_id) {
-            await supabase
-              .from('marketplace')
-              .update({ status: 'vendido', buyer_id: pedido.comprador_user_id })
-              .eq('id', pedido.marketplace_id)
-          } else if (pedido.produto_id) {
-            const { data: prodAtual } = await supabase
-              .from('loja_produtos')
-              .select('estoque, vendidos, nome')
-              .eq('id', pedido.produto_id)
-              .single()
+          const { data: itensPed } = await supabase
+            .from('pedido_itens')
+            .select('marketplace_id, produto_id, quantidade')
+            .eq('pedido_id', pedido.id)
 
-            if (prodAtual) {
-              const novoEstoque = Math.max(0, (prodAtual.estoque || 0) - 1)
+          const baixas: { marketplaceId: string | null; produtoId: string | null; qtd: number }[] =
+            itensPed && itensPed.length
+              ? itensPed.map(i => ({
+                  marketplaceId: i.marketplace_id,
+                  produtoId: i.produto_id,
+                  qtd: Math.max(1, Number(i.quantidade) || 1),
+                }))
+              : pedido.marketplace_id
+                ? [{ marketplaceId: pedido.marketplace_id, produtoId: null, qtd: 1 }]
+                : pedido.produto_id
+                  ? [{ marketplaceId: null, produtoId: pedido.produto_id, qtd: 1 }]
+                  : []
+
+          if (baixas.length === 0) {
+            console.error(`[webhook] CRITICAL: pedido ${pedido.numero} pago sem item pra baixar`)
+          }
+
+          for (const baixa of baixas) {
+            if (baixa.marketplaceId) {
               await supabase
+                .from('marketplace')
+                .update({ status: 'vendido', buyer_id: pedido.comprador_user_id })
+                .eq('id', baixa.marketplaceId)
+            } else if (baixa.produtoId) {
+              const { data: prodAtual } = await supabase
                 .from('loja_produtos')
-                .update({
-                  estoque: novoEstoque,
-                  vendidos: (prodAtual.vendidos || 0) + 1,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', pedido.produto_id)
+                .select('estoque, vendidos, nome')
+                .eq('id', baixa.produtoId)
+                .single()
 
-              console.log(`[webhook] venda: estoque de "${prodAtual.nome}" ${prodAtual.estoque} -> ${novoEstoque}`)
-
-              // Esgotou: avisa o lojista pra repor (o produto some da vitrine).
-              if (novoEstoque === 0) {
-                try {
-                  await supabase.from('notifications').insert({
-                    user_id: pedido.vendedor_user_id,
-                    type: 'aviso',
-                    title: 'Produto esgotado',
-                    message: `${prodAtual.nome} vendeu a última unidade e saiu da sua vitrine. Reponha o estoque para voltar a vender.`,
-                    data: { link: `/minha-loja/${pedido.loja_id}/produtos` },
+              if (prodAtual) {
+                const novoEstoque = Math.max(0, (prodAtual.estoque || 0) - baixa.qtd)
+                await supabase
+                  .from('loja_produtos')
+                  .update({
+                    estoque: novoEstoque,
+                    vendidos: (prodAtual.vendidos || 0) + baixa.qtd,
+                    updated_at: new Date().toISOString(),
                   })
-                } catch (err: any) {
-                  console.error('[webhook] venda: falha avisando esgotado:', err?.message)
+                  .eq('id', baixa.produtoId)
+
+                console.log(`[webhook] venda: estoque de "${prodAtual.nome}" ${prodAtual.estoque} -> ${novoEstoque} (-${baixa.qtd})`)
+
+                // Esgotou: avisa o lojista pra repor (o produto some da vitrine).
+                if (novoEstoque === 0) {
+                  try {
+                    await supabase.from('notifications').insert({
+                      user_id: pedido.vendedor_user_id,
+                      type: 'aviso',
+                      title: 'Produto esgotado',
+                      message: `${prodAtual.nome} vendeu a última unidade e saiu da sua vitrine. Reponha o estoque para voltar a vender.`,
+                      data: { link: `/minha-loja/${pedido.loja_id}/produtos` },
+                    })
+                  } catch (err: any) {
+                    console.error('[webhook] venda: falha avisando esgotado:', err?.message)
+                  }
                 }
               }
             }
@@ -1276,8 +1309,50 @@ export async function POST(req: NextRequest) {
                 })
                 .eq('id', pedido.id)
 
-              // Devolve o item pra venda, igual ao cancelamento pela loja.
-              if (pedido.produto_id) {
+              // Devolve os itens pra venda, igual ao cancelamento pela loja.
+              // Mesmo motivo da baixa: a verdade e `pedido_itens`, e os campos
+              // do pedido sao atalho de item unico.
+              //
+              // ★ A RPC `restaurar_estoque_produto` NAO serve pro multi-item: o
+              // guard dela e `pedidos.produto_id = p_id`, e num pedido de 2+
+              // itens esse campo e null -- a chamada levantaria excecao. Entao
+              // item unico continua pela RPC (caminho ja provado com refund
+              // real, com o guard dela valendo) e o multi-item repoe direto,
+              // num ponto onde o pedido ACABOU de ser marcado reembolsado
+              // logo acima. Uma RPC v2 que valide por pedido_itens resolveria
+              // os dois pelo mesmo caminho, mas e migration.
+              const { data: itensEst } = await supabase
+                .from('pedido_itens')
+                .select('marketplace_id, produto_id, quantidade')
+                .eq('pedido_id', pedido.id)
+
+              if (itensEst && itensEst.length) {
+                for (const it of itensEst) {
+                  if (it.marketplace_id) {
+                    await supabase
+                      .from('marketplace')
+                      .update({ status: 'disponivel', buyer_id: null })
+                      .eq('id', it.marketplace_id)
+                  } else if (it.produto_id) {
+                    const qtd = Math.max(1, Number(it.quantidade) || 1)
+                    const { data: prod } = await supabase
+                      .from('loja_produtos')
+                      .select('estoque, vendidos')
+                      .eq('id', it.produto_id)
+                      .single()
+                    if (prod) {
+                      await supabase
+                        .from('loja_produtos')
+                        .update({
+                          estoque: (prod.estoque || 0) + qtd,
+                          vendidos: Math.max(0, (prod.vendidos || 0) - qtd),
+                          updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', it.produto_id)
+                    }
+                  }
+                }
+              } else if (pedido.produto_id) {
                 await supabase.rpc('restaurar_estoque_produto', { p_id: pedido.produto_id })
               } else if (pedido.marketplace_id) {
                 await supabase
