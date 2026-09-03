@@ -9,6 +9,7 @@ import GaleriaFotos from '@/components/lojas/GaleriaFotos'
 import TrackedLink from '@/components/lojas/TrackedLink'
 import TrackViewLoja from '@/components/lojas/TrackViewLoja'
 import AnunciosLoja from '@/components/lojas/AnunciosLoja'
+import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { buscarItensDaVitrine } from '@/lib/vitrineLoja'
 import ReputacaoCard from '@/components/ui/ReputacaoCard'
 import { IconLocation, IconInstagram, IconFacebook, IconGlobe, IconWhatsApp, IconPokeball } from '@/components/ui/Icons'
@@ -345,6 +346,12 @@ export default async function LojaPage(
                 <IconGlobe size={17} color="var(--bx-text-2)" />
               </TrackedLink>
             )}
+            <BotaoCompartilhar
+              url={`/lojas/${loja.slug}`}
+              titulo={nome}
+              texto={`${nome}${cidade ? ` — ${cidade}${estado ? `, ${estado}` : ''}` : ''} na Bynx`}
+              compacto
+            />
             {whatsappLink && (
               <TrackedLink lojaId={loja.id} tipo="whatsapp" href={whatsappLink} target="_blank" rel="noopener noreferrer" style={S.waBtn}>
                 <IconWhatsApp size={16} color="var(--bx-brand-ink)" style={{ marginRight: 8 }} />
@@ -411,6 +418,12 @@ export default async function LojaPage(
                 <IconGlobe size={17} color="var(--bx-text-2)" />
               </TrackedLink>
             )}
+            <BotaoCompartilhar
+              url={`/lojas/${loja.slug}`}
+              titulo={nome}
+              texto={`${nome}${cidade ? ` — ${cidade}${estado ? `, ${estado}` : ''}` : ''} na Bynx`}
+              compacto
+            />
           </div>
         </div>
       </div>
