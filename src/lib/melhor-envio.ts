@@ -70,18 +70,21 @@ const DIMS_POR_TIPO: Record<string, { w: number; h: number; l: number }> = {
 }
 
 /** Produto da loja: peso vem do cadastro (pedido ao lojista); dimensao default por tipo. */
-export function pacoteDeProduto(pesoG: number | null, tipo: string | null, precoCents: number): ItemFrete {
+export function pacoteDeProduto(pesoG: number | null, tipo: string | null, precoCents: number, qtd = 1): ItemFrete {
   const d = DIMS_POR_TIPO[tipo || 'outros'] || DIMS_POR_TIPO.outros
   // Sem peso cadastrado: fallback de 300g (o lojista deveria preencher).
   const kg = pesoG && pesoG > 0 ? pesoG / 1000 : 0.3
+  const n = Math.max(1, Math.floor(qtd) || 1)
   return {
     id: 'produto',
     widthCm: d.w,
     heightCm: d.h,
     lengthCm: d.l,
     weightKg: kg,
-    insuranceValue: Math.max(1, precoCents / 100),
-    quantity: 1,
+    // Seguro cobre a carga inteira, nao a unidade.
+    insuranceValue: Math.max(1, (precoCents * n) / 100),
+    // O Melhor Envio ja multiplica peso e volume por `quantity`.
+    quantity: n,
   }
 }
 

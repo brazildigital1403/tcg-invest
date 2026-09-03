@@ -13,8 +13,8 @@ import { comissaoVendedorCents, acrescimoCompradorCents, normalizarPrazo, ehMeto
  * daqui do servidor. Se aceitassemos preco do cliente, editar o localStorage
  * compraria um Charizard por R$ 1.
  *
- * A comissao e por ITEM (a regra do vendedor tem taxa fixa a partir de R$20);
- * o acrescimo do comprador e sobre o SUBTOTAL (uma transacao, um acrescimo).
+ * Comissao e acrescimo sao os dois sobre o SUBTOTAL: o pedido e UMA transacao,
+ * entao leva UMA taxa fixa (R$0,40 acima de R$20) e UM acrescimo de metodo.
  */
 
 function sb() {
@@ -96,8 +96,13 @@ function montarConta(itens: ItemResolvido[], prazo: 14 | 30, metodo: MetodoPagam
   const validos = itens.filter(i => i.disponivel)
   const subtotal = validos.reduce((s, i) => s + i.preco_cents, 0)
 
-  // Comissao POR ITEM: a taxa fixa (R$0,40 acima de R$20) e por venda de item.
-  const comissao = validos.reduce((s, i) => s + comissaoVendedorCents(i.preco_cents, prazo), 0)
+  // ★ UMA taxa fixa por PEDIDO (decisao do Du, 03/09/2026). Antes o reduce
+  // aplicava `comissaoVendedorCents` item a item, e a fixa de R$0,40 incidia N
+  // vezes -- mas ela existe pra cobrir o custo fixo que a Stripe cobra por
+  // TRANSACAO, e um pedido de N itens e uma transacao so. Cobrar N vezes viraria
+  // margem disfarcada. `comissaoVendedorCents` sobre o subtotal ja resolve:
+  // percentual do subtotal + uma unica fixa.
+  const comissao = comissaoVendedorCents(subtotal, prazo)
   // Acrescimo sobre o subtotal: e UMA transacao no cartao/Pix.
   const acrescimo = subtotal > 0 ? acrescimoCompradorCents(subtotal, metodo) : 0
 
