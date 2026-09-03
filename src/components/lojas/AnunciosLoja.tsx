@@ -7,12 +7,9 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { manifestarInteresse } from '@/lib/marketplaceInteresse'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconCard, IconBox, IconPlush, IconFigure, IconCollection, IconTag } from '@/components/ui/Icons'
+import type { ItemVitrine } from '@/lib/vitrineLoja'
 
 const BRAND = '#f59e0b'
-
-const VARIANTE_LABEL: Record<string, string> = {
-  normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse', pokeball: 'Pokeball',
-}
 
 const TIPO_LABEL: Record<string, string> = {
   carta: 'Cartas', selado: 'Selados', pelucia: 'Pelúcias',
@@ -57,21 +54,11 @@ const ORDEM_TIPO = ['carta', 'selado', 'pelucia', 'funko', 'fichario', 'acessori
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0)
 
-/** Item unificado da vitrine: carta (marketplace) e produto (loja_produtos). */
-type Item = {
-  id: string
-  tipo: string
-  nome: string
-  imagem: string | null
-  preco: number
-  /** Badges: carta -> variante/condicao · produto -> estoque */
-  badges: string[]
-  /** Carta usa o checkout do marketplace; produto passa ?tipo=produto. */
-  href: string
-  /** Pagina de detalhe. So produto tem uma; carta ainda nao. */
-  detalhe: string | null
-  ehCarta: boolean
-}
+/**
+ * O item vem PRONTO do servidor (`buscarItensDaVitrine`). Este componente nao
+ * busca mais nada de catalogo — so cuida de filtro, login e acao.
+ */
+type Item = ItemVitrine
 
 const S = {
   card: { background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24 } as React.CSSProperties,
@@ -122,16 +109,14 @@ const S = {
  */
 export default function AnunciosLoja({
   ownerUserId,
-  lojaId,
+  itens,
   podeVender = false,
 }: {
   ownerUserId: string | null
-  lojaId?: string | null
+  /** Vem do servidor, ja montado — ver `src/lib/vitrineLoja.ts`. */
+  itens: Item[]
   podeVender?: boolean
 }) {
-  const [cartas, setCartas] = useState<Item[]>([])
-  const [produtos, setProdutos] = useState<Item[]>([])
-  const [carregou, setCarregou] = useState(false)
   const [logado, setLogado] = useState<boolean | null>(null)
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [enviando, setEnviando] = useState<string | null>(null)
@@ -152,65 +137,9 @@ export default function AnunciosLoja({
     return () => { ativo = false; sub.subscription.unsubscribe() }
   }, [])
 
-  // cartas do dono da loja
-  useEffect(() => {
-    if (!ownerUserId) { setCarregou(true); return }
-    let ativo = true
-    ;(async () => {
-      const { data } = await supabase
-        .from('marketplace')
-        .select('id, card_name, card_image, price, variante, condicao')
-        .eq('user_id', ownerUserId)
-        .eq('status', 'disponivel')
-        .order('created_at', { ascending: false })
-      if (!ativo) return
-      setCartas(
-        (data || []).map(c => ({
-          id: c.id,
-          tipo: 'carta',
-          nome: c.card_name || '',
-          imagem: c.card_image,
-          preco: Number(c.price) || 0,
-          badges: [VARIANTE_LABEL[c.variante || 'normal'] || 'Normal', c.condicao || 'NM'],
-          href: `/checkout/${c.id}`,
-          detalhe: null,
-          ehCarta: true,
-        }))
-      )
-      setCarregou(true)
-    })()
-    return () => { ativo = false }
-  }, [ownerUserId])
 
-  // produtos da loja (RLS ja filtra ativo + estoque > 0)
-  useEffect(() => {
-    if (!lojaId) return
-    let ativo = true
-    ;(async () => {
-      const { data } = await supabase
-        .from('loja_produtos')
-        .select('id, slug, tipo, nome, preco_cents, estoque, fotos')
-        .eq('loja_id', lojaId)
-        .order('created_at', { ascending: false })
-      if (!ativo) return
-      setProdutos(
-        (data || []).map(p => ({
-          id: p.id,
-          tipo: p.tipo,
-          nome: p.nome,
-          imagem: Array.isArray(p.fotos) && p.fotos.length ? p.fotos[0] : null,
-          preco: (p.preco_cents || 0) / 100,
-          badges: [p.estoque > 1 ? `${p.estoque} em estoque` : 'Última unidade'],
-          href: `/checkout/${p.id}?tipo=produto`,
-          detalhe: `/produto/${p.slug || p.id}`,
-          ehCarta: false,
-        }))
-      )
-    })()
-    return () => { ativo = false }
-  }, [lojaId])
 
-  const todos = useMemo(() => [...cartas, ...produtos], [cartas, produtos])
+  const todos = itens
 
   // so mostra chip de tipo que existe (loja sem pelucia nao vê "Pelúcias")
   const tipos = useMemo(() => {
@@ -239,7 +168,7 @@ export default function AnunciosLoja({
   }
 
   // esconde a secao inteira se nao ha nada (evita bloco vazio)
-  if (!carregou || todos.length === 0) return null
+  if (todos.length === 0) return null
 
   const ehDono = !!viewerId && viewerId === ownerUserId
 
