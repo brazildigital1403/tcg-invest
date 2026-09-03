@@ -7,8 +7,8 @@ import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
-import { lojasNoCarrinho, itensDaLoja, remover, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
-import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight } from '@/components/ui/Icons'
+import { lojasNoCarrinho, itensDaLoja, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
+import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus } from '@/components/ui/Icons'
 
 /**
  * /carrinho — uma sacola POR LOJA.
@@ -30,6 +30,9 @@ interface ItemResumo {
   preco_cents: number
   disponivel: boolean
   motivo?: string
+  qtd: number
+  estoque: number
+  qtd_ajustada?: boolean
 }
 interface OpcaoFrete { id: number; nome: string; empresa: string; precoCents: number; prazoDias: number }
 interface Resumo {
@@ -41,6 +44,11 @@ interface Resumo {
   total_comprador_cents: number | null
   frete_pendente: boolean
   qtd_validos: number
+}
+
+/** Unidades da sacola, pro rotulo bater com o contador do header. */
+function unidades(r: Resumo): number {
+  return r.itens.reduce((s, i) => s + (i.disponivel ? i.qtd : 0), 0)
 }
 
 export default function CarrinhoPage() {
@@ -80,7 +88,7 @@ export default function CarrinhoPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         loja_id: lojaId,
-        itens: itens.map(i => ({ id: i.id, tipo: i.tipo })),
+        itens: itens.map(i => ({ id: i.id, tipo: i.tipo, qtd: i.qtd })),
         metodo,
         ...(svc ? { servico: svc, cep: (cepStr || '').replace(/\D/g, '') } : {}),
       }),
@@ -111,7 +119,13 @@ export default function CarrinhoPage() {
   }, [lerLocal, buscarResumo])
 
   useEffect(() => { recarregar() }, [recarregar])
-  useEffect(() => assinarCarrinho(() => { recarregar() }), [recarregar])
+  // Mudanca no carrinho (qtd ou remocao) INVALIDA a cotacao: o volume mudou e o
+  // servidor re-cota na hora de fechar. Mostrar o frete antigo enganaria.
+  useEffect(() => assinarCarrinho(() => {
+    setOpcoes({})
+    setServico({})
+    recarregar()
+  }), [recarregar])
 
   async function cotar(lojaId: string) {
     const cd = (cep[lojaId] || '').replace(/\D/g, '')
@@ -124,7 +138,7 @@ export default function CarrinhoPage() {
         body: JSON.stringify({
           tipo: 'carrinho',
           loja_id: lojaId,
-          itens: (itensPorLoja[lojaId] || []).map(i => ({ id: i.id, tipo: i.tipo })),
+          itens: (itensPorLoja[lojaId] || []).map(i => ({ id: i.id, tipo: i.tipo, qtd: i.qtd })),
           cep: cd,
         }),
       })
@@ -168,7 +182,7 @@ export default function CarrinhoPage() {
         },
         body: JSON.stringify({
           loja_id: lojaId,
-          itens: (itensPorLoja[lojaId] || []).map(i => ({ id: i.id, tipo: i.tipo })),
+          itens: (itensPorLoja[lojaId] || []).map(i => ({ id: i.id, tipo: i.tipo, qtd: i.qtd })),
           metodo,
           ...(servico[lojaId] ? { servico: servico[lojaId], cep: cd } : {}),
         }),
@@ -222,7 +236,7 @@ export default function CarrinhoPage() {
             <section key={lojaId} style={S.card}>
               <div style={S.lojaTopo}>
                 <Link href={`/lojas/${r.loja.slug}`} style={S.lojaNome}>{r.loja.nome}</Link>
-                <span style={S.mutSm}>{r.itens.length} {r.itens.length === 1 ? 'item' : 'itens'}</span>
+                <span style={S.mutSm}>{unidades(r)} {unidades(r) === 1 ? 'unidade' : 'unidades'}</span>
               </div>
 
               {r.itens.map(it => (
@@ -234,9 +248,44 @@ export default function CarrinhoPage() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ ...S.itNome, ...(it.disponivel ? {} : S.riscado) }}>{it.nome}</p>
-                    {it.disponivel
-                      ? <p style={S.itPreco}>{fmtBRL(it.preco_cents)}</p>
-                      : <p style={S.itErro}>Indisponível — {it.motivo}</p>}
+                    {it.disponivel ? (
+                      <>
+                        <p style={S.itPreco}>
+                          {fmtBRL(it.preco_cents * it.qtd)}
+                          {it.qtd > 1 && <span style={S.itUnit}> · {it.qtd}x {fmtBRL(it.preco_cents)}</span>}
+                        </p>
+                        {it.tipo === 'produto' && it.estoque > 1 && (
+                          <div style={S.qtdBox}>
+                            <button
+                              type="button"
+                              onClick={() => definirQtd(it.id, it.qtd - 1)}
+                              disabled={it.qtd <= 1}
+                              style={{ ...S.qtdBtn, opacity: it.qtd <= 1 ? 0.35 : 1 }}
+                              aria-label={`Diminuir ${it.nome}`}
+                            >
+                              <IconMinus size={14} color="currentColor" />
+                            </button>
+                            <span style={S.qtdNum} aria-live="polite">{it.qtd}</span>
+                            <button
+                              type="button"
+                              onClick={() => definirQtd(it.id, it.qtd + 1)}
+                              disabled={it.qtd >= it.estoque}
+                              style={{ ...S.qtdBtn, opacity: it.qtd >= it.estoque ? 0.35 : 1 }}
+                              aria-label={`Aumentar ${it.nome}`}
+                            >
+                              <IconPlus size={14} color="currentColor" />
+                            </button>
+                          </div>
+                        )}
+                        {it.qtd_ajustada && (
+                          <p style={S.itAviso}>
+                            A loja tem {it.estoque} {it.estoque === 1 ? 'unidade' : 'unidades'} — ajustamos a quantidade.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p style={S.itErro}>Indisponível — {it.motivo}</p>
+                    )}
                   </div>
                   <button type="button" onClick={() => remover(it.id)} style={S.rem} aria-label={`Remover ${it.nome}`}>
                     <IconTrash size={16} color="currentColor" />
@@ -370,6 +419,19 @@ const S: Record<string, CSSProperties> = {
   itNome: { fontSize: 13.5, fontWeight: 700, margin: 0, lineHeight: 1.3 },
   riscado: { textDecoration: 'line-through', color: 'var(--bx-text-3)' },
   itPreco: { fontSize: 13, color: 'var(--ac-1)', fontWeight: 800, margin: '3px 0 0' },
+  itUnit: { fontSize: 11.5, color: 'var(--bx-text-3)', fontWeight: 600 },
+  itAviso: { fontSize: 11, color: '#fbbf24', margin: '5px 0 0', lineHeight: 1.4 },
+  qtdBox: {
+    display: 'inline-flex', alignItems: 'center', marginTop: 7,
+    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)',
+    borderRadius: 9, overflow: 'hidden',
+  },
+  qtdBtn: {
+    width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'transparent', border: 'none', color: 'var(--bx-text)',
+    cursor: 'pointer', fontFamily: 'inherit', padding: 0,
+  },
+  qtdNum: { minWidth: 28, textAlign: 'center', fontSize: 14, fontWeight: 800, fontVariantNumeric: 'tabular-nums' },
   itErro: { fontSize: 11.5, color: '#fca5a5', margin: '3px 0 0' },
   rem: {
     width: 44, height: 44, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',

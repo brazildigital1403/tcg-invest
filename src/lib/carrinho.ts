@@ -10,6 +10,10 @@
  * login so e pedido no "Finalizar". Carrinho no banco exigiria login pra
  * adicionar item — pior conversao.
  *
+ * QUANTIDADE: so faz sentido pra PRODUTO (a carta e peca unica, 1 anuncio = 1
+ * unidade). O campo e opcional e o `ler()` normaliza pra 1 — assim carrinho
+ * gravado antes desta versao continua valendo em vez de ser descartado.
+ *
  * ★ SO GUARDAMOS IDs ★
  * Nada de preco/nome aqui. Preco vem SEMPRE do servidor: se o cliente mandasse
  * o preco, daria pra editar o localStorage e comprar um Charizard por R$ 1.
@@ -26,6 +30,8 @@ export interface ItemCarrinho {
   id: string
   tipo: TipoItem
   lojaId: string
+  /** Unidades. Sempre 1 pra carta. O servidor revalida contra o estoque. */
+  qtd: number
   /** so pra exibir enquanto o servidor nao responde; NUNCA usado em conta */
   addedAt: number
 }
@@ -39,10 +45,17 @@ function ler(): Carrinho {
     if (!raw) return []
     const arr = JSON.parse(raw)
     if (!Array.isArray(arr)) return []
-    return arr.filter(
-      (i): i is ItemCarrinho =>
-        !!i && typeof i.id === 'string' && (i.tipo === 'carta' || i.tipo === 'produto') && typeof i.lojaId === 'string'
-    )
+    return arr
+      .filter(
+        (i): i is ItemCarrinho =>
+          !!i && typeof i.id === 'string' && (i.tipo === 'carta' || i.tipo === 'produto') && typeof i.lojaId === 'string'
+      )
+      // Normaliza a quantidade: item gravado antes desta versao nao tem `qtd`,
+      // e carta e sempre 1 unidade.
+      .map(i => ({
+        ...i,
+        qtd: i.tipo === 'carta' ? 1 : Math.max(1, Math.min(Math.floor(Number(i.qtd)) || 1, 99)),
+      }))
   } catch {
     return []
   }
@@ -80,15 +93,31 @@ export function estaNoCarrinho(id: string): boolean {
   return ler().some(i => i.id === id)
 }
 
+/** Total de UNIDADES (nao de linhas): 1 produto com 3 unidades conta 3. */
 export function contarItens(): number {
-  return ler().length
+  return ler().reduce((s, i) => s + i.qtd, 0)
 }
 
-/** Adiciona (ignora duplicado: 1 anuncio = 1 unidade na v1). */
-export function adicionar(item: Omit<ItemCarrinho, 'addedAt'>): void {
+/**
+ * Adiciona. Item que ja esta no carrinho nao duplica linha: a quantidade se
+ * ajusta na PAGINA do carrinho, nao clicando N vezes no botao da vitrine (o
+ * botao de la vira "No carrinho" justamente pra deixar isso claro).
+ */
+export function adicionar(item: Omit<ItemCarrinho, 'addedAt' | 'qtd'> & { qtd?: number }): void {
   const c = ler()
   if (c.some(i => i.id === item.id)) return
-  gravar([...c, { ...item, addedAt: Date.now() }])
+  const qtd = item.tipo === 'carta' ? 1 : Math.max(1, Math.min(Math.floor(Number(item.qtd)) || 1, 99))
+  gravar([...c, { ...item, qtd, addedAt: Date.now() }])
+}
+
+/**
+ * Ajusta as unidades de um item. O TETO REAL e o estoque, e quem sabe dele e o
+ * servidor -- aqui so limitamos a 99 pra nao gravar absurdo no localStorage. A
+ * rota do carrinho revalida contra o estoque e corta o excesso.
+ */
+export function definirQtd(id: string, qtd: number): void {
+  const n = Math.max(1, Math.min(Math.floor(Number(qtd)) || 1, 99))
+  gravar(ler().map(i => (i.id === id && i.tipo !== 'carta' ? { ...i, qtd: n } : i)))
 }
 
 export function remover(id: string): void {
@@ -96,7 +125,7 @@ export function remover(id: string): void {
 }
 
 /** Alterna e devolve o estado novo (pro botao da vitrine). */
-export function alternar(item: Omit<ItemCarrinho, 'addedAt'>): boolean {
+export function alternar(item: Omit<ItemCarrinho, 'addedAt' | 'qtd'> & { qtd?: number }): boolean {
   if (estaNoCarrinho(item.id)) {
     remover(item.id)
     return false
