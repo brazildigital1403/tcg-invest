@@ -1,6 +1,7 @@
 'use client'
 
 import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 
 /**
  * Galeria da pagina de produto: UMA foto grande + tira de miniaturas.
@@ -72,8 +73,18 @@ export default function GaleriaProduto({ fotos, nome }: { fotos: string[]; nome:
 
       <div style={S.heroWrap} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <button type="button" onClick={() => setAberta(true)} style={S.heroBtn} aria-label={`Ampliar foto ${ativa + 1} de ${total}`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={fotos[ativa]} alt={`${nome} — foto ${ativa + 1}`} style={S.heroImg} />
+          {/* next/image (nao <img> cru): as fotos de produto sao PNG de ate 2 MB
+              no bucket, e a galeria carrega ate 10. Otimizado, o comprador
+              recebe webp no tamanho da tela dele. */}
+          <Image
+            src={fotos[ativa]}
+            alt={`${nome} — foto ${ativa + 1}`}
+            width={800}
+            height={800}
+            sizes="(max-width: 880px) 100vw, 640px"
+            priority
+            style={S.heroImg}
+          />
         </button>
         {total > 1 && <div style={S.contador}>{ativa + 1} / {total}</div>}
         <span className="bx-pg-zoom" style={S.zoom} aria-hidden="true"><IconeLupa /></span>
@@ -91,8 +102,7 @@ export default function GaleriaProduto({ fotos, nome }: { fotos: string[]; nome:
               aria-label={`Ver foto ${i + 1}`}
               aria-current={i === ativa ? 'true' : undefined}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={f} alt="" style={S.tiraImg} />
+              <Image src={f} alt="" width={60} height={60} sizes="60px" style={S.tiraImg} />
             </button>
           ))}
         </div>
@@ -132,8 +142,14 @@ export default function GaleriaProduto({ fotos, nome }: { fotos: string[]; nome:
           )}
 
           <div style={S.lbWrap} onClick={e => e.stopPropagation()}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={fotos[ativa]} alt={`${nome} — foto ${ativa + 1}`} style={S.lbImg} />
+            <Image
+              src={fotos[ativa]}
+              alt={`${nome} — foto ${ativa + 1}`}
+              width={1400}
+              height={1400}
+              sizes="90vw"
+              style={S.lbImg}
+            />
           </div>
         </div>
       )}

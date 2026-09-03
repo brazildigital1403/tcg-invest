@@ -2,6 +2,7 @@
 
 import { CSSProperties, useState, useMemo, useRef } from 'react'
 import { authFetch } from '@/lib/authFetch'
+import { comprimirImagem } from '@/lib/comprimirImagem'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { uploadFotoLoja, deletarFotoLoja, uploadLogoLoja, deletarLogoLoja, uploadCapaLoja, deletarCapaLoja } from '@/lib/uploadFoto'
 import { IconKey } from '@/components/ui/Icons'
@@ -179,7 +180,10 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     }
     setLogoUploading(true)
     try {
-      const result = await uploadLogoLoja(initialData.id, file)
+      // ★ Comprime antes de subir. O comentario de `logo/route.ts` afirmava que
+      // "a compressao client-side ja reduz" — era FALSO ate 03/09: daqui saia o
+      // `File` cru. Logo de 400px vira ~10 KB em webp.
+      const result = await uploadLogoLoja(initialData.id, await comprimirImagem(file, { maxLado: 512 }))
       setLogoUrl(result.url)
     } catch (err: any) {
       console.error('[FormLoja] upload logo falhou', err)
@@ -212,7 +216,9 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     }
     setCapaUploading(true)
     try {
-      const result = await uploadCapaLoja(initialData.id, file)
+      // Capa e banner largo: 1920 preserva nitidez em tela cheia e ainda corta
+      // o peso do arquivo cru.
+      const result = await uploadCapaLoja(initialData.id, await comprimirImagem(file, { maxLado: 1920 }))
       setCapaUrl(result.url)
     } catch (err: any) {
       console.error('[FormLoja] upload capa falhou', err)
@@ -281,7 +287,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
     for (let i = 0; i < aSubir.length; i++) {
       const file = aSubir[i]
       try {
-        const result = await uploadFotoLoja(lojaId, file)
+        const result = await uploadFotoLoja(lojaId, await comprimirImagem(file, { maxLado: 1600 }))
         setFotos(result.fotos)
         sucessos++
       } catch (err: any) {

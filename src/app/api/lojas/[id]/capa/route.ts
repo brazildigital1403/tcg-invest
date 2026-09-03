@@ -16,7 +16,9 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
  * Validações:
  *   - Bearer token + ownership da loja
  *   - MIME: image/jpeg, image/png, image/webp
- *   - Tamanho: máx 5MB (compressão client-side já reduz)
+ * A compressao client-side (`src/lib/comprimirImagem.ts`, desde 03/09/2026)
+ * ja reduz e converte pra webp antes de chegar aqui. Ate essa data este
+ * comentario AFIRMAVA isso e era falso: o FormLoja mandava o File cru.
  *
  * Retornos POST:
  *   - 200 → { url }
