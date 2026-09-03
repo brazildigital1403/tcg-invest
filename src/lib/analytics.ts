@@ -214,6 +214,34 @@ export type BynxEvent =
     }
   | { name: 'search_no_results'; properties: { query: string } }
 
+  // Comparador de troca (2)
+  | {
+      /**
+       * Disparado quando o veredito aparece -- os DOIS lados montados. Nao no
+       * clique de adicionar carta: montar meia troca e abandonar nao e uso, e
+       * contar isso inflaria a metrica com quem so passou os olhos.
+       *
+       * `sem_preco` sai junto de proposito: e o unico jeito de medir quanto do
+       * uso real esbarra nas 17,9% de cartas sem preco BRL. Sem essa
+       * propriedade, "as pessoas usam" e "as pessoas conseguem uma resposta"
+       * viram a mesma coisa no painel.
+       */
+      name: 'trade_compared'
+      properties: {
+        cartas_lado_a: number
+        cartas_lado_b: number
+        total_a: number
+        total_b: number
+        veredito: 'equilibrada' | 'desequilibrada' | 'muito_desequilibrada' | 'sem_preco'
+        sem_preco: number
+        origem: 'comparador' | 'chat'
+      }
+    }
+  | {
+      name: 'trade_published'
+      properties: { veredito: string; anonimo: boolean }
+    }
+
   // Lojas (4)
   | { name: 'store_signup_started'; properties: Record<string, never> }
   | { name: 'store_signup_completed'; properties: { plan: string } }

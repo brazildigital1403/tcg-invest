@@ -13,6 +13,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { registrarSinal } from '@/lib/sinais'
+import { track } from '@/lib/analytics'
 import { CAMPO_VALOR, getPrecoVariante, getVarianteEfetiva } from '@/lib/calcPatrimonio'
 import { IconCheck, IconWarning, IconClose, IconPlus } from '@/components/ui/Icons'
 
@@ -525,6 +526,33 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
   const verdictColor = verdict?.tom === 'ok' ? 'var(--bx-green)' : verdict?.tom === 'bad' ? 'var(--bx-red)' : 'var(--ac-1)'
   const veredictoDb = verdict?.tom === 'ok' ? 'equilibrada' : verdict?.tom === 'bad' ? 'muito_desequilibrada' : 'desequilibrada'
 
+  /**
+   * ★ Nenhum dos 4 arquivos do comparador media nada. A pagina podia lancar e
+   * na segunda-feira nao haveria como responder "alguem usou?" -- o $pageview
+   * do PostHog conta VISITA, e visita nao e uso de calculadora.
+   *
+   * Dispara quando o veredito aparece, uma vez por combinacao de lados: o
+   * `verdictoChave` evita reenviar a cada re-render e a cada troca de variante.
+   */
+  const verdictoChave = verdict ? `${ladoA.length}-${ladoB.length}-${totalA}-${totalB}-${verdict.tom}` : null
+  const ultimoTrack = useRef<string | null>(null)
+  useEffect(() => {
+    if (!verdictoChave || ultimoTrack.current === verdictoChave) return
+    ultimoTrack.current = verdictoChave
+    track({
+      name: 'trade_compared',
+      properties: {
+        cartas_lado_a: ladoA.length,
+        cartas_lado_b: ladoB.length,
+        total_a: Number(totalA.toFixed(2)),
+        total_b: Number(totalB.toFixed(2)),
+        veredito: semPrecoTotal > 0 ? 'sem_preco' : (veredictoDb as 'equilibrada' | 'desequilibrada' | 'muito_desequilibrada'),
+        sem_preco: semPrecoTotal,
+        origem: onClose ? 'chat' : 'comparador',
+      },
+    })
+  }, [verdictoChave])
+
   async function publicar() {
     if (publicando || publicado || !verdict) return
     setPublicando(true)
@@ -535,7 +563,10 @@ export default function TradeAnalyzer({ initialCardA, initialCardB, initialLadoA
         method: 'POST', headers,
         body: JSON.stringify({ ladoA, ladoB, totalA, totalB, pct, veredito: veredictoDb, mostrarUsuario: mostrarComoUsuario }),
       })
-      if (res.ok) setPublicado(true)
+      if (res.ok) {
+        setPublicado(true)
+        track({ name: 'trade_published', properties: { veredito: veredictoDb, anonimo: !mostrarComoUsuario } })
+      }
     } catch { /* silencioso -- publicar e opcional */ }
     setPublicando(false)
   }
