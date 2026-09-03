@@ -79,6 +79,22 @@
   --bx-hero-wash: radial-gradient(140% 120% at 12% 30%, rgba(45,212,191,0.07), transparent 60%);
 }
 
+/* Acento do COMPRADOR (roxo->rosa) — mesmo mecanismo do contexto Lorcana e da
+   casca da Loja. O fluxo de compra (checkout, /pedido) ja usava esse par, mas
+   cravado em hex em cada arquivo: `#a855f7 -> #ec4899` aparecia solto no botao
+   Comprar da vitrine e em ~8 lugares do checkout, e `#ec4899` nao existia como
+   token nenhum. Aqui ele vira contexto: aplicar a classe num elemento faz todo
+   `var(--ac-*)` dentro dele resolver pro acento do comprador, sem fork e sem
+   hex novo. Serve tanto pra tela inteira (checkout) quanto pra um botao
+   isolado (o CTA na pagina de produto, que vive numa pagina de acento ambar). */
+.bx-ctx-comprador {
+  --ac-1:     #a855f7;
+  --ac-2:     #ec4899;
+  --ac-1-rgb: 168, 85, 247;
+  --ac-2-rgb: 236, 72, 153;
+  --ac-grad:  linear-gradient(135deg, #a855f7, #ec4899);
+}
+
 /* Tema CLARO — dormente. So passa a valer quando o <html> tiver
    data-theme="light" (toggle + persistencia entram numa fase futura). */
 [data-theme="light"] {
