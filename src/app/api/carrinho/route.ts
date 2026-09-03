@@ -23,7 +23,7 @@ function sb() {
 }
 
 const SELECT_LOJA =
-  'id, nome, slug, status, owner_user_id, stripe_connect_account_id, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents, frete_modo, cep'
+  'id, nome, slug, status, owner_user_id, stripe_connect_account_id, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents, frete_modo, cep, logo_url, verificada, cidade, estado, plano'
 
 interface Entrada { id: string; tipo: 'carta' | 'produto'; qtd?: number }
 interface ItemResolvido {
@@ -236,11 +236,32 @@ export async function POST(req: NextRequest) {
 
     // ── Resumo (a pagina do carrinho) ────────────────────────────────────
     if (acao === 'resumo') {
+      // Reputacao da loja: mesma fonte da pagina publica (avaliacoes do DONO).
+      // Best effort — falha aqui nao pode derrubar o carrinho.
+      let rating: { media: number; total: number } | null = null
+      try {
+        const { data: avs } = await db.from('avaliacoes').select('estrelas').eq('avaliado_id', loja.owner_user_id)
+        const notas = (avs || []).map(a => a.estrelas).filter((n): n is number => typeof n === 'number')
+        if (notas.length) rating = { media: notas.reduce((x, y) => x + y, 0) / notas.length, total: notas.length }
+      } catch (e) {
+        console.error('[carrinho] rating:', (e as Error)?.message)
+      }
+
       return NextResponse.json({
         loja: {
           id: loja.id, nome: loja.nome, slug: loja.slug,
           pode_vender: !!loja.connect_charges_enabled,
           frete_modo: ehCalculado ? 'calculado' : 'fixo',
+          // Pra coluna de confianca do carrinho: quem esta vendendo, onde fica,
+          // se e verificada e como as pessoas avaliaram. Comprar de uma loja
+          // que voce nao conhece e o atrito real aqui.
+          logo_url: loja.logo_url ?? null,
+          verificada: !!loja.verificada,
+          cidade: loja.cidade ?? null,
+          estado: loja.estado ?? null,
+          plano: loja.plano ?? null,
+          rating,
+          owner_user_id: loja.owner_user_id,
         },
         itens,
         ...conta,

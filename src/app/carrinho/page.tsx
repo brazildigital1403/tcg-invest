@@ -5,10 +5,11 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { lojasNoCarrinho, itensDaLoja, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
-import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus } from '@/components/ui/Icons'
+import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled } from '@/components/ui/Icons'
 
 /**
  * /carrinho — uma sacola POR LOJA.
@@ -36,7 +37,14 @@ interface ItemResumo {
 }
 interface OpcaoFrete { id: number; nome: string; empresa: string; precoCents: number; prazoDias: number }
 interface Resumo {
-  loja: { id: string; nome: string; slug: string; pode_vender: boolean; frete_modo: 'fixo' | 'calculado' }
+  loja: {
+    id: string; nome: string; slug: string; pode_vender: boolean
+    frete_modo: 'fixo' | 'calculado'
+    logo_url: string | null; verificada: boolean
+    cidade: string | null; estado: string | null; plano: string | null
+    rating: { media: number; total: number } | null
+    owner_user_id: string
+  }
   itens: ItemResumo[]
   subtotal_cents: number
   acrescimo_cents: number
@@ -196,6 +204,7 @@ export default function CarrinhoPage() {
     }
   }
 
+  const totalUnidades = Object.values(resumos).reduce((acc, r) => acc + unidades(r), 0)
   const vazio = !carregando && lojas.length === 0
 
   return (
@@ -210,7 +219,16 @@ export default function CarrinhoPage() {
       `}</style>
 
       <div style={S.wrap}>
-        <h1 style={S.h1}>Seu carrinho</h1>
+        {/* Header padrao do app (mesmo de /compras, /minha-colecao...). Antes
+            era um <h1> solto, que nao seguia o padrao de nenhuma outra tela. */}
+        <PageHeader
+          trilha={[INICIO, { name: 'Carrinho', href: '/carrinho' }]}
+          titulo="Seu carrinho"
+          descricao="Revise os itens, calcule o frete e finalize a compra."
+          stat={totalUnidades > 0
+            ? `${totalUnidades} ${totalUnidades === 1 ? 'unidade' : 'unidades'} · ${lojas.length} ${lojas.length === 1 ? 'loja' : 'lojas'}`
+            : undefined}
+        />
 
         {erro && <div style={S.erro}>{erro}</div>}
 
@@ -234,8 +252,47 @@ export default function CarrinhoPage() {
 
           return (
             <section key={lojaId} style={S.card}>
+              {/* ★ Cabecalho de CONFIANCA da loja. O atrito real aqui nao e
+                  preco, e comprar de uma loja que voce nao conhece — entao o
+                  card abre dizendo QUEM esta vendendo: logo, selo de
+                  verificada, cidade e reputacao. */}
               <div style={S.lojaTopo}>
-                <Link href={`/lojas/${r.loja.slug}`} style={S.lojaNome}>{r.loja.nome}</Link>
+                <Link href={`/lojas/${r.loja.slug}`} style={S.lojaBloco}>
+                  {r.loja.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={r.loja.logo_url} alt={r.loja.nome} style={S.lojaLogo} />
+                  ) : (
+                    <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{(r.loja.nome || 'L').charAt(0).toUpperCase()}</span>
+                  )}
+                  <span style={{ minWidth: 0 }}>
+                    <span style={S.lojaNome}>
+                      {r.loja.nome}
+                      {r.loja.verificada && (
+                        <span style={S.selo} title="Loja verificada">
+                          <IconShield size={12} color="var(--bx-green)" />
+                        </span>
+                      )}
+                    </span>
+                    <span style={S.lojaMeta}>
+                      {r.loja.cidade && (
+                        <span style={S.metaItem}>
+                          <IconLocation size={11} color="var(--bx-text-3)" />
+                          {r.loja.cidade}{r.loja.estado ? `, ${r.loja.estado}` : ''}
+                        </span>
+                      )}
+                      {r.loja.rating && (
+                        <span style={S.metaItem}>
+                          <IconStarFilled size={11} color="var(--ac-1)" />
+                          {r.loja.rating.media.toFixed(1).replace('.', ',')}
+                          <span style={S.mutSm}>({r.loja.rating.total})</span>
+                        </span>
+                      )}
+                      <span style={S.metaItem}>
+                        <IconShield size={11} color="var(--bx-text-3)" /> Vendido e enviado pela loja
+                      </span>
+                    </span>
+                  </span>
+                </Link>
                 <span style={S.mutSm}>{unidades(r)} {unidades(r) === 1 ? 'unidade' : 'unidades'}</span>
               </div>
 
@@ -409,7 +466,13 @@ const S: Record<string, CSSProperties> = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     gap: 10, paddingBottom: 12, borderBottom: '1px solid var(--bx-border)', marginBottom: 4,
   },
-  lojaNome: { fontSize: 15, fontWeight: 800, color: 'var(--bx-text)', textDecoration: 'none' },
+  lojaBloco: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, textDecoration: 'none', color: 'inherit', minHeight: 44 },
+  lojaLogo: { width: 38, height: 38, borderRadius: 9, objectFit: 'cover', flex: 'none', background: 'var(--bx-surface-2)' },
+  lojaLogoVazia: { display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, color: 'var(--bx-text-3)' },
+  lojaNome: { fontSize: 14.5, fontWeight: 800, color: 'var(--bx-text)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5 },
+  selo: { display: 'inline-flex', alignItems: 'center' },
+  lojaMeta: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 3 },
+  metaItem: { display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, color: 'var(--bx-text-3)', fontWeight: 600 },
 
   linha: { display: 'flex', alignItems: 'center', gap: 11, padding: '11px 0', borderBottom: '1px solid var(--bx-border)' },
   thumb: {
