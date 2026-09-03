@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
@@ -30,11 +31,15 @@ function TipoIcone({ tipo, size, style }: { tipo: string; size?: number; style?:
  */
 function Capa({ item }: { item: Item }) {
   const midia = item.imagem ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    // next/image: o card da vitrine servia a foto CRUA do produto (ate 2 MB)
+    // num quadrado de ~140px. `sizes` diz ao Next o tamanho real na tela.
+    <Image
       src={item.imagem}
       alt={item.nome}
-      style={{ width: '100%', display: 'block', aspectRatio: item.ehCarta ? undefined : '1 / 1', objectFit: item.ehCarta ? undefined : 'cover' }}
+      width={300}
+      height={item.ehCarta ? 418 : 300}
+      sizes="(max-width: 880px) 45vw, 160px"
+      style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: item.ehCarta ? undefined : '1 / 1', objectFit: item.ehCarta ? undefined : 'cover' }}
     />
   ) : (
     <div style={{ paddingBottom: item.ehCarta ? '140%' : '100%', background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

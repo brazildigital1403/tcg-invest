@@ -259,8 +259,7 @@ export default function CarrinhoPage() {
               <div style={S.lojaTopo}>
                 <Link href={`/lojas/${r.loja.slug}`} style={S.lojaBloco}>
                   {r.loja.logo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.loja.logo_url} alt={r.loja.nome} style={S.lojaLogo} />
+                    <Image src={r.loja.logo_url} alt={r.loja.nome} width={38} height={38} sizes="38px" style={S.lojaLogo} />
                   ) : (
                     <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{(r.loja.nome || 'L').charAt(0).toUpperCase()}</span>
                   )}
@@ -300,7 +299,7 @@ export default function CarrinhoPage() {
                 <div key={it.id} style={S.linha}>
                   <div style={S.thumb}>
                     {it.imagem
-                      ? <Image src={it.imagem} alt={it.nome} width={54} height={54} style={{ width: '100%', height: '100%', objectFit: 'cover' }} unoptimized />
+                      ? <Image src={it.imagem} alt={it.nome} width={54} height={54} style={{ width: '100%', height: '100%', objectFit: 'cover' }} sizes="54px" />
                       : <IconPokeball size={20} color="var(--bx-text-faint)" />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>

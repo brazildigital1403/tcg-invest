@@ -1,5 +1,6 @@
 import { CSSProperties } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound, permanentRedirect } from 'next/navigation'
 import { Metadata } from 'next'
 import { supabase } from '@/lib/supabaseClient'
@@ -281,8 +282,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               <div style={S.card}>
                 <Link href={`/lojas/${loja.slug}`} style={S.lojaLinha}>
                   {loja.logo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={loja.logo_url} alt={nomeLoja} style={S.lojaLogo} />
+                    <Image src={loja.logo_url} alt={nomeLoja} width={42} height={42} sizes="42px" style={S.lojaLogo} />
                   ) : (
                     <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{nomeLoja.charAt(0)}</span>
                   )}

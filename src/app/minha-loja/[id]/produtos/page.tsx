@@ -7,6 +7,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { IconBox, IconPlush, IconFigure, IconCollection, IconTag } from '@/components/ui/Icons'
 import { fmtBRL } from '@/lib/comissao'
+import { comprimirImagem } from '@/lib/comprimirImagem'
 
 /**
  * /minha-loja/[id]/produtos — o que a loja vende alem de carta.
@@ -108,8 +109,13 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
     setErro(null)
     try {
       const t = await token()
+      // ★ Comprime ANTES de subir. As fotos subiam cruas: media de 1,1 MB no
+      // bucket, PNG de ate 2 MB, e a galeria carrega ate 10 — ~11 MB no 4G do
+      // comprador. Falhar aqui devolve o arquivo original, nunca quebra o
+      // upload.
+      const arquivo = await comprimirImagem(f, { maxLado: 1600 })
       const fd = new FormData()
-      fd.append('file', f)
+      fd.append('file', arquivo)
       const r = await fetch(`/api/lojas/${lojaId}/produtos/foto`, {
         method: 'POST', headers: { Authorization: `Bearer ${t}` }, body: fd,
       })
@@ -227,7 +233,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
           <div style={S.fotos}>
             {fotos.map((f, i) => (
               <div key={i} style={S.foto}>
-                <Image src={f} alt="" width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }} unoptimized />
+                <Image src={f} alt="" width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }} sizes="72px" />
                 <button onClick={() => setFotos(fotos.filter((_, j) => j !== i))} style={S.remFoto}>×</button>
               </div>
             ))}
