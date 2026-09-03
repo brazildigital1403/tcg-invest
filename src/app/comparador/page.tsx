@@ -71,17 +71,28 @@ export default function ComparadorPage() {
           }
         />
 
-        <ComparadorDestaques onSeed={handleSeed} />
+        {/* ★ A CALCULADORA VEM PRIMEIRO.
+            Antes a ordem era destaques -> radar -> ideias -> feed -> calculadora,
+            e em 375px isso punha o campo "Você oferece" a ~930px de scroll: a
+            ferramenta que da nome a pagina ficava abaixo de duas dobras e meia.
+            Quem chegava querendo montar uma troca rolava as cegas, e em dois
+            segundos a leitura da tela era "pagina de conteudo sobre cartas em
+            alta", nao "calculadora".
+            O scrollIntoView continua servindo ao outro caminho -- quem vem pelos
+            destaques la de baixo sobe ate aqui. */}
+        <div ref={calcRef}>
+          <TradeAnalyzer seedLadoA={seed.ladoA} seedLadoB={seed.ladoB} seedToken={seed.v} seedSubstitui={substituir} />
+        </div>
 
-        <ComparadosFeed onReplay={handleReplay} />
-
-        <div ref={calcRef} style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '28px 0 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '32px 0 20px' }}>
           <hr style={{ flex: 1, border: 'none', borderTop: '1px dashed rgba(255,255,255,0.15)' }} />
-          <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.35)', fontWeight: 700, whiteSpace: 'nowrap' }}>ou monte a sua troca</span>
+          <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.35)', fontWeight: 700, whiteSpace: 'nowrap' }}>ou veja o que está se movendo</span>
           <hr style={{ flex: 1, border: 'none', borderTop: '1px dashed rgba(255,255,255,0.15)' }} />
         </div>
 
-        <TradeAnalyzer seedLadoA={seed.ladoA} seedLadoB={seed.ladoB} seedToken={seed.v} seedSubstitui={substituir} />
+        <ComparadorDestaques onSeed={handleSeed} />
+
+        <ComparadosFeed onReplay={handleReplay} />
       </div>
     </AppLayout>
   )
