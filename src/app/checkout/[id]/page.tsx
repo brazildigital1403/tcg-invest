@@ -285,7 +285,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
           <div style={S.heroRow}>
             <div style={S.heroImg}>
               {item.imagem
-                ? <Image src={item.imagem} alt={item.nome} width={150} height={208} style={{ objectFit: 'contain', borderRadius: 10, width: '100%', height: 'auto' }} unoptimized />
+                ? <Image src={item.imagem} alt={item.nome} width={150} height={208} style={{ objectFit: 'contain', borderRadius: 10, width: '100%', height: 'auto' }} priority unoptimized />
                 : <IconPokeball size={30} color="rgba(255,255,255,0.4)" />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -336,7 +336,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                 usado — a inicial no gradiente da marca fazia toda loja parecer
                 a Bynx, justo no bloco que diz quem esta vendendo. */}
             {loja.logo_url ? (
-              <Image src={loja.logo_url} alt={loja.nome} width={38} height={38} style={S.avatarImg} unoptimized />
+              <Image src={loja.logo_url} alt={loja.nome} width={38} height={38} style={S.avatarImg} priority unoptimized />
             ) : (
               <div style={S.avatar}>{(loja.nome || 'L').charAt(0).toUpperCase()}</div>
             )}
