@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { comissaoVendedorCents, acrescimoCompradorCents, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
+import { cotarFrete, pacoteDeCarta, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
 
 /**
  * Carrinho por loja.
@@ -22,7 +23,7 @@ function sb() {
 }
 
 const SELECT_LOJA =
-  'id, nome, slug, status, owner_user_id, stripe_connect_account_id, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents'
+  'id, nome, slug, status, owner_user_id, stripe_connect_account_id, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents, frete_modo, cep'
 
 interface Entrada { id: string; tipo: 'carta' | 'produto' }
 interface ItemResolvido {
@@ -33,6 +34,10 @@ interface ItemResolvido {
   preco_cents: number
   disponivel: boolean
   motivo?: string
+  /** So produto, e so pra montar o pacote do frete calculado. */
+  peso_g?: number | null
+  /** O tipo do PRODUTO (selado/pelucia/...), que define a dimensao do pacote. */
+  tipo_produto?: string | null
 }
 
 /** Le os itens do banco e diz quais ainda estao a venda NESTA loja. */
@@ -67,7 +72,7 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
   if (idsProd.length) {
     const { data } = await db
       .from('loja_produtos')
-      .select('id, nome, fotos, preco_cents, estoque, ativo, loja_id, tipo')
+      .select('id, nome, fotos, preco_cents, estoque, ativo, loja_id, tipo, peso_g')
       .in('id', idsProd)
     for (const id of idsProd) {
       const p = data?.find(x => x.id === id)
@@ -83,6 +88,8 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
         preco_cents: p.preco_cents,
         disponivel: !!p.ativo && p.estoque > 0,
         motivo: !p.ativo || p.estoque <= 0 ? 'esgotou' : undefined,
+        peso_g: p.peso_g ?? null,
+        tipo_produto: p.tipo ?? null,
       })
     }
   }
@@ -91,8 +98,15 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
   return entradas.map(e => out.find(o => o.id === e.id)).filter((x): x is ItemResolvido => !!x)
 }
 
-/** A conta do carrinho. Fonte unica pro resumo e pro checkout. */
-function montarConta(itens: ItemResolvido[], prazo: 14 | 30, metodo: MetodoPagamento, loja: { frete_cents: number | null; frete_gratis_acima_cents: number | null }) {
+/**
+ * A conta do carrinho. Fonte unica pro resumo e pro checkout.
+ *
+ * `freteCents` chega RESOLVIDO de fora: no modo fixo sai da loja, no calculado
+ * sai de uma cotacao no servidor. Antes esta funcao lia `loja.frete_cents`
+ * direto e ignorava `frete_modo` -- uma loja em frete calculado cobraria o
+ * fixo (que costuma ser 0), ou seja, frete de graca sem ninguem querer.
+ */
+function montarConta(itens: ItemResolvido[], prazo: 14 | 30, metodo: MetodoPagamento, freteCents: number) {
   const validos = itens.filter(i => i.disponivel)
   const subtotal = validos.reduce((s, i) => s + i.preco_cents, 0)
 
@@ -106,9 +120,7 @@ function montarConta(itens: ItemResolvido[], prazo: 14 | 30, metodo: MetodoPagam
   // Acrescimo sobre o subtotal: e UMA transacao no cartao/Pix.
   const acrescimo = subtotal > 0 ? acrescimoCompradorCents(subtotal, metodo) : 0
 
-  const freteBase = Math.max(0, loja.frete_cents || 0)
-  const limite = loja.frete_gratis_acima_cents
-  const frete = subtotal === 0 ? 0 : limite != null && subtotal >= limite ? 0 : freteBase
+  const frete = subtotal === 0 ? 0 : Math.max(0, freteCents)
 
   return {
     subtotal_cents: subtotal,
@@ -137,7 +149,7 @@ export async function POST(req: NextRequest) {
   // Rota unica: /api/carrinho?acao=resumo|checkout
   const acao = new URL(req.url).searchParams.get('acao') || 'resumo'
   try {
-    const { lojaId, entradas, metodo } = await carregar(req)
+    const { lojaId, entradas, metodo, body } = await carregar(req)
     if (!lojaId || entradas.length === 0) {
       return NextResponse.json({ error: 'Carrinho vazio.' }, { status: 400 })
     }
@@ -152,15 +164,71 @@ export async function POST(req: NextRequest) {
 
     const prazo = normalizarPrazo(loja.repasse_prazo)
     const itens = await resolverItens(db, loja, entradas)
-    const conta = montarConta(itens, prazo, metodo, loja)
+    const validos = itens.filter(i => i.disponivel)
+    const subtotalPrevio = validos.reduce((acc, i) => acc + i.preco_cents, 0)
+
+    // ── Frete ────────────────────────────────────────────────────────────
+    // Fixo: sai da loja (com a regra de gratis acima de X).
+    // Calculado: PRECISA de cep + servico e e RE-COTADO aqui, casando por id --
+    // nunca se confia no preco que o cliente mandou. Sem cep ainda (o comprador
+    // acabou de abrir o carrinho), o resumo devolve frete_pendente e o total
+    // fica indefinido, igual ao checkout de item unico.
+    const ehCalculado = loja.frete_modo === 'calculado'
+    let freteCents = 0
+    let fretePendente = false
+
+    if (ehCalculado) {
+      const cepDest = String(body?.cep || '').replace(/\D/g, '')
+      const servicoId = Number(body?.servico)
+      if (cepDest.length === 8 && servicoId) {
+        if (String(loja.cep || '').replace(/\D/g, '').length !== 8) {
+          return NextResponse.json({ error: 'A loja ainda não configurou o CEP de origem.' }, { status: 409 })
+        }
+        try {
+          const pacotes: ItemFrete[] = validos.map(i =>
+            i.tipo === 'produto'
+              ? { ...pacoteDeProduto(i.peso_g ?? null, i.tipo_produto ?? null, i.preco_cents, 1), id: `p-${i.id}` }
+              : { ...pacoteDeCarta(i.preco_cents), id: `c-${i.id}` }
+          )
+          const opcoes = pacotes.length ? await cotarFrete(loja.cep, cepDest, pacotes) : []
+          const escolhido = opcoes.find(o => o.id === servicoId)
+          if (!escolhido) {
+            return NextResponse.json(
+              { error: 'Essa opção de frete não está mais disponível. Calcule o frete de novo.' },
+              { status: 409 }
+            )
+          }
+          freteCents = escolhido.precoCents
+        } catch (e) {
+          console.error('[carrinho] cotacao falhou:', (e as Error)?.message)
+          return NextResponse.json({ error: 'Não consegui calcular o frete agora. Tente de novo.' }, { status: 502 })
+        }
+      } else {
+        fretePendente = true
+      }
+    } else {
+      const base = Math.max(0, loja.frete_cents || 0)
+      const limite = loja.frete_gratis_acima_cents
+      freteCents = limite != null && subtotalPrevio >= limite ? 0 : base
+    }
+
+    const conta = montarConta(itens, prazo, metodo, freteCents)
 
     // ── Resumo (a pagina do carrinho) ────────────────────────────────────
     if (acao === 'resumo') {
       return NextResponse.json({
-        loja: { id: loja.id, nome: loja.nome, slug: loja.slug, pode_vender: !!loja.connect_charges_enabled },
+        loja: {
+          id: loja.id, nome: loja.nome, slug: loja.slug,
+          pode_vender: !!loja.connect_charges_enabled,
+          frete_modo: ehCalculado ? 'calculado' : 'fixo',
+        },
         itens,
         ...conta,
         validos: undefined,
+        frete_pendente: fretePendente,
+        // Com frete por cotar o total ainda nao existe: quem monta a tela nao
+        // pode exibir um numero que vai mudar.
+        total_comprador_cents: fretePendente ? null : conta.total_comprador_cents,
         qtd_validos: conta.validos.length,
       })
     }
@@ -180,6 +248,9 @@ export async function POST(req: NextRequest) {
     }
     if (conta.validos.length === 0) {
       return NextResponse.json({ error: 'Nenhum item do seu carrinho está disponível.' }, { status: 409 })
+    }
+    if (fretePendente) {
+      return NextResponse.json({ error: 'Calcule o frete antes de finalizar.' }, { status: 400 })
     }
 
     const primeiro = conta.validos[0]

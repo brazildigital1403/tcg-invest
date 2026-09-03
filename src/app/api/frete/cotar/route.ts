@@ -5,7 +5,11 @@ import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
 
 /**
  * POST /api/frete/cotar
- * body: { tipo: 'marketplace' | 'produto', id, cep }
+ * body: { tipo: 'marketplace' | 'produto', id, cep, quantidade? }
+ *    ou { tipo: 'carrinho', loja_id, itens: [{id,tipo}], cep }
+ *
+ * No modo carrinho os itens viajam na MESMA remessa: manda-se um pacote por
+ * item e o Melhor Envio empacota. Sao N linhas, nao N fretes.
  *
  * Cota o frete por CEP pro anuncio (carta) ou produto. So faz sentido quando a
  * loja esta em frete_modo='calculado'. Read-only (sem Bearer): e so um preco
@@ -44,6 +48,7 @@ export async function POST(req: NextRequest) {
     if (!sb) return NextResponse.json({ error: 'Servico indisponivel.' }, { status: 503 })
 
     const body = await req.json().catch(() => null)
+    const ehCarrinho = body?.tipo === 'carrinho'
     const tipo = body?.tipo === 'produto' ? 'produto' : 'marketplace'
     const id = body?.id
     const cep = digits(body?.cep)
@@ -51,8 +56,61 @@ export async function POST(req: NextRequest) {
     // comprador ve um frete de 1 unidade e paga o de 3.
     const qtdRaw = Math.floor(Number(body?.quantidade))
     const qtd = Number.isFinite(qtdRaw) && qtdRaw > 0 ? Math.min(qtdRaw, 99) : 1
-    if (!id) return NextResponse.json({ error: 'Anuncio invalido.' }, { status: 400 })
     if (cep.length !== 8) return NextResponse.json({ error: 'CEP invalido.' }, { status: 400 })
+    if (!ehCarrinho && !id) return NextResponse.json({ error: 'Anuncio invalido.' }, { status: 400 })
+
+    // ── Modo carrinho: N itens da MESMA loja numa remessa so ───────────────
+    if (ehCarrinho) {
+      const lojaId = body?.loja_id
+      const entradas: { id: string; tipo: string }[] = Array.isArray(body?.itens)
+        ? body.itens.filter((i: unknown) => !!i && typeof (i as { id?: unknown }).id === 'string').slice(0, 50)
+        : []
+      if (!lojaId || entradas.length === 0) {
+        return NextResponse.json({ error: 'Carrinho vazio.' }, { status: 400 })
+      }
+
+      const { data: ljs } = await sb.from('lojas').select('id, cep, frete_modo, owner_user_id').eq('id', lojaId).eq('status', 'ativa').limit(1)
+      const loja = ljs?.[0]
+      if (!loja) return NextResponse.json({ error: 'Loja indisponivel.' }, { status: 409 })
+      if (loja.frete_modo !== 'calculado') {
+        return NextResponse.json({ error: 'Essa loja usa frete fixo.' }, { status: 409 })
+      }
+      if (!loja.cep || digits(loja.cep).length !== 8) {
+        return NextResponse.json({ error: 'A loja ainda nao configurou o CEP de origem.' }, { status: 409 })
+      }
+
+      const idsProd = entradas.filter(e => e.tipo === 'produto').map(e => e.id)
+      const idsCarta = entradas.filter(e => e.tipo !== 'produto').map(e => e.id)
+      const pacotes: ItemFrete[] = []
+
+      if (idsProd.length) {
+        const { data } = await sb
+          .from('loja_produtos')
+          .select('id, preco_cents, peso_g, tipo, loja_id')
+          .in('id', idsProd)
+        for (const pr of data || []) {
+          if (pr.loja_id !== loja.id) continue
+          pacotes.push({ ...pacoteDeProduto(pr.peso_g, pr.tipo, pr.preco_cents, 1), id: `p-${pr.id}` })
+        }
+      }
+      if (idsCarta.length) {
+        const { data } = await sb.from('marketplace').select('id, price, user_id').in('id', idsCarta)
+        for (const an of data || []) {
+          if (an.user_id !== loja.owner_user_id) continue
+          pacotes.push({ ...pacoteDeCarta(Math.round(Number(an.price) * 100)), id: `c-${an.id}` })
+        }
+      }
+
+      if (pacotes.length === 0) {
+        return NextResponse.json({ error: 'Nenhum item valido pra cotar.' }, { status: 409 })
+      }
+
+      const ops = await cotarFrete(loja.cep, cep, pacotes)
+      if (ops.length === 0) {
+        return NextResponse.json({ error: 'Nenhuma opcao de frete pra esse CEP.' }, { status: 422 })
+      }
+      return NextResponse.json({ opcoes: ops })
+    }
 
     let lojaCep: string | null = null
     let modo = 'fixo'
