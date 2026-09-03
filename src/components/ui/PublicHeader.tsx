@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient'
 import {
   IconSearch, IconChevronDown, IconPokedex, IconScan, IconAccount, IconArticle,
 } from '@/components/ui/Icons'
+import LinkCarrinho from '@/components/ui/LinkCarrinho'
 
 /**
  * Header público unificado para todas as páginas públicas da Bynx.
@@ -277,6 +278,9 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
               <IconSearch size={18} color="currentColor" />
             </Link>
 
+            {/* Carrinho — so aparece quando tem item dentro */}
+            <LinkCarrinho />
+
             {/* CTA */}
             {logado === null ? (
               <div style={S.ctaPlaceholder} />
@@ -297,8 +301,12 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             )}
           </nav>
 
-          {/* ─── MOBILE: CTA compacto + hamburguer ─────────────── */}
+          {/* ─── MOBILE: carrinho + CTA compacto + hamburguer ──── */}
           <div className="ph-mobile-area" style={S.mobileArea}>
+            {/* O publico da Bynx e majoritariamente mobile: sem isto o
+                comprador adiciona ao carrinho e nao tem como voltar nele --
+                o atalho do desktop vive na .ph-nav-desktop, que some aqui. */}
+            <LinkCarrinho />
             {logado === null ? (
               <div style={S.ctaPlaceholderMobile} />
             ) : logado ? (

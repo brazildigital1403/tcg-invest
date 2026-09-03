@@ -8,6 +8,7 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import GaleriaProduto from '@/components/lojas/GaleriaProduto'
+import BotaoCarrinho from '@/components/lojas/BotaoCarrinho'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconTruck, IconLocation } from '@/components/ui/Icons'
 
@@ -232,7 +233,11 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                 </p>
               )}
 
-              <Link href={`/lojas/${loja.slug}`} className="bx-prod-ghost" style={S.ghost}>
+              {!esgotado && podeVender && (
+                <BotaoCarrinho id={produto.id} tipo="produto" lojaId={loja.id} />
+              )}
+
+              <Link href={`/lojas/${loja.slug}`} className="bx-prod-ghost" style={{ ...S.ghost, marginTop: 9 }}>
                 Ver mais desta loja
               </Link>
 
