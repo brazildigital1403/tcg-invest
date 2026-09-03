@@ -98,6 +98,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const body = await req.json().catch(() => null)
     const metodo: MetodoPagamento = ehMetodoValido(body?.metodo) ? body.metodo : 'cartao'
+    // Quantidade vem do cliente e NUNCA e usada crua: e validada contra o
+    // estoque logo abaixo, e o preco continua saindo daqui do servidor.
+    const qtdPedida = Math.floor(Number(body?.quantidade))
+    const qtd = Number.isFinite(qtdPedida) && qtdPedida > 0 ? Math.min(qtdPedida, 99) : 1
     if (metodo === 'pix' && !PIX_DISPONIVEL) {
       return NextResponse.json({ error: 'O Pix ainda não está disponível na Bynx. Use cartão por enquanto.' }, { status: 409 })
     }
@@ -113,6 +117,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!p.ativo || p.estoque <= 0) {
       return NextResponse.json({ error: 'Esse produto está esgotado.' }, { status: 409 })
     }
+    if (qtd > p.estoque) {
+      return NextResponse.json(
+        { error: `A loja tem ${p.estoque} ${p.estoque === 1 ? 'unidade' : 'unidades'} deste produto.` },
+        { status: 409 }
+      )
+    }
 
     const { data: ls } = await db.from('lojas').select(SELECT_LOJA).eq('id', p.loja_id).eq('status', 'ativa').limit(1)
     const loja = ls?.[0]
@@ -125,7 +135,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     const prazo = normalizarPrazo(loja.repasse_prazo)
-    const c = calcularCheckout(p.preco_cents, prazo, metodo)
+    // Subtotal, nao preco unitario: a comissao leva UMA taxa fixa por pedido
+    // (decisao do Du, 03/09/2026) e o acrescimo do metodo e um so.
+    const subtotalCents = p.preco_cents * qtd
+    const c = calcularCheckout(subtotalCents, prazo, metodo)
 
     // ── Frete: fixo (loja) OU calculado (re-cotacao no servidor) ──────────
     let freteCents = 0
@@ -144,7 +157,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         return NextResponse.json({ error: 'A loja ainda não configurou o CEP de origem.' }, { status: 409 })
       }
       try {
-        const opcoes = await cotarFrete(loja.cep, cepDest, [pacoteDeProduto(p.peso_g, p.tipo, p.preco_cents)])
+        const opcoes = await cotarFrete(loja.cep, cepDest, [pacoteDeProduto(p.peso_g, p.tipo, p.preco_cents, qtd)])
         const escolhido = opcoes.find(o => o.id === servicoId)
         if (!escolhido) {
           return NextResponse.json(
@@ -161,7 +174,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     } else {
       const freteBase = Math.max(0, loja.frete_cents || 0)
       const limiteGratis = loja.frete_gratis_acima_cents
-      freteCents = limiteGratis != null && p.preco_cents >= limiteGratis ? 0 : freteBase
+      freteCents = limiteGratis != null && subtotalCents >= limiteGratis ? 0 : freteBase
     }
 
     const totalCompradorCents = c.totalCompradorCents + freteCents
@@ -174,9 +187,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         vendedor_user_id: loja.owner_user_id,
         comprador_user_id: compradorId,
         produto_id: p.id, // <- e produto, nao carta (a constraint garante o XOR)
-        item_nome: p.nome,
+        item_nome: qtd > 1 ? `${p.nome} (${qtd}x)` : p.nome,
         item_imagem: Array.isArray(p.fotos) && p.fotos.length ? p.fotos[0] : null,
-        valor_item_cents: p.preco_cents,
+        valor_item_cents: subtotalCents,
         frete_cents: freteCents,
         acrescimo_cents: c.acrescimoCents,
         total_comprador_cents: totalCompradorCents,
@@ -195,18 +208,39 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ error: 'Erro ao iniciar a compra.' }, { status: 500 })
     }
 
+    // ★ OBRIGATORIO gravar o item: a baixa de estoque no webhook le
+    // `pedido_itens` e so cai no atalho `pedido.produto_id` (1 unidade) quando
+    // nao acha linha nenhuma. Sem isto, vender 3 unidades baixaria 1.
+    const { error: itErr } = await db.from('pedido_itens').insert({
+      pedido_id: pedidoIns.id,
+      produto_id: p.id,
+      marketplace_id: null,
+      nome: p.nome,
+      imagem: Array.isArray(p.fotos) && p.fotos.length ? p.fotos[0] : null,
+      tipo: 'produto',
+      preco_cents: p.preco_cents,
+      quantidade: qtd,
+    })
+    if (itErr) {
+      console.error('[produto checkout] falha no item do pedido:', itErr.message)
+      await db.from('pedidos').delete().eq('id', pedidoIns.id)
+      return NextResponse.json({ error: 'Erro ao montar o pedido.' }, { status: 500 })
+    }
+
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'Pagamentos indisponíveis no momento.' }, { status: 500 })
     }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
     const base = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 
-    const brl = (unit: number, nome: string) => ({
+    const brl = (unit: number, nome: string, quantity = 1) => ({
       price_data: { currency: 'brl', unit_amount: unit, product_data: { name: nome } },
-      quantity: 1,
+      quantity,
     })
 
-    const linhas: Stripe.Checkout.SessionCreateParams.LineItem[] = [brl(p.preco_cents, p.nome)]
+    // Preco UNITARIO x quantity: a Stripe mostra "3 x R$ 150,00" no recibo, em
+    // vez de uma linha de R$ 450 sem explicacao.
+    const linhas: Stripe.Checkout.SessionCreateParams.LineItem[] = [brl(p.preco_cents, p.nome, qtd)]
     if (c.acrescimoCents > 0) {
       linhas.push(brl(c.acrescimoCents, metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'))
     }

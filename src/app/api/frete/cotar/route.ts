@@ -47,6 +47,10 @@ export async function POST(req: NextRequest) {
     const tipo = body?.tipo === 'produto' ? 'produto' : 'marketplace'
     const id = body?.id
     const cep = digits(body?.cep)
+    // A cotacao precisa do MESMO volume que o checkout vai cobrar, senao o
+    // comprador ve um frete de 1 unidade e paga o de 3.
+    const qtdRaw = Math.floor(Number(body?.quantidade))
+    const qtd = Number.isFinite(qtdRaw) && qtdRaw > 0 ? Math.min(qtdRaw, 99) : 1
     if (!id) return NextResponse.json({ error: 'Anuncio invalido.' }, { status: 400 })
     if (cep.length !== 8) return NextResponse.json({ error: 'CEP invalido.' }, { status: 400 })
 
@@ -67,7 +71,7 @@ export async function POST(req: NextRequest) {
       const loja = ljs?.[0]
       lojaCep = loja?.cep ?? null
       modo = loja?.frete_modo ?? 'fixo'
-      pacote = pacoteDeProduto(prod.peso_g, prod.tipo, prod.preco_cents)
+      pacote = pacoteDeProduto(prod.peso_g, prod.tipo, prod.preco_cents, qtd)
     } else {
       const { data: ans } = await sb
         .from('marketplace')

@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { calcularCheckout, fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
-import { IconShield, IconCard, IconBolt, IconArrowRight, IconCheck, IconBox, IconPokeball } from '@/components/ui/Icons'
+import { IconShield, IconCard, IconBolt, IconArrowRight, IconCheck, IconBox, IconPokeball, IconPlus, IconMinus } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 
 /**
@@ -39,6 +39,8 @@ interface ItemInfo {
   nota: string | null
   disponivel: boolean
   vendedor_user_id: string
+  /** So produto: quantas unidades a loja tem. Carta e sempre 1. */
+  estoque?: number | null
 }
 interface LojaInfo {
   nome: string
@@ -98,6 +100,9 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const [item, setItem] = useState<ItemInfo | null>(null)
   const [loja, setLoja] = useState<LojaInfo | null>(null)
   const [metodo, setMetodo] = useState<MetodoPagamento>(PIX_DISPONIVEL ? 'pix' : 'cartao')
+  // Quantidade so existe pra PRODUTO (carta e peca unica). O teto real e o
+  // estoque; o servidor revalida e recusa se a loja vender no meio do caminho.
+  const [qtd, setQtd] = useState(1)
   const [carregando, setCarregando] = useState(true)
   const [indo, setIndo] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -145,7 +150,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
       const r = await fetch('/api/frete/cotar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo: ehProduto ? 'produto' : 'marketplace', id: anuncioId, cep: cd }),
+        body: JSON.stringify({ tipo: ehProduto ? 'produto' : 'marketplace', id: anuncioId, cep: cd, quantidade: qtd }),
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Não consegui calcular o frete.')
@@ -167,6 +172,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
       const { data } = await supabase.auth.getSession()
       const ehCalc = loja?.frete_modo === 'calculado'
       const corpo: Record<string, unknown> = { metodo }
+      if (ehProduto && qtd > 1) corpo.quantidade = qtd
       if (ehCalc) {
         corpo.cep = cepDest.replace(/\D/g, '')
         corpo.servico = servicoSel
@@ -223,11 +229,29 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
     const op = opcoesFrete?.find(o => o.id === servicoSel)
     freteResolvido = op ? op.precoCents : null
   } else {
-    freteResolvido = gratisAcima != null && item.preco_cents >= gratisAcima ? 0 : freteBase
+    freteResolvido = gratisAcima != null && item.preco_cents * qtd >= gratisAcima ? 0 : freteBase
   }
 
-  const cPix = calcularCheckout(item.preco_cents, loja.repasse_prazo, 'pix')
-  const cCartao = calcularCheckout(item.preco_cents, loja.repasse_prazo, 'cartao')
+  // Subtotal, nao preco unitario: uma taxa fixa por pedido e um acrescimo so.
+  const subtotalCents = item.preco_cents * qtd
+  const estoqueMax = Math.max(1, Math.min(Number(item.estoque) || 1, 99))
+  const podeEscolherQtd = ehProduto && estoqueMax > 1
+
+  // Mudar a quantidade INVALIDA a cotacao: o frete foi calculado pro volume
+  // anterior. Deixar a opcao antiga selecionada mostraria ao comprador um frete
+  // que o servidor nao vai confirmar -- ele re-cota e casa por id.
+  function mudarQtd(nova: number) {
+    const n = Math.max(1, Math.min(nova, estoqueMax))
+    if (n === qtd) return
+    setQtd(n)
+    if (ehCalculado) {
+      setOpcoesFrete(null)
+      setServicoSel(null)
+      setErroFrete(null)
+    }
+  }
+  const cPix = calcularCheckout(subtotalCents, loja.repasse_prazo, 'pix')
+  const cCartao = calcularCheckout(subtotalCents, loja.repasse_prazo, 'cartao')
   const c = metodo === 'pix' ? cPix : cCartao
   const total = freteResolvido == null ? null : c.totalCompradorCents + freteResolvido
   const economia = cCartao.acrescimoCents - cPix.acrescimoCents
@@ -271,7 +295,38 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                 </div>
               )}
               <div style={S.heroPrice}>{fmtBRL(item.preco_cents)}</div>
-              <div style={S.heroQtd}>1 unidade</div>
+              {podeEscolherQtd ? (
+                <div style={S.qtdRow}>
+                  <span style={S.qtdLabel}>Quantidade</span>
+                  <div style={S.qtdBox}>
+                    <button
+                      type="button"
+                      onClick={() => mudarQtd(qtd - 1)}
+                      disabled={qtd <= 1}
+                      style={{ ...S.qtdBtn, opacity: qtd <= 1 ? 0.35 : 1 }}
+                      aria-label="Diminuir quantidade"
+                    >
+                      <IconMinus size={16} color="currentColor" />
+                    </button>
+                    <span style={S.qtdNum} aria-live="polite">{qtd}</span>
+                    <button
+                      type="button"
+                      onClick={() => mudarQtd(qtd + 1)}
+                      disabled={qtd >= estoqueMax}
+                      style={{ ...S.qtdBtn, opacity: qtd >= estoqueMax ? 0.35 : 1 }}
+                      aria-label="Aumentar quantidade"
+                    >
+                      <IconPlus size={16} color="currentColor" />
+                    </button>
+                  </div>
+                  <span style={S.qtdEstoque}>{estoqueMax} em estoque</span>
+                </div>
+              ) : (
+                <div style={S.heroQtd}>{qtd > 1 ? `${qtd} unidades` : '1 unidade'}</div>
+              )}
+              {qtd > 1 && (
+                <div style={S.heroSub}>Subtotal: {fmtBRL(subtotalCents)}</div>
+              )}
             </div>
           </div>
 
@@ -350,7 +405,10 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
               </div>
 
               <div style={S.linhas}>
-                <div style={S.linha}><span style={S.mut}>Produto</span><span>{fmtBRL(item.preco_cents)}</span></div>
+                <div style={S.linha}>
+                  <span style={S.mut}>{qtd > 1 ? `Produto (${qtd}x ${fmtBRL(item.preco_cents)})` : 'Produto'}</span>
+                  <span>{fmtBRL(subtotalCents)}</span>
+                </div>
                 <div style={S.linha}>
                   <span style={{ ...S.mut, display: 'inline-flex', alignItems: 'center', gap: 4 }}>{metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'} <IcInfo /></span>
                   <span>{fmtBRL(c.acrescimoCents)}</span>
@@ -427,6 +485,21 @@ const S: Record<string, React.CSSProperties> = {
   chip: { fontSize: 11, padding: '3px 9px', borderRadius: 7, background: 'rgba(96,165,250,0.14)', color: '#93c5fd' },
   heroPrice: { fontSize: 20, fontWeight: 800, marginTop: 14 },
   heroQtd: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+  heroSub: { fontSize: 12.5, color: 'var(--bx-text-3)', marginTop: 6, fontWeight: 600 },
+  qtdRow: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' },
+  qtdLabel: { fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  qtdBox: {
+    display: 'inline-flex', alignItems: 'center',
+    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)',
+    borderRadius: 10, overflow: 'hidden',
+  },
+  qtdBtn: {
+    width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'transparent', border: 'none', color: '#f0f0f0', cursor: 'pointer',
+    fontFamily: 'inherit', padding: 0,
+  },
+  qtdNum: { minWidth: 34, textAlign: 'center', fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums' },
+  qtdEstoque: { fontSize: 11.5, color: 'var(--bx-text-3)' },
 
   sellcard: { marginTop: 18, padding: 13, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: 11 },
   avatar: { width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: '#0a0a0a', flexShrink: 0 },
