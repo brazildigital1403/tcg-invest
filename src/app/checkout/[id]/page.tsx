@@ -3,6 +3,7 @@
 import { use as usePromise, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import BandeirasCartao from '@/components/ui/BandeirasCartao'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
@@ -331,7 +332,14 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
           </div>
 
           <div style={S.sellcard}>
-            <div style={S.avatar}>{(loja.nome || 'B').charAt(0).toUpperCase()}</div>
+            {/* Logo REAL da loja. O `logo_url` ja vinha da API e nunca era
+                usado — a inicial no gradiente da marca fazia toda loja parecer
+                a Bynx, justo no bloco que diz quem esta vendendo. */}
+            {loja.logo_url ? (
+              <Image src={loja.logo_url} alt={loja.nome} width={38} height={38} style={S.avatarImg} unoptimized />
+            ) : (
+              <div style={S.avatar}>{(loja.nome || 'L').charAt(0).toUpperCase()}</div>
+            )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={S.sellName}>
                 Loja {loja.nome}
@@ -445,7 +453,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
         <span style={S.seal}><IconShield size={16} color="#22c55e" />Dados protegidos <b style={S.sealB}>LGPD</b></span>
       </div>
       <div style={S.brands}>
-        {['VISA', 'MASTERCARD', 'ELO', 'AMEX', 'PIX'].map(b => <span key={b} style={S.brand}>{b}</span>)}
+        <BandeirasCartao />
       </div>
 
       <button onClick={() => window.history.back()} style={S.voltar}>← Voltar</button>
@@ -502,7 +510,8 @@ const S: Record<string, React.CSSProperties> = {
   qtdEstoque: { fontSize: 11.5, color: 'var(--bx-text-3)' },
 
   sellcard: { marginTop: 18, padding: 13, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: 11 },
-  avatar: { width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: '#0a0a0a', flexShrink: 0 },
+  avatar: { width: 38, height: 38, borderRadius: 10, background: 'var(--bx-surface-3)', border: '1px solid var(--bx-border-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: 'var(--bx-text-2)', flexShrink: 0 },
+  avatarImg: { width: 38, height: 38, borderRadius: 10, objectFit: 'cover', flexShrink: 0, background: 'rgba(255,255,255,0.05)' },
   sellName: { fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center' },
   sellSub: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 1 },
   verBtn: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, color: 'rgba(255,255,255,0.7)', fontSize: 12, padding: '7px 12px', textDecoration: 'none', whiteSpace: 'nowrap' },

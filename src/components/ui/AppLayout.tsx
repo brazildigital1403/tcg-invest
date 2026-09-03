@@ -769,9 +769,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
 
-            {/* Carrinho: o badge do header publico nao alcanca o app logado, e
-                quem monta carrinho na vitrine e cai na Colecao ficava sem
-                atalho pra voltar nele. Some sozinho quando esta vazio. */}
+            {/* ★ Carrinho e sino no MESMO grupo, colados a direita.
+                O `.tcg-header` e `space-between`: solto, o carrinho virava um
+                terceiro filho e ficava boiando no CENTRO do header, longe de
+                qualquer coisa com que se pareca. Agrupado, ele fica ao lado do
+                sino, que e o outro atalho de estado do usuario.
+                Some sozinho quando o carrinho esta vazio. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto', flexShrink: 0 }}>
             <LinkCarrinho />
 
             <div style={{ position: 'relative' }}>
@@ -786,6 +790,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </span>
                 )}
               </button>
+            </div>
             </div>
 
           </header>

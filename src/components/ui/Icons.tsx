@@ -502,6 +502,22 @@ export function IconTag({ size = 20, color = defaultColor, strokeWidth = default
   )
 }
 
+/**
+ * Carrinho de compras. Nao confundir com `IconBox` (caixa/pacote): o carrinho
+ * do e-commerce era um IconBox no primeiro dia e ficava ambiguo com "produto".
+ * viewBox 20x20 como o resto do arquivo.
+ */
+export function IconCarrinho({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M2 3h2l1.8 8.6a1.6 1.6 0 001.6 1.3h6.6a1.6 1.6 0 001.6-1.3L17 6H5"
+        stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="8" cy="16.5" r="1.2" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="14" cy="16.5" r="1.2" stroke={color} strokeWidth={strokeWidth}/>
+    </svg>
+  )
+}
+
 export function IconBox({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>

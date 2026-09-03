@@ -3,7 +3,7 @@
 import { CSSProperties, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { contarItens, assinarCarrinho } from '@/lib/carrinho'
-import { IconBox } from '@/components/ui/Icons'
+import { IconCarrinho } from '@/components/ui/Icons'
 
 /**
  * Atalho pro carrinho no header publico, com contador.
@@ -25,7 +25,7 @@ export default function LinkCarrinho({ style }: { style?: CSSProperties }) {
 
   return (
     <Link href="/carrinho" style={{ ...S.btn, ...style }} aria-label={`Carrinho com ${n} ${n === 1 ? 'unidade' : 'unidades'}`}>
-      <IconBox size={18} color="currentColor" />
+      <IconCarrinho size={19} color="currentColor" />
       <span style={S.badge}>{n}</span>
     </Link>
   )
