@@ -130,6 +130,7 @@ function IconChevron({ collapsed, color = 'rgba(255,255,255,0.55)' }: { collapse
 }
 
 import { marcarTodasLidas, marcarLida } from '@/lib/notificacoes'
+import LinkCarrinho from '@/components/ui/LinkCarrinho'
 
 const BRAND = 'var(--bx-brand)'
 const BG = 'var(--bx-bg)'
@@ -767,6 +768,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 )}
               </div>
             )}
+
+            {/* Carrinho: o badge do header publico nao alcanca o app logado, e
+                quem monta carrinho na vitrine e cai na Colecao ficava sem
+                atalho pra voltar nele. Some sozinho quando esta vazio. */}
+            <LinkCarrinho />
 
             <div style={{ position: 'relative' }}>
               <button

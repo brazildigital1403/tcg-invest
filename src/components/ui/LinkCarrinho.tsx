@@ -24,7 +24,7 @@ export default function LinkCarrinho({ style }: { style?: CSSProperties }) {
   if (n === 0) return null
 
   return (
-    <Link href="/carrinho" style={{ ...S.btn, ...style }} aria-label={`Carrinho com ${n} ${n === 1 ? 'item' : 'itens'}`}>
+    <Link href="/carrinho" style={{ ...S.btn, ...style }} aria-label={`Carrinho com ${n} ${n === 1 ? 'unidade' : 'unidades'}`}>
       <IconBox size={18} color="currentColor" />
       <span style={S.badge}>{n}</span>
     </Link>

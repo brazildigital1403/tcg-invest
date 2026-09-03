@@ -25,7 +25,7 @@ function sb() {
 const SELECT_LOJA =
   'id, nome, slug, status, owner_user_id, stripe_connect_account_id, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents, frete_modo, cep'
 
-interface Entrada { id: string; tipo: 'carta' | 'produto' }
+interface Entrada { id: string; tipo: 'carta' | 'produto'; qtd?: number }
 interface ItemResolvido {
   id: string
   tipo: 'carta' | 'produto'
@@ -38,6 +38,12 @@ interface ItemResolvido {
   peso_g?: number | null
   /** O tipo do PRODUTO (selado/pelucia/...), que define a dimensao do pacote. */
   tipo_produto?: string | null
+  /** Unidades efetivamente vendaveis: o pedido do cliente cortado no estoque. */
+  qtd: number
+  /** Estoque atual, pro seletor da tela saber o teto. Carta e sempre 1. */
+  estoque: number
+  /** true quando o pedido do cliente foi cortado pelo estoque. */
+  qtd_ajustada?: boolean
 }
 
 /** Le os itens do banco e diz quais ainda estao a venda NESTA loja. */
@@ -45,6 +51,11 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
   const idsCarta = entradas.filter(e => e.tipo === 'carta').map(e => e.id)
   const idsProd = entradas.filter(e => e.tipo === 'produto').map(e => e.id)
   const out: ItemResolvido[] = []
+  const qtdPedida = (id: string) => {
+    const e = entradas.find(x => x.id === id)
+    const n = Math.floor(Number(e?.qtd))
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 99) : 1
+  }
 
   if (idsCarta.length) {
     const { data } = await db
@@ -54,7 +65,7 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
     for (const id of idsCarta) {
       const c = data?.find(x => x.id === id)
       if (!c || c.user_id !== loja.owner_user_id) {
-        out.push({ id, tipo: 'carta', nome: 'Item removido', imagem: null, preco_cents: 0, disponivel: false, motivo: 'não está mais nesta loja' })
+        out.push({ id, tipo: 'carta', nome: 'Item removido', imagem: null, preco_cents: 0, disponivel: false, motivo: 'não está mais nesta loja', qtd: 1, estoque: 0 })
         continue
       }
       out.push({
@@ -65,6 +76,9 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
         preco_cents: Math.round(Number(c.price) * 100),
         disponivel: c.status === 'disponivel',
         motivo: c.status !== 'disponivel' ? 'já foi vendida' : undefined,
+        // Carta e peca unica: 1 anuncio, 1 unidade.
+        qtd: 1,
+        estoque: 1,
       })
     }
   }
@@ -77,7 +91,7 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
     for (const id of idsProd) {
       const p = data?.find(x => x.id === id)
       if (!p || p.loja_id !== loja.id) {
-        out.push({ id, tipo: 'produto', nome: 'Item removido', imagem: null, preco_cents: 0, disponivel: false, motivo: 'não está mais nesta loja' })
+        out.push({ id, tipo: 'produto', nome: 'Item removido', imagem: null, preco_cents: 0, disponivel: false, motivo: 'não está mais nesta loja', qtd: 1, estoque: 0 })
         continue
       }
       out.push({
@@ -90,6 +104,11 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
         motivo: !p.ativo || p.estoque <= 0 ? 'esgotou' : undefined,
         peso_g: p.peso_g ?? null,
         tipo_produto: p.tipo ?? null,
+        // A quantidade vem do cliente e e CORTADA no estoque real. Nunca se
+        // confia no numero que chegou -- ele mora no localStorage dele.
+        qtd: qtdPedida(id) > p.estoque ? Math.max(1, p.estoque) : qtdPedida(id),
+        estoque: Math.max(0, p.estoque),
+        qtd_ajustada: qtdPedida(id) > p.estoque,
       })
     }
   }
@@ -108,7 +127,7 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
  */
 function montarConta(itens: ItemResolvido[], prazo: 14 | 30, metodo: MetodoPagamento, freteCents: number) {
   const validos = itens.filter(i => i.disponivel)
-  const subtotal = validos.reduce((s, i) => s + i.preco_cents, 0)
+  const subtotal = validos.reduce((s, i) => s + i.preco_cents * i.qtd, 0)
 
   // ★ UMA taxa fixa por PEDIDO (decisao do Du, 03/09/2026). Antes o reduce
   // aplicava `comissaoVendedorCents` item a item, e a fixa de R$0,40 incidia N
@@ -140,6 +159,7 @@ async function carregar(req: NextRequest) {
     ? body.itens
         .filter((i: unknown): i is Entrada => !!i && typeof (i as Entrada).id === 'string' && ((i as Entrada).tipo === 'carta' || (i as Entrada).tipo === 'produto'))
         .slice(0, 50)
+        .map((i: Entrada) => ({ ...i, qtd: Math.max(1, Math.min(Math.floor(Number(i.qtd)) || 1, 99)) }))
     : []
   const metodo: MetodoPagamento = ehMetodoValido(body?.metodo) ? body.metodo : 'cartao'
   return { lojaId, entradas, metodo, body }
@@ -165,7 +185,7 @@ export async function POST(req: NextRequest) {
     const prazo = normalizarPrazo(loja.repasse_prazo)
     const itens = await resolverItens(db, loja, entradas)
     const validos = itens.filter(i => i.disponivel)
-    const subtotalPrevio = validos.reduce((acc, i) => acc + i.preco_cents, 0)
+    const subtotalPrevio = validos.reduce((acc, i) => acc + i.preco_cents * i.qtd, 0)
 
     // ── Frete ────────────────────────────────────────────────────────────
     // Fixo: sai da loja (com a regra de gratis acima de X).
@@ -187,7 +207,7 @@ export async function POST(req: NextRequest) {
         try {
           const pacotes: ItemFrete[] = validos.map(i =>
             i.tipo === 'produto'
-              ? { ...pacoteDeProduto(i.peso_g ?? null, i.tipo_produto ?? null, i.preco_cents, 1), id: `p-${i.id}` }
+              ? { ...pacoteDeProduto(i.peso_g ?? null, i.tipo_produto ?? null, i.preco_cents, i.qtd), id: `p-${i.id}` }
               : { ...pacoteDeCarta(i.preco_cents), id: `c-${i.id}` }
           )
           const opcoes = pacotes.length ? await cotarFrete(loja.cep, cepDest, pacotes) : []
@@ -252,10 +272,22 @@ export async function POST(req: NextRequest) {
     if (fretePendente) {
       return NextResponse.json({ error: 'Calcule o frete antes de finalizar.' }, { status: 400 })
     }
+    // Estoque caiu entre montar o carrinho e clicar em finalizar: NAO cortamos
+    // calado. Cortar mudaria o total que ele acabou de ver na tela, e ninguem
+    // deve descobrir isso na fatura.
+    const ajustados = conta.validos.filter(i => i.qtd_ajustada)
+    if (ajustados.length > 0) {
+      const nomes = ajustados.map(i => `${i.nome} (${i.estoque} ${i.estoque === 1 ? 'unidade' : 'unidades'})`).join(', ')
+      return NextResponse.json(
+        { error: `O estoque mudou: ${nomes}. Revise o carrinho e tente de novo.` },
+        { status: 409 }
+      )
+    }
 
     const primeiro = conta.validos[0]
     const resto = conta.validos.length - 1
-    const resumoNome = resto > 0 ? `${primeiro.nome} + ${resto} ${resto === 1 ? 'item' : 'itens'}` : primeiro.nome
+    const nomePrimeiro = primeiro.qtd > 1 ? `${primeiro.nome} (${primeiro.qtd}x)` : primeiro.nome
+    const resumoNome = resto > 0 ? `${nomePrimeiro} + ${resto} ${resto === 1 ? 'item' : 'itens'}` : nomePrimeiro
 
     const { data: pedidoIns, error: pedErr } = await db
       .from('pedidos')
@@ -296,7 +328,7 @@ export async function POST(req: NextRequest) {
         imagem: i.imagem,
         tipo: i.tipo,
         preco_cents: i.preco_cents,
-        quantidade: 1,
+        quantidade: i.qtd,
       }))
     )
     if (itErr) {
@@ -311,11 +343,12 @@ export async function POST(req: NextRequest) {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
     const base = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 
-    const brl = (unit: number, nome: string) => ({
+    const brl = (unit: number, nome: string, quantity = 1) => ({
       price_data: { currency: 'brl' as const, unit_amount: unit, product_data: { name: nome } },
-      quantity: 1,
+      quantity,
     })
-    const linhas: Stripe.Checkout.SessionCreateParams.LineItem[] = conta.validos.map(i => brl(i.preco_cents, i.nome))
+    // Preco UNITARIO x quantity: o recibo da Stripe mostra "3 x R$ 150,00".
+    const linhas: Stripe.Checkout.SessionCreateParams.LineItem[] = conta.validos.map(i => brl(i.preco_cents, i.nome, i.qtd))
     if (conta.acrescimo_cents > 0) {
       linhas.push(brl(conta.acrescimo_cents, metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'))
     }

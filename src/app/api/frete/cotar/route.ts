@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     // ── Modo carrinho: N itens da MESMA loja numa remessa so ───────────────
     if (ehCarrinho) {
       const lojaId = body?.loja_id
-      const entradas: { id: string; tipo: string }[] = Array.isArray(body?.itens)
+      const entradas: { id: string; tipo: string; qtd?: number }[] = Array.isArray(body?.itens)
         ? body.itens.filter((i: unknown) => !!i && typeof (i as { id?: unknown }).id === 'string').slice(0, 50)
         : []
       if (!lojaId || entradas.length === 0) {
@@ -82,6 +82,11 @@ export async function POST(req: NextRequest) {
       const idsProd = entradas.filter(e => e.tipo === 'produto').map(e => e.id)
       const idsCarta = entradas.filter(e => e.tipo !== 'produto').map(e => e.id)
       const pacotes: ItemFrete[] = []
+      // A cotacao tem que refletir o MESMO volume que o checkout vai cobrar.
+      const qtdDe = (id: string) => {
+        const n = Math.floor(Number(entradas.find(e => e.id === id)?.qtd))
+        return Number.isFinite(n) && n > 0 ? Math.min(n, 99) : 1
+      }
 
       if (idsProd.length) {
         const { data } = await sb
@@ -90,7 +95,7 @@ export async function POST(req: NextRequest) {
           .in('id', idsProd)
         for (const pr of data || []) {
           if (pr.loja_id !== loja.id) continue
-          pacotes.push({ ...pacoteDeProduto(pr.peso_g, pr.tipo, pr.preco_cents, 1), id: `p-${pr.id}` })
+          pacotes.push({ ...pacoteDeProduto(pr.peso_g, pr.tipo, pr.preco_cents, qtdDe(pr.id)), id: `p-${pr.id}` })
         }
       }
       if (idsCarta.length) {
