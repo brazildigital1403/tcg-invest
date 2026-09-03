@@ -14,7 +14,8 @@ import {
 /**
  * BLOCOS do sitemap — servidos em /sitemap/0.xml, /sitemap/1.xml, ...
  *
- * Bloco 0: rotas estáticas + lojas ativas + sets + 1o bloco de cartas.
+ * Bloco 0: rotas estáticas + lojas ativas + produtos à venda + sets + 1o bloco
+ * de cartas.
  * Blocos seguintes: só cartas (paginadas por .range, ordenadas por id).
  *
  * Next 16: params é uma Promise. A URL chega como "0.xml" -> tiramos o .xml.
@@ -73,6 +74,43 @@ export async function GET(
         }
       } catch (err) {
         console.error('[sitemap] erro ao buscar lojas:', err)
+      }
+
+      // Produtos de loja À VENDA (slug desde 03/09).
+      //
+      // ★ Filtro explícito de `ativo` + `estoque > 0`: este sitemap roda com
+      // SERVICE ROLE, então a RLS de `loja_produtos` (que já faz esse filtro
+      // pro anon) NÃO se aplica aqui. Sem o where, mandaríamos o Google pra
+      // produto despublicado.
+      //
+      // Produto ESGOTADO fica de fora de propósito. A página dele continua
+      // viva (serve `OutOfStock`, não 404) pra quem já tem o link, mas não é
+      // conteúdo que a gente queira oferecer ativamente ao crawler.
+      //
+      // Volume hoje: 2 produtos. O `limit` existe pro dia em que as lojas
+      // subirem catálogo — o bloco 0 não pode virar o gargalo, e a página de
+      // produto é `force-dynamic` (cada hit do crawler é uma lambda).
+      try {
+        const { data: produtos, error: prodErr } = await sb
+          .from('loja_produtos')
+          .select('slug, updated_at')
+          .eq('ativo', true)
+          .gt('estoque', 0)
+          .not('slug', 'is', null)
+          .limit(2000)
+        if (prodErr) console.error('[sitemap] erro produtos:', prodErr)
+        for (const prod of produtos || []) {
+          if (prod.slug) {
+            entries.push({
+              loc: `${BASE}/produto/${prod.slug}`,
+              lastmod: prod.updated_at ? new Date(prod.updated_at).toISOString() : now,
+              changefreq: 'weekly',
+              priority: 0.6,
+            })
+          }
+        }
+      } catch (err) {
+        console.error('[sitemap] erro ao buscar produtos:', err)
       }
 
       // Sets (sitemap_set_ids retorna os set_id distintos do catálogo, leve)
