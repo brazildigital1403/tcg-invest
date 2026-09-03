@@ -417,7 +417,7 @@ export default async function LojaPage(
         </nav>
       )}
 
-      <main style={S.main}>
+      <main className="bx-gutter" style={S.main}>
         {/* ─── Sobre + Onde encontrar ─────────────────────────── */}
         {(temSobre || temContato) && (
           <div className={temSobre && temContato ? 'loja-cols' : undefined}>
@@ -622,8 +622,8 @@ const S: Record<string, CSSProperties> = {
     paddingBottom: 10,
   },
   iconBtn: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: 10,
     background: 'var(--bx-surface-2)',
     border: '1px solid var(--bx-border-2)',
@@ -640,7 +640,7 @@ const S: Record<string, CSSProperties> = {
     color: 'var(--bx-brand-ink)',
     fontSize: 14,
     fontWeight: 800,
-    height: 38,
+    height: 44,
     padding: '0 20px',
     borderRadius: 10,
     textDecoration: 'none',
@@ -769,7 +769,7 @@ const S: Record<string, CSSProperties> = {
     zIndex: 20,
     display: 'flex',
     gap: 22,
-    padding: '12px 24px',
+    padding: '0 24px',
     background: 'rgba(8,10,15,0.92)',
     backdropFilter: 'blur(8px)',
     borderTop: '1px solid var(--bx-border)',
@@ -786,12 +786,15 @@ const S: Record<string, CSSProperties> = {
     color: 'var(--bx-text-3)',
     textDecoration: 'none',
     whiteSpace: 'nowrap',
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 44,
   },
 
   main: {
     maxWidth: 1200,
     margin: '0 auto',
-    padding: '24px 24px 48px',
+    padding: '24px 0 48px',
     width: '100%',
     boxSizing: 'border-box',
     flex: 1,
