@@ -22,6 +22,8 @@ export interface LojaFull extends LojaFormData {
   plano_expira_em: string | null
   owner_user_id: string
   created_at: string
+  /** Recebimentos ativos no Connect. Decide se o produto chega na vitrine. */
+  connect_charges_enabled: boolean | null
 }
 
 // ─── Trilha (breadcrumb) da loja ─────────────────────────────────────────────

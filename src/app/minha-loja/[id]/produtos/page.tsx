@@ -145,7 +145,24 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Falha ao salvar')
-      showAlert(editId ? 'Produto atualizado!' : 'Produto publicado na sua vitrine!', 'success')
+      // O alerta so pode prometer o que a vitrine vai mesmo cumprir. Produto so
+      // aparece em /lojas/[slug] com estoque > 0 (RLS) E recebimentos ativos no
+      // Connect (o gate de AnunciosLoja). Dizer "publicado" sem checar os dois
+      // ja custou ao lojista achar que estava tudo certo.
+      const naVitrine = est > 0 && !!loja?.connect_charges_enabled
+      if (naVitrine) {
+        showAlert(editId ? 'Produto atualizado!' : 'Produto publicado na sua vitrine!', 'success')
+      } else if (est === 0) {
+        showAlert(
+          `Produto ${editId ? 'atualizado' : 'salvo'}, mas fora da vitrine: o estoque esta em 0. Reponha o estoque para ele voltar a aparecer.`,
+          'warning',
+        )
+      } else {
+        showAlert(
+          `Produto ${editId ? 'atualizado' : 'salvo'}, mas ainda nao aparece na sua vitrine: sua loja precisa ativar os recebimentos. Va em Pagamentos para concluir.`,
+          'warning',
+        )
+      }
       setForm(false); limpar(); await carregar()
     } catch (e) {
       setErro((e as Error).message)
@@ -210,7 +227,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
           <div style={S.fotos}>
             {fotos.map((f, i) => (
               <div key={i} style={S.foto}>
-                <Image src={f} alt="" width={54} height={54} style={{ objectFit: 'cover', borderRadius: 7 }} unoptimized />
+                <Image src={f} alt="" width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }} unoptimized />
                 <button onClick={() => setFotos(fotos.filter((_, j) => j !== i))} style={S.remFoto}>×</button>
               </div>
             ))}
@@ -316,21 +333,21 @@ const S: Record<string, React.CSSProperties> = {
   cap: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 },
   lbl: { display: 'block', fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6, marginTop: 12 },
   chips: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  chip: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '7px 12px', borderRadius: 20, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)', cursor: 'pointer' },
+  chip: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 600, padding: '11px 14px', minHeight: 44, boxSizing: 'border-box', borderRadius: 20, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.55)', cursor: 'pointer' },
   chipOn: { background: 'rgba(168,85,247,0.16)', borderColor: 'rgba(168,85,247,0.4)', color: '#c084fc' },
-  fotos: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  foto: { position: 'relative', width: 54, height: 54, borderRadius: 8, overflow: 'hidden' },
-  remFoto: { position: 'absolute', top: 1, right: 1, width: 17, height: 17, borderRadius: '50%', background: 'rgba(0,0,0,0.75)', color: '#fff', border: 'none', fontSize: 12, lineHeight: 1, cursor: 'pointer', padding: 0 },
-  addFoto: { width: 54, height: 54, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.35)', fontSize: 18, cursor: 'pointer' },
+  fotos: { display: 'flex', gap: 10, flexWrap: 'wrap' },
+  foto: { position: 'relative', width: 72, height: 72, borderRadius: 8, overflow: 'hidden' },
+  remFoto: { position: 'absolute', top: 2, right: 2, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.82)', color: '#fff', border: 'none', fontSize: 17, lineHeight: 1, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  addFoto: { width: 72, height: 72, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.35)', fontSize: 18, cursor: 'pointer' },
   hint: { fontSize: 10.5, color: 'rgba(255,255,255,0.3)', marginTop: 6 },
-  input: { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '10px 12px', fontSize: 13.5, color: '#f0f0f0', outline: 'none' },
+  input: { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '11px 12px', fontSize: 16, color: '#f0f0f0', outline: 'none' },
   inputWrap: { display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 9, padding: '0 10px' },
-  inputBare: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#f0f0f0', fontSize: 13.5, fontWeight: 600, padding: '10px 0' },
+  inputBare: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#f0f0f0', fontSize: 16, fontWeight: 600, padding: '11px 0' },
   prefixo: { fontSize: 12.5, color: 'rgba(255,255,255,0.35)', marginRight: 6 },
   // minmax(0, 1fr) pelo mesmo motivo do freteGrid em /pagamentos: faixa 1fr
   // tem min-width:auto e campo com largura intrinseca estica a coluna.
   two: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10 },
-  btnGhost: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 10, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
+  btnGhost: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', borderRadius: 10, padding: '10px 16px', fontSize: 13, cursor: 'pointer' },
   btnDel: { color: '#fca5a5', borderColor: 'rgba(239,68,68,0.2)' },
   opaco: { opacity: 0.62 },
   lin: { display: 'flex', gap: 11, alignItems: 'center' },

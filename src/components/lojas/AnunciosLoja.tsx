@@ -52,18 +52,19 @@ const S = {
   ctaPill: {
     display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700,
     background: 'rgba(245,158,11,0.12)', color: BRAND, border: '1px solid rgba(245,158,11,0.3)',
-    padding: '7px 14px', borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+    padding: '11px 16px', minHeight: 44, boxSizing: 'border-box' as const, borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   } as React.CSSProperties,
   btnComprar: { background: 'linear-gradient(135deg,#a855f7,#ec4899)', color: '#fff', border: 'none' },
   btn: {
-    display: 'block', width: '100%', textAlign: 'center' as const, background: BRAND, color: '#000',
-    padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: '100%', minHeight: 44, textAlign: 'center' as const, background: BRAND, color: '#000',
+    padding: '9px 12px', borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: 'none',
     border: 'none', cursor: 'pointer', fontFamily: 'inherit',
   } as React.CSSProperties,
   filtros: { display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 14 } as React.CSSProperties,
   chip: {
     display: 'inline-flex', alignItems: 'center', gap: 5,
-    fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 100,
+    fontSize: 12.5, fontWeight: 600, padding: '11px 14px', minHeight: 44, boxSizing: 'border-box' as const, borderRadius: 100,
     background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
     color: 'rgba(255,255,255,0.55)', cursor: 'pointer', fontFamily: 'inherit',
   } as React.CSSProperties,
@@ -230,7 +231,7 @@ export default function AnunciosLoja({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 12 }}>
         {visiveis.map(item => (
           <div key={item.id} style={S.surface}>
             {item.imagem ? (
