@@ -9,6 +9,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCarrinho from '@/components/lojas/BotaoCarrinho'
+import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconTruck, IconLocation } from '@/components/ui/Icons'
 
@@ -258,9 +259,17 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                 <BotaoCarrinho id={produto.id} tipo="produto" lojaId={loja.id} />
               )}
 
-              <Link href={`/lojas/${loja.slug}`} className="bx-prod-ghost" style={{ ...S.ghost, marginTop: 9 }}>
-                Ver mais desta loja
-              </Link>
+              <div style={S.acoesLinha}>
+                <Link href={`/lojas/${loja.slug}`} className="bx-prod-ghost" style={{ ...S.ghost, flex: 1 }}>
+                  Ver mais desta loja
+                </Link>
+                <BotaoCompartilhar
+                  url={urlDoProduto(produto)}
+                  titulo={produto.nome}
+                  texto={`${produto.nome} por ${fmtBRL(produto.preco_cents)} na ${nomeLoja}`}
+                  compacto
+                />
+              </div>
 
               {podeVender && !esgotado && (
                 <p style={S.frete}>
@@ -349,6 +358,7 @@ const S: Record<string, CSSProperties> = {
     color: 'var(--bx-brand-ink)', fontWeight: 700, fontSize: 14.5,
     textDecoration: 'none', marginBottom: 9,
   },
+  acoesLinha: { display: 'flex', gap: 8, alignItems: 'stretch', marginTop: 9 },
   ghost: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     minHeight: 46, borderRadius: 11, background: 'var(--bx-surface-2)',
