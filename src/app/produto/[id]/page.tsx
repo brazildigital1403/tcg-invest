@@ -1,6 +1,6 @@
 import { CSSProperties } from 'react'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { Metadata } from 'next'
 import { supabase } from '@/lib/supabaseClient'
 import { getServiceSupabase } from '@/lib/supabaseServer'
@@ -42,6 +42,7 @@ const TIPO_ICONE: Record<string, React.ComponentType<{ size?: number; color?: st
 
 interface Produto {
   id: string
+  slug: string | null
   tipo: string
   nome: string
   descricao: string | null
@@ -70,12 +71,18 @@ async function buscar(id: string): Promise<{ produto: Produto; loja: LojaDoProdu
   // que o lojista despublicou.
   const db = getServiceSupabase() ?? supabase
 
-  const { data } = await db
+  // A rota aceita SLUG ou UUID. O UUID continua valendo pra nao quebrar link ja
+  // compartilhado (o `cancel_url` da Stripe e a versao que ficou dias no ar),
+  // mas a page redireciona 301 pro slug — mesma politica da /carta.
+  const ehUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+
+  const q = db
     .from('loja_produtos')
-    .select('id, tipo, nome, descricao, preco_cents, estoque, peso_g, vendidos, fotos, loja_id')
-    .eq('id', id)
+    .select('id, slug, tipo, nome, descricao, preco_cents, estoque, peso_g, vendidos, fotos, loja_id')
     .eq('ativo', true)
     .limit(1)
+
+  const { data } = await (ehUuid ? q.eq('id', id) : q.eq('slug', id))
   const produto = (data?.[0] as Produto) || null
   if (!produto) return null
 
@@ -87,6 +94,11 @@ async function buscar(id: string): Promise<{ produto: Produto; loja: LojaDoProdu
     .limit(1)
 
   return { produto, loja: (ls?.[0] as LojaDoProduto) || null }
+}
+
+/** O endereco publico do produto: slug quando existe, id como ultimo recurso. */
+function urlDoProduto(p: { id: string; slug: string | null }): string {
+  return `/produto/${p.slug || p.id}`
 }
 
 /** Primeira frase util da descricao, pra meta description (limite ~160). */
@@ -102,6 +114,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!r || !r.loja) return { title: 'Produto não encontrado' }
 
   const { produto, loja } = r
+
   const nomeLoja = loja.nome || 'Loja'
   const titulo = `${produto.nome} — ${nomeLoja}`
   const desc = resumo(produto.descricao, produto.nome, nomeLoja)
@@ -110,11 +123,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: titulo,
     description: desc,
-    alternates: { canonical: `/produto/${produto.id}` },
+    alternates: { canonical: urlDoProduto(produto) },
     openGraph: {
       title: titulo,
       description: desc,
-      url: `https://bynx.gg/produto/${produto.id}`,
+      url: `https://bynx.gg${urlDoProduto(produto)}`,
       type: 'website',
       images: foto ? [{ url: foto }] : undefined,
     },
@@ -127,6 +140,14 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
   if (!r || !r.loja) notFound()
 
   const { produto, loja } = r
+
+  // ★ 301 do UUID pro slug — ANTES de qualquer render. Tem que viver na PAGE:
+  // em `generateMetadata` o redirect nao vira header HTTP, e o crawler receberia
+  // a pagina duplicada em duas URLs (foi exatamente o que aconteceu no 1o try).
+  if (produto.slug && id !== produto.slug) {
+    permanentRedirect(urlDoProduto(produto))
+  }
+
   const nomeLoja = loja.nome || 'Loja'
   const fotos = Array.isArray(produto.fotos) ? produto.fotos.filter(Boolean) : []
   const Icone = TIPO_ICONE[produto.tipo]
@@ -138,7 +159,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
   const trilha = [
     { name: 'Guia de Lojas', href: '/lojas' },
     { name: nomeLoja, href: `/lojas/${loja.slug}` },
-    { name: produto.nome, href: `/produto/${produto.id}` },
+    { name: produto.nome, href: urlDoProduto(produto) },
   ]
 
   const produtoSchema = {
@@ -151,7 +172,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
     ...(produto.peso_g ? { weight: { '@type': 'QuantitativeValue', value: produto.peso_g, unitCode: 'GRM' } } : {}),
     offers: {
       '@type': 'Offer',
-      url: `https://bynx.gg/produto/${produto.id}`,
+      url: `https://bynx.gg${urlDoProduto(produto)}`,
       price: (produto.preco_cents / 100).toFixed(2),
       priceCurrency: 'BRL',
       availability: produto.estoque > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',

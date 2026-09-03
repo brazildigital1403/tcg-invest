@@ -108,7 +108,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const { data: ps } = await db
       .from('loja_produtos')
-      .select('id, loja_id, tipo, nome, preco_cents, estoque, peso_g, fotos, ativo')
+      .select('id, slug, loja_id, tipo, nome, preco_cents, estoque, peso_g, fotos, ativo')
       .eq('id', produtoId)
       .limit(1)
 
@@ -265,7 +265,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           metadata: { bynx_pedido_id: String(pedidoIns.id) },
         },
         success_url: `${base}/pedido/${pedidoIns.id}?ok=1`,
-        cancel_url: `${base}/produto/${p.id}?cancelado=1`,
+        cancel_url: `${base}/produto/${p.slug || p.id}?cancelado=1`,
       })
 
       await db

@@ -189,7 +189,7 @@ export default function AnunciosLoja({
     ;(async () => {
       const { data } = await supabase
         .from('loja_produtos')
-        .select('id, tipo, nome, preco_cents, estoque, fotos')
+        .select('id, slug, tipo, nome, preco_cents, estoque, fotos')
         .eq('loja_id', lojaId)
         .order('created_at', { ascending: false })
       if (!ativo) return
@@ -202,7 +202,7 @@ export default function AnunciosLoja({
           preco: (p.preco_cents || 0) / 100,
           badges: [p.estoque > 1 ? `${p.estoque} em estoque` : 'Última unidade'],
           href: `/checkout/${p.id}?tipo=produto`,
-          detalhe: `/produto/${p.id}`,
+          detalhe: `/produto/${p.slug || p.id}`,
           ehCarta: false,
         }))
       )
