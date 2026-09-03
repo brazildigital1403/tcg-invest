@@ -82,7 +82,7 @@ const S = {
     background: 'rgba(245,158,11,0.12)', color: BRAND, border: '1px solid rgba(245,158,11,0.3)',
     padding: '11px 16px', minHeight: 44, boxSizing: 'border-box' as const, borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   } as React.CSSProperties,
-  btnComprar: { background: 'linear-gradient(135deg,#a855f7,#ec4899)', color: '#fff', border: 'none' },
+  btnComprar: { background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', border: 'none' },
   btn: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: '100%', minHeight: 44, textAlign: 'center' as const, background: BRAND, color: '#000',
@@ -97,6 +97,7 @@ const S = {
     color: 'rgba(255,255,255,0.55)', cursor: 'pointer', fontFamily: 'inherit',
   } as React.CSSProperties,
   chipOn: { background: 'rgba(245,158,11,0.14)', borderColor: 'rgba(245,158,11,0.35)', color: BRAND } as React.CSSProperties,
+  btnVer: { background: 'var(--bx-surface-3)', color: 'var(--bx-text)', border: '1px solid var(--bx-border-2)' } as React.CSSProperties,
   nome: { fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3 } as React.CSSProperties,
   nomeLink: { fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3, color: 'inherit', textDecoration: 'none' } as React.CSSProperties,
   badge: { fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' } as React.CSSProperties,
@@ -107,11 +108,17 @@ const S = {
  * grid, com filtro por tipo. O comprador nao deveria precisar saber que sao
  * duas tabelas — pra ele e tudo "coisa que essa loja vende".
  *
- * `podeVender` = a loja tem recebimentos ativos no Stripe Connect:
+ * `podeVender` = a loja tem recebimentos ativos no Stripe Connect. Ele decide a
+ * ACAO, nunca mais a VISIBILIDADE:
  *   - true  -> botao "Comprar" (checkout na hora)
- *   - false -> "Tenho interesse" nas cartas (reserva + chat). Produto sem
- *              Connect nao aparece: nao ha como negociar um selado no chat de
- *              carta, e prometer sem poder cobrar seria pior.
+ *   - false -> carta oferece "Tenho interesse" (reserva + chat); produto leva
+ *              pra propria pagina, onde o comprador ve tudo e e direcionado aos
+ *              canais da loja.
+ *
+ * ★ Ate 03/09/2026 o produto de loja sem Connect NAO ERA NEM BUSCADO. Eram 8
+ * das 10 lojas ativas cadastrando produto pra uma vitrine que ficava vazia, sem
+ * nenhum aviso. Decisao do Du: a loja e uma loja virtual, o produto aparece
+ * sempre; quem nao recebe pela Bynx apenas nao mostra o botao de comprar.
  */
 export default function AnunciosLoja({
   ownerUserId,
@@ -177,7 +184,7 @@ export default function AnunciosLoja({
 
   // produtos da loja (RLS ja filtra ativo + estoque > 0)
   useEffect(() => {
-    if (!lojaId || !podeVender) return
+    if (!lojaId) return
     let ativo = true
     ;(async () => {
       const { data } = await supabase
@@ -201,7 +208,7 @@ export default function AnunciosLoja({
       )
     })()
     return () => { ativo = false }
-  }, [lojaId, podeVender])
+  }, [lojaId])
 
   const todos = useMemo(() => [...cartas, ...produtos], [cartas, produtos])
 
@@ -282,11 +289,13 @@ export default function AnunciosLoja({
               </p>
               {logado && !ehDono && (
                 podeVender ? (
-                  <a href={item.href} style={{ ...S.btn, ...S.btnComprar, textDecoration: 'none' }}>Comprar</a>
+                  <a href={item.href} className="bx-ctx-comprador" style={{ ...S.btn, ...S.btnComprar, textDecoration: 'none' }}>Comprar</a>
                 ) : item.ehCarta ? (
                   <button type="button" disabled={enviando === item.id} onClick={() => clicarInteresse(item)} style={{ ...S.btn, opacity: enviando === item.id ? 0.6 : 1 }}>
                     {enviando === item.id ? 'Abrindo...' : 'Tenho interesse'}
                   </button>
+                ) : item.detalhe ? (
+                  <Link href={item.detalhe} style={{ ...S.btn, ...S.btnVer, textDecoration: 'none' }}>Ver produto</Link>
                 ) : null
               )}
             </div>

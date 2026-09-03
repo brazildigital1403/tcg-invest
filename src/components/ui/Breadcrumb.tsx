@@ -52,7 +52,7 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
         style={{
           listStyle: 'none',
           margin: 0,
-          padding: '8px 16px',
+          padding: '2px 16px',
           display: 'inline-flex',
           alignItems: 'center',
           flexWrap: 'wrap',
@@ -76,13 +76,12 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
                 <span
                   aria-current="page"
                   style={{
-                    color: '#fff',
+                    color: 'var(--bx-text)',
                     fontWeight: 600,
-                    borderBottom: '2px solid var(--ac-1)',
-                    paddingBottom: 1,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 5,
+                    minHeight: 36,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -94,7 +93,9 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
                       <HomeIcon />
                     </span>
                   )}
-                  {it.name}
+                  <span style={{ borderBottom: '2px solid var(--ac-1)', paddingBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {it.name}
+                  </span>
                 </span>
               ) : (
                 <Link
@@ -106,6 +107,7 @@ export default function Breadcrumb({ items }: { items: Crumb[] }) {
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 5,
+                    minHeight: 36,
                     whiteSpace: 'nowrap',
                     transition: 'color .15s',
                   }}

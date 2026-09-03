@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { supabase } from '@/lib/supabaseClient'
+import { getServiceSupabase } from '@/lib/supabaseServer'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import Breadcrumb from '@/components/ui/Breadcrumb'
@@ -18,11 +19,15 @@ import { IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconTruck, Ico
  * e a descricao nao eram lidas por tela nenhuma. Esta rota e o alvo do
  * `cancel_url` da Stripe, do link compartilhavel e do JSON-LD de Product.
  *
- * ★ A RLS (`loja_produtos_select_publico`: ativo = true AND estoque > 0) e quem
- * decide o que e publico. Produto esgotado some da query e cai em notFound() --
- * consistente com a vitrine, mas significa que a URL de um item que vendeu
- * passa a devolver 404. Tratar "esgotado" como pagina viva exige mexer na
- * policy, o que e schema e nao entra sem decisao do Du.
+ * ★ ESGOTADO CONTINUA SENDO PAGINA, NAO 404. A RLS
+ * (`loja_produtos_select_publico`: ativo = true AND estoque > 0) esconderia do
+ * anon todo item que vendeu, e a URL de um produto esgotado morreria — pessimo
+ * pra SEO e pra qualquer link ja compartilhado. Como esta pagina e server-side,
+ * a leitura usa a service role e filtra `ativo` na propria query: o esgotado
+ * aparece com o estado certo e o inativo continua invisivel. Isso resolve sem
+ * tocar na policy (schema nao entra sem decisao do Du). Se a env da service key
+ * faltar, cai no cliente anon — a pagina degrada pro comportamento antigo em vez
+ * de quebrar.
  */
 
 export const dynamic = 'force-dynamic'
@@ -59,15 +64,21 @@ interface LojaDoProduto {
 }
 
 async function buscar(id: string): Promise<{ produto: Produto; loja: LojaDoProduto | null } | null> {
-  const { data } = await supabase
+  // Service role pra enxergar o esgotado (a RLS do anon exige estoque > 0);
+  // `ativo` volta como filtro explicito, senao a service role mostraria produto
+  // que o lojista despublicou.
+  const db = getServiceSupabase() ?? supabase
+
+  const { data } = await db
     .from('loja_produtos')
     .select('id, tipo, nome, descricao, preco_cents, estoque, peso_g, vendidos, fotos, loja_id')
     .eq('id', id)
+    .eq('ativo', true)
     .limit(1)
   const produto = (data?.[0] as Produto) || null
   if (!produto) return null
 
-  const { data: ls } = await supabase
+  const { data: ls } = await db
     .from('lojas')
     .select('id, slug, nome, logo_url, verificada, cidade, estado, connect_charges_enabled')
     .eq('id', produto.loja_id)
@@ -120,6 +131,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
   const Icone = TIPO_ICONE[produto.tipo]
   const rotulo = TIPO_LABEL[produto.tipo] || produto.tipo
   const podeVender = !!loja.connect_charges_enabled
+  const esgotado = produto.estoque <= 0
   const local = [loja.cidade, loja.estado].filter(Boolean).join(', ')
 
   const trilha = [
@@ -199,18 +211,24 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               <h1 style={S.h1}>{produto.nome}</h1>
               <p style={S.preco}>{fmtBRL(produto.preco_cents)}</p>
 
-              <p style={S.estoque}>
-                <span style={S.dot} />
-                {produto.estoque > 1 ? `${produto.estoque} em estoque` : 'Última unidade'}
+              <p style={esgotado ? S.estoqueOff : S.estoque}>
+                <span style={esgotado ? S.dotOff : S.dot} />
+                {esgotado
+                  ? 'Esgotado no momento'
+                  : produto.estoque > 1 ? `${produto.estoque} em estoque` : 'Última unidade'}
               </p>
 
-              {podeVender ? (
-                <Link href={`/checkout/${produto.id}?tipo=produto`} className="bx-prod-cta" style={S.cta}>
+              {esgotado ? (
+                <p style={S.aviso}>
+                  Este produto está sem estoque. A loja pode repor — vale conferir o que mais ela tem à venda.
+                </p>
+              ) : podeVender ? (
+                <Link href={`/checkout/${produto.id}?tipo=produto`} className="bx-ctx-comprador bx-prod-cta" style={S.cta}>
                   Comprar agora
                 </Link>
               ) : (
-                <p style={S.semVenda}>
-                  Esta loja ainda não finaliza vendas pela Bynx. Fale com ela pela página da loja.
+                <p style={S.aviso}>
+                  Esta loja ainda não finaliza vendas pela Bynx. Fale com ela pelos canais na página da loja.
                 </p>
               )}
 
@@ -218,7 +236,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                 Ver mais desta loja
               </Link>
 
-              {podeVender && (
+              {podeVender && !esgotado && (
                 <p style={S.frete}>
                   <IconTruck size={14} color="var(--bx-text-3)" />
                   Frete calculado no checkout, pelo seu CEP
@@ -311,7 +329,12 @@ const S: Record<string, CSSProperties> = {
     border: '1px solid var(--bx-border-2)', color: 'var(--bx-text-2)',
     fontWeight: 600, fontSize: 13.5, textDecoration: 'none',
   },
-  semVenda: {
+  estoqueOff: {
+    fontSize: 12.5, color: 'var(--bx-text-3)', fontWeight: 700,
+    display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 16px',
+  },
+  dotOff: { width: 6, height: 6, borderRadius: '50%', background: 'var(--bx-text-faint)', flex: 'none' },
+  aviso: {
     fontSize: 12.5, color: 'var(--bx-text-3)', lineHeight: 1.55,
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
     borderRadius: 10, padding: '11px 13px', margin: '0 0 9px',
