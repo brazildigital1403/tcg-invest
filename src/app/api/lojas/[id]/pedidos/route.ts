@@ -219,9 +219,45 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       console.error('[pedidos PATCH cancelar] CRITICAL: excecao ao estornar lancamento:', (err as Error)?.message)
     }
 
-    // Restaura o inventario (produto: estoque+1; carta: volta pra disponivel).
+    // Restaura o inventario (produto: estoque + quantidade; carta: volta pra
+    // disponivel). A verdade e `pedido_itens`: os campos produto_id/
+    // marketplace_id do pedido so vem preenchidos quando ele tem 1 item, entao
+    // olhar so pra eles nao devolvia nada num pedido de carrinho.
+    //
+    // ★ A RPC `restaurar_estoque_produto` nao cobre o multi-item: o guard dela
+    // e `pedidos.produto_id = p_id`, null nesses pedidos. Item unico segue por
+    // ela (caminho ja provado com refund real); multi-item repoe direto, logo
+    // depois do pedido ter sido marcado como cancelado.
     try {
-      if (pedido.produto_id) {
+      const { data: itensCanc } = await sb
+        .from('pedido_itens')
+        .select('marketplace_id, produto_id, quantidade')
+        .eq('pedido_id', pedido.id)
+
+      if (itensCanc && itensCanc.length) {
+        for (const it of itensCanc) {
+          if (it.marketplace_id) {
+            await sb.from('marketplace').update({ status: 'disponivel', buyer_id: null }).eq('id', it.marketplace_id)
+          } else if (it.produto_id) {
+            const qtd = Math.max(1, Number(it.quantidade) || 1)
+            const { data: prod } = await sb
+              .from('loja_produtos')
+              .select('estoque, vendidos')
+              .eq('id', it.produto_id)
+              .single()
+            if (prod) {
+              await sb
+                .from('loja_produtos')
+                .update({
+                  estoque: (prod.estoque || 0) + qtd,
+                  vendidos: Math.max(0, (prod.vendidos || 0) - qtd),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', it.produto_id)
+            }
+          }
+        }
+      } else if (pedido.produto_id) {
         await sb.rpc('restaurar_estoque_produto', { p_id: pedido.produto_id })
       } else if (pedido.marketplace_id) {
         await sb.from('marketplace').update({ status: 'disponivel', buyer_id: null }).eq('id', pedido.marketplace_id)
