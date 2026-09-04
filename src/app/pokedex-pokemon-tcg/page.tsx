@@ -201,7 +201,7 @@ export default async function PokedexPokemonTcgPage() {
     },
     {
       q: 'Como a Pokédex da Bynx se compara com TCGPlayer e pokemon.com?',
-      a: `TCGPlayer tem o maior catálogo do mundo, mas é 100% em inglês, preços em dólar e foco no mercado americano. Pokemon.com é a fonte oficial mas só lista cartas (sem preços). LigaPokémon tem dados em português mas interface datada e busca limitada. A Bynx combina o melhor: catálogo completo (${cartasFmt} cartas), preços em reais por variante atualizados continuamente, busca em português, mobile-first, scan com IA e marketplace BR — tudo no mesmo lugar.`,
+      a: `TCGPlayer tem o maior catálogo do mundo, mas é 100% em inglês, preços em dólar e foco no mercado americano. Pokemon.com é a fonte oficial mas só lista cartas (sem preços). Os sites brasileiros existentes têm dados em português, mas interface datada e busca limitada. A Bynx combina o melhor: catálogo completo (${cartasFmt} cartas), preços em reais por variante atualizados continuamente, busca em português, mobile-first, scan com IA e marketplace BR — tudo no mesmo lugar.`,
     },
     {
       q: 'O que são as variantes de uma carta Pokémon?',
@@ -550,7 +550,13 @@ export default async function PokedexPokemonTcgPage() {
                     <th style={{ ...S.compTh, textAlign: 'left' }}>Feature</th>
                     <th style={{ ...S.compTh, ...S.compThBynx }}>Bynx</th>
                     <th style={S.compTh}>HeyPikachu</th>
-                    <th style={S.compTh}>LigaPokémon</th>
+                    {/* ★ Nome do fornecedor de preco NAO entra em superficie
+                        publica -- e a regra permanente da casa. Aqui era pior
+                        que num slug: a pagina comparava a Bynx com a fonte
+                        NOMINALMENTE, o que conecta os pontos pra quem estiver
+                        procurando de onde vem o preco em reais. Rotulo neutro
+                        preserva a comparacao sem entregar a fonte. */}
+                    <th style={S.compTh}>Outros sites BR</th>
                     <th style={S.compTh}>pokemon.com</th>
                     <th style={S.compTh}>TCGPlayer</th>
                     <th style={S.compTh}>Pokellector</th>
