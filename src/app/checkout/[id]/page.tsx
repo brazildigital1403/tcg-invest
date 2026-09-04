@@ -35,6 +35,10 @@ interface ItemInfo {
   imagem: string | null
   preco_cents: number
   condicao: string | null
+  /** So carta: descricao pronta (variante, idioma, condicao/graduacao). */
+  badges?: string[]
+  /** So carta: fotos REAIS do vendedor. A primeira ja vem em `imagem`. */
+  fotos?: string[]
   graduada: boolean | null
   graduadora: string | null
   nota: string | null
@@ -99,6 +103,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const apiBase = ehProduto ? `/api/produtos/${anuncioId}/checkout` : `/api/marketplace/${anuncioId}/checkout`
 
   const [item, setItem] = useState<ItemInfo | null>(null)
+  const [fotoIdx, setFotoIdx] = useState(0)
   const [loja, setLoja] = useState<LojaInfo | null>(null)
   const [metodo, setMetodo] = useState<MetodoPagamento>(PIX_DISPONIVEL ? 'pix' : 'cartao')
   // Quantidade so existe pra PRODUTO (carta e peca unica). O teto real e o
@@ -258,12 +263,20 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   const economia = cCartao.acrescimoCents - cPix.acrescimoCents
   const precisaFrete = ehCalculado && freteResolvido == null
 
-  // Rotulo de condicao amigavel (cai no cru se nao mapeado).
-  const condChip = item.graduada && item.graduadora
-    ? `${item.graduadora} ${item.nota || ''}`.trim()
-    : item.condicao
-      ? (COND_LABEL[item.condicao.toUpperCase()] || item.condicao)
-      : null
+  // ★ Chips do item (04/09/2026). A carta agora chega com `badges` prontas da
+  // API, na MESMA regra da vitrine (`badgesCarta.ts`) — antes daqui saia a
+  // graduacao crua em minusculas ("ags 9.5") e a variante nem aparecia. O
+  // COND_LABEL continua por cima: aqui ha espaco pro texto longo.
+  const chips: string[] = (item.badges && item.badges.length)
+    ? item.badges.map(bd => COND_LABEL[bd.toUpperCase()] || bd)
+    : (item.graduada && item.graduadora
+        ? [`${item.graduadora} ${item.nota || ''}`.trim()]
+        : item.condicao
+          ? [COND_LABEL[item.condicao.toUpperCase()] || item.condicao]
+          : [])
+
+  const fotosItem = (item.fotos && item.fotos.length ? item.fotos : (item.imagem ? [item.imagem] : [])).slice(0, 8)
+  const fotoAtual = fotosItem[fotoIdx] || item.imagem
 
   const stepPag = ehCalculado ? 2 : 1
   const indisponivel = !item.disponivel
@@ -284,15 +297,31 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
         <div style={S.left}>
           <div style={S.heroRow}>
             <div style={S.heroImg}>
-              {item.imagem
-                ? <Image src={item.imagem} alt={item.nome} width={150} height={208} style={{ objectFit: 'contain', borderRadius: 10, width: '100%', height: 'auto' }} priority sizes="(max-width: 880px) 100vw, 150px" />
+              {fotoAtual
+                ? <Image src={fotoAtual} alt={item.nome} width={150} height={208} style={{ objectFit: 'contain', borderRadius: 10, width: '100%', height: 'auto' }} priority sizes="(max-width: 880px) 100vw, 150px" />
                 : <IconPokeball size={30} color="rgba(255,255,255,0.4)" />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={S.heroName}>{item.nome}</div>
-              {condChip && (
+              {chips.length > 0 && (
                 <div style={S.chipRow}>
-                  <span style={S.chip}>{condChip}</span>
+                  {chips.map(cp => <span key={cp} style={S.chip}>{cp}</span>)}
+                </div>
+              )}
+              {fotosItem.length > 1 && (
+                <div style={S.miniRow}>
+                  {fotosItem.map((u, i) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setFotoIdx(i)}
+                      aria-label={`Foto ${i + 1} de ${fotosItem.length}`}
+                      aria-current={i === fotoIdx}
+                      style={{ ...S.mini, borderColor: i === fotoIdx ? 'var(--ac-1)' : 'rgba(255,255,255,0.12)' }}
+                    >
+                      <Image src={u} alt="" width={44} height={60} style={{ objectFit: 'cover', width: '100%', height: '100%' }} sizes="44px" />
+                    </button>
+                  ))}
                 </div>
               )}
               <div style={S.heroPrice}>{fmtBRL(item.preco_cents)}</div>
@@ -491,6 +520,8 @@ const S: Record<string, React.CSSProperties> = {
   heroName: { fontSize: 18, fontWeight: 800, lineHeight: 1.25 },
   chipRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
   chip: { fontSize: 11, padding: '3px 9px', borderRadius: 7, background: 'rgba(96,165,250,0.14)', color: '#93c5fd' },
+  miniRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
+  mini: { width: 44, height: 60, padding: 0, borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', transition: 'border-color 0.15s ease', flexShrink: 0 },
   heroPrice: { fontSize: 20, fontWeight: 800, marginTop: 14 },
   heroQtd: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
   heroSub: { fontSize: 12.5, color: 'var(--bx-text-3)', marginTop: 6, fontWeight: 600 },
