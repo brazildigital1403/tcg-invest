@@ -1,5 +1,15 @@
 -- Marketplace: a leitura publica para de entregar anuncio removido
 --
+-- ★ APLICADA EM PRODUCAO em 04/09/2026, com o ok do Du. Efeito conferido no
+--   MESMO GET que antes devolvia a tabela toda pela internet:
+--     linhas       119 -> 100
+--     removidos     19 -> 0
+--     buyer_id      14 -> 8   (os 6 que sumiram estavam em anuncios removidos)
+--     disponiveis   61 -> 61  (a UI publica nao perdeu nada)
+--     INSERT anon   passou a responder 401
+--   /marketplace deslogado segue com "61 disponiveis - 5 em negociacao" e as
+--   vitrines em 2/5/4/1 itens, iguais a antes.
+--
 -- ESTADO ANTES (medido em 04/09/2026, com `set local role anon`):
 --   119 linhas visiveis pro anon -- TODAS. Dentro delas:
 --     19 anuncios REMOVIDOS pela moderacao do admin
