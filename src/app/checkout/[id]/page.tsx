@@ -298,7 +298,11 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
           <div style={S.heroRow}>
             <div style={S.heroImg}>
               {fotoAtual
-                ? <Image src={fotoAtual} alt={item.nome} width={150} height={208} style={{ objectFit: 'contain', borderRadius: 10, width: '100%', height: 'auto' }} priority sizes="(max-width: 880px) 100vw, 150px" />
+                // ★ `height: '100%'` e o que faz o `objectFit: contain` valer.
+                // Com `height: auto` o elemento assume a altura da imagem e
+                // quem corta e o `overflow: hidden` do pai — a foto vertical
+                // de um slab perdia topo e base.
+                ? <Image src={fotoAtual} alt={item.nome} width={150} height={208} style={{ objectFit: 'contain', borderRadius: 10, width: '100%', height: '100%' }} priority sizes="(max-width: 880px) 100vw, 150px" />
                 : <IconPokeball size={30} color="rgba(255,255,255,0.4)" />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -319,7 +323,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                       aria-current={i === fotoIdx}
                       style={{ ...S.mini, borderColor: i === fotoIdx ? 'var(--ac-1)' : 'rgba(255,255,255,0.12)' }}
                     >
-                      <Image src={u} alt="" width={44} height={60} style={{ objectFit: 'cover', width: '100%', height: '100%' }} sizes="44px" />
+                      <Image src={u} alt="" width={40} height={55} style={{ objectFit: 'cover', width: '100%', height: '100%' }} sizes="40px" />
                     </button>
                   ))}
                 </div>
@@ -521,7 +525,7 @@ const S: Record<string, React.CSSProperties> = {
   chipRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
   chip: { fontSize: 11, padding: '3px 9px', borderRadius: 7, background: 'rgba(96,165,250,0.14)', color: '#93c5fd' },
   miniRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
-  mini: { width: 44, height: 60, padding: 0, borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', transition: 'border-color 0.15s ease', flexShrink: 0 },
+  mini: { width: 40, height: 55, padding: 0, borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', transition: 'border-color 0.15s ease', flexShrink: 0 },
   heroPrice: { fontSize: 20, fontWeight: 800, marginTop: 14 },
   heroQtd: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
   heroSub: { fontSize: 12.5, color: 'var(--bx-text-3)', marginTop: 6, fontWeight: 600 },
