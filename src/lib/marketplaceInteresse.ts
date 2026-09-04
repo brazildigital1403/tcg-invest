@@ -24,10 +24,13 @@ export async function manifestarInteresse(anuncioId: string): Promise<boolean> {
   // re-checa o estado atual (evita corrida entre carregar e clicar)
   const { data: a } = await supabase
     .from('marketplace')
-    .select('user_id, status, buyer_id')
+    .select('user_id, status, buyer_id, removido_em')
     .eq('id', anuncioId)
     .single()
   if (!a) return false
+  // Anuncio moderado pelo admin (`removido_em`) nao pode ser reservado — a
+  // moderacao nao mexe no `status`, entao checar status sozinho nao pega.
+  if (a.removido_em) return false
 
   // nao pode manifestar interesse na propria carta
   if (a.user_id === uid) return false

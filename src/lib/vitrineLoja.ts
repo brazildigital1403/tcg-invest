@@ -1,5 +1,6 @@
 import 'server-only'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { GRADUADORA_MAP, notaCurta } from '@/lib/graduadoras'
 
 /**
  * Itens da vitrine de uma loja — CARTAS (marketplace) + PRODUTOS (loja_produtos)
@@ -39,6 +40,41 @@ const VARIANTE_LABEL: Record<string, string> = {
   normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse', pokeball: 'Pokeball',
 }
 
+/**
+ * Badges da carta. NUNCA inventa condicao.
+ *
+ * ★ O bug que isto conserta (03/09/2026): carta graduada grava `condicao: null`
+ * (o formulario nao pede condicao de slab). O codigo antigo fazia
+ * `c.condicao || 'NM'` e o resultado era **uma PSA 10 aparecendo na vitrine
+ * publica como "Normal · NM"**: o slab sumia e a carta ganhava uma condicao que
+ * ninguem declarou — justo o atributo que mais move o preco de uma carta.
+ *
+ * Agora: graduada mostra a graduadora e a nota (mesmo formato do /marketplace,
+ * via `GRADUADORA_MAP`/`notaCurta`); crua mostra a condicao SE existir.
+ */
+function badgesDaCarta(c: {
+  variante: string | null
+  condicao: string | null
+  graduada: boolean | null
+  graduadora: string | null
+  nota: number | null
+  black_label: boolean | null
+}): string[] {
+  const out = [VARIANTE_LABEL[c.variante || 'normal'] || 'Normal']
+
+  if (c.graduada && c.graduadora) {
+    const g = GRADUADORA_MAP[c.graduadora]
+    const nome = g?.curto || c.graduadora.toUpperCase()
+    const n = notaCurta(c.nota, !!c.black_label)
+    out.push(n ? `${nome} ${n}` : nome)
+    return out
+  }
+
+  // Sem graduacao: so mostra condicao se o vendedor declarou.
+  if (c.condicao) out.push(c.condicao)
+  return out
+}
+
 export async function buscarItensDaVitrine(
   ownerUserId: string | null,
   lojaId: string | null,
@@ -50,9 +86,14 @@ export async function buscarItensDaVitrine(
     ownerUserId
       ? db
           .from('marketplace')
-          .select('id, card_name, card_image, price, variante, condicao')
+          .select('id, card_name, card_image, price, variante, condicao, graduada, graduadora, nota, black_label')
           .eq('user_id', ownerUserId)
           .eq('status', 'disponivel')
+          // ★ `removido_em` NAO pode faltar. A moderacao do admin so seta esse
+          // campo — nao mexe no `status` (ver api/admin/marketplace/moderar).
+          // Sem este filtro, anuncio REMOVIDO continua na vitrine publica e
+          // comprável. Era o caso ate 03/09; o erro foi meu, neste arquivo.
+          .is('removido_em', null)
           .order('created_at', { ascending: false })
           .limit(200)
       : Promise.resolve({ data: [], error: null }),
@@ -79,7 +120,7 @@ export async function buscarItensDaVitrine(
     nome: c.card_name || '',
     imagem: c.card_image,
     preco: Number(c.price) || 0,
-    badges: [VARIANTE_LABEL[c.variante || 'normal'] || 'Normal', c.condicao || 'NM'],
+    badges: badgesDaCarta(c),
     href: `/checkout/${c.id}`,
     detalhe: null,
     ehCarta: true,

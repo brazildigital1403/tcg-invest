@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
         }
       }
       if (idsCarta.length) {
-        const { data } = await sb.from('marketplace').select('id, price, user_id').in('id', idsCarta)
+        const { data } = await sb.from('marketplace').select('id, price, user_id').in('id', idsCarta).is('removido_em', null)
         for (const an of data || []) {
           if (an.user_id !== loja.owner_user_id) continue
           pacotes.push({ ...pacoteDeCarta(Math.round(Number(an.price) * 100)), id: `c-${an.id}` })

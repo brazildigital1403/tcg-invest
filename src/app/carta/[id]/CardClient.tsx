@@ -431,8 +431,12 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
 
             {/* Botões */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {/* ★ Ia pra HOME (`href="/"`), copiado do "Entre na Bynx" logo
+                  acima. O CTA principal de ~66,9 mil paginas de carta jogava o
+                  comprador na raiz do site. Agora leva pro Mercado com a carta
+                  ja buscada. */}
               <Link
-                href="/"
+                href={`/marketplace?q=${encodeURIComponent(card.name || '')}`}
                 style={{
                   flex: 1,
                   display: 'block',

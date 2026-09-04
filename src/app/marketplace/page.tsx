@@ -143,7 +143,12 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
   const { showAlert, showConfirm } = useAppModal()
   const router = useRouter()
   const isMeu    = card.user_id === userId
-  const isBuyer  = card.buyer_id === userId
+  // ★ `!!userId` NAO e redundante: sem ele, visitante DESLOGADO tinha
+  // `userId === null` e os anuncios disponiveis tem `buyer_id === null` —
+  // `null === null` e TRUE, entao todo anonimo era tratado como "o comprador
+  // que ja reservou" e o CTA sumia. Medido em 03/09: 63 de 63 cards do grid
+  // sem botao nenhum pra quem nao esta logado.
+  const isBuyer  = !!userId && card.buyer_id === userId
   const st       = STATUS_CFG[card.status || 'disponivel'] || STATUS_CFG.disponivel
   const variante = VARIANTES.find(v => v.key === card.variante)?.label || 'Normal'
   const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
@@ -854,7 +859,14 @@ function MarketplaceInner() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showFiltrosAvancados])
 
-  const [busca, setBusca]       = useState('')
+  // Init le `?q=` da URL — mesmo padrao que a aba usa acima (window.location em
+  // vez de useSearchParams, pela REGRA 24). Isso e o que faz o CTA "Tenho
+  // interesse" da pagina de carta chegar aqui JA filtrado: sem ler o parametro,
+  // o link cairia no Mercado inteiro e o comprador teria que buscar de novo.
+  const [busca, setBusca]       = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return new URL(window.location.href).searchParams.get('q') || ''
+  })
   const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior' | 'desconto'>('recente')
   // Lentes de descoberta da barra principal (eixo separado dos filtros avançados)
   const [discovery, setDiscovery] = useState<'' | 'ofertas' | 'bompreco' | 'graduadas' | 'novidades' | 'perto'>('')
@@ -1043,7 +1055,7 @@ function MarketplaceInner() {
   const meusAnuncios = listings.filter(c => c.user_id === userId)
 
   const minhasNegociacoes = listings.filter(c =>
-    c.buyer_id === userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel')
+    !!userId && c.buyer_id === userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel')
   )
 
   // ── Curadoria da vitrine (hero · trio · trilhos) ─────────────────────────────

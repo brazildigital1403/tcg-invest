@@ -98,9 +98,13 @@ export default function PerfilPage() {
       const uid = userData.id // sempre usa o UUID real
 
       // Anúncios ativos
-      const { data: listingsData } = await supabase
+      // `removido_em` e a moderacao do admin, que NAO mexe no `status` — sem
+      // este filtro o perfil publico seguia exibindo anuncio removido.
+      const { data: listingsData, error: listingsErr } = await supabase
         .from('marketplace').select('*').eq('user_id', uid).eq('status', 'disponivel')
+        .is('removido_em', null)
         .order('created_at', { ascending: false })
+      if (listingsErr) console.error('[perfil] anuncios:', listingsErr.message)
       setListings(listingsData || [])
 
       // Vendas concluidas — via RPC SECURITY DEFINER (conta sem expor transacoes).
