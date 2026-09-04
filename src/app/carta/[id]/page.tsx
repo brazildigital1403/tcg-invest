@@ -23,6 +23,8 @@ import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound, permanentRedirect } from 'next/navigation'
 import CardClient from './CardClient'
+import OfertasDaCarta from '@/components/cards/OfertasDaCarta'
+import { buscarOfertasDaCarta } from '@/lib/ofertasDaCarta'
 
 // Variantes exibidas na pagina publica da carta. Leem as colunas fixas ja
 // scaneadas em pokemon_cards (preco_<var>_min/medio/max). So entram as com preco.
@@ -499,6 +501,10 @@ export default async function CartaPage({
     permanentRedirect(`/carta/${card.slug}`)
   }
 
+  // Ofertas reais da Bynx. Depois do redirect de proposito: se a URL vai
+  // mudar, nao vale gastar a consulta.
+  const ofertas = await buscarOfertasDaCarta(card.id)
+
   // ─── Schema.org Product (Rich Snippet no Google: mostra R$ na busca) ─
   const productSchema: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -523,9 +529,24 @@ export default async function CartaPage({
     category: 'Trading Card Game',
   }
 
-  // AggregateOffer só com preço (evita lowPrice undefined). O GATE passou a
-  // ser o precoMin junto com a regra: com o gate no médio, uma carta que tem
-  // mínimo mas não tem médio sairia do rich snippet sem oferta nenhuma.
+  // ★ O JSON-LD SEGUE NO PRECO DE MERCADO, DE PROPOSITO (04/09/2026).
+  //
+  // A tentacao aqui e obvia: existe anuncio real, entao o `offers` deveria
+  // descrever o que da pra COMPRAR. Nao foi feito, por duas razoes.
+  //
+  // 1. O preco da oferta e de OUTRO produto. No Clefairy 94/88 o preco de
+  //    mercado da carta e R$ 94,99 e o unico anuncio e um slab AGS 9.5 por
+  //    R$ 627,12 — 6,6x. Trocar o dado estruturado faria o Google anunciar
+  //    R$ 627 pra quem procura a carta crua, e o `title`/`description` da
+  //    propria pagina continuariam dizendo R$ 94,99.
+  // 2. Isso e superficie de CRAWL em 55 paginas ja indexadas, e mudanca de
+  //    superficie de crawl e decisao do Du, nao minha.
+  //
+  // O bloco de ofertas aparece no HTML normalmente — o ganho pro usuario e
+  // pro crawler esta la. So o dado ESTRUTURADO ficou como estava.
+  //
+  // O GATE e o precoMin junto com a regra: com o gate no medio, uma carta que
+  // tem minimo mas nao tem medio sairia do rich snippet sem oferta nenhuma.
   if (card.precoMin && !card.precoSuspeito) {
     productSchema.offers = {
       '@type': 'AggregateOffer',
@@ -583,6 +604,11 @@ export default async function CartaPage({
       {/* UI interativa (client) — recebe data pré-fetched, sem loading state */}
       {/* CardClient renderiza ad + relacionadas via children: tema dark, acima do rodape */}
       <CardClient card={card} breadcrumb={breadcrumbItems}>
+        {/* Ofertas reais da Bynx: primeiro item do bloco, antes das relacionadas.
+            Quem chega pelo Google ve o preco de mercado no topo e, logo abaixo,
+            que da pra comprar aqui. */}
+        <OfertasDaCarta ofertas={ofertas} nomeCarta={card.name} />
+
         {/* Cartas relacionadas (SEO / link building) - links crawlaveis, server-rendered */}
         {related.pokemon_name && (
   <div style={{ margin: '4px 0 22px' }}>

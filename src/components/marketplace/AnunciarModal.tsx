@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { revalidarCartaComOferta } from '@/app/carta/actions'
 import { IconSearch, IconClose, IconRocket, IconCollection } from '@/components/ui/Icons'
 import CardItem, { montarUltimaVenda } from '@/components/ui/CardItem'
 import MarketplaceFotosInput from './MarketplaceFotosInput'
@@ -566,6 +567,12 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
     setLoading(false)
     onAdded()
     onClose()
+
+    // A pagina publica da carta e ISR de 24h. Sem isto o anuncio recem-criado
+    // so apareceria la no dia seguinte, embora ja estivesse no /marketplace e
+    // na vitrine da loja (as duas sao ao vivo). Nao damos `await`: o anuncio
+    // ja esta gravado e a invalidacao nao pode segurar o fechamento do modal.
+    if (cardIdFinal) void revalidarCartaComOferta(cardIdFinal)
 
     // Watchlist Fase 2: avisa quem acompanha essa carta que ela apareceu no
     // Marketplace. Fire-and-forget -- nunca deve travar nem falhar o anuncio.

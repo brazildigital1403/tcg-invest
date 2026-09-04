@@ -206,3 +206,21 @@ body {
 @media (max-width: 768px) {
   .bx-social-grid { padding: 0 16px; }
 }
+
+/* Card de oferta na pagina publica da carta (`OfertasDaCarta`).
+   Hover no padrao da casa: 0.15s ease, translateY(-2px), sobe a superficie.
+   Vive aqui e nao inline porque `:hover` e `:focus-visible` nao existem em
+   style inline. */
+.bx-oferta:hover {
+  transform: translateY(-2px);
+  background: var(--bx-surface-3);
+  border-color: var(--bx-border-2);
+}
+.bx-oferta:focus-visible {
+  outline: 2px solid var(--ac-1);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bx-oferta { transition: none; }
+  .bx-oferta:hover { transform: none; }
+}

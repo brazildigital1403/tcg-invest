@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
+import { revalidarCartaComOferta } from '@/app/carta/actions'
 import { setLabel } from '@/lib/setLabel'
 import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
@@ -449,6 +450,9 @@ export default function MinhaColecao() {
 
     const { error } = await supabase.from('marketplace').insert(items)
     if (error) { showAlert('Erro ao colocar à venda. Tente novamente.', 'error'); return }
+
+    // Fura o ISR de 24h da pagina publica da carta (ver AnunciarModal).
+    if (card.card_id) void revalidarCartaComOferta(card.card_id)
 
     const newQty = (card.quantity || 1) - quantityToSell
     if (newQty <= 0) {
