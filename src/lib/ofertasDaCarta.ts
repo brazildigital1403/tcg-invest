@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { badgesDaCarta } from '@/lib/badgesCarta'
 
@@ -39,6 +40,11 @@ export type OfertaCarta = {
   nFotos: number
   /** Variante, idioma e condicao/graduacao — mesma regra da vitrine. */
   badges: string[]
+  /**
+   * Slab graduado e OUTRO produto, nao a carta do catalogo. Quem decide o que
+   * vai pro dado estruturado precisa saber diferenciar — ver `ofertasCruas`.
+   */
+  graduada: boolean
   vendedor: string
   vendedorCidade: string | null
   /** Loja ativa do vendedor, quando ele tem uma. */
@@ -48,7 +54,15 @@ export type OfertaCarta = {
   href: string
 }
 
-export async function buscarOfertasDaCarta(cardId: string | null): Promise<OfertaCarta[]> {
+/**
+ * `cache()` porque `generateMetadata` e o componente da pagina rodam na MESMA
+ * request e os dois precisam disto — sem o dedupe seriam duas idas ao banco
+ * por revalidacao em vez de uma. (O `fetchCardData` deste arquivo de rota tem
+ * o mesmo problema e ainda nao foi tratado; e frente separada.)
+ */
+export const buscarOfertasDaCarta = cache(async function buscarOfertasDaCarta(
+  cardId: string | null,
+): Promise<OfertaCarta[]> {
   if (!cardId) return []
   const db = getServiceSupabase()
   if (!db) return []
@@ -98,12 +112,31 @@ export async function buscarOfertasDaCarta(cardId: string | null): Promise<Ofert
       fotoPropria: fotos.length > 0,
       nFotos: fotos.length,
       badges: badgesDaCarta(a),
-      vendedor: l?.nome || u?.name || 'Vendedor Bynx',
-      vendedorCidade: u?.city || null,
+      graduada: !!a.graduada,
+      // `trim`: o cadastro guarda nome com espaco sobrando ("Adriano da
+      // Silveira Magnabosco "), e ele ia direto pro JSON-LD.
+      vendedor: (l?.nome || u?.name || 'Vendedor Bynx').trim(),
+      vendedorCidade: u?.city?.trim() || null,
       lojaNome: l?.nome || null,
       lojaSlug: l?.slug || null,
       lojaVerificada: !!l?.verificada,
       href: `/checkout/${a.id}`,
     }
   })
+})
+
+/**
+ * So as ofertas que sao O MESMO PRODUTO da pagina.
+ *
+ * ★ Slab graduado fica de fora do dado estruturado. No Clefairy 94/88 o
+ * mercado da carta e R$ 94,99 e o unico anuncio e um AGS 9.5 por R$ 627,12 --
+ * 6,6x. Declarar isso como oferta DA CARTA faria o Google anunciar R$ 627 pra
+ * quem procura a carta crua. Hoje e 1 anuncio em 61, mas a regra e o que
+ * importa: o preco de um slab nao representa a carta.
+ *
+ * Na UI o slab continua aparecendo normalmente — la o badge "AGS 9.5" diz o
+ * que e, e o comprador ve a foto. O rich snippet nao tem esse contexto.
+ */
+export function ofertasCruas(ofertas: OfertaCarta[]): OfertaCarta[] {
+  return ofertas.filter(o => !o.graduada)
 }

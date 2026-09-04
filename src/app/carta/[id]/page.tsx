@@ -24,7 +24,7 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound, permanentRedirect } from 'next/navigation'
 import CardClient from './CardClient'
 import OfertasDaCarta from '@/components/cards/OfertasDaCarta'
-import { buscarOfertasDaCarta } from '@/lib/ofertasDaCarta'
+import { buscarOfertasDaCarta, ofertasCruas } from '@/lib/ofertasDaCarta'
 
 // Variantes exibidas na pagina publica da carta. Leem as colunas fixas ja
 // scaneadas em pokemon_cards (preco_<var>_min/medio/max). So entram as com preco.
@@ -403,7 +403,19 @@ export async function generateMetadata({
   // Carta marcada pelo guard nao leva preco pro SERP: um numero errado no
   // titulo do Google e pior que titulo sem numero -- ele atrai o clique e
   // quebra a confianca na chegada.
-  const precoStr = card.precoSuspeito ? null : formatBRL(card.precoMin)
+  // ★ A OFERTA REAL ENTRA NA CONTA DO MENOR (04/09/2026). A regra de 25/08 ja
+  // dizia que o preco que representa a carta no SERP e o MENOR -- so que ate
+  // agora "menor" era so o minimo de MERCADO. Medido em 04/09: 11 das 60
+  // ofertas cruas estao ABAIXO do preco de mercado da propria carta (o Mew-V
+  // a R$ 34,26 contra R$ 44,67 de referencia). Ou seja, o Google anunciava um
+  // preco PIOR do que o que a Bynx tinha a venda na mesma pagina.
+  // Graduada fica fora: e outro produto (ver `ofertasCruas`).
+  const ofertasMeta = ofertasCruas(await buscarOfertasDaCarta(card.id))
+  const menorOferta = ofertasMeta.length ? Math.min(...ofertasMeta.map(o => o.preco)) : null
+  const menorReal = card.precoSuspeito
+    ? menorOferta
+    : [card.precoMin, menorOferta].filter((v): v is number => typeof v === 'number' && v > 0).sort((x, y) => x - y)[0] ?? null
+  const precoStr = formatBRL(menorReal)
 
   // Title com preco em R$ no SERP (diferencial Bynx). Guarda de tamanho:
   // nome+numero+preco sempre; set so entra se couber (~50 chars antes de " | Bynx.gg").
@@ -529,25 +541,55 @@ export default async function CartaPage({
     category: 'Trading Card Game',
   }
 
-  // ★ O JSON-LD SEGUE NO PRECO DE MERCADO, DE PROPOSITO (04/09/2026).
+  // ★ O JSON-LD PASSOU A DECLARAR AS OFERTAS REAIS (04/09/2026), com UMA
+  // exclusao deliberada: carta graduada. Ver `ofertasCruas` -- slab e outro
+  // produto, e no Clefairy a diferenca e de 6,6x.
   //
-  // A tentacao aqui e obvia: existe anuncio real, entao o `offers` deveria
-  // descrever o que da pra COMPRAR. Nao foi feito, por duas razoes.
+  // A faixa cobre o que a PAGINA mostra: o preco de mercado (que continua no
+  // topo, e e a referencia) e as ofertas compraveis. Nao trocar um pelo outro
+  // e o que impede o rich snippet de contradizer o corpo da pagina. O
+  // `offerCount` conta so o que da pra comprar, que e o que o campo significa.
   //
-  // 1. O preco da oferta e de OUTRO produto. No Clefairy 94/88 o preco de
-  //    mercado da carta e R$ 94,99 e o unico anuncio e um slab AGS 9.5 por
-  //    R$ 627,12 — 6,6x. Trocar o dado estruturado faria o Google anunciar
-  //    R$ 627 pra quem procura a carta crua, e o `title`/`description` da
-  //    propria pagina continuariam dizendo R$ 94,99.
-  // 2. Isso e superficie de CRAWL em 55 paginas ja indexadas, e mudanca de
-  //    superficie de crawl e decisao do Du, nao minha.
-  //
-  // O bloco de ofertas aparece no HTML normalmente — o ganho pro usuario e
-  // pro crawler esta la. So o dado ESTRUTURADO ficou como estava.
-  //
-  // O GATE e o precoMin junto com a regra: com o gate no medio, uma carta que
-  // tem minimo mas nao tem medio sairia do rich snippet sem oferta nenhuma.
-  if (card.precoMin && !card.precoSuspeito) {
+  // O `title` usa o MESMO menor numero (ver generateMetadata): o SERP anuncia
+  // um preco e a pagina entrega esse preco.
+  // Uma leitura de relogio so, usada pelos dois ramos abaixo. Duas chamadas
+  // de `Date.now()` no render viram dois avisos de pureza; o valor e o mesmo.
+  const agora = Date.now()
+  const validoAte = (dias: number) => new Date(agora + dias * 864e5).toISOString().slice(0, 10)
+
+  const cruas = ofertasCruas(ofertas)
+  if (cruas.length > 0) {
+    const precosOferta = cruas.map(o => o.preco)
+    const candLow = [card.precoSuspeito ? null : card.precoMin, ...precosOferta]
+      .filter((v): v is number => typeof v === 'number' && v > 0)
+    const candHigh = [card.precoSuspeito ? null : (card.precoMax ?? card.precoMin), ...precosOferta]
+      .filter((v): v is number => typeof v === 'number' && v > 0)
+    productSchema.offers = {
+      '@type': 'AggregateOffer',
+      priceCurrency: 'BRL',
+      lowPrice: Math.min(...candLow),
+      highPrice: Math.max(...candHigh),
+      offerCount: cruas.length,
+      availability: 'https://schema.org/InStock',
+      // 30 dias, nao 1 ano como no ramo do preco de mercado: aqui e anuncio
+      // de verdade, que sai do ar quando vende. Data no passado o Google le
+      // como oferta expirada, entao tem que ser maior que o ISR de 24h --
+      // 30 dias e folga sem prometer um preco que nao existe mais.
+      priceValidUntil: validoAte(30),
+      url: `https://bynx.gg/carta/${card.slug || card.id}`,
+      offers: cruas.map(o => ({
+        '@type': 'Offer',
+        price: o.preco,
+        priceCurrency: 'BRL',
+        availability: 'https://schema.org/InStock',
+        url: `https://bynx.gg${o.href}`,
+        seller: { '@type': 'Organization', name: o.vendedor },
+      })),
+    }
+  } else if (card.precoMin && !card.precoSuspeito) {
+    // Sem oferta crua (ou so slab): segue o preco de mercado, como sempre foi.
+    // O GATE e o precoMin junto com a regra: com o gate no medio, uma carta
+    // que tem minimo mas nao tem medio sairia do snippet sem oferta nenhuma.
     productSchema.offers = {
       '@type': 'AggregateOffer',
       priceCurrency: 'BRL',
@@ -555,7 +597,7 @@ export default async function CartaPage({
       highPrice: card.precoMax ?? card.precoMin,
       offerCount: 1,
       availability: 'https://schema.org/InStock',
-      priceValidUntil: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10),
+      priceValidUntil: validoAte(365),
       url: `https://bynx.gg/carta/${card.slug || card.id}`,
     }
   }
