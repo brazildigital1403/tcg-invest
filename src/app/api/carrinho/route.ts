@@ -60,7 +60,7 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
   if (idsCarta.length) {
     const { data } = await db
       .from('marketplace')
-      .select('id, card_name, card_image, price, status, user_id')
+      .select('id, card_name, card_image, price, status, user_id, removido_em')
       .in('id', idsCarta)
     for (const id of idsCarta) {
       const c = data?.find(x => x.id === id)
@@ -74,8 +74,10 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
         nome: c.card_name || 'Carta',
         imagem: c.card_image,
         preco_cents: Math.round(Number(c.price) * 100),
-        disponivel: c.status === 'disponivel',
-        motivo: c.status !== 'disponivel' ? 'já foi vendida' : undefined,
+        // `removido_em` = moderacao do admin (nao mexe no status). Sem isto o
+        // carrinho aceitaria anuncio removido.
+        disponivel: c.status === 'disponivel' && !c.removido_em,
+        motivo: c.removido_em ? 'não está mais disponível' : c.status !== 'disponivel' ? 'já foi vendida' : undefined,
         // Carta e peca unica: 1 anuncio, 1 unidade.
         qtd: 1,
         estoque: 1,

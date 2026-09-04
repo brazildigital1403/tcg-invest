@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const { data: anuncios } = await db
       .from('marketplace')
-      .select('id, user_id, card_id, card_name, card_image, price, status, condicao, fotos, graduada, graduadora, nota')
+      .select('id, user_id, card_id, card_name, card_image, price, status, condicao, fotos, graduada, graduadora, nota, black_label, removido_em')
       .eq('id', anuncioId)
       .limit(1)
 
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         graduada: anuncio.graduada,
         graduadora: anuncio.graduadora,
         nota: anuncio.nota,
-        disponivel: anuncio.status === 'disponivel',
+        disponivel: anuncio.status === 'disponivel' && !anuncio.removido_em,
         vendedor_user_id: anuncio.user_id,
       },
       loja: loja
@@ -128,13 +128,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // ── Anuncio ─────────────────────────────────────────────────────────
     const { data: anuncios } = await db
       .from('marketplace')
-      .select('id, user_id, card_id, card_name, card_image, price, status, condicao, fotos')
+      .select('id, user_id, card_id, card_name, card_image, price, status, condicao, fotos, removido_em')
       .eq('id', anuncioId)
       .limit(1)
 
     const anuncio = anuncios?.[0]
     if (!anuncio) return NextResponse.json({ error: 'Anúncio não encontrado.' }, { status: 404 })
-    if (anuncio.status !== 'disponivel') {
+    // ★ `removido_em` e o sinal da MODERACAO: o admin remove um anuncio setando
+    // so este campo, sem mexer no `status`. Sem checar aqui, um anuncio moderado
+    // seguia COMPRAVEL pela URL direta — com Stripe, split e tudo. A checagem de
+    // status sozinha nunca pegou isso.
+    if (anuncio.status !== 'disponivel' || anuncio.removido_em) {
       return NextResponse.json({ error: 'Esse anúncio não está mais disponível.' }, { status: 409 })
     }
     if (anuncio.user_id === compradorId) {

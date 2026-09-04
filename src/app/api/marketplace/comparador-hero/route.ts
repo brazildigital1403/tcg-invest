@@ -96,7 +96,9 @@ export async function GET() {
       // ★ user_id no select: sem ele nao da pra contar PESSOAS, so linhas --
       // e era isso que fazia "varias pessoas anunciando" aparecer com um
       // vendedor so. Coluna a mais no mesmo round-trip, custo zero.
-      sb.from('marketplace').select('card_id, card_name, card_image, user_id').eq('status', 'disponivel'),
+      // `removido_em` e a moderacao (nao mexe no status): sem o filtro, carta
+      // removida entrava no hero publico do comparador.
+      sb.from('marketplace').select('card_id, card_name, card_image, user_id').eq('status', 'disponivel').is('removido_em', null),
       lerTudo('user_cards', 'card_id, card_name, card_image, user_id', desde30d),
       // Agregacao e LIMIT em SQL de proposito -- ler a tabela crua aqui
       // repetiria o bug de truncamento de cima.
