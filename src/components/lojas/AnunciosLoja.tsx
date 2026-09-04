@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { manifestarInteresse } from '@/lib/marketplaceInteresse'
 import { useAppModal } from '@/components/ui/useAppModal'
-import { IconCard, IconBox, IconPlush, IconFigure, IconCollection, IconTag } from '@/components/ui/Icons'
+import { IconCard, IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconCamera } from '@/components/ui/Icons'
 import type { ItemVitrine } from '@/lib/vitrineLoja'
 
 const BRAND = '#f59e0b'
@@ -30,6 +30,12 @@ function TipoIcone({ tipo, size, style }: { tipo: string; size?: number; style?:
  * entrada; a carta ainda nao tem detalhe e segue como imagem simples.
  */
 function Capa({ item }: { item: Item }) {
+  // ★ A PROPORCAO PRECISA SER FIXA (04/09/2026). Antes a carta ia com
+  // `height: auto` e sem `aspectRatio`: funcionava porque a arte do catalogo
+  // SEMPRE vinha em 300x418. Agora a capa pode ser a foto do vendedor, que e
+  // um retrato de celular qualquer (a do Clefairy e 375x666) — com altura
+  // livre esse card ficaria bem mais alto que os vizinhos e a grade quebraria.
+  // 300/418 e a mesma proporcao que a arte ja tinha, entao nada muda pra ela.
   const midia = item.imagem ? (
     // next/image: o card da vitrine servia a foto CRUA do produto (ate 2 MB)
     // num quadrado de ~140px. `sizes` diz ao Next o tamanho real na tela.
@@ -39,17 +45,30 @@ function Capa({ item }: { item: Item }) {
       width={300}
       height={item.ehCarta ? 418 : 300}
       sizes="(max-width: 880px) 45vw, 160px"
-      style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: item.ehCarta ? undefined : '1 / 1', objectFit: item.ehCarta ? undefined : 'cover' }}
+      // `height: auto` com `aspectRatio` = a PROPORCAO manda na altura. Com
+      // `height: 100%` a imagem esticava pra altura do card (que varia com o
+      // tamanho do nome do vizinho na mesma linha) e a proporcao ia embora.
+      style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: item.ehCarta ? '300 / 418' : '1 / 1', objectFit: 'cover' }}
     />
   ) : (
     <div style={{ paddingBottom: item.ehCarta ? '140%' : '100%', background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <TipoIcone tipo={item.tipo} size={26} style={{ opacity: 0.4 }} />
     </div>
   )
-  if (!item.detalhe) return midia
+  // Sinaliza que a capa e foto REAL e que ha mais de uma. Numa carta graduada
+  // e a diferenca entre "vi a arte" e "vi o slab que vou receber".
+  const selo = item.fotoPropria && item.nFotos > 1
+    ? <span style={S.seloFotos}><IconCamera size={11} /> {item.nFotos}</span>
+    : null
+
+  const corpo = selo
+    ? <span style={{ position: 'relative', display: 'block' }}>{midia}{selo}</span>
+    : midia
+
+  if (!item.detalhe) return corpo
   return (
     <Link href={item.detalhe} aria-label={item.nome} style={{ display: 'block' }}>
-      {midia}
+      {corpo}
     </Link>
   )
 }
@@ -68,6 +87,11 @@ type Item = ItemVitrine
 const S = {
   card: { background: '#0d0f14', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 24 } as React.CSSProperties,
   sectionTitle: { fontSize: 13, fontWeight: 700 as const, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' as const, letterSpacing: '0.07em', margin: 0 } as React.CSSProperties,
+  seloFotos: {
+    position: 'absolute' as const, right: 6, bottom: 6, display: 'inline-flex', alignItems: 'center', gap: 3,
+    fontSize: 10.5, fontWeight: 700, lineHeight: 1, padding: '4px 7px', borderRadius: 100,
+    background: 'rgba(0,0,0,0.66)', color: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(4px)',
+  } as React.CSSProperties,
   surface: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' as const } as React.CSSProperties,
   ctaPill: {
     display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700,
