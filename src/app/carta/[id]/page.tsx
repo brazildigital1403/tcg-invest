@@ -71,7 +71,16 @@ function slugifyName(s: string): string {
 
 // ─── ISR: revalida cada 24h ───────────────────────────────────────────────
 // Preço dinâmico mas estável; 24h equilibra freshness vs custo Vercel.
-// On-demand revalidate via /api/revalidate quando scan atualiza preço.
+//
+// ★ Até 04/09/2026 a linha abaixo dizia "on-demand revalidate via
+// /api/revalidate quando scan atualiza preço" e essa rota NUNCA EXISTIU — era
+// promessa em comentário. Na prática o preço atualizado pelo scan podia ficar
+// 24h velho justamente na página que o Google indexa com o preço no snippet.
+// A rota existe agora (`src/app/api/revalidate/route.ts`, Bearer CRON_SECRET,
+// caminho fechado em /carta/{slug}); falta o scan passar a chamá-la.
+//
+// Invalidar por SLUG basta: quem chega pelo id leva 308 pro slug, então é a
+// entrada do slug que serve o tráfego.
 export const revalidate = 86400
 
 /**
