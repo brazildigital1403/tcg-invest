@@ -323,7 +323,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
                       aria-current={i === fotoIdx}
                       style={{ ...S.mini, borderColor: i === fotoIdx ? 'var(--ac-1)' : 'rgba(255,255,255,0.12)' }}
                     >
-                      <Image src={u} alt="" width={40} height={55} style={{ objectFit: 'cover', width: '100%', height: '100%' }} sizes="40px" />
+                      <Image src={u} alt="" width={38} height={52} style={{ objectFit: 'cover', width: '100%', height: '100%' }} sizes="38px" />
                     </button>
                   ))}
                 </div>
@@ -524,8 +524,10 @@ const S: Record<string, React.CSSProperties> = {
   heroName: { fontSize: 18, fontWeight: 800, lineHeight: 1.25 },
   chipRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
   chip: { fontSize: 11, padding: '3px 9px', borderRadius: 7, background: 'rgba(96,165,250,0.14)', color: '#93c5fd' },
-  miniRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
-  mini: { width: 40, height: 55, padding: 0, borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', transition: 'border-color 0.15s ease', flexShrink: 0 },
+  // 4 fotos em 38+5 ocupam 167 numa coluna de 177 (medido em 375px). Com 40+6
+  // dava 178 e quebrava em 3+1 por UM pixel.
+  miniRow: { display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 10 },
+  mini: { width: 38, height: 52, padding: 0, borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', transition: 'border-color 0.15s ease', flexShrink: 0 },
   heroPrice: { fontSize: 20, fontWeight: 800, marginTop: 14 },
   heroQtd: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
   heroSub: { fontSize: 12.5, color: 'var(--bx-text-3)', marginTop: 6, fontWeight: 600 },
