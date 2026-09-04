@@ -496,7 +496,16 @@ export default async function CartaPage({
     '@type': 'Product',
     name: card.name,
     image: card.imageLarge || card.imageSmall,
-    sku: card.id,
+    // ★ SLUG, nao o id. O id de ~49 mil cartas comeca com o nome do
+    // fornecedor de preco (`liga-XXX-...`), e o `sku` do JSON-LD e dado
+    // ESTRUTURADO -- o campo que o Google le e guarda. Era o unico ponto do
+    // HTML em que esse nome saia como conteudo, e nao como URL de asset.
+    // O slug ja e limpo por construcao (montar_card_slug omite o segmento de
+    // set nesses casos) e identifica a carta igual: e o que esta na URL.
+    // ★ Renomear o id resolveria na raiz, mas ele e FK em 7 tabelas e ja tem
+    // 2.225 cartas de usuarios e 62 anuncios apontando pra ele -- migracao de
+    // chave em cascata, risco desproporcional pro que se ganha aqui.
+    sku: card.slug || card.id,
     description: `${card.name}${card.setName ? ` de ${card.setName}` : ''} — Pokémon TCG`,
     brand: {
       '@type': 'Brand',
