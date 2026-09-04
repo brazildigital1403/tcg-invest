@@ -20,6 +20,7 @@
  */
 
 import type { Metadata } from 'next'
+import { cache } from 'react'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound, permanentRedirect } from 'next/navigation'
 import CardClient from './CardClient'
@@ -186,7 +187,25 @@ function normalizeAttacks(
 
 // ─── Fetch de dados (server-side, com cache ISR) ──────────────────────────
 
-async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
+/**
+ * ★ `cache()` PORQUE ISTO RODAVA DUAS VEZES POR REQUEST (04/09/2026).
+ *
+ * `generateMetadata` e o componente da pagina sao dois passes da MESMA
+ * request, e os dois precisam da carta — entao esta funcao era invocada duas
+ * vezes, com o mesmo argumento, medido em log. Cada invocacao faz ate tres
+ * consultas ao Supabase (`pokemon_cards`, `card_preco_baseline`,
+ * `pokemon_sets`); o `fetch` da API externa ja escapava porque o Next dedupa
+ * fetch identico sozinho, mas query do Supabase nao e fetch pra ele.
+ *
+ * Sao ~3 consultas desperdicadas por revalidacao, em 66.897 paginas de carta.
+ * Nao era bug visivel — so trabalho dobrado no banco, e conexao do Postgres
+ * segurada pelo dobro do tempo. Numa rota que ja derrubou o site por
+ * esgotamento de pool (29/07), isso nao e detalhe.
+ *
+ * `cache()` vale por request: duas requests continuam buscando de novo, que e
+ * o certo — quem cuida do intervalo e o ISR de 24h.
+ */
+const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
   // A rota aceita a URL nova (slug) e a antiga (id, ainda circulando em links
   // compartilhados e no indice do Google). Resolvemos no banco ANTES de chamar
   // a API oficial, porque ela so entende o id — mandar um slug pra la seria
@@ -330,7 +349,7 @@ async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
     ligaRangeMin: bynx?.liga_range_min != null ? Number(bynx.liga_range_min) : null,
     ligaRangeMax: bynx?.liga_range_max != null ? Number(bynx.liga_range_max) : null,
   }
-}
+})
 
 // --- Cartas relacionadas (link building / SEO) ---
 type MiniCard = {
