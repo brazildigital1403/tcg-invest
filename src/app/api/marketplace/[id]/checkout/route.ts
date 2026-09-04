@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { badgesDaCarta } from '@/lib/badgesCarta'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const { data: anuncios } = await db
       .from('marketplace')
-      .select('id, user_id, card_id, card_name, card_image, price, status, condicao, fotos, graduada, graduadora, nota, black_label, removido_em')
+      .select('id, user_id, card_id, card_name, card_image, price, status, condicao, variante, idioma, fotos, graduada, graduadora, nota, black_label, removido_em')
       .eq('id', anuncioId)
       .limit(1)
 
@@ -63,14 +64,26 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const loja = lojas?.[0] || null
     const podeVender = !!loja?.connect_charges_enabled
+    const fotosVend: string[] = Array.isArray(anuncio.fotos)
+      ? anuncio.fotos.filter((u: unknown): u is string => typeof u === 'string' && !!u)
+      : []
 
     return NextResponse.json({
       item: {
         id: anuncio.id,
         nome: anuncio.card_name,
-        imagem: anuncio.card_image || (Array.isArray(anuncio.fotos) ? anuncio.fotos[0] : null),
+        // ★ A FOTO REAL VEM PRIMEIRO (04/09/2026). Antes o `card_image` (arte
+        // do catalogo) sempre ganhava, e quem tinha subido foto da propria
+        // carta — inclusive do slab graduado — via a arte generica no
+        // checkout. Quem paga por um slab precisa ver o slab.
+        imagem: fotosVend[0] || anuncio.card_image || null,
+        fotos: fotosVend,
         preco_cents: Math.round(Number(anuncio.price) * 100),
         condicao: anuncio.condicao,
+        variante: anuncio.variante,
+        idioma: anuncio.idioma,
+        // Descricao pronta, na MESMA regra da vitrine (`badgesCarta.ts`).
+        badges: badgesDaCarta(anuncio),
         graduada: anuncio.graduada,
         graduadora: anuncio.graduadora,
         nota: anuncio.nota,

@@ -198,13 +198,14 @@ function EscolherCarta({
 
 // ─── Step 2 — Detalhes ────────────────────────────────────────────────────────
 
-function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading, userId, isPro }: {
+function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading, erro, userId, isPro }: {
   card: any
   precoMercado: number
   precoFonte: 'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null
   onBack: () => void
   onConfirm: (d: any) => void
   loading: boolean
+  erro?: string | null
   userId: string
   isPro: boolean
 }) {
@@ -377,6 +378,15 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
           <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', padding: '12px 20px', borderRadius: 10, fontSize: 14, cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}>
             ← Voltar
           </button>
+          {erro && (
+            <div style={{
+              flexBasis: '100%', order: -1, marginBottom: 10,
+              background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+              color: '#fca5a5', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, lineHeight: 1.5,
+            }}>
+              {erro}
+            </div>
+          )}
           <button
             onClick={() => onConfirm({ preco: precoNum, condicao: grad ? null : condicao, variante, descricao, fotos, graduada: !!grad, graduadora: grad ? card.graduadora : null, nota: grad ? card.nota : null, black_label: grad ? !!card.black_label : false, cert_graduacao: grad ? (card.cert_graduacao || null) : null, subnotas: grad ? (card.subnotas || null) : null })}
             disabled={precoNum <= 0 || loading}
@@ -400,6 +410,9 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
 
 export default function AnunciarModal({ userId, onClose, onAdded, initialCard }: Props) {
   const [step, setStep]         = useState<'escolher' | 'detalhes'>(initialCard ? 'detalhes' : 'escolher')
+  // Erro de publicacao: ate 03/09 o insert descartava o `error` e o modal
+  // fechava como se tivesse dado certo.
+  const [erroPublicar, setErroPublicar] = useState<string | null>(null)
   const [cartaSel, setCartaSel] = useState<any | null>(initialCard || null)
   const [bootstrapping, setBootstrapping] = useState<boolean>(!!initialCard)
   const [precoMercado, setPrecoMercado] = useState(0)
@@ -507,6 +520,7 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
   }
 
   async function handlePublicar(dados: any) {
+    setErroPublicar(null)
     if (!cartaSel || dados.preco <= 0) return
     setLoading(true)
     // ★ card_id sai do CATALOGO, nao do user_card (achado 23/08/2026).
@@ -526,7 +540,7 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
     // como ultimo recurso pra nao regredir caso o lookup falhe por rede.
     const cardIdFinal = cartaCatalogo?.id || cartaSel.pokemon_api_id || cartaSel.card_id || null
 
-    const { data: anuncio } = await supabase.from('marketplace').insert({
+    const { data: anuncio, error: erroInsert } = await supabase.from('marketplace').insert({
       user_id: userId, card_id: cardIdFinal, card_name: cartaSel.card_name,
       // Imagem e link tambem herdam do catalogo quando o user_card nao tem --
       // e o que faz a foto aparecer no card do marketplace.
@@ -537,6 +551,18 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
       graduada: dados.graduada || false, graduadora: dados.graduadora || null, nota: dados.nota ?? null,
       black_label: dados.black_label || false, cert_graduacao: dados.cert_graduacao || null, subnotas: dados.subnotas || null,
     }).select('id').single()
+
+    // ★ O `error` era DESCARTADO e o modal fechava chamando `onAdded()` de
+    // qualquer jeito: RLS negada, limite ou constraint viravam "anuncio
+    // publicado" pro vendedor, sem anuncio nenhum no banco. Agora falha vira
+    // erro na tela e o modal FICA ABERTO, com o formulario preenchido.
+    if (erroInsert || !anuncio) {
+      console.error('[AnunciarModal] insert falhou:', erroInsert?.message)
+      setLoading(false)
+      setErroPublicar(erroInsert?.message || 'Não consegui publicar o anúncio. Tente de novo.')
+      return
+    }
+
     setLoading(false)
     onAdded()
     onClose()
@@ -589,7 +615,7 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
             )
             : step === 'escolher'
             ? <EscolherCarta userId={userId} cartaSel={cartaSel} onSelect={handleSelectCard} />
-            : <DetalhesAnuncio userId={userId} isPro={isPro} card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} />
+            : <DetalhesAnuncio userId={userId} isPro={isPro} card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} erro={erroPublicar} />
           }
         </div>
       </div>
