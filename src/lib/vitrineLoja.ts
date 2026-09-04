@@ -34,6 +34,14 @@ export type ItemVitrine = {
   /** Pagina de detalhe. So produto tem uma; carta ainda nao. */
   detalhe: string | null
   ehCarta: boolean
+  /**
+   * A imagem e foto do VENDEDOR (nao a arte do catalogo). Muda o
+   * enquadramento: a arte ja vem na proporcao 0.72 de carta, a foto vem numa
+   * proporcao qualquer de celular.
+   */
+  fotoPropria: boolean
+  /** Quantas fotos o vendedor subiu. 0 quando a imagem e a arte do catalogo. */
+  nFotos: number
 }
 
 export async function buscarItensDaVitrine(
@@ -47,7 +55,7 @@ export async function buscarItensDaVitrine(
     ownerUserId
       ? db
           .from('marketplace')
-          .select('id, card_name, card_image, price, variante, idioma, condicao, graduada, graduadora, nota, black_label')
+          .select('id, card_name, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label')
           .eq('user_id', ownerUserId)
           .eq('status', 'disponivel')
           // ★ `removido_em` NAO pode faltar. A moderacao do admin so seta esse
@@ -75,17 +83,29 @@ export async function buscarItensDaVitrine(
   if (cartas.error) console.error('[vitrine] cartas:', cartas.error.message)
   if (produtos.error) console.error('[vitrine] produtos:', produtos.error.message)
 
-  const itensCarta: ItemVitrine[] = (cartas.data || []).map(c => ({
-    id: c.id,
-    tipo: 'carta',
-    nome: c.card_name || '',
-    imagem: c.card_image,
-    preco: Number(c.price) || 0,
-    badges: badgesDaCarta(c),
-    href: `/checkout/${c.id}`,
-    detalhe: null,
-    ehCarta: true,
-  }))
+  const itensCarta: ItemVitrine[] = (cartas.data || []).map(c => {
+    // ★ A FOTO DO VENDEDOR VEM PRIMEIRO (04/09/2026). Antes a vitrine sempre
+    // mostrava `card_image`, a arte generica do catalogo — mesmo quando o
+    // vendedor tinha subido fotos da carta REAL. Numa carta graduada isso e
+    // pior que feio: quem compra um slab quer ver o slab, e a vitrine e a
+    // primeira (as vezes unica) tela que ele ve. Mesmo criterio do checkout.
+    const fotos: string[] = Array.isArray(c.fotos)
+      ? c.fotos.filter((u: unknown): u is string => typeof u === 'string' && !!u)
+      : []
+    return {
+      id: c.id,
+      tipo: 'carta',
+      nome: c.card_name || '',
+      imagem: fotos[0] || c.card_image,
+      preco: Number(c.price) || 0,
+      badges: badgesDaCarta(c),
+      href: `/checkout/${c.id}`,
+      detalhe: null,
+      ehCarta: true,
+      fotoPropria: fotos.length > 0,
+      nFotos: fotos.length,
+    }
+  })
 
   const itensProduto: ItemVitrine[] = (produtos.data || []).map(p => ({
     id: p.id,
@@ -97,6 +117,8 @@ export async function buscarItensDaVitrine(
     href: `/checkout/${p.id}?tipo=produto`,
     detalhe: `/produto/${p.slug || p.id}`,
     ehCarta: false,
+    fotoPropria: true,
+    nFotos: Array.isArray(p.fotos) ? p.fotos.length : 0,
   }))
 
   return [...itensCarta, ...itensProduto]
