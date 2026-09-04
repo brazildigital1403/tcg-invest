@@ -36,6 +36,16 @@ export const metadata: Metadata = {
   description:
     'Monte os dois lados de uma troca de cartas Pokémon TCG e veja se está equilibrada, com preço em reais do Mercado Brasileiro.',
   robots: { index: false, follow: false },
+  /**
+   * ★ Canonical PROPRIA, apesar do noindex -- e nao pra ser indexada.
+   * O layout raiz define `canonical: "https://bynx.gg"` ABSOLUTA, e sem
+   * sobrescrever aqui a pagina continuava dizendo "minha versao canonica e a
+   * home". Na pratica o noindex vence e o Google ignora o canonical, mas o
+   * documento ficava se contradizendo: "nao me indexe" + "prefira a home no
+   * meu lugar". Apontar pra si mesma nao reabre indexacao nenhuma -- quem
+   * governa isso e a linha de cima -- e para de mandar sinal cruzado pra home.
+   */
+  alternates: { canonical: 'https://bynx.gg/comparador' },
 }
 
 export default function ComparadorLayout({ children }: { children: React.ReactNode }) {
