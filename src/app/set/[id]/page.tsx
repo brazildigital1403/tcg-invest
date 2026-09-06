@@ -26,7 +26,7 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Fragment } from 'react'
+import { Fragment, cache } from 'react'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import MercadoLivre from '@/components/ui/MercadoLivre'
@@ -79,7 +79,13 @@ type CardLite = {
 
 // ─── Fetch server-side (com ISR cache) ─────────────────────────────────────
 
-async function fetchSetData(
+/**
+ * ★ `cache()`: rodava duas vezes por revalidacao (generateMetadata + pagina),
+ * e uma das duas consultas bate em `pokemon_cards` -- a view sobre a tabela de
+ * 187 MB. Esta e a rota que ja estourou o `statement_timeout` de 8s do
+ * `authenticator`; fazer o trabalho duas vezes aqui e o oposto do que se quer.
+ */
+const fetchSetData = cache(async function fetchSetData(
   id: string,
 ): Promise<{ set: SetData | null; cards: CardLite[] }> {
   const sb = getServiceSupabase()
@@ -166,7 +172,7 @@ async function fetchSetData(
   const cleanCards: CardLite[] = cards.map(({ set_name, ...rest }) => rest)
 
   return { set: setData, cards: cleanCards }
-}
+})
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 

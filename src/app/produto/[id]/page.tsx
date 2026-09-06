@@ -1,4 +1,4 @@
-import { CSSProperties } from 'react'
+import { CSSProperties, cache } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound, permanentRedirect } from 'next/navigation'
@@ -67,7 +67,12 @@ interface LojaDoProduto {
   connect_charges_enabled: boolean | null
 }
 
-async function buscar(id: string): Promise<{ produto: Produto; loja: LojaDoProduto | null } | null> {
+/**
+ * ★ `cache()`: rodava duas vezes por visita (generateMetadata + pagina), e sao
+ * DUAS consultas por vez (`loja_produtos` e `lojas`) — quatro no total. A rota
+ * e `force-dynamic`, entao isso era por request, nao por revalidacao.
+ */
+const buscar = cache(async function buscar(id: string): Promise<{ produto: Produto; loja: LojaDoProduto | null } | null> {
   // Service role pra enxergar o esgotado (a RLS do anon exige estoque > 0);
   // `ativo` volta como filtro explicito, senao a service role mostraria produto
   // que o lojista despublicou.
@@ -96,7 +101,7 @@ async function buscar(id: string): Promise<{ produto: Produto; loja: LojaDoProdu
     .limit(1)
 
   return { produto, loja: (ls?.[0] as LojaDoProduto) || null }
-}
+})
 
 /** O endereco publico do produto: slug quando existe, id como ultimo recurso. */
 function urlDoProduto(p: { id: string; slug: string | null }): string {
