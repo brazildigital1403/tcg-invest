@@ -57,8 +57,9 @@ export type OfertaCarta = {
 /**
  * `cache()` porque `generateMetadata` e o componente da pagina rodam na MESMA
  * request e os dois precisam disto — sem o dedupe seriam duas idas ao banco
- * por revalidacao em vez de uma. (O `fetchCardData` deste arquivo de rota tem
- * o mesmo problema e ainda nao foi tratado; e frente separada.)
+ * por revalidacao em vez de uma. (O `fetchCardData` da rota tinha o mesmo
+ * problema; foi tratado no mesmo dia, junto de `/lojas/[slug]`,
+ * `/produto/[id]` e `/set/[id]`.)
  */
 export const buscarOfertasDaCarta = cache(async function buscarOfertasDaCarta(
   cardId: string | null,

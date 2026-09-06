@@ -1,4 +1,4 @@
-import { CSSProperties } from 'react'
+import { CSSProperties, cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
@@ -86,7 +86,13 @@ const ESPECIALIDADE_LABEL: Record<string, string> = {
 
 // ─── Fetch da loja (helper reusado por generateMetadata e pela página) ────────
 
-async function buscarLoja(slug: string): Promise<Loja | null> {
+/**
+ * ★ `cache()`: `generateMetadata` e o componente sao dois passes da MESMA
+ * request e os dois chamavam isto — duas consultas a `lojas` por visita em vez
+ * de uma. Aqui pesa mais que numa rota ISR: esta rota e `force-dynamic`, entao
+ * a duplicata acontecia a CADA visita, nao uma vez por revalidacao.
+ */
+const buscarLoja = cache(async function buscarLoja(slug: string): Promise<Loja | null> {
   const { data } = await supabase
     .from('lojas')
     .select('*')
@@ -94,7 +100,7 @@ async function buscarLoja(slug: string): Promise<Loja | null> {
     .eq('status', 'ativa')
     .limit(1)
   return (data?.[0] as Loja) || null
-}
+})
 
 /**
  * Nota media do dono da loja -- mesma query/logica do card de Destaque em
