@@ -185,6 +185,15 @@ function normalizeAttacks(
   return null
 }
 
+/**
+ * Limiares do guard de preco. Sao os MESMOS que o guard usou nas 117 cartas
+ * que ele marcou em agosto (fator minimo 5, 4 snapshots, liquidez 2) -- lidos
+ * dos proprios dados, pra nao inventar criterio novo aqui.
+ */
+const FATOR_SUSPEITO = 5
+const MIN_SNAPS = 4
+const MIN_LIQUIDEZ = 2
+
 // ─── Fetch de dados (server-side, com cache ISR) ──────────────────────────
 
 /**
@@ -249,10 +258,46 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
       try {
         const { data: marca } = await sb
           .from('card_preco_baseline')
-          .select('suspeito')
+          .select('suspeito, mediana, n_snaps, n_liquidez')
           .eq('card_id', bynx.id)
           .maybeSingle()
-        precoSuspeito = !!(marca as any)?.suspeito
+        const m = marca as { suspeito?: boolean; mediana?: number; n_snaps?: number; n_liquidez?: number } | null
+
+        // ★ O GUARD PASSOU A SER VIVO (06/09/2026).
+        //
+        // `suspeito` e uma MARCA GRAVADA, e ela esta congelada desde 31/08: o
+        // comentario em /api/cards/lookup afirma que "o cron diario desmarca
+        // sozinho quando a mediana alcanca", e esse cron NUNCA EXISTIU --
+        // conferido no vercel.json (5 crons, nenhum e esse) e no codigo (a
+        // unica rota que toca a tabela so le). Resultado medido em producao:
+        // 319 paginas anunciando no <title> do Google um preco que ninguem
+        // paga. Applin a R$ 49,90 com mediana de R$ 0,08 (624x), Charizard a
+        // R$ 700 com mediana de R$ 2 (350x), Plusle a R$ 319,90 contra R$ 1.
+        //
+        // A marca continua valendo (se o guard marcou, respeita). O que muda e
+        // que agora tambem se CALCULA na hora, com o preco de agora contra a
+        // mediana historica da propria carta. Custa zero consulta nova: este
+        // select ja rodava, so pedia menos colunas.
+        //
+        // Efeito colateral bom: carta que normalizar volta a mostrar preco
+        // sozinha, sem depender de ninguem desmarcar.
+        //
+        // NAO cobre o catalogo todo -- so as ~14,3 mil cartas que tem mediana
+        // historica. As outras ~52 mil nao tem como ser avaliadas aqui;
+        // recalcular a baseline e trabalho do repo do scan.
+        const precoAtual = bynx.preco_min ? Number(bynx.preco_min) : 0
+        const mediana = Number(m?.mediana) || 0
+        const foraDaMediana =
+          precoAtual > 0 &&
+          mediana > 0 &&
+          precoAtual / mediana >= FATOR_SUSPEITO &&
+          // Os dois pisos sao os mesmos que o guard usou nas 117 que ele
+          // marcou: sem historico suficiente, "fora da mediana" nao quer
+          // dizer nada -- carta com 2 snapshots oscila por acaso.
+          (Number(m?.n_snaps) || 0) >= MIN_SNAPS &&
+          (Number(m?.n_liquidez) || 0) >= MIN_LIQUIDEZ
+
+        precoSuspeito = !!m?.suspeito || foraDaMediana
       } catch (err) {
         console.error('[carta] marca de preco:', (err as Error)?.message)
       }
