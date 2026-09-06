@@ -31,7 +31,10 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 // Superset do PRICE_SELECT dos componentes + campos de display/meta.
 // (name_pt NAO existe em pokemon_cards - e de pokemon_sets/pokedex.)
 const CARD_FIELDS =
-  'id, name, number, set_id, set_name, set_total, set_series, ' +
+  // `slug` (04/09/2026): sem ele quem consome o lookup nao consegue LINKAR a
+  // carta. O perfil renderizava os links no SSR e os perdia na hidratacao,
+  // porque o client remonta o showcase com o que vem daqui.
+  'id, slug, name, number, set_id, set_name, set_total, set_series, ' +
   'image_small, image_large, liga_link, supertype, rarity, base_pokemon_names, ' +
   'preco_normal, preco_foil, preco_promo, preco_reverse, preco_pokeball, ' +
   'preco_min, preco_medio, preco_max, ' +

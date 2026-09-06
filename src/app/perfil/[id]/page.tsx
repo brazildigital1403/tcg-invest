@@ -1,613 +1,69 @@
-'use client'
+import { buscarPerfilPublico } from '@/lib/perfilPublico'
+import PerfilClient from './PerfilClient'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
-import Link from 'next/link'
-import PublicHeader from '@/components/ui/PublicHeader'
-import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield } from '@/components/ui/Icons'
-import { supabase } from '@/lib/supabaseClient'
-import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
-import MinhasLojasBox from '@/components/perfil/MinhasLojasBox'
-import { manifestarInteresse } from '@/lib/marketplaceInteresse'
-import { useAppModal } from '@/components/ui/useAppModal'
-import { setLabel } from '@/lib/setLabel'
-import { calcPatrimonio, valorCarta, acharPreco } from '@/lib/calcPatrimonio'
+/**
+ * SERVER COMPONENT (04/09/2026).
+ *
+ * Antes esta rota era `'use client'` inteira e buscava tudo em `useEffect`.
+ * Resultado medido em producao: o `generateMetadata` prometia "Guilherme tem
+ * 300 cartas Pokemon TCG organizadas na Bynx. Veja a colecao completa" e o
+ * crawler recebia um corpo de 69 CARACTERES -- "Carregando perfil...". Sao 370
+ * perfis publicos e o robots.txt tem `Allow: /perfil/`: 370 paginas convidadas
+ * a serem indexadas sem nada dentro.
+ *
+ * Agora o servidor busca o conteudo publico e o client renderiza com ele desde
+ * o primeiro paint (SSR), entao o HTML sai preenchido. O `useEffect` do client
+ * continua completando o resto.
+ */
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+// ─── ISR: 1h ──────────────────────────────────────────────────────────────
+//
+// ★ ESTE `revalidate` NAO E ACESSORIO -- ele e o que torna a mudanca acima
+// segura. Medido antes de escrever, no maior perfil (300 cartas): so o lookup
+// de precos custa 1.228 shared buffers e 11,3 ms com buffer QUENTE. A regra da
+// casa e "milhares de buffers = risco, dezenas = seguro", e no lambda o buffer
+// e frio. Mover a busca pro servidor SEM cache, em 370 URLs publicas que o
+// robots convida, seria reconstruir o apagao de 29/07 de proposito.
+//
+// 1h (e nao as 24h da carta) porque colecao muda com frequencia: o dono
+// adiciona carta e quer ver no proprio perfil. Quando isso incomodar, o
+// caminho e furar por evento, nao encurtar a janela.
+export const revalidate = 3600
 
-function iniciais(name: string) {
-  const parts = (name || '').trim().split(' ').filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0][0].toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+/**
+ * ★ SEM ISTO O `revalidate` ACIMA NAO VALE NADA. Rota com segmento dinamico e
+ * sem `generateStaticParams` o Next classifica como `f` (server-rendered on
+ * demand) e responde `cache-control: private, no-cache, no-store` -- 100% MISS,
+ * sempre. Foi exatamente o que medi nesta rota antes de mexer, e e a mesma
+ * armadilha documentada no `/carta`.
+ *
+ * Lista vazia de proposito: prerenderizar os 370 no build gastaria 370x o
+ * lookup de 1.228 buffers de uma vez. Com `dynamicParams`, cada perfil e
+ * gerado na primeira visita e fica cacheado -- custo espalhado no tempo, e so
+ * pros perfis que alguem realmente abre.
+ */
+export async function generateStaticParams() {
+  return []
 }
 
-const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
-const BG = '#080a0f'
-const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16 }
+export const dynamicParams = true
 
-const VARIANTE_LABEL: Record<string, string> = {
-  normal: 'Normal', foil: 'Foil', promo: 'Promo', reverse: 'Reverse Foil', pokeball: 'Pokeball Foil'
-}
-const VARIANTE_COLOR: Record<string, string> = {
-  normal: '#60a5fa', foil: '#f59e0b', promo: '#a78bfa', reverse: '#34d399', pokeball: '#fb923c'
-}
+// A pagina responde em ~1s. Sem isto herda o teto de 300s da Vercel, e request
+// travado segura lambda E conexao do Postgres por cinco minutos -- foi assim
+// que o pool esgotou em 29/07.
+export const maxDuration = 20
 
+export default async function PerfilPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
 
-export default function PerfilPage() {
-  const params = useParams()
-  const id = params?.id as string
+  // `null` aqui nao e erro: e perfil inexistente OU privado. Nos dois casos o
+  // client assume, porque privado depende de SESSAO -- o dono ve o proprio
+  // perfil, e sessao nao existe em pagina cacheada.
+  const inicial = await buscarPerfilPublico(id)
 
-  const [user, setUser]           = useState<any>(null)
-  const [listings, setListings]   = useState<any[]>([])
-  const [showcase, setShowcase]   = useState<any[]>([])
-  const [pastas, setPastas]       = useState<any[]>([])
-  const [patrimonio, setPatrimonio] = useState(0)
-  const [portfolioHistory, setPortfolioHistory] = useState<any[]>([])
-  const [setProgress, setSetProgress] = useState<any[]>([])
-  const [stats, setStats]         = useState({ cartas: 0, anuncios: 0, vendas: 0 })
-  const [reputacao, setReputacao]  = useState({ media: 0, total: 0 })
-  const [loading, setLoading]     = useState(true)
-  const [notFound, setNotFound]   = useState(false)
-  const [isPrivate, setIsPrivate] = useState(false)
-  const [isOwnerPreview, setIsOwnerPreview] = useState(false)
-  const [logado, setLogado] = useState<boolean | null>(null)
-  const [viewerId, setViewerId] = useState<string | null>(null)
-  const [interesseEnviando, setInteresseEnviando] = useState<string | null>(null)
-  const { showConfirm, showAlert } = useAppModal()
-
-  useEffect(() => {
-    let ativo = true
-    supabase.auth.getUser().then(({ data }) => { if (ativo) { setLogado(!!data.user); setViewerId(data.user?.id ?? null) } })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => { setLogado(!!sess?.user); setViewerId(sess?.user?.id ?? null) })
-    return () => { ativo = false; sub.subscription.unsubscribe() }
-  }, [])
-
-  useEffect(() => {
-    if (!id) return
-    async function load() {
-      // Suporta username OU UUID
-      // S29: lê de public_users (view sem PII) em vez da tabela `users` direto.
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-      const query = supabase.from('public_users').select('id, name, city, created_at, username, perfil_publico, perfil_ocultar_valores')
-      const { data: userData } = isUUID
-        ? await query.eq('id', id).single()
-        : await query.eq('username', id).single()
-
-      if (!userData) { setNotFound(true); setLoading(false); return }
-
-      // S40: perfil privado. Menores de 18 e quem optou por privado ficam
-      // ocultos pra terceiros. O proprio dono ve o perfil (com banner de aviso).
-      if (userData.perfil_publico === false) {
-        const { data: authData } = await supabase.auth.getUser()
-        if (authData?.user?.id !== userData.id) {
-          setIsPrivate(true)
-          setLoading(false)
-          return
-        }
-        setIsOwnerPreview(true)
-      }
-
-      // Redireciona UUID → username se disponível (no browser)
-      if (isUUID && userData.username && typeof window !== 'undefined') {
-        window.history.replaceState(null, '', `/perfil/${userData.username}`)
-      }
-      setUser(userData)
-
-      const uid = userData.id // sempre usa o UUID real
-
-      // Anúncios ativos
-      // `removido_em` e a moderacao do admin, que NAO mexe no `status` — sem
-      // este filtro o perfil publico seguia exibindo anuncio removido.
-      const { data: listingsData, error: listingsErr } = await supabase
-        .from('marketplace').select('*').eq('user_id', uid).eq('status', 'disponivel')
-        .is('removido_em', null)
-        .order('created_at', { ascending: false })
-      if (listingsErr) console.error('[perfil] anuncios:', listingsErr.message)
-      setListings(listingsData || [])
-
-      // Vendas concluidas — via RPC SECURITY DEFINER (conta sem expor transacoes).
-      // S40: leitura direta de transactions e bloqueada por RLS pra terceiros;
-      // a RPC devolve so o numero (perfil publico ou proprio dono).
-      const { data: vendasCount } = await supabase.rpc('vendas_concluidas_count', { uid })
-
-      // Total cartas
-      const { count: totalCartas } = await supabase
-        .from('user_cards').select('*', { count: 'exact', head: true }).eq('user_id', uid)
-
-      // Cartas com preços — para showcase e patrimônio
-      // R6: usamos pokemon_api_id como chave de lookup em pokemon_cards (canonical).
-      const { data: cards } = await supabase
-        .from('user_cards')
-        // `graduada` e `valor_graduada` sao obrigatorios: calcPatrimonio trata
-        // slab como outro produto (degrau 1 da cascata), mas sem os campos no
-        // payload o degrau nunca dispara. O grafico logo abaixo desta tela usa
-        // portfolio_history, que JA conta o slab -- entao o numero grande do
-        // perfil ficava abaixo do ultimo ponto do proprio grafico.
-        .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id, card_link, graduada, valor_graduada')
-        .eq('user_id', uid)
-
-      if (cards && cards.length > 0) {
-        const ids = [...new Set(
-          (cards.map(c => c.pokemon_api_id).filter(Boolean)) as string[]
-        )]
-
-        let priceMap: Record<string, any> = {}
-        if (ids.length > 0) {
-          const prices = await fetch('/api/cards/lookup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids }),
-          }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
-          prices?.forEach((p: any) => { priceMap[p.id] = p })
-        }
-
-        // Patrimônio — fonte única (src/lib/calcPatrimonio.ts)
-        const { valor } = calcPatrimonio(cards as any[], priceMap)
-        setPatrimonio(valor)
-
-        // Showcase: 6 cartas mais caras pelo maior valor
-        // Showcase: as 6 mais valiosas.
-        //
-        // Ordenava E exibia pelo `preco_*_max` -- o TETO da faixa, que é a
-        // oferta mais cara que alguém pediu, não o valor da carta. Numa carta
-        // com faixa aberta isso vira ficção: o Dialga-EX tem máximo de
-        // R$ 49.999 contra mercado real na casa das centenas. Passa a usar o
-        // mesmo valor do resto da plataforma.
-        const withPrices = cards.map(c => {
-          const p = acharPreco(c as any, priceMap)
-          return { ...c, maxValue: valorCarta(c as any, p), medioValue: valorCarta(c as any, p), _suspeita: !!p?.preco_nao_confiavel }
-        })
-          // Carta marcada pelo guard fica FORA do showcase. Ela costuma ser a
-          // mais "valiosa" justamente por causa do preço inflado -- entraria em
-          // primeiro lugar num perfil público, que é onde menos se pode errar.
-          .filter(c => !c._suspeita)
-          .filter(c => c.maxValue > 0 || c.card_image)
-          .sort((a, b) => b.maxValue - a.maxValue)
-          .slice(0, 6)
-
-        setShowcase(withPrices)
-      }
-
-      setStats({
-        cartas: totalCartas || 0,
-        anuncios: (listingsData || []).length,
-        vendas: vendasCount || 0,
-      })
-
-      // Resumo de reputacao (media de estrelas) — alimenta o stat box
-      const { data: avsResumo } = await supabase.rpc('get_avaliacoes_usuario', { p_user_id: uid })
-      const avList = (avsResumo as any[]) || []
-      if (avList.length > 0) {
-        const med = avList.reduce((acc, a) => acc + (a.estrelas || 0), 0) / avList.length
-        setReputacao({ media: med, total: avList.length })
-      } else {
-        setReputacao({ media: 0, total: 0 })
-      }
-
-      // Histórico de patrimônio
-      const { data: history } = await supabase
-        .from('portfolio_history')
-        .select('valor, recorded_at')
-        .eq('user_id', uid)
-        .order('recorded_at', { ascending: true })
-        .limit(60)
-      setPortfolioHistory(history || [])
-
-      // Progresso por set
-      if (cards && cards.length > 0) {
-        // Agrupa cartas do usuário por set_name
-        const setMap: Record<string, number> = {}
-        for (const c of cards) {
-          if (c.set_name) setMap[c.set_name] = (setMap[c.set_name] || 0) + 1
-        }
-        
-        if (Object.keys(setMap).length > 0) {
-          const setNames = Object.keys(setMap)
-          // Busca sets pelo nome PT ou nome EN
-          const { data: setsDataPt } = await supabase
-            .from('pokemon_sets')
-            .select('id, name, name_pt, total, printed_total, logo_url, symbol_url, series, release_date')
-            .in('name_pt', setNames)
-
-          const { data: setsDataEn } = await supabase
-            .from('pokemon_sets')
-            .select('id, name, name_pt, total, printed_total, logo_url, symbol_url, series, release_date')
-            .in('name', setNames)
-
-          const allSetsData = [...(setsDataPt || []), ...(setsDataEn || [])]
-
-          // Monta progresso
-          const progress = setNames.map(name => {
-            // Tenta match por name_pt primeiro, depois por name
-            const setInfo = allSetsData.find(s => s.name_pt === name || s.name === name)
-            return {
-              name: setLabel(name),
-              collected: setMap[name],
-              total: setInfo?.total || setInfo?.printed_total || null,
-              logo_url: setInfo?.logo_url || null,
-              symbol_url: setInfo?.symbol_url || null,
-              series: setInfo?.series || null,
-              release_date: setInfo?.release_date || null,
-            }
-          }).sort((a, b) => (b.release_date || '').localeCompare(a.release_date || ''))
-
-          setSetProgress(progress)
-        }
-      }
-      // Pastas publicas (Fase 3)
-      const { data: pastasData } = await supabase.rpc('perfil_pastas_publicas', { p_id: id })
-      setPastas(pastasData || [])
-      setLoading(false)
-    }
-    load()
-  }, [id])
-
-  const membroDesde = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-    : ''
-
-  // S40: quando o dono opta por esconder valores, ocultamos patrimonio,
-  // historico e precos do showcase (cartas continuam visiveis).
-  const ocultarValores = !!user?.perfil_ocultar_valores
-
-  if (loading) return (
-    <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <p>Carregando perfil...</p>
-    </div>
-  )
-
-  if (notFound) return (
-    <div style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontFamily: "'DM Sans', system-ui, sans-serif", gap: 16 }}>
-      <svg width="48" height="48" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="rgba(255,255,255,0.15)" strokeWidth="1.2"/><path d="M7 12.5c.7-.8 1.8-1.5 3-1.5s2.3.7 3 1.5" stroke="rgba(255,255,255,0.15)" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7.5" cy="8.5" r="1" fill="rgba(255,255,255,0.2)"/><circle cx="12.5" cy="8.5" r="1" fill="rgba(255,255,255,0.2)"/></svg>
-      <p style={{ fontSize: 18 }}>Perfil não encontrado</p>
-      <Link href="/" style={{ color: '#f59e0b', textDecoration: 'none', fontSize: 14 }}>← Voltar ao início</Link>
-    </div>
-  )
-
-  if (isPrivate) return (
-    <div style={{ minHeight: '100vh', background: BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.3)', fontFamily: "'DM Sans', system-ui, sans-serif", gap: 16, padding: 24, textAlign: 'center' }}>
-      <IconShield size={48} color='rgba(255,255,255,0.2)' />
-      <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.55)' }}>Este perfil é privado</p>
-      <p style={{ fontSize: 14, maxWidth: 360, lineHeight: 1.5 }}>O dono optou por não exibir publicamente esta coleção.</p>
-      <Link href="/" style={{ color: '#f59e0b', textDecoration: 'none', fontSize: 14 }}>← Voltar ao início</Link>
-    </div>
-  )
-
-  return (
-    <div style={{ minHeight: '100vh', background: BG, color: '#f0f0f0', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <style>{`.perfil-scroll::-webkit-scrollbar{display:none}.perfil-scroll{-ms-overflow-style:none;scrollbar-width:none}`}</style>
-
-      <PublicHeader />
-
-      <main className="bx-gutter" style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px 80px' }}>
-
-        {/* ── BANNER PERFIL PRIVADO (so o dono ve) ── */}
-        {isOwnerPreview && (
-          <div style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.3)', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#93c5fd', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconShield size={14} color='currentColor' />
-            <span>Este perfil está <strong style={{ color: '#bfdbfe' }}>privado</strong> — só você o vê. Ative o compartilhamento em Minha Conta.</span>
-          </div>
-        )}
-
-        {/* ── HERO ── */}
-        <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04))', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 24, padding: '28px 32px', display: 'flex', alignItems: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
-          {/* Avatar */}
-          <div style={{ width: 80, height: 80, borderRadius: '50%', flexShrink: 0, background: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, fontWeight: 800, color: '#000', boxShadow: '0 0 32px rgba(245,158,11,0.3)' }}>
-            {iniciais(user?.name)}
-          </div>
-
-          {/* Info */}
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 6 }}>{user?.name}</h1>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {user?.city && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', display:'flex', alignItems:'center', gap:4 }}><IconLocation size={12} color='currentColor' />{user.city}</span>}
-              {membroDesde && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', display:'flex', alignItems:'center', gap:4 }}><IconCalendar size={12} color='currentColor' />Membro desde {membroDesde}</span>}
-            </div>
-          </div>
-
-          {/* Patrimônio */}
-          {patrimonio > 0 && !ocultarValores && (
-            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', padding: '14px 20px', borderRadius: 14, textAlign: 'right', flexShrink: 0 }}>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Coleção estimada</p>
-              <p style={{ fontSize: 22, fontWeight: 800, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>{fmt(patrimonio)}</p>
-            </div>
-          )}
-        </div>
-
-        {/* ── PATRIMÔNIO HISTÓRICO ── */}
-        {portfolioHistory.length >= 2 && !ocultarValores && (() => {
-          const values = portfolioHistory.map(h => Number(h.valor))
-          const minVal = Math.min(...values)
-          const maxVal = Math.max(...values)
-          const range = maxVal - minVal || 1
-          const W = 600, H = 120, PAD = 16
-          const points = values.map((v, i) => {
-            const x = PAD + (i / (values.length - 1)) * (W - PAD * 2)
-            const y = H - PAD - ((v - minVal) / range) * (H - PAD * 2)
-            return `${x},${y}`
-          }).join(' ')
-          const first = values[0], last = values[values.length - 1]
-          const variacao = first > 0 ? ((last - first) / first) * 100 : 0
-          const cor = variacao >= 0 ? '#22c55e' : '#ef4444'
-          const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-          return (
-            <div style={{ ...SURFACE, padding: '20px 24px', marginBottom: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Histórico do Patrimônio</p>
-                  <p style={{ fontSize: 22, fontWeight: 800, color: '#f0f0f0', letterSpacing: '-0.02em' }}>{fmt(last)}</p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: variacao >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', color: cor }}>
-                    {variacao >= 0 ? '▲' : '▼'} {Math.abs(variacao).toFixed(1)}% no período
-                  </span>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>
-                    {fmtDate(portfolioHistory[0].recorded_at)} → {fmtDate(portfolioHistory[portfolioHistory.length - 1].recorded_at)}
-                  </p>
-                </div>
-              </div>
-              <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-                <defs>
-                  <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={cor} stopOpacity="0.25" />
-                    <stop offset="100%" stopColor={cor} stopOpacity="0.02" />
-                  </linearGradient>
-                </defs>
-                {/* Área preenchida */}
-                <polygon
-                  points={`${PAD},${H - PAD} ${points} ${W - PAD},${H - PAD}`}
-                  fill="url(#pg)"
-                />
-                {/* Linha */}
-                <polyline points={points} fill="none" stroke={cor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                {/* Ponto final */}
-                {(() => {
-                  const last = points.split(' ').pop()!
-                  const [lx, ly] = last.split(',').map(Number)
-                  return <circle cx={lx} cy={ly} r="5" fill={cor} stroke="#080a0f" strokeWidth="2" />
-                })()}
-              </svg>
-            </div>
-          )
-        })()}
-
-        {/* ── STATS ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 32 }}>
-          {[
-            { label: 'Cartas na coleção', value: stats.cartas, color: '#60a5fa', icon: 'cards' },
-            { label: 'Anúncios ativos',   value: stats.anuncios, color: '#f59e0b', icon: 'megaphone' },
-            { label: 'Vendas concluídas', value: stats.vendas, color: '#22c55e', icon: 'check' },
-            { label: 'Reputação', value: reputacao.total === 0 ? 'Novo' : `${reputacao.media.toFixed(1).replace('.', ',')} ★`, color: '#f59e0b', icon: 'medal', text: true },
-          ].map((s, i) => (
-            <div key={i} style={{ ...SURFACE, padding: '20px 16px', textAlign: 'center' }}>
-              <div style={{ display:'flex', justifyContent:'center', alignItems:'center', marginBottom: 8, height: 28 }}>{s.icon === 'megaphone'
-                    ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><path d='M3 7h10l2-3v12l-2-3H3V7z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 13v3' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>
-                    : s.icon === 'check'
-                    ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='10' r='7.5' stroke='currentColor' strokeWidth='1.3'/><path d='M6.5 10l2.5 2.5 4-5' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>
-                    : s.icon === 'cards'
-                    ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><rect x='2' y='4' width='11' height='14' rx='2' stroke='currentColor' strokeWidth='1.3'/><rect x='5' y='2' width='11' height='14' rx='2' stroke='currentColor' strokeWidth='1.3'/><path d='M8 9l1.5 2L12 8' stroke='currentColor' strokeWidth='1.2' strokeLinecap='round' strokeLinejoin='round'/></svg>
-                    : s.icon === 'medal'
-                    ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='13' r='4.5' stroke='currentColor' strokeWidth='1.3'/><path d='M7 8.5L5 3h10l-2 5.5' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round' strokeLinejoin='round'/><path d='M10 11v2.5l1.5 1' stroke='currentColor' strokeWidth='1.2' strokeLinecap='round'/></svg>
-                    : null
-                  }</div>
-              <p style={{ fontSize: (s as any).text ? 16 : 26, fontWeight: 800, color: s.color, letterSpacing: '-0.02em', marginBottom: 4 }}>{s.value}</p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {user?.id && <ReputacaoCard userId={user.id} titulo="Reputação" esconderSeVazio />}
-
-        {/* ── SHOWCASE — 6 cartas mais valiosas ── */}
-        {showcase.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width='14' height='14' viewBox='0 0 20 20' fill='none'><path d='M5 3h10l-2 7H7L5 3z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 10l-2 7h10l-2-7' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M8 17h4' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>Cartas mais valiosas
-            </h2>
-            <div className="perfil-scroll" style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 6 }}>
-              {showcase.map((card, i) => {
-                const vColor = VARIANTE_COLOR[card.variante || 'normal'] || '#60a5fa'
-                const vLabel = VARIANTE_LABEL[card.variante || 'normal'] || 'Normal'
-                return (
-                  <div key={card.card_name + i} style={{ ...SURFACE, flex: '0 0 150px', overflow: 'hidden', position: 'relative', transition: 'transform 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = ''}
-                  >
-                    {/* Ranking badge */}
-                    {i < 3 && (
-                      <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, width: 24, height: 24, borderRadius: '50%', background: i === 0 ? '#f59e0b' : i === 1 ? 'rgba(255,255,255,0.4)' : '#cd7c3b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#000' }}>
-                        {i + 1}
-                      </div>
-                    )}
-                    {/* Imagem */}
-                    {card.card_image
-                      ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
-                      : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconCollection size={32} color="rgba(255,255,255,0.3)" /></div>
-                    }
-                    {/* Info */}
-                    <div style={{ padding: '10px 12px' }}>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: '#f0f0f0', lineHeight: 1.3, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.card_name}</p>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 8, background: `${vColor}18`, color: vColor, border: `1px solid ${vColor}40` }}>{vLabel}</span>
-                        {card.maxValue > 0 && !ocultarValores && (
-                          <span style={{ fontSize: 12, fontWeight: 800, color: '#f59e0b' }}>{fmt(card.maxValue)}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-        {/* ── PASTAS ── */}
-        {pastas.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width='14' height='14' viewBox='0 0 20 20' fill='none'><path d='M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/></svg>Pastas
-            </h2>
-            <div className="perfil-scroll" style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 6 }}>
-              {pastas.map((p: any) => (
-                <Link key={p.id} href={`/perfil/${id}/pasta/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', ...SURFACE, flex: '0 0 240px', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'transform 0.15s' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-4px)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.transform = ''}
-                >
-                  <div style={{ height: 110, background: p.imagem_url ? `center/cover no-repeat url(${p.imagem_url})` : 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.18))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {!p.imagem_url && <span style={{ fontSize: 34, fontWeight: 900, color: 'rgba(255,255,255,0.25)' }}>{(p.nome || '?').charAt(0).toUpperCase()}</span>}
-                  </div>
-                  <div style={{ padding: 14, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <p style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nome}</p>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{p.qtd_cartas} carta{Number(p.qtd_cartas) !== 1 ? 's' : ''}</p>
-                    {!ocultarValores && p.patrimonio != null && Number(p.patrimonio) > 0 && (
-                      <p style={{ fontSize: 16, fontWeight: 800, color: '#60a5fa', marginTop: 'auto' }}>{fmt(Number(p.patrimonio))}</p>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-        {/* ── MINHAS LOJAS ── */}
-        {user?.id && <MinhasLojasBox ownerUserId={user.id} isOwner={isOwnerPreview} />}
-
-        {/* ── ANÚNCIOS ── */}
-        <div style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>
-            <svg width='14' height='14' viewBox='0 0 20 20' fill='none' style={{marginRight:6,verticalAlign:'middle'}}><path d='M3 7h10l2-3v12l-2-3H3V7z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 13v3' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round'/></svg>Anúncios disponíveis ({stats.anuncios})
-          </h2>
-
-          {listings.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 24px', color: 'rgba(255,255,255,0.25)', ...SURFACE }}>
-              <IconMarketplace size={32} color='rgba(255,255,255,0.15)' style={{marginBottom:10}} />
-              <p style={{ fontSize: 14 }}>Nenhum anúncio ativo no momento.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
-              {listings.map((card: any) => (
-                <div key={card.id} style={{ ...SURFACE, overflow: 'hidden' }}>
-                  {card.card_image
-                    ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
-                    : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)' }} />
-                  }
-                  <div style={{ padding: '12px 14px' }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, lineHeight: 1.3 }}>{card.card_name}</p>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{VARIANTE_LABEL[card.variante] || 'Normal'}</span>
-                      <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{card.condicao || 'NM'}</span>
-                    </div>
-                    <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
-                    {logado && viewerId !== user?.id && (
-                      <button type="button" disabled={interesseEnviando === card.id}
-                        onClick={async () => {
-                          const confirmou = await showConfirm({
-                            message: `Manifestar interesse em "${card.card_name}" por ${fmt(Number(card.price))}?`,
-                            confirmLabel: 'Sim, tenho interesse',
-                            description: 'A carta será reservada e você poderá conversar com o vendedor pela plataforma.',
-                          })
-                          if (!confirmou) return
-                          setInteresseEnviando(card.id)
-                          const ok = await manifestarInteresse(card.id)
-                          if (!ok) { setInteresseEnviando(null); await showAlert('Não foi possível manifestar interesse. A carta pode ter sido reservada por outra pessoa.', 'warning') }
-                        }}
-                        style={{ display: 'block', width: '100%', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', opacity: interesseEnviando === card.id ? 0.6 : 1 }}>
-                        {interesseEnviando === card.id ? 'Abrindo...' : 'Tenho interesse'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── PROGRESSO POR COLEÇÃO ── */}
-        {setProgress.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display:'flex', alignItems:'center', gap:8 }}>
-              <IconBox size={14} color='currentColor' />Progresso por coleção
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {setProgress.map((s, i) => {
-                const pct = s.total ? Math.min(100, Math.round((s.collected / s.total) * 100)) : null
-                return (
-                  <div key={i} style={{ ...SURFACE, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                    {/* Logo ou símbolo do set */}
-                    <div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {s.logo_url ? (
-                        <img loading="lazy" decoding="async" src={s.logo_url} alt={s.name}
-                          style={{ maxWidth: 64, maxHeight: 36, objectFit: 'contain', opacity: 0.9 }}
-                          onError={e => {
-                            const t = e.target as HTMLImageElement
-                            t.style.display = 'none'
-                            const next = t.nextElementSibling as HTMLElement
-                            if (next) next.style.display = 'flex'
-                          }}
-                        />
-                      ) : null}
-                      {s.symbol_url ? (
-                        <img loading="lazy" decoding="async" src={s.symbol_url} alt={s.name}
-                          style={{ width: 28, height: 28, objectFit: 'contain', display: s.logo_url ? 'none' : 'block', opacity: 0.7 }}
-                        />
-                      ) : (
-                        !s.logo_url && <IconBox size={24} color='rgba(255,255,255,0.2)' />
-                      )}
-                    </div>
-
-                    {/* Info + barra */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                        <div>
-                          <p style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</p>
-                          {s.series && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>{s.series}</p>}
-                        </div>
-                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: pct === 100 ? '#22c55e' : '#f59e0b' }}>
-                            {s.collected}{s.total ? `/${s.total}` : ''}
-                          </span>
-                          {pct !== null && (
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 4 }}>{pct}%</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Barra de progresso */}
-                      {pct !== null && (
-                        <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%', borderRadius: 99, transition: 'width 0.6s ease',
-                            width: `${pct}%`,
-                            background: pct === 100
-                              ? 'linear-gradient(90deg, #22c55e, #16a34a)'
-                              : pct >= 50
-                              ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
-                              : 'linear-gradient(90deg, #60a5fa, #3b82f6)',
-                          }} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Badge 100% */}
-                    {pct === 100 && (
-                      <svg width='18' height='18' viewBox='0 0 20 20' fill='none' style={{flexShrink:0}}><path d='M5 3h10l-2 6H7L5 3z' stroke='rgba(245,158,11,0.6)' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 9l-1 6h8l-1-6' stroke='rgba(245,158,11,0.6)' strokeWidth='1.3' strokeLinejoin='round'/><path d='M8 15h4' stroke='rgba(245,158,11,0.6)' strokeWidth='1.3' strokeLinecap='round'/></svg>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── CTA ── */}
-        <div style={{ textAlign: 'center', paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>Organize sua coleção e negocie com segurança</p>
-          <Link href="/" style={{ background: BRAND, color: '#000', padding: '13px 32px', borderRadius: 14, fontWeight: 800, fontSize: 15, textDecoration: 'none', display: 'inline-block', boxShadow: '0 0 24px rgba(245,158,11,0.25)' }}>
-            Criar conta grátis na Bynx →
-          </Link>
-        </div>
-
-      </main>
-    </div>
-  )
+  return <PerfilClient inicial={inicial} />
 }
