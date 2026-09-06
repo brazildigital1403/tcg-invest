@@ -186,13 +186,45 @@ function normalizeAttacks(
 }
 
 /**
- * Limiares do guard de preco. Sao os MESMOS que o guard usou nas 117 cartas
- * que ele marcou em agosto (fator minimo 5, 4 snapshots, liquidez 2) -- lidos
- * dos proprios dados, pra nao inventar criterio novo aqui.
+ * Guard de preco: o preco de agora esta absurdamente acima da mediana
+ * historica da propria carta?
+ *
+ * ★ A EXIGENCIA DE HISTORICO CAI CONFORME O FATOR SOBE (06/09/2026).
+ *
+ * A primeira versao usava um piso unico de liquidez 2 -- o criterio das 117
+ * cartas que o guard marcou em agosto. Ele deixava passar 31 cartas, e o caso
+ * que denunciou o problema foi o **Plusle: R$ 319,90 contra mediana de
+ * R$ 1,00, com 5 snapshots e liquidez 1**. Ficava de fora por UM ponto de
+ * liquidez, anunciando 320x no titulo do Google.
+ *
+ * O racional do escalonamento: liquidez baixa torna a mediana menos confiavel,
+ * mas a chance de um salto de 50x ser valorizacao REAL e muito menor que a de
+ * um salto de 8x. Quanto mais extremo o fator, menos historico e preciso pra
+ * desconfiar dele.
+ *
+ * Os degraus foram escolhidos olhando os 31 casos, nao no chute: pegam o
+ * Plusle (320x) e o Altaria (55x, liquidez ZERO), e deixam de fora o Pikachu
+ * de R$ 2.499,99 a 13x -- que numa carta desse porte pode ser valorizacao de
+ * verdade. Na duvida, o guard NAO age: errar escondendo o preco de uma carta
+ * que valorizou e pior que mostrar.
+ *
+ * Custo de um falso positivo e baixo de proposito: o preco continua na
+ * PAGINA, com o aviso que ja existe. Sai so do <title> e do JSON-LD.
  */
-const FATOR_SUSPEITO = 5
 const MIN_SNAPS = 4
-const MIN_LIQUIDEZ = 2
+
+/** [fator minimo, liquidez minima exigida] -- do mais extremo pro mais brando. */
+const DEGRAUS: Array<[number, number]> = [
+  [50, 0],  // extremo: os 4 snapshots ja bastam
+  [20, 1],  // forte: 1 snapshot com liquidez
+  [5, 2],   // o criterio original do guard, preservado
+]
+
+function precoForaDaMediana(preco: number, mediana: number, nSnaps: number, nLiquidez: number): boolean {
+  if (!(preco > 0) || !(mediana > 0) || nSnaps < MIN_SNAPS) return false
+  const fator = preco / mediana
+  return DEGRAUS.some(([minFator, minLiq]) => fator >= minFator && nLiquidez >= minLiq)
+}
 
 // ─── Fetch de dados (server-side, com cache ISR) ──────────────────────────
 
@@ -285,19 +317,12 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
         // NAO cobre o catalogo todo -- so as ~14,3 mil cartas que tem mediana
         // historica. As outras ~52 mil nao tem como ser avaliadas aqui;
         // recalcular a baseline e trabalho do repo do scan.
-        const precoAtual = bynx.preco_min ? Number(bynx.preco_min) : 0
-        const mediana = Number(m?.mediana) || 0
-        const foraDaMediana =
-          precoAtual > 0 &&
-          mediana > 0 &&
-          precoAtual / mediana >= FATOR_SUSPEITO &&
-          // Os dois pisos sao os mesmos que o guard usou nas 117 que ele
-          // marcou: sem historico suficiente, "fora da mediana" nao quer
-          // dizer nada -- carta com 2 snapshots oscila por acaso.
-          (Number(m?.n_snaps) || 0) >= MIN_SNAPS &&
-          (Number(m?.n_liquidez) || 0) >= MIN_LIQUIDEZ
-
-        precoSuspeito = !!m?.suspeito || foraDaMediana
+        precoSuspeito = !!m?.suspeito || precoForaDaMediana(
+          bynx.preco_min ? Number(bynx.preco_min) : 0,
+          Number(m?.mediana) || 0,
+          Number(m?.n_snaps) || 0,
+          Number(m?.n_liquidez) || 0,
+        )
       } catch (err) {
         console.error('[carta] marca de preco:', (err as Error)?.message)
       }
