@@ -36,9 +36,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     if (!user) {
+      // ★ `noindex` (04/09/2026). Sem isto QUALQUER string sob /perfil/
+      // respondia 200 com `<meta name="robots" content="index, follow">` --
+      // /perfil/asdfghjkl, /perfil/admin, o que fosse. Como o robots.txt tem
+      // `Allow: /perfil/`, o Google era convidado a indexar um espaco de URL
+      // INFINITO de paginas de erro, que ele depois classifica como soft 404.
+      // O ramo de perfil privado logo abaixo ja fazia isto certo; este aqui
+      // tinha sido esquecido.
       return {
         title: 'Perfil não encontrado — Bynx',
         description: 'Este perfil não existe ou foi removido.',
+        robots: { index: false, follow: false },
       }
     }
 
