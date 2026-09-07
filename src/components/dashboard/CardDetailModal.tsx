@@ -37,6 +37,8 @@ interface HistoricoVenda {
   condicao: string | null
   idioma: string | null
   capturado_em: string
+  vendido_em?: string | null
+  data_venda?: string | null
 }
 
 function fmtBRL(n: number) {
@@ -428,7 +430,8 @@ export default function CardDetailModal({
                 ) : historicoVendas.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {historicoVendas.map((h, i) => {
-                      const dias = Math.floor((Date.now() - new Date(h.capturado_em).getTime()) / 86400000)
+                      const dataRef = h.data_venda || h.vendido_em || h.capturado_em
+                      const dias = Math.floor((Date.now() - new Date(dataRef).getTime()) / 86400000)
                       const quando = dias <= 0 ? 'Hoje' : dias === 1 ? 'Ontem' : `${dias} dias atrás`
                       const meta = [h.variante, h.condicao, h.idioma].filter(Boolean).join(' · ')
                       return (
