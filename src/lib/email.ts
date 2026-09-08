@@ -1367,15 +1367,43 @@ export async function sendNegociacaoConcluidaEmail(args: {
 }
 
 /**
- * A negociacao ficou 72h parada e o anuncio voltou pro marketplace.
+ * Aviso: faltam ~24h pra negociacao expirar.
  *
- * Dois textos, um por papel: pro vendedor e boa noticia (a carta voltou a
- * vender), pro comprador e perda (ele deixou de ter a reserva). Mandar o
- * mesmo texto pros dois seria dizer "seu anuncio voltou" pra quem nao tem
- * anuncio nenhum.
+ * Segue o padrao dos outros quatro do marketplace -- badge ambar (o azul e o
+ * acento da LOJA, nao do app), emoji no h1 e no assunto (email e a excecao
+ * unica da regra de zero emoji), `addUtm` em vez de query montada a mao.
+ */
+export async function sendNegociacaoExpirandoEmail(args: {
+  to: string; nome: string; cardName: string; price: number | null
+  anuncioId: string; horasRestantes: number
+}) {
+  const url = convoUrl(args.anuncioId, 'mkt_negociacao_expirando')
+  const first = (args.nome || '').split(' ')[0] || 'colecionador'
+  const carta = escapeHtml(args.cardName || 'a carta')
+  const valor = args.price ? ` (${fmtBRLemail(args.price)})` : ''
+  const html = baseLayout(`
+    ${badge('Marketplace', '#f59e0b', '')}
+    ${h1('Sua negociação está prestes a expirar ⏰')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`A negociação de <b style="color:#f0f0f0;">${carta}</b>${valor} está sem resposta. Em <b style="color:#f0f0f0;">${args.horasRestantes}h</b> o anúncio volta para o marketplace e fica livre para qualquer pessoa.`)}
+    ${p('Basta responder pelo chat da Bynx para o prazo reiniciar.')}
+    ${btn('Responder agora →', url)}
+  `, `Faltam ${args.horasRestantes}h na negociação de ${args.cardName}`)
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`⏰ Faltam ${args.horasRestantes}h: ${args.cardName}`), html })
+}
+
+/**
+ * A negociacao ficou parada e o anuncio voltou pro marketplace.
+ *
+ * ★ DOIS TEXTOS, um por papel: pro vendedor e boa noticia (a carta voltou a
+ * vender), pro comprador e perda (ele deixou de ter a reserva). Mandar o mesmo
+ * texto pros dois seria dizer "seu anuncio voltou" pra quem nao tem anuncio.
  *
  * ★ Sino sozinho nao bastaria: o publico e majoritariamente mobile e nao abre
- *   o app todo dia. Volume esperado e baixissimo -- 5 casos em 3 meses.
+ * o app todo dia. Volume esperado e baixissimo -- 5 casos em 3 meses.
+ *
+ * O CTA leva ao ANUNCIO, nao a conversa (que e o destino dos outros quatro):
+ * a negociacao acabou, e o que interessa agora e ver se a carta segue livre.
  */
 export async function sendNegociacaoExpiradaEmail(args: {
   to: string; nome: string; papel: 'vendedor' | 'comprador'
@@ -1384,9 +1412,10 @@ export async function sendNegociacaoExpiradaEmail(args: {
   const first = (args.nome || '').split(' ')[0] || 'colecionador'
   const carta = escapeHtml(args.cardName || 'a carta')
   const valor = args.price ? ` (${fmtBRLemail(args.price)})` : ''
-  const url = `${APP_URL}/anuncio/${args.anuncioSlug}?utm_source=email&utm_campaign=mkt_negociacao_expirada`
+  const url = addUtm(`${APP_URL}/anuncio/${args.anuncioSlug}`, 'mkt_negociacao_expirada', 'cta-button')
+  const ehVendedor = args.papel === 'vendedor'
 
-  const corpo = args.papel === 'vendedor'
+  const corpo = ehVendedor
     ? `${p(`Olá, ${escapeHtml(first)}.`)}
        ${p(`A negociação de <b style="color:#f0f0f0;">${carta}</b>${valor} ficou ${args.horas}h sem resposta, então liberamos seu anúncio — ele já está aparecendo de novo para todo mundo no marketplace.`)}
        ${p('Se vocês ainda estão combinando, é só a pessoa demonstrar interesse outra vez.')}`
@@ -1395,18 +1424,20 @@ export async function sendNegociacaoExpiradaEmail(args: {
        ${p('Se ainda quiser a carta, é só demonstrar interesse de novo — mas agora ela está livre para qualquer um.')}`
 
   const html = baseLayout(`
-    ${badge('Marketplace', '#60a5fa', '')}
-    ${h1(args.papel === 'vendedor' ? 'Seu anúncio voltou ao marketplace' : 'A carta voltou a ficar disponível')}
+    ${badge('Marketplace', '#f59e0b', '')}
+    ${h1(ehVendedor ? 'Seu anúncio voltou ao marketplace 🔄' : 'A carta voltou a ficar disponível 🔄')}
     ${corpo}
     ${btn('Ver o anúncio →', url)}
-  `, args.papel === 'vendedor' ? `${args.cardName} voltou a aparecer no marketplace` : `${args.cardName} não está mais reservada para você`)
+  `, ehVendedor
+      ? `${args.cardName} voltou a aparecer no marketplace`
+      : `${args.cardName} não está mais reservada para você`)
 
   return enviar({
     from: FROM,
     to: args.to,
-    subject: subjUser(args.papel === 'vendedor'
-      ? `Seu anúncio de ${args.cardName} voltou ao marketplace`
-      : `${args.cardName} voltou a ficar disponível`),
+    subject: subjUser(ehVendedor
+      ? `🔄 Seu anúncio voltou: ${args.cardName}`
+      : `🔄 ${args.cardName} voltou a ficar disponível`),
     html,
   })
 }
