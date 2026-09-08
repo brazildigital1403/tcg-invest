@@ -4,7 +4,11 @@ import type { CSSProperties, ReactNode, AnchorHTMLAttributes } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { trackLojaClique } from '@/lib/analytics'
 
-type TipoClique = 'whatsapp' | 'instagram' | 'facebook' | 'website' | 'maps'
+// Espelha TIPOS_VALIDOS do /api/lojas/[id]/track-click. Os dois precisam andar
+// juntos: a rota devolve 400 pro que nao esta la, e o clique sumiria calado.
+type TipoClique =
+  | 'whatsapp' | 'instagram' | 'facebook' | 'website' | 'maps'
+  | 'tiktok' | 'youtube' | 'twitter' | 'discord'
 
 /**
  * Link público que registra um clique via API antes de navegar.

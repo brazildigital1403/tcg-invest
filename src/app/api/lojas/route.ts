@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js'
  *
  * Body JSON (campos whitelistados):
  *   nome, slug, descricao, tipo, especialidades, cidade, estado, endereco, cep,
- *   whatsapp, instagram, facebook, website,
+ *   whatsapp, instagram, facebook, website, tiktok, youtube, twitter, discord,
  *   logo_url, banner_url, fotos, eventos,
  *   seo_title, seo_description
  *
@@ -35,6 +35,7 @@ const ALLOWED_FIELDS = new Set([
   'nome', 'slug', 'descricao', 'tipo', 'especialidades',
   'cidade', 'estado', 'endereco', 'cep',
   'whatsapp', 'instagram', 'facebook', 'website',
+  'tiktok', 'youtube', 'twitter', 'discord',
   'logo_url', 'banner_url', 'fotos', 'eventos',
   'seo_title', 'seo_description',
 ])

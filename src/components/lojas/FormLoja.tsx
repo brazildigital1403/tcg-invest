@@ -24,6 +24,10 @@ export interface LojaFormData {
   website: string
   instagram: string
   facebook: string
+  tiktok: string
+  youtube: string
+  twitter: string
+  discord: string
   logo_url: string
   capa_url: string
   fotos: string[]
@@ -126,6 +130,10 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
   const [website,        setWebsite]        = useState(initialData?.website        || '')
   const [instagram,      setInstagram]      = useState(initialData?.instagram      || '')
   const [facebook,       setFacebook]       = useState(initialData?.facebook       || '')
+  const [tiktok,         setTiktok]         = useState(initialData?.tiktok         || '')
+  const [youtube,        setYoutube]        = useState(initialData?.youtube        || '')
+  const [twitter,        setTwitter]        = useState(initialData?.twitter        || '')
+  const [discord,        setDiscord]        = useState(initialData?.discord        || '')
 
   // Logo (file upload)
   const [logoUrl, setLogoUrl] = useState(initialData?.logo_url || '')
@@ -363,6 +371,10 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       website: website.trim() || null,
       instagram: instagram.trim() || null,
       facebook: facebook.trim() || null,
+      tiktok: tiktok.trim() || null,
+      youtube: youtube.trim() || null,
+      twitter: twitter.trim() || null,
+      discord: discord.trim() || null,
     }
   }
 
@@ -772,6 +784,13 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
         <fieldset style={S.fieldset}>
           <legend style={S.legend}>Redes sociais e website</legend>
 
+          {/* ★ ORDEM PELO USO REAL, nao alfabetica (08/09/2026). Medido antes
+              de escrever: das 12 lojas, 9 preencheram o Instagram e NENHUMA
+              preencheu o Facebook. Por isso o Instagram abre e o Facebook
+              fecha -- ele continua no form (dado de quem preencher e valido),
+              so nao disputa a atencao com as redes que a galera usa.
+              Todos aceitam handle ou URL: quem normaliza e o
+              `normalizarUrlSocial` da pagina publica. */}
           <div style={S.grid2}>
             <div>
               <label style={LABEL}>Instagram</label>
@@ -780,6 +799,52 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
                 value={instagram}
                 onChange={e => setInstagram(e.target.value)}
                 placeholder="instagram.com/sualoja"
+                style={INPUT}
+              />
+            </div>
+            <div>
+              <label style={LABEL}>TikTok</label>
+              <input
+                type="text"
+                value={tiktok}
+                onChange={e => setTiktok(e.target.value)}
+                placeholder="tiktok.com/@sualoja"
+                style={INPUT}
+              />
+            </div>
+          </div>
+
+          <div style={S.grid2}>
+            <div>
+              <label style={LABEL}>YouTube</label>
+              <input
+                type="text"
+                value={youtube}
+                onChange={e => setYoutube(e.target.value)}
+                placeholder="youtube.com/@sualoja"
+                style={INPUT}
+              />
+            </div>
+            <div>
+              <label style={LABEL}>X (Twitter)</label>
+              <input
+                type="text"
+                value={twitter}
+                onChange={e => setTwitter(e.target.value)}
+                placeholder="x.com/sualoja"
+                style={INPUT}
+              />
+            </div>
+          </div>
+
+          <div style={S.grid2}>
+            <div>
+              <label style={LABEL}>Discord</label>
+              <input
+                type="text"
+                value={discord}
+                onChange={e => setDiscord(e.target.value)}
+                placeholder="discord.gg/seuconvite"
                 style={INPUT}
               />
             </div>
