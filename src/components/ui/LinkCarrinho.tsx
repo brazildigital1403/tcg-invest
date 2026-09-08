@@ -21,12 +21,24 @@ export default function LinkCarrinho({ style }: { style?: CSSProperties }) {
   // primeiro render casa com o HTML e nao ha erro de hidratacao.
   const n = useSyncExternalStore(assinarCarrinho, contarItens, () => 0)
 
-  if (n === 0) return null
-
+  // ★ O ICONE FICA SEMPRE (08/09/2026). Antes havia `if (n === 0) return null`
+  //   e o carrinho DESAPARECIA do header quando vazio -- o usuario perdia o
+  //   ponto de referencia justamente quando ainda nao comprou nada. Decisao do
+  //   Du: atalho de estado nao pisca.
+  //
+  //   O que aquele `return null` evitava por ACIDENTE era o descasamento de
+  //   hidratacao: o snapshot do servidor e sempre 0, entao com badge fixo o
+  //   HTML sairia sem numero e o cliente pintaria um. Por isso o badge e que e
+  //   condicional agora, nao o link -- o icone sai igual nos dois lados e so o
+  //   badge aparece depois, quando ha item de verdade.
   return (
-    <Link href="/carrinho" style={{ ...S.btn, ...style }} aria-label={`Carrinho com ${n} ${n === 1 ? 'unidade' : 'unidades'}`}>
+    <Link
+      href="/carrinho"
+      style={{ ...S.btn, ...style }}
+      aria-label={n === 0 ? 'Carrinho vazio' : `Carrinho com ${n} ${n === 1 ? 'unidade' : 'unidades'}`}
+    >
       <IconCarrinho size={19} color="currentColor" />
-      <span style={S.badge}>{n}</span>
+      {n > 0 && <span style={S.badge}>{n}</span>}
     </Link>
   )
 }

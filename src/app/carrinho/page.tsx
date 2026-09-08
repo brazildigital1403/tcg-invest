@@ -288,6 +288,13 @@ function CarrinhoInner() {
           </div>
         )}
 
+        {/* ★ TUDO O QUE E ACAO DE COMPRA SO EXISTE COM CARRINHO CHEIO
+            (08/09/2026). REGRESSAO MINHA DO MESMO DIA: quando tirei o seletor
+            de pagamento de dentro do `lojas.map` (ele renderizava um por loja,
+            com estado unico), ele passou a renderizar SEMPRE -- e carrinho
+            vazio exibia Pix, Cartao e as bandeiras embaixo do "Seu carrinho
+            esta vazio". Parecia site quebrado, e foi assim que o Du viu. */}
+        {!vazio && (<>
         <div className="bx-compra-cols">
           {/* ─── PALCO: o que estou levando, agrupado por loja ─────────── */}
           <div>
@@ -546,6 +553,7 @@ function CarrinhoInner() {
           <span style={S.seal}><IconShield size={16} color="#22c55e" />Dados protegidos <b style={S.sealB}>LGPD</b></span>
         </div>
         <div style={S.brands}><BandeirasCartao /></div>
+        </>)}
 
         {lojas.length > 1 && (
           <p style={S.nota}>
