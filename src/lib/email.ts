@@ -1366,6 +1366,51 @@ export async function sendNegociacaoConcluidaEmail(args: {
   return enviar({ from: FROM, to: args.to, subject: subjUser(`✅ Venda concluída: ${args.cardName}`), html })
 }
 
+/**
+ * A negociacao ficou 72h parada e o anuncio voltou pro marketplace.
+ *
+ * Dois textos, um por papel: pro vendedor e boa noticia (a carta voltou a
+ * vender), pro comprador e perda (ele deixou de ter a reserva). Mandar o
+ * mesmo texto pros dois seria dizer "seu anuncio voltou" pra quem nao tem
+ * anuncio nenhum.
+ *
+ * ★ Sino sozinho nao bastaria: o publico e majoritariamente mobile e nao abre
+ *   o app todo dia. Volume esperado e baixissimo -- 5 casos em 3 meses.
+ */
+export async function sendNegociacaoExpiradaEmail(args: {
+  to: string; nome: string; papel: 'vendedor' | 'comprador'
+  cardName: string; price: number | null; anuncioSlug: string; horas: number
+}) {
+  const first = (args.nome || '').split(' ')[0] || 'colecionador'
+  const carta = escapeHtml(args.cardName || 'a carta')
+  const valor = args.price ? ` (${fmtBRLemail(args.price)})` : ''
+  const url = `${APP_URL}/anuncio/${args.anuncioSlug}?utm_source=email&utm_campaign=mkt_negociacao_expirada`
+
+  const corpo = args.papel === 'vendedor'
+    ? `${p(`Olá, ${escapeHtml(first)}.`)}
+       ${p(`A negociação de <b style="color:#f0f0f0;">${carta}</b>${valor} ficou ${args.horas}h sem resposta, então liberamos seu anúncio — ele já está aparecendo de novo para todo mundo no marketplace.`)}
+       ${p('Se vocês ainda estão combinando, é só a pessoa demonstrar interesse outra vez.')}`
+    : `${p(`Olá, ${escapeHtml(first)}.`)}
+       ${p(`A negociação de <b style="color:#f0f0f0;">${carta}</b>${valor} ficou ${args.horas}h parada, então o anúncio voltou para o marketplace e não está mais reservado para você.`)}
+       ${p('Se ainda quiser a carta, é só demonstrar interesse de novo — mas agora ela está livre para qualquer um.')}`
+
+  const html = baseLayout(`
+    ${badge('Marketplace', '#60a5fa', '')}
+    ${h1(args.papel === 'vendedor' ? 'Seu anúncio voltou ao marketplace' : 'A carta voltou a ficar disponível')}
+    ${corpo}
+    ${btn('Ver o anúncio →', url)}
+  `, args.papel === 'vendedor' ? `${args.cardName} voltou a aparecer no marketplace` : `${args.cardName} não está mais reservada para você`)
+
+  return enviar({
+    from: FROM,
+    to: args.to,
+    subject: subjUser(args.papel === 'vendedor'
+      ? `Seu anúncio de ${args.cardName} voltou ao marketplace`
+      : `${args.cardName} voltou a ficar disponível`),
+    html,
+  })
+}
+
 export async function sendMensagensNaoLidasEmail(args: {
   to: string; name: string; qtd: number; anuncioId: string
 }) {

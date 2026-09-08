@@ -27,6 +27,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import AvaliacaoModal from '@/components/marketplace/AvaliacaoModal'
 import TradeAnalyzer, { montarTradeCard } from '@/components/marketplace/TradeAnalyzer'
 import { transferirCartaAoComprador } from '@/lib/concluirCompra'
+import { IconClock } from '@/components/ui/Icons'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -382,7 +383,24 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
     if (!a) return null
     const ehVendedor = a.user_id === userId
     const ehComprador = a.buyer_id === userId
-    if (!ehVendedor && !ehComprador) return null
+
+    // ★ QUEM ESCREVEU NA CONVERSA CONTINUA ENTRANDO NELA (08/09/2026).
+    //   Antes bastava o `buyer_id` cair pra esta linha devolver null e a tela
+    //   virar "Conversa indisponivel" -- e o buyer_id cai em TODO cancelamento
+    //   e agora tambem quando as 72h vencem. A pessoa perdia o combinado de
+    //   preco e o endereco que ela mesma escreveu.
+    //   A leitura no banco ja e permitida (policy `mkt_msg_participantes_leem`
+    //   ganhou o ramo de participante no mesmo dia); isto aqui e a tela.
+    let ehParticipante = false
+    if (!ehVendedor && !ehComprador) {
+      const { count } = await supabase
+        .from('marketplace_mensagens')
+        .select('id', { count: 'exact', head: true })
+        .eq('anuncio_id', anuncioId)
+        .eq('sender_id', userId)
+      ehParticipante = (count || 0) > 0
+    }
+    if (!ehVendedor && !ehComprador && !ehParticipante) return null
     const outroId = ehVendedor ? a.buyer_id : a.user_id
     let nomeOutro = ehVendedor ? 'Comprador' : 'Vendedor'
     if (outroId) {
@@ -391,7 +409,12 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
     }
     const { data: me } = await supabase.from('public_users').select('name, username').eq('id', userId).single()
     const meuNome = cleanName(me?.name) || me?.username || 'Você'
-    const enriched = { ...a, seller_name: ehVendedor ? meuNome : nomeOutro, buyer_name: ehVendedor ? nomeOutro : meuNome }
+    // `soLeitura`: participante historico -- ele LE a conversa mas nao pode
+    // escrever nela. Nao e escolha de UI, e o que o banco ja decide: a RPC
+    // enviar_mensagem recusa quem nao e vendedor nem comprador ATUAL
+    // ("sem acesso a esta negociacao"). Sem esta marca o campo apareceria
+    // habilitado e o envio quebraria com erro cru na cara da pessoa.
+    const enriched = { ...a, soLeitura: ehParticipante, seller_name: ehVendedor ? meuNome : nomeOutro, buyer_name: ehVendedor ? nomeOutro : meuNome }
     setAnuncio(enriched); setRole(ehVendedor ? 'vendedor' : 'comprador'); setOutroNome(nomeOutro)
     return enriched
   }, [anuncioId, userId])
@@ -551,8 +574,20 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
       {/* Banner de ação */}
       <AcaoBanner role={role} status={status} onEnvio={confirmarEnvio} onRecebimento={confirmarRecebimento} onCancelar={cancelar} onAvaliar={() => setShowAvaliacao(true)} />
 
+      {/* Conversa arquivada: o anuncio voltou pro mercado e esta pessoa nao e
+          mais a compradora. Le tudo, nao escreve. */}
+      {anuncio?.soLeitura && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 9 }}>
+          <IconClock size={15} color="rgba(255,255,255,0.35)" />
+          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.45 }}>
+            Esta negociação foi encerrada e o anúncio voltou para o marketplace. Você
+            continua com o histórico, mas não dá para responder aqui.
+          </p>
+        </div>
+      )}
+
       {/* Input */}
-      {!finalizado && (
+      {!finalizado && !anuncio?.soLeitura && (
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '10px 12px', display: 'flex', gap: 9, alignItems: 'center', background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
           <input ref={inputRef} value={texto} onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() } }}
