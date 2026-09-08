@@ -10,6 +10,7 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { calcularCheckout, fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { IconShield, IconCard, IconBolt, IconArrowRight, IconCheck, IconBox, IconPokeball, IconPlus, IconMinus } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 
 /**
  * /checkout/[id] — tela de compra de um anuncio (Opcao A do epico de vendas).
@@ -284,10 +285,16 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
 
   return (
     <Casca>
-      <div style={S.head}>
-        <h1 style={S.h1}>Finalizar compra</h1>
-        <p style={S.sub}>Revise o que está levando, escolha o frete e pague. Você acompanha o pedido até a entrega.</p>
-      </div>
+      {/* ★ TRILHA (08/09/2026). Esta tela tinha um <h1> solto e era a UNICA do
+          fluxo de compra sem breadcrumb -- /carrinho, /produto e /anuncio ja
+          tinham. Quem chega aqui por link compartilhado nao tinha como saber
+          onde estava nem como voltar pro catalogo. Mesmo `PageHeader` do
+          /carrinho, entao as duas telas de finalizacao ficam iguais. */}
+      <PageHeader
+        trilha={[INICIO, { name: 'Mercado', href: '/marketplace' }, { name: 'Finalizar compra', href: '#' }]}
+        titulo="Finalizar compra"
+        descricao="Revise o que está levando, escolha o frete e pague. Você acompanha o pedido até a entrega."
+      />
 
       {erro && <div style={S.erro}>{erro}</div>}
 
