@@ -26,6 +26,27 @@ function limparAssunto(texto: string): string {
 }
 
 /** Assunto pro usuario final: `Assunto — Bynx.gg` */
+/**
+ * O primeiro nome, apresentavel.
+ *
+ * ★ POR QUE (08/09/2026): o cadastro guarda o nome como a pessoa digitou, e
+ * muita gente digita TUDO EM MAIUSCULA. O padrao antigo era so
+ * `nome.split(' ')[0]`, entao saia "Ola, GABRIELA." em email transacional --
+ * visto no painel de entrega, num email real. Estava nos 30 templates, nao
+ * so num.
+ *
+ * ★ So normaliza quando a palavra INTEIRA esta em uma caixa so. Nome com
+ * maiuscula no meio ("McCarthy", "DiCaprio") foi digitado assim de proposito
+ * e passa intacto -- capitalizar tudo cegamente estragaria esses.
+ */
+function primeiroNome(nome: string | null | undefined, fallback: string): string {
+  const bruto = String(nome || '').trim().split(/\s+/)[0] || ''
+  if (!bruto) return fallback
+  const so1caixa = bruto === bruto.toUpperCase() || bruto === bruto.toLowerCase()
+  if (!so1caixa) return bruto
+  return bruto.charAt(0).toLocaleUpperCase('pt-BR') + bruto.slice(1).toLocaleLowerCase('pt-BR')
+}
+
 function subjUser(texto: string): string {
   return `${limparAssunto(texto)} — Bynx.gg`
 }
@@ -333,7 +354,7 @@ function badge(text: string, color: string, bg: string) {
 // ── Master Set desbloqueado (compra a-la-carte) ──────────────────────────────
 
 export async function sendMasterSetUnlockedEmail(to: string, name: string, setName: string, setId: string) {
-  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(name, 'Colecionador')
   const printUrl = addUtm(`${APP_URL}/master-sets/${setId}`, 'master-set-unlocked', 'cta-button')
   const html = baseLayout(`
     ${badge('Master Set liberado', '#f59e0b', 'rgba(245,158,11,0.15)')}
@@ -356,7 +377,7 @@ export async function sendMasterSetUnlockedEmail(to: string, name: string, setNa
 }
 
 export async function sendWelcomeEmail(to: string, name: string) {
-  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(name, 'Colecionador')
   const montarHtml = (rodape: string) => baseLayout(`
     ${h1(`Bem-vindo à Bynx, ${escapeHtml(firstName)}! 🎉`)}
     ${p('Sua conta foi criada com sucesso. Você ganhou <strong style="color:#f59e0b;">7 dias de Pro grátis</strong> para explorar tudo que a Bynx tem a oferecer.')}
@@ -378,7 +399,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
 // ── 2. Trial expirando — 5º dia ───────────────────────────────────────────────
 
 export async function sendTrialExpiring5Email(to: string, name: string) {
-  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(name, 'Colecionador')
   const montarHtml = (rodape: string) => baseLayout(`
     ${badge('Pro Trial', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
@@ -396,7 +417,7 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
 // ── 3. Trial expirando — último dia ──────────────────────────────────────────
 
 export async function sendTrialExpiring1Email(to: string, name: string) {
-  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(name, 'Colecionador')
   const montarHtml = (rodape: string) => baseLayout(`
     ${badge('Último dia', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
@@ -446,7 +467,7 @@ export async function sendTicketCreatedUserEmail(args: {
   ticketId: string
   subject: string
 }) {
-  const firstName = args.userName?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.userName, 'Colecionador')
   const html = baseLayout(`
     ${badge('Ticket recebido', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
@@ -492,7 +513,7 @@ export async function sendAdminReplyUserEmail(args: {
   subject: string
   message: string
 }) {
-  const firstName = args.userName?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.userName, 'Colecionador')
   const html = baseLayout(`
     ${badge('Resposta da Equipe', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
@@ -526,7 +547,7 @@ export async function sendAdminNovaConversaEmail(args: {
   subject: string
   message: string
 }) {
-  const firstName = args.userName?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.userName, 'Colecionador')
   const html = baseLayout(`
     ${badge('Mensagem da Equipe', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
@@ -562,7 +583,7 @@ export async function sendEmailLojaVerificacao(args: {
   nomeLoja: string
   ticketId: string
 }) {
-  const primeiro = args.nomeUser?.split(' ')[0] || 'tudo bem'
+  const primeiro = primeiroNome(args.nomeUser, 'tudo bem')
   const item = (t: string) => `<tr>
       <td valign="top" style="padding:0 10px 10px 0;font-size:14px;color:${B2B_LINK_COLOR};${FONT}">•</td>
       <td valign="top" style="padding:0 0 10px;font-size:14px;color:rgba(255,255,255,0.72);line-height:1.6;${FONT}">${t}</td>
@@ -620,7 +641,7 @@ export async function sendTicketStatusChangedEmail(args: {
   status: 'open' | 'in_progress' | 'resolved' | 'closed'
 }) {
   const info = STATUS_LABEL[args.status] || STATUS_LABEL.open
-  const firstName = args.userName?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.userName, 'Colecionador')
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:48px;line-height:1;">${info.emoji}</div>
@@ -648,7 +669,7 @@ export async function sendEmailLojaAprovada(args: {
   nomeLoja: string
   slug: string
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const urlPublica = `${APP_URL}/lojas/${args.slug}`
   const urlEdicao  = `${APP_URL}/minha-loja`
 
@@ -687,7 +708,7 @@ export async function sendEmailLojaSuspensa(args: {
   nomeLoja: string
   motivo: string
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
 
   const html = baseLayout(`
     ${badge('Loja suspensa', '#ef4444', 'rgba(239,68,68,0.15)')}
@@ -775,7 +796,7 @@ export async function sendEmailLojaPlanoAlterado(args: {
   planoNovo: 'basico' | 'pro' | 'premium'
   expiraEm: string | null  // ISO date string ou null para permanente
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const cfgNovo = PLANO_INFO[args.planoNovo]
   const cfgAnterior = PLANO_INFO[args.planoAnterior]
   const urlEdicao = `${APP_URL}/minha-loja`
@@ -867,7 +888,7 @@ export async function sendPaginaLendariaEmail(
   paginaId: string
 ) {
   const { getPaginaLendaria, PAGINAS_LENDARIAS } = await import('./paginas-lendarias')
-  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(name, 'Colecionador')
   const pacote = paginaId === '*'
   const pagina = pacote ? null : getPaginaLendaria(paginaId)
 
@@ -932,7 +953,7 @@ export async function sendPurchaseConfirmationEmail(
   name: string,
   tipo: string
 ) {
-  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(name, 'Colecionador')
 
   let badgeLabel: string
   let badgeColor: string
@@ -1095,7 +1116,7 @@ export async function sendReferralActivatedEmail(args: {
   pointsAwarded: number
   newBalance: number
 }) {
-  const firstName = args.name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.name, 'Colecionador')
   const montarHtml = (rodape: string) => baseLayout(`
     ${badge('Indicação Ativada', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
@@ -1140,7 +1161,7 @@ export async function sendReferralEngagedEmail(args: {
   name: string
   newBalance: number
 }) {
-  const firstName = args.name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.name, 'Colecionador')
   const POINTS = 200
 
   const montarHtml = (rodape: string) => baseLayout(`
@@ -1201,7 +1222,7 @@ export async function sendRedemptionConfirmedEmail(args: {
   redemptionId: string
   fulfillmentInstructions?: string
 }) {
-  const firstName = args.name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.name, 'Colecionador')
   const html = baseLayout(`
     ${badge('Resgate Confirmado', '#22c55e', 'rgba(34,197,94,0.15)')}
     <div style="height:16px;"></div>
@@ -1253,7 +1274,7 @@ export async function sendRedemptionConfirmedEmail(args: {
 // ── PAGAMENTO — renovacao falhou (dunning, para usuario) ─────────────────────
 
 export async function sendPaymentFailedEmail(to: string, name: string) {
-  const firstName = name?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(name, 'Colecionador')
   const html = baseLayout(`
     ${badge('Ação necessária', '#ef4444', 'rgba(239,68,68,0.15)')}
     <div style="height:16px;"></div>
@@ -1316,7 +1337,7 @@ export async function sendNovaNegociacaoEmail(args: {
   to: string; sellerName: string; buyerName: string; cardName: string; price: number | null; anuncioId: string
 }) {
   const url = convoUrl(args.anuncioId, 'mkt_nova_negociacao')
-  const first = (args.sellerName || '').split(' ')[0] || 'colecionador'
+  const first = primeiroNome(args.sellerName, 'colecionador')
   const comprador = escapeHtml(args.buyerName || 'Um comprador')
   const carta = escapeHtml(args.cardName || 'sua carta')
   const html = baseLayout(`
@@ -1334,7 +1355,7 @@ export async function sendCartaEnviadaEmail(args: {
   to: string; buyerName: string; sellerName: string; cardName: string; anuncioId: string
 }) {
   const url = convoUrl(args.anuncioId, 'mkt_carta_enviada')
-  const first = (args.buyerName || '').split(' ')[0] || 'colecionador'
+  const first = primeiroNome(args.buyerName, 'colecionador')
   const vendedor = escapeHtml(args.sellerName || 'O vendedor')
   const carta = escapeHtml(args.cardName || 'a carta')
   const html = baseLayout(`
@@ -1352,7 +1373,7 @@ export async function sendNegociacaoConcluidaEmail(args: {
   to: string; sellerName: string; buyerName: string; cardName: string; price: number | null; anuncioId: string
 }) {
   const url = convoUrl(args.anuncioId, 'mkt_concluida')
-  const first = (args.sellerName || '').split(' ')[0] || 'colecionador'
+  const first = primeiroNome(args.sellerName, 'colecionador')
   const comprador = escapeHtml(args.buyerName || 'O comprador')
   const carta = escapeHtml(args.cardName || 'a carta')
   const html = baseLayout(`
@@ -1378,7 +1399,7 @@ export async function sendNegociacaoExpirandoEmail(args: {
   anuncioId: string; horasRestantes: number
 }) {
   const url = convoUrl(args.anuncioId, 'mkt_negociacao_expirando')
-  const first = (args.nome || '').split(' ')[0] || 'colecionador'
+  const first = primeiroNome(args.nome, 'colecionador')
   const carta = escapeHtml(args.cardName || 'a carta')
   const valor = args.price ? ` (${fmtBRLemail(args.price)})` : ''
   const html = baseLayout(`
@@ -1409,7 +1430,7 @@ export async function sendNegociacaoExpiradaEmail(args: {
   to: string; nome: string; papel: 'vendedor' | 'comprador'
   cardName: string; price: number | null; anuncioSlug: string; horas: number
 }) {
-  const first = (args.nome || '').split(' ')[0] || 'colecionador'
+  const first = primeiroNome(args.nome, 'colecionador')
   const carta = escapeHtml(args.cardName || 'a carta')
   const valor = args.price ? ` (${fmtBRLemail(args.price)})` : ''
   const url = addUtm(`${APP_URL}/anuncio/${args.anuncioSlug}`, 'mkt_negociacao_expirada', 'cta-button')
@@ -1446,7 +1467,7 @@ export async function sendMensagensNaoLidasEmail(args: {
   to: string; name: string; qtd: number; anuncioId: string
 }) {
   const url = convoUrl(args.anuncioId, 'mkt_nao_lidas')
-  const first = (args.name || '').split(' ')[0] || 'colecionador'
+  const first = primeiroNome(args.name, 'colecionador')
   const plural = args.qtd > 1
   const titulo = plural ? `Você tem ${args.qtd} mensagens não lidas 💬` : 'Você tem uma mensagem não lida 💬'
   const corpo = plural
@@ -1475,7 +1496,7 @@ export async function sendConnectAtivoEmail(args: {
   nomeLoja: string
   lojaId: string
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = `${APP_URL}/minha-loja/${args.lojaId}/pagamentos`
 
   const html = baseLayout(`
@@ -1515,7 +1536,7 @@ export async function sendConnectPendenciaEmail(args: {
   lojaId: string
   qtdPendencias: number
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = `${APP_URL}/minha-loja/${args.lojaId}/pagamentos`
   const plural = args.qtdPendencias === 1 ? 'uma informação' : `${args.qtdPendencias} informações`
 
@@ -1554,7 +1575,7 @@ export async function sendVendaLojistaEmail(args: {
   endereco: string
   repassePrazo: number
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = `${APP_URL}/minha-loja/${args.lojaId}/pedidos`
 
   const html = baseLayout(`
@@ -1589,7 +1610,7 @@ export async function sendPedidoCompradorEmail(args: {
   nomeLoja: string
   totalBRL: string
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = `${APP_URL}/pedido/${args.pedidoId}`
 
   const html = baseLayout(`
@@ -1622,7 +1643,7 @@ export async function sendPedidoEnviadoEmail(args: {
   nomeLoja: string
   rastreio: string | null
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = `${APP_URL}/pedido/${args.pedidoId}`
 
   const html = baseLayout(`
@@ -1655,7 +1676,7 @@ export async function sendReembolsoCompradorEmail(args: {
   valorCents: number
   motivo?: string | null
 }) {
-  const firstName = args.nomeUser?.split(' ')[0] || 'Colecionador'
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
   const url = `${APP_URL}/pedido/${args.pedidoId}`
   const valor = (args.valorCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
