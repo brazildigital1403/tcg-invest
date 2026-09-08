@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { calcularCheckout, fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { IconShield, IconCard, IconBolt, IconArrowRight, IconCheck, IconBox, IconPokeball, IconPlus, IconMinus } from '@/components/ui/Icons'
+import SeloVerificado from '@/components/ui/SeloVerificado'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 
@@ -383,7 +384,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={S.sellName}>
                 Loja {loja.nome}
-                {loja.verificada && <span style={{ display: 'inline-flex', marginLeft: 5 }}><IconShield size={14} color="#22c55e" /></span>}
+                {loja.verificada && <span style={{ display: 'inline-flex', marginLeft: 5 }}><SeloVerificado size={15} /></span>}
               </div>
               <div style={S.sellSub}>Vendido e enviado pela loja</div>
             </div>

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import SeloVerificado from '@/components/ui/SeloVerificado'
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 type LojaDestaque = {
@@ -55,11 +56,7 @@ function CardDestaque({ loja, rating }: { loja: LojaDestaque; rating?: Rating })
           <div style={S.nameRow}>
             <span style={S.name}>{nome}</span>
             {loja.verificada && (
-              <span style={S.verif} title="Loja verificada pela Bynx">
-                <svg width="9" height="9" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path d="M4 10l4.5 4.5L16 6" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
+              <SeloVerificado size={15} />
             )}
           </div>
           <div style={S.loc}>
@@ -150,7 +147,6 @@ const S: Record<string, React.CSSProperties> = {
   },
   nameRow: { display: 'flex', alignItems: 'center', gap: 6 },
   name: { fontSize: 14.5, fontWeight: 800, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--bx-text)' },
-  verif: { width: 15, height: 15, borderRadius: '50%', background: '#1877F2', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   loc: { fontSize: 12, color: 'var(--bx-text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 },
 
   ratingRow: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 11, minHeight: 20 },

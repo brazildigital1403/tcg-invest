@@ -11,6 +11,7 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { lojasNoCarrinho, itensDaLoja, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
 import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled, IconBolt, IconCard } from '@/components/ui/Icons'
+import SeloVerificado from '@/components/ui/SeloVerificado'
 
 /**
  * /carrinho — uma sacola POR LOJA.
@@ -272,11 +273,7 @@ export default function CarrinhoPage() {
                   <span style={{ minWidth: 0 }}>
                     <span style={S.lojaNome}>
                       {r.loja.nome}
-                      {r.loja.verificada && (
-                        <span style={S.selo} title="Loja verificada">
-                          <IconShield size={12} color="var(--bx-green)" />
-                        </span>
-                      )}
+                      {r.loja.verificada && <SeloVerificado size={15} />}
                     </span>
                     <span style={S.lojaMeta}>
                       {r.loja.cidade && (
