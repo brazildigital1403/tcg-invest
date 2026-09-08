@@ -255,3 +255,10 @@ body {
   .bx-detalhe-cta { transition: none; }
   .bx-detalhe-cta:hover { transform: none; }
 }
+
+/* Nome da carta no card do marketplace: e o link pro detalhe do anuncio.
+   Discreto por padrao (o card ja tem CTA proprio de compra) e so se revela
+   no hover/foco, pra nao competir com o botao de acao. */
+.bx-card-nome { transition: color 0.15s ease; }
+.bx-card-nome:hover { color: var(--ac-1); }
+.bx-card-nome:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; border-radius: 4px; }
