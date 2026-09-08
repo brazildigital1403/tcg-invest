@@ -13,7 +13,8 @@ import AnunciosLoja from '@/components/lojas/AnunciosLoja'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { buscarItensDaVitrine } from '@/lib/vitrineLoja'
 import ReputacaoCard from '@/components/ui/ReputacaoCard'
-import { IconLocation, IconInstagram, IconFacebook, IconGlobe, IconWhatsApp, IconPokeball } from '@/components/ui/Icons'
+import { IconLocation, IconInstagram, IconFacebook, IconGlobe, IconWhatsApp, IconPokeball,
+  IconTikTok, IconYouTube, IconX, IconDiscord } from '@/components/ui/Icons'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,10 @@ interface Loja {
   website: string | null
   instagram: string | null
   facebook: string | null
+  tiktok: string | null
+  youtube: string | null
+  twitter: string | null
+  discord: string | null
   cidade: string | null
   estado: string | null
   endereco: string | null
@@ -180,6 +185,33 @@ function normalizarUrlSocial(url: string | null): string | null {
   return `https://${trimmed}`
 }
 
+/**
+ * As redes da loja, em UMA lista.
+ *
+ * ★ POR QUE LISTA E NAO SEIS BLOCOS (08/09/2026): a versao anterior repetia o
+ * mesmo <TrackedLink> por rede. Com tres estava ok; com sete, e garantido que
+ * alguma fica pra tras num ajuste futuro -- e a que ficar pra tras some da
+ * pagina sem ninguem perceber, porque ela so aparece quando o lojista
+ * preencheu.
+ *
+ * A ORDEM E POR USO REAL, nao alfabetica: das 12 lojas, 9 preencheram o
+ * Instagram e NENHUMA o Facebook. Website fecha porque e o unico que nao e
+ * rede social.
+ *
+ * ★ `tipo` tem que existir em TIPOS_VALIDOS do /api/lojas/[id]/track-click --
+ * a rota devolve 400 pro que nao esta la, e o clique sumiria da analytics do
+ * lojista em silencio.
+ */
+const REDES_DA_LOJA = [
+  { campo: 'instagram', tipo: 'instagram', label: 'Instagram', Icon: IconInstagram },
+  { campo: 'tiktok',    tipo: 'tiktok',    label: 'TikTok',    Icon: IconTikTok    },
+  { campo: 'youtube',   tipo: 'youtube',   label: 'YouTube',   Icon: IconYouTube   },
+  { campo: 'twitter',   tipo: 'twitter',   label: 'X',         Icon: IconX         },
+  { campo: 'discord',   tipo: 'discord',   label: 'Discord',   Icon: IconDiscord   },
+  { campo: 'facebook',  tipo: 'facebook',  label: 'Facebook',  Icon: IconFacebook  },
+  { campo: 'website',   tipo: 'website',   label: 'Website',   Icon: IconGlobe     },
+] as const
+
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
@@ -281,8 +313,17 @@ export default async function LojaPage(
   const inicial      = nome.trim().charAt(0).toUpperCase() || '?'
   const localizacao  = [cidade, estado].filter(Boolean).join(', ')
   const whatsappLink = formatarWhatsAppLink(loja.whatsapp, nome)
+  // Uma passada so: {tipo, label, Icon, href} das que o lojista preencheu.
+  const redes = REDES_DA_LOJA
+    .map(r => ({ ...r, href: normalizarUrlSocial(loja[r.campo]) }))
+    .filter((r): r is typeof r & { href: string } => !!r.href)
+
+  // ★ O HERO FICA COM DUAS, nao com as sete (08/09/2026). Ali sao atalhos de
+  // icone sem rotulo, em dois blocos (`.loja-hb-actions` no desktop e
+  // `.loja-mobile-actions` no celular): sete icones mudos viram ruido e
+  // empurram o botao de WhatsApp pra fora da linha no mobile. A lista
+  // completa, com nome de cada rede, vive na secao "Onde encontrar".
   const instagramUrl = normalizarUrlSocial(loja.instagram)
-  const facebookUrl  = normalizarUrlSocial(loja.facebook)
   const websiteUrl   = normalizarUrlSocial(loja.website)
   const mapsUrl      = loja.endereco
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${loja.endereco}, ${cidade}, ${estado}`)}`
@@ -292,7 +333,7 @@ export default async function LojaPage(
   const fotosVisiveis = fotos.slice(0, isPremium ? 10 : 5)
 
   const temSobre      = !!loja.descricao
-  const temContato    = !!(instagramUrl || facebookUrl || websiteUrl)
+  const temContato    = redes.length > 0
   const temEndereco   = !!loja.endereco && (tipo === 'fisica' || tipo === 'ambas')
   const temFotos      = fotosVisiveis.length > 0 && (isPremium || isPro)
   const temAvaliacoes = !!rating
@@ -454,24 +495,12 @@ export default async function LojaPage(
               <section id="onde-encontrar" style={S.card}>
                 <h2 style={S.sectionTitle}>Onde encontrar</h2>
                 <div style={S.socialGrid}>
-                  {instagramUrl && (
-                    <TrackedLink lojaId={loja.id} tipo="instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
-                      <IconInstagram size={18} />
-                      <span>Instagram</span>
+                  {redes.map(({ tipo: t, label, Icon, href }) => (
+                    <TrackedLink key={t} lojaId={loja.id} tipo={t} href={href} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
+                      <Icon size={18} />
+                      <span>{label}</span>
                     </TrackedLink>
-                  )}
-                  {facebookUrl && (
-                    <TrackedLink lojaId={loja.id} tipo="facebook" href={facebookUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
-                      <IconFacebook size={18} />
-                      <span>Facebook</span>
-                    </TrackedLink>
-                  )}
-                  {websiteUrl && (
-                    <TrackedLink lojaId={loja.id} tipo="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" style={S.socialLink}>
-                      <IconGlobe size={18} />
-                      <span>Website</span>
-                    </TrackedLink>
-                  )}
+                  ))}
                 </div>
               </section>
             )}

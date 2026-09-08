@@ -274,6 +274,38 @@ export function IconDiscord({ size = 20, color = defaultColor, strokeWidth = def
   )
 }
 
+export function IconTikTok({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      {/* Nota musical do TikTok: cabecote + haste que curva pro alto */}
+      <circle cx="7.6" cy="13.4" r="3.1" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M10.7 13.4V3.2c.5 1.9 2 3.3 4 3.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconYouTube({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      {/* Tela larga + play. Proporcao 16/11, que e a silhueta que se reconhece */}
+      <rect x="2" y="4.5" width="16" height="11" rx="3" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M8.6 7.7l4.2 2.3-4.2 2.3V7.7z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function IconX({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      {/* ★ O X vai DENTRO de uma caixa, e nao solto: solto ele vira o
+          IconClose e a pessoa le "fechar" onde deveria ler "rede social".
+          A caixa e a mesma linguagem que Instagram e Facebook ja usam. */}
+      <rect x="2.5" y="2.5" width="15" height="15" rx="3.5" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M7 7l6 6M13 7l-6 6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 export function IconMenu({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>

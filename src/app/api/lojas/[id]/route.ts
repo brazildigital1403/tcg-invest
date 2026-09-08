@@ -14,7 +14,7 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
  * Campos que o USUÁRIO pode editar:
  *   nome, slug, descricao, tipo, especialidades,
  *   cidade, estado, endereco, cep,
- *   whatsapp, instagram, facebook, website,
+ *   whatsapp, instagram, facebook, website, tiktok, youtube, twitter, discord,
  *   logo_url, banner_url, fotos, eventos,
  *   seo_title, seo_description,
  *   status  (apenas transições específicas — ver abaixo)
@@ -36,6 +36,7 @@ const EDITABLE_FIELDS = new Set([
   'nome', 'slug', 'descricao', 'tipo', 'especialidades',
   'cidade', 'estado', 'endereco', 'cep',
   'whatsapp', 'instagram', 'facebook', 'website',
+  'tiktok', 'youtube', 'twitter', 'discord',
   'logo_url', 'banner_url', 'fotos', 'eventos',
   'seo_title', 'seo_description',
   'status', // transição controlada abaixo

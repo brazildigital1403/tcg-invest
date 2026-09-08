@@ -20,7 +20,8 @@ import { createClient } from '@supabase/supabase-js'
  *   - Dedup anti-inflação: o mesmo (loja_id, ip, tipo) em <=60s conta como 1 clique.
  *
  * Body JSON:
- *   { tipo: 'whatsapp' | 'instagram' | 'facebook' | 'website' | 'maps' }
+ *   { tipo: 'whatsapp' | 'instagram' | 'facebook' | 'website' | 'maps'
+ *          | 'tiktok' | 'youtube' | 'twitter' | 'discord' }
  *
  * Retornos:
  *   201 → { success: true }            (clique registrado ou deduplicado)
@@ -33,7 +34,12 @@ import { createClient } from '@supabase/supabase-js'
  * `fetch` com `keepalive: true` pra não bloquear a abertura do link externo.
  */
 
-const TIPOS_VALIDOS = ['whatsapp', 'instagram', 'facebook', 'website', 'maps', 'view'] as const
+// ★ Rede nova PRECISA entrar aqui. A rota devolve 400 pro que nao esta na
+//   lista, entao o clique seria descartado em silencio e a analytics do
+//   lojista mostraria zero -- exatamente o tipo de campo que se adiciona na
+//   tela e ninguem lembra de ligar aqui atras.
+const TIPOS_VALIDOS = ['whatsapp', 'instagram', 'facebook', 'website', 'maps', 'view',
+  'tiktok', 'youtube', 'twitter', 'discord'] as const
 type TipoClique = typeof TIPOS_VALIDOS[number]
 
 // Formato UUID canônico — lojas.id é uuid. Id fora desse formato nem chega ao banco.
