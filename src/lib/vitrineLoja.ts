@@ -55,7 +55,7 @@ export async function buscarItensDaVitrine(
     ownerUserId
       ? db
           .from('marketplace')
-          .select('id, card_name, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label')
+          .select('id, slug, card_name, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label')
           .eq('user_id', ownerUserId)
           .eq('status', 'disponivel')
           // ★ `removido_em` NAO pode faltar. A moderacao do admin so seta esse
@@ -99,8 +99,12 @@ export async function buscarItensDaVitrine(
       imagem: fotos[0] || c.card_image,
       preco: Number(c.price) || 0,
       badges: badgesDaCarta(c),
-      href: `/checkout/${c.id}`,
-      detalhe: null,
+      // ★ LEVA AO DETALHE, nao direto ao checkout (07/09/2026). O checkout e
+      // "finalizar compra"; quem esta na vitrine ainda esta decidindo, e e no
+      // detalhe que estao as fotos reais, a descricao e o vendedor. Padrao de
+      // e-commerce: card -> detalhe -> checkout.
+      href: `/anuncio/${c.slug || c.id}`,
+      detalhe: `/anuncio/${c.slug || c.id}`,
       ehCarta: true,
       fotoPropria: fotos.length > 0,
       nFotos: fotos.length,
