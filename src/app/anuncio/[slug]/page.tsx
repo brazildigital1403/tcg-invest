@@ -197,7 +197,15 @@ export default async function AnuncioPage({
 }
 
 const S: Record<string, React.CSSProperties> = {
-  main: { maxWidth: 1040, margin: '0 auto', paddingTop: 16, paddingBottom: 48 },
+  // ★ `width: 100%` e `flex: 1` NAO sao decoracao (07/09/2026). O `body` e
+  // flex, e sem eles o <main> nao estica: vira `width: auto`, encolhe ao
+  // TAMANHO DO CONTEUDO e o `margin: 0 auto` centraliza a sobra. Medido em
+  // viewport de 1080px: o main ficava com 690px e 195px de margem de cada
+  // lado. Pior que estreito, ficava NAO-DETERMINISTICO -- como a largura
+  // passava a depender de como o conteudo se acomoda, o mesmo link abria em
+  // duas colunas no Chrome e em uma no Brave, so por diferenca de zoom.
+  // A /produto ja fazia certo; eu que nao copiei o padrao inteiro.
+  main: { maxWidth: 1200, width: '100%', flex: 1, margin: '0 auto', paddingTop: 16, paddingBottom: 48 },
   cols: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 28, marginTop: 12, alignItems: 'start' },
   colFoto: { minWidth: 0 },
   colInfo: { minWidth: 0 },
