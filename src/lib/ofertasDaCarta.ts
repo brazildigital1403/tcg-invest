@@ -70,7 +70,7 @@ export const buscarOfertasDaCarta = cache(async function buscarOfertasDaCarta(
 
   const { data: anuncios, error } = await db
     .from('marketplace')
-    .select('id, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label, user_id')
+    .select('id, slug, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label, user_id')
     .eq('card_id', cardId)
     .eq('status', 'disponivel')
     .is('removido_em', null)
@@ -121,7 +121,9 @@ export const buscarOfertasDaCarta = cache(async function buscarOfertasDaCarta(
       lojaNome: l?.nome || null,
       lojaSlug: l?.slug || null,
       lojaVerificada: !!l?.verificada,
-      href: `/checkout/${a.id}`,
+      // Detalhe, nao checkout: quem chega pelo /carta esta comparando ofertas
+      // e precisa ver foto e vendedor antes de decidir.
+      href: `/anuncio/${a.slug || a.id}`,
     }
   })
 })

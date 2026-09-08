@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose } from '@/components/ui/Icons'
+import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
 import { authFetch } from '@/lib/authFetch'
@@ -450,7 +451,20 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
 
           {/* Tag "Seu anúncio" */}
           {isMeu && card.status === 'disponivel' && (
-            <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Seu anúncio</p>
+            /* ★ E AQUI QUE O VENDEDOR PEGA O LINK (07/09/2026). A pagina
+               /anuncio/[slug] nasceu justamente pra ele poder mandar "olha
+               minha carta a venda" -- mas ate agora nao havia de onde copiar
+               a URL: o card abre por onClick, nao por link. Sem este botao a
+               pagina existiria e ninguem saberia o endereco dela. */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', margin: 0 }}>Seu anúncio</p>
+              <BotaoCompartilhar
+                compacto
+                url={`https://bynx.gg/anuncio/${card.slug || card.id}`}
+                titulo={`${card.card_name} — ${fmt(card.price)} na Bynx`}
+                texto={`Estou vendendo ${card.card_name} por ${fmt(card.price)} na Bynx.`}
+              />
+            </div>
           )}
 
         </div>
