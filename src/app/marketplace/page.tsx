@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose } from '@/components/ui/Icons'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
@@ -246,6 +247,13 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
             <span style={{ fontSize: 11, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{notaCurta(card.nota, card.black_label)}</span>
           </div>
         )}
+        {/* ★ ALVO DE TOQUE. O nome sozinho da 21px de altura -- longe dos 44
+            da regra. A ARTE e o alvo natural e grande, entao ela tambem leva
+            ao detalhe. So que apenas quando NAO ha galeria: com fotos do
+            vendedor a arte vira `MarketplaceFotosGaleria`, que tem setas
+            proprias, e um <Link> por cima faria cada troca de foto navegar.
+            Hoje sao 2 anuncios com galeria contra 55 sem -- a maioria ganha o
+            alvo grande, e os 2 continuam com o nome como link. */}
         {card.fotos && card.fotos.length ? (
           <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
         ) : card.card_image ? (
@@ -256,9 +264,11 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
               />
             </div>
           ) : (
-            <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }}
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden') }}
-            />
+            <Link href={`/anuncio/${card.slug || card.id}`} aria-label={card.card_name} style={{ display: 'block' }}>
+              <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }}
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden') }}
+              />
+            </Link>
           )
         ) : null}
         <div hidden={!!card.card_image} style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: card.card_image ? 'absolute' : 'relative', inset: 0 }}>
@@ -333,7 +343,22 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
       {/* Info */}
       <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', marginBottom: 2 }}>{card.card_name}</p>
+          {/* ★ O NOME LEVA AO DETALHE (07/09/2026). Ate agora o card do
+              marketplace nao linkava pra lugar nenhum -- os `onClick` dele sao
+              todos de ACAO (interesse, cancelar, confirmar), e a arte nao era
+              clicavel. Quem navegava pelo marketplace nao tinha como abrir o
+              anuncio nem como pegar a URL dele.
+              O link fica no NOME, e nao na arte, porque quando ha fotos do
+              vendedor a arte e a `MarketplaceFotosGaleria` -- com setas
+              proprias. Envolver a galeria num <Link> faria cada clique de
+              navegar entre fotos virar navegacao de pagina. */}
+          <Link
+            href={`/anuncio/${card.slug || card.id}`}
+            className="bx-card-nome"
+            style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', marginBottom: 2, display: 'block', textDecoration: 'none' }}
+          >
+            {card.card_name}
+          </Link>
           {/* Condicao simples ficou SO na arte (canto superior esquerdo).
               Aqui embaixo sobra a graduada, que carrega nota e tier e nao
               cabe num badge de canto. */}
@@ -646,7 +671,11 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: motivo.cor, fontSize: 12, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
           <IconStar size={14} color={motivo.cor} /> {motivo.eyebrow}
         </span>
-        <h2 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.035em', margin: '0 0 12px', lineHeight: 1.05 }}>{card.card_name}</h2>
+        <h2 style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.035em', margin: '0 0 12px', lineHeight: 1.05 }}>
+          <Link href={`/anuncio/${card.slug || card.id}`} className="bx-card-nome" style={{ color: 'inherit', textDecoration: 'none' }}>
+            {card.card_name}
+          </Link>
+        </h2>
         {/* So graduada ocupa linha aqui. A condicao simples (NM/LP/...) foi
             pra cima da arte, no canto inferior direito. */}
         {grad && (
@@ -766,7 +795,7 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
             <IconStar size={11} color="#0a0a0a" /> TOP DO DIA
           </span>
         )}
-        <p style={{ fontSize: 14, fontWeight: 800, color: '#f0f0f0', margin: '0 0 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.card_name}</p>
+        <Link href={`/anuncio/${card.slug || card.id}`} className="bx-card-nome" style={{ fontSize: 14, fontWeight: 800, color: '#f0f0f0', margin: '0 0 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', textDecoration: 'none' }}>{card.card_name}</Link>
 
         {/* Condicao simples subiu pra arte; aqui sobra so a graduada. */}
         {grad && (
