@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { IconShield, IconLocation, IconCamera, IconCarrinho } from '@/components/ui/Icons'
+import SeloVerificado from '@/components/ui/SeloVerificado'
 import type { OfertaCarta } from '@/lib/ofertasDaCarta'
 
 /**
@@ -128,7 +129,7 @@ export default function OfertasDaCarta({
                   quebrar, o nome usa a linha inteira e a cidade desce. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, rowGap: 2, flexWrap: 'wrap', fontSize: 11.5, color: 'var(--bx-text-3)', minWidth: 0 }}>
                 {o.lojaNome && o.lojaVerificada && (
-                  <IconShield size={11} color="var(--bx-green)" style={{ flexShrink: 0 }} />
+                  <SeloVerificado size={13} />
                 )}
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                   {o.vendedor}

@@ -1,4 +1,5 @@
 import { CSSProperties } from 'react'
+import SeloVerificado from '@/components/ui/SeloVerificado'
 import Link from 'next/link'
 
 // ─── Tipos (permite nulls) ────────────────────────────────────────────────────
@@ -67,12 +68,7 @@ export default function CardLoja({ loja }: { loja: LojaCard }) {
           <div style={S.nameRow}>
             <h3 style={S.name}>{nome}</h3>
             {loja.verificada && (
-              <span style={S.verifiedBadge} title="Loja verificada pela Bynx">
-                {/* SVG inline (independe de Icons.tsx) */}
-                <svg width="10" height="10" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path d="M4 10l4.5 4.5L16 6" stroke="#1877F2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </span>
+              <SeloVerificado size={18} />
             )}
           </div>
           <p style={S.location}>{localizacao}</p>
@@ -209,17 +205,6 @@ const S: Record<string, CSSProperties> = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     color: '#f0f0f0',
-  },
-  verifiedBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 18,
-    height: 18,
-    borderRadius: '50%',
-    background: 'rgba(24,119,242,0.15)',
-    border: '1px solid rgba(24,119,242,0.3)',
-    flexShrink: 0,
   },
   location: {
     fontSize: 13,

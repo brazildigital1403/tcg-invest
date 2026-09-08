@@ -1,4 +1,5 @@
 import { CSSProperties, cache } from 'react'
+import SeloVerificado from '@/components/ui/SeloVerificado'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
@@ -371,11 +372,7 @@ export default async function LojaPage(
           <div style={S.nameRow}>
             <h1 style={S.heroName}>{nome}</h1>
             {loja.verificada && (
-              <span style={S.verifiedBadge} title="Loja verificada pela Bynx">
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path d="M4 10l4.5 4.5L16 6" stroke="#1877F2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </span>
+              <SeloVerificado size={18} />
             )}
             {isPremium && <span style={S.planoPremium}>Premium</span>}
             {isPro && <span style={S.planoPro}>Pro</span>}
@@ -692,17 +689,6 @@ const S: Record<string, CSSProperties> = {
     letterSpacing: '-0.02em',
     margin: 0,
     color: 'var(--bx-text)',
-  },
-  verifiedBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 22,
-    height: 22,
-    borderRadius: '50%',
-    background: 'rgba(24,119,242,0.15)',
-    border: '1px solid rgba(24,119,242,0.3)',
-    flexShrink: 0,
   },
   planoPremium: {
     fontSize: 10,

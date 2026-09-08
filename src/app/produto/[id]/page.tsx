@@ -412,11 +412,6 @@ const S: Record<string, CSSProperties> = {
     fontWeight: 800, fontSize: 17, color: 'var(--bx-text-3)',
   },
   lojaNome: { fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 },
-  selo: {
-    width: 14, height: 14, borderRadius: '50%', background: '#1877F2',
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 9, color: '#fff', fontWeight: 800, flex: 'none',
-  },
   lojaLocal: { fontSize: 11.5, color: 'var(--bx-text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 },
 
   secao: {
