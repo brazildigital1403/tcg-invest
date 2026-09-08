@@ -6,10 +6,11 @@ import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
+import BandeirasCartao from '@/components/ui/BandeirasCartao'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { lojasNoCarrinho, itensDaLoja, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
-import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled } from '@/components/ui/Icons'
+import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled, IconBolt, IconCard } from '@/components/ui/Icons'
 
 /**
  * /carrinho — uma sacola POR LOJA.
@@ -75,7 +76,12 @@ export default function CarrinhoPage() {
   const [cotando, setCotando] = useState<string | null>(null)
   const [indo, setIndo] = useState<string | null>(null)
 
-  const metodo: MetodoPagamento = PIX_DISPONIVEL ? 'pix' : 'cartao'
+  // ★ ESCOLHA DO COMPRADOR, nao constante (08/09/2026). Isto era
+  // `const metodo = PIX_DISPONIVEL ? 'pix' : 'cartao'`: o carrinho decidia
+  // sozinho e nao oferecia a opcao, enquanto a /checkout deixava escolher
+  // desde sempre. A API (`/api/carrinho`) ja aceitava `metodo` e ja calculava
+  // o acrescimo por metodo -- so a UI nunca perguntou.
+  const [metodo, setMetodo] = useState<MetodoPagamento>(PIX_DISPONIVEL ? 'pix' : 'cartao')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null))
@@ -388,10 +394,42 @@ export default function CarrinhoPage() {
                 </div>
               )}
 
+              {/* Seletor de pagamento, no mesmo desenho da /checkout. */}
+              <div style={S.pagBloco}>
+                <div style={S.pagTitulo}>Pagamento</div>
+                <div style={S.pagLinha}>
+                  {(['pix', 'cartao'] as MetodoPagamento[]).map(m => {
+                    const bloqueado = m === 'pix' && !PIX_DISPONIVEL
+                    const ativo = metodo === m
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => { if (!bloqueado) setMetodo(m) }}
+                        disabled={bloqueado}
+                        title={bloqueado ? 'O Pix está a caminho' : undefined}
+                        style={{ ...S.pay, ...(ativo ? S.payOn : {}), ...(bloqueado ? S.payOff : {}) }}
+                      >
+                        <span style={{ display: 'inline-flex' }}>
+                          {m === 'pix'
+                            ? <IconBolt size={17} color={ativo ? '#c084fc' : 'rgba(255,255,255,0.6)'} />
+                            : <IconCard size={17} color={ativo ? '#c084fc' : 'rgba(255,255,255,0.6)'} />}
+                        </span>
+                        <div style={S.payL}>{m === 'pix' ? 'Pix' : 'Cartão'}</div>
+                        {bloqueado && <div style={S.payP}>em breve</div>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               <div style={S.conta}>
                 <div style={S.contaLinha}><span style={S.mut}>Subtotal</span><span>{fmtBRL(r.subtotal_cents)}</span></div>
+                {/* Rotulo passou a seguir o METODO: dizia "cartao" mesmo com
+                    metodo pix. Nao aparecia hoje so porque o Pix esta
+                    desligado -- quebraria no dia em que ligasse. */}
                 {r.acrescimo_cents > 0 && (
-                  <div style={S.contaLinha}><span style={S.mut}>Acréscimo do cartão</span><span>{fmtBRL(r.acrescimo_cents)}</span></div>
+                  <div style={S.contaLinha}><span style={S.mut}>{metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'}</span><span>{fmtBRL(r.acrescimo_cents)}</span></div>
                 )}
                 <div style={S.contaLinha}>
                   <span style={S.mut}>Frete</span>
@@ -422,6 +460,17 @@ export default function CarrinhoPage() {
             </section>
           )
         })}
+
+        {/* Selos e bandeiras, iguais aos da /checkout. Eram a diferenca que
+            mais pesava: as duas telas pedem cartao, e so uma dizia quem
+            processa e o que NAO e guardado. */}
+        <div style={S.seals}>
+          <span style={S.seal}><IconShield size={16} color="#22c55e" /><b style={S.sealB}>Conexão segura</b> SSL</span>
+          <span style={S.seal}><IconShield size={16} color="#22c55e" />Processado por <span style={S.stripe}>stripe</span></span>
+          <span style={S.seal}><IconCard size={16} color="#22c55e" />Não guardamos seu <b style={S.sealB}>cartão</b></span>
+          <span style={S.seal}><IconShield size={16} color="#22c55e" />Dados protegidos <b style={S.sealB}>LGPD</b></span>
+        </div>
+        <div style={S.brands}><BandeirasCartao /></div>
 
         {lojas.length > 1 && (
           <p style={S.nota}>
@@ -525,6 +574,20 @@ const S: Record<string, CSSProperties> = {
   opPreco: { fontWeight: 800 },
   opPrazo: { fontSize: 11.5, color: 'var(--bx-text-3)', flex: 'none' },
 
+  // Seletor de pagamento, mesmo desenho da /checkout.
+  pagBloco: { marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--bx-border)' },
+  pagTitulo: { fontSize: 11.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--bx-text-3)', marginBottom: 8 },
+  pagLinha: { display: 'flex', gap: 8 },
+  pay: { flex: 1, minWidth: 0, minHeight: 62, background: 'transparent', border: '1px solid var(--bx-border-2)', borderRadius: 11, padding: '10px 8px', cursor: 'pointer', color: 'var(--bx-text)', textAlign: 'center', fontFamily: 'inherit' },
+  payOn: { border: '1.5px solid #a855f7', background: 'rgba(168,85,247,0.08)' },
+  payOff: { opacity: 0.5, cursor: 'not-allowed' },
+  payL: { fontSize: 12, fontWeight: 500, marginTop: 3 },
+  payP: { fontSize: 9, marginTop: 2, color: 'var(--bx-text-3)' },
+  seals: { borderTop: '1px solid var(--bx-border)', padding: '18px 0 6px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 22px', justifyContent: 'center' },
+  seal: { display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--bx-text-2)' },
+  sealB: { color: 'var(--bx-text)', fontWeight: 500 },
+  stripe: { fontWeight: 800, letterSpacing: '-0.02em', color: '#8b85ff' },
+  brands: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center', paddingBottom: 8 },
   conta: { marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--bx-border)' },
   contaLinha: { display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 7 },
   total: {
