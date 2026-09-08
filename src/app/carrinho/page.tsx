@@ -1,7 +1,8 @@
 'use client'
 
-import { CSSProperties, useCallback, useEffect, useState } from 'react'
+import { CSSProperties, Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
@@ -61,13 +62,33 @@ function unidades(r: Resumo): number {
   return r.itens.reduce((s, i) => s + (i.disponivel ? i.qtd : 0), 0)
 }
 
+/**
+ * ★ `Suspense` obrigatorio: `useSearchParams` (usado pra ler `?cancelado=1`)
+ * faz o Next exigir a boundary, senao o build acusa
+ * "should be wrapped in a suspense boundary". Mesmo motivo do ChatDock no
+ * AppLayout.
+ */
 export default function CarrinhoPage() {
+  return (
+    <Suspense fallback={null}>
+      <CarrinhoInner />
+    </Suspense>
+  )
+}
+
+function CarrinhoInner() {
   const { openSignup } = useAuthModal()
   const [lojas, setLojas] = useState<string[]>([])
   const [itensPorLoja, setItensPorLoja] = useState<Record<string, ItemCarrinho[]>>({})
   const [resumos, setResumos] = useState<Record<string, Resumo>>({})
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const cancelado = useSearchParams().get('cancelado') === '1'
+
+  // ★ O RETORNO DE "CANCELEI" ERA MUDO (08/09/2026). A rota manda pra
+  // `/carrinho?cancelado=1` (api/carrinho/route.ts) e esta tela nunca lia a
+  // query -- quem desistia na Stripe voltava pro carrinho sem uma palavra, e
+  // ficava sem saber se a compra tinha ido ou nao. O /checkout ja avisava.
   const [uid, setUid] = useState<string | null>(null)
 
   // frete calculado, por loja
@@ -237,6 +258,11 @@ export default function CarrinhoPage() {
             : undefined}
         />
 
+        {cancelado && (
+          <div style={S.avisoCancelado}>
+            Pagamento cancelado. Seus itens continuam aqui — nada foi cobrado.
+          </div>
+        )}
         {erro && <div style={S.erro}>{erro}</div>}
 
         {carregando && <p style={S.mut}>Carregando…</p>}
@@ -485,6 +511,11 @@ const S: Record<string, CSSProperties> = {
   mut: { color: 'var(--bx-text-3)' },
   mutSm: { color: 'var(--bx-text-3)', fontSize: 12 },
 
+  avisoCancelado: {
+    background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+    color: '#f5b942', borderRadius: 10, padding: '11px 14px', fontSize: 13,
+    marginBottom: 14, lineHeight: 1.5,
+  },
   erro: {
     background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
     color: '#fca5a5', borderRadius: 10, padding: '11px 13px', fontSize: 13, marginBottom: 14,

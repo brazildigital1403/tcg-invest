@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { limparLoja } from '@/lib/carrinho'
 import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
 import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, IconBolt, IconPokeball } from '@/components/ui/Icons'
@@ -146,6 +147,20 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     const t = setTimeout(async () => { await buscar(); setTentativas(n => n + 1) }, 2000)
     return () => clearTimeout(t)
   }, [veioDoPagamento, pedido, tentativas, buscar])
+
+  // ★ ESVAZIA O CARRINHO DA LOJA QUE FOI PAGA (08/09/2026).
+  //
+  // `limparLoja` existia em `lib/carrinho.ts` e NUNCA foi chamada -- grep no
+  // src inteiro dava zero. Quem pagava pelo carrinho voltava pra ca e os
+  // itens continuavam la: produto com estoque sobrando ficava compravel de
+  // novo, e a carta ja vendida sujava a proxima cesta.
+  //
+  // So com `?ok=1` (retorno da Stripe) e com o pedido carregado -- assim o
+  // `loja_id` e o de verdade, nao um palpite da URL.
+  useEffect(() => {
+    if (!veioDoPagamento || !pedido?.loja_id) return
+    limparLoja(pedido.loja_id)
+  }, [veioDoPagamento, pedido])
 
   // Contexto pos-venda: quem sou eu, nome da loja e se ja avaliei este pedido.
   useEffect(() => {
