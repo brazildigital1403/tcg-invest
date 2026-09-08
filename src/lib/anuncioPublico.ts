@@ -1,6 +1,7 @@
 import 'server-only'
 import { cache } from 'react'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { podeExpirar, liberaEm as calcLiberaEm } from '@/lib/marketplaceStatus'
 import { badgesDaCarta } from '@/lib/badgesCarta'
 
 /**
@@ -53,6 +54,14 @@ export type AnuncioPublico = {
   fotos: string[]
   fotoPropria: boolean
   disponivel: boolean
+  /**
+   * Travado numa negociacao que ainda pode cair -- diferente de "vendido".
+   * Quem chega por link compartilhado precisa saber a diferenca: uma volta em
+   * horas, a outra nao volta.
+   */
+  travado: boolean
+  /** ISO de quando ele volta pro marketplace. `null` quando nao e travado. */
+  liberaEm: string | null
   vendedorNome: string
   vendedorCidade: string | null
   vendedorUsername: string | null
@@ -81,7 +90,7 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
   const ehUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOuId)
   const q = db
     .from('marketplace')
-    .select('id, slug, card_id, card_name, card_image, fotos, price, descricao, status, variante, idioma, condicao, graduada, graduadora, nota, black_label, user_id')
+    .select('id, slug, card_id, card_name, card_image, fotos, price, descricao, status, status_em, variante, idioma, condicao, graduada, graduadora, nota, black_label, user_id')
     // Moderado nao ganha pagina publica. Ver o cabecalho.
     .is('removido_em', null)
     .limit(1)
@@ -123,6 +132,8 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
     fotos: fotosVend.length ? fotosVend : (a.card_image ? [a.card_image] : []),
     fotoPropria: fotosVend.length > 0,
     disponivel: a.status === 'disponivel',
+    travado: podeExpirar(a.status),
+    liberaEm: calcLiberaEm(a.status, a.status_em),
     vendedorNome: (l?.nome || u?.name || 'Vendedor Bynx').trim(),
     vendedorCidade: u?.city?.trim() || null,
     vendedorUsername: u?.username || null,

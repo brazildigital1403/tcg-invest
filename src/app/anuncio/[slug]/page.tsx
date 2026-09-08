@@ -11,6 +11,7 @@ import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import BotaoCarrinho from '@/components/lojas/BotaoCarrinho'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 import BotaoInteresse from './BotaoInteresse'
+import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
 import ChatDock from '@/components/marketplace/ChatDock'
 import { IconShield, IconLocation, IconCarrinho, IconTruck } from '@/components/ui/Icons'
 import { buscarAnuncioPublico, CARTA_PESO_G, CARTA_DIMENSOES, type AnuncioPublico } from '@/lib/anuncioPublico'
@@ -78,9 +79,13 @@ export async function generateMetadata({
 
   // ★ O TITULO CARREGA O PRECO. Isto e o produto inteiro desta pagina: e o que
   // aparece no card do WhatsApp quando o vendedor manda o link.
+  // ★ Travado NAO e "vendido" (08/09/2026): ele volta em ate 72h, e um link
+  // mandado no WhatsApp dizendo "vendido" mata uma carta que ainda vai voltar.
   const titulo = a.disponivel
     ? `${a.nome} — ${fmtBRL(a.preco)}`
-    : `${a.nome} — vendido`
+    : a.travado
+      ? `${a.nome} — em negociação`
+      : `${a.nome} — vendido`
 
   return {
     title: titulo,
@@ -158,7 +163,13 @@ export default async function AnuncioPage({
                 o que da motivo pro vendedor abrir a loja dele.
                 `lojaPodeVender` exige o Connect liberado: loja cadastrada mas
                 sem recebimento ativo tambem nao fecha venda. */}
-            {!a.disponivel ? (
+            {/* ★ TRAVADO NAO E VENDIDO (08/09/2026). Ate hoje os dois liam a
+                mesma frase seca -- "nao esta mais disponivel" -- e quem chegava
+                por link compartilhado ia embora achando que a carta acabou.
+                Uma volta em ate 72h; a outra nao volta. */}
+            {a.travado && a.liberaEm ? (
+              <CronometroLiberacao liberaEm={a.liberaEm} variante="painel" />
+            ) : !a.disponivel ? (
               <div style={S.esgotado}>Este anúncio não está mais disponível.</div>
             ) : a.lojaPodeVender ? (
               <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador bx-compra-cta" style={S.cta}>

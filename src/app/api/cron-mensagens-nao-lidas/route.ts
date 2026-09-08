@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendMensagensNaoLidasEmail } from '@/lib/email'
+import { estaEncerrado } from '@/lib/marketplaceStatus'
 
 /**
  * GET /api/cron-mensagens-nao-lidas  (Vercel Cron, ver vercel.json)
@@ -46,8 +47,10 @@ export async function GET(req: NextRequest) {
       const anuncio: any = Array.isArray(m.marketplace) ? m.marketplace[0] : m.marketplace
       if (!anuncio) continue
       const status = anuncio.status as string
-      // ignora conversas encerradas
-      if (status === 'concluido' || status === 'cancelado') {
+      // ★ IGNORA CONVERSAS ENCERRADAS -- e `vendido` conta (08/09/2026).
+      //   Antes a lista era so concluido/cancelado, entao anuncio pago e
+      //   entregue pelo Connect seguia gerando email de mensagem nao lida.
+      if (estaEncerrado(status)) {
         msgIdsTocadas.push(m.id) // marca como avisada pra nao reprocessar
         continue
       }

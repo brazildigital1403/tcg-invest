@@ -20,6 +20,13 @@ import AnunciarModal from '@/components/marketplace/AnunciarModal'
 import ModalLimiteAnuncios from '@/components/ui/ModalLimiteAnuncios'
 import NegociacoesTab from '@/components/marketplace/NegociacoesTab'
 import MarketplaceFotosGaleria from '@/components/marketplace/MarketplaceFotosGaleria'
+import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
+// ★ A MESMA LISTA ESTAVA CRAVADA EM 5 PONTOS DESTE ARQUIVO (08/09/2026), e as
+//   cinco divergiam no MESMO ponto: nenhuma incluia `vendido`, que e o status
+//   terminal do Connect (escrito pelo webhook da Stripe). Efeito medido:
+//   anuncio ja pago e ENTREGUE continuava contando como negociacao aberta pro
+//   vendedor. Fonte unica agora em lib/marketplaceStatus.
+import { estaEncerrado, podeExpirar, liberaEm as calcLiberaEm } from '@/lib/marketplaceStatus'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -303,6 +310,14 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
             </span>
           )
         })() : null}
+
+        {/* ★ Cronometro da liberacao: o card do marketplace ja MOSTRAVA o
+            anuncio em negociacao (com o selo azul), mas nada dizia que ele
+            volta sozinho. A faixa e o que da motivo pra pessoa voltar. */}
+        {podeExpirar(card.status) && card.status_em && (() => {
+          const alvo = calcLiberaEm(card.status, card.status_em)
+          return alvo ? <CronometroLiberacao liberaEm={alvo} variante="faixa" /> : null
+        })()}
 
         {/* Variante badge */}
         <span style={{ position: 'absolute', top: grad ? 30 : 8, right: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', color: '#f0f0f0' }}>
@@ -1085,7 +1100,7 @@ function MarketplaceInner() {
     setListings(enriched)
     // Conta anúncios ativos do usuário
     if (authData.user) {
-      const ativos = (data || []).filter((c: any) => c.user_id === authData.user!.id && !['cancelado','concluido'].includes(c.status || 'disponivel'))
+      const ativos = (data || []).filter((c: any) => c.user_id === authData.user!.id && !estaEncerrado(c.status || 'disponivel'))
       setTotalAnuncios(ativos.length)
     }
     setLoading(false)
@@ -1110,7 +1125,7 @@ function MarketplaceInner() {
     const status = c.status || 'disponivel' // trata null como disponivel
     // S29 UX v2: marketplace agora mostra TODOS os anúncios por default,
     // exceto os já concluídos/cancelados (que poluem a vitrine).
-    if (['concluido', 'cancelado'].includes(status)) return false
+    if (estaEncerrado(status)) return false
     if (filtroStatus && status !== filtroStatus) return false
     if (filtroVariante && c.variante !== filtroVariante) return false
     if (filtroCondicao && c.condicao !== filtroCondicao) return false
@@ -1138,7 +1153,7 @@ function MarketplaceInner() {
   const meusAnuncios = listings.filter(c => c.user_id === userId)
 
   const minhasNegociacoes = listings.filter(c =>
-    !!userId && c.buyer_id === userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel')
+    !!userId && c.buyer_id === userId && !estaEncerrado(c.status || 'disponivel')
   )
 
   // ── Curadoria da vitrine (hero · trio · trilhos) ─────────────────────────────
@@ -1267,7 +1282,7 @@ function MarketplaceInner() {
   const gridCards = editorialMode ? vitrine.filter(c => !heroTrioIds.has(c.id)) : vitrine
 
   // Contadores das lentes de descoberta
-  const baseAtivos = listings.filter(c => c.user_id !== userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel'))
+  const baseAtivos = listings.filter(c => c.user_id !== userId && !estaEncerrado(c.status || 'disponivel'))
   const countTodos = baseAtivos.length
   const countOfertas = baseAtivos.filter(c => descontoDe(c) >= CORTE_IMPERDIVEL).length
   const countBom = baseAtivos.filter(c => { const d = descontoDe(c); return d >= CORTE_BOM_PRECO && d < CORTE_IMPERDIVEL }).length
@@ -1306,7 +1321,7 @@ function MarketplaceInner() {
           stat={(() => {
             // S29 UX v2: contador com breakdown legível
             const ativos = listings.filter(c =>
-              c.user_id !== userId && !['concluido', 'cancelado'].includes(c.status || 'disponivel')
+              c.user_id !== userId && !estaEncerrado(c.status || 'disponivel')
             )
             const disp = ativos.filter(c => (c.status || 'disponivel') === 'disponivel').length
             const neg  = ativos.filter(c => ['reservado', 'em_negociacao', 'enviado'].includes(c.status || '')).length
