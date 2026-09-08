@@ -118,7 +118,7 @@ export default async function AnuncioPage({
       <main className="bx-gutter" style={S.main}>
         <Breadcrumb items={trilha} />
 
-        <div style={S.cols}>
+        <div className="bx-detalhe-cols">
           <div style={S.colFoto}>
             <GaleriaProduto fotos={a.fotos} nome={a.nome} />
             {!a.fotoPropria && (
@@ -138,16 +138,21 @@ export default async function AnuncioPage({
             <div style={S.preco}>{fmtBRL(a.preco)}</div>
 
             {a.disponivel ? (
-              <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador" style={S.cta}>
+              <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador bx-detalhe-cta" style={S.cta}>
                 <IconCarrinho size={18} /> Comprar agora
               </Link>
             ) : (
               <div style={S.esgotado}>Este anúncio não está mais disponível.</div>
             )}
 
+            {/* ★ `url` RELATIVA. O BotaoCompartilhar monta
+                `window.location.origin + url` -- passar absoluta gerava
+                `https://bynx.gghttps://bynx.gg/anuncio/...`, um link morto.
+                A /produto ja passava relativo; eu que usei o componente sem
+                olhar a assinatura. */}
             <div style={S.compartilhar}>
               <BotaoCompartilhar
-                url={`https://bynx.gg${urlDoAnuncio(a)}`}
+                url={urlDoAnuncio(a)}
                 titulo={`${a.nome} — ${fmtBRL(a.preco)} na Bynx`}
                 texto={resumo(a)}
               />
@@ -206,7 +211,6 @@ const S: Record<string, React.CSSProperties> = {
   // duas colunas no Chrome e em uma no Brave, so por diferenca de zoom.
   // A /produto ja fazia certo; eu que nao copiei o padrao inteiro.
   main: { maxWidth: 1200, width: '100%', flex: 1, margin: '0 auto', paddingTop: 16, paddingBottom: 48 },
-  cols: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 28, marginTop: 12, alignItems: 'start' },
   colFoto: { minWidth: 0 },
   colInfo: { minWidth: 0 },
   avisoFoto: { fontSize: 11.5, color: 'var(--bx-text-3)', marginTop: 8, lineHeight: 1.5 },
@@ -217,8 +221,8 @@ const S: Record<string, React.CSSProperties> = {
   cta: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
     width: '100%', minHeight: 48, boxSizing: 'border-box', padding: '12px 20px',
-    background: 'var(--ac-grad)', color: '#fff', fontWeight: 800, fontSize: 15,
-    borderRadius: 12, textDecoration: 'none', transition: 'transform 0.15s ease',
+    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', fontWeight: 800, fontSize: 15,
+    borderRadius: 12, textDecoration: 'none',
   },
   esgotado: {
     padding: '12px 16px', borderRadius: 12, background: 'var(--bx-surface-2)',

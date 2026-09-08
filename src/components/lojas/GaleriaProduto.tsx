@@ -81,7 +81,11 @@ export default function GaleriaProduto({ fotos, nome }: { fotos: string[]; nome:
             alt={`${nome} — foto ${ativa + 1}`}
             width={800}
             height={800}
-            sizes="(max-width: 880px) 100vw, 640px"
+            // A coluna da foto e `minmax(0,1fr)` num container de 1200 com
+            // 380 na direita e 28 de gap: da ~790px. O valor antigo (640)
+            // fazia o browser baixar 640 pra pintar em 740 -- upscale de 16%,
+            // visivelmente borrado.
+            sizes="(max-width: 880px) calc(100vw - 32px), 790px"
             priority
             style={S.heroImg}
           />
@@ -177,8 +181,16 @@ const S: Record<string, CSSProperties> = {
     border: '1px solid var(--bx-border)',
     background: 'var(--bx-surface)',
   },
+  // `all: unset` zera tambem o outline de foco -- sem isto a galeria fica
+  // invisivel pra quem navega por teclado.
   heroBtn: { all: 'unset', cursor: 'zoom-in', display: 'block', width: '100%' },
-  heroImg: { width: '100%', display: 'block', aspectRatio: '1 / 1', objectFit: 'cover' },
+  // ★ `contain`, nao `cover` (07/09/2026). A caixa e 1:1 e serve produto
+  // (quase quadrado) e CARTA (5:7). Com `cover` a carta perdia 44% da area --
+  // e o que sumia era a borda e a etiqueta do slab, exatamente o que prova a
+  // condicao pra quem esta comprando um graduado. Medido: natural 375x666
+  // numa caixa de 341x341. `contain` deixa faixa lateral na carta, o que e o
+  // preco de manter a MESMA caixa nas duas paginas -- que e o que o Du pediu.
+  heroImg: { width: '100%', display: 'block', aspectRatio: '1 / 1', objectFit: 'contain' },
   contador: {
     position: 'absolute', left: 10, bottom: 10,
     fontSize: 11.5, fontWeight: 700, color: 'var(--bx-text-2)',

@@ -224,3 +224,34 @@ body {
   .bx-oferta { transition: none; }
   .bx-oferta:hover { transform: none; }
 }
+
+/* ─── Detalhe de item a venda: /produto e /anuncio ────────────────────────
+   As duas sao a MESMA pagina em papeis diferentes (produto de loja e carta
+   do marketplace), e ate 07/09/2026 tinham dois blocos de estilo escritos
+   separados: a coluna da foto media 740px numa e 560px na outra em 1440px, e
+   o breakpoint de uma era declarado (880px) e o da outra era adivinhado pelo
+   `auto-fit` (caia em ~628px). Uma classe so, usada pelas duas.
+
+   `minmax(0,1fr)` e obrigatorio: com `1fr` puro a coluna herda
+   `min-width: auto` e o conteudo de largura intrinseca a estica. */
+.bx-detalhe-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+  gap: 28px;
+  align-items: start;
+}
+.bx-detalhe-cols > * { min-width: 0; }
+@media (max-width: 880px) {
+  .bx-detalhe-cols { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+}
+
+/* CTA de compra. Texto usa `--bx-brand-ink` e nao branco: sobre o gradiente,
+   branco da 3,5:1 e reprova no AA (o minimo e 4,5:1 e 15px nao e texto
+   grande). Foi medido. */
+.bx-detalhe-cta { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.bx-detalhe-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.4); }
+.bx-detalhe-cta:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  .bx-detalhe-cta { transition: none; }
+  .bx-detalhe-cta:hover { transform: none; }
+}
