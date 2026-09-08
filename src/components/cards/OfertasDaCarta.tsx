@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { IconShield, IconLocation, IconCamera, IconCarrinho } from '@/components/ui/Icons'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 import type { OfertaCarta } from '@/lib/ofertasDaCarta'
+import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
 
 /**
  * "A venda na Bynx" — as ofertas REAIS de uma carta, dentro da pagina publica
@@ -34,7 +35,13 @@ export default function OfertasDaCarta({
 }) {
   if (!ofertas.length) return null
 
-  const menor = Math.min(...ofertas.map(o => o.preco))
+  // ★ O "A PARTIR DE" IGNORA A TRAVADA (08/09/2026). Ela aparece na lista com
+  // o cronometro, mas anunciar o preco dela aqui seria prometer um valor que
+  // ninguem consegue pagar agora -- e este mesmo numero e o que o
+  // `generateMetadata` leva pro <title> do Google.
+  const livres = ofertas.filter(o => !o.travada)
+  const menor = livres.length ? Math.min(...livres.map(o => o.preco)) : null
+  const nTravadas = ofertas.length - livres.length
 
   return (
     <section
@@ -55,8 +62,18 @@ export default function OfertasDaCarta({
           À venda na Bynx
         </h2>
         <span style={{ fontSize: 12.5, color: 'var(--bx-text-3)' }}>
-          {ofertas.length === 1 ? '1 anúncio' : `${ofertas.length} anúncios`} · a partir de{' '}
-          <strong style={{ color: 'var(--bx-green)' }}>{fmtBRL(menor)}</strong>
+          {menor !== null ? (
+            <>
+              {livres.length === 1 ? '1 anúncio' : `${livres.length} anúncios`} · a partir de{' '}
+              <strong style={{ color: 'var(--bx-green)' }}>{fmtBRL(menor)}</strong>
+            </>
+          ) : (
+            // Todas travadas: nao existe "a partir de" honesto pra dizer.
+            <>nenhum anúncio livre agora</>
+          )}
+          {nTravadas > 0 && (
+            <> · {nTravadas === 1 ? '1 em negociação' : `${nTravadas} em negociação`}</>
+          )}
         </span>
       </div>
 
@@ -75,7 +92,8 @@ export default function OfertasDaCarta({
             className="bx-oferta"
             style={{
               display: 'flex', gap: 12, alignItems: 'center', minWidth: 0,
-              background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)',
+              background: o.travada ? 'rgba(96,165,250,0.045)' : 'var(--bx-surface-2)',
+              border: '1px solid var(--bx-border)',
               borderRadius: 10, padding: 10, textDecoration: 'none', color: 'inherit',
               transition: 'transform 0.15s ease, border-color 0.15s ease, background 0.15s ease',
             }}
@@ -108,7 +126,14 @@ export default function OfertasDaCarta({
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.2 }}>{fmtBRL(o.preco)}</div>
+              <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.2, color: o.travada ? 'var(--bx-text-2)' : undefined }}>
+                {fmtBRL(o.preco)}
+              </div>
+              {o.travada && o.liberaEm && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                  <CronometroLiberacao liberaEm={o.liberaEm} variante="inline" />
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', margin: '5px 0 6px' }}>
                 {o.badges.map(b => (
@@ -145,9 +170,12 @@ export default function OfertasDaCarta({
               </div>
             </div>
 
-            {/* Acento do COMPRADOR: a pagina e ambar, comprar e roxo-rosa. */}
+            {/* Acento do COMPRADOR: a pagina e ambar, comprar e roxo-rosa.
+                Na travada o carrinho SOME -- oferecer o gesto de comprar numa
+                carta que nao esta a venda e prometer o que quebra no clique. */}
             <span
-              className="bx-ctx-comprador"
+              className={o.travada ? undefined : 'bx-ctx-comprador'}
+              hidden={o.travada}
               aria-hidden="true"
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

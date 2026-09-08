@@ -2,6 +2,7 @@ import 'server-only'
 import { cache } from 'react'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { badgesDaCarta } from '@/lib/badgesCarta'
+import { STATUS_EXPIRAVEIS, liberaEm as calcLiberaEm } from '@/lib/marketplaceStatus'
 
 /**
  * Ofertas REAIS de uma carta — os anuncios que alguem pode comprar agora.
@@ -52,6 +53,14 @@ export type OfertaCarta = {
   lojaSlug: string | null
   lojaVerificada: boolean
   href: string
+  /**
+   * Travada numa negociacao que ainda pode cair. Ela APARECE (a carta e o
+   * que atrai, e ela pode voltar em horas), mas nao e comprivel agora e
+   * NUNCA entra no preco de divulgacao -- ver `ofertasParaDivulgacao`.
+   */
+  travada: boolean
+  /** ISO de quando ela volta pro marketplace. `null` quando nao e travada. */
+  liberaEm: string | null
 }
 
 /**
@@ -70,9 +79,13 @@ export const buscarOfertasDaCarta = cache(async function buscarOfertasDaCarta(
 
   const { data: anuncios, error } = await db
     .from('marketplace')
-    .select('id, slug, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label, user_id')
+    .select('id, slug, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label, user_id, status, status_em')
     .eq('card_id', cardId)
-    .eq('status', 'disponivel')
+    // ★ A TRAVADA ENTRA (08/09/2026). Ate hoje era `.eq('status','disponivel')`
+    //   e o anuncio em negociacao sumia da pagina da carta -- escondendo uma
+    //   oferta que volta em ate 72h. Agora ela aparece com o cronometro, e o
+    //   que a mantem fora do PRECO e `ofertasParaDivulgacao`, nao este filtro.
+    .in('status', ['disponivel', ...STATUS_EXPIRAVEIS])
     .is('removido_em', null)
     .order('price', { ascending: true })
     .limit(12)
@@ -124,8 +137,14 @@ export const buscarOfertasDaCarta = cache(async function buscarOfertasDaCarta(
       // Detalhe, nao checkout: quem chega pelo /carta esta comparando ofertas
       // e precisa ver foto e vendedor antes de decidir.
       href: `/anuncio/${a.slug || a.id}`,
+      travada: a.status !== 'disponivel',
+      liberaEm: calcLiberaEm(a.status, a.status_em),
     }
   })
+  // Comprivel primeiro, travada depois -- dentro de cada grupo o preco manda
+  // (o `.order` do banco ja garantiu). Sem isto uma travada barata lideraria
+  // a lista de uma carta que TEM oferta livre.
+  .sort((x, y) => Number(x.travada) - Number(y.travada))
 })
 
 /**
@@ -139,7 +158,16 @@ export const buscarOfertasDaCarta = cache(async function buscarOfertasDaCarta(
  *
  * Na UI o slab continua aparecendo normalmente — la o badge "AGS 9.5" diz o
  * que e, e o comprador ve a foto. O rich snippet nao tem esse contexto.
+ *
+ * ★ E A TRAVADA TAMBEM FICA DE FORA (08/09/2026). Ela aparece na UI com o
+ * cronometro, mas nao pode entrar no "a partir de" nem no JSON-LD: seria
+ * anunciar no Google um preco que ninguem consegue pagar hoje. E o mesmo erro
+ * que o guard de preco acabou de tirar de 295 paginas de carta -- so que este
+ * seria auto-infligido.
+ *
+ * O nome mudou de `ofertasCruas` pra este porque a funcao passou a ter DOIS
+ * criterios, e "crua" so descrevia o primeiro.
  */
-export function ofertasCruas(ofertas: OfertaCarta[]): OfertaCarta[] {
-  return ofertas.filter(o => !o.graduada)
+export function ofertasParaDivulgacao(ofertas: OfertaCarta[]): OfertaCarta[] {
+  return ofertas.filter(o => !o.graduada && !o.travada)
 }

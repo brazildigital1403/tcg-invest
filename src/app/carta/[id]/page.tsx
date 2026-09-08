@@ -25,7 +25,7 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound, permanentRedirect } from 'next/navigation'
 import CardClient from './CardClient'
 import OfertasDaCarta from '@/components/cards/OfertasDaCarta'
-import { buscarOfertasDaCarta, ofertasCruas } from '@/lib/ofertasDaCarta'
+import { buscarOfertasDaCarta, ofertasParaDivulgacao } from '@/lib/ofertasDaCarta'
 
 // Variantes exibidas na pagina publica da carta. Leem as colunas fixas ja
 // scaneadas em pokemon_cards (preco_<var>_min/medio/max). So entram as com preco.
@@ -498,8 +498,9 @@ export async function generateMetadata({
   // ofertas cruas estao ABAIXO do preco de mercado da propria carta (o Mew-V
   // a R$ 34,26 contra R$ 44,67 de referencia). Ou seja, o Google anunciava um
   // preco PIOR do que o que a Bynx tinha a venda na mesma pagina.
-  // Graduada fica fora: e outro produto (ver `ofertasCruas`).
-  const ofertasMeta = ofertasCruas(await buscarOfertasDaCarta(card.id))
+  // Graduada e travada ficam fora: slab e outro produto, e anuncio em
+  // negociacao nao pode virar preco no Google. Ver `ofertasParaDivulgacao`.
+  const ofertasMeta = ofertasParaDivulgacao(await buscarOfertasDaCarta(card.id))
   const menorOferta = ofertasMeta.length ? Math.min(...ofertasMeta.map(o => o.preco)) : null
   const menorReal = card.precoSuspeito
     ? menorOferta
@@ -630,9 +631,10 @@ export default async function CartaPage({
     category: 'Trading Card Game',
   }
 
-  // ★ O JSON-LD PASSOU A DECLARAR AS OFERTAS REAIS (04/09/2026), com UMA
-  // exclusao deliberada: carta graduada. Ver `ofertasCruas` -- slab e outro
-  // produto, e no Clefairy a diferenca e de 6,6x.
+  // ★ O JSON-LD PASSOU A DECLARAR AS OFERTAS REAIS (04/09/2026), com DUAS
+  // exclusoes deliberadas: graduada e travada. Ver `ofertasParaDivulgacao` --
+  // slab e outro produto (no Clefairy a diferenca e de 6,6x), e anuncio em
+  // negociacao nao pode virar preco no Google: ele nao esta a venda agora.
   //
   // A faixa cobre o que a PAGINA mostra: o preco de mercado (que continua no
   // topo, e e a referencia) e as ofertas compraveis. Nao trocar um pelo outro
@@ -646,7 +648,7 @@ export default async function CartaPage({
   const agora = Date.now()
   const validoAte = (dias: number) => new Date(agora + dias * 864e5).toISOString().slice(0, 10)
 
-  const cruas = ofertasCruas(ofertas)
+  const cruas = ofertasParaDivulgacao(ofertas)
   if (cruas.length > 0) {
     const precosOferta = cruas.map(o => o.preco)
     const candLow = [card.precoSuspeito ? null : card.precoMin, ...precosOferta]

@@ -9,6 +9,7 @@ import { manifestarInteresse } from '@/lib/marketplaceInteresse'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { IconCard, IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconCamera } from '@/components/ui/Icons'
 import type { ItemVitrine } from '@/lib/vitrineLoja'
+import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
 
 const BRAND = '#f59e0b'
 
@@ -61,8 +62,17 @@ function Capa({ item }: { item: Item }) {
     ? <span style={S.seloFotos}><IconCamera size={11} /> {item.nFotos}</span>
     : null
 
-  const corpo = selo
-    ? <span style={{ position: 'relative', display: 'block' }}>{midia}{selo}</span>
+  // ★ A FAIXA DO CRONOMETRO (08/09/2026). Ate hoje a carta em negociacao era
+  // FILTRADA fora da vitrine (`.eq('status','disponivel')` em vitrineLoja) e a
+  // loja parecia ter menos estoque do que tem. Agora ela fica, com o tempo pra
+  // liberar -- e a arte segue colorida de proposito: quem comunica o
+  // travamento e a faixa, nao a cor.
+  const crono = item.travada && item.liberaEm
+    ? <CronometroLiberacao liberaEm={item.liberaEm} variante="faixa" />
+    : null
+
+  const corpo = (selo || crono)
+    ? <span style={{ position: 'relative', display: 'block' }}>{midia}{selo}{crono}</span>
     : midia
 
   if (!item.detalhe) return corpo
@@ -245,7 +255,14 @@ export default function AnunciosLoja({
               <p style={{ fontSize: 18, fontWeight: 800, color: BRAND, letterSpacing: '-0.02em', marginBottom: (logado && !ehDono) ? 10 : 2, marginTop: 'auto' }}>
                 {fmt(item.preco)}
               </p>
-              {logado && !ehDono && (
+              {/* Travada: nem Comprar nem Tenho interesse. Os dois gestos
+                  levariam a um caminho que quebra -- a API recusa anuncio fora
+                  de `disponivel`. Sobra o detalhe, onde esta o cronometro
+                  grande e a explicacao. */}
+              {logado && !ehDono && item.travada && item.detalhe && (
+                <Link href={item.detalhe} style={{ ...S.btn, ...S.btnVer, textDecoration: 'none' }}>Ver anúncio</Link>
+              )}
+              {logado && !ehDono && !item.travada && (
                 podeVender ? (
                   <a href={item.href} className="bx-ctx-comprador" style={{ ...S.btn, ...S.btnComprar, textDecoration: 'none' }}>Comprar</a>
                 ) : item.ehCarta ? (

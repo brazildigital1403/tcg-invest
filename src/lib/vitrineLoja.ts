@@ -1,6 +1,7 @@
 import 'server-only'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { badgesDaCarta } from '@/lib/badgesCarta'
+import { STATUS_EXPIRAVEIS, liberaEm as calcLiberaEm } from '@/lib/marketplaceStatus'
 
 /**
  * Itens da vitrine de uma loja — CARTAS (marketplace) + PRODUTOS (loja_produtos)
@@ -42,6 +43,13 @@ export type ItemVitrine = {
   fotoPropria: boolean
   /** Quantas fotos o vendedor subiu. 0 quando a imagem e a arte do catalogo. */
   nFotos: number
+  /**
+   * Travada numa negociacao que ainda pode cair. Aparece na vitrine com o
+   * cronometro em vez de sumir -- ver `CronometroLiberacao`.
+   */
+  travada: boolean
+  /** ISO de quando ela volta pro marketplace. `null` quando nao e travada. */
+  liberaEm: string | null
 }
 
 export async function buscarItensDaVitrine(
@@ -55,9 +63,12 @@ export async function buscarItensDaVitrine(
     ownerUserId
       ? db
           .from('marketplace')
-          .select('id, slug, card_name, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label')
+          .select('id, slug, card_name, card_image, fotos, price, variante, idioma, condicao, graduada, graduadora, nota, black_label, status, status_em')
           .eq('user_id', ownerUserId)
-          .eq('status', 'disponivel')
+          // ★ A TRAVADA ENTRA (08/09/2026). Com `.eq('status','disponivel')` a
+          //   carta em negociacao sumia da vitrine e a loja parecia ter menos
+          //   estoque do que tem. Agora ela fica, com o tempo pra liberar.
+          .in('status', ['disponivel', ...STATUS_EXPIRAVEIS])
           // ★ `removido_em` NAO pode faltar. A moderacao do admin so seta esse
           // campo — nao mexe no `status` (ver api/admin/marketplace/moderar).
           // Sem este filtro, anuncio REMOVIDO continua na vitrine publica e
@@ -108,6 +119,8 @@ export async function buscarItensDaVitrine(
       ehCarta: true,
       fotoPropria: fotos.length > 0,
       nFotos: fotos.length,
+      travada: c.status !== 'disponivel',
+      liberaEm: calcLiberaEm(c.status, c.status_em),
     }
   })
 
@@ -123,7 +136,11 @@ export async function buscarItensDaVitrine(
     ehCarta: false,
     fotoPropria: true,
     nFotos: Array.isArray(p.fotos) ? p.fotos.length : 0,
+    // Produto de loja nao passa por negociacao: ou tem estoque, ou nao esta aqui.
+    travada: false,
+    liberaEm: null,
   }))
 
-  return [...itensCarta, ...itensProduto]
+  // Comprivel primeiro: a vitrine abre com o que da pra levar agora.
+  return [...itensCarta, ...itensProduto].sort((a, b) => Number(a.travada) - Number(b.travada))
 }
