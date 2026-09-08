@@ -85,6 +85,18 @@ function CarrinhoInner() {
   const [erro, setErro] = useState<string | null>(null)
   const cancelado = useSearchParams().get('cancelado') === '1'
 
+  // Total de TUDO, somando as lojas.
+  //
+  // ★ `null` quando ALGUMA loja ainda nao tem frete: somar o que ja se sabe e
+  // chamar de "total" seria mentir pra quem esta decidindo. Mas o BLOCO
+  // aparece de qualquer jeito, com "a calcular" -- escondendo o bloco inteiro,
+  // o comprador com duas lojas nunca via que existe um total geral, que e
+  // justamente o numero que ele quer no primeiro olhar.
+  const totalGeralCents = lojas.reduce<number | null>((acc, id) => {
+    const t = resumos[id]?.total_comprador_cents
+    return acc == null || t == null ? null : acc + t
+  }, 0)
+
   // ★ O RETORNO DE "CANCELEI" ERA MUDO (08/09/2026). A rota manda pra
   // `/carrinho?cancelado=1` (api/carrinho/route.ts) e esta tela nunca lia a
   // query -- quem desistia na Stripe voltava pro carrinho sem uma palavra, e
@@ -276,6 +288,9 @@ function CarrinhoInner() {
           </div>
         )}
 
+        <div className="bx-compra-cols">
+          {/* ─── PALCO: o que estou levando, agrupado por loja ─────────── */}
+          <div>
         {lojas.map(lojaId => {
           const r = resumos[lojaId]
           if (!r) return null
@@ -416,36 +431,71 @@ function CarrinhoInner() {
                   )}
                 </div>
               )}
+            </section>
+          )
+        })}
+          </div>
 
-              {/* Seletor de pagamento, no mesmo desenho da /checkout. */}
-              <div style={S.pagBloco}>
-                <div style={S.pagTitulo}>Pagamento</div>
-                <div style={S.pagLinha}>
-                  {(['pix', 'cartao'] as MetodoPagamento[]).map(m => {
-                    const bloqueado = m === 'pix' && !PIX_DISPONIVEL
-                    const ativo = metodo === m
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => { if (!bloqueado) setMetodo(m) }}
-                        disabled={bloqueado}
-                        title={bloqueado ? 'O Pix está a caminho' : undefined}
-                        style={{ ...S.pay, ...(ativo ? S.payOn : {}), ...(bloqueado ? S.payOff : {}) }}
-                      >
-                        <span style={{ display: 'inline-flex' }}>
-                          {m === 'pix'
-                            ? <IconBolt size={17} color={ativo ? '#c084fc' : 'rgba(255,255,255,0.6)'} />
-                            : <IconCard size={17} color={ativo ? '#c084fc' : 'rgba(255,255,255,0.6)'} />}
-                        </span>
-                        <div style={S.payL}>{m === 'pix' ? 'Pix' : 'Cartão'}</div>
-                        {bloqueado && <div style={S.payP}>em breve</div>}
-                      </button>
-                    )
-                  })}
-                </div>
+          {/* ─── ACAO: pagamento, contas e botoes ──────────────────────── */}
+          <div className="bx-compra-sticky">
+            {/* ★ O SELETOR DE PAGAMENTO SAIU DE DENTRO DO `lojas.map`
+                (08/09/2026). Ele era renderizado UMA VEZ POR LOJA -- 121px
+                cada -- mas o estado sempre foi UM SO (`metodo`). Com o Pix
+                desligado ninguem percebia; no dia em que ligar, mexer no
+                seletor da loja 2 mudaria o da loja 1 sem avisar. Agora e um
+                controle so, e o rotulo diz que vale pra todas. */}
+          {/* Seletor de pagamento, no mesmo desenho da /checkout. */}
+          <div style={S.pagBloco}>
+            <div style={S.pagTitulo}>Pagamento</div>
+            <div style={S.pagLinha}>
+              {(['pix', 'cartao'] as MetodoPagamento[]).map(m => {
+                const bloqueado = m === 'pix' && !PIX_DISPONIVEL
+                const ativo = metodo === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => { if (!bloqueado) setMetodo(m) }}
+                    disabled={bloqueado}
+                    title={bloqueado ? 'O Pix está a caminho' : undefined}
+                    style={{ ...S.pay, ...(ativo ? S.payOn : {}), ...(bloqueado ? S.payOff : {}) }}
+                  >
+                    <span style={{ display: 'inline-flex' }}>
+                      {m === 'pix'
+                    ? <IconBolt size={17} color={ativo ? '#c084fc' : 'rgba(255,255,255,0.6)'} />
+                    : <IconCard size={17} color={ativo ? '#c084fc' : 'rgba(255,255,255,0.6)'} />}
+                    </span>
+                    <div style={S.payL}>{m === 'pix' ? 'Pix' : 'Cartão'}</div>
+                    {bloqueado && <div style={S.payP}>em breve</div>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+            {lojas.length > 1 && (
+              <p style={S.notaPag}>Vale para todas as lojas.</p>
+            )}
+
+            {/* ★ TOTAL GERAL com rotulo. Com mais de uma loja a tela passa a
+                ter DOIS numeros diferentes (o total da loja e o total de
+                tudo), e num app de patrimonio conta ambigua derruba confianca
+                mais rapido que qualquer outra coisa. */}
+            {lojas.length > 1 && (
+              <div style={S.geral}>
+                <span style={S.geralK}>Total geral</span>
+                <span style={S.geralV}>
+                  {totalGeralCents == null ? <span style={S.geralPend}>a calcular</span> : fmtBRL(totalGeralCents)}
+                </span>
               </div>
+            )}
 
+            {lojas.map(lojaId => {
+              const r = resumos[lojaId]
+              if (!r) return null
+              const podeFechar = r.qtd_validos > 0 && r.loja.pode_vender && !r.frete_pendente
+              return (
+                <div key={lojaId} style={S.painelLoja}>
+                  {lojas.length > 1 && <div style={S.painelLojaNome}>{r.loja.nome}</div>}
               <div style={S.conta}>
                 <div style={S.contaLinha}><span style={S.mut}>Subtotal</span><span>{fmtBRL(r.subtotal_cents)}</span></div>
                 {/* Rotulo passou a seguir o METODO: dizia "cartao" mesmo com
@@ -480,9 +530,11 @@ function CarrinhoInner() {
                   {podeFechar && indo !== lojaId && <IconArrowRight size={17} color="currentColor" />}
                 </button>
               )}
-            </section>
-          )
-        })}
+            </div>
+              )
+            })}
+          </div>
+        </div>
 
         {/* Selos e bandeiras, iguais aos da /checkout. Eram a diferenca que
             mais pesava: as duas telas pedem cartao, e so uma dizia quem
@@ -506,7 +558,21 @@ function CarrinhoInner() {
 }
 
 const S: Record<string, CSSProperties> = {
-  wrap: { maxWidth: 720, margin: '0 auto', width: '100%', paddingBottom: 40 },
+  notaPag: { fontSize: 11.5, color: 'var(--bx-text-3)', margin: '8px 0 0' },
+  geral: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+    padding: '11px 14px', marginTop: 14, borderRadius: 11,
+    border: '1px dashed var(--bx-border-2)', background: 'var(--bx-surface)',
+  },
+  geralK: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--bx-text-3)' },
+  geralPend: { fontSize: 13, fontWeight: 600, color: 'var(--bx-text-3)' },
+  geralV: { fontSize: 18, fontWeight: 800, fontVariantNumeric: 'tabular-nums' },
+  painelLoja: {
+    marginTop: 14, padding: 14, borderRadius: 12,
+    background: 'var(--bx-bg-elev)', border: '1px solid var(--bx-border)',
+  },
+  painelLojaNome: { fontSize: 12.5, fontWeight: 700, marginBottom: 8, color: 'var(--bx-text-2)' },
+  wrap: { maxWidth: 1200, margin: '0 auto', width: '100%', paddingBottom: 40 },
   h1: { fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '4px 0 18px' },
   mut: { color: 'var(--bx-text-3)' },
   mutSm: { color: 'var(--bx-text-3)', fontSize: 12 },

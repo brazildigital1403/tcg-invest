@@ -225,35 +225,47 @@ body {
   .bx-oferta:hover { transform: none; }
 }
 
-/* ─── Detalhe de item a venda: /produto e /anuncio ────────────────────────
-   As duas sao a MESMA pagina em papeis diferentes (produto de loja e carta
-   do marketplace), e ate 07/09/2026 tinham dois blocos de estilo escritos
-   separados: a coluna da foto media 740px numa e 560px na outra em 1440px, e
-   o breakpoint de uma era declarado (880px) e o da outra era adivinhado pelo
-   `auto-fit` (caia em ~628px). Uma classe so, usada pelas duas.
+/* ─── Fluxo de compra: /anuncio, /produto, /carrinho e /checkout ──────────
+   ★ 08/09/2026: o que era `.bx-detalhe-*` (so as duas telas de detalhe)
+   passou a valer no FLUXO INTEIRO, incluindo carrinho e checkout. O motivo
+   veio de medicao: as quatro telas usavam TRES larguras uteis em 1440 --
+   1152 no detalhe, 1000 no checkout e 720 no carrinho -- alem de dois grids
+   diferentes. O carrinho jogava fora 432px que a pagina de detalhe usa, e
+   trocar de moldura no meio do caminho e o que fazia parecer processos
+   diferentes.
+
+   `minmax(0,1fr)` e obrigatorio: com `1fr` puro a coluna herda
+   `min-width: auto` e o conteudo de largura intrinseca a estica.
 
    `minmax(0,1fr)` e obrigatorio: com `1fr` puro a coluna herda
    `min-width: auto` e o conteudo de largura intrinseca a estica. */
-.bx-detalhe-cols {
+.bx-compra-cols {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
   gap: 28px;
   align-items: start;
 }
-.bx-detalhe-cols > * { min-width: 0; }
+.bx-compra-cols > * { min-width: 0; }
 @media (max-width: 880px) {
-  .bx-detalhe-cols { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .bx-compra-cols { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+}
+
+/* Painel de acao: acompanha a rolagem no desktop, pra o total e o botao de
+   pagar nao fugirem da tela enquanto a pessoa le a lista de itens. Abaixo de
+   880 a coluna colapsa e sticky nao faz sentido. */
+@media (min-width: 881px) {
+  .bx-compra-sticky { position: sticky; top: 16px; }
 }
 
 /* CTA de compra. Texto usa `--bx-brand-ink` e nao branco: sobre o gradiente,
    branco da 3,5:1 e reprova no AA (o minimo e 4,5:1 e 15px nao e texto
    grande). Foi medido. */
-.bx-detalhe-cta { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.bx-detalhe-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.4); }
-.bx-detalhe-cta:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 3px; }
+.bx-compra-cta { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.bx-compra-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.4); }
+.bx-compra-cta:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
-  .bx-detalhe-cta { transition: none; }
-  .bx-detalhe-cta:hover { transform: none; }
+  .bx-compra-cta { transition: none; }
+  .bx-compra-cta:hover { transform: none; }
 }
 
 /* Nome da carta no card do marketplace: e o link pro detalhe do anuncio.
@@ -264,10 +276,10 @@ body {
 .bx-card-nome:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; border-radius: 4px; }
 
 /* Acao secundaria (ghost) das paginas de detalhe. Mesma razao da
-   `.bx-detalhe-cta`: as duas paginas usavam blocos separados. */
-.bx-detalhe-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
-.bx-detalhe-ghost:hover { background: var(--bx-surface-3); border-color: var(--bx-border-2); }
-.bx-detalhe-ghost:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+   `.bx-compra-cta`: as duas paginas usavam blocos separados. */
+.bx-compra-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
+.bx-compra-ghost:hover { background: var(--bx-surface-3); border-color: var(--bx-border-2); }
+.bx-compra-ghost:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
 
 /* ─── Carrinho na pagina de detalhe ───────────────────────────────────────
    A `.bx-cart-add` existia no JSX desde sempre e NAO tinha uma linha de CSS

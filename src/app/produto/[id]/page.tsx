@@ -211,7 +211,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
         <main className="bx-gutter" style={S.main}>
           <Breadcrumb items={trilha} />
 
-          <div className="bx-detalhe-cols">
+          <div className="bx-compra-cols">
             <div>
               <GaleriaProduto fotos={fotos} nome={produto.nome} />
             </div>
@@ -237,7 +237,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                   Este produto está sem estoque. A loja pode repor — vale conferir o que mais ela tem à venda.
                 </p>
               ) : podeVender ? (
-                <Link href={`/checkout/${produto.id}?tipo=produto`} className="bx-ctx-comprador bx-detalhe-cta" style={S.cta}>
+                <Link href={`/checkout/${produto.id}?tipo=produto`} className="bx-ctx-comprador bx-compra-cta" style={S.cta}>
                   <IconCarrinho size={18} />
                   Comprar agora
                 </Link>
@@ -252,7 +252,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               )}
 
               <div style={S.acoesLinha}>
-                <Link href={`/lojas/${loja.slug}`} className="bx-detalhe-ghost" style={{ ...S.ghost, flex: 1 }}>
+                <Link href={`/lojas/${loja.slug}`} className="bx-compra-ghost" style={{ ...S.ghost, flex: 1 }}>
                   Ver mais desta loja
                 </Link>
                 <BotaoCompartilhar
