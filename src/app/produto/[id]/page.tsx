@@ -201,16 +201,10 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
 
       <div style={S.page}>
         <style>{`
-          .bx-prod-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:30px;align-items:start}
-          .bx-prod-cols>*{min-width:0}
-          .bx-prod-cta{transition:transform .15s ease, box-shadow .15s ease}
-          .bx-prod-cta:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,0.4)}
           .bx-prod-ghost{transition:background .15s ease, border-color .15s ease}
           .bx-prod-ghost:hover{background:var(--bx-surface-3);border-color:var(--bx-border-2)}
-          @media (max-width:880px){ .bx-prod-cols{grid-template-columns:minmax(0,1fr);gap:22px} }
           @media (prefers-reduced-motion: reduce){
-            .bx-prod-cta,.bx-prod-ghost{transition:none}
-            .bx-prod-cta:hover{transform:none}
+            .bx-prod-ghost{transition:none}
           }
         `}</style>
 
@@ -219,16 +213,9 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
         <main className="bx-gutter" style={S.main}>
           <Breadcrumb items={trilha} />
 
-          <div className="bx-prod-cols">
+          <div className="bx-detalhe-cols">
             <div>
               <GaleriaProduto fotos={fotos} nome={produto.nome} />
-
-              {produto.descricao && (
-                <>
-                  <h2 style={S.secao}>Descrição</h2>
-                  <p style={S.desc}>{produto.descricao}</p>
-                </>
-              )}
             </div>
 
             <div>
@@ -252,7 +239,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                   Este produto está sem estoque. A loja pode repor — vale conferir o que mais ela tem à venda.
                 </p>
               ) : podeVender ? (
-                <Link href={`/checkout/${produto.id}?tipo=produto`} className="bx-ctx-comprador bx-prod-cta" style={S.cta}>
+                <Link href={`/checkout/${produto.id}?tipo=produto`} className="bx-ctx-comprador bx-detalhe-cta" style={S.cta}>
                   Comprar agora
                 </Link>
               ) : (
@@ -315,6 +302,22 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
           </div>
+
+          {/* ★ DESCRICAO SAIU DA COLUNA DA FOTO (07/09/2026).
+              Ela era o ultimo bloco da PRIMEIRA coluna do grid. No desktop
+              passava despercebido; no mobile, ao colapsar pra uma coluna,
+              tudo isso entrava ANTES do bloco de compra: medido em 375px, o
+              CTA ficava em y=1536 num viewport de 812 -- quase duas telas de
+              rolagem pra achar o botao de comprar. A /anuncio nao tinha o
+              problema porque ali a descricao ja vive junto do preco.
+              Em largura total tambem le melhor no desktop: texto longo numa
+              coluna de 380px vira uma tira estreita e comprida. */}
+          {produto.descricao && (
+            <section style={S.blocoDesc}>
+              <h2 style={S.secao}>Descrição</h2>
+              <p style={S.desc}>{produto.descricao}</p>
+            </section>
+          )}
         </main>
 
         <PublicFooter />
@@ -341,7 +344,7 @@ const S: Record<string, CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
   },
-  main: { maxWidth: 1200, width: '100%', margin: '0 auto', padding: '18px 0 64px', flex: 1 },
+  main: { maxWidth: 1200, width: '100%', margin: '0 auto', padding: '16px 0 48px', flex: 1 },
 
   tipo: {
     display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -349,8 +352,15 @@ const S: Record<string, CSSProperties> = {
     background: 'rgba(var(--ac-1-rgb),0.12)', border: '1px solid rgba(var(--ac-1-rgb),0.3)',
     padding: '5px 10px', borderRadius: 100, marginBottom: 9,
   },
-  h1: { fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 12px', lineHeight: 1.25 },
-  preco: { fontSize: 29, fontWeight: 800, color: 'var(--ac-1)', letterSpacing: '-0.03em', margin: '0 0 6px' },
+  // ★ Escala unica com a /anuncio (07/09/2026): as duas paginas sao o mesmo
+  // objeto em papeis diferentes, e tinham h1 21 vs 24, preco 29 vs 30, CTA
+  // 50/r11/14.5/700 vs 48/r12/15/800. Dois blocos de estilo escritos
+  // separados, sem escala comum.
+  h1: { fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 12px', lineHeight: 1.2 },
+  // Preco herda `--bx-text`. Com `var(--ac-1)` FORA do escopo
+  // `.bx-ctx-comprador` ele resolvia pro ambar do app, brigando na mesma tela
+  // com o CTA roxo-rosa do fluxo de compra -- dois acentos concorrendo.
+  preco: { fontSize: 30, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 6px' },
   estoque: {
     fontSize: 12.5, color: 'var(--bx-green)', fontWeight: 700,
     display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 16px',
@@ -359,8 +369,8 @@ const S: Record<string, CSSProperties> = {
 
   cta: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    minHeight: 50, borderRadius: 11, background: 'var(--ac-grad)',
-    color: 'var(--bx-brand-ink)', fontWeight: 700, fontSize: 14.5,
+    minHeight: 48, borderRadius: 12, background: 'var(--ac-grad)',
+    color: 'var(--bx-brand-ink)', fontWeight: 800, fontSize: 15,
     textDecoration: 'none', marginBottom: 9,
   },
   acoesLinha: { display: 'flex', gap: 8, alignItems: 'stretch', marginTop: 9 },
@@ -410,6 +420,8 @@ const S: Record<string, CSSProperties> = {
   },
   desc: { fontSize: 13.5, lineHeight: 1.72, color: 'var(--bx-text-2)', whiteSpace: 'pre-wrap', margin: 0 },
 
+  // Divisor + ritmo iguais aos das secoes da /anuncio.
+  blocoDesc: { marginTop: 30, paddingTop: 22, borderTop: '1px solid var(--bx-border)', maxWidth: 760 },
   ficha: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 9, marginTop: 14 },
   fi: {
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',

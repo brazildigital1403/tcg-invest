@@ -458,9 +458,10 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
                pagina existiria e ninguem saberia o endereco dela. */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', margin: 0 }}>Seu anúncio</p>
+              {/* `url` RELATIVA: o componente prefixa o origin sozinho. */}
               <BotaoCompartilhar
                 compacto
-                url={`https://bynx.gg/anuncio/${card.slug || card.id}`}
+                url={`/anuncio/${card.slug || card.id}`}
                 titulo={`${card.card_name} — ${fmt(card.price)} na Bynx`}
                 texto={`Estou vendendo ${card.card_name} por ${fmt(card.price)} na Bynx.`}
               />
