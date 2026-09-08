@@ -93,15 +93,32 @@ export function estaNoCarrinho(id: string): boolean {
   return ler().some(i => i.id === id)
 }
 
+/**
+ * Quantas unidades DESTE item ha no carrinho. 0 = nao esta.
+ *
+ * ★ DEVOLVE PRIMITIVO DE PROPOSITO. Quem consome e o `useSyncExternalStore`
+ * do BotaoCarrinho, e ele compara o snapshot por identidade: devolver
+ * `{ dentro, qtd }` criaria objeto novo a cada leitura e o React entraria em
+ * loop ("The result of getSnapshot should be cached"). Um number carrega os
+ * dois estados sem esse risco.
+ */
+export function qtdNoCarrinho(id: string): number {
+  return ler().find(i => i.id === id)?.qtd ?? 0
+}
+
 /** Total de UNIDADES (nao de linhas): 1 produto com 3 unidades conta 3. */
 export function contarItens(): number {
   return ler().reduce((s, i) => s + i.qtd, 0)
 }
 
 /**
- * Adiciona. Item que ja esta no carrinho nao duplica linha: a quantidade se
- * ajusta na PAGINA do carrinho, nao clicando N vezes no botao da vitrine (o
- * botao de la vira "No carrinho" justamente pra deixar isso claro).
+ * Adiciona. Item que ja esta no carrinho NAO duplica linha -- por isso esta
+ * funcao retorna cedo quando o id ja existe.
+ *
+ * ★ Quem aumenta a quantidade e `definirQtd`, nao esta. Desde 08/09 o stepper
+ * vive na propria pagina do produto (padrao de mercado: quantidade e decisao
+ * da PDP, nao do carrinho); chamar `adicionar` de novo pro "+" nao faria
+ * nada, silenciosamente.
  */
 export function adicionar(item: Omit<ItemCarrinho, 'addedAt' | 'qtd'> & { qtd?: number }): void {
   const c = ler()

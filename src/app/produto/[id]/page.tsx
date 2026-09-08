@@ -248,7 +248,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               )}
 
               {!esgotado && podeVender && (
-                <BotaoCarrinho id={produto.id} tipo="produto" lojaId={loja.id} />
+                <BotaoCarrinho id={produto.id} tipo="produto" lojaId={loja.id} estoque={produto.estoque} />
               )}
 
               <div style={S.acoesLinha}>
