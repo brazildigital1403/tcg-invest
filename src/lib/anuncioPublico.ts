@@ -61,6 +61,13 @@ export type AnuncioPublico = {
   lojaSlug: string | null
   lojaLogoUrl: string | null
   lojaVerificada: boolean
+  /**
+   * Loja ativa E com Connect liberado. So com os dois a venda fecha na
+   * plataforma (pagamento, frete, rastreio). Loja cadastrada sem recebimento
+   * ativo NAO conta -- oferecer "Comprar" ali seria prometer o que quebra no
+   * fim do caminho.
+   */
+  lojaPodeVender: boolean
   lojaCidade: string | null
   lojaEstado: string | null
 }
@@ -89,7 +96,7 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
 
   const [donoRes, lojaRes, cartaRes] = await Promise.all([
     db.from('public_users').select('id, name, city, username').eq('id', a.user_id).limit(1),
-    db.from('lojas').select('id, nome, slug, logo_url, verificada, cidade, estado').eq('owner_user_id', a.user_id).eq('status', 'ativa').limit(1),
+    db.from('lojas').select('id, nome, slug, logo_url, verificada, connect_charges_enabled, cidade, estado').eq('owner_user_id', a.user_id).eq('status', 'ativa').limit(1),
     a.card_id
       ? db.from('pokemon_cards').select('slug').eq('id', a.card_id).limit(1)
       : Promise.resolve({ data: null, error: null }),
@@ -124,6 +131,7 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
     lojaSlug: l?.slug || null,
     lojaLogoUrl: l?.logo_url || null,
     lojaVerificada: !!l?.verificada,
+    lojaPodeVender: !!l?.connect_charges_enabled,
     lojaCidade: l?.cidade?.trim() || null,
     lojaEstado: l?.estado?.trim() || null,
   }

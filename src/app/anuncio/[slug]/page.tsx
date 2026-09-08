@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound, permanentRedirect } from 'next/navigation'
@@ -8,6 +9,9 @@ import Breadcrumb from '@/components/ui/Breadcrumb'
 import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import BotaoCarrinho from '@/components/lojas/BotaoCarrinho'
+import SeloVerificado from '@/components/ui/SeloVerificado'
+import BotaoInteresse from './BotaoInteresse'
+import ChatDock from '@/components/marketplace/ChatDock'
 import { IconShield, IconLocation, IconCarrinho, IconTruck } from '@/components/ui/Icons'
 import { buscarAnuncioPublico, CARTA_PESO_G, CARTA_DIMENSOES, type AnuncioPublico } from '@/lib/anuncioPublico'
 
@@ -148,19 +152,33 @@ export default async function AnuncioPage({
 
             <div style={S.preco}>{fmtBRL(a.preco)}</div>
 
-            {a.disponivel ? (
+            {/* ★ LOJA COMPRA, COLECIONADOR NEGOCIA (decisao do Du, 07/09).
+                Sem loja nao ha Connect, frete nem rastreio -- "Comprar agora"
+                ali prometia o que quebra no fim. A diferenca ficar VISIVEL e
+                o que da motivo pro vendedor abrir a loja dele.
+                `lojaPodeVender` exige o Connect liberado: loja cadastrada mas
+                sem recebimento ativo tambem nao fecha venda. */}
+            {!a.disponivel ? (
+              <div style={S.esgotado}>Este anúncio não está mais disponível.</div>
+            ) : a.lojaPodeVender ? (
               <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador bx-detalhe-cta" style={S.cta}>
                 <IconCarrinho size={18} /> Comprar agora
               </Link>
             ) : (
-              <div style={S.esgotado}>Este anúncio não está mais disponível.</div>
+              <div className="bx-ctx-comprador">
+                <BotaoInteresse anuncioId={a.id} nomeCarta={a.nome} preco={fmtBRL(a.preco)} />
+                <p style={S.avisoInteresse}>
+                  Este vendedor ainda não tem loja na Bynx. Você conversa com ele por aqui
+                  e combinam o pagamento e o envio.
+                </p>
+              </div>
             )}
 
             {/* Carrinho SO em carta de loja. O carrinho da Bynx e organizado
                 POR LOJA (a API rejeita item cujo dono nao seja o lojista), e 47
                 dos 57 anuncios sao de colecionador sem loja -- pra esses o
                 carrinho nao existe como conceito, a compra e individual. */}
-            {a.disponivel && a.lojaSlug && (
+            {a.disponivel && a.lojaPodeVender && (
               <div style={S.carrinhoLinha}>
                 <BotaoCarrinho id={a.id} tipo="carta" lojaId={a.lojaId ?? ''} />
               </div>
@@ -205,7 +223,7 @@ export default async function AnuncioPage({
                   <span style={{ minWidth: 0 }}>
                     <span style={S.lojaNome}>
                       {a.vendedorNome}
-                      {a.lojaVerificada && <IconShield size={13} color="var(--bx-green)" style={{ flexShrink: 0 }} />}
+                      {a.lojaVerificada && <SeloVerificado />}
                     </span>
                     {(a.lojaCidade || a.vendedorCidade) && (
                       <span style={S.lojaLocal}>
@@ -256,6 +274,10 @@ export default async function AnuncioPage({
         </div>
       </main>
       <PublicFooter />
+      {/* A conversa abre NESTA tela: o BotaoInteresse poe `?conversa=ID` na
+          URL atual e o ChatDock (que le a query) assume. Sem isto a pessoa
+          seria mandada pro /marketplace e perderia o anuncio de vista. */}
+      <Suspense fallback={null}><ChatDock /></Suspense>
     </>
   )
 }
@@ -283,6 +305,7 @@ const S: Record<string, React.CSSProperties> = {
     background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', fontWeight: 800, fontSize: 15,
     borderRadius: 12, textDecoration: 'none',
   },
+  avisoInteresse: { fontSize: 11.5, color: 'var(--bx-text-3)', lineHeight: 1.55, margin: '9px 0 0', textAlign: 'center' },
   esgotado: {
     padding: '12px 16px', borderRadius: 12, background: 'var(--bx-surface-2)',
     border: '1px solid var(--bx-border)', color: 'var(--bx-text-2)', fontSize: 13.5, textAlign: 'center',
