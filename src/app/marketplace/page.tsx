@@ -664,10 +664,19 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
               <span style={{ fontSize: 11, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{notaCurta(card.nota, card.black_label)}</span>
             </div>
           )}
+          {/* ★ A ARTE LEVA AO DETALHE (08/09/2026). O nome ja era link desde
+              07/09, mas ninguem clica no nome de um destaque -- clica na
+              CARTA. Hero e trio ficaram de fora daquela leva e eram os dois
+              blocos mais visiveis do marketplace.
+              Com galeria a arte NAO vira link: `MarketplaceFotosGaleria` tem
+              setas proprias, e um <Link> por cima faria cada troca de foto
+              navegar de pagina. Mesma regra do card padrao. */}
           {card.fotos && card.fotos.length ? (
             <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
           ) : card.card_image ? (
-            <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+            <Link href={`/anuncio/${card.slug || card.id}`} aria-label={card.card_name} style={{ display: 'block' }}>
+              <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+            </Link>
           ) : (
             <div style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
               <IconCard size={40} color="rgba(255,255,255,0.2)" />
@@ -789,10 +798,13 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
             <span style={{ fontSize: 9, fontWeight: 800, color: card.black_label ? '#e8c878' : '#fff' }}>{notaCurta(card.nota, card.black_label)}</span>
           </div>
         )}
+        {/* Arte clicavel, mesma regra do hero e do card padrao. */}
         {card.fotos && card.fotos.length ? (
           <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} />
         ) : card.card_image ? (
-          <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+          <Link href={`/anuncio/${card.slug || card.id}`} aria-label={card.card_name} style={{ display: 'block' }}>
+            <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+          </Link>
         ) : (
           <div style={{ width: '100%', paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             <IconCard size={28} color="rgba(255,255,255,0.2)" />
