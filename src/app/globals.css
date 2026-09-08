@@ -167,6 +167,29 @@ body {
    redes ao lado -- rolagem por nada. Agora cada card tem a altura do
    proprio conteudo. Loja com descricao longa nao sente diferenca; o efeito
    so aparece quando um dos dois e curto, que hoje e o caso de 7 das 12. */
+/* ─── Foto principal da galeria de produto/anuncio ────────────────────────
+   ★ TETO DE ALTURA NO DESKTOP (08/09/2026). A caixa e 1:1, entao numa coluna
+   larga a altura acompanha a largura: medido em 1399x876, o hero saia 742x742
+   e a primeira miniatura caia em top 910 -- 34px FORA da tela. Para trocar de
+   foto era preciso rolar, e a foto e o que mais decide compra de carta
+   graduada.
+
+   ★ POR QUE `vh` E NAO UMA PORCENTAGEM FIXA. Cortar 20% resolveria a tela de
+   876 e NAO a de 768, que precisa de ~27% -- o teto tem que acompanhar a
+   ALTURA da janela, nao a largura da coluna. Com 64vh: em 876 o hero vai a
+   561 (a miniatura sobe pra ~729, dentro da tela) e em 768 vai a 491, tambem
+   dentro. O teto de 620px impede que monitor alto devolva o problema ao
+   contrario, com a foto gigante de novo.
+
+   Só acima de 880px: no celular a largura ja e pequena, a altura sai junto e
+   as miniaturas aparecem sem rolagem -- o Du confirmou que ali esta otimo.
+
+   `objectFit: contain` (no estilo inline) e o que faz a imagem encolher
+   dentro do teto em vez de recortar. Sem ele, isto viraria corte de carta. */
+@media (min-width: 881px) {
+  .bx-galeria-hero { max-height: min(64vh, 620px); }
+}
+
 .loja-cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; align-items: start; }
 @media (max-width: 680px) {
   .loja-cover { height: 150px; }

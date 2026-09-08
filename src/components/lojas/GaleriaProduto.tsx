@@ -87,6 +87,7 @@ export default function GaleriaProduto({ fotos, nome }: { fotos: string[]; nome:
             // visivelmente borrado.
             sizes="(max-width: 880px) calc(100vw - 32px), 790px"
             priority
+            className="bx-galeria-hero"
             style={S.heroImg}
           />
         </button>
