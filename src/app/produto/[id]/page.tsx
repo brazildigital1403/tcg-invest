@@ -12,7 +12,7 @@ import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCarrinho from '@/components/lojas/BotaoCarrinho'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { fmtBRL } from '@/lib/comissao'
-import { IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconTruck, IconLocation } from '@/components/ui/Icons'
+import { IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconTruck, IconLocation, IconCarrinho, IconShield } from '@/components/ui/Icons'
 
 /**
  * /produto/[id] — a pagina que faltava.
@@ -201,10 +201,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
 
       <div style={S.page}>
         <style>{`
-          .bx-prod-ghost{transition:background .15s ease, border-color .15s ease}
-          .bx-prod-ghost:hover{background:var(--bx-surface-3);border-color:var(--bx-border-2)}
           @media (prefers-reduced-motion: reduce){
-            .bx-prod-ghost{transition:none}
           }
         `}</style>
 
@@ -240,6 +237,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                 </p>
               ) : podeVender ? (
                 <Link href={`/checkout/${produto.id}?tipo=produto`} className="bx-ctx-comprador bx-detalhe-cta" style={S.cta}>
+                  <IconCarrinho size={18} />
                   Comprar agora
                 </Link>
               ) : (
@@ -253,7 +251,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               )}
 
               <div style={S.acoesLinha}>
-                <Link href={`/lojas/${loja.slug}`} className="bx-prod-ghost" style={{ ...S.ghost, flex: 1 }}>
+                <Link href={`/lojas/${loja.slug}`} className="bx-detalhe-ghost" style={{ ...S.ghost, flex: 1 }}>
                   Ver mais desta loja
                 </Link>
                 <BotaoCompartilhar
@@ -312,6 +310,12 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               problema porque ali a descricao ja vive junto do preco.
               Em largura total tambem le melhor no desktop: texto longo numa
               coluna de 380px vira uma tira estreita e comprida. */}
+          <section style={S.blocoDesc}>
+            <h2 style={S.secao}>Como funciona</h2>
+            <p style={S.comoItem}><IconShield size={14} style={S.comoIcone} /> Pagamento processado pela Stripe. A Bynx nunca guarda os dados do cartão.</p>
+            <p style={S.comoItem}><IconTruck size={14} style={S.comoIcone} /> A loja despacha com rastreio, e você acompanha dentro da Bynx.</p>
+          </section>
+
           {produto.descricao && (
             <section style={S.blocoDesc}>
               <h2 style={S.secao}>Descrição</h2>
@@ -421,6 +425,8 @@ const S: Record<string, CSSProperties> = {
   desc: { fontSize: 13.5, lineHeight: 1.72, color: 'var(--bx-text-2)', whiteSpace: 'pre-wrap', margin: 0 },
 
   // Divisor + ritmo iguais aos das secoes da /anuncio.
+  comoItem: { display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.6, color: 'var(--bx-text-2)', margin: '0 0 8px' },
+  comoIcone: { flexShrink: 0, marginTop: 2, opacity: 0.8 },
   blocoDesc: { marginTop: 30, paddingTop: 22, borderTop: '1px solid var(--bx-border)', maxWidth: 760 },
   ficha: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 9, marginTop: 14 },
   fi: {
