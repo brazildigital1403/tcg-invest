@@ -26,6 +26,18 @@ import { badgesDaCarta } from '@/lib/badgesCarta'
  * esgotado.
  */
 
+/**
+ * ★ O FRETE DA CARTA JA TEM PESO PADRAO, e ele nunca apareceu na tela.
+ * `pacoteDeCarta` (src/lib/melhor-envio.ts) cota toda carta como 80 g em
+ * 13x18x2 cm, com seguro pelo valor do anuncio. O Du achou que a Bynx nao
+ * tinha essa informacao em lugar nenhum -- tinha, so que enterrada no codigo,
+ * o que na pratica e a mesma coisa pra quem compra e pra quem vende.
+ * Estes valores existem pra EXIBIR o que ja e cobrado; a fonte da cotacao
+ * continua sendo o `pacoteDeCarta`, nao daqui.
+ */
+export const CARTA_PESO_G = 80
+export const CARTA_DIMENSOES = '13 x 18 x 2 cm'
+
 export type AnuncioPublico = {
   id: string
   slug: string | null
@@ -45,7 +57,9 @@ export type AnuncioPublico = {
   vendedorCidade: string | null
   vendedorUsername: string | null
   lojaNome: string | null
+  lojaId: string | null
   lojaSlug: string | null
+  lojaLogoUrl: string | null
   lojaVerificada: boolean
   lojaCidade: string | null
   lojaEstado: string | null
@@ -75,7 +89,7 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
 
   const [donoRes, lojaRes, cartaRes] = await Promise.all([
     db.from('public_users').select('id, name, city, username').eq('id', a.user_id).limit(1),
-    db.from('lojas').select('nome, slug, verificada, cidade, estado').eq('owner_user_id', a.user_id).eq('status', 'ativa').limit(1),
+    db.from('lojas').select('id, nome, slug, logo_url, verificada, cidade, estado').eq('owner_user_id', a.user_id).eq('status', 'ativa').limit(1),
     a.card_id
       ? db.from('pokemon_cards').select('slug').eq('id', a.card_id).limit(1)
       : Promise.resolve({ data: null, error: null }),
@@ -106,7 +120,9 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
     vendedorCidade: u?.city?.trim() || null,
     vendedorUsername: u?.username || null,
     lojaNome: l?.nome?.trim() || null,
+    lojaId: l?.id || null,
     lojaSlug: l?.slug || null,
+    lojaLogoUrl: l?.logo_url || null,
     lojaVerificada: !!l?.verificada,
     lojaCidade: l?.cidade?.trim() || null,
     lojaEstado: l?.estado?.trim() || null,

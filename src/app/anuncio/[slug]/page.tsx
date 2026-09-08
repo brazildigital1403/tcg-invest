@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound, permanentRedirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import PublicHeader from '@/components/ui/PublicHeader'
@@ -6,8 +7,9 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
+import BotaoCarrinho from '@/components/lojas/BotaoCarrinho'
 import { IconShield, IconLocation, IconCarrinho, IconTruck } from '@/components/ui/Icons'
-import { buscarAnuncioPublico, type AnuncioPublico } from '@/lib/anuncioPublico'
+import { buscarAnuncioPublico, CARTA_PESO_G, CARTA_DIMENSOES, type AnuncioPublico } from '@/lib/anuncioPublico'
 
 /**
  * Pagina publica de um anuncio do marketplace.
@@ -93,6 +95,15 @@ export async function generateMetadata({
   }
 }
 
+function Ficha({ k, v }: { k: string; v: string }) {
+  return (
+    <div style={S.fi}>
+      <span style={S.fk}>{k}</span>
+      <span style={S.fv}>{v}</span>
+    </div>
+  )
+}
+
 export default async function AnuncioPage({
   params,
 }: {
@@ -145,17 +156,88 @@ export default async function AnuncioPage({
               <div style={S.esgotado}>Este anúncio não está mais disponível.</div>
             )}
 
-            {/* ★ `url` RELATIVA. O BotaoCompartilhar monta
-                `window.location.origin + url` -- passar absoluta gerava
-                `https://bynx.gghttps://bynx.gg/anuncio/...`, um link morto.
-                A /produto ja passava relativo; eu que usei o componente sem
-                olhar a assinatura. */}
-            <div style={S.compartilhar}>
+            {/* Carrinho SO em carta de loja. O carrinho da Bynx e organizado
+                POR LOJA (a API rejeita item cujo dono nao seja o lojista), e 47
+                dos 57 anuncios sao de colecionador sem loja -- pra esses o
+                carrinho nao existe como conceito, a compra e individual. */}
+            {a.disponivel && a.lojaSlug && (
+              <div style={S.carrinhoLinha}>
+                <BotaoCarrinho id={a.id} tipo="carta" lojaId={a.lojaId ?? ''} />
+              </div>
+            )}
+
+            {/* Acoes secundarias na mesma linha, no padrao ghost da /produto --
+                antes eram links de texto soltos, que nao pareciam clicaveis. */}
+            <div style={S.acoesLinha}>
+              {a.lojaSlug
+                ? <Link href={`/lojas/${a.lojaSlug}`} className="bx-detalhe-ghost" style={{ ...S.ghost, flex: 1 }}>Ver a loja</Link>
+                : a.vendedorUsername
+                  ? <Link href={`/perfil/${a.vendedorUsername}`} className="bx-detalhe-ghost" style={{ ...S.ghost, flex: 1 }}>Ver o perfil</Link>
+                  : null}
+              {a.cartaSlug && (
+                <Link href={`/carta/${a.cartaSlug}`} className="bx-detalhe-ghost" style={{ ...S.ghost, flex: 1 }}>Ver no catálogo</Link>
+              )}
+              {/* `url` RELATIVA: o BotaoCompartilhar monta
+                  `window.location.origin + url`. Absoluta gerava
+                  `https://bynx.gghttps://bynx.gg/...`, um link morto. */}
               <BotaoCompartilhar
+                compacto
                 url={urlDoAnuncio(a)}
                 titulo={`${a.nome} — ${fmtBRL(a.preco)} na Bynx`}
                 texto={resumo(a)}
               />
+            </div>
+
+            {a.disponivel && (
+              <p style={S.frete}>
+                <IconTruck size={14} color="var(--bx-text-3)" />
+                Frete calculado no checkout, pelo seu CEP
+              </p>
+            )}
+
+            {/* Card da loja/vendedor, no mesmo desenho da /produto. */}
+            <div style={S.card}>
+              {a.lojaSlug ? (
+                <Link href={`/lojas/${a.lojaSlug}`} style={S.lojaLinha}>
+                  {a.lojaLogoUrl
+                    ? <Image src={a.lojaLogoUrl} alt={a.vendedorNome} width={42} height={42} sizes="42px" style={S.lojaLogo} />
+                    : <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{a.vendedorNome.charAt(0)}</span>}
+                  <span style={{ minWidth: 0 }}>
+                    <span style={S.lojaNome}>
+                      {a.vendedorNome}
+                      {a.lojaVerificada && <IconShield size={13} color="var(--bx-green)" style={{ flexShrink: 0 }} />}
+                    </span>
+                    {(a.lojaCidade || a.vendedorCidade) && (
+                      <span style={S.lojaLocal}>
+                        <IconLocation size={11} color="var(--bx-text-3)" />
+                        {a.lojaCidade ? `${a.lojaCidade}${a.lojaEstado ? `, ${a.lojaEstado}` : ''}` : a.vendedorCidade}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              ) : (
+                <div style={S.lojaLinha}>
+                  <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{a.vendedorNome.charAt(0)}</span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={S.lojaNome}>{a.vendedorNome}</span>
+                    {a.vendedorCidade && (
+                      <span style={S.lojaLocal}>
+                        <IconLocation size={11} color="var(--bx-text-3)" /> {a.vendedorCidade}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Ficha tecnica. O PESO estava so no codigo (`pacoteDeCarta`): a
+                cotacao sempre usou 80 g, e nem comprador nem vendedor tinham
+                como saber. */}
+            <div style={S.ficha}>
+              <Ficha k="Tipo" v="Carta" />
+              <Ficha k="Condição" v={a.badges.slice(1).join(' · ') || 'Normal'} />
+              <Ficha k="Peso do envio" v={`${CARTA_PESO_G} g`} />
+              <Ficha k="Embalagem" v={CARTA_DIMENSOES} />
             </div>
 
             {a.descricao && (
@@ -164,29 +246,6 @@ export default async function AnuncioPage({
                 <p style={S.desc}>{a.descricao}</p>
               </section>
             )}
-
-            <section style={S.bloco}>
-              <h2 style={S.h2}>{a.lojaNome ? 'Vendido pela loja' : 'Vendido por'}</h2>
-              <div style={S.vendedor}>
-                <span style={S.vendNome}>
-                  {a.lojaVerificada && <IconShield size={13} color="var(--bx-green)" style={{ flexShrink: 0 }} />}
-                  {a.vendedorNome}
-                </span>
-                {(a.lojaCidade || a.vendedorCidade) && (
-                  <span style={S.vendLocal}>
-                    <IconLocation size={11} style={{ opacity: 0.7 }} />
-                    {a.lojaCidade ? `${a.lojaCidade}${a.lojaEstado ? `, ${a.lojaEstado}` : ''}` : a.vendedorCidade}
-                  </span>
-                )}
-              </div>
-              <div style={S.linksVend}>
-                {a.lojaSlug && <Link href={`/lojas/${a.lojaSlug}`} style={S.link}>Ver a loja</Link>}
-                {!a.lojaSlug && a.vendedorUsername && (
-                  <Link href={`/perfil/${a.vendedorUsername}`} style={S.link}>Ver o perfil</Link>
-                )}
-                {a.cartaSlug && <Link href={`/carta/${a.cartaSlug}`} style={S.link}>Ver a carta no catálogo</Link>}
-              </div>
-            </section>
 
             <section style={S.bloco}>
               <h2 style={S.h2}>Como funciona</h2>
@@ -228,15 +287,41 @@ const S: Record<string, React.CSSProperties> = {
     padding: '12px 16px', borderRadius: 12, background: 'var(--bx-surface-2)',
     border: '1px solid var(--bx-border)', color: 'var(--bx-text-2)', fontSize: 13.5, textAlign: 'center',
   },
-  compartilhar: { marginTop: 12 },
+  carrinhoLinha: { marginTop: 9 },
+  acoesLinha: { display: 'flex', gap: 8, alignItems: 'stretch', marginTop: 9 },
+  ghost: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    minHeight: 46, borderRadius: 11, background: 'var(--bx-surface-2)',
+    border: '1px solid var(--bx-border-2)', color: 'var(--bx-text-2)',
+    fontWeight: 600, fontSize: 13.5, textDecoration: 'none',
+  },
+  frete: {
+    fontSize: 11.5, color: 'var(--bx-text-3)', textAlign: 'center',
+    marginTop: 10, lineHeight: 1.5,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  card: {
+    background: 'var(--bx-bg-elev)', border: '1px solid var(--bx-border)',
+    borderRadius: 12, padding: 14, marginTop: 18,
+  },
+  lojaLinha: { display: 'flex', alignItems: 'center', gap: 11, minHeight: 44, textDecoration: 'none', color: 'inherit' },
+  lojaLogo: { width: 42, height: 42, borderRadius: 10, objectFit: 'cover', flex: 'none', background: 'var(--bx-surface-2)' },
+  lojaLogoVazia: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontWeight: 800, fontSize: 17, color: 'var(--bx-text-3)',
+  },
+  lojaNome: { fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 },
+  lojaLocal: { fontSize: 11.5, color: 'var(--bx-text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 },
+  ficha: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 9, marginTop: 14 },
+  fi: {
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
+    borderRadius: 9, padding: '10px 11px', display: 'flex', flexDirection: 'column',
+  },
+  fk: { fontSize: 10.5, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  fv: { fontSize: 13, fontWeight: 700, marginTop: 3 },
   bloco: { marginTop: 26, paddingTop: 20, borderTop: '1px solid var(--bx-border)' },
   h2: { fontSize: 12.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--bx-text-3)', margin: '0 0 10px' },
   desc: { fontSize: 14, lineHeight: 1.65, color: 'var(--bx-text-2)', margin: 0, whiteSpace: 'pre-wrap' },
-  vendedor: { display: 'flex', flexDirection: 'column', gap: 4 },
-  vendNome: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 15, fontWeight: 700 },
-  vendLocal: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12.5, color: 'var(--bx-text-3)' },
-  linksVend: { display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10 },
-  link: { fontSize: 13, color: 'var(--ac-1)', textDecoration: 'none', fontWeight: 600, minHeight: 44, display: 'inline-flex', alignItems: 'center' },
   comoItem: { display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.6, color: 'var(--bx-text-2)', margin: '0 0 8px' },
   comoIcone: { flexShrink: 0, marginTop: 2, opacity: 0.8 },
 }

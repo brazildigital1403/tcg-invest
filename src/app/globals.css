@@ -262,3 +262,9 @@ body {
 .bx-card-nome { transition: color 0.15s ease; }
 .bx-card-nome:hover { color: var(--ac-1); }
 .bx-card-nome:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; border-radius: 4px; }
+
+/* Acao secundaria (ghost) das paginas de detalhe. Mesma razao da
+   `.bx-detalhe-cta`: as duas paginas usavam blocos separados. */
+.bx-detalhe-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
+.bx-detalhe-ghost:hover { background: var(--bx-surface-3); border-color: var(--bx-border-2); }
+.bx-detalhe-ghost:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
