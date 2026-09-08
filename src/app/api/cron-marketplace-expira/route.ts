@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { notify } from '@/lib/notify'
-import { sendNegociacaoExpiradaEmail } from '@/lib/email'
+import { sendNegociacaoExpiradaEmail, sendNegociacaoExpirandoEmail } from '@/lib/email'
 import { STATUS_EXPIRAVEIS, HORAS_ATE_LIBERAR } from '@/lib/marketplaceStatus'
 
 /**
@@ -152,6 +152,17 @@ export async function GET(req: NextRequest) {
           `A negociação de "${a.card_name || 'uma carta'}" está sem resposta. Em ${restam}h o anúncio volta para o marketplace.`,
           { link: `/marketplace?conversa=${a.id}`, anuncio_id: a.id, marco_expira: marca },
         )
+        // Sino E email: publico mobile que nao abre o app todo dia so ve o
+        // sino depois -- e depois pode ser tarde. O CTA leva a CONVERSA, que
+        // e onde a pessoa reinicia o relogio respondendo.
+        const u = pessoa.get(uid)
+        if (u?.email) {
+          await sendNegociacaoExpirandoEmail({
+            to: u.email, nome: u.name || '',
+            cardName: a.card_name || 'a carta', price: a.price,
+            anuncioId: a.id, horasRestantes: restam,
+          }).catch(e => console.error('[expira] email aviso', e?.message))
+        }
       }
       avisados++
     }
