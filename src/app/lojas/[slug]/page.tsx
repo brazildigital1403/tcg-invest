@@ -874,13 +874,27 @@ const S: Record<string, CSSProperties> = {
   },
 
   socialGrid: {
-    display: 'flex',
-    flexDirection: 'column',
+    // ★ GRADE DE 2 (08/09/2026). Em coluna unica, as 7 redes possiveis viravam
+    // 356px de altura -- e no celular isso vem inteiro empilhado logo abaixo do
+    // "Sobre a loja". Em duas colunas cai pra 200px.
+    //
+    // ★ `minmax(0, 1fr)` e nao `1fr`: o `1fr` puro carrega `min-width: auto`,
+    // entao um rotulo longo estica a coluna e desmonta a grade. Ja mordeu tres
+    // vezes neste projeto.
+    //
+    // Grade e nao chip de largura variavel: cada link tem que manter os 44px de
+    // alvo de toque, e chip encolhido quebraria isso -- fora que largura
+    // irregular numa coluna estreita fica desalinhada.
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: 8,
   },
   socialLink: {
     display: 'flex',
     alignItems: 'center',
+    // Alvo de toque da casa. Em coluna unica o padding ja entregava isso; na
+    // grade, um rotulo curto ("X") encolheria o botao sem este piso.
+    minHeight: 44,
     gap: 10,
     background: 'var(--bx-surface-2)',
     border: '1px solid var(--bx-border)',
