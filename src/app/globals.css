@@ -268,3 +268,26 @@ body {
 .bx-detalhe-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
 .bx-detalhe-ghost:hover { background: var(--bx-surface-3); border-color: var(--bx-border-2); }
 .bx-detalhe-ghost:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+
+/* ─── Carrinho na pagina de detalhe ───────────────────────────────────────
+   A `.bx-cart-add` existia no JSX desde sempre e NAO tinha uma linha de CSS
+   em todo o repo: sem hover, sem foco, sem transition. */
+.bx-cart-add { transition: background 0.15s ease, border-color 0.15s ease; }
+.bx-cart-add:hover { background: var(--bx-surface-3); border-color: var(--bx-border-2); }
+.bx-cart-add:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+
+/* Faixa "Ver carrinho": a linha INTEIRA e o alvo (343x48 em 375px, contra os
+   76x44 do link solto que havia antes). */
+.bx-cart-ver { transition: background 0.15s ease; }
+.bx-cart-ver:hover { background: var(--bx-surface-3); }
+.bx-cart-step { transition: background 0.15s ease; }
+.bx-cart-step:hover:not(:disabled) { background: var(--bx-surface-3); }
+
+/* `outline-offset` NEGATIVO: o container tem `overflow: hidden`, entao um
+   outline pra fora seria cortado e o foco sumiria. */
+.bx-cart-ver:focus-visible,
+.bx-cart-step:focus-visible { outline: 2px solid var(--ac-1); outline-offset: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bx-cart-add, .bx-cart-ver, .bx-cart-step { transition: none; }
+}
