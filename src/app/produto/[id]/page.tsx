@@ -11,6 +11,7 @@ import Breadcrumb from '@/components/ui/Breadcrumb'
 import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCarrinho from '@/components/lojas/BotaoCarrinho'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
+import SeloVerificado from '@/components/ui/SeloVerificado'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconTruck, IconLocation, IconCarrinho, IconShield } from '@/components/ui/Icons'
 
@@ -279,7 +280,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                   <span style={{ minWidth: 0 }}>
                     <span style={S.lojaNome}>
                       {nomeLoja}
-                      {loja.verificada && <span style={S.selo} title="Loja verificada">&#10003;</span>}
+                      {loja.verificada && <SeloVerificado />}
                     </span>
                     {local && (
                       <span style={S.lojaLocal}>

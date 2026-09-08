@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose } from '@/components/ui/Icons'
+import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose, IconCarrinho } from '@/components/ui/Icons'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
@@ -424,11 +424,29 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
         {/* Ações por papel e status */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
 
-          {/* Visitante: botão comprar */}
+          {/* ★ LOJA COMPRA, COLECIONADOR NEGOCIA (07/09/2026).
+              Sao dois produtos no mesmo grid e ate agora mostravam o mesmo
+              botao. Quem tem loja ativa COM Connect liberado consegue fechar
+              a venda na hora -- pagamento, frete e rastreio pela Bynx --,
+              entao o card leva direto ao checkout. Sem loja nao ha como
+              cobrar, e o caminho honesto e "Tenho interesse" + conversa.
+              `seller_loja_vende` exige o Connect: loja sem recebimento ativo
+              nao fecha venda, e oferecer "Comprar" ali seria prometer o que
+              quebra no fim. */}
           {!isMeu && !isBuyer && card.status === 'disponivel' && (
-            <button onClick={handleInteresse} style={{ background: BRAND, border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              Tenho interesse
-            </button>
+            card.seller_loja_vende ? (
+              <Link
+                href={`/checkout/${card.id}`}
+                className="bx-ctx-comprador"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px', borderRadius: 10, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}
+              >
+                <IconCarrinho size={15} /> Comprar
+              </Link>
+            ) : (
+              <button onClick={handleInteresse} style={{ background: BRAND, border: 'none', color: '#000', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                Tenho interesse
+              </button>
+            )
           )}
 
           {/* Abrir conversa (chat on-platform) — comprador ou vendedor */}
@@ -963,6 +981,25 @@ function MarketplaceInner() {
         acc[s.id] = s
         return acc
       }, {})
+
+      // ★ QUEM TEM LOJA ATIVA (07/09/2026). O card precisa saber disso pra
+      // decidir a acao: com loja da pra COMPRAR na hora (checkout, Connect,
+      // frete, rastreio); sem loja o caminho e "Tenho interesse" e conversa.
+      // Sao dois produtos diferentes no mesmo grid, e ate agora os dois
+      // mostravam o mesmo botao.
+      const { data: lojasDosVendedores } = await supabase
+        .from('lojas')
+        .select('owner_user_id, slug, connect_charges_enabled')
+        .in('owner_user_id', sellerIds)
+        .eq('status', 'ativa')
+      for (const l of lojasDosVendedores || []) {
+        if (sellerMap[l.owner_user_id]) {
+          sellerMap[l.owner_user_id].loja_slug = l.slug
+          // So conta como "pode comprar" se o Connect esta liberado -- loja
+          // sem recebimento ativo nao consegue fechar a venda.
+          sellerMap[l.owner_user_id].loja_vende = !!l.connect_charges_enabled
+        }
+      }
     }
 
     // Enrich com dados de vendedor E comprador
@@ -1026,6 +1063,8 @@ function MarketplaceInner() {
       seller_name: sellerMap[c.user_id]?.name,
       seller_whatsapp: sellerMap[c.user_id]?.whatsapp,
       seller_city: sellerMap[c.user_id]?.city,
+      seller_loja_slug: sellerMap[c.user_id]?.loja_slug ?? null,
+      seller_loja_vende: !!sellerMap[c.user_id]?.loja_vende,
       buyer_name: buyerMap[c.buyer_id]?.name,
       buyer_whatsapp: buyerMap[c.buyer_id]?.whatsapp,
       buyer_city: buyerMap[c.buyer_id]?.city,
