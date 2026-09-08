@@ -75,7 +75,7 @@ export default function CronometroLiberacao({
     return (
       <span
         suppressHydrationWarning
-        title={`Volta pro marketplace em ${new Date(liberaEm).toLocaleString('pt-BR')}`}
+        title={`Volta para o marketplace em ${new Date(liberaEm).toLocaleString('pt-BR')}`}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           fontSize: 10.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
@@ -102,8 +102,8 @@ export default function CronometroLiberacao({
           {texto}
         </div>
         <p style={{ fontSize: 13, color: 'var(--bx-text-2)', maxWidth: '56ch' }}>
-          Esta carta está reservada pra outro comprador. Se a negociação não andar,
-          ela volta pro marketplace automaticamente e fica livre pra qualquer um —
+          Esta carta está reservada para outro comprador. Se a negociação não andar,
+          ela volta para o marketplace automaticamente e fica livre para qualquer um —
           inclusive você. Cada mensagem trocada reinicia as {HORAS_ATE_LIBERAR}h.
         </p>
         <div style={{ height: 5, borderRadius: 100, background: 'rgba(255,255,255,0.07)', margin: '14px 0 4px', overflow: 'hidden' }}>
@@ -126,7 +126,7 @@ export default function CronometroLiberacao({
         {texto}
       </span>
       <span style={{ fontSize: 10.5, color: 'var(--bx-text-3)', marginLeft: 'auto', fontWeight: 600 }}>
-        {vencido ? 'liberando' : 'pra liberar'}
+        {vencido ? 'liberando' : 'para liberar'}
       </span>
     </div>
   )
