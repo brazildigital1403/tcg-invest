@@ -133,7 +133,7 @@ export default async function AnuncioPage({
       <main className="bx-gutter" style={S.main}>
         <Breadcrumb items={trilha} />
 
-        <div className="bx-detalhe-cols">
+        <div className="bx-compra-cols">
           <div style={S.colFoto}>
             <GaleriaProduto fotos={a.fotos} nome={a.nome} />
             {!a.fotoPropria && (
@@ -161,7 +161,7 @@ export default async function AnuncioPage({
             {!a.disponivel ? (
               <div style={S.esgotado}>Este anúncio não está mais disponível.</div>
             ) : a.lojaPodeVender ? (
-              <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador bx-detalhe-cta" style={S.cta}>
+              <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador bx-compra-cta" style={S.cta}>
                 <IconCarrinho size={18} /> Comprar agora
               </Link>
             ) : (
@@ -188,12 +188,12 @@ export default async function AnuncioPage({
                 antes eram links de texto soltos, que nao pareciam clicaveis. */}
             <div style={S.acoesLinha}>
               {a.lojaSlug
-                ? <Link href={`/lojas/${a.lojaSlug}`} className="bx-detalhe-ghost" style={{ ...S.ghost, flex: 1 }}>Ver a loja</Link>
+                ? <Link href={`/lojas/${a.lojaSlug}`} className="bx-compra-ghost" style={{ ...S.ghost, flex: 1 }}>Ver a loja</Link>
                 : a.vendedorUsername
-                  ? <Link href={`/perfil/${a.vendedorUsername}`} className="bx-detalhe-ghost" style={{ ...S.ghost, flex: 1 }}>Ver o perfil</Link>
+                  ? <Link href={`/perfil/${a.vendedorUsername}`} className="bx-compra-ghost" style={{ ...S.ghost, flex: 1 }}>Ver o perfil</Link>
                   : null}
               {a.cartaSlug && (
-                <Link href={`/carta/${a.cartaSlug}`} className="bx-detalhe-ghost" style={{ ...S.ghost, flex: 1 }}>Ver no catálogo</Link>
+                <Link href={`/carta/${a.cartaSlug}`} className="bx-compra-ghost" style={{ ...S.ghost, flex: 1 }}>Ver no catálogo</Link>
               )}
               {/* `url` RELATIVA: o BotaoCompartilhar monta
                   `window.location.origin + url`. Absoluta gerava

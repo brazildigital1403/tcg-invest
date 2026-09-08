@@ -73,7 +73,7 @@ export default function BotaoInteresse({
       type="button"
       onClick={onClick}
       disabled={carregando}
-      className="bx-detalhe-cta"
+      className="bx-compra-cta"
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         width: '100%', minHeight: 48, boxSizing: 'border-box', padding: '12px 20px',
