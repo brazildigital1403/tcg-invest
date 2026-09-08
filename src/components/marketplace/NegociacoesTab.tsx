@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IconClock, IconMarketplace, IconChat, IconBox, IconCheck, IconEye, IconLocation, IconWhatsApp, IconShield, IconTag, IconCollection } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
@@ -9,6 +9,7 @@ import { dispararMarco } from '@/lib/marketplaceMarco'
 import { transferirCartaAoComprador } from '@/lib/concluirCompra'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { authFetch } from '@/lib/authFetch'
+import { estaEncerrado } from '@/lib/marketplaceStatus'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -351,6 +352,25 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
   userId: string | null
   onAction: () => void
 }) {
+  // Anuncios em que ESTE usuario ja escreveu. E o que sobrevive ao `buyer_id`
+  // ser zerado -- ver o filtro `expiradas` abaixo. Hook antes de qualquer
+  // return: a ordem dos hooks nao pode variar entre renders.
+  const [participou, setParticipou] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!userId) { setParticipou(new Set()); return }
+    let vivo = true
+    supabase
+      .from('marketplace_mensagens')
+      .select('anuncio_id')
+      .eq('sender_id', userId)
+      .then(({ data, error }) => {
+        // Falhar aqui so custa o bloco de expiradas; o resto da aba segue.
+        if (error) { console.error('[negociacoes] participou:', error.message); return }
+        if (vivo) setParticipou(new Set((data || []).map(m => m.anuncio_id as string)))
+      })
+    return () => { vivo = false }
+  }, [userId])
+
   if (!userId) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
       <IconShield size={40} color="rgba(255,255,255,0.15)" style={{marginBottom:12}} />
@@ -361,7 +381,7 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
   // Separa por papel
   const comoComprador = listings.filter(c =>
     c.buyer_id === userId &&
-    !['cancelado', 'concluido'].includes(c.status || 'reservado')
+    !estaEncerrado(c.status || 'reservado')
   )
 
   const comoVendedor = listings.filter(c =>
@@ -370,15 +390,27 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
     !['cancelado', 'disponivel'].includes(c.status || 'reservado')
   )
 
-  // Histórico (concluídas/canceladas)
+  // Histórico (concluídas/canceladas/vendidas)
   const historico = listings.filter(c =>
     (c.buyer_id === userId || c.user_id === userId) &&
-    ['concluido', 'cancelado'].includes(c.status || '')
+    estaEncerrado(c.status || '')
+  )
+
+  // ★ NEGOCIACAO QUE EXPIROU (08/09/2026). Quando o anuncio volta pro mercado
+  // pelas 72h, ele fica `disponivel` com `buyer_id = null` -- ou seja, some
+  // dos DOIS filtros acima e o comprador perde o card sem nenhum aviso na
+  // tela. Como nao ha mais vinculo na linha do anuncio, o unico registro que
+  // sobra de que aquela pessoa negociou ali sao as MENSAGENS que ela escreveu.
+  // (A policy `mkt_msg_participantes_leem` foi ampliada no mesmo dia pra que
+  // ela continue conseguindo LER essa conversa; isto aqui e o outro lado --
+  // devolver a TELA, que o acesso sozinho nao devolve.)
+  const expiradas = listings.filter(c =>
+    c.user_id !== userId && c.buyer_id !== userId && participou.has(c.id)
   )
 
   const vazio = comoComprador.length === 0 && comoVendedor.length === 0
 
-  if (vazio && historico.length === 0) return (
+  if (vazio && historico.length === 0 && expiradas.length === 0) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', color: 'rgba(255,255,255,0.3)' }}>
       <svg width="40" height="40" viewBox="0 0 20 20" fill="none" style={{marginBottom:16, opacity:0.15}}><path d="M3 7l4 3 3-2 3 2 4-3" stroke="white" strokeWidth="1.3" strokeLinecap="round"/><path d="M3 13l4-3 3 2 3-2 4 3" stroke="white" strokeWidth="1.3" strokeLinecap="round"/></svg>
       <p style={{ fontSize: 15 }}>Nenhuma negociação ativa.</p>
@@ -413,6 +445,27 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
       <Section title="Como comprador — cartas que você quer adquirir" items={comoComprador} role="comprador" />
       <Section title="Como vendedor — cartas que você está vendendo"  items={comoVendedor} role="vendedor"  />
 
+      {/* ★ Encerradas pelas 72h. Seccao propria e nao "Histórico" porque a
+          causa e outra: ninguem cancelou, o relogio venceu -- e a carta pode
+          estar a venda de novo agora. */}
+      {expiradas.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+            Encerradas por inatividade ({expiradas.length})
+          </p>
+          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.35)', marginBottom: 14, maxWidth: '62ch' }}>
+            Estas negociações ficaram 72h sem resposta, então o anúncio voltou para o
+            marketplace. A conversa continua aqui, e se a carta ainda estiver livre você
+            pode demonstrar interesse de novo.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14, opacity: 0.6 }}>
+            {expiradas.map(card => (
+              <NegociacaoCard key={card.id} card={card} role="comprador" onAction={onAction} userId={userId || ''} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Histórico */}
       {historico.length > 0 && (
         <div>
@@ -424,7 +477,7 @@ export default function NegociacoesTab({ listings, userId, onAction }: {
               <NegociacaoCard
                 key={card.id}
                 card={card}
-                role={card.buyer_id === userId ? 'comprador' : 'vendedor'}
+                role={card.user_id === userId ? 'vendedor' : 'comprador'}
                 onAction={onAction}
                 userId={userId || ''}
               />
