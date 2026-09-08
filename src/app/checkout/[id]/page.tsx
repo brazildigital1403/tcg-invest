@@ -476,7 +476,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
               )}
 
               <div style={{ padding: '14px 16px 16px' }}>
-                <button onClick={pagar} disabled={indo || precisaFrete} style={{ ...S.cta, opacity: (indo || precisaFrete) ? 0.6 : 1 }}>
+                <button className="bx-ctx-comprador" onClick={pagar} disabled={indo || precisaFrete} style={{ ...S.cta, opacity: (indo || precisaFrete) ? 0.6 : 1 }}>
                   {indo ? 'Abrindo pagamento…' : precisaFrete ? 'Calcule o frete para continuar' : !uid ? <>Entrar e comprar <IconArrowRight size={16} color="#fff" /></> : <>Pagar {total == null ? '' : fmtBRL(total)} <IconArrowRight size={16} color="#fff" /></>}
                 </button>
                 <div style={S.stripeLine}><IconShield size={14} color="rgba(255,255,255,0.4)" /><span>Pagamento pela Stripe · seus dados de cartão não passam pela Bynx</span></div>
@@ -525,7 +525,7 @@ const S: Record<string, React.CSSProperties> = {
 
   cols: { display: 'flex', gap: 18, padding: '16px 0 24px', alignItems: 'flex-start', flexWrap: 'wrap' },
   left: { flex: '1.15 1 320px', minWidth: 280 },
-  right: { flex: '0.85 1 300px', minWidth: 280, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 16, background: 'rgba(255,255,255,0.02)', overflow: 'hidden' },
+  right: { flex: '1 1 300px', minWidth: 280, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 16, background: 'rgba(255,255,255,0.02)', overflow: 'hidden' },
 
   heroRow: { display: 'flex', gap: 16 },
   heroImg: { width: 150, flexShrink: 0, aspectRatio: '0.72', borderRadius: 12, background: 'linear-gradient(160deg,#1a1030,#0f1628)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
@@ -572,7 +572,10 @@ const S: Record<string, React.CSSProperties> = {
   stepLbl: { fontSize: 13, fontWeight: 500 },
 
   cepRow: { display: 'flex', gap: 8, marginBottom: 8 },
-  cepInput: { flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '9px 11px', fontSize: 13, fontWeight: 600, color: '#f0f0f0', outline: 'none' },
+  cepInput: { flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '9px 11px', fontSize: 16, minHeight: 44, fontWeight: 600, color: '#f0f0f0', outline: 'none' },
+  // ★ `fontSize: 16` NAO e escolha estetica: abaixo disso o Safari do iPhone
+  // da zoom na pagina ao focar o campo, e nao desfaz. Era 13px justamente no
+  // campo de CEP mais usado do site. O /carrinho ja fazia certo.
   btnCep: { flexShrink: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#f0f0f0', borderRadius: 10, padding: '0 13px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   freteErro: { fontSize: 12, color: '#fca5a5', marginBottom: 8 },
   opcoes: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 },
@@ -598,7 +601,10 @@ const S: Record<string, React.CSSProperties> = {
   mut: { color: 'rgba(255,255,255,0.6)' },
 
   dica: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', color: '#22c55e', borderRadius: 10, padding: '9px', fontSize: 12.5, fontWeight: 600, marginTop: 12, cursor: 'pointer' },
-  cta: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 13, border: 'none', cursor: 'pointer', background: 'linear-gradient(90deg,#a855f7,#ec4899)', color: '#fff' },
+  cta: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 13, border: 'none', cursor: 'pointer', background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)' },
+  // ★ Branco sobre esse gradiente da 3,94:1 no roxo e 3,53:1 no rosa -- AA
+  // exige 4,5:1 pra 14px. `--bx-brand-ink` da 5,03 e 5,62. As outras tres
+  // telas do fluxo ja usavam o token; a que COBRA era a errada.
   stripeLine: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, fontSize: 10, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 1.5 },
 
   seals: { borderTop: '1px solid rgba(255,255,255,0.06)', padding: '16px 0', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 22px', justifyContent: 'center' },
