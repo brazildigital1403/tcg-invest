@@ -31,9 +31,15 @@ export default function LinkCarrinho({ style }: { style?: CSSProperties }) {
   //   HTML sairia sem numero e o cliente pintaria um. Por isso o badge e que e
   //   condicional agora, nao o link -- o icone sai igual nos dois lados e so o
   //   badge aparece depois, quando ha item de verdade.
+  // ★ `prefetch={false}` (10/09/2026). O icone ficou fixo no header em 08/09,
+  //   e como ele esta sempre na viewport, o `<Link>` passou a prefetchar
+  //   /carrinho a cada carregamento de pagina: 12.550 requests em 24h (medido
+  //   09/09), contra 11.299 pageviews da home. Carrinho vazio nao precisa ser
+  //   buscado antes do clique.
   return (
     <Link
       href="/carrinho"
+      prefetch={false}
       style={{ ...S.btn, ...style }}
       aria-label={n === 0 ? 'Carrinho vazio' : `Carrinho com ${n} ${n === 1 ? 'unidade' : 'unidades'}`}
     >
