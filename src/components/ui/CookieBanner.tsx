@@ -94,7 +94,16 @@ export default function CookieBanner() {
             <p style={S.title}>Cookies e privacidade</p>
             <p style={S.text}>
               A Bynx usa cookies para o site funcionar e para melhorar sua experiência.{' '}
-              <Link href="/privacidade" style={S.link}>
+              {/*
+                ★ `prefetch={false}` (10/09/2026). Este banner aparece pra todo
+                visitante que ainda nao decidiu sobre cookie, ou seja, quase
+                todo carregamento de pagina publica — e o `<Link>` prefetchava
+                /privacidade junto. Nos logs de 09/09: 12.180 requests em
+                /privacidade em 24h, contra 11.299 pageviews da home. Era 1
+                request de politica de privacidade por visita ao site, e
+                praticamente ninguem clica em "Saiba mais".
+              */}
+              <Link href="/privacidade" prefetch={false} style={S.link}>
                 Saiba mais
               </Link>
               .

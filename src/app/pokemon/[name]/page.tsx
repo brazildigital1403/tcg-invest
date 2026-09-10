@@ -30,7 +30,10 @@ import PriceHistory from '@/components/ui/PriceHistory'
 import WatchButton from '@/components/ui/WatchButton'
 import { IconCollection } from '@/components/ui/Icons'
 
-export const revalidate = 3600
+// ISR: 6h. ★ 10/09/2026: era 3600 (1h). Mesma razao da /set — a pagina de
+// especie agrega carta e preco, e agregado nao muda de forma perceptivel em
+// uma hora. 1.025 Pokemon reescritos 24x/dia era write puro sem leitor.
+export const revalidate = 21600
 
 // Mesma contencao da /carta (incidente 29/07/2026): rota dinamica sem teto de
 // duracao segurava conexao do Postgres por 300s sob carga.

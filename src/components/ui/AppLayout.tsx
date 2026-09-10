@@ -199,6 +199,27 @@ const GROUP_ORDER: { key: GroupKey; label: string }[] = [
   { key: 'parceiros', label: 'Parceiros' },
   { key: 'conta', label: 'Conta' },
 ]
+/**
+ * ★ OS TRES NAVS DAQUI (sidebar, bottom nav e drawer) USAM `prefetch={false}`
+ *   — 10/09/2026, corte de custo da Vercel.
+ *
+ * Item de nav fica sempre na viewport, entao o `<Link>` prefetchava a rota
+ * inteira a cada carregamento de tela. O caso mais caro era /marketplace:
+ * 15.172 requests em 24h (medido 09/09) contra ~500 visitas reais de area
+ * logada no mesmo dia.
+ *
+ * E /marketplace esta no `matcher` do `middleware.ts`. Cada prefetch nao
+ * acordava so uma pagina: acordava o middleware, que abre cliente Supabase pra
+ * checar `suspended_at`. Eram ~15 mil execucoes de middleware por dia pra
+ * decidir se devia deixar entrar numa tela que ninguem estava abrindo.
+ *
+ * ★ O QUE ISSO CUSTA, DITO CLARO: neste Next, `prefetch={false}` desliga
+ * viewport E hover (`link.d.ts`), entao trocar de aba custa ~150-300ms a mais
+ * no primeiro toque. A bottom nav e a navegacao principal de um publico
+ * majoritariamente mobile — se o app passar a parecer lento na troca de aba, o
+ * ponto pra reverter e AQUI (so a bottom nav, linha do `primaryTabs.map`),
+ * mantendo sidebar e drawer sem prefetch.
+ */
 const BOTTOM_TAB_HREFS = ['/dashboard-financeiro', '/minha-colecao', '/marketplace', '/pokedex']
 // Rotulo curto da bottom nav. O /marketplace saiu daqui: agora o item ja se
 // chama "Mercado" em todo lugar (sidebar, drawer e bottom nav diziam nomes
@@ -661,6 +682,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
               return (
                 <Link key={item.href} href={item.href}
+                  prefetch={false}
                   aria-disabled={dimmed || undefined}
                   tabIndex={dimmed ? -1 : undefined}
                   onClick={dimmed ? (e) => e.preventDefault() : undefined}
@@ -881,6 +903,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
             return (
               <Link key={item.href} href={item.href}
+                prefetch={false}
                 aria-disabled={dimmed || undefined}
                 tabIndex={dimmed ? -1 : undefined}
                 onClick={dimmed ? (e) => e.preventDefault() : undefined}
@@ -961,6 +984,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   const dimmed = guestExploring && !GUEST_ALLOWED_HREFS.has(item.href)
                   return (
                     <Link key={item.href} href={item.href}
+                      prefetch={false}
                       aria-disabled={dimmed || undefined}
                       tabIndex={dimmed ? -1 : undefined}
                       onClick={dimmed ? (e) => e.preventDefault() : () => setDrawerOpen(false)}

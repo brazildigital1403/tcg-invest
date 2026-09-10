@@ -72,8 +72,23 @@ function slugifyName(s: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-// ─── ISR: revalida cada 24h ───────────────────────────────────────────────
-// Preço dinâmico mas estável; 24h equilibra freshness vs custo Vercel.
+// ─── ISR: revalida cada 7 dias ────────────────────────────────────────────
+// ★ 10/09/2026: era 86400 (24h). Subiu pra 7 dias por CUSTO, e a conta e
+// direta: nenhuma das 68.916 paginas e prerenderizada no build, entao a
+// entrada de cache so nasce quando alguem visita. Com 24h, cada varredura
+// diaria de crawler REESCREVIA tudo que tocava — medido em 09/09: 49.599
+// requests em /carta/[id] num dia, espalhados por 31.073 caminhos distintos.
+// Isso e ~1,9M de write/mes sem uma linha de preco ter mudado, e foi o que
+// levou o ISR Writes da conta da Vercel a 5,79M (US$23/mes, de uma fatura
+// que era US$29 e virou US$73).
+//
+// 7 dias e teto de seguranca, NAO a estrategia. A estrategia e o on-demand
+// abaixo. O que este numero faz e garantir que um slug que o scan deixe de
+// avisar se cure sozinho em uma semana — com `revalidate = false` ele ficaria
+// velho PARA SEMPRE, e um bug no chamador viraria preco errado permanente na
+// pagina que o Google indexa com o preco no snippet.
+//
+// Preço dinâmico mas estável; quem manda no frescor e a invalidacao por slug.
 //
 // ★ Até 04/09/2026 a linha abaixo dizia "on-demand revalidate via
 // /api/revalidate quando scan atualiza preço" e essa rota NUNCA EXISTIU — era
@@ -84,7 +99,7 @@ function slugifyName(s: string): string {
 //
 // Invalidar por SLUG basta: quem chega pelo id leva 308 pro slug, então é a
 // entrada do slug que serve o tráfego.
-export const revalidate = 86400
+export const revalidate = 604800
 
 /**
  * ★ Sem isto, o `revalidate` acima nao valia NADA.

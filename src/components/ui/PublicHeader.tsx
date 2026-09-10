@@ -42,6 +42,36 @@ interface Props {
 }
 
 // Itens do dropdown "Explorar" (páginas públicas).
+/**
+ * ★ TODO LINK DE NAV DESTE HEADER LEVA `prefetch={false}` (10/09/2026).
+ *
+ * O dropdown "Explorar" fica SEMPRE no DOM — quem esconde e o CSS, com
+ * `opacity: 0; visibility: hidden` (ver `.ph-dd` no bloco de estilo abaixo).
+ * `visibility: hidden` mantem caixa de layout, entao o IntersectionObserver do
+ * `<Link>` enxerga os 5 itens e prefetcha TODOS a cada carregamento de pagina,
+ * sem ninguem ter aberto o menu.
+ *
+ * O efeito medido em 09/09/2026, nos runtime logs de 24h:
+ *
+ *   /pokedex-pokemon-tcg   11.809      /   (pageviews reais)   11.299
+ *   /scan-ia               11.796
+ *   /separadores-pokemon   11.792
+ *   /fichario-lendario     11.796
+ *   /colecionadores        11.840
+ *
+ * Cinco paginas com contagem identica a de pageviews da home: nao e trafego,
+ * e o prefetch. Cada visita virava ~10 requests. Isso e ~38% de TODOS os
+ * eventos do projeto — Observability, Edge Requests e invocacao de funcao,
+ * pagos pra buscar pagina que ninguem clicou.
+ *
+ * ★ O que custa: neste Next, `prefetch={false}` desliga o prefetch de viewport
+ * E o de hover (ver `link.d.ts`). Entao o primeiro clique num item do menu
+ * fica ~150-300ms mais lento. Foi trade aceito de proposito — o menu e
+ * navegacao ocasional, nao o caminho quente do app.
+ *
+ * ★ O menu MOBILE (mais abaixo) mantem prefetch de proposito: ele so entra no
+ * DOM quando o usuario abre, e abrir o menu JA E intencao de navegar.
+ */
 const EXPLORAR_FERRAMENTAS = [
   { href: '/pokedex-pokemon-tcg', label: 'Pokédex', sub: 'Todas as cartas por Pokémon', Icon: IconPokedex },
   { href: '/scan-ia', label: 'Scan IA', sub: 'Escaneie e catalogue', Icon: IconScan },
@@ -227,6 +257,7 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
                   <Link
                     key={href}
                     href={href}
+                    prefetch={false}
                     className="ph-dd-item"
                     style={S.ddItem}
                     role="menuitem"
@@ -244,6 +275,7 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
                   <Link
                     key={href}
                     href={href}
+                    prefetch={false}
                     className="ph-dd-item"
                     style={S.ddItem}
                     role="menuitem"
@@ -259,22 +291,22 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             </div>
 
             {/* Links diretos */}
-            <Link href="/lojas" className="ph-nl" style={navLinkStyle('/lojas')}>
+            <Link href="/lojas" prefetch={false} className="ph-nl" style={navLinkStyle('/lojas')}>
               Guia de Lojas
             </Link>
-            <Link href="/blog" className="ph-nl" style={navLinkStyle('/blog')}>
+            <Link href="/blog" prefetch={false} className="ph-nl" style={navLinkStyle('/blog')}>
               Blog
             </Link>
 
             <span style={S.divider} />
 
             {/* B2B discreto */}
-            <Link href="/para-lojistas" className="ph-b2b" style={S.linkB2b}>
+            <Link href="/para-lojistas" prefetch={false} className="ph-b2b" style={S.linkB2b}>
               Para lojistas
             </Link>
 
             {/* Busca */}
-            <Link href="/busca" className="ph-iconbtn" style={S.iconBtn} aria-label="Buscar cartas e sets">
+            <Link href="/busca" prefetch={false} className="ph-iconbtn" style={S.iconBtn} aria-label="Buscar cartas e sets">
               <IconSearch size={18} color="currentColor" />
             </Link>
 

@@ -34,9 +34,15 @@ import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import { IconCollection } from '@/components/ui/Icons'
 
-// ISR: regenera a cada 1h. Após o rename dos sets, os títulos precisam
+// ISR: regenera a cada 6h. Após o rename dos sets, os títulos precisam
 // refletir o nome novo sem esperar 24h; preços/contagens também mudam.
-export const revalidate = 3600
+//
+// ★ 10/09/2026: era 3600 (1h). A matview `mv_set_index_stats` atualiza de
+// hora em hora, mas o dado que ela serve — contagem e valor total do set —
+// nao muda de forma que alguem perceba dentro de 6h. Colar o ISR no ciclo da
+// matview so pagava write pra reescrever a mesma pagina. Redeploy continua
+// furando o ISR, entao subir set novo aparece na hora como sempre.
+export const revalidate = 21600
 
 // Mesma contencao da /carta (incidente 29/07/2026): rota dinamica sem teto de
 // duracao segurava conexao do Postgres por 300s sob carga.
