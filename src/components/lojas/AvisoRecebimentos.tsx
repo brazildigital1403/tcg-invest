@@ -89,6 +89,9 @@ export default function AvisoRecebimentos({
       ? `${quantos.anuncios} ${quantos.anuncios === 1 ? 'anúncio' : 'anúncios'}`
       : `${quantos.produtos} ${quantos.produtos === 1 ? 'produto' : 'produtos'}`
   const verbo = total === 1 ? 'está' : 'estão'
+  // "Você tem" e nao "Os seus": com 1 item o artigo plural nao concorda
+  // ("Os seus 1 anuncio esta no ar" -- visto na tela antes de corrigir), e
+  // "O seu 1 anuncio" soa pior ainda.
 
   // ★ `span`, NAO `Link`: na lista de lojas o card inteiro ja e um <Link>, e
   //   ancora dentro de ancora e HTML invalido -- o React reclama e o clique
@@ -107,10 +110,11 @@ export default function AvisoRecebimentos({
     <div style={S.faixa}>
       <span style={S.icone}><IconWallet size={20} color="#f59e0b" /></span>
       <div style={S.texto}>
-        <strong style={S.titulo}>Os seus {oQue} {verbo} no ar, mas ninguém consegue comprar</strong>
+        <strong style={S.titulo}>Você tem {oQue} no ar, e ninguém consegue comprar</strong>
         <p style={S.linha}>
-          Sem os recebimentos ativos, o cliente só consegue entrar em contato — o botão de comprar
-          não aparece. São uns 3 minutos para resolver.
+          Sem os recebimentos ativos, {total === 1 ? 'ele' : 'eles'} {verbo} visível{total === 1 ? '' : 'eis'} para
+          todo mundo, mas o botão de comprar não aparece — o cliente só consegue entrar em contato.
+          São uns 3 minutos para resolver.
         </p>
       </div>
       <Link href={`/minha-loja/${lojaId}/pagamentos`} style={S.botao}>Ativar recebimentos</Link>
