@@ -1443,6 +1443,44 @@ export async function sendTrialLojaExpirouEmail(args: {
   return enviar({ from: FROM, to: args.to, subject: subjUser(`Sua loja agora está no plano Básico`), html })
 }
 
+/**
+ * A loja tem coisa no ar e NAO consegue receber: o Connect nunca foi aberto.
+ *
+ * ★ Por que existe (12/09/2026, #279). Medido: 9 das 12 lojas em
+ * `stripe_connect_status = 'nao_iniciado'`, e duas ATIVAS com anuncio no ar --
+ * ghostcg com 15, sc-cartas-tcg com 1. Os anuncios aparecem normalmente no
+ * marketplace, mas sem botao de comprar: a venda escorre pro contato e a Bynx
+ * nao ve nada disso. A faixa no painel (AvisoRecebimentos) resolve pra quem
+ * entra; este email e pra quem nao entra ha meses.
+ *
+ * ★ O texto responde o que trava, nao o que a Bynx quer. Quanto custa (nada),
+ * o que precisa ter na mao, pra onde vai o dinheiro e quem ve os dados -- as
+ * mesmas quatro coisas da faixa, pra pessoa nao ler uma promessa no email e
+ * outra na tela.
+ */
+export async function sendRecebimentosParadosEmail(args: {
+  /** Quantos itens, ja escrito ("15 anuncios", "1 produto", "8 itens"). */
+  quantos: string
+  /** O total em numero. Sem ele o texto sai "1 anuncio... Eles aparecem". */
+  total: number
+  to: string; nome: string; loja: string; lojaId: string
+}) {
+  const um = args.total === 1
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const quantos = escapeHtml(args.quantos)
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/pagamentos`, 'loja_connect_parado', 'cta-button')
+  const html = baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1('Ninguém consegue comprar de você 🔌')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`A <b style="color:#f0f0f0;">${loja}</b> tem <b style="color:#f0f0f0;">${quantos}</b> à venda na Bynx. ${um ? 'Ele aparece' : 'Eles aparecem'} normalmente para quem visita — mas sem o botão de comprar, porque os seus recebimentos nunca foram ativados. O cliente só consegue entrar em contato.`)}
+    ${p('Ativar não custa nada: você preenche CNPJ ou CPF e a conta bancária direto na Stripe, em uns 3 minutos. O dinheiro de cada venda cai nessa conta, e a Bynx nunca vê esses dados.')}
+    ${btn('Ativar recebimentos →', url)}
+  `, `${args.loja}: ${args.quantos} à venda sem botão de comprar`)
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`🔌 ${args.quantos} da ${args.loja} sem botão de comprar`), html })
+}
+
 export async function sendNegociacaoExpirandoEmail(args: {
   to: string; nome: string; cardName: string; price: number | null
   anuncioId: string; horasRestantes: number
