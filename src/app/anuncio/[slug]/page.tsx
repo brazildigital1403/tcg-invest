@@ -15,6 +15,7 @@ import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
 import ChatDock from '@/components/marketplace/ChatDock'
 import { IconShield, IconLocation, IconCarrinho, IconTruck } from '@/components/ui/Icons'
 import { buscarAnuncioPublico, CARTA_PESO_G, CARTA_DIMENSOES, type AnuncioPublico } from '@/lib/anuncioPublico'
+import SelosPagamento from '@/components/ui/SelosPagamento'
 
 /**
  * Pagina publica de um anuncio do marketplace.
@@ -280,6 +281,10 @@ export default async function AnuncioPage({
               <h2 style={S.h2}>Como funciona</h2>
               <p style={S.comoItem}><IconShield size={14} style={S.comoIcone} /> Pagamento processado pela Stripe. A Bynx nunca guarda os dados do cartão.</p>
               <p style={S.comoItem}><IconTruck size={14} style={S.comoIcone} /> O vendedor despacha com rastreio, e você acompanha dentro da Bynx.</p>
+              {/* Mesma posicao da /produto: as duas paginas sao a MESMA ficha
+                  por decisao do Du (07/09), e divergir aqui recriaria
+                  exatamente o que aquele trabalho eliminou. */}
+              <SelosPagamento compacto style={{ marginTop: 14 }} />
             </section>
           </div>
         </div>

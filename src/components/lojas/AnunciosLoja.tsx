@@ -11,6 +11,7 @@ import { IconCard, IconBox, IconPlush, IconFigure, IconCollection, IconTag, Icon
 import type { ItemVitrine } from '@/lib/vitrineLoja'
 import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
 import MarketplaceFotosGaleria from '@/components/marketplace/MarketplaceFotosGaleria'
+import SelosPagamento from '@/components/ui/SelosPagamento'
 
 const BRAND = '#f59e0b'
 
@@ -305,6 +306,17 @@ export default function AnunciosLoja({
           </div>
         ))}
       </div>
+
+      {/* ★ SELOS SO QUANDO A LOJA VENDE DE VERDADE (12/09/2026). `podeVender`
+          e o Connect com recebimento ativo. Numa loja sem ele, o card mostra
+          "Tenho interesse" e a compra acontece por fora -- estampar "pagamento
+          pela Stripe" ali seria prometer um checkout que nao existe, que e o
+          mesmo erro do botao "Comprar" em loja sem Connect, corrigido em
+          07/09. Aqui embaixo da vitrine, nao no topo: a duvida sobre pagamento
+          nasce depois de olhar o que tem pra comprar. */}
+      {podeVender && visiveis.length > 0 && (
+        <SelosPagamento centralizado style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--bx-border)' }} />
+      )}
     </section>
   )
 }
