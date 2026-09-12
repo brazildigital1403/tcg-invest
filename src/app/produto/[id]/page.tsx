@@ -14,6 +14,7 @@ import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconTruck, IconLocation, IconCarrinho, IconShield } from '@/components/ui/Icons'
+import SelosPagamento from '@/components/ui/SelosPagamento'
 
 /**
  * /produto/[id] — a pagina que faltava.
@@ -315,6 +316,12 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
             <h2 style={S.secao}>Como funciona</h2>
             <p style={S.comoItem}><IconShield size={14} style={S.comoIcone} /> Pagamento processado pela Stripe. A Bynx nunca guarda os dados do cartão.</p>
             <p style={S.comoItem}><IconTruck size={14} style={S.comoIcone} /> A loja despacha com rastreio, e você acompanha dentro da Bynx.</p>
+            {/* ★ Os selos vivem AQUI e nao no bloco de preco (12/09/2026): a
+                duvida de quem nunca comprou na Bynx nasce depois de ler como
+                funciona, nao antes de ver o valor. Mesmo componente do
+                /carrinho e da /checkout -- o que a pessoa ve agora e o que ela
+                vai ver na hora de pagar. */}
+            <SelosPagamento compacto style={{ marginTop: 14 }} />
           </section>
 
           {produto.descricao && (
