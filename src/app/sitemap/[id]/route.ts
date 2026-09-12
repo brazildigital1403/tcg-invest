@@ -58,6 +58,7 @@ export async function GET(
           .from('lojas')
           .select('slug, updated_at')
           .eq('status', 'ativa')
+          .neq('oculta', true)
           .limit(1000)
         if (lojasErr) console.error('[sitemap] erro lojas:', lojasErr)
         for (const loja of lojas || []) {

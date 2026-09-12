@@ -1027,6 +1027,7 @@ function MarketplaceInner() {
         .select('owner_user_id, slug, connect_charges_enabled')
         .in('owner_user_id', sellerIds)
         .eq('status', 'ativa')
+        .neq('oculta', true)
       for (const l of lojasDosVendedores || []) {
         if (sellerMap[l.owner_user_id]) {
           sellerMap[l.owner_user_id].loja_slug = l.slug

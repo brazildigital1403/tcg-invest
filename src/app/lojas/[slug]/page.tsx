@@ -104,6 +104,7 @@ const buscarLoja = cache(async function buscarLoja(slug: string): Promise<Loja |
     .select('*')
     .eq('slug', slug)
     .eq('status', 'ativa')
+    .neq('oculta', true)
     .limit(1)
   return (data?.[0] as Loja) || null
 })

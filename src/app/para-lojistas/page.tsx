@@ -101,7 +101,7 @@ async function getData(): Promise<{ lojas: number; marquee: string[] }> {
   if (sb) {
     try {
       const [{ count }, { data }] = await Promise.all([
-        sb.from('lojas').select('id', { count: 'exact', head: true }).eq('status', 'ativa'),
+        sb.from('lojas').select('id', { count: 'exact', head: true }).eq('status', 'ativa').neq('oculta', true),
         sb.from('pokemon_cards').select('image_small')
           .ilike('image_small', 'https://images.pokemontcg.io/%')
           .gt('preco_min', 0)
