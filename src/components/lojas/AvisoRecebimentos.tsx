@@ -88,7 +88,6 @@ export default function AvisoRecebimentos({
     : quantos.anuncios > 0
       ? `${quantos.anuncios} ${quantos.anuncios === 1 ? 'anúncio' : 'anúncios'}`
       : `${quantos.produtos} ${quantos.produtos === 1 ? 'produto' : 'produtos'}`
-  const verbo = total === 1 ? 'está' : 'estão'
   // "Você tem" e nao "Os seus": com 1 item o artigo plural nao concorda
   // ("Os seus 1 anuncio esta no ar" -- visto na tela antes de corrigir), e
   // "O seu 1 anuncio" soa pior ainda.
@@ -112,9 +111,17 @@ export default function AvisoRecebimentos({
       <div style={S.texto}>
         <strong style={S.titulo}>Você tem {oQue} no ar, e ninguém consegue comprar</strong>
         <p style={S.linha}>
-          Sem os recebimentos ativos, {total === 1 ? 'ele' : 'eles'} {verbo} visível{total === 1 ? '' : 'eis'} para
-          todo mundo, mas o botão de comprar não aparece — o cliente só consegue entrar em contato.
-          São uns 3 minutos para resolver.
+          {total === 1 ? 'Ele aparece' : 'Eles aparecem'} normalmente para quem visita, mas sem o botão de
+          comprar — o cliente só consegue entrar em contato, e a venda acontece por fora da Bynx.
+        </p>
+        {/* ★ A segunda linha responde o que trava o lojista de verdade, e nao
+            "leva 3 minutos": quanto custa, o que ele precisa ter na mao agora,
+            pra onde vai o dinheiro e quem ve os dados dele. Sao 9 lojas que
+            nunca abriram o onboarding -- ninguem deixa de ativar por achar que
+            demora, deixa por nao saber o que vem pela frente. */}
+        <p style={S.linha}>
+          Ativar não custa nada: você preenche CNPJ ou CPF e a conta bancária direto na Stripe, em uns
+          3 minutos. O dinheiro de cada venda cai nessa conta, e a Bynx nunca vê esses dados.
         </p>
       </div>
       <Link href={`/minha-loja/${lojaId}/pagamentos`} style={S.botao}>Ativar recebimentos</Link>

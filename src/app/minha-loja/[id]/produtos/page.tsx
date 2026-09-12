@@ -151,12 +151,21 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Falha ao salvar')
-      // O alerta so pode prometer o que a vitrine vai mesmo cumprir. Produto so
-      // aparece em /lojas/[slug] com estoque > 0 (RLS) E recebimentos ativos no
-      // Connect (o gate de AnunciosLoja). Dizer "publicado" sem checar os dois
-      // ja custou ao lojista achar que estava tudo certo.
-      const naVitrine = est > 0 && !!loja?.connect_charges_enabled
-      if (naVitrine) {
+      // O alerta so pode prometer o que a vitrine vai mesmo cumprir. O que
+      // decide a VISIBILIDADE e so o estoque (`ativo AND estoque > 0`, em
+      // vitrineLoja.ts:91).
+      //
+      // ★ CORRIGIDO 12/09. Este bloco tratava o Connect como gate de
+      // visibilidade e avisava "ainda nao aparece na sua vitrine" -- o que
+      // deixou de ser verdade na decisao do Du de 03/09: a loja e uma loja
+      // virtual, o produto aparece SEMPRE, e o Connect decide so a ACAO
+      // ("Comprar" ou "Ver produto"). Ou seja, o aviso assustava o lojista com
+      // uma vitrine vazia que nao existia. O comentario velho ate citava o
+      // "gate de AnunciosLoja", que e justamente o arquivo que documenta o
+      // contrario.
+      const naVitrine = est > 0
+      const semCheckout = !loja?.connect_charges_enabled
+      if (naVitrine && !semCheckout) {
         showAlert(editId ? 'Produto atualizado!' : 'Produto publicado na sua vitrine!', 'success')
       } else if (est === 0) {
         showAlert(
@@ -165,7 +174,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
         )
       } else {
         showAlert(
-          `Produto ${editId ? 'atualizado' : 'salvo'}, mas ainda nao aparece na sua vitrine: sua loja precisa ativar os recebimentos. Va em Pagamentos para concluir.`,
+          `Produto ${editId ? 'atualizado' : 'publicado'} na sua vitrine. Ele aparece para quem visita, mas ainda sem o botao de comprar: ative os recebimentos em Pagamentos para vender pela Bynx.`,
           'warning',
         )
       }
