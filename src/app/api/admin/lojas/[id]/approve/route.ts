@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // 1) Busca loja
     const { data: lojas, error: lErr } = await sb
       .from('lojas')
-      .select('id, nome, slug, status, owner_user_id, aprovada_data, verificada, verificacao_ticket_id')
+      .select('id, nome, slug, status, owner_user_id, aprovada_data, verificada, verificacao_ticket_id, plano_expira_em')
       .eq('id', id)
       .limit(1)
     if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 })
@@ -83,6 +83,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             nomeUser:  owner[0].name || 'colecionador',
             nomeLoja:  loja.nome,
             slug:      loja.slug,
+            // Data real do fim do trial. O email caia em "14 dias" sem ela, e
+            // "14 dias" a partir de quando e exatamente o que a pessoa nao sabe.
+            trialAte:  loja.plano_expira_em,
           })
         }
       } catch (e: any) {

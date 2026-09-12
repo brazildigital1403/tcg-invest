@@ -345,6 +345,154 @@ function divider() {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;"><tr><td height="1" bgcolor="#1f2937" style="background-color:#1f2937;height:1px;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>`
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * BLOCOS ILUSTRATIVOS  (12/09/2026)
+ *
+ * ★ Pedido do Du: "quero emails bem ilustrativos, nao apenas texto, porque
+ * quase ninguem para para ler". Entao o email tem que DIZER pelo desenho o que
+ * o texto diria pelo paragrafo -- quem so bate o olho precisa entender.
+ *
+ * ★ TUDO EM TABELA E ESTILO INLINE. Nao existe flex nem grid confiavel em
+ * email: o Outlook renderiza com o motor do Word e o Gmail arranca o <style>.
+ * Cor sempre em `bgcolor` ALEM do CSS, pela mesma razao.
+ *
+ * ★ SEM IMAGEM EXTERNA nova. Metade dos clientes bloqueia imagem por padrao --
+ * um desenho feito de imagem some justamente pra quem nao le. Tudo aqui e
+ * desenhado com celula, borda e cor, entao aparece sempre. A unica imagem
+ * usada e a que a propria loja ja subiu.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Lista de passos com estado: o que ja foi e o que falta, de bater o olho. */
+function checklist(itens: Array<{ feito: boolean; texto: string }>): string {
+  const linha = (it: { feito: boolean; texto: string }) => {
+    const cor = it.feito ? '#22c55e' : '#f59e0b'
+    const marca = it.feito ? '&#10003;' : '&#9675;'
+    const texto = it.feito
+      ? `<span style="color:rgba(255,255,255,0.35);text-decoration:line-through;">${it.texto}</span>`
+      : `<span style="color:#f0f0f0;font-weight:700;">${it.texto}</span>`
+    return `<tr>
+      <td width="30" valign="top" style="padding:9px 0;font-size:15px;color:${cor};${FONT}">${marca}</td>
+      <td style="padding:9px 0;font-size:14px;line-height:1.5;${FONT}">${texto}</td>
+    </tr>`
+  }
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    bgcolor="#12151c" style="background-color:#12151c;border:1px solid #1f2937;border-radius:12px;margin:18px 0;">
+    <tr><td style="padding:8px 18px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${itens.map(linha).join('')}</table>
+    </td></tr></table>`
+}
+
+/**
+ * Vagas de foto: quantas o plano da e quantas estao usadas.
+ * Quadrado tracejado e vazio le como "falta alguma coisa aqui" sem legenda.
+ */
+function vagasDeFoto(usadas: number, total: number): string {
+  const cel = (i: number) => {
+    const cheia = i < usadas
+    return `<td width="${Math.floor(100 / total)}%" style="padding:0 4px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        bgcolor="${cheia ? '#1f2937' : '#0d0f14'}"
+        style="background-color:${cheia ? '#1f2937' : '#0d0f14'};border:${cheia ? '1px solid #2b3543' : '1px dashed #3a4454'};border-radius:8px;">
+        <tr><td align="center" height="52" style="height:52px;font-size:19px;color:${cheia ? '#60a5fa' : '#3a4454'};${FONT}">${cheia ? '&#9632;' : '+'}</td></tr>
+      </table></td>`
+  }
+  const celulas = Array.from({ length: total }, (_, i) => cel(i)).join('')
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 6px;">
+      <tr>${celulas}</tr>
+    </table>
+    <p style="margin:0 0 4px;font-size:11.5px;color:rgba(255,255,255,0.4);text-align:center;${FONT}">
+      ${usadas} de ${total} fotos usadas</p>`
+}
+
+/**
+ * O card como o comprador ve HOJE, e como ficaria. E a ilustracao mais direta
+ * que existe pro Connect desligado: o botao muda, e a diferenca e a venda.
+ */
+function comparativoBotao(nomeItem: string, preco: string): string {
+  const card = (rotulo: string, corRot: string, botao: string, corBtn: string, corTexto: string, opaco: boolean) => `
+    <td width="50%" valign="top" style="padding:0 5px;">
+      <p style="margin:0 0 7px;font-size:10px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:${corRot};${FONT}">${rotulo}</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#12151c"
+        style="background-color:#12151c;border:1px solid ${opaco ? '#1f2937' : '#2b3543'};border-radius:12px;">
+        <tr><td style="padding:13px 13px 11px;">
+          <p style="margin:0 0 2px;font-size:12.5px;font-weight:700;color:${opaco ? 'rgba(255,255,255,0.45)' : '#f0f0f0'};${FONT}">${escapeHtml(nomeItem)}</p>
+          <p style="margin:0 0 11px;font-size:14px;font-weight:800;color:${opaco ? 'rgba(255,255,255,0.35)' : '#22c55e'};${FONT}">${escapeHtml(preco)}</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${corBtn}" style="background-color:${corBtn};border-radius:8px;">
+            <tr><td align="center" height="34" style="height:34px;font-size:12px;font-weight:800;color:${corTexto};${FONT}">${botao}</td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </td>`
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 8px;"><tr>
+      ${card('Hoje', 'rgba(255,255,255,0.35)', 'Tenho interesse', '#2b3543', 'rgba(255,255,255,0.6)', true)}
+      ${card('Com recebimentos', '#22c55e', 'Comprar agora', '#22c55e', '#0d0f14', false)}
+    </tr></table>`
+}
+
+/** Prateleira vazia: tres vagas tracejadas. Diz "nao tem nada aqui" sozinho. */
+function prateleiraVazia(): string {
+  const vaga = `<td width="33%" style="padding:0 4px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0d0f14"
+        style="background-color:#0d0f14;border:1px dashed #3a4454;border-radius:10px;">
+        <tr><td align="center" height="78" style="height:78px;font-size:22px;color:#3a4454;${FONT}">+</td></tr>
+      </table></td>`
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 6px;">
+      <tr>${vaga}${vaga}${vaga}</tr></table>
+    <p style="margin:0;font-size:11.5px;color:rgba(255,255,255,0.4);text-align:center;${FONT}">
+      é isso que o cliente encontra na sua página hoje</p>`
+}
+
+/**
+ * A pagina da loja vista de longe: cabecalho com logo (ou o quadrado cinza) e
+ * duas linhas de descricao. Mostra o "sem cara" em vez de descrever.
+ */
+function mockCabecalhoLoja(nome: string, logoUrl: string | null, temDescricao: boolean): string {
+  const inicial = escapeHtml((nome || '?').trim().charAt(0).toUpperCase())
+  const avatar = logoUrl
+    ? `<img src="${logoUrl}" width="46" height="46" alt="" style="width:46px;height:46px;border-radius:10px;display:block;border:0;object-fit:cover;"/>`
+    : `<table role="presentation" width="46" cellpadding="0" cellspacing="0" border="0" bgcolor="#2b3543" style="background-color:#2b3543;border-radius:10px;">
+         <tr><td align="center" height="46" style="height:46px;width:46px;font-size:19px;font-weight:800;color:#5b6676;${FONT}">${inicial}</td></tr>
+       </table>`
+  const linhaFalsa = (largura: string, forte: boolean) =>
+    `<table role="presentation" width="${largura}" cellpadding="0" cellspacing="0" border="0" bgcolor="${forte ? '#2b3543' : '#1c222c'}" style="background-color:${forte ? '#2b3543' : '#1c222c'};border-radius:3px;margin-bottom:6px;">
+       <tr><td height="7" style="height:7px;font-size:1px;line-height:7px;">&nbsp;</td></tr></table>`
+  const corpo = temDescricao
+    ? linhaFalsa('100%', false) + linhaFalsa('72%', false)
+    : `<p style="margin:6px 0 0;font-size:11.5px;color:#5b6676;font-style:italic;${FONT}">sem descrição</p>`
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#12151c"
+      style="background-color:#12151c;border:1px solid #1f2937;border-radius:12px;margin:18px 0 6px;">
+      <tr><td style="padding:16px 18px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td valign="top" width="46">${avatar}</td>
+          <td width="14">&nbsp;</td>
+          <td valign="middle">
+            <p style="margin:0 0 3px;font-size:14px;font-weight:800;color:#f0f0f0;${FONT}">${escapeHtml(nome)}</p>
+            ${corpo}
+          </td>
+        </tr></table>
+      </td></tr></table>
+    <p style="margin:0;font-size:11.5px;color:rgba(255,255,255,0.4);text-align:center;${FONT}">
+      a sua página, como ela aparece agora</p>`
+}
+
+/** Numero grande com barra proporcional. Pro resumo do mes. */
+function barraNumero(rotulo: string, valor: number, maximo: number, cor = '#60a5fa'): string {
+  const pct = maximo > 0 ? Math.max(4, Math.round((valor / maximo) * 100)) : 4
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
+      <tr>
+        <td style="padding:0 0 5px;font-size:12px;color:rgba(255,255,255,0.55);${FONT}">${rotulo}</td>
+        <td align="right" style="padding:0 0 5px;font-size:22px;font-weight:800;color:#f0f0f0;${FONT}">${valor}</td>
+      </tr>
+      <tr><td colspan="2" style="padding:0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1c222c" style="background-color:#1c222c;border-radius:4px;">
+          <tr><td width="${pct}%" bgcolor="${cor}" style="background-color:${cor};border-radius:4px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="6" style="height:6px;font-size:1px;line-height:6px;">&nbsp;</td></tr></table>
+          </td><td>&nbsp;</td></tr>
+        </table>
+      </td></tr>
+    </table>`
+}
+
 function badge(text: string, color: string, bg: string) {
   return `<p style="margin:0 0 8px;font-size:10px;font-weight:800;color:${color};letter-spacing:0.08em;text-transform:uppercase;${FONT}">${text}</p>`
 }
@@ -663,13 +811,34 @@ export async function sendTicketStatusChangedEmail(args: {
 
 // ── 9. LOJAS — loja aprovada (para o owner) ──────────────────────────────────
 
+/**
+ * ★ PASSO 1 DA REGUA DO LOJISTA (12/09/2026). Este email ja existia e ja era
+ * bom -- o que faltava era dizer O QUE FAZER. A versao anterior fechava com
+ * "aproveita pra colocar fotos e deixar tudo bonito", que e um convite vago
+ * para uma tela que a pessoa nunca viu.
+ *
+ * Medido nas 10 lojas ativas: 9 sem nenhuma foto, 7 com a vitrine vazia, 7 que
+ * nunca abriram os recebimentos. Ou seja, a loja media LE este email e nao faz
+ * nenhuma das tres coisas. Agora sao tres passos numerados, na ordem em que
+ * importam, e o trial vem com DATA em vez de "14 dias" -- a data e o unico
+ * jeito de a pessoa saber quando, sem ter que contar.
+ *
+ * Nao virou um segundo email de boas-vindas de proposito: dois emails no mesmo
+ * minuto e a regua fazendo spam de si mesma logo no primeiro passo.
+ */
 export async function sendEmailLojaAprovada(args: {
   to: string
   nomeUser: string
   nomeLoja: string
   slug: string
+  /** ISO de `lojas.plano_expira_em`. Sem ela o texto cai em "14 dias". */
+  trialAte?: string | null
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
+  const fimTrial = args.trialAte ? new Date(args.trialAte) : null
+  const quandoTrial = fimTrial && Number.isFinite(fimTrial.getTime())
+    ? fimTrial.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', timeZone: 'America/Sao_Paulo' })
+    : null
   const urlPublica = `${APP_URL}/lojas/${args.slug}`
   const urlEdicao  = `${APP_URL}/minha-loja`
 
@@ -689,8 +858,15 @@ export async function sendEmailLojaAprovada(args: {
     </table>
     ${btnB2B('Abrir minha loja →', addUtm(urlEdicao, 'loja-approved', 'cta-button'))}
     ${divider()}
-    ${p('<strong style="color:#60a5fa;">⭐ Seu trial Pro de 14 dias começou agora.</strong> Aproveita pra colocar fotos, redes sociais e deixar tudo bonito antes dos clientes chegarem.')}
-    ${p('Depois dos 14 dias, você escolhe se quer continuar no <strong style="color:#f0f0f0;">Pro (R$ 39/mês)</strong> ou voltar pro <strong style="color:#f0f0f0;">Básico (grátis)</strong>.')}
+    ${p('<strong style="color:#60a5fa;">Faltam três coisas para ela vender:</strong>')}
+    ${checklist([
+      { feito: false, texto: 'Subir o logo e escrever a descrição' },
+      { feito: false, texto: 'Colocar pelo menos um item à venda' },
+      { feito: false, texto: 'Ativar os recebimentos, senão não há botão de comprar' },
+    ])}
+    ${divider()}
+    ${p(`<strong style="color:#60a5fa;">⭐ O seu Pro começou agora</strong> e vai até <strong style="color:#f0f0f0;">${quandoTrial || 'daqui a 14 dias'}</strong>. Ele libera 5 fotos da loja, redes sociais e descrição sem limite.`)}
+    ${p('Depois dessa data, você escolhe entre continuar no <strong style="color:#f0f0f0;">Pro (R$ 39/mês)</strong> ou seguir no <strong style="color:#f0f0f0;">Básico (grátis)</strong>. A loja continua no ar nos dois casos.')}
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
 
@@ -1463,6 +1639,9 @@ export async function sendRecebimentosParadosEmail(args: {
   quantos: string
   /** O total em numero. Sem ele o texto sai "1 anuncio... Eles aparecem". */
   total: number
+  /** Um item real da loja, pro comparativo de botao nao ser gerico. */
+  exemplo?: string | null
+  exemploPreco?: string | null
   to: string; nome: string; loja: string; lojaId: string
 }) {
   const um = args.total === 1
@@ -1481,7 +1660,8 @@ export async function sendRecebimentosParadosEmail(args: {
     ${badge('Sua loja', '#f59e0b', '')}
     ${h1('Ninguém consegue comprar de você 🔌')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
-    ${p(`A <b style="color:#f0f0f0;">${loja}</b> tem <b style="color:#f0f0f0;">${quantos}</b> à venda na Bynx. ${um ? 'Ele aparece' : 'Eles aparecem'} normalmente para quem visita — mas sem o botão de comprar, porque os seus recebimentos nunca foram ativados. O cliente só consegue entrar em contato.`)}
+    ${p(`A <b style="color:#f0f0f0;">${loja}</b> tem <b style="color:#f0f0f0;">${quantos}</b> à venda na Bynx. ${um ? 'Ele aparece' : 'Eles aparecem'} normalmente para quem visita — mas é este o botão que o cliente encontra:`)}
+    ${comparativoBotao(args.exemplo || 'Carta à venda', args.exemploPreco || 'R$ 00,00')}
     ${p('Ativar não custa nada: você preenche CNPJ ou CPF e a conta bancária direto na Stripe, em uns 3 minutos. O dinheiro de cada venda cai nessa conta, e a Bynx nunca vê esses dados.')}
     ${btn('Ativar recebimentos →', url)}${rodape}
   `, `${args.loja}: ${args.quantos} à venda sem botão de comprar`)
@@ -1490,6 +1670,172 @@ export async function sendRecebimentosParadosEmail(args: {
     subject: subjUser(`🔌 ${args.quantos} da ${args.loja} sem botão de comprar`),
     montarHtml,
   })
+}
+
+/**
+ * ── REGUA DO LOJISTA, passos 2 a 4 e 7, 9 e 10 ──────────────────────────────
+ *
+ * Todos NURTURE: ninguem pediu por eles, existem porque a Bynx quer que a loja
+ * ande. Relacionamento respeita `email_optout_nurture`, leva o rodape de
+ * descadastro e os cabecalhos do RFC 8058 -- por isso `enviarNurture` e nunca
+ * `enviar`. Errei exatamente isso no primeiro email da regua e dois sairam sem
+ * saida; nao repetir.
+ *
+ * Todos tem GATILHO DE ESTADO, nao de calendario: quem dispara (o
+ * cron-regua-lojista) reconfere o buraco no momento do envio. Se a pessoa
+ * tapou o buraco ontem, o email nao sai.
+ */
+
+/** PASSO 2 · a loja nao tem cara: sem logo, sem descricao ou sem rede. */
+export async function sendLojaSemCaraEmail(args: {
+  to: string; nome: string; loja: string; lojaId: string; falta: string[]
+  /** Pro mock: se tiver logo, ele aparece; se nao, o quadrado cinza real. */
+  logoUrl?: string | null
+  temDescricao: boolean
+}) {
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/vitrine`, 'regua_loja_sem_cara', 'cta-button')
+  const lista = args.falta.map(f => `<strong style="color:#f0f0f0;">${escapeHtml(f)}</strong>`).join(', ')
+  const montarHtml = (rodape: string) => baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1('A sua página ainda está sem cara')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`Falta ${lista} na <b style="color:#f0f0f0;">${loja}</b>. É assim que ela aparece para quem chega:`)}
+    ${mockCabecalhoLoja(args.loja, args.logoUrl || null, args.temDescricao)}
+    ${p('É o passo mais rápido de todos e muda a página pública na hora — não precisa esperar aprovação de nada.')}
+    ${btn('Editar minha vitrine →', url)}${rodape}
+  `, `Faltam ${args.falta.join(', ')} na ${args.loja}`)
+  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A página da ${args.loja} está sem foto e sem descrição`), montarHtml })
+}
+
+/**
+ * PASSO 3 · plano Pro ou Premium com ZERO foto.
+ *
+ * ★ O angulo e "voce ja tem, e nao esta usando", nao "assine". Medido: 9 das
+ * 10 lojas ativas tem zero foto, e a galeria e justamente o que separa a
+ * pagina delas da de uma loja no plano Basico. Elas estao testando exatamente
+ * o que nao usam -- e quando o trial acabar nao vao sentir falta de nada.
+ */
+export async function sendLojaSemFotoEmail(args: {
+  to: string; nome: string; loja: string; lojaId: string; limite: number
+}) {
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/vitrine`, 'regua_loja_sem_foto', 'cta-button')
+  const montarHtml = (rodape: string) => baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1(`Você tem ${args.limite} fotos sobrando 📷`)}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`O seu plano libera <b style="color:#f0f0f0;">${args.limite} fotos</b> da <b style="color:#f0f0f0;">${loja}</b> na página pública:`)}
+    ${vagasDeFoto(0, args.limite)}
+    ${p('A galeria é o que separa a sua página da de uma loja no plano Básico. Uma foto do balcão, da prateleira ou da vitrine já resolve — não precisa de produção.')}
+    ${btn('Subir as fotos →', url)}${rodape}
+  `, `${args.loja}: ${args.limite} fotos disponíveis e nenhuma no ar`)
+  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`📷 ${args.limite} fotos sobrando no plano da ${args.loja}`), montarHtml })
+}
+
+/** PASSO 4 · vitrine vazia: nada a venda, nem carta nem produto. */
+export async function sendLojaVitrineVaziaEmail(args: {
+  to: string; nome: string; loja: string; lojaId: string
+}) {
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/produtos`, 'regua_loja_vitrine_vazia', 'cta-button')
+  const montarHtml = (rodape: string) => baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1('A sua vitrine ainda está vazia')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`A <b style="color:#f0f0f0;">${loja}</b> está no ar e aparece no Guia de Lojas, mas não tem nada à venda:`)}
+    ${prateleiraVazia()}
+    ${p('Uma carta pelo Marketplace ou um selado pelo painel de produtos já colocam a loja em funcionamento. Um item só já muda a página.')}
+    ${btn('Colocar o primeiro item →', url)}${rodape}
+  `, `A vitrine da ${args.loja} está vazia`)
+  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A vitrine da ${args.loja} não tem nada à venda`), montarHtml })
+}
+
+/**
+ * PASSO 7 · uma semana depois de cair pro Basico.
+ *
+ * ★ So sai pra quem TINHA o que perder. Mandar "voce perdeu a galeria" pra
+ * loja que nunca subiu foto e confessar que o Pro nao fazia falta nenhuma.
+ */
+export async function sendLojaPerdeuProEmail(args: {
+  to: string; nome: string; loja: string; lojaId: string; fotos: number
+}) {
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/plano`, 'regua_loja_perdeu_pro', 'cta-button')
+  const montarHtml = (rodape: string) => baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1('As suas fotos saíram da página')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`Faz uma semana que a <b style="color:#f0f0f0;">${loja}</b> voltou para o plano Básico, e desde então ${args.fotos === 1 ? 'a sua foto saiu' : `as suas <b style="color:#f0f0f0;">${args.fotos} fotos</b> saíram`} da página pública.`)}
+    ${vagasDeFoto(0, Math.max(args.fotos, 3))}
+    ${p('Elas não foram apagadas: continuam guardadas e voltam no mesmo lugar no instante em que você assinar. A loja segue no ar e vendendo do mesmo jeito.')}
+    ${btn('Voltar para o Pro →', url)}${rodape}
+  `, `As fotos da ${args.loja} saíram da página pública`)
+  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`As fotos da ${args.loja} saíram da página`), montarHtml })
+}
+
+/**
+ * PASSO 9 · o resumo do mes.
+ *
+ * ★ E o unico email da regua que o lojista QUER receber, e por isso ele e o
+ * que sustenta os outros: quem abre o resumo todo mes abre o resto. Vai pra
+ * TODOS os planos de proposito -- o dado ja existe e hoje so o Premium o ve no
+ * painel, entao mostrar o numero e o argumento mais honesto que existe pra
+ * subir de plano.
+ */
+export async function sendLojaResumoMensalEmail(args: {
+  to: string; nome: string; loja: string; lojaId: string; mes: string
+  cliques: number; itens: number; pedidos: number; premium: boolean
+}) {
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/analytics`, 'regua_loja_resumo', 'cta-button')
+  // Escala comum pras tres barras: comparar cliques com pedidos so significa
+  // alguma coisa se as barras dividirem o mesmo maximo.
+  const teto = Math.max(args.cliques, args.itens, args.pedidos, 1)
+  const montarHtml = (rodape: string) => baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1(`A ${loja} em ${escapeHtml(args.mes)}`)}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    <div style="margin:20px 0 6px;">
+      ${barraNumero('Cliques nos seus contatos', args.cliques, teto, '#60a5fa')}
+      ${barraNumero('Itens à venda hoje', args.itens, teto, '#a855f7')}
+      ${barraNumero('Pedidos recebidos', args.pedidos, teto, '#22c55e')}
+    </div>
+    ${p(args.premium
+        ? 'O detalhe por canal e por dia está no seu painel de analytics.'
+        : 'No Premium você vê de onde vem cada clique, quais itens são mais vistos e o movimento dia a dia.')}
+    ${btn('Ver o painel →', url)}${rodape}
+  `, `${args.loja}: ${args.cliques} cliques e ${args.pedidos} pedidos em ${args.mes}`)
+  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A ${args.loja} em ${args.mes}`), montarHtml })
+}
+
+/**
+ * PASSO 10 · reativacao, UMA vez, aos 60 dias parada.
+ *
+ * ★ Uma vez e so. Loja que nao responde a este vira lista fria e sai da regua:
+ * insistir com quem nao volta nao recupera ninguem e queima o dominio de quem
+ * ainda le. O texto diz a saida na primeira linha, de proposito.
+ */
+export async function sendLojaReativacaoEmail(args: {
+  to: string; nome: string; loja: string; lojaId: string; dias: number
+}) {
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}`, 'regua_loja_reativacao', 'cta-button')
+  const montarHtml = (rodape: string) => baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1('Ainda faz sentido para você?')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`A <b style="color:#f0f0f0;">${loja}</b> está há <b style="color:#f0f0f0;">${args.dias} dias</b> sem movimento por aqui. Este é o único email que eu mando sobre isso — se não for a hora, é só ignorar que eu não insisto.`)}
+    ${p('A loja continua no ar e nada do que você cadastrou foi apagado. Se quiser retomar, o painel está do mesmo jeito que você deixou.')}
+    ${btn('Abrir minha loja →', url)}${rodape}
+  `, `A ${args.loja} está parada há ${args.dias} dias`)
+  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A ${args.loja} está parada faz um tempo`), montarHtml })
 }
 
 export async function sendNegociacaoExpirandoEmail(args: {
