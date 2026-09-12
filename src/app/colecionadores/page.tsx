@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { CardsPlanos } from '@/components/ui/PlanosBlocos'
-import { IconFilter, IconTrendingUp, IconStar } from '@/components/ui/Icons'
+import { IconFilter, IconTrendingUp, IconStar, IconShield } from '@/components/ui/Icons'
 
 // ─── ISR ────────────────────────────────────────────────────────────────────
 // Revalida os numeros do catalogo 1x por hora. Stats (cartas, sets, valor) vem
@@ -452,6 +452,24 @@ export default async function ColecionadoresPage() {
                 icon={<IconPrice />}
                 title="Preços em reais"
                 desc="Mínimo, médio e máximo de mercado, atualizados continuamente. Por variante (Normal, Holo, Reverse, Foil, Promo). Sem chute, sem dólar convertido na correria."
+              />
+              {/* ★ Carta graduada. Adicionado em 12/09 a partir da rodada de
+                  concorrencia: e o unico eixo em que a Bynx lidera com folga --
+                  o FAQ do concorrente admite que cadastrar carta ja graduada
+                  "ainda nao esta pronto" -- e nao era mencionado em NENHUMA
+                  landing publica. Diferencial invisivel nao vende.
+                  ★ A copy afirma so o que o codigo faz: as 10 graduadoras de
+                  graduadoras.ts, e os campos graduadora / subnotas /
+                  black_label / cert_graduacao / valor_graduada, todos em
+                  user_cards. NAO diz que o valor da graduada aparece em toda
+                  tela, porque nao aparece: o patrimonio do topo usa
+                  valor_graduada, as RPCs de pasta ainda nao (calcPatrimonio:9,
+                  item #178 do quadro). Prometer isso aqui seria vender o que a
+                  pasta nao entrega. */}
+              <ToolCard
+                icon={<IconShield size={26} color="currentColor" strokeWidth={1.6} />}
+                title="Cartas graduadas"
+                desc="Registre a graduadora, a nota e as subnotas — são 10 aceitas, de PSA e BGS a CGC, ACE, TAG e Capy. Guarde o número do certificado, marque black label e informe o valor da peça graduada, que é outro mercado e não acompanha o preço da carta crua."
               />
               <ToolCard
                 icon={<IconScan />}
