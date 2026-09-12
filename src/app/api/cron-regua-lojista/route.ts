@@ -236,8 +236,8 @@ export async function GET(req: NextRequest) {
 
     const donos = [...new Set(planejado.map(x => x.loja.owner_user_id))]
     const { data: usrs } = donos.length
-      ? await db.from('users').select('id, name, email').in('id', donos)
-      : { data: [] as Array<{ id: string; name: string | null; email: string | null }> }
+      ? await db.from('users').select('id, name, email, marketing_aceito').in('id', donos)
+      : { data: [] as Array<{ id: string; name: string | null; email: string | null; marketing_aceito: boolean | null }> }
     const pessoa = new Map((usrs || []).map(u => [u.id, u]))
 
     let sinos = 0, emails = 0, pulados = 0
@@ -279,6 +279,20 @@ export async function GET(req: NextRequest) {
 
       const u = pessoa.get(l.owner_user_id)
       if (!u?.email) continue
+
+      // ★ CONSENTIMENTO. `marketing_aceito` e o checkbox do cadastro -- "quero
+      //   receber novidades e dicas de TCG da Bynx", opcional e DESMARCADO por
+      //   padrao. A coluna existia desde sempre, era escrita em 3 lugares e
+      //   NUNCA lida antes de enviar: 206 dos 401 usuarios dizem nao e a Bynx
+      //   nao tinha como saber. Achado em 12/09 por outra sessao, conferido
+      //   aqui antes de aplicar.
+      //
+      //   O SINO ja foi gravado acima de proposito: ele e comunicacao dentro
+      //   do produto sobre a propria loja da pessoa, nao mala direta. Quem
+      //   recusou novidades continua vendo o estado da sua loja no painel --
+      //   o que ele nao recebe e o email.
+      if (u.marketing_aceito !== true) { continue }
+
       try {
         await passo.email({ email: u.email, name: u.name })
         // O teto mora na PROPRIA notificacao do passo: nada novo aparece no
