@@ -28,6 +28,7 @@ import AvaliacaoModal from '@/components/marketplace/AvaliacaoModal'
 import TradeAnalyzer, { montarTradeCard } from '@/components/marketplace/TradeAnalyzer'
 import { transferirCartaAoComprador } from '@/lib/concluirCompra'
 import { IconClock } from '@/components/ui/Icons'
+import { mudarStatusAnuncio } from '@/lib/marketplaceAcao'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -466,7 +467,8 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
     if (!anuncio) return
     const ok = await showConfirm({ message: `Confirma que enviou "${anuncio.card_name}" para ${outroNome}?`, confirmLabel: 'Sim, confirmei o envio', description: 'O comprador será notificado para confirmar o recebimento.' })
     if (!ok) return
-    await supabase.from('marketplace').update({ status: 'enviado' }).eq('id', anuncioId)
+    const r = await mudarStatusAnuncio(anuncioId, 'enviar')
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel confirmar o envio.', 'error'); return }
     await dispararMarco(anuncioId, 'enviado')
     showAlert('Envio confirmado! Aguardando o comprador confirmar o recebimento.', 'success')
     await carregarAnuncio(); onMudanca()
@@ -483,7 +485,8 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
       showAlert('Nao foi possivel adicionar a carta a sua colecao. Nada foi concluido — tente de novo.', 'error')
       return
     }
-    await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', anuncioId)
+    const rc = await mudarStatusAnuncio(anuncioId, 'concluir')
+    if (!rc.ok) { showAlert(rc.erro || 'Nao foi possivel concluir a compra.', 'error'); return }
     await dispararMarco(anuncioId, 'concluido')
     showAlert('Compra concluída! A carta foi adicionada à sua coleção.', 'success')
     await carregarAnuncio(); onMudanca()
@@ -493,7 +496,11 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
   async function cancelar() {
     const ok = await showConfirm({ message: 'Deseja cancelar esta negociação?', danger: true, confirmLabel: 'Cancelar negociação', description: 'O anúncio voltará para a vitrine como disponível.' })
     if (!ok) return
-    await supabase.from('marketplace').update({ status: 'disponivel', buyer_id: null }).eq('id', anuncioId)
+    const r = await mudarStatusAnuncio(anuncioId, 'liberar')
+    // ★ Este era o unico dos tres que nao avisava nada em caso de falha: o
+    //   update do cliente podia ser recusado pela policy e a conversa fechava
+    //   como se tivesse cancelado.
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel cancelar a negociacao.', 'error'); return }
     onMudanca(); onVoltar()
   }
 

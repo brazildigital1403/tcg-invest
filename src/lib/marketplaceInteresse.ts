@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
+import { mudarStatusAnuncio } from '@/lib/marketplaceAcao'
 
 /**
  * Manifesta interesse num anuncio do marketplace — o MESMO fluxo canonico do
@@ -40,7 +41,11 @@ export async function manifestarInteresse(anuncioId: string): Promise<boolean> {
 
   // reserva (se ainda nao for o comprador) + notifica o vendedor
   if (a.buyer_id !== uid) {
-    await supabase.from('marketplace').update({ status: 'reservado', buyer_id: uid }).eq('id', anuncioId)
+    const r = await mudarStatusAnuncio(anuncioId, 'reservar')
+    // O contrato desta funcao e boolean (os chamadores so perguntam "rolou?"),
+    // entao a mensagem da rota fica no console -- mudar a assinatura mexeria
+    // em AnunciosLoja e no perfil publico, que nao sao deste trabalho.
+    if (!r.ok) { console.error('[interesse]', r.erro); return false }
     await dispararMarco(anuncioId, 'interesse')
   }
 

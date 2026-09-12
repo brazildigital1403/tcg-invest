@@ -27,6 +27,9 @@ import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
 //   anuncio ja pago e ENTREGUE continuava contando como negociacao aberta pro
 //   vendedor. Fonte unica agora em lib/marketplaceStatus.
 import { estaEncerrado, podeExpirar, liberaEm as calcLiberaEm } from '@/lib/marketplaceStatus'
+// ★ A escrita de status saiu do browser (12/09/2026) -- ver o comentario da
+//   rota /api/marketplace/[id]/status. Aqui eram QUATRO updates diretos.
+import { mudarStatusAnuncio } from '@/lib/marketplaceAcao'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -193,9 +196,8 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
     })
     if (!ok) return
 
-    await supabase.from('marketplace')
-      .update({ status: 'reservado', buyer_id: userId })
-      .eq('id', card.id)
+    const r = await mudarStatusAnuncio(card.id, 'reservar')
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel abrir a negociacao.', 'error'); return }
 
     await dispararMarco(card.id, 'interesse')
 
@@ -205,14 +207,16 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
   async function handleCancelar() {
     const ok = await showConfirm({ message: 'Cancelar este anúncio?', danger: true, confirmLabel: 'Cancelar anúncio' })
     if (!ok) return
-    await supabase.from('marketplace').update({ status: 'cancelado', buyer_id: null }).eq('id', card.id)
+    const r = await mudarStatusAnuncio(card.id, 'cancelar')
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel cancelar o anuncio.', 'error'); return }
     onAction()
   }
 
   async function handleConfirmarEnvio() {
     const ok = await showConfirm({ message: `Confirma que enviou a carta "${card.card_name}" para o comprador?`, confirmLabel: 'Sim, confirmei o envio' })
     if (!ok) return
-    await supabase.from('marketplace').update({ status: 'enviado' }).eq('id', card.id)
+    const r = await mudarStatusAnuncio(card.id, 'enviar')
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel confirmar o envio.', 'error'); return }
     showAlert('Envio confirmado! Aguardando o comprador confirmar o recebimento.', 'success')
     onAction()
   }
@@ -228,8 +232,10 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
       return
     }
 
-    // Conclui anúncio
-    await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', card.id)
+    // Conclui anúncio. A transferencia acima continua ANTES disto de proposito:
+    // a carta entra na colecao primeiro, e so entao a venda fecha.
+    const rc = await mudarStatusAnuncio(card.id, 'concluir')
+    if (!rc.ok) { showAlert(rc.erro || 'Nao foi possivel concluir a compra.', 'error'); return }
 
     showAlert('Compra concluída! A carta foi adicionada à sua coleção.', 'success')
     onAction()
@@ -640,7 +646,8 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
       description: 'Você poderá conversar com o vendedor aqui pela plataforma.',
     })
     if (!ok) return
-    await supabase.from('marketplace').update({ status: 'reservado', buyer_id: userId }).eq('id', card.id)
+    const r = await mudarStatusAnuncio(card.id, 'reservar')
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel abrir a negociacao.', 'error'); return }
     await dispararMarco(card.id, 'interesse')
     router.push(`/marketplace?conversa=${card.id}`)
   }
@@ -775,7 +782,8 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
       description: 'Você poderá conversar com o vendedor aqui pela plataforma.',
     })
     if (!ok) return
-    await supabase.from('marketplace').update({ status: 'reservado', buyer_id: userId }).eq('id', card.id)
+    const r = await mudarStatusAnuncio(card.id, 'reservar')
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel abrir a negociacao.', 'error'); return }
     await dispararMarco(card.id, 'interesse')
     router.push(`/marketplace?conversa=${card.id}`)
   }
