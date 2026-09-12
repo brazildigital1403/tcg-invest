@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { resolvePlan } from './plan'
+import { STATUS_OCUPAM_VAGA } from './marketplaceStatus'
 
 // Flag de enforcement: quando '1', os limites por tier valem (rollout coordenado).
 // Sem ela, o limite de cartas fica "infinito" (comportamento atual) -> o codigo sobe
@@ -42,12 +43,22 @@ export async function checkCardLimit(userId: string): Promise<{ bloqueado: boole
 // Limite de anuncios no marketplace por tier (Free 3 / Plus+ ilimitado).
 // NAO depende da flag: o limite de 3 do Free ja vale hoje; aqui so passa a respeitar
 // os caps (pra o Plus ganhar ilimitado quando existir).
+//
+// ★ CONSERTADO 12/09. A conta era `not in (cancelado, concluido)` e sem
+// `removido_em` -- ou seja, anuncio que o proprio usuario APAGOU seguia
+// ocupando vaga, e `vendido` ocupava pra sempre depois da venda. Medido: 2
+// usuarios do Gratis travados no limite com ZERO anuncio no ar, um deles com 7
+// removidos desde 25/08. O usuario via "o plano Gratis permite 3 anuncios
+// ativos" tendo nenhum, sem nada na tela explicando de onde vinham os 3.
+// Agora a lista e positiva e compartilhada (STATUS_OCUPAM_VAGA), que e o
+// remedio que o marketplaceStatus.ts ja documentava pra esta exata divergencia.
 export async function checkMarketplaceLimit(userId: string): Promise<{ bloqueado: boolean; total: number; limite: number }> {
   const { count } = await supabase
     .from('marketplace')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .not('status', 'in', '("cancelado","concluido")')
+    .in('status', STATUS_OCUPAM_VAGA as unknown as string[])
+    .is('removido_em', null)
   const total = count || 0
 
   const row = await fetchPlanRow(userId)
