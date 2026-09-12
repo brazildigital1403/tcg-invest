@@ -4,6 +4,7 @@ import { CSSProperties, useEffect, useState, use as usePromise } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
+import AvisoRecebimentos from '@/components/lojas/AvisoRecebimentos'
 import {
   useLojaOwner, LojaEstadoFallback, STATUS_CONFIG, PLANO_CONFIG, SH,
   LOJA_HOME, TrilhaLoja,
@@ -64,6 +65,15 @@ export default function VisaoGeralPage({ params }: { params: Promise<{ id: strin
         <h1 style={SH.title}>{loja.nome}</h1>
         {loja.slug && <p style={SH.subtitle}>bynx.gg/lojas/{loja.slug}</p>}
       </header>
+
+      {/* Antes do grid de proposito: e a unica coisa nesta tela que custa venda
+          agora. Ela some sozinha quando a loja nao tem nada no ar. */}
+      <AvisoRecebimentos
+        lojaId={loja.id}
+        ownerUserId={loja.owner_user_id}
+        status={loja.status}
+        podeReceber={loja.connect_charges_enabled}
+      />
 
       <div className="vg-grid2">
         <StatusCard loja={loja} onDesativar={desativarLoja} onReativar={reativarLoja} />

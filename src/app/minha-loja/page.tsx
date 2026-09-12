@@ -2,6 +2,7 @@
 
 import { CSSProperties, useEffect, useState } from 'react'
 import Link from 'next/link'
+import AvisoRecebimentos from '@/components/lojas/AvisoRecebimentos'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { IconBolt } from '@/components/ui/Icons'
@@ -22,6 +23,8 @@ interface LojaCard {
   verificada: boolean | null
   logo_url: string | null
   fotos: string[] | null
+  owner_user_id: string
+  connect_charges_enabled: boolean | null
   cliques_30d?: number
 }
 
@@ -60,7 +63,7 @@ export default function MinhasLojasHubPage() {
       // Busca todas as lojas do user
       const { data: lojasData, error: lojasErr } = await supabase
         .from('lojas')
-        .select('id, slug, nome, cidade, estado, tipo, plano, status, verificada, logo_url, fotos')
+        .select('id, slug, nome, cidade, estado, tipo, plano, status, verificada, logo_url, fotos, owner_user_id, connect_charges_enabled')
         .eq('owner_user_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -232,6 +235,14 @@ function CardLoja({ loja }: { loja: LojaCard }) {
             {cliques} clique{cliques !== 1 ? 's' : ''} (30d)
           </span>
         </div>
+
+        <AvisoRecebimentos
+          lojaId={loja.id}
+          ownerUserId={loja.owner_user_id}
+          status={loja.status}
+          podeReceber={loja.connect_charges_enabled}
+          compacto
+        />
 
         {/* Footer: editar */}
         <div style={S.cardFooter}>
