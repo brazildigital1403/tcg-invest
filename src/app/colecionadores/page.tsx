@@ -434,7 +434,7 @@ export default async function ColecionadoresPage() {
             <SectionHeader
               eyebrow="Ferramentas"
               title="Tudo que falta na planilha do Excel."
-              subtitle="A Bynx foi feito por colecionador, pra colecionador. Cada feature resolve uma dor real."
+              subtitle="A Bynx foi feita por colecionador, para colecionador. Cada recurso resolve uma dor real."
             />
 
             <div className="col-tools-grid" style={S.toolsGrid}>
