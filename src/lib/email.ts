@@ -1394,6 +1394,55 @@ export async function sendNegociacaoConcluidaEmail(args: {
  * acento da LOJA, nao do app), emoji no h1 e no assunto (email e a excecao
  * unica da regra de zero emoji), `addUtm` em vez de query montada a mao.
  */
+/**
+ * Trial Pro da loja termina em poucos dias.
+ *
+ * ★ Este e o email que o #170 pedia e que nunca existiu. O webhook nao trata
+ * `trial_will_end` -- e nem precisaria: o trial da Bynx nao vive na Stripe, e
+ * a coluna `lojas.plano_expira_em`. Quem dispara e o cron-loja-trial.
+ *
+ * Padrao dos emails de loja: badge ambar, emoji no h1 e no assunto, addUtm.
+ */
+export async function sendTrialLojaExpirandoEmail(args: {
+  to: string; nome: string; loja: string; lojaId: string; dias: number
+}) {
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/plano`, 'loja_trial_expirando', 'cta-button')
+  const quando = args.dias === 1 ? 'amanha' : `em ${args.dias} dias`
+  const html = baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1('Seu Pro termina em breve ⏳')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`O período Pro da <b style="color:#f0f0f0;">${loja}</b> termina <b style="color:#f0f0f0;">${quando}</b>. Depois disso ela continua no ar, no plano Básico — mas a galeria de fotos e o selo Pro saem da sua página pública.`)}
+    ${p('Se quiser manter tudo como está, é só assinar. Você não perde nada do que já cadastrou.')}
+    ${btn('Ver os planos →', url)}
+  `, `O Pro da ${args.loja} termina ${quando}`)
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`⏳ O Pro da ${args.loja} termina ${quando}`), html })
+}
+
+/**
+ * O trial acabou e a loja caiu pro Basico. Mandado DEPOIS do rebaixamento, e
+ * diz exatamente o que mudou na pagina -- some galeria e selo. Nao adianta
+ * dizer "seu plano mudou" e deixar a pessoa descobrir na tela.
+ */
+export async function sendTrialLojaExpirouEmail(args: {
+  to: string; nome: string; loja: string; lojaId: string
+}) {
+  const first = primeiroNome(args.nome, 'lojista')
+  const loja = escapeHtml(args.loja || 'sua loja')
+  const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/plano`, 'loja_trial_expirou', 'cta-button')
+  const html = baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1('Sua loja está no plano Básico 🔓')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`O período Pro da <b style="color:#f0f0f0;">${loja}</b> terminou. Ela <b style="color:#f0f0f0;">continua no ar</b> e vendendo — nada do que você cadastrou foi apagado.`)}
+    ${p('O que saiu da sua página pública: a galeria de fotos e o selo Pro. Assinando, tudo volta na hora, com as mesmas fotos.')}
+    ${btn('Voltar para o Pro →', url)}
+  `, `O Pro da ${args.loja} terminou — a loja segue no ar, no Básico`)
+  return enviar({ from: FROM, to: args.to, subject: subjUser(`Sua loja agora está no plano Básico`), html })
+}
+
 export async function sendNegociacaoExpirandoEmail(args: {
   to: string; nome: string; cardName: string; price: number | null
   anuncioId: string; horasRestantes: number
