@@ -10,6 +10,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { IconCard, IconBox, IconPlush, IconFigure, IconCollection, IconTag, IconCamera } from '@/components/ui/Icons'
 import type { ItemVitrine } from '@/lib/vitrineLoja'
 import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
+import MarketplaceFotosGaleria from '@/components/marketplace/MarketplaceFotosGaleria'
 
 const BRAND = '#f59e0b'
 
@@ -37,7 +38,25 @@ function Capa({ item }: { item: Item }) {
   // um retrato de celular qualquer (a do Clefairy e 375x666) — com altura
   // livre esse card ficaria bem mais alto que os vizinhos e a grade quebraria.
   // 300/418 e a mesma proporcao que a arte ja tinha, entao nada muda pra ela.
-  const midia = item.imagem ? (
+  // ★ VARIAS FOTOS VIRAM GALERIA (12/09/2026). O formulario aceita 10 fotos e a
+  // vitrine mostrava so `fotos[0]` -- o selo de contagem dizia "6" e nao havia
+  // como ver as outras seis sem abrir o detalhe. Agora o card navega.
+  //
+  // So entra quando ha MAIS DE UMA foto propria: com uma, ou com a arte do
+  // catalogo, a galeria nao agrega e custaria um componente client a mais.
+  const temGaleria = item.fotoPropria && Array.isArray(item.fotos) && item.fotos.length > 1
+
+  const midia = temGaleria ? (
+    <MarketplaceFotosGaleria
+      fotos={item.fotos}
+      cardName={item.nome}
+      // Carta mantem a proporcao da arte; produto e ~quadrado. Mesmo critério
+      // do `aspectRatio` do <Image> abaixo.
+      aspecto={item.ehCarta ? '139%' : '100%'}
+      // A largura real na grade da vitrine: 45vw no mobile, ~160px no desktop.
+      sizes="(max-width: 880px) 45vw, 160px"
+    />
+  ) : item.imagem ? (
     // next/image: o card da vitrine servia a foto CRUA do produto (ate 2 MB)
     // num quadrado de ~140px. `sizes` diz ao Next o tamanho real na tela.
     <Image
@@ -58,7 +77,9 @@ function Capa({ item }: { item: Item }) {
   )
   // Sinaliza que a capa e foto REAL e que ha mais de uma. Numa carta graduada
   // e a diferenca entre "vi a arte" e "vi o slab que vou receber".
-  const selo = item.fotoPropria && item.nFotos > 1
+  // Com galeria o contador ja vive nela ("2/6"), entao este selo sairia
+  // duplicado no mesmo canto.
+  const selo = !temGaleria && item.fotoPropria && item.nFotos > 1
     ? <span style={S.seloFotos}><IconCamera size={11} /> {item.nFotos}</span>
     : null
 
@@ -76,6 +97,13 @@ function Capa({ item }: { item: Item }) {
     : midia
 
   if (!item.detalhe) return corpo
+
+  // ★ GALERIA NAO VAI DENTRO DE <Link>. O clique dela avanca a foto; embrulhada
+  // num Link, cada troca de foto navegaria de pagina. Mesma regra que o card do
+  // marketplace ja segue. Quem leva ao detalhe segue sendo o NOME e o botao
+  // "Ver produto", que continuam no card.
+  if (temGaleria) return corpo
+
   return (
     <Link href={item.detalhe} aria-label={item.nome} style={{ display: 'block' }}>
       {corpo}

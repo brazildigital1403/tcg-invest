@@ -44,6 +44,12 @@ export type ItemVitrine = {
   /** Quantas fotos o vendedor subiu. 0 quando a imagem e a arte do catalogo. */
   nFotos: number
   /**
+   * As fotos do vendedor, na ordem. A vitrine precisa da LISTA (nao so da
+   * contagem) desde 12/09 pra navegar entre elas no proprio card -- antes
+   * mostrava `fotos[0]` e o selo dizia "6" sem jeito de ver as outras.
+   */
+  fotos: string[]
+  /**
    * Travada numa negociacao que ainda pode cair. Aparece na vitrine com o
    * cronometro em vez de sumir -- ver `CronometroLiberacao`.
    */
@@ -119,6 +125,7 @@ export async function buscarItensDaVitrine(
       ehCarta: true,
       fotoPropria: fotos.length > 0,
       nFotos: fotos.length,
+      fotos,
       travada: c.status !== 'disponivel',
       liberaEm: calcLiberaEm(c.status, c.status_em),
     }
@@ -136,6 +143,7 @@ export async function buscarItensDaVitrine(
     ehCarta: false,
     fotoPropria: true,
     nFotos: Array.isArray(p.fotos) ? p.fotos.length : 0,
+    fotos: Array.isArray(p.fotos) ? p.fotos.filter((u: unknown): u is string => typeof u === 'string' && !!u) : [],
     // Produto de loja nao passa por negociacao: ou tem estoque, ou nao esta aqui.
     travada: false,
     liberaEm: null,
