@@ -41,6 +41,9 @@ const getLojasAtivas = unstable_cache(
       .from('lojas')
       .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url, owner_user_id')
       .eq('status', 'ativa')
+      // `oculta` = loja de teste: funciona, mas nao se acha. Ver a migration
+      // 20260912180000_lojas_oculta.sql.
+      .neq('oculta', true)
       .limit(200)
     if (error) throw new Error(`[/lojas] falha ao buscar lojas: ${error.message}`)
 
@@ -63,7 +66,9 @@ const getLojasAtivas = unstable_cache(
 
     return { lojas, avaliacoes }
   },
-  ['lojas-ativas-v1'],
+  // -v2: a query passou a filtrar `oculta`. Chave nova porque a entrada v1
+  // ficaria servida com a loja oculta dentro ate o revalidate de 300s.
+  ['lojas-ativas-v2'],
   { revalidate: 300, tags: ['lojas'] },
 )
 

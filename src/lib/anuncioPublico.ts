@@ -105,7 +105,7 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
 
   const [donoRes, lojaRes, cartaRes] = await Promise.all([
     db.from('public_users').select('id, name, city, username').eq('id', a.user_id).limit(1),
-    db.from('lojas').select('id, nome, slug, logo_url, verificada, connect_charges_enabled, cidade, estado').eq('owner_user_id', a.user_id).eq('status', 'ativa').limit(1),
+    db.from('lojas').select('id, nome, slug, logo_url, verificada, connect_charges_enabled, cidade, estado').eq('owner_user_id', a.user_id).eq('status', 'ativa').neq('oculta', true).limit(1),
     a.card_id
       ? db.from('pokemon_cards').select('slug').eq('id', a.card_id).limit(1)
       : Promise.resolve({ data: null, error: null }),
