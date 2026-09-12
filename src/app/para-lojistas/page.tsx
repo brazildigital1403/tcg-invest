@@ -5,7 +5,8 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import ParaLojistasMotion from './ParaLojistasMotion'
-import { IconBolt } from '@/components/ui/Icons'
+import { IconBolt, IconShield, IconCard } from '@/components/ui/Icons'
+import BandeirasCartao from '@/components/ui/BandeirasCartao'
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
@@ -353,6 +354,24 @@ export default async function ParaLojistasPage() {
                   <div className="co-line"><span>Frete (PAC)</span><span>R$ 13,20</span></div>
                   <div className="co-total"><span>Total</span><b>R$ 263,10</b></div>
                 </div>
+
+                {/* ★ SELOS E BANDEIRAS (12/09/2026, item #16). O mock de
+                    checkout mostrava frete e total e nao dizia QUEM processa o
+                    pagamento nem que a Bynx nao guarda cartao -- que e
+                    justamente a duvida de quem vai confiar a propria venda a
+                    uma plataforma que nao conhece. Os mesmos selos do
+                    /carrinho e da /checkout, aqui em escala menor: o que o
+                    lojista ve na landing e o que o cliente dele vai ver de
+                    verdade.
+                    ★ O BandeirasCartao JA EXISTIA -- em setembro eu afirmei ao
+                    Du que nao havia bandeira nenhuma no projeto, e estava
+                    errada: procurei por "visa" e achei "visAo". */}
+                <div className="co-selos">
+                  <span><IconShield size={13} color="#22c55e" />Conexão segura</span>
+                  <span><IconShield size={13} color="#22c55e" />Processado por <b className="co-stripe">stripe</b></span>
+                  <span><IconCard size={13} color="#22c55e" />Cartão não fica na Bynx</span>
+                </div>
+                <div className="co-bandeiras"><BandeirasCartao /></div>
               </div>
             </div>
           </div>
@@ -651,6 +670,10 @@ const CSS = `
 .pl-root .co-line{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;color:var(--text-2)}
 .pl-root .co-total{display:flex;justify-content:space-between;font-size:14.5px;font-weight:800;border-top:1px solid var(--border);margin-top:4px;padding-top:9px}
 .pl-root .co-total b{color:var(--green)}
+.pl-root .co-selos{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
+.pl-root .co-selos span{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-2)}
+.pl-root .co-stripe{font-weight:800;letter-spacing:-.02em;color:#8b85ff}
+.pl-root .co-bandeiras{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:9px;opacity:.85}
 
 .pl-root .review{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px}
 .pl-root .rv-top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
