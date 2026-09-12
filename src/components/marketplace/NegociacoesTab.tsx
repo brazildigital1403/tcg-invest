@@ -10,6 +10,7 @@ import { transferirCartaAoComprador } from '@/lib/concluirCompra'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { authFetch } from '@/lib/authFetch'
 import { estaEncerrado } from '@/lib/marketplaceStatus'
+import { mudarStatusAnuncio } from '@/lib/marketplaceAcao'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -151,7 +152,8 @@ function NegociacaoCard({ card, role, onAction, userId }: {
       description: 'O comprador será notificado para confirmar o recebimento.',
     })
     if (!ok) return
-    await supabase.from('marketplace').update({ status: 'enviado' }).eq('id', card.id)
+    const r = await mudarStatusAnuncio(card.id, 'enviar')
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel confirmar o envio.', 'error'); return }
 
     await dispararMarco(card.id, 'enviado')
 
@@ -178,7 +180,8 @@ function NegociacaoCard({ card, role, onAction, userId }: {
     }
 
     // Conclui anúncio
-    await supabase.from('marketplace').update({ status: 'concluido' }).eq('id', card.id)
+    const rc = await mudarStatusAnuncio(card.id, 'concluir')
+    if (!rc.ok) { showAlert(rc.erro || 'Nao foi possivel concluir a compra.', 'error'); return }
 
     await dispararMarco(card.id, 'concluido')
 
@@ -195,7 +198,8 @@ function NegociacaoCard({ card, role, onAction, userId }: {
       description: 'O anúncio voltará para a vitrine como disponível.',
     })
     if (!ok) return
-    await supabase.from('marketplace').update({ status: 'disponivel', buyer_id: null }).eq('id', card.id)
+    const r = await mudarStatusAnuncio(card.id, 'liberar')
+    if (!r.ok) { showAlert(r.erro || 'Nao foi possivel cancelar a negociacao.', 'error'); return }
     onAction()
   }
 
