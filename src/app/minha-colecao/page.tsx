@@ -142,6 +142,16 @@ export default function MinhaColecao() {
             fmtPreco(precos.medio),
             fmtPreco(precos.max),
             valorTotal,
+            // ★ 12/09: esta coluna FALTAVA. O cabecalho declara 12 colunas com
+            // 'Link' na 11a posicao, e o corpo emitia 11 pulando direto pro
+            // addedAt -- entao TODO CSV exportado saia com a data embaixo de
+            // "Link", e as duas ultimas colunas desalinhadas em relacao ao
+            // titulo. Nao era coluna a menos: era dado na coluna errada, num
+            // arquivo que so o assinante Pro baixa.
+            // O slug ja vinha no payload: CARD_FIELDS do /api/cards/lookup o
+            // inclui desde 04/09, com o comentario "sem ele quem consome o
+            // lookup nao consegue LINKAR a carta".
+            c.price?.slug ? `https://bynx.gg/carta/${c.price.slug}` : '',
             addedAt,
           ]
         })
