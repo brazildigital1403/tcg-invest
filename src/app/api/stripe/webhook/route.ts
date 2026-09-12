@@ -1000,6 +1000,69 @@ export async function POST(req: NextRequest) {
       // ────────────────────────────────────────────────────────────────────
       // INVOICE.PAYMENT_SUCCEEDED — renovação (Pro user OU Lojista)
       // ────────────────────────────────────────────────────────────────────
+      /**
+       * A sessao de checkout venceu sem pagamento -- abandono de carrinho.
+       *
+       * ★ POR QUE ISTO NAO EXISTIA (12/09/2026). O webhook tratava 8 eventos e
+       * este nao era um deles, entao o pedido criado no `checkout` ficava em
+       * `aguardando_pagamento` PARA SEMPRE. A sessao da Stripe vence em 24h,
+       * ou seja, sao linhas mortas apresentadas como vivas: medidos 3 pedidos
+       * nesse estado, R$ 1.491 somados, o mais velho com 54 DIAS.
+       *
+       * ★ QUEM VE E O COMPRADOR, nao o lojista: o painel da loja ja filtra
+       * `aguardando_pagamento` ("pedido nao pago nao interessa ao lojista",
+       * api/lojas/[id]/pedidos:33), mas o /compras mostra e ainda conta como
+       * "em andamento". Quem desistiu de uma compra ha dois meses segue vendo
+       * uma cobranca fantasma na lista dele.
+       *
+       * ★ Os 3 de hoje sao internos (o irmao do Du e o proprio Du). Ninguem
+       * de fora foi atingido AINDA -- isto e conserto de bug latente, e ele
+       * morde no primeiro abandono real.
+       *
+       * ★ IDEMPOTENTE e ESTREITO: so mexe em pedido que ainda esta
+       * `aguardando_pagamento`. A Stripe re-entrega evento, e um pedido pago
+       * por outro caminho nao pode ser cancelado por um expired atrasado.
+       * Nenhum dinheiro se move aqui: nao houve cobranca pra estornar.
+       *
+       * ★ DEPENDE DE UMA ACAO NO PAINEL DA STRIPE: o endpoint precisa ter
+       * `checkout.session.expired` entre os eventos habilitados, senao ela
+       * simplesmente nao envia e este bloco nunca roda.
+       */
+      case 'checkout.session.expired': {
+        // `Stripe.Checkout.Session` e nao `Stripe.CheckoutSession`: o segundo
+        // aparece 2x neste arquivo e os 2 JA SAO erro de tipo no baseline. Nao
+        // corrigi os antigos (fora de escopo), mas nao replico o erro aqui.
+        const session = event.data.object as Stripe.Checkout.Session
+        const pedidoId = session.metadata?.bynx_pedido_id
+        if (!pedidoId) break
+
+        const { data: mexeu, error: errExp } = await supabase
+          .from('pedidos')
+          .update({
+            status: 'cancelado',
+            cancelado_em: new Date().toISOString(),
+            cancelado_por: 'sistema',
+            cancelamento_motivo: 'O pagamento nao foi concluido e o prazo da sessao venceu.',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', pedidoId)
+          .eq('status', 'aguardando_pagamento')
+          .select('id, numero')
+
+        if (errExp) {
+          console.error(`[webhook] session.expired: pedido ${pedidoId}:`, errExp.message)
+          break
+        }
+        // Zero linhas nao e erro: o pedido ja foi pago ou ja tinha sido
+        // cancelado. E a re-entrega da Stripe batendo em porta fechada.
+        if (!mexeu?.length) {
+          console.log(`[webhook] session.expired: pedido ${pedidoId} ja nao estava aguardando`)
+          break
+        }
+        console.log(`[webhook] session.expired: pedido #${mexeu[0].numero} cancelado por falta de pagamento`)
+        break
+      }
+
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice
         if (!invoice.subscription) break
