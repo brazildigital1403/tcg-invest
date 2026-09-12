@@ -24,6 +24,8 @@ export interface LojaFull extends LojaFormData {
   created_at: string
   /** Recebimentos ativos no Connect. Decide se o produto chega na vitrine. */
   connect_charges_enabled: boolean | null
+  /** Loja de teste: funciona igual, mas nao aparece em superficie publica. */
+  oculta: boolean | null
 }
 
 // ─── Trilha (breadcrumb) da loja ─────────────────────────────────────────────

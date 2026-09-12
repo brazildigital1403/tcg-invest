@@ -144,7 +144,21 @@ function StatusCard({ loja, onDesativar, onReativar }: { loja: LojaFull; onDesat
     <div style={{ ...SH.card, borderColor: cfg.borderColor, background: cfg.bg }}>
       <h3 style={SH.cardH3}>Status da loja</h3>
       <span style={{ ...S.badge, color: cfg.color, background: cfg.badgeBg, border: `1px solid ${cfg.borderColor}` }}>{cfg.label}</span>
-      <p style={S.desc}>{cfg.description}</p>
+      {/* ★ `oculta` e um eixo separado do `status` (migration 20260912180000), e
+          o texto do STATUS_CONFIG nao sabe dela: numa loja oculta ele diz "esta
+          visivel no Guia e pode ser encontrada pelos colecionadores", que e o
+          oposto da verdade. Como o card e justamente onde o dono confere se a
+          loja esta no ar, deixar a frase velha ali seria o mesmo erro que o
+          aviso do /produtos cometia. */}
+      {loja.oculta ? (
+        <p style={S.desc}>
+          Sua loja funciona normalmente — painel, produtos, recebimentos e checkout —, mas está
+          <b style={{ color: 'var(--bx-text)' }}> fora do Guia, da busca e da página pública</b>.
+          É um estado de teste, definido pela equipe Bynx.
+        </p>
+      ) : (
+        <p style={S.desc}>{cfg.description}</p>
+      )}
       {loja.status === 'suspensa' && motivo && <p style={S.motivo}><strong>Motivo:</strong> {motivo}</p>}
       <div style={S.actions}>
         {loja.status === 'ativa' && <button type="button" onClick={onDesativar} style={SH.btnGhost}>Desativar temporariamente</button>}
