@@ -1470,15 +1470,26 @@ export async function sendRecebimentosParadosEmail(args: {
   const loja = escapeHtml(args.loja || 'sua loja')
   const quantos = escapeHtml(args.quantos)
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/pagamentos`, 'loja_connect_parado', 'cta-button')
-  const html = baseLayout(`
+  // ★ enviarNurture e NAO enviar (corrigido 12/09, depois de eu ja ter
+  // disparado 2 assim). Este email nao e transacional: ninguem pediu por ele,
+  // ele existe porque a Bynx quer que a loja ative o Connect. Isso e
+  // relacionamento, e relacionamento respeita o opt-out, leva o rodape de
+  // descadastro e os dois cabecalhos do RFC 8058. Sem isso o Gmail passa a ver
+  // um remetente que insiste sem saida -- o oposto do que a infra de
+  // descadastro desta casa foi construida pra garantir.
+  const montarHtml = (rodape: string) => baseLayout(`
     ${badge('Sua loja', '#f59e0b', '')}
     ${h1('Ninguém consegue comprar de você 🔌')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
     ${p(`A <b style="color:#f0f0f0;">${loja}</b> tem <b style="color:#f0f0f0;">${quantos}</b> à venda na Bynx. ${um ? 'Ele aparece' : 'Eles aparecem'} normalmente para quem visita — mas sem o botão de comprar, porque os seus recebimentos nunca foram ativados. O cliente só consegue entrar em contato.`)}
     ${p('Ativar não custa nada: você preenche CNPJ ou CPF e a conta bancária direto na Stripe, em uns 3 minutos. O dinheiro de cada venda cai nessa conta, e a Bynx nunca vê esses dados.')}
-    ${btn('Ativar recebimentos →', url)}
+    ${btn('Ativar recebimentos →', url)}${rodape}
   `, `${args.loja}: ${args.quantos} à venda sem botão de comprar`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`🔌 ${args.quantos} da ${args.loja} sem botão de comprar`), html })
+  return enviarNurture({
+    from: FROM, to: args.to,
+    subject: subjUser(`🔌 ${args.quantos} da ${args.loja} sem botão de comprar`),
+    montarHtml,
+  })
 }
 
 export async function sendNegociacaoExpirandoEmail(args: {
