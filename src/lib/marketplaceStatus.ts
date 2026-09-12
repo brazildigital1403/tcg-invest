@@ -29,6 +29,21 @@ export const STATUS_EXPIRAVEIS = ['reservado', 'em_negociacao'] as const
 export const STATUS_EM_NEGOCIACAO = ['reservado', 'em_negociacao', 'enviado'] as const
 
 /**
+ * O anuncio OCUPA UMA VAGA do plano: esta no ar ou travado com um comprador.
+ *
+ * ★ Lista POSITIVA de proposito. O `checkMarketplaceLimit` era o 7o lugar com
+ * a lista cravada a mao, escrita como negacao (`not in (cancelado, concluido)`)
+ * -- e divergia no mesmo ponto de sempre, `vendido`, que assim ocupava vaga pra
+ * sempre depois de uma venda concluida pelo Connect.
+ *
+ * ★ E vaga so conta anuncio VIVO: quem le isto tem que filtrar
+ * `removido_em is null` junto. Medido em 12/09: 2 usuarios do plano Gratis
+ * estavam impedidos de anunciar por anuncios que eles PROPRIOS removeram --
+ * um deles com 7 removidos desde 25/08 e nenhum no ar.
+ */
+export const STATUS_OCUPAM_VAGA = ['disponivel', 'reservado', 'em_negociacao', 'enviado'] as const
+
+/**
  * Quanto tempo um anuncio pode ficar parado antes de voltar pro marketplace.
  *
  * ★ 72h, e o numero saiu dos dados, nao de chute. Em 08/09 os travados
