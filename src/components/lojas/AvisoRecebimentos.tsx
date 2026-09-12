@@ -56,11 +56,19 @@ export default function AvisoRecebimentos({
     if (!desligado) return
     let vivo = true
     async function contar() {
+      // ★ `removido_em` e `ativo` NAO podem faltar. Sem eles a conta inclui o
+      //   que o proprio lojista ja tirou do ar, e a faixa diria "os seus 3
+      //   anuncios estao no ar" pra quem nao tem nenhum -- o erro que este
+      //   componente existe pra nao cometer. Todo leitor publico filtra os
+      //   dois (anuncioPublico:95, ofertasDaCarta:89, marketplace:998); esta
+      //   contagem tem que enxergar o mesmo que o comprador enxerga.
       const [a, p] = await Promise.all([
         supabase.from('marketplace').select('id', { count: 'exact', head: true })
-          .eq('user_id', ownerUserId).eq('status', 'disponivel'),
+          .eq('user_id', ownerUserId).eq('status', 'disponivel')
+          .is('removido_em', null),
         supabase.from('loja_produtos').select('id', { count: 'exact', head: true })
-          .eq('loja_id', lojaId).gt('estoque', 0),
+          .eq('loja_id', lojaId).gt('estoque', 0)
+          .eq('ativo', true),
       ])
       // Falha de contagem esconde a faixa em vez de mostrar "0 anuncios":
       // avisar com numero errado e pior do que nao avisar.
