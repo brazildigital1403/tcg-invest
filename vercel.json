@@ -23,6 +23,10 @@
     {
       "path": "/api/cron-marketplace-expira",
       "schedule": "0 15,21 * * *"
+    },
+    {
+      "path": "/api/cron-loja-trial",
+      "schedule": "0 13 * * *"
     }
   ],
   "functions": {
@@ -42,6 +46,9 @@
       "maxDuration": 60
     },
     "src/app/api/cron-marketplace-expira/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/cron-loja-trial/route.ts": {
       "maxDuration": 30
     }
   }

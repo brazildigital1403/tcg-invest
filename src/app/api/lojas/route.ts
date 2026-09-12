@@ -15,6 +15,7 @@ import { createClient } from '@supabase/supabase-js'
  *   owner_user_id = user.id (do Bearer token)
  *   status        = 'pendente' (aguarda moderação do admin)
  *   plano         = 'pro'      (trial de 14 dias)
+ *   plano_expira_em = agora + 14d  (NULL so quando o admin concede permanente)
  *   verificada    = false
  *
  * Regras:
@@ -128,7 +129,20 @@ export async function POST(req: NextRequest) {
       ...filteredBody,
       owner_user_id: user.id,
       status: 'pendente',
-      plano: 'pro',          // trial Pro 14 dias
+      plano: 'pro',
+      // ★ A DATA DE FIM DO TRIAL PASSOU A SER GRAVADA (12/09/2026). O comentario
+      //   aqui dizia "trial Pro 14 dias" e a loja nascia Pro SEM nenhuma data:
+      //   nada, em lugar nenhum, a rebaixava depois. Resultado medido antes de
+      //   consertar -- 11 lojas em Pro/Premium sem assinatura, a mais antiga ha
+      //   109 DIAS, e o FAQ prometendo "ao fim do trial sua loja continua no
+      //   plano Basico". Prometia e nao executava.
+      //
+      //   ★ SEMANTICA DE `plano_expira_em`, que o admin ja usava e agora vale
+      //   pro cadastro tambem:
+      //     data  -> expira nela (trial)
+      //     NULL  -> PERMANENTE, decisao do Du no /admin/lojas
+      //   Por isso a expiracao nunca toca em NULL: plano liberado a mao fica.
+      plano_expira_em: new Date(Date.now() + 14 * 24 * 3600_000).toISOString(),
       verificada: false,
     }
 
