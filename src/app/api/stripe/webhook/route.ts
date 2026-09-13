@@ -76,6 +76,16 @@ function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): number | n
   return null
 }
 
+// A basil tirou `invoice.subscription`: a assinatura mora em
+// `parent.subscription_details.subscription`. O SDK instalado ainda tipa o campo
+// antigo, entao o tsc nao avisa -- em runtime ele chega undefined. Foi assim que
+// as renovacoes de ago e set/2026 sairam no `break` sem renovar nem lancar receita.
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const sub = (invoice as any).parent?.subscription_details?.subscription ?? (invoice as any).subscription
+  if (!sub) return null
+  return typeof sub === 'string' ? sub : sub.id
+}
+
 async function extrairPaymentIntentDeInvoice(
   stripe: Stripe,
   invoice: Stripe.Invoice
@@ -1065,10 +1075,11 @@ export async function POST(req: NextRequest) {
 
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice
-        if (!invoice.subscription) break
+        const subId = getInvoiceSubscriptionId(invoice)
+        if (!subId) break
 
         try {
-          const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string)
+          const subscription = await stripe.subscriptions.retrieve(subId)
           const priceId = subscription.items.data[0]?.price.id || ''
           const periodEnd = getSubscriptionPeriodEnd(subscription)
           const novaExpiraEm = periodEnd ? new Date(periodEnd * 1000).toISOString() : null
@@ -1081,7 +1092,7 @@ export async function POST(req: NextRequest) {
             const { data: loja } = await supabase
               .from('lojas')
               .select('id')
-              .eq('stripe_subscription_id', invoice.subscription as string)
+              .eq('stripe_subscription_id', subId)
               .limit(1)
 
             if (loja?.[0]?.id) {
@@ -1089,9 +1100,9 @@ export async function POST(req: NextRequest) {
                 plano: lojistaTier,
                 ...(novaExpiraEm ? { plano_expira_em: novaExpiraEm } : {}),
               }).eq('id', loja[0].id)
-              console.log(`[webhook] Renovação Lojista ${lojistaTier} — sub ${invoice.subscription} (expira ${novaExpiraEm || '?'})`)
+              console.log(`[webhook] Renovação Lojista ${lojistaTier} — sub ${subId} (expira ${novaExpiraEm || '?'})`)
             } else {
-              console.warn(`[webhook] Renovação Lojista — loja não encontrada pra sub ${invoice.subscription}`)
+              console.warn(`[webhook] Renovação Lojista — loja não encontrada pra sub ${subId}`)
             }
 
             // Pula lançamento na 1ª cobrança (já cobre via checkout) e em trials
@@ -1116,13 +1127,32 @@ export async function POST(req: NextRequest) {
 
           // ─── Renovação Pro/Plus usuário ───
           const isPlusUser = priceId === process.env.STRIPE_PRICE_PLUS
-          await supabase.from('users').update({
+          const patchRenovacao = {
             is_pro: !isPlusUser,
             ...(isPlusUser ? { plano: 'plus' } : {}),
             ...(novaExpiraEm ? { pro_expira_em: novaExpiraEm } : {}),
-          }).eq('stripe_subscription_id', invoice.subscription)
+          }
+          const { data: renovados } = await supabase.from('users')
+            .update(patchRenovacao)
+            .eq('stripe_subscription_id', subId)
+            .select('id')
 
-          console.log(`[webhook] Renovação Pro user — sub ${invoice.subscription} (expira ${novaExpiraEm || '?'})`)
+          // ★ ID divergente (13/09/2026). As assinaturas duplicadas de julho deixaram
+          // no banco o ID de uma que foi cancelada, e a que seguiu cobrando nunca
+          // casava: o usuario pagou ago e set e o app tratou como Gratis. Fatura
+          // PAGA prova que esta assinatura e a viva -- religa pelo customer.
+          if (!renovados?.length) {
+            const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
+            if (customerId) {
+              const { data: religados } = await supabase.from('users')
+                .update({ ...patchRenovacao, stripe_subscription_id: subId })
+                .eq('stripe_customer_id', customerId)
+                .select('id')
+              console.warn(`[webhook] Renovação Pro user — sub ${subId} não casava; religada pelo customer ${customerId} (${religados?.length || 0} user)`)
+            }
+          }
+
+          console.log(`[webhook] Renovação Pro user — sub ${subId} (expira ${novaExpiraEm || '?'})`)
 
           if (invoice.billing_reason === 'subscription_create') break
 
@@ -1131,7 +1161,7 @@ export async function POST(req: NextRequest) {
           const { data: userData } = await supabase
             .from('users')
             .select('id')
-            .eq('stripe_subscription_id', invoice.subscription as string)
+            .eq('stripe_subscription_id', subId)
             .limit(1)
 
           const piId = await extrairPaymentIntentDeInvoice(stripe, invoice)
@@ -1148,7 +1178,7 @@ export async function POST(req: NextRequest) {
           // ── Programa de Parceiros: renovação comissiona dentro da janela ──
           try {
             await registrarRenovacaoParceiro(supabase, {
-              subscriptionId: invoice.subscription as string,
+              subscriptionId: subId,
               plano: planoTag,
               amountPaidCents: invoice.amount_paid || 0,
               paymentIntentId: piId,
@@ -1244,19 +1274,20 @@ export async function POST(req: NextRequest) {
       // cancelar a sub. Apenas log crítico pra acompanhamento manual.
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
-        console.error(`[webhook] CRITICAL: payment_failed — invoice ${invoice.id} sub ${invoice.subscription} customer ${invoice.customer} amount ${invoice.amount_due}`)
+        const subFalhaId = getInvoiceSubscriptionId(invoice)
+        console.error(`[webhook] CRITICAL: payment_failed — invoice ${invoice.id} sub ${subFalhaId} customer ${invoice.customer} amount ${invoice.amount_due}`)
         try {
-          if (invoice.subscription) {
+          if (subFalhaId) {
             const { data: u } = await supabase
               .from('users')
               .select('email, name')
-              .eq('stripe_subscription_id', invoice.subscription as string)
+              .eq('stripe_subscription_id', subFalhaId)
               .limit(1)
             if (u?.[0]?.email) {
               await sendPaymentFailedEmail(u[0].email, u[0].name || '').catch(console.error)
               console.log(`[webhook] dunning enviado para ${u[0].email}`)
             } else {
-              console.warn(`[webhook] payment_failed sem user para sub ${invoice.subscription}`)
+              console.warn(`[webhook] payment_failed sem user para sub ${subFalhaId}`)
             }
           }
         } catch (err: any) {
