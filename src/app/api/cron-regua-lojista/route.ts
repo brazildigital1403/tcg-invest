@@ -93,6 +93,12 @@ export async function GET(req: NextRequest) {
       .select('id, nome, slug, owner_user_id, plano, plano_expira_em, created_at, updated_at, logo_url, descricao, fotos, connect_charges_enabled, instagram, facebook, tiktok, youtube, twitter, discord')
       .eq('status', 'ativa')
       .neq('oculta', true)
+      // A loja da casa nao entra na regua (decisao do Du, 12/09). A simulacao
+      // da primeira passada mandaria "Sua loja esta sem cara" pra propria Bynx.
+      // Nao da pra usar `oculta`: ela e vitrine publica e precisa aparecer no
+      // guia. Por slug e nao por id porque e o nome que se reconhece; se um dia
+      // o slug mudar, a loja volta a receber -- falha visivel, nao silenciosa.
+      .neq('slug', 'bynx')
       .limit(500)
 
     // ★ Falha de leitura NAO vira "nada a fazer": o cron reportaria ok todo dia
