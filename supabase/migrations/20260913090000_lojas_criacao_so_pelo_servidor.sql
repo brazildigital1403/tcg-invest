@@ -1,0 +1,28 @@
+-- Criacao de loja SO pela rota do servidor (/api/lojas, chave de servico).
+--
+-- ★ A BRECHA (achada 13/09/2026 por um agente advogado do diabo e conferida no
+-- banco vivo). O papel `authenticated` tinha permissao de INSERT em TODAS as
+-- colunas de `lojas`, e a unica regra de acesso de criacao
+-- (lojas_insert_owner) so conferia owner_user_id = auth.uid(). Nenhum gatilho
+-- corrigia valores na gravacao. Resultado: qualquer usuario logado podia
+-- chamar a REST com a chave publica e criar uma loja ja com
+--   status='ativa'             -> pulava a moderacao
+--   plano='premium', plano_expira_em=null -> Premium permanente, fora do cron
+--   verificada=true            -> selo azul sem aprovacao
+--   connect_charges_enabled=true -> botao "Comprar" pra loja que nao recebe
+-- O ultimo e vetor de golpe, nao so de plano gratis.
+--
+-- ★ POR QUE REVOGAR E NAO FILTRAR COLUNA. O unico lugar do codigo que cria
+-- loja e src/app/api/lojas/route.ts, que usa chave de servico (conferido: o
+-- FormLoja faz POST pra essa rota; nenhuma tela insere em lojas). Entao o
+-- navegador nao precisa de INSERT nenhum, e tirar a permissao inteira fecha
+-- tambem qualquer coluna nova que entrar no futuro.
+--
+-- ★ NAO USADA: conferido 13/09 -- nenhuma loja ativa sem aprovacao alem da
+-- Vulcano (ativada a mao, de teste), nenhuma recebendo sem conta Stripe,
+-- nenhuma assinatura falsa, as 5 verificadas tem data de aprovacao.
+--
+-- A edicao ja estava protegida: `authenticated` so tem UPDATE em `status`, e
+-- a regra lojas_update_owner so aceita 'inativa' ou 'pendente'.
+
+revoke insert on table public.lojas from anon, authenticated;
