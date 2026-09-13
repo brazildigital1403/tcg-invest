@@ -132,8 +132,13 @@ export default function TcgconClient() {
 
       <header className="tc-top">
         <div className="bx-gutter tc-top-row">
-          <img src="/logo_BYNX.png" alt="Bynx" className="tc-logo" />
-          <span className="tc-live"><span className="tc-dot" aria-hidden="true" />Oferta TCG CON</span>
+          {/* Logo do evento usado com autorizacao da organizacao da TCG CON (confirmado pelo Du em 13/09). */}
+          <div className="tc-brands">
+            <img src="/logo_BYNX.png" alt="Bynx" className="tc-logo" />
+            <span className="tc-x" aria-hidden="true">×</span>
+            <img src="/eventos/tcgcon-logo.svg" alt="TCG CON" width={45} height={36} className="tc-logo-evento" />
+          </div>
+          <span className="tc-live"><span className="tc-dot" aria-hidden="true" />Oferta do evento</span>
         </div>
         {!encerrada && (
           <div className="tc-timer" aria-live="off">
@@ -316,7 +321,7 @@ export default function TcgconClient() {
               <footer className="tc-fine">
                 Oferta válida só em 13/09/2026, até 23h59 (horário de Brasília), uma por conta e só para quem nunca assinou a Bynx. O desconto de 30% vale para a 1ª cobrança do plano Pro Anual (R$ 174,30, pagamento único referente a 12 meses). Renovação automática: depois de 12 meses, cobramos R$ 249/ano; você cancela a renovação quando quiser em Minha Conta, sem multa, e mantém o acesso até o fim do período pago. Arrependimento: até 7 dias após a compra, devolvemos 100% do valor (CDC art. 49). Esta oferta não inclui teste grátis: a conta é liberada após o pagamento. Compra permitida só para maiores de 18 anos ou com autorização do responsável legal.
                 <br /><br />
-                Pokémon e seus nomes e marcas são propriedade de The Pokémon Company, Nintendo, Creatures e GAME FREAK. A Bynx é independente e não é afiliada, patrocinada nem endossada por essas empresas. Ação independente da Bynx, sem vínculo com a organização da TCG CON.{' '}
+                Pokémon e seus nomes e marcas são propriedade de The Pokémon Company, Nintendo, Creatures e GAME FREAK. A Bynx é independente e não é afiliada, patrocinada nem endossada por essas empresas. Marca TCG CON usada com autorização da organização do evento.{' '}
                 <a href="/termos">Termos de Uso</a> · <a href="/privacidade">Privacidade</a>
               </footer>
             </div>
@@ -343,6 +348,9 @@ const CSS = `
 .tc-top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bx-bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--bx-border)}
 .tc-top-row{display:flex;align-items:center;justify-content:space-between;height:56px;max-width:608px;margin:0 auto}
 .tc-logo{height:26px;width:auto;display:block}
+.tc-brands{display:flex;align-items:center;gap:10px;min-width:0}
+.tc-x{font-size:14px;color:var(--bx-text-3);line-height:1}
+.tc-logo-evento{height:36px;width:auto;display:block}
 .tc-live{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--bx-text-2)}
 .tc-dot{width:8px;height:8px;border-radius:50%;background:var(--bx-red);animation:tc-pulse 1.6s ease infinite}
 @keyframes tc-pulse{0%{box-shadow:0 0 0 0 rgba(var(--ac-2-rgb),.55)}70%{box-shadow:0 0 0 8px rgba(var(--ac-2-rgb),0)}100%{box-shadow:0 0 0 0 rgba(var(--ac-2-rgb),0)}}
