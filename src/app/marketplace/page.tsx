@@ -1150,7 +1150,12 @@ function MarketplaceInner() {
   })
   const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior' | 'desconto'>('recente')
   // Lentes de descoberta da barra principal (eixo separado dos filtros avançados)
-  const [discovery, setDiscovery] = useState<'' | 'ofertas' | 'bompreco' | 'graduadas' | 'novidades' | 'perto' | 'lojas'>('')
+  // `?filtro=graduadas` abre ja na lente de graduadas: e o destino do botao
+  // "Graduadas a venda" da /cartas-graduadas. Mesmo padrao do `?q=` acima.
+  const [discovery, setDiscovery] = useState<'' | 'ofertas' | 'bompreco' | 'graduadas' | 'novidades' | 'perto' | 'lojas'>(() => {
+    if (typeof window === 'undefined') return ''
+    return new URL(window.location.href).searchParams.get('filtro') === 'graduadas' ? 'graduadas' : ''
+  })
 
   const mesmaCidade = (c: any) => !!userCity && !!c.seller_city && normCidade(c.seller_city) === normCidade(userCity)
 

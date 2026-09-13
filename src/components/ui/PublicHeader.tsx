@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import {
-  IconSearch, IconChevronDown, IconPokedex, IconScan, IconAccount, IconArticle,
+  IconSearch, IconChevronDown, IconPokedex, IconScan, IconAccount, IconArticle, IconShield,
 } from '@/components/ui/Icons'
 import LinkCarrinho from '@/components/ui/LinkCarrinho'
 
@@ -77,6 +77,7 @@ const EXPLORAR_FERRAMENTAS = [
   { href: '/scan-ia', label: 'Scan IA', sub: 'Escaneie e catalogue', Icon: IconScan },
   { href: '/separadores-pokemon', label: 'Separadores', sub: 'Organize suas pastas', Icon: IconSeparador },
   { href: '/fichario-lendario', label: 'Páginas Lendárias', sub: 'Fundo contínuo pro fichário', Icon: IconLendariasMini },
+  { href: '/cartas-graduadas', label: 'Cartas graduadas', sub: 'Notas, graduadoras e Black Label', Icon: IconShield },
 ]
 const EXPLORAR_COMUNIDADE = [
   { href: '/colecionadores', label: 'Colecionadores', sub: 'Perfis e coleções', Icon: IconAccount },

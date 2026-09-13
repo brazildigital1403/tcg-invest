@@ -50,7 +50,7 @@ const ITENS: [string, string][] = [
   ['Valor da peça graduada', ', separado do preço da carta crua'],
 ]
 
-export default function MonteSeuSlab() {
+export default function MonteSeuSlab({ guiaHref }: { guiaHref?: string } = {}) {
   const [slug, setSlug] = useState('psa')
   const [nota, setNota] = useState(10)
   const [blackLabel, setBlackLabel] = useState(false)
@@ -199,6 +199,7 @@ export default function MonteSeuSlab() {
 
           <p className="mss-cap">Exemplo ilustrativo. Na coleção, a carta ganha a moldura na cor da graduadora.</p>
           <Link href={SIGNUP} className="mss-cta">Cadastrar minha graduada →</Link>
+          {guiaHref && <Link href={guiaHref} className="mss-guia">Guia completo das cartas graduadas →</Link>}
         </div>
       </div>
 
@@ -298,6 +299,7 @@ const CSS = `
 .mss-cap{font-size:12.5px;color:var(--bx-text-3);text-align:center;margin:0}
 .mss-cta{display:inline-flex;align-items:center;justify-content:center;min-height:48px;font-size:15px;font-weight:800;padding:13px 22px;border-radius:12px;background:var(--bx-brand);color:var(--bx-brand-ink);text-decoration:none;transition:transform .15s ease,box-shadow .15s ease}
 .mss-cta:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(239,68,68,.35)}
+.mss-guia{display:inline-flex;align-items:center;min-height:44px;font-size:14px;font-weight:700;color:var(--ac-1);text-decoration:none}
 .mss button:focus-visible,.mss input:focus-visible,.mss-cta:focus-visible{outline:2px solid var(--ac-1);outline-offset:2px}
 
 .mss-lista{list-style:none;padding:0;margin:44px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px 22px}

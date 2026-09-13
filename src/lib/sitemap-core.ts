@@ -39,6 +39,9 @@ export const STATIC_ROUTES: StaticRoute[] = [
   { path: '/para-lojistas', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/separadores-pokemon', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/colecionadores', changeFrequency: 'monthly', priority: 0.85 },
+  // Guia de cartas graduadas (13/09/2026, aprovado pelo Du). Pagina unica,
+  // ISR de 1h, uma consulta pequena em marketplace.
+  { path: '/cartas-graduadas', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/pokedex-pokemon-tcg', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/scan-ia', changeFrequency: 'monthly', priority: 0.85 },
   // Landing publica do Fichario Lendario. Mesma prioridade das outras
