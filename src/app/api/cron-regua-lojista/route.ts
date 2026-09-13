@@ -64,6 +64,8 @@ type Passo = {
   email: (u: { email: string; name: string | null }, vez: number) => Promise<unknown>
   /** Quantos dias ate poder repetir. 0 = uma vez e so. */
   repete?: number
+  /** Sino do 2o aviso em diante. Sem isso, o passo que repete mostra sempre o mesmo. */
+  lembrete?: { titulo: string; mensagem: string }
 }
 
 function sb() {
@@ -172,6 +174,10 @@ export async function GET(req: NextRequest) {
           mensagem: `A ${l.nome} tem ${quantos} à venda, mas sem o botão de comprar: os recebimentos nunca foram ativados.`,
           link: `${base}/pagamentos`,
           repete: REPETE_CONNECT_DIAS,
+          lembrete: {
+            titulo: 'Falta um passo para a sua loja vender',
+            mensagem: `A ${l.nome} continua com ${quantos} à venda e sem botão de comprar. Só falta ativar os recebimentos.`,
+          },
           email: (u, vez) => sendRecebimentosParadosEmail({
             to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, quantos, total: itens, vez,
             exemplo: exemplo?.card_name || null,
@@ -268,6 +274,8 @@ export async function GET(req: NextRequest) {
         if (!passo.repete || esperou < passo.repete) { pulados++; continue }
       }
       const vez = (count || 0) + 1
+      // O sino segue o email: do 2o aviso em diante, texto de lembrete.
+      const sinoTexto = vez >= 2 && passo.lembrete ? passo.lembrete : passo
 
       // ★ Insert direto em vez de `notify`: preciso do id de volta pra, se o
       //   email sair, MARCAR ESTA MESMA linha. A primeira versao criava uma
@@ -275,7 +283,7 @@ export async function GET(req: NextRequest) {
       //   apareceria no sino do lojista como lixo. Consertado antes de subir.
       const { data: sino } = await db.from('notifications').insert({
         user_id: l.owner_user_id, type: 'aviso', read: false,
-        title: passo.titulo, message: passo.mensagem,
+        title: sinoTexto.titulo, message: sinoTexto.mensagem,
         data: { link: passo.link, loja_id: l.id, regua: passo.chave },
       }).select('id').limit(1)
       sinos++
