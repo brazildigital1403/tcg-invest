@@ -9,15 +9,25 @@
 // O servidor aplica o cupom, zera o trial da conta nova e recusa depois das 23h59.
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { trackProUpgradeInitiated } from '@/lib/analytics'
 import { OFERTA_TCGCON, ofertaTcgconAtiva } from '@/lib/ofertaTcgcon'
 import {
-  IconScan, IconCollection, IconStar, IconShield, IconClock,
-  IconArrowRight, IconCheck, IconLocation, IconChart, IconCard,
+  IconScan, IconCollection, IconStar, IconShield, IconClock, IconArrowRight,
+  IconLocation, IconChart, IconCard, IconMarketplace, IconPokedex, IconDashboard,
+  IconImage, IconTag, IconDownload,
 } from '@/components/ui/Icons'
+
+// Hero mostra a Bynx inteira, sem eleger um recurso (pedido do Du).
+const PILARES = [
+  { Icon: IconCollection, t: 'Coleção sem limite', d: 'Cartas e pastas ilimitadas' },
+  { Icon: IconChart, t: 'Preço em real', d: 'Quanto vale cada carta' },
+  { Icon: IconScan, t: 'ScanIA ilimitado', d: 'Cataloga pela câmera' },
+  { Icon: IconMarketplace, t: 'Mercado', d: 'Anúncios ilimitados e lojas' },
+  { Icon: IconPokedex, t: 'Pokédex completa', d: 'Todo o catálogo liberado' },
+  { Icon: IconDashboard, t: 'Dashboard', d: 'Sua coleção em números' },
+]
 
 const FIM = Date.parse(OFERTA_TCGCON.fimISO)
 const brl = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -117,27 +127,17 @@ export default function TcgconClient() {
               <section className="tc-hero">
                 <span className="tc-eyebrow"><IconLocation size={13} />Pra quem está na TCG CON hoje</span>
                 <h1 className="tc-h">Pro Anual <span>pelo preço do Plus.</span></h1>
-                <p className="tc-sub">Aponta a câmera na sua carta e a Bynx cataloga e mostra quanto ela vale em real. Coleção ilimitada, scan ilimitado, o ano inteiro.</p>
+                <p className="tc-sub">A Bynx inteira liberada por 12 meses, sem limite: sua coleção, o preço de cada carta em real, o scan, o mercado e tudo que vier no ano.</p>
 
-                <div className="tc-scan">
-                  <div className="tc-cardart">
-                    <Image
-                      src="https://images.pokemontcg.io/swsh7/215.png"
-                      alt="Carta Umbreon VMAX escaneada"
-                      width={112}
-                      height={156}
-                      sizes="112px"
-                      priority
-                    />
-                    <span className="tc-scanline" aria-hidden="true" />
-                  </div>
-                  <div className="tc-res">
-                    <small>Carta escaneada</small>
-                    <div className="tc-v">R$ 7.990,00</div>
-                    <div className="tc-src">Mercado Brasileiro · referência de hoje</div>
-                    <span className="tc-ok"><IconCheck size={12} strokeWidth={2.6} />Catalogada pela câmera</span>
-                  </div>
-                </div>
+                <ul className="tc-pillars" aria-label="O que a Bynx faz">
+                  {PILARES.map(({ Icon, t, d }) => (
+                    <li key={t}>
+                      <span className="tc-ic"><Icon size={18} /></span>
+                      <b>{t}</b>
+                      <small>{d}</small>
+                    </li>
+                  ))}
+                </ul>
 
                 <div className="tc-price">
                   <div className="tc-plan">Bynx Pro Anual <span className="tc-off">-{OFERTA_TCGCON.descontoPct}% TCG CON</span></div>
@@ -167,12 +167,12 @@ export default function TcgconClient() {
               </section>
 
               <section className="tc-sec">
-                <h2>O que vem no Pro Anual</h2>
+                <h2>E ainda vem no Pro Anual</h2>
                 <ul className="tc-feat">
-                  <li><span className="tc-ic"><IconScan size={18} /></span><p>ScanIA ilimitado<small>Cataloga a pasta inteira pela câmera</small></p></li>
-                  <li><span className="tc-ic"><IconChart size={18} /></span><p>Preço em real, todo dia<small>Quanto vale sua coleção hoje</small></p></li>
-                  <li><span className="tc-ic"><IconCollection size={18} /></span><p>Coleção e pastas ilimitadas<small>Dashboard e exportar PDF/CSV</small></p></li>
-                  <li><span className="tc-ic"><IconStar size={18} /></span><p>Master Sets e Páginas Lendárias<small>Inclusos no anual. Avulso eles são pagos</small></p></li>
+                  <li><span className="tc-ic"><IconStar size={18} /></span><p>Todos os Master Sets<small>Inclusos no anual. Avulso eles são pagos</small></p></li>
+                  <li><span className="tc-ic"><IconImage size={18} /></span><p>Todas as Páginas Lendárias<small>Inclusas no anual. Avulso elas são pagas</small></p></li>
+                  <li><span className="tc-ic"><IconTag size={18} /></span><p>Separadores liberados<small>Pra imprimir e organizar suas pastas</small></p></li>
+                  <li><span className="tc-ic"><IconDownload size={18} /></span><p>Exportar PDF e CSV<small>Sua coleção inteira numa planilha</small></p></li>
                 </ul>
 
                 <div className="tc-proof">
@@ -234,16 +234,12 @@ const CSS = `
 .tc-h span{background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .tc-sub{font-size:15px;line-height:1.5;color:var(--bx-text-2);margin:0}
 
-.tc-scan{margin-top:18px;border-radius:16px;border:1px solid var(--bx-border);background:var(--bx-surface);padding:14px;display:grid;grid-template-columns:112px minmax(0,1fr);gap:14px;align-items:center}
-.tc-cardart{position:relative;width:112px;height:156px;border-radius:6px;overflow:hidden}
-.tc-cardart img{width:112px;height:156px;object-fit:cover;display:block}
-.tc-scanline{position:absolute;left:0;right:0;height:2px;background:var(--bx-green);box-shadow:0 0 12px var(--bx-green);animation:tc-scan 2.2s ease-in-out infinite}
-@keyframes tc-scan{0%,100%{top:6%}50%{top:92%}}
-.tc-res{min-width:0}
-.tc-res small{display:block;font-size:11px;color:var(--bx-text-3);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
-.tc-v{font-size:26px;font-weight:800;letter-spacing:-0.02em;margin:4px 0 2px;font-variant-numeric:tabular-nums}
-.tc-src{font-size:12px;color:var(--bx-text-2)}
-.tc-ok{display:inline-flex;align-items:center;gap:4px;margin-top:8px;font-size:12px;font-weight:600;color:var(--bx-green);background:color-mix(in srgb,var(--bx-green) 12%,transparent);padding:3px 8px;border-radius:999px}
+.tc-pillars{list-style:none;margin:18px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tc-pillars li{min-width:0;display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
+.tc-pillars .tc-ic{width:32px;height:32px;border-radius:9px;margin-bottom:8px}
+.tc-pillars b{font-size:14px;font-weight:600;line-height:1.25}
+.tc-pillars small{font-size:12px;line-height:1.35;color:var(--bx-text-2)}
+@media (min-width:520px){.tc-pillars{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 .tc-price{margin-top:18px;border-radius:18px;padding:18px;border:1px solid rgba(var(--ac-1-rgb),0.35);background:linear-gradient(180deg,rgba(var(--ac-1-rgb),0.10),rgba(var(--ac-2-rgb),0.04))}
 .tc-plan{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--bx-text-2)}
@@ -309,5 +305,5 @@ const CSS = `
 .tc-ghost:hover{background:var(--bx-surface-2)}
 
 @media (min-width:768px){.tc-top-row{max-width:608px}}
-@media (prefers-reduced-motion:reduce){.tc-dot,.tc-scanline{animation:none}.tc-scanline{display:none}.tc-cta{transition:none}}
+@media (prefers-reduced-motion:reduce){.tc-dot{animation:none}.tc-cta{transition:none}}
 `
