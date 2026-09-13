@@ -1642,12 +1642,41 @@ export async function sendRecebimentosParadosEmail(args: {
   /** Um item real da loja, pro comparativo de botao nao ser gerico. */
   exemplo?: string | null
   exemploPreco?: string | null
+  /** Qual aviso e este (1 = primeiro). A regua repete a cada 30 dias. */
+  vez?: number
   to: string; nome: string; loja: string; lojaId: string
 }) {
   const um = args.total === 1
   const first = primeiroNome(args.nome, 'lojista')
   const loja = escapeHtml(args.loja || 'sua loja')
   const quantos = escapeHtml(args.quantos)
+
+  // ★ Do segundo aviso em diante o texto MUDA (decisao do Du, 12/09). O mesmo
+  // email todo mes ensina a pessoa a ignorar -- e o caminho mais curto pro
+  // descadastro. O lembrete nao repete o comparativo de botao, que ela ja viu:
+  // mostra o que a loja JA tem pronto e que falta um item so.
+  if ((args.vez ?? 1) >= 2) {
+    const urlLembrete = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/pagamentos`, 'loja_connect_lembrete', 'cta-button')
+    const montarLembrete = (rodape: string) => baseLayout(`
+    ${badge('Sua loja', '#f59e0b', '')}
+    ${h1('Falta um passo para a sua loja vender 🔌')}
+    ${p(`Olá, ${escapeHtml(first)}.`)}
+    ${p(`Voltamos a escrever porque a <b style="color:#f0f0f0;">${loja}</b> continua do mesmo jeito: <b style="color:#f0f0f0;">${quantos}</b> à venda e nenhuma forma de o cliente comprar pela Bynx.`)}
+    ${checklist([
+      { feito: true, texto: `${quantos} ${um ? 'publicado' : 'publicados'}` },
+      { feito: true, texto: 'Página no Guia de Lojas' },
+      { feito: false, texto: 'Recebimentos ativados' },
+    ])}
+    ${p('É o único item que falta. São uns 3 minutos: CNPJ ou CPF e a conta bancária, preenchidos direto na Stripe. Não custa nada, e a Bynx nunca vê esses dados.')}
+    ${btn('Ativar recebimentos →', urlLembrete)}${rodape}
+  `, `${args.loja}: falta só ativar os recebimentos`)
+    return enviarNurture({
+      from: FROM, to: args.to,
+      subject: subjUser(`A ${args.loja} continua sem botão de comprar`),
+      montarHtml: montarLembrete,
+    })
+  }
+
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/pagamentos`, 'loja_connect_parado', 'cta-button')
   // ★ enviarNurture e NAO enviar (corrigido 12/09, depois de eu ja ter
   // disparado 2 assim). Este email nao e transacional: ninguem pediu por ele,

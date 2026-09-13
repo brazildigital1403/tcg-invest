@@ -60,8 +60,8 @@ type Passo = {
   titulo: string
   mensagem: string
   link: string
-  /** Manda o email; o sino e responsabilidade do motor. */
-  email: (u: { email: string; name: string | null }) => Promise<unknown>
+  /** Manda o email; o sino e responsabilidade do motor. `vez` = qual aviso (1 = primeiro). */
+  email: (u: { email: string; name: string | null }, vez: number) => Promise<unknown>
   /** Quantos dias ate poder repetir. 0 = uma vez e so. */
   repete?: number
 }
@@ -172,8 +172,8 @@ export async function GET(req: NextRequest) {
           mensagem: `A ${l.nome} tem ${quantos} à venda, mas sem o botão de comprar: os recebimentos nunca foram ativados.`,
           link: `${base}/pagamentos`,
           repete: REPETE_CONNECT_DIAS,
-          email: (u) => sendRecebimentosParadosEmail({
-            to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, quantos, total: itens,
+          email: (u, vez) => sendRecebimentosParadosEmail({
+            to: u.email, nome: u.name || '', loja: l.nome, lojaId: l.id, quantos, total: itens, vez,
             exemplo: exemplo?.card_name || null,
             exemploPreco: typeof exemplo?.price === 'number'
               ? `R$ ${exemplo.price.toFixed(2).replace('.', ',')}` : null,
@@ -249,9 +249,15 @@ export async function GET(req: NextRequest) {
     let sinos = 0, emails = 0, pulados = 0
     for (const { loja: l, passo } of planejado) {
       // ── dedup do passo ──────────────────────────────────────────────────
-      const { data: antes } = await db
+      // `count` e o total de avisos anteriores deste passo, nao so o ultimo:
+      // e ele que diz se o email e o primeiro ou um lembrete.
+      // ★ Conta pelo SINO (`regua`) e nao pelo `regua_email` de proposito. Os
+      //   dois primeiros avisos de recebimentos (ghostcg e sc-cartas-tcg, 12/09)
+      //   sairam por script e so tem `regua` -- contando por email, o de 12/10
+      //   sairia de novo como se fosse o primeiro.
+      const { data: antes, count } = await db
         .from('notifications')
-        .select('created_at')
+        .select('created_at', { count: 'exact' })
         .eq('user_id', l.owner_user_id)
         .eq('data->>regua', passo.chave)
         .order('created_at', { ascending: false })
@@ -261,6 +267,7 @@ export async function GET(req: NextRequest) {
         const esperou = dias(ultimo)
         if (!passo.repete || esperou < passo.repete) { pulados++; continue }
       }
+      const vez = (count || 0) + 1
 
       // ★ Insert direto em vez de `notify`: preciso do id de volta pra, se o
       //   email sair, MARCAR ESTA MESMA linha. A primeira versao criava uma
@@ -300,7 +307,7 @@ export async function GET(req: NextRequest) {
       if (u.marketing_aceito !== true) { continue }
 
       try {
-        await passo.email({ email: u.email, name: u.name })
+        await passo.email({ email: u.email, name: u.name }, vez)
         // O teto mora na PROPRIA notificacao do passo: nada novo aparece no
         // sino, e a consulta do teto le exatamente as linhas que geraram email.
         const id = sino?.[0]?.id
