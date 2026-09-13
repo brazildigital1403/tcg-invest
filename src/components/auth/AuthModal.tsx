@@ -443,7 +443,9 @@ useEffect(() => {
           options: {
             captchaToken: captchaToken ?? undefined,
             emailRedirectTo: `${window.location.origin}/auth/pos-cadastro?plan=${pendingPlan && pendingPlan !== 'free' ? pendingPlan : ''}&next=${encodeURIComponent(next || '')}${oferta ? `&oferta=${oferta}` : ''}`,
-            data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf, ...atrib },
+            // `oferta` vai pro raw_user_meta_data e o template "Confirm signup" do
+            // Supabase Auth le como {{ .Data.oferta }} pra trocar o texto do trial.
+            data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf, ...atrib, ...(oferta ? { oferta } : {}) },
           },
         })
         if (error) {
