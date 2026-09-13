@@ -92,13 +92,27 @@ export async function GET(
       // subirem catálogo — o bloco 0 não pode virar o gargalo, e a página de
       // produto é `force-dynamic` (cada hit do crawler é uma lambda).
       try {
-        const { data: produtos, error: prodErr } = await sb
-          .from('loja_produtos')
-          .select('slug, updated_at')
-          .eq('ativo', true)
-          .gt('estoque', 0)
-          .not('slug', 'is', null)
-          .limit(2000)
+        // ★ So produto de loja VISIVEL (ativa e nao oculta). O filtro de
+        //   produto sozinho mandava pro Google o produto de teste da Vulcano,
+        //   loja oculta -- e tambem produto de loja suspensa, cuja pagina da
+        //   404. Medido 12/09: o sitemap/0.xml servido tinha a URL da Vulcano.
+        const { data: lojasVisiveis } = await sb
+          .from('lojas')
+          .select('id')
+          .eq('status', 'ativa')
+          .neq('oculta', true)
+          .limit(1000)
+        const idsLojas = (lojasVisiveis || []).map((l: { id: string }) => l.id)
+        const { data: produtos, error: prodErr } = idsLojas.length === 0
+          ? { data: [] as Array<{ slug: string | null; updated_at: string | null }>, error: null }
+          : await sb
+            .from('loja_produtos')
+            .select('slug, updated_at')
+            .eq('ativo', true)
+            .gt('estoque', 0)
+            .not('slug', 'is', null)
+            .in('loja_id', idsLojas)
+            .limit(2000)
         if (prodErr) console.error('[sitemap] erro produtos:', prodErr)
         for (const prod of produtos || []) {
           if (prod.slug) {

@@ -100,6 +100,10 @@ const buscar = cache(async function buscar(id: string): Promise<{ produto: Produ
     .select('id, slug, nome, logo_url, verificada, cidade, estado, connect_charges_enabled')
     .eq('id', produto.loja_id)
     .eq('status', 'ativa')
+    // Loja oculta (de teste) nao tem pagina publica de produto. Sem isto a
+    // /produto do produto de teste da Vulcano respondia 200 com
+    // "index, follow". Loja null ja cai no notFound() da pagina.
+    .neq('oculta', true)
     .limit(1)
 
   return { produto, loja: (ls?.[0] as LojaDoProduto) || null }
