@@ -1,4 +1,5 @@
 'use client'
+import { planoEfetivoLoja, LIMITE_FOTOS_PRODUTO } from '@/lib/planoLoja'
 
 import { use as usePromise, useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
@@ -47,6 +48,8 @@ interface Produto {
 export default function LojaProdutosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: lojaId } = usePromise(params)
   const { estado, loja } = useLojaOwner(lojaId)
+  // Fotos por produto seguem o plano efetivo da loja (Basico 1, Pro 5, Premium 10).
+  const limiteFotos = loja ? LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(loja)] : 1
   const { showAlert, showConfirm } = useAppModal()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -246,7 +249,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
                 <button onClick={() => setFotos(fotos.filter((_, j) => j !== i))} style={S.remFoto}>×</button>
               </div>
             ))}
-            {fotos.length < 10 && (
+            {fotos.length < limiteFotos && (
               <button onClick={() => fileRef.current?.click()} disabled={subindo} style={S.addFoto}>
                 {subindo ? '…' : '+'}
               </button>
@@ -257,7 +260,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
             onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f) }}
             style={{ display: 'none' }}
           />
-          <p style={S.hint}>JPG, PNG ou WEBP até 5 MB. O limite de fotos vem do seu plano.</p>
+          <p style={S.hint}>JPG, PNG ou WEBP até 5 MB. Até {limiteFotos} {limiteFotos === 1 ? 'foto' : 'fotos'} por produto no plano da sua loja.</p>
 
           <label style={S.lbl}>Nome</label>
           <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Elite Trainer Box Surging Sparks" style={S.input} />

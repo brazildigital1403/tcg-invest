@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { planoEfetivoLoja, LIMITE_FOTOS_PRODUTO } from '@/lib/planoLoja'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 /**
@@ -17,7 +18,6 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 const MIMES_OK = ['image/jpeg', 'image/png', 'image/webp'] as const
 const TAMANHO_MAX_BYTES = 5 * 1024 * 1024
-const LIMITES_FOTOS_POR_PLANO: Record<string, number> = { basico: 0, pro: 5, premium: 10 }
 
 function ext(mime: string): string {
   if (mime === 'image/png') return 'png'
@@ -25,12 +25,6 @@ function ext(mime: string): string {
   return 'jpg'
 }
 
-/** Plano vencido cai pra basico — mesma regra da /upload-foto. */
-function planoEfetivo(loja: { plano: string; plano_expira_em: string | null }): string {
-  if (loja.plano === 'basico') return 'basico'
-  if (!loja.plano_expira_em) return loja.plano
-  return new Date(loja.plano_expira_em).getTime() > Date.now() ? loja.plano : 'basico'
-}
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -48,8 +42,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     // Admin nao e barrado por plano (mesma logica da /upload-foto).
-    const plano = planoEfetivo(loja as { plano: string; plano_expira_em: string | null })
-    const limite = LIMITES_FOTOS_POR_PLANO[plano] ?? 0
+    const plano = planoEfetivoLoja(loja as { plano: string; plano_expira_em: string | null })
+    const limite = LIMITE_FOTOS_PRODUTO[plano]
     if (!isAdmin && limite === 0) {
       return NextResponse.json(
         { error: 'O plano Básico não permite fotos. Assine o Pro ou o Premium para vender produtos com imagem.' },
