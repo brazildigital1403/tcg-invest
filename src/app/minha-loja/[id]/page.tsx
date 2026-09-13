@@ -182,7 +182,9 @@ function PlanoCard({ loja }: { loja: LojaFull }) {
         <h4 style={{ ...S.planoName, color: cfg.color }}>{cfg.label}</h4>
         {plano !== 'premium' && <Link href={`/minha-loja/${loja.id}/plano`} style={SH.btnSecondary}>Fazer upgrade →</Link>}
       </div>
-      {dias !== null && dias > 0 && <p style={S.planoTrial}>{plano === 'pro' && !loja.plano_expira_em ? 'Ativo' : `${dias} dias restantes`}</p>}
+      {loja.status === 'pendente' && plano === 'pro' && loja.plano_expira_em
+        ? <p style={S.planoTrial}>Os 14 dias de Pro começam quando a loja for aprovada</p>
+        : dias !== null && dias > 0 && <p style={S.planoTrial}>{plano === 'pro' && !loja.plano_expira_em ? 'Ativo' : `${dias} dias restantes`}</p>}
       <p style={S.desc}>{cfg.description}</p>
       <Link href={`/minha-loja/${loja.id}/plano`} style={S.lnk}>Gerenciar plano &amp; cobrança →</Link>
     </div>

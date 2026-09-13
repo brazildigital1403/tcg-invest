@@ -15,7 +15,8 @@ import { createClient } from '@supabase/supabase-js'
  *   owner_user_id = user.id (do Bearer token)
  *   status        = 'pendente' (aguarda moderação do admin)
  *   plano         = 'pro'      (trial de 14 dias)
- *   plano_expira_em = agora + 14d  (NULL so quando o admin concede permanente)
+ *   plano_expira_em = agora + 14d  (NULL so quando o admin concede permanente;
+ *                     recomeca na primeira aprovacao, ver admin/lojas/[id]/approve)
  *   verificada    = false
  *
  * Regras:
