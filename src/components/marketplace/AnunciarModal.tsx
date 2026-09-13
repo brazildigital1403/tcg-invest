@@ -8,6 +8,7 @@ import MarketplaceFotosInput from './MarketplaceFotosInput'
 import { supabase } from '@/lib/supabaseClient'
 import { GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
 import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
+import { mensagemLimiteAnuncios } from '@/lib/checkCardLimit'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -560,7 +561,8 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
     if (erroInsert || !anuncio) {
       console.error('[AnunciarModal] insert falhou:', erroInsert?.message)
       setLoading(false)
-      setErroPublicar(erroInsert?.message || 'Não consegui publicar o anúncio. Tente de novo.')
+      // O gatilho de limite responde com "LIMITE_ANUNCIOS: <texto>"; o codigo sai.
+      setErroPublicar(mensagemLimiteAnuncios(erroInsert) || erroInsert?.message || 'Não consegui publicar o anúncio. Tente de novo.')
       return
     }
 

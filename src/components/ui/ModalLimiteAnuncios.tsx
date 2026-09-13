@@ -14,7 +14,7 @@ export default function ModalLimiteAnuncios({ onClose, onUpgrade }: Props) {
       icon={<IconMarketplace size={26} color="#f59e0b" />}
       eyebrow="Limite de anúncios"
       title="Anuncie sem limite."
-      sub="O plano Grátis permite 3 anúncios ativos. Plus e Pro liberam quantos você quiser."
+      sub="O plano Grátis permite 3 anúncios ativos. Plus e Pro liberam quantos você quiser, e loja com plano Pro ou com recebimentos ativos também anuncia sem limite."
       feats={[
         'Anúncios ilimitados no Marketplace',
         'Mais cartas à venda, mais vendas',
