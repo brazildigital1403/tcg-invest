@@ -30,3 +30,35 @@ export function planoEfetivoLoja(loja: { plano: string | null; plano_expira_em: 
  * vende. Galeria da LOJA e outra coisa e segue em upload-foto.
  */
 export const LIMITE_FOTOS_PRODUTO: Record<PlanoLoja, number> = { basico: 1, pro: 5, premium: 10 }
+
+/**
+ * A Stripe so aceita `subscription_data.trial_end` no Checkout a 48h ou mais no
+ * futuro. A hora a mais cobre o tempo entre abrir a tela e clicar em assinar.
+ */
+export const TRIAL_STRIPE_MIN_MS = 49 * 3600_000
+
+/**
+ * Ate quando a loja ainda esta de graca, se assinar agora. E a data da primeira
+ * cobranca da assinatura. Null = a cobranca e no dia da assinatura.
+ *
+ * ★ POR QUE EXISTE (13/09/2026, Quadro #287, decisao do Du). O checkout dava
+ * 14 dias de trial na Stripe por cima dos 14 dias gratis da aprovacao: 28 sem
+ * pagar. Agora a assinatura so empurra a cobranca ate o fim do gratis que a
+ * loja JA tem -- nem soma dias, nem faz perder os que faltam.
+ *
+ * Plano permanente (data nula) e assinante nao tem gratis a preservar. Com
+ * menos de 49h restando a Stripe recusaria a data, entao a cobranca e na hora.
+ *
+ * Mesma funcao no checkout e na tela de plano: a data do botao e a da Stripe.
+ */
+export function fimDoGratisLoja(
+  loja: { plano: string | null; plano_expira_em: string | null; stripe_subscription_id: string | null },
+  agora: number = Date.now(),
+): Date | null {
+  if (loja.stripe_subscription_id) return null
+  if (loja.plano !== 'pro' && loja.plano !== 'premium') return null
+  if (!loja.plano_expira_em) return null
+  const fim = new Date(loja.plano_expira_em).getTime()
+  if (!Number.isFinite(fim) || fim - agora < TRIAL_STRIPE_MIN_MS) return null
+  return new Date(fim)
+}

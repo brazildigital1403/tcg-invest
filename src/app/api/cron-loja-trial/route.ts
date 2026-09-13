@@ -17,8 +17,8 @@ import { sendTrialLojaExpirandoEmail, sendTrialLojaExpirouEmail } from '@/lib/em
  *
  * O Du perguntou o que abriu isso: "como ele e cobrado se nao tem cartao
  * cadastrado?". Nao era cobrado -- nunca foi. `stripe_subscription_id` e nulo
- * nas 12 lojas. O `trial_period_days: 14` que existe no checkout de assinatura
- * e outra coisa, e ninguem chegou lá.
+ * nas 12 lojas. O checkout de assinatura nao da trial proprio desde 13/09
+ * (Quadro #287): so empurra a 1a cobranca ate o fim desta mesma data.
  *
  * ★ `plano_expira_em` NULL E PERMANENTE, E ISSO E DELIBERADO. A semantica ja
  * era essa no /api/admin/lojas/[id]/plano ("dias null -> NULL, permanente") e

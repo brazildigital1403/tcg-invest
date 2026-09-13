@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { OFERTA_TCGCON, ehOfertaValida, ofertaTcgconAtiva } from '@/lib/ofertaTcgcon'
+import { fimDoGratisLoja } from '@/lib/planoLoja'
 
 // ─── Configuração de planos ──────────────────────────────────────────────────
 
@@ -89,14 +90,14 @@ export async function POST(req: NextRequest) {
 
     // ── Reuso de stripe_customer_id ───────────────────────────────────────────
     let existingCustomerId: string | null = null
-    let lojaTrialUsadoEm: string | null = null
+    let lojaFimGratis: Date | null = null
     let lojaJaTemSub: boolean = false
 
     if (isLojistaPlano(plano) && lojaId) {
       // Validação adicional: owner check + estado da subscription
       const { data: lojaRow } = await supabase
         .from('lojas')
-        .select('stripe_customer_id, stripe_subscription_id, trial_usado_em, owner_user_id')
+        .select('stripe_customer_id, stripe_subscription_id, owner_user_id, plano, plano_expira_em')
         .eq('id', lojaId)
         .limit(1)
 
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
       }
 
       existingCustomerId = loja.stripe_customer_id || null
-      lojaTrialUsadoEm   = loja.trial_usado_em || null
+      lojaFimGratis      = fimDoGratisLoja(loja)
       lojaJaTemSub       = !!loja.stripe_subscription_id
 
       // Se já tem subscription ativa → portal, não checkout
@@ -307,10 +308,10 @@ export async function POST(req: NextRequest) {
     const metadata: Record<string, string> = { userId, plano }
     if (lojaId) metadata.lojaId = lojaId
 
-    // Trial 14 dias APENAS para Lojista E SE não consumiu trial antes
-    const concedeTrial = isLojistaPlano(plano) && !lojaTrialUsadoEm
-    const subscriptionData = concedeTrial
-      ? { subscription_data: { trial_period_days: 14 as const } }
+    // Lojista: a primeira cobranca espera o fim dos dias gratis que a loja ja
+    // tem, sem somar trial novo (Quadro #287). Regra em fimDoGratisLoja.
+    const subscriptionData = isLojistaPlano(plano) && lojaFimGratis
+      ? { subscription_data: { trial_end: Math.floor(lojaFimGratis.getTime() / 1000) } }
       : {}
 
     // customer_creation só aplica em mode='payment'
