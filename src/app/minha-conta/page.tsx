@@ -547,6 +547,13 @@ export default function MinhaConta() {
             >
               <IconLink size={13} color='currentColor' style={{marginRight:5}} />Ver Meu Perfil
             </button>
+            {/* #31: a pagina existe e so era alcancavel pelo menu lateral. */}
+            <button
+              onClick={() => router.push('/indique-e-ganhe')}
+              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit' }}
+            >
+              <IconShare size={13} color='currentColor' style={{marginRight:5}} />Indique e ganhe
+            </button>
           </div>
         </div>
 

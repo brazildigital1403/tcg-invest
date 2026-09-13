@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { IconShield } from '@/components/ui/Icons'
+import { posthog } from '@/lib/posthog'
 
 // ─── Storage key (compartilhada com o gate do GTM em src/app/layout.tsx) ─────
 
@@ -27,6 +28,21 @@ export const CONSENT_EVENT = 'bynx-cookie-consent-changed'
 //
 // • "Aceitar todos"      → grava 'accepted' + consent update granted
 // • "Apenas essenciais"  → grava 'rejected' + consent update denied (explícito)
+
+// ★ PostHog na hora do clique (#133, 13/09/2026). O `loaded` do posthog.ts so
+// le o consentimento quando o PostHog inicia -- e isso acontece ANTES de a
+// pessoa clicar. Sem esta chamada, quem aceitava so era medido a partir do
+// proximo carregamento: a sessao inteira em que ela aceitou se perdia. Mesma
+// regra do `loaded`: navegador de trafego interno (#76) nunca entra.
+function pushPostHogConsent(granted: boolean) {
+  try {
+    if (!posthog.__loaded) return
+    if (granted && localStorage.getItem('bynx_trafego_interno') !== '1') posthog.opt_in_capturing()
+    if (!granted) posthog.opt_out_capturing()
+  } catch {
+    // PostHog bloqueado ou localStorage indisponivel -- fica sem captura, que e o seguro
+  }
+}
 
 function pushConsentUpdate(granted: boolean) {
   try {
@@ -67,6 +83,7 @@ export default function CookieBanner() {
       /* ignora — só esconde o banner */
     }
     pushConsentUpdate(true)
+    pushPostHogConsent(true)
     setVisible(false)
     window.dispatchEvent(new Event(CONSENT_EVENT))
   }
@@ -78,6 +95,7 @@ export default function CookieBanner() {
       /* ignora — só esconde o banner */
     }
     pushConsentUpdate(false)
+    pushPostHogConsent(false)
     setVisible(false)
     window.dispatchEvent(new Event(CONSENT_EVENT))
   }

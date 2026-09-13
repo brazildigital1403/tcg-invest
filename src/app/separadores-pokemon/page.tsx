@@ -8,9 +8,9 @@ import PublicFooter from '@/components/ui/PublicFooter'
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = {
-  title: 'Separadores Pokémon TCG — Bynx | Imprima divisórias customizadas pro seu fichário',
+  title: 'Separadores Pokémon TCG — Bynx | Imprima divisórias customizadas para o seu fichário',
   description:
-    'Separadores prontos pra imprimir com os 1.025 Pokémons de Kanto a Paldea. Personalize por geração, baixe o PDF e imprima em casa ou na gráfica. R$ 14,90 pagamento único, sem assinatura. Ideal pra fichário 9-pocket.',
+    'Separadores prontos para imprimir com os 1.025 Pokémons de Kanto a Paldea. Escolha as gerações, imprima em casa ou na gráfica, ou salve em PDF pelo navegador. R$ 14,90 pagamento único, sem assinatura. Ideal para fichário 9-pocket.',
   keywords: [
     'separadores pokemon', 'separador fichario pokemon', 'divisórias pokemon tcg',
     'organizar fichário pokemon', 'separador tcg', 'imprimir separador pokemon',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Separadores Pokémon TCG — Imprima divisórias customizadas',
     description:
-      'Separadores prontos pra imprimir com os 1.025 Pokémons de Kanto a Paldea. R$ 14,90 pagamento único, sem assinatura. Baixe o PDF e imprima.',
+      'Separadores prontos para imprimir com os 1.025 Pokémons de Kanto a Paldea. R$ 14,90 pagamento único, sem assinatura. Imprima ou salve em PDF.',
     url: 'https://bynx.gg/separadores-pokemon',
     siteName: 'Bynx',
     locale: 'pt_BR',
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Separadores Pokémon TCG — Bynx',
     description:
-      '1.025 Pokémons em PDF imprimível pro seu fichário 9-pocket. R$ 14,90 pagamento único.',
+      '1.025 Pokémons prontos para imprimir no seu fichário 9-pocket, ou salvar em PDF. R$ 14,90 pagamento único.',
     images: ['https://bynx.gg/og-image.jpg'],
   },
   alternates: {
@@ -54,7 +54,7 @@ const productSchema = {
   '@type': 'Product',
   name: 'Separadores Pokémon TCG — Bynx',
   description:
-    'Separadores prontos pra imprimir com os 1.025 Pokémons de Kanto a Paldea. PDF customizável por geração, ideal pra fichários 9-pocket. Pagamento único, sem assinatura.',
+    'Separadores prontos para imprimir com os 1.025 Pokémons de Kanto a Paldea, escolhendo as gerações. Ideal para fichários 9-pocket. Pagamento único, sem assinatura.',
   image: 'https://bynx.gg/og-image.jpg',
   brand: { '@type': 'Brand', name: 'Bynx' },
   category: 'Acessórios para Trading Card Game',
@@ -78,7 +78,7 @@ const faqSchema = {
       name: 'Em qual formato vem o arquivo dos separadores?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'O arquivo é um PDF pronto pra imprimir, com várias páginas no formato A4. Cada página traz separadores no tamanho ideal pra fichários de 9 bolsos (9-pocket binder), o padrão usado em coleções Pokémon TCG.',
+        text: 'Os separadores são gerados na sua conta Bynx em páginas A4 prontas para imprimir. Na tela de impressão do navegador você imprime direto ou escolhe Salvar como PDF para guardar o arquivo. Cada página traz separadores no tamanho ideal para fichários de 9 bolsos (9-pocket binder), o padrão usado em coleções Pokémon TCG.',
       },
     },
     {
@@ -86,7 +86,7 @@ const faqSchema = {
       name: 'Os separadores cabem em qualquer fichário Pokémon?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. Os separadores foram desenhados pro tamanho padrão de fichários 9-pocket (com 9 bolsos por página), que é o formato mais comum no Brasil. Funciona em pastas Ultra Pro, Dragon Shield, Vault X e similares.',
+        text: 'Sim. Os separadores foram desenhados para o tamanho padrão de fichários 9-pocket (com 9 bolsos por página), que é o formato mais comum no Brasil. Funciona em pastas Ultra Pro, Dragon Shield, Vault X e similares.',
       },
     },
     {
@@ -94,7 +94,7 @@ const faqSchema = {
       name: 'Posso escolher quais Pokémons quero nos separadores?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Pode. Você escolhe entre as 9 gerações (Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar e Paldea) e gera o PDF apenas com os Pokémons das gerações que quiser. Total de 1.025 Pokémons disponíveis.',
+        text: 'Pode. Você escolhe entre as 9 gerações (Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar e Paldea) e gera os separadores apenas com os Pokémons das gerações que quiser. Total de 1.025 Pokémons disponíveis.',
       },
     },
     {
@@ -102,7 +102,7 @@ const faqSchema = {
       name: 'Quanto custa? Tem mensalidade?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'R$ 14,90 — pagamento único. Sem mensalidade, sem assinatura. Você paga uma vez e gera quantos PDFs quiser, sempre que precisar.',
+        text: 'R$ 14,90 — pagamento único. Sem mensalidade, sem assinatura. Você paga uma vez e gera e imprime quantas vezes quiser, sempre que precisar.',
       },
     },
     {
@@ -110,7 +110,7 @@ const faqSchema = {
       name: 'Onde imprimo os separadores?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Você pode imprimir em casa (impressora jato de tinta ou laser, papel sulfite comum funciona) ou levar o PDF pra qualquer gráfica rápida. Recomendamos papel 90g ou superior pra mais durabilidade.',
+        text: 'Você pode imprimir em casa (impressora jato de tinta ou laser, papel sulfite comum funciona) ou salvar em PDF e levar para qualquer gráfica rápida. Recomendamos papel 90g ou superior para mais durabilidade.',
       },
     },
     {
@@ -118,7 +118,7 @@ const faqSchema = {
       name: 'Como recebo o arquivo depois de comprar?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Você gera e baixa o PDF direto na sua conta Bynx, no momento que quiser. O acesso fica desbloqueado pra sempre — gere quantas versões precisar.',
+        text: 'Você gera os separadores direto na sua conta Bynx, no momento que quiser, e imprime ou salva em PDF pelo navegador. O acesso fica desbloqueado para sempre — gere quantas versões precisar.',
       },
     },
   ],
@@ -204,12 +204,12 @@ export default function SeparadoresPokemonPage() {
               <h1 style={S.heroTitle}>
                 Separadores Pokémon TCG{' '}
                 <span style={S.heroTitleAccent}>customizados</span>{' '}
-                pro seu fichário.
+                para o seu fichário.
               </h1>
 
               <p style={S.heroSubtitle}>
                 Os 1.025 Pokémons de <strong style={{ color: '#f0f0f0' }}>Kanto a Paldea</strong> em
-                um PDF pronto pra imprimir. Escolha as gerações que quiser, baixe e organize sua
+                separadores prontos para imprimir. Escolha as gerações que quiser, imprima ou salve em PDF e organize sua
                 coleção em fichários 9-pocket.{' '}
                 <strong style={{ color: '#f0f0f0' }}>Sem assinatura, sem mensalidade.</strong>
               </p>
@@ -321,12 +321,12 @@ export default function SeparadoresPokemonPage() {
               />
               <StepCard
                 num="02"
-                title="Personalize o PDF"
-                description="A Bynx gera automaticamente um PDF com 9 separadores por página A4, com nome, número e arte oficial de cada Pokémon. Tudo pronto pra fichário 9-pocket."
+                title="Personalize os separadores"
+                description="A Bynx gera automaticamente as páginas A4 com 9 separadores cada, com nome, número e arte oficial de cada Pokémon. Tudo pronto para fichário 9-pocket."
               />
               <StepCard
                 num="03"
-                title="Baixe e imprima"
+                title="Imprima ou salve em PDF"
                 description="Imprima em casa (papel sulfite comum funciona) ou leve numa gráfica rápida. Recorte e organize seu fichário. Zero complicação."
               />
             </div>
@@ -424,7 +424,7 @@ export default function SeparadoresPokemonPage() {
 
               <ul style={S.priceFeatures}>
                 <FeatureLine>Os 1.025 Pokémons de Kanto a Paldea</FeatureLine>
-                <FeatureLine>PDF customizável por geração</FeatureLine>
+                <FeatureLine>Personalize por geração e imprima ou salve em PDF</FeatureLine>
                 <FeatureLine>Imprima quantas vezes quiser, pra sempre</FeatureLine>
                 <FeatureLine>Formato A4 com 9 separadores por página</FeatureLine>
                 <FeatureLine>Compatível com qualquer fichário 9-pocket</FeatureLine>
