@@ -5,7 +5,7 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import ParaLojistasMotion from './ParaLojistasMotion'
-import { IconBolt, IconShield, IconCard } from '@/components/ui/Icons'
+import { IconBolt, IconShield, IconCard, IconWallet, IconStar, IconBox } from '@/components/ui/Icons'
 import BandeirasCartao from '@/components/ui/BandeirasCartao'
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
@@ -63,7 +63,11 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Consigo vender cartas online pela Bynx?',
-    a: 'Sim. Você anuncia suas cartas e produtos, o cliente compra pelo checkout com cartão ou Pix, escolhe o frete pelo CEP e o dinheiro cai direto na sua conta via repasse automático. Disponível inclusive no plano Básico.',
+    a: 'Sim. Você anuncia suas cartas e produtos, o cliente compra pelo checkout com cartão (Pix em breve), escolhe o frete pelo CEP e o dinheiro cai direto na sua conta via repasse automático. Disponível inclusive no plano Básico.',
+  },
+  {
+    q: 'Tem limite de cartas anunciadas?',
+    a: 'Para loja, não precisa ter. Com recebimentos ativos, ou com plano Pro ou Premium (inclusive nos 14 dias grátis), você anuncia quantas cartas quiser no Marketplace. Sem nenhum dos dois, são 3 cartas. Selados, pelúcias, funkos e acessórios não têm limite em plano nenhum.',
   },
   {
     q: 'Preciso de CNPJ pra cadastrar minha loja?',
@@ -176,6 +180,7 @@ export default async function ParaLojistasPage() {
         <section className="hero">
           <div className="wrap hero-grid">
             <div className="reveal">
+              <div className="selo-novo"><span className="tag">Novo</span>Lojista anuncia cartas sem limite</div>
               <h1 className="h1">Sua loja Pokémon <span className="grad">completa, online</span>. E o cliente já vem decidido.</h1>
               <p className="lead">Vitrine de cartas e produtos, checkout com frete e o cliente que a Bynx traz pra você. <b>Você só fecha a venda.</b></p>
               <div className="ctas">
@@ -184,7 +189,7 @@ export default async function ParaLojistasPage() {
               </div>
               <div className="trust">
                 <span className="ck">{CHECK}</span>
-                <span><b>Grátis pra começar</b> · 14 dias de Pro no trial · sem cartão</span>
+                <span><b>Grátis pra começar</b> · 14 dias de Pro com cartas ilimitadas · sem cartão</span>
               </div>
             </div>
 
@@ -241,6 +246,48 @@ export default async function ParaLojistasPage() {
               <div className="metric"><div className="m-val" data-target="853" data-suffix="">853</div><div className="m-lab">Coleções (sets) cobertas</div></div>
               <div className="metric"><div className="m-val" data-target="1025" data-suffix="">1.025</div><div className="m-lab">Pokémon no hub de busca</div></div>
               <div className="metric"><div className="m-val" data-target={String(lojas)} data-suffix="">{lojas}</div><div className="m-lab"><span className="m-live">lojas ativas agora</span></div></div>
+            </div>
+          </div>
+        </section>
+
+        {/* SEM LIMITE (13/09/2026). Espelha a regra do banco em
+            cartas_ilimitadas(): loja ativa com recebimentos ativos, ou com
+            plano Pro/Premium valido (trial incluso), anuncia cartas sem
+            limite. Mudou a regra la, muda o texto aqui. */}
+        <section id="sem-limite" className="ilim-sec">
+          <div className="wrap">
+            <div className="faixa reveal">
+              <span className="eyebrow">Para lojistas</span>
+              <div className="infinito" aria-hidden="true">∞</div>
+              <h2 className="faixa-title">Anuncie <span className="grad">quantas cartas quiser</span> no Marketplace.</h2>
+              <p className="faixa-sub">Conta grátis de colecionador tem limite. Loja não precisa ter. Basta uma de duas coisas, e o seu estoque inteiro de singles e graded vai para a vitrine.</p>
+              <div className="faixa-grid">
+                <div className="tile">
+                  <div className="t-ic"><IconWallet size={18} /></div>
+                  <h3>Recebendo pela Bynx</h3>
+                  <p>Ative os recebimentos e a loja anuncia sem limite em qualquer plano, inclusive no Básico.</p>
+                  <span className="val">Cartas ilimitadas</span>
+                </div>
+                <div className="tile">
+                  <div className="t-ic"><IconStar size={18} /></div>
+                  <h3>Plano Pro ou Premium</h3>
+                  <p>Vale também nos 14 dias grátis que toda loja nova ganha, sem cartão.</p>
+                  <span className="val">Cartas ilimitadas</span>
+                </div>
+                <div className="tile">
+                  <div className="t-ic"><IconBox size={18} /></div>
+                  <h3>Selados e produtos</h3>
+                  <p>Booster, ETB, pelúcia, funko e acessório não têm limite em plano nenhum.</p>
+                  <span className="val">Sempre ilimitados</span>
+                </div>
+              </div>
+              <div className="faixa-rodape">
+                <span className="lim">Sem recebimentos e no Básico: 3 cartas</span>
+                <span>Anúncio que já está no ar nunca sai por causa de limite.</span>
+              </div>
+              <div className="ctas">
+                <Link href={SIGNUP} className="btn-primary">Criar minha loja grátis</Link>
+              </div>
             </div>
           </div>
         </section>
@@ -470,6 +517,8 @@ export default async function ParaLojistasPage() {
                 <ul className="pl-feats">
                   <li><span className="ck">{CHECK}</span>Listagem no guia de lojas</li>
                   <li><span className="ck">{CHECK}</span><b>Vitrine + vendas com checkout</b></li>
+                  <li className="nova"><span className="ck">{CHECK}</span><span><b>3 cartas</b> no Marketplace, <b>ilimitadas</b> com recebimentos ativos</span></li>
+                  <li className="nova"><span className="ck">{CHECK}</span><span>Produtos ilimitados, <b>1 foto</b> cada</span></li>
                   <li><span className="ck">{CHECK}</span>Página própria + WhatsApp</li>
                   <li><span className="ck">{CHECK}</span>Endereço + Google Maps</li>
                 </ul>
@@ -481,6 +530,8 @@ export default async function ParaLojistasPage() {
                 <div className="pl-price">R$ 39<span>/mês</span></div><div className="pl-note">ou R$ 390/ano · 2 meses grátis</div>
                 <ul className="pl-feats">
                   <li><span className="ck">{CHECK}</span><b>Tudo do Básico, e mais:</b></li>
+                  <li className="nova"><span className="ck">{CHECK}</span><span><b>Cartas ilimitadas</b> no Marketplace</span></li>
+                  <li className="nova"><span className="ck">{CHECK}</span><span>Até <b>5 fotos</b> por produto</span></li>
                   <li><span className="ck">{CHECK}</span>Até <b>5 fotos</b> da loja</li>
                   <li><span className="ck">{CHECK}</span>Redes sociais + site</li>
                   <li><span className="ck">{CHECK}</span>Badge <b>Pro</b> + prioridade</li>
@@ -492,6 +543,7 @@ export default async function ParaLojistasPage() {
                 <div className="pl-price">R$ 89<span>/mês</span></div><div className="pl-note">ou R$ 890/ano · 2 meses grátis</div>
                 <ul className="pl-feats">
                   <li><span className="ck pre">{CHECK}</span><b>Tudo do Pro, e mais:</b></li>
+                  <li className="nova"><span className="ck">{CHECK}</span><span><b>10 fotos</b> por produto</span></li>
                   <li><span className="ck pre">{CHECK}</span><b>10 fotos</b> + eventos/torneios</li>
                   <li><span className="ck pre">{CHECK}</span><b>Rotação no topo</b> + card maior</li>
                   <li><span className="ck pre">{CHECK}</span><b>Analytics</b> + SEO por loja</li>
@@ -499,7 +551,7 @@ export default async function ParaLojistasPage() {
                 <Link href={SIGNUP} className="pl-cta">Começar 14 dias grátis</Link>
               </div>
             </div>
-            <div className="sell-note reveal"><IconBolt size={15} style={{ display: 'inline-block', verticalAlign: -3, marginRight: 4 }} /> <b>Vender é de todo mundo.</b> Vitrine, checkout e frete liberados até no Básico. Os planos amplificam quem te <b>acha</b>.</div>
+            <div className="sell-note reveal"><IconBolt size={15} style={{ display: 'inline-block', verticalAlign: -3, marginRight: 4 }} /> <b>Vender é de todo mundo.</b> Recebendo pela Bynx, sua loja anuncia <b>cartas sem limite em qualquer plano</b>, e selados nunca têm limite.</div>
           </div>
         </section>
 
@@ -584,6 +636,24 @@ const CSS = `
 .pl-root .trust{display:flex;align-items:center;gap:9px;margin-top:20px;font-size:13px;color:var(--text-3)}
 .pl-root .trust .ck{color:var(--green)}
 .pl-root .trust b{color:#f0f0f0}
+.pl-root .selo-novo{display:inline-flex;align-items:center;gap:8px;margin-bottom:16px;padding:6px 13px 6px 6px;border-radius:999px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.35);font-size:13px;font-weight:700;color:#f0f0f0}
+.pl-root .selo-novo .tag{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--ac-grad);color:#0a0a0a}
+
+.pl-root .ilim-sec{padding:22px 0 12px}
+.pl-root .faixa{position:relative;border-radius:22px;padding:36px 32px;background:radial-gradient(640px 280px at 88% 0%,rgba(var(--ac-2-rgb),.20),transparent 60%),radial-gradient(560px 260px at 0% 100%,rgba(var(--ac-1-rgb),.16),transparent 60%),var(--card);border:1px solid rgba(var(--ac-1-rgb),.35);box-shadow:0 0 0 1px rgba(var(--ac-1-rgb),.12),0 24px 70px rgba(var(--ac-2-rgb),.14)}
+.pl-root .infinito{font-size:clamp(52px,8vw,78px);font-weight:800;line-height:.9;letter-spacing:-.04em;background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent;width:max-content}
+.pl-root .faixa-title{font-size:clamp(26px,3.8vw,38px);font-weight:800;letter-spacing:-.025em;line-height:1.1;margin-top:10px;max-width:700px;text-wrap:balance}
+.pl-root .faixa-title .grad{background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pl-root .faixa-sub{font-size:16px;color:var(--text-2);margin-top:12px;max-width:620px}
+.pl-root .faixa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin-top:26px}
+.pl-root .tile{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;transition:transform .15s ease,border-color .15s ease}
+.pl-root .tile:hover{transform:translateY(-2px);border-color:rgba(var(--ac-1-rgb),.4)}
+.pl-root .t-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(var(--ac-1-rgb),.1);border:1px solid rgba(var(--ac-1-rgb),.25);color:var(--ac-1);margin-bottom:12px}
+.pl-root .tile h3{font-size:15.5px;font-weight:800;margin-bottom:5px}
+.pl-root .tile p{font-size:13.5px;color:var(--text-2);line-height:1.5}
+.pl-root .tile .val{display:inline-block;margin-top:10px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--green)}
+.pl-root .faixa-rodape{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:18px;font-size:13px;color:var(--text-3)}
+.pl-root .faixa-rodape .lim{padding:4px 11px;border-radius:999px;border:1px solid var(--border-2);color:var(--text-2)}
 
 .pl-root .stage{position:relative;height:440px}
 .pl-root .fcard{position:absolute;border-radius:11px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.08);will-change:transform}
@@ -706,6 +776,8 @@ const CSS = `
 .pl-root .pl-feats{list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:8px}
 .pl-root .pl-feats li{display:flex;gap:8px;font-size:13px;color:var(--text-2)}
 .pl-root .pl-feats li b{color:#f0f0f0}
+.pl-root .pl-feats li.nova{background:rgba(var(--ac-1-rgb),.07);border:1px solid rgba(var(--ac-1-rgb),.28);border-radius:9px;padding:7px 9px;margin:0 -9px;color:#f0f0f0}
+.pl-root .pl-feats li.nova .ck{color:var(--green)}
 .pl-root .pl-cta{display:block;text-align:center;font-size:14px;font-weight:800;padding:12px;border-radius:11px;background:var(--surface);border:1px solid var(--border-2);color:#f0f0f0;transition:background .15s ease;text-decoration:none}
 .pl-root .pl-cta:hover{background:var(--surface-2)}
 .pl-root .pl-cta.prim{background:var(--ac-grad);color:#0a0a0a;border:none}
@@ -741,6 +813,7 @@ const CSS = `
   .pl-root .metrics{grid-template-columns:1fr 1fr}
   .pl-root .cmp{font-size:12px}
   .pl-root .cmp th,.pl-root .cmp td{padding:10px 9px}
+  .pl-root .faixa{padding:26px 18px;border-radius:18px}
 }
 @media(prefers-reduced-motion:reduce){
   .pl-root *{animation:none!important}
