@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-auth'
 import {
   sendWelcomeEmail,
   sendTrialExpiring5Email,
@@ -11,18 +12,29 @@ import {
   sendConnectPendenciaEmail,
 } from '@/lib/email'
 
-// Rota de teste — dispara templates para um email especifico
-// Uso: GET /api/email/test?email=seu@email.com&secret=CRON_SECRET&template=all
-export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get('secret')
-  const to = req.nextUrl.searchParams.get('email')
-  const template = req.nextUrl.searchParams.get('template') || 'all'
+// Rota de teste — dispara templates para um email especifico.
+//
+// ★ Fechada em 13/09/2026 (#305). Era GET com o CRON_SECRET na query string e
+// mandava 9 templates reais pra QUALQUER endereco. Dois problemas: segredo em
+// URL vai pra log de acesso, historico do navegador e referrer; e quem tivesse
+// o segredo usava a Bynx como canal de envio. Agora:
+//   - so sessao de admin (cookie assinado do /admin), nunca segredo de cron;
+//   - so POST: o cookie de admin e sameSite=lax, que o navegador ENVIA em GET
+//     de navegacao vindo de outro site. Num GET, um link bastaria pra disparar
+//     e-mail em nome da Bynx; POST cross-site nao leva o cookie.
+// Nenhum codigo chamava a rota (conferido). Uso, logado no /admin, pelo console:
+//   fetch('/api/email/test', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+//     body: JSON.stringify({ email: 'seu@email.com', template: 'welcome' }) })
+export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
 
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  if (!to) {
-    return NextResponse.json({ error: 'email param required' }, { status: 400 })
+  const body = await req.json().catch(() => null) as { email?: string; template?: string } | null
+  const to = body?.email?.trim()
+  const template = body?.template || 'all'
+
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return NextResponse.json({ error: 'email invalido' }, { status: 400 })
   }
 
   const nome = 'Eduardo'

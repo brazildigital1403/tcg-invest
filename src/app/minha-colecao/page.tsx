@@ -207,7 +207,10 @@ export default function MinhaColecao() {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; color: #111; padding: 40px; }
   .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 3px solid #f59e0b; }
-  .title { font-size: 28px; font-weight: 900; color: #111; letter-spacing: -0.03em; }
+  /* Logo com fundo escuro de proposito (#43): o logo_BYNX.png tem o "BYNX"
+     branco e sumiria no papel. URL absoluta porque o HTML roda numa janela
+     nova (window.open), sem base. print-color-adjust mantem o fundo na impressao. */
+  .logo { height: 44px; width: auto; border-radius: 8px; display: block; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .subtitle { font-size: 13px; color: #888; margin-top: 4px; }
   .stats { display: flex; gap: 24px; margin-bottom: 28px; }
   .stat { background: #f9f9f9; border-radius: 10px; padding: 14px 20px; border: 1px solid #eee; }
@@ -234,7 +237,7 @@ export default function MinhaColecao() {
 <body>
 <div class="header">
   <div>
-    <div class="title">Bynx</div>
+    <img class="logo" src="${window.location.origin}/logo_BYNX_rodape.png" alt="Bynx" />
     <div class="subtitle">Relatório da Coleção Pokémon TCG · ${date}</div>
   </div>
   <div style="text-align:right">
