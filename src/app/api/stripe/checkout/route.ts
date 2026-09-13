@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { OFERTA_TCGCON, ehOfertaValida, ofertaTcgconAtiva } from '@/lib/ofertaTcgcon'
 
 // ─── Configuração de planos ──────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     // ── Body: plano + lojaId + setId ──────────────────────────────────────
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
     const body = await req.json().catch(() => ({}))
-    const { plano, lojaId, setId, paginaId } = body as { plano?: string; lojaId?: string; setId?: string; paginaId?: string }
+    const { plano, lojaId, setId, paginaId, oferta } = body as { plano?: string; lojaId?: string; setId?: string; paginaId?: string; oferta?: string }
 
     if (!plano || typeof plano !== 'string') {
       return NextResponse.json({ error: 'Plano não informado' }, { status: 400 })
@@ -323,6 +324,60 @@ export async function POST(req: NextRequest) {
     const promoParam = (mode === 'subscription' && !isLojistaPlano(plano))
       ? { allow_promotion_codes: true }
       : {}
+
+    // ── Oferta de evento (TCG CON): cupom aplicado pelo servidor, sem trial ──
+    // `discounts` e `allow_promotion_codes` sao mutuamente exclusivos na Stripe:
+    // na oferta o desconto ja vem aplicado e o campo de codigo some.
+    if (ehOfertaValida(oferta)) {
+      if (plano !== 'anual') {
+        return NextResponse.json({ error: 'A oferta vale só para o Pro Anual.' }, { status: 400 })
+      }
+      if (!ofertaTcgconAtiva()) {
+        return NextResponse.json({ error: 'A oferta da TCG CON encerrou.', code: 'OFERTA_ENCERRADA' }, { status: 410 })
+      }
+
+      const promos = await stripe.promotionCodes.list({ code: OFERTA_TCGCON.codigo, active: true, limit: 1 })
+      const promo = promos.data[0]
+      if (!promo) {
+        console.warn(`[stripe/checkout] promotion code ${OFERTA_TCGCON.codigo} inativo ou inexistente`)
+        return NextResponse.json({ error: 'A oferta da TCG CON encerrou.', code: 'OFERTA_ENCERRADA' }, { status: 410 })
+      }
+
+      let ofertaSession: Stripe.Checkout.Session
+      try {
+        ofertaSession = await stripe.checkout.sessions.create({
+          mode,
+          locale: 'pt-BR',
+          payment_method_types: ['card'],
+          line_items: [{ price: priceId, quantity: 1 }],
+          ...customerParam,
+          discounts: [{ promotion_code: promo.id }],
+          metadata: { ...metadata, oferta: OFERTA_TCGCON.id },
+          success_url: `${APP}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url:  `${APP}/tcgcon`,
+        })
+      } catch (err: any) {
+        // Restricao do promotion code (primeiro pedido / valor minimo) recusada pela Stripe.
+        console.warn(`[stripe/checkout] oferta tcgcon recusada para ${userId}: ${err?.message}`)
+        return NextResponse.json({
+          error: 'O desconto da TCG CON vale só para a primeira assinatura da conta.',
+          code: 'OFERTA_INELEGIVEL',
+        }, { status: 409 })
+      }
+
+      // Sem periodo gratis: so depois da Session existir (se a Stripe recusar,
+      // a pessoa nao perde o trial a toa). Limitado a conta criada no dia da
+      // oferta e sem plano pago, pra ninguem antigo perder o trial por clicar.
+      const { error: trialErr } = await supabase
+        .from('users')
+        .update({ trial_expires_at: null })
+        .eq('id', userId)
+        .or('is_pro.is.null,is_pro.eq.false')
+        .gte('created_at', OFERTA_TCGCON.inicioContasISO)
+      if (trialErr) console.error(`[stripe/checkout] zerar trial da oferta falhou (${userId}): ${trialErr.message}`)
+
+      return NextResponse.json({ url: ofertaSession.url })
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode,

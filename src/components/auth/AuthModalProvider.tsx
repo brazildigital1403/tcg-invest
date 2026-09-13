@@ -24,6 +24,7 @@ import { createContext, Suspense, useCallback, useContext, useEffect, useState }
 import { usePathname, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AuthModal from './AuthModal'
+import type { OfertaId } from '@/lib/ofertaTcgcon'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ type Plan = 'free' | 'plus' | 'mensal' | 'anual' | null
 interface OpenSignupOpts {
   next?: string | null
   plan?: Plan
+  oferta?: OfertaId | null
 }
 
 interface OpenLoginOpts {
@@ -152,6 +154,7 @@ export default function AuthModalProvider({ children }: { children: React.ReactN
   const [mode, setMode] = useState<'signup' | 'login'>('signup')
   const [plan, setPlan] = useState<Plan>(null)
   const [next, setNext] = useState<string | null>(null)
+  const [oferta, setOferta] = useState<OfertaId | null>(null)
 
   // ─── API pública via context ─────────────────────────────────────────
 
@@ -159,12 +162,14 @@ export default function AuthModalProvider({ children }: { children: React.ReactN
     setMode('signup')
     setPlan(opts.plan ?? null)
     setNext(sanitizeNext(opts.next ?? null))
+    setOferta(opts.oferta ?? null)
     setIsOpen(true)
   }, [])
 
   const openLogin = useCallback((opts: OpenLoginOpts = {}) => {
     setMode('login')
     setPlan(null)
+    setOferta(null)
     setNext(sanitizeNext(opts.next ?? null))
     setIsOpen(true)
   }, [])
@@ -220,6 +225,7 @@ export default function AuthModalProvider({ children }: { children: React.ReactN
         initialMode={mode}
         initialPlan={plan}
         next={next}
+        oferta={oferta}
       />
     </AuthModalContext.Provider>
   )
