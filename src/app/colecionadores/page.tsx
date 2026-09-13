@@ -496,7 +496,7 @@ export default async function ColecionadoresPage() {
         {/* 13/09/2026, mockup B aprovado pelo Du. Ver MonteSeuSlab. */}
         <section id="graduadas" style={S.graduadasSection}>
           <div className="bx-gutter" style={S.container}>
-            <MonteSeuSlab />
+            <MonteSeuSlab guiaHref="/cartas-graduadas" />
           </div>
         </section>
 
