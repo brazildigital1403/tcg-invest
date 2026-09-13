@@ -1696,17 +1696,22 @@ export async function sendLojaSemCaraEmail(args: {
   const first = primeiroNome(args.nome, 'lojista')
   const loja = escapeHtml(args.loja || 'sua loja')
   const url = addUtm(`${APP_URL}/minha-loja/${args.lojaId}/vitrine`, 'regua_loja_sem_cara', 'cta-button')
-  const lista = args.falta.map(f => `<strong style="color:#f0f0f0;">${escapeHtml(f)}</strong>`).join(', ')
+  // Concordancia e junção natural ("o logo e as redes sociais"). O assunto era
+  // fixo em "sem foto e sem descricao" qualquer que fosse o caso -- e foto nem
+  // entra nessa checagem, que olha logo, descricao e redes.
+  const juntar = (xs: string[]) => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`
+  const verbo = args.falta.length > 1 ? 'Faltam' : 'Falta'
+  const lista = juntar(args.falta.map(f => `<strong style="color:#f0f0f0;">${escapeHtml(f)}</strong>`))
   const montarHtml = (rodape: string) => baseLayout(`
     ${badge('Sua loja', '#f59e0b', '')}
     ${h1('A sua página ainda está sem cara')}
     ${p(`Olá, ${escapeHtml(first)}.`)}
-    ${p(`Falta ${lista} na <b style="color:#f0f0f0;">${loja}</b>. É assim que ela aparece para quem chega:`)}
+    ${p(`${verbo} ${lista} na <b style="color:#f0f0f0;">${loja}</b>. É assim que ela aparece para quem chega:`)}
     ${mockCabecalhoLoja(args.loja, args.logoUrl || null, args.temDescricao)}
     ${p('É o passo mais rápido de todos e muda a página pública na hora — não precisa esperar aprovação de nada.')}
     ${btn('Editar minha vitrine →', url)}${rodape}
-  `, `Faltam ${args.falta.join(', ')} na ${args.loja}`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A página da ${args.loja} está sem foto e sem descrição`), montarHtml })
+  `, `${verbo} ${juntar(args.falta)} na ${args.loja}`)
+  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`${verbo} ${juntar(args.falta)} na página da ${args.loja}`), montarHtml })
 }
 
 /**
