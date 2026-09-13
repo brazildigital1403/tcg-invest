@@ -149,7 +149,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Pro usuario
-    const planoFinal = plano === 'pro_anual' ? 'anual' : 'mensal'
+    // O checkout grava metadata.plano = 'anual'; 'pro_anual' fica por compatibilidade.
+    const planoFinal = plano === 'anual' || plano === 'pro_anual' ? 'anual' : 'mensal'
     return NextResponse.redirect(`${APP}/pro-ativado?plano=${planoFinal}`)
 
   } catch (err: any) {

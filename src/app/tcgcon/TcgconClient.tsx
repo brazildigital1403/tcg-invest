@@ -297,7 +297,7 @@ export default function TcgconClient() {
                 </ul>
 
                 <div className="tc-proof">
-                  <div><b>270+</b><span>sets catalogados</span></div>
+                  <div><b>850+</b><span>coleções catalogadas</span></div>
                   <div><b>70 mil</b><span>cartas com preço</span></div>
                   <div><b className="tc-proof-word">Lojas</b><span>parceiras pelo Brasil</span></div>
                 </div>
