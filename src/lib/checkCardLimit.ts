@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { resolvePlan } from './plan'
+import { resolvePlan, getPlanCaps } from './plan'
 import { STATUS_OCUPAM_VAGA } from './marketplaceStatus'
 
 // Flag de enforcement: quando '1', os limites por tier valem (rollout coordenado).
@@ -61,8 +61,28 @@ export async function checkMarketplaceLimit(userId: string): Promise<{ bloqueado
     .is('removido_em', null)
   const total = count || 0
 
+  // ★ QUEM DECIDE E O BANCO (13/09/2026). A regra ganhou a loja: dono de loja
+  // ativa com plano Pro/Premium valido ou com recebimentos ativos anuncia sem
+  // limite. Em vez de repetir essa conta aqui, a tela pergunta a mesma funcao
+  // que o gatilho trg_enforce_limite_cartas usa -- uma regra so, nos dois
+  // lados. `minhas_cartas_ilimitadas()` responde sobre auth.uid(), que em
+  // todos os chamadores e o proprio userId.
+  const { data: ilimitado, error } = await supabase.rpc('minhas_cartas_ilimitadas')
+  if (!error && typeof ilimitado === 'boolean') {
+    const limite = ilimitado ? Infinity : getPlanCaps('free').limiteAnuncios
+    return { bloqueado: total >= limite, total, limite }
+  }
+
+  // Sem resposta do banco, cai no plano pessoal (a regra antiga). Nao ha risco
+  // de furar: a trava de verdade e o gatilho, que roda de qualquer jeito.
   const row = await fetchPlanRow(userId)
   const { caps } = resolvePlan(row as any)
   const limite = caps.limiteAnuncios
   return { bloqueado: total >= limite, total, limite }
+}
+
+/** Texto legivel quando o gatilho do banco recusa por limite de anuncios. */
+export function mensagemLimiteAnuncios(erro: { message?: string } | null | undefined): string | null {
+  const m = erro?.message || ''
+  return m.startsWith('LIMITE_ANUNCIOS') ? m.replace(/^LIMITE_ANUNCIOS:\s*/, '') : null
 }
