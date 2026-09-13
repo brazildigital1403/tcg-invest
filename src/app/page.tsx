@@ -6,6 +6,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import HomeSearchBand from '@/components/ui/HomeSearchBand'
 import { CardsPlanos, TabelaPlanos } from '@/components/ui/PlanosBlocos'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { comissaoVendedorCents } from '@/lib/comissao'
 import HomeMotion from './HomeMotion'
 
 export const revalidate = 600
@@ -109,17 +110,32 @@ type FaixaPkmn = { nome: string; cartas: number; piso: number | null; teto: numb
 type Metricas = { cartas: number; colecoes: number; valorColecoes: number }
 const METRICAS_FALLBACK: Metricas = { cartas: 66529, colecoes: 853, valorColecoes: 503152 }
 
-async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[]; pokedex: typeof POKEDEX; metricas: Metricas }> {
+/**
+ * Preco das duas cartas dos mockups (Scan e vitrines). #89, 13/09/2026, decisao
+ * do Du: "as duas cartas pegam o valor que temos, sempre o mais atual". Eram
+ * cravados em R$ 249,90 e R$ 189,90 enquanto o catalogo dizia R$ 1.249 e
+ * R$ 7.990 -- a landing mostrava a Bynx errando o proprio preco.
+ * Menor preco (preco_min), a regra de divulgacao da casa. Busca por id (chave
+ * primaria), junto das outras do ISR de 10min. O fallback e o valor medido
+ * no dia, nao o numero inventado de antes.
+ */
+type PrecosVitrine = { charizard: number; umbreon: number }
+const PRECOS_VITRINE_FALLBACK: PrecosVitrine = { charizard: 1249, umbreon: 7990 }
+const ID_CHARIZARD = 'base1-4'
+const ID_UMBREON = 'swsh7-215'
+
+async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[]; pokedex: typeof POKEDEX; metricas: Metricas; vitrine: PrecosVitrine }> {
   const sb = getServiceSupabase()
   let up = FALLBACK_UP as Mover[]
   let down = FALLBACK_DOWN as Mover[]
   let marquee = FALLBACK_MARQUEE
   let pokedex = POKEDEX
   let metricas = METRICAS_FALLBACK
+  let vitrine = PRECOS_VITRINE_FALLBACK
   if (sb) {
     try {
       const cols = 'name,set_name,image_small,preco_atual,pct'
-      const [u, d, m] = await Promise.all([
+      const [u, d, m, pv] = await Promise.all([
         sb.from('mv_price_movers').select(cols).eq('window_days', 30).eq('direction', 'up')
           .ilike('image_small', 'https://images.pokemontcg.io/%').gte('preco_atual', 15)
           .order('pct', { ascending: false }).limit(4),
@@ -129,7 +145,13 @@ async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[
         sb.from('pokemon_cards').select('image_small')
           .ilike('image_small', 'https://images.pokemontcg.io/%').gt('preco_min', 0)
           .order('preco_min', { ascending: false }).limit(18),
+        sb.from('pokemon_cards').select('id,preco_min').in('id', [ID_CHARIZARD, ID_UMBREON]),
       ])
+      const precoDe = (id: string) => Number((pv.data || []).find(x => x.id === id)?.preco_min) || 0
+      vitrine = {
+        charizard: precoDe(ID_CHARIZARD) || PRECOS_VITRINE_FALLBACK.charizard,
+        umbreon: precoDe(ID_UMBREON) || PRECOS_VITRINE_FALLBACK.umbreon,
+      }
       // Faixas da vitrine de Pokemon: eram strings cravadas e envelheciam sem
       // ninguem notar (a home chegou a dizer Pikachu "a partir de R$ 0,71"
       // quando o piso real era R$ 0,13). Medido: 10ms, 2.163 buffers, usando o
@@ -166,7 +188,7 @@ async function getData(): Promise<{ up: Mover[]; down: Mover[]; marquee: string[
       // mantem fallback
     }
   }
-  return { up, down, marquee, pokedex, metricas }
+  return { up, down, marquee, pokedex, metricas, vitrine }
 }
 
 function jsonLd() {
@@ -204,7 +226,15 @@ const IcChevL = () => (<svg className="ico" viewBox="0 0 24 24"><path d="M15 6l-
 const IcChevR = () => (<svg className="ico" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>)
 
 export default async function HomePage() {
-  const { up, down, marquee, pokedex, metricas } = await getData()
+  const { up, down, marquee, pokedex, metricas, vitrine } = await getData()
+  // Contas dos mockups em centavos, com a comissao de verdade (prazo padrao de
+  // 30 dias). O mockup antigo dizia "menos R$ 13,00" em R$ 189,90, que nao batia
+  // com regra nenhuma da comissao.ts.
+  const FRETE_MOCK_CENTS = 1320
+  const umbreonCents = Math.round(vitrine.umbreon * 100)
+  const taxaUmbreonCents = comissaoVendedorCents(umbreonCents, 30)
+  const precoCharizard = brl(vitrine.charizard)
+  const precoUmbreon = brl(vitrine.umbreon)
   const cartasMil = Math.floor(metricas.cartas / 1000)
   const valorMil = Math.floor(metricas.valorColecoes / 1000)
   const marqueeAll = [...marquee, ...marquee]
@@ -316,7 +346,7 @@ export default async function HomePage() {
                 <div className="toast">
                   <span className="tk"><IcCheck /></span>
                   <span className="tt">Charizard · Base Set · Holo</span>
-                  <span className="tp">R$ 249,90</span>
+                  <span className="tp">{precoCharizard}</span>
                 </div>
               </div>
             </div>
@@ -406,14 +436,14 @@ export default async function HomePage() {
                   <div className="sf-star"><IcStar /> 4,9</div>
                 </div>
                 <div className="sf-cards">
-                  <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('base1/4')} alt="" /></div><div className="b"><div className="n">Charizard</div><div className="p">R$ 249,90</div></div></div>
-                  <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('swsh7/215')} alt="" /></div><div className="b"><div className="n">Umbreon VMAX</div><div className="p">R$ 189,90</div></div></div>
+                  <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('base1/4')} alt="" /></div><div className="b"><div className="n">Charizard</div><div className="p">{precoCharizard}</div></div></div>
+                  <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('swsh7/215')} alt="" /></div><div className="b"><div className="n">Umbreon VMAX</div><div className="p">{precoUmbreon}</div></div></div>
                   <div className="sf-c prod"><div className="img"><img loading="lazy" decoding="async" src={ETB_LOJA} alt="Elite Trainer Box" /></div><div className="b"><div className="n">Elite Trainer Box</div><div className="p">R$ 299,90</div></div></div>
                 </div>
                 <div className="sf-checkout">
-                  <div className="sf-line"><span>Umbreon VMAX</span><span>R$ 189,90</span></div>
-                  <div className="sf-line"><span>Frete (PAC, 5 dias)</span><span>R$ 13,20</span></div>
-                  <div className="sf-line tot"><span>Total</span><b>R$ 203,10</b></div>
+                  <div className="sf-line"><span>Umbreon VMAX</span><span>{precoUmbreon}</span></div>
+                  <div className="sf-line"><span>Frete (PAC, 5 dias)</span><span>{brl(FRETE_MOCK_CENTS / 100)}</span></div>
+                  <div className="sf-line tot"><span>Total</span><b>{brl((umbreonCents + FRETE_MOCK_CENTS) / 100)}</b></div>
                   <div className="sf-pay"><IcShield /> Pagar com seguranca</div>
                 </div>
               </div>
@@ -503,14 +533,14 @@ export default async function HomePage() {
                     <div className="sf-star"><IcStar /> 5,0</div>
                   </div>
                   <div className="sf-cards">
-                    <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('base1/4')} alt="" /></div><div className="b"><div className="n">Charizard</div><div className="p">R$ 249,90</div></div></div>
-                    <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('swsh7/215')} alt="" /></div><div className="b"><div className="n">Umbreon VMAX</div><div className="p">R$ 189,90</div></div></div>
+                    <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('base1/4')} alt="" /></div><div className="b"><div className="n">Charizard</div><div className="p">{precoCharizard}</div></div></div>
+                    <div className="sf-c"><div className="img"><img loading="lazy" decoding="async" src={IMG('swsh7/215')} alt="" /></div><div className="b"><div className="n">Umbreon VMAX</div><div className="p">{precoUmbreon}</div></div></div>
                     <div className="sf-c prod"><div className="img"><img loading="lazy" decoding="async" src={ETB_LOJA} alt="Elite Trainer Box" /></div><div className="b"><div className="n">Elite Trainer Box</div><div className="p">R$ 289,90</div></div></div>
                   </div>
                   <div className="sf-checkout">
-                    <div className="sf-line"><span>Venda · Umbreon VMAX</span><span>R$ 189,90</span></div>
-                    <div className="sf-line"><span>Taxa Bynx</span><span>menos R$ 13,00</span></div>
-                    <div className="sf-line tot"><span>Você recebe</span><b>R$ 176,90</b></div>
+                    <div className="sf-line"><span>Venda · Umbreon VMAX</span><span>{precoUmbreon}</span></div>
+                    <div className="sf-line"><span>Taxa Bynx</span><span>menos {brl(taxaUmbreonCents / 100)}</span></div>
+                    <div className="sf-line tot"><span>Você recebe</span><b>{brl((umbreonCents - taxaUmbreonCents) / 100)}</b></div>
                     <div className="sf-pay"><IcWallet /> Repassado pra sua conta</div>
                   </div>
                 </div>
