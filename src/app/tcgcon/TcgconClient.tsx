@@ -321,7 +321,6 @@ export default function TcgconClient() {
               <footer className="tc-fine">
                 Oferta válida só em 13/09/2026, até 23h59 (horário de Brasília), uma por conta e só para quem nunca assinou a Bynx. O desconto de 30% vale para a 1ª cobrança do plano Pro Anual (R$ 174,30, pagamento único referente a 12 meses). Renovação automática: depois de 12 meses, cobramos R$ 249/ano; você cancela a renovação quando quiser em Minha Conta, sem multa, e mantém o acesso até o fim do período pago. Arrependimento: até 7 dias após a compra, devolvemos 100% do valor (CDC art. 49). Esta oferta não inclui teste grátis: a conta é liberada após o pagamento. Compra permitida só para maiores de 18 anos ou com autorização do responsável legal.
                 <br /><br />
-                Pokémon e seus nomes e marcas são propriedade de The Pokémon Company, Nintendo, Creatures e GAME FREAK. A Bynx é independente e não é afiliada, patrocinada nem endossada por essas empresas. Marca TCG CON usada com autorização da organização do evento.{' '}
                 <a href="/termos">Termos de Uso</a> · <a href="/privacidade">Privacidade</a>
               </footer>
             </div>
