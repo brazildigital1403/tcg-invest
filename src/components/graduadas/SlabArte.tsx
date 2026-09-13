@@ -16,7 +16,7 @@ import { GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadora
 const OURO = '#e8c878' // mesmo dourado do Black Label no CardItem
 
 export default function SlabArte({
-  graduadora, nota, blackLabel = false, img, nome, sizes, priority = false, mostrarNome = true, altVazio = false,
+  graduadora, nota, blackLabel = false, img, nome, sizes, priority = false, mostrarNome = true, altVazio = false, certificado = false,
 }: {
   graduadora: string
   nota: number
@@ -28,6 +28,8 @@ export default function SlabArte({
   mostrarNome?: boolean
   /** Copia decorativa (faixa em loop): a arte ja foi descrita na primeira. */
   altVazio?: boolean
+  /** Faixa do certificado no rodape. Sem numero: seria um registro inventado. */
+  certificado?: boolean
 }) {
   const g = GRADUADORA_MAP[graduadora]
   if (!g) return null
@@ -57,6 +59,9 @@ export default function SlabArte({
           priority={priority}
         />
       </div>
+      {certificado && (
+        <div className="sa-cert"><span>Certificado</span><span aria-hidden="true">•••• ••••</span></div>
+      )}
     </div>
   )
 }
@@ -79,4 +84,5 @@ export const SLAB_ARTE_CSS = `
 .sa-tier{font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-top:2px;white-space:nowrap}
 .sa-win{border-radius:8px;background:#0b0d12;border:1px solid rgba(255,255,255,.08);padding:7px}
 .sa-win img{display:block;width:100%;height:auto;border-radius:6px}
+.sa-cert{display:flex;justify-content:space-between;align-items:center;margin-top:7px;padding:5px 9px;border-radius:7px;background:rgba(255,255,255,.06);font-family:'DM Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.6)}
 `
