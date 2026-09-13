@@ -30,7 +30,7 @@ const IMG = (id: string) => `https://images.pokemontcg.io/${id}.png`
 const CARTAS = [
   { img: 'base1/4', nome: 'Charizard · Base Set' },
   { img: 'swsh7/215', nome: 'Umbreon VMAX · Evolving Skies' },
-  { img: 'ex8/107', nome: 'Rayquaza ex · EX Deoxys' },
+  { img: 'ex8/107', nome: 'Rayquaza Gold Star · EX Deoxys' },
 ]
 
 const SUBNOTAS = [
