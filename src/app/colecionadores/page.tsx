@@ -6,6 +6,7 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import { CardsPlanos } from '@/components/ui/PlanosBlocos'
 import { IconFilter, IconTrendingUp, IconStar, IconShield } from '@/components/ui/Icons'
+import MonteSeuSlab from '@/components/colecionadores/MonteSeuSlab'
 
 // ─── ISR ────────────────────────────────────────────────────────────────────
 // Revalida os numeros do catalogo 1x por hora. Stats (cartas, sets, valor) vem
@@ -469,7 +470,8 @@ export default async function ColecionadoresPage() {
               <ToolCard
                 icon={<IconShield size={26} color="currentColor" strokeWidth={1.6} />}
                 title="Cartas graduadas"
-                desc="Registre a graduadora, a nota e as subnotas — são 10 aceitas, de PSA e BGS a CGC, ACE, TAG e Capy. Guarde o número do certificado, marque black label e informe o valor da peça graduada, que é outro mercado e não acompanha o preço da carta crua."
+                desc="10 graduadoras, nota, subnotas, Black Label, certificado e o valor da peça graduada, que não acompanha a carta crua."
+                link={{ href: '#graduadas', label: 'Ver como fica' }}
               />
               <ToolCard
                 icon={<IconScan />}
@@ -487,6 +489,14 @@ export default async function ColecionadoresPage() {
                 desc="URL própria pra compartilhar (bynx.gg/perfil/voce). Mostre o que você coleciona — ou esconda os valores se preferir. Grátis pra todos."
               />
             </div>
+          </div>
+        </section>
+
+        {/* ─── CARTAS GRADUADAS — monte o seu slab ────── */}
+        {/* 13/09/2026, mockup B aprovado pelo Du. Ver MonteSeuSlab. */}
+        <section id="graduadas" style={S.graduadasSection}>
+          <div className="bx-gutter" style={S.container}>
+            <MonteSeuSlab />
           </div>
         </section>
 
@@ -679,12 +689,13 @@ function PersonaCard({ icone: Icone, title, desc, tags }: { icone: React.Compone
   )
 }
 
-function ToolCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+function ToolCard({ icon, title, desc, link }: { icon: React.ReactNode; title: string; desc: string; link?: { href: string; label: string } }) {
   return (
     <div style={S.toolCard}>
       <div style={S.toolIcon}>{icon}</div>
       <h3 style={S.toolTitle}>{title}</h3>
       <p style={S.toolDesc}>{desc}</p>
+      {link && <a href={link.href} style={S.toolLink}>{link.label} →</a>}
     </div>
   )
 }
@@ -1177,6 +1188,23 @@ const S: Record<string, CSSProperties> = {
     color: 'rgba(255,255,255,0.58)',
     lineHeight: 1.65,
     margin: 0,
+  },
+  toolLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 44,
+    marginTop: 6,
+    fontSize: 13.5,
+    fontWeight: 700,
+    color: '#f59e0b',
+    textDecoration: 'none',
+  },
+
+  // ─── GRADUADAS ─────────────────────────────────────
+  graduadasSection: {
+    padding: '96px 0',
+    scrollMarginTop: 64,
+    background: 'radial-gradient(700px 380px at 80% 35%, rgba(245,158,11,0.10), transparent 60%), radial-gradient(560px 320px at 10% 85%, rgba(239,68,68,0.06), transparent 60%)',
   },
 
   // ─── PERFIL ────────────────────────────────────────
