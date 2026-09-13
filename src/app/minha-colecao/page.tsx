@@ -21,7 +21,6 @@ import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import PastaFormModal from '@/components/pastas/PastaFormModal'
 import CardDetailModal from '@/components/dashboard/CardDetailModal'
 import AnunciarModal from '@/components/marketplace/AnunciarModal'
-import CabecalhoSet from '@/components/colecao/CabecalhoSet'
 import { getPrecoVariante as faixaVariante } from '@/lib/calcPatrimonio'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
@@ -95,11 +94,6 @@ export default function MinhaColecao() {
   const [exchangeRate, setExchangeRate] = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
   const [detalheCard, setDetalheCard] = useState<any>(null)
   const [anunciarCard, setAnunciarCard] = useState<any>(null)
-  // Logo e simbolo por set_id, pro cabecalho de cada grupo (#313).
-  const [setsInfo, setSetsInfo] = useState<Record<string, { logo_url: string | null; symbol_url: string | null }>>({})
-  // Grupo que a pessoa abriu ou fechou a mao. O que nao esta aqui segue o
-  // padrao: primeiro set aberto, ou todos abertos com filtro ativo.
-  const [abertos, setAbertos] = useState<Record<string, boolean>>({})
 
   const LOADING_MSGS = [
     'Procurando a carta...',
@@ -413,14 +407,6 @@ export default function MinhaColecao() {
 
       setCards(merged)
       setTotalCartas(merged.length)
-
-      // Logos dos sets em uma consulta so. Nao segura a tela: o cabecalho
-      // mostra o icone ate chegar, e 30% das cartas nao tem logo cadastrado.
-      const setIds = [...new Set(merged.map((c: any) => c.price?.set_id).filter(Boolean))] as string[]
-      if (setIds.length > 0) {
-        supabase.from('pokemon_sets').select('id, logo_url, symbol_url').in('id', setIds)
-          .then(({ data: sd }) => setSetsInfo(Object.fromEntries((sd || []).map((x: any) => [x.id, { logo_url: x.logo_url, symbol_url: x.symbol_url }]))))
-      }
     } catch (err: any) {
       console.error('[minha-colecao] loadCards error:', err?.message || err)
     } finally {
@@ -677,39 +663,6 @@ export default function MinhaColecao() {
   // Raridades únicas da coleção
   const raridades = [...new Set(cards.map(c => c.rarity).filter(Boolean))] as string[]
 
-  // ── Agrupamento por set (#313) ──────────────────────────────────────────────
-  // Chave e o set_id do catalogo, nao o nome: 99,6% das cartas tem (medido em
-  // 12/09) e o total vem da propria carta, entao nao depende de pokemon_sets.
-  // As 27 sem set caem num grupo pelo nome gravado na user_card.
-  //
-  // ★ O PROGRESSO sai da colecao inteira (`cards`); o que o filtro muda e so
-  // quais grupos e cartas aparecem. Filtrar por Foil nao pode derrubar a barra.
-  const chaveSet = (c: any): string => c.price?.set_id || `nome:${c.set_name || ''}`
-  const resumoSets = new Map<string, { setId: string | null; nome: string; total: number | null; ids: Set<string>; valor: number }>()
-  for (const c of cards) {
-    const k = chaveSet(c)
-    let r = resumoSets.get(k)
-    if (!r) {
-      r = { setId: c.price?.set_id || null, nome: setLabel(c.price?.set_name || c.set_name) || 'Sem set', total: n(c.set_total), ids: new Set(), valor: 0 }
-      resumoSets.set(k, r)
-    }
-    r.ids.add(String(c.pokemon_api_id || c.card_link || c.id))
-    r.valor += (getVariantePrices(c.price, getVarianteEfetiva(c.price, c.variante || 'normal'))[CAMPO_VALOR] || 0) * (c.quantity || 1)
-  }
-
-  // A ordem dos grupos SEGUE a ordenacao escolhida: cada set entra na posicao
-  // da sua primeira carta. Em "Mais recente" o topo e o set da ultima carta
-  // adicionada; em "Maior valor", o da carta mais cara. Dentro do grupo a
-  // ordem e a mesma -- nenhuma ordenacao desfaz o agrupamento.
-  const grupos: Array<{ key: string; cards: any[] }> = []
-  const posGrupo = new Map<string, number>()
-  for (const c of filteredCards) {
-    const k = chaveSet(c)
-    if (!posGrupo.has(k)) { posGrupo.set(k, grupos.length); grupos.push({ key: k, cards: [] }) }
-    grupos[posGrupo.get(k)!].cards.push(c)
-  }
-  const filtroAtivo = !!(search || filtroVariante || filtroRaridade || filtroCondicao || filtroGraduada)
-
   return (
     <AppLayout>
       {/* Loading overlay para importação */}
@@ -831,36 +784,71 @@ export default function MinhaColecao() {
               )}
         </PageHeader>
 
-        {/* Resumo em duas caixas (#313, 12/09). Eram 3 cartoes de 72vw com
-            rolagem lateral: no celular so o primeiro aparecia e ainda empurrava
-            a colecao pra baixo. Minimo e maximo viraram a linha de baixo do
-            valor; o aviso de preco sob revisao e a estimativa em USD ficam. */}
-        {cards.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
-            <div style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 14, padding: '12px 14px', minWidth: 0 }}>
-              <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 2 }}>Valor de mercado</p>
-              <p style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>{fmt(totais.valor) || 'R$ 0,00'}</p>
-              {totais.max > 0 && (
-                <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginTop: 2 }}>{fmt(totais.min) || 'R$ 0,00'} a {fmt(totais.max)}</p>
-              )}
-              {totais.sobRevisao > 0 && (
-                <p style={{ fontSize: 11, color: 'var(--bx-amber)', marginTop: 5, lineHeight: 1.4 }}>
-                  {fmt(totais.sobRevisao)} em {totais.qtdSobRevisao} carta{totais.qtdSobRevisao !== 1 ? 's' : ''} com preço sob revisão
-                </p>
-              )}
-              {usdEstimado.valor > 0 && (
-                <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginTop: 5, lineHeight: 1.4 }}>
-                  + {fmt(usdEstimado.valor)} estimado em USD · {usdEstimado.count} carta{usdEstimado.count !== 1 ? 's' : ''} sem preço BR
-                </p>
-              )}
-            </div>
-            <div style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 14, padding: '12px 14px', minWidth: 0 }}>
-              <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 2 }}>Cartas</p>
-              <p style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>{totalQty}</p>
-              <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginTop: 2 }}>em {resumoSets.size} {resumoSets.size === 1 ? 'set' : 'sets'}</p>
-            </div>
+        {/* Resumo financeiro — scroll horizontal */}
+        <style>{`
+          .colecao-resumo-track {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 28px;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            padding-bottom: 4px;
+          }
+          .colecao-resumo-track::-webkit-scrollbar { display: none; }
+          .colecao-resumo-card {
+            flex: 1;
+            min-width: 160px;
+            scroll-snap-align: start;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+          }
+          @media (max-width: 768px) {
+            .colecao-resumo-card { min-width: 72vw; }
+          }
+        `}</style>
+        <div className="colecao-resumo-track">
+          <div className="colecao-resumo-card" style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <p style={{ fontSize: 11, color: 'rgba(34,197,94,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Mínimo da Carteira</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: '#22c55e', letterSpacing: '-0.02em' }}>{fmt(totais.min)}</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Pior cenário de venda</p>
           </div>
-        )}
+          <div className="colecao-resumo-card" style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)' }}>
+            <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Valor de mercado</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.02em' }}>{fmt(totais.valor)}</p>
+            {totais.sobRevisao > 0 ? (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', height: 6, borderRadius: 99, overflow: 'hidden', background: 'rgba(255,255,255,0.07)' }}>
+                  <div style={{ width: `${Math.max(0, 100 - pctSobRevisao)}%`, background: '#22c55e' }} />
+                  <div style={{ width: `${Math.min(100, pctSobRevisao)}%`, background: 'var(--ac-1, #f59e0b)' }} />
+                </div>
+                <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, lineHeight: 1.45 }}>
+                  <b style={{ color: 'var(--ac-1, #f59e0b)', fontWeight: 600 }}>{fmt(totais.sobRevisao)}</b>
+                  {' '}vem de {totais.qtdSobRevisao} carta{totais.qtdSobRevisao !== 1 ? 's' : ''} com preço sob revisão
+                </p>
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Menor preço de mercado</p>
+            )}
+            {usdEstimado.valor > 0 && (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(96,165,250,0.15)' }}>
+                <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.5)', marginBottom: 2 }}>
+                  + {fmt(usdEstimado.valor)} estimado
+                </p>
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>
+                  {usdEstimado.count} carta{usdEstimado.count !== 1 ? 's' : ''} sem preço BR · USD×câmbio
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="colecao-resumo-card" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Máximo da Carteira</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em' }}>{fmt(totais.max)}</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>Melhor cenário de venda</p>
+          </div>
+        </div>
 
         {/* ── PASTAS EM DESTAQUE (hero + grade) ── */}
         {pastasTopo?.hero && (
@@ -1106,45 +1094,20 @@ export default function MinhaColecao() {
           .colecao-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
           @media (max-width: 768px) { .colecao-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
         `}</style>
-        {/* Grade agrupada por set (#313): primeiro set aberto ao chegar, os
-            outros fechados, pra quem tem 100 sets ver a colecao no primeiro view. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {grupos.map((g, i) => {
-            const r = resumoSets.get(g.key)!
-            const aberto = g.key in abertos ? abertos[g.key] : (filtroAtivo || i === 0)
-            return (
-              <section key={g.key}>
-                <CabecalhoSet
-                  nome={r.nome}
-                  logoUrl={r.setId ? setsInfo[r.setId]?.logo_url : null}
-                  symbolUrl={r.setId ? setsInfo[r.setId]?.symbol_url : null}
-                  coletadas={r.ids.size}
-                  total={r.total}
-                  valor={fmt(r.valor)}
-                  resultados={filtroAtivo ? g.cards.length : null}
-                  aberto={aberto}
-                  onToggle={() => setAbertos(prev => ({ ...prev, [g.key]: !aberto }))}
-                />
-                {aberto && (
-                  <div className="colecao-grid" style={{ marginTop: 10, marginBottom: 8 }}>
-                    {g.cards.map((c) => (
-                      <CardItem
-                        key={c.id}
-                        card={c}
-                        mode="collection"
-                        onSelect={() => setDetalheCard(c)}
-                        variante={c.variante || 'normal'}
-                        exchangeRate={exchangeRate}
-                        onVarianteChange={(v) => handleVarianteChange(c, v)}
-                        onQuantityChange={(delta) => handleUpdateQuantity(c, delta)}
-                        footerSlot={<CondicaoEditor userCardId={c.id} quantity={c.quantity || 1} condicoes={c.condicoes || null} isPro={isPro} onSaved={(novas) => setCards(prev => prev.map(x => x.id === c.id ? { ...x, condicoes: novas } : x))} />}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-            )
-          })}
+        <div className="colecao-grid">
+          {filteredCards.map((c) => (
+            <CardItem
+              key={c.id}
+              card={c}
+              mode="collection"
+              onSelect={() => setDetalheCard(c)}
+              variante={c.variante || 'normal'}
+              exchangeRate={exchangeRate}
+              onVarianteChange={(v) => handleVarianteChange(c, v)}
+              onQuantityChange={(delta) => handleUpdateQuantity(c, delta)}
+              footerSlot={<CondicaoEditor userCardId={c.id} quantity={c.quantity || 1} condicoes={c.condicoes || null} isPro={isPro} onSaved={(novas) => setCards(prev => prev.map(x => x.id === c.id ? { ...x, condicoes: novas } : x))} />}
+            />
+          ))}
         </div>
       </div>
 
