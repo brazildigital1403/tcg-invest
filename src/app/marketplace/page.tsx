@@ -246,6 +246,67 @@ function ChipLojaArte({ card }: { card: any }) {
   )
 }
 
+// ─── Produto de loja no grid (#9, 12/09/2026) ──────────────────────────────
+//
+// Selado, pelucia, funko e acessorio so apareciam na pagina da loja. Agora
+// entram no grid do marketplace, com o mesmo esqueleto do card de carta: arte,
+// nome, preco, loja e acao. O que muda e o que nao se aplica -- produto nao tem
+// condicao, variante nem preco de mercado.
+//
+// ★ O botao leva sempre pra pagina do PRODUTO, que e onde ficam quantidade,
+//   frete e carrinho. "Comprar" quando a loja recebe pela Bynx; "Ver produto"
+//   quando nao recebe -- a mesma regra da vitrine da loja (AnunciosLoja).
+
+const TIPO_PRODUTO: Record<string, string> = {
+  selado: 'Selado', pelucia: 'Pelúcia', funko: 'Funko', fichario: 'Fichário', acessorio: 'Acessório',
+}
+
+function ProdutoCard({ card }: { card: any }) {
+  const href = `/produto/${card.slug}`
+  const novo = card.created_at && (Date.now() - new Date(card.created_at).getTime()) < 24 * 60 * 60 * 1000
+  return (
+    <div style={{ ...SURFACE, overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <div style={{ position: 'relative' }}>
+        {card.fotos && card.fotos.length ? (
+          <MarketplaceFotosGaleria fotos={card.fotos} cardName={card.card_name} aspecto="100%" sizes="(max-width: 880px) 45vw, 240px" />
+        ) : (
+          <Link href={href} aria-label={card.card_name} style={{ display: 'flex', width: '100%', aspectRatio: '1 / 1', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.04)' }}>
+            <IconBox size={40} color="rgba(255,255,255,0.2)" />
+          </Link>
+        )}
+        <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 5, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', color: '#f0f0f0' }}>
+          {TIPO_PRODUTO[card.tipo] || 'Produto'}
+        </span>
+        {novo && (
+          <span style={{ position: 'absolute', bottom: 8, left: 8, zIndex: 5, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, padding: '3px 7px', borderRadius: 6, background: 'rgba(96,165,250,0.85)', color: '#0a0e16' }}>
+            <IconBolt size={11} color="#0a0e16" />Novo
+          </span>
+        )}
+        <ChipLojaArte card={card} />
+      </div>
+
+      <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Link href={href} className="bx-card-nome" style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f0', display: 'block', textDecoration: 'none' }}>
+          {card.card_name}
+        </Link>
+        <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: '#f59e0b', margin: 0 }}>{fmt(card.price)}</p>
+        <VendedorLoja card={card} variante="card" />
+        <div style={{ marginTop: 'auto' }}>
+          {card.seller_loja_vende ? (
+            <Link href={href} className="bx-ctx-comprador" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px', borderRadius: 10, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}>
+              <IconCarrinho size={15} /> Comprar
+            </Link>
+          ) : (
+            <Link href={href} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.14)', color: '#f0f0f0', padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+              Ver produto
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
   card: any; userId: string | null; userWhatsapp: string | null; onAction: () => void; railMode?: boolean
 }) {
@@ -1045,6 +1106,11 @@ function MarketplaceInner() {
 
   const [totalAnuncios, setTotalAnuncios] = useState(0)
   const [listings, setListings] = useState<any[]>([])
+  // Produtos de loja (selado, pelucia, funko...) no grid do marketplace (#9).
+  // Lista SEPARADA de `listings` de proposito: `listings` tambem alimenta Meus
+  // anuncios, Negociacoes, banner, destaques e o limite do plano, e produto nao
+  // pode cair em nenhum deles. So entra na vitrine e nas contagens.
+  const [produtos, setProdutos] = useState<any[]>([])
   const [userId, setUserId]     = useState<string | null>(null)
   const [userWhatsapp, setUserWhatsapp] = useState<string | null>(null)
   const [userCity, setUserCity] = useState<string | null>(null)
@@ -1246,6 +1312,56 @@ function MarketplaceInner() {
       preco_mercado: (c.card_id && !c.graduada) ? (priceMap[c.card_id] || 0) : 0,
     }))
 
+    // ── Produtos de loja ───────────────────────────────────────────────────
+    // ★ A busca parte das LOJAS ativas e nao ocultas, nunca de loja_produtos
+    //   direto. A RLS de loja_produtos libera qualquer produto ativo com
+    //   estoque sem olhar a loja, e a de lojas libera qualquer loja ativa sem
+    //   saber de `oculta` -- o filtro de loja de teste so existe nas consultas
+    //   do app. Buscar o produto direto publicaria o produto de teste da
+    //   Vulcano (oculta) pra todo mundo.
+    let prods: any[] = []
+    const { data: lojasVisiveis } = await supabase
+      .from('lojas')
+      .select('id, owner_user_id, slug, nome, logo_url, verificada, cidade, connect_charges_enabled')
+      .eq('status', 'ativa')
+      .neq('oculta', true)
+    const lojaPorId = new Map((lojasVisiveis || []).map((l: any) => [l.id, l]))
+    if (lojaPorId.size > 0) {
+      const { data: lp } = await supabase
+        .from('loja_produtos')
+        .select('id, slug, tipo, nome, preco_cents, estoque, fotos, loja_id, created_at')
+        .eq('ativo', true)
+        .gt('estoque', 0)
+        .in('loja_id', [...lojaPorId.keys()])
+        .order('created_at', { ascending: false })
+      prods = (lp || []).map((p: any) => {
+        const l: any = lojaPorId.get(p.loja_id)
+        return {
+          // Formato de anuncio, pra passar pelos mesmos filtros e ordenacoes.
+          id: `produto:${p.id}`,
+          ehProduto: true,
+          slug: p.slug || p.id,
+          tipo: p.tipo,
+          card_name: p.nome,
+          price: (p.preco_cents || 0) / 100,
+          fotos: Array.isArray(p.fotos) ? p.fotos.filter(Boolean) : [],
+          estoque: p.estoque,
+          created_at: p.created_at,
+          status: 'disponivel',
+          user_id: l.owner_user_id,
+          seller_city: l.cidade,
+          seller_loja_slug: l.slug,
+          seller_loja_nome: l.nome,
+          seller_loja_logo: l.logo_url,
+          seller_loja_verificada: !!l.verificada,
+          seller_loja_cidade: l.cidade,
+          seller_loja_vende: !!l.connect_charges_enabled,
+          preco_mercado: 0,
+        }
+      })
+    }
+    setProdutos(prods)
+
     setListings(enriched)
     // Conta anúncios ativos do usuário
     if (authData.user) {
@@ -1269,8 +1385,11 @@ function MarketplaceInner() {
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
 
-  const vitrine = listings.filter(c => {
+  const vitrine = [...listings, ...produtos].filter(c => {
     if (c.user_id === userId) return false // não mostra seus próprios na vitrine
+    // Produto nao tem status de negociacao, variante, condicao nem graduacao:
+    // com qualquer desses filtros ligado, a pessoa esta procurando CARTA.
+    if (c.ehProduto && (filtroStatus || filtroVariante || filtroCondicao || filtroGraduadora)) return false
     const status = c.status || 'disponivel' // trata null como disponivel
     // S29 UX v2: marketplace agora mostra TODOS os anúncios por default,
     // exceto os já concluídos/cancelados (que poluem a vitrine).
@@ -1432,7 +1551,7 @@ function MarketplaceInner() {
   const gridCards = editorialMode ? vitrine.filter(c => !heroTrioIds.has(c.id)) : vitrine
 
   // Contadores das lentes de descoberta
-  const baseAtivos = listings.filter(c => c.user_id !== userId && !estaEncerrado(c.status || 'disponivel'))
+  const baseAtivos = [...listings, ...produtos].filter(c => c.user_id !== userId && !estaEncerrado(c.status || 'disponivel'))
   const countTodos = baseAtivos.length
   const countOfertas = baseAtivos.filter(c => descontoDe(c) >= CORTE_IMPERDIVEL).length
   const countBom = baseAtivos.filter(c => { const d = descontoDe(c); return d >= CORTE_BOM_PRECO && d < CORTE_IMPERDIVEL }).length
@@ -1799,9 +1918,10 @@ function MarketplaceInner() {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="mkt-grid">
-                {gridCards.map(card => (
-                  <AnuncioCard key={card.id} card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
-                ))}
+                {gridCards.map(card => card.ehProduto
+                  ? <ProdutoCard key={card.id} card={card} />
+                  : <AnuncioCard key={card.id} card={card} userId={userId} userWhatsapp={userWhatsapp} onAction={loadData} />
+                )}
               </div>
             )}
           </>
