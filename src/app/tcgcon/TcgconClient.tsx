@@ -9,10 +9,12 @@
 // O servidor aplica o cupom, zera o trial da conta nova e recusa depois das 23h59.
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { trackProUpgradeInitiated } from '@/lib/analytics'
 import { OFERTA_TCGCON, ofertaTcgconAtiva } from '@/lib/ofertaTcgcon'
+import ARTES_LENDARIAS from '@/lib/paginas-lendarias-artes.json'
 import {
   IconScan, IconCollection, IconStar, IconShield, IconClock, IconArrowRight,
   IconLocation, IconChart, IconCard, IconMarketplace, IconPokedex, IconDashboard,
@@ -28,6 +30,36 @@ const PILARES = [
   { Icon: IconPokedex, t: 'Pokédex completa', d: 'Todo o catálogo liberado' },
   { Icon: IconDashboard, t: 'Dashboard', d: 'Sua coleção em números' },
 ]
+
+// As 5 cartas presentes em mais colecoes da Bynx (user_cards, usuarios distintos, 13/09/2026).
+// Retrato fixo de proposito: a pagina vive um dia. Ordem do leque, o centro e a mais colecionada
+// de visual mais forte.
+const LEQUE = [
+  { nome: 'Raticate', img: 'https://images.scrydex.com/pokemon/me3-99/small' },
+  { nome: 'Meowth', img: 'https://images.pokemontcg.io/me2/106.png' },
+  { nome: 'Mega Charizard X ex', img: 'https://images.pokemontcg.io/me2/125.png' },
+  { nome: 'Clefairy', img: 'https://images.scrydex.com/pokemon/me3-94/small' },
+  { nome: 'Mega Diancie ex', img: 'https://images.pokemontcg.io/me2/41.png' },
+]
+
+// Previa da tela de Master Sets: sets ativos reais, progresso ilustrativo.
+const SETS_PREVIA = [
+  { nome: 'Equilíbrio Perfeito', logo: 'https://images.scrydex.com/pokemon/me3-logo/logo', total: 124, tenho: 88 },
+  { nome: 'Caos Ascendente', logo: 'https://pokecardex.b-cdn.net/assets/images/logos/US/CRI.png', total: 122, tenho: 41 },
+  { nome: 'Estrelas Radiantes', logo: 'https://images.scrydex.com/pokemon/swsh9-logo/logo', total: 186, tenho: 152 },
+]
+
+// Previa da Pagina Lendaria: a do Meowth, que e a carta presente em mais colecoes.
+const PAGINA_ARTE = (ARTES_LENDARIAS as Record<string, string>)['meowth-pf']
+const PAGINA_HEROI = 'https://images.pokemontcg.io/me2/106.png'
+
+// Previa dos Separadores: mesmas cores de geracao da tela /separadores.
+const SEPARADORES_PREVIA = [
+  { id: 25, nome: 'Pikachu', gen: 'GEN 1', cor: '#e74c3c' },
+  { id: 197, nome: 'Umbreon', gen: 'GEN 2', cor: '#f39c12' },
+  { id: 448, nome: 'Lucario', gen: 'GEN 4', cor: '#2980b9' },
+]
+const artwork = (id: number) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`
 
 const FIM = Date.parse(OFERTA_TCGCON.fimISO)
 const brl = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -125,9 +157,27 @@ export default function TcgconClient() {
           <main className="bx-gutter">
             <div className="tc-wrap">
               <section className="tc-hero">
-                <span className="tc-eyebrow"><IconLocation size={13} />Pra quem está na TCG CON hoje</span>
+                <span className="tc-eyebrow"><IconLocation size={13} />Para quem está na TCG CON hoje</span>
                 <h1 className="tc-h">Pro Anual <span>pelo preço do Plus.</span></h1>
                 <p className="tc-sub">A Bynx inteira liberada por 12 meses, sem limite: sua coleção, o preço de cada carta em real, o scan, o mercado e tudo que vier no ano.</p>
+
+                <figure className="tc-fan-wrap">
+                  <div className="tc-fan">
+                    {LEQUE.map((c, i) => (
+                      <div key={c.nome} className={`tc-fan-card tc-fan-${i}`}>
+                        <Image
+                          src={c.img}
+                          alt={c.nome}
+                          width={i === 2 ? 116 : 96}
+                          height={i === 2 ? 162 : 134}
+                          sizes={i === 2 ? '116px' : '96px'}
+                          priority
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <figcaption>As cartas mais colecionadas na Bynx</figcaption>
+                </figure>
 
                 <ul className="tc-pillars" aria-label="O que a Bynx faz">
                   {PILARES.map(({ Icon, t, d }) => (
@@ -151,11 +201,11 @@ export default function TcgconClient() {
                     {loading ? 'Abrindo pagamento...' : <>Garantir meu Pro Anual <IconArrowRight size={18} strokeWidth={2.4} /></>}
                   </button>
                   {erro && <p className="tc-erro" role="alert">{erro}</p>}
-                  <div className="tc-assure"><IconShield size={14} />Cartão, Apple Pay ou Google Pay · 7 dias pra desistir</div>
+                  <div className="tc-assure"><IconShield size={14} />Cartão, Apple Pay ou Google Pay · 7 dias para desistir</div>
 
                   <div className="tc-code">
                     <div>
-                      <span className="tc-code-l">Não dá pra fechar agora?</span>
+                      <span className="tc-code-l">Não consegue fechar agora?</span>
                       <span className="tc-code-t">Use o código no Pro Anual até 23h59</span>
                     </div>
                     <button className="tc-code-b" onClick={copiarCodigo} aria-label={`Copiar código ${OFERTA_TCGCON.codigo}`}>
@@ -168,22 +218,93 @@ export default function TcgconClient() {
 
               <section className="tc-sec">
                 <h2>E ainda vem no Pro Anual</h2>
+
+                <div className="tc-prevs">
+                  <article className="tc-prev">
+                    <div className="tc-prev-vis" role="img" aria-label="Prévia da tela de Master Sets">
+                      <div className="tc-ms">
+                        {SETS_PREVIA.map(s => {
+                          const pct = Math.round((s.tenho / s.total) * 100)
+                          return (
+                            <div key={s.nome} className="tc-ms-card">
+                              <div className="tc-ms-logo">
+                                <Image src={s.logo} alt="" width={84} height={34} sizes="84px" />
+                              </div>
+                              <b>{s.nome}</b>
+                              <small>{s.total} cartas</small>
+                              <div className="tc-ms-bar"><i style={{ width: `${pct}%` }} /></div>
+                              <span className="tc-ms-num">{s.tenho}/{s.total}</span>
+                              <span className="tc-ms-pill">Incluso no anual</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="tc-prev-txt">
+                      <span className="tc-ic"><IconStar size={18} /></span>
+                      <p>Todos os Master Sets<small>Veja carta a carta o que falta para fechar cada set. Avulso, cada um é pago.</small></p>
+                    </div>
+                  </article>
+
+                  <article className="tc-prev">
+                    <div className="tc-prev-vis" role="img" aria-label="Prévia de uma Página Lendária do Meowth">
+                      <div className="tc-pl">
+                        {PAGINA_ARTE && (
+                          <Image src={PAGINA_ARTE} alt="" fill sizes="(max-width: 520px) 60vw, 256px" className="tc-pl-arte" />
+                        )}
+                        <div className="tc-pl-grid">
+                          {Array.from({ length: 9 }).map((_, i) => (
+                            <div key={i} className={`tc-pl-bolso${i === 4 ? ' tc-pl-heroi' : ''}`}>
+                              {i === 4 && <Image src={PAGINA_HEROI} alt="" fill sizes="64px" />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="tc-prev-txt">
+                      <span className="tc-ic"><IconImage size={18} /></span>
+                      <p>Todas as Páginas Lendárias<small>A arte da carta se estende pela página inteira do fichário. Avulso, cada uma é paga.</small></p>
+                    </div>
+                  </article>
+
+                  <article className="tc-prev">
+                    <div className="tc-prev-vis" role="img" aria-label="Prévia dos Separadores de fichário">
+                      <div className="tc-sep">
+                        {SEPARADORES_PREVIA.map(p => (
+                          <div key={p.id} className="tc-sep-card">
+                            <span className="tc-sep-gen" style={{ color: p.cor }}>{p.gen}</span>
+                            <img src="/bynx_perfil.png" alt="" className="tc-sep-badge" />
+                            <div className="tc-sep-img">
+                              <img src={artwork(p.id)} alt="" loading="lazy" />
+                            </div>
+                            <div className="tc-sep-nome">
+                              <b>{p.nome}</b>
+                              <small>#{String(p.id).padStart(4, '0')}</small>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="tc-prev-txt">
+                      <span className="tc-ic"><IconTag size={18} /></span>
+                      <p>Separadores liberados<small>No tamanho exato da carta, prontos para imprimir e organizar suas pastas.</small></p>
+                    </div>
+                  </article>
+                </div>
+
                 <ul className="tc-feat">
-                  <li><span className="tc-ic"><IconStar size={18} /></span><p>Todos os Master Sets<small>Inclusos no anual. Avulso eles são pagos</small></p></li>
-                  <li><span className="tc-ic"><IconImage size={18} /></span><p>Todas as Páginas Lendárias<small>Inclusas no anual. Avulso elas são pagas</small></p></li>
-                  <li><span className="tc-ic"><IconTag size={18} /></span><p>Separadores liberados<small>Pra imprimir e organizar suas pastas</small></p></li>
-                  <li><span className="tc-ic"><IconDownload size={18} /></span><p>Exportar PDF e CSV<small>Sua coleção inteira numa planilha</small></p></li>
+                  <li><span className="tc-ic"><IconDownload size={18} /></span><p>Exportar PDF e CSV<small>Sua coleção inteira em uma planilha</small></p></li>
                 </ul>
 
                 <div className="tc-proof">
-                  <div><b>400+</b><span>colecionadores</span></div>
+                  <div><b>270+</b><span>sets catalogados</span></div>
                   <div><b>70 mil</b><span>cartas com preço</span></div>
-                  <div><b>12</b><span>lojas parceiras</span></div>
+                  <div><b className="tc-proof-word">Inúmeras</b><span>lojas parceiras</span></div>
                 </div>
 
                 <div className="tc-risk">
                   <span className="tc-ic tc-ic-green"><IconShield size={20} /></span>
-                  <p><strong>Não curtiu? Devolvemos tudo.</strong> Você tem 7 dias pra desistir e recebe 100% de volta.</p>
+                  <p><strong>Não curtiu? Devolvemos tudo.</strong> Você tem 7 dias para desistir e recebe 100% de volta.</p>
                 </div>
 
                 <p className="tc-login">
@@ -234,6 +355,17 @@ const CSS = `
 .tc-h span{background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .tc-sub{font-size:15px;line-height:1.5;color:var(--bx-text-2);margin:0}
 
+.tc-fan-wrap{margin:22px 0 0}
+.tc-fan{position:relative;height:178px;background:radial-gradient(60% 70% at 50% 60%,rgba(var(--ac-1-rgb),0.16),transparent 70%)}
+.tc-fan-card{position:absolute;top:22px;left:50%;border-radius:6px;overflow:hidden;box-shadow:0 12px 28px rgba(0,0,0,0.55);line-height:0}
+.tc-fan-card img{display:block;width:100%;height:auto}
+.tc-fan-0{width:96px;transform:translateX(calc(-50% - 108px)) translateY(16px) rotate(-12deg);z-index:1}
+.tc-fan-1{width:96px;transform:translateX(calc(-50% - 56px)) translateY(4px) rotate(-6deg);z-index:2}
+.tc-fan-2{width:116px;top:6px;transform:translateX(-50%);z-index:3;box-shadow:0 16px 36px rgba(0,0,0,0.6),0 0 0 1px rgba(var(--ac-1-rgb),0.45)}
+.tc-fan-3{width:96px;transform:translateX(calc(-50% + 56px)) translateY(4px) rotate(6deg);z-index:2}
+.tc-fan-4{width:96px;transform:translateX(calc(-50% + 108px)) translateY(16px) rotate(12deg);z-index:1}
+.tc-fan-wrap figcaption{text-align:center;font-size:12px;color:var(--bx-text-3);margin-top:6px}
+
 .tc-pillars{list-style:none;margin:18px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .tc-pillars li{min-width:0;display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
 .tc-pillars .tc-ic{width:32px;height:32px;border-radius:9px;margin-bottom:8px}
@@ -271,17 +403,51 @@ const CSS = `
 
 .tc-sec{padding-top:28px}
 .tc-sec h2{font-size:17px;font-weight:700;margin:0 0 12px;letter-spacing:-0.01em}
-.tc-feat{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.tc-feat{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}
 .tc-feat li{display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;align-items:center;padding:12px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
-.tc-feat p{margin:0;font-size:14px;font-weight:600}
-.tc-feat small{display:block;font-weight:400;color:var(--bx-text-2);font-size:12.5px;margin-top:2px}
-.tc-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:rgba(var(--ac-1-rgb),0.10);color:var(--ac-1)}
+.tc-feat p,.tc-prev-txt p{margin:0;font-size:14px;font-weight:600}
+.tc-feat small,.tc-prev-txt small{display:block;font-weight:400;color:var(--bx-text-2);font-size:12.5px;line-height:1.4;margin-top:2px}
+.tc-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:rgba(var(--ac-1-rgb),0.10);color:var(--ac-1);flex-shrink:0}
 .tc-ic-lg{width:52px;height:52px;border-radius:14px;margin-bottom:18px}
 .tc-ic-green{width:40px;height:40px;color:var(--bx-green);background:color-mix(in srgb,var(--bx-green) 12%,transparent)}
 
+.tc-prevs{display:grid;gap:10px}
+.tc-prev{border-radius:16px;border:1px solid var(--bx-border);background:var(--bx-surface);overflow:hidden}
+.tc-prev-vis{position:relative;padding:16px 12px;background:var(--bx-bg-elev);border-bottom:1px solid var(--bx-border);display:flex;justify-content:center;overflow:hidden}
+.tc-prev-txt{display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;align-items:center;padding:12px}
+
+.tc-ms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}
+.tc-ms-card{min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border);text-align:center}
+.tc-ms-logo{height:36px;width:100%;display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+.tc-ms-logo img{max-height:34px;max-width:100%;width:auto;height:auto;object-fit:contain}
+.tc-ms-card b{font-size:11px;font-weight:600;line-height:1.2;max-width:100%;min-height:2.4em;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
+.tc-ms-card small{font-size:10px;color:var(--bx-text-3)}
+.tc-ms-bar{width:100%;height:4px;border-radius:100px;background:var(--bx-surface-3);overflow:hidden;margin-top:6px}
+.tc-ms-bar i{display:block;height:100%;background:var(--bx-green)}
+.tc-ms-num{font-size:10px;color:var(--bx-text-2);font-variant-numeric:tabular-nums}
+.tc-ms-pill{margin-top:4px;font-size:9.5px;font-weight:600;color:var(--ac-1);background:rgba(var(--ac-1-rgb),0.12);padding:2px 6px;border-radius:6px;white-space:nowrap}
+
+.tc-pl{position:relative;width:min(62%,220px);aspect-ratio:195/270;border-radius:8px;overflow:hidden;box-shadow:0 14px 32px rgba(0,0,0,0.5)}
+.tc-pl-arte{object-fit:cover}
+.tc-pl-grid{position:absolute;inset:6%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:3%}
+.tc-pl-bolso{position:relative;border-radius:3px;border:1px solid rgba(255,255,255,0.24);background:rgba(10,8,6,0.18);overflow:hidden}
+.tc-pl-heroi{border-color:rgba(255,255,255,0.7);box-shadow:0 6px 16px rgba(0,0,0,0.45)}
+.tc-pl-heroi img{object-fit:cover}
+
+.tc-sep{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:min(100%,300px)}
+.tc-sep-card{position:relative;aspect-ratio:63/88;border-radius:6px;background:#fff;border:1px solid #2a2a2a;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,0.45)}
+.tc-sep-gen{position:absolute;top:5%;left:6%;font-size:8px;font-weight:800;letter-spacing:.04em;line-height:1;font-family:system-ui,-apple-system,sans-serif}
+.tc-sep-badge{position:absolute;top:3%;right:5%;width:16px;height:16px;border-radius:50%;object-fit:cover}
+.tc-sep-img{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:18% 12% 4%}
+.tc-sep-img img{width:100%;height:100%;object-fit:contain}
+.tc-sep-nome{border-top:0.5px solid #e0e0e0;padding:5% 6% 7%;display:flex;flex-direction:column;align-items:center;gap:1px}
+.tc-sep-nome b{font-size:11px;font-weight:900;color:#111;line-height:1.1;font-family:'Arial Black','Helvetica Neue',system-ui,sans-serif}
+.tc-sep-nome small{font-size:9px;color:#666;font-family:system-ui,-apple-system,sans-serif}
+
 .tc-proof{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
-.tc-proof div{text-align:center;padding:12px 6px;border-radius:12px;border:1px solid var(--bx-border)}
+.tc-proof div{min-width:0;text-align:center;padding:12px 4px;border-radius:12px;border:1px solid var(--bx-border)}
 .tc-proof b{display:block;font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+.tc-proof b.tc-proof-word{font-size:16px;letter-spacing:-0.01em}
 .tc-proof span{font-size:11.5px;color:var(--bx-text-3)}
 
 .tc-risk{display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:center;margin-top:14px;padding:14px;border-radius:12px;background:color-mix(in srgb,var(--bx-green) 6%,transparent);border:1px solid color-mix(in srgb,var(--bx-green) 28%,transparent)}
@@ -304,6 +470,5 @@ const CSS = `
 .tc-ghost{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin-top:10px;border-radius:12px;border:1px solid var(--bx-border-2);background:var(--bx-surface);color:var(--bx-text);font-weight:600;font-size:15px;text-decoration:none;transition:background .15s ease}
 .tc-ghost:hover{background:var(--bx-surface-2)}
 
-@media (min-width:768px){.tc-top-row{max-width:608px}}
 @media (prefers-reduced-motion:reduce){.tc-dot{animation:none}.tc-cta{transition:none}}
 `
