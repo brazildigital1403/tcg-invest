@@ -216,13 +216,16 @@ export default async function CartasGraduadasPage() {
               </ol>
             </div>
             <div className="cg-anat">
+              {/* Os pinos vivem DENTRO do slab: acompanham o tamanho dele no
+                  desktop e no celular e encostam na parte que numeram. Soltos
+                  na secao, ficavam longe do slab e sumiam no celular. */}
               <div className="cg-anat-slab">
-                <SlabArte graduadora="psa" nota={10} img={CARTA('sv4pt5/234')} nome="Charizard ex · Paldean Fates" sizes="300px" />
+                <SlabArte graduadora="psa" nota={10} img={CARTA('sv4pt5/234')} nome="Charizard ex · Paldean Fates" sizes="(max-width: 560px) 230px, 300px" certificado />
+                <span className="cg-pino cg-pino-1" aria-hidden="true">1</span>
+                <span className="cg-pino cg-pino-2" aria-hidden="true">2</span>
+                <span className="cg-pino cg-pino-3" aria-hidden="true">3</span>
+                <span className="cg-pino cg-pino-4" aria-hidden="true">4</span>
               </div>
-              <span className="cg-pino" style={{ left: '6%', top: '9%' }}>1</span>
-              <span className="cg-pino" style={{ right: '6%', top: '9%' }}>2</span>
-              <span className="cg-pino" style={{ left: '4%', top: '55%' }}>3</span>
-              <span className="cg-pino" style={{ right: '4%', bottom: '10%' }}>4</span>
             </div>
           </div>
         </section>
@@ -446,13 +449,18 @@ const CSS = `
 .cg-anat-lista li{display:flex;gap:12px;align-items:center;font-size:15.5px;color:var(--bx-text-2)}
 .cg-anat-lista b,.cg-pino{flex:none;width:30px;height:30px;border-radius:50%;background:var(--bx-brand);color:var(--bx-brand-ink);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900}
 .cg-anat-lista strong{color:var(--bx-text)}
-.cg-anat{position:relative;display:flex;justify-content:center;padding:24px 0}
-.cg-anat-slab{width:300px}
+.cg-anat{display:flex;justify-content:center;padding:24px 0}
+.cg-anat-slab{position:relative;width:300px}
 .cg-anat-slab .sa-nota{font-size:34px}
 .cg-anat-slab .sa-sig{font-size:17px}
 .cg-anat-slab .sa-nome{font-size:11px;max-width:170px}
 .cg-anat-slab .sa-lab{min-height:62px}
-.cg-pino{position:absolute;box-shadow:0 0 0 6px rgba(var(--ac-1-rgb),.18)}
+.cg-pino{position:absolute;z-index:2;box-shadow:0 0 0 5px rgba(var(--ac-1-rgb),.22),0 6px 16px rgba(0,0,0,.5)}
+/* 1 na sigla da etiqueta, 2 na nota, 3 no meio da carta, 4 na faixa do certificado */
+.cg-pino-1{left:-15px;top:25px}
+.cg-pino-2{right:-15px;top:25px}
+.cg-pino-3{left:-15px;top:50%}
+.cg-pino-4{right:-15px;bottom:6px}
 
 /* notas */
 .cg-regua{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-top:40px;align-items:end}
@@ -554,7 +562,6 @@ const CSS = `
   .cg-h1s{width:150px}.cg-h2s{width:110px}.cg-h3s{width:120px}.cg-h4s{width:105px}.cg-h5s{display:none}
   .cg-palco .sa-nome{display:none}
   .cg-anat-slab{width:230px}
-  .cg-pino{display:none}
   .cg-lupa{width:240px}
   .cg-seta{transform:rotate(90deg)}
   .cg-bl-palco{height:380px}
