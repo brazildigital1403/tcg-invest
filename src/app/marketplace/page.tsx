@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose, IconCarrinho } from '@/components/ui/Icons'
+import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose, IconCarrinho, IconLoja } from '@/components/ui/Icons'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
@@ -21,6 +21,7 @@ import ModalLimiteAnuncios from '@/components/ui/ModalLimiteAnuncios'
 import NegociacoesTab from '@/components/marketplace/NegociacoesTab'
 import MarketplaceFotosGaleria from '@/components/marketplace/MarketplaceFotosGaleria'
 import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
+import SeloVerificado from '@/components/ui/SeloVerificado'
 // ★ A MESMA LISTA ESTAVA CRAVADA EM 5 PONTOS DESTE ARQUIVO (08/09/2026), e as
 //   cinco divergiam no MESMO ponto: nenhuma incluia `vendido`, que e o status
 //   terminal do Connect (escrito pelo webhook da Stripe). Efeito medido:
@@ -148,6 +149,102 @@ function SectionHead({ Icon, color, title, count, actionLabel, onAction }: {
 }
 
 // ─── Componente de card de anúncio ────────────────────────────────────────────
+
+// ─── Identidade da loja no marketplace (#9, 12/09/2026) ─────────────────────
+//
+// ★ POR QUE EXISTE. Quando uma LOJA anunciava, os tres lugares que mostram o
+// vendedor (card do grid, "Em destaque hoje" e o banner do topo) exibiam o
+// nome da PESSOA dona da loja, com iniciais num circulo e link pro perfil
+// pessoal. Medido: 21 dos 74 anuncios no ar sao de loja, 20 de loja
+// verificada, e nenhum mostrava loja nem selo -- a primeira linha inteira do
+// grid era da GhosTCG e todos os cards diziam "LG - Luiz Gustavo Alve...".
+//
+// ★ UM COMPONENTE, TRES TAMANHOS. A linha do vendedor estava desenhada 3 vezes
+// a mao; a da loja nasce uma vez so, pra nao divergir. A linha da PESSOA foi
+// mantida exatamente como estava em cada lugar: pelo mockup aprovado,
+// colecionador nao muda.
+
+type VarianteVendedor = 'card' | 'trio' | 'hero'
+const TAM_VENDEDOR: Record<VarianteVendedor, { logo: number; nome: number; meta: number; selo: number }> = {
+  card: { logo: 30, nome: 12.5, meta: 10.5, selo: 14 },
+  trio: { logo: 24, nome: 11.5, meta: 10,   selo: 12 },
+  hero: { logo: 28, nome: 12.5, meta: 11,   selo: 14 },
+}
+
+function LogoLoja({ card, tamanho }: { card: any; tamanho: number }) {
+  if (card.seller_loja_logo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={card.seller_loja_logo} alt="" width={tamanho} height={tamanho} loading="lazy" decoding="async"
+        style={{ width: tamanho, height: tamanho, borderRadius: Math.round(tamanho * 0.27), objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.14)', display: 'block' }} />
+    )
+  }
+  return (
+    <span style={{ width: tamanho, height: tamanho, borderRadius: Math.round(tamanho * 0.27), flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(tamanho * 0.4), fontWeight: 800, color: '#fff', background: corDoNome(card.seller_loja_nome || card.user_id) }}>
+      {(card.seller_loja_nome || '?').trim().charAt(0).toUpperCase()}
+    </span>
+  )
+}
+
+function VendedorLoja({ card, variante }: { card: any; variante: VarianteVendedor }) {
+  const t = TAM_VENDEDOR[variante]
+  // Estilo do CONTAINER copiado de cada linha de pessoa que ele substitui, pra
+  // loja e colecionador ocuparem o mesmo espaco no mesmo card.
+  const box: React.CSSProperties =
+    variante === 'card' ? { display: 'flex', alignItems: 'center', gap: 9, paddingTop: 11, borderTop: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none', minWidth: 0 }
+    : variante === 'trio' ? { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 11, textDecoration: 'none', minWidth: 0 }
+    : { display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, textDecoration: 'none', minWidth: 0, maxWidth: '100%' }
+  return (
+    <a href={`/lojas/${card.seller_loja_slug}`} target="_blank" rel="noopener noreferrer"
+      className={variante === 'hero' ? 'mkt-hero-vendedor' : undefined} style={box}>
+      <LogoLoja card={card} tamanho={t.logo} />
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: t.nome, fontWeight: 700, color: '#e8e8e8', minWidth: 0 }}>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.seller_loja_nome || 'Loja'}</span>
+          {card.seller_loja_verificada && <SeloVerificado size={t.selo} />}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: t.meta, color: 'rgba(255,255,255,0.4)', marginTop: 1, minWidth: 0, whiteSpace: 'nowrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#60a5fa', fontWeight: 700, flexShrink: 0 }}>
+            <IconLoja size={t.meta + 0.5} color="#60a5fa" />Loja
+          </span>
+          {card.seller_loja_cidade && (
+            <>
+              <span style={{ opacity: 0.5, flexShrink: 0 }}>·</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{card.seller_loja_cidade}</span>
+            </>
+          )}
+        </span>
+      </span>
+    </a>
+  )
+}
+
+/**
+ * Logo da loja sobre a arte (Proposta B aprovada pelo Du). Canto inferior
+ * direito, que era o unico livre: em cima ficam condicao e variante, embaixo a
+ * esquerda os selos de Novo/desconto.
+ *
+ * ★ Duas colisoes tratadas: a galeria de fotos poe o contador "Foto real" no
+ * mesmo canto (entao o logo sobe), e a faixa do cronometro ocupa a borda de
+ * baixo INTEIRA (entao o logo some enquanto ela aparece).
+ */
+function ChipLojaArte({ card }: { card: any }) {
+  if (!card.seller_loja_slug) return null
+  if (podeExpirar(card.status) && card.status_em) return null
+  const sobe = !!(card.fotos && card.fotos.length)
+  return (
+    <a href={`/lojas/${card.seller_loja_slug}`} target="_blank" rel="noopener noreferrer"
+      aria-label={`Loja ${card.seller_loja_nome || ''}`.trim()} title={card.seller_loja_nome || 'Loja'}
+      style={{ position: 'absolute', right: 8, bottom: sobe ? 36 : 8, zIndex: 6, display: 'block', padding: 2, borderRadius: 9, background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(255,255,255,0.18)', boxShadow: '0 2px 8px rgba(0,0,0,0.45)' }}>
+      <LogoLoja card={card} tamanho={26} />
+      {card.seller_loja_verificada && (
+        <span style={{ position: 'absolute', right: -5, bottom: -5, borderRadius: '50%', boxShadow: '0 0 0 2px #0d0f14', display: 'flex' }}>
+          <SeloVerificado size={13} />
+        </span>
+      )}
+    </a>
+  )
+}
 
 function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
   card: any; userId: string | null; userWhatsapp: string | null; onAction: () => void; railMode?: boolean
@@ -325,6 +422,9 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
           return alvo ? <CronometroLiberacao liberaEm={alvo} variante="faixa" /> : null
         })()}
 
+        {/* Logo da loja sobre a arte -- ver ChipLojaArte */}
+        <ChipLojaArte card={card} />
+
         {/* Variante badge */}
         <span style={{ position: 'absolute', top: grad ? 30 : 8, right: 8, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', color: '#f0f0f0' }}>
           {variante}
@@ -417,7 +517,8 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
           })()}
         </div>
 
-        {/* Vendedor */}
+        {/* Vendedor: a LOJA quando o anuncio e de loja ativa; a pessoa, senao. */}
+        {card.seller_loja_slug ? <VendedorLoja card={card} variante="card" /> : (
         <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 9, paddingTop: 11, borderTop: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none' }}>
           <span style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>
             {iniciais(card.seller_name)}
@@ -441,6 +542,7 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
             </span>
           </span>
         </a>
+        )}
 
         {/* Ações por papel e status */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
@@ -738,6 +840,7 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
         <p className="mkt-hero-preco" style={{ fontSize: 31, fontWeight: 900, letterSpacing: '-0.03em', color: '#f59e0b', margin: '12px 0 2px' }}>{fmt(card.price)}</p>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', fontWeight: 600 }}>{motivo.linha}</p>
 
+        {card.seller_loja_slug ? <VendedorLoja card={card} variante="hero" /> : (
         <a className="mkt-hero-vendedor" href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, textDecoration: 'none' }}>
           <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>{iniciais(card.seller_name)}</span>
           <span>
@@ -749,15 +852,22 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
             </span>
           </span>
         </a>
+        )}
 
         {/* Os dois botoes dividem UMA linha (flexWrap: nowrap + flex: 1).
             Antes empilhavam no mobile e custavam ~50px de altura. */}
         <div className="mkt-hero-acoes" style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'nowrap' }}>
           {!isMeu && card.status === 'disponivel' ? (
-            <button onClick={interesse} style={{ flex: 1, minWidth: 0, background: BRAND, border: 'none', color: '#0a0a0a', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Tenho interesse</button>
+            card.seller_loja_vende ? (
+              <Link href={`/checkout/${card.id}`} className="bx-ctx-comprador" style={{ flex: 1, minWidth: 0, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                <IconCarrinho size={16} /> Comprar
+              </Link>
+            ) : (
+              <button onClick={interesse} style={{ flex: 1, minWidth: 0, background: BRAND, border: 'none', color: '#0a0a0a', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Tenho interesse</button>
+            )
           ) : null}
-          <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.14)', color: '#f0f0f0', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            Ver vendedor <IconArrowRight size={16} color="#f0f0f0" />
+          <a href={card.seller_loja_slug ? `/lojas/${card.seller_loja_slug}` : `/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.14)', color: '#f0f0f0', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            {card.seller_loja_slug ? 'Ver loja' : 'Ver vendedor'} <IconArrowRight size={16} color="#f0f0f0" />
           </a>
         </div>
       </div>
@@ -861,6 +971,7 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
 
         <p style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em', color: '#f59e0b', margin: '0 0 9px' }}>{fmt(card.price)}</p>
 
+        {card.seller_loja_slug ? <VendedorLoja card={card} variante="trio" /> : (
         <a href={`/perfil/${card.user_id}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 11, textDecoration: 'none', minWidth: 0 }}>
           <span style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', background: corDoNome(card.seller_name || card.user_id) }}>{iniciais(card.seller_name)}</span>
           <span style={{ minWidth: 0 }}>
@@ -870,12 +981,19 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
             </span>
           </span>
         </a>
+        )}
 
-        {!isMeu && (
+        {/* Loja com recebimento ativo fecha a venda na hora, igual ao card do grid.
+            Antes o destaque sempre dizia "Tenho interesse", ate pra loja com checkout. */}
+        {!isMeu && (card.seller_loja_vende ? (
+          <Link href={`/checkout/${card.id}`} className="bx-ctx-comprador" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '9px', borderRadius: 10, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}>
+            <IconCarrinho size={15} /> Comprar
+          </Link>
+        ) : (
           <button onClick={interesse} style={{ width: '100%', background: BRAND, border: 'none', color: '#0a0a0a', padding: '9px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
             Tenho interesse
           </button>
-        )}
+        ))}
       </div>
     </div>
   )
@@ -966,7 +1084,7 @@ function MarketplaceInner() {
   })
   const [ordenacao, setOrdenacao] = useState<'recente' | 'menor' | 'maior' | 'desconto'>('recente')
   // Lentes de descoberta da barra principal (eixo separado dos filtros avançados)
-  const [discovery, setDiscovery] = useState<'' | 'ofertas' | 'bompreco' | 'graduadas' | 'novidades' | 'perto'>('')
+  const [discovery, setDiscovery] = useState<'' | 'ofertas' | 'bompreco' | 'graduadas' | 'novidades' | 'perto' | 'lojas'>('')
 
   const mesmaCidade = (c: any) => !!userCity && !!c.seller_city && normCidade(c.seller_city) === normCidade(userCity)
 
@@ -1024,13 +1142,19 @@ function MarketplaceInner() {
       // mostravam o mesmo botao.
       const { data: lojasDosVendedores } = await supabase
         .from('lojas')
-        .select('owner_user_id, slug, connect_charges_enabled')
+        .select('owner_user_id, slug, nome, logo_url, verificada, cidade, connect_charges_enabled')
         .in('owner_user_id', sellerIds)
         .eq('status', 'ativa')
         .neq('oculta', true)
       for (const l of lojasDosVendedores || []) {
         if (sellerMap[l.owner_user_id]) {
           sellerMap[l.owner_user_id].loja_slug = l.slug
+          // Identidade da loja no card (#9, 12/09/2026): ate aqui so o slug
+          // era lido, e o card mostrava o nome da PESSOA dona da loja.
+          sellerMap[l.owner_user_id].loja_nome = l.nome
+          sellerMap[l.owner_user_id].loja_logo = l.logo_url
+          sellerMap[l.owner_user_id].loja_verificada = !!l.verificada
+          sellerMap[l.owner_user_id].loja_cidade = l.cidade
           // So conta como "pode comprar" se o Connect esta liberado -- loja
           // sem recebimento ativo nao consegue fechar a venda.
           sellerMap[l.owner_user_id].loja_vende = !!l.connect_charges_enabled
@@ -1101,6 +1225,10 @@ function MarketplaceInner() {
       seller_city: sellerMap[c.user_id]?.city,
       seller_loja_slug: sellerMap[c.user_id]?.loja_slug ?? null,
       seller_loja_vende: !!sellerMap[c.user_id]?.loja_vende,
+      seller_loja_nome: sellerMap[c.user_id]?.loja_nome ?? null,
+      seller_loja_logo: sellerMap[c.user_id]?.loja_logo ?? null,
+      seller_loja_verificada: !!sellerMap[c.user_id]?.loja_verificada,
+      seller_loja_cidade: sellerMap[c.user_id]?.loja_cidade ?? null,
       buyer_name: buyerMap[c.buyer_id]?.name,
       buyer_whatsapp: buyerMap[c.buyer_id]?.whatsapp,
       buyer_city: buyerMap[c.buyer_id]?.city,
@@ -1158,6 +1286,7 @@ function MarketplaceInner() {
     if (discovery === 'graduadas' && !c.graduada) return false
     if (discovery === 'novidades' && !isNovo24(c)) return false
     if (discovery === 'perto' && !mesmaCidade(c)) return false
+    if (discovery === 'lojas' && !c.seller_loja_slug) return false
     return true
   }).sort((a, b) => {
     if (ordenacao === 'menor') return (a.price || 0) - (b.price || 0)
@@ -1310,6 +1439,7 @@ function MarketplaceInner() {
   const countGrad = baseAtivos.filter(c => c.graduada).length
   const countNovi = baseAtivos.filter(c => isNovo24(c)).length
   const countPerto = userCity ? baseAtivos.filter(c => mesmaCidade(c)).length : 0
+  const countLojas = baseAtivos.filter(c => !!c.seller_loja_slug).length
 
   const discoveryChips: Array<{ key: typeof discovery; label: string; Icon: any | null; count: number; show: boolean }> = [
     { key: '',          label: 'Todos',         Icon: null,          count: countTodos,   show: true },
@@ -1318,6 +1448,9 @@ function MarketplaceInner() {
     { key: 'graduadas', label: 'Graduadas',     Icon: IconStar,      count: countGrad,    show: countGrad > 0 },
     { key: 'novidades', label: 'Novidades',     Icon: IconBolt,      count: countNovi,    show: countNovi > 0 },
     { key: 'perto',     label: 'Perto de você', Icon: IconLocation,  count: countPerto,   show: !!userCity && countPerto > 0 },
+    // Anuncio de loja ativa. Da um motivo concreto pra loja se verificar e
+    // pro comprador que prefere quem emite pedido, frete e rastreio.
+    { key: 'lojas',     label: 'Lojas',         Icon: IconLoja,      count: countLojas,   show: countLojas > 0 },
   ]
 
   // ── Render ──────────────────────────────────────────────────────────────────

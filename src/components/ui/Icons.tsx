@@ -559,6 +559,23 @@ export function IconBox({ size = 20, color = defaultColor, strokeWidth = default
   )
 }
 
+/**
+ * Loja (fachada com toldo). Mesmo desenho do `IconMinhaLoja` do menu lateral,
+ * que vive dentro do AppLayout -- trazido pra ca (12/09/2026) porque o
+ * marketplace passou a marcar anuncio de loja, e icone novo vive neste arquivo.
+ * O desenho e o mesmo pra "loja" significar a mesma coisa no menu e no card.
+ */
+export function IconLoja({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M3 8l1-4h12l1 4" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <path d="M3 8v9h14V8" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <path d="M8 17v-5h4v5" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+      <path d="M3 8c0 1.5 1 2.5 2.5 2.5S8 9.5 8 8m0 0c0 1.5 1 2.5 2 2.5s2-1 2-2.5m0 0c0 1.5 1 2.5 2.5 2.5S17 9.5 17 8" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export function IconEdit({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
