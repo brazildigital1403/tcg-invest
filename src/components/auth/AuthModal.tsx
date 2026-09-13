@@ -33,6 +33,7 @@ import Turnstile from '@/components/auth/Turnstile'
 import { trackProUpgradeInitiated, trackSignUp } from '@/lib/analytics'
 import { camposDeAtribuicao } from '@/lib/atribuicao'
 import { IconWarning, IconClose, IconEye, IconEyeOff } from '@/components/ui/Icons'
+import type { OfertaId } from '@/lib/ofertaTcgcon'
 import {
   captureRefCodeFromURL,
   readStoredRefCode,
@@ -171,11 +172,13 @@ export interface AuthModalProps {
   initialPlan?: 'free' | 'plus' | 'mensal' | 'anual' | null
   /** Rota pra redirecionar pós-auth. Validada (precisa começar com '/' e não ser '//'). */
   next?: string | null
+  /** Oferta de evento (ex.: 'tcgcon'): o checkout aplica o cupom e a conta nasce sem trial. */
+  oferta?: OfertaId | null
 }
 
 // ─── Modal ───────────────────────────────────────────────────────────────────
 
-export default function AuthModal({ open, onClose, initialMode = 'signup', initialPlan = null, next = null }: AuthModalProps) {
+export default function AuthModal({ open, onClose, initialMode = 'signup', initialPlan = null, next = null, oferta = null }: AuthModalProps) {
   const router = useRouter()
   const bodyRef = React.useRef<HTMLDivElement>(null)
 
@@ -439,7 +442,7 @@ useEffect(() => {
           email, password,
           options: {
             captchaToken: captchaToken ?? undefined,
-            emailRedirectTo: `${window.location.origin}/auth/pos-cadastro?plan=${pendingPlan && pendingPlan !== 'free' ? pendingPlan : ''}&next=${encodeURIComponent(next || '')}`,
+            emailRedirectTo: `${window.location.origin}/auth/pos-cadastro?plan=${pendingPlan && pendingPlan !== 'free' ? pendingPlan : ''}&next=${encodeURIComponent(next || '')}${oferta ? `&oferta=${oferta}` : ''}`,
             data: { name, cpf, city, whatsapp, instagram: igNorm, tiktok: ttNorm, data_nascimento: dataNasc || null, marketing_aceito: marketingAceito, cep, logradouro, numero, complemento, bairro, uf, ...atrib },
           },
         })
@@ -537,7 +540,7 @@ useEffect(() => {
                   'Content-Type': 'application/json',
                   Authorization: `Bearer ${session.access_token}`,
                 },
-                body: JSON.stringify({ plano: pendingPlan }),
+                body: JSON.stringify({ plano: pendingPlan, ...(oferta ? { oferta } : {}) }),
               })
               const checkoutData = await res.json()
               if (checkoutData.url) { window.location.href = checkoutData.url; return }
@@ -576,13 +579,13 @@ useEffect(() => {
               {showPlanStep ? 'Escolha seu plano' : forgotStep ? 'Recuperar acesso' : isLogin ? 'Bem-vindo de volta' : 'Criar sua conta'}
             </h2>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-              {showPlanStep ? 'Organize sua coleção grátis ou desbloqueie mais com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : 'Grátis · 7 dias de Pro incluídos'}
+              {showPlanStep ? 'Organize sua coleção grátis ou desbloqueie mais com o Pro' : forgotStep ? 'Enviaremos um link para seu e-mail' : isLogin ? 'Entre para acessar sua coleção' : oferta ? 'Oferta TCG CON · sem período grátis' : 'Grátis · 7 dias de Pro incluídos'}
             </p>
             {!isLogin && !forgotStep && !showPlanStep && pendingPlan && pendingPlan !== 'free' && (
               <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 10px' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 3l2.6 5.8 6.4.6-4.8 4.2 1.4 6.2L12 17l-5.6 2.9 1.4-6.2L3 9.4l6.4-.6z"/></svg>
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>
-                  Plano {pendingPlan === 'plus' ? 'Plus · R$ 14,90/mês' : pendingPlan === 'mensal' ? 'Pro Mensal · R$ 29,90/mês' : 'Pro Anual · R$ 249/ano'} será ativado após o cadastro
+                  Plano {pendingPlan === 'plus' ? 'Plus · R$ 14,90/mês' : pendingPlan === 'mensal' ? 'Pro Mensal · R$ 29,90/mês' : oferta ? 'Pro Anual · R$ 174,30 no 1º ano' : 'Pro Anual · R$ 249/ano'} será ativado após o {oferta ? 'pagamento' : 'cadastro'}
                 </span>
               </div>
             )}
@@ -626,7 +629,9 @@ useEffect(() => {
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 20 }}>
                 Enviamos um link de confirmacao para{' '}
                 <span style={{ color: '#60a5fa' }}>{email}</span>.{' '}
-                Clique nele para ativar sua conta e poder entrar.
+                {oferta
+                  ? 'Clique nele e você vai direto pro pagamento, com o desconto já aplicado. A oferta fecha às 23h59.'
+                  : 'Clique nele para ativar sua conta e poder entrar.'}
               </p>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginBottom: 20 }}>
                 Nao recebeu? Verifique o spam.

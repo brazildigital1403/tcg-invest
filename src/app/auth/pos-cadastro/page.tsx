@@ -29,6 +29,9 @@ export default function PosCadastro() {
       const plan = params.get('plan') || ''
       const next = sanitizeNext(params.get('next'))
       const paid = plan === 'plus' || plan === 'mensal' || plan === 'anual'
+      // Oferta de evento: o checkout aplica o cupom e zera o trial. Se falhar
+      // (oferta encerrada, conta inelegivel), volta pra landing que explica.
+      const oferta = params.get('oferta') === 'tcgcon' ? 'tcgcon' : null
 
       // Espera a sessao aparecer (o Supabase processa o token da URL de forma assincrona).
       let session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'] = null
@@ -52,11 +55,12 @@ export default function PosCadastro() {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({ plano: plan }),
+            body: JSON.stringify({ plano: plan, ...(oferta ? { oferta } : {}) }),
           })
           const d = await res.json()
           if (d.url) { window.location.href = d.url; return }
         } catch { /* cai no destino padrao abaixo */ }
+        if (oferta) { router.replace('/tcgcon'); return }
       }
 
       // Free ou falha no checkout -> destino/dashboard.
