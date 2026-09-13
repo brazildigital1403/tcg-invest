@@ -11,6 +11,7 @@ import { fmtBRL } from '@/lib/comissao'
 import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, IconBolt, IconPokeball } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
+import { canceladoSemCobranca } from '@/lib/pedidoStatus'
 
 /**
  * /pedido/[id] — acompanhamento do pedido.
@@ -290,6 +291,11 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   } else if (reembolsado) {
     heroIco = <IconArrowRight size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
     heroH = 'Pedido reembolsado'; heroS = 'O valor foi estornado no seu cartão. Pode levar alguns dias pra aparecer na fatura.'
+  } else if (canceladoSemCobranca(pedido)) {
+    // Checkout abandonado, cancelado pelo webhook de sessao vencida. A frase
+    // generica mandava "falar com a loja", e a loja nao fez nada aqui.
+    heroIco = <IconShield size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
+    heroH = 'Pagamento não concluído'; heroS = 'O prazo para finalizar o pagamento venceu e o pedido foi cancelado. Nada foi cobrado no seu cartão.'
   } else if (pedido.status === 'cancelado') {
     heroIco = <IconShield size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
     heroH = 'Pedido cancelado'; heroS = 'Este pedido foi cancelado. Se tiver dúvida, fale com a loja.'
@@ -353,7 +359,9 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
                 <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55 }}>
                   {reembolsado
                     ? `Este pedido foi cancelado pela loja e o valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado no seu cartão.`
-                    : 'Este pedido foi cancelado.'}
+                    : canceladoSemCobranca(pedido)
+                      ? 'O pagamento não foi concluído a tempo, então o pedido foi cancelado. Nada foi cobrado.'
+                      : 'Este pedido foi cancelado.'}
                 </div>
               </div>
             </div>

@@ -8,6 +8,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconStar, IconArrowRight, IconShield, IconMarketplace, IconBolt, IconCard, IconPokeball } from '@/components/ui/Icons'
+import { pedidoEncerrado, canceladoSemCobranca, pedidoEmAndamento } from '@/lib/pedidoStatus'
 
 /**
  * /compras — as compras do usuario na Bynx.
@@ -16,7 +17,7 @@ import { IconBox, IconStar, IconArrowRight, IconShield, IconMarketplace, IconBol
  * `pedidos` ja libera pro comprador e pro vendedor, entao nao precisa de rota.
  *
  * LAYOUT (redesign): titulo + subtitulo, filtros (Todos / A caminho / Entregues
- * / Reembolsados) e cards ricos com mini-timeline do status + CTA por estado
+ * / Cancelados) e cards ricos com mini-timeline do status + CTA por estado
  * (Acompanhar / Avaliar / Ver pedido). O card inteiro leva pro /pedido/[id],
  * onde ficam as acoes de verdade (confirmar recebimento, avaliar). Zero emoji.
  */
@@ -32,6 +33,8 @@ interface Pedido {
   rastreio: string | null
   created_at: string
   loja_id: string
+  /** Null = nunca foi pago. Decide se o cancelado e checkout abandonado. */
+  pago_em: string | null
 }
 
 const LABEL: Record<string, string> = {
@@ -48,7 +51,7 @@ function fmtDia(iso: string): string {
   try { const d = new Date(iso); return `${d.getDate()} ${MES[d.getMonth()]}` } catch { return '' }
 }
 
-type Filtro = 'todos' | 'andamento' | 'entregues' | 'reembolsados'
+type Filtro = 'todos' | 'andamento' | 'entregues' | 'cancelados'
 
 export default function ComprasPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
@@ -64,7 +67,7 @@ export default function ComprasPage() {
 
     const { data } = await supabase
       .from('pedidos')
-      .select('id, numero, status, item_nome, item_imagem, total_comprador_cents, metodo, rastreio, created_at, loja_id')
+      .select('id, numero, status, item_nome, item_imagem, total_comprador_cents, metodo, rastreio, created_at, loja_id, pago_em')
       .eq('comprador_user_id', auth.user.id)
       .order('created_at', { ascending: false })
       .limit(100)
@@ -125,14 +128,17 @@ export default function ComprasPage() {
     )
   }
 
-  const nAndamento = pedidos.filter(p => ['pago', 'enviado'].includes(p.status)).length
+  // O numero da aba e o filtro da lista usam o MESMO predicado. Eram duas
+  // listas a mao e divergiam: "A caminho" contava pago+enviado, mas a lista
+  // tambem mostrava aguardando_pagamento.
+  const nAndamento = pedidos.filter(pedidoEmAndamento).length
   const nEntregues = pedidos.filter(p => p.status === 'entregue').length
-  const nReemb = pedidos.filter(p => ['cancelado', 'reembolsado'].includes(p.status)).length
+  const nCancel = pedidos.filter(pedidoEncerrado).length
 
   const visiveis = pedidos.filter(p => {
-    if (filtro === 'andamento') return ['pago', 'enviado', 'aguardando_pagamento'].includes(p.status)
+    if (filtro === 'andamento') return pedidoEmAndamento(p)
     if (filtro === 'entregues') return p.status === 'entregue'
-    if (filtro === 'reembolsados') return ['cancelado', 'reembolsado'].includes(p.status)
+    if (filtro === 'cancelados') return pedidoEncerrado(p)
     return true
   })
 
@@ -140,7 +146,9 @@ export default function ComprasPage() {
     { k: 'todos', label: 'Todos', n: pedidos.length },
     { k: 'andamento', label: 'A caminho', n: nAndamento },
     { k: 'entregues', label: 'Entregues', n: nEntregues },
-    { k: 'reembolsados', label: 'Reembolsados', n: nReemb },
+    // "Cancelados" e nao "Reembolsados": checkout abandonado tambem cai aqui,
+    // e nele ninguem foi cobrado -- nao houve reembolso nenhum.
+    { k: 'cancelados', label: 'Cancelados', n: nCancel },
   ]
 
   return (
@@ -164,7 +172,7 @@ export default function ComprasPage() {
         <div style={S.semFiltro}>Nenhum pedido nesse filtro.</div>
       ) : visiveis.map(p => {
         const idx = ORDEM[p.status] ?? -1
-        const morto = ['cancelado', 'reembolsado'].includes(p.status)
+        const morto = pedidoEncerrado(p)
         const reembolsado = p.status === 'reembolsado'
         const avaliado = avaliados.has(p.id)
 
@@ -194,7 +202,9 @@ export default function ComprasPage() {
                 {morto ? (
                   <div style={S.trackMorto}>
                     <IconArrowRight size={13} color="#f87171" />
-                    <span>{reembolsado ? `Reembolsado · ${fmtBRL(p.total_comprador_cents)} estornado` : 'Pedido cancelado'}</span>
+                    <span>{reembolsado
+                      ? `Reembolsado · ${fmtBRL(p.total_comprador_cents)} estornado`
+                      : canceladoSemCobranca(p) ? 'Pagamento não concluído · nada foi cobrado' : 'Pedido cancelado'}</span>
                   </div>
                 ) : (
                   <div style={S.track}>
