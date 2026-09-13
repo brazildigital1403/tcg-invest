@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { planoEfetivoLoja } from '@/lib/planoLoja'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
@@ -48,12 +49,6 @@ function extFromMime(mime: string): string {
   return 'bin'
 }
 
-function planoEfetivo(loja: { plano: string; plano_expira_em: string | null }): string {
-  if (loja.plano === 'basico') return 'basico'
-  if (!loja.plano_expira_em) return loja.plano
-  const expira = new Date(loja.plano_expira_em).getTime()
-  return expira > Date.now() ? loja.plano : 'basico'
-}
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -71,7 +66,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // ─── Validar plano ─────────────────────────────────────
     // Admin pula validação de plano (pode adicionar fotos em qualquer loja).
     // Owner respeita o limite do plano efetivo.
-    const plano = planoEfetivo(loja)
+    const plano = planoEfetivoLoja(loja)
     const limite = isAdmin
       ? 999  // admin sem limite prático
       : (LIMITES_FOTOS_POR_PLANO[plano] ?? 0)

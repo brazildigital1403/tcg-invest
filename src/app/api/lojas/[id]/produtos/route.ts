@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { planoEfetivoLoja, LIMITE_FOTOS_PRODUTO } from '@/lib/planoLoja'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 /**
@@ -21,7 +22,7 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
  * pelo tipo do produto.
  */
 
-const SELECT_LOJA = 'id, owner_user_id, nome, status'
+const SELECT_LOJA = 'id, owner_user_id, nome, status, plano, plano_expira_em'
 const TIPOS = ['selado', 'pelucia', 'funko', 'fichario', 'acessorio'] as const
 const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, vendidos, fotos, ativo, created_at'
 
@@ -125,7 +126,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         preco_cents: Number(body.preco_cents),
         estoque: Number(body.estoque),
         peso_g: pesoParaGramas(body.peso_g),
-        fotos: Array.isArray(body.fotos) ? body.fotos.slice(0, 10) : [],
+        // Corte pelo plano da loja (antes era 10 pra todos). Ver src/lib/planoLoja.ts.
+        fotos: Array.isArray(body.fotos) ? body.fotos.slice(0, LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(loja as { plano: string; plano_expira_em: string | null })]) : [],
       })
       .select(CAMPOS)
       .single()
@@ -163,7 +165,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if ('estoque' in body) patch.estoque = Number(body.estoque)
     if ('peso_g' in body) patch.peso_g = pesoParaGramas(body.peso_g)
     if ('ativo' in body) patch.ativo = !!body.ativo
-    if ('fotos' in body && Array.isArray(body.fotos)) patch.fotos = body.fotos.slice(0, 10)
+    if ('fotos' in body && Array.isArray(body.fotos)) patch.fotos = body.fotos.slice(0, LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(auth.loja as { plano: string; plano_expira_em: string | null })])
 
     // `.eq('loja_id')` e o que impede um lojista de editar produto de outro.
     const { data, error } = await sb
