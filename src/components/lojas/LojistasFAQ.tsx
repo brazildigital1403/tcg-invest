@@ -33,7 +33,7 @@ const FAQ_ITEMS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Como funciona o trial de 14 dias do Pro?',
     resposta:
-      'Ao cadastrar sua loja, você entra automaticamente com 14 dias de plano Pro, sem precisar informar cartão de crédito. Durante esse período, tem acesso a todas as features do Pro: 5 fotos, redes sociais, descrição ilimitada e especialidades ilimitadas. Ao fim do trial, sua loja continua ativa no plano Básico (gratuito) a menos que você escolha assinar.',
+      'Quando sua loja é aprovada, ela entra automaticamente com 14 dias de plano Pro, sem precisar informar cartão de crédito. O prazo conta da aprovação, não do cadastro. Durante esse período, tem acesso a todas as features do Pro: 5 fotos, redes sociais, descrição ilimitada e especialidades ilimitadas. Ao fim do trial, sua loja continua ativa no plano Básico (gratuito) a menos que você escolha assinar.',
   },
   {
     pergunta: 'Posso cancelar quando quiser?',

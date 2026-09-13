@@ -109,7 +109,7 @@ function BannerBeneficios() {
   return (
     <div style={S.banner}>
       <div style={S.bannerBadge}><IconStar size={12} /> Novo cadastro</div>
-      <h3 style={S.bannerTitle}>14 dias de Pro grátis ao cadastrar sua loja</h3>
+      <h3 style={S.bannerTitle}>14 dias de Pro grátis a partir da aprovação da sua loja</h3>
       <p style={S.bannerText}>
         Teste todos os recursos do plano Pro sem compromisso: até 5 fotos, redes sociais,
         especialidades ilimitadas e destaque na listagem. Ao fim do trial, sua loja

@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // 1) Busca loja
     const { data: lojas, error: lErr } = await sb
       .from('lojas')
-      .select('id, nome, slug, status, owner_user_id, aprovada_data, verificada, verificacao_ticket_id, plano_expira_em')
+      .select('id, nome, slug, status, owner_user_id, aprovada_data, verificada, verificacao_ticket_id, plano, plano_expira_em, stripe_subscription_id')
       .eq('id', id)
       .limit(1)
     if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 })
@@ -58,6 +58,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       patch.aprovada_data = new Date().toISOString()
     }
 
+    // ★ O TRIAL CONTA DA APROVACAO, NAO DO CADASTRO (13/09/2026, decisao do Du).
+    //   A loja nasce com 14 dias no POST /api/lojas, mas so vai ao ar aqui: o
+    //   tempo em moderacao comia o teste de quem ainda nem podia vender.
+    //   Recomeca so o trial de cadastro, intocado: Pro com data e sem
+    //   assinatura. Plano permanente (data NULL), Premium posto no admin e
+    //   assinante ficam como estao.
+    if (primeiraAprovacao && loja.plano === 'pro' && loja.plano_expira_em && !loja.stripe_subscription_id) {
+      patch.plano_expira_em = new Date(Date.now() + 14 * 24 * 3600_000).toISOString()
+    }
+
     const { data: updated, error: uErr } = await sb
       .from('lojas')
       .update(patch)
@@ -85,7 +95,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             slug:      loja.slug,
             // Data real do fim do trial. O email caia em "14 dias" sem ela, e
             // "14 dias" a partir de quando e exatamente o que a pessoa nao sabe.
-            trialAte:  loja.plano_expira_em,
+            trialAte:  patch.plano_expira_em ?? loja.plano_expira_em,
           })
         }
       } catch (e: any) {

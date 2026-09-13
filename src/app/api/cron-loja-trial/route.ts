@@ -69,6 +69,12 @@ export async function GET(req: NextRequest) {
       .in('plano', ['pro', 'premium'])
       .not('plano_expira_em', 'is', null)   // NULL = permanente, nao se toca
       .is('stripe_subscription_id', null)   // quem paga e governado pelo webhook
+      // ★ Loja que nunca foi aprovada nao perde o trial na fila de moderacao:
+      //   o prazo recomeca no /api/admin/lojas/[id]/approve. Sem este filtro,
+      //   uma moderacao longa avisaria e rebaixaria quem ainda nem esta no ar.
+      //   `status = ativa` fica de fora da regra pra loja ligada a mao, sem
+      //   aprovada_data, continuar vencendo.
+      .or('aprovada_data.not.is.null,status.eq.ativa')
       .limit(500)
 
     // ★ Falha de leitura NAO pode virar "nada a fazer": o cron passaria a
