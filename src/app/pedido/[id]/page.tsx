@@ -295,7 +295,9 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     // Checkout abandonado, cancelado pelo webhook de sessao vencida. A frase
     // generica mandava "falar com a loja", e a loja nao fez nada aqui.
     heroIco = <IconShield size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
-    heroH = 'Pagamento não concluído'; heroS = 'O prazo para finalizar o pagamento venceu e o pedido foi cancelado. Nada foi cobrado no seu cartão.'
+    // Sem subtitulo, por decisao do Du (12/09): o quadro da esquerda ja diz
+    // exatamente isso, e os dois textos ficavam um em cima do outro.
+    heroH = 'Pagamento não concluído'; heroS = ''
   } else if (pedido.status === 'cancelado') {
     heroIco = <IconShield size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
     heroH = 'Pedido cancelado'; heroS = 'Este pedido foi cancelado. Se tiver dúvida, fale com a loja.'
@@ -343,7 +345,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
       <div style={S.hero}>
         <div style={{ ...S.heroIc, background: heroBg }}>{heroIco}</div>
         <div style={S.heroH}>{heroH}</div>
-        <div style={S.heroS}>{heroS}</div>
+        {heroS && <div style={S.heroS}>{heroS}</div>}
       </div>
 
       {erroAcao && <div style={S.avalErro}>{erroAcao}</div>}
