@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { LOJA_HOME, TrilhaLoja } from '../_shared'
+import { fimDoGratisLoja } from '@/lib/planoLoja'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -266,7 +267,11 @@ export default function PlanoLojaPage() {
   }
 
   const temAssinaturaAtiva = !!loja.stripe_subscription_id && loja.plano !== 'basico'
-  const podeUsarTrial = !loja.trial_usado_em
+  // Data da primeira cobranca se assinar agora. A mesma conta do checkout.
+  const fimGratis = fimDoGratisLoja(loja)
+  const primeiraCobranca = fimGratis
+    ? fimGratis.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
+    : null
 
   return (
     <>
@@ -293,7 +298,7 @@ export default function PlanoLojaPage() {
           <div style={S.cancelBanner}>
             <p style={S.cancelText}>
               ⓘ Você cancelou o checkout. Quando estiver pronta(o), é só clicar em
-              "Começar 14 dias grátis" novamente.
+              "Assinar" novamente.
             </p>
           </div>
         )}
@@ -421,20 +426,20 @@ export default function PlanoLojaPage() {
                   >
                     {isProcessing
                       ? 'Aguarde...'
-                      : podeUsarTrial
-                        ? 'Começar 14 dias grátis'
+                      : primeiraCobranca
+                        ? `Assinar ${cfg.label} · 1ª cobrança em ${primeiraCobranca}`
                         : `Assinar ${cfg.label}`}
                   </button>
                 )}
 
-                {!isCurrent && podeUsarTrial && (
+                {!isCurrent && primeiraCobranca && (
                   <p style={S.ctaSub}>
-                    Sem compromisso · cancele quando quiser
+                    Seus dias grátis continuam · cancele antes e não paga nada
                   </p>
                 )}
-                {!isCurrent && !podeUsarTrial && (
+                {!isCurrent && !primeiraCobranca && (
                   <p style={S.ctaSub}>
-                    Trial já utilizado · cobrança imediata
+                    Cobrança hoje · cancele quando quiser
                   </p>
                 )}
               </div>
@@ -452,10 +457,11 @@ export default function PlanoLojaPage() {
             </p>
           </div>
           <div style={S.faqItem}>
-            <p style={S.faqQ}>O que acontece quando o trial de 14 dias acaba?</p>
+            <p style={S.faqQ}>Quando começa a cobrança?</p>
             <p style={S.faqA}>
-              Cobramos o primeiro mês/ano automaticamente no cartão cadastrado.
-              Se você cancelar antes, não cobramos nada.
+              Se a loja ainda está nos 14 dias grátis, a primeira cobrança só acontece quando eles
+              acabam, na data que aparece no botão. Se cancelar antes, não cobramos nada. Fora desse
+              período, a cobrança é no dia da assinatura.
             </p>
           </div>
           <div style={S.faqItem}>
