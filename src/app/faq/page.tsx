@@ -19,6 +19,11 @@ export const metadata: Metadata = {
     locale: 'pt_BR',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Perguntas Frequentes · Bynx',
+    description: 'Tudo que você precisa saber sobre a Bynx — a plataforma brasileira de Pokémon TCG.',
+  },
 }
 
 // ─── Dados ────────────────────────────────────────────────────────────────────

@@ -22,6 +22,13 @@ export const metadata: Metadata = {
     url: 'https://bynx.gg',
     type: 'website',
   },
+  // Sem isto o X herdava titulo e descricao do layout raiz.
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Bynx - Quanto vale a sua coleção Pokémon?',
+    description:
+      'A plataforma brasileira de coleção Pokémon TCG. Preço em reais, mercado ao vivo, Scan, marketplace e Pokédex.',
+  },
   alternates: { canonical: 'https://bynx.gg' },
 }
 

@@ -130,15 +130,12 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: 'Bynx',
       locale: 'pt_BR',
       type: 'website',
-      images: [
-        { url: 'https://bynx.gg/og-image.jpg', width: 1200, height: 630, alt: 'Pokédex Pokémon TCG — Bynx' },
-      ],
+      // imagem: opengraph-image.tsx desta pasta
     },
     twitter: {
       card: 'summary_large_image',
       title: 'Pokédex Pokémon TCG — Bynx',
       description: `${cartas} cartas, 1.025 Pokémons, ${sets} sets, preços em reais por variante.`,
-      images: ['https://bynx.gg/og-image.jpg'],
     },
     alternates: { canonical: 'https://bynx.gg/pokedex-pokemon-tcg' },
   }
@@ -421,7 +418,7 @@ export default async function PokedexPokemonTcgPage() {
                     { name: 'Charizard ex', set: '199/197', img: 'https://images.pokemontcg.io/sv3pt5/199.png', price: 'R$ 245', variant: 'Special Illustration', rarityColor: '#a855f7' },
                     { name: 'Charizard VMAX', set: '020/189', img: 'https://images.pokemontcg.io/swsh3/20.png', price: 'R$ 312', variant: 'Rare Holo VMAX', rarityColor: '#f59e0b' },
                     { name: 'Charizard', set: '004/102', img: 'https://images.pokemontcg.io/base1/4.png', price: 'R$ 1.890', variant: 'Holo · Base Set', rarityColor: '#ef4444' },
-                    { name: 'Charizard-V', set: '079/172', img: 'https://images.pokemontcg.io/swsh1/19.png', price: 'R$ 89', variant: 'Rare Holo V', rarityColor: '#3b82f6' },
+                    { name: 'Charizard V', set: '017/172', img: 'https://images.pokemontcg.io/swsh9/17.png', price: 'R$ 89', variant: 'Rare Holo V', rarityColor: '#3b82f6' },
                   ].map((c) => (
                     <div key={c.name + c.set} style={S.mockupCard}>
                       <div style={S.mockupCardImg}>

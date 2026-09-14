@@ -21,6 +21,13 @@ export const metadata: Metadata = {
     url: 'https://bynx.gg/para-lojistas',
     type: 'website',
   },
+  // Sem isto o X herdava titulo e descricao da home (layout raiz).
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Crie sua loja Pokémon TCG e venda online — Bynx',
+    description:
+      'Vitrine de cartas e produtos, checkout com frete calculado e o cliente que a Bynx traz para você.',
+  },
   alternates: { canonical: 'https://bynx.gg/para-lojistas' },
 }
 

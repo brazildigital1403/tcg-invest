@@ -65,14 +65,9 @@ export const metadata: Metadata = {
     title: "Bynx.gg — Quanto vale sua coleção Pokémon TCG hoje?",
     description:
       "Adicione suas cartas pela Pokédex ou pelo scan com IA. Acompanhe preços em reais por variante (Normal, Holo, Reverse, Foil, Promo) e negocie no Marketplace. 7 dias de Pro grátis.",
-    images: [
-      {
-        url: "https://bynx.gg/og-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "Bynx — Plataforma brasileira para colecionadores de Pokémon TCG",
-      },
-    ],
+    // Sem `images` aqui: a imagem vem de src/app/opengraph-image.tsx (e do
+    // twitter-image.tsx ao lado), gerada pelo Next. Rota sem imagem propria
+    // herda essa.
   },
 
   // ── Twitter / X ────────────────────────────────────────────────────────────
@@ -83,7 +78,6 @@ export const metadata: Metadata = {
     title: "Bynx.gg — Quanto vale sua coleção Pokémon TCG hoje?",
     description:
       "A plataforma brasileira de coleções Pokémon TCG. Pokédex de 66 mil+ cartas, scan com IA, preços em reais e Marketplace. 7 dias Pro grátis.",
-    images: ["https://bynx.gg/og-image.jpg"],
   },
 
   // ── Canonical + Alternates ─────────────────────────────────────────────────

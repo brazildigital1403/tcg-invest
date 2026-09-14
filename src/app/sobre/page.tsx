@@ -5,8 +5,22 @@ import ContactButton from '@/components/ui/ContactButton'
 export const metadata = {
   title: 'Quem somos',
   description:
-    'Conheca a Bynx, a plataforma brasileira de Pokemon TCG: precos em reais, gestao de colecao, scan com IA e marketplace. Saiba quem somos e o que oferecemos.',
+    'Conheça a Bynx, a plataforma brasileira de Pokémon TCG: preços em reais, gestão de coleção, scan com IA e marketplace. Saiba quem somos e o que oferecemos.',
   alternates: { canonical: 'https://bynx.gg/sobre' },
+  // Sem openGraph/twitter proprios o WhatsApp e o X mostravam titulo e url da home.
+  openGraph: {
+    title: 'Quem somos — Bynx',
+    description: 'A plataforma brasileira de Pokémon TCG: preços em reais, gestão de coleção, scan com IA e marketplace.',
+    url: 'https://bynx.gg/sobre',
+    siteName: 'Bynx',
+    locale: 'pt_BR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Quem somos — Bynx',
+    description: 'A plataforma brasileira de Pokémon TCG: preços em reais, gestão de coleção, scan com IA e marketplace.',
+  },
 }
 
 export default function SobrePage() {

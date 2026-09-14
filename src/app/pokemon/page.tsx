@@ -95,14 +95,13 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       siteName: 'Bynx',
       locale: 'pt_BR',
-      images: [{ url: 'https://bynx.gg/og-image.jpg', alt: 'Todos os Pokémon no TCG — Bynx' }],
+      // imagem: opengraph-image.tsx desta pasta
     },
     twitter: {
       card: 'summary_large_image',
       site: '@bynxgg',
       title: `${title} | Bynx`,
       description,
-      images: ['https://bynx.gg/og-image.jpg'],
     },
   }
 }

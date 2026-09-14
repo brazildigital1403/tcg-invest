@@ -22,6 +22,20 @@ export const metadata = {
   title: 'Subprocessadores',
   description: 'Fornecedores que tratam dados pessoais a serviço da Bynx.',
   robots: { index: false, follow: false },
+  // Sem openGraph/twitter proprios o WhatsApp e o X mostravam titulo e url da home.
+  openGraph: {
+    title: 'Subprocessadores — Bynx',
+    description: 'Fornecedores que tratam dados pessoais a serviço da Bynx.',
+    url: 'https://bynx.gg/subprocessadores',
+    siteName: 'Bynx',
+    locale: 'pt_BR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Subprocessadores — Bynx',
+    description: 'Fornecedores que tratam dados pessoais a serviço da Bynx.',
+  },
 }
 
 const UPDATED = '30 de agosto de 2026'

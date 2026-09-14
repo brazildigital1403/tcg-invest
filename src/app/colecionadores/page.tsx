@@ -97,20 +97,12 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: 'Bynx',
       locale: 'pt_BR',
       type: 'website',
-      images: [
-        {
-          url: 'https://bynx.gg/og-image.jpg',
-          width: 1200,
-          height: 630,
-          alt: 'Bynx — A plataforma do colecionador brasileiro de Pokémon TCG',
-        },
-      ],
+      // imagem: opengraph-image.tsx desta pasta
     },
     twitter: {
       card: 'summary_large_image',
       title: 'Bynx — A plataforma do colecionador BR de Pokémon TCG',
       description: `${cartas} cartas, 1.025 Pokémons, preços em reais. 7 dias de Pro grátis.`,
-      images: ['https://bynx.gg/og-image.jpg'],
     },
     alternates: {
       canonical: 'https://bynx.gg/colecionadores',

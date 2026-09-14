@@ -39,8 +39,9 @@ export async function generateMetadata({
       type: 'website',
       siteName: 'Bynx',
       locale: 'pt_BR',
-      images: [{ url: 'https://bynx.gg/og-image.jpg', alt: title }],
+      // imagem: opengraph-image.tsx desta pasta
     },
+    twitter: { card: 'summary_large_image', title, description },
   }
 }
 
