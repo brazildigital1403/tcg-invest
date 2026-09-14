@@ -32,7 +32,8 @@ import type { Metadata } from 'next'
  * noindex ja tira a tela do indice, que era o risco imediato.
  */
 export const metadata: Metadata = {
-  title: 'Comparador de troca — Bynx',
+  // Sem "— Bynx": o template do layout raiz ja acrescenta " | Bynx.gg".
+  title: 'Comparador de troca',
   description:
     'Monte os dois lados de uma troca de cartas Pokémon TCG e veja se está equilibrada, com preço em reais do Mercado Brasileiro.',
   robots: { index: false, follow: false },

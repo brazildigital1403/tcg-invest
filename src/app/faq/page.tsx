@@ -35,7 +35,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: 'É grátis? Tem plano pago?',
-    a: 'Sim, a Bynx tem um plano gratuito que permite gerenciar até 100 cartas, com acesso a marketplace, ranking e Indique e Ganhe. Para mais cartas e features avançadas, temos os planos Plus e Pro (mensal ou anual). Todo cadastro novo ainda testa o Pro grátis por 7 dias antes de decidir.',
+    a: 'Sim, a Bynx tem um plano gratuito que permite gerenciar até 100 cartas, com acesso a marketplace e Indique e Ganhe. Para mais cartas e features avançadas, temos os planos Plus e Pro (mensal ou anual). Todo cadastro novo ainda testa o Pro grátis por 7 dias antes de decidir.',
   },
   {
     q: 'Como adiciono uma carta na minha coleção?',
