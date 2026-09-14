@@ -287,14 +287,23 @@ async function registrarEventoIdempotente(
   event: Stripe.Event,
   metadata?: { userId?: string; lojaId?: string }
 ): Promise<'first_time' | 'duplicate' | 'error'> {
-  const { error } = await supabase.from('stripe_events_processed').insert({
+  const registro = {
     event_id:   event.id,
     event_type: event.type,
     livemode:   event.livemode,
     user_id:    metadata?.userId || null,
     loja_id:    metadata?.lojaId || null,
     result:     'processing',
-  })
+  }
+  let { error } = await supabase.from('stripe_events_processed').insert(registro)
+
+  // 23503 = user_id/loja_id do metadata aponta pra conta ou loja que ja foi apagada
+  // (ex.: checkout de teste que expira 24h depois de a conta sumir). Os dois campos
+  // sao so referencia; grava sem eles pra nao perder a idempotencia do evento.
+  if (error?.code === '23503') {
+    console.warn(`[webhook] event ${event.id}: user ${registro.user_id} / loja ${registro.loja_id} nao existe mais, registrando sem vinculo`)
+    ;({ error } = await supabase.from('stripe_events_processed').insert({ ...registro, user_id: null, loja_id: null }))
+  }
 
   if (!error) return 'first_time'
   if (error.code === '23505') {
