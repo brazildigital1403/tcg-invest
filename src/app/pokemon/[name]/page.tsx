@@ -202,7 +202,6 @@ export async function generateMetadata({
     }
   }
 
-  const tipo = (hub.primary_type && TIPO_PT[hub.primary_type]) || hub.primary_type || ''
   const dexStr = hub.national_dex ? ` (Pokédex Nacional nº ${hub.national_dex})` : ''
   const title = `${hub.name} — ${hub.cards_count} cartas Pokémon TCG e preços em reais`
 
@@ -217,8 +216,8 @@ export async function generateMetadata({
   const description =
     `Todas as ${hub.cards_count} cartas do ${hub.name}${dexStr} no Pokémon TCG: ${hub.sets_count} coleções${eras}.${faixa} Veja a carta mais valiosa, preços por carta e organize sua coleção na Bynx.`
 
-  const ogImage = hub.top_card_image || 'https://bynx.gg/og-image.jpg'
-
+  // Imagem: opengraph-image.tsx / twitter-image.tsx desta pasta. Antes era a
+  // carta top em retrato, que o WhatsApp cortava.
   return {
     title,
     description,
@@ -230,14 +229,12 @@ export async function generateMetadata({
       type: 'website',
       siteName: 'Bynx',
       locale: 'pt_BR',
-      images: [{ url: ogImage, alt: `Cartas do ${hub.name} no Pokémon TCG${tipo ? ' (' + tipo + ')' : ''}` }],
     },
     twitter: {
       card: 'summary_large_image',
       site: '@bynxgg',
       title: `${title} | Bynx`,
       description,
-      images: [ogImage],
     },
     keywords: [
       `${hub.name} pokemon tcg`,
