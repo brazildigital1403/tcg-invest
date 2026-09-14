@@ -70,7 +70,7 @@ const nextConfig: NextConfig = {
    * direto do browser. Isso traz 3 ganhos:
    *
    * 1. Anti ad-block (uBlock, Brave, etc. bloqueiam *.posthog.com)
-   * 2. LGPD: dados ficam no mesmo domínio do Bynx (1st-party cookies)
+   * 2. LGPD: dados ficam no mesmo domínio da Bynx (1st-party cookies)
    * 3. Performance: leve, mas evita 1 DNS lookup separado
    */
   async rewrites() {

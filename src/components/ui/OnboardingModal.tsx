@@ -124,7 +124,7 @@ export default function OnboardingModal({ userId, onClose, onAllDone }: Props) {
             <div>
               <p style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>✦ Primeiros passos</p>
               <h2 style={{ fontSize: 22, fontWeight: 900, color: '#f0f0f0', letterSpacing: '-0.03em', margin: 0 }}>
-                {allComplete ? 'Tudo configurado!' : 'Configure seu Bynx'}
+                {allComplete ? 'Tudo configurado!' : 'Configure sua Bynx'}
               </h2>
             </div>
             <button
