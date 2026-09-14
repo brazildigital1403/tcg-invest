@@ -29,6 +29,7 @@ import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
 import { registrarVendaParceiro, registrarRenovacaoParceiro, reverterComissaoParceiro } from '@/lib/parceiros'
+import { carimbarConvite } from '@/lib/campanhaConvites'
 
 // ─── Mapas de descrição (sincronizados com checkout/SCAN_PACKAGES) ──────────
 
@@ -946,6 +947,11 @@ export async function POST(req: NextRequest) {
           }).eq('id', userId)
 
           console.log(`[webhook] Pro ${plano} ativado para ${userId} (expira ${proExpiraEm || '?'})`)
+
+          // ── Campanha Presente: carimba a venda no convite (so na 1a vez) ──
+          if (session.metadata?.oferta === 'presente' && session.metadata?.convite) {
+            await carimbarConvite(session.metadata.convite, 'pago_em', { pago_plano: plano })
+          }
 
           const { data: uData } = await supabase.from('users').select('email, name').eq('id', userId).limit(1)
           if (uData?.[0]?.email) {

@@ -17,6 +17,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { OFERTA_TCGCON, ehOfertaValida, ofertaTcgconAtiva } from '@/lib/ofertaTcgcon'
+import { OFERTA_PRESENTE, ehPlanoPresente, ofertaPresenteAtiva } from '@/lib/ofertaPresente'
+import { buscarConvite, carimbarConvite } from '@/lib/campanhaConvites'
 import { fimDoGratisLoja } from '@/lib/planoLoja'
 
 // ─── Configuração de planos ──────────────────────────────────────────────────
@@ -73,7 +75,7 @@ export async function POST(req: NextRequest) {
     // ── Body: plano + lojaId + setId ──────────────────────────────────────
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-03-31.basil' })
     const body = await req.json().catch(() => ({}))
-    const { plano, lojaId, setId, paginaId, oferta } = body as { plano?: string; lojaId?: string; setId?: string; paginaId?: string; oferta?: string }
+    const { plano, lojaId, setId, paginaId, oferta, t } = body as { plano?: string; lojaId?: string; setId?: string; paginaId?: string; oferta?: string; t?: string }
 
     if (!plano || typeof plano !== 'string') {
       return NextResponse.json({ error: 'Plano não informado' }, { status: 400 })
@@ -325,6 +327,53 @@ export async function POST(req: NextRequest) {
     const promoParam = (mode === 'subscription' && !isLojistaPlano(plano))
       ? { allow_promotion_codes: true }
       : {}
+
+    // ── Campanha Presente: convite pessoal, 50% na 1a cobranca dos planos de usuario ──
+    // So com o token do convite: sem ele o desconto nao sai, nem pra quem esta logado.
+    if (oferta === OFERTA_PRESENTE.id) {
+      if (!ehPlanoPresente(plano)) {
+        return NextResponse.json({ error: 'O presente vale para os planos Plus, Pro e Pro Anual.' }, { status: 400 })
+      }
+      if (!ofertaPresenteAtiva()) {
+        return NextResponse.json({ error: 'O presente encerrou.', code: 'OFERTA_ENCERRADA' }, { status: 410 })
+      }
+      const convite = await buscarConvite(t)
+      if (!convite) {
+        return NextResponse.json({ error: 'Este presente é pessoal. Abra pelo link do seu e-mail.', code: 'CONVITE_INVALIDO' }, { status: 403 })
+      }
+
+      const promos = await stripe.promotionCodes.list({ code: OFERTA_PRESENTE.codigo, active: true, limit: 1 })
+      const promo = promos.data[0]
+      if (!promo) {
+        console.warn(`[stripe/checkout] promotion code ${OFERTA_PRESENTE.codigo} inativo ou inexistente`)
+        return NextResponse.json({ error: 'O presente encerrou.', code: 'OFERTA_ENCERRADA' }, { status: 410 })
+      }
+
+      let presenteSession: Stripe.Checkout.Session
+      try {
+        presenteSession = await stripe.checkout.sessions.create({
+          mode,
+          locale: 'pt-BR',
+          payment_method_types: ['card'],
+          line_items: [{ price: priceId, quantity: 1 }],
+          ...customerParam,
+          discounts: [{ promotion_code: promo.id }],
+          metadata: { ...metadata, oferta: OFERTA_PRESENTE.id, convite: convite.id },
+          success_url: `${APP}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url:  `${APP}/presente?t=${convite.token}`,
+        })
+      } catch (err: any) {
+        // Restricao do promotion code (so primeiro pedido / limite de usos) recusada pela Stripe.
+        console.warn(`[stripe/checkout] presente recusado para ${userId}: ${err?.message}`)
+        return NextResponse.json({
+          error: 'O presente vale só para a primeira assinatura da conta.',
+          code: 'OFERTA_INELEGIVEL',
+        }, { status: 409 })
+      }
+
+      await carimbarConvite(convite.id, 'checkout_em', { checkout_plano: plano, user_id: userId })
+      return NextResponse.json({ url: presenteSession.url })
+    }
 
     // ── Oferta de evento (TCG CON): cupom aplicado pelo servidor, sem trial ──
     // `discounts` e `allow_promotion_codes` sao mutuamente exclusivos na Stripe:
