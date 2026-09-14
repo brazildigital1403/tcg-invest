@@ -23,6 +23,7 @@
 
 import type { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { serieExibicao, nomeSetSemCadastro } from '@/lib/setExibicao'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -147,10 +148,7 @@ const fetchSetData = cache(async function fetchSetData(
         id: officialSet.id,
         name: officialSet.name,
         namePt: officialSet.name_pt,
-        series:
-          officialSet.series === 'Liga BR'
-            ? 'Coleções Especiais & Promos'
-            : officialSet.series,
+        series: serieExibicao(officialSet.series),
         printedTotal: officialSet.printed_total,
         releaseDate: officialSet.release_date,
         logoUrl: officialSet.logo_url,
@@ -160,10 +158,7 @@ const fetchSetData = cache(async function fetchSetData(
       }
     : {
         id,
-        name:
-          firstSetName && !firstSetName.startsWith('Liga BR')
-            ? firstSetName
-            : `Set ${id.toUpperCase()}`,
+        name: nomeSetSemCadastro(firstSetName, id),
         namePt: null,
         series: null,
         printedTotal: null,
@@ -221,8 +216,8 @@ export async function generateMetadata({
 
   const description = `${displayName}: ${set.cardsCount} cartas Pokémon TCG${seriesStr}.${valueStr} Veja todas as cartas, preços em reais por variante e adicione à sua coleção na Bynx.`
 
-  const ogImage = set.logoUrl || 'https://bynx.gg/og-image.jpg'
-
+  // Imagem: opengraph-image.tsx / twitter-image.tsx desta pasta. Antes era o
+  // logo do set, que o WhatsApp cortava (formato largo) ou o og-image generico.
   return {
     title,
     description,
@@ -234,14 +229,12 @@ export async function generateMetadata({
       type: 'website',
       siteName: 'Bynx',
       locale: 'pt_BR',
-      images: [{ url: ogImage, alt: set.name }],
     },
     twitter: {
       card: 'summary_large_image',
       site: '@bynxgg',
       title: `${title} | Bynx`,
       description,
-      images: [ogImage],
     },
   }
 }
