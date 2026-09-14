@@ -25,11 +25,13 @@ import DestaqueClient, { type RankingRow } from './DestaqueClient'
 
 export const revalidate = 3600
 
-// Sem metadata propria o WhatsApp e o X mostravam titulo e url da home.
-// Sem `alternates` de proposito: mudar canonical e decisao de crawl separada.
+// Sem metadata propria o WhatsApp e o X mostravam titulo e url da home, e o
+// canonical herdado do layout raiz apontava pra home (canonical proprio:
+// decisao do Du, 14/09).
 export const metadata: Metadata = {
   title: 'Colecionadores em Destaque',
   description: 'Quem mais coleciona e quem está mais perto de completar os sets, entre perfis públicos da Bynx.',
+  alternates: { canonical: 'https://bynx.gg/destaque' },
   openGraph: {
     title: 'Colecionadores em Destaque — Bynx',
     description: 'Quem mais coleciona e quem está mais perto de completar os sets, entre perfis públicos.',

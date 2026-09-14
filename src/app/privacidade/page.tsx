@@ -5,6 +5,8 @@ import PublicFooter from '@/components/ui/PublicFooter'
 export const metadata = {
   title: 'Política de Privacidade',
   description: 'Saiba como a Bynx coleta, usa e protege seus dados pessoais conforme a LGPD.',
+  // Sem isto herdava o canonical da home do layout raiz (decisao do Du, 14/09).
+  alternates: { canonical: 'https://bynx.gg/privacidade' },
   // Sem openGraph/twitter proprios o WhatsApp e o X mostravam titulo e url da home.
   openGraph: {
     title: 'Política de Privacidade — Bynx',

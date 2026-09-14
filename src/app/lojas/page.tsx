@@ -96,6 +96,9 @@ export async function generateMetadata(
   return {
     title,
     description,
+    // Sem isto herdava o canonical da home do layout raiz (decisao do Du, 14/09).
+    // Os filtros (?especialidade, ?estado) apontam pro guia, nao pra si mesmos.
+    alternates: { canonical: 'https://bynx.gg/lojas' },
     openGraph: { title, description, type: 'website' },
     twitter: { card: 'summary_large_image', title, description },
   }

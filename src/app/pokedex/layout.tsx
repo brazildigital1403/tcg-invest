@@ -5,13 +5,15 @@ import type { Metadata } from 'next'
  * `metadata`, entao sem este arquivo o WhatsApp e o X mostravam titulo,
  * descricao e url da home. Mesmo padrao do `comparador/layout.tsx`.
  *
- * ★ Sem `alternates` de proposito: o canonical segue herdado do layout raiz
- * como estava. Mudar canonical e superficie de crawl -- decisao separada.
+ * ★ Canonical proprio (decisao do Du, 14/09): sem ele a rota herdava o
+ * `canonical: "https://bynx.gg"` absoluto do layout raiz e dizia ao Google que
+ * a versao canonica dela era a HOME -- e ela esta no sitemap.
  * A imagem vem do opengraph-image.tsx desta pasta.
  */
 export const metadata: Metadata = {
   title: 'Pokédex — todos os Pokémon e suas cartas',
   description: 'Escolha um Pokémon e veja cada carta dele no Pokémon TCG, com preço em reais.',
+  alternates: { canonical: 'https://bynx.gg/pokedex' },
   openGraph: {
     title: 'Pokédex — todos os Pokémon e suas cartas | Bynx',
     description: 'Escolha um Pokémon e veja cada carta dele no Pokémon TCG, com preço em reais.',
