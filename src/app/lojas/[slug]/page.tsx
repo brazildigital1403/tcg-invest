@@ -148,8 +148,8 @@ export async function generateMetadata(
     loja.descricao ||
     `Loja de TCG${localizacao ? ` em ${localizacao}` : ''}. Confira produtos, contato e endereço no Guia de Lojas da Bynx.`
 
-  const imagemOg = loja.capa_url || loja.logo_url
-
+  // Imagem: opengraph-image.tsx / twitter-image.tsx desta pasta. Antes era a
+  // capa ou o logo da loja -- todos em WebP, que parte das redes nao mostra.
   return {
     title,
     description,
@@ -157,7 +157,6 @@ export async function generateMetadata(
       title,
       description,
       type: 'website',
-      images: imagemOg ? [{ url: imagemOg, alt: nome }] : [],
     },
     twitter: {
       card: 'summary_large_image',
