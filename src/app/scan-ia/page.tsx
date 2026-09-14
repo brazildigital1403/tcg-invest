@@ -29,21 +29,13 @@ export const metadata: Metadata = {
     siteName: 'Bynx',
     locale: 'pt_BR',
     type: 'website',
-    images: [
-      {
-        url: 'https://bynx.gg/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Scan IA Pokémon TCG — Bynx',
-      },
-    ],
+    // imagem: opengraph-image.tsx desta pasta
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Scan IA Pokémon TCG — Bynx | Aponte e a IA identifica',
     description:
       'IA brasileira reconhece até 8 cartas Pokémon TCG por foto, em PT, EN ou JP, com preço em R$. Powered by IA de ponta.',
-    images: ['https://bynx.gg/og-image.jpg'],
   },
   alternates: {
     canonical: 'https://bynx.gg/scan-ia',
@@ -972,14 +964,14 @@ export default function ScanIaLanding() {
 
             <div style={S.recognizedRow}>
               <img
-                src="https://images.pokemontcg.io/sv8/199.png"
-                alt="Charizard ex Surging Sparks"
+                src="https://images.pokemontcg.io/sv3pt5/199.png"
+                alt="Charizard ex 151"
                 style={S.recognizedImg}
                 loading="lazy"
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={S.recognizedName}>Charizard ex</div>
-                <div style={S.recognizedMeta}>199/191 · Surging Sparks · Special Illustration</div>
+                <div style={S.recognizedMeta}>199/165 · 151 · Special Illustration</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                 <span style={S.recognizedConfidence}>98%</span>

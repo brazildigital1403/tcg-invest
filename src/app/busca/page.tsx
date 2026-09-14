@@ -55,10 +55,24 @@ export async function generateMetadata({
     }
   }
   return {
-    title: 'Buscar cartas Pokemon TCG e precos em reais',
+    title: 'Buscar cartas Pokémon TCG e preços em reais',
     description:
-      'Busque qualquer Pokemon ou carta e veja o preco real em reais. Mais de 66 mil cartas catalogadas na Bynx.',
+      'Busque qualquer Pokémon ou carta e veja o preço real em reais. Mais de 66 mil cartas catalogadas na Bynx.',
     alternates: { canonical: 'https://bynx.gg/busca' },
+    // Sem openGraph/twitter proprios o WhatsApp e o X mostravam titulo e url da home.
+    openGraph: {
+      title: 'Buscar cartas Pokémon TCG — Bynx',
+      description: 'Busque qualquer Pokémon ou carta e veja o preço em reais.',
+      url: 'https://bynx.gg/busca',
+      siteName: 'Bynx',
+      locale: 'pt_BR',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Buscar cartas Pokémon TCG — Bynx',
+      description: 'Busque qualquer Pokémon ou carta e veja o preço em reais.',
+    },
   }
 }
 

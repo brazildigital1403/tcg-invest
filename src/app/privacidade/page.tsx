@@ -5,6 +5,20 @@ import PublicFooter from '@/components/ui/PublicFooter'
 export const metadata = {
   title: 'Política de Privacidade',
   description: 'Saiba como a Bynx coleta, usa e protege seus dados pessoais conforme a LGPD.',
+  // Sem openGraph/twitter proprios o WhatsApp e o X mostravam titulo e url da home.
+  openGraph: {
+    title: 'Política de Privacidade — Bynx',
+    description: 'Saiba como a Bynx coleta, usa e protege seus dados pessoais conforme a LGPD.',
+    url: 'https://bynx.gg/privacidade',
+    siteName: 'Bynx',
+    locale: 'pt_BR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Política de Privacidade — Bynx',
+    description: 'Saiba como a Bynx coleta, usa e protege seus dados pessoais conforme a LGPD.',
+  },
 }
 
 const UPDATED = '30 de agosto de 2026'

@@ -20,9 +20,30 @@ import { unstable_cache } from 'next/cache'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
+import type { Metadata } from 'next'
 import DestaqueClient, { type RankingRow } from './DestaqueClient'
 
 export const revalidate = 3600
+
+// Sem metadata propria o WhatsApp e o X mostravam titulo e url da home.
+// Sem `alternates` de proposito: mudar canonical e decisao de crawl separada.
+export const metadata: Metadata = {
+  title: 'Colecionadores em Destaque',
+  description: 'Quem mais coleciona e quem está mais perto de completar os sets, entre perfis públicos da Bynx.',
+  openGraph: {
+    title: 'Colecionadores em Destaque — Bynx',
+    description: 'Quem mais coleciona e quem está mais perto de completar os sets, entre perfis públicos.',
+    url: 'https://bynx.gg/destaque',
+    siteName: 'Bynx',
+    locale: 'pt_BR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Colecionadores em Destaque — Bynx',
+    description: 'Quem mais coleciona e quem está mais perto de completar os sets, entre perfis públicos.',
+  },
+}
 
 const getRanking = unstable_cache(
   async (): Promise<{ maiorColecao: RankingRow[]; maisCompleto: RankingRow[] }> => {

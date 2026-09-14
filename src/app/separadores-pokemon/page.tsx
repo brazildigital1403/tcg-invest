@@ -26,21 +26,13 @@ export const metadata: Metadata = {
     siteName: 'Bynx',
     locale: 'pt_BR',
     type: 'website',
-    images: [
-      {
-        url: 'https://bynx.gg/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Separadores Pokémon TCG — Bynx',
-      },
-    ],
+    // imagem: opengraph-image.tsx desta pasta
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Separadores Pokémon TCG — Bynx',
     description:
       '1.025 Pokémons prontos para imprimir no seu fichário 9-pocket, ou salvar em PDF. R$ 14,90 pagamento único.',
-    images: ['https://bynx.gg/og-image.jpg'],
   },
   alternates: {
     canonical: 'https://bynx.gg/separadores-pokemon',

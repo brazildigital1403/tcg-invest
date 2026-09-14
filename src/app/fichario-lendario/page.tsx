@@ -28,13 +28,12 @@ export const metadata: Metadata = {
     siteName: 'Bynx',
     locale: 'pt_BR',
     type: 'website',
-    images: [{ url: 'https://bynx.gg/paginas-lendarias/moonbreon.webp', width: 1792, height: 2400, alt: 'Página Lendária Moonbreon — Bynx' }],
+    // imagem: opengraph-image.tsx desta pasta (a antiga, moonbreon.webp, dava 404)
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Fichário Lendário — Bynx',
     description: 'A arte da carta continua pela página inteira do fichário. Primeira página grátis.',
-    images: ['https://bynx.gg/paginas-lendarias/moonbreon.webp'],
   },
   alternates: { canonical: 'https://bynx.gg/fichario-lendario' },
 }
@@ -73,7 +72,7 @@ const productSchema = {
   name: 'Páginas Lendárias — Bynx',
   description:
     'Páginas de fichário com a arte da carta estendida pelos 9 bolsos. Fichário virtual + folha A4 com linhas de recorte pra imprimir. 52 páginas com as cartas mais desejadas do Pokémon TCG.',
-  image: 'https://bynx.gg/paginas-lendarias/moonbreon.webp',
+  image: 'https://bynx.gg/paginas-lendarias/moonbreon-og.jpg',
   brand: { '@type': 'Brand', name: 'Bynx' },
   category: 'Acessórios para Trading Card Game',
   offers: [
