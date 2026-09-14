@@ -5,6 +5,8 @@ import PublicFooter from '@/components/ui/PublicFooter'
 export const metadata = {
   title: 'Termos de Uso',
   description: 'Termos e condições de uso da plataforma Bynx.',
+  // Sem isto herdava o canonical da home do layout raiz (decisao do Du, 14/09).
+  alternates: { canonical: 'https://bynx.gg/termos' },
   // Sem openGraph/twitter proprios o WhatsApp e o X mostravam titulo e url da home.
   openGraph: {
     title: 'Termos de Uso — Bynx',

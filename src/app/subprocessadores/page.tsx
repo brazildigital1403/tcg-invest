@@ -22,6 +22,9 @@ export const metadata = {
   title: 'Subprocessadores',
   description: 'Fornecedores que tratam dados pessoais a serviço da Bynx.',
   robots: { index: false, follow: false },
+  // Canonical proprio mesmo com noindex, mesmo raciocinio do comparador/layout.tsx:
+  // nao reabre indexacao, so para de apontar pra home (decisao do Du, 14/09).
+  alternates: { canonical: 'https://bynx.gg/subprocessadores' },
   // Sem openGraph/twitter proprios o WhatsApp e o X mostravam titulo e url da home.
   openGraph: {
     title: 'Subprocessadores — Bynx',
