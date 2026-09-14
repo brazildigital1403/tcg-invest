@@ -21,6 +21,7 @@
 
 import type { Metadata } from 'next'
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notFound, permanentRedirect } from 'next/navigation'
 import CardClient from './CardClient'
@@ -261,6 +262,42 @@ function precoForaDaMediana(preco: number, mediana: number, nSnaps: number, nLiq
  * `cache()` vale por request: duas requests continuam buscando de novo, que e
  * o certo — quem cuida do intervalo e o ISR de 24h.
  */
+/**
+ * ★ printed_total do set no Data Cache (14/09/2026). Muda quando um set e
+ * cadastrado, nao a cada visita -- e era uma ida ao Supabase por render de
+ * carta. O Data Cache sobrevive a deploy: a rajada de robo que vem logo depois
+ * de um deploy (que zera o ISR das ~66 mil cartas) nao repete esta leitura.
+ * Falha lanca (regra da casa: vazio dentro de unstable_cache fica servido);
+ * quem vira null e o chamador, fora do cache.
+ */
+const printedTotalDoSet = unstable_cache(
+  async (setId: string): Promise<number | null> => {
+    const sb = getServiceSupabase()
+    if (!sb) throw new Error('[carta] sem cliente Supabase')
+    const { data, error } = await sb.from('pokemon_sets').select('printed_total').eq('id', setId).maybeSingle()
+    if (error) throw new Error(`[carta] printed_total: ${error.message}`)
+    return data?.printed_total ?? null
+  },
+  ['carta-printed-total-v1'],
+  { revalidate: 86400 },
+)
+
+/**
+ * Teto de tempo que vale MESMO. O `AbortSignal.timeout` do fetch da API
+ * oficial nao garantiu o corte: em 13/09 duas paginas do Arceus (que chamam a
+ * API em todo render) estouraram os 20s com o banco respondendo em menos de
+ * 600ms. A corrida abaixo solta a pagina no prazo, responda a API ou nao.
+ */
+function comTeto<T>(promessa: Promise<T>, ms: number, seEstourar: T): Promise<T> {
+  return new Promise(resolve => {
+    const t = setTimeout(() => resolve(seEstourar), ms)
+    promessa.then(
+      v => { clearTimeout(t); resolve(v) },
+      () => { clearTimeout(t); resolve(seEstourar) },
+    )
+  })
+}
+
 const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Promise<NormalizedCard | null> {
   // A rota aceita a URL nova (slug) e a antiga (id, ainda circulando em links
   // compartilhados e no indice do Google). Resolvemos no banco ANTES de chamar
@@ -272,7 +309,7 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
   const sb = getServiceSupabase()
   if (sb) {
     const COLS =
-      'id, slug, name, number, set_id, set_name, set_release_date, set_total, ' +
+      'id, slug, name, number, set_id, set_name, set_release_date, set_total, supertype, ' +
       'rarity, hp, types, image_small, image_large, attacks, ' +
       'preco_min, preco_medio, preco_max, ' +
       'preco_foil_min, preco_foil_medio, preco_foil_max, ' +
@@ -362,19 +399,25 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
     bynx?.attacks && bynx?.hp && bynx?.types?.length,
   )
   const idEhNosso = idReal.startsWith('liga-')
-  const vaiChamarApi = !idEhNosso && !temDadosDeJogo
+  // ★ Trainer e Energy NUNCA tem hp nem tipo (14/09/2026). Com a regra antiga
+  // eles contavam como "sem dados de jogo" pra sempre: das 3.310 cartas que
+  // chamavam a API em todo render, 3.175 eram Trainer/Energy -- e a API nao
+  // tinha nada a acrescentar (hoje responde 500 pra pl4-91, por exemplo).
+  // Supertype nulo continua chamando: nao da pra saber o que a carta e.
+  const podeTerDadosDeJogo = bynx?.supertype == null || bynx.supertype === 'Pokémon'
+  const vaiChamarApi = !idEhNosso && !temDadosDeJogo && podeTerDadosDeJogo
 
   // printed_total = o numero impresso NA carta (23/132), nao o total com
   // secretas (23/188). E o que o colecionador digita na busca.
   //
   // Roda em paralelo com a API: as duas so dependem do `bynx`, nao uma da
   // outra. Em serie eram dois RTTs empilhados.
-  const [stRes, tcgRes] = await Promise.all([
-    bynx?.set_id && sb
-      ? sb.from('pokemon_sets').select('printed_total').eq('id', bynx.set_id).maybeSingle()
+  const [printedDoSet, tcgRes] = await Promise.all([
+    bynx?.set_id
+      ? printedTotalDoSet(bynx.set_id).catch(() => null)
       : Promise.resolve(null),
     vaiChamarApi
-      ? fetch(`https://api.pokemontcg.io/v2/cards/${idReal}`, {
+      ? comTeto(fetch(`https://api.pokemontcg.io/v2/cards/${idReal}`, {
           headers: { 'X-Api-Key': process.env.POKEMON_API_KEY || '' },
           next: { revalidate: 86400, tags: [`card:${idReal}`] },
           // ★ TIMEOUT OBRIGATORIO (30/07/2026). O `.catch` abaixo pega ERRO,
@@ -389,13 +432,15 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
         }).catch(() => {
           console.warn(`[carta] pokemontcg.io nao respondeu em 5s para ${idReal} — seguindo sem dados de jogo`)
           return null
-        })
+        }), 5000, null)
       : Promise.resolve(null),
   ])
 
-  printedTotal = stRes?.data?.printed_total ?? null
+  printedTotal = printedDoSet
 
-  const tcgJson: any = tcgRes?.ok ? await tcgRes.json().catch(() => null) : null
+  // O corpo tambem entra no teto: resposta que chega mas trava no stream
+  // seguraria a pagina do mesmo jeito.
+  const tcgJson: any = tcgRes?.ok ? await comTeto(tcgRes.json().catch(() => null), 3000, null) : null
   const tcg = tcgJson?.data || null
 
   // Se nenhuma fonte achou, é 404
@@ -451,21 +496,35 @@ type RelatedCards = {
   same_pokemon: MiniCard[]
 }
 
-async function fetchRelatedCards(id: string): Promise<RelatedCards> {
-  const empty: RelatedCards = { pokemon_name: null, same_set: [], same_pokemon: [] }
-  const sb = getServiceSupabase()
-  if (!sb) return empty
-  try {
+/**
+ * ★ No Data Cache (14/09/2026). `get_related_cards` e a RPC mais cara do render
+ * (~600 blocos no Pikachu) e, no engasgo de 14/09 18:00, foi a que mais
+ * demorou (10,3s). Carta relacionada so muda quando entra carta nova no set ou
+ * no Pokemon: 1 dia de cache e de sobra, e sobrevive a deploy.
+ * Falha lanca dentro do cache; o chamador converte em vazio fora dele.
+ */
+const relacionadasEmCache = unstable_cache(
+  async (id: string): Promise<RelatedCards> => {
+    const sb = getServiceSupabase()
+    if (!sb) throw new Error('[carta] sem cliente Supabase')
     const { data, error } = await sb.rpc('get_related_cards', { p_id: id, p_limit: 8 })
-    if (error || !data) return empty
-    const d = data as { pokemon_name?: string | null; same_set?: MiniCard[]; same_pokemon?: MiniCard[] }
+    if (error) throw new Error(`[carta] get_related_cards: ${error.message}`)
+    const d = (data || {}) as { pokemon_name?: string | null; same_set?: MiniCard[]; same_pokemon?: MiniCard[] }
     return {
       pokemon_name: d.pokemon_name ?? null,
       same_set: Array.isArray(d.same_set) ? d.same_set : [],
       same_pokemon: Array.isArray(d.same_pokemon) ? d.same_pokemon : [],
     }
+  },
+  ['carta-relacionadas-v1'],
+  { revalidate: 86400 },
+)
+
+async function fetchRelatedCards(id: string): Promise<RelatedCards> {
+  try {
+    return await relacionadasEmCache(id)
   } catch {
-    return empty
+    return { pokemon_name: null, same_set: [], same_pokemon: [] }
   }
 }
 
