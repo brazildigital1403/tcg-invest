@@ -27,7 +27,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import AvaliacaoModal from '@/components/marketplace/AvaliacaoModal'
 import TradeAnalyzer, { montarTradeCard } from '@/components/marketplace/TradeAnalyzer'
 import { transferirCartaAoComprador } from '@/lib/concluirCompra'
-import { IconClock } from '@/components/ui/Icons'
+import { IconClock, IconShield } from '@/components/ui/Icons'
 import { mudarStatusAnuncio } from '@/lib/marketplaceAcao'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -376,6 +376,12 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
   const [loaded, setLoaded] = useState(false)
   const [showAvaliacao, setShowAvaliacao] = useState(false)
   const [showTrade, setShowTrade] = useState(false)
+  // ★ CONTATO EXTERNO (15/09/2026). Com loja que recebe pela Bynx o banco
+  //   recusa telefone, e-mail e link (CONTATO_BLOQUEADO em enviar_mensagem).
+  //   Sem checkout nao ha bloqueio -- o pagamento e combinado entre as partes,
+  //   e a chave Pix costuma ser telefone ou e-mail -- entao a conversa so avisa.
+  //   null = ainda nao sabe: nenhum aviso aparece.
+  const [recebePelaBynx, setRecebePelaBynx] = useState<boolean | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -417,6 +423,8 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
     // habilitado e o envio quebraria com erro cru na cara da pessoa.
     const enriched = { ...a, soLeitura: ehParticipante, seller_name: ehVendedor ? meuNome : nomeOutro, buyer_name: ehVendedor ? nomeOutro : meuNome }
     setAnuncio(enriched); setRole(ehVendedor ? 'vendedor' : 'comprador'); setOutroNome(nomeOutro)
+    const { data: recebe, error: errRecebe } = await supabase.rpc('anuncio_vendedor_recebe_pela_bynx', { p_anuncio_id: anuncioId })
+    setRecebePelaBynx(errRecebe ? null : !!recebe)
     return enriched
   }, [anuncioId, userId])
 
@@ -457,7 +465,14 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
     if (!corpo || enviando) return
     setEnviando(true); setTexto('')
     const { error } = await supabase.rpc('enviar_mensagem', { p_anuncio_id: anuncioId, p_body: corpo })
-    if (error) { showAlert('Não foi possível enviar a mensagem.', 'error'); setTexto(corpo); setEnviando(false); return }
+    if (error) {
+      // O texto do bloqueio vem pronto do banco; o que a pessoa escreveu volta
+      // para o campo, para ela tirar o contato e mandar de novo.
+      const msg = error.message || ''
+      const bloqueio = msg.startsWith('CONTATO_BLOQUEADO') ? msg.replace(/^CONTATO_BLOQUEADO:\s*/, '') : null
+      showAlert(bloqueio || 'Não foi possível enviar a mensagem.', bloqueio ? 'warning' : 'error')
+      setTexto(corpo); setEnviando(false); return
+    }
     await carregarMsgs()
     setAnuncio((p: any) => p && p.status === 'reservado' ? { ...p, status: 'em_negociacao' } : p)
     setEnviando(false); onMudanca(); inputRef.current?.focus()
@@ -545,6 +560,16 @@ function ChatThread({ anuncioId, userId, desktop, onVoltar, onFechar, onMudanca 
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Aviso de venda sem checkout: a Bynx nao intermedeia o pagamento. */}
+      {recebePelaBynx === false && !finalizado && !anuncio?.soLeitura && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(245,158,11,0.06)', flexShrink: 0 }}>
+          <IconShield size={14} color="#f59e0b" />
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.62)', margin: 0, lineHeight: 1.4 }}>
+            Combine com cuidado: a Bynx não intermedeia o pagamento desta venda.
+          </p>
         </div>
       )}
 

@@ -61,6 +61,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       return NextResponse.json({ error: 'Contato indisponível para este anúncio' }, { status: 403 })
     }
 
+    // ★ Loja que recebe pela Bynx: o contato fica dentro da plataforma
+    //   (15/09/2026). Mesma regra do bloqueio no chat (enviar_mensagem):
+    //   loja ativa com recebimentos ligados. Sem isto, esta rota entregaria o
+    //   WhatsApp que o chat recusa.
+    const { data: lojaRecebe } = await sb
+      .from('lojas')
+      .select('id')
+      .eq('owner_user_id', anuncio.user_id)
+      .eq('status', 'ativa')
+      .eq('connect_charges_enabled', true)
+      .limit(1)
+    if (lojaRecebe && lojaRecebe.length > 0) {
+      return NextResponse.json({ error: 'Nesta venda o contato fica dentro da Bynx. Use o botão Comprar do anúncio.' }, { status: 403 })
+    }
+
     const { data: u } = await sb
       .from('users')
       .select('whatsapp, name')
