@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const email = String(body.email || '').trim().toLowerCase()
     const nome = String(body.nome || '').trim()
     const cupomCode = String(body.cupom_code || '').trim().toUpperCase()
-    const descontoPct = Number(body.desconto_pct ?? 15)
+    const descontoPct = Number(body.desconto_pct ?? 20)
     const comissaoPrimeiraPct = Number(body.comissao_primeira_pct ?? 100)
     const comissaoRenovacaoPct = Number(body.comissao_renovacao_pct ?? 20)
     const recorrenteMeses = Number(body.recorrente_meses ?? 12)

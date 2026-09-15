@@ -28,7 +28,7 @@ const FORM_INICIAL = {
   email: '',
   nome: '',
   cupom_code: '',
-  desconto_pct: '15',
+  desconto_pct: '20',
   comissao_primeira_pct: '100',
   cap_primeira_reais: '100',
   comissao_renovacao_pct: '20',
