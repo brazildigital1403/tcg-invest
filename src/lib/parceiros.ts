@@ -83,10 +83,13 @@ export async function registrarVendaParceiro(
   const promoId = await extrairPromotionCodeId(stripe, params.session)
   if (!promoId) return
 
+  // O parceiro pode ter um code LEGADO ativo alem do vigente (troca de
+  // percentual 15% -> 20%): venda por qualquer um dos dois e dele. A comissao
+  // se ajusta sozinha porque e calculada sobre o valor PAGO da session.
   const { data: parceiros, error: pErr } = await supabase
     .from('parceiros')
     .select('id, nome, ativo, comissao_primeira_pct, comissao_primeira_cap_cents, comissao_renovacao_pct, recorrente_meses')
-    .eq('stripe_promotion_code_id', promoId)
+    .or(`stripe_promotion_code_id.eq.${promoId},stripe_promotion_code_id_legado.eq.${promoId}`)
     .limit(1)
 
   if (pErr) {
