@@ -18,7 +18,7 @@ import {
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
   IconChat, IconStar, IconStarFilled, IconEye, IconArticle, IconTarget,
 } from '@/components/ui/Icons'
-import { METAS_ATIVO } from '@/lib/metas'
+import { useMetasVisivel } from '@/components/metas/useMetasVisivel'
 import MuroPosTrial from '@/components/ui/MuroPosTrial'
 
 // ─── Ícones inline (Separador + 3 dos lojistas) ─────────────────────────────
@@ -173,12 +173,14 @@ type MenuItem = {
 const ITEM_DASHBOARD: MenuItem = { name: 'Dashboard', full: 'Dashboard', href: '/dashboard-financeiro', Icon: IconDashboard, group: 'colecao' }
 const ITEM_COLECAO: MenuItem = { name: 'Coleção', full: 'Minha Coleção', href: '/minha-colecao', Icon: IconCollection, group: 'colecao' }
 const ITEM_ACOMPANHANDO: MenuItem = { name: 'Acompanhando', full: 'Acompanhando', href: '/acompanhando', Icon: IconStar, group: 'colecao' }
-// Metas (#368): so entra no menu com NEXT_PUBLIC_METAS_ATIVO=1. Ver lib/metas.ts.
-const ITEM_METAS: MenuItem = { name: 'Metas', full: 'Metas de coleção', href: '/metas', Icon: IconTarget, group: 'colecao' }
-const comMetas = (arr: MenuItem[]): MenuItem[] => {
-  if (!METAS_ATIVO) return arr
-  const i = arr.indexOf(ITEM_ACOMPANHANDO)
-  return i < 0 ? arr : [...arr.slice(0, i), ITEM_METAS, ...arr.slice(i)]
+// Metas (#368): logo depois de Minha Colecao, no grupo Colecao. Quem ve:
+// useMetasVisivel (flag ligada, ou sessao de admin enquanto ela estiver
+// desligada).
+const ITEM_METAS: MenuItem = { name: 'Metas', full: 'Metas', href: '/metas', Icon: IconTarget, group: 'colecao' }
+const comMetas = (arr: MenuItem[], visivel: boolean): MenuItem[] => {
+  if (!visivel) return arr
+  const i = arr.indexOf(ITEM_COLECAO)
+  return i < 0 ? arr : [...arr.slice(0, i + 1), ITEM_METAS, ...arr.slice(i + 1)]
 }
 const ITEM_POKEDEX: MenuItem = { name: 'Pokédex', full: 'Pokédex', href: '/pokedex', Icon: IconPokedex, group: 'explorar' }
 const ITEM_MARKETPLACE: MenuItem = { name: 'Mercado', full: 'Mercado', href: '/marketplace', Icon: IconMarketplace, group: 'explorar' }
@@ -204,7 +206,7 @@ const ITEM_MASTER_SETS: MenuItem = { name: 'Master Sets', full: 'Master Sets', h
 const ITEM_PAGINAS_LENDARIAS: MenuItem = { name: 'Lendárias', full: 'Páginas Lendárias', href: '/paginas-lendarias', Icon: IconLendarias, group: 'imprimir' }
 
 const GROUP_ORDER: { key: GroupKey; label: string }[] = [
-  { key: 'colecao', label: 'Minha coleção' },
+  { key: 'colecao', label: 'Coleção' },
   { key: 'explorar', label: 'Explorar' },
   { key: 'imprimir', label: 'Imprimir' },
   { key: 'parceiros', label: 'Parceiros' },
@@ -302,11 +304,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isLojistaPuro = temLoja === true && temCartas === false && !exploreMode
   const isLojistaExplore = temLoja === true && temCartas === false && exploreMode
 
+  const metasVisivel = useMetasVisivel()
+
   // Monta menu adaptativo
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return comMetas(semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE]))
+      return comMetas(semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE]), metasVisivel)
     }
     if (isLojistaPuro) {
       const lojista = [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
@@ -318,8 +322,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     else base.push(ITEM_VENDER)
     if (ehParceiro) base.push(ITEM_PARCEIROS)
     base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_SUPORTE)
-    return comMetas(semDash(base))
-  }, [temLoja, temCartas, isLojistaPuro, podeDashboard, ehParceiro])
+    return comMetas(semDash(base), metasVisivel)
+  }, [temLoja, temCartas, isLojistaPuro, podeDashboard, ehParceiro, metasVisivel])
 
   const primaryTabs = useMemo<MenuItem[]>(() => {
     const inBottom = BOTTOM_TAB_HREFS.map(h => menu.find(m => m.href === h)).filter(Boolean) as MenuItem[]
