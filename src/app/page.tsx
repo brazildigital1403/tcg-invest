@@ -93,9 +93,9 @@ const ETB_LOJA = `${PROD}/me-expansions/me05/collections/pt-br/me05-etb-ptbr-2x.
 const SIGNUP = '?auth=signup'
 
 const FAQ: { q: string; a: string }[] = [
-  { q: 'A Bynx é grátis mesmo?', a: 'É. Você cria a conta, monta a sua coleção, vê o preço em reais e já entra no marketplace sem pagar nada. O Plus (R$ 14,90/mês) libera o Scan com 100 cartas por mês, e o Pro (R$ 29,90/mês) tira todos os limites.' },
+  { q: 'A Bynx é grátis mesmo?', a: 'É. Você cria a conta, monta a sua coleção, vê o preço em reais e já entra no marketplace sem pagar nada. O Plus (R$ 14,90/mês) libera o Scan com IA, com 100 scans por mês, e o Pro (R$ 29,90/mês) tira todos os limites.' },
   { q: 'De onde vem esse preço?', a: 'Do mercado brasileiro, em reais, não é conversão de dólar. Mostramos o menor preço anunciado — que é o que você paga de verdade — e a faixa completa por variante, atualizado todo dia. É o motivo da Bynx existir pra quem coleciona no Brasil.' },
-  { q: 'Como funciona o Scan?', a: 'Você aponta a câmera na carta e ela entra na coleção com o nome, o set, a variante e o preço. Salva a vida de quem tem coleção grande. Está no Plus, com 100 por mês, e ilimitado no Pro.' },
+  { q: 'Como funciona o Scan?', a: 'Você aponta a câmera na carta e ela entra na coleção com o nome, o set, a variante e o preço. Salva a vida de quem tem coleção grande. Está no Plus, com 100 scans por mês, e ilimitado no Pro. Cada scan é uma foto, e uma foto pode ter várias cartas.' },
   { q: 'Dá pra vender minhas cartas?', a: 'Dá. Você anuncia no marketplace com preço em reais, o comprador fecha com pagamento e frete calculado pelo CEP, e o dinheiro cai na sua conta.' },
 ]
 

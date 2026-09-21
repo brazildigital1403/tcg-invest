@@ -571,7 +571,7 @@ export async function sendTrialExpiring1Email(to: string, name: string) {
     <div style="height:16px;"></div>
     ${h1('Hoje é o último dia do seu Pro trial 🚨')}
     ${p(`${escapeHtml(firstName)}, amanhã sua conta volta automaticamente para o plano Free. Você não perde nada que já adicionou — só os recursos Pro ficam bloqueados.`)}
-    ${p('O Plus (R$ 14,90/mês) mantém o scan com IA, com 100 por mês. O Pro tira todos os limites.')}
+    ${p('O Plus (R$ 14,90/mês) mantém o scan com IA, com 100 scans por mês. O Pro tira todos os limites.')}
     ${btn('Continuar no Pro →', addUtm(`${APP_URL}/minha-conta`, 'trial-1d', 'cta-button'))}
   `, `Hoje é o último dia do seu Pro trial`, rodape)
 
@@ -1200,7 +1200,7 @@ export async function sendPurchaseConfirmationEmail(
     titulo = 'Bem-vindo à Bynx Plus! ✨'
     intro = `${escapeHtml(firstName)}, sua assinatura <strong style="color:#f59e0b;">Plus</strong> foi ativada com sucesso. Obrigado por apoiar a Bynx!`
     detalhes = `
-      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Scan de cartas com IA · 100 por mês</p>
+      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">📷 Scan de cartas com IA · 100 scans por mês</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Até 500 cartas na sua coleção</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📊 Dashboard completo</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🛒 Marketplace ilimitado</p>

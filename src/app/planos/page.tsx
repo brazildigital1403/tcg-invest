@@ -60,7 +60,7 @@ const breadcrumbSchema = {
 }
 
 /**
- * ★ RESOLVIDO EM 20/09/2026 (decisao do Du): o Scan esta no Plus (100/mes) e no
+ * ★ RESOLVIDO EM 20/09/2026 (decisao do Du): o Scan esta no Plus (100 SCANS/mes, nao cartas) e no
  * Pro (ilimitado). Antes desta data a pergunta faltava aqui de proposito,
  * porque a home dizia "recurso do Pro", a /scan-ia dizia "sem assinatura" e a
  * /colecionadores dizia "Pro com creditos mensais" — tres versoes no ar ao
@@ -104,6 +104,15 @@ const FAQ: { q: string; a: string }[] = [
     q: 'O Scan com IA está em qual plano?',
     a: 'O Plus inclui 100 scans por mês e o Pro não tem limite. O plano grátis não tem Scan, mas toda conta '
       + 'nova começa com 7 dias de acesso Pro, então dá para experimentar antes de decidir.',
+  },
+  {
+    // ★ O limite e por SCAN (uma foto), nao por carta: a rota scan-cards debita
+    //   UMA vez por requisicao, antes do reconhecimento, e uma foto com varias
+    //   cartas gera um debito so. Uma versao anterior da copy dizia "100 cartas
+    //   por mes" -- errado, e subvendia o plano.
+    q: '100 scans são 100 cartas?',
+    a: 'Não, costumam ser mais. Cada scan é uma foto, e uma foto pode ter várias cartas: se você fotografar '
+      + 'cinco cartas de uma vez, a Bynx identifica as cartas da imagem e conta um scan só.',
   },
   {
     q: 'E se eu passar dos 100 scans do Plus?',
@@ -178,7 +187,7 @@ const BLOCOS: { titulo: string; linhas: Linha[] }[] = [
   {
     titulo: 'Scan e impressão',
     linhas: [
-      { label: 'Scan com IA', vals: ['—', '100 por mês', 'Ilimitado', 'Ilimitado'] },
+      { label: 'Scan com IA', vals: ['—', '100 scans/mês', 'Ilimitado', 'Ilimitado'] },
       { label: 'Separadores de fichário', vals: ['Avulso', 'Avulso', 'Liberados', 'Liberados'] },
       { label: 'Master Sets', vals: ['Avulso', 'Avulso', 'Avulso', 'Todos'] },
       { label: 'Páginas Lendárias', vals: ['Avulso', 'Avulso', 'Avulso', 'Todas'] },

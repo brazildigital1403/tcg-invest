@@ -144,7 +144,7 @@ export default function MinhaConta() {
   const [saving, setSaving] = useState(false)
   const [scanCreditos, setScanCreditos] = useState<number>(0)
   // Cota mensal do plano (RPC get_scan_status, mesma fonte do ScanModal).
-  // scans_mes -1 = ilimitado (Pro Anual). Antes a tela mostrava so o saldo
+  // scans_mes -1 = ilimitado (Pro e Pro Anual); 100 = Plus. Antes a tela mostrava so o saldo
   // avulso e um Pro com 100/mes via "0 creditos" em vermelho.
   const [scanStatus, setScanStatus] = useState<{ scans_mes: number; mensal_disp: number; avulso: number } | null>(null)
   const [sepDesbloqueado, setSepDesbloqueado] = useState<boolean>(false)

@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       // P0001 = sem créditos
       if (error.message?.includes('sem_creditos') || error.code === 'P0001') {
         return NextResponse.json(
-          { error: 'Seus scans do mês acabaram. Assine o Plus para ter 100 por mês, o Pro para não ter limite, ou compre um pacote avulso.' },
+          { error: 'Seus scans do mês acabaram. Assine o Plus para ter 100 scans por mês, o Pro para não ter limite, ou compre um pacote avulso.' },
           { status: 402 }
         )
       }
@@ -137,7 +137,9 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         // Haiku 4.5 (08/08/2026, decisao do Du): ~5x mais barato que o modelo
         // anterior (~R$0,02-0,04/scan vs ~R$0,10-0,16) — e o que viabiliza
-        // Pro 100/mes + Anual ilimitado. Se a taxa de acerto do reconhecimento
+        // Pro e Pro Anual ilimitados, e (desde 20/09/2026) o Plus com 100
+        // SCANS/mes. Cota por scan, nao por carta: esta rota debita UMA vez por
+        // requisicao, e uma foto pode ter varias cartas. Se a taxa de acerto do reconhecimento
         // cair (acompanhar reclamacoes/pedidos de carta), reavaliar com A/B.
         model: 'claude-haiku-4-5',
         max_tokens: 1024,

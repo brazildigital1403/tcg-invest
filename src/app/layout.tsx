@@ -244,7 +244,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   price: "14.90",
                   priceCurrency: "BRL",
                   name: "Plano Plus",
-                  description: "Até 500 cartas, scan com IA (100 por mês), Pokédex completa e acompanhamento do valor da coleção",
+                  description: "Até 500 cartas, scan com IA (100 scans por mês), Pokédex completa e acompanhamento do valor da coleção",
                 },
                 {
                   "@type": "Offer",

@@ -158,7 +158,7 @@ export default function PlanosClient() {
           <p style={S.tnote}>para quem está crescendo a coleção</p>
           <ul style={S.feats}>
             <li style={S.pre}>Tudo do Grátis, e mais:</li>
-            <li style={S.li}><Check /> <b>Scan com IA</b> — 100 cartas por mês</li>
+            <li style={S.li}><Check /> <b>Scan com IA</b> — 100 scans por mês</li>
             <li style={S.li}><Check /> Até 500 cartas na coleção</li>
             <li style={S.li}><Check /> Quanto sua coleção vale, atualizado</li>
             <li style={S.li}><Check /> Pokédex completa</li>

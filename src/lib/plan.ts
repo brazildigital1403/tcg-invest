@@ -56,9 +56,11 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     isPaid: true, isPro: false,
     limiteCartas: 500, limitePastas: Infinity, limiteAnuncios: Infinity,
     podeDashboard: true, catalogoCompleto: true, podeExportar: false,
-    // ★ 20/09/2026: o Plus passou a ter Scan (100/mes). Era 0, e o plano de
-    //   ENTRADA sem a feature que da nome a tela principal era o erro de
-    //   empacotamento mais caro do produto — no mercado o scan e isca.
+    // ★ 20/09/2026: o Plus passou a ter Scan. Era 0, e o plano de ENTRADA sem
+    //   a feature que da nome a tela principal era o erro de empacotamento
+    //   mais caro do produto — no mercado o scan e isca.
+    //   A cota e de 100 SCANS, nao cartas: uma foto com varias cartas conta
+    //   um scan so (a rota scan-cards debita uma vez por requisicao).
     scansMes: 100, separadoresLiberados: false, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
   },
