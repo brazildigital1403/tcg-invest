@@ -30,7 +30,7 @@ function arrumar<T>(xs: T[]): T[] {
 export default function LequeCartas({ cartas, tamanho = 'md', prioridade = false }: {
   cartas: CartaLeque[]
   tamanho?: 'sm' | 'md' | 'lg'
-  /** Acima da dobra: a carta do centro carrega com prioridade (LCP). */
+  /** Acima da dobra: as cartas carregam de imediato (sao 5 imagens pequenas; em lazy as laterais apareciam vazias). */
   prioridade?: boolean
 }) {
   const n = tamanho === 'sm' ? 3 : 5
@@ -45,7 +45,6 @@ export default function LequeCartas({ cartas, tamanho = 'md', prioridade = false
       {lista.map((c, i) => {
         const w = larguras[i + off] ?? larguras[larguras.length - 1]
         const d = i - meio
-        const centro = d === 0
         return (
           <div key={`${c.nome}-${i}`} className="bx-leque-carta" style={{
             width: w, flexShrink: 0, position: 'relative', marginLeft: i ? -14 : 0,
@@ -62,7 +61,7 @@ export default function LequeCartas({ cartas, tamanho = 'md', prioridade = false
               filter: c.tem ? undefined : 'grayscale(1)', opacity: c.tem ? 1 : 0.4,
             }}>
               {c.image && (
-                <Image src={c.image} alt="" fill sizes={`${w}px`} priority={prioridade && centro}
+                <Image src={c.image} alt="" fill sizes={`${w}px`} priority={prioridade}
                   style={{ objectFit: 'contain' }} />
               )}
             </div>

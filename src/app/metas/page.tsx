@@ -355,12 +355,12 @@ export default function MetasPage() {
                   <Link key={m.id} href={`/metas/${m.id}`} prefetch={false} className={`bx-meta-card${largo ? ' bx-meta-card-largo' : ''}`}
                     style={{ ...bloco, overflow: 'hidden', textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ height: largo ? 150 : 118, background: 'var(--bx-hero-wash), var(--bx-surface-2)', borderBottom: '1px solid var(--bx-border)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', overflow: 'hidden' }}>
-                      <AnelMeta cartas={pc} valor={pv} tamanho={largo ? 96 : 60} legenda={largo} />
+                      <AnelMeta cartas={pc} valor={pv} tamanho={largo ? 96 : 60} />
                       {capas[m.id] && <div style={{ marginBottom: -28 }}><LequeCartas tamanho={largo ? 'md' : 'sm'} cartas={capas[m.id]} /></div>}
-                      {largo && <span style={{ position: 'absolute', top: 10, right: 12, ...pilula, color: 'var(--bx-green)', borderColor: 'color-mix(in srgb, var(--bx-green) 35%, transparent)' }}>Mais perto de completar</span>}
                       {m.concluida_em && <span style={{ position: 'absolute', top: 10, right: 12, ...pilula, color: 'var(--bx-green)' }}><IconCheck size={12} color="var(--bx-green)" />&nbsp;Completa</span>}
                     </div>
                     <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {largo && <span style={{ ...pilula, alignSelf: 'flex-start', color: 'var(--bx-green)', borderColor: 'color-mix(in srgb, var(--bx-green) 35%, transparent)' }}>Mais perto de completar</span>}
                       <div style={{ fontSize: largo ? 19 : 16, fontWeight: 800, letterSpacing: '-0.01em' }}>{tituloMeta(m.tipo, m.alvo, nomeSetDe(m))}</div>
                       <div style={{ fontSize: 12, color: 'var(--bx-text-3)' }}>{m.tipo === 'pokemon' ? 'Pokémon · todas as coleções' : 'Coleção'}{idiomaTxt ? ` · só em ${idiomaTxt.toLowerCase()}` : ''}</div>
                       {temRetrato ? (

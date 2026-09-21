@@ -221,7 +221,12 @@ export default function MetaPage() {
   }
   function irPara(a: Aba) {
     trocarAba(a)
-    requestAnimationFrame(() => gradeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    // scrollIntoView suave era cancelado pelo re-render da troca de aba (a
+    // pagina andava 28px). Rolar a janela depois do render resolve.
+    setTimeout(() => {
+      const el = gradeRef.current
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' })
+    }, 60)
   }
 
   async function iniciarMarcacao() {
@@ -618,7 +623,7 @@ export default function MetaPage() {
             {/* ── As cartas ───────────────────────────────────────────── */}
             <div ref={gradeRef} style={{ scrollMarginTop: 72 }} />
             <h2 style={{ margin: '24px 0 12px', fontSize: 17, fontWeight: 800 }}>As cartas da meta</h2>
-            <div className="bx-meta-abas" style={{ position: 'sticky', top: 'var(--bx-meta-topo, 57px)', zIndex: 30, background: 'var(--bx-bg)', padding: '8px 0', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="bx-meta-abas" style={{ position: 'sticky', top: 69, zIndex: 30, background: 'var(--bx-bg)', padding: '8px 0', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <div role="group" aria-label="Filtrar cartas" className="bx-meta-seg" style={{ display: 'inline-flex', padding: 4, borderRadius: 999, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', gap: 2, maxWidth: '100%', overflowX: 'auto' }}>
                 {segBtn('faltam', 'Faltam', faltamN)}
                 {segBtn('tenho', 'Tenho', resumo.tenho)}
@@ -853,8 +858,8 @@ export default function MetaPage() {
           .bx-meta-trilho { scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
           .bx-meta-trilho::-webkit-scrollbar { display: none; }
           .bx-meta-seg { scrollbar-width: none; }
-          .bx-meta-barra { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
-          .bx-meta-toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+          .bx-meta-barra { bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
+          .bx-meta-toast { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
           @media (min-width: 769px) {
             .bx-meta-barra { bottom: 0; }
             .bx-meta-toast { bottom: 24px; }

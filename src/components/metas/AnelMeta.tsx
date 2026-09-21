@@ -6,11 +6,10 @@ import { IconCheck } from '@/components/ui/Icons'
  * Uma figura, dois dados -- a diferenca entre eles salta aos olhos, e a frase
  * de leitura ao lado explica. Substitui as duas barras soltas.
  */
-export default function AnelMeta({ cartas, valor, tamanho = 96, legenda = true }: {
+export default function AnelMeta({ cartas, valor, tamanho = 96 }: {
   cartas: number
   valor: number
   tamanho?: number
-  legenda?: boolean
 }) {
   const id = useId().replace(/:/g, '')
   const r1 = 52, r2 = 38
@@ -38,8 +37,9 @@ export default function AnelMeta({ cartas, valor, tamanho = 96, legenda = true }
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         {completo ? <IconCheck size={Math.round(tamanho / 4)} color="var(--bx-green)" /> : (
           <>
+            {/* So o numero: "das cartas" dentro do anel encostava no anel de
+                valor (visto no teste de 21/09). A legenda vem ao lado. */}
             <span style={{ fontSize: fs, fontWeight: 900, letterSpacing: '-0.03em' }}>{pc}%</span>
-            {legenda && tamanho >= 80 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--bx-text-3)' }}>das cartas</span>}
           </>
         )}
       </div>
