@@ -33,7 +33,6 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { IconBell, IconCarrinho, IconChat, IconCheck, IconPlus, IconSearch, IconTarget, IconTrendingUp, IconArrowRight, IconTrash, IconClose } from '@/components/ui/Icons'
 import LequeCartas, { type CartaLeque } from '@/components/metas/LequeCartas'
 import AnelMeta, { LegendaAnel } from '@/components/metas/AnelMeta'
-import { gravarCapa } from '@/components/metas/capaMeta'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { track, trackFirstCardAdded } from '@/lib/analytics'
@@ -105,9 +104,6 @@ export default function MetaPage() {
     setMeta(r.meta)
     setCartas(r.cartas)
     setLoaded(true)
-    // Capa da lista (no aparelho): as 5 mais valiosas, marcando o que tem.
-    gravarCapa(r.meta.id, [...r.cartas].filter(c => c.image_small).sort((a, b) => b.valor - a.valor).slice(0, 5)
-      .map(c => ({ image: c.image_small, nome: c.nome, tem: c.tenho })))
     return r
   }, [id])
 

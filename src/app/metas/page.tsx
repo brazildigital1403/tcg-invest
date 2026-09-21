@@ -30,7 +30,6 @@ import { getUserPlan } from '@/lib/isPro'
 import { track } from '@/lib/analytics'
 import LequeCartas, { type CartaLeque } from '@/components/metas/LequeCartas'
 import AnelMeta, { LegendaAnel } from '@/components/metas/AnelMeta'
-import { lerCapa } from '@/components/metas/capaMeta'
 import {
   brl, criarMeta, fraseLeitura, listarMetas, mensagemErroMeta, pct, rotuloIdioma, tituloMeta,
   type Meta, type MetaTipo,
@@ -65,7 +64,6 @@ export default function MetasPage() {
   const [sets, setSets] = useState<SetInfo[]>([])
   const [pokemons, setPokemons] = useState<string[]>([])
   const [sugestoes, setSugestoes] = useState<Sugestao[] | null>(null)
-  const [capas, setCapas] = useState<Record<string, CartaLeque[]>>({})
 
   const [criando, setCriando] = useState(false)
   const [busca, setBusca] = useState('')
@@ -89,9 +87,6 @@ export default function MetasPage() {
       setMetas(lista)
       setPlano(p.plano)
       setSets((s.data || []) as SetInfo[])
-      const c: Record<string, CartaLeque[]> = {}
-      for (const m of lista) { const x = lerCapa(m.id); if (x) c[m.id] = x }
-      setCapas(c)
       setCriando(lista.length === 0)
       setLoaded(true)
     })()
@@ -351,6 +346,8 @@ export default function MetasPage() {
                 const idiomaTxt = rotuloIdioma(m.idioma)
                 const largo = m.id === destaque
                 const frase = temRetrato ? fraseLeitura(r, brl) : null
+                // Capa gravada no banco pela meta_cartas: aparece em qualquer aparelho.
+                const capa: CartaLeque[] | null = m.capa && m.capa.length ? m.capa : null
                 return (
                   <Link key={m.id} href={`/metas/${m.id}`} prefetch={false} className={`bx-meta-card${largo ? ' bx-meta-card-largo' : ''}`}
                     style={{ ...bloco, overflow: 'hidden', textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}>
@@ -358,14 +355,14 @@ export default function MetasPage() {
                       <AnelMeta cartas={pc} valor={pv} tamanho={largo ? 96 : 60} />
                       {/* Centralizado na vertical. Antes ia com margem negativa para as cartas
                           "sairem" da vitrine; no celular ficavam baixas e cortadas (Du, 21/09). */}
-                      {capas[m.id] && (largo ? (
+                      {capa && (largo ? (
                         <>
                           {/* No celular o anel + leque medio passava de 343px e cortava a
                               ultima carta: ate 719px o destaque usa o leque pequeno. */}
-                          <div className="bx-leque-largo-md" style={{ alignItems: 'center' }}><LequeCartas tamanho="md" cartas={capas[m.id]} /></div>
-                          <div className="bx-leque-largo-sm" style={{ alignItems: 'center' }}><LequeCartas tamanho="sm" cartas={capas[m.id]} /></div>
+                          <div className="bx-leque-largo-md" style={{ alignItems: 'center' }}><LequeCartas tamanho="md" cartas={capa} /></div>
+                          <div className="bx-leque-largo-sm" style={{ alignItems: 'center' }}><LequeCartas tamanho="sm" cartas={capa} /></div>
                         </>
-                      ) : <div style={{ display: 'flex', alignItems: 'center' }}><LequeCartas tamanho="sm" cartas={capas[m.id]} /></div>)}
+                      ) : <div style={{ display: 'flex', alignItems: 'center' }}><LequeCartas tamanho="sm" cartas={capa} /></div>)}
                       {m.concluida_em && <span style={{ position: 'absolute', top: 10, right: 12, ...pilula, color: 'var(--bx-green)' }}><IconCheck size={12} color="var(--bx-green)" />&nbsp;Completa</span>}
                     </div>
                     <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>

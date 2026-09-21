@@ -36,6 +36,8 @@ export type Meta = {
   calculado_em: string | null
   concluida_em: string | null
   created_at: string
+  /** As 5 cartas mais valiosas com arte, gravadas por meta_cartas (migration 20260921140000). */
+  capa: { image: string | null; nome: string; tem: boolean }[] | null
 }
 
 export type CartaDaMeta = {
