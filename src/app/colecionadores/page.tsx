@@ -173,7 +173,10 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Posso vender cartas pela Bynx?',
-    a: 'Sim, no Marketplace. Você cria o anúncio e colecionadores interessados entram em contato direto via WhatsApp. Vocês fecham o trade do jeito que quiserem. A Bynx é a vitrine; a negociação é entre você e o comprador.',
+    // Atualizado 21/09/2026: o contato "direto via WhatsApp" nao existe mais --
+    // colecionador negocia pelo chat da Bynx, loja com recebimento ativo vende
+    // com compra direta (checkout, frete e pedido).
+    a: 'Sim, no Mercado da Bynx. Colecionador anuncia e conversa com o comprador pelo chat da Bynx, onde vocês combinam pagamento e envio. Lojas com recebimento ativo vendem com compra direta: o comprador paga no site, com o frete calculado, e acompanha o pedido. No plano Grátis são até 3 anúncios ativos.',
   },
 ]
 
