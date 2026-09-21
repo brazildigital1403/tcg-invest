@@ -135,6 +135,7 @@ export default function Pokedex() {
   const [planoAtual, setPlanoAtual] = useState('anonimo')
   const [upgradePokemon, setUpgradePokemon] = useState<string | null>(null)
   const [showLimite, setShowLimite] = useState(false)
+  const [limiteCartas, setLimiteCartas] = useState(100)
   const [userId, setUserId]         = useState<string | null>(null)
 
   // Exchange rate
@@ -316,7 +317,8 @@ export default function Pokedex() {
   async function handleAddCard(card: any) {
     if (!userId) { showAlert('Faça login para adicionar cartas.', 'warning'); return }
     if (!isPro) {
-      const { bloqueado } = await checkCardLimit(userId)
+      const { bloqueado, limite: limiteDoPlano } = await checkCardLimit(userId)
+      if (Number.isFinite(limiteDoPlano)) setLimiteCartas(limiteDoPlano)
       if (bloqueado) { setShowLimite(true); return }
     }
     const variante = card._variante || selectedVariante || 'normal'
@@ -327,7 +329,7 @@ export default function Pokedex() {
       rarity: card.rarity, variante, quantity: 1,
     })
     if (error?.code === '23505') showAlert('Carta já está na sua coleção!', 'warning')
-    else if (limiteCartasDoErro(error) !== null) setShowLimite(true)
+    else if (limiteCartasDoErro(error) !== null) { setLimiteCartas(limiteCartasDoErro(error)!); setShowLimite(true) }
     else if (error) showAlert('Erro ao adicionar carta.', 'error')
     else {
       showAlert(`${card.name} adicionada! ✓`, 'success')
@@ -838,6 +840,7 @@ export default function Pokedex() {
       )}
       {showLimite && (
         <ModalLimiteCartas
+          limite={limiteCartas}
           onClose={() => setShowLimite(false)}
           onUpgrade={() => { window.location.href = '/minha-conta' }}
         />

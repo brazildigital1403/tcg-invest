@@ -95,6 +95,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [isPro, setIsPro] = useState(false)
   const [adding, setAdding] = useState(false)
   const [showLimite, setShowLimite] = useState(false)
+  const [limiteCartas, setLimiteCartas] = useState(100)
   const [showImport, setShowImport] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [offset, setOffset] = useState(0)
@@ -336,7 +337,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       }
 
       // Carta nova -> o limite (entradas distintas) so e checado aqui
-      const { bloqueado } = await checkCardLimit(userId)
+      const { bloqueado, limite: limiteDoPlano } = await checkCardLimit(userId)
+      if (Number.isFinite(limiteDoPlano)) setLimiteCartas(limiteDoPlano)
       if (bloqueado) {
         setShowLimite(true)
         setAdding(false)
@@ -383,7 +385,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         }
         // O banco recusou por limite do plano (gatilho de 21/09): o aviso
         // antecipado acima nao pegou (corrida, ou plano mudou) -- mesmo modal.
-        if (limiteCartasDoErro(insertError) !== null) {
+        const limiteRecusado = limiteCartasDoErro(insertError)
+        if (limiteRecusado !== null) {
+          setLimiteCartas(limiteRecusado)
           setShowLimite(true)
           setAdding(false)
           return
@@ -925,6 +929,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       </div>
       {showLimite && (
         <ModalLimiteCartas
+          limite={limiteCartas}
           onClose={() => setShowLimite(false)}
           onUpgrade={() => { window.location.href = '/minha-conta' }}
         />
