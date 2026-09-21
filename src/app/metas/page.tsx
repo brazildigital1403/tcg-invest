@@ -356,7 +356,9 @@ export default function MetasPage() {
                     style={{ ...bloco, overflow: 'hidden', textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ height: largo ? 150 : 118, background: 'var(--bx-hero-wash), var(--bx-surface-2)', borderBottom: '1px solid var(--bx-border)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', overflow: 'hidden' }}>
                       <AnelMeta cartas={pc} valor={pv} tamanho={largo ? 96 : 60} />
-                      {capas[m.id] && <div style={{ marginBottom: -28 }}><LequeCartas tamanho={largo ? 'md' : 'sm'} cartas={capas[m.id]} /></div>}
+                      {/* Centralizado na vertical. Antes ia com margem negativa para as cartas
+                          "sairem" da vitrine; no celular ficavam baixas e cortadas (Du, 21/09). */}
+                      {capas[m.id] && <div style={{ display: 'flex', alignItems: 'center' }}><LequeCartas tamanho={largo ? 'md' : 'sm'} cartas={capas[m.id]} /></div>}
                       {m.concluida_em && <span style={{ position: 'absolute', top: 10, right: 12, ...pilula, color: 'var(--bx-green)' }}><IconCheck size={12} color="var(--bx-green)" />&nbsp;Completa</span>}
                     </div>
                     <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
