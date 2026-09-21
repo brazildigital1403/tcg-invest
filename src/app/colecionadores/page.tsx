@@ -132,7 +132,8 @@ const breadcrumbSchema = {
 // Eram duas copias (o schema e o array da tela) e ja divergiam no texto. Agora
 // as duas saem daqui. A pergunta das Metas so entra com a flag ligada: a pagina
 // nao promete uma tela que o visitante ainda nao consegue abrir.
-const METAS_ATIVO = process.env.NEXT_PUBLIC_METAS_ATIVO === '1'
+// Ligada por padrao desde 21/09/2026 (mesma regra de lib/metas.ts; =0 desliga).
+const METAS_ATIVO = process.env.NEXT_PUBLIC_METAS_ATIVO !== '0'
 
 const FAQ: { q: string; a: string }[] = [
   {

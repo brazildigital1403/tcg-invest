@@ -13,12 +13,16 @@ import { supabase } from '@/lib/supabaseClient'
 import { LIMITE_METAS } from '@/lib/metasTexto'
 
 /**
- * Flag de lancamento. Desligada = nenhuma entrada no menu nem na colecao; as
- * paginas /metas existem (noindex) para teste pela URL direta. Ligar e decisao
- * do Du, por causa da remedicao da Pokedex em 21/10 (#369): as Metas tambem
- * sobem a adicao de cartas no Gratis e as duas leituras se misturariam.
+ * Flag de lancamento. ★ LIGADA para todos desde 21/09/2026, decisao do Du:
+ * "pode ligar e mede as duas juntas" -- a remedicao da Pokedex (#369) passa a
+ * medir Pokedex liberada + Metas somadas, sem separar.
+ *
+ * Ligada POR PADRAO (e nao por variavel = '1') porque a integracao nao tem
+ * permissao de criar variavel na Vercel. Desligar em emergencia:
+ * NEXT_PUBLIC_METAS_ATIVO=0 no painel da Vercel e um redeploy (e NEXT_PUBLIC,
+ * entra no build).
  */
-export const METAS_ATIVO = process.env.NEXT_PUBLIC_METAS_ATIVO === '1'
+export const METAS_ATIVO = process.env.NEXT_PUBLIC_METAS_ATIVO !== '0'
 
 export type MetaTipo = 'pokemon' | 'set'
 export type MetaRegiao = 'ocidental' | 'jp' | 'cn'

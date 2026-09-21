@@ -5,7 +5,8 @@ import { METAS_ATIVO } from '@/lib/metas'
 
 /**
  * Quem enxerga a entrada das Metas (#368): todo mundo com a flag
- * NEXT_PUBLIC_METAS_ATIVO=1; com ela desligada, so a sessao de admin -- o
+ * a flag ligada (padrao desde 21/09/2026; NEXT_PUBLIC_METAS_ATIVO=0 desliga);
+ * com ela desligada, so a sessao de admin -- o
  * jeito do Du testar sem abrir para ninguem antes da remedicao da Pokedex
  * (#369). Uma regra so para o atalho da Minha Colecao e o item do menu.
  *
