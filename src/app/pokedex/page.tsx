@@ -404,11 +404,11 @@ export default function Pokedex() {
     })
   }
 
-  // "Ja tenho" direto da grade: a variante com preco (normal primeiro), sem
-  // abrir o modal.
+  // "Ja tenho" direto da grade: a variante com preco (normal primeiro) e o
+  // idioma que o catalogo da para a carta, sem abrir o modal. Sem o idioma,
+  // o banco gravava 'pt' ate em carta japonesa (teste logado de 21/09).
   function jaTenhoRapido(card: any) {
-    const variante = pickBestVariante(card)
-    handleAddCard({ ...card, _variante: variante })
+    handleAddCard({ ...card, _variante: pickBestVariante(card), _idioma: card.idioma || undefined })
   }
 
   // Sino: mesmo fluxo das Metas (watchlist com preco maximo opcional).
