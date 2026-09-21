@@ -549,6 +549,11 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
       card_image: cartaSel.card_image || cartaCatalogo?.image_small || null,
       card_link: cartaSel.card_link || null,
       variante: dados.variante, price: dados.preco,
+      // ★ Idioma nao era gravado (#372, 21/09/2026): todo anuncio caia no
+      // default 'pt' do banco, inclusive carta japonesa ou inglesa. A carta
+      // vem da colecao, que ja sabe o idioma -- e o que a meta por idioma e a
+      // pagina do anuncio precisam.
+      idioma: cartaSel.idioma || 'pt',
       condicao: dados.condicao, descricao: dados.descricao || null, fotos: dados.fotos && dados.fotos.length ? dados.fotos : null, status: 'disponivel',
       graduada: dados.graduada || false, graduadora: dados.graduadora || null, nota: dados.nota ?? null,
       black_label: dados.black_label || false, cert_graduacao: dados.cert_graduacao || null, subnotas: dados.subnotas || null,

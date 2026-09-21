@@ -108,3 +108,39 @@ export const brl = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: v >= 1000 ? 0 : 2 }).format(v || 0)
 
 export const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0)
+
+/** Oferta de uma carta que falta, vinda de /api/metas/a-venda. */
+export type OfertaMeta = {
+  id: string
+  card_id: string
+  preco: number
+  idioma: string
+  badges: string[]
+  graduada: boolean
+  vendedor: string
+  lojaId: string | null
+  lojaNome: string | null
+  /** Loja com Connect liberado: compra direta. Senao, negociacao no chat. */
+  compraDireta: boolean
+  href: string
+}
+
+/**
+ * Ofertas das cartas que faltam. Devolve null quando a busca falhou -- a tela
+ * esconde o bloco em vez de dizer que ninguem vende.
+ */
+export async function buscarOfertasDaMeta(cardIds: string[]): Promise<OfertaMeta[] | null> {
+  if (cardIds.length === 0) return []
+  try {
+    const r = await fetch('/api/metas/a-venda', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_ids: cardIds }),
+    })
+    if (!r.ok) return null
+    const j = await r.json()
+    return (j.ofertas || []) as OfertaMeta[]
+  } catch {
+    return null
+  }
+}
