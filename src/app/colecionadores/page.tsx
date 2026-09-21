@@ -7,6 +7,11 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import { CardsPlanos } from '@/components/ui/PlanosBlocos'
 import { IconFilter, IconTrendingUp, IconStar, IconShield } from '@/components/ui/Icons'
 import MonteSeuSlab from '@/components/colecionadores/MonteSeuSlab'
+import FaixaCartas, { type CartaVitrine } from '@/components/colecionadores/FaixaCartas'
+import AlbumMetas from '@/components/colecionadores/AlbumMetas'
+import CatalogarAbas from '@/components/colecionadores/CatalogarAbas'
+import QuantoVale, { type CartaPreco } from '@/components/colecionadores/QuantoVale'
+import { getServiceSupabase } from '@/lib/supabaseServer'
 
 // ─── ISR ────────────────────────────────────────────────────────────────────
 // Revalida os numeros do catalogo 1x por hora. Stats (cartas, sets, valor) vem
@@ -80,7 +85,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title:
-      'Colecionar Pokémon TCG no Brasil — Bynx | Pokédex completa, preços em reais e ferramentas pra colecionador',
+      'Colecionar Pokémon TCG no Brasil — Bynx | Pokédex completa, preços em reais e ferramentas para colecionador',
     description: `A casa do colecionador brasileiro de Pokémon TCG. ${cartas} cartas catalogadas, 1.025 Pokémons de Bulbasaur a Pecharunt, preços em reais por variante, scan com IA e perfil público. 7 dias de Pro grátis sem cartão.`,
     keywords: [
       'colecionar pokemon brasil', 'app coleção pokemon', 'organizar coleção pokemon',
@@ -123,73 +128,113 @@ const breadcrumbSchema = {
   ],
 }
 
+// ─── FAQ: UMA lista so, para a tela e para o JSON-LD ────────────────────────
+// Eram duas copias (o schema e o array da tela) e ja divergiam no texto. Agora
+// as duas saem daqui. A pergunta das Metas so entra com a flag ligada: a pagina
+// nao promete uma tela que o visitante ainda nao consegue abrir.
+const METAS_ATIVO = process.env.NEXT_PUBLIC_METAS_ATIVO === '1'
+
+const FAQ: { q: string; a: string }[] = [
+  {
+    q: 'A Bynx é grátis?',
+    a: 'Sim. O plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis para testar o Scan com IA e o resto dos recursos pagos, sem precisar de cartão de crédito.',
+  },
+  {
+    q: 'Qual o melhor aplicativo para catalogar cartas Pokémon no Brasil?',
+    a: 'Para colecionador brasileiro, o que pesa é ter as coleções em português e o preço em reais. A Bynx tem as duas coisas, mais scan com IA, cartas graduadas e perfil público para mostrar a coleção. É grátis até 100 cartas diferentes.',
+  },
+  {
+    q: 'Como saber quanto vale minha carta Pokémon?',
+    a: 'Procure a carta pelo nome ou pelo número impresso (como 199/165) e escolha a variante e a condição. A Bynx mostra o menor preço do Mercado Brasileiro em reais, com a faixa de mínimo, médio e máximo.',
+  },
+  ...(METAS_ATIVO ? [{
+    q: 'O que são as Metas de coleção?',
+    a: 'Você escolhe o que quer completar, um Pokémon ou uma coleção inteira, e a Bynx mostra o que falta, quanto custa, o que está à venda agora e avisa quando aparecer uma carta que falta. Liberado em todos os planos.',
+  }] : []),
+  {
+    q: 'Funciona com cartas em português, inglês e japonês?',
+    a: 'Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras. Os preços são exibidos em reais (R$) atualizados.',
+  },
+  {
+    q: 'Como a Bynx separa as variantes (Normal, Holo, Reverse, Foil, Promo)?',
+    a: 'Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Quando você adiciona a carta, escolhe a variante que tem na mão e o valor exibido reflete exatamente isso.',
+  },
+  {
+    q: 'Posso compartilhar minha coleção?',
+    a: 'Sim, e é grátis para todo mundo. Você ganha um perfil público com URL própria (bynx.gg/perfil/seu-nome) para compartilhar nas redes, em grupos de WhatsApp ou com outros colecionadores. Você controla o que aparece e pode esconder os valores, por exemplo.',
+  },
+  {
+    q: 'O scan com IA realmente funciona?',
+    a: 'Funciona. Aponte a câmera do celular para a carta e a IA reconhece nome, set, número e raridade. É o jeito mais rápido para quem tem muita carta. Está no Plus, com 100 scans por mês, e sem limite no Pro.',
+  },
+  {
+    q: 'Como a Bynx sabe o preço das cartas em reais?',
+    a: 'A Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante e mostrados como mínimo, médio e máximo, para você ter uma faixa real de mercado, e não um número único que pode estar fora da realidade.',
+  },
+  {
+    q: 'Posso vender cartas pela Bynx?',
+    a: 'Sim, no Marketplace. Você cria o anúncio e colecionadores interessados entram em contato direto via WhatsApp. Vocês fecham o trade do jeito que quiserem. A Bynx é a vitrine; a negociação é entre você e o comprador.',
+  },
+]
+
 const faqSchema = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
-  mainEntity: [
-    {
-      '@type': 'Question',
-      name: 'A Bynx é grátis?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Sim, o plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis para testar o Scan com IA e o resto dos recursos pagos, sem precisar de cartão de crédito.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Funciona com cartas em português, inglês e japonês?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras. Os preços são exibidos em reais (R$) atualizados.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Como a Bynx separa as variantes (Normal, Holo, Reverse, Foil, Promo)?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Cada variante tem preço próprio na Bynx. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Quando você adiciona a carta, escolhe qual variante tem na mão e o valor exibido reflete exatamente isso.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Posso compartilhar minha coleção?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Sim — e agora o perfil público é grátis pra todo mundo. Você ganha uma URL própria (bynx.gg/perfil/seu-nome) pra compartilhar nas redes sociais, em grupos de WhatsApp ou com outros colecionadores. Você controla o que aparece — pode esconder valores, por exemplo.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'O scan com IA realmente funciona?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Funciona. Aponta a câmera do celular pra carta e a IA reconhece automaticamente — nome, set, número e raridade. É o jeito mais rápido pra colecionador com muita carta que não quer digitar nome um por um. Está no Plus, com 100 scans por mês, e sem limite no Pro.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Como a Bynx sabe o preço das cartas em reais?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'A Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores vêm em reais, organizados por variante, e mostrados como mínimo, médio e máximo — pra você ter uma faixa real de mercado, não um único número que pode estar fora da realidade.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Posso vender cartas pela Bynx?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Sim, no Marketplace da Bynx. Você cria o anúncio, colecionadores interessados entram em contato direto via WhatsApp e vocês fecham o trade do jeito que quiserem. A Bynx é a vitrine; a negociação é entre você e o comprador.',
-      },
-    },
-  ],
+  mainEntity: FAQ.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
 }
+
+// ─── Cartas reais para as secoes interativas ──────────────────────────────────
+// Todas da colecao 151 (sv3pt5), lidas pela chave primaria: um punhado de
+// linhas, sem varrer pokemon_cards_all. Roda uma vez por revalidacao (ISR de
+// 1h, a mesma da pagina) -- o preco mostrado e o do dia. Falhou? As secoes
+// saem so com o texto: a pagina nao quebra por causa da vitrine.
+const COLECAO_VITRINE = 'Escarlate e Violeta 151'
+const IDS_ALBUM = ['199', '198', '200', '25', '94', '150', '1', '4', '7'].map(n => `sv3pt5-${n}`)
+const TEM_INICIAL = ['sv3pt5-199', 'sv3pt5-25', 'sv3pt5-1']
+const IDS_FAIXA = ['199', '25', '94', '198', '150', '1', '202', '133', '200', '4', '151', '205', '143', '7'].map(n => `sv3pt5-${n}`)
+const IDS_BUSCA = ['sv3pt5-199', 'sv3pt5-198', 'sv3pt5-200']
+const ID_SCAN = 'sv3pt5-199'
+const IDS_LISTA = ['sv3pt5-25', 'sv3pt5-94', 'sv3pt5-150']
+const ID_PRECO = 'sv3pt5-25'
+
+type LinhaCarta = {
+  id: string; name: string; number: string; set_total: number | null; image_small: string | null
+  preco_min: number | null; preco_medio: number | null; preco_max: number | null
+  preco_foil_min: number | null; preco_foil_medio: number | null; preco_foil_max: number | null
+  preco_reverse_min: number | null; preco_reverse_medio: number | null; preco_reverse_max: number | null
+}
+
+const getVitrine = cache(async () => {
+  const db = getServiceSupabase()
+  if (!db) return null
+  const ids = [...new Set([...IDS_ALBUM, ...IDS_FAIXA, ...IDS_BUSCA, ID_SCAN, ...IDS_LISTA, ID_PRECO])]
+  const { data, error } = await db.from('pokemon_cards')
+    .select('id, name, number, set_total, image_small, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max')
+    .in('id', ids)
+  if (error || !data) { console.error('[colecionadores] vitrine:', error?.message); return null }
+  const porId = new Map((data as LinhaCarta[]).map(c => [c.id, c]))
+  const num = (x: unknown) => (x == null ? null : Number(x))
+  const vitrine = (id: string): CartaVitrine | null => {
+    const c = porId.get(id)
+    if (!c?.image_small) return null
+    const numero = c.set_total ? `${String(c.number).padStart(3, '0')}/${c.set_total}` : String(c.number)
+    return { id: c.id, nome: c.name, numero, image: c.image_small, valor: num(c.preco_min) ?? 0 }
+  }
+  const lista = (ids: string[]) => ids.map(vitrine).filter((x): x is CartaVitrine => !!x)
+  const p = porId.get(ID_PRECO)
+  const preco: CartaPreco | null = p?.image_small ? {
+    nome: p.name, numero: vitrine(ID_PRECO)!.numero, image: p.image_small,
+    normal: { min: num(p.preco_min), med: num(p.preco_medio), max: num(p.preco_max) },
+    holo: { min: num(p.preco_foil_min), med: num(p.preco_foil_medio), max: num(p.preco_foil_max) },
+    reverse: { min: num(p.preco_reverse_min), med: num(p.preco_reverse_medio), max: num(p.preco_reverse_max) },
+  } : null
+  return { album: lista(IDS_ALBUM), faixa: lista(IDS_FAIXA), busca: lista(IDS_BUSCA), scan: vitrine(ID_SCAN), lista: lista(IDS_LISTA), preco }
+})
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default async function ColecionadoresPage() {
-  const stats = await getLandingStats()
+  const [stats, vitrine] = await Promise.all([getLandingStats(), getVitrine()])
   const cartasFmt = fmtInt(stats.total_cards) // 67.327
   const setsFmt = fmtInt(stats.total_sets)    // 865
   const valorFmt = fmtBRL(stats.total_value_brl) // R$ 5.844.775
@@ -198,7 +243,7 @@ export default async function ColecionadoresPage() {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: 'Colecionar Pokémon TCG no Brasil — Bynx',
-    description: `A casa do colecionador brasileiro de Pokémon TCG. Pokédex de ${cartasFmt} cartas, 1.025 Pokémons, preços em reais e ferramentas pra organizar a coleção.`,
+    description: `A casa do colecionador brasileiro de Pokémon TCG. Pokédex de ${cartasFmt} cartas, 1.025 Pokémons, preços em reais e ferramentas para organizar a coleção.`,
     url: 'https://bynx.gg/colecionadores',
     inLanguage: 'pt-BR',
     isPartOf: { '@type': 'WebSite', name: 'Bynx', url: 'https://bynx.gg' },
@@ -209,6 +254,18 @@ export default async function ColecionadoresPage() {
     <div style={S.page}>
       {/* CSS responsivo */}
       <style>{`
+        /* Secoes novas (21/09/2026): Metas, catalogar, quanto vale */
+        .col-vitrine-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
+        @media (min-width: 900px) { .col-vitrine-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; } }
+        .col-metas-lista { list-style: none; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 14px; font-size: 15px; }
+        .col-metas-lista li { display: flex; gap: 12px; align-items: flex-start; line-height: 1.5; }
+        .col-metas-marca { width: 10px; height: 10px; border-radius: 50%; background: var(--ac-grad); margin-top: 7px; flex-shrink: 0; box-shadow: 0 0 0 4px rgba(var(--ac-1-rgb), 0.12); }
+        .col-metas-desc { font-size: 13.5px; color: var(--bx-text-2); }
+        .col-metas-nota { font-size: 12px; font-weight: 700; color: var(--bx-text-3); margin: 10px 0 0; }
+        .col-fatores { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin-top: 24px; }
+        .col-fator { background: var(--bx-surface); border: 1px solid var(--bx-border); border-radius: 16px; padding: 16px; }
+        .col-fator h3 { margin: 0 0 6px; font-size: 15px; font-weight: 800; color: var(--bx-text); }
+        .col-fator p { margin: 0; font-size: 13.5px; color: var(--bx-text-2); line-height: 1.55; }
         @media (max-width: 768px) {
           .col-hero { padding: 56px 20px 72px !important; }
           .col-hero-grid {
@@ -393,7 +450,7 @@ export default async function ColecionadoresPage() {
         <section style={S.section}>
           <div className="bx-gutter" style={S.container}>
             <SectionHeader
-              eyebrow="Pra quem é"
+              eyebrow="Para quem é"
               title="Você é desse tipo de colecionador?"
               subtitle="Não importa o estilo. Se cartas Pokémon te dão alegria, a Bynx te entende."
             />
@@ -402,7 +459,7 @@ export default async function ColecionadoresPage() {
               <PersonaCard
                 icone={IconFilter}
                 title="O curador"
-                desc="Você tem coleção montada há tempos. Quer organizar por set, ver o que falta pra completar, e olhar pra prateleira sabendo exatamente o que tem. Bynx é seu inventário visual, com filtros por geração, raridade e variante."
+                desc="Você tem coleção montada há tempos. Quer organizar por set, ver o que falta para completar e olhar para a prateleira sabendo exatamente o que tem. Bynx é seu inventário visual, com filtros por geração, raridade e variante."
                 tags={['Pokédex completa', 'Filtros avançados', 'Por set/geração']}
               />
               <PersonaCard
@@ -414,7 +471,7 @@ export default async function ColecionadoresPage() {
               <PersonaCard
                 icone={IconStar}
                 title="O nostálgico"
-                desc="Você voltou a colecionar agora — abriu o álbum antigo, achou aquela carta da infância, e quer reviver. Bynx tem a Pokédex completa de Bulbasaur a Pecharunt, e o scan com IA pra digitalizar tudo sem precisar digitar nome."
+                desc="Você voltou a colecionar agora — abriu o álbum antigo, achou aquela carta da infância, e quer reviver. Bynx tem a Pokédex completa de Bulbasaur a Pecharunt, e o scan com IA para digitalizar tudo sem precisar digitar nome."
                 tags={['1.025 Pokémons', 'Scan com IA', 'Pokédex visual']}
               />
             </div>
@@ -468,7 +525,7 @@ export default async function ColecionadoresPage() {
               <ToolCard
                 icon={<IconScan />}
                 title="Scan com IA"
-                desc="Aponta a câmera, a IA reconhece a carta e adiciona automaticamente. Set, número, raridade — tudo. Pra quem tem coleção grande e não vai digitar nome um por um."
+                desc="Aponta a câmera, a IA reconhece a carta e adiciona automaticamente. Set, número, raridade — tudo. Para quem tem coleção grande e não vai digitar nome um por um."
               />
               <ToolCard
                 icon={<IconChart />}
@@ -478,8 +535,91 @@ export default async function ColecionadoresPage() {
               <ToolCard
                 icon={<IconShare />}
                 title="Perfil público"
-                desc="URL própria pra compartilhar (bynx.gg/perfil/voce). Mostre o que você coleciona — ou esconda os valores se preferir. Grátis pra todos."
+                desc="URL própria para compartilhar (bynx.gg/perfil/voce). Mostre o que você coleciona — ou esconda os valores se preferir. Grátis para todos."
               />
+            </div>
+          </div>
+        </section>
+
+        {/* ─── VITRINE DE CARTAS + METAS + CATALOGAR + QUANTO VALE ───────────
+            Ampliacao de 21/09/2026 (card #375, mockup "Colecionadores:
+            ampliacao" aprovado pelo Du): a pagina passa a MOSTRAR cartas e
+            deixar o visitante mexer -- o album das Metas, os tres jeitos de
+            catalogar e o preco real de uma carta mudando com a variante. Os
+            titulos miram as buscas medidas no estudo de SEO de 20/09
+            ("aplicativo para catalogar cartas pokemon", "como saber quanto
+            vale minha carta pokemon"). Sem vitrine (falha no banco), as
+            secoes saem so com o texto. */}
+        {vitrine && vitrine.faixa.length > 0 && <FaixaCartas cartas={vitrine.faixa} />}
+
+        {METAS_ATIVO && vitrine && vitrine.album.length > 0 && (
+          <section style={S.section}>
+            <div className="bx-gutter" style={S.container}>
+              <div className="col-vitrine-grid">
+                <div>
+                  <SectionHeader
+                    eyebrow="Novo · Metas de coleção"
+                    title="Sua coleção sabe o que falta. A Bynx sabe onde comprar."
+                    subtitle="Escolha um Pokémon ou uma coleção inteira. A Bynx cruza com as cartas que você já tem e mostra o que falta, quanto custa em reais e quem vende agora."
+                  />
+                  <ul className="col-metas-lista">
+                    {[
+                      ['Progresso em reais', 'Não só quantas cartas: quanto delas você já tem em valor.'],
+                      ['À venda agora', 'Das que faltam, quem vende hoje na Bynx e por quanto.'],
+                      ['Orçamento guiado', 'Diga quanto quer gastar e a Bynx escolhe as mais baratas.'],
+                      ['Aviso com preço máximo', 'O sino avisa quando a que falta aparece, no preço que você topa.'],
+                    ].map(([t, d]) => (
+                      <li key={t}>
+                        <span className="col-metas-marca" aria-hidden="true" />
+                        <span><strong>{t}</strong><br /><span className="col-metas-desc">{d}</span></span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/colecionadores?auth=signup&next=/metas" style={S.ctaPrimary}>Criar minha primeira meta</Link>
+                  <p className="col-metas-nota">Liberado em todos os planos, inclusive no Grátis.</p>
+                </div>
+                <AlbumMetas cartas={vitrine.album} temInicial={TEM_INICIAL} nomeColecao="Coleção 151" />
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section style={S.sectionDark}>
+          <div className="bx-gutter" style={S.container}>
+            <SectionHeader
+              eyebrow="Passo a passo"
+              title="Como catalogar suas cartas Pokémon"
+              subtitle="Um bom aplicativo para catalogar cartas Pokémon precisa achar a carta certa rápido, separar as versões e dizer quanto ela vale. Escolha como você prefere começar."
+            />
+            {vitrine ? (
+              <CatalogarAbas busca={vitrine.busca} scan={vitrine.scan} lista={vitrine.lista} totalCartas={cartasFmt} nomeColecao={COLECAO_VITRINE} />
+            ) : (
+              <p style={S.sectionSubtitle}>Busque pelo nome ou pelo número impresso, aponte a câmera para o Scan com IA ou cole uma lista pronta. Depois, marque variante, idioma, condição e graduação.</p>
+            )}
+            <p className="col-metas-nota" style={{ marginTop: 12 }}>Grátis até 100 cartas diferentes, sem cartão. Repetidas não contam no limite.</p>
+          </div>
+        </section>
+
+        <section style={S.section}>
+          <div className="bx-gutter" style={S.container}>
+            <SectionHeader
+              eyebrow="Guia rápido"
+              title="Como saber quanto vale sua carta Pokémon"
+              subtitle={`Duas cartas com o mesmo Pokémon podem valer de centavos a milhares de reais. Quatro coisas decidem o preço: a coleção e o número, a variante, a condição e a graduação.${vitrine?.preco ? ` Veja com um ${vitrine.preco.nome} real da coleção 151:` : ''}`}
+            />
+            {vitrine?.preco && <QuantoVale carta={vitrine.preco} />}
+            <div className="col-fatores">
+              {[
+                ['Coleção e número', 'O mesmo Pokémon tem dezenas de cartas. O número no canto, como 199/165, diz qual é a sua.'],
+                ['Condição', 'Uma carta sem marcas (NM) vale mais do que uma com bordas gastas ou dobras. Você registra a condição de cada cópia.'],
+                ['Graduação', 'Carta graduada por PSA, BGS ou CGC é outro produto: a nota muda o preço. A Bynx guarda a nota e o valor do slab.'],
+                ['Por que o menor preço', 'A média engana: um anúncio muito acima do mercado puxa ela para cima. O menor preço é o que alguém realmente consegue pagar hoje.'],
+              ].map(([t, d]) => (
+                <div key={t} className="col-fator"><h3>{t}</h3><p>{d}</p></div>
+              ))}
+            </div>
+            <div style={{ marginTop: 22 }}>
+              <Link href="/busca" style={S.ctaPrimary}>Descobrir quanto vale a minha</Link>
             </div>
           </div>
         </section>
@@ -506,7 +646,7 @@ export default async function ColecionadoresPage() {
                   Toda conta ganha um perfil público com URL própria — de graça. Mostre suas cartas, suas raridades, sua jornada como colecionador. Ou esconda valores e exiba só a coleção — você decide.
                 </p>
                 <p style={S.profileDesc}>
-                  É a versão BR do que existe lá fora — só que melhor adaptado pro nosso jeito: links pro WhatsApp, badge "verificado" e modo privado pra quem não quer expor patrimônio.
+                  É a versão BR do que existe lá fora — só que melhor adaptado ao nosso jeito: links para o WhatsApp, selo de verificado e modo privado para quem não quer expor patrimônio.
                 </p>
                 <Link href="/colecionadores?auth=signup&next=/minha-conta" style={S.ctaInline}>
                   Criar meu perfil grátis →
@@ -579,40 +719,11 @@ export default async function ColecionadoresPage() {
           <div style={{ ...S.container, maxWidth: 800 }}>
             <SectionHeader
               eyebrow="Perguntas frequentes"
-              title="Dúvidas comuns de quem tá começando."
+              title="Dúvidas comuns de quem está começando."
             />
 
             <div style={S.faqList}>
-              {[
-                {
-                  q: 'A Bynx é grátis?',
-                  a: 'Sim. O plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis para testar o Scan com IA e o resto dos recursos pagos, sem precisar de cartão de crédito.',
-                },
-                {
-                  q: 'Funciona com cartas em português, inglês e japonês?',
-                  a: 'Sim. A Bynx tem o catálogo internacional completo (sets em inglês e japonês) e também as edições brasileiras. Os preços são exibidos em reais (R$) atualizados.',
-                },
-                {
-                  q: 'Como a Bynx separa as variantes (Normal, Holo, Reverse, Foil, Promo)?',
-                  a: 'Cada variante tem preço próprio. Uma Holo pode valer 2x a Normal; uma Reverse Holo pode valer 5x. Quando você adiciona a carta, escolhe a variante que tem na mão e o valor exibido reflete exatamente isso.',
-                },
-                {
-                  q: 'Posso compartilhar minha coleção?',
-                  a: 'Sim — e agora é grátis pra todo mundo. Você ganha um perfil público com URL própria (bynx.gg/perfil/seu-nome) pra compartilhar nas redes, em grupos de WhatsApp ou com outros colecionadores. Você controla o que aparece — pode esconder valores, por exemplo.',
-                },
-                {
-                  q: 'O scan com IA realmente funciona?',
-                  a: 'Funciona. Aponta a câmera do celular pra carta e a IA reconhece automaticamente — nome, set, número e raridade. É o jeito mais rápido pra colecionador com muita carta. Está no Plus, com 100 scans por mês, e sem limite no Pro.',
-                },
-                {
-                  q: 'Como a Bynx sabe o preço das cartas em reais?',
-                  a: 'A Bynx coleta preços de referência do mercado brasileiro continuamente. Os valores são organizados por variante e mostrados como mínimo, médio e máximo — pra você ter uma faixa real de mercado, não um número único que pode estar fora da realidade.',
-                },
-                {
-                  q: 'Posso vender cartas pela Bynx?',
-                  a: 'Sim, no Marketplace. Você cria o anúncio e colecionadores interessados entram em contato direto via WhatsApp. Vocês fecham o trade do jeito que quiserem. A Bynx é a vitrine; a negociação é entre você e o comprador.',
-                },
-              ].map((item, i) => (
+              {FAQ.map((item, i) => (
                 <details key={i} name="bynx-col-faq" style={S.faqItem}>
                   <summary style={S.faqSummary}>
                     <span style={{ fontSize: 15, fontWeight: 600, color: '#f0f0f0' }}>{item.q}</span>
@@ -633,8 +744,8 @@ export default async function ColecionadoresPage() {
                 Sua coleção merece estar organizada.
               </h2>
               <p style={S.finalSubtitle}>
-                7 dias de Pro grátis pra testar. Sem cartão, sem pegadinha.
-                Depois disso, plano gratuito pra sempre, até 100 cartas — ou Plus/Pro quando precisar de mais.
+                7 dias de Pro grátis para testar. Sem cartão, sem pegadinha.
+                Depois disso, plano gratuito para sempre, até 100 cartas — ou Plus/Pro quando precisar de mais.
               </p>
               <div className="col-final-ctas" style={S.heroCtas}>
                 <Link href="/colecionadores?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>
