@@ -465,7 +465,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   async function abrirNotif(n: any) {
     setNotifs(prev => prev.filter(x => x.id !== n.id))
     marcarLida(n.id)
+    // ★ "Apareceu no Marketplace" (watch_listada) foi gravado sem `link` ate
+    // 21/09/2026: tocar no aviso nao levava a lugar nenhum. Os avisos antigos
+    // continuam no banco sem o campo, entao cai no anuncio pelo id -- a rota
+    // /anuncio/[slug] ja redireciona UUID para o slug.
     const link = n?.data?.link
+      || (n?.type === 'watch_listada' && n?.data?.anuncio_id ? `/anuncio/${n.data.anuncio_id}` : null)
     if (link) { setNotifOpen(false); router.push(String(link)) }
   }
 

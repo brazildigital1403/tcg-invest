@@ -76,7 +76,9 @@ export async function POST(req: NextRequest) {
         'watch_listada',
         `${nome} apareceu no Marketplace`,
         `Por R$ ${fmtBRL(anuncio.price)} — uma carta que você acompanha.`,
-        { anuncio_id: anuncioId, card_id: anuncio.card_id, price: anuncio.price }
+        // `link` e o que o sino usa para navegar (AppLayout.abrirNotif). Sem
+        // ele o aviso abria e nao levava a lugar nenhum (corrigido 21/09).
+        { anuncio_id: anuncioId, card_id: anuncio.card_id, price: anuncio.price, link: `/anuncio/${anuncio.slug || anuncioId}` }
       )
       if (ok) notificados++
     }
