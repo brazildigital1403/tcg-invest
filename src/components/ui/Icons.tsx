@@ -730,3 +730,13 @@ export function IconArticle({ size = 20, color = defaultColor, strokeWidth = def
     </svg>
   )
 }
+
+export function IconTarget({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <circle cx="10" cy="10" r="7.5" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="10" cy="10" r="4.5" stroke={color} strokeWidth={strokeWidth}/>
+      <circle cx="10" cy="10" r="1.5" stroke={color} strokeWidth={strokeWidth}/>
+    </svg>
+  )
+}
