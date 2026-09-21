@@ -86,3 +86,23 @@ export function mensagemLimiteAnuncios(erro: { message?: string } | null | undef
   const m = erro?.message || ''
   return m.startsWith('LIMITE_ANUNCIOS') ? m.replace(/^LIMITE_ANUNCIOS:\s*/, '') : null
 }
+
+/**
+ * Reconhece a recusa do gatilho trg_enforce_limite_cartas_colecao (21/09/2026).
+ * Desde entao o limite de cartas vale no BANCO -- o checkCardLimit acima vira so
+ * o aviso antecipado. Devolve o limite do plano (100, 500) quando o erro e esse,
+ * ou null para qualquer outro erro.
+ */
+export function limiteCartasDoErro(erro: { message?: string } | null | undefined): number | null {
+  const m = erro?.message || ''
+  if (!m.startsWith('LIMITE_CARTAS')) return null
+  const n = m.match(/limite de (\d+)/)
+  return n ? Number(n[1]) : LIMITE_FREE
+}
+
+/** Copy de upgrade coerente com o limite que bateu. */
+export function textoLimiteCartas(limite: number): string {
+  return limite >= 500
+    ? `Sua coleção chegou ao limite de ${limite} cartas do Plus. O Pro não tem limite de cartas.`
+    : `Sua coleção chegou ao limite de ${limite} cartas do plano Grátis. O Plus leva a coleção a 500 cartas e o Pro não tem limite.`
+}

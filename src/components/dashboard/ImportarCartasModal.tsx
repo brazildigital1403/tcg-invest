@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { checkCardLimit, limiteCartasDoErro, textoLimiteCartas } from '@/lib/checkCardLimit'
 
 interface Props {
   userId: string | null
@@ -26,7 +27,8 @@ type Linha = {
   status: string
 }
 
-type Resultado = { adicionadas: number; incrementadas: number; processadas: number }
+// limiteAtingido: o banco parou a leva no limite de cartas do plano (21/09).
+type Resultado = { adicionadas: number; incrementadas: number; processadas: number; limiteAtingido: boolean }
 
 const PLACEHOLDER = `2x Avalugg 024/086
 Charizard ex 199/165
@@ -50,6 +52,7 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
   const [adicionando, setAdicionando] = useState(false)
   const [sucesso, setSucesso] = useState<Resultado | null>(null)
   const [erroMsg, setErroMsg] = useState('')
+  const [limiteDoPlano, setLimiteDoPlano] = useState(100)
 
   const linhasInput = texto.split('\n').map((l) => l.trim()).filter(Boolean)
   const okItems = (resultado || []).filter((r) => r.status === 'ok')
@@ -99,16 +102,34 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
         setAdicionando(false)
         return
       }
+      // A RPC para no limite do plano em vez de falhar a leva inteira. Se nada
+      // entrou, e erro; se entrou parte, e sucesso com aviso.
+      if (d.limite_atingido && Number(d.processadas || 0) === 0) {
+        setErroMsg(textoLimiteCartas(await limiteAtual()))
+        setAdicionando(false)
+        return
+      }
       setSucesso({
         adicionadas: Number(d.adicionadas || 0),
         incrementadas: Number(d.incrementadas || 0),
         processadas: Number(d.processadas || 0),
+        limiteAtingido: !!d.limite_atingido,
       })
+      if (d.limite_atingido) setLimiteDoPlano(await limiteAtual())
     } catch (e: any) {
       console.error('[ImportarCartas] adicionar:', e)
-      setErroMsg(mapErroAdd(e?.code || e?.message || ''))
+      const limite = limiteCartasDoErro(e)
+      setErroMsg(limite !== null ? textoLimiteCartas(limite) : mapErroAdd(e?.code || e?.message || ''))
       setAdicionando(false)
     }
+  }
+
+  // A RPC devolve so o booleano; o numero do limite vem da mesma funcao que o
+  // gatilho usa, pelo checkCardLimit.
+  async function limiteAtual(): Promise<number> {
+    if (!userId) return 100
+    const { limite } = await checkCardLimit(userId)
+    return Number.isFinite(limite) ? limite : 100
   }
 
   function concluir() {
@@ -220,6 +241,12 @@ export default function ImportarCartasModal({ userId, onClose, onAdded }: Props)
                   <>{sucesso.incrementadas} já tinha — somei a quantidade</>
                 )}
               </p>
+              {sucesso.limiteAtingido && (
+                <p style={{ fontSize: 13, color: 'var(--ac-1)', marginTop: 12, lineHeight: 1.6 }}>
+                  O resto da lista não entrou. {textoLimiteCartas(limiteDoPlano)}{' '}
+                  <a href="/planos" style={{ color: 'var(--ac-1)', fontWeight: 700 }}>Ver planos</a>
+                </p>
+              )}
               <p style={{ fontSize: 12, color: MUTED, marginTop: 12 }}>
                 A condição você ajusta depois, direto na coleção.
               </p>

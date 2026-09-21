@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { IconCamera, IconScan, IconClose, IconWarning } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { trackFirstCardAdded } from '@/lib/analytics'
+import { limiteCartasDoErro, textoLimiteCartas } from '@/lib/checkCardLimit'
 import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -49,6 +50,8 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [cameraActive, setCameraActive] = useState(false)
   const [addedCount, setAddedCount] = useState(0)
+  // Limite do plano que o banco recusou no meio da leva (null = nao bateu)
+  const [limiteBatido, setLimiteBatido] = useState<number | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -357,6 +360,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
     if (!user) return
 
     let added = 0
+    let limiteParou: number | null = null
     for (const card of selected) {
       // Monta card_name com número se disponível
       const cardName = card.number
@@ -392,7 +396,13 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         // Mercado). Achado em auditoria 03/08/2026: um scan sem match (carta
         // real, so em PT-BR, catalogo sem essa ficha) gravou card_id="122/088"
         // e o link /carta/122/088 quebrou (a barra vira 2 segmentos de rota).
-        await supabase.from('user_cards').insert({
+        //
+        // ★ O erro deste insert era ignorado e a carta contava como adicionada.
+        // Desde 21/09 o banco recusa carta nova acima do limite do plano
+        // (trg_enforce_limite_cartas_colecao): sem checar, a tela dizia "3
+        // cartas adicionadas" com nenhuma na colecao -- ou girava para sempre
+        // quando a primeira ja batia no limite.
+        const { error: insertError } = await supabase.from('user_cards').insert({
           user_id: user.id,
           card_name: cardName,
           card_id: card._matchedId || null,
@@ -404,12 +414,23 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           card_link: null,
           rarity: null,
         })
+        if (insertError) {
+          const limite = limiteCartasDoErro(insertError)
+          if (limite !== null) { limiteParou = limite; break }
+          console.error('[ScanModal] insert error:', insertError)
+          continue
+        }
         trackFirstCardAdded(user.id)
       }
       added++
     }
 
     setAddedCount(added)
+    if (limiteParou !== null) {
+      // Fica na tela ate a pessoa escolher: o aviso de limite nao some sozinho.
+      setLimiteBatido(limiteParou)
+      return
+    }
     // Aguarda 2s para mostrar o sucesso antes de recarregar
     setTimeout(() => onAdded(), 2000)
   }
@@ -826,7 +847,31 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           {/* ── STEP: ADDING ── */}
           {step === 'adding' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '32px 0' }}>
-              {addedCount === 0 ? (
+              {limiteBatido !== null ? (
+                <>
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(var(--ac-1-rgb), 0.12)', border: '1px solid rgba(var(--ac-1-rgb), 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconWarning size={24} color="var(--ac-1)" />
+                  </div>
+                  <p style={{ fontSize: 18, fontWeight: 800, textAlign: 'center' }}>
+                    {addedCount > 0
+                      ? `${addedCount} de ${selectedCount} carta${selectedCount !== 1 ? 's' : ''} entr${addedCount !== 1 ? 'aram' : 'ou'} na coleção`
+                      : 'Nenhuma carta entrou na coleção'}
+                  </p>
+                  <p style={{ fontSize: 13, color: 'var(--bx-text-2)', textAlign: 'center', maxWidth: 420, lineHeight: 1.6 }}>
+                    {textoLimiteCartas(limiteBatido)} As cartas que você já tem continuam lá.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <a href="/planos"
+                      style={{ background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '13px 28px', minHeight: 44, borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                      Ver planos
+                    </a>
+                    <button onClick={() => { if (addedCount > 0) onAdded(); else onClose() }}
+                      style={{ background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', color: 'var(--bx-text-2)', padding: '13px 24px', minHeight: 44, borderRadius: 12, fontSize: 14, cursor: 'pointer' }}>
+                      Fechar
+                    </button>
+                  </div>
+                </>
+              ) : addedCount === 0 ? (
                 <>
                   <div style={{ width: 48, height: 48, border: '3px solid rgba(245,158,11,0.2)', borderTop: '3px solid #f59e0b', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                   <p style={{ fontSize: 15, fontWeight: 600 }}>Adicionando à coleção...</p>

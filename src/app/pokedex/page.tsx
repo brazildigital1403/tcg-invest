@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
-import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
+import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO, limiteCartasDoErro } from '@/lib/checkCardLimit'
 import { trackFirstCardAdded, track } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
@@ -327,6 +327,7 @@ export default function Pokedex() {
       rarity: card.rarity, variante, quantity: 1,
     })
     if (error?.code === '23505') showAlert('Carta já está na sua coleção!', 'warning')
+    else if (limiteCartasDoErro(error) !== null) setShowLimite(true)
     else if (error) showAlert('Erro ao adicionar carta.', 'error')
     else {
       showAlert(`${card.name} adicionada! ✓`, 'success')

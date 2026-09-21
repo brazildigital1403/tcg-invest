@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, type UIEvent } from 'react'
 import { IconSearch, IconWallet } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
-import { checkCardLimit, LIMITE_FREE } from '@/lib/checkCardLimit'
+import { checkCardLimit, LIMITE_FREE, limiteCartasDoErro } from '@/lib/checkCardLimit'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { registrarSinal } from '@/lib/sinais'
 import { useAppModal } from '@/components/ui/useAppModal'
@@ -380,6 +380,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             trackFirstCardAdded(authData.user.id)
             continue
           }
+        }
+        // O banco recusou por limite do plano (gatilho de 21/09): o aviso
+        // antecipado acima nao pegou (corrida, ou plano mudou) -- mesmo modal.
+        if (limiteCartasDoErro(insertError) !== null) {
+          setShowLimite(true)
+          setAdding(false)
+          return
         }
         console.error('[AddCardModal] insert error:', insertError)
         await showAlert(`Erro ao adicionar "${card.name}". Tente novamente.`, 'error')
