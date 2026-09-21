@@ -127,10 +127,16 @@ export type BlogCardSummary = {
   set_name: string | null
   number: string | null
   rarity: string | null
+  preco_min: number | null
   preco_medio: number | null
+  preco_max: number | null
+  preco_foil_min: number | null
+  preco_foil_medio: number | null
+  preco_foil_max: number | null
 }
 
-const CARD_SUMMARY_COLUMNS = 'id, slug, name, image_small, image_large, set_name, number, rarity, preco_medio'
+const CARD_SUMMARY_COLUMNS =
+  'id, slug, name, image_small, image_large, set_name, number, rarity, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max'
 
 export const fetchCardSummary = cache(async (idOrSlug: string): Promise<BlogCardSummary | null> => {
   const sb = getServiceSupabase()

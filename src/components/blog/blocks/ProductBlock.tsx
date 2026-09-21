@@ -9,13 +9,18 @@ type Block = Extract<BlogBlock, { type: 'product' }>
 const AMARELO = '#FFE600'
 const ML_DARK = '#1a1a2e'
 
-export default async function ProductBlock({ block }: { block: Block }) {
+// `inGrid`: renderizado dentro da grade de cartas do BlockRenderer -- a grade
+// ja controla largura e espacamento, entao o bloco nao poe margem nem teto.
+export default async function ProductBlock({ block, inGrid = false }: { block: Block; inGrid?: boolean }) {
   if (block.mode === 'card') {
     const card = await fetchCardSummary(block.cardSlug || block.cardId || '')
     if (!card) return null
     const href = `/carta/${card.slug || card.id}`
+    // Sem o preco o CardItem readonly cai em "Sem preço disponível". Foil so
+    // quando a carta nao tem preco normal (set todo holo guarda em preco_*).
+    const variante = !card.preco_min && !card.preco_medio && (card.preco_foil_min || card.preco_foil_medio) ? 'foil' : 'normal'
     return (
-      <div style={{ margin: '24px 0', maxWidth: 220 }}>
+      <div style={inGrid ? undefined : { margin: '24px 0', maxWidth: 220 }}>
         <Link href={href} style={{ textDecoration: 'none', color: 'inherit' }}>
           <CardItem
             mode="readonly"
@@ -27,7 +32,16 @@ export default async function ProductBlock({ block }: { block: Block }) {
               set_name: card.set_name || undefined,
               number: card.number || undefined,
               rarity: card.rarity || undefined,
+              price: {
+                preco_min: card.preco_min,
+                preco_medio: card.preco_medio,
+                preco_max: card.preco_max,
+                preco_foil_min: card.preco_foil_min,
+                preco_foil_medio: card.preco_foil_medio,
+                preco_foil_max: card.preco_foil_max,
+              },
             }}
+            variante={variante}
           />
         </Link>
       </div>

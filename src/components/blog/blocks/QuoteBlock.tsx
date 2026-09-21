@@ -2,7 +2,9 @@ import type { BlogBlock } from '@/lib/blogBlocks'
 
 type Block = Extract<BlogBlock, { type: 'quote' }>
 
+// `author`: nome antigo do campo, gravado por posts inseridos direto no banco.
 export default function QuoteBlock({ block }: { block: Block }) {
+  const attribution = block.attribution || (block as Block & { author?: string }).author
   return (
     <blockquote
       style={{
@@ -16,9 +18,9 @@ export default function QuoteBlock({ block }: { block: Block }) {
       <p style={{ fontSize: 17, fontStyle: 'italic', lineHeight: 1.6, color: 'var(--bx-text)', margin: 0 }}>
         &ldquo;{block.text}&rdquo;
       </p>
-      {block.attribution && (
+      {attribution && (
         <cite style={{ display: 'block', fontSize: 13, color: 'var(--bx-text-3)', marginTop: 8, fontStyle: 'normal' }}>
-          — {block.attribution}
+          — {attribution}
         </cite>
       )}
     </blockquote>

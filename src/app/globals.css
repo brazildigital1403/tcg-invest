@@ -211,6 +211,73 @@ body {
 .bx-blog-rich li { margin-bottom: 6px; }
 .bx-blog-rich blockquote { border-left: 3px solid var(--ac-1); padding-left: 14px; margin: 0 0 16px; color: var(--bx-text-2); }
 
+/* Blog: tabela dentro do bloco paragrafo (`.bynx-table-wrap > .bynx-table`).
+   As celulas quebram linha pra caber em 343px; a rolagem horizontal fica so
+   de rede de seguranca. Com min-width fixo a ultima coluna (o veredito, a mais
+   importante) ficava escondida atras do scroll no celular. */
+.bx-blog-rich .bynx-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 8px 0 20px;
+  border: 1px solid var(--bx-border);
+  border-radius: 12px;
+  background: var(--bx-surface);
+}
+.bx-blog-rich .bynx-table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.45; }
+.bx-blog-rich .bynx-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bx-text-3);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--bx-border-2);
+  vertical-align: bottom;
+}
+.bx-blog-rich .bynx-table td { padding: 10px 12px; border-bottom: 1px solid var(--bx-border); color: var(--bx-text-2); vertical-align: top; }
+.bx-blog-rich .bynx-table tr:last-child td { border-bottom: 0; }
+.bx-blog-rich .bynx-table td:first-child { color: var(--bx-text); }
+.bx-blog-rich .bynx-table em { color: var(--bx-text-3); font-style: normal; font-size: 12px; }
+.bx-blog-rich .bynx-table a { color: var(--bx-text); text-decoration-color: rgba(var(--ac-1-rgb), 0.5); text-underline-offset: 3px; }
+.bx-blog-rich .bynx-table-wrap + p em { font-size: 13px; color: var(--bx-text-3); }
+
+/* Selo de veredito dentro da tabela (substitui emoji -- regra 15). */
+.bx-blog-rich .bynx-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--bx-surface-2);
+  color: var(--bx-text-2);
+}
+.bx-blog-rich .bynx-tag-ok { background: color-mix(in srgb, var(--bx-green) 14%, transparent); color: var(--bx-green); }
+.bx-blog-rich .bynx-tag-meh { background: rgba(var(--ac-1-rgb), 0.12); color: var(--ac-1); }
+.bx-blog-rich .bynx-tag-bad { background: color-mix(in srgb, var(--bx-red) 14%, transparent); color: var(--bx-red); }
+
+/* Blog: box de resumo no topo do post. */
+.bx-blog-rich .bynx-callout {
+  margin: 4px 0 24px;
+  padding: 14px 16px;
+  border: 1px solid rgba(var(--ac-1-rgb), 0.28);
+  background: rgba(var(--ac-1-rgb), 0.07);
+  border-radius: 12px;
+}
+.bx-blog-rich .bynx-callout-title { font-size: 12px; font-weight: 700; color: var(--ac-1); margin: 0 0 8px; letter-spacing: 0.02em; }
+.bx-blog-rich .bynx-callout ul { margin: 0; padding-left: 18px; }
+.bx-blog-rich .bynx-callout li { margin-bottom: 4px; color: var(--bx-text); font-size: 15px; line-height: 1.55; }
+
+/* Blog: cartas consecutivas (bloco produto/carta) viram grade -- mesmo
+   agrupamento dos embeds sociais no BlockRenderer. */
+.bx-blog-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0 28px; }
+.bx-blog-cards > * { min-width: 0; }
+@media (max-width: 420px) {
+  .bx-blog-cards { gap: 8px; }
+  .bx-blog-rich .bynx-table { font-size: 13px; }
+  .bx-blog-rich .bynx-table th, .bx-blog-rich .bynx-table td { padding: 9px 8px; }
+  .bx-blog-rich .bynx-tag { font-size: 11px; padding: 3px 7px; }
+}
+
 /* Blog: grade de embeds sociais (Instagram/TikTok) consecutivos -- ate 3
    colunas (BlockRenderer.tsx agrupa blocos seguidos do mesmo jeito). O embed
    oficial do Instagram exige min-width:326px pra nao quebrar o card, entao a

@@ -26,6 +26,12 @@ export async function generateStaticParams() {
 
 export const dynamicParams = true
 
+// Capa pode ser caminho local (/blog/...) ou URL do storage. O Open Graph
+// resolve pelo metadataBase, mas o JSON-LD precisa de URL absoluta.
+function absUrl(url: string): string {
+  return url.startsWith('/') ? `https://bynx.gg${url}` : url
+}
+
 function fmtData(iso: string | null): string {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -50,7 +56,7 @@ export async function generateMetadata({
 
   const title = post.seo_title || post.title
   const description = post.seo_description || post.excerpt || `${post.title} — Blog Bynx sobre Pokémon TCG.`
-  const ogImage = post.cover_image_url || 'https://bynx.gg/og-image.jpg'
+  const ogImage = post.cover_image_url ? absUrl(post.cover_image_url) : 'https://bynx.gg/og-image.jpg'
 
   return {
     title,
@@ -108,7 +114,10 @@ export default async function BlogPostPage({
     '@type': 'BlogPosting',
     headline: post.title,
     description: post.excerpt || post.seo_description || undefined,
-    image: post.cover_image_url ? [post.cover_image_url] : undefined,
+    image: post.cover_image_url ? [absUrl(post.cover_image_url)] : undefined,
+    inLanguage: 'pt-BR',
+    articleSection: post.category?.name || undefined,
+    keywords: post.tags.length ? post.tags.join(', ') : undefined,
     datePublished: post.published_at || post.created_at,
     dateModified: post.updated_at,
     author: { '@type': 'Organization', name: 'Bynx' },
