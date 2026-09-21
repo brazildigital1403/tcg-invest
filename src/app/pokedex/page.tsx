@@ -270,10 +270,12 @@ export default function Pokedex() {
 
   // Qual variante abrir por padrao. Testa pela mesma regra que a tela exibe
   // (menor preco) -- testar pela media abriria uma variante que aparece sem
-  // valor, ou pularia uma que tem.
+  // valor, ou pularia uma que tem. A Normal vem primeiro porque e ela que o
+  // CardItem mostra na grade: abrir na Holo fazia a carta de R$ 14,98 na
+  // grade aparecer como R$ 139,89 no modal (21/09/2026).
   function pickBestVariante(card: any): string {
-    if (Number(card.preco_foil_min) > 0) return 'foil'
     if (Number(card.preco_min) > 0) return 'normal'
+    if (Number(card.preco_foil_min) > 0) return 'foil'
     if (Number(card.preco_reverse_min) > 0) return 'reverse'
     if (Number(card.preco_promo_min) > 0) return 'promo'
     return 'normal'
@@ -405,7 +407,7 @@ export default function Pokedex() {
   // "Ja tenho" direto da grade: a variante com preco (normal primeiro), sem
   // abrir o modal.
   function jaTenhoRapido(card: any) {
-    const variante = Number(card.preco_min) > 0 ? 'normal' : pickBestVariante(card)
+    const variante = pickBestVariante(card)
     handleAddCard({ ...card, _variante: variante })
   }
 
