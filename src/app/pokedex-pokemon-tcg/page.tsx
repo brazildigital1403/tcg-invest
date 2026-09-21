@@ -71,14 +71,20 @@ const getPokedexData = cache(async (): Promise<PokedexData> => {
 const fmtInt = (n: number) => n.toLocaleString('pt-BR')
 const fmtBRL = (n: number) => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+// A data de lancamento e texto e chega em dois formatos: "2026/07/17" (o padrao
+// do catalogo) e "2026-09-16" (sets cadastrados a mao). So com '/' os 30th
+// saiam "Jan/2026-09-16" (21/09/2026). Aceita os dois.
+function partesData(rel: string) {
+  return (rel || '').split(/[-/]/)
+}
 function fmtMesAno(rel: string) {
-  const parts = (rel || '').split('/')
+  const parts = partesData(rel)
   const ano = parts[0] || ''
   const mes = MESES[(parseInt(parts[1], 10) || 1) - 1] || ''
   return `${mes}/${ano}`
 }
 function anoDe(rel: string) {
-  return (rel || '').split('/')[0] || ''
+  return partesData(rel)[0] || ''
 }
 
 // ─── Metadados curados das cartas/raridades (texto editorial; numeros vem da RPC) ─
