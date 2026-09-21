@@ -869,7 +869,7 @@ export default function MinhaColecao() {
             colecao vazia nao tem por que ver "desbloqueie o Scan".
             Antes disso, o unico gatilho de upsell do app era o muro pos-trial,
             que exige mais de 100 cartas — 12 pessoas na base inteira. */}
-        {cards.length > 0 && <UpgradeBanner tipo="cartas" />}
+        {cards.length > 0 && <UpgradeBanner tipo="cartas" quantidade={cards.length} />}
 
         {/* Resumo em duas caixas (#313, 12/09). Eram 3 cartoes de 72vw com
             rolagem lateral: no celular so o primeiro aparecia e ainda empurrava

@@ -54,7 +54,9 @@ const TIERS: Tier[] = [
       { t: 'Perfil público', ok: true },
       { t: '3 anúncios no Marketplace', ok: true },
       { t: 'Pokédex básica · 1 pasta', ok: true },
-      { t: 'Dashboard, Scan IA e Exportar', ok: false },
+      // Dizia so "Dashboard, Scan IA e Exportar" em cinza apagado: com o X
+      // pequeno ao lado, a linha lia como se ESTIVESSE incluida no Gratis.
+      { t: <>Sem Dashboard, Scan IA ou Exportar</>, ok: false },
     ],
     cta: 'Começar grátis', btn: 'ghost',
   },
