@@ -358,7 +358,14 @@ export default function MetasPage() {
                       <AnelMeta cartas={pc} valor={pv} tamanho={largo ? 96 : 60} />
                       {/* Centralizado na vertical. Antes ia com margem negativa para as cartas
                           "sairem" da vitrine; no celular ficavam baixas e cortadas (Du, 21/09). */}
-                      {capas[m.id] && <div style={{ display: 'flex', alignItems: 'center' }}><LequeCartas tamanho={largo ? 'md' : 'sm'} cartas={capas[m.id]} /></div>}
+                      {capas[m.id] && (largo ? (
+                        <>
+                          {/* No celular o anel + leque medio passava de 343px e cortava a
+                              ultima carta: ate 719px o destaque usa o leque pequeno. */}
+                          <div className="bx-leque-largo-md" style={{ alignItems: 'center' }}><LequeCartas tamanho="md" cartas={capas[m.id]} /></div>
+                          <div className="bx-leque-largo-sm" style={{ alignItems: 'center' }}><LequeCartas tamanho="sm" cartas={capas[m.id]} /></div>
+                        </>
+                      ) : <div style={{ display: 'flex', alignItems: 'center' }}><LequeCartas tamanho="sm" cartas={capas[m.id]} /></div>)}
                       {m.concluida_em && <span style={{ position: 'absolute', top: 10, right: 12, ...pilula, color: 'var(--bx-green)' }}><IconCheck size={12} color="var(--bx-green)" />&nbsp;Completa</span>}
                     </div>
                     <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -398,7 +405,13 @@ export default function MetasPage() {
             .bx-metas-hero { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); }
             .bx-metas-hero-arte { order: 2; border-left: 1px solid var(--bx-border); align-items: center !important; }
           }
-          @media (min-width: 720px) { .bx-meta-card-largo { grid-column: span 2; } }
+          .bx-leque-largo-md { display: none; }
+          .bx-leque-largo-sm { display: flex; }
+          @media (min-width: 720px) {
+            .bx-meta-card-largo { grid-column: span 2; }
+            .bx-leque-largo-md { display: flex; }
+            .bx-leque-largo-sm { display: none; }
+          }
           .bx-meta-card, .bx-meta-nova { transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease; }
           .bx-meta-card:hover { transform: translateY(-2px); background: var(--bx-surface-2) !important; border-color: var(--bx-border-2) !important; }
           .bx-meta-nova:hover { border-color: rgba(var(--ac-1-rgb), 0.5) !important; }
