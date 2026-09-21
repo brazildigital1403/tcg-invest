@@ -85,7 +85,19 @@ export function mensagemErroMeta(erro: { message?: string } | null | undefined):
   return 'Não foi possível criar a meta agora. Tente de novo.'
 }
 
-export async function criarMeta(tipo: MetaTipo, alvo: string, idioma: string | null, regiao: MetaRegiao | null = 'ocidental'): Promise<string> {
+/**
+ * Regiao do catalogo que casa com o idioma da meta. O catalogo e uma ficha
+ * por carta POR REGIAO (ocidental cobre pt e en; jp e cn tem fichas proprias).
+ * ★ Ate 21/09 toda meta nascia 'ocidental': uma meta de Pokemon em japones
+ * listava as fichas ocidentais e so contava copia japonesa -- dava "voce tem 0".
+ */
+export function regiaoDoIdioma(idioma: string | null): MetaRegiao {
+  if (idioma === 'jp') return 'jp'
+  if (idioma === 'cn') return 'cn'
+  return 'ocidental'
+}
+
+export async function criarMeta(tipo: MetaTipo, alvo: string, idioma: string | null, regiao: MetaRegiao | null = regiaoDoIdioma(idioma)): Promise<string> {
   const { data, error } = await supabase.rpc('criar_meta', {
     p_tipo: tipo, p_alvo: alvo, p_regiao: regiao, p_idioma: idioma,
   })

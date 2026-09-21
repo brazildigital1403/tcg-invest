@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     const { data: anuncio } = await sb
       .from('marketplace')
-      .select('id, slug, user_id, card_id, card_name, price, status')
+      .select('id, slug, user_id, card_id, card_name, price, status, idioma')
       .eq('id', anuncioId)
       .maybeSingle()
 
@@ -99,7 +99,7 @@ type Sb = NonNullable<ReturnType<typeof getServiceSupabase>>
 
 async function avisarMetas(
   sb: Sb,
-  anuncio: { id: string; slug: string | null; card_id: string; price: number },
+  anuncio: { id: string; slug: string | null; card_id: string; price: number; idioma?: string | null },
   vendedorId: string,
   nome: string,
   fmtBRL: (v: number) => string,
@@ -147,6 +147,9 @@ async function avisarMetas(
     if (avisados.has(m.user_id)) continue
     const tem = idiomasDe.get(m.user_id)
     if (tem && (m.idioma == null || tem.has(m.idioma))) continue
+    // Meta com idioma so quer a carta naquele idioma: anuncio em outro idioma
+    // nao completa a meta, entao nao avisa.
+    if (m.idioma && (anuncio.idioma || 'pt') !== m.idioma) continue
     const teto = tetoDe.get(m.user_id)
     if (teto != null && preco > teto) continue
 

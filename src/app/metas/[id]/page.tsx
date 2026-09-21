@@ -464,7 +464,7 @@ export default function MetaPage() {
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 15, fontWeight: 700 }}>{g.vendedor}</div>
                           <div style={{ fontSize: 12, color: 'var(--bx-text-3)' }}>
-                            {g.compraDireta ? 'Loja · compra direta' : 'Colecionador · negociar no chat'}
+                            {g.compraDireta ? 'Loja · compra direta' : g.lojaId ? 'Loja · negociar no chat' : 'Colecionador · negociar no chat'}
                             {' · '}{g.itens.length} {g.itens.length === 1 ? 'carta' : 'cartas'} · {brl(g.soma)}
                           </div>
                         </div>
