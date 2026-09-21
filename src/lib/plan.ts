@@ -17,7 +17,19 @@ export interface PlanCaps {
   podeDashboard: boolean       // tela Dashboard
   catalogoCompleto: boolean    // catalogo LOGADO in-app completo (Pokedex hoje; vale por jogo — publica nao e afetada)
   podeExportar: boolean        // exportar PDF / CSV
-  scansMes: number             // creditos de Scan IA por mes
+  /**
+   * Creditos de Scan IA por mes. Infinity = ilimitado.
+   *
+   * ★ ATENCAO: este campo e DOCUMENTACAO, nao o gate. Quem decide de verdade e
+   * a funcao `scan_cota_mensal(plano, is_pro, pro_expira_em, trial_expires_at)`
+   * no Postgres, chamada por `decrement_scan_credits`, `get_scan_status` e
+   * `restore_scan_credit`. Mudar o numero aqui NAO libera nem bloqueia nada.
+   *
+   * Ate 20/09/2026 a matriz vivia copiada nas tres funcoes e o Plus nao estava
+   * em nenhuma — foi assim que ele nasceu pago e sem Scan. Se mudar a cota,
+   * mude na funcao do banco e reflita aqui, nesta ordem.
+   */
+  scansMes: number
   separadoresLiberados: boolean// separadores liberados (vs avulso)
   masterSetsLiberados: boolean // todos os Master Sets liberados (vs avulso)
   paginasLendariasLiberadas: boolean // Paginas Lendarias (fundo continuo) liberadas (vs avulso)
@@ -44,7 +56,10 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     isPaid: true, isPro: false,
     limiteCartas: 500, limitePastas: Infinity, limiteAnuncios: Infinity,
     podeDashboard: true, catalogoCompleto: true, podeExportar: false,
-    scansMes: 0, separadoresLiberados: false, masterSetsLiberados: false,
+    // ★ 20/09/2026: o Plus passou a ter Scan (100/mes). Era 0, e o plano de
+    //   ENTRADA sem a feature que da nome a tela principal era o erro de
+    //   empacotamento mais caro do produto — no mercado o scan e isca.
+    scansMes: 100, separadoresLiberados: false, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
   },
   pro: {
@@ -117,6 +132,9 @@ export function resolvePlan(row: {
   }
 
   // 3) Trial reverso ativo -> Pro completo
+  //    ★ Menos no Scan: o banco da 10/mes ao trial (scan_cota_mensal), nao
+  //      ilimitado. Como `scansMes` aqui e so documentacao, o caps de 'pro'
+  //      abaixo diz Infinity e quem manda e a funcao do Postgres.
   if (row?.trial_expires_at) {
     const exp = new Date(row.trial_expires_at).getTime()
     if (exp > now) {

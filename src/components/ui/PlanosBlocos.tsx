@@ -66,9 +66,12 @@ const TIERS: Tier[] = [
     feats: [
       { t: 'Tudo do Grátis, e mais:', pre: true },
       { t: <>Até <b>500 cartas</b></>, ok: true },
-      { t: 'Dashboard financeiro', ok: true },
+      // ★ 20/09/2026: o Plus ganhou Scan (100/mes). Antes esta lista nao tinha
+      //   Scan nenhum e o card vendia o plano de entrada sem a feature de capa.
+      { t: <><b>Scan com IA</b> · 100 por mês</>, ok: true },
+      { t: 'Quanto sua coleção vale, atualizado', ok: true },
       { t: 'Pokédex completa', ok: true },
-      { t: 'Marketplace e pastas ilimitados', ok: true },
+      { t: 'Pastas do fichário e anúncios ilimitados', ok: true },
     ],
     cta: 'Assinar Plus', btn: 'soft',
   },
@@ -172,7 +175,9 @@ const ROWS: Row[] = [
   { label: 'Pokédex', vals: ['básica', val('completa'), val('completa'), val('completa')] },
   { label: 'Exportar CSV/PDF', vals: [no, no, yes, yes] },
   { label: 'Histórico de preços', vals: [no, no, yes, yes] },
-  { label: 'Scan com IA', vals: [no, no, val('Ilimitado'), val('Ilimitado')] },
+  // A posicao 1 e o Plus: dizia "—", ou seja, que o plano pago de entrada NAO
+  // tinha Scan. Agora tem 100 por mes.
+  { label: 'Scan com IA', vals: [no, val('100/mês'), val('Ilimitado'), val('Ilimitado')] },
   { label: 'Separadores de Fichário', vals: ['avulso', 'avulso', val('liberado'), val('liberado')] },
   { label: 'Master Sets', vals: ['avulso', 'avulso', 'avulso', val('todos liberados')] },
 ]

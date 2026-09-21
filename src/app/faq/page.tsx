@@ -35,7 +35,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: 'É grátis? Tem plano pago?',
-    a: 'Sim, a Bynx tem um plano gratuito que permite gerenciar até 100 cartas, com acesso a marketplace e Indique e Ganhe. Para mais cartas e features avançadas, temos os planos Plus e Pro (mensal ou anual). Todo cadastro novo ainda testa o Pro grátis por 7 dias antes de decidir.',
+    a: 'Sim, a Bynx tem um plano gratuito que permite gerenciar até 100 cartas, com acesso a marketplace e Indique e Ganhe. Para mais cartas, o scan com IA e outros recursos, temos os planos Plus (R$ 14,90/mês, com 100 scans) e Pro (R$ 29,90/mês, sem limites). Todo cadastro novo ainda testa o Pro grátis por 7 dias antes de decidir.',
   },
   {
     q: 'Como adiciono uma carta na minha coleção?',
@@ -47,7 +47,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: 'Como funciona o scanner por foto?',
-    a: 'No botão "Escanear foto" da Minha Coleção, você tira ou envia uma foto da carta. Nossa IA identifica o Pokémon, número e set, e te mostra o resultado pra você confirmar antes de adicionar. Funciona melhor com luz boa e a carta enquadrada de frente.',
+    a: 'No botão "Escanear foto" da Minha Coleção, você tira ou envia uma foto da carta. Nossa IA identifica o Pokémon, número e set, e te mostra o resultado pra você confirmar antes de adicionar. Funciona melhor com luz boa e a carta enquadrada de frente. O Plus inclui 100 scans por mês e o Pro não tem limite.',
   },
   {
     q: 'O que são as variantes (Normal, Foil, Reverse, Promo)?',

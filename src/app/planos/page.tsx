@@ -60,9 +60,12 @@ const breadcrumbSchema = {
 }
 
 /**
- * ★ FALTA UMA PERGUNTA, DE PROPOSITO: "o Scan IA esta em qual plano?". A home
- * diz que e recurso do Pro e a /scan-ia vende credito avulso "sem assinatura".
- * Decidir qual das duas e a verdade e do Du; a resposta entra aqui numa linha.
+ * ★ RESOLVIDO EM 20/09/2026 (decisao do Du): o Scan esta no Plus (100/mes) e no
+ * Pro (ilimitado). Antes desta data a pergunta faltava aqui de proposito,
+ * porque a home dizia "recurso do Pro", a /scan-ia dizia "sem assinatura" e a
+ * /colecionadores dizia "Pro com creditos mensais" — tres versoes no ar ao
+ * mesmo tempo. Os pacotes avulsos viraram COMPLEMENTO para quem estoura a
+ * cota, que e o que o codigo ja fazia (o avulso so e consumido depois da cota).
  *
  * ★ Sobre o FAQPage abaixo: o Google DESATIVOU o rich result de FAQ em
  * 07/05/2026 e tirou a doc em 15/06. O schema fica porque continua sendo dado
@@ -73,7 +76,7 @@ const FAQ: { q: string; a: string }[] = [
   {
     q: 'Quanto custa para catalogar minha coleção de Pokémon?',
     a: `Começa em zero. O plano grátis não expira e catalaga até 100 cartas. O Plus custa ${brl(PLUS)} por mês `
-      + `e vai até 500 cartas. O Pro custa ${brl(MENSAL)} por mês, não tem limite de cartas e libera o Scan com IA. `
+      + `e vai até 500 cartas, com 100 scans por mês. O Pro custa ${brl(MENSAL)} por mês, não tem limite de cartas nem de scans. `
       + `No anual o Pro sai por ${brl(ANUAL)}, equivalente a ${brl(ANUAL / 12)} por mês — cerca de ${MESES_GRATIS} meses grátis.`,
   },
   {
@@ -96,6 +99,16 @@ const FAQ: { q: string; a: string }[] = [
     q: 'Como funciona o Scan com IA?',
     a: 'Você aponta a câmera para a carta e a Bynx identifica nome, número, coleção e variante, e já traz o '
       + 'preço em reais. Serve para catalogar uma carta ou uma página inteira do fichário sem digitar nada.',
+  },
+  {
+    q: 'O Scan com IA está em qual plano?',
+    a: 'O Plus inclui 100 scans por mês e o Pro não tem limite. O plano grátis não tem Scan, mas toda conta '
+      + 'nova começa com 7 dias de acesso Pro, então dá para experimentar antes de decidir.',
+  },
+  {
+    q: 'E se eu passar dos 100 scans do Plus?',
+    a: 'Você pode comprar um pacote avulso de scans, que não expira e só é usado depois que a cota do mês '
+      + 'acaba. Se estourar a cota com frequência, o Pro sai mais barato que comprar pacote todo mês.',
   },
   {
     q: 'Quais formas de pagamento a Bynx aceita?',
@@ -165,7 +178,7 @@ const BLOCOS: { titulo: string; linhas: Linha[] }[] = [
   {
     titulo: 'Scan e impressão',
     linhas: [
-      { label: 'Scan com IA', vals: ['—', '—', 'Sim', 'Sim'] },
+      { label: 'Scan com IA', vals: ['—', '100 por mês', 'Ilimitado', 'Ilimitado'] },
       { label: 'Separadores de fichário', vals: ['Avulso', 'Avulso', 'Liberados', 'Liberados'] },
       { label: 'Master Sets', vals: ['Avulso', 'Avulso', 'Avulso', 'Todos'] },
       { label: 'Páginas Lendárias', vals: ['Avulso', 'Avulso', 'Avulso', 'Todas'] },
@@ -238,7 +251,7 @@ export default function PlanosPage() {
               </div>
             </div>
           </div>
-          <p style={S.ilustra}>Ilustração do funcionamento do Scan com IA, disponível no plano Pro.</p>
+          <p style={S.ilustra}>Ilustração do funcionamento do Scan com IA, disponível nos planos Plus e Pro.</p>
         </section>
 
         {/* ── Planos ── */}

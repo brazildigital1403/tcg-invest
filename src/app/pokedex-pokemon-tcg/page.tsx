@@ -194,7 +194,7 @@ export default async function PokedexPokemonTcgPage() {
     },
     {
       q: 'A Pokédex da Bynx é gratuita?',
-      a: 'Sim. A consulta à Pokédex é 100% gratuita pra qualquer pessoa, sem precisar de cadastro. Você pode buscar cartas, ver preços em reais por variante, conferir raridade e set. Adicionar à coleção e ter perfil público também são grátis. Recursos como scan com IA e exportar dados ficam no plano Pro (com 7 dias grátis pra novos usuários).',
+      a: 'Sim. A consulta à Pokédex é 100% gratuita pra qualquer pessoa, sem precisar de cadastro. Você pode buscar cartas, ver preços em reais por variante, conferir raridade e set. Adicionar à coleção e ter perfil público também são grátis. O scan com IA entra no Plus (100 por mês) e é ilimitado no Pro; exportar dados fica no Pro. Todo cadastro novo ganha 7 dias de Pro grátis.',
     },
     {
       q: 'Como a Pokédex da Bynx se compara com TCGPlayer e pokemon.com?',

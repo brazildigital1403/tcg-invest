@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       // P0001 = sem créditos
       if (error.message?.includes('sem_creditos') || error.code === 'P0001') {
         return NextResponse.json(
-          { error: 'Sem créditos de scan. Compre um pacote para continuar.' },
+          { error: 'Seus scans do mês acabaram. Assine o Plus para ter 100 por mês, o Pro para não ter limite, ou compre um pacote avulso.' },
           { status: 402 }
         )
       }

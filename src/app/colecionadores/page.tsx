@@ -132,7 +132,7 @@ const faqSchema = {
       name: 'A Bynx é grátis?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim, o plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
+        text: 'Sim, o plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis para testar o Scan com IA e o resto dos recursos pagos, sem precisar de cartão de crédito.',
       },
     },
     {
@@ -164,7 +164,7 @@ const faqSchema = {
       name: 'O scan com IA realmente funciona?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Funciona. Aponta a câmera do celular pra carta e a IA reconhece automaticamente — nome, set, número e raridade. É o jeito mais rápido pra colecionador com muita carta que não quer digitar nome um por um. Disponível no plano Pro com créditos mensais.',
+        text: 'Funciona. Aponta a câmera do celular pra carta e a IA reconhece automaticamente — nome, set, número e raridade. É o jeito mais rápido pra colecionador com muita carta que não quer digitar nome um por um. Está no Plus, com 100 scans por mês, e sem limite no Pro.',
       },
     },
     {
@@ -586,7 +586,7 @@ export default async function ColecionadoresPage() {
               {[
                 {
                   q: 'A Bynx é grátis?',
-                  a: 'Sim. O plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis pra testar Scan IA, Analytics avançado e demais features Pro, sem precisar de cartão de crédito.',
+                  a: 'Sim. O plano gratuito permite organizar até 100 cartas sem custo. Todo cadastro novo ainda ganha 7 dias de Pro grátis para testar o Scan com IA e o resto dos recursos pagos, sem precisar de cartão de crédito.',
                 },
                 {
                   q: 'Funciona com cartas em português, inglês e japonês?',
@@ -602,7 +602,7 @@ export default async function ColecionadoresPage() {
                 },
                 {
                   q: 'O scan com IA realmente funciona?',
-                  a: 'Funciona. Aponta a câmera do celular pra carta e a IA reconhece automaticamente — nome, set, número e raridade. É o jeito mais rápido pra colecionador com muita carta. Disponível no plano Pro com créditos mensais.',
+                  a: 'Funciona. Aponta a câmera do celular pra carta e a IA reconhece automaticamente — nome, set, número e raridade. É o jeito mais rápido pra colecionador com muita carta. Está no Plus, com 100 scans por mês, e sem limite no Pro.',
                 },
                 {
                   q: 'Como a Bynx sabe o preço das cartas em reais?',

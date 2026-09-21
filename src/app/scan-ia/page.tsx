@@ -190,7 +190,7 @@ const faqSchema = {
       name: 'Posso testar antes de comprar pacote?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. O trial já inclui créditos de scan pra testar. Depois, os planos Pro (mensal e anual) incluem scans ilimitados — e quem preferir sem assinatura pode usar os pacotes pré-pagos, a partir do Básico de R$ 5,90 (20 scans).',
+        text: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. Depois, o plano Plus (R$ 14,90/mês) inclui 100 scans por mês e o Pro não tem limite. Os pacotes pré-pagos continuam para quem estoura a cota do mês ou prefere não assinar, a partir do Básico de R$ 5,90 (20 scans).',
       },
     },
     {
@@ -1314,7 +1314,7 @@ export default function ScanIaLanding() {
         <div style={S.container}>
           <SectionHeader
             eyebrow="Pacotes"
-            title={<>Pague pelo que usar. <span style={S.heroTitleAccent}>Sem assinatura.</span></>}
+            title={<>Passou da sua cota? <span style={S.heroTitleAccent}>Compre só o que faltar.</span></>}
             subtitle="Os créditos não expiram. Compra uma vez, usa quando quiser. Cada foto consome 1 crédito — independente de quantas cartas a IA identificar nela."
           />
 
@@ -1473,7 +1473,7 @@ export default function ScanIaLanding() {
               },
               {
                 q: 'Posso testar antes de comprar pacote?',
-                a: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. O trial já inclui créditos de scan pra testar. Depois, os planos Pro (mensal e anual) incluem scans ilimitados — e quem preferir sem assinatura pode usar os pacotes pré-pagos, a partir do Básico de R$ 5,90 (20 scans).',
+                a: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. Depois, o plano Plus (R$ 14,90/mês) inclui 100 scans por mês e o Pro não tem limite. Os pacotes pré-pagos continuam para quem estoura a cota do mês ou prefere não assinar, a partir do Básico de R$ 5,90 (20 scans).',
               },
               {
                 q: 'Como o preço em reais é calculado?',

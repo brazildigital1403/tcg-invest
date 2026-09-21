@@ -227,6 +227,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               applicationSubCategory: "Trading Card Game Collection Management",
               operatingSystem: "Web, iOS, Android",
               inLanguage: "pt-BR",
+              // ★ Este bloco sai em TODAS as paginas do site — as ~66,9 mil de
+              //   carta inclusive. Ate 20/09/2026 ele listava tres ofertas e o
+              //   Plus nao estava entre elas: para o Google, os planos da Bynx
+              //   eram 0, 29,90 e 249. Qualquer plano novo precisa entrar aqui.
               offers: [
                 {
                   "@type": "Offer",
@@ -234,6 +238,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   priceCurrency: "BRL",
                   name: "Plano Gratuito",
                   description: "Acesso à Pokédex e organização básica da coleção",
+                },
+                {
+                  "@type": "Offer",
+                  price: "14.90",
+                  priceCurrency: "BRL",
+                  name: "Plano Plus",
+                  description: "Até 500 cartas, scan com IA (100 por mês), Pokédex completa e acompanhamento do valor da coleção",
                 },
                 {
                   "@type": "Offer",

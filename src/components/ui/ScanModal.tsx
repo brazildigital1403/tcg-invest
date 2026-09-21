@@ -214,7 +214,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
 
       // S29: 402 = sem créditos (servidor checa e debita atomicamente).
       if (res.status === 402) {
-        setError('Sem créditos de scan. Compre um pacote para continuar.')
+        setError('Seus scans do mês acabaram. Assine o Plus para ter 100 por mês, o Pro para não ter limite, ou compre um pacote avulso.')
         setCreditos(0)
         setStep('capture')
         return

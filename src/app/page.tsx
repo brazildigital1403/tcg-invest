@@ -93,9 +93,9 @@ const ETB_LOJA = `${PROD}/me-expansions/me05/collections/pt-br/me05-etb-ptbr-2x.
 const SIGNUP = '?auth=signup'
 
 const FAQ: { q: string; a: string }[] = [
-  { q: 'A Bynx é grátis mesmo?', a: 'É. Você cria a conta, monta a sua coleção, vê o preço em reais e já entra no marketplace sem pagar nada. O Pro (R$ 29,90/mês) libera o Scan, o histórico de preço e os alertas.' },
+  { q: 'A Bynx é grátis mesmo?', a: 'É. Você cria a conta, monta a sua coleção, vê o preço em reais e já entra no marketplace sem pagar nada. O Plus (R$ 14,90/mês) libera o Scan com 100 cartas por mês, e o Pro (R$ 29,90/mês) tira todos os limites.' },
   { q: 'De onde vem esse preço?', a: 'Do mercado brasileiro, em reais, não é conversão de dólar. Mostramos o menor preço anunciado — que é o que você paga de verdade — e a faixa completa por variante, atualizado todo dia. É o motivo da Bynx existir pra quem coleciona no Brasil.' },
-  { q: 'Como funciona o Scan?', a: 'Você aponta a câmera na carta e ela entra na coleção com o nome, o set, a variante e o preço. Salva a vida de quem tem coleção grande. Fica no Pro.' },
+  { q: 'Como funciona o Scan?', a: 'Você aponta a câmera na carta e ela entra na coleção com o nome, o set, a variante e o preço. Salva a vida de quem tem coleção grande. Está no Plus, com 100 por mês, e ilimitado no Pro.' },
   { q: 'Dá pra vender minhas cartas?', a: 'Dá. Você anuncia no marketplace com preço em reais, o comprador fecha com pagamento e frete calculado pelo CEP, e o dinheiro cai na sua conta.' },
 ]
 
@@ -338,7 +338,7 @@ export default async function HomePage() {
         <section id="scan" className="sec-dark">
           <div className="wrap scan">
             <div className="reveal">
-              <span className="eyebrow"><IcScan /> Scan · recurso do Pro</span>
+              <span className="eyebrow"><IcScan /> Scan · no Plus e no Pro</span>
               <h2 className="sec-title">Aponta a câmera. A carta entra sozinha.</h2>
               <p className="sec-sub">Coleção grande dá preguiça de digitar uma por uma. Aponta a câmera na carta e ela entra na sua coleção com o nome, a variante e o preço.</p>
               <div className="ctas"><Link href={SIGNUP} className="btn-primary">Ver o Pro <IcArrow /></Link></div>
