@@ -862,6 +862,15 @@ export default function MinhaColecao() {
               )}
         </PageHeader>
 
+        {/* ★ O UpgradeBanner estava IMPORTADO aqui e nunca renderizado — a tela
+            mais usada do app nao tinha oferta nenhuma. O componente ja se
+            auto-protege (nao aparece pra Pro nem pra trial ativo), entao a
+            unica condicao que falta e ter comecado a usar: quem esta com a
+            colecao vazia nao tem por que ver "desbloqueie o Scan".
+            Antes disso, o unico gatilho de upsell do app era o muro pos-trial,
+            que exige mais de 100 cartas — 12 pessoas na base inteira. */}
+        {cards.length > 0 && <UpgradeBanner tipo="cartas" />}
+
         {/* Resumo em duas caixas (#313, 12/09). Eram 3 cartoes de 72vw com
             rolagem lateral: no celular so o primeiro aparecia e ainda empurrava
             a colecao pra baixo. Minimo e maximo viraram a linha de baixo do

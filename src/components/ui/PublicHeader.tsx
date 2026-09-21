@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import {
   IconSearch, IconChevronDown, IconPokedex, IconScan, IconAccount, IconArticle, IconShield,
+  IconStar,
 } from '@/components/ui/Icons'
 import LinkCarrinho from '@/components/ui/LinkCarrinho'
 
@@ -298,6 +299,11 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             <Link href="/blog" prefetch={false} className="ph-nl" style={navLinkStyle('/blog')}>
               Blog
             </Link>
+            {/* O preco nao tinha endereco: vivia numa ancora da setima secao da
+                home, sem link em lugar nenhum. */}
+            <Link href="/planos" prefetch={false} className="ph-nl" style={navLinkStyle('/planos')}>
+              Planos
+            </Link>
 
             <span style={S.divider} />
 
@@ -428,6 +434,11 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
             <Link href="/blog" onClick={closeMobile} className="ph-mitem" style={mobileLinkStyle('/blog')}>
               <span style={S.mobileItemIcon}><IconArticle size={18} color="currentColor" /></span>
               Blog
+            </Link>
+
+            <Link href="/planos" onClick={closeMobile} className="ph-mitem" style={mobileLinkStyle('/planos')}>
+              <span style={S.mobileItemIcon}><IconStar size={18} color="currentColor" /></span>
+              Planos e preços
             </Link>
 
             <div style={S.mobileGroup}>Para quem vende</div>

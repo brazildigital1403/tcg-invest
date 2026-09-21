@@ -14,6 +14,7 @@
  */
 
 import { useState, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
@@ -77,6 +78,7 @@ type CardProps = {
 
 export default function CardClient({ card, children, breadcrumb }: CardProps) {
   const [copied, setCopied] = useState(false)
+  const pathname = usePathname()
   const variantes = card.variantes && card.variantes.length ? card.variantes : []
   const [varSel, setVarSel] = useState<string>(variantes[0]?.key || 'normal')
   const vAtual = variantes.find((v) => v.key === varSel) || variantes[0] || null
@@ -563,8 +565,13 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
           >
             Gerencie toda sua coleção Pokémon como portfólio financeiro
           </p>
+          {/* ★ Ia pra HOME (`href="/"`) — mesmo defeito ja corrigido no CTA de
+              cima, que ficou pra tras aqui. O visitante que chega do Google
+              numa das ~66,9 mil paginas de carta era jogado na raiz do site e
+              perdia a carta que estava vendo. Agora abre o cadastro e volta
+              pra esta mesma carta depois de criar a conta. */}
           <Link
-            href="/"
+            href={`/?auth=signup&next=${encodeURIComponent(pathname || '/')}`}
             style={{
               background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
               color: '#000',

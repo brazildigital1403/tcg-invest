@@ -184,6 +184,9 @@ const ITEM_VENDER: MenuItem = { name: 'Vender', full: 'Vender na Bynx', href: '/
 const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas, group: 'explorar' }
 const ITEM_BLOG: MenuItem = { name: 'Blog', full: 'Blog', href: '/blog', Icon: IconArticle, group: 'explorar' }
 const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat, group: 'conta' }
+// Nenhum dos itens de menu levava pra oferta: dentro do app o preco so existia
+// em /minha-conta, que nem esta na barra de baixo do celular.
+const ITEM_PLANOS: MenuItem = { name: 'Planos', full: 'Planos e preços', href: '/planos', Icon: IconStarFilled, group: 'conta' }
 // So aparece pra quem tem linha em `parceiros` (a RLS ja devolve vazio pros demais)
 const ITEM_PARCEIROS: MenuItem = { name: 'Parceiros', full: 'Central do Parceiro', href: '/parceiros', Icon: IconMegafone, group: 'parceiros' }
 
@@ -295,7 +298,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
+      return semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE])
     }
     if (isLojistaPuro) {
       const lojista = [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
@@ -306,7 +309,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     else base.push(ITEM_VENDER)
     if (ehParceiro) base.push(ITEM_PARCEIROS)
-    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE)
+    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_SUPORTE)
     return semDash(base)
   }, [temLoja, temCartas, isLojistaPuro, podeDashboard, ehParceiro])
 

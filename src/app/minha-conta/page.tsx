@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
+import { getPlanCaps, type PlanTier } from '@/lib/plan'
 import { trackProUpgradeInitiated } from '@/lib/analytics'
 import { IconStarFilled, IconBolt, IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink, IconCamera, IconCollection as IconBinder } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
@@ -129,6 +130,11 @@ export default function MinhaConta() {
   const [user, setUser] = useState<any>(null)
   const [isPro, setIsPro] = useState(false)
   const [isTrial, setIsTrial] = useState(false)
+  // ★ O tier canonico, nao so o isPro. O Plus e PAGO com `isPro: false`
+  //   (plan.ts:45), entao quem decide "e free?" pelo isPro trata assinante
+  //   Plus como gratuito: ele via "Plano Free", "ate 100 cartas" e o botao
+  //   "Assinar Plus" de novo, sem nenhum "Gerenciar assinatura" pra cancelar.
+  const [tier, setTier] = useState<PlanTier>('free')
   const [trialDaysLeft, setTrialDaysLeft] = useState(0)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [loadingCheckout, setLoadingCheckout] = useState<string | null>(null)
@@ -210,10 +216,11 @@ export default function MinhaConta() {
       if (scanSt) setScanStatus(scanSt as { scans_mes: number; mensal_disp: number; avulso: number })
 
       // Verifica plano Pro
-      const { isPro: pro, isTrial: trial, trialDaysLeft: days } = await getUserPlan(authData.user.id)
+      const { isPro: pro, isTrial: trial, trialDaysLeft: days, tier: t } = await getUserPlan(authData.user.id)
       setIsPro(pro)
       setIsTrial(trial)
       setTrialDaysLeft(days)
+      setTier(t)
 
       setLoading(false)
     }
@@ -485,8 +492,12 @@ export default function MinhaConta() {
     )
   }
 
-  const planoFree = !isPro && !isTrial
+  // `tier` e a fonte, nao o isPro: 'plus' e pago e tem isPro=false.
+  const planoFree = tier === 'free' && !isTrial
   const isPaidPro = isPro && !isTrial  // Pro pago (não trial)
+  const labelPlano = isTrial
+    ? `Trial — ${trialDaysLeft}d`
+    : tier === 'free' ? 'Plano Free' : `Plano ${getPlanCaps(tier).label}`
   // S40: menor de 18 -> perfil forcado privado (LGPD). NULL = adulto.
   const idade = calcIdade(userData?.data_nascimento)
   const isMenor = idade !== null && idade < 18
@@ -534,7 +545,7 @@ export default function MinhaConta() {
               fontSize: 12, fontWeight: 700,
               color: planoFree ? 'rgba(255,255,255,0.4)' : isTrial ? '#60a5fa' : '#f59e0b',
             }}>
-              {planoFree ? 'Plano Free' : isTrial ? `⏳ Trial — ${trialDaysLeft}d` : 'Plano Pro ✦'}
+              {labelPlano}
             </div>
             <button
               onClick={() => {
@@ -928,10 +939,15 @@ export default function MinhaConta() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 5h5.3l-4.3 3.1 1.7 5.2L10 12.3l-5.1 2.9 1.7-5.2L2.3 7h5.3L10 2z" fill="#f59e0b"/></svg>
-                    <p style={{ fontSize: 15, fontWeight: 700 }}>Plano Pro ativo</p>
+                    <p style={{ fontSize: 15, fontWeight: 700 }}>Plano {getPlanCaps(tier).label} ativo</p>
                     <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.15)', color: '#22c55e', padding: '2px 8px', borderRadius: 100, fontWeight: 700 }}>ATIVO</span>
                   </div>
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Cartas ilimitadas · Anúncios ilimitados · Perfil público</p>
+                  {/* Lido dos caps, nao cravado: o Plus tem teto de cartas e nao
+                      tem Scan, entao a linha do Pro mentia pra ele. */}
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
+                    {getPlanCaps(tier).limiteCartas === Infinity ? 'Cartas ilimitadas' : `Até ${getPlanCaps(tier).limiteCartas} cartas`}
+                    {' · '}Anúncios ilimitados{' · '}Perfil público
+                  </p>
                   <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Cancelar, trocar o cartão ou ver suas faturas</p>
                 </div>
                 <button

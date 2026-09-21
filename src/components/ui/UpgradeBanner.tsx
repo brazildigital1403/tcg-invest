@@ -3,8 +3,18 @@ import { useState, useEffect } from 'react'
 import { IconRocket, IconWarning, IconCheck } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
+import { PLAN_PRECOS } from '@/lib/plan'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
+
+// ★ Os precos vem de plan.ts, nao cravados aqui. Este banner dizia que o anual
+//   de R$ 249 saia por "R$ 14,91/mes" (249/12 = 20,75) e chamava de "2 MESES
+//   GRATIS" o que sao ~3,7 mensalidades de economia. A mesma conta escrita a
+//   mao em dois lugares sempre diverge de um dos dois.
+const MENSAL = PLAN_PRECOS.pro.mensal
+const ANUAL = PLAN_PRECOS.pro_anual.anual
+const MESES_GRATIS = Math.floor((MENSAL * 12 - ANUAL) / MENSAL)
+const brl = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`
 
 interface Props {
   tipo: 'cartas' | 'marketplace'
@@ -105,7 +115,7 @@ export default function UpgradeBanner({ tipo }: Props) {
         {/* Pro Mensal */}
         <div style={{ flex: 1, minWidth: 160, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '14px 16px' }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Pro Mensal</p>
-          <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 29,90</p>
+          <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{brl(MENSAL)}</p>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>por mês</p>
           <button onClick={() => handleCheckout('mensal')} disabled={!!loading}
             style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loading === 'mensal' ? 0.7 : 1 }}>
@@ -116,11 +126,11 @@ export default function UpgradeBanner({ tipo }: Props) {
         {/* Pro Anual */}
         <div style={{ flex: 1, minWidth: 160, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '14px 16px', position: 'relative' }}>
           <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: BRAND, color: '#000', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 100, whiteSpace: 'nowrap', letterSpacing: '0.05em' }}>
-            2 MESES GRÁTIS
+            {MESES_GRATIS} MESES GRÁTIS
           </div>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Pro Anual</p>
-          <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ 249</p>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>por ano · R$ 14,91/mês</p>
+          <p style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 2, background: BRAND, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>R$ {ANUAL.toFixed(0)}</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>por ano · {brl(ANUAL / 12)}/mês</p>
           <button onClick={() => handleCheckout('anual')} disabled={!!loading}
             style={{ width: '100%', background: BRAND, border: 'none', color: '#000', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: loading === 'anual' ? 0.7 : 1 }}>
             {loading === 'anual' ? 'Aguarde...' : 'Assinar Anual'}
