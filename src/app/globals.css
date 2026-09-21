@@ -208,6 +208,12 @@ body {
 .bx-blog-rich strong { color: var(--bx-text); font-weight: 700; }
 .bx-blog-rich a { color: var(--ac-1); text-decoration: underline; }
 .bx-blog-rich ul, .bx-blog-rich ol { padding-left: 22px; margin: 0 0 16px; }
+/* O preflight do Tailwind zera o list-style -- sem isto as listas do blog
+   saiam sem marcador nenhum. */
+.bx-blog-rich ul { list-style: disc; }
+.bx-blog-rich ol { list-style: decimal; }
+.bx-blog-rich li::marker { color: var(--ac-1); }
+.bx-blog-rich li > p { margin: 0; }
 .bx-blog-rich li { margin-bottom: 6px; }
 .bx-blog-rich blockquote { border-left: 3px solid var(--ac-1); padding-left: 14px; margin: 0 0 16px; color: var(--bx-text-2); }
 
