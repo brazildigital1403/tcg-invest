@@ -12,24 +12,17 @@ import CardItem, { montarUltimaVenda } from '@/components/ui/CardItem'
 import CardDetailModal from './CardDetailModal'
 import ModalUpgradePokedex from '@/components/ui/ModalUpgradePokedex'
 import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
-import { IconCard } from '@/components/ui/Icons'
+import { IconCard, IconCheck, IconPlus, IconBell } from '@/components/ui/Icons'
+import FichaPokemon from '@/components/pokedex/FichaPokemon'
+import { useRouter } from 'next/navigation'
+import { criarMeta } from '@/lib/metas'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
-export const TYPE_COLOR: Record<string, { bg: string; text: string }> = {
-  Fire:       { bg: 'rgba(239,68,68,0.15)',    text: '#ef4444' },
-  Water:      { bg: 'rgba(96,165,250,0.15)',   text: '#60a5fa' },
-  Grass:      { bg: 'rgba(34,197,94,0.15)',    text: '#22c55e' },
-  Lightning:  { bg: 'rgba(245,158,11,0.15)',   text: '#f59e0b' },
-  Psychic:    { bg: 'rgba(168,85,247,0.15)',   text: '#a855f7' },
-  Fighting:   { bg: 'rgba(249,115,22,0.15)',   text: '#f97316' },
-  Darkness:   { bg: 'rgba(107,114,128,0.15)',  text: '#9ca3af' },
-  Metal:      { bg: 'rgba(148,163,184,0.15)',  text: '#94a3b8' },
-  Dragon:     { bg: 'rgba(16,185,129,0.15)',   text: '#10b981' },
-  Colorless:  { bg: 'rgba(209,213,219,0.1)',   text: '#d1d5db' },
-  Fairy:      { bg: 'rgba(244,114,182,0.15)',  text: '#f472b6' },
-  Normal:     { bg: 'rgba(209,213,219,0.1)',   text: '#d1d5db' },
-}
+// A paleta mora em lib/pokedexTextos (a ficha e o modal importam de la, sem
+// ciclo com esta pagina). Reexportada aqui por compatibilidade.
+import { TYPE_COLOR, tipoTcgPt } from '@/lib/pokedexTextos'
+export { TYPE_COLOR }
 
 const GEN_RANGES: [string, number, number][] = [
   ['I',    1,   151],
@@ -78,7 +71,8 @@ const fmtNum = (n: number) => new Intl.NumberFormat('pt-BR').format(n)
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function Pokedex() {
-  const { showAlert } = useAppModal()
+  const { showAlert, showPrompt } = useAppModal()
+  const router = useRouter()
 
   // Vista: 'grid' = lista de Pokémon | 'cards' = cartas do Pokémon selecionado
   const [view, setView]             = useState<'grid' | 'cards'>('grid')
@@ -117,6 +111,18 @@ export default function Pokedex() {
   // 329 cartas sem nenhum jeito de filtrar, só scroll manual (achado #8).
   const [cardSearch, setCardSearch] = useState('')
 
+  // Vista 2 redesenhada (21/09/2026, mockup "Pokedex: nova experiencia"):
+  // posse, idioma e ordem na barra; "Ja tenho" e sino direto na grade, sem
+  // abrir modal por modal.
+  const [abaCartas, setAbaCartas] = useState<'todas' | 'tenho' | 'faltam'>('todas')
+  const [idiomaCartas, setIdiomaCartas] = useState('')
+  const [ordemCartas, setOrdemCartas] = useState<'recentes' | 'caras' | 'baratas' | 'numero'>('recentes')
+  const [ocupadas, setOcupadas] = useState<Set<string>>(new Set())
+  // card_id -> preco maximo do aviso (null = qualquer preco). Estar no Map = aviso ligado.
+  const [avisos, setAvisos] = useState<Map<string, number | null>>(new Map())
+  const [toast, setToast] = useState<{ texto: string; desfazer?: () => void } | null>(null)
+  const [criandoMeta, setCriandoMeta] = useState(false)
+
   // Pokémons capturados (nomes-base derivados de pokemon_cards.base_pokemon_names).
   // Era um Set populado por cleanPokemonName(card_name) — abandonado por ser
   // frágil (não cobria 'Mega', sufixos com (número), Tag Team, etc).
@@ -143,25 +149,6 @@ export default function Pokedex() {
 
   // ── Inicialização ─────────────────────────────────────────────────────────
 
-  // Teclado: setas esquerda/direita navegam entre cartas no modal
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (!selectedCard) return
-      const idx = selectedCardIndex
-      if (e.key === 'ArrowRight' && idx < cards.length - 1) {
-        const next = cards[idx + 1]
-        setSelectedCard(next); setSelectedCardIndex(idx + 1); setSelectedVariante(pickBestVariante(next))
-      }
-      if (e.key === 'ArrowLeft' && idx > 0) {
-        const prev = cards[idx - 1]
-        setSelectedCard(prev); setSelectedCardIndex(idx - 1); setSelectedVariante(pickBestVariante(prev))
-      }
-      if (e.key === 'Escape') setSelectedCard(null)
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [selectedCard, selectedCardIndex, cards])
-
   useEffect(() => {
     fetch('/api/exchange-rate').then(r => r.json()).then(d => setExchangeRate({ usd: d.usd || 6.0, eur: d.eur || 6.5 })).catch(() => {})
 
@@ -174,6 +161,8 @@ export default function Pokedex() {
         setPokedexCompleta(caps.catalogoCompleto)
         setPlanoAtual(plano)
         await loadOwnedPokemons(authData.user.id)
+        const { data: wl } = await supabase.from('watchlist').select('card_id, target_price').eq('user_id', authData.user.id)
+        setAvisos(new Map(((wl as { card_id: string; target_price: number | null }[]) || []).map(w => [w.card_id, w.target_price != null ? Number(w.target_price) : null])))
       }
       await loadPokemons()
     }
@@ -299,6 +288,7 @@ export default function Pokedex() {
     }
     setSelectedPokemon(pokemon)
     setView('cards')
+    setCardSearch(''); setAbaCartas('todas'); setIdiomaCartas('')
     setLoadingCards(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
 
@@ -314,39 +304,153 @@ export default function Pokedex() {
 
   // ── Adicionar à coleção ─────────────────────────────────────────────────────
 
+  // Menor preco entre as variantes (regra de divulgacao da casa: o menor preco).
+  function valorDaCarta(c: any): number {
+    const v = [c.preco_min, c.preco_foil_min, c.preco_reverse_min, c.preco_promo_min].map(Number).filter(n => n > 0)
+    return v.length ? Math.min(...v) : 0
+  }
+
+  function abrirCarta(card: any, idx: number) {
+    setSelectedCard(card); setSelectedCardIndex(idx); setSelectedVariante(pickBestVariante(card))
+  }
+
+  function mostrarToast(t: { texto: string; desfazer?: () => void }) {
+    setToast(t)
+    window.setTimeout(() => setToast(atual => (atual === t ? null : atual)), 6000)
+  }
+
+  // Grava a carta na colecao. Ja existe (mesma carta, nao graduada)? Soma uma
+  // copia em vez de bater no indice unico -- antes o segundo "Adicionar" dava
+  // "Carta ja esta na sua colecao!" e nao fazia nada. Idioma e condicao vem do
+  // modal; o "Ja tenho" da grade grava so a variante (idioma fica o padrao do
+  // banco, igual ao AddCardModal sem escolha).
   async function handleAddCard(card: any) {
     if (!userId) { showAlert('Faça login para adicionar cartas.', 'warning'); return }
+    if (ocupadas.has(card.id)) return
+    const variante = card._variante || selectedVariante || 'normal'
+    const condicao: string | undefined = card._condicao
+    setOcupadas(prev => new Set(prev).add(card.id))
+    const liberar = () => setOcupadas(prev => { const n = new Set(prev); n.delete(card.id); return n })
+
+    const { data: existente } = await supabase
+      .from('user_cards')
+      .select('id, quantity, condicoes')
+      .eq('user_id', userId).eq('pokemon_api_id', card.id).eq('graduada', false)
+      .limit(1).maybeSingle()
+
+    if (existente) {
+      const qtdAntes = existente.quantity || 1
+      const condAntes = (existente.condicoes as Record<string, number> | null) || null
+      const condDepois = condicao ? { ...(condAntes || {}), [condicao]: ((condAntes || {})[condicao] || 0) + 1 } : condAntes
+      const { error } = await supabase.from('user_cards').update({ quantity: qtdAntes + 1, condicoes: condDepois }).eq('id', existente.id)
+      liberar()
+      if (error) { showAlert('Não conseguimos adicionar a carta. Tente de novo.', 'error'); return }
+      track({ name: 'card_added_to_collection', properties: { card_id: card.id, set_id: card.set_id || '', quantity: 1, origem: 'pokedex', plano: planoAtual } })
+      mostrarToast({
+        texto: `Mais uma ${card.name} na sua coleção. Agora são ${qtdAntes + 1} cópias.`,
+        desfazer: async () => {
+          setToast(null)
+          await supabase.from('user_cards').update({ quantity: qtdAntes, condicoes: condAntes }).eq('id', existente.id)
+        },
+      })
+      return
+    }
+
     if (!isPro) {
       const { bloqueado, limite: limiteDoPlano } = await checkCardLimit(userId)
       if (Number.isFinite(limiteDoPlano)) setLimiteCartas(limiteDoPlano)
-      if (bloqueado) { setShowLimite(true); return }
+      if (bloqueado) { liberar(); setShowLimite(true); return }
     }
-    const variante = card._variante || selectedVariante || 'normal'
-    const { error } = await supabase.from('user_cards').insert({
+    const linha: Record<string, unknown> = {
       user_id: userId, pokemon_api_id: card.id,
       card_name: card.name, card_id: card.id,
       card_image: card.image_small, set_name: card.set_name,
       rarity: card.rarity, variante, quantity: 1,
+    }
+    if (card._idioma) linha.idioma = card._idioma
+    if (condicao) linha.condicoes = { [condicao]: 1 }
+    const { data, error } = await supabase.from('user_cards').insert(linha).select('id').single()
+    liberar()
+    if (error) {
+      const lim = limiteCartasDoErro(error)
+      if (lim !== null) {
+        track({ name: 'limite_cartas_atingido', properties: { origem: 'pokedex', limite: lim, plano: planoAtual } })
+        setLimiteCartas(lim); setShowLimite(true); return
+      }
+      showAlert('Não conseguimos adicionar a carta. Tente de novo.', 'error'); return
+    }
+    // Nomes-base da carta (1 ou varios, no caso de Tag Team) marcam o Pokemon
+    // como capturado na grade; o id marca a carta exata.
+    setOwnedNames(prev => {
+      const next = new Set(prev)
+      for (const n of (card.base_pokemon_names || []) as string[]) next.add(n)
+      return next
     })
-    if (error?.code === '23505') showAlert('Carta já está na sua coleção!', 'warning')
-    else if (limiteCartasDoErro(error) !== null) { setLimiteCartas(limiteCartasDoErro(error)!); setShowLimite(true) }
-    else if (error) showAlert('Erro ao adicionar carta.', 'error')
-    else {
-      showAlert(`${card.name} adicionada! ✓`, 'success')
-      // Adiciona os nomes-base da carta (pode ser 1 nome ou vários no caso
-      // de Tag Team). Usa base_pokemon_names do próprio card (não regex).
-      setOwnedNames(prev => {
-        const next = new Set(prev)
-        const baseNames: string[] = card.base_pokemon_names || []
-        for (const n of baseNames) next.add(n)
-        return next
-      })
-      // Marca a CARTA EXATA como capturada (usa o id da pokemon_cards)
-      setOwnedCardIds(prev => new Set(prev).add(card.id))
-      trackFirstCardAdded(userId)
-      track({ name: 'card_added_to_collection', properties: {
-        card_id: card.id, set_id: card.set_id || '', quantity: 1, origem: 'pokedex', plano: planoAtual,
-      } })
+    setOwnedCardIds(prev => new Set(prev).add(card.id))
+    trackFirstCardAdded(userId)
+    track({ name: 'card_added_to_collection', properties: {
+      card_id: card.id, set_id: card.set_id || '', quantity: 1, origem: 'pokedex', plano: planoAtual,
+    } })
+    const novoId = (data as { id: string } | null)?.id
+    mostrarToast({
+      texto: `${card.name} entrou na sua coleção.`,
+      desfazer: novoId ? async () => {
+        setToast(null)
+        await supabase.from('user_cards').delete().eq('id', novoId)
+        setOwnedCardIds(prev => { const n = new Set(prev); n.delete(card.id); return n })
+      } : undefined,
+    })
+  }
+
+  // "Ja tenho" direto da grade: a variante com preco (normal primeiro), sem
+  // abrir o modal.
+  function jaTenhoRapido(card: any) {
+    const variante = Number(card.preco_min) > 0 ? 'normal' : pickBestVariante(card)
+    handleAddCard({ ...card, _variante: variante })
+  }
+
+  // Sino: mesmo fluxo das Metas (watchlist com preco maximo opcional).
+  async function definirAviso(card: any) {
+    if (!userId) { showAlert('Faça login para receber avisos de preço.', 'warning'); return }
+    const atual = avisos.get(card.id)
+    const v = await showPrompt({
+      message: `Até quanto você pagaria por ${card.name}?`,
+      placeholder: 'Ex.: 50',
+      defaultValue: atual != null ? String(atual).replace('.', ',') : '',
+      hint: 'Em reais. Você recebe aviso quando aparecer à venda até esse valor. Deixe em branco para receber de qualquer preço.',
+      inputMode: 'decimal',
+      permitirVazio: true,
+    })
+    if (v === null) return
+    const limpo = v.trim().replace(/[^\d,.]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')
+    const teto = limpo ? Number(limpo) : null
+    if (teto !== null && (!Number.isFinite(teto) || teto <= 0)) { showAlert('Digite um valor em reais, como 50 ou 49,90.', 'warning'); return }
+    const { error } = await supabase.from('watchlist').upsert(
+      { user_id: userId, card_id: card.id, target_price: teto, target_type: teto === null ? null : 'max' },
+      { onConflict: 'user_id,card_id' },
+    )
+    if (error) { showAlert('Não conseguimos salvar o aviso. Tente de novo.', 'error'); return }
+    setAvisos(prev => new Map(prev).set(card.id, teto))
+    mostrarToast({
+      texto: teto === null ? `Pronto. Você recebe aviso quando ${card.name} aparecer à venda, em qualquer preço.` : `Pronto. Você recebe aviso de ${card.name} por até ${fmt(teto)}.`,
+      desfazer: atual === undefined ? async () => {
+        setToast(null)
+        await supabase.from('watchlist').delete().eq('user_id', userId).eq('card_id', card.id)
+        setAvisos(prev => { const n = new Map(prev); n.delete(card.id); return n })
+      } : undefined,
+    })
+  }
+
+  async function transformarEmMeta() {
+    if (!selectedPokemon || criandoMeta) return
+    setCriandoMeta(true)
+    try {
+      const id = await criarMeta('pokemon', selectedPokemon.name, null)
+      track({ name: 'meta_criada', properties: { tipo: 'pokemon', alvo: selectedPokemon.name, idioma: null, plano: planoAtual, origem: 'pokedex' } })
+      router.push(`/metas/${id}`)
+    } catch {
+      setCriandoMeta(false)
+      showAlert('Não conseguimos montar a meta agora. Tente de novo.', 'error')
     }
   }
 
@@ -390,11 +494,45 @@ export default function Pokedex() {
   }, [])
 
   // Cartas do Pokémon selecionado, filtradas pela busca da vista 2.
-  const cardsVisiveis = cards.filter(c => {
-    if (!cardSearch) return true
-    const alvo = cardSearch.toLowerCase()
-    return (c.set_name || '').toLowerCase().includes(alvo) || String(c.number || '').includes(alvo)
-  })
+  const contTenho = useMemo(() => cards.filter(c => ownedCardIds.has(c.id)).length, [cards, ownedCardIds])
+  const idiomasDasCartas = useMemo(() => [...new Set(cards.map(c => c.idioma).filter(Boolean) as string[])].sort(), [cards])
+  // A lista que a grade mostra E a que o modal percorre -- o "1 de 132" vinha
+  // de o modal andar na lista inteira enquanto a grade estava filtrada (e de o
+  // "Ver detalhes" abrir sem gravar o indice).
+  const cardsVisiveis = useMemo(() => {
+    const alvo = cardSearch.trim().toLowerCase()
+    const lista = cards.filter(c => {
+      if (abaCartas === 'tenho' && !ownedCardIds.has(c.id)) return false
+      if (abaCartas === 'faltam' && ownedCardIds.has(c.id)) return false
+      if (idiomaCartas && c.idioma !== idiomaCartas) return false
+      if (!alvo) return true
+      return (c.set_name || '').toLowerCase().includes(alvo) || (c.set_name_pt || '').toLowerCase().includes(alvo) || String(c.number || '').includes(alvo)
+    })
+    if (ordemCartas === 'caras') lista.sort((a, b) => valorDaCarta(b) - valorDaCarta(a))
+    else if (ordemCartas === 'baratas') lista.sort((a, b) => (valorDaCarta(a) || Infinity) - (valorDaCarta(b) || Infinity))
+    else if (ordemCartas === 'numero') lista.sort((a, b) => String(a.set_name || '').localeCompare(String(b.set_name || '')) || (parseInt(a.number) || 0) - (parseInt(b.number) || 0))
+    return lista
+  }, [cards, cardSearch, abaCartas, idiomaCartas, ordemCartas, ownedCardIds])
+
+  // Teclado: setas esquerda/direita navegam entre cartas no modal
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (!selectedCard) return
+      const idx = selectedCardIndex
+      if (e.key === 'ArrowRight' && idx < cardsVisiveis.length - 1) {
+        const next = cardsVisiveis[idx + 1]
+        setSelectedCard(next); setSelectedCardIndex(idx + 1); setSelectedVariante(pickBestVariante(next))
+      }
+      if (e.key === 'ArrowLeft' && idx > 0) {
+        const prev = cardsVisiveis[idx - 1]
+        setSelectedCard(prev); setSelectedCardIndex(idx - 1); setSelectedVariante(pickBestVariante(prev))
+      }
+      if (e.key === 'Escape') setSelectedCard(null)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [selectedCard, selectedCardIndex, cardsVisiveis])
+
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -405,80 +543,86 @@ export default function Pokedex() {
         {/* ── Vista 2: Cartas do Pokémon ─────────────────────────────── */}
         {view === 'cards' && selectedPokemon && (
           <div>
-            {/* Header */}
+            {/* Voltar + anterior/proximo */}
             {(() => {
               const currentIdx = filteredPokemons.findIndex(p => p.name === selectedPokemon.name)
               const prevP = currentIdx > 0 ? filteredPokemons[currentIdx - 1] : null
               const nextP = currentIdx < filteredPokemons.length - 1 ? filteredPokemons[currentIdx + 1] : null
+              const navBtn = (ativo: boolean): React.CSSProperties => ({ background: ativo ? 'var(--bx-surface-2)' : 'var(--bx-surface)', border: '1px solid var(--bx-border-2)', color: ativo ? 'var(--bx-text)' : 'var(--bx-text-faint)', padding: '0 12px', minHeight: 44, borderRadius: 10, cursor: ativo ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit', boxSizing: 'border-box', minWidth: 0, maxWidth: 150 })
               return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button
-                onClick={() => { setView('grid'); setSelectedPokemon(null); setCardSearch('') }}
-                style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)', padding: '12px 16px', minHeight: 44, borderRadius: 12, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit', boxSizing: 'border-box' }}
-              >
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Pokédex
-              </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {selectedPokemon.sprite && (
-                  <img src={selectedPokemon.sprite} alt={selectedPokemon.name} loading="lazy" decoding="async" style={{ width: 48, height: 48, objectFit: 'contain', imageRendering: 'auto' }} />
-                )}
-                <div>
-                  <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 2, color: 'var(--bx-text)' }}>{selectedPokemon.name}</h1>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {selectedPokemon.dexId > 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--bx-text-3)', fontWeight: 600 }}>#{String(selectedPokemon.dexId).padStart(4, '0')}</span>
-                    )}
-                    {(selectedPokemon.types || []).map((t: string) => (
-                      <span key={t} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: TYPE_COLOR[t]?.bg || 'var(--bx-surface-2)', color: TYPE_COLOR[t]?.text || 'var(--bx-text)' }}>{t}</span>
-                    ))}
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'var(--bx-text-3)' }}>
-                      {cards.length} carta{cards.length !== 1 ? 's' : ''}
-                    </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, justifyContent: 'space-between' }}>
+                  <button onClick={() => { setView('grid'); setSelectedPokemon(null); setCardSearch('') }} style={{ ...navBtn(true), maxWidth: 'none' }}>
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Pokédex
+                  </button>
+                  <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
+                    <button onClick={() => prevP && handleSelectPokemon(prevP)} disabled={!prevP} aria-label={prevP ? `Anterior: ${prevP.name}` : 'Sem anterior'} style={navBtn(!!prevP)}>
+                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <span className="pkdx-nav-nome">{prevP ? prevP.name : ''}</span>
+                    </button>
+                    <button onClick={() => nextP && handleSelectPokemon(nextP)} disabled={!nextP} aria-label={nextP ? `Próximo: ${nextP.name}` : 'Sem próximo'} style={navBtn(!!nextP)}>
+                      <span className="pkdx-nav-nome">{nextP ? nextP.name : ''}</span>
+                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
                   </div>
                 </div>
-              </div>
-              </div>
-              {/* Prev / Next */}
-              <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
-                <button
-                  onClick={() => prevP && handleSelectPokemon(prevP)}
-                  disabled={!prevP}
-                  title={prevP ? `← ${prevP.name}` : ''}
-                  style={{ background: prevP ? 'var(--bx-surface-2)' : 'var(--bx-surface)', border: '1px solid var(--bx-border-2)', color: prevP ? 'var(--bx-text)' : 'var(--bx-text-faint)', padding: '11px 14px', minHeight: 44, borderRadius: 10, cursor: prevP ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit', boxSizing: 'border-box', maxWidth: 160 }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prevP ? prevP.name : '—'}</span>
-                </button>
-                <button
-                  onClick={() => nextP && handleSelectPokemon(nextP)}
-                  disabled={!nextP}
-                  title={nextP ? `${nextP.name} →` : ''}
-                  style={{ background: nextP ? 'var(--bx-surface-2)' : 'var(--bx-surface)', border: '1px solid var(--bx-border-2)', color: nextP ? 'var(--bx-text)' : 'var(--bx-text-faint)', padding: '11px 14px', minHeight: 44, borderRadius: 10, cursor: nextP ? 'pointer' : 'default', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit', boxSizing: 'border-box', maxWidth: 160 }}
-                >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nextP ? nextP.name : '—'}</span>
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </button>
-              </div>
-            </div>
               )
             })()}
 
-            {/* Busca dentro das cartas do Pokémon — Charizard sozinho tem 329
-                cartas, antes só dava pra rolar (achado #8). Filtra por coleção
-                ou número; some se o Pokémon tem poucas cartas. */}
-            {cards.length > 8 && (
-              <div style={{ position: 'relative', marginBottom: 16, maxWidth: 320 }}>
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--bx-text-3)' }}>
-                  <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M15 15l-3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                <input
-                  value={cardSearch} onChange={e => setCardSearch(e.target.value)}
-                  placeholder="Buscar por coleção ou número..."
-                  style={{ width: '100%', background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px 11px 34px', minHeight: 44, color: 'var(--bx-text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                />
+            <FichaPokemon
+              pokemon={selectedPokemon}
+              pokemons={pokemons}
+              cartas={cards}
+              ownedCardIds={ownedCardIds}
+              logado={!!userId}
+              onAbrirPokemon={handleSelectPokemon}
+              onCriarMeta={transformarEmMeta}
+              criandoMeta={criandoMeta}
+            />
+
+            {/* Barra: Todas/Tenho/Faltam, idioma, busca, ordem */}
+            {!loadingCards && cards.length > 0 && (
+              <div className="pkdx-barra">
+                {userId && (
+                  <div className="pkdx-seg" role="group" aria-label="Filtrar por posse">
+                    {([['todas', 'Todas', cards.length], ['tenho', 'Tenho', contTenho], ['faltam', 'Faltam', cards.length - contTenho]] as const).map(([k, r, n]) => (
+                      <button key={k} type="button" onClick={() => setAbaCartas(k)} aria-pressed={abaCartas === k} className={abaCartas === k ? 'pkdx-seg-on' : undefined}>
+                        {r} <span>{n}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {idiomasDasCartas.length > 1 && (
+                  <div className="pkdx-chips" role="group" aria-label="Idioma">
+                    <button type="button" onClick={() => setIdiomaCartas('')} aria-pressed={!idiomaCartas} className={!idiomaCartas ? 'pkdx-chip-on' : undefined}>Todos</button>
+                    {idiomasDasCartas.map(i => (
+                      <button key={i} type="button" onClick={() => setIdiomaCartas(i)} aria-pressed={idiomaCartas === i} className={idiomaCartas === i ? 'pkdx-chip-on' : undefined}>{i.toUpperCase()}</button>
+                    ))}
+                  </div>
+                )}
+                <div className="pkdx-barra-linha">
+                  {cards.length > 8 && (
+                    <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 0 }}>
+                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--bx-text-3)' }}>
+                        <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M15 15l-3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                      <input
+                        value={cardSearch} onChange={e => setCardSearch(e.target.value)}
+                        placeholder="Buscar por coleção ou número"
+                        aria-label="Buscar por coleção ou número"
+                        style={{ width: '100%', background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px 11px 34px', minHeight: 44, color: 'var(--bx-text)', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                      />
+                    </div>
+                  )}
+                  <select value={ordemCartas} onChange={e => setOrdemCartas(e.target.value as typeof ordemCartas)} aria-label="Ordenar"
+                    style={{ flex: '0 0 auto', background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '0 12px', minHeight: 44, color: 'var(--bx-text)', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <option value="recentes">Mais recentes</option>
+                    <option value="caras">Mais valiosas</option>
+                    <option value="baratas">Mais baratas</option>
+                    <option value="numero">Por coleção e número</option>
+                  </select>
+                </div>
               </div>
             )}
 
@@ -493,60 +637,48 @@ export default function Pokedex() {
                 <p>Nenhuma carta encontrada para {selectedPokemon.name}</p>
               </div>
             ) : cardsVisiveis.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 80, color: 'var(--bx-text-faint)' }}>
-                <p>Nenhuma carta bate com &quot;{cardSearch}&quot;.</p>
+              <div style={{ textAlign: 'center', padding: '60px 16px', color: 'var(--bx-text-3)' }}>
+                <p style={{ margin: 0 }}>
+                  {cardSearch ? `Nenhuma carta bate com "${cardSearch}".` : abaCartas === 'tenho' ? `Você ainda não tem cartas de ${selectedPokemon.name}. Toque em "Já tenho" nas que estão com você.` : abaCartas === 'faltam' ? `Você tem todas as cartas de ${selectedPokemon.name}.` : 'Nenhuma carta neste filtro.'}
+                </p>
               </div>
             ) : (
               <div className="pkdx-cards-grid">
-                {cardsVisiveis.map(card => {
+                {cardsVisiveis.map((card, idx) => {
                   const owned = ownedCardIds.has(card.id)
+                  const ocupada = ocupadas.has(card.id)
+                  const teto = avisos.get(card.id)
+                  const temAviso = avisos.has(card.id)
                   return (
-                    <div
-                      key={card.id}
-                      style={{
-                        position: 'relative',
-                        background: owned ? 'rgba(var(--ac-1-rgb), 0.06)' : 'transparent',
-                        border: owned ? '1px solid rgba(var(--ac-1-rgb), 0.25)' : '1px solid transparent',
-                        borderRadius: 16,
-                        padding: 6,
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      {/* Badge "tenho essa carta" — canto superior direito.
-                          zIndex 3 fica acima do badge "Ver detalhes" do CardItem. */}
-                      {owned && (
-                        <div style={{
-                          position: 'absolute', top: 12, right: 12, zIndex: 3,
-                          width: 22, height: 22, borderRadius: '50%',
-                          background: 'var(--ac-1)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                        }}>
-                          <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
-                            <path d="M4 10l4.5 4.5L16 6" stroke="var(--bx-brand-ink)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                      )}
+                    <div key={card.id} className={userId && !owned ? 'pkdx-falta' : undefined} style={{ position: 'relative', minWidth: 0 }}>
                       <CardItem
                         card={card}
                         mode="select"
                         exchangeRate={exchangeRate}
                         hidePriceTable={isMobile}
-                        onSelect={() => { setSelectedCard(card); setSelectedCardIndex(cards.indexOf(card)); setSelectedVariante(pickBestVariante(card)) }}
-                        badge={
-                          // No mobile este botao some: o card inteiro ja abre o
-                          // mesmo detalhe (onSelect acima), entao ele e redundante —
-                          // e num card de 167px ele comia 64px e sobrava 4px de
-                          // folga pro badge de preco, com o texto quebrando em duas
-                          // linhas por cima da arte.
-                          <button
-                            className="pkdx-badge-detalhes"
-                            onClick={e => { e.stopPropagation(); setSelectedCard(card) }}
-                            style={{ background: 'rgba(var(--ac-1-rgb), 0.9)', border: 'none', color: 'var(--bx-brand-ink)', padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: 'pointer', backdropFilter: 'blur(8px)' }}
-                          >
-                            Ver detalhes
-                          </button>
-                        }
+                        ocultarIdioma={!!userId && !owned}
+                        onSelect={() => abrirCarta(card, idx)}
+                        footerSlot={userId ? (
+                          <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                            {owned ? (
+                              <button type="button" onClick={() => jaTenhoRapido(card)} disabled={ocupada} aria-label={`Adicionar mais uma cópia de ${card.name}`}
+                                className="pkdx-btn pkdx-btn-tenho">
+                                {ocupada ? '…' : <><IconCheck size={13} color="var(--bx-green)" />Na coleção</>}
+                              </button>
+                            ) : (
+                              <button type="button" onClick={() => jaTenhoRapido(card)} disabled={ocupada} aria-label={`Já tenho ${card.name}`}
+                                className="pkdx-btn pkdx-btn-add">
+                                {ocupada ? '…' : <><IconPlus size={13} color="var(--ac-1)" />Já tenho</>}
+                              </button>
+                            )}
+                            <button type="button" onClick={() => definirAviso(card)}
+                              aria-label={temAviso ? (teto != null ? `Aviso até ${fmt(teto)}. Toque para mudar.` : 'Aviso ligado em qualquer preço. Toque para mudar.') : `Avisar quando ${card.name} aparecer à venda`}
+                              title={temAviso ? (teto != null ? `Aviso até ${fmt(teto)}` : 'Aviso ligado') : 'Avisar preço'}
+                              className={`pkdx-sino${temAviso ? ' pkdx-sino-on' : ''}`}>
+                              <IconBell size={16} color={temAviso ? 'var(--ac-1)' : 'var(--bx-text-2)'} />
+                            </button>
+                          </div>
+                        ) : undefined}
                       />
                     </div>
                   )
@@ -634,7 +766,7 @@ export default function Pokedex() {
                 style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, padding: '11px 12px', minHeight: 44, color: typeFilter ? 'var(--bx-text)' : 'var(--bx-text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }}>
                 <option value="">Tipo</option>
                 {['Fire','Water','Grass','Lightning','Psychic','Fighting','Darkness','Metal','Dragon','Colorless','Fairy'].map(t => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>{tipoTcgPt(t)}</option>
                 ))}
               </select>
 
@@ -721,7 +853,7 @@ export default function Pokedex() {
                       {/* Tipo */}
                       {pokemon.types?.[0] && (
                         <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 100, background: typeColor.bg, color: typeColor.text }}>
-                          {pokemon.types[0]}
+                          {tipoTcgPt(pokemon.types[0])}
                         </span>
                       )}
 
@@ -812,23 +944,60 @@ export default function Pokedex() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
           }
-          /* Redundante com o clique no card, e em 167px so atrapalhava. */
-          .pkdx-badge-detalhes { display: none; }
         }
+
+        /* Vista 2: barra de filtros e acoes rapidas na grade (21/09/2026). */
+        .pkdx-nav-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        @media (max-width: 480px) { .pkdx-nav-nome { display: none; } }
+        .pkdx-barra { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+        .pkdx-barra-linha { display: flex; gap: 8px; flex-wrap: wrap; }
+        .pkdx-seg { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--bx-surface); border: 1px solid var(--bx-border); width: fit-content; max-width: 100%; }
+        .pkdx-seg button { font: inherit; font-size: 13.5px; font-weight: 700; min-height: 40px; padding: 0 14px; border: none; border-radius: 9px; background: none; color: var(--bx-text-2); cursor: pointer; transition: background .15s ease, color .15s ease; }
+        .pkdx-seg button span { font-weight: 600; color: var(--bx-text-3); margin-left: 2px; }
+        .pkdx-seg .pkdx-seg-on { background: var(--bx-surface-3); color: var(--bx-text); }
+        .pkdx-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+        .pkdx-chips::-webkit-scrollbar { display: none; }
+        .pkdx-chips button { flex: 0 0 auto; font: inherit; font-size: 12.5px; font-weight: 700; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--bx-border); background: transparent; color: var(--bx-text-2); cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+        .pkdx-chips .pkdx-chip-on { border-color: var(--ac-1); background: rgba(var(--ac-1-rgb), 0.12); color: var(--ac-1); }
+        .pkdx-btn { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font: inherit; font-size: 13px; font-weight: 700; min-height: 44px; padding: 0 6px; border-radius: 10px; cursor: pointer; white-space: nowrap; transition: background .15s ease, border-color .15s ease; }
+        .pkdx-btn:disabled { opacity: .6; cursor: default; }
+        .pkdx-btn-add { border: 1px solid rgba(var(--ac-1-rgb), 0.35); background: rgba(var(--ac-1-rgb), 0.1); color: var(--ac-1); }
+        .pkdx-btn-add:hover:not(:disabled) { background: rgba(var(--ac-1-rgb), 0.18); }
+        .pkdx-btn-tenho { border: 1px solid var(--bx-border); background: var(--bx-surface); color: var(--bx-green); }
+        .pkdx-sino { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; border: 1px solid var(--bx-border); background: var(--bx-surface); transition: background .15s ease, border-color .15s ease; }
+        .pkdx-sino-on { border-color: var(--ac-1); background: rgba(var(--ac-1-rgb), 0.12); }
+        .pkdx-falta img { filter: grayscale(1); opacity: 0.5; transition: filter 0.2s ease, opacity 0.2s ease; }
+        @media (hover: hover) { .pkdx-falta:hover img { filter: grayscale(0.3); opacity: 0.85; } }
+        .pkdx-toast { position: fixed; left: 50%; transform: translateX(-50%); z-index: 10000; width: min(520px, calc(100vw - 32px)); display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 14px; background: var(--bx-bg-elev); border: 1px solid var(--bx-border-2); box-shadow: var(--bx-shadow); font-size: 13.5px; line-height: 1.45; color: var(--bx-text); bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+        @media (min-width: 769px) { .pkdx-toast { bottom: 24px; } }
+        .pkdx-toast-btn { font: inherit; font-size: 13px; font-weight: 800; min-height: 44px; padding: 0 12px; border: none; border-radius: 10px; background: var(--bx-surface-3); color: var(--bx-text); cursor: pointer; }
       `}</style>
 
       {selectedCard && (
         <CardDetailModal
           card={selectedCard}
           cardIndex={selectedCardIndex}
-          cards={cards}
+          cards={cardsVisiveis}
           selectedVariante={selectedVariante}
           setSelectedVariante={setSelectedVariante}
           onClose={() => setSelectedCard(null)}
           onNavigate={(card, idx) => { setSelectedCard(card); setSelectedCardIndex(idx); setSelectedVariante(pickBestVariante(card)) }}
-          onAdd={(card) => { handleAddCard(card); setSelectedCard(null) }}
+          onAdd={(card) => { handleAddCard(card) }}
+          adicionando={ocupadas.has(selectedCard.id)}
+          tenho={ownedCardIds.has(selectedCard.id)}
+          avisoAtivo={avisos.has(selectedCard.id)}
+          onSino={userId ? definirAviso : undefined}
+          exchangeRate={exchangeRate}
           isMobile={isMobile}
         />
+      )}
+
+      {toast && (
+        <div role="status" className="pkdx-toast">
+          <IconCheck size={16} color="var(--bx-green)" />
+          <span style={{ flex: 1 }}>{toast.texto}</span>
+          {toast.desfazer && <button onClick={toast.desfazer} className="pkdx-toast-btn">Desfazer</button>}
+        </div>
       )}
 
       {upgradePokemon && (

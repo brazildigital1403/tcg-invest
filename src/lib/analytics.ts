@@ -230,10 +230,10 @@ export type BynxEvent =
   // Metas de colecao (#368). O que decide a estrategia e o ultimo: Gratis que
   // bate o limite de cartas VINDO de uma meta. Amostra (PostHog ve ~22%); a
   // leitura principal sai do banco (metas_colecao.created_at / concluida_em).
-  | { name: 'meta_criada'; properties: { tipo: 'pokemon' | 'set'; alvo: string; idioma: string | null; plano: string; origem?: 'sugestao' | 'busca' | 'idioma' } }
+  | { name: 'meta_criada'; properties: { tipo: 'pokemon' | 'set'; alvo: string; idioma: string | null; plano: string; origem?: 'sugestao' | 'busca' | 'idioma' | 'pokedex' } }
   | { name: 'meta_aberta'; properties: { tipo: 'pokemon' | 'set'; total: number; tenho: number; plano: string } }
   | { name: 'meta_concluida'; properties: { tipo: 'pokemon' | 'set'; total: number; plano: string } }
-  | { name: 'limite_cartas_atingido'; properties: { origem: 'meta'; limite: number; plano: string } }
+  | { name: 'limite_cartas_atingido'; properties: { origem: 'meta' | 'pokedex'; limite: number; plano: string } }
   | { name: 'search_no_results'; properties: { query: string } }
 
   // Comparador de troca (2)
