@@ -188,7 +188,7 @@ export default function MetaPage() {
     }
     const valorGanho = escolhidas.reduce((s, i) => s + i.carta.valor, 0)
     return {
-      escolhidas, gasto,
+      escolhidas, gasto, valorGanho,
       deCartas: pct(resumo.tenho, resumo.total),
       paraCartas: pct(resumo.tenho + escolhidas.length, resumo.total),
       deValor: pct(resumo.vtenho, resumo.vt),
@@ -441,7 +441,10 @@ export default function MetaPage() {
                   ) : (
                     <>
                       <p style={{ fontSize: 14, color: 'var(--bx-text-2)', margin: '0 0 10px', lineHeight: 1.6 }}>
-                        Com <strong style={{ color: 'var(--bx-text)' }}>{brl(orcamento)}</strong> você leva {plano$.escolhidas.length} {plano$.escolhidas.length === 1 ? 'carta' : 'cartas'} por {brl(plano$.gasto)}: as cartas vão de <strong style={{ color: 'var(--bx-text)' }}>{plano$.deCartas}%</strong> para <strong style={{ color: 'var(--ac-1)' }}>{plano$.paraCartas}%</strong>, e o valor, de {plano$.deValor}% para {plano$.paraValor}%.
+                        {/* Em quantidade e em reais, nao so em %: numa meta de 259
+                            cartas, 1 carta nao move a porcentagem arredondada e a
+                            frase dizia "de 2% para 2%" (visto no teste de 21/09). */}
+                        Com <strong style={{ color: 'var(--bx-text)' }}>{brl(orcamento)}</strong> você leva {plano$.escolhidas.length} {plano$.escolhidas.length === 1 ? 'carta' : 'cartas'} por {brl(plano$.gasto)}: sua meta vai de <strong style={{ color: 'var(--bx-text)' }}>{resumo.tenho}</strong> para <strong style={{ color: 'var(--ac-1)' }}>{resumo.tenho + plano$.escolhidas.length}</strong> de {resumo.total} cartas{plano$.paraCartas > plano$.deCartas ? ` (${plano$.deCartas}% para ${plano$.paraCartas}%)` : ''}, e sua parte passa de {brl(resumo.vtenho)} para {brl(resumo.vtenho + plano$.valorGanho)}.
                       </p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                         {plano$.escolhidas.map(({ carta: c, oferta: o }) => (
