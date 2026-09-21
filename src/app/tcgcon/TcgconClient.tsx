@@ -17,7 +17,7 @@ import { OFERTA_TCGCON, ofertaTcgconAtiva } from '@/lib/ofertaTcgcon'
 import ARTES_LENDARIAS from '@/lib/paginas-lendarias-artes.json'
 import {
   IconScan, IconCollection, IconStar, IconShield, IconClock, IconArrowRight,
-  IconLocation, IconChart, IconCard, IconMarketplace, IconPokedex, IconDashboard,
+  IconLocation, IconChart, IconCard, IconMarketplace, IconDashboard,
   IconImage, IconTag, IconDownload,
 } from '@/components/ui/Icons'
 
@@ -27,7 +27,7 @@ const PILARES = [
   { Icon: IconChart, t: 'Preço em real', d: 'Quanto vale cada carta' },
   { Icon: IconScan, t: 'ScanIA ilimitado', d: 'Cataloga pela câmera' },
   { Icon: IconMarketplace, t: 'Mercado', d: 'Anúncios ilimitados e lojas' },
-  { Icon: IconPokedex, t: 'Pokédex completa', d: 'Todo o catálogo liberado' },
+  { Icon: IconStar, t: 'Master Sets', d: 'Todos liberados no Anual' },
   { Icon: IconDashboard, t: 'Dashboard', d: 'Sua coleção em números' },
 ]
 

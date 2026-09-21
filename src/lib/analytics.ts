@@ -176,6 +176,15 @@ export type BynxEvent =
         quantity: number
         condition?: string
         value_brl?: number
+        /**
+         * De onde a carta entrou. Existe para medir a liberacao da Pokedex no
+         * Gratis (21/09/2026): se a Pokedex nao virar origem relevante das
+         * adicoes, a mudanca foi neutra. Amostra: PostHog so ve quem aceita
+         * cookie (~22% dos cadastros). A metrica principal e medida pelo banco.
+         */
+        origem?: 'pokedex' | 'busca' | 'scan'
+        /** Tier no momento da adicao -- separa o Gratis pos-trial do resto. */
+        plano?: string
       }
     }
   | {
@@ -211,6 +220,12 @@ export type BynxEvent =
   | {
       name: 'pokedex_searched'
       properties: { query: string; results_count: number }
+    }
+  | {
+      // Clique num Pokemon na Pokedex logada. Antes de 21/09 o Gratis pos-trial
+      // batia num modal de upgrade aqui e ninguem sabia quantas vezes.
+      name: 'pokedex_pokemon_opened'
+      properties: { pokemon: string; plano: string; liberado: boolean }
     }
   | { name: 'search_no_results'; properties: { query: string } }
 

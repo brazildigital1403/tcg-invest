@@ -36,7 +36,7 @@ export default function MuroPosTrial({ cardCount }: { cardCount: number }) {
   const feats = [
     'Coleção completa, sempre acessível',
     'Valor de cada carta em reais',
-    'Pokédex completa e Dashboard',
+    'Dashboard com o valor da coleção',
   ]
 
   return (

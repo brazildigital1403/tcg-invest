@@ -1204,7 +1204,7 @@ export async function sendPurchaseConfirmationEmail(
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📦 Até 500 cartas na sua coleção</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">📊 Dashboard completo</p>
       <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🛒 Marketplace ilimitado</p>
-      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🔍 Pokédex completa + pastas ilimitadas</p>
+      <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.6);">🗂️ Pastas do fichário ilimitadas</p>
     `
     ctaLabel = 'Acessar minha conta'
     ctaHref = `${APP_URL}/minha-colecao`

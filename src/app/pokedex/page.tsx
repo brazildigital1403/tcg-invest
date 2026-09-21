@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
-import { trackFirstCardAdded } from '@/lib/analytics'
+import { trackFirstCardAdded, track } from '@/lib/analytics'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
@@ -130,6 +130,9 @@ export default function Pokedex() {
 
   const [isPro, setIsPro]           = useState(false)
   const [pokedexCompleta, setPokedexCompleta] = useState(false)
+  // Plano no momento do uso ('free' | 'trial' | 'plus' | 'pro' | 'pro_anual'),
+  // so para instrumentar a liberacao da Pokedex no Gratis (21/09/2026).
+  const [planoAtual, setPlanoAtual] = useState('anonimo')
   const [upgradePokemon, setUpgradePokemon] = useState<string | null>(null)
   const [showLimite, setShowLimite] = useState(false)
   const [userId, setUserId]         = useState<string | null>(null)
@@ -165,9 +168,10 @@ export default function Pokedex() {
       const { data: authData } = await supabase.auth.getUser()
       if (authData.user) {
         setUserId(authData.user.id)
-        const { isPro: pro, isTrial, caps } = await getUserPlan(authData.user.id)
+        const { isPro: pro, isTrial, caps, plano } = await getUserPlan(authData.user.id)
         setIsPro(pro || isTrial)
         setPokedexCompleta(caps.catalogoCompleto)
+        setPlanoAtual(plano)
         await loadOwnedPokemons(authData.user.id)
       }
       await loadPokemons()
@@ -286,7 +290,9 @@ export default function Pokedex() {
   }
 
   async function handleSelectPokemon(pokemon: any) {
-    if (ENFORCEMENT_ATIVO && !pokedexCompleta) {
+    const liberado = !(ENFORCEMENT_ATIVO && !pokedexCompleta)
+    track({ name: 'pokedex_pokemon_opened', properties: { pokemon: pokemon?.name || '?', plano: planoAtual, liberado } })
+    if (!liberado) {
       setUpgradePokemon(pokemon?.name || 'Pokémon')
       return
     }
@@ -335,6 +341,9 @@ export default function Pokedex() {
       // Marca a CARTA EXATA como capturada (usa o id da pokemon_cards)
       setOwnedCardIds(prev => new Set(prev).add(card.id))
       trackFirstCardAdded(userId)
+      track({ name: 'card_added_to_collection', properties: {
+        card_id: card.id, set_id: card.set_id || '', quantity: 1, origem: 'pokedex', plano: planoAtual,
+      } })
     }
   }
 

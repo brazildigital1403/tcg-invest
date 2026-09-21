@@ -53,7 +53,7 @@ const TIERS: Tier[] = [
       { t: <>Até <b>100 cartas</b></>, ok: true },
       { t: 'Perfil público', ok: true },
       { t: '3 anúncios no Marketplace', ok: true },
-      { t: 'Pokédex básica · 1 pasta', ok: true },
+      { t: 'Pokédex completa · 1 pasta', ok: true },
       // Dizia so "Dashboard, Scan IA e Exportar" em cinza apagado: com o X
       // pequeno ao lado, a linha lia como se ESTIVESSE incluida no Gratis.
       { t: <>Sem Dashboard, Scan IA ou Exportar</>, ok: false },
@@ -70,7 +70,6 @@ const TIERS: Tier[] = [
       //   Scan nenhum e o card vendia o plano de entrada sem a feature de capa.
       { t: <><b>Scan com IA</b> · 100 scans por mês</>, ok: true },
       { t: 'Quanto sua coleção vale, atualizado', ok: true },
-      { t: 'Pokédex completa', ok: true },
       { t: 'Pastas do fichário e anúncios ilimitados', ok: true },
     ],
     cta: 'Assinar Plus', btn: 'soft',
@@ -172,7 +171,7 @@ const ROWS: Row[] = [
   { label: 'Marketplace', vals: [val('3 anúncios'), yes, yes, yes] },
   { label: 'Perfil público', vals: [yes, yes, yes, yes] },
   { label: 'Dashboard financeiro', vals: [no, yes, yes, yes] },
-  { label: 'Pokédex', vals: ['básica', val('completa'), val('completa'), val('completa')] },
+  { label: 'Pokédex completa', vals: [yes, yes, yes, yes] },
   { label: 'Exportar CSV/PDF', vals: [no, no, yes, yes] },
   { label: 'Histórico de preços', vals: [no, no, yes, yes] },
   // A posicao 1 e o Plus: dizia "—", ou seja, que o plano pago de entrada NAO

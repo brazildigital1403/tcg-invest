@@ -138,6 +138,7 @@ export default function PlanosClient() {
           <div style={S.tprice}><span style={S.num}>Grátis</span></div>
           <p style={S.tnote}>para sempre, sem cartão</p>
           <ul style={S.feats}>
+            <li style={S.li}><Check /> Pokédex completa, com todas as cartas</li>
             <li style={S.li}><Check /> Até 100 cartas na coleção</li>
             <li style={S.li}><Check /> Preços em reais do mercado brasileiro</li>
             <li style={S.li}><Check /> 1 pasta no fichário e perfil público</li>
@@ -161,7 +162,6 @@ export default function PlanosClient() {
             <li style={S.li}><Check /> <b>Scan com IA</b> — 100 scans por mês</li>
             <li style={S.li}><Check /> Até 500 cartas na coleção</li>
             <li style={S.li}><Check /> Quanto sua coleção vale, atualizado</li>
-            <li style={S.li}><Check /> Pokédex completa</li>
             <li style={S.li}><Check /> Pastas do fichário e anúncios ilimitados</li>
           </ul>
           <button

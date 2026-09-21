@@ -190,7 +190,7 @@ const faqSchema = {
       name: 'Posso testar antes de comprar pacote?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. Depois, o plano Plus (R$ 14,90/mês) inclui 100 scans por mês e o Pro não tem limite. Os pacotes pré-pagos continuam para quem estoura a cota do mês ou prefere não assinar, a partir do Básico de R$ 5,90 (20 scans).',
+        text: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas pagas. A Pokédex completa, a gestão de coleção e o marketplace continuam grátis depois. O plano Plus (R$ 14,90/mês) inclui 100 scans por mês e o Pro não tem limite. Os pacotes pré-pagos continuam para quem estoura a cota do mês ou prefere não assinar, a partir do Básico de R$ 5,90 (20 scans).',
       },
     },
     {
@@ -1473,7 +1473,7 @@ export default function ScanIaLanding() {
               },
               {
                 q: 'Posso testar antes de comprar pacote?',
-                a: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas, incluindo a Pokédex completa, gestão de coleção e marketplace. Depois, o plano Plus (R$ 14,90/mês) inclui 100 scans por mês e o Pro não tem limite. Os pacotes pré-pagos continuam para quem estoura a cota do mês ou prefere não assinar, a partir do Básico de R$ 5,90 (20 scans).',
+                a: 'Sim. Quem cria conta na Bynx ganha 7 dias de Pro grátis e nesse período pode testar todas as ferramentas pagas. A Pokédex completa, a gestão de coleção e o marketplace continuam grátis depois. O plano Plus (R$ 14,90/mês) inclui 100 scans por mês e o Pro não tem limite. Os pacotes pré-pagos continuam para quem estoura a cota do mês ou prefere não assinar, a partir do Básico de R$ 5,90 (20 scans).',
               },
               {
                 q: 'Como o preço em reais é calculado?',
@@ -1505,9 +1505,9 @@ export default function ScanIaLanding() {
             <span style={S.heroTitleAccent}>Comece a apontar.</span>
           </h2>
           <p style={S.finalSubtitle}>
-            Crie sua conta grátis, ganhe 7 dias de Pro e teste a Pokédex completa.
-            Quando quiser usar o Scan IA, escolha o pacote que cabe no seu bolso —
-            os créditos não expiram nunca.
+            Crie sua conta grátis: a Pokédex completa já vem liberada, e você ganha
+            7 dias de Pro. Depois, o Scan com IA está no Plus, com 100 scans por mês —
+            e, se passar da cota, os pacotes avulsos não expiram nunca.
           </p>
           <div style={S.finalCtas}>
             <Link href="/scan-ia?auth=signup&next=/minha-colecao" style={S.ctaPrimary}>

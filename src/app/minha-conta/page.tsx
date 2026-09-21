@@ -848,7 +848,7 @@ export default function MinhaConta() {
                     { txt: 'Até 100 cartas', ok: true },
                     { txt: 'Perfil público', ok: true },
                     { txt: '3 anúncios no Marketplace', ok: true },
-                    { txt: 'Pokédex básica', ok: true },
+                    { txt: 'Pokédex completa', ok: true },
                     { txt: 'Dashboard financeiro', ok: false },
                     { txt: 'Scan com IA', ok: false },
                     { txt: 'Exportar CSV/PDF', ok: false },

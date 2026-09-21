@@ -47,7 +47,15 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     label: 'Grátis',
     isPaid: false, isPro: false,
     limiteCartas: 100, limitePastas: 1, limiteAnuncios: 3,
-    podeDashboard: false, catalogoCompleto: false, podeExportar: false,
+    // ★ 21/09/2026 (decisao do Du): Pokedex completa liberada no Gratis. A trava
+    //   era uma parede de papel -- as paginas publicas (/pokemon, /set, /carta)
+    //   sempre mostraram o catalogo inteiro sem login, entao quem se cadastrava
+    //   no Gratis via MENOS que um visitante deslogado. E a Pokedex e ferramenta
+    //   de ATIVACAO: termina em "+ Adicionar a Colecao", e a trava bloqueava
+    //   antes das cartas aparecerem -- justo o gargalo medido (mediana de 1
+    //   carta). O gate em pokedex/page.tsx segue no lugar: fechar de novo e
+    //   trocar este true por false. Baseline em scratchpad/tenho-falta.
+    podeDashboard: false, catalogoCompleto: true, podeExportar: false,
     scansMes: 0, separadoresLiberados: false, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
   },

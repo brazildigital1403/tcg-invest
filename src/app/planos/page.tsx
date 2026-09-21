@@ -81,7 +81,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Dá para usar de graça?',
-    a: 'Dá. O plano grátis não expira e permite catalogar até 100 cartas, manter uma pasta do fichário, '
+    a: 'Dá. O plano grátis não expira, traz a Pokédex completa e permite catalogar até 100 cartas, manter uma pasta do fichário, '
       + 'publicar 3 anúncios no Mercado e ter perfil público. O catálogo de cartas e os preços em reais '
       + 'podem ser consultados sem nem criar conta.',
   },
@@ -179,7 +179,7 @@ const BLOCOS: { titulo: string; linhas: Linha[] }[] = [
     linhas: [
       { label: 'Preços em reais', vals: ['Sim', 'Sim', 'Sim', 'Sim'] },
       { label: 'Quanto sua coleção vale', vals: ['—', 'Sim', 'Sim', 'Sim'] },
-      { label: 'Pokédex', vals: ['Básica', 'Completa', 'Completa', 'Completa'] },
+      { label: 'Pokédex completa', vals: ['Sim', 'Sim', 'Sim', 'Sim'] },
       { label: 'Histórico de preço', vals: ['—', '—', 'Sim', 'Sim'] },
       { label: 'Exportar CSV e PDF', vals: ['—', '—', 'Sim', 'Sim'] },
     ],
