@@ -12,6 +12,7 @@ import { getUserPlan } from '@/lib/isPro'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
+import AtalhoMetas from '@/components/metas/AtalhoMetas'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import ScanModal from '@/components/ui/ScanModal'
 import { IconKey, IconShield, IconScan, IconSearch, IconDownload, IconLink, IconWarning, IconCheck, IconClose } from '@/components/ui/Icons'
@@ -831,6 +832,7 @@ export default function MinhaColecao() {
                   Pastas
                 </Link>
               )}
+              {userId && <AtalhoMetas />}
               {userId && (
                 <button
                   onClick={() => setOpenScanModal(true)}
