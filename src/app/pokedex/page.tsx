@@ -400,6 +400,10 @@ export default function Pokedex() {
         setToast(null)
         await supabase.from('user_cards').delete().eq('id', novoId)
         setOwnedCardIds(prev => { const n = new Set(prev); n.delete(card.id); return n })
+        // Recarrega os capturados do banco em vez de tirar o nome na mao: o
+        // Pokemon pode continuar capturado por outra carta (outra versao, Tag
+        // Team). Sem isto a marca de "tenho" da grade ficava ate recarregar.
+        await loadOwnedPokemons(userId)
       } : undefined,
     })
   }
