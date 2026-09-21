@@ -7,7 +7,17 @@ import { useState, useCallback, createContext, useContext, ReactNode } from 'rea
 type ModalType = 'success' | 'error' | 'info' | 'warning'
 
 interface AlertOptions  { message: string; type?: ModalType }
-interface PromptOptions { message: string; placeholder?: string; defaultValue?: string; multiline?: boolean; hint?: string; icon?: string }
+interface PromptOptions {
+  message: string; placeholder?: string; defaultValue?: string; multiline?: boolean; hint?: string; icon?: string
+  /** Teclado do celular: 'decimal' abre o numerico (valor em reais). */
+  inputMode?: 'text' | 'decimal' | 'numeric'
+  /**
+   * Campo vazio e uma resposta valida (devolve ''), e nao um cancelamento.
+   * Sem isto, confirmar vazio devolvia null -- o mesmo que Cancelar -- e a
+   * dica "deixe em branco para..." das Metas mentia (auditoria 21/09/2026).
+   */
+  permitirVazio?: boolean
+}
 interface ConfirmOptions { message: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean; description?: string }
 
 interface ModalState {
@@ -93,7 +103,8 @@ const INPUT_BASE: React.CSSProperties = {
   background: 'rgba(255,255,255,0.04)',
   border: '1px solid rgba(255,255,255,0.1)',
   borderRadius: 12, padding: '14px 16px',
-  color: '#f0f0f0', fontSize: 14,
+  // 16, nao 14: abaixo de 16px o Safari do iOS da zoom ao focar e nao volta.
+  color: '#f0f0f0', fontSize: 16,
   outline: 'none', boxSizing: 'border-box',
   fontFamily: "'DM Sans', system-ui, sans-serif",
   lineHeight: 1.5,
@@ -205,12 +216,13 @@ export function ModalProvider({ children }: { children: ReactNode }) {
                   <input
                     autoFocus
                     type="text"
+                    inputMode={o.inputMode}
                     value={promptVal}
                     onChange={e => setPromptVal(e.target.value)}
                     placeholder={o.placeholder || ''}
                     style={INPUT_BASE}
                     onKeyDown={e => {
-                      if (e.key === 'Enter') close(promptVal || null)
+                      if (e.key === 'Enter') close(o.permitirVazio ? promptVal : (promptVal || null))
                       if (e.key === 'Escape') close(null)
                     }}
                   />
@@ -218,7 +230,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
 
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
                   <button style={BTN_SECONDARY} onClick={() => close(null)}>Cancelar</button>
-                  <button style={BTN_PRIMARY} onClick={() => close(promptVal || null)}>
+                  <button style={BTN_PRIMARY} onClick={() => close(o.permitirVazio ? promptVal : (promptVal || null))}>
                     {isLink ? 'Importar →' : 'Confirmar'}
                   </button>
                 </div>

@@ -10,6 +10,7 @@
  * colecionador adicionar carta e bater no limite de cartas, que e a parede.
  */
 import { supabase } from '@/lib/supabaseClient'
+import { LIMITE_METAS } from '@/lib/metasTexto'
 
 /**
  * Flag de lancamento. Desligada = nenhuma entrada no menu nem na colecao; as
@@ -53,7 +54,7 @@ export type CartaDaMeta = {
 }
 
 export const IDIOMAS_META: { key: string | null; label: string }[] = [
-  { key: null, label: 'Tanto faz' },
+  { key: null, label: 'Qualquer idioma' },
   { key: 'pt', label: 'Português' },
   { key: 'en', label: 'Inglês' },
   { key: 'jp', label: 'Japonês' },
@@ -63,9 +64,7 @@ export function rotuloIdioma(idioma: string | null): string | null {
   return IDIOMAS_META.find(i => i.key === idioma && i.key !== null)?.label ?? null
 }
 
-export function tituloMeta(m: Pick<Meta, 'tipo' | 'alvo'>, nomeSet?: string | null): string {
-  return m.tipo === 'pokemon' ? `Todos os ${m.alvo}` : (nomeSet || m.alvo)
-}
+export { tituloMeta, fraseLeitura, nomeIdioma, LIMITE_METAS } from '@/lib/metasTexto'
 
 export async function listarMetas(): Promise<Meta[]> {
   const { data, error } = await supabase
@@ -79,10 +78,10 @@ export async function listarMetas(): Promise<Meta[]> {
 /** Traduz o erro das RPCs de meta em texto de tela. */
 export function mensagemErroMeta(erro: { message?: string } | null | undefined): string {
   const m = erro?.message || ''
-  if (m.startsWith('META_LIMITE')) return 'Você já tem 50 metas. Apague uma para criar outra.'
-  if (m.startsWith('META_ALVO_INVALIDO')) return 'Não encontramos esse alvo no catálogo.'
+  if (m.startsWith('META_LIMITE')) return `Você chegou ao limite de ${LIMITE_METAS} metas. Apague uma para criar outra.`
+  if (m.startsWith('META_ALVO_INVALIDO')) return 'Não encontramos esse Pokémon ou essa coleção. Escolha uma das sugestões da lista.'
   if (m.startsWith('META_NAO_AUTENTICADO')) return 'Entre na sua conta para criar metas.'
-  return 'Não foi possível criar a meta agora. Tente de novo.'
+  return 'Não conseguimos criar a meta agora. Tente de novo em instantes.'
 }
 
 /**

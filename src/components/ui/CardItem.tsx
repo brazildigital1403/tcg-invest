@@ -141,6 +141,10 @@ interface CardItemProps {
   // tabela precisa (ex: grade de 2 colunas da Pokedex em mobile) -- ali ela
   // cortava sem nenhuma pista de que dava pra arrastar (auditoria 02/08/2026).
   hidePriceTable?: boolean
+  // Esconde o selo de idioma. O selo assume 'pt' quando a carta nao tem
+  // idioma, o que e certo para carta da colecao, mas errado para carta que a
+  // pessoa NAO tem (grade das Metas: "PT" aparecia ate em meta so em japones).
+  ocultarIdioma?: boolean
 }
 
 // ── Utilitários ──────────────────────────────────────────────────────────────
@@ -213,10 +217,11 @@ export default function CardItem({
   footerSlot,
   exchangeRate = { usd: 6.0, eur: 6.5 },
   hidePriceTable = false,
+  ocultarIdioma = false,
 }: CardItemProps) {
   const variante = varianteProp || card.variante || 'normal'
   const idioma = (card.idioma || 'pt').toLowerCase()
-  const idiomaCor = IDIOMA_COR[idioma] || '#9ca3af'
+  const idiomaCor = ocultarIdioma ? null : (IDIOMA_COR[idioma] || '#9ca3af')
   const image = card.card_image || card.image_large || card.image_small
   const name = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || card.name || '—'
   const setName = setLabel(card.set_name)

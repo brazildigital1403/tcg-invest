@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { notify } from '@/lib/notify'
+import { tituloMeta } from '@/lib/metasTexto'
 
 /**
  * POST /api/marketplace/notificar-watchlist
@@ -140,6 +141,14 @@ async function avisarMetas(
     s.add(d.idioma || 'pt'); idiomasDe.set(d.user_id, s)
   }
 
+  // Nome da colecao para o aviso dizer QUAL meta (quem tem duas metas de set
+  // recebia "sua meta de colecao" e nao sabia de qual).
+  let nomeSet: string | null = null
+  if (metas.some(m => m.tipo === 'set') && carta.set_id) {
+    const { data: s } = await sb.from('pokemon_sets').select('name, name_pt').eq('id', carta.set_id).maybeSingle()
+    nomeSet = (s as { name?: string; name_pt?: string | null } | null)?.name_pt || (s as { name?: string } | null)?.name || null
+  }
+
   const preco = Number(anuncio.price) || 0
   const avisados = new Set<string>()
   let n = 0
@@ -162,12 +171,12 @@ async function avisarMetas(
       .limit(1)
     if (existing && existing.length > 0) { avisados.add(m.user_id); continue }
 
-    const titulo = m.tipo === 'pokemon' ? `Todos os ${m.alvo}` : 'sua coleção'
+    const titulo = tituloMeta(m.tipo, m.alvo, nomeSet)
     const ok = await notify(
       m.user_id,
       'watch_listada',
-      `${nome} apareceu no Marketplace`,
-      `Por R$ ${fmtBRL(preco)} — falta na sua meta ${m.tipo === 'pokemon' ? `"${titulo}"` : 'de coleção'}.`,
+      `${nome} está à venda`,
+      `Por R$ ${fmtBRL(preco)}. Esta carta falta na sua meta ${titulo}.`,
       { anuncio_id: anuncio.id, card_id: anuncio.card_id, price: preco, origem: 'meta', meta_id: m.id, link: `/anuncio/${anuncio.slug || anuncio.id}` }
     )
     avisados.add(m.user_id)
