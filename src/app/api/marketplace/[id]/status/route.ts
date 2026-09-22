@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { baixarDoVendedor, COLUNAS_CARTA_VENDIDA, type CartaVendida } from '@/lib/transferirCartaServidor'
 
 /**
  * POST /api/marketplace/[id]/status   body: { acao }
@@ -30,7 +31,8 @@ import { revalidatePath } from 'next/cache'
  *
  * ★ O QUE ESTA ROTA NAO FAZ, de proposito:
  *  - `transferirCartaAoComprador` continua no cliente, ANTES de chamar
- *    `concluir`. A ordem "carta na colecao primeiro, so entao concluido" foi
+ *    `concluir` (so a ENTRADA na colecao do comprador; a baixa do vendedor
+ *    veio pra ca em 22/09, ver o bloco depois da transicao). A ordem "carta na colecao primeiro, so entao concluido" foi
  *    decisao deliberada -- antes o fluxo concluia mesmo tendo perdido a carta
  *    no caminho. Mover isso pra ca e outro trabalho, com risco de carta sumir
  *    da colecao de alguem.
@@ -176,6 +178,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         { error: 'Alguem mexeu neste anuncio agora. Atualize a pagina.' },
         { status: 409 },
       )
+    }
+
+    // ── Baixa na colecao do vendedor (22/09/2026) ──────────────────────────
+    // Rodava no navegador do comprador e a RLS de user_cards barrava calado:
+    // o vendedor seguia com a carta. Aqui, com a chave de servico, e depois da
+    // transicao atomica acima -- entao roda uma vez so por venda. Falha aqui
+    // nao desfaz a conclusao (a carta ja entrou no comprador); loga e segue.
+    if (acao === 'concluir') {
+      try {
+        const { data: carta } = await sb.from('marketplace').select(COLUNAS_CARTA_VENDIDA).eq('id', id).maybeSingle()
+        if (carta) {
+          const r = await baixarDoVendedor(sb, carta as CartaVendida)
+          if (!r.ok) console.error('[status] baixa do vendedor', id, r.erro)
+        }
+      } catch (e) {
+        console.error('[status] baixa do vendedor', id, (e as Error)?.message)
+      }
     }
 
     // ── Fura o ISR da carta ─────────────────────────────────────────────────

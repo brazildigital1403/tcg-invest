@@ -106,31 +106,12 @@ export async function transferirCartaAoComprador(
 
   trackFirstCardAdded(compradorId)
 
-  // ── Baixa no estoque do vendedor ────────────────────────────────────────
-  // Casa por VINCULO + variante + graduacao. Sem vinculo, cai no nome como
-  // ultimo recurso -- mas ainda com variante, que ja evita o erro mais comum
-  // (vender a foil e apagar a normal).
-  let busca = supabase.from('user_cards').select('id, quantity').eq('user_id', anuncio.user_id)
-  busca = catalogoId
-    ? busca.eq('pokemon_api_id', catalogoId)
-    : busca.eq('card_name', anuncio.card_name)
-
-  const { data: doVendedor } = await busca
-    .eq('variante', variante)
-    .eq('graduada', ehGraduada)
-    .limit(1)
-
-  const linhaVendedor = doVendedor?.[0] as any
-  if (linhaVendedor) {
-    if ((linhaVendedor.quantity || 1) > 1) {
-      await supabase
-        .from('user_cards')
-        .update({ quantity: linhaVendedor.quantity - 1 })
-        .eq('id', linhaVendedor.id)
-    } else {
-      await supabase.from('user_cards').delete().eq('id', linhaVendedor.id)
-    }
-  }
+  // ── Baixa no estoque do vendedor: NAO e mais aqui (22/09/2026) ───────────
+  // Rodava com a sessao do COMPRADOR, e a RLS de user_cards so deixa cada um
+  // mexer nas proprias linhas: o update/delete na linha do vendedor afetava 0
+  // linhas, sem erro, e o vendedor seguia com a carta. Agora a rota
+  // /api/marketplace/[id]/status faz a baixa no `concluir`, com a chave de
+  // servico (src/lib/transferirCartaServidor.ts).
 
   // ── Rastro da transacao ─────────────────────────────────────────────────
   await supabase.from('transactions').insert({

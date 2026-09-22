@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { adicionarAoComprador, baixarDoVendedor, COLUNAS_CARTA_VENDIDA, type CartaVendida } from '@/lib/transferirCartaServidor'
 
 /**
  * POST /api/pedidos/[id]/receber
@@ -8,6 +9,12 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
  * do pedido, e so quando esta 'enviado'. Fecha a timeline (que hoje nunca chega
  * no fim) e da o empurrao pra avaliar a loja. Escrita via service_role porque
  * `pedidos` so aceita escrita por service_role.
+ *
+ * ★ #371 (22/09/2026): e aqui que a CARTA muda de colecao numa compra pelo
+ * checkout -- entra na do comprador e sai da do vendedor, igual a compra
+ * negociada faz no "confirmar recebimento". Nao no pagamento: a loja pode
+ * cancelar ate enviar, e cada estorno teria que tirar a carta de volta. Depois
+ * de 'entregue' nao existe cancelamento, entao o movimento e definitivo.
  */
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -38,7 +45,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ error: 'So da pra confirmar o recebimento de um pedido enviado.' }, { status: 409 })
     }
 
-    const { error: upErr } = await sb
+    // `.eq('status', 'enviado')` fecha a corrida: dois toques em "Recebi" so
+    // deixam o primeiro passar -- e so ele move as cartas logo abaixo.
+    const { data: mexeu, error: upErr } = await sb
       .from('pedidos')
       .update({
         status: 'entregue',
@@ -46,10 +55,39 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         updated_at: new Date().toISOString(),
       })
       .eq('id', pedido.id)
+      .eq('status', 'enviado')
+      .select('id, marketplace_id')
 
     if (upErr) {
       console.error('[pedidos receber]', upErr.message)
       return NextResponse.json({ error: 'Erro ao confirmar o recebimento.' }, { status: 500 })
+    }
+    if (!mexeu || mexeu.length === 0) {
+      return NextResponse.json({ error: 'Este pedido ja foi confirmado.' }, { status: 409 })
+    }
+
+    // ── Carta muda de colecao (#371) ──────────────────────────────────────
+    // A verdade de um pedido e `pedido_itens`; `marketplace_id` do pedido e
+    // atalho de item unico (null em pedido de 2+ itens). Produto de loja
+    // (selado, acessorio) nao e carta de colecao: fica de fora.
+    // Falha aqui NAO desfaz a entrega -- o comprador ja recebeu. Loga como
+    // CRITICAL para corrigir na mao.
+    try {
+      const { data: itens } = await sb.from('pedido_itens').select('marketplace_id').eq('pedido_id', pedido.id)
+      const idsAnuncio = [...new Set(
+        (itens && itens.length ? itens.map(i => i.marketplace_id) : [mexeu[0].marketplace_id]).filter(Boolean) as string[],
+      )]
+      if (idsAnuncio.length) {
+        const { data: cartas } = await sb.from('marketplace').select(`id, ${COLUNAS_CARTA_VENDIDA}`).in('id', idsAnuncio)
+        for (const c of (cartas || []) as (CartaVendida & { id: string })[]) {
+          const entrou = await adicionarAoComprador(sb, c, userId)
+          if (!entrou.ok) console.error(`[pedidos receber] CRITICAL: carta ${c.id} nao entrou na colecao do comprador (pedido ${pedido.numero}):`, entrou.erro)
+          const saiu = await baixarDoVendedor(sb, c)
+          if (!saiu.ok) console.error(`[pedidos receber] baixa do vendedor falhou (anuncio ${c.id}):`, saiu.erro)
+        }
+      }
+    } catch (err) {
+      console.error(`[pedidos receber] CRITICAL: movimento de cartas do pedido ${pedido.numero}:`, (err as Error)?.message)
     }
 
     // Avisa o lojista (sino).
