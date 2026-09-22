@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/lib/graduadoras'
 import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
 import { mensagemLimiteAnuncios } from '@/lib/checkCardLimit'
+import { CONDICOES } from '@/lib/condicoes'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -37,13 +38,6 @@ const LABEL: React.CSSProperties = {
   fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase',
   letterSpacing: '0.07em', marginBottom: 6, display: 'block',
 }
-const CONDICOES = [
-  { key: 'NM', label: 'NM', desc: 'Near Mint',         color: '#22c55e' },
-  { key: 'LP', label: 'LP', desc: 'Lightly Played',    color: '#84cc16' },
-  { key: 'MP', label: 'MP', desc: 'Moderately Played', color: '#f59e0b' },
-  { key: 'HP', label: 'HP', desc: 'Heavily Played',    color: '#ef4444' },
-  { key: 'D',  label: 'D',  desc: 'Damaged',           color: '#7f1d1d' },
-]
 const VARIANTES = [
   { key: 'normal',  label: 'Normal'       },
   { key: 'foil',    label: 'Holo'         },

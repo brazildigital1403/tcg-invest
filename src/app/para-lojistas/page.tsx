@@ -48,7 +48,7 @@ const STORE_MINI = ['ex6/104', 'ecard2/149', 'svp/85']
 const VITRINE = [
   { img: 'base1/4', n: 'Charizard', cond: 'NM · Base Set', p: 'R$ 249,90' },
   { img: 'swsh7/215', n: 'Umbreon VMAX', cond: 'PSA 9', p: 'R$ 189,90' },
-  { img: 'ex6/108', n: 'Gengar ex', cond: 'LP', p: 'R$ 119,90' },
+  { img: 'ex6/108', n: 'Gengar ex', cond: 'SP', p: 'R$ 119,90' },
 ]
 const FALLBACK_MARQUEE = [
   'base1/4', 'swsh7/215', 'ex8/107', 'ex6/108', 'ecard2/149', 'ex6/104', 'svp/85',

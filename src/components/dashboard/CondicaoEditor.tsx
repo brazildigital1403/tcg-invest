@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
-const CONDICOES = ['NM', 'LP', 'MP', 'HP'] as const
-const CORES: Record<string, string> = { NM: '#22c55e', LP: '#60a5fa', MP: '#f59e0b', HP: '#ef4444' }
+import { CONDICAO_KEYS, CONDICAO_CORES, normalizarCondicoes } from '@/lib/condicoes'
+
+const CONDICOES = CONDICAO_KEYS
+const CORES = CONDICAO_CORES
 
 interface Props {
   userCardId: string
@@ -14,8 +16,10 @@ interface Props {
   onSaved?: (novas: Record<string, number> | null) => void
 }
 
-export default function CondicaoEditor({ userCardId, quantity, condicoes, isPro, onSaved }: Props) {
+export default function CondicaoEditor({ userCardId, quantity, condicoes: condicoesGravadas, isPro, onSaved }: Props) {
   const qtd = quantity || 1
+  // Carta gravada com a grafia antiga (LP) aparece como SP, sem sumir da tela.
+  const condicoes = normalizarCondicoes(condicoesGravadas)
   const keysAtuais = condicoes ? Object.keys(condicoes).filter(k => (condicoes[k] || 0) > 0) : []
 
   const [editing, setEditing] = useState(false)

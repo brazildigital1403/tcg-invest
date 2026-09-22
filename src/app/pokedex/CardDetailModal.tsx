@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { IconHistory, IconCheck, IconPlus, IconBell, IconClose } from '@/components/ui/Icons'
 import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTextos'
 import SinalCartaVista from '@/components/cards/SinalCartaVista'
+import { CONDICAO_KEYS } from '@/lib/condicoes'
 
 /**
  * Detalhe da carta na Pokedex. Redesenhado em 21/09/2026 (mockup "Pokedex: nova
@@ -31,7 +32,7 @@ function EnergyDot({ type, size = 14 }: { type: string; size?: number }) {
 }
 
 const IDIOMAS = [['pt', 'PT'], ['en', 'EN'], ['jp', 'JP'], ['es', 'ES'], ['fr', 'FR'], ['de', 'DE'], ['it', 'IT'], ['cn', 'CN'], ['kr', 'KR']] as const
-const CONDICOES = ['NM', 'LP', 'MP', 'HP', 'DMG'] as const
+const CONDICOES = CONDICAO_KEYS
 const FILTROS_DIAS = [7, 15, 30, 60] as const
 
 interface HistoricoVenda { valor_cents: number; variante: string | null; condicao: string | null; idioma: string | null; capturado_em: string }

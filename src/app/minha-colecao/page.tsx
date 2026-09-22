@@ -24,6 +24,7 @@ import AnunciarModal from '@/components/marketplace/AnunciarModal'
 import CabecalhoSet from '@/components/colecao/CabecalhoSet'
 import { familiaDoSet } from '@/lib/setFamilia'
 import { getPrecoVariante as faixaVariante } from '@/lib/calcPatrimonio'
+import { CONDICAO_KEYS, temCondicao } from '@/lib/condicoes'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -598,7 +599,7 @@ export default function MinhaColecao() {
     const matchSearch = !search || c.card_name?.toLowerCase().includes(search.toLowerCase())
     const matchVariante = !filtroVariante || (c.variante || 'normal') === filtroVariante
     const matchRaridade = !filtroRaridade || c.rarity === filtroRaridade
-    const matchCondicao = !filtroCondicao || !!(c.condicoes && (c.condicoes[filtroCondicao] || 0) > 0)
+    const matchCondicao = !filtroCondicao || temCondicao(c.condicoes, filtroCondicao)
     const matchGraduada = !filtroGraduada || !!c.graduada
     return matchSearch && matchVariante && matchRaridade && matchCondicao && matchGraduada
   }).sort((a, b) => {
@@ -1035,10 +1036,9 @@ export default function MinhaColecao() {
             <select value={filtroCondicao} onChange={e => setFiltroCondicao(e.target.value)} className="mc-select"
               style={{ backgroundColor: filtroCondicao ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${filtroCondicao ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroCondicao ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
               <option value="" style={{ background: 'var(--bx-bg-elev)' }}>Condição</option>
-              <option value="NM" style={{ background: 'var(--bx-bg-elev)' }}>NM</option>
-              <option value="LP" style={{ background: 'var(--bx-bg-elev)' }}>LP</option>
-              <option value="MP" style={{ background: 'var(--bx-bg-elev)' }}>MP</option>
-              <option value="HP" style={{ background: 'var(--bx-bg-elev)' }}>HP</option>
+              {CONDICAO_KEYS.map(k => (
+                <option key={k} value={k} style={{ background: 'var(--bx-bg-elev)' }}>{k}</option>
+              ))}
             </select>
 
             {/* Graduadas */}

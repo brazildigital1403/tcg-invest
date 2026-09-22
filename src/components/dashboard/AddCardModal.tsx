@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, type UIEvent } from 'react'
 import { IconSearch, IconWallet } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
+import { CONDICAO_KEYS, CONDICAO_CORES } from '@/lib/condicoes'
 import { checkCardLimit, LIMITE_FREE, limiteCartasDoErro } from '@/lib/checkCardLimit'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { registrarSinal } from '@/lib/sinais'
@@ -22,10 +23,7 @@ const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const TEXT_MUTED = 'rgba(255,255,255,0.4)'
 const PAGE_SIZE = 60 // resultados por pagina (scroll infinito)
 
-const CONDICOES = ['NM', 'LP', 'MP', 'HP'] as const
-const CONDICAO_CORES: Record<string, string> = {
-  NM: '#22c55e', LP: '#60a5fa', MP: '#f59e0b', HP: '#ef4444',
-}
+const CONDICOES = CONDICAO_KEYS
 
 const IDIOMAS = ['pt', 'en', 'jp', 'es', 'fr', 'de', 'it', 'cn', 'kr'] as const
 const IDIOMA_LABEL: Record<string, string> = {

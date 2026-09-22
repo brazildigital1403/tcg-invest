@@ -31,6 +31,7 @@ import { estaEncerrado, podeExpirar, liberaEm as calcLiberaEm } from '@/lib/mark
 // ★ A escrita de status saiu do browser (12/09/2026) -- ver o comentario da
 //   rota /api/marketplace/[id]/status. Aqui eram QUATRO updates diretos.
 import { mudarStatusAnuncio } from '@/lib/marketplaceAcao'
+import { CONDICAO_KEYS, normalizarCondicao } from '@/lib/condicoes'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1401,7 +1402,7 @@ function MarketplaceInner() {
     if (estaEncerrado(status)) return false
     if (filtroStatus && status !== filtroStatus) return false
     if (filtroVariante && c.variante !== filtroVariante) return false
-    if (filtroCondicao && c.condicao !== filtroCondicao) return false
+    if (filtroCondicao && normalizarCondicao(c.condicao) !== filtroCondicao) return false
     if (filtroGraduadora && c.graduadora !== filtroGraduadora) return false
     if (busca && !c.card_name.toLowerCase().includes(busca.toLowerCase())) return false
     // Lentes de descoberta (chips da barra principal)
@@ -1816,7 +1817,7 @@ function MarketplaceInner() {
                 <div style={{ flex: 1, minWidth: 160 }}>
                   <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6, fontWeight: 600 }}>Condição</label>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {[['', 'Todas'], ...['NM','LP','MP','HP','D'].map(c => [c, c])].map(([key, label]) => {
+                    {[['', 'Todas'], ...CONDICAO_KEYS.map(c => [c, c])].map(([key, label]) => {
                       const ativo = filtroCondicao === key
                       return (
                         <button key={key} onClick={() => setFiltroCondicao(key)}
