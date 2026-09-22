@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, isNotaTop, notaCurta } from '@/lib/graduadoras'
-import { IconHistory, IconBell } from '@/components/ui/Icons'
+import Link from 'next/link'
+import { IconHistory, IconBell, IconCheck } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
+import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTextos'
 
 interface Props {
   card: any
@@ -20,6 +22,9 @@ interface Props {
   onAnunciar: () => void
   onGradSaved: (campos: any) => void
   onRemove: () => void
+  /** Lista que a pessoa esta vendo, para anterior/proxima. Sem ela, a navegacao some. */
+  lista?: any[]
+  onNavegar?: (card: any) => void
 }
 
 const VAR_LABELS: Record<string, string> = {
@@ -29,7 +34,6 @@ const IDIOMAS_LISTA = ['pt', 'en', 'jp', 'es', 'fr', 'de', 'it', 'cn', 'kr'] as 
 const IDIOMA_LABELS: Record<string, string> = {
   pt: 'PT', en: 'EN', jp: 'JP', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', cn: 'CN', kr: 'KR',
 }
-const TEXT_MUTED = 'rgba(255,255,255,0.5)'
 const FILTROS_DIAS = [7, 15, 30, 60] as const
 
 interface HistoricoVenda {
@@ -108,12 +112,30 @@ function precoVariante(price: any, v: string, rate?: { usd: number; eur: number 
   return { medio: 0, min: 0, max: 0, valor: 0, fonte: null as string | null, label: null as string | null }
 }
 
+/**
+ * Detalhe da carta da Colecao. Redesenhado em 22/09/2026 no molde do modal da
+ * Pokedex (mockup "Colecao: modal da carta", aprovado pelo Du). Mesmos dados e
+ * as mesmas gravacoes de antes; o que muda e a ordem e o peso:
+ *
+ *   arte grande (slab quando graduada) -> quem e (nome, PS, raridade em
+ *   portugues) -> quanto valem as SUAS copias -> "Na sua colecao" (quantidade,
+ *   variante, idioma, condicao) -> Vender + Aviso de preco -> graduacao ->
+ *   dados de jogo -> historico -> links.
+ *
+ * "Salvar alteracoes" saiu do meio do bloco e virou barra no rodape, que so
+ * aparece quando algo mudou. "Remover" deixou de ser botao vermelho do lado do
+ * Anunciar. Anterior/proxima andam pela lista que a pessoa esta vendo.
+ *
+ * A ficha de jogo (PS, ataques, fraqueza) nao vem no lookup da colecao, que
+ * traz so preco: busca a carta inteira por id ao abrir, uma linha pela chave.
+ */
 export default function CardDetailModal({
   card, isPro, exchangeRate, onClose,
   onVarianteChange, onIdiomaChange, onQuantitySet, onCondicoesSaved, onAnunciar, onRemove, onGradSaved,
+  lista, onNavegar,
 }: Props) {
-  const [isMobile, setIsMobile] = useState(false)
   const [variante, setVariante] = useState<string>(card.variante || 'normal')
+  const [varPreco, setVarPreco] = useState<string>(card.variante || 'normal')
   const [condicoes, setCondicoes] = useState<Record<string, number> | null>(card.condicoes || null)
   const [quantity, setQuantity] = useState<number>(card.quantity || 1)
   const [anunciados, setAnunciados] = useState<number | null>(null)
@@ -128,6 +150,7 @@ export default function CardDetailModal({
   const [nota, setNota] = useState<number | null>(card.nota != null ? Number(card.nota) : 10)
   const [blackLabel, setBlackLabel] = useState<boolean>(!!card.black_label)
   const [subnotas, setSubnotas] = useState<Record<string, string>>(card.subnotas || {})
+  const [verSubnotas, setVerSubnotas] = useState<boolean>(!!card.subnotas && Object.values(card.subnotas || {}).some(Boolean))
   const [cert, setCert] = useState<string>(card.cert_graduacao || '')
   const [valorGrad, setValorGrad] = useState<string>(card.valor_graduada != null ? String(card.valor_graduada) : '')
   const [savingGrad, setSavingGrad] = useState(false)
@@ -135,13 +158,11 @@ export default function CardDetailModal({
   const [historicoVendas, setHistoricoVendas] = useState<HistoricoVenda[]>([])
   const [diasHistorico, setDiasHistorico] = useState(7)
   const [carregandoHistorico, setCarregandoHistorico] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [ficha, setFicha] = useState<any | null>(null)
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
+  const price = card.price || null
+  const cartaUrlId: string | null = price?.id || card.pokemon_api_id || null
 
   // Status no marketplace (copias ativas a venda desta carta)
   useEffect(() => {
@@ -164,15 +185,26 @@ export default function CardDetailModal({
     return () => { active = false }
   }, [card.id, card.card_id])
 
-  const price = card.price || null
+  // Ficha de jogo: a carta inteira, uma linha pela chave primaria.
+  useEffect(() => {
+    if (!cartaUrlId) { setFicha(null); return }
+    let active = true
+    fetch('/api/cards/lookup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [cartaUrlId], full: true }),
+    })
+      .then(r => r.ok ? r.json() : { cards: [] })
+      .then(d => { if (active) setFicha((d.cards || [])[0] || null) })
+      .catch(() => { if (active) setFicha(null) })
+    return () => { active = false }
+  }, [cartaUrlId])
+
   const variantes = buildVariantes(price, savedVar)
-  const pv = precoVariante(price, variante, exchangeRate)
+  const pv = precoVariante(price, varPreco, exchangeRate)
   // ultima_venda.valor vem em CENTAVOS do banco; fmtBRL espera reais.
   const ultimoVendidoFmt = card.ultima_venda?.valor != null
     ? fmtBRL(Number(card.ultima_venda.valor) / 100)
     : null
-  const valorTotal = pv.medio * quantity
-  const cartaUrlId = price?.id || card.pokemon_api_id || null
 
   // Aviso de preco (watchlist), mesmo fluxo da Pokedex e das Metas: preco
   // maximo opcional; em branco = avisa de qualquer anuncio. undefined =
@@ -193,14 +225,15 @@ export default function CardDetailModal({
     return () => { ativo = false }
   }, [avisoId])
 
+  const nomeLimpo = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || price?.name || 'esta carta'
+
   async function definirAviso() {
     if (!avisoId) return
     const { data } = await supabase.auth.getUser()
     const uid = data.user?.id
     if (!uid) return
-    const nome = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || 'esta carta'
     const v = await showPrompt({
-      message: `Até quanto você pagaria por ${nome}?`,
+      message: `Até quanto você pagaria por ${nomeLimpo}?`,
       placeholder: 'Ex.: 50',
       defaultValue: typeof aviso === 'number' ? String(aviso).replace('.', ',') : '',
       hint: 'Em reais. Você recebe aviso quando aparecer à venda até esse valor. Deixe em branco para receber de qualquer preço.',
@@ -230,9 +263,9 @@ export default function CardDetailModal({
     setAviso(null)
     setAvisoMsg('Aviso desligado.')
   }
+
   const gradMeta = GRADUADORA_MAP[graduadora] || GRADUADORAS[0]
   const gradTop = isNotaTop(nota, blackLabel)
-  const valorTotalExibido = graduada ? Number(valorGrad || 0) * quantity : valorTotal
 
   // Historico de "ultima venda" -- so busca se a carta tem pelo menos um
   // valor atual (sem isso nao ha o que mostrar) e refaz quando o filtro
@@ -249,17 +282,18 @@ export default function CardDetailModal({
     return () => { active = false }
   }, [cartaUrlId, ultimoVendidoFmt, diasHistorico])
 
-  function selecionarVariante(v: string) {
-    setVariante(v)
-  }
-
   function alterarQuantidade(delta: number) {
     const nova = quantity + delta
-    if (nova < 1) return // remocao total fica no botao Remover
+    if (nova < 1) return // remocao total fica no Remover da colecao
     setQuantity(nova)
   }
 
   const dirty = quantity !== savedQty || variante !== savedVar || idioma !== savedIdioma
+  const mudancas = [
+    quantity !== savedQty ? `a quantidade para ${quantity} ${quantity === 1 ? 'cópia' : 'cópias'}` : null,
+    variante !== savedVar ? `a variante para ${VAR_LABELS[variante] || cap(variante)}` : null,
+    idioma !== savedIdioma ? `o idioma para ${IDIOMA_LABELS[idioma] || idioma.toUpperCase()}` : null,
+  ].filter(Boolean) as string[]
 
   async function salvar() {
     if (!dirty || saving) return
@@ -278,6 +312,10 @@ export default function CardDetailModal({
     }
   }
 
+  function descartar() {
+    setQuantity(savedQty); setVariante(savedVar); setVarPreco(savedVar); setIdioma(savedIdioma)
+  }
+
   function pickGraduadora(slug: string) {
     setGraduadora(slug)
     if (!GRADUADORA_MAP[slug]?.temBlackLabel) setBlackLabel(false)
@@ -286,11 +324,13 @@ export default function CardDetailModal({
     if (v === 'BL') { setNota(10); setBlackLabel(true) }
     else { setNota(Number(v)); setBlackLabel(false) }
   }
-  async function salvarGrad() {
+  async function salvarGrad(forcarGraduada?: boolean) {
     if (savingGrad) return
+    const ehGraduada = forcarGraduada ?? graduada
     setSavingGrad(true)
     try {
-      const campos: any = graduada
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const campos: any = ehGraduada
         ? {
             graduada: true,
             graduadora,
@@ -298,7 +338,7 @@ export default function CardDetailModal({
             black_label: blackLabel,
             cert_graduacao: cert || null,
             subnotas: gradMeta.temSubnota ? subnotas : null,
-            valor_graduada: valorGrad ? Number(valorGrad) : null,
+            valor_graduada: valorGrad ? Number(String(valorGrad).replace(',', '.')) : null,
           }
         : { graduada: false }
       const { error } = await supabase.from('user_cards').update(campos).eq('id', card.id)
@@ -306,406 +346,505 @@ export default function CardDetailModal({
         onGradSaved(campos)
         setFlashGrad(true)
         window.setTimeout(() => setFlashGrad(false), 1800)
+      } else {
+        showAlert('Não conseguimos salvar a graduação. Tente de novo.', 'error')
       }
     } finally {
       setSavingGrad(false)
     }
   }
 
+  // Desligar a graduacao grava na hora (nao ha o que preencher); ligar so abre
+  // o formulario -- grava quando a pessoa confirma nota e valor.
+  function alternarGraduada() {
+    if (graduada) { setGraduada(false); if (card.graduada) salvarGrad(false) }
+    else setGraduada(true)
+  }
+
+  // Anterior/proxima na lista que a pessoa esta vendo (filtros aplicados).
+  const idx = lista ? lista.findIndex(c => c.id === card.id) : -1
+  const anterior = lista && idx > 0 ? lista[idx - 1] : null
+  const proxima = lista && idx >= 0 && idx < lista.length - 1 ? lista[idx + 1] : null
+  const irPara = (c: unknown) => {
+    if (!c || !onNavegar) return
+    if (dirty && !window.confirm('Você tem alterações não salvas nesta carta. Sair sem salvar?')) return
+    onNavegar(c)
+  }
+  useEffect(() => {
+    function tecla(e: KeyboardEvent) {
+      const alvo = e.target as HTMLElement | null
+      if (alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA')) return
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowRight' && proxima) irPara(proxima)
+      if (e.key === 'ArrowLeft' && anterior) irPara(anterior)
+    }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  })
+
   // Suprime o rotulo "Liga BR — XXX" quando o set nao tem nome real de mercado.
   const setNomeRaw = price?.set_name || card.set_name || ''
   const setNome = /^Liga BR\b/i.test(setNomeRaw) ? null : (setNomeRaw || null)
-  const subtitleParts = [
-    setNome,
-    (price?.number || card.number) ? `#${price?.number || card.number}` : null,
-    price?.rarity || card.rarity,
-  ].filter(Boolean) as string[]
+  const numeroRaw = price?.number || card.number
+  const total = price?.set_total || card.set_total
+  const numero = numeroRaw ? (total ? `${String(numeroRaw).padStart(3, '0')}/${total}` : String(numeroRaw)) : null
+  const raridade = raridadePt(price?.rarity || card.rarity)
+  const subtipos: string[] = (ficha?.subtypes || []).map(subtipoPt)
+  const tipos: string[] = ficha?.types || []
+  const hp = ficha?.hp
+  const img = price?.image_large || card.card_image || price?.image_small
+  const holo = !graduada && varPreco !== 'normal'
 
-  // ---- estilos ----
-  const overlay: React.CSSProperties = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-    zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 0 : 24,
-  }
-  const modal: React.CSSProperties = {
-    width: '100%', maxWidth: isMobile ? '100%' : 760, maxHeight: isMobile ? '100dvh' : '92vh',
-    height: isMobile ? '100dvh' : 'auto', background: '#0d0f14',
-    border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.10)', borderRadius: isMobile ? 0 : 22,
-    boxShadow: '0 40px 120px rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column',
-    overflow: 'hidden', fontFamily: "'DM Sans', system-ui, sans-serif", color: '#f0f0f0',
-  }
-  const card3: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 14, padding: '14px 16px',
-  }
-  const ttl: React.CSSProperties = {
-    fontSize: 10, letterSpacing: '0.08em', fontWeight: 700, color: 'rgba(255,255,255,0.4)',
-    textTransform: 'uppercase', marginBottom: 12,
-  }
-  const rowi: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13, gap: 12 }
-  const kStyle: React.CSSProperties = { fontSize: 13, color: 'rgba(255,255,255,0.55)', flexShrink: 0 }
-  const step: React.CSSProperties = {
-    width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#f0f0f0', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
-  }
-  const chipBase: React.CSSProperties = {
-    fontSize: 12, fontWeight: 600, padding: '5px 11px', borderRadius: 8, cursor: 'pointer',
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.65)', transition: 'all .12s',
-  }
-  const chipOn: React.CSSProperties = {
-    ...chipBase, background: 'rgba(245,158,11,0.16)', borderColor: 'rgba(245,158,11,0.4)', color: '#f59e0b',
-  }
-  const gLbl: React.CSSProperties = { fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 7, display: 'block' }
-  const gInput: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9, padding: '9px 12px', color: '#f0f0f0', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
-  const btn: React.CSSProperties = {
-    padding: 13, borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', border: '1px solid transparent', fontFamily: 'inherit',
-  }
+  const parse = <T,>(v: unknown, vazio: T): T => { if (v == null) return vazio; if (typeof v !== 'string') return v as T; try { return JSON.parse(v) as T } catch { return vazio } }
+  const attacks = parse<{ name: string; cost?: string[]; damage?: string; text?: string }[]>(ficha?.attacks, [])
+  const abilities = parse<{ name: string; text?: string }[]>(ficha?.abilities, [])
+  const weaknesses = parse<{ type: string; value: string }[]>(ficha?.weaknesses, [])
+  const resistances = parse<{ type: string; value: string }[]>(ficha?.resistances, [])
+  const recuo: string[] = ficha?.retreat_cost || []
+
+  const valorCopias = graduada ? Number(String(valorGrad || 0).replace(',', '.')) * quantity : pv.valor * quantity
+  const slug = ficha?.slug || price?.slug || cartaUrlId
+  const brl = (n: number) => fmtBRL(n)
+
+  const chip = (ativo: boolean): React.CSSProperties => ({
+    font: 'inherit', fontSize: 12.5, fontWeight: 700, minHeight: 36, padding: '0 11px', borderRadius: 999, cursor: 'pointer', flexShrink: 0,
+    border: `1px solid ${ativo ? 'var(--ac-1)' : 'var(--bx-border-2)'}`, background: ativo ? 'rgba(var(--ac-1-rgb), 0.12)' : 'transparent',
+    color: ativo ? 'var(--ac-1)' : 'var(--bx-text-2)', transition: 'background .15s ease, border-color .15s ease, color .15s ease',
+  })
+  const chipGrad = (ativo: boolean): React.CSSProperties => ({
+    ...chip(false), borderRadius: 10,
+    ...(ativo ? { background: gradMeta.cor, borderColor: gradMeta.cor, color: '#fff' } : {}),
+  })
 
   return (
-    <div style={overlay} onClick={onClose}>
-      <div style={modal} onClick={e => e.stopPropagation()}>
+    <div className="bx-cmd-fundo" onClick={onClose}>
+      <div className="bx-cmd" role="dialog" aria-modal="true" aria-label={nomeLimpo} onClick={e => e.stopPropagation()}>
 
-        {/* HEADER */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: isMobile ? '18px 18px 14px' : '22px 26px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-          <div>
-            <p style={{ fontSize: 10, letterSpacing: '0.12em', fontWeight: 700, color: 'rgba(255,255,255,0.38)', textTransform: 'uppercase', marginBottom: 6 }}>Detalhes da carta</p>
-            <p style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>{card.card_name}</p>
-            {subtitleParts.length > 0 && (
-              <p style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 5, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
-                {subtitleParts.map((s, i) => (
-                  <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    {i > 0 && <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />}
-                    {s}
-                  </span>
-                ))}
-              </p>
-            )}
+        {/* Navegacao */}
+        <div className="bx-cmd-nav">
+          <button type="button" onClick={() => irPara(anterior)} disabled={!anterior} aria-label={anterior ? `Carta anterior: ${anterior.card_name}` : 'Sem carta anterior'} className="bx-cmd-navbtn">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span className="bx-cmd-navnome">{anterior ? String(anterior.card_name || '').replace(/\s*\([^)]*\)\s*$/, '') : ''}</span>
+          </button>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--bx-text-3)', whiteSpace: 'nowrap' }}>
+            {lista && idx >= 0 ? <>{idx + 1} de {lista.length}<span className="bx-cmd-navnome"> na sua coleção</span></> : 'Na sua coleção'}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+            <button type="button" onClick={() => irPara(proxima)} disabled={!proxima} aria-label={proxima ? `Próxima carta: ${proxima.card_name}` : 'Sem próxima carta'} className="bx-cmd-navbtn">
+              <span className="bx-cmd-navnome">{proxima ? String(proxima.card_name || '').replace(/\s*\([^)]*\)\s*$/, '') : ''}</span>
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+            <button type="button" onClick={onClose} aria-label="Fechar" className="bx-cmd-fechar">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            </button>
           </div>
-          <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>×</button>
         </div>
 
-        {/* BODY */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '248px 1fr', gap: isMobile ? 18 : 26, padding: isMobile ? 18 : 26, overflowY: 'auto' }}>
-
-          {/* COLUNA ESQUERDA — imagem / slab */}
-          <div>
-            <div style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', inset: -12, borderRadius: 20, zIndex: 0, background: `radial-gradient(closest-side, ${graduada ? hexA(gradMeta.cor, gradTop ? 0.42 : 0.18) : 'rgba(245,158,11,0.30)'}, transparent 75%)`, filter: 'blur(14px)' }} />
-              <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', boxShadow: graduada ? `inset 0 0 0 2px ${gradMeta.cor}, inset 0 0 0 5px rgba(255,255,255,0.06), 0 18px 50px rgba(0,0,0,0.6)` : '0 18px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)' }}>
-                {graduada && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 11px', background: blackLabel ? '#0a0a0a' : gradMeta.cor }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: blackLabel ? '#e8c878' : '#fff', letterSpacing: '0.02em' }}>{gradMeta.curto}</span>
-                    <span style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                      <b style={{ fontSize: 18, fontWeight: 800, color: blackLabel ? '#e8c878' : '#fff', lineHeight: 1 }}>{notaCurta(nota, blackLabel)}</b>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: blackLabel ? 'rgba(232,200,120,0.85)' : 'rgba(255,255,255,0.85)', textTransform: 'uppercase' }}>{tierNome(graduadora, nota, blackLabel)}</span>
-                    </span>
-                  </div>
-                )}
-                {card.card_image ? (
-                  <img src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
-                ) : (
-                  <div style={{ width: '100%', aspectRatio: '63 / 88', background: 'linear-gradient(160deg,#1a1d29,#0f1119)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 12, padding: 18, textAlign: 'center' }}>{card.card_name}</div>
-                )}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.14)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>{VAR_LABELS[variante] || cap(variante)}</span>
-              {(price?.rarity || card.rarity) && (
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}>{price?.rarity || card.rarity}</span>
+        <div className="bx-cmd-corpo">
+          {/* Arte / slab */}
+          <div className="bx-cmd-arte">
+            <div className="bx-cmd-carta" style={graduada ? { background: blackLabel ? '#0a0a0a' : gradMeta.cor, padding: '0 5px 5px', boxShadow: `0 0 0 2px ${gradMeta.cor}${gradTop ? `, 0 0 26px -2px ${gradMeta.cor}` : ''}, 0 30px 60px -20px rgba(0,0,0,.9)` } : undefined}>
+              {graduada && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 6px' }}>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: blackLabel ? '#e8c878' : '#fff' }}>{gradMeta.curto}</span>
+                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                    <b style={{ fontSize: 20, fontWeight: 900, color: blackLabel ? '#e8c878' : '#fff', lineHeight: 1 }}>{notaCurta(nota, blackLabel)}</b>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: blackLabel ? 'rgba(232,200,120,.9)' : 'rgba(255,255,255,.9)', textTransform: 'uppercase' }}>{tierNome(graduadora, nota, blackLabel)}</span>
+                  </span>
+                </div>
               )}
+              {img ? (
+                // Imagem de varios hosts (catalogo e fotos antigas), fora do otimizador de proposito.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={img} src={img} alt={`${nomeLimpo}${numero ? ` ${numero}` : ''}`} loading="eager" fetchPriority="high" decoding="async"
+                  style={{ width: '100%', height: 'auto', display: 'block', borderRadius: graduada ? 8 : 12, aspectRatio: '63 / 88', objectFit: 'cover', background: 'var(--bx-surface-2)' }} />
+              ) : (
+                <div style={{ width: '100%', aspectRatio: '63 / 88', background: 'var(--bx-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bx-text-3)', fontSize: 12, padding: 18, textAlign: 'center', borderRadius: 12 }}>{nomeLimpo}</div>
+              )}
+              {holo && <span className="bx-cmd-holo" aria-hidden="true" />}
             </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <span className="bx-cmd-selo" style={{ background: 'rgba(var(--ac-1-rgb), .14)', color: 'var(--ac-1)', borderColor: 'rgba(var(--ac-1-rgb), .3)' }}>{VAR_LABELS[savedVar] || cap(savedVar)}</span>
+              <span className="bx-cmd-selo">{IDIOMA_LABELS[savedIdioma] || savedIdioma.toUpperCase()}</span>
+              <span className="bx-cmd-selo">{savedQty} {savedQty === 1 ? 'cópia' : 'cópias'}</span>
+            </div>
+            {ficha?.artist && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--bx-text-3)', textAlign: 'center' }}>Ilustração: {ficha.artist}</div>}
           </div>
 
-          {/* COLUNA DIREITA */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* PRECO DE MERCADO (crua) ou SEU VALOR (graduada) */}
-            {graduada ? (
-              <div style={{ background: hexA(gradMeta.cor, 0.07), border: `1px solid ${hexA(gradMeta.cor, 0.25)}`, borderRadius: 14, padding: '14px 16px' }}>
-                <p style={{ fontSize: 9, letterSpacing: '0.08em', fontWeight: 700, color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>SEU VALOR · {gradMeta.curto} {notaCurta(nota, blackLabel)} {tierNome(graduadora, nota, blackLabel)}</p>
-                {Number(valorGrad) > 0 ? (
-                  <p style={{ fontSize: 26, fontWeight: 800, color: gradMeta.cor, letterSpacing: '-0.02em', lineHeight: 1 }}>{fmtBRL(Number(valorGrad))}</p>
-                ) : (
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Informe o valor da carta graduada abaixo.</p>
-                )}
-                {cert ? <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 8 }}>Cert. {cert}</p> : null}
+          <div className="bx-cmd-info">
+            {/* Quem e */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                <h2 className="bx-cmd-nome">{nomeLimpo}</h2>
+                {hp && <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--bx-text-3)' }}>PS <span style={{ fontSize: 21, color: 'var(--bx-red)' }}>{hp}</span></span>}
               </div>
-            ) : (
-            <div style={{ background: pv.fonte === 'USD' ? 'rgba(96,165,250,0.07)' : 'rgba(245,158,11,0.07)', border: `1px solid ${pv.fonte === 'USD' ? 'rgba(96,165,250,0.25)' : 'rgba(245,158,11,0.25)'}`, borderRadius: 14, padding: '14px 16px' }}>
-              <p style={{ fontSize: 9, letterSpacing: '0.08em', fontWeight: 700, color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>PREÇO DE MERCADO · {(VAR_LABELS[variante] || cap(variante)).toUpperCase()}</p>
-              {pv.medio > 0 ? (
-                <>
-                  <p style={{ fontSize: 26, fontWeight: 800, color: pv.fonte === 'USD' ? '#60a5fa' : '#f59e0b', letterSpacing: '-0.02em', lineHeight: 1 }}>{fmtBRL(pv.medio)}</p>
-                  {pv.min > 0 && pv.max > 0 && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>Faixa: {fmtBRL(pv.min)} — {fmtBRL(pv.max)}</p>
-                  )}
-                  <p style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Fonte: <b style={{ color: pv.fonte === 'USD' ? '#60a5fa' : '#f59e0b', fontWeight: 700 }}>{pv.label}</b></p>
-                </>
-              ) : (
-                <div style={{ marginTop: 2 }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>Ainda sem preço de mercado para esta variante.</p>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.42)', marginTop: 5, lineHeight: 1.45 }}>Se não aparecer em até 24h, entre em contato que iremos averiguar.</p>
+              <div style={{ fontSize: 13, color: 'var(--bx-text-2)', marginTop: 3 }}>{[setNome, numero, raridade].filter(Boolean).join(' · ')}</div>
+              {(raridade || subtipos.length > 0 || tipos.length > 0) && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                  {raridade && <span className="bx-cmd-selo" style={{ borderColor: 'rgba(var(--ac-1-rgb), .45)', color: 'var(--ac-1)' }}>{raridade}</span>}
+                  {subtipos.map(s => <span key={s} className="bx-cmd-selo">{s}</span>)}
+                  {tipos.map(t => <span key={t} className="bx-cmd-selo" style={{ background: TYPE_COLOR[t]?.bg, color: TYPE_COLOR[t]?.text, borderColor: 'transparent' }}>{tipoTcgPt(t)}</span>)}
                 </div>
               )}
             </div>
-            )}
 
-            {/* Último vendido — preco REALIZADO (fonte externa), nao pedido (Liga).
-                Roxo cravado de proposito, mesmo padrao do CardItem — nao
-                var(--ac-2), que aqui seria vermelho (cor de erro/queda). */}
-            {ultimoVendidoFmt && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'rgba(168,85,247,0.07)', border: '1px solid rgba(168,85,247,0.22)', borderRadius: 14, padding: '11px 16px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: '#a855f7', display: 'flex', flexShrink: 0 }}><IconHistory size={14} /></span>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Último vendido</span>
-                </span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: '#a855f7', letterSpacing: '-0.01em' }}>{ultimoVendidoFmt}</span>
+            {/* Quanto valem as suas copias */}
+            {graduada ? (
+              <div className="bx-cmd-preco" style={{ background: hexA(gradMeta.cor, 0.08), borderColor: hexA(gradMeta.cor, 0.3) }}>
+                <div className="bx-cmd-k" style={{ color: gradMeta.cor }}>Seu valor · {gradMeta.curto} {notaCurta(nota, blackLabel)} {tierNome(graduadora, nota, blackLabel)}</div>
+                {Number(String(valorGrad).replace(',', '.')) > 0 ? (
+                  <div className="bx-cmd-grande" style={{ color: gradMeta.cor }}>{brl(valorCopias)}</div>
+                ) : (
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--bx-text-2)', marginTop: 4 }}>Informe o seu valor na graduação, logo abaixo.</div>
+                )}
+                <div style={{ fontSize: 12.5, color: 'var(--bx-text-2)', marginTop: 4, lineHeight: 1.45 }}>
+                  O valor da graduada é o que você informa.{pv.valor > 0 ? ` Como referência, a mesma carta sem graduação sai por ${brl(pv.valor)} no Mercado Brasileiro.` : ''}
+                </div>
+                {cert && <div style={{ fontSize: 12, color: 'var(--bx-text-3)', marginTop: 8 }}>Certificado {cert}</div>}
+              </div>
+            ) : (
+              <div className="bx-cmd-preco">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="bx-cmd-k">{quantity === 1 ? 'Sua cópia vale' : `Suas ${quantity} cópias valem`}</div>
+                    {pv.valor > 0 ? (
+                      <>
+                        <div className="bx-cmd-grande" style={pv.fonte === 'USD' ? { color: 'var(--bx-blue, #60a5fa)' } : undefined}>{brl(valorCopias)}</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--bx-text-2)', marginTop: 2 }}>
+                          {quantity > 1 ? `${brl(pv.valor)} cada · ` : ''}{pv.fonte === 'USD' ? 'TCGPlayer, convertido pela cotação do dia' : `Mercado Brasileiro, ${CAMPO_VALOR === 'min' ? 'menor preço' : CAMPO_VALOR === 'max' ? 'maior preço' : 'preço médio'} da ${VAR_LABELS[varPreco] || cap(varPreco)}`}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--bx-text-2)', marginTop: 4 }}>Ainda sem preço para esta variante</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--bx-text-3)', marginTop: 4, lineHeight: 1.45 }}>Se não aparecer em até 24h, fale com a gente que averiguamos.</div>
+                      </>
+                    )}
+                  </div>
+                  {variantes.length > 1 && (
+                    <div role="group" aria-label="Ver o preço da variante" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {variantes.map(v => <button key={v.key} type="button" onClick={() => setVarPreco(v.key)} aria-pressed={varPreco === v.key} style={chip(varPreco === v.key)}>{v.label}</button>)}
+                    </div>
+                  )}
+                </div>
+                {pv.fonte === 'BRL' && (
+                  <div className="bx-cmd-faixa">
+                    {([['Médio', pv.medio > 0 ? brl(pv.medio) : null], ['Máximo', pv.max > 0 ? brl(pv.max) : null], ['Última venda', ultimoVendidoFmt]] as [string, string | null][]).map(([r, v], i) => (
+                      <div key={r} className="bx-cmd-mini">
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--bx-text-3)' }}>{r}</div>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: !v ? 'var(--bx-text-2)' : i === 2 ? 'var(--bx-green)' : 'var(--bx-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v || 'sem dado'}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Historico de vendas -- so aparece quando ha "ultima venda" pra
-                comparar contra. Mockup aprovado 30/07/2026: filtros de
-                periodo, mini-grafico, lista das ultimas observacoes. */}
-            {ultimoVendidoFmt && (
-              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 14px' }}>
-                <p style={{ fontSize: 10, letterSpacing: '0.08em', fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 10 }}>Histórico de vendas</p>
+            {/* Na sua colecao */}
+            <div className="bx-cmd-bloco">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div className="bx-cmd-k">Na sua coleção</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button type="button" onClick={() => alterarQuantidade(-1)} disabled={quantity <= 1} aria-label="Tirar uma cópia" className="bx-cmd-step">−</button>
+                  <span style={{ minWidth: 30, textAlign: 'center', fontSize: 17, fontWeight: 900 }} aria-live="polite">{quantity}</span>
+                  <button type="button" onClick={() => alterarQuantidade(1)} aria-label="Somar uma cópia" className="bx-cmd-step">+</button>
+                </div>
+              </div>
+              <div className="bx-cmd-campos">
+                <span className="bx-cmd-rot">Variante</span>
+                <div className="bx-cmd-chips">
+                  {variantes.map(v => <button key={v.key} type="button" onClick={() => { setVariante(v.key); setVarPreco(v.key) }} aria-pressed={variante === v.key} style={chip(variante === v.key)}>{v.label}</button>)}
+                </div>
+                <span className="bx-cmd-rot">Idioma</span>
+                <div className="bx-cmd-chips bx-cmd-rola">
+                  {IDIOMAS_LISTA.map(i => <button key={i} type="button" onClick={() => setIdioma(i)} aria-pressed={idioma === i} style={chip(idioma === i)}>{IDIOMA_LABELS[i]}</button>)}
+                </div>
+                {!graduada && (
+                  <>
+                    <span className="bx-cmd-rot">Condição</span>
+                    <div>
+                      <CondicaoEditor
+                        userCardId={card.id}
+                        quantity={savedQty}
+                        condicoes={condicoes}
+                        isPro={isPro}
+                        onSaved={(novas: Record<string, number> | null) => { setCondicoes(novas); onCondicoesSaved(novas) }}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
 
-                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-                  {FILTROS_DIAS.map(d => (
-                    <button key={d} onClick={() => setDiasHistorico(d)}
-                      style={{
-                        flex: 1, padding: '6px 0', borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                        border: '1px solid ' + (diasHistorico === d ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.1)'),
-                        background: diasHistorico === d ? 'rgba(168,85,247,0.16)' : 'rgba(255,255,255,0.04)',
-                        color: diasHistorico === d ? '#a855f7' : 'rgba(255,255,255,0.5)',
-                      }}>
-                      {d}d
-                    </button>
+            {/* Vender + Aviso de preco */}
+            <div className="bx-cmd-dupla">
+              <div className="bx-cmd-bloco" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="bx-cmd-k" style={{ color: 'var(--bx-text-3)' }}>Vender</div>
+                <div style={{ fontSize: 13, color: 'var(--bx-text-2)', lineHeight: 1.45, flex: 1 }}>
+                  {anunciados === null ? 'Carregando…'
+                    : anunciados > 0 ? <><b style={{ color: 'var(--bx-green)' }}>{anunciados} {anunciados === 1 ? 'cópia à venda' : 'cópias à venda'}</b> no Mercado. <a href="/marketplace" style={{ color: 'var(--bx-text-2)' }}>Ver anúncios</a></>
+                    : 'Não anunciada no Mercado. O anúncio já abre com esta carta.'}
+                </div>
+                <button type="button" onClick={onAnunciar} className="bx-cmd-anunciar bx-cmd-anunciar-desk">{anunciados && anunciados > 0 ? 'Anunciar mais uma' : 'Anunciar esta carta'}</button>
+              </div>
+              {avisoId && (
+                <div className="bx-cmd-bloco" style={{ display: 'flex', flexDirection: 'column', gap: 10, borderColor: aviso !== null && aviso !== undefined ? 'rgba(var(--ac-1-rgb), .35)' : undefined }}>
+                  <div className="bx-cmd-k" style={{ color: 'var(--bx-text-3)' }}>Aviso de preço</div>
+                  <div style={{ fontSize: 13, color: aviso !== null && aviso !== undefined ? 'var(--bx-text)' : 'var(--bx-text-2)', lineHeight: 1.45, flex: 1 }}>
+                    {aviso === undefined ? 'Carregando…'
+                      : aviso === null ? (avisoMsg || 'Receba um aviso quando esta carta aparecer à venda.')
+                      : aviso === 'livre' ? 'Ligado: você é avisado de qualquer anúncio.' : `Ligado: você é avisado de anúncios até ${brl(aviso)}.`}
+                  </div>
+                  {aviso !== undefined && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button type="button" onClick={definirAviso} aria-pressed={aviso !== null} className={`bx-cmd-sino${aviso !== null ? ' bx-cmd-sino-on' : ''}`}>
+                        <IconBell size={15} color="currentColor" /> {aviso !== null ? 'Mudar aviso' : 'Avisar preço'}
+                      </button>
+                      {aviso !== null && <button type="button" onClick={desligarAviso} className="bx-cmd-ghost">Desligar</button>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Graduacao */}
+            <div className="bx-cmd-bloco">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>Carta graduada</div>
+                  {!graduada && <div style={{ fontSize: 12.5, color: 'var(--bx-text-3)' }}>PSA, CGC, BGS e outras. Ligue para informar nota, certificado e seu valor.</div>}
+                </div>
+                <button type="button" role="switch" aria-checked={graduada} aria-label="Esta carta é graduada" onClick={alternarGraduada}
+                  className="bx-cmd-switch" style={{ background: graduada ? gradMeta.cor : 'var(--bx-surface-3)' }}>
+                  <span style={{ left: graduada ? 23 : 3 }} />
+                </button>
+              </div>
+              {graduada && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
+                  <div>
+                    <div className="bx-cmd-rot" style={{ marginBottom: 6 }}>Graduadora</div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {GRADUADORAS.map(g => <button key={g.slug} type="button" onClick={() => pickGraduadora(g.slug)} aria-pressed={graduadora === g.slug} style={{ ...chip(false), borderRadius: 10, ...(graduadora === g.slug ? { background: g.cor, borderColor: g.cor, color: '#fff' } : {}) }}>{g.curto}</button>)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="bx-cmd-rot" style={{ marginBottom: 6 }}>Nota</div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {['7', '8', '9', '9.5', '10'].map(v => {
+                        const on = !blackLabel && Number(nota) === Number(v)
+                        return <button key={v} type="button" onClick={() => pickNota(v)} aria-pressed={on} style={{ ...chipGrad(on), minWidth: 48, minHeight: 40 }}>{v.replace('.', ',')}</button>
+                      })}
+                      {gradMeta.temBlackLabel && (
+                        <button type="button" onClick={() => pickNota('BL')} aria-pressed={blackLabel} style={{ ...chip(false), borderRadius: 10, minHeight: 40, ...(blackLabel ? { background: '#0a0a0a', borderColor: '#c8a04b', color: '#e8c878' } : {}) }}>Black Label</button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bx-cmd-dupla">
+                    <label className="bx-cmd-campo">
+                      <span className="bx-cmd-rot">Certificado</span>
+                      <input value={cert} onChange={e => setCert(e.target.value)} placeholder="Número" />
+                    </label>
+                    <label className="bx-cmd-campo">
+                      <span className="bx-cmd-rot">Seu valor (R$)</span>
+                      <input value={valorGrad} onChange={e => setValorGrad(e.target.value)} placeholder="Ex.: 950" inputMode="decimal" />
+                    </label>
+                  </div>
+                  {gradMeta.temSubnota && (verSubnotas ? (
+                    <div>
+                      <div className="bx-cmd-rot" style={{ marginBottom: 6 }}>Subnotas</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 }}>
+                        {([['centro', 'Centro'], ['cantos', 'Cantos'], ['bordas', 'Bordas'], ['superficie', 'Superfície']] as [string, string][]).map(([k, lbl]) => (
+                          <label key={k} className="bx-cmd-campo" style={{ textAlign: 'center' }}>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--bx-text-3)' }}>{lbl}</span>
+                            <input value={subnotas[k] || ''} onChange={e => setSubnotas(prev => ({ ...prev, [k]: e.target.value }))} placeholder="—" inputMode="decimal" style={{ textAlign: 'center', padding: '0 4px' }} />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setVerSubnotas(true)} className="bx-cmd-ghost" style={{ borderStyle: 'dashed' }}>Adicionar subnotas (centro, cantos, bordas, superfície)</button>
+                  ))}
+                  <button type="button" onClick={() => salvarGrad(true)} disabled={savingGrad}
+                    className="bx-cmd-salvargrad" style={{ borderColor: flashGrad ? 'rgba(34,197,94,.4)' : hexA(gradMeta.cor, 0.45), background: flashGrad ? 'rgba(34,197,94,.14)' : hexA(gradMeta.cor, 0.14), color: flashGrad ? 'var(--bx-green)' : 'var(--bx-text)' }}>
+                    {savingGrad ? 'Salvando…' : flashGrad ? <><IconCheck size={14} color="var(--bx-green)" /> Graduação salva</> : 'Salvar graduação'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Dados de jogo (so nas cartas que tem) */}
+            {abilities.map((a, i) => (
+              <div key={`h${i}`} className="bx-cmd-linha">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="bx-cmd-k">Habilidade</span>
+                  <span style={{ fontSize: 14.5, fontWeight: 800 }}>{a.name}</span>
+                </div>
+                {a.text && <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--bx-text-2)', lineHeight: 1.55 }}>{a.text}</p>}
+              </div>
+            ))}
+            {attacks.length > 0 && (
+              <div className="bx-cmd-linha">
+                <div className="bx-cmd-k" style={{ marginBottom: 8 }}>{attacks.length === 1 ? 'Ataque' : 'Ataques'}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {attacks.map((atk, i) => (
+                    <div key={i}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ display: 'flex', gap: 3 }}>{(atk.cost || []).map((e, j) => <EnergiaDot key={j} tipo={e} />)}</span>
+                        <span style={{ fontSize: 14.5, fontWeight: 800, flex: 1 }}>{atk.name}</span>
+                        {atk.damage && <span style={{ fontSize: 18, fontWeight: 900 }}>{atk.damage}</span>}
+                      </div>
+                      {atk.text && <p style={{ margin: '3px 0 0', fontSize: 13, color: 'var(--bx-text-2)', lineHeight: 1.55 }}>{atk.text}</p>}
+                    </div>
                   ))}
                 </div>
+              </div>
+            )}
+            {(weaknesses.length > 0 || resistances.length > 0 || recuo.length > 0) && (
+              <div className="bx-cmd-linha" style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13 }}>
+                {weaknesses.length > 0 && <div><div className="bx-cmd-rot" style={{ marginBottom: 4 }}>Fraqueza</div>{weaknesses.map((w, i) => <span key={i} style={{ fontWeight: 800, color: 'var(--bx-red)', marginRight: 8 }}>{tipoTcgPt(w.type)} {w.value}</span>)}</div>}
+                {resistances.length > 0 && <div><div className="bx-cmd-rot" style={{ marginBottom: 4 }}>Resistência</div>{resistances.map((r, i) => <span key={i} style={{ fontWeight: 800, color: 'var(--bx-green)', marginRight: 8 }}>{tipoTcgPt(r.type)} {r.value}</span>)}</div>}
+                {recuo.length > 0 && <div><div className="bx-cmd-rot" style={{ marginBottom: 4 }}>Recuo</div><span style={{ fontWeight: 800 }}>{recuo.length} {recuo.length === 1 ? 'energia' : 'energias'}</span></div>}
+              </div>
+            )}
 
+            {/* Historico de vendas */}
+            {ultimoVendidoFmt && (
+              <div className="bx-cmd-linha">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span className="bx-cmd-k" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconHistory size={13} /> Histórico de vendas</span>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {FILTROS_DIAS.map(d => <button key={d} type="button" onClick={() => setDiasHistorico(d)} aria-pressed={diasHistorico === d} style={{ ...chip(diasHistorico === d), minHeight: 32, fontSize: 11.5 }}>{d}d</button>)}
+                  </div>
+                </div>
                 {carregandoHistorico ? (
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', padding: '8px 0' }}>Carregando…</p>
+                  <p style={{ fontSize: 12, color: 'var(--bx-text-faint)', margin: 0 }}>Carregando…</p>
                 ) : historicoVendas.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     {historicoVendas.map((h, i) => {
                       const dataRef = h.data_venda || h.vendido_em || h.capturado_em
-                      const dias = Math.floor((Date.now() - new Date(dataRef).getTime()) / 86400000)
+                      const dias = Math.floor((new Date().getTime() - new Date(dataRef).getTime()) / 86400000)
                       const quando = dias <= 0 ? 'Hoje' : dias === 1 ? 'Ontem' : `${dias} dias atrás`
                       const meta = [h.variante, h.condicao, h.idioma].filter(Boolean).join(' · ')
                       return (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.03)' }}>
-                          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', flexShrink: 0 }}>{quando}</span>
-                          {meta && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</span>}
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#f0f0f0', flexShrink: 0 }}>{fmtBRL(h.valor_cents / 100)}</span>
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, background: 'var(--bx-surface-2)', fontSize: 12 }}>
+                          <span style={{ color: 'var(--bx-text-2)' }}>{quando}</span>
+                          {meta && <span style={{ color: 'var(--bx-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</span>}
+                          <b>{fmtBRL(h.valor_cents / 100)}</b>
                         </div>
                       )
                     })}
                   </div>
                 ) : (
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', padding: '8px 0', lineHeight: 1.5 }}>
-                    Coletando desde hoje — histórico completo aparece com o tempo.
-                  </p>
+                  <p style={{ fontSize: 12, color: 'var(--bx-text-faint)', margin: 0 }}>Coletando desde hoje. O histórico completo aparece com o tempo.</p>
                 )}
               </div>
             )}
 
-            {/* NA SUA COLECAO — ordem: Quantidade, Condicoes, Variante, Valor */}
-            <div style={card3}>
-              <p style={ttl}>Na sua coleção</p>
-
-              {/* Quantidade */}
-              <div style={rowi}>
-                <span style={kStyle}>Quantidade</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <button onClick={() => alterarQuantidade(-1)} style={step}>−</button>
-                  <span style={{ fontSize: 15, fontWeight: 800, minWidth: 20, textAlign: 'center' }}>{quantity}</span>
-                  <button onClick={() => alterarQuantidade(1)} style={step}>+</button>
-                </span>
+            {/* Links + remover */}
+            <div className="bx-cmd-linha bx-cmd-links">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: '1 1 auto' }}>
+                {slug && <Link href={`/carta/${slug}`} prefetch={false} className="bx-cmd-link">Ver página da carta</Link>}
+                {slug && <Link href={`/carta/${slug}#ofertas`} prefetch={false} className="bx-cmd-link bx-ctx-comprador" style={{ color: 'var(--ac-1)' }}>Ver quem vende</Link>}
               </div>
-
-              {/* Condicoes (editor) — escondido quando graduada (a nota substitui) */}
-              {!graduada && (
-              <div style={{ marginBottom: 13 }}>
-                <span style={{ ...kStyle, display: 'block', marginBottom: 8 }}>Condições</span>
-                <CondicaoEditor
-                  userCardId={card.id}
-                  quantity={quantity}
-                  condicoes={condicoes}
-                  isPro={isPro}
-                  onSaved={(novas: Record<string, number> | null) => { setCondicoes(novas); onCondicoesSaved(novas) }}
-                />
-              </div>
-              )}
-
-              {/* Variante (chips — salva ao trocar) */}
-              <div style={{ ...rowi, alignItems: 'flex-start' }}>
-                <span style={{ ...kStyle, marginTop: 5 }}>Variante</span>
-                <span style={{ display: 'flex', gap: 7, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {variantes.map(v => (
-                    <button key={v.key} onClick={() => selecionarVariante(v.key)} style={variante === v.key ? chipOn : chipBase}>{v.label}</button>
-                  ))}
-                </span>
-              </div>
-
-              {/* Idioma (chips — salva ao clicar em Salvar) */}
-              <div style={{ ...rowi, alignItems: 'flex-start' }}>
-                <span style={{ ...kStyle, marginTop: 5 }}>Idioma</span>
-                <span style={{ display: 'flex', gap: 7, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {IDIOMAS_LISTA.map(i => (
-                    <button key={i} onClick={() => setIdioma(i)} style={idioma === i ? chipOn : chipBase}>{IDIOMA_LABELS[i]}</button>
-                  ))}
-                </span>
-              </div>
-
-              {/* Valor total */}
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', paddingTop: 13, marginTop: 3, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Valor total ({quantity} cópia{quantity !== 1 ? 's' : ''})</span>
-                <span style={{ fontSize: 19, fontWeight: 800, color: '#f0f0f0', letterSpacing: '-0.02em' }}>{valorTotalExibido > 0 ? fmtBRL(valorTotalExibido) : '—'}</span>
-              </div>
-
-              {/* Salvar alteracoes (quantidade + variante) */}
-              <button
-                onClick={salvar}
-                disabled={!dirty || saving}
-                style={{
-                  width: '100%', marginTop: 14, padding: '11px', borderRadius: 10, fontFamily: 'inherit',
-                  fontSize: 13, fontWeight: 700, cursor: dirty && !saving ? 'pointer' : 'default',
-                  border: '1px solid ' + (flash ? 'rgba(34,197,94,0.4)' : dirty ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'),
-                  background: flash ? 'rgba(34,197,94,0.15)' : dirty ? 'rgba(245,158,11,0.16)' : 'rgba(255,255,255,0.03)',
-                  color: flash ? '#22c55e' : dirty ? '#f59e0b' : 'rgba(255,255,255,0.35)',
-                  transition: 'all .15s',
-                }}
-              >
-                {saving ? 'Salvando…' : flash ? '✓ Alterações salvas' : dirty ? 'Salvar alterações' : 'Tudo salvo'}
-              </button>
+              <button type="button" onClick={onRemove} className="bx-cmd-remover">Remover da coleção</button>
             </div>
-
-            {/* GRADUACAO */}
-            <div style={card3}>
-              <p style={ttl}>Graduação</p>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: graduada ? 14 : 0 }}>
-                <button onClick={() => setGraduada(g => !g)} style={{ width: 42, height: 24, borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative', background: graduada ? gradMeta.cor : 'rgba(255,255,255,0.12)', transition: 'all .15s', flexShrink: 0 }}>
-                  <span style={{ position: 'absolute', top: 2, left: graduada ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'all .15s' }} />
-                </button>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>Esta carta é graduada</span>
-              </div>
-
-              {graduada && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div>
-                    <span style={gLbl}>Graduadora</span>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {GRADUADORAS.map(g => (
-                        <button key={g.slug} onClick={() => pickGraduadora(g.slug)} style={{ ...chipBase, ...(graduadora === g.slug ? { background: g.cor, borderColor: g.cor, color: '#fff' } : {}) }}>{g.curto}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={gLbl}>Nota</span>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {['7', '8', '9', '9.5', '10'].map(v => {
-                        const on = !blackLabel && Number(nota) === Number(v)
-                        return <button key={v} onClick={() => pickNota(v)} style={{ ...chipBase, minWidth: 38, textAlign: 'center', ...(on ? { background: gradMeta.cor, borderColor: gradMeta.cor, color: '#fff' } : {}) }}>{v}</button>
-                      })}
-                      {gradMeta.temBlackLabel && (
-                        <button onClick={() => pickNota('BL')} style={{ ...chipBase, ...(blackLabel ? { background: '#0a0a0a', borderColor: '#c8a04b', color: '#e8c878' } : {}) }}>Black Label</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {gradMeta.temSubnota && (
-                    <div>
-                      <span style={gLbl}>Subnotas (opcional)</span>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-                        {([['centro', 'Centro'], ['cantos', 'Cantos'], ['bordas', 'Bordas'], ['superficie', 'Superf.']] as [string, string][]).map(([k, lbl]) => (
-                          <div key={k} style={{ textAlign: 'center' }}>
-                            <span style={{ fontSize: 8, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>{lbl}</span>
-                            <input value={subnotas[k] || ''} onChange={e => setSubnotas(prev => ({ ...prev, [k]: e.target.value }))} placeholder="—" style={{ width: '100%', textAlign: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 4px', color: '#f0f0f0', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <span style={gLbl}>Certificado (opcional)</span>
-                    <input value={cert} onChange={e => setCert(e.target.value)} placeholder="Número / código de verificação" style={gInput} />
-                  </div>
-
-                  <div>
-                    <span style={gLbl}>Seu valor (R$)</span>
-                    <input type="number" min="0" step="0.01" value={valorGrad} onChange={e => setValorGrad(e.target.value)} placeholder="Ex: 950.00" style={gInput} />
-                  </div>
-                </div>
-              )}
-
-              <button onClick={salvarGrad} disabled={savingGrad}
-                style={{
-                  width: '100%', marginTop: 14, padding: '11px', borderRadius: 10, fontFamily: 'inherit',
-                  fontSize: 13, fontWeight: 700, cursor: savingGrad ? 'default' : 'pointer',
-                  border: '1px solid ' + (flashGrad ? 'rgba(34,197,94,0.4)' : graduada ? hexA(gradMeta.cor, 0.4) : 'rgba(255,255,255,0.12)'),
-                  background: flashGrad ? 'rgba(34,197,94,0.15)' : graduada ? hexA(gradMeta.cor, 0.16) : 'rgba(255,255,255,0.05)',
-                  color: flashGrad ? '#22c55e' : graduada ? gradMeta.cor : 'rgba(255,255,255,0.75)',
-                  transition: 'all .15s',
-                }}>
-                {savingGrad ? 'Salvando…' : flashGrad ? '✓ Graduação salva' : graduada ? 'Salvar graduação' : 'Salvar (sem graduação)'}
-              </button>
-            </div>
-
-            {/* STATUS */}
-            <div style={card3}>
-              <p style={ttl}>Status</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
-                {anunciados === null ? (
-                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>Carregando…</span>
-                ) : anunciados > 0 ? (
-                  <>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 999, background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.28)' }}>● {anunciados} cópia{anunciados !== 1 ? 's' : ''} à venda</span>
-                    <a href="/marketplace" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'underline', fontSize: 12 }}>ver no marketplace</a>
-                  </>
-                ) : (
-                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>Não anunciada no marketplace.</span>
-                )}
-              </div>
-              {avisoId && aviso !== undefined && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--bx-border)' }}>
-                  <span style={{ flex: '1 1 160px', fontSize: 13, color: aviso !== null ? 'var(--bx-text)' : 'var(--bx-text-2)', lineHeight: 1.4 }}>
-                    {aviso === null
-                      ? (avisoMsg || 'Receba um aviso quando esta carta aparecer à venda.')
-                      : aviso === 'livre' ? 'Aviso ligado: você é avisado de qualquer anúncio.' : `Aviso ligado: anúncios até ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(aviso)}.`}
-                  </span>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button type="button" onClick={definirAviso} aria-pressed={aviso !== null}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: 'inherit', fontSize: 13, fontWeight: 700, minHeight: 44, padding: '0 14px', borderRadius: 10, cursor: 'pointer', transition: 'background .15s ease, border-color .15s ease',
-                        border: `1px solid ${aviso !== null ? 'var(--ac-1)' : 'var(--bx-border-2)'}`, background: aviso !== null ? 'rgba(var(--ac-1-rgb), 0.12)' : 'var(--bx-surface-2)', color: aviso !== null ? 'var(--ac-1)' : 'var(--bx-text)' }}>
-                      <IconBell size={15} color="currentColor" /> {aviso !== null ? 'Mudar aviso' : 'Avisar preço'}
-                    </button>
-                    {aviso !== null && (
-                      <button type="button" onClick={desligarAviso}
-                        style={{ font: 'inherit', fontSize: 13, fontWeight: 700, minHeight: 44, padding: '0 12px', borderRadius: 10, cursor: 'pointer', border: '1px solid var(--bx-border)', background: 'transparent', color: 'var(--bx-text-2)' }}>
-                        Desligar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
           </div>
         </div>
 
-        {/* ACOES */}
-        <div style={{ display: 'flex', gap: 10, padding: isMobile ? '0 18px 18px' : '0 26px 26px', flexShrink: 0 }}>
-          <button onClick={onAnunciar} style={{ ...btn, flex: 1, background: 'linear-gradient(135deg,#f59e0b,#ef4444)', color: '#fff' }}>Anunciar Carta</button>
-          {cartaUrlId && (
-            <a href={`/carta/${cartaUrlId}`} style={{ ...btn, background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', padding: '13px 16px' }}>Ver página</a>
-          )}
-          <button onClick={onRemove} style={{ ...btn, background: 'rgba(239,68,68,0.10)', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171', padding: '13px 16px' }}>Remover</button>
-        </div>
-
+        {/* Rodape: salvar quando mudou; no celular, Anunciar fixo */}
+        {dirty ? (
+          <div className="bx-cmd-barra" role="status">
+            <span style={{ fontSize: 13, color: 'var(--bx-text)', flex: '1 1 180px', lineHeight: 1.4 }}>Você mudou {mudancas.join(', ')}.</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={descartar} className="bx-cmd-ghost">Descartar</button>
+              <button type="button" onClick={salvar} disabled={saving} className="bx-cmd-salvar">{saving ? 'Salvando…' : 'Salvar alterações'}</button>
+            </div>
+          </div>
+        ) : flash ? (
+          <div className="bx-cmd-barra" role="status" style={{ borderTopColor: 'rgba(34,197,94,.35)', background: 'rgba(34,197,94,.08)' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--bx-green)' }}><IconCheck size={15} color="var(--bx-green)" /> Alterações salvas</span>
+          </div>
+        ) : (
+          <div className="bx-cmd-rodape-cel">
+            <button type="button" onClick={onAnunciar} className="bx-cmd-anunciar">{anunciados && anunciados > 0 ? 'Anunciar mais uma' : 'Anunciar esta carta'}</button>
+          </div>
+        )}
       </div>
+
+      <style>{`
+        .bx-cmd-fundo { position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,.82); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; padding: 24px; animation: bxCmdEntra .2s ease both; font-family: 'DM Sans', system-ui, sans-serif; }
+        .bx-cmd { width: 100%; max-width: 1000px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; background: var(--bx-bg-elev); border: 1px solid var(--bx-border-2); border-radius: 22px; box-shadow: 0 32px 100px rgba(0,0,0,.7); color: var(--bx-text); }
+        .bx-cmd-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--bx-border); flex-shrink: 0; }
+        .bx-cmd-navbtn { display: flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; justify-content: center; padding: 0 10px; background: none; border: none; border-radius: 10px; color: var(--bx-text-2); font: inherit; font-size: 13px; cursor: pointer; max-width: 240px; transition: background .15s ease; }
+        .bx-cmd-navbtn:hover:not(:disabled) { background: var(--bx-surface-2); }
+        .bx-cmd-navbtn:disabled { color: var(--bx-text-faint); cursor: default; }
+        .bx-cmd-navnome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bx-cmd-fechar { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: none; border-radius: 10px; color: var(--bx-text-2); cursor: pointer; }
+        .bx-cmd-corpo { flex: 1; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px; }
+        @media (min-width: 860px) { .bx-cmd-corpo { grid-template-columns: 300px minmax(0, 1fr); gap: 28px; padding: 22px 26px 26px; } .bx-cmd-arte { position: sticky; top: 0; align-self: start; } }
+        .bx-cmd-arte { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .bx-cmd-carta { position: relative; width: 220px; border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -20px rgba(0,0,0,.9); }
+        @media (min-width: 860px) { .bx-cmd-carta { width: 300px; } }
+        .bx-cmd-holo { position: absolute; inset: 0; mix-blend-mode: screen; pointer-events: none; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.28) 45%, rgba(var(--ac-1-rgb), .2) 55%, transparent 70%); background-size: 250% 100%; animation: bxCmdHolo 3s ease-in-out infinite alternate; }
+        .bx-cmd-selo { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--bx-border-2); color: var(--bx-text-2); }
+        .bx-cmd-info { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+        .bx-cmd-nome { margin: 0; font-size: clamp(23px, 3vw, 28px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.1; }
+        .bx-cmd-k { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ac-1); }
+        .bx-cmd-rot { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--bx-text-3); }
+        .bx-cmd-preco { padding: 16px; border-radius: 16px; background: var(--bx-hero-wash), var(--bx-surface); border: 1px solid rgba(var(--ac-1-rgb), .28); }
+        .bx-cmd-grande { font-size: clamp(30px, 5vw, 38px); font-weight: 900; letter-spacing: -.04em; line-height: 1.1; color: var(--ac-1); }
+        .bx-cmd-faixa { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+        .bx-cmd-mini { background: var(--bx-bg); border: 1px solid var(--bx-border); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+        .bx-cmd-bloco { padding: 14px; border-radius: 16px; background: var(--bx-surface); border: 1px solid var(--bx-border); min-width: 0; }
+        .bx-cmd-step { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--bx-border-2); background: var(--bx-surface-2); color: var(--bx-text); font: inherit; font-size: 20px; cursor: pointer; transition: background .15s ease; }
+        .bx-cmd-step:disabled { opacity: .4; cursor: default; }
+        .bx-cmd-campos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+        .bx-cmd-campos > .bx-cmd-rot { margin-top: 6px; }
+        @media (min-width: 560px) { .bx-cmd-campos { grid-template-columns: 90px minmax(0, 1fr); gap: 10px 12px; align-items: center; } .bx-cmd-campos > .bx-cmd-rot { margin-top: 0; } }
+        .bx-cmd-chips { display: flex; gap: 5px; flex-wrap: wrap; min-width: 0; }
+        @media (max-width: 559px) { .bx-cmd-rola { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .bx-cmd-rola::-webkit-scrollbar { display: none; } }
+        .bx-cmd-dupla { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+        @media (min-width: 560px) { .bx-cmd-dupla { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .bx-cmd-anunciar { width: 100%; min-height: 46px; border: none; border-radius: 12px; background: var(--ac-grad); color: var(--bx-brand-ink); font: inherit; font-size: 14.5px; font-weight: 800; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+        .bx-cmd-anunciar:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -14px rgba(var(--ac-1-rgb), .9); }
+        .bx-cmd-sino { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--bx-border-2); background: var(--bx-surface-2); color: var(--bx-text); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+        .bx-cmd-sino-on { border-color: var(--ac-1); background: rgba(var(--ac-1-rgb), .12); color: var(--ac-1); }
+        .bx-cmd-ghost { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--bx-border-2); background: transparent; color: var(--bx-text-2); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s ease; }
+        .bx-cmd-ghost:hover { background: var(--bx-surface-2); }
+        .bx-cmd-switch { position: relative; width: 48px; height: 28px; border-radius: 999px; border: none; cursor: pointer; flex-shrink: 0; transition: background .15s ease; }
+        .bx-cmd-switch span { position: absolute; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left .15s ease; }
+        .bx-cmd-campo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .bx-cmd-campo input { font: inherit; font-size: 16px; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--bx-border-2); background: var(--bx-surface-2); color: var(--bx-text); box-sizing: border-box; width: 100%; outline: none; }
+        .bx-cmd-campo input:focus { border-color: var(--ac-1); }
+        .bx-cmd-salvargrad { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border-radius: 12px; border: 1px solid; font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; transition: background .15s ease; }
+        .bx-cmd-linha { border-top: 1px solid var(--bx-border); padding-top: 12px; }
+        .bx-cmd-links { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+        .bx-cmd-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--bx-border); font-size: 13.5px; font-weight: 700; color: var(--bx-text-2); text-decoration: none; transition: background .15s ease; }
+        .bx-cmd-link:hover { background: var(--bx-surface-2); }
+        .bx-cmd-remover { min-height: 44px; padding: 0 12px; border: none; background: none; color: #f87171; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; border-radius: 10px; }
+        .bx-cmd-remover:hover { background: rgba(239,68,68,.08); }
+        .bx-cmd-barra { display: flex; align-items: center; justify-content: space-between; gap: 10px 12px; flex-wrap: wrap; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid rgba(var(--ac-1-rgb), .3); background: rgba(var(--ac-1-rgb), .06); flex-shrink: 0; }
+        @media (min-width: 860px) { .bx-cmd-barra { padding: 12px 26px; } }
+        .bx-cmd-salvar { min-height: 44px; padding: 0 18px; border-radius: 12px; border: none; background: var(--ac-1); color: var(--bx-brand-ink); font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; }
+        .bx-cmd-rodape-cel { display: none; }
+        @media (max-width: 859px) {
+          .bx-cmd-fundo { align-items: flex-end; padding: 0; }
+          .bx-cmd { max-width: none; max-height: 94dvh; border-radius: 22px 22px 0 0; border-bottom: none; animation: bxCmdSobe .25s cubic-bezier(.22,.61,.36,1) both; }
+          .bx-cmd-rodape-cel { display: block; padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--bx-border); flex-shrink: 0; }
+          .bx-cmd-anunciar-desk { display: none; }
+          .bx-cmd-navbtn { max-width: 44px; padding: 0; }
+          .bx-cmd-navbtn .bx-cmd-navnome, .bx-cmd-nav > span .bx-cmd-navnome { display: none; }
+        }
+        @keyframes bxCmdEntra { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes bxCmdSobe { from { transform: translateY(24px) } to { transform: none } }
+        @keyframes bxCmdHolo { from { background-position: 0 0 } to { background-position: 100% 0 } }
+        @media (prefers-reduced-motion: reduce) { .bx-cmd-fundo, .bx-cmd, .bx-cmd-holo { animation: none; } .bx-cmd-anunciar:hover { transform: none; } }
+      `}</style>
     </div>
   )
+}
+
+function EnergiaDot({ tipo }: { tipo: string }) {
+  const c = TYPE_COLOR[tipo]
+  return <span title={tipoTcgPt(tipo)} style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', background: c?.bg || 'var(--bx-surface-2)', border: `1.5px solid ${c?.text || 'var(--bx-text-3)'}`, flexShrink: 0 }} />
 }

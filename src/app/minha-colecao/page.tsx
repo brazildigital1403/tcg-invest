@@ -1230,6 +1230,8 @@ export default function MinhaColecao() {
           onAnunciar={() => { setAnunciarCard(detalheCard); setDetalheCard(null) }}
           onGradSaved={(campos) => { setCards(prev => prev.map(c => c.id === detalheCard.id ? { ...c, ...campos } : c)); setDetalheCard((prev: any) => prev ? { ...prev, ...campos } : prev) }}
           onRemove={async () => { await handleRemove(detalheCard.id, detalheCard.card_name); setDetalheCard(null) }}
+          lista={grupos.flatMap(g => g.cards)}
+          onNavegar={(c) => setDetalheCard(c)}
         />
       )}
 
