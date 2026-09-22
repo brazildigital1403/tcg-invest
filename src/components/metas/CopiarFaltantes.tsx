@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { IconCheck, IconClose, IconShare } from '@/components/ui/Icons'
 
 /**
@@ -13,6 +14,12 @@ import { IconCheck, IconClose, IconShare } from '@/components/ui/Icons'
  *
  * ★ Nao consulta nada: a aba Faltam ja tem as cartas em memoria. O texto e
  * montado aqui, no navegador.
+ *
+ * ★ O PAINEL VAI PARA O BODY (createPortal). A barra de abas da meta e
+ * `position: sticky` com z-index 30, e sticky CRIA CONTEXTO DE EMPILHAMENTO:
+ * qualquer z-index de filho vale dentro dela, entao a folha ficava embaixo da
+ * barra de navegacao do app (z-index 200) por mais que subisse o numero.
+ * Visto medindo em 390px na producao, nao no papel.
  *
  * ★ TRES REGRAS DA CASA presentes de proposito:
  *   - o texto NUNCA diz de onde vem o preco: e "valor de mercado", igual ao
@@ -69,10 +76,26 @@ export default function CopiarFaltantes({ titulo, cartas, estilo }: {
   const [valor, setValor] = useState(false)
   const [link, setLink] = useState(true)
   const [copiado, setCopiado] = useState(false)
+  const [ancora, setAncora] = useState<{ top: number; right: number } | null>(null)
   const caixaRef = useRef<HTMLDivElement>(null)
   const botaoRef = useRef<HTMLButtonElement>(null)
 
   const fechar = useCallback(() => setAberto(false), [])
+
+  useEffect(() => {
+    if (!aberto) return
+    function posicionar() {
+      const r = botaoRef.current?.getBoundingClientRect()
+      if (r) setAncora({ top: Math.round(r.bottom + 8), right: Math.round(window.innerWidth - r.right) })
+    }
+    posicionar()
+    window.addEventListener('scroll', posicionar, true)
+    window.addEventListener('resize', posicionar)
+    return () => {
+      window.removeEventListener('scroll', posicionar, true)
+      window.removeEventListener('resize', posicionar)
+    }
+  }, [aberto])
 
   useEffect(() => {
     if (!aberto) return
@@ -137,10 +160,11 @@ export default function CopiarFaltantes({ titulo, cartas, estilo }: {
         <IconShare size={15} color="currentColor" />Copiar lista
       </button>
 
-      {aberto && (
+      {aberto && typeof document !== 'undefined' && createPortal(
         <>
           <button className="cf-veu" aria-label="Fechar" onClick={fechar} />
-          <div ref={caixaRef} className="cf-painel" role="dialog" aria-label="Lista de faltantes">
+          <div ref={caixaRef} className="cf-painel" role="dialog" aria-label="Lista de faltantes"
+            style={ancora ? { top: ancora.top, right: ancora.right } : undefined}>
             <div className="cf-alca" />
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -184,7 +208,8 @@ export default function CopiarFaltantes({ titulo, cartas, estilo }: {
               <p className="cf-nota">Sai no máximo {LIMITE} cartas por vez, com o total no fim.</p>
             )}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </>
   )
@@ -192,7 +217,7 @@ export default function CopiarFaltantes({ titulo, cartas, estilo }: {
 
 const CSS = `
 .cf-veu{display:none}
-.cf-painel{position:absolute;top:52px;right:0;z-index:40;width:min(400px, calc(100vw - 32px));
+.cf-painel{position:fixed;z-index:9999;width:min(400px, calc(100vw - 32px));
   background:var(--bx-bg-elev);border:1px solid var(--bx-border-2);border-radius:18px;padding:16px;
   display:grid;gap:14px;box-shadow:0 30px 70px rgba(0,0,0,.65);text-align:left}
 .cf-alca{display:none}
@@ -211,7 +236,7 @@ const CSS = `
   /* Mesmo empilhamento dos modais da casa (9998/9999): a barra de navegacao
      de baixo do app vive em z-index 200 e cobria os botoes da folha. */
   .cf-veu{display:block;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);border:none;padding:0}
-  .cf-painel{position:fixed;z-index:9999;inset:auto 0 0 0;width:auto;max-height:86vh;overflow:auto;
+  .cf-painel{inset:auto 0 0 0 !important;width:auto;max-height:86vh;overflow:auto;
     border-radius:20px 20px 0 0;border-left:none;border-right:none;border-bottom:none;padding:12px 14px calc(16px + env(safe-area-inset-bottom))}
   .cf-alca{display:block;width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.22);margin:0 auto 2px}
   .cf-previa{max-height:34vh}
