@@ -76,7 +76,7 @@ export default function CopiarFaltantes({ titulo, cartas, estilo }: {
   const [valor, setValor] = useState(false)
   const [link, setLink] = useState(true)
   const [copiado, setCopiado] = useState(false)
-  const [ancora, setAncora] = useState<{ top: number; right: number } | null>(null)
+  const [ancora, setAncora] = useState<{ top: number; right: number; maxH: number } | null>(null)
   const caixaRef = useRef<HTMLDivElement>(null)
   const botaoRef = useRef<HTMLButtonElement>(null)
 
@@ -86,7 +86,17 @@ export default function CopiarFaltantes({ titulo, cartas, estilo }: {
     if (!aberto) return
     function posicionar() {
       const r = botaoRef.current?.getBoundingClientRect()
-      if (r) setAncora({ top: Math.round(r.bottom + 8), right: Math.round(window.innerWidth - r.right) })
+      if (!r) return
+      // Abaixo do botao quando cabe; senao cola no topo da janela e rola por
+      // dentro. Sem isto o rodape com Copiar caia fora da tela -- medido em
+      // 1440x900 na producao, com a barra de abas no meio da pagina.
+      const abaixo = window.innerHeight - r.bottom - 24
+      const cabe = abaixo >= 300
+      setAncora({
+        top: cabe ? Math.round(r.bottom + 8) : 16,
+        right: Math.round(window.innerWidth - r.right),
+        maxH: Math.round(cabe ? abaixo : window.innerHeight - 32),
+      })
     }
     posicionar()
     window.addEventListener('scroll', posicionar, true)
@@ -164,7 +174,7 @@ export default function CopiarFaltantes({ titulo, cartas, estilo }: {
         <>
           <button className="cf-veu" aria-label="Fechar" onClick={fechar} />
           <div ref={caixaRef} className="cf-painel" role="dialog" aria-label="Lista de faltantes"
-            style={ancora ? { top: ancora.top, right: ancora.right } : undefined}>
+            style={ancora ? { top: ancora.top, right: ancora.right, maxHeight: ancora.maxH } : undefined}>
             <div className="cf-alca" />
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -217,7 +227,7 @@ export default function CopiarFaltantes({ titulo, cartas, estilo }: {
 
 const CSS = `
 .cf-veu{display:none}
-.cf-painel{position:fixed;z-index:9999;width:min(400px, calc(100vw - 32px));
+.cf-painel{position:fixed;z-index:9999;width:min(400px, calc(100vw - 32px));overflow:auto;
   background:var(--bx-bg-elev);border:1px solid var(--bx-border-2);border-radius:18px;padding:16px;
   display:grid;gap:14px;box-shadow:0 30px 70px rgba(0,0,0,.65);text-align:left}
 .cf-alca{display:none}
