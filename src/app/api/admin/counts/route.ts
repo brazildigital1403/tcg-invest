@@ -45,7 +45,10 @@ export async function GET(req: NextRequest) {
       lojasPendentes(),
       novosAnuncios(),
       novos('users'),
-      novos('transactions'),
+      // Era novos('transactions'), e a tabela nunca recebeu uma linha (a escrita
+      // pelo navegador batia na RLS) -- o badge de Financeiro vivia zerado. A tela
+      // /admin/financeiro le `lancamentos`, que e o que conta aqui.
+      novos('lancamentos'),
       cartasPendentes(),
     ])
 

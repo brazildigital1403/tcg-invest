@@ -113,13 +113,14 @@ export async function transferirCartaAoComprador(
   // /api/marketplace/[id]/status faz a baixa no `concluir`, com a chave de
   // servico (src/lib/transferirCartaServidor.ts).
 
-  // ── Rastro da transacao ─────────────────────────────────────────────────
-  await supabase.from('transactions').insert({
-    buyer_id: compradorId,
-    seller_id: anuncio.user_id,
-    card_name: anuncio.card_name,
-    price: (anuncio as any).price,
-  })
+  // ── Rastro da transacao: REMOVIDO (22/09/2026) ──────────────────────────
+  // O insert em `transactions` nunca gravou uma linha sequer: a tabela tem RLS
+  // ligada com policy so de SELECT, entao a escrita pelo navegador era barrada
+  // em silencio (0 linhas na tabela desde sempre). Ninguem le a tabela: o
+  // "Ultimas transacoes" do dashboard financeiro monta a lista de `pedidos`, e
+  // o unico leitor era o badge do admin, que por isso mostrava sempre zero.
+  // Se um dia a compra negociada precisar de historico proprio (#379), ele
+  // nasce no servidor, na rota que conclui, nao aqui.
 
   return { ok: true }
 }
