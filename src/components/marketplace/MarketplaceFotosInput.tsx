@@ -14,9 +14,11 @@ interface Props {
   isPro: boolean
   fotos: string[]
   setFotos: (f: string[]) => void
+  /** Carta graduada: os espacos pedem slab e certificado em vez dos cantos. */
+  graduada?: boolean
 }
 
-export default function MarketplaceFotosInput({ userId, isPro, fotos, setFotos }: Props) {
+export default function MarketplaceFotosInput({ userId, isPro, fotos, setFotos, graduada = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -64,34 +66,46 @@ export default function MarketplaceFotosInput({ userId, isPro, fotos, setFotos }
     )
   }
 
-  const podeAdicionar = fotos.length < MARKETPLACE_FOTOS_MAX
+  // Espacos com nome (mockup "Anunciar carta: celular", 22/09/2026): diz o que
+  // fotografar em vez de um "+ adicionar" solto. Qualquer espaco vazio abre o
+  // seletor; a foto entra no primeiro livre.
+  const rotulos = graduada ? ['Frente', 'Verso', 'Slab', 'Certificado'] : ['Frente', 'Verso', 'Canto', 'Canto']
+  const vazios = Array.from({ length: Math.max(0, MARKETPLACE_FOTOS_MAX - fotos.length) }, (_, i) => rotulos[fotos.length + i] || 'Foto')
   return (
     <div>
       <label style={LABEL}>
         Fotos reais
-        <span style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 5, marginLeft: 6 }}>PRO</span>
+        <span style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#000', fontSize: 10.5, fontWeight: 800, padding: '2px 7px', borderRadius: 6, marginLeft: 8, letterSpacing: 0 }}>PRO</span>
       </label>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {fotos.map((url) => (
-          <div key={url} style={{ width: 64, height: 88, borderRadius: 10, overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.12)' }}>
-            <img src={url} alt="Foto da carta" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <button type="button" onClick={() => removerFoto(url)}
-              style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
+      <div className="bx-fotos-grade">
+        {fotos.map((url, i) => (
+          <div key={url} className="bx-fotos-slot" style={{ border: '1px solid rgba(255,255,255,0.12)' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt={`Foto ${i + 1} da carta`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            {/* 30px e nao 44: sobre a miniatura, 44 cobriria a propria foto (excecao medida da bynx-ui). */}
+            <button type="button" onClick={() => removerFoto(url)} aria-label={`Remover foto ${i + 1}`}
+              style={{ position: 'absolute', top: 4, right: 4, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: '#fff', fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
           </div>
         ))}
-        {podeAdicionar && (
-          <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading}
-            style={{ width: 64, height: 88, borderRadius: 10, border: '1.5px dashed rgba(245,158,11,0.5)', background: 'transparent', cursor: uploading ? 'default' : 'pointer', color: '#f59e0b', fontSize: 9, fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit' }}>
-            {uploading ? <span>enviando…</span> : <><span style={{ fontSize: 22, lineHeight: 1, fontWeight: 300 }}>+</span>adicionar</>}
+        {vazios.map((rot, i) => (
+          <button key={`v${i}`} type="button" onClick={() => inputRef.current?.click()} disabled={uploading}
+            className="bx-fotos-slot"
+            style={{ border: `1px dashed ${i === 0 ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.18)'}`, background: i === 0 ? 'rgba(245,158,11,0.05)' : 'transparent', color: i === 0 ? '#f59e0b' : 'rgba(255,255,255,0.4)', cursor: uploading ? 'default' : 'pointer', font: 'inherit', fontSize: 12, fontWeight: 700, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            {uploading && i === 0 ? 'Enviando…' : <>{i === 0 && <span style={{ fontSize: 20, lineHeight: 1, fontWeight: 400 }}>+</span>}{rot}</>}
           </button>
-        )}
+        ))}
       </div>
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
         onChange={(e) => handleFiles(e.target.files)} />
-      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 7 }}>
-        Até {MARKETPLACE_FOTOS_MAX} fotos · mostre a carta real (frente, verso, cantos)
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 7 }}>
+        Até {MARKETPLACE_FOTOS_MAX} fotos. Anúncio com foto real passa mais confiança.
       </p>
-      {erro && <p style={{ fontSize: 10, color: '#ef4444', marginTop: 5 }}>{erro}</p>}
+      {erro && <p style={{ fontSize: 12, color: '#ef4444', marginTop: 5 }}>{erro}</p>}
+      <style>{`
+        .bx-fotos-grade { display: grid; grid-template-columns: repeat(4, minmax(0, 96px)); gap: 8px; }
+        .bx-fotos-slot { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; min-width: 0; transition: background .15s ease, border-color .15s ease; }
+        @media (max-width: 560px) { .bx-fotos-grade { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; } }
+      `}</style>
     </div>
   )
 }
