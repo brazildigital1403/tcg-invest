@@ -208,8 +208,10 @@ const CSS = `
 .cf-nota{margin:0;font-size:11.5px;color:var(--bx-text-3)}
 
 @media(max-width:700px){
-  .cf-veu{display:block;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);border:none;padding:0}
-  .cf-painel{position:fixed;z-index:61;inset:auto 0 0 0;width:auto;max-height:86vh;overflow:auto;
+  /* Mesmo empilhamento dos modais da casa (9998/9999): a barra de navegacao
+     de baixo do app vive em z-index 200 e cobria os botoes da folha. */
+  .cf-veu{display:block;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.5);border:none;padding:0}
+  .cf-painel{position:fixed;z-index:9999;inset:auto 0 0 0;width:auto;max-height:86vh;overflow:auto;
     border-radius:20px 20px 0 0;border-left:none;border-right:none;border-bottom:none;padding:12px 14px calc(16px + env(safe-area-inset-bottom))}
   .cf-alca{display:block;width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.22);margin:0 auto 2px}
   .cf-previa{max-height:34vh}
