@@ -25,6 +25,8 @@ interface Props {
   /** Lista que a pessoa esta vendo, para anterior/proxima. Sem ela, a navegacao some. */
   lista?: any[]
   onNavegar?: (card: any) => void
+  /** Complemento do contador ("3 de 8 das mais valiosas"). Padrao: na sua colecao. */
+  rotuloLista?: string
 }
 
 const VAR_LABELS: Record<string, string> = {
@@ -132,7 +134,7 @@ function precoVariante(price: any, v: string, rate?: { usd: number; eur: number 
 export default function CardDetailModal({
   card, isPro, exchangeRate, onClose,
   onVarianteChange, onIdiomaChange, onQuantitySet, onCondicoesSaved, onAnunciar, onRemove, onGradSaved,
-  lista, onNavegar,
+  lista, onNavegar, rotuloLista = 'na sua coleção',
 }: Props) {
   const [variante, setVariante] = useState<string>(card.variante || 'normal')
   const [varPreco, setVarPreco] = useState<string>(card.variante || 'normal')
@@ -427,7 +429,7 @@ export default function CardDetailModal({
             <span className="bx-cmd-navnome">{anterior ? String(anterior.card_name || '').replace(/\s*\([^)]*\)\s*$/, '') : ''}</span>
           </button>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--bx-text-3)', whiteSpace: 'nowrap' }}>
-            {lista && idx >= 0 ? <>{idx + 1} de {lista.length}<span className="bx-cmd-navnome"> na sua coleção</span></> : 'Na sua coleção'}
+            {lista && idx >= 0 ? <>{idx + 1} de {lista.length}<span className="bx-cmd-navnome"> {rotuloLista}</span></> : 'Na sua coleção'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <button type="button" onClick={() => irPara(proxima)} disabled={!proxima} aria-label={proxima ? `Próxima carta: ${proxima.card_name}` : 'Sem próxima carta'} className="bx-cmd-navbtn">
