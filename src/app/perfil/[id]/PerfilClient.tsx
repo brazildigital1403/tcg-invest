@@ -13,6 +13,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { setLabel } from '@/lib/setLabel'
 import { calcPatrimonio, valorCarta, acharPreco } from '@/lib/calcPatrimonio'
 import type { PerfilPublico } from '@/lib/perfilPublico'
+import { ehVerificada } from '@/lib/origemCarta'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
@@ -58,7 +59,7 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
   const [patrimonio, setPatrimonio] = useState(inicial?.patrimonio ?? 0)
   const [portfolioHistory, setPortfolioHistory] = useState<any[]>([])
   const [setProgress, setSetProgress] = useState<any[]>([])
-  const [stats, setStats]         = useState({ cartas: inicial?.totalCartas ?? 0, anuncios: inicial?.anunciosAtivos ?? 0, vendas: 0 })
+  const [stats, setStats]         = useState({ cartas: inicial?.totalCartas ?? 0, anuncios: inicial?.anunciosAtivos ?? 0, vendas: 0, verificadas: inicial?.cartasVerificadas ?? 0 })
   const [reputacao, setReputacao]  = useState({ media: 0, total: 0 })
   // Com dados do servidor a tela ja tem o que mostrar: segurar em `loading`
   // devolveria o corpo vazio pro crawler, que e o bug que isto conserta.
@@ -139,7 +140,10 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
         // payload o degrau nunca dispara. O grafico logo abaixo desta tela usa
         // portfolio_history, que JA conta o slab -- entao o numero grande do
         // perfil ficava abaixo do ultimo ponto do proprio grafico.
-        .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id, card_link, graduada, valor_graduada')
+        // `origem` alimenta o stat de cartas verificadas. Sem ele aqui o box
+        // aparecia no SSR e SUMIA na hidratacao -- mesma armadilha que os
+        // links do showcase ja tiveram.
+        .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id, card_link, graduada, valor_graduada, origem')
         .eq('user_id', uid)
 
       if (cards && cards.length > 0) {
@@ -191,6 +195,8 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
         cartas: totalCartas || 0,
         anuncios: (listingsData || []).length,
         vendas: vendasCount || 0,
+        // Conta LINHAS, igual ao `cartas` acima e ao que o servidor mandou.
+        verificadas: (cards || []).filter(c => ehVerificada((c as { origem?: string | null }).origem)).length,
       })
 
       // Resumo de reputacao (media de estrelas) — alimenta o stat box
@@ -396,6 +402,10 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
             { label: 'Cartas na coleção', value: stats.cartas, color: '#60a5fa', icon: 'cards' },
             { label: 'Anúncios ativos',   value: stats.anuncios, color: '#f59e0b', icon: 'megaphone' },
             { label: 'Vendas concluídas', value: stats.vendas, color: '#22c55e', icon: 'check' },
+            // So aparece em quem TEM carta verificada: um "0 verificadas" num
+            // perfil publico soa como acusacao, e a maioria do acervo e
+            // declarada por design.
+            ...(stats.verificadas > 0 ? [{ label: 'Cartas verificadas', value: stats.verificadas, color: '#22c55e', icon: 'shield' }] : []),
             { label: 'Reputação', value: reputacao.total === 0 ? 'Novo' : `${reputacao.media.toFixed(1).replace('.', ',')} ★`, color: '#f59e0b', icon: 'medal', text: true },
           ].map((s, i) => (
             <div key={i} style={{ ...SURFACE, padding: '20px 16px', textAlign: 'center' }}>
@@ -405,6 +415,8 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                     ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='10' r='7.5' stroke='currentColor' strokeWidth='1.3'/><path d='M6.5 10l2.5 2.5 4-5' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'/></svg>
                     : s.icon === 'cards'
                     ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><rect x='2' y='4' width='11' height='14' rx='2' stroke='currentColor' strokeWidth='1.3'/><rect x='5' y='2' width='11' height='14' rx='2' stroke='currentColor' strokeWidth='1.3'/><path d='M8 9l1.5 2L12 8' stroke='currentColor' strokeWidth='1.2' strokeLinecap='round' strokeLinejoin='round'/></svg>
+                    : s.icon === 'shield'
+                    ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><path d='M10 2l6.5 2.5v5C16.5 13.5 13.5 17 10 18 6.5 17 3.5 13.5 3.5 9.5v-5L10 2z' stroke='currentColor' strokeWidth='1.3' strokeLinejoin='round'/><path d='M7 10l2 2 4-4' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round' strokeLinejoin='round'/></svg>
                     : s.icon === 'medal'
                     ? <svg width='22' height='22' viewBox='0 0 20 20' fill='none'><circle cx='10' cy='13' r='4.5' stroke='currentColor' strokeWidth='1.3'/><path d='M7 8.5L5 3h10l-2 5.5' stroke='currentColor' strokeWidth='1.3' strokeLinecap='round' strokeLinejoin='round'/><path d='M10 11v2.5l1.5 1' stroke='currentColor' strokeWidth='1.2' strokeLinecap='round'/></svg>
                     : null

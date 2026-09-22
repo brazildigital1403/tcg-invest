@@ -25,6 +25,7 @@ import CabecalhoSet from '@/components/colecao/CabecalhoSet'
 import { familiaDoSet } from '@/lib/setFamilia'
 import { getPrecoVariante as faixaVariante } from '@/lib/calcPatrimonio'
 import { CONDICAO_KEYS, temCondicao } from '@/lib/condicoes'
+import { ehVerificada } from '@/lib/origemCarta'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -551,6 +552,12 @@ export default function MinhaColecao() {
   // ✅ Total real de cartas (soma de quantities, não count de tipos)
   const totalQty = cards.reduce((s, c) => s + (c.quantity || 1), 0)
 
+  // Cartas verificadas: as que vieram do Scan ou de compra paga na Bynx.
+  // ★ CONTA LINHAS, como o resto deste cabecalho e como o perfil publico --
+  // a mesma conta em dois lugares diverge na hora que uma soma `quantity` e
+  // a outra nao.
+  const verificadas = cards.filter(c => ehVerificada(c.origem)).length
+
   // ✅ Totais da carteira baseados na VARIANTE selecionada de cada carta.
   //
   // `sobRevisao` acompanha quanto do total vem de carta marcada pelo guard
@@ -765,8 +772,8 @@ export default function MinhaColecao() {
             /* Dois numeros diferentes conviviam aqui sem rotulo (o selo contava
                cartas distintas, este contava quantidades) e pareciam divergencia. */
             filteredCards.length !== cards.length
-              ? `${filteredCards.length} de ${cards.length} diferentes · ${totalQty} no total`
-              : `${totalQty} carta${totalQty !== 1 ? 's' : ''} no total · ${cards.length} diferente${cards.length !== 1 ? 's' : ''}`
+              ? `${filteredCards.length} de ${cards.length} diferentes · ${totalQty} no total${verificadas > 0 ? ` · ${verificadas} verificada${verificadas !== 1 ? 's' : ''}` : ''}`
+              : `${totalQty} carta${totalQty !== 1 ? 's' : ''} no total · ${cards.length} diferente${cards.length !== 1 ? 's' : ''}${verificadas > 0 ? ` · ${verificadas} verificada${verificadas !== 1 ? 's' : ''}` : ''}`
           }
         >
               {userId && (

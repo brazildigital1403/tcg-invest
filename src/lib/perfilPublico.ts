@@ -2,6 +2,7 @@ import 'server-only'
 import { cache } from 'react'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { calcPatrimonio, valorCarta, acharPreco } from '@/lib/calcPatrimonio'
+import { ehVerificada } from '@/lib/origemCarta'
 
 /**
  * O conteudo PUBLICO de um perfil, buscado no servidor.
@@ -60,6 +61,12 @@ export type PerfilPublico = {
     perfil_ocultar_valores: boolean | null
   }
   totalCartas: number
+  /**
+   * Quantas linhas vieram do Scan ou de compra paga na Bynx. Conta LINHAS,
+   * igual a `totalCartas` -- somar `quantity` numa e nao na outra faria dois
+   * numeros da mesma tela discordarem.
+   */
+  cartasVerificadas: number
   patrimonio: number
   showcase: CartaShowcase[]
   anunciosAtivos: number
@@ -112,7 +119,7 @@ export const buscarPerfilPublico = cache(async function buscarPerfilPublico(
   const [cartasRes, anunciosRes] = await Promise.all([
     db
       .from('user_cards')
-      .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id, graduada, valor_graduada')
+      .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id, graduada, valor_graduada, origem')
       .eq('user_id', u.id),
     db
       .from('marketplace')
@@ -139,6 +146,7 @@ export const buscarPerfilPublico = cache(async function buscarPerfilPublico(
     // guihusky: o numero PISCARIA na hidratacao, de 301 pro 300 do client.
     // Mesma conta em dois lugares sempre diverge; aqui a fonte e o client.
     totalCartas: cartas.length,
+    cartasVerificadas: cartas.filter(c => ehVerificada((c as { origem?: string | null }).origem)).length,
     patrimonio: 0,
     showcase: [],
     anunciosAtivos: anunciosRes.count || 0,

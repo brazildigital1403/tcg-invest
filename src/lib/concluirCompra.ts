@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import { trackFirstCardAdded } from '@/lib/analytics'
+import { promoveuOrigem } from '@/lib/origemCarta'
 
 /**
  * Transferencia da carta quando o comprador confirma o recebimento.
@@ -75,6 +76,10 @@ export async function transferirCartaAoComprador(
     black_label: ehGraduada ? !!anuncio.black_label : false,
     cert_graduacao: ehGraduada ? (anuncio.cert_graduacao || null) : null,
     subnotas: ehGraduada ? (anuncio.subnotas || null) : null,
+    // Carta que entrou por compra paga na Bynx -- verificada desde o
+    // primeiro dia. Ver src/lib/origemCarta.ts.
+    origem: 'compra',
+    origem_em: new Date().toISOString(),
   }
   if (anuncio.idioma) dadosCarta.idioma = anuncio.idioma
 
@@ -83,16 +88,23 @@ export async function transferirCartaAoComprador(
   if (catalogoId && !ehGraduada) {
     const { data: ja } = await supabase
       .from('user_cards')
-      .select('id, quantity')
+      .select('id, quantity, origem')
       .eq('user_id', compradorId)
       .eq('pokemon_api_id', catalogoId)
       .eq('graduada', false)
       .limit(1)
     const linha = ja?.[0] as any
     if (linha) {
+      // A copia comprada verifica a linha: o pedido foi pago dentro da
+      // Bynx. `promoveuOrigem` impede rebaixar o que ja esta em compra.
+      const patch: Record<string, unknown> = { quantity: (linha.quantity || 1) + 1 }
+      if (promoveuOrigem(linha.origem, 'compra')) {
+        patch.origem = 'compra'
+        patch.origem_em = new Date().toISOString()
+      }
       const { error } = await supabase
         .from('user_cards')
-        .update({ quantity: (linha.quantity || 1) + 1 })
+        .update(patch)
         .eq('id', linha.id)
       if (error) return { ok: false, erro: error.message }
       somou = true

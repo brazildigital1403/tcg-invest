@@ -5,10 +5,11 @@ import { supabase } from '@/lib/supabaseClient'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, isNotaTop, notaCurta } from '@/lib/graduadoras'
 import Link from 'next/link'
-import { IconHistory, IconBell, IconCheck } from '@/components/ui/Icons'
+import { IconHistory, IconBell, IconCheck, IconShield } from '@/components/ui/Icons'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTextos'
+import { ehVerificada, textoOrigem } from '@/lib/origemCarta'
 
 interface Props {
   card: any
@@ -469,7 +470,21 @@ export default function CardDetailModal({
               <span className="bx-cmd-selo" style={{ background: 'rgba(var(--ac-1-rgb), .14)', color: 'var(--ac-1)', borderColor: 'rgba(var(--ac-1-rgb), .3)' }}>{VAR_LABELS[savedVar] || cap(savedVar)}</span>
               <span className="bx-cmd-selo">{IDIOMA_LABELS[savedIdioma] || savedIdioma.toUpperCase()}</span>
               <span className="bx-cmd-selo">{savedQty} {savedQty === 1 ? 'cópia' : 'cópias'}</span>
+              {/* Carta verificada: veio do Scan ou de uma compra paga na
+                  Bynx. Aqui, ao contrario da grade, cabe dizer QUAL das duas
+                  e quando -- e o lugar onde a pessoa vai atras do porque. */}
+              {ehVerificada(card.origem) && (
+                <span className="bx-cmd-selo" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.32)', color: 'var(--bx-green)' }}>
+                  <IconShield size={13} color="var(--bx-green)" strokeWidth={1.8} />
+                  Verificada
+                </span>
+              )}
             </div>
+            {textoOrigem(card.origem, card.origem_em) && (
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--bx-text-3)', textAlign: 'center' }}>
+                {textoOrigem(card.origem, card.origem_em)}
+              </div>
+            )}
             {ficha?.artist && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--bx-text-3)', textAlign: 'center' }}>Ilustração: {ficha.artist}</div>}
           </div>
 

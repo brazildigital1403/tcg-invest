@@ -8,7 +8,8 @@
 import { ReactNode } from 'react'
 import Image from 'next/image'
 import { GRADUADORA_MAP, isNotaTop, notaCurta } from '@/lib/graduadoras'
-import { IconHistory } from '@/components/ui/Icons'
+import { IconHistory, IconShield } from '@/components/ui/Icons'
+import { ehVerificada } from '@/lib/origemCarta'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 
 // Rotulo de set para exibicao: troca o prefixo "Liga BR" por "Set"
@@ -81,6 +82,13 @@ export interface CardItemData {
    * como bloco proprio, nao colado na tabela de variantes.
    */
   ultima_venda?: UltimaVenda | null
+  /**
+   * De onde a carta veio: `declarada` (o dono informou), `scan` ou `compra`.
+   * As duas ultimas ganham o selo de verificada — ver `src/lib/origemCarta.ts`.
+   * Ausente em carta de catalogo (Pokedex, Metas), que nao e de ninguem.
+   */
+  origem?: string | null
+  origem_em?: string | null
 }
 
 export interface UltimaVenda {
@@ -278,6 +286,7 @@ export default function CardItem({
   const curPrices = curVariant && price ? curVariant.priceKey(price) : { min: null, med: null, max: null }
   const isValuable = (valorDaFaixa(curPrices) || estimate?.valor || 0) > 100
   const qty = card.quantity || 1
+  const verificada = ehVerificada(card.origem)
   const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
   const gradCor = grad?.cor || '#f59e0b'
   const gradTop = grad ? isNotaTop(card.nota, card.black_label) : false
@@ -349,6 +358,32 @@ export default function CardItem({
 
         {/* Badge de preço flutuante (preço a direita pra nao tampar o numero da carta) */}
         <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
+          {/* ★ Selo de carta verificada — canto INFERIOR ESQUERDO.
+              E a unica zona livre em todo estado do CardItem: o topo esquerdo
+              e do idioma, o topo direito da selecao, e a barra superior some
+              em favor da graduadora. Entra como primeiro filho desta linha
+              (com `marginRight: auto`) em vez de um absolute proprio: assim
+              ele empurra quantidade e valor em vez de sobrepor quando o card
+              estreita.
+              Com mais de uma copia o texto sai e fica so o escudo — no
+              celular a grade tem ~168px e "Verificada" + "×2" + valor nao
+              cabem na mesma linha. */}
+          {verificada && (
+            <div
+              title="Carta verificada pela Bynx"
+              aria-label="Carta verificada pela Bynx"
+              style={{
+                marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: 'rgba(4,8,6,0.78)', backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(34,197,94,0.32)', borderRadius: 8,
+                padding: qty > 1 ? '4px 5px' : '4px 7px',
+                fontSize: 10.5, fontWeight: 700, color: 'var(--bx-green)',
+              }}
+            >
+              <IconShield size={12} color="var(--bx-green)" strokeWidth={1.8} />
+              {qty > 1 ? '' : 'Verificada'}
+            </div>
+          )}
           {qty > 1 && (
             <div style={{ background: 'rgba(245,158,11,0.9)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 7px', fontSize: 11, fontWeight: 800, color: '#000' }}>
               ×{qty}

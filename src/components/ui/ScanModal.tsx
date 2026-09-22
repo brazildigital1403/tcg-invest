@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { limiteCartasDoErro, textoLimiteCartas } from '@/lib/checkCardLimit'
 import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
+import { promoveuOrigem } from '@/lib/origemCarta'
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
 const SURFACE = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 } as const
@@ -372,7 +373,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         fetchCardImage(card.name, card.number, card.set),
         supabase
           .from('user_cards')
-          .select('id, quantity')
+          .select('id, quantity, origem')
           .eq('user_id', user.id)
           .ilike('card_name', cardName)
           .limit(1)
@@ -384,6 +385,13 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
         // Já existe — incrementa quantidade e atualiza imagem se não tinha
         const updates: any = { quantity: (existing.quantity || 1) + 1 }
         if (imageUrl) updates.card_image = imageUrl
+        // A copia que acabou de passar pela camera verifica a linha inteira.
+        // `promoveuOrigem` garante que isso so SOBE: linha de compra nao
+        // volta a ser scan.
+        if (promoveuOrigem(existing.origem, 'scan')) {
+          updates.origem = 'scan'
+          updates.origem_em = new Date().toISOString()
+        }
         await supabase.from('user_cards').update(updates).eq('id', existing.id)
       } else {
         // card_id/pokemon_api_id usam o id real do catalogo quando o enrich
@@ -413,6 +421,10 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
           card_image: imageUrl,
           card_link: null,
           rarity: null,
+          // A carta passou pela camera e foi reconhecida -- e o que a Bynx
+          // chama de verificada. Ver src/lib/origemCarta.ts.
+          origem: 'scan',
+          origem_em: new Date().toISOString(),
         })
         if (insertError) {
           const limite = limiteCartasDoErro(insertError)

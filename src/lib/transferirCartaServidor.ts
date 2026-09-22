@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { promoveuOrigem } from '@/lib/origemCarta'
 
 /**
  * Movimento da carta vendida entre colecoes, do lado do SERVIDOR (chave de
@@ -56,15 +57,22 @@ export async function adicionarAoComprador(
   if (catalogoId && !ehGraduada) {
     const { data: ja, error: errBusca } = await sb
       .from('user_cards')
-      .select('id, quantity')
+      .select('id, quantity, origem')
       .eq('user_id', compradorId)
       .eq('pokemon_api_id', catalogoId)
       .eq('graduada', false)
       .limit(1)
     if (errBusca) return { ok: false, erro: errBusca.message }
-    const linha = ja?.[0] as { id: string; quantity: number | null } | undefined
+    const linha = ja?.[0] as { id: string; quantity: number | null; origem: string | null } | undefined
     if (linha) {
-      const { error } = await sb.from('user_cards').update({ quantity: (linha.quantity || 1) + 1 }).eq('id', linha.id)
+      // A copia comprada verifica a linha inteira -- o pedido foi pago dentro
+      // da Bynx. So sobe: linha ja em `compra` nao muda.
+      const patch: Record<string, unknown> = { quantity: (linha.quantity || 1) + 1 }
+      if (promoveuOrigem(linha.origem, 'compra')) {
+        patch.origem = 'compra'
+        patch.origem_em = new Date().toISOString()
+      }
+      const { error } = await sb.from('user_cards').update(patch).eq('id', linha.id)
       if (error) return { ok: false, erro: error.message }
       return { ok: true, somou: true }
     }
@@ -85,6 +93,9 @@ export async function adicionarAoComprador(
     black_label: ehGraduada ? !!carta.black_label : false,
     cert_graduacao: ehGraduada ? (carta.cert_graduacao || null) : null,
     subnotas: ehGraduada ? (carta.subnotas || null) : null,
+    // Compra paga na Bynx: nasce verificada. Ver src/lib/origemCarta.ts.
+    origem: 'compra',
+    origem_em: new Date().toISOString(),
   }
   if (carta.idioma) dados.idioma = carta.idioma
 
