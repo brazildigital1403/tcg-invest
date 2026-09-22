@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
-import { revalidarCartaComOferta } from '@/app/carta/actions'
 import { setLabel } from '@/lib/setLabel'
-import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO, checkMarketplaceLimit, mensagemLimiteAnuncios } from '@/lib/checkCardLimit'
+import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 import { getUserPlan } from '@/lib/isPro'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
@@ -74,7 +73,7 @@ function getVariantesDisponiveis(price: any, varianteSalva?: string) {
 }
 
 export default function MinhaColecao() {
-  const { showAlert, showPrompt, showConfirm } = useAppModal()
+  const { showAlert, showConfirm } = useAppModal()
   const [cards, setCards] = useState<any[]>([])
   const [totalCartas, setTotalCartas] = useState(0)
   const [isPro, setIsPro] = useState(false)
@@ -458,60 +457,6 @@ export default function MinhaColecao() {
     if (!error) {
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, idioma: novoIdioma } : c))
     }
-  }
-
-
-
-
-  async function handleSell(card: any) {
-    const qty = await showPrompt({ message: `Quantas cópias deseja vender?`, placeholder: `1 a ${card.quantity || 1}` })
-    if (!qty) return
-    const quantityToSell = Number(qty)
-    if (quantityToSell <= 0 || quantityToSell > (card.quantity || 1)) { showAlert('Quantidade inválida.', 'error'); return }
-    const price = await showPrompt({ message: 'Qual o preço UNITÁRIO da carta? (em R$)', placeholder: 'Ex: 150.00' })
-    if (!price) return
-
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) { showAlert('Você precisa estar logado', 'error'); return }
-
-    // ★ Este botao gravava N copias sem checar limite nenhum (so o marketplace
-    // checava). Foi por aqui que a GhosTCG publicou 15 cartas no plano Gratis
-    // em 12/09. Agora confere antes, CONTANDO as copias pedidas: com 2 no ar e
-    // limite 3, pedir 5 recusa em vez de gravar 1 e falhar nas outras 4.
-    const lim = await checkMarketplaceLimit(userData.user.id)
-    if (lim.limite !== Infinity && lim.total + quantityToSell > lim.limite) {
-      const restam = Math.max(0, lim.limite - lim.total)
-      showAlert(
-        restam === 0
-          ? `Você já tem ${lim.total} anúncios ativos, o limite do plano Grátis. Loja com plano Pro ou com recebimentos ativos anuncia sem limite.`
-          : `No plano Grátis você pode anunciar mais ${restam} ${restam === 1 ? 'carta' : 'cartas'}. Loja com plano Pro ou com recebimentos ativos anuncia sem limite.`,
-        'warning',
-      )
-      return
-    }
-
-    const items = Array.from({ length: quantityToSell }).map(() => ({
-      user_id: userData.user.id,
-      card_id: card.card_id,
-      card_name: card.card_name,
-      card_image: card.card_image,
-      price: Number(price),
-    }))
-
-    const { error } = await supabase.from('marketplace').insert(items)
-    if (error) { showAlert(mensagemLimiteAnuncios(error) || 'Erro ao colocar à venda. Tente novamente.', 'error'); return }
-
-    // Fura o ISR de 24h da pagina publica da carta (ver AnunciarModal).
-    if (card.card_id) void revalidarCartaComOferta(card.card_id)
-
-    const newQty = (card.quantity || 1) - quantityToSell
-    if (newQty <= 0) {
-      await handleRemove(card.id, card.card_name)
-    } else {
-      await supabase.from('user_cards').update({ quantity: newQty }).eq('id', card.id)
-      setCards(prev => prev.map(c => c.id === card.id ? { ...c, quantity: newQty } : c))
-    }
-    showAlert('Venda realizada com sucesso!', 'success')
   }
 
   async function handleUpdateQuantity(card: any, delta: number) {
