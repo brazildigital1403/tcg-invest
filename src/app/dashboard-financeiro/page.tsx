@@ -82,6 +82,9 @@ export default function DashboardFinanceiro() {
   const [cardSortOrder, setCardSortOrder] = useState<'alpha' | 'recent'>('alpha')
   const [cardSearch, setCardSearch] = useState('')
   const [detalheCard, setDetalheCard] = useState<any>(null)
+  // Lista de onde o detalhe foi aberto (historico, mais valiosas, altas,
+  // quedas): anterior/proxima do modal andam por ela (22/09/2026).
+  const [detalheLista, setDetalheLista] = useState<any[] | undefined>(undefined)
   const [anunciarCard, setAnunciarCard] = useState<any>(null)
   const [exchangeRate, setExchangeRate] = useState({ usd: 6.0, eur: 6.5 })
 
@@ -90,10 +93,13 @@ export default function DashboardFinanceiro() {
   // imagem do seletor de "Historico de preco" e pequena demais pra dar
   // qualquer poder de decisao ao colecionador; abrir o detalhe completo
   // resolve os dois (achado 04/08/2026).
-  function abrirDetalhe(userCardId: string | null | undefined) {
+  function abrirDetalhe(userCardId: string | null | undefined, idsDaLista?: (string | null | undefined)[]) {
     if (!userCardId) return
     const c = userCards.find(x => x.id === userCardId)
-    if (c) setDetalheCard(c)
+    if (!c) return
+    const lista = (idsDaLista || []).map(id => userCards.find(x => x.id === id)).filter(Boolean)
+    setDetalheLista(lista.length > 1 ? lista : undefined)
+    setDetalheCard(c)
   }
 
   // ── Ações do modal de detalhe (mesmos handlers do /minha-colecao) ──────────
@@ -573,7 +579,7 @@ export default function DashboardFinanceiro() {
 
                           {/* Coluna direita: Imagem da carta -- clique abre o detalhe completo (imagem pequena demais aqui pra decidir algo) */}
                           <button
-                            onClick={(e) => { e.stopPropagation(); abrirDetalhe(c.id) }}
+                            onClick={(e) => { e.stopPropagation(); abrirDetalhe(c.id, cardsFiltradas.map(x => x.id)) }}
                             title="Ver detalhe da carta"
                             style={{ position: 'relative', flexShrink: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                           >
@@ -605,7 +611,7 @@ export default function DashboardFinanceiro() {
                     {/* Linha superior: imagem + nome + preços */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                       <button
-                        onClick={() => abrirDetalhe(selectedUserCard.id)}
+                        onClick={() => abrirDetalhe(selectedUserCard.id, cardsFiltradas.map(x => x.id))}
                         title="Ver detalhe da carta"
                         style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
                       >
@@ -762,7 +768,7 @@ export default function DashboardFinanceiro() {
                   return (
                     <button
                       key={r.id || i}
-                      onClick={() => abrirDetalhe(r.userCardId)}
+                      onClick={() => abrirDetalhe(r.userCardId, rankingWithVariation.slice(0, 8).map(x => x.userCardId))}
                       title="Ver detalhe da carta"
                       className="dash-clickable-row"
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
@@ -820,10 +826,10 @@ export default function DashboardFinanceiro() {
                   <EmptyRow label="Carta abaixo do preço de mercado" />
                 </>
               ) : (
-                rankingWithVariation.filter(r => r.variation > 10).slice(0, 3).map((r, i) => (
+                rankingWithVariation.filter(r => r.variation > 10).slice(0, 3).map((r, i, lista) => (
                   <button
                     key={i}
-                    onClick={() => abrirDetalhe(r.userCardId)}
+                    onClick={() => abrirDetalhe(r.userCardId, lista.map(x => x.userCardId))}
                     title="Ver detalhe da carta"
                     className="dash-oport-row dash-clickable-row"
                     style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
@@ -854,10 +860,10 @@ export default function DashboardFinanceiro() {
                   <EmptyRow label="Carta acima do preço de mercado" />
                 </>
               ) : (
-                rankingWithVariation.filter(r => r.variation < -10).slice(0, 3).map((r, i) => (
+                rankingWithVariation.filter(r => r.variation < -10).slice(0, 3).map((r, i, lista) => (
                   <button
                     key={i}
-                    onClick={() => abrirDetalhe(r.userCardId)}
+                    onClick={() => abrirDetalhe(r.userCardId, lista.map(x => x.userCardId))}
                     title="Ver detalhe da carta"
                     className="dash-oport-row dash-clickable-row"
                     style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', width: '100%', padding: '10px 4px', borderBottom: '1px solid var(--bx-border)', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: r.userCardId ? 'pointer' : 'default', textAlign: 'left', font: 'inherit' }}
@@ -905,6 +911,8 @@ export default function DashboardFinanceiro() {
           onAnunciar={() => { setAnunciarCard(detalheCard); setDetalheCard(null) }}
           onGradSaved={() => window.location.reload()}
           onRemove={() => handleRemove(detalheCard.id, detalheCard.card_name)}
+          lista={detalheLista}
+          onNavegar={(c) => setDetalheCard(userCards.find(x => x.id === c.id) || c)}
         />
       )}
       {anunciarCard && userId && (
