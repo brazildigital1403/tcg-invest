@@ -32,6 +32,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { IconBell, IconCarrinho, IconChat, IconCheck, IconPlus, IconSearch, IconTarget, IconTrendingUp, IconArrowRight, IconTrash, IconClose } from '@/components/ui/Icons'
 import LequeCartas, { type CartaLeque } from '@/components/metas/LequeCartas'
+import CopiarFaltantes from '@/components/metas/CopiarFaltantes'
 import AnelMeta, { LegendaAnel } from '@/components/metas/AnelMeta'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
@@ -210,6 +211,18 @@ export default function MetaPage() {
     const base = aba === 'tenho' ? cartas.filter(c => c.tenho) : cartas.filter(c => !c.tenho || recentes.has(c.card_id))
     return q ? base.filter(c => c.nome.toLowerCase().includes(q) || (c.numero || '').toLowerCase() === q) : base
   }, [cartas, aba, busca, recentes])
+
+  // Cartas que faltam, na ordem do numero -- e o que a lista para colar usa.
+  const paraColar = useMemo(() => {
+    const num = (n: string | null) => {
+      const so = (n || '').replace(/\D/g, '')
+      return so ? parseInt(so, 10) : Number.MAX_SAFE_INTEGER
+    }
+    return cartas
+      .filter(c => !c.tenho)
+      .sort((a, b) => num(a.numero) - num(b.numero) || a.nome.localeCompare(b.nome, 'pt-BR'))
+      .map(c => ({ nome: c.nome, numero: c.numero, valor: c.valor }))
+  }, [cartas])
 
   function trocarAba(a: Aba) {
     setAba(a); setPagina(1); setRecentes(new Set())
@@ -634,7 +647,12 @@ export default function MetaPage() {
                 </label>
               )}
               {aba === 'faltam' && faltamN > 0 && !marcando && (
-                <button onClick={iniciarMarcacao} style={btnSec}><IconCheck size={15} color="currentColor" />Marcar várias</button>
+                <>
+                  <button onClick={iniciarMarcacao} style={btnSec}><IconCheck size={15} color="currentColor" />Marcar várias</button>
+                  {/* A lista para colar sai daqui: a aba ja tem as cartas em
+                      memoria, entao o texto e montado no navegador. */}
+                  <CopiarFaltantes titulo={titulo} cartas={paraColar} estilo={btnSec} />
+                </>
               )}
               {marcando && (
                 <button onClick={() => { setMarcando(false); setSelecionadas(new Set()) }} style={btnSec}>Cancelar</button>
