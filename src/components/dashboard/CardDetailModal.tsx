@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import CondicaoEditor from '@/components/dashboard/CondicaoEditor'
 import { GRADUADORAS, GRADUADORA_MAP, tierNome, isNotaTop, notaCurta } from '@/lib/graduadoras'
-import { IconHistory } from '@/components/ui/Icons'
+import { IconHistory, IconBell } from '@/components/ui/Icons'
+import { useAppModal } from '@/components/ui/useAppModal'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 
 interface Props {
@@ -172,6 +173,63 @@ export default function CardDetailModal({
     : null
   const valorTotal = pv.medio * quantity
   const cartaUrlId = price?.id || card.pokemon_api_id || null
+
+  // Aviso de preco (watchlist), mesmo fluxo da Pokedex e das Metas: preco
+  // maximo opcional; em branco = avisa de qualquer anuncio. undefined =
+  // carregando, null = sem aviso, number|'livre' = ligado. (#49, 21/09/2026)
+  const { showPrompt, showAlert } = useAppModal()
+  const avisoId: string | null = card.pokemon_api_id || price?.id || null
+  const [aviso, setAviso] = useState<number | 'livre' | null | undefined>(undefined)
+  const [avisoMsg, setAvisoMsg] = useState<string | null>(null)
+  useEffect(() => {
+    if (!avisoId) { setAviso(null); return }
+    let ativo = true
+    supabase.auth.getUser().then(async ({ data }) => {
+      const uid = data.user?.id
+      if (!uid) { if (ativo) setAviso(null); return }
+      const { data: row } = await supabase.from('watchlist').select('target_price').eq('user_id', uid).eq('card_id', avisoId).maybeSingle()
+      if (ativo) setAviso(row ? (row.target_price != null ? Number(row.target_price) : 'livre') : null)
+    })
+    return () => { ativo = false }
+  }, [avisoId])
+
+  async function definirAviso() {
+    if (!avisoId) return
+    const { data } = await supabase.auth.getUser()
+    const uid = data.user?.id
+    if (!uid) return
+    const nome = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || 'esta carta'
+    const v = await showPrompt({
+      message: `Até quanto você pagaria por ${nome}?`,
+      placeholder: 'Ex.: 50',
+      defaultValue: typeof aviso === 'number' ? String(aviso).replace('.', ',') : '',
+      hint: 'Em reais. Você recebe aviso quando aparecer à venda até esse valor. Deixe em branco para receber de qualquer preço.',
+      inputMode: 'decimal',
+      permitirVazio: true,
+    })
+    if (v === null) return
+    const limpo = v.trim().replace(/[^\d,.]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')
+    const teto = limpo ? Number(limpo) : null
+    if (teto !== null && (!Number.isFinite(teto) || teto <= 0)) { showAlert('Digite um valor em reais, como 50 ou 49,90.', 'warning'); return }
+    const { error } = await supabase.from('watchlist').upsert(
+      { user_id: uid, card_id: avisoId, target_price: teto, target_type: teto === null ? null : 'max' },
+      { onConflict: 'user_id,card_id' },
+    )
+    if (error) { showAlert('Não conseguimos salvar o aviso. Tente de novo.', 'error'); return }
+    setAviso(teto === null ? 'livre' : teto)
+    setAvisoMsg(null)
+  }
+
+  async function desligarAviso() {
+    if (!avisoId) return
+    const { data } = await supabase.auth.getUser()
+    const uid = data.user?.id
+    if (!uid) return
+    const { error } = await supabase.from('watchlist').delete().eq('user_id', uid).eq('card_id', avisoId)
+    if (error) { showAlert('Não conseguimos desligar o aviso. Tente de novo.', 'error'); return }
+    setAviso(null)
+    setAvisoMsg('Aviso desligado.')
+  }
   const gradMeta = GRADUADORA_MAP[graduadora] || GRADUADORAS[0]
   const gradTop = isNotaTop(nota, blackLabel)
   const valorTotalExibido = graduada ? Number(valorGrad || 0) * quantity : valorTotal
@@ -611,6 +669,28 @@ export default function CardDetailModal({
                   <span style={{ color: 'rgba(255,255,255,0.5)' }}>Não anunciada no marketplace.</span>
                 )}
               </div>
+              {avisoId && aviso !== undefined && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--bx-border)' }}>
+                  <span style={{ flex: '1 1 160px', fontSize: 13, color: aviso !== null ? 'var(--bx-text)' : 'var(--bx-text-2)', lineHeight: 1.4 }}>
+                    {aviso === null
+                      ? (avisoMsg || 'Receba um aviso quando esta carta aparecer à venda.')
+                      : aviso === 'livre' ? 'Aviso ligado: você é avisado de qualquer anúncio.' : `Aviso ligado: anúncios até ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(aviso)}.`}
+                  </span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button type="button" onClick={definirAviso} aria-pressed={aviso !== null}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: 'inherit', fontSize: 13, fontWeight: 700, minHeight: 44, padding: '0 14px', borderRadius: 10, cursor: 'pointer', transition: 'background .15s ease, border-color .15s ease',
+                        border: `1px solid ${aviso !== null ? 'var(--ac-1)' : 'var(--bx-border-2)'}`, background: aviso !== null ? 'rgba(var(--ac-1-rgb), 0.12)' : 'var(--bx-surface-2)', color: aviso !== null ? 'var(--ac-1)' : 'var(--bx-text)' }}>
+                      <IconBell size={15} color="currentColor" /> {aviso !== null ? 'Mudar aviso' : 'Avisar preço'}
+                    </button>
+                    {aviso !== null && (
+                      <button type="button" onClick={desligarAviso}
+                        style={{ font: 'inherit', fontSize: 13, fontWeight: 700, minHeight: 44, padding: '0 12px', borderRadius: 10, cursor: 'pointer', border: '1px solid var(--bx-border)', background: 'transparent', color: 'var(--bx-text-2)' }}>
+                        Desligar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>
