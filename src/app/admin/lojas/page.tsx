@@ -429,7 +429,9 @@ function LojasView() {
                     href={`/lojas/${l.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={`Abrir ${l.nome} em nova aba`}
+                    title={l.status === 'ativa'
+                      ? `Abrir ${l.nome} em nova aba`
+                      : `Pré-visualizar ${l.nome} (fora do ar para o público)`}
                     style={{
                       flexShrink: 0,
                       display: 'block',
@@ -865,7 +867,7 @@ function LojasView() {
                 fontSize: 12, fontWeight: 600,
                 textDecoration: 'none',
               }}>
-                Abrir página pública →
+                {detailsLoja.status === 'ativa' ? 'Abrir página pública →' : 'Pré-visualizar loja →'}
               </a>
               {detailsLoja.owner_user_id && (
                 <a href={`/admin/users/${detailsLoja.owner_user_id}`} target="_blank" rel="noopener noreferrer" style={{

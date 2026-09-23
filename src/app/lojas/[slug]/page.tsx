@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { supabase } from '@/lib/supabaseClient'
+import { cookies } from 'next/headers'
+import { ADMIN_COOKIE, verifyAdminToken } from '@/lib/admin-auth'
+import { getServiceSupabase } from '@/lib/supabaseServer'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import GaleriaFotos from '@/components/lojas/GaleriaFotos'
@@ -40,6 +43,8 @@ interface Evento {
 interface Loja {
   id: string
   slug: string
+  /** `ativa` no caminho publico; a pre-visualizacao de admin ve qualquer um. */
+  status: string
   nome: string | null
   descricao: string | null
   whatsapp: string | null
@@ -110,6 +115,59 @@ const buscarLoja = cache(async function buscarLoja(slug: string): Promise<Loja |
 })
 
 /**
+ * ★ PRE-VISUALIZACAO DE ADMIN (23/09/2026).
+ *
+ * Loja pendente nao tem pagina: `buscarLoja` filtra `status = 'ativa'` e a
+ * propria RLS da tabela so libera ativa e nao oculta. O admin clicava na logo
+ * dentro de /admin/lojas pra conferir a loja ANTES de aprovar e batia em 404 --
+ * justamente no momento em que mais precisa olhar.
+ *
+ * Aqui a pagina passa a servir essa loja pro admin, e so pra ele: o cookie
+ * `bynx_admin` e httpOnly e assinado com HMAC (src/lib/admin-auth.ts), entao
+ * quem nao tem sessao de admin continua vendo 404. A leitura usa chave de
+ * servico porque a RLS barraria de qualquer jeito.
+ *
+ * Duas travas acompanham: a pagina em pre-visualizacao sai com `noindex` (ver
+ * `generateMetadata`) e ganha uma faixa dizendo que ninguem mais enxerga isto.
+ */
+const ehAdmin = cache(async function ehAdmin(): Promise<boolean> {
+  try {
+    const jar = await cookies()
+    return await verifyAdminToken(jar.get(ADMIN_COOKIE)?.value)
+  } catch {
+    // cookies() fora de request (build, por exemplo): nunca e admin.
+    return false
+  }
+})
+
+type Resolvida = { loja: Loja; preview: boolean } | null
+
+/**
+ * A loja da URL: publica pra todo mundo, ou qualquer status quando quem
+ * pede e admin. O caminho publico vem PRIMEIRO -- loja ativa nunca passa
+ * pela chave de servico nem checa cookie a toa.
+ */
+const resolverLoja = cache(async function resolverLoja(slug: string): Promise<Resolvida> {
+  const publica = await buscarLoja(slug)
+  if (publica) return { loja: publica, preview: false }
+
+  if (!(await ehAdmin())) return null
+
+  const db = getServiceSupabase()
+  if (!db) return null
+  const { data } = await db.from('lojas').select('*').eq('slug', slug).limit(1)
+  const loja = (data?.[0] as Loja) || null
+  return loja ? { loja, preview: true } : null
+})
+
+/** Como a faixa de pre-visualizacao explica o status da loja. */
+const MOTIVO_PREVIEW: Record<string, string> = {
+  pendente: 'Loja aguardando aprovação. Ainda não aparece no Guia de Lojas nem para o público.',
+  suspensa: 'Loja suspensa. A página está fora do ar para o público.',
+  inativa: 'Loja inativa. A página está fora do ar para o público.',
+}
+
+/**
  * Nota media do dono da loja -- mesma query/logica do card de Destaque em
  * /lojas (avaliacoes.avaliado_id = owner_user_id). So pra pintar o selo
  * inline no cabecalho; falha aqui nao pode derrubar a pagina (best effort).
@@ -133,10 +191,22 @@ export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   const { slug } = await params
-  const loja = await buscarLoja(slug)
+  const achada = await resolverLoja(slug)
 
-  if (!loja) {
+  if (!achada) {
     return { title: 'Loja não encontrada', robots: { index: false, follow: false } }
+  }
+
+  const { loja, preview } = achada
+
+  // ★ Pre-visualizacao NUNCA e indexavel. A pagina so responde 200 pro admin,
+  // mas o `noindex` e o que garante que uma loja nao aprovada nao entre no
+  // Google nem por acidente de compartilhamento.
+  if (preview) {
+    return {
+      title: `[Pré-visualização] ${loja.nome || 'Loja'}`,
+      robots: { index: false, follow: false },
+    }
   }
 
   const nome = loja.nome || 'Loja'
@@ -287,9 +357,11 @@ export default async function LojaPage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
-  const loja = await buscarLoja(slug)
+  const achada = await resolverLoja(slug)
 
-  if (!loja) notFound()
+  if (!achada) notFound()
+
+  const { loja, preview } = achada
 
   // Valores seguros (null checks defensivos)
   const nome           = loja.nome || 'Loja sem nome'
@@ -352,8 +424,40 @@ export default async function LojaPage(
   return (
     <div style={S.page}>
       <PublicHeader />
-      <TrackViewLoja lojaId={loja.id} ownerUserId={loja.owner_user_id} />
+      {/* ★ Visita de admin em loja fora do ar NAO conta como visita da loja.
+          O TrackViewLoja alimenta o painel do lojista; contar a conferencia
+          da aprovacao ali seria inventar audiencia que nao existe. */}
+      {!preview && <TrackViewLoja lojaId={loja.id} ownerUserId={loja.owner_user_id} />}
       <div style={{ height: 62 }} />
+
+      {/* Faixa de pre-visualizacao: so o admin chega aqui (ver `resolverLoja`). */}
+      {preview && (
+        <div className="bx-gutter" style={{ marginTop: 14 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.32)',
+            borderRadius: 12, padding: '12px 16px',
+          }}>
+            <span style={{
+              fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: 'var(--bx-brand-ink)', background: 'var(--bx-brand)',
+              padding: '4px 9px', borderRadius: 6, whiteSpace: 'nowrap',
+            }}>
+              Pré-visualização
+            </span>
+            <span style={{ fontSize: 13, color: 'var(--bx-text-2)', flex: 1, minWidth: 220 }}>
+              {MOTIVO_PREVIEW[loja.status] || `Loja com status ${loja.status}. A página está fora do ar para o público.`}
+            </span>
+            <Link href="/admin/lojas" style={{
+              fontSize: 12.5, fontWeight: 700, textDecoration: 'none',
+              color: 'var(--ac-1)', border: '1px solid rgba(245,158,11,0.35)',
+              borderRadius: 8, padding: '8px 14px', whiteSpace: 'nowrap',
+            }}>
+              Voltar ao admin
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="bx-gutter" style={S.breadcrumb}>
         <Link href="/lojas" style={S.breadcrumbLink}>Guia de Lojas</Link>
