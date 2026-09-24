@@ -17,6 +17,7 @@ import {
   ESPECIALIDADE_LABEL,
   ESPECIALIDADES_ORDEM,
 } from '@/components/lojas/lojasFiltros'
+import { ehColecionador, naturezaDoParam, NATUREZA_DESCRICAO } from '@/lib/naturezaLoja'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ const getLojasAtivas = unstable_cache(
   async () => {
     const { data, error } = await supabase
       .from('lojas')
-      .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url, owner_user_id')
+      .select('id, slug, nome, descricao, cidade, estado, tipo, especialidades, plano, verificada, logo_url, owner_user_id, natureza')
       .eq('status', 'ativa')
       // `oculta` = loja de teste: funciona, mas nao se acha. Ver a migration
       // 20260912180000_lojas_oculta.sql.
@@ -68,7 +69,10 @@ const getLojasAtivas = unstable_cache(
   },
   // -v2: a query passou a filtrar `oculta`. Chave nova porque a entrada v1
   // ficaria servida com a loja oculta dentro ate o revalidate de 300s.
-  ['lojas-ativas-v2'],
+  // ★ v3 porque o select ganhou `natureza` (24/09/2026). Sem trocar a chave, a
+  // entrada gravada pela v2 continuaria servida ate o revalidate -- sem o
+  // campo, e toda loja cairia na aba errada.
+  ['lojas-ativas-v3'],
   { revalidate: 300, tags: ['lojas'] },
 )
 
@@ -77,6 +81,7 @@ interface SearchParams {
   estado?: string
   tipo?: string
   especialidade?: string
+  quem?: string
 }
 
 // ─── SEO dinâmico ─────────────────────────────────────────────────────────────
@@ -119,6 +124,8 @@ export interface LojaCard {
   verificada: boolean | null
   logo_url: string | null
   owner_user_id: string | null
+  /** 'loja' ou 'colecionador' -- ver src/lib/naturezaLoja.ts. */
+  natureza: string | null
 }
 
 const ORDEM_PLANO: Record<string, number> = { premium: 0, pro: 1, basico: 2 }
@@ -135,6 +142,11 @@ export default async function LojasPage(
   const estadoParam        = typeof sp.estado === 'string' ? sp.estado.trim().toUpperCase() : ''
   const tipoParam          = typeof sp.tipo === 'string' ? sp.tipo.trim() : ''
   const especialidadeParam = typeof sp.especialidade === 'string' ? sp.especialidade.trim() : ''
+  // Aba/filtro "Quem vende". Qualquer valor diferente de `colecionadores` cai
+  // em lojas, que e a aba padrao.
+  const quemParam = typeof sp.quem === 'string' && sp.quem.trim().toLowerCase() === 'colecionadores'
+    ? 'colecionadores' : ''
+  const naturezaAtiva = naturezaDoParam(quemParam)
 
   // Uma leitura cacheada em vez de duas queries por visita. O catch fica aqui
   // FORA do unstable_cache de proposito: o throw la dentro impede o vazio de
@@ -163,7 +175,15 @@ export default async function LojasPage(
     s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const alvo = normalizar(qParam)
 
+  // Separa as duas listas ANTES dos outros filtros: as contagens da aba e do
+  // grupo "Quem vende" falam do acervo inteiro, nao do que sobrou do filtro.
+  const contagemQuem = {
+    lojas: todas.filter(l => !ehColecionador(l.natureza)).length,
+    colecionadores: todas.filter(l => ehColecionador(l.natureza)).length,
+  }
+
   const lojas: LojaCard[] = todas.filter((l) => {
+    if (ehColecionador(l.natureza) !== (naturezaAtiva === 'colecionador')) return false
     if (alvo && !normalizar(l.nome || '').includes(alvo)) return false
     if (estadoParam && (l.estado || '').toUpperCase() !== estadoParam) return false
     if (tipoParam && l.tipo !== tipoParam) return false
@@ -183,7 +203,11 @@ export default async function LojasPage(
   // das avaliacoes que ja vieram no mesmo cache. Bynx fica de fora do
   // destaque de proposito (decisao do Du, 02/08/2026) -- ela aparece na
   // grade normal ali embaixo, igual a qualquer outra loja.
-  const premiumLojas = lojas.filter(l => l.plano === 'premium' && l.slug !== 'bynx')
+  // Carrossel de Destaque e da aba de LOJAS: e vitrine paga, e colecionador
+  // nao assina Premium para aparecer la.
+  const premiumLojas = naturezaAtiva === 'colecionador'
+    ? []
+    : lojas.filter(l => l.plano === 'premium' && l.slug !== 'bynx')
   const ratingMap: Record<string, { media: number; total: number }> = {}
   const acc: Record<string, number[]> = {}
   for (const a of avaliacoes) {
@@ -240,7 +264,7 @@ export default async function LojasPage(
     .filter(esp => (espCounts[esp] || 0) > 0 || esp === especialidadeParam)
     .map(esp => ({ value: esp, label: ESPECIALIDADE_LABEL[esp], count: espCounts[esp] || 0 }))
 
-  const atual = { q: qParam, estado: estadoParam, tipo: tipoParam, especialidade: especialidadeParam }
+  const atual = { q: qParam, estado: estadoParam, tipo: tipoParam, especialidade: especialidadeParam, quem: quemParam }
 
   // Pills removíveis acima do grid -- cada uma tira so o proprio filtro,
   // preservando os outros.
@@ -283,6 +307,7 @@ export default async function LojasPage(
 
       {/* ─── Filtros: barra sticky que abre gaveta (so aparece no mobile) ─── */}
       <FiltrosGaveta
+        quem={contagemQuem}
         atual={atual}
         estados={estadosOpcoes}
         tipos={tiposOpcoes}
@@ -294,6 +319,7 @@ export default async function LojasPage(
       {/* ─── Corpo: sidebar de filtro (desktop) + resultados ─── */}
       <div className="bx-gutter" style={S.bodyWrap}>
         <FiltrosSidebar
+          quem={contagemQuem}
           atual={atual}
           estados={estadosOpcoes}
           tipos={tiposOpcoes}
@@ -310,6 +336,30 @@ export default async function LojasPage(
 
           {!error && (
             <>
+              {/* ★ ABAS: a separacao principal entre loja e colecionador. Elas
+                  escrevem no MESMO parametro que o grupo "Quem vende" da
+                  lateral (`quem`), entao os dois nunca se contradizem. */}
+              <div style={S.abas}>
+                {([
+                  { valor: '', label: 'Lojas', n: contagemQuem.lojas },
+                  { valor: 'colecionadores', label: 'Colecionadores', n: contagemQuem.colecionadores },
+                ] as const).map(aba => {
+                  const ativa = quemParam === aba.valor
+                  return (
+                    <Link
+                      key={aba.label}
+                      href={buildLojasUrl({ ...atual, quem: aba.valor })}
+                      aria-current={ativa ? 'page' : undefined}
+                      style={{ ...S.aba, ...(ativa ? S.abaAtiva : {}) }}
+                    >
+                      {aba.label}
+                      <span style={{ ...S.abaNum, ...(ativa ? S.abaNumAtiva : {}) }}>{aba.n}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+              <p style={S.abaNota}>{NATUREZA_DESCRICAO[naturezaAtiva]}</p>
+
               {pills.length > 0 && (
                 <div style={S.pillsRow}>
                   {pills.map(p => (
@@ -323,8 +373,14 @@ export default async function LojasPage(
 
               <p style={S.resultCount}>
                 {totalResultados === 0
-                  ? (temFiltro ? 'Nenhuma loja encontrada para esses filtros.' : 'Nenhuma loja cadastrada ainda.')
-                  : `${totalResultados} ${totalResultados === 1 ? 'loja encontrada' : 'lojas encontradas'}`}
+                  ? (temFiltro
+                      ? 'Nenhum resultado para esses filtros.'
+                      : naturezaAtiva === 'colecionador'
+                        ? 'Nenhum colecionador cadastrado ainda.'
+                        : 'Nenhuma loja cadastrada ainda.')
+                  : naturezaAtiva === 'colecionador'
+                    ? `${totalResultados} ${totalResultados === 1 ? 'colecionador encontrado' : 'colecionadores encontrados'}`
+                    : `${totalResultados} ${totalResultados === 1 ? 'loja encontrada' : 'lojas encontradas'}`}
               </p>
 
               {/* Destaque Premium (so na visao padrao, sem filtro) */}
@@ -375,6 +431,28 @@ function capitalize(s: string) {
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const S: Record<string, CSSProperties> = {
+  abas: {
+    display: 'flex', gap: 4,
+    borderBottom: '1px solid var(--bx-border)',
+    marginBottom: 14,
+  },
+  aba: {
+    display: 'inline-flex', alignItems: 'center', gap: 7,
+    padding: '11px 14px', minHeight: 44,
+    fontSize: 13.5, fontWeight: 700, textDecoration: 'none',
+    color: 'var(--bx-text-3)',
+    borderBottom: '2px solid transparent', marginBottom: -1,
+    transition: 'color 0.15s ease, border-color 0.15s ease',
+  },
+  abaAtiva: { color: 'var(--bx-text)', borderBottomColor: 'var(--ac-1)' },
+  abaNum: {
+    fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 999,
+    background: 'var(--bx-surface-2)', color: 'var(--bx-text-3)',
+    fontVariantNumeric: 'tabular-nums',
+  },
+  abaNumAtiva: { color: 'var(--ac-1)', background: 'rgba(245,158,11,0.12)' },
+  abaNota: { fontSize: 12.5, color: 'var(--bx-text-3)', margin: '0 0 14px', maxWidth: '70ch' },
+
   page: {
     minHeight: '100vh',
     background: 'var(--bx-bg)',

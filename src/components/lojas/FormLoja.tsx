@@ -6,6 +6,7 @@ import { comprimirImagem } from '@/lib/comprimirImagem'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { uploadFotoLoja, deletarFotoLoja, uploadLogoLoja, deletarLogoLoja, uploadCapaLoja, deletarCapaLoja } from '@/lib/uploadFoto'
 import { IconKey } from '@/components/ui/Icons'
+import { NATUREZA_OPCOES, NaturezaLoja, normalizarNatureza } from '@/lib/naturezaLoja'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,8 @@ export interface LojaFormData {
   fotos: string[]
   plano?: 'basico' | 'pro' | 'premium'
   status?: 'pendente' | 'ativa' | 'suspensa' | 'inativa'
+  /** O que a pessoa declara aqui. O admin confirma na aprovacao -- ver src/lib/naturezaLoja.ts. */
+  natureza_declarada?: NaturezaLoja
 }
 
 interface Props {
@@ -116,6 +119,7 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
   const plano = initialData?.plano || 'basico'
   const limites = LIMITES[plano]
 
+  const [natureza,       setNatureza]       = useState<NaturezaLoja>(normalizarNatureza(initialData?.natureza_declarada))
   const [nome,           setNome]           = useState(initialData?.nome           || '')
   const [slugCustom,     setSlugCustom]     = useState(initialData?.slug           || '')
   const [descricao,      setDescricao]      = useState(initialData?.descricao      || '')
@@ -375,6 +379,10 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
       youtube: youtube.trim() || null,
       twitter: twitter.trim() || null,
       discord: discord.trim() || null,
+      // ★ SO NO CADASTRO. Depois de aprovada, a natureza publica e a que o
+      // admin confirmou -- deixar a propria loja reescrever pela edicao
+      // desfaria a confirmacao sem ninguem ver.
+      ...(isEditMode ? {} : { natureza_declarada: natureza, natureza }),
     }
   }
 
@@ -494,6 +502,41 @@ export default function FormLoja({ userId: _userId, initialData, isEditMode = fa
             )}
           </div>
         </div>
+
+        {/* ★ Quem esta cadastrando: a pergunta que separa o Guia em duas
+            listas. So aparece no CADASTRO -- na edicao o valor publico ja e o
+            que o admin confirmou na aprovacao. */}
+        {!isEditMode && (
+          <div>
+            <label style={LABEL}>Como você vende? *</label>
+            <div style={S.chipsRow}>
+              {NATUREZA_OPCOES.map(o => (
+                <button
+                  key={o.valor}
+                  type="button"
+                  onClick={() => setNatureza(o.valor)}
+                  aria-pressed={natureza === o.valor}
+                  style={{
+                    ...S.chip,
+                    ...(natureza === o.valor ? S.chipActive : {}),
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: 2,
+                    textAlign: 'left',
+                    padding: '10px 14px',
+                    minHeight: 44,
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>{o.titulo}</span>
+                  <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 500 }}>{o.ajuda}</span>
+                </button>
+              ))}
+            </div>
+            <p style={S.hintText}>
+              Colecionador ganha uma etiqueta própria no Guia de Lojas. A equipe confere na aprovação.
+            </p>
+          </div>
+        )}
 
         <div>
           <label style={LABEL}>Descrição</label>

@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation'
 import { useAppModal } from '@/components/ui/useAppModal'
 import AnalyticsCard from '@/components/lojas/AnalyticsCard'
 import { IconWarning, IconEdit, IconCalendar } from '@/components/ui/Icons'
+import { NATUREZA_LABEL, NATUREZA_OPCOES, NaturezaLoja, normalizarNatureza } from '@/lib/naturezaLoja'
 
 type Loja = {
   id: string
@@ -21,6 +22,8 @@ type Loja = {
   plano: 'basico' | 'pro' | 'premium'
   status: 'pendente' | 'ativa' | 'suspensa' | 'inativa'
   verificada: boolean
+  natureza?: string | null
+  natureza_declarada?: string | null
   suspensao_motivo: string | null
   suspensao_data: string | null
   aprovada_data: string | null
@@ -96,6 +99,10 @@ function LojasView() {
   // Modal de detalhes
   const [conversaLoja, setConversaLoja] = useState<Loja | null>(null)
   const [detailsLoja, setDetailsLoja] = useState<Loja | null>(null)
+
+  // Modal de aprovação: confirma a natureza declarada antes de publicar
+  const [aprovandoLoja, setAprovandoLoja] = useState<Loja | null>(null)
+  const [naturezaConfirmada, setNaturezaConfirmada] = useState<NaturezaLoja>('loja')
 
   // Modal de mudança de plano
   const [planoModalLoja, setPlanoModalLoja] = useState<Loja | null>(null)
@@ -185,19 +192,29 @@ function LojasView() {
     } finally { setBusyRowId(null) }
   }
 
-  async function aprovar(loja: Loja) {
-    const ok = await showConfirm({
-      message: `Aprovar a loja "${loja.nome}"? Ela vai aparecer no guia público.${loja.aprovada_data ? '' : ' O owner receberá um email de boas-vindas.'}`,
-      confirmLabel: 'Aprovar',
-    })
-    if (!ok) return
+  // ★ Aprovar passou a confirmar a NATUREZA junto (24/09/2026). A pessoa
+  //   declara no cadastro, e este e o momento em que alguem confere -- depois
+  //   de publicada, mudar significa mexer na pagina que ja esta no ar.
+  function abrirAprovar(loja: Loja) {
+    setNaturezaConfirmada(normalizarNatureza(loja.natureza ?? loja.natureza_declarada))
+    setAprovandoLoja(loja)
+  }
+
+  async function confirmarAprovar() {
+    const loja = aprovandoLoja
+    if (!loja) return
     setBusyRowId(loja.id)
     try {
-      const res = await fetch(`/api/admin/lojas/${loja.id}/approve`, { method: 'POST' })
+      const res = await fetch(`/api/admin/lojas/${loja.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ natureza: naturezaConfirmada }),
+      })
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
         return showAlert(e.error || 'Erro ao aprovar', 'error')
       }
+      setAprovandoLoja(null)
       showAlert('Loja aprovada.', 'success')
       await load()
     } finally { setBusyRowId(null) }
@@ -518,7 +535,7 @@ function LojasView() {
                   {/* Ações */}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', position: 'relative' }}>
                     {(l.status === 'pendente' || l.status === 'suspensa') && (
-                      <BtnAction onClick={() => aprovar(l)} busy={busyRowId === l.id} color="#22c55e">
+                      <BtnAction onClick={() => abrirAprovar(l)} busy={busyRowId === l.id} color="#22c55e">
                         {l.status === 'suspensa' ? 'Reativar' : 'Aprovar'}
                       </BtnAction>
                     )}
@@ -731,6 +748,73 @@ function LojasView() {
       )}
 
       {/* ── Modal: mudança de plano ── */}
+      {/* ── Modal: aprovar (confirma a natureza declarada) ── */}
+      {aprovandoLoja && (
+        <div style={overlayStyle} onClick={() => setAprovandoLoja(null)}>
+          <div style={modalStyle} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
+              Aprovar "{aprovandoLoja.nome}"
+            </h3>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, margin: '0 0 18px' }}>
+              Ela passa a aparecer no Guia de Lojas.
+              {aprovandoLoja.aprovada_data ? '' : ' O dono recebe um email de boas-vindas.'}
+            </p>
+
+            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, display: 'block' }}>
+              Como aparece no Guia
+            </label>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '0 0 10px', lineHeight: 1.5 }}>
+              {aprovandoLoja.natureza_declarada
+                ? <>No cadastro, marcou <strong style={{ color: '#f0f0f0' }}>{NATUREZA_LABEL[normalizarNatureza(aprovandoLoja.natureza_declarada)]}</strong>. Corrija se não bater com o que você viu na pré-visualização.</>
+                : <>Esta loja é anterior à pergunta do cadastro, então não declarou nada. Escolha pelo que a página mostra.</>}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
+              {NATUREZA_OPCOES.map(o => {
+                const sel = naturezaConfirmada === o.valor
+                return (
+                  <button
+                    key={o.valor}
+                    onClick={() => setNaturezaConfirmada(o.valor)}
+                    style={{
+                      background: sel ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${sel ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                      color: sel ? '#f59e0b' : 'rgba(255,255,255,0.65)',
+                      padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                    }}
+                  >
+                    <span>
+                      {NATUREZA_LABEL[o.valor]}
+                      <span style={{ display: 'block', fontSize: 11, opacity: 0.7, fontWeight: 500 }}>{o.ajuda}</span>
+                    </span>
+                    {sel && <span style={{ fontSize: 16 }}>✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setAprovandoLoja(null)} style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                color: 'rgba(255,255,255,0.6)', padding: '10px 20px', borderRadius: 10,
+                fontSize: 14, cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit',
+              }}>
+                Cancelar
+              </button>
+              <button onClick={confirmarAprovar} disabled={!!busyRowId} style={{
+                background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000',
+                padding: '10px 24px', borderRadius: 10, fontSize: 14,
+                cursor: busyRowId ? 'not-allowed' : 'pointer', fontWeight: 800,
+                opacity: busyRowId ? 0.5 : 1, fontFamily: 'inherit',
+              }}>
+                {busyRowId ? 'Aprovando...' : 'Aprovar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {planoModalLoja && (
         <div style={overlayStyle} onClick={() => setPlanoModalLoja(null)}>
           <div style={modalStyle} onClick={e => e.stopPropagation()}>

@@ -1,6 +1,8 @@
 import { CSSProperties } from 'react'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 import Link from 'next/link'
+import { IconAccount } from '@/components/ui/Icons'
+import { ehColecionador, NATUREZA_LABEL } from '@/lib/naturezaLoja'
 
 // ─── Tipos (permite nulls) ────────────────────────────────────────────────────
 
@@ -16,6 +18,8 @@ interface LojaCard {
   plano: 'basico' | 'pro' | 'premium' | null
   verificada: boolean | null
   logo_url: string | null
+  /** 'loja' ou 'colecionador'. Ausente em chamador antigo -> trata como loja. */
+  natureza?: string | null
 }
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
@@ -75,6 +79,18 @@ export default function CardLoja({ loja }: { loja: LojaCard }) {
         </div>
       </div>
 
+      {/* ★ Etiqueta so no COLECIONADOR (24/09/2026, decisao do Du). Marcar
+          tambem as lojas seria ruido: quando tudo tem selo, nenhum selo
+          significa nada. Aqui no Guia, card sem etiqueta e loja. */}
+      {ehColecionador(loja.natureza) && (
+        <div>
+          <span style={S.selo}>
+            <IconAccount size={11} color="#d8b4fe" />
+            {NATUREZA_LABEL.colecionador}
+          </span>
+        </div>
+      )}
+
       {/* Descrição */}
       {loja.descricao && (
         <p style={S.description}>{truncate(loja.descricao, 90)}</p>
@@ -109,6 +125,14 @@ function capitalize(s: string) {
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const S: Record<string, CSSProperties> = {
+  selo: {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase',
+    padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
+    background: 'rgba(168,85,247,0.13)', color: '#d8b4fe',
+    border: '1px solid rgba(168,85,247,0.32)',
+  },
+
   card: {
     position: 'relative',
     display: 'flex',

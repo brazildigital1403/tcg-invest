@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { normalizarNatureza } from '@/lib/naturezaLoja'
 
 /**
  * POST /api/lojas
@@ -40,6 +41,9 @@ const ALLOWED_FIELDS = new Set([
   'tiktok', 'youtube', 'twitter', 'discord',
   'logo_url', 'banner_url', 'fotos', 'eventos',
   'seo_title', 'seo_description',
+  // Declaracao de quem esta cadastrando. O valor publico (`natureza`) nasce
+  // igual, mas quem manda nele depois e o admin, na aprovacao.
+  'natureza_declarada',
 ])
 
 const REQUIRED_FIELDS = ['nome', 'slug', 'cidade', 'estado', 'whatsapp', 'tipo', 'especialidades'] as const
@@ -145,6 +149,12 @@ export async function POST(req: NextRequest) {
       //   Por isso a expiracao nunca toca em NULL: plano liberado a mao fica.
       plano_expira_em: new Date(Date.now() + 14 * 24 * 3600_000).toISOString(),
       verificada: false,
+      // ★ `natureza` NAO vem do body. O que a pessoa manda e a declaracao; o
+      // valor publico nasce dela e so muda pela aprovacao do admin. Aceitar
+      // `natureza` direto daqui deixaria qualquer um escolher como aparece no
+      // Guia sem passar por ninguem.
+      natureza_declarada: normalizarNatureza(filteredBody.natureza_declarada),
+      natureza: normalizarNatureza(filteredBody.natureza_declarada),
     }
 
     const { data: inserted, error: insertErr } = await sb

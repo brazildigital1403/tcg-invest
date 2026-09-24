@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { sendEmailLojaAprovada } from '@/lib/email'
 import { abrirVerificacaoDeLoja } from '@/lib/verificacaoLoja'
 import { requireAdmin } from '@/lib/admin-auth'
+import { normalizarNatureza } from '@/lib/naturezaLoja'
 
 function supabaseAdmin() {
   return createClient(
@@ -23,10 +24,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const { id } = await ctx.params
     const sb = supabaseAdmin()
 
+    // ★ A natureza publica e CONFIRMADA aqui (24/09/2026). A pessoa declara no
+    //   cadastro, o admin confere ao aprovar -- e pode corrigir quem se
+    //   declarou loja sem ser. `natureza_declarada` nao e tocada: a divergencia
+    //   entre as duas e justamente o registro da correcao.
+    //   Corpo ausente (o botao Aprovar antigo) mantem o que ja esta la.
+    const corpo = await req.json().catch(() => ({} as Record<string, unknown>))
+    const naturezaConfirmada = corpo && typeof corpo === 'object' && 'natureza' in corpo
+      ? normalizarNatureza((corpo as { natureza?: unknown }).natureza)
+      : null
+
     // 1) Busca loja
     const { data: lojas, error: lErr } = await sb
       .from('lojas')
-      .select('id, nome, slug, status, owner_user_id, aprovada_data, verificada, verificacao_ticket_id, plano, plano_expira_em, stripe_subscription_id')
+      .select('id, nome, slug, status, owner_user_id, aprovada_data, verificada, verificacao_ticket_id, plano, plano_expira_em, stripe_subscription_id, natureza, natureza_declarada')
       .eq('id', id)
       .limit(1)
     if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 })
@@ -56,6 +67,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     if (primeiraAprovacao) {
       patch.aprovada_data = new Date().toISOString()
+    }
+    if (naturezaConfirmada && naturezaConfirmada !== loja.natureza) {
+      patch.natureza = naturezaConfirmada
     }
 
     // ★ O TRIAL CONTA DA APROVACAO, NAO DO CADASTRO (13/09/2026, decisao do Du).

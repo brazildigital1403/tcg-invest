@@ -7,6 +7,13 @@ export interface FiltrosLojasState {
   estado: string
   tipo: string
   especialidade: string
+  /**
+   * Aba do Guia: '' (lojas, a padrao) ou 'colecionadores'.
+   * ★ E A MESMA COISA que a aba de cima da lista -- aba e filtro escrevem
+   * neste unico campo. Fossem dois estados, daria para pedir Lojas na aba e
+   * Colecionadores no filtro ao mesmo tempo, e a tela teria que escolher um.
+   */
+  quem: string
 }
 
 export interface OpcaoFiltro {
@@ -21,6 +28,7 @@ export function buildLojasUrl(f: FiltrosLojasState): string {
   if (f.estado) params.set('estado', f.estado)
   if (f.tipo) params.set('tipo', f.tipo)
   if (f.especialidade) params.set('especialidade', f.especialidade)
+  if (f.quem) params.set('quem', f.quem)
   const qs = params.toString()
   return qs ? `/lojas?${qs}` : '/lojas'
 }

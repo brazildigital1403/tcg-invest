@@ -14,17 +14,33 @@ interface FiltrosBaseProps {
   tipos: OpcaoFiltro[]
   especialidades: OpcaoFiltro[]
   totalLojas: number
+  /** Contagem de cada aba, para o grupo "Quem vende" no topo. */
+  quem?: { lojas: number; colecionadores: number }
 }
 
 // ─── Corpo compartilhado (sidebar desktop e gaveta mobile renderizam o mesmo) ──
 
 function CorpoFiltros({
-  atual, estados, tipos, especialidades, totalLojas, onSelect,
+  atual, estados, tipos, especialidades, totalLojas, quem, onSelect,
 }: FiltrosBaseProps & { onSelect: (next: FiltrosLojasState) => void }) {
   const temFiltroAtivo = !!(atual.q || atual.estado || atual.tipo || atual.especialidade)
 
   return (
     <>
+      {/* ★ Mesmo estado da aba de cima da lista (`quem`). O grupo existe para
+          quem filtra pela lateral e nao reparou na aba -- decisao do Du. */}
+      {quem && (
+        <div style={{ ...S.group, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.05)', borderRadius: 10, padding: '11px 12px' }}>
+          <h4 style={{ ...S.groupTitle, color: 'var(--ac-1)' }}>Quem vende</h4>
+          <div style={S.list}>
+            <OpcaoRadio label="Lojas" count={quem.lojas} ativo={!atual.quem}
+              onClick={() => onSelect({ ...atual, quem: '' })} />
+            <OpcaoRadio label="Colecionadores" count={quem.colecionadores} ativo={atual.quem === 'colecionadores'}
+              onClick={() => onSelect({ ...atual, quem: 'colecionadores' })} />
+          </div>
+        </div>
+      )}
+
       <div style={S.group}>
         <h4 style={S.groupTitle}>Estado</h4>
         <div style={S.list}>

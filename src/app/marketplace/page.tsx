@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose, IconCarrinho, IconLoja } from '@/components/ui/Icons'
+import { IconMarketplace, IconCheck, IconLocation, IconSearch, IconCollection, IconChat, IconBox, IconTag, IconStar, IconFire, IconShield, IconClock, IconBolt, IconFilter, IconArrowRight, IconCard, IconClose, IconCarrinho, IconLoja, IconAccount } from '@/components/ui/Icons'
+import { ehColecionador, NATUREZA_LABEL } from '@/lib/naturezaLoja'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import { supabase } from '@/lib/supabaseClient'
 import { dispararMarco } from '@/lib/marketplaceMarco'
@@ -205,9 +206,21 @@ function VendedorLoja({ card, variante }: { card: any; variante: VarianteVendedo
           {card.seller_loja_verificada && <SeloVerificado size={t.selo} />}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: t.meta, color: 'rgba(255,255,255,0.4)', marginTop: 1, minWidth: 0, whiteSpace: 'nowrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#60a5fa', fontWeight: 700, flexShrink: 0 }}>
-            <IconLoja size={t.meta + 0.5} color="#60a5fa" />Loja
-          </span>
+          {/* ★ AQUI AS DUAS ETIQUETAS CONVIVEM, ao contrario do Guia. No
+              Mercado ha TRES vendedores -- loja com pagina, colecionador com
+              pagina e a maioria, que nao tem pagina nenhuma e aparece so com
+              as iniciais. Ausencia de etiqueta aqui significa "sem pagina",
+              nao "loja", entao tirar a de Loja apagaria uma distincao que ja
+              existe. */}
+          {ehColecionador(card.seller_loja_natureza) ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#d8b4fe', fontWeight: 700, flexShrink: 0 }}>
+              <IconAccount size={t.meta + 0.5} color="#d8b4fe" />{NATUREZA_LABEL.colecionador}
+            </span>
+          ) : (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#60a5fa', fontWeight: 700, flexShrink: 0 }}>
+              <IconLoja size={t.meta + 0.5} color="#60a5fa" />{NATUREZA_LABEL.loja}
+            </span>
+          )}
           {card.seller_loja_cidade && (
             <>
               <span style={{ opacity: 0.5, flexShrink: 0 }}>·</span>
@@ -1214,7 +1227,7 @@ function MarketplaceInner() {
       // mostravam o mesmo botao.
       const { data: lojasDosVendedores } = await supabase
         .from('lojas')
-        .select('owner_user_id, slug, nome, logo_url, verificada, cidade, connect_charges_enabled')
+        .select('owner_user_id, slug, nome, logo_url, verificada, cidade, connect_charges_enabled, natureza')
         .in('owner_user_id', sellerIds)
         .eq('status', 'ativa')
         .neq('oculta', true)
@@ -1227,6 +1240,7 @@ function MarketplaceInner() {
           sellerMap[l.owner_user_id].loja_logo = l.logo_url
           sellerMap[l.owner_user_id].loja_verificada = !!l.verificada
           sellerMap[l.owner_user_id].loja_cidade = l.cidade
+          sellerMap[l.owner_user_id].loja_natureza = l.natureza
           // So conta como "pode comprar" se o Connect esta liberado -- loja
           // sem recebimento ativo nao consegue fechar a venda.
           sellerMap[l.owner_user_id].loja_vende = !!l.connect_charges_enabled
@@ -1301,6 +1315,7 @@ function MarketplaceInner() {
       seller_loja_logo: sellerMap[c.user_id]?.loja_logo ?? null,
       seller_loja_verificada: !!sellerMap[c.user_id]?.loja_verificada,
       seller_loja_cidade: sellerMap[c.user_id]?.loja_cidade ?? null,
+      seller_loja_natureza: sellerMap[c.user_id]?.loja_natureza ?? null,
       buyer_name: buyerMap[c.buyer_id]?.name,
       buyer_whatsapp: buyerMap[c.buyer_id]?.whatsapp,
       buyer_city: buyerMap[c.buyer_id]?.city,
@@ -1328,7 +1343,7 @@ function MarketplaceInner() {
     let prods: any[] = []
     const { data: lojasVisiveis } = await supabase
       .from('lojas')
-      .select('id, owner_user_id, slug, nome, logo_url, verificada, cidade, connect_charges_enabled')
+      .select('id, owner_user_id, slug, nome, logo_url, verificada, cidade, connect_charges_enabled, natureza')
       .eq('status', 'ativa')
       .neq('oculta', true)
     const lojaPorId = new Map((lojasVisiveis || []).map((l: any) => [l.id, l]))
@@ -1361,6 +1376,7 @@ function MarketplaceInner() {
           seller_loja_logo: l.logo_url,
           seller_loja_verificada: !!l.verificada,
           seller_loja_cidade: l.cidade,
+          seller_loja_natureza: l.natureza,
           seller_loja_vende: !!l.connect_charges_enabled,
           preco_mercado: 0,
         }
