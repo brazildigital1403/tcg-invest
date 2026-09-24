@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { fonteOg } from '@/lib/ogFontes'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { GRADUADORA_MAP, notaCurta, tierNome } from '@/lib/graduadoras'
@@ -20,8 +21,6 @@ export const alt = 'Cartas Pokémon graduadas na Bynx: slabs PSA 10, BGS Black L
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-const FONTE_700 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwARZthTg.ttf'
-const FONTE_900 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAC5thTg.ttf'
 const CARTA = (id: string) => `https://images.pokemontcg.io/${id}.png`
 const ARTE_CHARIZARD = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png'
 const OURO = '#e8c878'
@@ -69,8 +68,8 @@ function Slab({ s }: { s: SlabOg }) {
 
 export default async function Image() {
   const [f700, f900, logo, arte, c1, c2, c3] = await Promise.allSettled([
-    baixar(FONTE_700),
-    baixar(FONTE_900),
+    fonteOg(700),
+    fonteOg(900),
     readFile(join(process.cwd(), 'public', 'logo_BYNX.png')),
     baixar(ARTE_CHARIZARD),
     baixar(CARTA('swsh7/215')),

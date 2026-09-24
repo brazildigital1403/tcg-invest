@@ -130,6 +130,20 @@ export interface LojaCard {
 
 const ORDEM_PLANO: Record<string, number> = { premium: 0, pro: 1, basico: 2 }
 
+/**
+ * Quem NAO entra no carrossel de Destaque, mesmo sendo Premium.
+ *
+ * - `bynx`: a loja oficial (decisao do Du, 02/08/2026). Ela aparece na grade
+ *   normal como qualquer outra; no carrossel pareceria autopromocao.
+ * - `castle-games`: decisao do Du, 24/09/2026. Segue Premium, com o badge e a
+ *   prioridade de ordenacao -- so nao ocupa a vitrine do topo.
+ *
+ * ★ Com as duas fora, hoje NAO SOBRA NENHUMA Premium e o carrossel inteiro
+ *   some da tela (LojasDestaque:99 devolve null com lista vazia). A proxima
+ *   loja que assinar Premium volta a povoa-lo sozinha.
+ */
+const FORA_DO_DESTAQUE = new Set(['bynx', 'castle-games'])
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default async function LojasPage(
@@ -207,7 +221,7 @@ export default async function LojasPage(
   // nao assina Premium para aparecer la.
   const premiumLojas = naturezaAtiva === 'colecionador'
     ? []
-    : lojas.filter(l => l.plano === 'premium' && l.slug !== 'bynx')
+    : lojas.filter(l => l.plano === 'premium' && !FORA_DO_DESTAQUE.has(l.slug))
   const ratingMap: Record<string, { media: number; total: number }> = {}
   const acc: Record<string, number[]> = {}
   for (const a of avaliacoes) {

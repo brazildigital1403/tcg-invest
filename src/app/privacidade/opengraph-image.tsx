@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { fonteOg } from '@/lib/ogFontes'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -15,8 +16,6 @@ export const alt = 'Política de Privacidade da Bynx: como seus dados pessoais s
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-const FONTE_700 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwARZthTg.ttf'
-const FONTE_900 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAC5thTg.ttf'
 const AMBAR = '#f59e0b'
 
 async function baixar(url: string): Promise<ArrayBuffer> {
@@ -30,8 +29,8 @@ const TEMAS = ['Dados que coletamos', 'Seus direitos', 'Segurança']
 
 export default async function Image() {
   const [f700, f900, logo] = await Promise.allSettled([
-    baixar(FONTE_700),
-    baixar(FONTE_900),
+    fonteOg(700),
+    fonteOg(900),
     readFile(join(process.cwd(), 'public', 'logo_BYNX.png')),
   ])
   const fontes = [

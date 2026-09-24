@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { fonteOg } from '@/lib/ogFontes'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PAGINAS_LENDARIAS, imgDaCarta } from '@/lib/paginas-lendarias'
@@ -23,8 +24,6 @@ export const alt = 'Fichário Lendário da Bynx: a arte da carta continua pelos 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-const FONTE_700 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwARZthTg.ttf'
-const FONTE_900 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAC5thTg.ttf'
 const AMBAR = '#f59e0b'
 
 // A pagina gratis e a amostra do produto (a mesma que o hero abre primeiro).
@@ -41,8 +40,8 @@ const ok = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfille
 
 export default async function Image() {
   const [f700, f900, logo, arte, carta] = await Promise.allSettled([
-    baixar(FONTE_700),
-    baixar(FONTE_900),
+    fonteOg(700),
+    fonteOg(900),
     readFile(join(process.cwd(), 'public', 'logo_BYNX.png')),
     readFile(join(process.cwd(), 'public', 'paginas-lendarias', `${PAGINA.id}-og.jpg`)),
     baixar(imgDaCarta(HEROI)),

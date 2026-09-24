@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { fonteOg } from '@/lib/ogFontes'
 import { notFound } from 'next/navigation'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -41,8 +42,6 @@ export const maxDuration = 20
 // 7 dias no CDN; depois disso serve a velha por mais 1 dia enquanto renova.
 const CACHE_CONTROL_OG = 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400'
 
-const FONTE_700 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwARZthTg.ttf'
-const FONTE_900 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAC5thTg.ttf'
 const AMBAR = '#f59e0b'
 
 async function baixar(url: string): Promise<ArrayBuffer> {
@@ -116,8 +115,8 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   ].filter(Boolean).join(' · ')
 
   const [f700, f900, logoBynx, logoSet, ...artes] = await Promise.all([
-    baixar(FONTE_700),
-    baixar(FONTE_900),
+    fonteOg(700),
+    fonteOg(900),
     readFile(join(process.cwd(), 'public', 'logo_BYNX.png')),
     set?.logo_url ? baixar(set.logo_url) : Promise.resolve(null),
     ...cartas.map(c => baixar(c.image_small as string)),

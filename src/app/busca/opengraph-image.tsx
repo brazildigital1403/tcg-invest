@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { fonteOg } from '@/lib/ogFontes'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -21,8 +22,6 @@ export const alt = 'Busca da Bynx: encontre qualquer carta Pokémon TCG e veja o
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-const FONTE_700 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwARZthTg.ttf'
-const FONTE_900 = 'https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAC5thTg.ttf'
 const CARTA = (id: string) => `https://images.pokemontcg.io/${id}.png`
 const AMBAR = '#f59e0b'
 const POPULARES = ['Pikachu', 'Mewtwo', 'Umbreon', 'Gengar']
@@ -43,8 +42,8 @@ const RESULTADOS = [
 
 export default async function Image() {
   const [f700, f900, logo, ...cartas] = await Promise.allSettled([
-    baixar(FONTE_700),
-    baixar(FONTE_900),
+    fonteOg(700),
+    fonteOg(900),
     readFile(join(process.cwd(), 'public', 'logo_BYNX.png')),
     ...RESULTADOS.map(r => baixar(CARTA(r.id))),
   ])

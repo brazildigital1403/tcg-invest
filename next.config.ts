@@ -63,6 +63,23 @@ const nextConfig: NextConfig = {
   },
 
   /**
+   * ★ AS FONTES DAS IMAGENS DE COMPARTILHAMENTO VIAJAM COM O LAMBDA
+   *   (24/09/2026). As 25 rotas `opengraph-image` leem `public/fonts/
+   *   dm-sans-{700,900}.ttf` do disco em vez de baixar do Google -- ver
+   *   src/lib/ogFontes.ts, escrito depois de uma falha de rede no build
+   *   derrubar um deploy inteiro.
+   *
+   *   So que `public/` vai para a CDN estatica, e NAO entra no pacote do
+   *   servidor sozinho. As tres OG dinamicas (/lojas/[slug], /set/[id],
+   *   /pokemon/[name]) rodam no lambda e nao acham o arquivo: sem isto aqui,
+   *   elas cairiam no fallback de rede a cada request.
+   */
+  outputFileTracingIncludes: {
+    '/**/opengraph-image': ['./public/fonts/**'],
+    '/**/twitter-image': ['./public/fonts/**'],
+  },
+
+  /**
    * Rewrites pra PostHog (S39).
    *
    * Por quê: roteamos as requisições do PostHog (`/ingest/*`) através do
