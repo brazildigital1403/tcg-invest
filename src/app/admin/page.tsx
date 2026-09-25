@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { IconWarning } from '@/components/ui/Icons'
+import ZenRowsCard from '@/components/admin/ZenRowsCard'
 
 type Metrics = {
   tickets: { open: number; in_progress: number; resolved: number; last7: number }
@@ -117,6 +118,8 @@ export default function AdminDashboard() {
 
           {/* ── Alertas ── */}
           <AlertBox alertas={dash?.alertas} />
+          {/* ── ZenRows: crédito do scan ── */}
+          <ZenRowsCard />
 
           {/* ── Gráficos ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16, marginBottom: 8 }}>
