@@ -1972,32 +1972,38 @@ export async function sendMensagensNaoLidasEmail(args: {
 export async function sendConnectAtivoEmail(args: {
   to: string
   nomeUser: string
-  nomeLoja: string
-  lojaId: string
+  /** Ausente quem recebe SEM loja: a conta Connect vive na pessoa. */
+  nomeLoja?: string | null
+  lojaId?: string | null
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
-  const url = `${APP_URL}/minha-loja/${args.lojaId}/pagamentos`
+  // ★ PESSOA FISICA NAO TEM /minha-loja (24/09/2026, Quadro #389). Sem o
+  // fallback, o e-mail mais comemorativo do fluxo levaria a um link morto.
+  const url = args.lojaId ? `${APP_URL}/minha-loja/${args.lojaId}/pagamentos` : `${APP_URL}/recebimentos`
+  const quem = args.nomeLoja?.trim() || null
 
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:48px;line-height:1;">🎉</div>
     </div>
     ${h1('Seus recebimentos estão ativos!')}
-    ${p(`${escapeHtml(firstName)}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>. Sua loja já pode vender direto na Bynx — cartas, selados, acessórios e o que mais você tiver na vitrine.`)}
+    ${p(quem
+      ? `${escapeHtml(firstName)}, a Stripe aprovou o cadastro de <strong style="color:#f0f0f0;">${escapeHtml(quem)}</strong>. Sua loja já pode vender direto na Bynx — cartas, selados, acessórios e o que mais você tiver na vitrine.`
+      : `${escapeHtml(firstName)}, a Stripe aprovou o seu cadastro. Os seus anúncios já podem ser comprados direto na Bynx, com pagamento, frete e rastreio por aqui.`)}
     ${p('O dinheiro das suas vendas cai na conta bancária que você cadastrou. A gente nunca toca nele — quem cuida disso é a Stripe.')}
     ${divider()}
     ${p('<strong style="color:#f0f0f0;">Como funciona:</strong>')}
-    ${p('• O colecionador compra direto na sua vitrine, com Pix ou cartão')}
+    ${p(quem ? '• O colecionador compra direto na sua vitrine, com Pix ou cartão' : '• O colecionador compra direto no seu anúncio, com Pix ou cartão')}
     ${p('• Você recebe o aviso do pedido e envia o produto')}
     ${p('• O valor cai na sua conta no prazo de repasse que você escolheu')}
     ${divider()}
-    ${btnB2B('Ver meus pagamentos', addUtm(url, 'connect_ativo'), B2B_GRADIENT_PREMIUM, '#a855f7')}
-  `, 'Sua loja já pode vender na Bynx')
+    ${btnB2B(quem ? 'Ver meus pagamentos' : 'Ver meus recebimentos', addUtm(url, 'connect_ativo'), B2B_GRADIENT_PREMIUM, '#a855f7')}
+  `, quem ? 'Sua loja já pode vender na Bynx' : 'Você já pode vender na Bynx')
 
   return enviar({
     from: FROM,
     to: args.to,
-    subject: subjUser(`🎉 ${args.nomeLoja}: seus recebimentos estão ativos!`),
+    subject: subjUser(quem ? `🎉 ${quem}: seus recebimentos estão ativos!` : '🎉 Seus recebimentos estão ativos!'),
     html,
   })
 }
@@ -2011,12 +2017,14 @@ export async function sendConnectAtivoEmail(args: {
 export async function sendConnectPendenciaEmail(args: {
   to: string
   nomeUser: string
-  nomeLoja: string
-  lojaId: string
+  /** Ausente quem recebe SEM loja. Ver `sendConnectAtivoEmail`. */
+  nomeLoja?: string | null
+  lojaId?: string | null
   qtdPendencias: number
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
-  const url = `${APP_URL}/minha-loja/${args.lojaId}/pagamentos`
+  const url = args.lojaId ? `${APP_URL}/minha-loja/${args.lojaId}/pagamentos` : `${APP_URL}/recebimentos`
+  const quem = args.nomeLoja?.trim() || null
   const plural = args.qtdPendencias === 1 ? 'uma informação' : `${args.qtdPendencias} informações`
 
   const html = baseLayout(`
@@ -2024,8 +2032,12 @@ export async function sendConnectPendenciaEmail(args: {
       <div style="font-size:48px;line-height:1;">📋</div>
     </div>
     ${h1('Falta pouco para você vender na Bynx')}
-    ${p(`${escapeHtml(firstName)}, a Stripe precisa de ${plural} a mais para liberar os recebimentos de <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong>.`)}
-    ${p('É rapidinho e você continua exatamente de onde parou. Enquanto isso, sua loja segue no ar normalmente — só as vendas com pagamento pela Bynx que ficam esperando.')}
+    ${p(quem
+      ? `${escapeHtml(firstName)}, a Stripe precisa de ${plural} a mais para liberar os recebimentos de <strong style="color:#f0f0f0;">${escapeHtml(quem)}</strong>.`
+      : `${escapeHtml(firstName)}, a Stripe precisa de ${plural} a mais para liberar os seus recebimentos.`)}
+    ${p(quem
+      ? 'É rapidinho e você continua exatamente de onde parou. Enquanto isso, sua loja segue no ar normalmente — só as vendas com pagamento pela Bynx que ficam esperando.'
+      : 'É rapidinho e você continua exatamente de onde parou. Enquanto isso, seus anúncios seguem no ar normalmente — só a compra pela Bynx que fica esperando.')}
     ${divider()}
     ${btnB2B('Resolver agora', addUtm(url, 'connect_pendencia'), B2B_GRADIENT_PRO, '#8b5cf6')}
     ${p('<span style="color:rgba(255,255,255,0.4);font-size:13px;">Essas informações são exigidas pela Stripe, que processa os pagamentos com segurança. A Bynx não tem acesso aos seus dados bancários.</span>')}
@@ -2034,7 +2046,7 @@ export async function sendConnectPendenciaEmail(args: {
   return enviar({
     from: FROM,
     to: args.to,
-    subject: subjUser(`📋 ${args.nomeLoja}: falta pouco para ativar seus recebimentos`),
+    subject: subjUser(quem ? `📋 ${quem}: falta pouco para ativar seus recebimentos` : '📋 Falta pouco para ativar seus recebimentos'),
     html,
   })
 }

@@ -13,6 +13,7 @@ import { GRADUADORAS, GRADUADORA_MAP, tierNome, notaCurta, isNotaTop } from '@/l
 import { checkMarketplaceLimit, LIMITE_FREE_MKTPLACE } from '@/lib/checkCardLimit'
 import { getUserPlan } from '@/lib/isPro'
 import { transferirCartaAoComprador } from '@/lib/concluirCompra'
+import AvisoRecebimentoPessoa from '@/components/marketplace/AvisoRecebimentoPessoa'
 import UpgradeBanner from '@/components/ui/UpgradeBanner'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
@@ -1960,6 +1961,12 @@ function MarketplaceInner() {
               </div>
             ) : (
               <>
+                {/* ★ Onde a pessoa OLHA. Ver o cabecalho do componente. */}
+                <AvisoRecebimentoPessoa
+                  userId={userId}
+                  anunciosNoAr={meusAnuncios.filter(c => c.status === 'disponivel').length}
+                />
+
                 {/* Resumo por status */}
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
                   {Object.entries(STATUS_CFG).map(([key, cfg]) => {

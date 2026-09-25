@@ -1532,9 +1532,84 @@ export async function POST(req: NextRequest) {
           break
         }
         const loja = lojas?.[0]
+
+        // ★ A CONTA PODE SER DE UMA PESSOA, NAO DE UMA LOJA (24/09/2026,
+        // Quadro #389). Antes disso, `sem loja` era o fim da linha: a conta de
+        // pessoa fisica ficaria para sempre `pendente` no banco, porque so o
+        // GET sincrono sincronizava -- e a pessoa nao tem motivo para voltar na
+        // tela depois de terminar o onboarding. O botao "Comprar" nunca
+        // acenderia sozinho.
         if (!loja) {
-          // Conta conectada que nao e da Bynx (ou foi removida). Nao e erro.
-          console.warn(`[webhook] account.updated: nenhuma loja com account ${acc.id}`)
+          const { data: pessoas } = await supabase
+            .from('users')
+            .select('id, name, email, stripe_connect_status')
+            .eq('stripe_connect_account_id', acc.id)
+            .limit(1)
+          const pessoa = pessoas?.[0]
+          if (!pessoa) {
+            // Conta conectada que nao e da Bynx (ou foi removida). Nao e erro.
+            console.warn(`[webhook] account.updated: nenhuma loja nem pessoa com account ${acc.id}`)
+            break
+          }
+
+          const eraAtivoP = pessoa.stripe_connect_status === 'ativo'
+          const virouAtivoP = c.status === 'ativo' && !eraAtivoP
+          const virouRestritoP = c.status === 'restrito' && pessoa.stripe_connect_status !== 'restrito'
+
+          const patchPessoa: Record<string, any> = {
+            stripe_connect_status: c.status,
+            connect_charges_enabled: c.charges,
+            connect_payouts_enabled: c.payouts,
+            connect_requirements: c.requirements,
+            updated_at: new Date().toISOString(),
+          }
+          if (virouAtivoP) patchPessoa.connect_onboarded_em = new Date().toISOString()
+
+          const { error: upPessoa } = await supabase.from('users').update(patchPessoa).eq('id', pessoa.id)
+          if (upPessoa) {
+            console.error(`[webhook] account.updated: falha ao atualizar pessoa ${pessoa.id}:`, upPessoa.message)
+            break
+          }
+          console.log(`[webhook] account.updated: pessoa ${pessoa.id} -> ${c.status} (charges ${c.charges} payouts ${c.payouts} pendencias ${c.pendencias.length})`)
+
+          // Mesma regra da loja: avisa SO na transicao, e NUNCA em `em_analise`.
+          if (virouAtivoP || virouRestritoP) {
+            const avisoP = virouAtivoP
+              ? {
+                  title: 'Recebimentos ativos!',
+                  message: 'Seus anúncios já podem ser comprados direto na Bynx. O dinheiro cai na conta que você cadastrou.',
+                }
+              : {
+                  title: 'Falta pouco para vender na Bynx',
+                  message: `A Stripe precisa de mais ${c.pendencias.length} informação(ões) para liberar os seus recebimentos.`,
+                }
+            try {
+              await supabase.from('notifications').insert({
+                user_id: pessoa.id,
+                type: 'aviso',
+                title: avisoP.title,
+                message: avisoP.message,
+                data: { link: '/recebimentos' },
+              })
+            } catch (err: any) {
+              console.error('[webhook] account.updated: falha no sino da pessoa:', err?.message)
+            }
+            try {
+              if (pessoa.email) {
+                if (virouAtivoP) {
+                  await sendConnectAtivoEmail({ to: pessoa.email, nomeUser: pessoa.name || '' })
+                } else {
+                  await sendConnectPendenciaEmail({
+                    to: pessoa.email,
+                    nomeUser: pessoa.name || '',
+                    qtdPendencias: c.pendencias.length,
+                  })
+                }
+              }
+            } catch (err: any) {
+              console.error('[webhook] account.updated: falha no email da pessoa:', err?.message)
+            }
+          }
           break
         }
 
