@@ -158,12 +158,12 @@ export default async function AnuncioPage({
 
             <div style={S.preco}>{fmtBRL(a.preco)}</div>
 
-            {/* ★ LOJA COMPRA, COLECIONADOR NEGOCIA (decisao do Du, 07/09).
-                Sem loja nao ha Connect, frete nem rastreio -- "Comprar agora"
-                ali prometia o que quebra no fim. A diferenca ficar VISIVEL e
-                o que da motivo pro vendedor abrir a loja dele.
-                `lojaPodeVender` exige o Connect liberado: loja cadastrada mas
-                sem recebimento ativo tambem nao fecha venda. */}
+            {/* ★ QUEM RECEBE COMPRA, QUEM NAO RECEBE NEGOCIA (24/09/2026).
+                A regra era "loja compra, colecionador negocia" -- e isso
+                condenava 70 dos 100 anuncios ao "Tenho interesse", porque
+                pessoa fisica nao tinha como ter Connect. O corte agora e
+                RECEBIMENTO, nao loja: quem ativou recebe, tendo loja ou nao.
+                Continua exigindo o Connect liberado, nao so cadastrado. */}
             {/* ★ TRAVADO NAO E VENDIDO (08/09/2026). Ate hoje os dois liam a
                 mesma frase seca -- "nao esta mais disponivel" -- e quem chegava
                 por link compartilhado ia embora achando que a carta acabou.
@@ -172,7 +172,7 @@ export default async function AnuncioPage({
               <CronometroLiberacao liberaEm={a.liberaEm} variante="painel" />
             ) : !a.disponivel ? (
               <div style={S.esgotado}>Este anúncio não está mais disponível.</div>
-            ) : a.lojaPodeVender ? (
+            ) : a.podeComprar ? (
               <Link href={`/checkout/${a.id}`} className="bx-ctx-comprador bx-compra-cta" style={S.cta}>
                 <IconCarrinho size={18} /> Comprar agora
               </Link>
@@ -180,17 +180,18 @@ export default async function AnuncioPage({
               <div className="bx-ctx-comprador">
                 <BotaoInteresse anuncioId={a.id} nomeCarta={a.nome} preco={fmtBRL(a.preco)} />
                 <p style={S.avisoInteresse}>
-                  Este vendedor ainda não tem loja na Bynx. Você conversa com ele por aqui
-                  e combinam o pagamento e o envio.
+                  Este vendedor ainda não recebe pagamento pela Bynx. Você conversa com ele
+                  por aqui e combinam o pagamento e o envio.
                 </p>
               </div>
             )}
 
             {/* Carrinho SO em carta de loja. O carrinho da Bynx e organizado
-                POR LOJA (a API rejeita item cujo dono nao seja o lojista), e 47
-                dos 57 anuncios sao de colecionador sem loja -- pra esses o
-                carrinho nao existe como conceito, a compra e individual. */}
-            {a.disponivel && a.lojaPodeVender && (
+                POR LOJA -- a API recebe `loja_id` e rejeita item cujo dono nao
+                seja aquele lojista. Venda de pessoa fisica ja fecha pelo
+                "Comprar agora", mas juntar duas cartas dela num pedido so
+                ainda nao existe: e o carrinho por VENDEDOR, que nao foi feito. */}
+            {a.disponivel && a.podeComprar && a.lojaId && (
               <div style={S.carrinhoLinha}>
                 <BotaoCarrinho id={a.id} tipo="carta" lojaId={a.lojaId ?? ''} />
               </div>

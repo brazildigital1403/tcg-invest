@@ -22,7 +22,14 @@ import PageHeader, { INICIO } from '@/components/ui/PageHeader'
  * que o comprador escolhe o metodo. Entao a escolha precisa acontecer AQUI,
  * antes de criar a Session. De quebra, da pra mostrar o quanto o Pix economiza.
  *
- * FRETE: se a loja usa frete calculado, o comprador digita o CEP e escolhe
+ * ★ QUEM VENDE PODE NAO SER UMA LOJA (24/09/2026, Quadro #389). Carta de
+ * pessoa fisica agora fecha por aqui, entao o bloco de quem vende, o link
+ * lateral e as tres frases do "Como funciona" mudam de palavra conforme o
+ * `tipo`. A API de CARTA devolve `vendedor`; a de PRODUTO continua devolvendo
+ * `loja`, porque produto so existe dentro de loja -- por isso o fetch aceita
+ * os dois.
+ *
+ * FRETE: se quem vende usa frete calculado, o comprador digita o CEP e escolhe
  * PAC/SEDEX aqui. O preco vem de /api/frete/cotar (so estimativa); o checkout
  * RE-COTA no servidor na hora de fechar — o cliente nunca dita o preco do frete.
  *
@@ -50,8 +57,11 @@ interface ItemInfo {
   estoque?: number | null
 }
 interface LojaInfo {
+  /** Ausente na rota de produto, que e sempre loja. */
+  tipo?: 'loja' | 'pessoa'
   nome: string
-  slug: string
+  /** Slug da loja, ou o username da pessoa. Pode nao existir. */
+  slug: string | null
   logo_url: string | null
   verificada: boolean | null
   frete_cents: number
@@ -136,7 +146,8 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Não consegui carregar')
       setItem(j.item)
-      setLoja(j.loja)
+      // `vendedor` e o campo novo (carta); `loja` e o da rota de produto.
+      setLoja(j.vendedor ?? j.loja)
     } catch (e) {
       setErro((e as Error).message)
     } finally {
@@ -211,7 +222,11 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
             <div style={S.fallbackIco}><IconBox size={26} color="#c084fc" /></div>
             <h1 style={S.fh1}>Esse anúncio é de negociação direta</h1>
             <p style={S.ftxt}>
-              {loja ? `A ${loja.nome} ainda está ativando os recebimentos.` : 'Esse vendedor ainda não vende pela Bynx.'}{' '}
+              {loja
+                ? loja.tipo === 'pessoa'
+                  ? `${loja.nome} ainda não recebe pagamento pela Bynx.`
+                  : `A ${loja.nome} ainda está ativando os recebimentos.`
+                : 'Esse vendedor ainda não vende pela Bynx.'}{' '}
               {ehProduto ? 'Volte em breve para comprar por aqui.' : 'Você pode conversar com ele pelo marketplace.'}
             </p>
             {!ehProduto && (
@@ -226,6 +241,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
   }
 
   const ehMeu = uid && uid === item.vendedor_user_id
+  const ehPessoa = loja.tipo === 'pessoa'
   const ehCalculado = loja.frete_modo === 'calculado'
   const freteBase = loja.frete_cents
   const gratisAcima = loja.frete_gratis_acima_cents
@@ -375,7 +391,8 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
           <div style={S.sellcard}>
             {/* Logo REAL da loja. O `logo_url` ja vinha da API e nunca era
                 usado — a inicial no gradiente da marca fazia toda loja parecer
-                a Bynx, justo no bloco que diz quem esta vendendo. */}
+                a Bynx, justo no bloco que diz quem esta vendendo.
+                Pessoa fisica nao tem logo: fica a inicial do nome dela. */}
             {loja.logo_url ? (
               <Image src={loja.logo_url} alt={loja.nome} width={38} height={38} style={S.avatarImg} priority />
             ) : (
@@ -383,19 +400,26 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={S.sellName}>
-                Loja {loja.nome}
+                {ehPessoa ? loja.nome : `Loja ${loja.nome}`}
                 {loja.verificada && <span style={{ display: 'inline-flex', marginLeft: 5 }}><SeloVerificado size={15} /></span>}
               </div>
-              <div style={S.sellSub}>Vendido e enviado pela loja</div>
+              <div style={S.sellSub}>
+                {ehPessoa ? 'Vendido e enviado por este vendedor' : 'Vendido e enviado pela loja'}
+              </div>
             </div>
-            <Link href={`/lojas/${loja.slug}`} style={S.verBtn}>Ver loja</Link>
+            {/* Loja tem pagina; pessoa tem perfil. Sem slug, nao ha para onde ir. */}
+            {loja.slug && (
+              <Link href={ehPessoa ? `/perfil/${loja.slug}` : `/lojas/${loja.slug}`} style={S.verBtn}>
+                {ehPessoa ? 'Ver perfil' : 'Ver loja'}
+              </Link>
+            )}
           </div>
 
           <div style={{ marginTop: 18 }}>
             <div style={S.howTit}>Como funciona sua compra</div>
             <div style={S.howRow}><span style={S.howIco}><IconShield size={19} color="#c084fc" /></span><div><div style={S.howB}>Pagamento seguro</div><div style={S.howS}>Processado pela Stripe. A Bynx nunca guarda os dados do seu cartão.</div></div></div>
-            <div style={S.howRow}><span style={S.howIco}><IconBox size={19} color="#c084fc" /></span><div><div style={S.howB}>A loja despacha com rastreio</div><div style={S.howS}>Você recebe o código pra acompanhar a entrega, tudo dentro da Bynx.</div></div></div>
-            <div style={{ ...S.howRow, marginBottom: 0 }}><span style={S.howIco}><IconCheck size={19} color="#c084fc" /></span><div><div style={S.howB}>Você confirma e avalia</div><div style={S.howS}>Ao receber, confirma o recebimento e deixa sua avaliação da loja.</div></div></div>
+            <div style={S.howRow}><span style={S.howIco}><IconBox size={19} color="#c084fc" /></span><div><div style={S.howB}>{ehPessoa ? 'O vendedor despacha com rastreio' : 'A loja despacha com rastreio'}</div><div style={S.howS}>Você recebe o código pra acompanhar a entrega, tudo dentro da Bynx.</div></div></div>
+            <div style={{ ...S.howRow, marginBottom: 0 }}><span style={S.howIco}><IconCheck size={19} color="#c084fc" /></span><div><div style={S.howB}>Você confirma e avalia</div><div style={S.howS}>Ao receber, confirma o recebimento e deixa sua avaliação{ehPessoa ? ' do vendedor' : ' da loja'}.</div></div></div>
           </div>
         </div>
 

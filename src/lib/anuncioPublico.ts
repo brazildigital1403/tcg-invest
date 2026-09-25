@@ -3,6 +3,7 @@ import { cache } from 'react'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { podeExpirar, liberaEm as calcLiberaEm } from '@/lib/marketplaceStatus'
 import { badgesDaCarta } from '@/lib/badgesCarta'
+import { resolverRecebedor, podeReceber } from '@/lib/vendedorRecebimento'
 
 /**
  * Um anuncio do marketplace, para a pagina PUBLICA dele.
@@ -71,12 +72,18 @@ export type AnuncioPublico = {
   lojaLogoUrl: string | null
   lojaVerificada: boolean
   /**
-   * Loja ativa E com Connect liberado. So com os dois a venda fecha na
-   * plataforma (pagamento, frete, rastreio). Loja cadastrada sem recebimento
-   * ativo NAO conta -- oferecer "Comprar" ali seria prometer o que quebra no
-   * fim do caminho.
+   * A venda fecha na plataforma (pagamento, frete, rastreio)?
+   *
+   * ★ DEIXOU DE SER "TEM LOJA" (24/09/2026). Ate aqui isto era
+   * `lojaPodeVender`, e sem loja nao havia caminho -- o que condenava 70 dos
+   * 100 anuncios ao "Tenho interesse" para sempre. Agora quem responde e o
+   * `resolverRecebedor`: vale a conta da loja, e vale a conta da pessoa.
+   *
+   * Continua exigindo o Connect LIBERADO, e nao so cadastrado: oferecer
+   * "Comprar" a quem nao pode receber e prometer o que quebra no fim do
+   * caminho. Frete calculado sem CEP de origem tambem nao fecha.
    */
-  lojaPodeVender: boolean
+  podeComprar: boolean
   lojaCidade: string | null
   lojaEstado: string | null
 }
@@ -103,12 +110,14 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
   const a = data?.[0]
   if (!a) return null
 
-  const [donoRes, lojaRes, cartaRes] = await Promise.all([
+  const [donoRes, lojaRes, cartaRes, recebedor] = await Promise.all([
     db.from('public_users').select('id, name, city, username').eq('id', a.user_id).limit(1),
     db.from('lojas').select('id, nome, slug, logo_url, verificada, connect_charges_enabled, cidade, estado').eq('owner_user_id', a.user_id).eq('status', 'ativa').neq('oculta', true).limit(1),
     a.card_id
       ? db.from('pokemon_cards').select('slug').eq('id', a.card_id).limit(1)
       : Promise.resolve({ data: null, error: null }),
+    // Uma query a mais por pagina de anuncio, e e a que decide o botao.
+    resolverRecebedor(db, a.user_id),
   ])
 
   const u = donoRes.data?.[0]
@@ -142,7 +151,9 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
     lojaSlug: l?.slug || null,
     lojaLogoUrl: l?.logo_url || null,
     lojaVerificada: !!l?.verificada,
-    lojaPodeVender: !!l?.connect_charges_enabled,
+    podeComprar:
+      podeReceber(recebedor) &&
+      (recebedor!.freteModo !== 'calculado' || !!recebedor!.cepOrigem),
     lojaCidade: l?.cidade?.trim() || null,
     lojaEstado: l?.estado?.trim() || null,
   }

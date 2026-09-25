@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { cotarFrete, pacoteDeCarta } from '@/lib/melhor-envio'
+import { resolverRecebedor, podeReceber, motivoSemCompra } from '@/lib/vendedorRecebimento'
 
 /**
  * POST /api/marketplace/[id]/checkout
@@ -22,8 +23,14 @@ import { cotarFrete, pacoteDeCarta } from '@/lib/melhor-envio'
  * Envio) com o CEP do comprador + o servico escolhido — nunca confiamos no preco
  * que veio do cliente.
  *
- * Auth: comprador logado (Bearer). Guards: anuncio disponivel, loja ativa com
+ * Auth: comprador logado (Bearer). Guards: anuncio disponivel, vendedor com
  * recebimentos liberados, e ninguem compra do proprio anuncio.
+ *
+ * ★ QUEM RECEBE NAO E MAIS "A LOJA" (24/09/2026, Quadro #389). Esta rota exigia
+ * loja ativa com Connect, e 70 dos 100 anuncios sao de pessoa fisica sem loja --
+ * para eles o 409 era permanente. Agora quem responde e o `resolverRecebedor`:
+ * conta da loja quando ela tem uma, conta do dono quando nao tem. O resto do
+ * fluxo (split, comissao, frete integral) nao mudou uma linha.
  */
 
 function sb() {
@@ -55,15 +62,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const anuncio = anuncios?.[0]
     if (!anuncio) return NextResponse.json({ error: 'Anúncio não encontrado.' }, { status: 404 })
 
-    const { data: lojas } = await db
-      .from('lojas')
-      .select('id, nome, slug, logo_url, verificada, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents, frete_modo, cep')
-      .eq('owner_user_id', anuncio.user_id)
-      .eq('status', 'ativa')
-      .limit(1)
-
-    const loja = lojas?.[0] || null
-    const podeVender = !!loja?.connect_charges_enabled
+    const r = await resolverRecebedor(db, anuncio.user_id)
+    // Frete calculado sem CEP de origem nao fecha: melhor nao oferecer o botao
+    // do que oferecer e quebrar na hora de cotar.
+    const podeVender = podeReceber(r) && (r!.freteModo !== 'calculado' || !!r!.cepOrigem)
     const fotosVend: string[] = Array.isArray(anuncio.fotos)
       ? anuncio.fotos.filter((u: unknown): u is string => typeof u === 'string' && !!u)
       : []
@@ -90,16 +92,18 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         disponivel: anuncio.status === 'disponivel' && !anuncio.removido_em,
         vendedor_user_id: anuncio.user_id,
       },
-      loja: loja
+      // `vendedor` e o campo novo; quem vende pode nao ter loja nenhuma.
+      vendedor: r
         ? {
-            nome: loja.nome,
-            slug: loja.slug,
-            logo_url: loja.logo_url,
-            verificada: loja.verificada,
-            frete_cents: loja.frete_cents || 0,
-            frete_gratis_acima_cents: loja.frete_gratis_acima_cents,
-            frete_modo: loja.frete_modo || 'fixo',
-            repasse_prazo: normalizarPrazo(loja.repasse_prazo),
+            tipo: r.tipo,
+            nome: r.nome,
+            slug: r.slug,
+            logo_url: r.logoUrl,
+            verificada: r.verificada,
+            frete_cents: r.freteCents,
+            frete_gratis_acima_cents: r.freteGratisAcimaCents,
+            frete_modo: r.freteModo,
+            repasse_prazo: normalizarPrazo(r.repassePrazo),
             pode_vender: podeVender,
           }
         : null,
@@ -158,27 +162,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ error: 'Você não pode comprar o seu próprio anúncio.' }, { status: 400 })
     }
 
-    // ── Loja do vendedor (o vinculo e por owner_user_id) ─────────────────
-    const { data: lojas } = await db
-      .from('lojas')
-      .select('id, nome, slug, status, owner_user_id, stripe_connect_account_id, stripe_connect_status, connect_charges_enabled, repasse_prazo, frete_cents, frete_gratis_acima_cents, frete_modo, cep')
-      .eq('owner_user_id', anuncio.user_id)
-      .eq('status', 'ativa')
-      .limit(1)
-
-    const loja = lojas?.[0]
-    if (!loja) {
-      return NextResponse.json(
-        { error: 'Esse vendedor ainda não vende pela Bynx. Use "Tenho interesse" para negociar.' },
-        { status: 409 }
-      )
+    // ── Quem recebe: a loja do vendedor, ou ele mesmo ────────────────────
+    const r = await resolverRecebedor(db, anuncio.user_id)
+    if (!podeReceber(r)) {
+      return NextResponse.json({ error: motivoSemCompra(r) }, { status: 409 })
     }
-    if (!loja.stripe_connect_account_id || !loja.connect_charges_enabled) {
-      return NextResponse.json(
-        { error: 'Essa loja ainda está ativando os recebimentos. Tente de novo em breve.' },
-        { status: 409 }
-      )
-    }
+    const recebedor = r!
 
     // ── Dinheiro ────────────────────────────────────────────────────────
     const valorCents = Math.round(Number(anuncio.price) * 100)
@@ -186,15 +175,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ error: 'Preço inválido no anúncio.' }, { status: 400 })
     }
 
-    const prazo = normalizarPrazo(loja.repasse_prazo)
+    const prazo = normalizarPrazo(recebedor.repassePrazo)
     const c = calcularCheckout(valorCents, prazo, metodo)
 
     // ── Frete: fixo (loja) OU calculado (re-cotacao no servidor) ──────────
     // Vai INTEGRAL pra loja (nao entra na comissao).
     let freteCents = 0
-    let freteLabel = `Frete — ${loja.nome}`
+    let freteLabel = `Frete — ${recebedor.nome}`
 
-    if (loja.frete_modo === 'calculado') {
+    if (recebedor.freteModo === 'calculado') {
       const cepDest = digits(body?.cep)
       const servicoId = Number(body?.servico)
       if (cepDest.length !== 8) {
@@ -203,11 +192,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       if (!servicoId) {
         return NextResponse.json({ error: 'Escolha uma opção de frete.' }, { status: 400 })
       }
-      if (digits(loja.cep).length !== 8) {
-        return NextResponse.json({ error: 'A loja ainda não configurou o CEP de origem.' }, { status: 409 })
+      if (!recebedor.cepOrigem) {
+        // Pessoa fisica sem CEP no cadastro cai aqui. A mensagem fala do
+        // VENDEDOR: quem le e o comprador, e "a loja" nao existe nesse caso.
+        return NextResponse.json({ error: 'Esse vendedor ainda não informou o CEP de envio.' }, { status: 409 })
       }
       try {
-        const opcoes = await cotarFrete(loja.cep, cepDest, [pacoteDeCarta(valorCents)])
+        const opcoes = await cotarFrete(recebedor.cepOrigem, cepDest, [pacoteDeCarta(valorCents)])
         const escolhido = opcoes.find(o => o.id === servicoId)
         if (!escolhido) {
           return NextResponse.json(
@@ -222,8 +213,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         return NextResponse.json({ error: 'Não consegui calcular o frete agora. Tente de novo.' }, { status: 502 })
       }
     } else {
-      const freteBase = Math.max(0, loja.frete_cents || 0)
-      const limiteGratis = loja.frete_gratis_acima_cents
+      const freteBase = Math.max(0, recebedor.freteCents)
+      const limiteGratis = recebedor.freteGratisAcimaCents
       freteCents = limiteGratis != null && valorCents >= limiteGratis ? 0 : freteBase
     }
 
@@ -234,7 +225,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const { data: pedidoIns, error: pedErr } = await db
       .from('pedidos')
       .insert({
-        loja_id: loja.id,
+        // Null quando quem vende e a pessoa: `vendedor_user_id` e que responde
+        // por quem vendeu, e ele nunca e nulo.
+        loja_id: recebedor.lojaId,
         vendedor_user_id: anuncio.user_id,
         comprador_user_id: compradorId,
         marketplace_id: anuncio.id,
@@ -249,7 +242,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         liquido_loja_cents: liquidoLojaCents,
         metodo,
         repasse_prazo: prazo,
-        stripe_connect_account_id: loja.stripe_connect_account_id,
+        stripe_connect_account_id: recebedor.connectAccountId,
         status: 'aguardando_pagamento',
       })
       .select('id, numero')
@@ -294,11 +287,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         metadata: {
           bynx_pedido_id: String(pedidoIns.id),
           bynx_anuncio_id: String(anuncio.id),
-          bynx_loja_id: String(loja.id),
+          bynx_vendedor_user_id: String(anuncio.user_id),
+          ...(recebedor.lojaId ? { bynx_loja_id: String(recebedor.lojaId) } : {}),
         },
         payment_intent_data: {
           application_fee_amount: c.taxaBynxCents,
-          transfer_data: { destination: loja.stripe_connect_account_id },
+          transfer_data: { destination: recebedor.connectAccountId! },
           metadata: { bynx_pedido_id: String(pedidoIns.id) },
         },
         success_url: `${base}/pedido/${pedidoIns.id}?ok=1`,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { cotarFrete, pacoteDeCarta, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
 import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
+import { resolverRecebedor } from '@/lib/vendedorRecebimento'
 
 /**
  * POST /api/frete/cotar
@@ -11,8 +12,11 @@ import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
  * No modo carrinho os itens viajam na MESMA remessa: manda-se um pacote por
  * item e o Melhor Envio empacota. Sao N linhas, nao N fretes.
  *
- * Cota o frete por CEP pro anuncio (carta) ou produto. So faz sentido quando a
- * loja esta em frete_modo='calculado'. Read-only (sem Bearer): e so um preco
+ * Cota o frete por CEP pro anuncio (carta) ou produto. So faz sentido quando
+ * quem vende esta em frete_modo='calculado' -- o que para PESSOA FISICA e
+ * sempre: quem vende de casa nao tem painel de frete fixo, cota pelo CEP.
+ * A origem sai do `resolverRecebedor`: CEP da loja quando ha loja, CEP da
+ * pessoa quando nao ha. Read-only (sem Bearer): e so um preco
  * estimado, sem efeito colateral, e a cotacao do Melhor Envio e gratis. O
  * checkout RE-COTA no servidor na hora de fechar (nunca confia no preco do
  * cliente).
@@ -119,6 +123,7 @@ export async function POST(req: NextRequest) {
 
     let lojaCep: string | null = null
     let modo = 'fixo'
+    let ehPessoa = false
     let pacote: ItemFrete | null = null
 
     if (tipo === 'produto') {
@@ -144,23 +149,25 @@ export async function POST(req: NextRequest) {
       const an = ans?.[0]
       if (!an) return NextResponse.json({ error: 'Anuncio nao encontrado.' }, { status: 404 })
 
-      const { data: ljs } = await sb
-        .from('lojas')
-        .select('cep, frete_modo')
-        .eq('owner_user_id', an.user_id)
-        .eq('status', 'ativa')
-        .limit(1)
-      const loja = ljs?.[0]
-      lojaCep = loja?.cep ?? null
-      modo = loja?.frete_modo ?? 'fixo'
+      const r = await resolverRecebedor(sb, an.user_id)
+      lojaCep = r?.cepOrigem ?? null
+      modo = r?.freteModo ?? 'fixo'
+      ehPessoa = r?.tipo === 'pessoa'
       pacote = pacoteDeCarta(Math.round(Number(an.price) * 100))
     }
 
     if (modo !== 'calculado') {
-      return NextResponse.json({ error: 'Essa loja usa frete fixo.' }, { status: 409 })
+      return NextResponse.json({ error: 'Esse vendedor usa frete fixo.' }, { status: 409 })
     }
     if (!lojaCep || digits(lojaCep).length !== 8) {
-      return NextResponse.json({ error: 'A loja ainda nao configurou o CEP de origem.' }, { status: 409 })
+      return NextResponse.json(
+        {
+          error: ehPessoa
+            ? 'Esse vendedor ainda nao informou o CEP de envio.'
+            : 'A loja ainda nao configurou o CEP de origem.',
+        },
+        { status: 409 }
+      )
     }
 
     const opcoes = await cotarFrete(lojaCep, cep, [pacote])

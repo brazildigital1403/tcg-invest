@@ -611,11 +611,14 @@ export async function POST(req: NextRequest) {
             const vendedor = partes?.find((u: any) => u.id === pedido.vendedor_user_id)
             const comprador = partes?.find((u: any) => u.id === pedido.comprador_user_id)
 
-            const { data: lojaRow } = await supabase
-              .from('lojas')
-              .select('nome')
-              .eq('id', pedido.loja_id)
-              .single()
+            // ★ PEDIDO DE PESSOA FISICA NAO TEM LOJA (24/09/2026). Com
+            // `loja_id` nulo, o `.single()` de antes LANCAVA, e o catch abaixo
+            // engolia a excecao: o pedido ficava pago e os DOIS e-mails da
+            // venda -- vendedor e comprador -- simplesmente nao saiam. Um
+            // pedido pago e mudo e pior do que um pedido sem e-mail bonito.
+            const { data: lojaRow } = pedido.loja_id
+              ? await supabase.from('lojas').select('nome').eq('id', pedido.loja_id).maybeSingle()
+              : { data: null }
 
             if (vendedor?.email) {
               await sendVendaLojistaEmail({
