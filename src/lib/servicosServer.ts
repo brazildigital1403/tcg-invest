@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { requireAdmin } from '@/lib/admin-auth'
-import { numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM } from '@/lib/servicos'
+import { numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio } from '@/lib/servicos'
 import { sendServicoClienteEmail } from '@/lib/email'
 
 export const BUCKET_SERVICOS = 'servico-midias'
@@ -187,7 +187,7 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         paragrafos: [
           endereco ? 'Envie para o endereço abaixo e escreva o número do pedido do lado de fora do pacote.' : 'O endereço de envio chega em seguida, por e-mail ou WhatsApp.',
           ...GUIA_EMBALAGEM,
-          'Quando postar, informe o código de rastreio na página do pedido. A abertura do pacote é filmada na chegada.',
+          'A abertura do pacote é filmada na chegada.',
         ],
         destaque: endereco ? `${endereco}\nPedido ${numero}` : undefined,
         cta: { rotulo: 'Informar o rastreio', href: link },
@@ -215,7 +215,9 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         ...base, assunto: `Sua carta foi enviada: pedido ${numero}`, selo: 'A caminho', titulo: 'Sua carta está a caminho',
         paragrafos: ['A carta foi postada em embalagem lacrada, com valor declarado.'],
         linhas: sol.rastreio_volta ? [{ rotulo: 'Rastreio', valor: sol.rastreio_volta }] : undefined,
-        cta,
+        cta: sol.rastreio_volta
+          ? { rotulo: `Rastrear em ${linkRastreio(sol.rastreio_volta).onde}`, href: linkRastreio(sol.rastreio_volta).href }
+          : cta,
       })
     }
   } catch (e) {

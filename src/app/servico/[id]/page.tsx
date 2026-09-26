@@ -19,6 +19,8 @@ import {
   STATUS_SERVICO, SERVICOS, TERMO_V1, GUIA_EMBALAGEM, CAMPOS_LAUDO, brl, numeroServico, fmtDataHoraBRT, turnoServico,
 } from '@/lib/servicos'
 import { IconCheck, IconClose, IconTruck, IconShield, IconWarning, IconBox } from '@/components/ui/Icons'
+import GaleriaMidias from '@/components/servicos/GaleriaMidias'
+import Rastreio from '@/components/servicos/Rastreio'
 
 type Sol = {
   id: string; numero: number; servico: string; prazo: string; status: string
@@ -176,7 +178,8 @@ function Pedido({ id }: { id: string }) {
               )}
               <ol className="sp-guia">{GUIA_EMBALAGEM.map(g => <li key={g}>{g}</li>)}</ol>
               <div className="sp-rastreio">
-                <label htmlFor="sp-rastreio">{s.rastreio_ida ? `Rastreio informado: ${s.rastreio_ida}` : 'Código de rastreio da postagem'}</label>
+                {s.rastreio_ida && <Rastreio codigo={s.rastreio_ida} />}
+                <label htmlFor="sp-rastreio">{s.rastreio_ida ? 'Informou errado? Corrija abaixo' : 'Código de rastreio da postagem'}</label>
                 <div>
                   <input id="sp-rastreio" value={rastreio} onChange={e => setRastreio(e.target.value.toUpperCase())} placeholder="AA123456789BR" maxLength={30} autoCapitalize="characters" />
                   <button type="button" className="sp-bt sp-bt-pri" disabled={ocupado || rastreio.replace(/\W/g, '').length < 8} onClick={async () => { await postar('rastreio', { codigo: rastreio }, 'Rastreio registrado.'); setRastreio('') }}>
@@ -190,14 +193,14 @@ function Pedido({ id }: { id: string }) {
           {s.rastreio_volta && (
             <section className="sp-card">
               <h2><IconTruck size={18} /> Sua carta está a caminho</h2>
-              <p className="sp-muted">Rastreio: <b className="sp-cod">{s.rastreio_volta}</b></p>
+              <Rastreio codigo={s.rastreio_volta} />
             </section>
           )}
 
           {midias.some(m => !m.item_id) && (
             <section className="sp-card">
               <h2>Chegada e embalagem</h2>
-              <div className="sp-midias">{midias.filter(m => !m.item_id).map(m => <Miniatura key={m.id} m={m} />)}</div>
+              <GaleriaMidias midias={paraGaleria(midias.filter(m => !m.item_id))} />
             </section>
           )}
 
@@ -211,7 +214,7 @@ function Pedido({ id }: { id: string }) {
                     {it.custodia && <span className="sp-custodia" title="Número de custódia">{it.custodia}</span>}
                   </div>
                   {it.aceito === false && <p className="sp-recusa"><IconClose size={13} /> Fora do serviço: {it.recusa_motivo}</p>}
-                  <div className="sp-midias">{midias.filter(m => m.item_id === it.id).map(m => <Miniatura key={m.id} m={m} />)}</div>
+                  <GaleriaMidias midias={paraGaleria(midias.filter(m => m.item_id === it.id))} />
                   {it.laudo && (
                     <dl className="sp-dl sp-laudo">
                       {CAMPOS_LAUDO.filter(c => it.laudo?.[c.k]).map(c => <div key={c.k}><dt>{c.rotulo}</dt><dd>{it.laudo![c.k]}</dd></div>)}
@@ -246,18 +249,8 @@ function Pedido({ id }: { id: string }) {
   )
 }
 
-function Miniatura({ m }: { m: Midia }) {
-  const rotulo = ROTULO_MIDIA[m.tipo] || m.tipo
-  if (!m.url) return null
-  return (
-    <a className="sp-mini" href={m.url} target="_blank" rel="noopener">
-      {m.mime.startsWith('image/')
-        // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={m.url} alt={rotulo} loading="lazy" />
-        : <span className="sp-mini-arq">{m.mime.startsWith('video/') ? 'Vídeo' : 'PDF'}</span>}
-      <small>{rotulo}</small>
-    </a>
-  )
+function paraGaleria(ms: Midia[]) {
+  return ms.map(m => ({ id: m.id, url: m.url, mime: m.mime, rotulo: ROTULO_MIDIA[m.tipo] || m.tipo }))
 }
 
 const CSS = `
@@ -309,7 +302,6 @@ const CSS = `
 .sp-rastreio > div{display:flex;gap:8px}
 .sp-rastreio input{flex:1;min-width:0;min-height:48px;border-radius:10px;border:1px solid var(--bx-border-2);background:var(--bx-bg);color:var(--bx-text);padding:0 12px;font:inherit;font-size:16px;letter-spacing:.04em;color-scheme:dark}
 .sp-rastreio input:focus{outline:none;border-color:rgba(var(--ac-1-rgb),.7)}
-.sp-cod{font-variant-numeric:tabular-nums;color:var(--bx-text)}
 .sp-ok{font-size:14px;color:var(--bx-green);margin:0 0 14px}
 .sp-erro{font-size:14px;color:var(--bx-red);margin:0 0 14px}
 .sp-itens{display:grid;gap:12px}
@@ -321,11 +313,6 @@ const CSS = `
 .sp-custodia{font-size:12px;font-weight:800;letter-spacing:.04em;padding:4px 9px;border-radius:8px;border:1px solid rgba(var(--ac-1-rgb),.45);color:var(--ac-1);white-space:nowrap}
 .sp-recusa{display:flex;gap:6px;align-items:flex-start;margin:0;font-size:13.5px;line-height:1.5;color:var(--bx-red)}
 .sp-recusa svg{flex-shrink:0;margin-top:3px}
-.sp-midias{display:flex;flex-wrap:wrap;gap:8px}
-.sp-mini{display:flex;flex-direction:column;gap:4px;width:88px;text-decoration:none;color:var(--bx-text-3)}
-.sp-mini img,.sp-mini-arq{width:88px;height:123px;border-radius:8px;object-fit:cover;border:1px solid var(--bx-border);background:var(--bx-surface-2)}
-.sp-mini-arq{display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--bx-text-2)}
-.sp-mini small{font-size:11px;line-height:1.3}
 .sp-laudo{padding-top:10px;border-top:1px solid var(--bx-border)}
 .sp-tl{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .sp-tl li{display:grid;gap:2px;padding-left:12px;border-left:2px solid var(--bx-border-2)}

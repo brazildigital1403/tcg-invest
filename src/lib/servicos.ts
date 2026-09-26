@@ -381,5 +381,18 @@ export const GUIA_EMBALAGEM = [
   'Carta em sleeve e depois em toploader. A fita vai só no toploader, nunca na carta.',
   'Toploader entre dois pedaços de papelão, um de cada lado, presos com fita.',
   'Tudo dentro de um envelope ou caixa que não dobre. Anote o número do pedido por fora.',
-  'Envie com rastreio e valor declarado, e informe o código de rastreio aqui na página.',
+  'Envie com rastreio e valor declarado, e informe o código de rastreio na página do pedido.',
 ]
+
+/**
+ * Link de rastreio. Codigo no formato dos Correios (AA123456789BR) abre o
+ * rastreio OFICIAL ja com o objeto preenchido (a pessoa so resolve o captcha
+ * deles); qualquer outro formato vai para o 17TRACK, que cobre transportadoras.
+ */
+export function linkRastreio(codigo: string): { href: string; onde: string } {
+  const c = codigo.toUpperCase().replace(/[\s.-]/g, '')
+  if (/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(c)) {
+    return { href: `https://rastreamento.correios.com.br/app/index.php?objetos=${c}`, onde: 'Correios' }
+  }
+  return { href: `https://t.17track.net/pt#nums=${encodeURIComponent(c)}`, onde: '17TRACK' }
+}

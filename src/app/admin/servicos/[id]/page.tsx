@@ -16,6 +16,8 @@ import {
   STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, brl, numeroServico, fmtDataHoraBRT, turnoServico,
 } from '@/lib/servicos'
 import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning } from '@/components/ui/Icons'
+import GaleriaMidias from '@/components/servicos/GaleriaMidias'
+import Rastreio from '@/components/servicos/Rastreio'
 
 type Sol = {
   id: string; numero: number; servico: string; prazo: string; status: string
@@ -144,7 +146,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
           <section className="ad-card">
             <h2>Arquivos do pedido</h2>
             <div className="ad-midias">
-              {midias.filter(m => !m.item_id).map(m => <Miniatura key={m.id} m={m} />)}
+              <GaleriaMidias midias={paraGaleria(midias.filter(m => !m.item_id))} tamanho={92} />
               {!midias.some(m => !m.item_id) && <p className="ad-muted" style={{ margin: 0 }}>Nenhum ainda.</p>}
             </div>
             <div className="ad-uploads">
@@ -177,8 +179,8 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
               )}
             {(s.rastreio_ida || s.rastreio_volta) && (
               <dl className="ad-dl" style={{ marginTop: 12 }}>
-                {s.rastreio_ida && <div><dt>Rastreio ida</dt><dd>{s.rastreio_ida}</dd></div>}
-                {s.rastreio_volta && <div><dt>Rastreio volta</dt><dd>{s.rastreio_volta}</dd></div>}
+                {s.rastreio_ida && <div className="ad-rz"><dt>Rastreio ida</dt><dd><Rastreio codigo={s.rastreio_ida} /></dd></div>}
+                {s.rastreio_volta && <div className="ad-rz"><dt>Rastreio volta</dt><dd><Rastreio codigo={s.rastreio_volta} /></dd></div>}
                 {s.lacre_volta && <div><dt>Lacre</dt><dd>{s.lacre_volta}</dd></div>}
               </dl>
             )}
@@ -369,7 +371,7 @@ function CartaAdmin({ idx, item, midias, ocupado, subir, salvarLaudo }: {
       )}
 
       <div className="ad-midias">
-        {midias.map(m => <Miniatura key={m.id} m={m} />)}
+        <GaleriaMidias midias={paraGaleria(midias)} tamanho={92} />
       </div>
 
       {item.aceito !== false && (
@@ -402,18 +404,8 @@ function CartaAdmin({ idx, item, midias, ocupado, subir, salvarLaudo }: {
   )
 }
 
-function Miniatura({ m }: { m: Midia }) {
-  const rotulo = ROTULO_MIDIA[m.tipo] || m.tipo
-  if (!m.url) return <span className="ad-mini ad-mini-vazia">{rotulo}</span>
-  return (
-    <a className="ad-mini" href={m.url} target="_blank" rel="noopener" title={`${rotulo} · ${(m.tamanho / 1024).toFixed(0)} KB`}>
-      {m.mime.startsWith('image/')
-        // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={m.url} alt={rotulo} loading="lazy" />
-        : <span className="ad-mini-arq">{m.mime.startsWith('video/') ? 'Vídeo' : 'PDF'}</span>}
-      <small>{rotulo}</small>
-    </a>
-  )
+function paraGaleria(ms: Midia[]) {
+  return ms.map(m => ({ id: m.id, url: m.url, mime: m.mime, rotulo: ROTULO_MIDIA[m.tipo] || m.tipo }))
 }
 
 function BotaoUpload({ rotulo, ocupado, aceitar, onFile }: { rotulo: string; ocupado: boolean; aceitar: string; onFile: (f: File) => void }) {
@@ -476,6 +468,8 @@ textarea.ad-in{resize:vertical}
 .ad-dl div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
 .ad-dl dt{color:var(--bx-text-3)}
 .ad-dl dd{margin:0;font-variant-numeric:tabular-nums;text-align:right}
+.ad-rz{flex-direction:column;align-items:flex-start}
+.ad-rz dd{text-align:left}
 .ad-total{padding-top:6px;border-top:1px solid var(--bx-border);font-weight:800}
 
 .ad-itens{display:grid;gap:12px}
@@ -488,11 +482,6 @@ textarea.ad-in{resize:vertical}
 .ad-custodia{font-size:12px;font-weight:800;letter-spacing:.04em;padding:4px 9px;border-radius:8px;border:1px solid rgba(var(--ac-1-rgb),.45);color:var(--ac-1);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ad-queixas{font-size:13px;color:var(--bx-text-2);margin:0}
 .ad-midias{display:flex;flex-wrap:wrap;gap:8px}
-.ad-mini{display:flex;flex-direction:column;gap:4px;width:92px;text-decoration:none;color:var(--bx-text-3)}
-.ad-mini img,.ad-mini-arq{width:92px;height:128px;border-radius:8px;object-fit:cover;border:1px solid var(--bx-border);background:var(--bx-surface-2)}
-.ad-mini-arq{display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--bx-text-2)}
-.ad-mini small{font-size:10.5px;line-height:1.3}
-.ad-mini-vazia{font-size:11px;color:var(--bx-text-3)}
 .ad-uploads{display:flex;flex-wrap:wrap;gap:6px}
 .ad-up{position:relative;display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:0 10px;border-radius:8px;border:1px dashed var(--bx-border-2);font-size:12px;font-weight:600;color:var(--bx-text-2);cursor:pointer}
 .ad-up:hover{border-color:rgba(var(--ac-1-rgb),.6);color:var(--bx-text)}
