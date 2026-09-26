@@ -210,7 +210,7 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
   sol: Sol; itens: Item[]; ocupado: boolean
   enviar: (p: Record<string, unknown>) => Promise<boolean>
 }) {
-  const sugestaoSeguro = PRECOS ? Math.round(sol.valor_declarado_cents * PRECOS.seguroPct / 100) : null
+  const sugestaoSeguro = PRECOS?.seguroPct != null ? Math.round(sol.valor_declarado_cents * PRECOS.seguroPct / 100) : null
   const [decisao, setDecisao] = useState<Record<string, { aceito: boolean; motivo: string }>>(() =>
     Object.fromEntries(itens.map(i => [i.id, { aceito: i.aceito !== false, motivo: i.recusa_motivo || '' }])))
   const [servico, setServico] = useState(sol.orcamento_cents != null ? brl(sol.orcamento_cents / 100) : '')
@@ -250,7 +250,7 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
       {!todasRecusadas && (
         <div className="ad-valores">
           <label><span>Serviço</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={servico} onChange={e => setServico(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
-          <label><span>Seguro{PRECOS ? ` (${PRECOS.seguroPct}%)` : ''}</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
+          <label><span>Seguro{PRECOS?.seguroPct != null ? ` (${PRECOS.seguroPct}%)` : ''}</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <label><span>Frete de volta</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={frete} onChange={e => setFrete(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <div className="ad-total-orc"><span>Total</span><b>{total == null ? 'valor inválido' : reais(total)}</b></div>
         </div>

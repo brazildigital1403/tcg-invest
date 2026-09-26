@@ -108,7 +108,7 @@ export function Custodia({ alt }: { alt?: boolean }) {
       <div className="sv-g4">
         {CUSTODIA.map((c, i) => {
           const Ic = CUSTODIA_ICONES[i] || IconShield
-          const d = i === 3 && PRECOS ? `${c.d} Seguro de ${PRECOS.seguroPct}% sobre o valor declarado.` : c.d
+          const d = i === 3 && PRECOS?.seguroPct != null ? `${c.d} Seguro de ${PRECOS.seguroPct}% sobre o valor declarado.` : c.d
           return (
             <div key={c.t} className="sv-card sv-card-hover sv-feat">
               <span className="sv-ic sv-ic-lg sv-ic-ok"><Ic size={20} /></span>
@@ -166,7 +166,7 @@ export function Precos({ destaque, alt }: { destaque: ServicoId; alt?: boolean }
       <div className="sv-g3">
         {SERVICOS.map(s => {
           const v = precoDoServico(s.id)!
-          const seguro = s.id !== 'pre_grading' ? ` + ${PRECOS!.seguroPct}% de seguro` : ''
+          const seguro = s.id !== 'pre_grading' && PRECOS!.seguroPct != null ? ` + ${PRECOS!.seguroPct}% de seguro` : ''
           return (
             <div key={s.id} className={`sv-plan${s.id === destaque ? ' sv-plan-dest' : ''}`}>
               {s.id === 'completo' && <span className="sv-ribbon">Mais completo</span>}
@@ -177,10 +177,12 @@ export function Precos({ destaque, alt }: { destaque: ServicoId; alt?: boolean }
           )
         })}
       </div>
-      <div className="sv-pills">
-        <span className="sv-pill">{PRECOS.desc10a20}% de desconto de 10 a 20 cartas</span>
-        <span className="sv-pill">{PRECOS.descAcima20}% acima de 20 cartas</span>
-      </div>
+      {(PRECOS.desc10a20 != null || PRECOS.descAcima20 != null) && (
+        <div className="sv-pills">
+          {PRECOS.desc10a20 != null && <span className="sv-pill">{PRECOS.desc10a20}% de desconto de 10 a 20 cartas</span>}
+          {PRECOS.descAcima20 != null && <span className="sv-pill">{PRECOS.descAcima20}% acima de 20 cartas</span>}
+        </div>
+      )}
     </Faixa>
   )
 }

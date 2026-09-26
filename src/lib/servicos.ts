@@ -21,15 +21,27 @@ export interface Precos {
   completo: number
   /** Acrescimo do prazo expresso. null = sem expresso. */
   expresso: number | null
-  /** Seguro sobre o valor declarado, em %. */
-  seguroPct: number
-  /** Desconto por volume, em %. */
-  desc10a20: number
-  descAcima20: number
+  /** Seguro sobre o valor declarado, em %. null = ainda nao definido. */
+  seguroPct: number | null
+  /** Desconto por volume, em %. null = sem desconto anunciado. */
+  desc10a20: number | null
+  descAcima20: number | null
 }
 
-/** null ate o Du fechar os valores. A secao de preco nao renderiza sem eles. */
-export const PRECOS: Precos | null = null
+/**
+ * Valores por carta definidos pelo Du em 26/09/2026. Seguro, expresso e
+ * descontos ainda nao foram definidos: ficam null e o que depende deles nao
+ * aparece (nada de numero inventado na tela).
+ */
+export const PRECOS: Precos | null = {
+  restauracao: 165,
+  preGrading: 80,
+  completo: 450,
+  expresso: null,
+  seguroPct: null,
+  desc10a20: null,
+  descAcima20: null,
+}
 
 export const PRAZOS = {
   /** Dias uteis apos a chegada da carta. */
