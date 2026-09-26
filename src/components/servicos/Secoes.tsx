@@ -8,13 +8,14 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import {
   IconCheck, IconClose, IconMinus, IconChevronDown, IconShield, IconEye, IconCamera, IconHistory,
-  IconTruck, IconInstagram, IconYouTube, IconArrowRight, IconImage,
+  IconTruck, IconInstagram, IconYouTube, IconArrowRight,
 } from '@/components/ui/Icons'
 import {
   RESOLVE, ATENUA, NAO_RESOLVE, PASSOS, CUSTODIA, PRECOS, PRAZOS, CIDADE, LINKS, SERVICOS,
   CASO_RECUSADO, precoDoServico, brl, type Faq, type ServicoId,
 } from '@/lib/servicos'
 import VideoLazy from './VideoLazy'
+import { DiagramaDefeito, DEFEITO_POR_TITULO, IlustracaoBancada, IlustracaoCustodia } from './Mockups'
 
 export function agendarHref(servico: ServicoId) {
   const p = servico === 'pre_grading' ? 'pre-grading' : servico
@@ -66,7 +67,7 @@ export function ResolveNaoResolve() {
           <h3 className="sv-tag sv-tag-ok"><IconCheck size={14} strokeWidth={2.2} /> Resolve</h3>
           <ul className="sv-list">
             {RESOLVE.map(i => (
-              <li key={i.t} className="sv-li"><span className="sv-ic sv-ic-ok"><IconCheck size={16} strokeWidth={2} /></span><div><b>{i.t}</b><span>{i.d}</span></div></li>
+              <li key={i.t} className="sv-li"><DiagramaDefeito tipo={DEFEITO_POR_TITULO[i.t]} /><div><b>{i.t}</b><span>{i.d}</span></div></li>
             ))}
           </ul>
         </div>
@@ -74,7 +75,7 @@ export function ResolveNaoResolve() {
           <h3 className="sv-tag sv-tag-mid"><IconMinus size={14} strokeWidth={2.2} /> Atenua</h3>
           <ul className="sv-list">
             {ATENUA.map(i => (
-              <li key={i.t} className="sv-li"><span className="sv-ic sv-ic-mid"><IconMinus size={16} strokeWidth={2} /></span><div><b>{i.t}</b><span>{i.d}</span></div></li>
+              <li key={i.t} className="sv-li"><DiagramaDefeito tipo={DEFEITO_POR_TITULO[i.t]} /><div><b>{i.t}</b><span>{i.d}</span></div></li>
             ))}
           </ul>
         </div>
@@ -82,13 +83,13 @@ export function ResolveNaoResolve() {
           <h3 className="sv-tag sv-tag-bad"><IconClose size={14} strokeWidth={2.2} /> Não resolve</h3>
           <ul className="sv-list">
             {NAO_RESOLVE.map(i => (
-              <li key={i.t} className="sv-li"><span className="sv-ic sv-ic-bad"><IconClose size={16} strokeWidth={2} /></span><div><b>{i.t}</b><span>{i.d}</span></div></li>
+              <li key={i.t} className="sv-li"><DiagramaDefeito tipo={DEFEITO_POR_TITULO[i.t]} /><div><b>{i.t}</b><span>{i.d}</span></div></li>
             ))}
           </ul>
         </div>
       </div>
       <p className="sv-regra">
-        <b>Não repinto, não colo, não corto.</b> Qualquer uma dessas coisas torna a carta ingraduável. Se a sua carta precisa disso, o orçamento diz não.
+        <b>A Bynx não usa tinta, cola nem corte.</b> Qualquer uma dessas intervenções torna a carta ingraduável. Se a sua carta precisa disso, o orçamento diz não.
       </p>
     </Faixa>
   )
@@ -117,9 +118,11 @@ export function Custodia({ alt }: { alt?: boolean }) {
           )
         })}
       </div>
-      {LINKS.videoAbertura && (
-        <video className="sv-clip" src={LINKS.videoAbertura} poster={LINKS.videoAberturaPoster || undefined} muted playsInline controls preload="none" />
-      )}
+      <div className="sv-custodia-midia">
+        {LINKS.videoAbertura
+          ? <video className="sv-clip" src={LINKS.videoAbertura} poster={LINKS.videoAberturaPoster || undefined} muted playsInline controls preload="none" />
+          : <IlustracaoCustodia />}
+      </div>
     </Faixa>
   )
 }
@@ -190,13 +193,13 @@ export function QuemFaz({ foto, alt }: { foto?: string | null; alt?: boolean }) 
           {foto
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={foto} alt="Bancada de restauração da Bynx" loading="lazy" />
-            : <IconImage size={28} />}
+            : <IlustracaoBancada />}
         </div>
         <div>
           <span className="sv-eyebrow">Quem faz</span>
           <h2 className="sv-h2" style={{ margin: '12px 0 16px' }}>Uma bancada, as mesmas mãos em toda carta.</h2>
           <p className="sv-p">
-            Quem restaura é o Du, fundador da Bynx{CIDADE ? `, em ${CIDADE}` : ''}. Comecei tratando as minhas próprias cartas, e cada uma que chega passa pela mesma bancada, com o mesmo cuidado. Atendo o Brasil todo pelo correio.
+            Quem restaura hoje é o Edu, fundador da Bynx{CIDADE ? `, em ${CIDADE}` : ''}. Começou tratando as próprias cartas, e cada uma que chega passa pela mesma bancada, com o mesmo cuidado. Atendemos o Brasil todo pelo correio.
           </p>
           <div className="sv-redes">
             <a className="sv-ghost" href={LINKS.instagram} target="_blank" rel="noopener"><IconInstagram size={18} /> Instagram</a>

@@ -42,6 +42,15 @@ export const SV_CSS = `
 .sv-trust span{display:inline-flex;align-items:center;gap:6px}
 .sv-trust svg{color:var(--ac-1)}
 
+/* Hero curto (orcamento) + cartao "o que acontece depois" */
+.sv-hero-curto{padding:64px 0 56px}
+.sv-depois{width:min(100%,440px);display:flex;flex-direction:column;gap:18px;box-shadow:var(--bx-shadow);background:var(--bx-bg-elev)}
+.sv-depois ol{list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.sv-depois li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;align-items:start;text-align:left}
+.sv-depois li b{display:block;font-size:15px;margin:3px 0 4px}
+.sv-depois li span:not(.sv-tl-n){display:block;font-size:14px;line-height:1.5;color:var(--bx-text-2)}
+.sv-depois li:first-child .sv-tl-n{background:var(--ac-grad);color:var(--bx-brand-ink);border-color:transparent}
+
 /* ── Botoes ── */
 .sv-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 26px;border:0;border-radius:12px;background:var(--ac-grad);color:var(--bx-brand-ink);font:inherit;font-weight:700;font-size:16px;text-decoration:none;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
 .sv-cta:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 28px rgba(var(--ac-2-rgb),.35)}
@@ -133,7 +142,8 @@ export const SV_CSS = `
 .sv-video-btn img{object-fit:cover}
 .sv-video-play{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(0,0,0,.28);color:#fff;font-size:13px;font-weight:600}
 .sv-video-play span{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--ac-grad);color:var(--bx-brand-ink);box-shadow:0 10px 30px rgba(0,0,0,.5)}
-.sv-clip{display:block;width:100%;max-width:280px;aspect-ratio:9/16;margin:32px auto 0;border-radius:16px;background:#000;object-fit:cover}
+.sv-custodia-midia{display:flex;justify-content:center;margin-top:40px}
+.sv-clip{display:block;width:100%;max-width:280px;aspect-ratio:9/16;margin:0 auto;border-radius:16px;background:#000;object-fit:cover}
 
 /* ── FAQ ── */
 .sv-faq{display:grid;gap:10px}
@@ -201,6 +211,7 @@ export const SV_CSS = `
   .sv-final{padding:64px 0 88px}
   .sv-head{margin-bottom:36px}
   .sv-hero{padding:48px 0 64px}
+  .sv-hero-curto{padding:40px 0 40px}
   .sv-hero-grid{grid-template-columns:1fr;gap:40px;text-align:center}
   .sv-hero-l{align-items:center}
   .sv-badge{align-self:center}

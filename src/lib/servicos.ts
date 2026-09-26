@@ -100,7 +100,7 @@ export const RESOLVE = [
 ]
 
 export const ATENUA = [
-  { t: 'Vinco com fibra rompida', d: 'O relevo diminui bastante, mas a linha continua visível na luz rasante. Falo isso antes de você enviar.' },
+  { t: 'Vinco com fibra rompida', d: 'O relevo diminui bastante, mas a linha continua visível na luz rasante. Avisamos isso antes de você enviar.' },
 ]
 
 export const NAO_RESOLVE = [
@@ -113,7 +113,7 @@ export const NAO_RESOLVE = [
 // ── Processo e custodia ──────────────────────────────────────────────────────
 
 export const PASSOS = [
-  { t: 'Orçamento pelas fotos', d: 'Você manda frente e verso. Eu digo o que dá para fazer e quanto custa, antes de qualquer envio.' },
+  { t: 'Orçamento pelas fotos', d: 'Você manda frente e verso. A Bynx diz o que dá para fazer e quanto custa, antes de qualquer envio.' },
   { t: 'Você aprova e envia', d: 'O endereço aparece só depois do aceite, com o guia de embalagem.' },
   { t: 'Chegada filmada', d: 'O pacote é aberto em vídeo, sem corte, com a etiqueta visível. A carta ganha um número de custódia.' },
   { t: 'Bancada e descanso', d: 'Depois da prensa, a carta descansa. É essa etapa que faz o resultado durar, e ela não tem atalho.' },
@@ -177,11 +177,11 @@ export const FAQ_RESTAURACAO: Faq[] = [
   },
   {
     q: 'A graduadora vai perceber que a carta foi tratada?',
-    a: 'O trabalho é de conservação: prensagem, umidade controlada e limpeza a seco. Não uso tinta, cola nem corte, que é o que as graduadoras tratam como alteração. Mesmo assim, ninguém sério promete nota, e eu também não prometo.',
+    a: 'O trabalho é de conservação: prensagem, umidade controlada e limpeza a seco. A Bynx não usa tinta, cola nem corte, que é o que as graduadoras tratam como alteração. Mesmo assim, ninguém sério promete nota, e nós também não prometemos.',
   },
   {
     q: 'O tratamento pode piorar a minha carta?',
-    a: 'Toda intervenção tem risco, e ele muda com o tipo de carta: holo, japonesa e texturizada reagem de jeitos diferentes. Por isso o orçamento avisa o risco da sua carta antes do aceite, e eu paro no ponto seguro, mesmo que o vinco não tenha saído todo.',
+    a: 'Toda intervenção tem risco, e ele muda com o tipo de carta: holo, japonesa e texturizada reagem de jeitos diferentes. Por isso o orçamento avisa o risco da sua carta antes do aceite, e nós paramos no ponto seguro, mesmo que o vinco não tenha saído todo.',
   },
   {
     q: 'O vinco some?',

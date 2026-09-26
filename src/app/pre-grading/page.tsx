@@ -7,6 +7,7 @@ import {
 } from '@/components/servicos/Secoes'
 import { SV_CSS } from '@/components/servicos/css'
 import { IconTarget, IconCheck, IconArrowRight } from '@/components/ui/Icons'
+import { MockupLaudo } from '@/components/servicos/Mockups'
 import {
   SERVICOS_PUBLICADO, FAQ_PRE_GRADING, LAUDO_ITENS, GRADUADORAS, PRECOS, brl, jsonLdServico,
 } from '@/lib/servicos'
@@ -60,15 +61,7 @@ export default function PreGradingPage() {
               <Garantias itens={['Você só envia depois de aprovar o preço', 'PSA, TAG, CGC, BGS e GBA', 'Brasil todo pelo correio']} />
             </div>
             <div className="sv-hero-r">
-              <div className="sv-laudo" aria-label="Exemplo de laudo de pré-grading">
-                <div className="sv-laudo-top"><span>Laudo de pré-grading</span><span className="sv-exemplo">exemplo</span></div>
-                <div className="sv-laudo-row"><span>Centralização frente</span><b>55/45</b></div>
-                <div className="sv-laudo-row"><span>Centralização verso</span><b>60/40</b></div>
-                <div className="sv-laudo-row"><span>Cantos</span><b>1 com desgaste leve</b></div>
-                <div className="sv-laudo-row"><span>Superfície</span><b>Sem risco no holo</b></div>
-                <div className="sv-laudo-row"><span>Faixa provável</span><b>8 a 9</b></div>
-                <div className="sv-laudo-row"><span>Recomendação</span><b>Graduar como está</b></div>
-              </div>
+              <MockupLaudo />
             </div>
           </div>
         </section>
@@ -104,7 +97,7 @@ export default function PreGradingPage() {
           <Cabecalho eyebrow="Para onde mandar" titulo="Qual graduadora vale para a sua carta" sub="A carta sai preparada para qualquer uma. O laudo indica a que faz mais sentido." />
           <div className="sv-narrow sv-card" style={{ padding: 4 }}>
             <table className="sv-tabela">
-              <thead><tr><th>Graduadora</th><th>Quando indico</th></tr></thead>
+              <thead><tr><th>Graduadora</th><th>Quando recomendamos</th></tr></thead>
               <tbody>
                 {GRADUADORAS.map(g => <tr key={g.nome}><td>{g.nome}</td><td>{g.quando}</td></tr>)}
               </tbody>

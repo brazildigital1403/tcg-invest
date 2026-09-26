@@ -9,6 +9,7 @@ import {
   QuemFaz, VideoProcesso, FaqServico, CtaFinal, agendarHref,
 } from '@/components/servicos/Secoes'
 import { IconArrowRight } from '@/components/ui/Icons'
+import { MockupBancada } from '@/components/servicos/Mockups'
 import { SV_CSS } from '@/components/servicos/css'
 import { SERVICOS_PUBLICADO, CASOS, FAQ_RESTAURACAO, PRECOS, jsonLdServico } from '@/lib/servicos'
 
@@ -59,7 +60,9 @@ export default function RestauracaoPage() {
               <Garantias itens={['Você só envia depois de aprovar o preço', 'Chegada filmada', 'Brasil todo pelo correio']} />
             </div>
             <div className="sv-hero-r">
-              <BeforeAfterSlider antes={principal?.antes ?? null} depois={principal?.depois ?? null} alt={principal?.carta ?? 'Carta restaurada'} priority />
+              {principal?.antes && principal?.depois
+                ? <BeforeAfterSlider antes={principal.antes} depois={principal.depois} alt={principal.carta} priority />
+                : <MockupBancada />}
             </div>
           </div>
         </section>
