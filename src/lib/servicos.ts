@@ -29,18 +29,19 @@ export interface Precos {
 }
 
 /**
- * Valores por carta definidos pelo Du em 26/09/2026. Seguro, expresso e
- * descontos ainda nao foram definidos: ficam null e o que depende deles nao
- * aparece (nada de numero inventado na tela).
+ * Valores por carta definidos pelo Du em 26/09/2026. Seguro (7%, so restauracao
+ * e completo) e descontos por volume (10% de 10 a 20 cartas, 15% acima) seguem
+ * a referencia de mercado, decisao dele no mesmo dia. Expresso ainda nao foi
+ * definido: fica null e nao aparece (nada de numero inventado na tela).
  */
 export const PRECOS: Precos | null = {
   restauracao: 165,
   preGrading: 80,
   completo: 450,
   expresso: null,
-  seguroPct: null,
-  desc10a20: null,
-  descAcima20: null,
+  seguroPct: 7,
+  desc10a20: 10,
+  descAcima20: 15,
 }
 
 export const PRAZOS = {

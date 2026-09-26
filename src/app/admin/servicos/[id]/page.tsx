@@ -210,7 +210,8 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
   sol: Sol; itens: Item[]; ocupado: boolean
   enviar: (p: Record<string, unknown>) => Promise<boolean>
 }) {
-  const sugestaoSeguro = PRECOS?.seguroPct != null ? Math.round(sol.valor_declarado_cents * PRECOS.seguroPct / 100) : null
+  // Seguro so em restauracao e completo (pre-grading nao mexe na carta), como na tabela publica.
+  const sugestaoSeguro = PRECOS?.seguroPct != null && sol.servico !== 'pre_grading' ? Math.round(sol.valor_declarado_cents * PRECOS.seguroPct / 100) : null
   const [decisao, setDecisao] = useState<Record<string, { aceito: boolean; motivo: string }>>(() =>
     Object.fromEntries(itens.map(i => [i.id, { aceito: i.aceito !== false, motivo: i.recusa_motivo || '' }])))
   const [servico, setServico] = useState(sol.orcamento_cents != null ? brl(sol.orcamento_cents / 100) : '')
