@@ -31,14 +31,14 @@ export interface Precos {
 /**
  * Valores por carta definidos pelo Du em 26/09/2026. Seguro (7%, so restauracao
  * e completo) e descontos por volume (10% de 10 a 20 cartas, 15% acima) seguem
- * a referencia de mercado, decisao dele no mesmo dia. Expresso: + R$ 550 por
+ * a referencia de mercado, decisao dele no mesmo dia. Expresso: + R$ 350 por
  * ate 4 dias corridos (PRAZOS).
  */
 export const PRECOS: Precos | null = {
   restauracao: 165,
   preGrading: 80,
   completo: 450,
-  expresso: 550,
+  expresso: 350,
   seguroPct: 7,
   desc10a20: 10,
   descAcima20: 15,
