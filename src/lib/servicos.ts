@@ -291,3 +291,75 @@ export function jsonLdServico(opts: {
     ],
   }
 }
+
+// ── Status (painel admin e, depois, a pagina do cliente) ─────────────────────
+
+export const STATUS_SERVICO: Record<string, string> = {
+  aguardando_orcamento: 'Aguardando orçamento',
+  orcado: 'Orçado',
+  aceito: 'Aceito',
+  recusado_cliente: 'Recusado pelo cliente',
+  recusado_bynx: 'Recusado pela Bynx',
+  recebida: 'Recebida',
+  em_bancada: 'Em bancada',
+  descansando: 'Descansando',
+  pronta: 'Pronta',
+  enviada: 'Enviada',
+  entregue: 'Entregue',
+  devolvida_sem_servico: 'Devolvida sem serviço',
+  cancelado: 'Cancelado',
+}
+
+/**
+ * Para onde o ADMIN pode mover cada status. Orcar (aguardando -> orcado |
+ * recusado_bynx) tem acao propria, com valores. `orcado -> aceito` existe aqui
+ * porque, enquanto nao ha pagina do cliente, o aceite combinado por WhatsApp e
+ * registrado pelo admin.
+ */
+export const TRANSICOES_ADMIN: Record<string, string[]> = {
+  aguardando_orcamento: ['cancelado'],
+  orcado: ['aceito', 'recusado_cliente', 'cancelado'],
+  aceito: ['recebida', 'cancelado'],
+  recebida: ['em_bancada', 'devolvida_sem_servico'],
+  em_bancada: ['descansando', 'pronta', 'devolvida_sem_servico'],
+  descansando: ['em_bancada', 'pronta'],
+  pronta: ['enviada'],
+  enviada: ['entregue'],
+}
+
+/** De quem e a vez: a pergunta que o painel responde primeiro. */
+export function turnoServico(status: string): 'bynx' | 'cliente' | 'fim' {
+  if (['orcado', 'aceito'].includes(status)) return 'cliente'
+  if (['entregue', 'cancelado', 'recusado_cliente', 'recusado_bynx', 'devolvida_sem_servico'].includes(status)) return 'fim'
+  return 'bynx'
+}
+
+export const MIDIAS_ADMIN = [
+  { tipo: 'video_abertura', rotulo: 'Vídeo de abertura', porItem: false },
+  { tipo: 'entrada_difusa', rotulo: 'Entrada · difusa', porItem: true },
+  { tipo: 'entrada_rasante', rotulo: 'Entrada · rasante', porItem: true },
+  { tipo: 'saida_difusa', rotulo: 'Saída · difusa', porItem: true },
+  { tipo: 'saida_rasante', rotulo: 'Saída · rasante', porItem: true },
+  { tipo: 'embalagem', rotulo: 'Embalagem', porItem: false },
+  { tipo: 'laudo', rotulo: 'Laudo (PDF ou imagem)', porItem: true },
+] as const
+
+export const CAMPOS_LAUDO = [
+  { k: 'centralizacao_frente', rotulo: 'Centralização frente', ex: '55/45' },
+  { k: 'centralizacao_verso', rotulo: 'Centralização verso', ex: '60/40' },
+  { k: 'cantos', rotulo: 'Cantos', ex: '1 com desgaste leve' },
+  { k: 'bordas', rotulo: 'Bordas', ex: 'Sem branco' },
+  { k: 'superficie', rotulo: 'Superfície', ex: 'Sem risco no holo' },
+  { k: 'faixa_nota', rotulo: 'Faixa provável', ex: '8 a 9' },
+  { k: 'graduadora', rotulo: 'Graduadora recomendada', ex: 'PSA' },
+  { k: 'proximo_passo', rotulo: 'Próximo passo', ex: 'Graduar como está' },
+  { k: 'caderno', rotulo: 'Caderno de bancada', ex: '3 ciclos de prensa, UR 45%, parei no ponto seguro' },
+] as const
+
+/** #S-0012. Mesmo formato do e-mail e da tela de sucesso. */
+export const numeroServico = (n: number) => `#S-${String(n).padStart(4, '0')}`
+
+/** Data e hora em Brasilia: o banco guarda UTC, a tela mostra America/Sao_Paulo. */
+export const fmtDataHoraBRT = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+})

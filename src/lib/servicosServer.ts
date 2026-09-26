@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { requireAdmin } from '@/lib/admin-auth'
+import { numeroServico } from '@/lib/servicos'
 
 export const BUCKET_SERVICOS = 'servico-midias'
 export const FOTO_MAX_BYTES = 10 * 1024 * 1024
@@ -30,7 +31,7 @@ export const TIPO_POR_SLOT: Record<Slot, string> = {
 export const TERMO_VERSAO_ATUAL = 'v1-2026-09'
 
 export function numeroSolicitacao(n: number | string) {
-  return `#S-${String(n).padStart(4, '0')}`
+  return numeroServico(Number(n))
 }
 
 export function erro(status: number, mensagem: string) {

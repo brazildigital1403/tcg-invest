@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconTarget } from '@/components/ui/Icons'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
 import { lojaCache } from '@/lib/lojaCache'
@@ -106,6 +106,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Dashboard', href: '/admin', Icon: IconDashboard },
   { label: 'Tickets', href: '/admin/tickets', Icon: IconChat, countKey: 'tickets' },
   { label: 'Cartas', href: '/admin/card-requests', Icon: IconCardAlert, countKey: 'cartas', attention: true },
+  { label: 'Serviços', href: '/admin/servicos', Icon: IconTarget, countKey: 'servicos', attention: true },
   { label: 'Lojas', href: '/admin/lojas', Icon: IconStore, countKey: 'lojas' },
   { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, countKey: 'marketplace' },
   { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },

@@ -40,7 +40,14 @@ export async function GET(req: NextRequest) {
       const { count } = await sb.from('card_requests').select('*', { count: 'exact', head: true }).eq('status', 'pendente')
       return count || 0
     }
-    const [tickets, lojas, marketplace, usuarios, financeiro, cartas] = await Promise.all([
+    // Servico de bancada: pedido que espera acao da Bynx (orcar, receber,
+    // tratar, enviar). Mesma regra de turnoServico em src/lib/servicos.ts.
+    const servicosComABynx = async (): Promise<number> => {
+      const { count } = await sb.from('servico_solicitacoes').select('*', { count: 'exact', head: true })
+        .in('status', ['aguardando_orcamento', 'recebida', 'em_bancada', 'descansando', 'pronta', 'enviada'])
+      return count || 0
+    }
+    const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos] = await Promise.all([
       ticketsPrecisandoResposta(sb),
       lojasPendentes(),
       novosAnuncios(),
@@ -50,11 +57,12 @@ export async function GET(req: NextRequest) {
       // /admin/financeiro le `lancamentos`, que e o que conta aqui.
       novos('lancamentos'),
       cartasPendentes(),
+      servicosComABynx(),
     ])
 
-    return NextResponse.json({ cartas, tickets, lojas, marketplace, usuarios, financeiro })
+    return NextResponse.json({ cartas, tickets, lojas, marketplace, usuarios, financeiro, servicos })
   } catch (err: any) {
     console.error('[admin/counts]', err?.message)
-    return NextResponse.json({ cartas: 0, tickets: 0, lojas: 0, marketplace: 0, usuarios: 0, financeiro: 0 })
+    return NextResponse.json({ cartas: 0, tickets: 0, lojas: 0, marketplace: 0, usuarios: 0, financeiro: 0, servicos: 0 })
   }
 }
