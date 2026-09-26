@@ -315,6 +315,9 @@ function Acoes({ sol, ocupado, mover }: {
       {opcoes.includes('recebida') && (
         <p className="ad-aviso"><IconWarning size={14} /> Ao marcar a chegada, cada carta aceita ganha o número de custódia. Filme a abertura do pacote antes.</p>
       )}
+      {opcoes.includes('enviada') && !sol.pago_em && (
+        <p className="ad-aviso"><IconWarning size={14} /> O envio de volta só libera depois do pagamento registrado, no quadro Valores.</p>
+      )}
       {opcoes.includes('enviada') && (
         <div className="ad-valores">
           <label><span>Rastreio da volta</span><input className="ad-in" value={rastreio} onChange={e => setRastreio(e.target.value)} placeholder="AA123456789BR" /></label>
@@ -328,7 +331,7 @@ function Acoes({ sol, ocupado, mover }: {
             key={para}
             type="button"
             className={`ad-bt${PERIGO.includes(para) ? ' ad-bt-perigo' : ' ad-bt-pri'}`}
-            disabled={!!ocupado || (para === 'enviada' && !rastreio.trim())}
+            disabled={!!ocupado || (para === 'enviada' && (!rastreio.trim() || !sol.pago_em))}
             onClick={async () => {
               if (PERIGO.includes(para) && !confirm(`${ROTULO_ACAO[para]}? Isso encerra o pedido.`)) return
               const ok = await mover(para, { nota, rastreio_volta: rastreio, lacre_volta: lacre })

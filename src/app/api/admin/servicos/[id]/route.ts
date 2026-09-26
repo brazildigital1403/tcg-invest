@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!body || typeof body !== 'object') return erro(400, 'Dados inválidos')
     const sb = sbAdmin()
 
-    const { data: solRows } = await sb.from('servico_solicitacoes').select('id, status').eq('id', id).limit(1)
+    const { data: solRows } = await sb.from('servico_solicitacoes').select('id, status, pago_em').eq('id', id).limit(1)
     const sol = solRows?.[0]
     if (!sol) return erro(404, 'Solicitação não encontrada')
 
@@ -134,6 +134,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const extra: Record<string, unknown> = {}
 
       if (para === 'enviada') {
+        // Carta so volta depois do Pix registrado (decisao do Du, 26/09/2026).
+        if (!sol.pago_em) return erro(409, 'Registre o pagamento antes de enviar a carta de volta')
         const codigo = String(body.rastreio_volta || '').toUpperCase().replace(/[\s.-]/g, '')
         if (!/^[A-Z0-9]{8,30}$/.test(codigo)) return erro(400, 'Informe o código de rastreio da volta')
         extra.rastreio_volta = codigo
