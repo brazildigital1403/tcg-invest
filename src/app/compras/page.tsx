@@ -9,6 +9,7 @@ import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconStar, IconArrowRight, IconShield, IconMarketplace, IconBolt, IconCard, IconPokeball, IconChat } from '@/components/ui/Icons'
 import { pedidoEncerrado, canceladoSemCobranca, pedidoEmAndamento } from '@/lib/pedidoStatus'
+import { STATUS_SERVICO, SERVICOS, numeroServico, turnoServico } from '@/lib/servicos'
 import { useRouter } from 'next/navigation'
 
 /**
@@ -107,6 +108,10 @@ const NEG_STATUS = [...NEG_ANDAMENTO, ...NEG_CONCLUIDA]
 
 type Filtro = 'todos' | 'andamento' | 'entregues' | 'cancelados'
 
+// Pedido de restauracao / pre-grading. A RLS de servico_solicitacoes libera a
+// leitura so do dono, entao o navegador le direto, sem rota.
+type ServicoBancada = { id: string; numero: number; servico: string; status: string; total_cents: number | null; created_at: string }
+
 export default function ComprasPage() {
   const router = useRouter()
   const [pedidos, setPedidos] = useState<Pedido[]>([])
@@ -117,6 +122,7 @@ export default function ComprasPage() {
   const [carregando, setCarregando] = useState(true)
   const [semLogin, setSemLogin] = useState(false)
   const [filtro, setFiltro] = useState<Filtro>('todos')
+  const [servicos, setServicos] = useState<ServicoBancada[]>([])
 
   const carregar = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser()
@@ -131,6 +137,13 @@ export default function ComprasPage() {
 
     const lista = (data as Pedido[]) || []
     setPedidos(lista)
+
+    const { data: svs } = await supabase
+      .from('servico_solicitacoes')
+      .select('id, numero, servico, status, total_cents, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setServicos((svs as ServicoBancada[]) || [])
 
     // nome das lojas (o pedido guarda so o id)
     const ids = [...new Set(lista.map(p => p.loja_id))]
@@ -193,6 +206,27 @@ export default function ComprasPage() {
     )
   }
 
+  // Bloco dos servicos de bancada, acima das compras. Some quando nao ha nenhum.
+  const blocoServicos = servicos.length > 0 && (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bx-text-3)', margin: '4px 0 10px' }}>Restauração e pré-grading</div>
+      {servicos.map(sv => {
+        const vez = turnoServico(sv.status)
+        return (
+          <Link key={sv.id} href={`/servico/${sv.id}`} style={{ ...S.card, textDecoration: 'none', color: 'inherit', ...(vez === 'fim' && sv.status !== 'entregue' ? S.opaco : {}) }}>
+            <div style={S.mid}>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>{SERVICOS.find(x => x.id === sv.servico)?.nome || 'Serviço'} {numeroServico(sv.numero)}</div>
+              <div style={{ fontSize: 13, color: 'var(--bx-text-2)', marginTop: 3 }}>
+                {STATUS_SERVICO[sv.status] || sv.status}{sv.status === 'orcado' ? ' · aprove o orçamento' : sv.status === 'aceito' ? ' · envie a carta' : ''}
+              </div>
+            </div>
+            <IconArrowRight size={16} color="var(--bx-text-3)" />
+          </Link>
+        )
+      })}
+    </div>
+  )
+
   if (pedidos.length === 0 && negociadas.length === 0) {
     return (
       <Casca>
@@ -201,12 +235,13 @@ export default function ComprasPage() {
           titulo="Minhas compras"
           descricao="Seus pedidos e o rastreio de cada um."
         />
-        <div style={S.empty}>
+        {blocoServicos}
+        {servicos.length === 0 && <div style={S.empty}>
           <div style={S.emptyIco}><IconMarketplace size={34} color="rgba(255,255,255,0.4)" /></div>
           <div style={S.emptyH}>Você ainda não comprou nada</div>
           <p style={S.emptyT}>Explore o marketplace e as lojas verificadas da Bynx. Suas compras aparecem aqui pra você acompanhar até a entrega.</p>
           <Link href="/marketplace" style={{ ...S.cta, ...S.ctaAcc, padding: '11px 20px', display: 'inline-flex', textDecoration: 'none', marginTop: 16 }}>Explorar o marketplace <IconArrowRight size={15} color="#0a0a0a" /></Link>
-        </div>
+        </div>}
       </Casca>
     )
   }
@@ -266,6 +301,8 @@ export default function ComprasPage() {
           ? `${compras.length} ${compras.length === 1 ? 'compra' : 'compras'} · ${pedidos.length} pelo checkout, ${negociadas.length} negociada${negociadas.length !== 1 ? 's' : ''}`
           : `${pedidos.length} ${pedidos.length === 1 ? 'pedido' : 'pedidos'} · do pagamento à entrega`}
       />
+
+      {blocoServicos}
 
       <div style={S.tabs}>
         {TABS.map(t => (

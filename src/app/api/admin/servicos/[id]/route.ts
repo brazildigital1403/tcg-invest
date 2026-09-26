@@ -15,7 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
-import { sbAdmin, erro, registrarEvento, BUCKET_SERVICOS } from '@/lib/servicosServer'
+import { sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS } from '@/lib/servicosServer'
 import { TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO } from '@/lib/servicos'
 
 export const dynamic = 'force-dynamic'
@@ -119,6 +119,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       await registrarEvento(id, para, todasRecusadas
         ? 'Nenhuma carta pode ser tratada'
         : `Orçamento de R$ ${((total || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${recusadas.length ? `, ${recusadas.length} ${recusadas.length === 1 ? 'carta recusada' : 'cartas recusadas'}` : ''}`)
+      // Re-orcar (orcado -> orcado) tambem avisa: o cliente precisa ver o valor novo.
+      await notificarCliente(id, para)
       return NextResponse.json({ ok: true, status: para })
     }
 
@@ -166,6 +168,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         nota,
       ].filter(Boolean).join('. ')
       await registrarEvento(id, para, notaFinal || undefined)
+      if (para === 'aceito' || para === 'recebida' || para === 'pronta' || para === 'enviada') await notificarCliente(id, para)
       return NextResponse.json({ ok: true, status: para })
     }
 

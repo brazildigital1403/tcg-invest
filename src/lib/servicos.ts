@@ -363,3 +363,23 @@ export const numeroServico = (n: number) => `#S-${String(n).padStart(4, '0')}`
 export const fmtDataHoraBRT = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
 })
+
+// ── Termo de ciencia de risco (aceito junto com o orcamento) ─────────────────
+// Versao em servicosServer.TERMO_VERSAO_ATUAL: trocar as duas juntas quando o
+// texto mudar. RASCUNHO v1 para revisao do Du (inclusive juridica).
+
+export const TERMO_V1 = [
+  'A restauração é um trabalho de conservação: prensagem, umidade controlada e limpeza a seco. A Bynx não usa tinta, cola nem corte.',
+  'Toda intervenção em papel tem risco. Holo, cartas japonesas e cartas texturizadas reagem de formas diferentes, e o resultado depende do estado em que a carta chega.',
+  'A Bynx para no ponto seguro. Se continuar puder danificar a carta, o trabalho é interrompido, mesmo que o defeito não tenha saído por completo.',
+  'Nenhuma nota de graduação é garantida. A faixa do pré-grading é uma estimativa; a nota final é da graduadora.',
+  'A carta viaja pelo valor declarado no orçamento. Ao chegar, o pacote é aberto em vídeo e a carta recebe um número de custódia.',
+  'Se na chegada a carta estiver diferente das fotos, a Bynx avisa antes de qualquer trabalho, e você decide se segue.',
+]
+
+export const GUIA_EMBALAGEM = [
+  'Carta em sleeve e depois em toploader. A fita vai só no toploader, nunca na carta.',
+  'Toploader entre dois pedaços de papelão, um de cada lado, presos com fita.',
+  'Tudo dentro de um envelope ou caixa que não dobre. Anote o número do pedido por fora.',
+  'Envie com rastreio e valor declarado, e informe o código de rastreio aqui na página.',
+]

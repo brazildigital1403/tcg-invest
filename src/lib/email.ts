@@ -640,6 +640,43 @@ export async function sendNovaSolicitacaoServicoAdminEmail(args: {
   return enviar({ from: FROM, to: args.to, subject: subjInterno('Serviços', `Novo orçamento ${args.numero}: ${args.servico}`), html })
 }
 
+// ── SERVIÇOS — e-mails ao cliente do serviço de bancada ──────────────────────
+// Um modelo so para as 6 etapas (recebido, orcado/recusado, aceito com
+// endereco, carta chegou, pronta, enviada). O texto de cada etapa vive em
+// src/lib/servicosServer.ts. Sem emoji, nem no assunto.
+
+export async function sendServicoClienteEmail(args: {
+  to: string
+  nome?: string | null
+  assunto: string
+  selo: string
+  titulo: string
+  paragrafos: string[]
+  linhas?: { rotulo: string; valor: string }[]
+  destaque?: string
+  cta?: { rotulo: string; href: string }
+}) {
+  const primeiro = primeiroNome(args.nome, 'colecionador')
+  const tabela = args.linhas?.length ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
+      ${args.linhas.map(l => `<tr><td style="padding:10px 16px;font-size:13px;color:#9ca3af;${FONT}">${escapeHtml(l.rotulo)}</td><td align="right" style="padding:10px 16px;font-size:14px;color:#f0f0f0;${FONT}">${escapeHtml(l.valor)}</td></tr>`).join('')}
+    </table>` : ''
+  const destaque = args.destaque ? `
+    <div style="margin-top:16px;padding:14px 16px;border-radius:8px;background-color:#1a1c24;border:1px solid rgba(245,158,11,0.35);font-size:14px;line-height:1.6;color:#f0f0f0;${FONT}white-space:pre-wrap;">${escapeHtml(args.destaque)}</div>` : ''
+  const html = baseLayout(`
+    ${badge(args.selo, '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1(escapeHtml(args.titulo))}
+    ${p(`Oi, ${escapeHtml(primeiro)}.`)}
+    ${args.paragrafos.map(t => p(escapeHtml(t))).join('')}
+    ${destaque}
+    ${tabela}
+    ${args.cta ? btn(args.cta.rotulo, addUtm(args.cta.href, 'servico-bancada', 'cta-button')) : ''}
+  `, args.titulo)
+
+  return enviar({ from: FROM, to: args.to, subject: subjUser(args.assunto), html })
+}
+
 // ── 5. SUPORTE — confirmação de ticket criado (para usuário) ─────────────────
 
 export async function sendTicketCreatedUserEmail(args: {

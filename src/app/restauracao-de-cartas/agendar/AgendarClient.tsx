@@ -95,6 +95,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const [tentou, setTentou] = useState(false)
   const [aviso, setAviso] = useState('')
   const [numero, setNumero] = useState<string | null>(null)
+  const [pedidoId, setPedidoId] = useState<string | null>(null)
   const [enviando, setEnviando] = useState('')
   const [erroEnvio, setErroEnvio] = useState('')
   // Pedido ja criado numa tentativa anterior: a nova tentativa so sobe o que faltou.
@@ -232,6 +233,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
         return
       }
       setNumero(e.numero)
+      setPedidoId(e.id)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
       setErroEnvio('Sem conexão. Suas fotos continuam aqui, é só tentar de novo.')
@@ -249,9 +251,9 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             <span className="sv-ic sv-ic-ok ag-ok-ic"><IconCheck size={24} strokeWidth={2} /></span>
             <span className="sv-eyebrow">Solicitação registrada</span>
             <h2 className="sv-h1">{numero}</h2>
-            <p className="sv-sub">Recebemos as fotos. O orçamento chega em até {PRAZOS.orcamento || 'poucos dias úteis'}, no seu e-mail.</p>
+            <p className="sv-sub">Recebemos as fotos. O orçamento chega em até {PRAZOS.orcamento || 'poucos dias úteis'}, no seu e-mail e na página do pedido.</p>
             <p className="ag-alerta"><IconWarning size={16} /> Não envie a carta ainda. O endereço aparece depois que você aprova o orçamento.</p>
-            <a className="sv-ghost" href="/restauracao-de-cartas">Voltar para a restauração</a>
+            <a className="sv-cta" href={pedidoId ? `/servico/${pedidoId}` : '/compras'}>Acompanhar o pedido</a>
           </div>
         </div>
       </section>

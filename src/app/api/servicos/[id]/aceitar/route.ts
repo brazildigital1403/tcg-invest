@@ -6,7 +6,7 @@
 // update filtra pelo status atual, entao duas respostas simultaneas nao passam.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sbAdmin, carregarAutorizado, erro, registrarEvento, TERMO_VERSAO_ATUAL } from '@/lib/servicosServer'
+import { sbAdmin, carregarAutorizado, erro, registrarEvento, notificarCliente, TERMO_VERSAO_ATUAL } from '@/lib/servicosServer'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +54,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (recusados.length) await sb.from('servico_itens').update({ aceito: false, recusa_motivo: 'Recusada pelo cliente' }).in('id', recusados)
 
     await registrarEvento(id, 'aceito', `Orçamento aceito: ${aceitos.length} ${aceitos.length === 1 ? 'carta' : 'cartas'}`)
+    await notificarCliente(id, 'aceito')
     return NextResponse.json({ ok: true, status: 'aceito', aceitos: aceitos.length })
   } catch (e) {
     console.error('[servicos/aceitar]', e instanceof Error ? e.message : e)
