@@ -13,11 +13,15 @@
 // onde viver, e pedir login DEPOIS das fotos perderia as imagens no redirect
 // do Google. O servico e a quantidade voltam preservados pela URL.
 //
-// ★ SERVICOS_FORM_ATIVO = false: tudo funciona no navegador (fotos comprimidas,
-// validacao, estados), mas o envio nao sai. Liga na F8, com a tabela e as APIs.
+// Envio (F8), em 3 tempos: POST /api/servicos cria o pedido e devolve uma URL
+// assinada por foto; o navegador sobe cada foto direto no bucket privado
+// (repete com URL nova se falhar); POST /api/servicos/[id]/fotos confere tudo
+// no bucket e fecha o pedido. Se cair no meio, a nova tentativa so sobe o que
+// faltou, sem criar outro pedido. SERVICOS_FORM_ATIVO = false desliga o envio.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { authFetch } from '@/lib/authFetch'
 import { comprimirImagem } from '@/lib/comprimirImagem'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
@@ -37,6 +41,8 @@ interface CartaForm {
   obs: string
   valor: string
 }
+interface Upload { idx: number; item_id: string; slot: FotoSlotId; path: string; token: string }
+interface Envio { id: string; numero: string; uploads: Upload[]; feitos: { item_id: string; slot: FotoSlotId; path: string }[] }
 interface Sugestao { ref: string; label: string; sublabel: string; image: string | null; price: number | null }
 
 const novaCarta = (): CartaForm => ({ nome: '', cardId: null, fotos: {}, queixas: [], obs: '', valor: '' })
@@ -88,7 +94,11 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const [ciente, setCiente] = useState(false)
   const [tentou, setTentou] = useState(false)
   const [aviso, setAviso] = useState('')
-  const [numero] = useState<string | null>(null)
+  const [numero, setNumero] = useState<string | null>(null)
+  const [enviando, setEnviando] = useState('')
+  const [erroEnvio, setErroEnvio] = useState('')
+  // Pedido ja criado numa tentativa anterior: a nova tentativa so sobe o que faltou.
+  const envioRef = useRef<Envio | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setLogado(!!data.session))
@@ -137,9 +147,10 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const precoUnit = precoDoServico(servico)
   const totalDeclarado = cartas.reduce((s, c) => s + valorNum(c.valor), 0)
 
-  function enviar() {
+  async function enviar() {
     setTentou(true)
     setWhatsTocado(true)
+    setErroEnvio('')
     if (!logado) { openSignup({ next: voltarPara }); return }
     if (pendencias.length) {
       document.querySelector('.ag-inv, .ag-chk-inv, .ag-erro')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -149,7 +160,84 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
       setAviso('O envio pelo site abre em breve. Suas fotos continuam aqui.')
       return
     }
-    // F8: POST /api/servicos + upload das fotos por URL assinada entram aqui.
+    if (enviando) return
+
+    try {
+      // 1. Cria o pedido (uma vez so). Nada de arquivo aqui: so os dados e o tipo de cada foto.
+      if (!envioRef.current) {
+        setEnviando('Registrando o pedido...')
+        const r = await authFetch('/api/servicos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            servico,
+            prazo,
+            whatsapp: soDigitos(whats) || null,
+            whatsapp_consentido: whatsOk,
+            ciente,
+            cartas: cartas.map(c => ({
+              nome: c.nome,
+              card_id: c.cardId,
+              queixas: c.queixas,
+              obs: c.obs,
+              valor_declarado_cents: Math.round(valorNum(c.valor) * 100),
+              fotos: Object.fromEntries(Object.entries(c.fotos).map(([slot, f]) => [slot, f!.file.type])),
+            })),
+          }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok) { setErroEnvio(d.error || 'Não conseguimos registrar o pedido. Tente de novo.'); return }
+        envioRef.current = { id: d.id, numero: d.numero, uploads: d.uploads, feitos: [] }
+      }
+
+      // 2. Sobe cada foto direto no bucket privado, pela URL assinada.
+      const e = envioRef.current
+      const pendentes = e.uploads.filter(u => !e.feitos.some(f => f.item_id === u.item_id && f.slot === u.slot))
+      for (let k = 0; k < pendentes.length; k++) {
+        let u = pendentes[k]
+        setEnviando(`Enviando ${e.feitos.length + 1} de ${e.uploads.length} fotos`)
+        const foto = cartas[u.idx]?.fotos[u.slot]
+        if (!foto) { setErroEnvio('Uma foto foi removida depois do envio começar. Recarregue a página e mande de novo.'); return }
+        let { error } = await supabase.storage.from('servico-midias').uploadToSignedUrl(u.path, u.token, foto.file, { contentType: foto.file.type })
+        if (error) {
+          // URL vencida ou falha no meio: pede uma nova so para esta foto e tenta mais uma vez.
+          const r = await authFetch(`/api/servicos/${e.id}/upload-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: u.item_id, slot: u.slot, mime: foto.file.type }),
+          })
+          const nova = await r.json().catch(() => ({}))
+          if (!r.ok) throw new Error(nova.error || 'upload-url')
+          u = { ...u, path: nova.path, token: nova.token }
+          e.uploads = e.uploads.map(x => (x.item_id === u.item_id && x.slot === u.slot ? u : x))
+          ;({ error } = await supabase.storage.from('servico-midias').uploadToSignedUrl(u.path, u.token, foto.file, { contentType: foto.file.type }))
+          if (error) throw error
+        }
+        e.feitos.push({ item_id: u.item_id, slot: u.slot, path: u.path })
+      }
+
+      // 3. Confirma: o servidor confere cada arquivo no bucket antes de registrar.
+      setEnviando('Conferindo as fotos...')
+      const r = await authFetch(`/api/servicos/${e.id}/fotos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fotos: e.feitos }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setErroEnvio(d.error || 'Não conseguimos conferir as fotos. Tente de novo.'); return }
+      if (!d.completa) {
+        const rej = new Set<string>(d.rejeitadas || [])
+        e.feitos = e.feitos.filter(f => !rej.has(f.path))
+        setErroEnvio('Algumas fotos não chegaram direito. Toque em enviar de novo para mandar só o que faltou.')
+        return
+      }
+      setNumero(e.numero)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      setErroEnvio('Sem conexão. Suas fotos continuam aqui, é só tentar de novo.')
+    } finally {
+      setEnviando('')
+    }
   }
 
   if (numero) {
@@ -161,9 +249,9 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             <span className="sv-ic sv-ic-ok ag-ok-ic"><IconCheck size={24} strokeWidth={2} /></span>
             <span className="sv-eyebrow">Solicitação registrada</span>
             <h2 className="sv-h1">{numero}</h2>
-            <p className="sv-sub">Orçamento em até {PRAZOS.orcamento || 'poucos dias'}, no seu e-mail e na sua conta.</p>
+            <p className="sv-sub">Recebemos as fotos. O orçamento chega em até {PRAZOS.orcamento || 'poucos dias úteis'}, no seu e-mail.</p>
             <p className="ag-alerta"><IconWarning size={16} /> Não envie a carta ainda. O endereço aparece depois que você aprova o orçamento.</p>
-            <a className="sv-cta" href="/compras">Acompanhar solicitação</a>
+            <a className="sv-ghost" href="/restauracao-de-cartas">Voltar para a restauração</a>
           </div>
         </div>
       </section>
@@ -310,9 +398,10 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                 {pendencias.length > 4 && <li>e mais {pendencias.length - 4}</li>}
               </ul>
             )}
-            <button type="button" className="sv-cta" onClick={enviar} disabled={logado === null}>
-              {logado === false ? 'Entrar e mandar as fotos' : 'Enviar para orçamento'}
+            <button type="button" className="sv-cta" onClick={enviar} disabled={logado === null || !!enviando} aria-busy={!!enviando}>
+              {enviando || (logado === false ? 'Entrar e mandar as fotos' : 'Enviar para orçamento')}
             </button>
+            {erroEnvio && <p className="ag-erro" role="alert" style={{ margin: 0 }}>{erroEnvio}</p>}
             {aviso && (
               <div className="ag-aviso" role="status">
                 <p>{aviso}</p>

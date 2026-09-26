@@ -52,7 +52,7 @@ function subjUser(texto: string): string {
 }
 
 /** Assunto interno: `[Bynx Setor] Assunto` */
-function subjInterno(setor: 'Suporte' | 'Contato' | 'Sync' | 'Alerta', texto: string): string {
+function subjInterno(setor: 'Suporte' | 'Contato' | 'Sync' | 'Alerta' | 'Serviços', texto: string): string {
   return `[Bynx ${setor}] ${limparAssunto(texto)}`
 }
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
@@ -605,6 +605,39 @@ export async function sendNewTicketAdminEmail(args: {
   `, `Novo ticket: ${args.subject}`)
 
   return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Novo ticket: ${args.subject}`), html })
+}
+
+// ── SERVIÇOS — pedido de orçamento completo (para o admin) ───────────────────
+// Dispara uma vez por solicitacao, quando frente e verso de todas as cartas
+// chegaram no bucket. Sem ele o pedido ficaria calado ate existir o painel.
+
+export async function sendNovaSolicitacaoServicoAdminEmail(args: {
+  to: string
+  numero: string
+  servico: string
+  userEmail: string
+  userName?: string
+  whatsapp?: string | null
+  cartas: { nome: string; valor: number; queixas: string[] }[]
+  valorTotal: number
+}) {
+  const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const linhas = args.cartas.map(c => `
+      <tr><td style="padding:10px 16px;font-size:14px;color:#f0f0f0;${FONT}">${escapeHtml(c.nome)}${c.queixas.length ? `<br><span style="font-size:12px;color:#9ca3af;">${escapeHtml(c.queixas.join(', '))}</span>` : ''}</td>
+      <td align="right" style="padding:10px 16px;font-size:14px;color:rgba(255,255,255,0.8);${FONT}white-space:nowrap;">${brl(c.valor)}</td></tr>`).join('')
+  const html = baseLayout(`
+    ${badge('Novo orçamento', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1(`Pedido ${escapeHtml(args.numero)}: ${escapeHtml(args.servico)}`)}
+    ${p(`<strong style="color:#f0f0f0;">${escapeHtml(args.userName || 'Colecionador')}</strong> (${escapeHtml(args.userEmail)}) mandou ${args.cartas.length} ${args.cartas.length === 1 ? 'carta' : 'cartas'} para orçamento, com as fotos completas.${args.whatsapp ? ` WhatsApp: ${escapeHtml(args.whatsapp)}.` : ''}`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
+      ${linhas}
+      <tr><td style="padding:12px 16px;font-size:13px;color:#9ca3af;${FONT}border-top:1px solid #2d3748;">Valor declarado total</td>
+      <td align="right" style="padding:12px 16px;font-size:14px;color:#f59e0b;${FONT}border-top:1px solid #2d3748;"><strong>${brl(args.valorTotal)}</strong></td></tr>
+    </table>
+  `, `Novo orçamento ${args.numero}`)
+
+  return enviar({ from: FROM, to: args.to, subject: subjInterno('Serviços', `Novo orçamento ${args.numero}: ${args.servico}`), html })
 }
 
 // ── 5. SUPORTE — confirmação de ticket criado (para usuário) ─────────────────

@@ -6,12 +6,12 @@
 // divergirem (a mesma conta em dois lugares sempre diverge).
 //
 // ★ Enquanto SERVICOS_PUBLICADO = false as paginas saem com noindex e nada no
-// site aponta pra elas. Enquanto SERVICOS_FORM_ATIVO = false o formulario
-// funciona inteiro no navegador, mas nao envia (ainda nao existe tabela).
+// site aponta pra elas. SERVICOS_FORM_ATIVO liga o envio do formulario
+// (tabelas da F7 + rotas /api/servicos da F8). Desligado, nada sai do navegador.
 // Valor `null` = decisao pendente do Du: a secao que depende dele nao aparece.
 
 export const SERVICOS_PUBLICADO = false
-export const SERVICOS_FORM_ATIVO = false
+export const SERVICOS_FORM_ATIVO = true
 
 export type ServicoId = 'restauracao' | 'pre_grading' | 'completo'
 
