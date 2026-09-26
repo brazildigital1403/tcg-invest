@@ -248,6 +248,9 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
         })}
       </div>
 
+      {!todasRecusadas && sol.prazo === 'expresso' && PRECOS?.expresso != null && (
+        <p className="ad-aviso"><IconWarning size={14} /> Pedido expresso: inclua os R$ {brl(PRECOS.expresso)} do prazo expresso no valor do serviço.</p>
+      )}
       {!todasRecusadas && (
         <div className="ad-valores">
           <label><span>Serviço</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={servico} onChange={e => setServico(e.target.value.replace(/[^\d.,]/g, ''))} /></label>

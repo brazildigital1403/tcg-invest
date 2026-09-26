@@ -31,26 +31,27 @@ export interface Precos {
 /**
  * Valores por carta definidos pelo Du em 26/09/2026. Seguro (7%, so restauracao
  * e completo) e descontos por volume (10% de 10 a 20 cartas, 15% acima) seguem
- * a referencia de mercado, decisao dele no mesmo dia. Expresso ainda nao foi
- * definido: fica null e nao aparece (nada de numero inventado na tela).
+ * a referencia de mercado, decisao dele no mesmo dia. Expresso: + R$ 550 por
+ * ate 4 dias corridos (PRAZOS).
  */
 export const PRECOS: Precos | null = {
   restauracao: 165,
   preGrading: 80,
   completo: 450,
-  expresso: null,
+  expresso: 550,
   seguroPct: 7,
   desc10a20: 10,
   descAcima20: 15,
 }
 
+// Definidos pelo Du em 26/09/2026.
 export const PRAZOS = {
   /** Dias uteis apos a chegada da carta. */
-  padraoDiasUteis: null as number | null,
+  padraoDiasUteis: 5 as number | null,
   /** Dias corridos do expresso. */
-  expressoDias: null as number | null,
+  expressoDias: 4 as number | null,
   /** Prazo do orcamento depois do envio das fotos. */
-  orcamento: null as string | null,
+  orcamento: '48 horas' as string | null,
 }
 
 export const LINKS = {
