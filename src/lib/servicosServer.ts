@@ -112,7 +112,7 @@ export async function urlDeUpload(path: string) {
 // update filtra pelo status atual), entao cada e-mail sai uma vez. Falha de
 // envio nunca derruba a rota: loga e segue.
 
-export type EtapaEmail = 'recebido' | 'orcado' | 'recusado_bynx' | 'aceito' | 'recebida' | 'pronta' | 'enviada'
+export type EtapaEmail = 'recebido' | 'orcado' | 'recusado_bynx' | 'aceito' | 'recebida' | 'proposta' | 'pronta' | 'enviada'
 
 const APP = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 const reais = (c: number | null | undefined) => `R$ ${brl((c || 0) / 100)}`
@@ -196,10 +196,20 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
       await sendServicoClienteEmail({
         ...base, assunto: `Sua carta chegou: pedido ${numero}`, selo: 'Carta recebida', titulo: 'Sua carta chegou na bancada',
         paragrafos: [
-          'O pacote foi aberto em vídeo e cada carta ganhou um número de custódia. As fotos de entrada ficam no pedido.',
+          'O pacote foi aberto em vídeo e cada carta ganhou um número de custódia. Agora ela passa pela ficha de condição e pelas fotos de entrada, e em seguida você recebe a proposta de tratamento para aprovar.',
         ],
         linhas: aceitas.filter(i => i.custodia).map(i => ({ rotulo: i.nome, valor: i.custodia as string })),
         cta,
+      })
+    } else if (etapa === 'proposta') {
+      await sendServicoClienteEmail({
+        ...base, assunto: `Proposta de tratamento: pedido ${numero}`, selo: 'Sua aprovação', titulo: 'A proposta de tratamento está pronta',
+        paragrafos: [
+          'Registramos a condição de cada carta na chegada, com fotos de frente, verso, cantos e bordas.',
+          'Para cada carta, a proposta mostra o que foi encontrado, o que fazer, o resultado esperado, o risco e a alternativa de não mexer. Você aprova ou recusa cada procedimento.',
+          `Nada começa sem a sua decisão. O prazo${PRAZOS.padraoDiasUteis ? ` de ${PRAZOS.padraoDiasUteis} dias úteis` : ''} conta a partir dela.`,
+        ],
+        cta: { rotulo: 'Ver e decidir a proposta', href: link },
       })
     } else if (etapa === 'pronta') {
       await sendServicoClienteEmail({
@@ -222,5 +232,23 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
     }
   } catch (e) {
     console.error('[servicos] email cliente', etapa, e instanceof Error ? e.message : e)
+  }
+}
+
+/** Aviso interno ao admin (ex.: cliente decidiu a proposta). Nunca derruba a rota. */
+export async function notificarAdmin(solicitacaoId: string, titulo: string, paragrafos: string[]) {
+  const destino = process.env.ADMIN_EMAIL
+  if (!destino) return
+  try {
+    const { data } = await sbAdmin().from('servico_solicitacoes').select('id, numero').eq('id', solicitacaoId).limit(1)
+    const sol = data?.[0]
+    if (!sol) return
+    await sendServicoClienteEmail({
+      to: destino, nome: 'Edu', assunto: `[Serviços] ${titulo} ${numeroServico(sol.numero)}`, selo: 'Painel',
+      titulo: `${titulo} ${numeroServico(sol.numero)}`, paragrafos,
+      cta: { rotulo: 'Abrir no painel', href: `${APP}/admin/servicos/${sol.id}` },
+    })
+  } catch (e) {
+    console.error('[servicos] email admin', e instanceof Error ? e.message : e)
   }
 }

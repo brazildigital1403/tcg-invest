@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/Icons'
 import {
   SERVICOS, SERVICOS_FORM_ATIVO, PRECOS, PRAZOS, LINKS, QUEIXAS, FOTO_SLOTS, MAX_CARTAS_POR_SOLICITACAO,
+  OBJETIVOS, GRADUADORAS_ALVO, ROTULO_GRADUADORA, ALERTA_GRADUACAO,
   precoDoServico, brl, type ServicoId, type FotoSlotId,
 } from '@/lib/servicos'
 
@@ -88,6 +89,9 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const [logado, setLogado] = useState<boolean | null>(null)
   const [cartas, setCartas] = useState<CartaForm[]>(() => Array.from({ length: qtdInicial }, novaCarta))
   const [prazo, setPrazo] = useState<'padrao' | 'expresso'>('padrao')
+  const [objetivo, setObjetivo] = useState('')
+  const [objetivoOutro, setObjetivoOutro] = useState('')
+  const [graduadora, setGraduadora] = useState('')
   const [whats, setWhats] = useState('')
   const [whatsTocado, setWhatsTocado] = useState(false)
   const [whatsOk, setWhatsOk] = useState(false)
@@ -132,6 +136,9 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   // Pendencias em linguagem de gente, na ordem da tela.
   const pendencias = useMemo(() => {
     const p: string[] = []
+    if (!objetivo) p.push('Conte o objetivo do serviço')
+    else if (objetivo === 'outro' && !objetivoOutro.trim()) p.push('Conte qual é o objetivo')
+    else if (objetivo === 'graduacao' && !graduadora) p.push('Escolha a graduadora')
     if (!logado) { p.push('Entre na sua conta para mandar as fotos'); return p }
     cartas.forEach((c, i) => {
       const n = cartas.length > 1 ? ` da carta ${i + 1}` : ''
@@ -143,7 +150,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
     if (erroW) p.push('Confira o WhatsApp')
     if (!ciente) p.push('Marque a ciência sobre recusa')
     return p
-  }, [logado, cartas, erroW, ciente])
+  }, [logado, cartas, erroW, ciente, objetivo, objetivoOutro, graduadora])
 
   const precoUnit = precoDoServico(servico)
   const totalDeclarado = cartas.reduce((s, c) => s + valorNum(c.valor), 0)
@@ -176,6 +183,9 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             whatsapp: soDigitos(whats) || null,
             whatsapp_consentido: whatsOk,
             ciente,
+            objetivo,
+            objetivo_outro: objetivo === 'outro' ? objetivoOutro : null,
+            graduadora_alvo: objetivo === 'graduacao' ? graduadora : null,
             cartas: cartas.map(c => ({
               nome: c.nome,
               card_id: c.cardId,
@@ -284,10 +294,40 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             </div>
           </div>
 
-          {/* 2. Cartas */}
+          {/* 2. Objetivo (fase 2): orienta o orcamento e a proposta de tratamento */}
+          <div className={`sv-card ag-bloco${tentou && !objetivo ? ' ag-bloco-inv' : ''}`}>
+            <div className="ag-bloco-h"><span className="ag-n">2</span><h2 className="sv-h3">Qual é o objetivo?</h2></div>
+            <p className="sv-p ag-dica-topo">Isso muda o que faz sentido fazer na sua carta.</p>
+            <div className="ag-chips" role="radiogroup" aria-label="Objetivo">
+              {OBJETIVOS.map(o => (
+                <button key={o.id} type="button" role="radio" aria-checked={objetivo === o.id} className={`sv-chip${objetivo === o.id ? ' sv-chip-on' : ''}`} onClick={() => setObjetivo(o.id)}>{o.rotulo}</button>
+              ))}
+            </div>
+            {objetivo === 'outro' && (
+              <div className="ag-fld">
+                <label htmlFor="ag-obj-outro">Qual?</label>
+                <input id="ag-obj-outro" className={tentou && !objetivoOutro.trim() ? 'ag-inv' : ''} value={objetivoOutro} onChange={e => setObjetivoOutro(e.target.value)} maxLength={200} />
+              </div>
+            )}
+            {objetivo === 'graduacao' && (
+              <>
+                <div className="ag-fld">
+                  <span>Para qual graduadora?</span>
+                  <div className="ag-chips" role="radiogroup" aria-label="Graduadora">
+                    {GRADUADORAS_ALVO.map(g => (
+                      <button key={g} type="button" role="radio" aria-checked={graduadora === g} className={`sv-chip${graduadora === g ? ' sv-chip-on' : ''}${tentou && !graduadora ? ' ag-inv' : ''}`} onClick={() => setGraduadora(g)}>{ROTULO_GRADUADORA[g] || g}</button>
+                    ))}
+                  </div>
+                </div>
+                <p className="ag-alerta-sm"><IconWarning size={15} /> {ALERTA_GRADUACAO}</p>
+              </>
+            )}
+          </div>
+
+          {/* 3. Cartas */}
           <div className="sv-card ag-bloco">
             <div className="ag-bloco-h ag-bloco-h-row">
-              <div className="ag-bloco-h"><span className="ag-n">2</span><h2 className="sv-h3">{qtd === 1 ? 'Sua carta' : 'Suas cartas'}</h2></div>
+              <div className="ag-bloco-h"><span className="ag-n">3</span><h2 className="sv-h3">{qtd === 1 ? 'Sua carta' : 'Suas cartas'}</h2></div>
               <div className="ag-stepper">
                 <button type="button" onClick={() => mudarQtd(-1)} disabled={qtd <= 1} aria-label="Menos uma carta"><IconMinus size={18} /></button>
                 <output aria-live="polite">{qtd} {qtd === 1 ? 'carta' : 'cartas'}</output>
@@ -322,9 +362,9 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             ) : null}
           </div>
 
-          {/* 3. Contato e ciencia */}
+          {/* 4. Contato e ciencia */}
           <div className="sv-card ag-bloco">
-            <div className="ag-bloco-h"><span className="ag-n">3</span><h2 className="sv-h3">Prazo e contato</h2></div>
+            <div className="ag-bloco-h"><span className="ag-n">4</span><h2 className="sv-h3">Prazo e contato</h2></div>
 
             {PRECOS?.expresso != null ? (
               <div className="ag-opts ag-opts-2" role="radiogroup" aria-label="Prazo">
@@ -336,8 +376,8 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                       <span className="sv-opt-l">
                         <b>{p === 'padrao' ? 'Padrão' : 'Expresso'}</b>
                         <small>{p === 'padrao'
-                          ? (PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a chegada` : 'Prazo informado no orçamento')
-                          : (PRAZOS.expressoDias ? `${PRAZOS.expressoDias} dias corridos após a chegada` : 'Prioridade na bancada')}</small>
+                          ? (PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação` : 'Prazo informado no orçamento')
+                          : (PRAZOS.expressoDias ? `${PRAZOS.expressoDias} dias corridos após a sua aprovação` : 'Prioridade na bancada')}</small>
                       </span>
                       <span className="sv-opt-r">{p === 'padrao' ? 'Sem custo' : `+ R$ ${brl(PRECOS!.expresso!)}`}</span>
                     </button>
@@ -345,7 +385,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                 })}
               </div>
             ) : (
-              <p className="sv-p ag-dica-topo">{PRAZOS.padraoDiasUteis ? `Prazo de ${PRAZOS.padraoDiasUteis} dias úteis após a chegada da carta.` : 'O prazo vem no orçamento, contado a partir da chegada da carta.'}</p>
+              <p className="sv-p ag-dica-topo">{PRAZOS.padraoDiasUteis ? `Prazo de ${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação da proposta de tratamento.` : 'O prazo vem no orçamento, contado a partir da sua aprovação da proposta de tratamento.'}</p>
             )}
 
             <div className="ag-dois">
@@ -589,6 +629,9 @@ const AG_CSS = `
 .ag-bloco-h-row{justify-content:space-between;flex-wrap:wrap;gap:12px}
 .ag-n{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;background:var(--ac-grad);color:var(--bx-brand-ink);flex-shrink:0}
 .ag-dica-topo{margin:0;font-size:14px}
+.ag-bloco-inv{border-color:color-mix(in srgb,var(--bx-red) 45%,transparent)}
+.ag-alerta-sm{display:flex;gap:8px;align-items:flex-start;margin:0;padding:12px 14px;border-radius:12px;font-size:13.5px;line-height:1.5;color:var(--bx-text-2);background:rgba(var(--ac-1-rgb),.07);border:1px solid rgba(var(--ac-1-rgb),.28)}
+.ag-alerta-sm svg{flex-shrink:0;margin-top:2px;color:var(--ac-1)}
 
 .ag-opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .ag-opts-2{grid-template-columns:repeat(2,minmax(0,1fr))}

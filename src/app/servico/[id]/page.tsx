@@ -17,6 +17,7 @@ import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { authFetch } from '@/lib/authFetch'
 import {
   STATUS_SERVICO, SERVICOS, TERMO_V1, GUIA_EMBALAGEM, CAMPOS_LAUDO, brl, numeroServico, fmtDataHoraBRT, turnoServico,
+  PILARES, ESCALA, DANOS, TERMO_PROPOSTA_V1, RISCOS, OBJETIVOS, ALERTA_GRADUACAO, type FichaCondicao,
 } from '@/lib/servicos'
 import { IconCheck, IconClose, IconTruck, IconShield, IconWarning, IconBox } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
@@ -27,20 +28,28 @@ type Sol = {
   valor_declarado_cents: number; orcamento_cents: number | null; seguro_cents: number | null
   frete_volta_cents: number | null; total_cents: number | null; orcamento_obs: string | null
   pago_em: string | null; termo_aceito_em: string | null; rastreio_ida: string | null; rastreio_volta: string | null; created_at: string
+  objetivo: string | null; objetivo_outro: string | null; graduadora_alvo: string | null
+  proposta_enviada_em: string | null; proposta_aceita_em: string | null
 }
 type Item = {
   id: string; nome: string; card_id: string | null; queixas: string[]; valor_declarado_cents: number
   custodia: string | null; aceito: boolean | null; recusa_motivo: string | null; laudo: Record<string, string> | null
+  ficha_entrada: FichaCondicao | null; ficha_saida: FichaCondicao | null
+}
+type Proc = {
+  id: string; item_id: string; ordem: number; problema: string; procedimento: string; objetivo: string | null
+  resultado_esperado: string | null; risco: string; risco_descricao: string | null; alternativa: string; decisao: string
 }
 type Evento = { id: string; status: string; nota: string | null; created_at: string }
-type Midia = { id: string; item_id: string | null; tipo: string; mime: string; url: string | null }
-type Dados = { solicitacao: Sol; itens: Item[]; eventos: Evento[]; midias: Midia[]; endereco: string | null }
+type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; mime: string; url: string | null }
+type Dados = { solicitacao: Sol; itens: Item[]; eventos: Evento[]; midias: Midia[]; procedimentos: Proc[]; endereco: string | null }
 
 // Linha de etapas: onde o pedido esta, em linguagem do cliente.
 const ETAPAS = [
   { t: 'Orçamento', status: ['aguardando_orcamento', 'orcado'] },
   { t: 'Envio', status: ['aceito'] },
-  { t: 'Na bancada', status: ['recebida', 'em_bancada', 'descansando'] },
+  { t: 'Proposta', status: ['recebida', 'proposta'] },
+  { t: 'Na bancada', status: ['em_bancada', 'descansando'] },
   { t: 'Pronta', status: ['pronta'] },
   { t: 'A caminho', status: ['enviada'] },
   { t: 'Entregue', status: ['entregue'] },
@@ -48,7 +57,9 @@ const ETAPAS = [
 const ROTULO_MIDIA: Record<string, string> = {
   cliente_frente: 'Sua foto · frente', cliente_verso: 'Sua foto · verso', cliente_extra: 'Sua foto',
   entrada_difusa: 'Entrada', entrada_rasante: 'Entrada · rasante', saida_difusa: 'Saída', saida_rasante: 'Saída · rasante',
-  video_abertura: 'Abertura do pacote', embalagem: 'Embalagem', laudo: 'Laudo',
+  entrada_canto: 'Canto na chegada', entrada_borda: 'Borda na chegada', entrada_angulo: 'Superfície na chegada', entrada_dano: 'Dano registrado',
+  saida_canto: 'Canto na saída', saida_borda: 'Borda na saída', processo: 'Durante o processo',
+  video_abertura: 'Abertura do pacote', video_devolucao: 'Devolução', embalagem: 'Embalagem', laudo: 'Laudo',
 }
 const reais = (c: number | null | undefined) => (c == null ? '—' : `R$ ${brl(c / 100)}`)
 
@@ -68,6 +79,8 @@ function Pedido({ id }: { id: string }) {
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null)
   const [termo, setTermo] = useState(false)
   const [rastreio, setRastreio] = useState('')
+  const [decisoes, setDecisoes] = useState<Record<string, 'aprovado' | 'recusado'>>({})
+  const [termoProposta, setTermoProposta] = useState(false)
 
   const carregar = useCallback(async () => {
     try {
@@ -95,7 +108,10 @@ function Pedido({ id }: { id: string }) {
   if (erro) return <div className="sp"><style>{CSS}</style><div className="sp-card sp-vazio"><IconShield size={24} /><p>{erro}</p><Link className="sp-bt" href="/compras">Minhas compras</Link></div></div>
   if (!dados) return <div className="sp"><style>{CSS}</style><p className="sp-muted">Carregando...</p></div>
 
-  const { solicitacao: s, itens, eventos, midias, endereco } = dados
+  const { solicitacao: s, itens, eventos, midias, procedimentos, endereco } = dados
+  const pendentes = procedimentos.filter(p => p.decisao === 'pendente')
+  const tudoDecidido = pendentes.every(p => decisoes[p.id])
+  const objetivoRotulo = OBJETIVOS.find(o => o.id === s.objetivo)?.rotulo
   const etapaAtual = ETAPAS.findIndex(e => e.status.includes(s.status))
   const encerrado = turnoServico(s.status) === 'fim' && s.status !== 'entregue'
   const aceitas = itens.filter(i => i.aceito !== false)
@@ -120,10 +136,67 @@ function Pedido({ id }: { id: string }) {
         </ol>
       )}
 
+      {objetivoRotulo && (
+        <p className="sp-objetivo">Objetivo: <b>{s.objetivo === 'outro' ? s.objetivo_outro : objetivoRotulo}</b>{s.objetivo === 'graduacao' && s.graduadora_alvo && s.graduadora_alvo !== 'indefinida' ? ` · ${s.graduadora_alvo}` : ''}</p>
+      )}
       {msg && <p className={msg.ok ? 'sp-ok' : 'sp-erro'} role="status">{msg.t}</p>}
 
       <div className="sp-grid">
         <div className="sp-col">
+
+          {s.status === 'proposta' && !s.proposta_aceita_em && pendentes.length > 0 && (
+            <section className="sp-card sp-card-acao">
+              <h2>Proposta de tratamento</h2>
+              <p className="sp-muted">Sua carta chegou e foi registrada com fotos de cada canto e borda. Para cada procedimento abaixo, você decide: fazer ou não fazer. Nada começa sem a sua resposta.</p>
+              {s.objetivo === 'graduacao' && <p className="sp-aviso"><IconWarning size={15} /> {ALERTA_GRADUACAO}</p>}
+              {itens.filter(it => pendentes.some(p => p.item_id === it.id)).map(it => (
+                <div key={it.id} className="sp-prop-carta">
+                  <b>{it.nome}{it.custodia ? ` · ${it.custodia}` : ''}</b>
+                  {pendentes.filter(p => p.item_id === it.id).map(p => {
+                    const d = decisoes[p.id]
+                    return (
+                      <div key={p.id} className="sp-proc">
+                        <div className="sp-proc-topo">
+                          <b>{p.procedimento}</b>
+                          <span className={`sp-risco sp-risco-${p.risco}`}>{RISCOS.find(r => r.id === p.risco)?.rotulo}</span>
+                        </div>
+                        <dl className="sp-dl sp-proc-dl">
+                          <div><dt>Encontramos</dt><dd>{p.problema}</dd></div>
+                          {p.objetivo && <div><dt>Objetivo</dt><dd>{p.objetivo}</dd></div>}
+                          {p.resultado_esperado && <div><dt>Resultado esperado</dt><dd>{p.resultado_esperado}</dd></div>}
+                          {p.risco_descricao && <div><dt>O que pode acontecer</dt><dd>{p.risco_descricao}</dd></div>}
+                          <div><dt>Alternativa</dt><dd>{p.alternativa}</dd></div>
+                        </dl>
+                        <div className="sp-decide" role="radiogroup" aria-label={`Decisão sobre ${p.procedimento}`}>
+                          <button type="button" role="radio" aria-checked={d === 'aprovado'} className={d === 'aprovado' ? 'on' : ''} onClick={() => setDecisoes(x => ({ ...x, [p.id]: 'aprovado' }))}><IconCheck size={14} /> Fazer</button>
+                          <button type="button" role="radio" aria-checked={d === 'recusado'} className={d === 'recusado' ? 'on off' : ''} onClick={() => setDecisoes(x => ({ ...x, [p.id]: 'recusado' }))}><IconClose size={14} /> Não fazer</button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+              <div className="sp-termo">
+                <b>Termo da proposta</b>
+                <ul>{TERMO_PROPOSTA_V1.map(t => <li key={t}>{t}</li>)}</ul>
+              </div>
+              <label className="sp-chk">
+                <input type="checkbox" checked={termoProposta} onChange={e => setTermoProposta(e.target.checked)} />
+                <span>Li o termo e autorizo somente os procedimentos que marquei como fazer.</span>
+              </label>
+              <button type="button" className="sp-bt sp-bt-pri" disabled={ocupado || !termoProposta || !tudoDecidido}
+                onClick={() => postar('proposta', { termo_aceito: true, decisoes }, 'Decisão enviada. A Bynx segue só com o que você aprovou.')}>
+                {tudoDecidido ? 'Enviar minha decisão' : `Decida os ${pendentes.length - Object.keys(decisoes).filter(k => pendentes.some(p => p.id === k)).length} procedimentos restantes`}
+              </button>
+            </section>
+          )}
+
+          {s.status === 'proposta' && s.proposta_aceita_em && (
+            <section className="sp-card">
+              <h2>Recebemos a sua decisão</h2>
+              <p className="sp-muted">A Bynx segue só com os procedimentos que você aprovou. O prazo conta a partir de agora.</p>
+            </section>
+          )}
 
           {s.status === 'aguardando_orcamento' && (
             <section className="sp-card">
@@ -215,6 +288,17 @@ function Pedido({ id }: { id: string }) {
                   </div>
                   {it.aceito === false && <p className="sp-recusa"><IconClose size={13} /> Fora do serviço: {it.recusa_motivo}</p>}
                   <GaleriaMidias midias={paraGaleria(midias.filter(m => m.item_id === it.id))} />
+                  {it.ficha_entrada && <FichaComparada entrada={it.ficha_entrada} saida={it.ficha_saida} />}
+                  {procedimentos.some(p => p.item_id === it.id && p.decisao !== 'pendente') && (
+                    <ul className="sp-procs-feitos">
+                      {procedimentos.filter(p => p.item_id === it.id && p.decisao !== 'pendente').map(p => (
+                        <li key={p.id} className={p.decisao === 'aprovado' ? 'ok' : 'nao'}>
+                          {p.decisao === 'aprovado' ? <IconCheck size={13} /> : <IconClose size={13} />} {p.procedimento}
+                          <small>{p.decisao === 'aprovado' ? 'aprovado por você' : 'você preferiu não fazer'}</small>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {it.laudo && (
                     <dl className="sp-dl sp-laudo">
                       {CAMPOS_LAUDO.filter(c => it.laudo?.[c.k]).map(c => <div key={c.k}><dt>{c.rotulo}</dt><dd>{it.laudo![c.k]}</dd></div>)}
@@ -249,8 +333,42 @@ function Pedido({ id }: { id: string }) {
   )
 }
 
+const POSICAO: Record<string, string> = {
+  frente: 'frente', verso: 'verso', superior: 'borda superior', inferior: 'borda inferior', esquerda: 'borda esquerda', direita: 'borda direita',
+}
+function rotuloPosicao(p: string | null) {
+  if (!p) return ''
+  if (POSICAO[p]) return ` · ${POSICAO[p]}`
+  const [lado, vert, hor] = p.split('_')
+  return ` · ${vert === 'sup' ? 'superior' : 'inferior'} ${hor === 'esq' ? 'esquerdo' : 'direito'} (${lado})`
+}
 function paraGaleria(ms: Midia[]) {
-  return ms.map(m => ({ id: m.id, url: m.url, mime: m.mime, rotulo: ROTULO_MIDIA[m.tipo] || m.tipo }))
+  return ms.map(m => ({ id: m.id, url: m.url, mime: m.mime, rotulo: `${ROTULO_MIDIA[m.tipo] || m.tipo}${rotuloPosicao(m.posicao)}` }))
+}
+
+// Condicao na chegada x na saida, pilar a pilar. Escala textual, nunca nota.
+function FichaComparada({ entrada, saida }: { entrada: FichaCondicao; saida: FichaCondicao | null }) {
+  const rot = (v?: string) => ESCALA.find(e => e.id === v)?.rotulo || '—'
+  const danos = (ids: string[]) => ids.map(d => DANOS.find(x => x.id === d)?.rotulo || d).join(', ')
+  return (
+    <div className="sp-ficha">
+      <table>
+        <thead><tr><th>Condição</th><th>Chegada</th>{saida && <th>Saída</th>}</tr></thead>
+        <tbody>
+          {PILARES.map(p => (['frente', 'verso'] as const).map(lado => (
+            <tr key={`${p.id}-${lado}`}>
+              <td>{p.rotulo} <small>{lado}</small></td>
+              <td>{rot(entrada[lado][p.id])}</td>
+              {saida && <td>{rot(saida[lado][p.id])}</td>}
+            </tr>
+          )))}
+        </tbody>
+      </table>
+      {(entrada.danos_frente.length > 0 || entrada.danos_verso.length > 0) && (
+        <p className="sp-muted">Registrado na chegada: {[danos(entrada.danos_frente) && `frente: ${danos(entrada.danos_frente)}`, danos(entrada.danos_verso) && `verso: ${danos(entrada.danos_verso)}`].filter(Boolean).join(' · ')}</p>
+      )}
+    </div>
+  )
 }
 
 const CSS = `
@@ -320,6 +438,33 @@ const CSS = `
 .sp-tl b{font-size:14px}
 .sp-tl span{font-size:13px;color:var(--bx-text-2);line-height:1.45}
 .sp-tl small{font-size:11.5px;color:var(--bx-text-3);font-variant-numeric:tabular-nums}
+.sp-objetivo{font-size:13.5px;color:var(--bx-text-2);margin:0 0 14px}
+.sp-prop-carta{display:grid;gap:10px;padding-top:6px}
+.sp-prop-carta > b{font-size:14px}
+.sp-proc{display:grid;gap:10px;padding:14px;border-radius:12px;background:var(--bx-bg);border:1px solid var(--bx-border)}
+.sp-proc-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.sp-proc-topo b{font-size:15px}
+.sp-risco{flex-shrink:0;font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px}
+.sp-risco-baixo{color:var(--bx-green);background:color-mix(in srgb,var(--bx-green) 12%,transparent)}
+.sp-risco-medio{color:var(--ac-1);background:rgba(var(--ac-1-rgb),.12)}
+.sp-risco-alto{color:var(--bx-red);background:color-mix(in srgb,var(--bx-red) 12%,transparent)}
+.sp-proc-dl div{flex-direction:column;gap:2px}
+.sp-proc-dl dd{text-align:left;color:var(--bx-text)}
+.sp-decide{display:grid;grid-template-columns:1fr 1fr;border-radius:12px;overflow:hidden;border:1px solid var(--bx-border-2)}
+.sp-decide button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;border:0;background:transparent;color:var(--bx-text-2);font:inherit;font-size:14.5px;font-weight:700;cursor:pointer}
+.sp-decide button.on{background:color-mix(in srgb,var(--bx-green) 16%,transparent);color:var(--bx-green)}
+.sp-decide button.on.off{background:color-mix(in srgb,var(--bx-red) 14%,transparent);color:var(--bx-red)}
+.sp-ficha{padding-top:10px;border-top:1px solid var(--bx-border);display:grid;gap:8px}
+.sp-ficha table{width:100%;border-collapse:collapse;font-size:13px}
+.sp-ficha th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--bx-text-3);padding:4px 6px}
+.sp-ficha td{padding:5px 6px;border-top:1px solid var(--bx-border)}
+.sp-ficha td small{color:var(--bx-text-3)}
+.sp-procs-feitos{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.sp-procs-feitos li{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13.5px}
+.sp-procs-feitos li.ok svg{color:var(--bx-green)}
+.sp-procs-feitos li.nao{color:var(--bx-text-2)}
+.sp-procs-feitos li.nao svg{color:var(--bx-red)}
+.sp-procs-feitos small{font-size:12px;color:var(--bx-text-3)}
 .sp-garantia{grid-template-columns:24px minmax(0,1fr);align-items:start;color:var(--bx-green)}
 .sp-garantia p{margin:0;font-size:13px;line-height:1.55;color:var(--bx-text-2)}
 @media (max-width:980px){ .sp-grid{grid-template-columns:1fr} }

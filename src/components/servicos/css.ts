@@ -111,7 +111,7 @@ export const SV_CSS = `
 .sv-caso-tag{position:absolute;left:8px;bottom:8px;padding:4px 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:rgba(8,10,15,.78);color:#fff}
 
 /* ── Linha do tempo: horizontal no desktop, vertical no celular ── */
-.sv-tl{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:20px}
+.sv-tl{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px}
 .sv-tl li{position:relative;display:flex;flex-direction:column;gap:12px}
 .sv-tl li:not(:last-child)::before{content:"";position:absolute;top:21px;left:52px;right:-12px;height:2px;background:var(--bx-border-2)}
 .sv-tl-n{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:800;background:var(--bx-surface-2);color:var(--bx-text-2);border:1px solid var(--bx-border-2)}

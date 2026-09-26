@@ -13,8 +13,12 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import {
-  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, brl, numeroServico, fmtDataHoraBRT, turnoServico,
+  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, OBJETIVOS, ROTULO_GRADUADORA,
+  FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, turnoServico, type FichaCondicao, type SlotFoto,
 } from '@/lib/servicos'
+import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
+import ChecklistFotos from '@/components/servicos/admin/ChecklistFotos'
+import PropostaEditor, { type Procedimento } from '@/components/servicos/admin/PropostaEditor'
 import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import Rastreio from '@/components/servicos/Rastreio'
@@ -25,15 +29,22 @@ type Sol = {
   frete_volta_cents: number | null; total_cents: number | null; orcamento_obs: string | null
   pagamento_metodo: string | null; pago_em: string | null; whatsapp: string | null; whatsapp_consentido: boolean
   rastreio_ida: string | null; rastreio_volta: string | null; lacre_volta: string | null; created_at: string
+  objetivo: string | null; objetivo_outro: string | null; graduadora_alvo: string | null
+  proposta_enviada_em: string | null; proposta_aceita_em: string | null
 }
 type Item = {
   id: string; nome: string; card_id: string | null; queixas: string[]; obs: string | null
   valor_declarado_cents: number; custodia: string | null; aceito: boolean | null; recusa_motivo: string | null
   laudo: Record<string, string> | null
+  ficha_entrada: FichaCondicao | null; ficha_saida: FichaCondicao | null
 }
 type Evento = { id: string; status: string; nota: string | null; created_at: string }
-type Midia = { id: string; item_id: string | null; tipo: string; mime: string; tamanho: number; url: string | null }
-type Dados = { solicitacao: Sol; cliente: { name: string; email: string } | null; itens: Item[]; eventos: Evento[]; midias: Midia[] }
+type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; mime: string; tamanho: number; url: string | null }
+type Proc = Procedimento & { id: string; item_id: string; decisao: string }
+type Dados = {
+  solicitacao: Sol; cliente: { name: string; email: string } | null; itens: Item[]; eventos: Evento[]; midias: Midia[]
+  procedimentos: Proc[]; pendencias_entrada: string[]; pendencias_saida: string[]
+}
 
 const ROTULO_MIDIA: Record<string, string> = {
   cliente_frente: 'Frente (cliente)', cliente_verso: 'Verso (cliente)', cliente_extra: 'Extra (cliente)',
@@ -78,15 +89,16 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
     finally { setOcupado('') }
   }
 
-  async function subirMidia(tipo: string, itemId: string | null, file: File) {
-    setOcupado(`midia-${tipo}-${itemId}`); setMsg(null)
+  async function subirMidia(tipo: string, itemId: string | null, file: File, posicao: string | null = null) {
+    const chave = posicao ? `midia-${tipo}-${posicao}` : `midia-${tipo}-${itemId}`
+    setOcupado(chave); setMsg(null)
     try {
       const r = await fetch(`/api/admin/servicos/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'midia_url', tipo, item_id: itemId, mime: file.type }) })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setMsg({ tipo: 'erro', t: d.error || 'Não deu para preparar o envio.' }); return }
       const { error } = await supabase.storage.from('servico-midias').uploadToSignedUrl(d.path, d.token, file, { contentType: file.type })
       if (error) { setMsg({ tipo: 'erro', t: 'O arquivo não subiu. Tente de novo.' }); return }
-      await acao({ acao: 'midia_confirmar', tipo, item_id: itemId, path: d.path }, `midia-${tipo}-${itemId}`, 'Arquivo enviado.')
+      await acao({ acao: 'midia_confirmar', tipo, item_id: itemId, posicao, path: d.path }, chave, 'Arquivo enviado.')
     } catch { setMsg({ tipo: 'erro', t: 'Sem conexão com o servidor.' }) }
     finally { setOcupado('') }
   }
@@ -94,7 +106,8 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
   if (erroCarga) return <div className="sv-adm"><style>{CSS}</style><p className="ad-erro">{erroCarga}</p><button type="button" className="ad-bt" onClick={carregar}>Tentar de novo</button></div>
   if (!dados) return <div className="sv-adm"><style>{CSS}</style><p className="ad-muted">Carregando...</p></div>
 
-  const { solicitacao: s, cliente, itens, eventos, midias } = dados
+  const { solicitacao: s, cliente, itens, eventos, midias, procedimentos, pendencias_entrada, pendencias_saida } = dados
+  const objetivo = OBJETIVOS.find(o => o.id === s.objetivo)?.rotulo
   const vez = turnoServico(s.status)
 
   return (
@@ -108,6 +121,12 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
           <p className="ad-muted">
             {SERVICOS.find(x => x.id === s.servico)?.nome} · {itens.length} {itens.length === 1 ? 'carta' : 'cartas'} · prazo {s.prazo === 'expresso' ? 'expresso' : 'padrão'} · pedido em {fmtDataHoraBRT.format(new Date(s.created_at))}
           </p>
+          {objetivo && (
+            <p className={`ad-objetivo${s.objetivo === 'graduacao' ? ' ad-objetivo-grad' : ''}`}>
+              Objetivo: <b>{s.objetivo === 'outro' ? s.objetivo_outro : objetivo}</b>
+              {s.objetivo === 'graduacao' && <> · graduadora: <b>{ROTULO_GRADUADORA[s.graduadora_alvo || ''] || s.graduadora_alvo}</b></>}
+            </p>
+          )}
         </div>
         <div className="ad-cliente">
           <b>{cliente?.name || 'Cliente'}</b>
@@ -134,10 +153,15 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
                   key={it.id}
                   idx={i}
                   item={it}
+                  status={s.status}
+                  servico={s.servico}
                   midias={midias.filter(m => m.item_id === it.id)}
+                  procs={procedimentos.filter(p => p.item_id === it.id)}
                   ocupado={ocupado}
-                  subir={(tipo, f) => subirMidia(tipo, it.id, f)}
+                  subir={(tipo, f, posicao) => subirMidia(tipo, it.id, f, posicao)}
                   salvarLaudo={laudo => acao({ acao: 'laudo', item_id: it.id, laudo }, `laudo-${it.id}`, 'Laudo salvo.')}
+                  salvarFicha={(lado, ficha) => acao({ acao: 'ficha', item_id: it.id, lado, ficha }, `ficha-${lado}-${it.id}`, 'Ficha salva.')}
+                  salvarProcs={lista => acao({ acao: 'procedimentos', item_id: it.id, procedimentos: lista }, `procs-${it.id}`, 'Proposta da carta salva.')}
                 />
               ))}
             </div>
@@ -158,7 +182,14 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
         </div>
 
         <aside className="ad-col">
-          <Acoes sol={s} ocupado={ocupado} mover={(para, extra) => acao({ acao: 'status', para, ...extra }, `status-${para}`, `Status: ${STATUS_SERVICO[para]}.`)} />
+          <Acoes
+            sol={s}
+            ocupado={ocupado}
+            pendencias={s.status === 'recebida' ? pendencias_entrada : pendencias_saida}
+            procs={procedimentos}
+            mover={(para, extra) => acao({ acao: 'status', para, ...extra }, `status-${para}`, `Status: ${STATUS_SERVICO[para]}.`)}
+            enviarProposta={() => acao({ acao: 'enviar_proposta' }, 'enviar_proposta', 'Proposta enviada ao cliente.')}
+          />
 
           <section className="ad-card">
             <h2>Valores</h2>
@@ -172,7 +203,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
             {s.orcamento_obs && <p className="ad-obs">{s.orcamento_obs}</p>}
             {s.pago_em
               ? <p className="ad-ok" style={{ margin: 0 }}><IconCheck size={14} /> Pago via Pix em {fmtDataHoraBRT.format(new Date(s.pago_em))}</p>
-              : s.total_cents != null && ['orcado', 'aceito', 'recebida', 'em_bancada', 'descansando', 'pronta'].includes(s.status) && (
+              : s.total_cents != null && ['orcado', 'aceito', 'recebida', 'proposta', 'em_bancada', 'descansando', 'pronta'].includes(s.status) && (
                 <button type="button" className="ad-bt" disabled={!!ocupado} onClick={() => confirm('Confirmar que o Pix deste pedido caiu?') && acao({ acao: 'pagamento' }, 'pagamento', 'Pagamento registrado.')}>
                   Registrar pagamento via Pix
                 </button>
@@ -300,19 +331,44 @@ const ROTULO_ACAO: Record<string, string> = {
 }
 const PERIGO = ['cancelado', 'recusado_cliente', 'devolvida_sem_servico']
 
-function Acoes({ sol, ocupado, mover }: {
-  sol: Sol; ocupado: string
+function Acoes({ sol, ocupado, pendencias, procs, mover, enviarProposta }: {
+  sol: Sol; ocupado: string; pendencias: string[]; procs: Proc[]
   mover: (para: string, extra?: Record<string, unknown>) => Promise<boolean>
+  enviarProposta: () => Promise<boolean>
 }) {
   const [nota, setNota] = useState('')
   const [rastreio, setRastreio] = useState('')
   const [lacre, setLacre] = useState('')
-  const opcoes = TRANSICOES_ADMIN[sol.status] || []
+  const preGrading = sol.servico === 'pre_grading'
+  // Bancada a partir da chegada so no pre-grading; no resto, a proposta vem antes.
+  const opcoes = (TRANSICOES_ADMIN[sol.status] || []).filter(p => !(sol.status === 'recebida' && p === 'em_bancada' && !preGrading))
+  const aprovados = procs.filter(p => p.decisao === 'aprovado').length
   if (!opcoes.length) return null
 
   return (
     <section className="ad-card ad-card-acao">
       <h2>Próximo passo</h2>
+      {pendencias.length > 0 && (
+        <div className="ad-pend">
+          <b>Antes de seguir, falta:</b>
+          <ul>{pendencias.map(p => <li key={p}>{p}</li>)}</ul>
+        </div>
+      )}
+      {sol.status === 'recebida' && !preGrading && (
+        <>
+          <p className="ad-muted" style={{ margin: 0 }}>Preencha a ficha, tire as fotos de entrada e monte a proposta de cada carta. O cliente decide antes de você tocar nela.</p>
+          <button type="button" className="ad-bt ad-bt-pri" disabled={!!ocupado || pendencias.length > 0} onClick={() => confirm('Enviar a proposta de tratamento ao cliente? Depois disso ela não pode ser editada.') && enviarProposta()}>
+            {ocupado === 'enviar_proposta' ? 'Enviando...' : 'Enviar proposta ao cliente'}
+          </button>
+        </>
+      )}
+      {sol.status === 'proposta' && (
+        <p className="ad-muted" style={{ margin: 0 }}>
+          {sol.proposta_aceita_em
+            ? `O cliente respondeu: ${aprovados} ${aprovados === 1 ? 'procedimento aprovado' : 'procedimentos aprovados'}.`
+            : 'Aguardando o cliente decidir a proposta.'}
+        </p>
+      )}
       {sol.status === 'aceito' && !sol.rastreio_ida && (
         <p className="ad-muted" style={{ marginTop: -6 }}>O cliente ainda não informou o rastreio de ida.</p>
       )}
@@ -335,7 +391,11 @@ function Acoes({ sol, ocupado, mover }: {
             key={para}
             type="button"
             className={`ad-bt${PERIGO.includes(para) ? ' ad-bt-perigo' : ' ad-bt-pri'}`}
-            disabled={!!ocupado || (para === 'enviada' && (!rastreio.trim() || !sol.pago_em))}
+            disabled={!!ocupado
+              || (para === 'enviada' && (!rastreio.trim() || !sol.pago_em))
+              || (para === 'em_bancada' && sol.status === 'proposta' && (!sol.proposta_aceita_em || !aprovados))
+              || (para === 'em_bancada' && sol.status === 'recebida' && pendencias.length > 0)
+              || (para === 'pronta' && pendencias.length > 0)}
             onClick={async () => {
               if (PERIGO.includes(para) && !confirm(`${ROTULO_ACAO[para]}? Isso encerra o pedido.`)) return
               const ok = await mover(para, { nota, rastreio_volta: rastreio, lacre_volta: lacre })
@@ -352,11 +412,17 @@ function Acoes({ sol, ocupado, mover }: {
 
 // ── Uma carta ───────────────────────────────────────────────────────────────
 
-function CartaAdmin({ idx, item, midias, ocupado, subir, salvarLaudo }: {
-  idx: number; item: Item; midias: Midia[]; ocupado: string
-  subir: (tipo: string, f: File) => void
+function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir, salvarLaudo, salvarFicha, salvarProcs }: {
+  idx: number; item: Item; status: string; servico: string; midias: Midia[]; procs: Proc[]; ocupado: string
+  subir: (tipo: string, f: File, posicao?: string | null) => void
   salvarLaudo: (laudo: Record<string, string>) => Promise<boolean>
+  salvarFicha: (lado: 'entrada' | 'saida', ficha: FichaCondicao) => Promise<boolean>
+  salvarProcs: (lista: Procedimento[]) => Promise<boolean>
 }) {
+  const chegou = ['recebida', 'proposta', 'em_bancada', 'descansando', 'pronta', 'enviada', 'entregue', 'devolvida_sem_servico'].includes(status)
+  const naBancada = ['em_bancada', 'descansando', 'pronta', 'enviada', 'entregue'].includes(status)
+  const tratada = procs.some(p => p.decisao === 'aprovado')
+  const subirSlot = (slot: SlotFoto, f: File) => subir(slot.tipo, f, slot.posicao)
   const [laudo, setLaudo] = useState<Record<string, string>>(item.laudo || {})
   const [abrirLaudo, setAbrirLaudo] = useState(!!item.laudo)
 
@@ -381,10 +447,29 @@ function CartaAdmin({ idx, item, midias, ocupado, subir, salvarLaudo }: {
         <GaleriaMidias midias={paraGaleria(midias)} tamanho={92} />
       </div>
 
+      {item.aceito !== false && chegou && (
+        <div className="ad-fase">
+          <span className="ad-fase-h">Entrada</span>
+          <FichaCondicaoForm titulo="Ficha de entrada" valor={item.ficha_entrada} ocupado={!!ocupado} onSalvar={f => salvarFicha('entrada', f)} />
+          <ChecklistFotos titulo="Fotos de entrada" slots={FOTOS_ENTRADA} midias={midias} ocupado={ocupado} onFile={subirSlot} />
+          {servico !== 'pre_grading' && (
+            <PropostaEditor procs={procs} editavel={status === 'recebida'} ocupado={!!ocupado} onSalvar={salvarProcs} />
+          )}
+        </div>
+      )}
+
+      {item.aceito !== false && naBancada && tratada && (
+        <div className="ad-fase">
+          <span className="ad-fase-h">Saída</span>
+          <FichaCondicaoForm titulo="Ficha de saída" valor={item.ficha_saida} ocupado={!!ocupado} onSalvar={f => salvarFicha('saida', f)} />
+          <ChecklistFotos titulo="Fotos de saída" slots={FOTOS_SAIDA} midias={midias} ocupado={ocupado} onFile={subirSlot} />
+        </div>
+      )}
+
       {item.aceito !== false && (
         <>
           <div className="ad-uploads">
-            {MIDIAS_ADMIN.filter(m => m.porItem).map(m => (
+            {MIDIAS_ADMIN.filter(m => m.porItem && ['entrada_rasante', 'entrada_dano', 'processo', 'saida_rasante', 'laudo'].includes(m.tipo)).map(m => (
               <BotaoUpload key={m.tipo} rotulo={m.rotulo} ocupado={ocupado === `midia-${m.tipo}-${item.id}`} aceitar={m.tipo === 'laudo' ? 'image/*,application/pdf' : 'image/*'} onFile={f => subir(m.tipo, f)} />
             ))}
           </div>
@@ -437,6 +522,12 @@ const CSS = `
 .ad-pill-cliente{color:var(--bx-blue);background:color-mix(in srgb,var(--bx-blue) 12%,transparent)}
 .ad-pill-fim{color:var(--bx-text-3);background:var(--bx-surface-2)}
 .ad-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.ad-objetivo{font-size:13px;color:var(--bx-text-2);margin:4px 0 0}
+.ad-objetivo-grad b{color:var(--ac-1)}
+.ad-pend{padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--bx-red) 7%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 26%,transparent);font-size:13px}
+.ad-pend ul{margin:6px 0 0;padding-left:18px;display:grid;gap:2px;color:var(--bx-text-2)}
+.ad-fase{display:grid;gap:10px;padding-top:10px;border-top:1px solid var(--bx-border)}
+.ad-fase-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--bx-text-3)}
 .ad-col{display:grid;gap:16px;min-width:0}
 .ad-card{border-radius:14px;border:1px solid var(--bx-border);background:var(--bx-surface);padding:18px;display:grid;gap:12px;min-width:0}
 .ad-card h2{font-size:15px;font-weight:800;margin:0}

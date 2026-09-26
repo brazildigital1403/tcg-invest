@@ -130,7 +130,7 @@ export function Custodia({ alt }: { alt?: boolean }) {
 export function ComoFunciona({ alt }: { alt?: boolean }) {
   return (
     <Faixa id="como-funciona" alt={alt}>
-      <Cabecalho eyebrow="Passo a passo" titulo="Como funciona" sub="Cinco passos, e você só envia a carta depois de aprovar o preço." />
+      <Cabecalho eyebrow="Passo a passo" titulo="Como funciona" sub="Seis passos. Você aprova o preço antes de enviar e aprova o tratamento antes de a Bynx tocar na carta." />
       <ol className="sv-tl">
         {PASSOS.map((p, i) => (
           <li key={p.t}><span className="sv-tl-n">{i + 1}</span><div><b>{p.t}</b><span>{p.d}</span></div></li>
@@ -159,7 +159,7 @@ export function NaoRegistrado({ alt }: { alt?: boolean }) {
 /** Nao renderiza enquanto PRECOS for null: nada de "consulte". */
 export function Precos({ destaque, alt }: { destaque: ServicoId; alt?: boolean }) {
   if (!PRECOS) return null
-  const prazo = PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a chegada. ` : ''
+  const prazo = PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a aprovação da proposta de tratamento. ` : ''
   return (
     <Faixa id="preco" alt={alt}>
       <Cabecalho eyebrow="Investimento e prazo" titulo="Preço por carta" sub="O orçamento pelas fotos é grátis. Frete de ida e volta por sua conta." />

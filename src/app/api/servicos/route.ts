@@ -9,7 +9,7 @@
 import { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
-import { MAX_CARTAS_POR_SOLICITACAO, QUEIXAS } from '@/lib/servicos'
+import { MAX_CARTAS_POR_SOLICITACAO, QUEIXAS, OBJETIVOS, GRADUADORAS_ALVO } from '@/lib/servicos'
 import {
   sbAdmin, usuarioDoToken, erro, registrarEvento, caminhoFoto, urlDeUpload, numeroSolicitacao,
   FOTO_MIMES, SLOTS, SLOTS_OBRIGATORIOS, type Slot,
@@ -51,6 +51,14 @@ export async function POST(req: NextRequest) {
     if (!SERVICOS_OK.includes(servico)) return erro(400, 'Serviço inválido')
     const prazo = body.prazo === 'expresso' ? 'expresso' : 'padrao'
     if (body.ciente !== true) return erro(400, 'Marque a ciência sobre recusa')
+
+    // Objetivo do colecionador (fase 2): obrigatorio. Graduacao pede a graduadora.
+    const objetivo = String(body.objetivo || '')
+    if (!OBJETIVOS.some(o => o.id === objetivo)) return erro(400, 'Conte o objetivo do serviço')
+    const objetivoOutro = objetivo === 'outro' ? texto(body.objetivo_outro, 200) : ''
+    if (objetivo === 'outro' && !objetivoOutro) return erro(400, 'Conte qual é o objetivo')
+    const graduadora = objetivo === 'graduacao' ? String(body.graduadora_alvo || '') : ''
+    if (objetivo === 'graduacao' && !(GRADUADORAS_ALVO as readonly string[]).includes(graduadora)) return erro(400, 'Escolha a graduadora')
 
     const whatsDigitos = typeof body.whatsapp === 'string' ? body.whatsapp.replace(/\D/g, '') : ''
     if (whatsDigitos && !/^[1-9][1-9]9[0-9]{8}$/.test(whatsDigitos)) return erro(400, 'WhatsApp inválido')
@@ -113,6 +121,9 @@ export async function POST(req: NextRequest) {
         valor_declarado_cents: itens.reduce((s, it) => s + it.valor_declarado_cents, 0),
         whatsapp: whatsDigitos || null,
         whatsapp_consentido: !!whatsDigitos && body.whatsapp_consentido === true,
+        objetivo,
+        objetivo_outro: objetivoOutro || null,
+        graduadora_alvo: graduadora || null,
       })
       .select('id, numero')
       .limit(1)

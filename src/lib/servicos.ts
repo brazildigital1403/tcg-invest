@@ -129,7 +129,8 @@ export const NAO_RESOLVE = [
 export const PASSOS = [
   { t: 'Orçamento pelas fotos', d: 'Você manda frente e verso. A Bynx diz o que dá para fazer e quanto custa, antes de qualquer envio.' },
   { t: 'Você aprova e envia', d: 'O endereço aparece só depois do aceite, com o guia de embalagem.' },
-  { t: 'Chegada filmada', d: 'O pacote é aberto em vídeo, sem corte, com a etiqueta visível. A carta ganha um número de custódia.' },
+  { t: 'Chegada filmada', d: 'O pacote é aberto em vídeo, sem corte, com a etiqueta visível. A carta ganha um número de custódia e uma ficha de condição com fotos de cada canto.' },
+  { t: 'Você aprova o tratamento', d: 'Para cada carta chega uma proposta: o que foi encontrado, o que fazer, o risco e a alternativa de não mexer. Nada começa sem o seu sim.' },
   { t: 'Bancada e descanso', d: 'Depois da prensa, a carta descansa. É essa etapa que faz o resultado durar, e ela não tem atalho.' },
   { t: 'Volta com laudo e rastreio', d: 'Fotos de saída na mesma luz da entrada, embalagem lacrada e código de rastreio na sua conta.' },
 ]
@@ -211,7 +212,7 @@ export const FAQ_RESTAURACAO: Faq[] = [
   },
   {
     q: 'Quanto tempo a carta fica com vocês?',
-    a: 'O prazo conta a partir da chegada e aparece no orçamento. Parte dele é o descanso depois da prensa, que é o que faz o resultado durar.',
+    a: 'O prazo conta a partir da sua aprovação da proposta de tratamento. Parte dele é o descanso depois da prensa, que é o que faz o resultado durar.',
   },
   {
     q: 'Como devo embalar a carta?',
@@ -315,6 +316,7 @@ export const STATUS_SERVICO: Record<string, string> = {
   recusado_cliente: 'Recusado pelo cliente',
   recusado_bynx: 'Recusado pela Bynx',
   recebida: 'Recebida',
+  proposta: 'Proposta de tratamento',
   em_bancada: 'Em bancada',
   descansando: 'Descansando',
   pronta: 'Pronta',
@@ -326,15 +328,18 @@ export const STATUS_SERVICO: Record<string, string> = {
 
 /**
  * Para onde o ADMIN pode mover cada status. Orcar (aguardando -> orcado |
- * recusado_bynx) tem acao propria, com valores. `orcado -> aceito` existe aqui
- * porque, enquanto nao ha pagina do cliente, o aceite combinado por WhatsApp e
- * registrado pelo admin.
+ * recusado_bynx) e enviar a proposta (recebida -> proposta) tem acao propria.
+ * `orcado -> aceito` registra o aceite combinado por WhatsApp.
+ * `recebida -> em_bancada` so vale para pre-grading (nao ha tratamento a
+ * propor); `proposta -> em_bancada` so depois da decisao do cliente. As duas
+ * travas vivem no servidor.
  */
 export const TRANSICOES_ADMIN: Record<string, string[]> = {
   aguardando_orcamento: ['cancelado'],
   orcado: ['aceito', 'recusado_cliente', 'cancelado'],
   aceito: ['recebida', 'cancelado'],
   recebida: ['em_bancada', 'devolvida_sem_servico'],
+  proposta: ['em_bancada', 'devolvida_sem_servico'],
   em_bancada: ['descansando', 'pronta', 'devolvida_sem_servico'],
   descansando: ['em_bancada', 'pronta'],
   pronta: ['enviada'],
@@ -343,7 +348,7 @@ export const TRANSICOES_ADMIN: Record<string, string[]> = {
 
 /** De quem e a vez: a pergunta que o painel responde primeiro. */
 export function turnoServico(status: string): 'bynx' | 'cliente' | 'fim' {
-  if (['orcado', 'aceito'].includes(status)) return 'cliente'
+  if (['orcado', 'aceito', 'proposta'].includes(status)) return 'cliente'
   if (['entregue', 'cancelado', 'recusado_cliente', 'recusado_bynx', 'devolvida_sem_servico'].includes(status)) return 'fim'
   return 'bynx'
 }
@@ -352,9 +357,17 @@ export const MIDIAS_ADMIN = [
   { tipo: 'video_abertura', rotulo: 'Vídeo de abertura', porItem: false },
   { tipo: 'entrada_difusa', rotulo: 'Entrada · difusa', porItem: true },
   { tipo: 'entrada_rasante', rotulo: 'Entrada · rasante', porItem: true },
+  { tipo: 'entrada_canto', rotulo: 'Entrada · canto', porItem: true },
+  { tipo: 'entrada_borda', rotulo: 'Entrada · borda', porItem: true },
+  { tipo: 'entrada_angulo', rotulo: 'Entrada · superfície em ângulo', porItem: true },
+  { tipo: 'entrada_dano', rotulo: 'Entrada · dano', porItem: true },
+  { tipo: 'processo', rotulo: 'Durante o processo', porItem: true },
   { tipo: 'saida_difusa', rotulo: 'Saída · difusa', porItem: true },
   { tipo: 'saida_rasante', rotulo: 'Saída · rasante', porItem: true },
+  { tipo: 'saida_canto', rotulo: 'Saída · canto', porItem: true },
+  { tipo: 'saida_borda', rotulo: 'Saída · borda', porItem: true },
   { tipo: 'embalagem', rotulo: 'Embalagem', porItem: false },
+  { tipo: 'video_devolucao', rotulo: 'Vídeo de devolução', porItem: false },
   { tipo: 'laudo', rotulo: 'Laudo (PDF ou imagem)', porItem: true },
 ] as const
 
@@ -410,3 +423,160 @@ export function linkRastreio(codigo: string): { href: string; onde: string } {
   }
   return { href: `https://t.17track.net/pt#nums=${encodeURIComponent(c)}`, onde: '17TRACK' }
 }
+
+
+// ── Fase 2: objetivo, ficha de condicao, protocolo fotografico, proposta ─────
+
+export const OBJETIVOS = [
+  { id: 'colecionar', rotulo: 'Colecionar' },
+  { id: 'apresentacao', rotulo: 'Melhorar a apresentação' },
+  { id: 'preservacao', rotulo: 'Preservação' },
+  { id: 'venda', rotulo: 'Vender' },
+  { id: 'avaliacao', rotulo: 'Saber a condição' },
+  { id: 'graduacao', rotulo: 'Preparar para graduação' },
+  { id: 'outro', rotulo: 'Outro' },
+] as const
+export type ObjetivoId = (typeof OBJETIVOS)[number]['id']
+
+export const GRADUADORAS_ALVO = ['PSA', 'CGC', 'BGS', 'TAG', 'GBA', 'outra', 'indefinida'] as const
+export const ROTULO_GRADUADORA: Record<string, string> = { outra: 'Outra', indefinida: 'Ainda não sei' }
+
+/** Alerta que aparece para quem vai graduar (formulario, proposta e termo). */
+export const ALERTA_GRADUACAO =
+  'Nem todo procedimento que deixa a carta visualmente melhor é adequado para uma carta que vai para graduação. As graduadoras têm regras próprias sobre alteração, e a proposta de tratamento leva isso em conta.'
+
+// Ficha de condicao (entrada e saida). Escala textual, nunca nota: numero
+// parece nota de graduadora e contradiz o "nao prometemos nota".
+export const ESCALA = [
+  { id: 'excelente', rotulo: 'Excelente' },
+  { id: 'muito_bom', rotulo: 'Muito bom' },
+  { id: 'bom', rotulo: 'Bom' },
+  { id: 'regular', rotulo: 'Regular' },
+  { id: 'ruim', rotulo: 'Ruim' },
+] as const
+export const PILARES = [
+  { id: 'centralizacao', rotulo: 'Centralização' },
+  { id: 'cantos', rotulo: 'Cantos' },
+  { id: 'bordas', rotulo: 'Bordas' },
+  { id: 'superficie', rotulo: 'Superfície' },
+] as const
+export const DANOS = [
+  { id: 'arranhoes', rotulo: 'Arranhões' },
+  { id: 'whitening', rotulo: 'Whitening' },
+  { id: 'dobras', rotulo: 'Dobras' },
+  { id: 'amassados', rotulo: 'Amassados' },
+  { id: 'manchas', rotulo: 'Manchas' },
+  { id: 'print_lines', rotulo: 'Print lines' },
+  { id: 'impressao', rotulo: 'Imperfeição de impressão' },
+  { id: 'residuos', rotulo: 'Resíduos' },
+  { id: 'alteracao', rotulo: 'Alteração aparente' },
+] as const
+export const IDENTIFICACAO = [
+  { k: 'colecao', rotulo: 'Coleção' },
+  { k: 'numero', rotulo: 'Número' },
+  { k: 'variante', rotulo: 'Variante' },
+  { k: 'idioma', rotulo: 'Idioma' },
+  { k: 'serie', rotulo: 'Número de série' },
+] as const
+
+export type Lado = 'frente' | 'verso'
+export interface FichaCondicao {
+  identificacao: Partial<Record<(typeof IDENTIFICACAO)[number]['k'], string>>
+  frente: Partial<Record<(typeof PILARES)[number]['id'], string>>
+  verso: Partial<Record<(typeof PILARES)[number]['id'], string>>
+  danos_frente: string[]
+  danos_verso: string[]
+  observacao?: string
+}
+
+/** Sanitiza a ficha vinda do painel. Exige os 4 pilares nos dois lados. */
+export function validarFicha(entrada: unknown): { ok: true; ficha: FichaCondicao } | { ok: false; erro: string } {
+  const e = (entrada && typeof entrada === 'object' ? entrada : {}) as Record<string, unknown>
+  const escala = new Set<string>(ESCALA.map(x => x.id))
+  const danos = new Set<string>(DANOS.map(x => x.id))
+  const lado = (v: unknown, nome: string) => {
+    const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
+    const r: Record<string, string> = {}
+    for (const p of PILARES) {
+      const x = String(o[p.id] || '')
+      if (!escala.has(x)) throw new Error(`Avalie ${p.rotulo.toLowerCase()} (${nome})`)
+      r[p.id] = x
+    }
+    return r
+  }
+  try {
+    const idIn = (e.identificacao && typeof e.identificacao === 'object' ? e.identificacao : {}) as Record<string, unknown>
+    const identificacao: Record<string, string> = {}
+    for (const c of IDENTIFICACAO) {
+      const v = typeof idIn[c.k] === 'string' ? (idIn[c.k] as string).trim().slice(0, 80) : ''
+      if (v) identificacao[c.k] = v
+    }
+    const ds = (v: unknown) => (Array.isArray(v) ? v.filter((d): d is string => typeof d === 'string' && danos.has(d)) : [])
+    const obs = typeof e.observacao === 'string' ? e.observacao.trim().slice(0, 1000) : ''
+    return {
+      ok: true,
+      ficha: {
+        identificacao,
+        frente: lado(e.frente, 'frente'),
+        verso: lado(e.verso, 'verso'),
+        danos_frente: ds(e.danos_frente),
+        danos_verso: ds(e.danos_verso),
+        ...(obs ? { observacao: obs } : {}),
+      },
+    }
+  } catch (err) {
+    return { ok: false, erro: err instanceof Error ? err.message : 'Ficha inválida' }
+  }
+}
+
+// Protocolo fotografico: o que o painel cobra antes de liberar cada passo.
+export interface SlotFoto { tipo: string; posicao: string; rotulo: string }
+const CANTOS = [
+  { p: 'sup_esq', r: 'superior esquerdo' }, { p: 'sup_dir', r: 'superior direito' },
+  { p: 'inf_esq', r: 'inferior esquerdo' }, { p: 'inf_dir', r: 'inferior direito' },
+]
+const cantos = (tipo: string, lado: Lado): SlotFoto[] =>
+  CANTOS.map(c => ({ tipo, posicao: `${lado}_${c.p}`, rotulo: `Canto ${c.r} (${lado})` }))
+
+/** Entrada: antes de enviar a proposta (ou de ir para a bancada, no pre-grading). */
+export const FOTOS_ENTRADA: SlotFoto[] = [
+  { tipo: 'entrada_difusa', posicao: 'frente', rotulo: 'Frente inteira' },
+  { tipo: 'entrada_difusa', posicao: 'verso', rotulo: 'Verso inteiro' },
+  ...cantos('entrada_canto', 'frente'),
+  ...cantos('entrada_canto', 'verso'),
+  { tipo: 'entrada_borda', posicao: 'superior', rotulo: 'Borda superior' },
+  { tipo: 'entrada_borda', posicao: 'inferior', rotulo: 'Borda inferior' },
+  { tipo: 'entrada_borda', posicao: 'esquerda', rotulo: 'Borda esquerda' },
+  { tipo: 'entrada_borda', posicao: 'direita', rotulo: 'Borda direita' },
+  { tipo: 'entrada_angulo', posicao: 'frente', rotulo: 'Superfície em ângulo' },
+]
+
+/** Saida: antes de marcar "pronta", nas cartas que passaram por tratamento. */
+export const FOTOS_SAIDA: SlotFoto[] = [
+  { tipo: 'saida_difusa', posicao: 'frente', rotulo: 'Frente inteira' },
+  { tipo: 'saida_difusa', posicao: 'verso', rotulo: 'Verso inteiro' },
+  ...cantos('saida_canto', 'frente'),
+  ...cantos('saida_canto', 'verso'),
+]
+
+export function fotosFaltando(slots: SlotFoto[], midias: { tipo: string; posicao: string | null }[]): SlotFoto[] {
+  const tem = new Set(midias.map(m => `${m.tipo}:${m.posicao || ''}`))
+  return slots.filter(s => !tem.has(`${s.tipo}:${s.posicao}`))
+}
+
+export const RISCOS = [
+  { id: 'baixo', rotulo: 'Risco baixo' },
+  { id: 'medio', rotulo: 'Risco médio' },
+  { id: 'alto', rotulo: 'Risco alto' },
+] as const
+
+// Termo especifico da proposta de tratamento (segundo aceite). RASCUNHO v1
+// para revisao do Du e juridica. Trocar TERMO_PROPOSTA_VERSAO junto.
+export const TERMO_PROPOSTA_VERSAO = 'proposta-v1-2026-09'
+export const TERMO_PROPOSTA_V1 = [
+  'Fui informado da condição da minha carta na chegada, registrada na ficha de condição e nas fotos deste pedido, que passam a fazer parte deste termo.',
+  'Para cada procedimento, fui informado do problema encontrado, do resultado esperado, do risco e da alternativa de não realizar a intervenção.',
+  'Autorizo apenas os procedimentos que marquei como aprovados. Os recusados não serão realizados.',
+  'Sei que o resultado depende das características do material e do histórico da carta, e que nenhuma nota de graduação é garantida.',
+  'O valor declarado no pedido é a referência para qualquer indenização relacionada a este serviço.',
+]

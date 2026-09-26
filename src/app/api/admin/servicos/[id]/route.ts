@@ -8,6 +8,9 @@
 //                   rastreio de volta no envio)
 //   pagamento       marca Pix combinado fora do site
 //   laudo           grava o laudo de uma carta
+//   ficha           ficha de condicao de entrada ou saida de uma carta
+//   procedimentos   rascunho da proposta de tratamento de uma carta
+//   enviar_proposta recebida -> proposta (exige ficha, fotos e video de entrada)
 //   midia_url       URL assinada para o admin subir foto/video/laudo
 //   midia_confirmar confere o arquivo no bucket e registra
 // Toda mudanca de status filtra pelo status atual no update: duas abas
@@ -16,13 +19,47 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS } from '@/lib/servicosServer'
-import { TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO } from '@/lib/servicos'
+import {
+  TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, FOTOS_ENTRADA, FOTOS_SAIDA, RISCOS,
+  validarFicha, fotosFaltando,
+} from '@/lib/servicos'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
 const MIMES_ADMIN = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'application/pdf']
 const MAX_ADMIN_BYTES = 50 * 1024 * 1024
 const CENTS_MAX = 100_000_000
+
+// O que falta antes de cada passo. Mensagens curtas: o painel lista todas.
+async function pendencias(sb: SupabaseClient, id: string, servico: string, fase: 'entrada' | 'saida') {
+  const [{ data: itens }, { data: midias }, { data: procs }] = await Promise.all([
+    sb.from('servico_itens').select('id, nome, aceito, ficha_entrada, ficha_saida, laudo').eq('solicitacao_id', id).order('created_at'),
+    sb.from('servico_midias').select('item_id, tipo, posicao').eq('solicitacao_id', id),
+    sb.from('servico_procedimentos').select('item_id, decisao').eq('solicitacao_id', id),
+  ])
+  const faltas: string[] = []
+  const ativos = (itens || []).filter(i => i.aceito !== false)
+  if (fase === 'entrada' && !(midias || []).some(m => m.tipo === 'video_abertura')) faltas.push('Vídeo de abertura do pacote')
+  ativos.forEach((it, k) => {
+    const n = ativos.length > 1 ? ` da carta ${k + 1}` : ''
+    const doItem = (midias || []).filter(m => m.item_id === it.id)
+    if (fase === 'entrada') {
+      if (!it.ficha_entrada) faltas.push(`Ficha de entrada${n}`)
+      const f = fotosFaltando(FOTOS_ENTRADA, doItem)
+      if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de entrada${n}`)
+    } else {
+      const tratada = (procs || []).some(p => p.item_id === it.id && p.decisao === 'aprovado')
+      if (tratada) {
+        if (!it.ficha_saida) faltas.push(`Ficha de saída${n}`)
+        const f = fotosFaltando(FOTOS_SAIDA, doItem)
+        if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de saída${n}`)
+      }
+      if (servico !== 'restauracao' && !it.laudo) faltas.push(`Laudo de pré-grading${n}`)
+    }
+  })
+  return faltas
+}
 
 function cents(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
@@ -40,11 +77,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const sol = solRows?.[0]
     if (!sol) return erro(404, 'Solicitação não encontrada')
 
-    const [{ data: user }, { data: itens }, { data: eventos }, { data: midias }] = await Promise.all([
+    const [{ data: user }, { data: itens }, { data: eventos }, { data: midias }, { data: procs }] = await Promise.all([
       sb.from('users').select('id, name, email').eq('id', sol.user_id).limit(1),
       sb.from('servico_itens').select('*').eq('solicitacao_id', id).order('created_at'),
       sb.from('servico_eventos').select('*').eq('solicitacao_id', id).order('created_at'),
       sb.from('servico_midias').select('*').eq('solicitacao_id', id).order('created_at'),
+      sb.from('servico_procedimentos').select('*').eq('solicitacao_id', id).order('ordem'),
     ])
 
     const paths = (midias || []).map(m => m.path)
@@ -59,6 +97,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       itens: itens || [],
       eventos: eventos || [],
       midias: (midias || []).map(m => ({ ...m, url: urlPor.get(m.path) || null })),
+      procedimentos: procs || [],
+      pendencias_entrada: ['recebida'].includes(sol.status) ? await pendencias(sb, id, sol.servico, 'entrada') : [],
+      pendencias_saida: ['em_bancada', 'descansando'].includes(sol.status) ? await pendencias(sb, id, sol.servico, 'saida') : [],
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error('[admin/servicos/id GET]', e instanceof Error ? e.message : e)
@@ -75,7 +116,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!body || typeof body !== 'object') return erro(400, 'Dados inválidos')
     const sb = sbAdmin()
 
-    const { data: solRows } = await sb.from('servico_solicitacoes').select('id, status, pago_em').eq('id', id).limit(1)
+    const { data: solRows } = await sb.from('servico_solicitacoes').select('id, status, pago_em, servico, proposta_aceita_em').eq('id', id).limit(1)
     const sol = solRows?.[0]
     if (!sol) return erro(404, 'Solicitação não encontrada')
 
@@ -133,6 +174,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const nota = typeof body.nota === 'string' ? body.nota.trim().slice(0, 500) : ''
       const extra: Record<string, unknown> = {}
 
+      // Bancada: pre-grading vai direto da chegada (nao ha tratamento a propor),
+      // com a entrada completa; restauracao/completo so depois da proposta decidida.
+      if (para === 'em_bancada' && sol.status === 'recebida') {
+        if (sol.servico !== 'pre_grading') return erro(409, 'Envie a proposta de tratamento antes da bancada')
+        const f = await pendencias(sb, id, sol.servico, 'entrada')
+        if (f.length) return erro(409, `Falta: ${f.join(', ')}`)
+      }
+      if (para === 'em_bancada' && sol.status === 'proposta') {
+        if (!sol.proposta_aceita_em) return erro(409, 'O cliente ainda não decidiu a proposta')
+        const { count } = await sb.from('servico_procedimentos').select('id', { count: 'exact', head: true })
+          .eq('solicitacao_id', id).eq('decisao', 'aprovado')
+        if (!count) return erro(409, 'Nenhum procedimento foi aprovado: devolva a carta sem serviço')
+      }
+      if (para === 'pronta') {
+        const f = await pendencias(sb, id, sol.servico, 'saida')
+        if (f.length) return erro(409, `Falta: ${f.join(', ')}`)
+      }
+
       if (para === 'enviada') {
         // Carta so volta depois do Pix registrado (decisao do Du, 26/09/2026).
         if (!sol.pago_em) return erro(409, 'Registre o pagamento antes de enviar a carta de volta')
@@ -176,12 +235,79 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     // ── Pagamento (Pix combinado fora do site) ──────────────────────────────
     if (body.acao === 'pagamento') {
-      if (!['orcado', 'aceito', 'recebida', 'em_bancada', 'descansando', 'pronta'].includes(sol.status)) return erro(409, 'Pagamento não se aplica a este status')
+      if (!['orcado', 'aceito', 'recebida', 'proposta', 'em_bancada', 'descansando', 'pronta'].includes(sol.status)) return erro(409, 'Pagamento não se aplica a este status')
       const { error } = await sb.from('servico_solicitacoes')
         .update({ pagamento_metodo: 'pix_manual', pago_em: new Date().toISOString() }).eq('id', id)
       if (error) throw new Error(error.message)
       await registrarEvento(id, sol.status, 'Pagamento via Pix confirmado')
       return NextResponse.json({ ok: true })
+    }
+
+    // ── Ficha de condicao (entrada ou saida) ───────────────────────────────
+    if (body.acao === 'ficha') {
+      const lado = body.lado === 'saida' ? 'saida' : 'entrada'
+      const v = validarFicha(body.ficha)
+      if (!v.ok) return erro(400, v.erro)
+      const { data, error } = await sb.from('servico_itens')
+        .update(lado === 'entrada'
+          ? { ficha_entrada: v.ficha, ficha_entrada_em: new Date().toISOString() }
+          : { ficha_saida: v.ficha, ficha_saida_em: new Date().toISOString() })
+        .eq('id', String(body.item_id || '')).eq('solicitacao_id', id).select('id')
+      if (error) throw new Error(error.message)
+      if (!data?.length) return erro(404, 'Carta não encontrada neste pedido')
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── Rascunho da proposta de uma carta ──────────────────────────────────
+    if (body.acao === 'procedimentos') {
+      if (sol.status !== 'recebida') return erro(409, 'A proposta só pode ser editada antes de ir para o cliente')
+      const itemId = String(body.item_id || '')
+      const { data: it } = await sb.from('servico_itens').select('id').eq('id', itemId).eq('solicitacao_id', id).limit(1)
+      if (!it?.[0]) return erro(404, 'Carta não encontrada neste pedido')
+      const t = (v: unknown, max = 500) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
+      const lista = (Array.isArray(body.procedimentos) ? body.procedimentos : []).slice(0, 10) as Record<string, unknown>[]
+      const linhas = []
+      for (let k = 0; k < lista.length; k++) {
+        const p = lista[k]
+        const problema = t(p.problema), procedimento = t(p.procedimento), risco = String(p.risco || '')
+        if (!problema || !procedimento) return erro(400, `Procedimento ${k + 1}: preencha o problema e o procedimento`)
+        if (!RISCOS.some(r => r.id === risco)) return erro(400, `Procedimento ${k + 1}: escolha o risco`)
+        linhas.push({
+          solicitacao_id: id, item_id: itemId, ordem: k + 1, problema, procedimento, risco,
+          objetivo: t(p.objetivo) || null, resultado_esperado: t(p.resultado_esperado) || null,
+          risco_descricao: t(p.risco_descricao) || null, alternativa: t(p.alternativa) || 'Não realizar a intervenção',
+        })
+      }
+      await sb.from('servico_procedimentos').delete().eq('item_id', itemId).eq('decisao', 'pendente')
+      if (linhas.length) {
+        const { error } = await sb.from('servico_procedimentos').insert(linhas)
+        if (error) throw new Error(error.message)
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── Enviar a proposta ao cliente ───────────────────────────────────────
+    if (body.acao === 'enviar_proposta') {
+      if (sol.status !== 'recebida') return erro(409, 'A proposta sai depois da chegada da carta')
+      if (sol.servico === 'pre_grading') return erro(409, 'Pré-grading não tem proposta de tratamento: leve direto para a bancada')
+      const faltas = await pendencias(sb, id, sol.servico, 'entrada')
+      const [{ data: itens }, { data: procs }] = await Promise.all([
+        sb.from('servico_itens').select('id, aceito').eq('solicitacao_id', id).order('created_at'),
+        sb.from('servico_procedimentos').select('item_id').eq('solicitacao_id', id),
+      ])
+      const ativos = (itens || []).filter(i => i.aceito !== false)
+      ativos.forEach((it, k) => {
+        if (!(procs || []).some(p => p.item_id === it.id)) faltas.push(`Proposta${ativos.length > 1 ? ` da carta ${k + 1}` : ''}`)
+      })
+      if (faltas.length) return erro(409, `Falta: ${faltas.join(', ')}`)
+      const { data, error } = await sb.from('servico_solicitacoes')
+        .update({ status: 'proposta', proposta_enviada_em: new Date().toISOString() })
+        .eq('id', id).eq('status', 'recebida').select('id')
+      if (error) throw new Error(error.message)
+      if (!data?.length) return erro(409, 'O pedido mudou em outra aba. Recarregue.')
+      await registrarEvento(id, 'proposta', 'Proposta de tratamento enviada ao cliente')
+      await notificarCliente(id, 'proposta')
+      return NextResponse.json({ ok: true, status: 'proposta' })
     }
 
     // ── Laudo de uma carta ─────────────────────────────────────────────────
@@ -206,6 +332,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const def = MIDIAS_ADMIN.find(m => m.tipo === tipo)
       if (!def) return erro(400, 'Tipo de arquivo inválido')
       const itemId = def.porItem ? String(body.item_id || '') : null
+      const posicao = typeof body.posicao === 'string' && /^[a-z_]{1,40}$/.test(body.posicao) ? body.posicao : null
       if (itemId) {
         const { data: it } = await sb.from('servico_itens').select('id').eq('id', itemId).eq('solicitacao_id', id).limit(1)
         if (!it?.[0]) return erro(404, 'Carta não encontrada neste pedido')
@@ -234,7 +361,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         return erro(400, 'Arquivo fora do formato ou acima de 50 MB')
       }
       const { error } = await sb.from('servico_midias').upsert(
-        { solicitacao_id: id, item_id: itemId, tipo, path, mime, tamanho },
+        { solicitacao_id: id, item_id: itemId, tipo, posicao, path, mime, tamanho },
         { onConflict: 'path', ignoreDuplicates: true },
       )
       if (error) throw new Error(error.message)
