@@ -3,10 +3,10 @@ import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import StickyCta from '@/components/servicos/StickyCta'
 import {
-  JsonLd, Custodia, ComoFunciona, Precos, QuemFaz, FaqServico, CtaFinal, agendarHref,
+  JsonLd, Faixa, Cabecalho, Garantias, Custodia, ComoFunciona, Precos, QuemFaz, FaqServico, CtaFinal, agendarHref,
 } from '@/components/servicos/Secoes'
 import { SV_CSS } from '@/components/servicos/css'
-import { IconTarget, IconCheck } from '@/components/ui/Icons'
+import { IconTarget, IconCheck, IconArrowRight } from '@/components/ui/Icons'
 import {
   SERVICOS_PUBLICADO, FAQ_PRE_GRADING, LAUDO_ITENS, GRADUADORAS, PRECOS, brl, jsonLdServico,
 } from '@/lib/servicos'
@@ -46,85 +46,94 @@ export default function PreGradingPage() {
       })} />
       <PublicHeader />
 
-      <main className="bx-gutter">
-        <div className="sv-wrap">
-          <section className="sv-hero">
-            <p className="sv-kicker">Restauração e pré-grading</p>
-            <h1 className="sv-h1">Pré-grading: <span>descubra a nota antes de graduar</span></h1>
-            <p className="sv-sub">Centralização medida, bordas, cantos e superfície vistos com lupa e luz rasante. Você recebe a nota provável, a graduadora certa para essa carta e quanto ela vale graduada no Mercado Brasileiro.</p>
-
-            <div className="sv-laudo" aria-label="Exemplo de laudo de pré-grading">
-              <div className="sv-laudo-top"><span>Laudo de pré-grading</span><span className="sv-exemplo">exemplo</span></div>
-              <div className="sv-laudo-row"><span>Centralização frente</span><b>55/45</b></div>
-              <div className="sv-laudo-row"><span>Centralização verso</span><b>60/40</b></div>
-              <div className="sv-laudo-row"><span>Cantos</span><b>1 com desgaste leve</b></div>
-              <div className="sv-laudo-row"><span>Superfície</span><b>Sem risco no holo</b></div>
-              <div className="sv-laudo-row"><span>Faixa provável</span><b>8 a 9</b></div>
-              <div className="sv-laudo-row"><span>Recomendação</span><b>Graduar como está</b></div>
-            </div>
-
-            <div style={{ marginTop: 18 }} id="sv-hero-cta">
-              <a className="sv-cta" href={agendarHref('pre_grading')}>Pedir orçamento pelas fotos</a>
-            </div>
-            <p className="sv-small" style={{ textAlign: 'center' }}>Orçamento grátis. Você só envia a carta depois de aprovar o preço.</p>
-          </section>
-
-          {EXEMPLO_NOTA && (
-            <section className="sv-sec">
-              <h2 className="sv-h2">Quanto a nota muda o preço</h2>
-              <p className="sv-p">{EXEMPLO_NOTA.carta}, no Mercado Brasileiro, em {EXEMPLO_NOTA.data}:</p>
-              <div className="sv-card">
-                <div className="sv-laudo-row"><span>Sem graduação</span><b>R$ {brl(EXEMPLO_NOTA.raw)}</b></div>
-                <div className="sv-laudo-row"><span>Graduada 9</span><b>R$ {brl(EXEMPLO_NOTA.nota9)}</b></div>
-                <div className="sv-laudo-row"><span>Graduada 10</span><b>R$ {brl(EXEMPLO_NOTA.nota10)}</b></div>
+      <main>
+        <section className="sv-hero">
+          <div className="bx-gutter sv-container sv-hero-grid">
+            <div className="sv-hero-l">
+              <span className="sv-badge">Orçamento grátis pelas fotos</span>
+              <h1 className="sv-h1">Pré-grading: <span>descubra a nota antes de graduar</span></h1>
+              <p className="sv-sub">Centralização medida, bordas, cantos e superfície vistos com lupa e luz rasante. Você recebe a nota provável, a graduadora certa para essa carta e quanto ela vale graduada no Mercado Brasileiro.</p>
+              <div className="sv-ctas" id="sv-hero-cta">
+                <a className="sv-cta" href={agendarHref('pre_grading')}>Pedir orçamento pelas fotos <IconArrowRight size={18} strokeWidth={2.2} /></a>
+                <a className="sv-ghost" href="#laudo">Ver o que o laudo traz</a>
               </div>
-              {PRECOS && (
-                <p className="sv-p" style={{ marginTop: 14 }}>Mandar para a graduadora uma carta que vai tirar 7 custa a taxa e o frete. O pré-grading custa R$ {brl(PRECOS.preGrading)}.</p>
-              )}
-            </section>
-          )}
-
-          <section className="sv-sec" id="laudo">
-            <h2 className="sv-h2">O que o laudo traz</h2>
-            <p className="sv-p">Um documento por carta, com a mesma régua que a graduadora vai usar.</p>
-            <div className="sv-card">
-              <ul className="sv-list">
-                {LAUDO_ITENS.map(i => (
-                  <li key={i.t} className="sv-li"><span className="sv-ic"><IconCheck size={16} strokeWidth={2} /></span><div><b>{i.t}</b><span>{i.d}</span></div></li>
-                ))}
-              </ul>
+              <Garantias itens={['Você só envia depois de aprovar o preço', 'PSA, TAG, CGC, BGS e GBA', 'Brasil todo pelo correio']} />
             </div>
-          </section>
-
-          <section className="sv-sec" id="graduadoras">
-            <h2 className="sv-h2">Qual graduadora vale para a sua carta</h2>
-            <p className="sv-p">A carta sai preparada para qualquer uma. O laudo indica a que faz mais sentido.</p>
-            <div className="sv-card" style={{ padding: 4 }}>
-              <table className="sv-tabela">
-                <thead><tr><th>Graduadora</th><th>Quando indico</th></tr></thead>
-                <tbody>
-                  {GRADUADORAS.map(g => <tr key={g.nome}><td>{g.nome}</td><td>{g.quando}</td></tr>)}
-                </tbody>
-              </table>
+            <div className="sv-hero-r">
+              <div className="sv-laudo" aria-label="Exemplo de laudo de pré-grading">
+                <div className="sv-laudo-top"><span>Laudo de pré-grading</span><span className="sv-exemplo">exemplo</span></div>
+                <div className="sv-laudo-row"><span>Centralização frente</span><b>55/45</b></div>
+                <div className="sv-laudo-row"><span>Centralização verso</span><b>60/40</b></div>
+                <div className="sv-laudo-row"><span>Cantos</span><b>1 com desgaste leve</b></div>
+                <div className="sv-laudo-row"><span>Superfície</span><b>Sem risco no holo</b></div>
+                <div className="sv-laudo-row"><span>Faixa provável</span><b>8 a 9</b></div>
+                <div className="sv-laudo-row"><span>Recomendação</span><b>Graduar como está</b></div>
+              </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="sv-sec" id="slab">
-            <div className="sv-card">
-              <span className="sv-ic" style={{ marginBottom: 12 }}><IconTarget size={18} /></span>
-              <h2 className="sv-h2">Carta em slab: quebra, restauração e regraduação</h2>
-              <p className="sv-p" style={{ margin: 0 }}>A carta tirou uma nota abaixo do que merecia por um vinco ou uma ondulação? O serviço completo quebra o slab com cuidado, trata o que dá para tratar, refaz o pré-grading e devolve a carta pronta para uma nova graduação.</p>
-              <a className="sv-link" href={agendarHref('completo')}>Pedir orçamento do serviço completo</a>
+        {EXEMPLO_NOTA && (
+          <Faixa alt>
+            <Cabecalho eyebrow="Em reais" titulo="Quanto a nota muda o preço" sub={`${EXEMPLO_NOTA.carta}, no Mercado Brasileiro, em ${EXEMPLO_NOTA.data}.`} />
+            <div className="sv-g3">
+              <div className="sv-card sv-feat"><span>Sem graduação</span><b className="sv-plan-v">R$ {brl(EXEMPLO_NOTA.raw)}</b></div>
+              <div className="sv-card sv-feat"><span>Graduada 9</span><b className="sv-plan-v">R$ {brl(EXEMPLO_NOTA.nota9)}</b></div>
+              <div className="sv-card sv-feat"><span>Graduada 10</span><b className="sv-plan-v">R$ {brl(EXEMPLO_NOTA.nota10)}</b></div>
             </div>
-          </section>
+            {PRECOS && (
+              <p className="sv-regra">Mandar para a graduadora uma carta que vai tirar 7 custa a taxa e o frete. O pré-grading custa R$ {brl(PRECOS.preGrading)}.</p>
+            )}
+          </Faixa>
+        )}
 
-          <Custodia />
-          <ComoFunciona />
-          <Precos destaque="pre_grading" />
-          <QuemFaz />
-          <FaqServico itens={FAQ_PRE_GRADING} />
-          <CtaFinal servico="pre_grading" outro={{ href: '/restauracao-de-cartas', texto: 'A carta tem vinco ou está ondulada? Veja a restauração' }} />
-        </div>
+        <Faixa id="laudo" alt>
+          <Cabecalho eyebrow="O relatório" titulo="O que o laudo traz" sub="Um documento por carta, com a mesma régua que a graduadora vai usar." />
+          <div className="sv-g3">
+            {LAUDO_ITENS.map(i => (
+              <div key={i.t} className="sv-card sv-card-hover sv-feat">
+                <span className="sv-ic sv-ic-lg"><IconCheck size={18} strokeWidth={2} /></span>
+                <b>{i.t}</b>
+                <span>{i.d}</span>
+              </div>
+            ))}
+          </div>
+        </Faixa>
+
+        <Faixa id="graduadoras">
+          <Cabecalho eyebrow="Para onde mandar" titulo="Qual graduadora vale para a sua carta" sub="A carta sai preparada para qualquer uma. O laudo indica a que faz mais sentido." />
+          <div className="sv-narrow sv-card" style={{ padding: 4 }}>
+            <table className="sv-tabela">
+              <thead><tr><th>Graduadora</th><th>Quando indico</th></tr></thead>
+              <tbody>
+                {GRADUADORAS.map(g => <tr key={g.nome}><td>{g.nome}</td><td>{g.quando}</td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        </Faixa>
+
+        <Faixa id="slab" alt>
+          <div className="sv-g2">
+            <div>
+              <span className="sv-eyebrow">Serviço completo</span>
+              <h2 className="sv-h2" style={{ margin: '12px 0 16px' }}>Carta em slab: quebra, restauração e regraduação</h2>
+              <p className="sv-p">A carta tirou uma nota abaixo do que merecia por um vinco ou uma ondulação? O serviço completo quebra o slab com cuidado, trata o que dá para tratar, refaz o pré-grading e devolve a carta pronta para uma nova graduação.</p>
+            </div>
+            <div className="sv-card sv-feat">
+              <span className="sv-ic sv-ic-lg"><IconTarget size={20} /></span>
+              <b>Restauração + pré-grading</b>
+              <span>O caminho inteiro até a graduadora, numa entrega só.</span>
+              <a className="sv-cta" href={agendarHref('completo')} style={{ marginTop: 6 }}>Pedir orçamento do completo</a>
+            </div>
+          </div>
+        </Faixa>
+
+        <Custodia />
+        <ComoFunciona alt />
+        <Precos destaque="pre_grading" />
+        <QuemFaz alt />
+        <FaqServico itens={FAQ_PRE_GRADING} />
+        <CtaFinal servico="pre_grading" outro={{ href: '/restauracao-de-cartas', texto: 'Conhecer a restauração' }} />
       </main>
 
       <StickyCta href={agendarHref('pre_grading')} rotulo="Pedir orçamento pelas fotos" />

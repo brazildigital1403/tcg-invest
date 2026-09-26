@@ -128,7 +128,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
         <style>{AG_CSS}</style>
         <span className="sv-ic sv-ic-ok ag-ok-ic"><IconCheck size={24} strokeWidth={2} /></span>
         <p className="sv-kicker">Solicitação</p>
-        <h1 className="sv-h1" style={{ fontSize: 36 }}>{numero}</h1>
+        <h1 className="sv-h1" style={{ fontSize: 40 }}>{numero}</h1>
         <p className="sv-sub">Orçamento em até {PRAZOS.orcamento || 'poucos dias'}, no seu e-mail e na sua conta.</p>
         <p className="ag-alerta"><IconWarning size={16} /> Não envie a carta ainda. O endereço aparece depois que você aprova o orçamento.</p>
         <a className="sv-cta" href="/compras">Acompanhar solicitação</a>
@@ -449,7 +449,11 @@ function CartaBloco({ idx, total, carta, tentou, onChange }: {
 }
 
 const AG_CSS = `
-.ag{padding:20px 0 120px}
+.ag,.ag-ok{padding:20px 0 120px}
+.ag .sv-cta,.ag .sv-ghost,.ag-ok .sv-cta{display:flex;width:100%}
+.ag .sv-h2{font-size:24px;margin:0 0 8px}
+.ag .sv-p{font-size:14.5px;margin:0 0 16px}
+.ag-ok .sv-sub{margin:12px auto 20px}
 .ag-head{display:flex;align-items:center;gap:10px;margin-bottom:22px}
 .ag-head > div{flex:1;min-width:0}
 .ag-voltar{width:44px;height:44px;flex-shrink:0;display:grid;place-items:center;border-radius:50%;border:1px solid var(--bx-border-2);background:var(--bx-surface);color:var(--bx-text);cursor:pointer}
@@ -528,7 +532,7 @@ const AG_CSS = `
 .ag-aviso p{margin:0;font-size:14px;line-height:1.5}
 .ag-a{color:var(--bx-text);text-decoration:underline}
 
-.ag-ok{padding:48px 0 80px;text-align:center}
+.ag-ok{padding-top:48px;text-align:center}
 .ag-ok-ic{width:56px;height:56px;border-radius:16px;margin:0 auto 16px}
 .ag-alerta{display:flex;gap:8px;align-items:flex-start;text-align:left;margin:0 0 20px;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.5;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.3)}
 .ag-alerta svg{flex-shrink:0;margin-top:2px;color:var(--ac-1)}

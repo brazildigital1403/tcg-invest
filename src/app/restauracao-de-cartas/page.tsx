@@ -5,9 +5,10 @@ import BeforeAfterSlider from '@/components/servicos/BeforeAfterSlider'
 import GaleriaCasos from '@/components/servicos/GaleriaCasos'
 import StickyCta from '@/components/servicos/StickyCta'
 import {
-  JsonLd, ResolveNaoResolve, Custodia, ComoFunciona, NaoRegistrado, Precos, QuemFaz, VideoProcesso,
-  FaqServico, CtaFinal, agendarHref,
+  JsonLd, Faixa, Cabecalho, Garantias, ResolveNaoResolve, Custodia, ComoFunciona, NaoRegistrado, Precos,
+  QuemFaz, VideoProcesso, FaqServico, CtaFinal, agendarHref,
 } from '@/components/servicos/Secoes'
+import { IconArrowRight } from '@/components/ui/Icons'
 import { SV_CSS } from '@/components/servicos/css'
 import { SERVICOS_PUBLICADO, CASOS, FAQ_RESTAURACAO, PRECOS, jsonLdServico } from '@/lib/servicos'
 
@@ -44,39 +45,42 @@ export default function RestauracaoPage() {
       })} />
       <PublicHeader />
 
-      <main className="bx-gutter">
-        <div className="sv-wrap">
-          <section className="sv-hero">
-            <p className="sv-kicker">Restauração e pré-grading</p>
-            <h1 className="sv-h1">Restauração de cartas Pokémon, <span>sem tinta e sem cola</span></h1>
-            <p className="sv-sub">Vinco, amassado e carta ondulada tratados à mão, uma carta por vez. A abertura do seu pacote é filmada e cada etapa aparece na sua conta.</p>
-            <BeforeAfterSlider antes={principal?.antes ?? null} depois={principal?.depois ?? null} alt={principal?.carta ?? 'Carta restaurada'} priority />
-            <div style={{ marginTop: 18 }} id="sv-hero-cta">
-              <a className="sv-cta" href={agendarHref('restauracao')}>Pedir orçamento pelas fotos</a>
+      <main>
+        <section className="sv-hero">
+          <div className="bx-gutter sv-container sv-hero-grid">
+            <div className="sv-hero-l">
+              <span className="sv-badge">Orçamento grátis pelas fotos</span>
+              <h1 className="sv-h1">Restauração de cartas Pokémon, <span>sem tinta e sem cola</span></h1>
+              <p className="sv-sub">Vinco, amassado e carta ondulada tratados à mão, uma carta por vez. A abertura do seu pacote é filmada e cada etapa aparece na sua conta.</p>
+              <div className="sv-ctas" id="sv-hero-cta">
+                <a className="sv-cta" href={agendarHref('restauracao')}>Pedir orçamento pelas fotos <IconArrowRight size={18} strokeWidth={2.2} /></a>
+                <a className="sv-ghost" href="#como-funciona">Ver como funciona</a>
+              </div>
+              <Garantias itens={['Você só envia depois de aprovar o preço', 'Chegada filmada', 'Brasil todo pelo correio']} />
             </div>
-            <p className="sv-small" style={{ textAlign: 'center' }}>Orçamento grátis. Você só envia a carta depois de aprovar o preço.</p>
-            <a className="sv-link" href="#como-funciona" style={{ width: '100%', justifyContent: 'center' }}>Ver como funciona</a>
-          </section>
+            <div className="sv-hero-r">
+              <BeforeAfterSlider antes={principal?.antes ?? null} depois={principal?.depois ?? null} alt={principal?.carta ?? 'Carta restaurada'} priority />
+            </div>
+          </div>
+        </section>
 
-          <ResolveNaoResolve />
+        <ResolveNaoResolve />
 
-          {CASOS.length > 1 && (
-            <section className="sv-sec" id="casos">
-              <h2 className="sv-h2">Antes e depois de cartas reais</h2>
-              <p className="sv-p">Toque numa carta para comparar. Mesma luz, mesmo enquadramento, sem edição.</p>
-              <GaleriaCasos casos={CASOS.slice(1)} />
-            </section>
-          )}
+        {CASOS.length > 1 && (
+          <Faixa id="casos">
+            <Cabecalho eyebrow="Casos reais" titulo="Antes e depois de cartas reais" sub="Toque numa carta para comparar. Mesma luz, mesmo enquadramento, sem edição." />
+            <GaleriaCasos casos={CASOS.slice(1)} />
+          </Faixa>
+        )}
 
-          <Custodia />
-          <ComoFunciona />
-          <NaoRegistrado />
-          <Precos destaque="restauracao" />
-          <QuemFaz />
-          <VideoProcesso />
-          <FaqServico itens={FAQ_RESTAURACAO} />
-          <CtaFinal servico="restauracao" outro={{ href: '/pre-grading', texto: 'Quer saber a nota antes? Conheça o pré-grading' }} />
-        </div>
+        <Custodia />
+        <ComoFunciona alt />
+        <NaoRegistrado />
+        <Precos destaque="restauracao" />
+        <QuemFaz alt />
+        <VideoProcesso />
+        <FaqServico itens={FAQ_RESTAURACAO} />
+        <CtaFinal servico="restauracao" outro={{ href: '/pre-grading', texto: 'Conhecer o pré-grading' }} />
       </main>
 
       <StickyCta href={agendarHref('restauracao')} rotulo="Pedir orçamento pelas fotos" />
