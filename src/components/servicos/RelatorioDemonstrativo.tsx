@@ -1,9 +1,15 @@
 'use client'
 
-// Demonstrativo do relatorio de bancada impresso (pedido de exemplo #S-0002,
-// dados ficticios). As 8 paginas sao WebP estaticas em
-// public/servicos/relatorio-exemplo, renderizadas do mockup aprovado; <img>
-// direto (sem next/image) para nao gastar Image Optimization.
+// Demonstrativo do relatorio de bancada impresso, com dados ficticios. Cada
+// exemplo e uma pasta de WebP estaticas em public/servicos/, renderizadas do
+// mockup aprovado; <img> direto (sem next/image) para nao gastar Image
+// Optimization. O numero de paginas sai da lista, nunca de numero cravado.
+//
+//   pre_grading -> relatorio-pre-grading (pedido #S-0003, so pre-grading)
+//   completo    -> relatorio-exemplo (pedido #S-0002, restauracao + pre-grading)
+//
+// O exemplo vai por chave (string) e nao por objeto porque a pagina e server
+// component: icone e funcao e nao atravessa a fronteira como prop.
 //
 // Palco: a pagina ativa na frente, as duas seguintes em leque atras. No
 // desktop, passar o mouse (ou o foco) numa linha da lista troca a pagina do
@@ -16,35 +22,63 @@ import {
   IconArticle, IconCamera, IconCheck, IconBox, IconSearch, IconChevronLeft, IconChevronRight, IconClose,
 } from '@/components/ui/Icons'
 
-const BASE = '/servicos/relatorio-exemplo'
 const W = 1240
 const H = 1754
 
-const PAGINAS: { t: string; d: string }[] = [
-  { t: 'Capa e resumo', d: 'Chegada e saída lado a lado, faixa provável, graduadora recomendada e próximo passo. O essencial cabe em uma folha.' },
-  { t: 'Ficha de condição', d: 'Cada pilar avaliado na chegada e na saída, e cada dano com o estado final. Você vê exatamente o que mudou.' },
-  { t: 'Proposta de tratamento', d: 'Cada procedimento com problema, risco e alternativa. Só fazemos o que você aprovou, e o que você recusou fica registrado.' },
-  { t: 'Antes e depois', d: 'Frente, verso e os quatro cantos fotografados na chegada e na saída, com a mesma luz e o mesmo enquadramento.' },
-  { t: 'Detalhe e luz rasante', d: 'Cantos do verso, bordas, ângulo e luz rasante, que revela na superfície o que a foto comum esconde.' },
-  { t: 'Laudo de pré-grading', d: 'Centralização medida em milímetros, mapa de imperfeições e faixa provável, com a graduadora indicada para a carta.' },
-  { t: 'Valores e linha do tempo', d: 'Cada valor pago, a custódia, o rastreio e cada etapa do pedido com data e hora de Brasília.' },
-  { t: 'Termos e conferência', d: 'Os termos que você aceitou, as ressalvas e a conferência da bancada com o número de custódia.' },
-]
-const TOTAL = PAGINAS.length
+interface Exemplo {
+  pasta: string
+  intro: string
+  fotos: { t: string; d: string }
+  paginas: { t: string; d: string }[]
+}
 
-const DESTAQUES = [
-  { Ic: IconArticle, t: '8 páginas por carta', d: 'Impressas em A4.' },
-  { Ic: IconCamera, t: 'Chegada e saída', d: 'Mesma luz, mesmo enquadramento.' },
-  { Ic: IconCheck, t: 'Conferido na bancada', d: 'Com data e número de custódia.' },
-  { Ic: IconBox, t: 'Volta com a carta', d: 'Impresso, na embalagem lacrada.' },
-]
+const EXEMPLOS = {
+  pre_grading: {
+    pasta: '/servicos/relatorio-pre-grading',
+    intro: 'Relatório de um pedido de pré-grading de um Charizard do Base Set. Escolha uma página para ver em tamanho grande.',
+    fotos: { t: 'Registro de entrada', d: 'Mesma luz, mesmo enquadramento.' },
+    paginas: [
+      { t: 'Capa e resumo', d: 'A frente na chegada em tamanho real, a faixa provável, a graduadora recomendada e o próximo passo. O essencial cabe em uma folha.' },
+      { t: 'Identificação e ficha', d: 'A carta identificada e a condição de cada pilar, frente e verso, com cada dano localizado. Tudo registrado na chegada.' },
+      { t: 'Laudo de pré-grading', d: 'Centralização medida em milímetros, mapa de imperfeições e faixa provável, com a graduadora indicada e o porquê do próximo passo.' },
+      { t: 'Registro de entrada', d: 'Frente, verso, cantos e bordas fotografados na chegada, mais ângulo e luz rasante, que revela o que a foto comum esconde.' },
+      { t: 'Valores e linha do tempo', d: 'O que você pagou, a custódia, o rastreio e cada etapa do pedido com data e hora de Brasília.' },
+      { t: 'Termos e conferência', d: 'O termo que você aceitou, as ressalvas e a conferência da bancada com o número de custódia.' },
+    ],
+  },
+  completo: {
+    pasta: '/servicos/relatorio-exemplo',
+    intro: 'Relatório de um pedido de restauração + pré-grading de um Charizard do Base Set. Escolha uma página para ver em tamanho grande.',
+    fotos: { t: 'Chegada e saída', d: 'Mesma luz, mesmo enquadramento.' },
+    paginas: [
+      { t: 'Capa e resumo', d: 'Chegada e saída lado a lado, faixa provável, graduadora recomendada e próximo passo. O essencial cabe em uma folha.' },
+      { t: 'Ficha de condição', d: 'Cada pilar avaliado na chegada e na saída, e cada dano com o estado final. Você vê exatamente o que mudou.' },
+      { t: 'Proposta de tratamento', d: 'Cada procedimento com problema, risco e alternativa. Só fazemos o que você aprovou, e o que você recusou fica registrado.' },
+      { t: 'Antes e depois', d: 'Frente, verso e os quatro cantos fotografados na chegada e na saída, com a mesma luz e o mesmo enquadramento.' },
+      { t: 'Detalhe e luz rasante', d: 'Cantos do verso, bordas, ângulo e luz rasante, que revela na superfície o que a foto comum esconde.' },
+      { t: 'Laudo de pré-grading', d: 'Centralização medida em milímetros, mapa de imperfeições e faixa provável, com a graduadora indicada para a carta.' },
+      { t: 'Valores e linha do tempo', d: 'Cada valor pago, a custódia, o rastreio e cada etapa do pedido com data e hora de Brasília.' },
+      { t: 'Termos e conferência', d: 'Os termos que você aceitou, as ressalvas e a conferência da bancada com o número de custódia.' },
+    ],
+  },
+} satisfies Record<string, Exemplo>
 
-const grande = (i: number) => `${BASE}/pagina-${i + 1}.webp`
-const mini = (i: number) => `${BASE}/pagina-${i + 1}-560.webp`
-const srcSet = (i: number) => `${mini(i)} 560w, ${grande(i)} 1240w`
-const alt = (i: number) => `Página ${i + 1} de ${TOTAL} do relatório de exemplo: ${PAGINAS[i].t.toLowerCase()}`
+export type ExemploRelatorio = keyof typeof EXEMPLOS
 
-export default function RelatorioDemonstrativo() {
+export default function RelatorioDemonstrativo({ exemplo }: { exemplo: ExemploRelatorio }) {
+  const { pasta, intro, fotos, paginas: PAGINAS } = EXEMPLOS[exemplo]
+  const TOTAL = PAGINAS.length
+  const grande = (i: number) => `${pasta}/pagina-${i + 1}.webp`
+  const mini = (i: number) => `${pasta}/pagina-${i + 1}-560.webp`
+  const srcSet = (i: number) => `${mini(i)} 560w, ${grande(i)} 1240w`
+  const alt = (i: number) => `Página ${i + 1} de ${TOTAL} do relatório de exemplo: ${PAGINAS[i].t.toLowerCase()}`
+  const DESTAQUES = [
+    { Ic: IconArticle, t: `${TOTAL} páginas por carta`, d: 'Impressas em A4.' },
+    { Ic: IconCamera, ...fotos },
+    { Ic: IconCheck, t: 'Conferido na bancada', d: 'Com data e número de custódia.' },
+    { Ic: IconBox, t: 'Volta com a carta', d: 'Impresso, na embalagem lacrada.' },
+  ]
+
   const [ativa, setAtiva] = useState(0)
   const [aberta, setAberta] = useState<number | null>(null)
   const toque = useRef<{ x: number; y: number } | null>(null)
@@ -63,7 +97,7 @@ export default function RelatorioDemonstrativo() {
     const n = (aberta + passo + TOTAL) % TOTAL
     setAberta(n)
     setAtiva(n)
-  }, [aberta])
+  }, [aberta, TOTAL])
   const proximo = useCallback(() => ir(1), [ir])
   const anterior = useCallback(() => ir(-1), [ir])
 
@@ -96,9 +130,9 @@ export default function RelatorioDemonstrativo() {
     if (aberta === null) return
     for (const j of [(aberta + 1) % TOTAL, (aberta - 1 + TOTAL) % TOTAL]) {
       const im = new Image()
-      im.src = grande(j)
+      im.src = `${pasta}/pagina-${j + 1}.webp`
     }
-  }, [aberta])
+  }, [aberta, TOTAL, pasta])
 
   const atras1 = (ativa + 1) % TOTAL
   const atras2 = (ativa + 2) % TOTAL
@@ -150,10 +184,7 @@ export default function RelatorioDemonstrativo() {
         </div>
 
         <div className="rd-lado">
-          <p className="rd-intro">
-            Relatório de um pedido de restauração + pré-grading de um Charizard do Base Set.
-            Escolha uma página para ver em tamanho grande.
-          </p>
+          <p className="rd-intro">{intro}</p>
           <ol className="rd-lista">
             {PAGINAS.map((p, i) => (
               <li key={p.t}>
