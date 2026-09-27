@@ -462,7 +462,13 @@ export default function RodadaAoVivo({
               embedUrl={embed as string}
               titulo={titulo}
               tocando={tocando}
-              aoTocar={() => setTocando(true)}
+              aoTocar={() => {
+                // Tocou na capa (so visivel no desktop): marca o video como aberto
+                // tambem. Se o layout cair para o celular, o player continua
+                // visivel em vez de tocar escondido.
+                setVideoAberto(true)
+                setTocando(true)
+              }}
             />
           </div>
         )}
