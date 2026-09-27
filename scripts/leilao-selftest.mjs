@@ -209,6 +209,33 @@ try {
     assert.equal(T.calcularPedidoLeilao([]).compradorPagaCents, 0)
   }, 'pedido de 3 lotes pequenos e entradas invalidas')
 
+  ok(() => {
+    const agora = Date.parse('2026-09-28T12:00:00Z')
+    const s = Math.floor(agora / 1000)
+    const h = 3600 * 1000
+    // Prazo de 48h: a sessao para no teto de 24h da Stripe (menos a folga).
+    assert.equal(L.expiraSessaoLeilao(agora + 48 * h, agora), s + 24 * 3600 - 60)
+    // Prazo de 5h: a sessao vence exatamente no prazo, nunca depois.
+    assert.equal(L.expiraSessaoLeilao(agora + 5 * h, agora), s + 5 * 3600)
+    // Menos de 31 min ate o prazo: a Stripe nao aceita, a rota recusa.
+    assert.equal(L.expiraSessaoLeilao(agora + 30 * 60 * 1000, agora), null)
+    assert.equal(L.expiraSessaoLeilao(agora + 31 * 60 * 1000, agora), s + 31 * 60)
+    assert.equal(L.expiraSessaoLeilao(agora - h, agora), null)
+    assert.equal(L.expiraSessaoLeilao(NaN, agora), null)
+  }, 'expires_at da sessao respeita pagar_ate e os limites da Stripe')
+
+  ok(() => {
+    // O pedido gravado fecha com a Stripe: total - liquido = application_fee.
+    for (const [preco, frete] of [[5000, 2000], [1500, 0], [123456, 3590]]) {
+      const a = T.calcularArremate(preco)
+      const acrescimo = a.protecaoCents + a.custoMetodoCents
+      const total = preco + acrescimo + frete
+      const liquido = a.vendedorRecebeCents + frete
+      assert.equal(total, a.compradorPagaCents + frete)
+      assert.equal(total - liquido, a.applicationFeeCents)
+    }
+  }, 'pedido do arremate: total - liquido = application_fee (frete integral)')
+
   console.log(`\n${n} blocos ok`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

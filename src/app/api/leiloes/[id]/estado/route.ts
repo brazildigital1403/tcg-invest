@@ -30,6 +30,10 @@ import { lotePublicoDeLinha, mascararApelido, type EstadoLote } from '@/lib/leil
  * o token: o PostgREST valida a assinatura do JWT e responde 401 se ele for
  * falso ou vencido. So com a leitura sem erro o `sub` do token e usado para
  * `voceLidera` e `proprio`. Nunca sai daqui o teto de outra pessoa nem user_id.
+ *
+ * PRAZO DO ARREMATE: `pagar_ate` (coluna sem grant publico) so sai como
+ * `pagarAte` para QUEM VENCEU e com o lote em `aguardando_pagamento` -- e o
+ * que a tela usa no CTA "Pagar ate ...".
  */
 
 export const dynamic = 'force-dynamic'
@@ -53,7 +57,7 @@ const COLUNAS_LOTE = [
   'lance_inicial_cents', 'preco_atual_cents',
   'n_lances', 'n_participantes', 'duracao_seg', 'soft_close_seg',
   'inicia_em', 'termina_em', 'prorrogacoes', 'status', 'encerrado_em', 'versao', 'game',
-  'lider_user_id', 'vendedor_user_id',
+  'lider_user_id', 'vendedor_user_id', 'pagar_ate',
   'lider:users!leiloes_lider_user_id_fkey(username, name)',
 ].join(', ')
 
@@ -62,8 +66,13 @@ async function lerLote(db: SupabaseClient, id: string) {
 }
 
 /** Separa o que sai (linha publica) do que so serve para comparar. */
-function separar(r: Linha): { publica: Linha; liderUserId: string | null; vendedorUserId: string | null } {
-  const { lider_user_id, vendedor_user_id, lider, ...resto } = r
+function separar(r: Linha): {
+  publica: Linha
+  liderUserId: string | null
+  vendedorUserId: string | null
+  pagarAte: string | null
+} {
+  const { lider_user_id, vendedor_user_id, pagar_ate, lider, ...resto } = r
   const u = (Array.isArray(lider) ? lider[0] : lider) as { username?: unknown; name?: unknown } | null | undefined
   const username = typeof u?.username === 'string' ? u.username.trim() : ''
   const nome = username || (typeof u?.name === 'string' ? u.name : '')
@@ -71,6 +80,7 @@ function separar(r: Linha): { publica: Linha; liderUserId: string | null; vended
     publica: { ...resto, lider_apelido: lider_user_id ? mascararApelido(nome) : null },
     liderUserId: typeof lider_user_id === 'string' ? lider_user_id : null,
     vendedorUserId: typeof vendedor_user_id === 'string' ? vendedor_user_id : null,
+    pagarAte: typeof pagar_ate === 'string' ? pagar_ate : null,
   }
 }
 
@@ -157,14 +167,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     return NextResponse.json({ erro: 'nao_encontrado', server_now: serverNow }, { status: 404, headers: semCache })
   }
 
-  const { publica, liderUserId, vendedorUserId } = separar(data as unknown as Linha)
+  const { publica, liderUserId, vendedorUserId, pagarAte } = separar(data as unknown as Linha)
+  const voceLidera = !!eu && !!liderUserId && liderUserId === eu.userId
 
   const corpo: EstadoLote = {
     lote: lotePublicoDeLinha(publica),
     server_now: serverNow,
-    voceLidera: !!eu && !!liderUserId && liderUserId === eu.userId,
+    voceLidera,
     seuMaximoCents: eu?.maximoCents ?? null,
     proprio: !!eu && !!vendedorUserId && vendedorUserId === eu.userId,
+    // Prazo do arremate: so para quem venceu, e so enquanto falta pagar.
+    pagarAte: voceLidera && publica.status === 'aguardando_pagamento' ? pagarAte : null,
   }
   return NextResponse.json(corpo, { headers: semCache })
 }

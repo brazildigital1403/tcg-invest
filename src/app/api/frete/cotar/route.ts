@@ -3,11 +3,13 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { cotarFrete, pacoteDeCarta, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
 import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
 import { resolverRecebedor } from '@/lib/vendedorRecebimento'
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 
 /**
  * POST /api/frete/cotar
  * body: { tipo: 'marketplace' | 'produto', id, cep, quantidade? }
  *    ou { tipo: 'carrinho', loja_id, itens: [{id,tipo}], cep }
+ *    ou { tipo: 'leilao', id, cep }  (lote arrematado; so com LEILAO_ATIVO)
  *
  * No modo carrinho os itens viajam na MESMA remessa: manda-se um pacote por
  * item e o Melhor Envio empacota. Sao N linhas, nao N fretes.
@@ -126,7 +128,26 @@ export async function POST(req: NextRequest) {
     let ehPessoa = false
     let pacote: ItemFrete | null = null
 
-    if (tipo === 'produto') {
+    if (body?.tipo === 'leilao') {
+      // Lote arrematado: uma carta, pelo preco de martelo, saindo de onde o
+      // vendedor envia. Mesmo pacote e mesma origem que o checkout do lote
+      // re-cota em /api/leiloes/[id]/checkout.
+      if (!LEILAO_ATIVO) return NextResponse.json({ error: 'Lote nao encontrado.' }, { status: 404 })
+      const { data: lts } = await sb
+        .from('leiloes')
+        .select('id, vendedor_user_id, preco_atual_cents, lance_inicial_cents, status')
+        .eq('id', id)
+        .limit(1)
+      const lt = lts?.[0]
+      if (!lt || lt.status !== 'aguardando_pagamento') {
+        return NextResponse.json({ error: 'Lote nao encontrado.' }, { status: 404 })
+      }
+      const r = await resolverRecebedor(sb, lt.vendedor_user_id)
+      lojaCep = r?.cepOrigem ?? null
+      modo = r?.freteModo ?? 'fixo'
+      ehPessoa = r?.tipo === 'pessoa'
+      pacote = pacoteDeCarta(Number(lt.preco_atual_cents) > 0 ? Number(lt.preco_atual_cents) : Number(lt.lance_inicial_cents))
+    } else if (tipo === 'produto') {
       const { data: prods } = await sb
         .from('loja_produtos')
         .select('id, loja_id, preco_cents, peso_g, tipo')

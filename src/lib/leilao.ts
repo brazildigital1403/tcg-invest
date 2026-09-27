@@ -98,6 +98,11 @@ export interface EstadoLote {
   seuMaximoCents: number | null
   /** true = o usuario do Bearer e o vendedor do lote. O id do vendedor nunca sai. */
   proprio: boolean
+  /**
+   * Prazo para pagar o arremate (ISO). So vem para QUEM VENCEU, com o lote em
+   * `aguardando_pagamento`; para qualquer outro, null. A coluna nao e publica.
+   */
+  pagarAte?: string | null
 }
 
 /**
@@ -458,4 +463,27 @@ export function lanceResultadoDeJson(r: Linha): LanceResultado {
     seuMaximoCents: num(r.seu_maximo_cents),
     repetido: r.repetido === true,
   }
+}
+
+// ─── Checkout do arremate ───────────────────────────────────────────────────
+
+/** Limites da Stripe para `expires_at` de uma Checkout Session. */
+export const SESSAO_STRIPE_MIN_SEG = 30 * 60
+export const SESSAO_STRIPE_MAX_SEG = 24 * 60 * 60
+/** Folga para relogio e ida e volta: a Stripe mede a partir da criacao dela. */
+const SESSAO_FOLGA_SEG = 60
+
+/**
+ * `expires_at` (segundos Unix) da sessao de pagamento de um arremate.
+ * Nunca depois de `pagar_ate`, nunca alem de 24h (teto da Stripe). Se sobra
+ * menos que o minimo da Stripe (30 min + folga) ate o prazo, devolve null: nao
+ * da para abrir sessao que respeite o prazo, e a rota recusa.
+ */
+export function expiraSessaoLeilao(pagarAteMs: number, agoraMs: number): number | null {
+  if (!Number.isFinite(pagarAteMs) || !Number.isFinite(agoraMs)) return null
+  const agoraSeg = Math.floor(agoraMs / 1000)
+  const prazoSeg = Math.floor(pagarAteMs / 1000)
+  const alvo = Math.min(prazoSeg, agoraSeg + SESSAO_STRIPE_MAX_SEG - SESSAO_FOLGA_SEG)
+  if (alvo < agoraSeg + SESSAO_STRIPE_MIN_SEG + SESSAO_FOLGA_SEG) return null
+  return alvo
 }
