@@ -26,7 +26,8 @@ import {
  * GET /api/cron-leilao-avisos  (cron, a cada 1-2 min)
  *
  * Consome a fila `leilao_eventos` e manda os avisos do leilao: sino + e-mail
- * (superado, venceu, sem lances, calote). A matriz e o debounce estao em
+ * (superado, venceu, sem lances, calote) e o sino de lote cancelado para quem
+ * seguia (evento 'cancelado', sem e-mail). A matriz e o debounce estao em
  * src/lib/leilao-avisos.ts; a fila segura em
  * supabase/migrations/20260928110000_leilao_avisos.sql.
  *

@@ -17,6 +17,10 @@
  *   encerrado -> so quando terminou sem lances: sino + e-mail ao vendedor.
  *   calote    -> sino + e-mail ao vencedor e ao vendedor. So se o lote ainda
  *                esta em calote (pagamento tardio reverte para vendido).
+ *   cancelado -> so sino ao SEGUIDOR (user_id do evento), sem e-mail. Nasce
+ *                em leilao_cancelar_rodada (migration 20260928130000): um
+ *                evento por seguidor de cada lote cancelado. So se o lote
+ *                ainda esta cancelado.
  *   pago, reembolsado, iniciado, teto_ajustado, erro_tick -> nada.
  *
  * ★ Tudo e conferido contra o ESTADO ATUAL do lote, nao so contra o evento:
@@ -30,7 +34,7 @@ export const SEM_EMAIL_FINAL_MS = 15 * 60 * 1000
 
 export type TipoEvento =
   | 'superado' | 'encerrado' | 'venceu' | 'calote'
-  | 'iniciado' | 'teto_ajustado' | 'erro_tick' | 'pago' | 'reembolsado'
+  | 'iniciado' | 'teto_ajustado' | 'erro_tick' | 'pago' | 'reembolsado' | 'cancelado'
 
 /** Linha devolvida por leilao_eventos_reservar. */
 export interface EventoReservado {
@@ -233,6 +237,20 @@ export function planejarAvisos(
           `O vencedor de ${nome} não pagou dentro do prazo.`, e.id))
         emails.push({ modelo: 'calote_vendedor', userId: lote.vendedor_user_id, lote, precoCents: preco, pagarAte: lote.pagar_ate })
         return { id: e.id, sinos, emails: e.email_em ? [] : emails }
+      }
+
+      case 'cancelado': {
+        // Rodada cancelada pela loja antes de abrir: aviso so no sino.
+        if (!e.user_id) return vazio('sem_usuario')
+        if (lote.status !== 'cancelado') return vazio(`lote_${lote.status}`)
+        return {
+          id: e.id,
+          sinos: [sino(
+            e.user_id, lote, 'Leilão cancelado',
+            `A loja cancelou o leilão de ${nome}. Ele não vai mais acontecer.`, e.id,
+          )],
+          emails: [],
+        }
       }
 
       default:
