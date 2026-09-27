@@ -20,50 +20,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
   sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS, sincronizarPagamentos, pagamentosDoPedido,
-  confirmarPagamento, ROTULO_ETAPA, type EtapaPagamento,
+  confirmarPagamento, ROTULO_ETAPA, pendencias, type EtapaPagamento,
 } from '@/lib/servicosServer'
 import {
-  TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, FOTOS_ENTRADA, FOTOS_SAIDA, RISCOS,
-  validarFicha, fotosFaltando,
+  TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, RISCOS,
+  validarFicha, lerFaixaNota, lerGraduadora,
 } from '@/lib/servicos'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
 const MIMES_ADMIN = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'application/pdf']
 const MAX_ADMIN_BYTES = 50 * 1024 * 1024
 const CENTS_MAX = 100_000_000
-
-// O que falta antes de cada passo. Mensagens curtas: o painel lista todas.
-async function pendencias(sb: SupabaseClient, id: string, servico: string, fase: 'entrada' | 'saida') {
-  const [{ data: itens }, { data: midias }, { data: procs }] = await Promise.all([
-    sb.from('servico_itens').select('id, nome, aceito, ficha_entrada, ficha_saida, laudo').eq('solicitacao_id', id).order('created_at'),
-    sb.from('servico_midias').select('item_id, tipo, posicao').eq('solicitacao_id', id),
-    sb.from('servico_procedimentos').select('item_id, decisao').eq('solicitacao_id', id),
-  ])
-  const faltas: string[] = []
-  const ativos = (itens || []).filter(i => i.aceito !== false)
-  if (fase === 'entrada' && !(midias || []).some(m => m.tipo === 'video_abertura')) faltas.push('Vídeo de abertura do pacote')
-  ativos.forEach((it, k) => {
-    const n = ativos.length > 1 ? ` da carta ${k + 1}` : ''
-    const doItem = (midias || []).filter(m => m.item_id === it.id)
-    if (fase === 'entrada') {
-      if (!it.ficha_entrada) faltas.push(`Ficha de entrada${n}`)
-      const f = fotosFaltando(FOTOS_ENTRADA, doItem)
-      if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de entrada${n}`)
-    } else {
-      const tratada = (procs || []).some(p => p.item_id === it.id && p.decisao === 'aprovado')
-      if (tratada) {
-        if (!it.ficha_saida) faltas.push(`Ficha de saída${n}`)
-        const f = fotosFaltando(FOTOS_SAIDA, doItem)
-        if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de saída${n}`)
-      }
-      // Laudo vale preenchido no formulario OU anexado (PDF/imagem do tipo 'laudo').
-      if (servico !== 'restauracao' && !it.laudo && !doItem.some(m => m.tipo === 'laudo')) faltas.push(`Laudo de pré-grading${n}`)
-    }
-  })
-  return faltas
-}
 
 function cents(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
@@ -371,6 +339,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       for (const c of CAMPOS_LAUDO) {
         const v = entrada[c.k]
         if (typeof v === 'string' && v.trim()) laudo[c.k] = v.trim().slice(0, c.k === 'caderno' ? 2000 : 200)
+      }
+      // Faixa e intervalo ("8 a 9", "8,5 a 9"), nunca nota unica; graduadora da
+      // lista. Salvar pela metade continua valendo: o que falta so trava o "pronta".
+      if (laudo.faixa_nota) {
+        const f = lerFaixaNota(laudo.faixa_nota)
+        if (!f) return erro(400, 'Faixa provável no formato "8 a 9" (ou "8,5 a 9"), de 1 a 10, com o menor valor primeiro. Nota única não vale.')
+        laudo.faixa_nota = f.texto
+      }
+      if (laudo.graduadora) {
+        const g = lerGraduadora(laudo.graduadora)
+        if (!g) return erro(400, 'Escolha a graduadora recomendada na lista')
+        laudo.graduadora = g
       }
       const { data, error } = await sb.from('servico_itens')
         .update({ laudo: Object.keys(laudo).length ? laudo : null }).eq('id', itemId).eq('solicitacao_id', id).select('id')

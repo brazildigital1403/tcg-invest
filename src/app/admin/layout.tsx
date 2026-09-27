@@ -157,7 +157,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => { alive = false }
   }, [pathname])
 
-  if (pathname === '/admin/login') return <>{children}</>
+  // Login e relatorio de bancada (documento A4 para imprimir) saem sem a casca do admin.
+  if (pathname === '/admin/login' || /^\/admin\/servicos\/[^/]+\/relatorio\/?$/.test(pathname)) return <>{children}</>
 
   function toggleSidebar() {
     setCollapsed(prev => {

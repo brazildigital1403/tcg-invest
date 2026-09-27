@@ -405,6 +405,30 @@ export const fmtDataHoraBRT = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
 })
 
+const PARTES_BRT = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Sao_Paulo',
+})
+function partesBRT(d: Date | string) {
+  const p = Object.fromEntries(PARTES_BRT.formatToParts(typeof d === 'string' ? new Date(d) : d).map(x => [x.type, x.value]))
+  return { data: `${p.day}/${p.month}/${p.year}`, hora: `${p.hour}:${p.minute}` }
+}
+
+/**
+ * Documento de gaveta (relatorio de bancada): "dd/mm/aaaa hh:mm" em Brasilia,
+ * sempre com ano. Montado por partes para nao depender da virgula que o ICU
+ * poe (ou nao) entre data e hora.
+ */
+export const fmtDataHoraAnoBRT = {
+  format: (d: Date | string) => { const p = partesBRT(d); return `${p.data} ${p.hora}` },
+}
+/** So a data, "dd/mm/aaaa", em Brasilia. */
+export const fmtDataAnoBRT = {
+  format: (d: Date | string) => partesBRT(d).data,
+}
+
+/** Status em que o relatorio de bancada pode ser gerado (painel e rota). */
+export const STATUS_RELATORIO = ['pronta', 'enviada', 'entregue', 'devolvida_sem_servico'] as const
+
 // ── Termo de ciencia de risco (aceito junto com o orcamento) ─────────────────
 // Cada texto tem uma versao, gravada em servico_solicitacoes.termo_versao no
 // aceite. Texto aceito NUNCA muda: correcao vira versao nova. RASCUNHO para
@@ -631,6 +655,96 @@ export const TERMO_PROPOSTA_V1 = [
   'Sei que o resultado depende das características do material e do histórico da carta, e que nenhuma nota de graduação é garantida.',
   'O valor declarado no pedido é a referência para qualquer indenização relacionada a este serviço.',
 ]
+
+/**
+ * Texto de um termo pela versao GRAVADA no pedido (aceite do orcamento ou da
+ * proposta). Versao desconhecida devolve null: o relatorio imprime so versao e
+ * data, nunca o texto vigente com o rotulo de outra versao.
+ */
+export function textoDoTermo(versao: string | null | undefined): string[] | null {
+  if (!versao) return null
+  if (versao === TERMO_PROPOSTA_VERSAO) return TERMO_PROPOSTA_V1
+  return TERMOS_POR_VERSAO[versao] || null
+}
+
+// ── Laudo: faixa, graduadora e o que falta para valer ───────────────────────
+
+const NOTA_FAIXA = '(10|[1-9](?:[.,]5)?)'
+const RE_FAIXA = new RegExp(`^${NOTA_FAIXA} a ${NOTA_FAIXA}$`)
+
+/**
+ * Faixa provavel "X a Y" (1 a 10, meio ponto permitido, virgula ou ponto,
+ * X < Y). Devolve os limites e o texto normalizado com virgula ("8,5 a 9"),
+ * ou null. Nota unica ("10") nunca passa: faixa e intervalo, nao promessa.
+ */
+export function lerFaixaNota(v: unknown): { min: number; max: number; texto: string } | null {
+  if (typeof v !== 'string') return null
+  const m = v.trim().toLowerCase().replace(/\s+/g, ' ').match(RE_FAIXA)
+  if (!m) return null
+  const min = Number(m[1].replace(',', '.'))
+  const max = Number(m[2].replace(',', '.'))
+  if (!(min >= 1 && max <= 10 && min < max)) return null
+  const txt = (n: number) => String(n).replace('.', ',')
+  return { min, max, texto: `${txt(min)} a ${txt(max)}` }
+}
+
+/** Nome canonico da graduadora do laudo (lista fechada), ou null. */
+export function lerGraduadora(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const g = GRADUADORAS.find(x => x.nome.toLowerCase() === v.trim().toLowerCase())
+  return g ? g.nome : null
+}
+
+/**
+ * O que falta para o laudo valer (trava de "pronta" e relatorio). Anexo em PDF
+ * nao cumpre: o relatorio imprime o laudo preenchido.
+ */
+export function faltasDoLaudo(laudo: unknown): string[] {
+  const l = (laudo && typeof laudo === 'object' ? laudo : {}) as Record<string, unknown>
+  const tem = (k: string) => typeof l[k] === 'string' && (l[k] as string).trim() !== ''
+  const faltas: string[] = []
+  if (!lerFaixaNota(l.faixa_nota)) faltas.push('faixa provável')
+  if (!lerGraduadora(l.graduadora)) faltas.push('graduadora')
+  if (!tem('centralizacao_frente')) faltas.push('centralização da frente')
+  if (!tem('centralizacao_verso')) faltas.push('centralização do verso')
+  return faltas
+}
+
+// ── Ficha: chegada comparada com a saida ────────────────────────────────────
+
+export type Variacao = 'melhorou' | 'igual' | 'piorou'
+export interface LinhaFicha {
+  lado: Lado
+  pilar: string
+  /** id da ESCALA */
+  chegada: string | null
+  saida: string | null
+  /** null quando falta um dos lados da comparacao. */
+  variacao: Variacao | null
+}
+
+/**
+ * Pilar a pilar, frente e verso. Uma regra so para o e-mail "pronta" e para o
+ * relatorio: a ESCALA vai do melhor (indice 0) para o pior.
+ */
+export function compararFicha(entrada: FichaCondicao | null, saida: FichaCondicao | null): LinhaFicha[] {
+  const ordem = new Map<string, number>(ESCALA.map((e, i) => [e.id, i]))
+  const linhas: LinhaFicha[] = []
+  for (const lado of ['frente', 'verso'] as const) {
+    for (const p of PILARES) {
+      const a = entrada?.[lado]?.[p.id] || null
+      const b = saida?.[lado]?.[p.id] || null
+      if (!a && !b) continue
+      let variacao: Variacao | null = null
+      if (a && b) {
+        const ia = ordem.get(a) ?? 99, ib = ordem.get(b) ?? 99
+        variacao = ib < ia ? 'melhorou' : ib > ia ? 'piorou' : 'igual'
+      }
+      linhas.push({ lado, pilar: p.id, chegada: a, saida: b, variacao })
+    }
+  }
+  return linhas
+}
 
 
 // ── Shorts da bancada (secao em carrossel na landing) ───────────────────────

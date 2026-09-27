@@ -13,7 +13,8 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
   numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio,
-  ESCALA, PILARES, CAMPOS_LAUDO, FOTOS_SAIDA, type FichaCondicao,
+  ESCALA, PILARES, CAMPOS_LAUDO, FOTOS_ENTRADA, FOTOS_SAIDA, compararFicha, fotosFaltando, faltasDoLaudo,
+  type FichaCondicao,
 } from '@/lib/servicos'
 import { sendServicoClienteEmail, sendServicoProntaEmail, SERVICO_PRONTA_DETALHE, type ServicoProntaItem } from '@/lib/email'
 
@@ -140,6 +141,7 @@ export function pixRecebimento(): { chave: string; nome: string | null } | null 
 
 export interface LinhaPagamento {
   id: string; etapa: EtapaPagamento; valor_cents: number; metodo: string | null; pago_em: string | null
+  reembolsado_cents?: number; reembolsado_em?: string | null
 }
 
 /** Quanto cobrar em cada etapa, a partir do orcamento. */
@@ -178,9 +180,47 @@ export async function sincronizarPagamentos(solicitacaoId: string) {
 
 export async function pagamentosDoPedido(solicitacaoId: string): Promise<LinhaPagamento[]> {
   const { data } = await sbAdmin().from('servico_pagamentos')
-    .select('id, etapa, valor_cents, metodo, pago_em').eq('solicitacao_id', solicitacaoId)
+    .select('id, etapa, valor_cents, metodo, pago_em, reembolsado_cents, reembolsado_em').eq('solicitacao_id', solicitacaoId)
   const ordem: EtapaPagamento[] = ['integral', 'sinal', 'servico']
   return ((data || []) as LinhaPagamento[]).sort((a, b) => ordem.indexOf(a.etapa) - ordem.indexOf(b.etapa))
+}
+
+// ── Pendencias antes de cada passo ──────────────────────────────────────────
+// O que falta antes de cada passo. Mensagens curtas: o painel lista todas.
+// Saida: carta tratada exige ficha e fotos de saida; pre-grading e completo
+// exigem o laudo PREENCHIDO (faixa valida, graduadora e centralizacao). Midia
+// do tipo 'laudo' pode ser anexada, mas nao cumpre a trava sozinha: senao o
+// proprio PDF do relatorio, subido como laudo, liberaria o "pronta".
+export async function pendencias(sb: SupabaseClient, id: string, servico: string, fase: 'entrada' | 'saida') {
+  const [{ data: itens }, { data: midias }, { data: procs }] = await Promise.all([
+    sb.from('servico_itens').select('id, nome, aceito, ficha_entrada, ficha_saida, laudo').eq('solicitacao_id', id).order('created_at'),
+    sb.from('servico_midias').select('item_id, tipo, posicao').eq('solicitacao_id', id),
+    sb.from('servico_procedimentos').select('item_id, decisao').eq('solicitacao_id', id),
+  ])
+  const faltas: string[] = []
+  const ativos = (itens || []).filter(i => i.aceito !== false)
+  if (fase === 'entrada' && !(midias || []).some(m => m.tipo === 'video_abertura')) faltas.push('Vídeo de abertura do pacote')
+  ativos.forEach((it, k) => {
+    const n = ativos.length > 1 ? ` da carta ${k + 1}` : ''
+    const doItem = (midias || []).filter(m => m.item_id === it.id)
+    if (fase === 'entrada') {
+      if (!it.ficha_entrada) faltas.push(`Ficha de entrada${n}`)
+      const f = fotosFaltando(FOTOS_ENTRADA, doItem)
+      if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de entrada${n}`)
+    } else {
+      const tratada = (procs || []).some(p => p.item_id === it.id && p.decisao === 'aprovado')
+      if (tratada) {
+        if (!it.ficha_saida) faltas.push(`Ficha de saída${n}`)
+        const f = fotosFaltando(FOTOS_SAIDA, doItem)
+        if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de saída${n}`)
+      }
+      if (servico !== 'restauracao') {
+        const l = faltasDoLaudo(it.laudo)
+        if (l.length) faltas.push(`Laudo de pré-grading${n}: falta ${l.join(', ')}`)
+      }
+    }
+  })
+  return faltas
 }
 
 /** A etapa que o cliente deve pagar AGORA (ou null). */
@@ -390,7 +430,6 @@ export const VALIDADE_FOTOS_EMAIL_DIAS = 30
 const PRONTA_COBRA_NO_EMAIL = false
 
 const ROTULO_ESCALA = new Map<string, string>(ESCALA.map(e => [e.id, e.rotulo]))
-const ORDEM_ESCALA = new Map<string, number>(ESCALA.map((e, i) => [e.id, i]))
 const LAUDO_NO_EMAIL = ['faixa_nota', 'graduadora', 'centralizacao_frente', 'centralizacao_verso', 'proximo_passo'] as const
 
 /**
@@ -411,24 +450,16 @@ async function imagemDoCatalogo(sb: SupabaseClient, cardId: string | null): Prom
   }
 }
 
-function condicaoDoItem(entrada: FichaCondicao | null, saida: FichaCondicao | null): ServicoProntaItem['condicao'] {
-  if (!entrada && !saida) return []
-  const linhas: NonNullable<ServicoProntaItem['condicao']> = []
-  for (const lado of ['frente', 'verso'] as const) {
-    for (const p of PILARES) {
-      const a = entrada?.[lado]?.[p.id] || null
-      const b = saida?.[lado]?.[p.id] || null
-      if (!a && !b) continue
-      linhas.push({
-        lado: lado === 'frente' ? 'Frente' : 'Verso',
-        pilar: p.rotulo,
-        chegada: a ? ROTULO_ESCALA.get(a) || null : null,
-        saida: b ? ROTULO_ESCALA.get(b) || null : null,
-        melhorou: !!(a && b && (ORDEM_ESCALA.get(b) ?? 99) < (ORDEM_ESCALA.get(a) ?? 99)),
-      })
-    }
-  }
-  return linhas
+/** Linhas de condicao do e-mail "pronta": a regra de comparacao vem de compararFicha. */
+export function condicaoDoItem(entrada: FichaCondicao | null, saida: FichaCondicao | null): ServicoProntaItem['condicao'] {
+  const rotuloPilar = new Map<string, string>(PILARES.map(p => [p.id, p.rotulo]))
+  return compararFicha(entrada, saida).map(l => ({
+    lado: l.lado === 'frente' ? 'Frente' : 'Verso',
+    pilar: rotuloPilar.get(l.pilar) || l.pilar,
+    chegada: l.chegada ? ROTULO_ESCALA.get(l.chegada) || null : null,
+    saida: l.saida ? ROTULO_ESCALA.get(l.saida) || null : null,
+    melhorou: l.variacao === 'melhorou',
+  }))
 }
 
 async function enviarEmailPronta(

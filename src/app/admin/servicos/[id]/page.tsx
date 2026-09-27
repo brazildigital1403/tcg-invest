@@ -13,8 +13,8 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import {
-  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, OBJETIVOS, ROTULO_GRADUADORA,
-  FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, turnoServico, type FichaCondicao, type SlotFoto,
+  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
+  STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, turnoServico, type FichaCondicao, type SlotFoto,
 } from '@/lib/servicos'
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
 import ChecklistFotos from '@/components/servicos/admin/ChecklistFotos'
@@ -146,6 +146,9 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
               Objetivo: <b>{s.objetivo === 'outro' ? s.objetivo_outro : objetivo}</b>
               {s.objetivo === 'graduacao' && <> · graduadora: <b>{ROTULO_GRADUADORA[s.graduadora_alvo || ''] || s.graduadora_alvo}</b></>}
             </p>
+          )}
+          {(STATUS_RELATORIO as readonly string[]).includes(s.status) && (
+            <a className="ad-bt ad-bt-pri ad-relatorio" href={`/admin/servicos/${s.id}/relatorio`} target="_blank" rel="noopener">Gerar relatório</a>
           )}
         </div>
         <div className="ad-cliente">
@@ -555,12 +558,25 @@ function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir,
           <button type="button" className="ad-link" onClick={() => setAbrirLaudo(v => !v)}>{abrirLaudo ? 'Fechar laudo' : item.laudo ? 'Ver laudo' : 'Escrever laudo'}</button>
           {abrirLaudo && (
             <div className="ad-laudo">
+              {servico !== 'restauracao' && (
+                <p className="ad-muted ad-laudo-largo" style={{ margin: 0 }}>
+                  Para liberar o Pronta: faixa provável (intervalo, como 8 a 9), graduadora e centralização da frente e do verso. O arquivo anexado como laudo não substitui o preenchimento.
+                </p>
+              )}
               {CAMPOS_LAUDO.map(c => (
                 <label key={c.k} className={c.k === 'caderno' ? 'ad-laudo-largo' : ''}>
                   <span>{c.rotulo}</span>
                   {c.k === 'caderno'
                     ? <textarea className="ad-in" rows={3} placeholder={c.ex} value={laudo[c.k] || ''} onChange={e => setLaudo(l => ({ ...l, [c.k]: e.target.value }))} />
-                    : <input className="ad-in" placeholder={c.ex} value={laudo[c.k] || ''} onChange={e => setLaudo(l => ({ ...l, [c.k]: e.target.value }))} />}
+                    : c.k === 'graduadora'
+                      ? (
+                        <select className="ad-in" value={laudo[c.k] || ''} onChange={e => setLaudo(l => ({ ...l, [c.k]: e.target.value }))}>
+                          <option value="">Escolha</option>
+                          {GRADUADORAS.map(g => <option key={g.nome} value={g.nome}>{g.nome}</option>)}
+                          {laudo[c.k] && !GRADUADORAS.some(g => g.nome === laudo[c.k]) && <option value={laudo[c.k]}>{laudo[c.k]} (fora da lista)</option>}
+                        </select>
+                      )
+                      : <input className="ad-in" placeholder={c.k === 'faixa_nota' ? '8 a 9 ou 8,5 a 9' : c.ex} value={laudo[c.k] || ''} onChange={e => setLaudo(l => ({ ...l, [c.k]: e.target.value }))} />}
                 </label>
               ))}
               <button type="button" className="ad-bt ad-bt-pri ad-laudo-largo" disabled={!!ocupado} onClick={() => salvarLaudo(laudo)}>
@@ -678,6 +694,7 @@ textarea.ad-in{resize:vertical}
 .ad-laudo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .ad-laudo label{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--bx-text-2)}
 .ad-laudo-largo{grid-column:1 / -1}
+.ad-relatorio{margin-top:10px}
 
 .ad-tl{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .ad-tl li{display:grid;gap:2px;padding-left:12px;border-left:2px solid var(--bx-border-2)}
