@@ -21,7 +21,9 @@ export const TITULO_GRUPO: Record<GrupoMeus, string> = {
   superado: 'Superado',
   a_pagar: 'Arrematados a pagar',
   pagos: 'Arrematados pagos',
-  encerrados: 'Encerrados sem vitória',
+  // Titulo neutro: o grupo tambem recebe o arremate nao pago (calote), que
+  // foi vitoria. "Sem vitoria" mentiria para quem venceu e perdeu o prazo.
+  encerrados: 'Encerrados',
 }
 
 export type EstadoPagamento = 'aguardando' | 'pago' | 'calote'

@@ -950,7 +950,7 @@ try {
     assert.deepEqual(ids('pagos'), ['h'])
     assert.deepEqual(ids('encerrados'), ['j', 'i'], 'mais recente primeiro')
     assert.equal(r.grupos[0].titulo, 'Liderando')
-    assert.equal(r.grupos.find(x => x.grupo === 'encerrados').titulo, 'Encerrados sem vitória')
+    assert.equal(r.grupos.find(x => x.grupo === 'encerrados').titulo, 'Encerrados', 'titulo neutro: o calote tambem cai aqui')
     assert.deepEqual(M.agruparMeus([], 'x').grupos, [], 'grupo vazio fica de fora')
   }, 'meus lances: agrupamento e ordem')
 
