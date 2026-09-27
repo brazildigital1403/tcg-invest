@@ -1,0 +1,698 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import Link from 'next/link'
+import { supabase } from '@/lib/supabaseClient'
+import { IconClock, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
+import {
+  formatarBRL,
+  formatarTempoRestante,
+  horarioBrasilia,
+  incrementoCents,
+  minimoProximoCents,
+  statusPublico,
+  type LanceResultado,
+  type LotePublico,
+  type StatusPublico,
+} from '@/lib/leilao'
+import { calcularArremate } from '@/lib/leilao-taxas'
+
+/**
+ * Ilha ao vivo da pagina do lote: preco, relogio, faixa de lideranca, CTA e a
+ * folha "Dar lance".
+ *
+ * Fatia 1 SEM Realtime: polling de /api/leiloes/[id]/estado a cada 10s, e 2s
+ * nos ultimos 2 minutos (soft close de 10s ao vivo). Aba escondida para de
+ * buscar e busca de novo ao voltar.
+ *
+ * RELOGIO: tudo conta em `agora do servidor` = Date.now() + deslocamento. O
+ * deslocamento vem do `server_now` de cada resposta; celular com hora errada
+ * nao abre nem fecha lote errado na tela.
+ *
+ * QUEM LIDERA: a view publica nao diz se o lider e voce (o apelido vem
+ * mascarado). A tela guarda o SEU teto do ultimo lance aceito e compara com o
+ * preco: preco acima do seu teto = superado. Empate fica com voce (o teto mais
+ * antigo vence no banco).
+ *
+ * "Lance unico" x "Lance maximo": os dois mandam `maximoCents` ao RPC, que e
+ * quem aplica o lance automatico. No unico o teto e o proprio valor digitado;
+ * no maximo, o banco so sobe ate onde precisar. A diferenca e de explicacao.
+ */
+
+const INTERVALO_NORMAL_MS = 10_000
+const INTERVALO_FINAL_MS = 2_000
+const JANELA_FINAL_MS = 120_000
+/** Aviso de lance muito acima da referencia do Mercado Brasileiro. */
+const FATOR_AVISO_MERCADO = 1.5
+
+type Aba = 'unico' | 'maximo'
+
+interface MeuLance {
+  maximoCents: number
+  versao: number
+}
+
+function chaveMeuLance(id: string) {
+  return `bx-leilao-meu-${id}`
+}
+
+function lerMeuLance(id: string): MeuLance | null {
+  try {
+    const raw = sessionStorage.getItem(chaveMeuLance(id))
+    if (!raw) return null
+    const v = JSON.parse(raw) as MeuLance
+    return Number.isFinite(v?.maximoCents) ? v : null
+  } catch {
+    return null
+  }
+}
+
+function gravarMeuLance(id: string, v: MeuLance) {
+  try {
+    sessionStorage.setItem(chaveMeuLance(id), JSON.stringify(v))
+  } catch {}
+}
+
+/** "1.234,56" / "1234,5" / "1234" -> centavos. null se invalido. */
+function reaisParaCents(txt: string): number | null {
+  const limpo = txt.replace(/[^\d,.]/g, '')
+  if (!limpo) return null
+  const temVirgula = limpo.includes(',')
+  const normal = temVirgula ? limpo.replace(/\./g, '').replace(',', '.') : limpo.replace(/\.(?=\d{3}(\D|$))/g, '')
+  const v = Number(normal)
+  return Number.isFinite(v) && v > 0 ? Math.round(v * 100) : null
+}
+
+function centsParaCampo(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function novoIdem(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  // Fallback para navegador antigo sem randomUUID (formato v4).
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
+}
+
+const ROTULO_STATUS: Record<StatusPublico, string> = {
+  em_breve: 'Em breve',
+  ao_vivo: 'Ao vivo',
+  encerrando: 'Encerrando',
+  encerrado: 'Encerrado',
+  arrematado: 'Arrematado',
+  sem_lances: 'Encerrado sem lances',
+  cancelado: 'Cancelado',
+}
+
+export default function LanceAoVivo({
+  loteInicial,
+  serverNow,
+  referenciaMercadoCents,
+  urlLote,
+}: {
+  loteInicial: LotePublico
+  serverNow: string
+  referenciaMercadoCents: number | null
+  urlLote: string
+}) {
+  const [lote, setLote] = useState<LotePublico>(loteInicial)
+  const baseInicial = Date.parse(serverNow)
+  const offsetRef = useRef<number>(0)
+  const [agora, setAgora] = useState<number>(Number.isFinite(baseInicial) ? baseInicial : 0)
+
+  const [logado, setLogado] = useState<boolean | null>(null)
+  const [meuUserId, setMeuUserId] = useState<string | null>(null)
+  const [online, setOnline] = useState(true)
+  const [meuLance, setMeuLance] = useState<MeuLance | null>(null)
+
+  const [aberta, setAberta] = useState(false)
+  const [aba, setAba] = useState<Aba>('unico')
+  const [valorTxt, setValorTxt] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const idemRef = useRef<{ chave: string; valor: number } | null>(null)
+  const campoRef = useRef<HTMLInputElement>(null)
+  const ctaRef = useRef<HTMLButtonElement>(null)
+
+  // ── Relogio ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    offsetRef.current = Number.isFinite(baseInicial) ? baseInicial - Date.now() : 0
+    const tick = () => setAgora(Date.now() + offsetRef.current)
+    tick()
+    const t = setInterval(tick, 250)
+    return () => clearInterval(t)
+  }, [baseInicial])
+
+  // ── Sessao, conexao, lance guardado ─────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setLogado(!!data.session?.user)
+      setMeuUserId(data.session?.user?.id ?? null)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setLogado(!!session?.user)
+      setMeuUserId(session?.user?.id ?? null)
+    })
+    setMeuLance(lerMeuLance(loteInicial.id))
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    setOnline(typeof navigator === 'undefined' ? true : navigator.onLine)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => {
+      sub.subscription.unsubscribe()
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+    }
+  }, [loteInicial.id])
+
+  // ── Estado do servidor ──────────────────────────────────────────────────
+  const aplicarServerNow = useCallback((iso: string | null | undefined, enviadoEm: number) => {
+    const s = iso ? Date.parse(iso) : NaN
+    if (!Number.isFinite(s)) return
+    // Metade da ida e volta: o server_now foi gerado no meio da requisicao.
+    const meio = enviadoEm + (Date.now() - enviadoEm) / 2
+    offsetRef.current = s - meio
+  }, [])
+
+  const buscarEstado = useCallback(async () => {
+    const enviadoEm = Date.now()
+    try {
+      const r = await fetch(`/api/leiloes/${loteInicial.id}/estado`, { cache: 'no-store' })
+      if (!r.ok) return
+      const j = (await r.json()) as { lote?: LotePublico; server_now?: string }
+      aplicarServerNow(j.server_now, enviadoEm)
+      if (j.lote) {
+        const novo = j.lote
+        // Resposta atrasada nao pode desfazer um lance ja visto.
+        setLote(atual => (novo.versao >= atual.versao ? novo : atual))
+      }
+    } catch {
+      // Rede instavel: a proxima volta tenta de novo.
+    }
+  }, [loteInicial.id, aplicarServerNow])
+
+  const st = statusPublico(lote, agora)
+  const aberto = st === 'ao_vivo' || st === 'encerrando'
+  const vivoOuAgendado = aberto || st === 'em_breve' || st === 'encerrado'
+  const fimMs = lote.terminaEm ? Date.parse(lote.terminaEm) : NaN
+  const restanteMs = Number.isFinite(fimMs) ? fimMs - agora : Infinity
+  const intervalo = aberto && restanteMs <= JANELA_FINAL_MS ? INTERVALO_FINAL_MS : INTERVALO_NORMAL_MS
+
+  useEffect(() => {
+    // Lote que ja fechou de vez (arrematado, sem lances, cancelado) nao muda mais.
+    if (!vivoOuAgendado) return
+    let vivo = true
+    let t: ReturnType<typeof setTimeout> | undefined
+    const volta = async () => {
+      if (!vivo) return
+      if (typeof document === 'undefined' || !document.hidden) await buscarEstado()
+      if (vivo) t = setTimeout(volta, intervalo)
+    }
+    t = setTimeout(volta, intervalo)
+    const aoVoltar = () => {
+      if (!document.hidden) buscarEstado()
+    }
+    document.addEventListener('visibilitychange', aoVoltar)
+    return () => {
+      vivo = false
+      if (t) clearTimeout(t)
+      document.removeEventListener('visibilitychange', aoVoltar)
+    }
+  }, [vivoOuAgendado, intervalo, buscarEstado])
+
+  // ── Derivados ───────────────────────────────────────────────────────────
+  const precoCents = lote.nLances > 0 && lote.precoAtualCents != null ? lote.precoAtualCents : lote.lanceInicialCents
+  const minimo = minimoProximoCents(lote)
+  const chipsRapidos = useMemo(() => {
+    const a = minimo
+    const b = a + incrementoCents(a)
+    const c = b + incrementoCents(b)
+    return [a, b, c]
+  }, [minimo])
+
+  const proprio = !!meuUserId && meuUserId === lote.vendedorUserId
+  const estouGanhando =
+    !!meuLance && lote.nLances > 0 && lote.precoAtualCents != null && lote.precoAtualCents <= meuLance.maximoCents
+  const fuiSuperado =
+    !!meuLance && lote.precoAtualCents != null && lote.precoAtualCents > meuLance.maximoCents
+
+  const valorCents = reaisParaCents(valorTxt)
+  const arremate = valorCents ? calcularArremate(valorCents) : null
+  const acimaDoMercado =
+    !!valorCents && !!referenciaMercadoCents && valorCents > referenciaMercadoCents * FATOR_AVISO_MERCADO
+
+  // aria-live: anuncia so quando o PRECO muda, nunca a cada tique do relogio.
+  const [anuncio, setAnuncio] = useState('')
+  const ultimoPreco = useRef(precoCents)
+  useEffect(() => {
+    if (ultimoPreco.current !== precoCents) {
+      ultimoPreco.current = precoCents
+      setAnuncio(`Lance atual ${formatarBRL(precoCents)}`)
+    }
+  }, [precoCents])
+
+  // ── Folha ────────────────────────────────────────────────────────────────
+  const abrirFolha = () => {
+    setErro(null)
+    setAviso(null)
+    setAba('unico')
+    setValorTxt(centsParaCampo(minimo))
+    setAberta(true)
+  }
+  const fecharFolha = useCallback(() => {
+    setAberta(false)
+    setTimeout(() => ctaRef.current?.focus(), 0)
+  }, [])
+
+  useEffect(() => {
+    if (!aberta) return
+    const t = setTimeout(() => campoRef.current?.focus(), 50)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') fecharFolha()
+    }
+    document.addEventListener('keydown', onKey)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = overflow
+    }
+  }, [aberta, fecharFolha])
+
+  async function confirmar() {
+    if (!valorCents || enviando) return
+    if (!online) {
+      setErro('Sem conexão. O lance fica disponível quando a internet voltar.')
+      return
+    }
+    if (valorCents < minimo) {
+      setErro(`O lance mínimo agora é ${formatarBRL(minimo)}.`)
+      return
+    }
+    setErro(null)
+    setEnviando(true)
+
+    // Mesmo valor reenviado (rede caiu no meio) reaproveita a chave: o banco
+    // devolve o mesmo resultado em vez de registrar dois lances.
+    if (!idemRef.current || idemRef.current.valor !== valorCents) {
+      idemRef.current = { chave: novoIdem(), valor: valorCents }
+    }
+    const idem = idemRef.current.chave
+
+    const enviadoEm = Date.now()
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token) {
+        setErro('Sua sessão expirou. Entre de novo para dar lance.')
+        setEnviando(false)
+        return
+      }
+      const r = await fetch(`/api/leiloes/${lote.id}/lance`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maximoCents: valorCents, idem }),
+      })
+      const j = await r.json().catch(() => null)
+      // Resposta chegou (sucesso ou erro de regra): a chave ja foi usada.
+      idemRef.current = null
+
+      if (!r.ok || !j || j.ok === false) {
+        const minimoServidor = typeof j?.minimoCents === 'number' ? j.minimoCents : null
+        setErro(j?.mensagem || 'Não foi possível registrar o lance. Tente de novo.')
+        if (minimoServidor) setValorTxt(centsParaCampo(minimoServidor))
+        buscarEstado()
+        return
+      }
+
+      const res = j as LanceResultado
+      aplicarServerNow(res.serverNow, enviadoEm)
+      const meu: MeuLance = { maximoCents: valorCents, versao: res.versao }
+      setMeuLance(meu)
+      gravarMeuLance(lote.id, meu)
+      setLote(atual => ({
+        ...atual,
+        precoAtualCents: res.precoCents,
+        nLances: res.nLances,
+        terminaEm: res.terminaEm ?? atual.terminaEm,
+        versao: Math.max(atual.versao, res.versao),
+      }))
+      if (res.lider) {
+        setAberta(false)
+        setAviso(null)
+      } else {
+        // Outro teto automatico cobriu na hora. A folha fica aberta com o novo minimo.
+        setAviso(`Outro participante tinha um lance máximo maior. Lance atual: ${formatarBRL(res.precoCents)}.`)
+        setValorTxt(centsParaCampo(res.minimoProximoCents))
+      }
+      buscarEstado()
+    } catch {
+      // Rede caiu no meio: a chave fica guardada para o reenvio do mesmo valor.
+      setErro('A conexão falhou antes da confirmação. Tente de novo: o lance não é registrado duas vezes.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  let relogio = ''
+  if (st === 'em_breve') {
+    const ini = lote.iniciaEm ? Date.parse(lote.iniciaEm) : NaN
+    relogio = Number.isFinite(ini) && ini > agora ? formatarTempoRestante(ini - agora) : '--:--'
+  } else if (aberto) {
+    relogio = Number.isFinite(restanteMs) ? formatarTempoRestante(restanteMs) : '--:--'
+  }
+  const horaAbsoluta =
+    st === 'em_breve' && lote.iniciaEm
+      ? `Começa em ${horarioBrasilia(lote.iniciaEm)}`
+      : aberto && lote.terminaEm
+        ? `Termina em ${horarioBrasilia(lote.terminaEm)}`
+        : lote.encerradoEm
+          ? `Encerrado em ${horarioBrasilia(lote.encerradoEm)}`
+          : ''
+
+  const loginHref = `${urlLote}?auth=login&next=${encodeURIComponent(urlLote)}`
+
+  let cta: ReactNode
+  if (!aberto) {
+    cta = (
+      <div style={S.ctaInfo}>
+        {st === 'em_breve' ? 'Os lances abrem quando o lote começar.' : ROTULO_STATUS[st]}
+      </div>
+    )
+  } else if (proprio) {
+    cta = <div style={S.ctaInfo}>Este lote é seu. Acompanhe os lances por aqui.</div>
+  } else if (logado === false) {
+    cta = (
+      <Link href={loginHref} prefetch={false} className="lv-cta-btn" style={S.ctaBtn}>
+        Entrar para dar lance
+      </Link>
+    )
+  } else if (!online) {
+    cta = <div style={S.ctaInfo}>Sem conexão. O lance fica disponível quando a internet voltar.</div>
+  } else {
+    cta = (
+      <button ref={ctaRef} type="button" onClick={abrirFolha} disabled={logado === null} className="lv-cta-btn" style={S.ctaBtn}>
+        Dar lance · mínimo {formatarBRL(minimo)}
+      </button>
+    )
+  }
+
+  return (
+    <section aria-label="Lance ao vivo" style={S.bloco}>
+      <style>{`
+        .lv-cta-btn { transition: filter 0.15s ease, transform 0.15s ease; }
+        .lv-cta-btn:hover:not(:disabled) { filter: brightness(1.08); }
+        .lv-cta-btn:focus-visible, .lv-foco:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+        .lv-cta-btn:disabled { opacity: 0.6; cursor: default; }
+        .lv-cta-fixo { margin-top: 16px; }
+        .lv-cta-espaco { display: none; }
+        @media (max-width: 768px) {
+          /* Acima da bottom nav do AppLayout (~57px + safe area). */
+          .lv-cta-fixo {
+            position: fixed; left: 0; right: 0; z-index: 150; margin: 0;
+            bottom: calc(57px + env(safe-area-inset-bottom, 0px));
+            padding: 10px 16px; background: var(--bx-bg-elev); border-top: 1px solid var(--bx-border);
+            box-shadow: var(--bx-shadow);
+          }
+          .lv-cta-espaco { display: block; height: 72px; }
+        }
+        .lv-folha-fundo { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; justify-content: center; }
+        .lv-folha {
+          width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto;
+          background: var(--bx-bg-elev); border: 1px solid var(--bx-border); border-bottom: none;
+          border-radius: 18px 18px 0 0; box-shadow: var(--bx-shadow);
+          padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+          animation: lv-sobe 0.2s ease;
+        }
+        @media (min-width: 769px) { .lv-folha-fundo { align-items: center; } .lv-folha { border-radius: 18px; border-bottom: 1px solid var(--bx-border); } }
+        @keyframes lv-sobe { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) { .lv-folha { animation: none; } .lv-cta-btn { transition: none; } }
+        .lv-chip-rapido { transition: background 0.15s ease, border-color 0.15s ease; }
+        .lv-chip-rapido:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
+        .lv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      `}</style>
+
+      {/* Anuncio para leitor de tela num no SEPARADO: o preco visivel re-renderiza
+          a cada tique do relogio, e aria-live nele leria a tela inteira. */}
+      <p className="lv-sr" aria-live="polite" aria-atomic="true">{anuncio}</p>
+
+      <div style={S.linhaStatus}>
+        <span style={{ ...S.status, ...(st === 'encerrando' ? S.statusUrgente : aberto ? S.statusVivo : null) }}>
+          {ROTULO_STATUS[st]}
+        </span>
+        {relogio && (
+          <span style={{ ...S.relogio, ...(st === 'encerrando' ? { color: 'var(--bx-red)' } : null) }}>
+            <IconClock size={16} />
+            <span>{st === 'em_breve' ? `Começa em ${relogio}` : relogio}</span>
+          </span>
+        )}
+      </div>
+      {horaAbsoluta && <p style={S.horaAbs}>{horaAbsoluta}</p>}
+
+      <div style={S.precoBloco}>
+        <span style={S.precoRotulo}>
+          {lote.nLances > 0 ? (st === 'arrematado' ? 'Arrematado por' : 'Lance atual') : 'Lance inicial'}
+        </span>
+        <span style={S.preco}>{formatarBRL(precoCents)}</span>
+        <span style={S.precoMeta}>
+          {lote.nLances === 0 ? 'Nenhum lance ainda' : lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`}
+          {lote.nParticipantes > 1 ? ` · ${lote.nParticipantes} participantes` : ''}
+          {lote.liderApelido && lote.nLances > 0 ? ` · liderando: ${lote.liderApelido}` : ''}
+        </span>
+        {lote.prorrogacoes > 0 && aberto && (
+          <span style={S.precoMeta}>
+            Prorrogado {lote.prorrogacoes === 1 ? '1 vez' : `${lote.prorrogacoes} vezes`}: lance nos últimos {lote.softCloseSeg}s
+            estende o fim.
+          </span>
+        )}
+      </div>
+
+      {estouGanhando && (aberto || st === 'arrematado') && (
+        <div role="status" style={{ ...S.faixa, ...S.faixaGanhando }}>
+          <IconCheck size={16} />
+          {st === 'arrematado' ? 'Você venceu este lote' : 'Você está ganhando'}
+          {aberto && meuLance && meuLance.maximoCents > precoCents
+            ? ` · seu máximo: ${formatarBRL(meuLance.maximoCents)}`
+            : ''}
+        </div>
+      )}
+      {fuiSuperado && (
+        <div role="status" style={{ ...S.faixa, ...S.faixaSuperado }}>
+          <IconWarning size={16} />
+          Seu lance foi superado
+        </div>
+      )}
+
+      <div className="lv-cta-fixo">{cta}</div>
+      <div className="lv-cta-espaco" aria-hidden="true" />
+
+      <p style={S.protecao}>
+        <IconShield size={14} />
+        Quem arremata paga pela Bynx, no cartão, com pagamento protegido.
+      </p>
+
+      {aberta && (
+        <div
+          className="lv-folha-fundo"
+          onClick={e => {
+            if (e.target === e.currentTarget) fecharFolha()
+          }}
+        >
+          <div className="lv-folha" role="dialog" aria-modal="true" aria-labelledby="lv-folha-titulo">
+            <div style={S.folhaTopo}>
+              <h2 id="lv-folha-titulo" style={S.folhaTitulo}>Dar lance</h2>
+              <button type="button" onClick={fecharFolha} aria-label="Fechar" className="lv-foco" style={S.fechar}>
+                <IconClose size={18} />
+              </button>
+            </div>
+
+            <div role="tablist" aria-label="Tipo de lance" style={S.abas}>
+              {(['unico', 'maximo'] as const).map(a => (
+                <button
+                  key={a}
+                  type="button"
+                  role="tab"
+                  aria-selected={aba === a}
+                  onClick={() => setAba(a)}
+                  className="lv-foco"
+                  style={{ ...S.aba, ...(aba === a ? S.abaAtiva : null) }}
+                >
+                  {a === 'unico' ? 'Lance único' : 'Lance máximo'}
+                </button>
+              ))}
+            </div>
+            <p style={S.abaTexto}>
+              {aba === 'unico'
+                ? 'Você oferece exatamente este valor.'
+                : 'Informe o máximo que aceita pagar. A Bynx cobre os lances dos outros por você, no menor valor necessário, até esse limite. Ninguém vê o seu máximo.'}
+            </p>
+
+            <p style={S.rotuloCampo}>Lance mínimo agora: {formatarBRL(minimo)}</p>
+            <div style={S.chipsRapidos}>
+              {chipsRapidos.map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  className="lv-chip-rapido lv-foco"
+                  onClick={() => setValorTxt(centsParaCampo(c))}
+                  style={{ ...S.chipRapido, ...(valorCents === c ? S.chipRapidoAtivo : null) }}
+                >
+                  {formatarBRL(c)}
+                </button>
+              ))}
+            </div>
+
+            <label htmlFor="lv-valor" style={S.rotuloCampo}>
+              {aba === 'unico' ? 'Seu lance' : 'Seu lance máximo'}
+            </label>
+            <div style={S.campoWrap}>
+              <span style={S.campoPrefixo}>R$</span>
+              <input
+                id="lv-valor"
+                ref={campoRef}
+                inputMode="decimal"
+                autoComplete="off"
+                value={valorTxt}
+                onChange={e => {
+                  setValorTxt(e.target.value)
+                  setErro(null)
+                }}
+                style={S.campo}
+              />
+            </div>
+
+            {acimaDoMercado && referenciaMercadoCents && (
+              <p style={S.avisoMercado}>
+                <IconWarning size={14} />
+                Este valor está bem acima do Mercado Brasileiro ({formatarBRL(referenciaMercadoCents)}). Confira antes de
+                confirmar.
+              </p>
+            )}
+
+            {arremate && (
+              <dl style={S.total}>
+                <div style={S.totalLinha}><dt>Lance</dt><dd>{formatarBRL(arremate.precoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>Taxa de proteção</dt><dd>{formatarBRL(arremate.protecaoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>Custo do cartão</dt><dd>{formatarBRL(arremate.custoMetodoCents)}</dd></div>
+                <div style={{ ...S.totalLinha, ...S.totalFinal }}>
+                  <dt>Total estimado se arrematar</dt><dd>{formatarBRL(arremate.compradorPagaCents)}</dd>
+                </div>
+              </dl>
+            )}
+            {arremate && <p style={S.totalNota}>Frete calculado no pagamento, pelo seu CEP.</p>}
+
+            {aviso && <p role="alert" style={S.avisoMercado}><IconWarning size={14} />{aviso}</p>}
+            {erro && <p role="alert" style={S.erro}>{erro}</p>}
+
+            <button
+              type="button"
+              onClick={confirmar}
+              disabled={!valorCents || enviando || !online || !aberto}
+              className="lv-cta-btn"
+              style={{ ...S.ctaBtn, marginTop: 12 }}
+            >
+              {enviando
+                ? 'Registrando lance...'
+                : !aberto
+                  ? 'Lote encerrado'
+                  : valorCents
+                    ? `Confirmar lance de ${formatarBRL(valorCents)}`
+                    : 'Informe o valor do lance'}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+const S: Record<string, CSSProperties> = {
+  bloco: { display: 'flex', flexDirection: 'column', gap: 10 },
+  linhaStatus: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  status: {
+    display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+    background: 'var(--bx-surface-2)', color: 'var(--bx-text-2)', border: '1px solid var(--bx-border)',
+  },
+  statusVivo: { background: 'rgba(var(--ac-1-rgb), 0.12)', color: 'var(--ac-1)', borderColor: 'var(--ac-1)' },
+  statusUrgente: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)', background: 'var(--bx-surface-2)' },
+  relogio: {
+    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 22, fontWeight: 800, color: 'var(--bx-text)',
+    fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
+  },
+  horaAbs: { fontSize: 12, color: 'var(--bx-text-3)', margin: 0 },
+  precoBloco: {
+    display: 'flex', flexDirection: 'column', gap: 2, padding: 14, borderRadius: 12,
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
+  },
+  precoRotulo: { fontSize: 12, color: 'var(--bx-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' },
+  preco: { fontSize: 32, fontWeight: 800, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' },
+  precoMeta: { fontSize: 13, color: 'var(--bx-text-2)' },
+  faixa: {
+    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
+  },
+  faixaGanhando: { color: 'var(--bx-green)', borderColor: 'var(--bx-green)' },
+  faixaSuperado: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)' },
+  ctaBtn: {
+    width: '100%', minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
+    background: 'var(--bx-brand)', color: 'var(--bx-brand-ink)', textDecoration: 'none',
+    fontVariantNumeric: 'tabular-nums',
+  },
+  ctaInfo: {
+    minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+    padding: '8px 12px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', color: 'var(--bx-text-2)',
+  },
+  protecao: { display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: 'var(--bx-text-3)', margin: 0, lineHeight: 1.5 },
+  folhaTopo: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  folhaTitulo: { fontSize: 18, fontWeight: 700, color: 'var(--bx-text)', margin: 0 },
+  fechar: {
+    width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10,
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', color: 'var(--bx-text-2)', cursor: 'pointer',
+  },
+  abas: {
+    display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 4, padding: 4, borderRadius: 12,
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
+  },
+  aba: {
+    minHeight: 44, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--bx-text-2)',
+    fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+  },
+  abaAtiva: { background: 'var(--bx-surface-3)', color: 'var(--bx-text)' },
+  abaTexto: { fontSize: 13, color: 'var(--bx-text-2)', lineHeight: 1.5, margin: '10px 0 12px' },
+  rotuloCampo: { display: 'block', fontSize: 12, color: 'var(--bx-text-3)', fontWeight: 600, margin: '0 0 6px' },
+  chipsRapidos: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 },
+  chipRapido: {
+    minHeight: 44, borderRadius: 999, border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
+    color: 'var(--bx-text)', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+    fontVariantNumeric: 'tabular-nums', padding: '0 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+  },
+  chipRapidoAtivo: { borderColor: 'var(--ac-1)', color: 'var(--ac-1)', background: 'rgba(var(--ac-1-rgb), 0.12)' },
+  campoWrap: {
+    display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', minHeight: 52, borderRadius: 10,
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border-2)',
+  },
+  campoPrefixo: { fontSize: 16, color: 'var(--bx-text-3)', fontWeight: 700 },
+  // 16px: abaixo disso o Safari iOS da zoom ao focar e nao volta.
+  campo: {
+    flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--bx-text)',
+    fontFamily: 'inherit', fontSize: 16, fontWeight: 700, fontVariantNumeric: 'tabular-nums', height: 50,
+  },
+  avisoMercado: {
+    display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 13, lineHeight: 1.5, margin: '10px 0 0',
+    padding: '8px 10px', borderRadius: 8, color: 'var(--bx-amber)', border: '1px solid var(--bx-border-2)',
+    background: 'var(--bx-surface)',
+  },
+  total: { margin: '12px 0 0', display: 'flex', flexDirection: 'column', gap: 4 },
+  totalLinha: { display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--bx-text-2)', fontVariantNumeric: 'tabular-nums' },
+  totalFinal: { fontSize: 15, fontWeight: 800, color: 'var(--bx-text)', borderTop: '1px solid var(--bx-border)', paddingTop: 6, marginTop: 2 },
+  totalNota: { fontSize: 12, color: 'var(--bx-text-3)', margin: '6px 0 0' },
+  erro: { fontSize: 13, color: 'var(--bx-red)', margin: '10px 0 0', lineHeight: 1.5 },
+}

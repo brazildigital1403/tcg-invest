@@ -153,6 +153,11 @@ interface CardItemProps {
   // idioma, o que e certo para carta da colecao, mas errado para carta que a
   // pessoa NAO tem (grade das Metas: "PT" aparecia ate em meta so em japones).
   ocultarIdioma?: boolean
+  // Esconde a linha "Sem preço disponível". Opcional, default false (nada
+  // muda para quem ja usa o CardItem). Usar quando o valor da carta vem por
+  // outro slot e a linha contradiz a tela — caso da vitrine de leiloes, em
+  // que o lance atual entra pelo `badge` e o relogio pelo `footerSlot`.
+  ocultarSemPreco?: boolean
 }
 
 // ── Utilitários ──────────────────────────────────────────────────────────────
@@ -226,6 +231,7 @@ export default function CardItem({
   exchangeRate = { usd: 6.0, eur: 6.5 },
   hidePriceTable = false,
   ocultarIdioma = false,
+  ocultarSemPreco = false,
 }: CardItemProps) {
   const variante = varianteProp || card.variante || 'normal'
   const idioma = (card.idioma || 'pt').toLowerCase()
@@ -488,7 +494,7 @@ export default function CardItem({
         )}
 
         {/* Sem preço */}
-        {availableVariants.length === 0 && !estimate && !ultimoVendidoFmt && (
+        {!ocultarSemPreco && availableVariants.length === 0 && !estimate && !ultimoVendidoFmt && (
           <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.15)', padding: '4px 0' }}>
             Sem preço disponível
           </div>
