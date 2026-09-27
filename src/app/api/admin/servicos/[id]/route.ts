@@ -18,7 +18,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
-import { sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS } from '@/lib/servicosServer'
+import {
+  sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS, sincronizarPagamentos, pagamentosDoPedido,
+  confirmarPagamento, ROTULO_ETAPA, type EtapaPagamento,
+} from '@/lib/servicosServer'
 import {
   TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, FOTOS_ENTRADA, FOTOS_SAIDA, RISCOS,
   validarFicha, fotosFaltando,
@@ -99,6 +102,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       eventos: eventos || [],
       midias: (midias || []).map(m => ({ ...m, url: urlPor.get(m.path) || null })),
       procedimentos: procs || [],
+      pagamentos: await pagamentosDoPedido(id),
       pendencias_entrada: ['recebida'].includes(sol.status) ? await pendencias(sb, id, sol.servico, 'entrada') : [],
       pendencias_saida: ['em_bancada', 'descansando'].includes(sol.status) ? await pendencias(sb, id, sol.servico, 'saida') : [],
     }, { headers: { 'Cache-Control': 'no-store' } })
@@ -161,6 +165,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       await registrarEvento(id, para, todasRecusadas
         ? 'Nenhuma carta pode ser tratada'
         : `Orçamento de R$ ${((total || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${recusadas.length ? `, ${recusadas.length} ${recusadas.length === 1 ? 'carta recusada' : 'cartas recusadas'}` : ''}`)
+      // Etapas de pagamento nascem (ou se ajustam, se ainda nao pagas) com o orcamento.
+      if (para === 'orcado') await sincronizarPagamentos(id)
       // Re-orcar (orcado -> orcado) tambem avisa: o cliente precisa ver o valor novo.
       await notificarCliente(id, para)
       return NextResponse.json({ ok: true, status: para })
@@ -181,12 +187,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         if (sol.servico !== 'pre_grading') return erro(409, 'Envie a proposta de tratamento antes da bancada')
         const f = await pendencias(sb, id, sol.servico, 'entrada')
         if (f.length) return erro(409, `Falta: ${f.join(', ')}`)
+        const integral = (await pagamentosDoPedido(id)).find(l => l.etapa === 'integral')
+        if (integral && !integral.pago_em) return erro(409, 'Confirme o pagamento antes da bancada')
       }
       if (para === 'em_bancada' && sol.status === 'proposta') {
         if (!sol.proposta_aceita_em) return erro(409, 'O cliente ainda não decidiu a proposta')
         const { count } = await sb.from('servico_procedimentos').select('id', { count: 'exact', head: true })
           .eq('solicitacao_id', id).eq('decisao', 'aprovado')
         if (!count) return erro(409, 'Nenhum procedimento foi aprovado: devolva a carta sem serviço')
+        // Nenhum trabalho comeca sem o servico pago (decisao do Du, 27/09/2026).
+        const servico = (await pagamentosDoPedido(id)).find(l => l.etapa === 'servico')
+        if (servico && !servico.pago_em) return erro(409, 'Confirme o pagamento do serviço antes da bancada')
       }
       if (para === 'pronta') {
         const f = await pendencias(sb, id, sol.servico, 'saida')
@@ -237,8 +248,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // ── Pagamento (Pix combinado fora do site) ──────────────────────────────
     if (body.acao === 'pagamento') {
       if (!['orcado', 'aceito', 'recebida', 'proposta', 'em_bancada', 'descansando', 'pronta'].includes(sol.status)) return erro(409, 'Pagamento não se aplica a este status')
-      // So na transicao "nao pago -> pago": dois cliques (ou duas abas) nao
-      // registram o pagamento duas vezes.
+      // Pedido com etapas (fatia 3): confirma a etapa pedida, so na transicao.
+      const linhas = await pagamentosDoPedido(id)
+      if (linhas.length) {
+        const etapa = String(body.etapa || '') as EtapaPagamento
+        if (!linhas.some(l => l.etapa === etapa)) return erro(400, 'Etapa de pagamento inválida')
+        const r = await confirmarPagamento(id, etapa, 'pix_manual')
+        if (!r.ok) return erro(409, 'Esta etapa já está paga')
+        await registrarEvento(id, sol.status, `Pix confirmado: ${ROTULO_ETAPA[etapa].toLowerCase()}`)
+        if ((etapa === 'sinal' || etapa === 'integral') && sol.status === 'aceito') await notificarCliente(id, 'liberado_envio')
+        if (etapa === 'servico') await notificarCliente(id, 'servico_pago')
+        return NextResponse.json({ ok: true, tudoPago: r.tudoPago })
+      }
+      // Pedido antigo, sem etapas: um pagamento so. So na transicao "nao pago -> pago".
       const { data: marcou, error } = await sb.from('servico_solicitacoes')
         .update({ pagamento_metodo: 'pix_manual', pago_em: new Date().toISOString() })
         .eq('id', id).is('pago_em', null).select('id')

@@ -115,7 +115,7 @@ export async function urlDeUpload(path: string) {
 // update filtra pelo status atual), entao cada e-mail sai uma vez. Falha de
 // envio nunca derruba a rota: loga e segue.
 
-export type EtapaEmail = 'recebido' | 'orcado' | 'recusado_bynx' | 'aceito' | 'recebida' | 'proposta' | 'pronta' | 'enviada'
+export type EtapaEmail = 'recebido' | 'orcado' | 'recusado_bynx' | 'aceito' | 'liberado_envio' | 'cobrar_servico' | 'servico_pago' | 'recebida' | 'proposta' | 'pronta' | 'enviada'
 
 const APP = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 const reais = (c: number | null | undefined) => `R$ ${brl((c || 0) / 100)}`
@@ -124,6 +124,109 @@ const reais = (c: number | null | undefined) => `R$ ${brl((c || 0) / 100)}`
 export function enderecoRecebimento(): string | null {
   const e = process.env.SERVICOS_ENDERECO?.trim()
   return e ? e.replace(/\\n/g, '\n') : null
+}
+
+// ── Pagamento por etapa (fatia 3) ───────────────────────────────────────────
+// sinal    no aceite: seguro + frete de volta (a Bynx gasta com ou sem servico)
+// servico  na aprovacao da proposta, antes da bancada: servico (+ expresso)
+// integral pre-grading sozinho: tudo no aceite (nao tem proposta)
+// Decisao do Du, 27/09/2026, seguindo o painel de pagamento.
+
+export type EtapaPagamento = 'sinal' | 'servico' | 'integral'
+export const ROTULO_ETAPA: Record<EtapaPagamento, string> = { sinal: 'Sinal', servico: 'Serviço', integral: 'Pagamento' }
+
+/** Chave Pix de recebimento: so no servidor (env), como o endereco. */
+export function pixRecebimento(): { chave: string; nome: string | null } | null {
+  const chave = process.env.SERVICOS_PIX_CHAVE?.trim()
+  return chave ? { chave, nome: process.env.SERVICOS_PIX_NOME?.trim() || null } : null
+}
+
+export interface LinhaPagamento {
+  id: string; etapa: EtapaPagamento; valor_cents: number; metodo: string | null; pago_em: string | null
+}
+
+/** Quanto cobrar em cada etapa, a partir do orcamento. */
+export function etapasDoOrcamento(sol: { servico: string; orcamento_cents: number | null; seguro_cents: number | null; frete_volta_cents: number | null; total_cents: number | null }) {
+  if (sol.servico === 'pre_grading') {
+    return (sol.total_cents || 0) > 0 ? [{ etapa: 'integral' as const, valor_cents: sol.total_cents! }] : []
+  }
+  const sinal = (sol.seguro_cents || 0) + (sol.frete_volta_cents || 0)
+  const out: { etapa: EtapaPagamento; valor_cents: number }[] = []
+  if (sinal > 0) out.push({ etapa: 'sinal', valor_cents: sinal })
+  if ((sol.orcamento_cents || 0) > 0) out.push({ etapa: 'servico', valor_cents: sol.orcamento_cents! })
+  return out
+}
+
+/**
+ * Cria/atualiza as linhas de pagamento a partir do orcamento (chamado ao orcar e
+ * ao reorcar). So mexe em etapa ainda NAO paga: o que ja foi pago nunca muda.
+ */
+export async function sincronizarPagamentos(solicitacaoId: string) {
+  const sb = sbAdmin()
+  const { data: sols } = await sb.from('servico_solicitacoes')
+    .select('servico, orcamento_cents, seguro_cents, frete_volta_cents, total_cents').eq('id', solicitacaoId).limit(1)
+  const sol = sols?.[0]
+  if (!sol) return
+  const alvo = etapasDoOrcamento(sol)
+  const { data: atuais } = await sb.from('servico_pagamentos').select('id, etapa, pago_em').eq('solicitacao_id', solicitacaoId)
+  for (const a of atuais || []) {
+    if (!a.pago_em && !alvo.some(x => x.etapa === a.etapa)) await sb.from('servico_pagamentos').delete().eq('id', a.id).is('pago_em', null)
+  }
+  for (const x of alvo) {
+    const existe = (atuais || []).find(a => a.etapa === x.etapa)
+    if (!existe) await sb.from('servico_pagamentos').insert({ solicitacao_id: solicitacaoId, etapa: x.etapa, valor_cents: x.valor_cents })
+    else if (!existe.pago_em) await sb.from('servico_pagamentos').update({ valor_cents: x.valor_cents }).eq('id', existe.id).is('pago_em', null)
+  }
+}
+
+export async function pagamentosDoPedido(solicitacaoId: string): Promise<LinhaPagamento[]> {
+  const { data } = await sbAdmin().from('servico_pagamentos')
+    .select('id, etapa, valor_cents, metodo, pago_em').eq('solicitacao_id', solicitacaoId)
+  const ordem: EtapaPagamento[] = ['integral', 'sinal', 'servico']
+  return ((data || []) as LinhaPagamento[]).sort((a, b) => ordem.indexOf(a.etapa) - ordem.indexOf(b.etapa))
+}
+
+/** A etapa que o cliente deve pagar AGORA (ou null). */
+export function etapaDevida(status: string, propostaAceita: boolean, linhas: LinhaPagamento[]): LinhaPagamento | null {
+  const aberta = (e: EtapaPagamento) => linhas.find(l => l.etapa === e && !l.pago_em) || null
+  if (status === 'aceito' || status === 'recebida') return aberta('integral') || aberta('sinal')
+  if (status === 'proposta' && propostaAceita) return aberta('servico')
+  return null
+}
+
+/** Etapa paga libera o envio da carta (endereco)? */
+export function envioLiberado(linhas: LinhaPagamento[]) {
+  if (!linhas.length) return true // pedido antigo, sem etapas: mantem o comportamento anterior
+  const primeira = linhas.find(l => l.etapa === 'integral' || l.etapa === 'sinal')
+  return !primeira || !!primeira.pago_em
+}
+
+/**
+ * Confirma o pagamento de UMA etapa, so na transicao (pago_em is null). Quando
+ * a ultima etapa fecha, grava o pago_em do pedido ("tudo pago"), que e o que a
+ * trava do envio de volta le. Devolve false se a etapa ja estava paga.
+ */
+export async function confirmarPagamento(solicitacaoId: string, etapa: EtapaPagamento, metodo: 'pix_manual' | 'stripe', extra: Record<string, unknown> = {}) {
+  const sb = sbAdmin()
+  const agora = new Date().toISOString()
+  const { data: marcou, error } = await sb.from('servico_pagamentos')
+    .update({ metodo, pago_em: agora, ...extra })
+    .eq('solicitacao_id', solicitacaoId).eq('etapa', etapa).is('pago_em', null).select('id')
+  if (error) throw new Error(error.message)
+  if (!marcou?.length) return { ok: false as const, tudoPago: false }
+  const linhas = await pagamentosDoPedido(solicitacaoId)
+  const tudoPago = linhas.length > 0 && linhas.every(l => l.pago_em)
+  if (tudoPago) {
+    await sb.from('servico_solicitacoes').update({ pago_em: agora, pagamento_metodo: metodo }).eq('id', solicitacaoId).is('pago_em', null)
+  }
+  return { ok: true as const, tudoPago }
+}
+
+function blocoPix(valor: number, numero: string) {
+  const pix = pixRecebimento()
+  return pix
+    ? `Pix de ${reais(valor)}\nChave: ${pix.chave}${pix.nome ? `\nFavorecido: ${pix.nome}` : ''}\nNa descrição do Pix, escreva: ${numero}`
+    : `Valor: ${reais(valor)}\nA chave Pix chega por e-mail ou WhatsApp. Na descrição do Pix, escreva: ${numero}`
 }
 
 export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail) {
@@ -163,7 +266,7 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         ...base, assunto: `Orçamento do pedido ${numero}`, selo: 'Orçamento pronto', titulo: `Seu orçamento: ${reais(sol.total_cents)}`,
         paragrafos: [
           `Analisamos as fotos. ${aceitas.length === 1 ? 'Uma carta pode' : `${aceitas.length} cartas podem`} ser tratada${aceitas.length === 1 ? '' : 's'}${recusadas.length ? `, e ${recusadas.length === 1 ? 'uma ficou' : `${recusadas.length} ficaram`} de fora (o motivo está no pedido)` : ''}.`,
-          'Para seguir, abra o pedido, leia o termo e aprove. Só então aparece o endereço de envio.',
+          'Para seguir, abra o pedido, leia o termo e aprove. Você paga agora só o sinal (seguro e frete de volta); o serviço é cobrado depois que a carta chegar e você aprovar a proposta de tratamento.',
         ],
         linhas: [
           { rotulo: 'Serviço', valor: reais(sol.orcamento_cents) },
@@ -183,10 +286,27 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         ],
         cta,
       })
-    } else if (etapa === 'aceito') {
+    } else if (etapa === 'aceito' || etapa === 'liberado_envio') {
+      const linhas = await pagamentosDoPedido(solicitacaoId)
+      const devida = etapa === 'aceito' ? etapaDevida('aceito', false, linhas) : null
+      if (devida) {
+        await sendServicoClienteEmail({
+          ...base, assunto: `Orçamento aprovado: pedido ${numero}`, selo: 'Orçamento aprovado',
+          titulo: devida.etapa === 'sinal' ? `Falta o sinal de ${reais(devida.valor_cents)}` : `Falta o pagamento de ${reais(devida.valor_cents)}`,
+          paragrafos: [
+            devida.etapa === 'sinal'
+              ? 'O sinal cobre o seguro e o frete de volta da sua carta. O valor do serviço só é cobrado depois, quando você aprovar a proposta de tratamento.'
+              : 'Assim que o pagamento cair, liberamos o endereço de envio.',
+            'Depois do Pix, a Bynx confirma o pagamento e o endereço de envio aparece na página do pedido e no seu e-mail.',
+          ],
+          destaque: blocoPix(devida.valor_cents, numero),
+          cta: { rotulo: 'Ver o pedido', href: link },
+        })
+        return
+      }
       const endereco = enderecoRecebimento()
       await sendServicoClienteEmail({
-        ...base, assunto: `Como enviar a carta do pedido ${numero}`, selo: 'Orçamento aprovado', titulo: 'Agora é só enviar',
+        ...base, assunto: `Como enviar a carta do pedido ${numero}`, selo: etapa === 'liberado_envio' ? 'Pagamento confirmado' : 'Orçamento aprovado', titulo: 'Agora é só enviar',
         paragrafos: [
           endereco ? 'Envie para o endereço abaixo e escreva o número do pedido do lado de fora do pacote.' : 'O endereço de envio chega em seguida, por e-mail ou WhatsApp.',
           ...GUIA_EMBALAGEM,
@@ -194,6 +314,28 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         ],
         destaque: endereco ? `${endereco}\nPedido ${numero}` : undefined,
         cta: { rotulo: 'Informar o rastreio', href: link },
+      })
+    } else if (etapa === 'cobrar_servico') {
+      const linhas = await pagamentosDoPedido(solicitacaoId)
+      const devida = linhas.find(l => l.etapa === 'servico' && !l.pago_em)
+      if (!devida) return
+      await sendServicoClienteEmail({
+        ...base, assunto: `Pagamento do serviço: pedido ${numero}`, selo: 'Proposta aprovada', titulo: `Falta o serviço: ${reais(devida.valor_cents)}`,
+        paragrafos: [
+          'Recebemos a sua decisão sobre a proposta de tratamento.',
+          'Com o pagamento do serviço, a carta vai para a bancada e o prazo começa a contar.',
+        ],
+        destaque: blocoPix(devida.valor_cents, numero),
+        cta: { rotulo: 'Ver o pedido', href: link },
+      })
+    } else if (etapa === 'servico_pago') {
+      await sendServicoClienteEmail({
+        ...base, assunto: `Pagamento confirmado: pedido ${numero}`, selo: 'Pagamento confirmado', titulo: 'Sua carta vai para a bancada',
+        paragrafos: [
+          'O pagamento do serviço foi confirmado. A partir de agora a sua carta está na fila da bancada e o prazo começou a contar.',
+          'Você acompanha cada etapa na página do pedido.',
+        ],
+        cta,
       })
     } else if (etapa === 'recebida') {
       await sendServicoClienteEmail({

@@ -42,7 +42,16 @@ type Proc = {
 }
 type Evento = { id: string; status: string; nota: string | null; created_at: string }
 type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; mime: string; url: string | null }
-type Dados = { solicitacao: Sol; itens: Item[]; eventos: Evento[]; midias: Midia[]; procedimentos: Proc[]; endereco: string | null }
+type Pag = { etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; pago_em: string | null }
+type Dados = {
+  solicitacao: Sol; itens: Item[]; eventos: Evento[]; midias: Midia[]; procedimentos: Proc[]; endereco: string | null
+  pagamentos: Pag[]; devida: { etapa: Pag['etapa']; valor_cents: number } | null; pix: { chave: string; nome: string | null } | null
+}
+const ETAPA_PAG: Record<string, { t: string; d: string }> = {
+  sinal: { t: 'Sinal', d: 'Seguro e frete de volta, pago no aceite. Libera o endereço de envio.' },
+  servico: { t: 'Serviço', d: 'Pago quando você aprova a proposta. Libera a bancada.' },
+  integral: { t: 'Pagamento', d: 'Pago no aceite. Libera o endereço de envio.' },
+}
 
 // Linha de etapas: onde o pedido esta, em linguagem do cliente.
 const ETAPAS = [
@@ -108,7 +117,7 @@ function Pedido({ id }: { id: string }) {
   if (erro) return <div className="sp"><style>{CSS}</style><div className="sp-card sp-vazio"><IconShield size={24} /><p>{erro}</p><Link className="sp-bt" href="/compras">Minhas compras</Link></div></div>
   if (!dados) return <div className="sp"><style>{CSS}</style><p className="sp-muted">Carregando...</p></div>
 
-  const { solicitacao: s, itens, eventos, midias, procedimentos, endereco } = dados
+  const { solicitacao: s, itens, eventos, midias, procedimentos, endereco, pagamentos, devida, pix } = dados
   const pendentes = procedimentos.filter(p => p.decisao === 'pendente')
   const tudoDecidido = pendentes.every(p => decisoes[p.id])
   const objetivoRotulo = OBJETIVOS.find(o => o.id === s.objetivo)?.rotulo
@@ -237,6 +246,34 @@ function Pedido({ id }: { id: string }) {
             </section>
           )}
 
+          {devida && (
+            <section className="sp-card sp-card-acao">
+              <h2>{devida.etapa === 'servico' ? 'Pagamento do serviço' : devida.etapa === 'sinal' ? 'Pagamento do sinal' : 'Pagamento'}</h2>
+              <p className="sp-muted">
+                {devida.etapa === 'servico'
+                  ? 'Com o pagamento do serviço, sua carta vai para a bancada e o prazo começa a contar.'
+                  : devida.etapa === 'sinal'
+                    ? 'O sinal cobre o seguro e o frete de volta da sua carta. O serviço só é cobrado quando você aprovar a proposta de tratamento. Com o sinal confirmado, o endereço de envio aparece aqui.'
+                    : 'Com o pagamento confirmado, o endereço de envio aparece aqui.'}
+              </p>
+              <div className="sp-pix">
+                <span>Pix</span>
+                <b>R$ {brl(devida.valor_cents / 100)}</b>
+                {pix ? (
+                  <>
+                    <div className="sp-pix-chave">
+                      <code>{pix.chave}</code>
+                      <button type="button" className="sp-bt" onClick={() => navigator.clipboard?.writeText(pix.chave).then(() => setMsg({ ok: true, t: 'Chave Pix copiada.' })).catch(() => {})}>Copiar chave</button>
+                    </div>
+                    {pix.nome && <small>Favorecido: {pix.nome}</small>}
+                  </>
+                ) : <small>A chave Pix chega por e-mail ou WhatsApp.</small>}
+                <small>Na descrição do Pix, escreva <b>{numeroServico(s.numero)}</b>.</small>
+              </div>
+              <p className="sp-muted">Depois do Pix, a Bynx confirma o pagamento e esta página atualiza sozinha no próximo acesso. Você também recebe um e-mail.</p>
+            </section>
+          )}
+
           {s.status === 'aceito' && (
             <section className="sp-card sp-card-acao">
               <h2>Como enviar a sua carta</h2>
@@ -247,7 +284,7 @@ function Pedido({ id }: { id: string }) {
                   <small>Escreva &quot;Pedido {numeroServico(s.numero)}&quot; do lado de fora do pacote.</small>
                 </div>
               ) : (
-                <p className="sp-aviso"><IconWarning size={15} /> O endereço de envio chega por e-mail ou WhatsApp em seguida.</p>
+                <p className="sp-aviso"><IconWarning size={15} /> {devida ? 'O endereço de envio aparece aqui assim que o pagamento acima for confirmado.' : 'O endereço de envio chega por e-mail ou WhatsApp em seguida.'}</p>
               )}
               <ol className="sp-guia">{GUIA_EMBALAGEM.map(g => <li key={g}>{g}</li>)}</ol>
               <div className="sp-rastreio">
@@ -311,6 +348,19 @@ function Pedido({ id }: { id: string }) {
         </div>
 
         <aside className="sp-col">
+          {pagamentos.length > 0 && (
+            <section className="sp-card">
+              <h2>Pagamentos</h2>
+              <ul className="sp-pags">
+                {pagamentos.map(pg => (
+                  <li key={pg.etapa} className={pg.pago_em ? 'ok' : ''}>
+                    <div><b>{ETAPA_PAG[pg.etapa]?.t}</b><span>R$ {brl(pg.valor_cents / 100)}</span></div>
+                    <small>{pg.pago_em ? <><IconCheck size={12} /> Pago em {fmtDataHoraBRT.format(new Date(pg.pago_em))}</> : ETAPA_PAG[pg.etapa]?.d}</small>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="sp-card">
             <h2>Linha do tempo</h2>
             <ol className="sp-tl">
@@ -465,6 +515,19 @@ const CSS = `
 .sp-procs-feitos li.nao{color:var(--bx-text-2)}
 .sp-procs-feitos li.nao svg{color:var(--bx-red)}
 .sp-procs-feitos small{font-size:12px;color:var(--bx-text-3)}
+.sp-pix{display:grid;gap:6px;padding:14px;border-radius:12px;background:var(--bx-bg);border:1px solid rgba(var(--ac-1-rgb),.4)}
+.sp-pix > span{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ac-1)}
+.sp-pix > b{font-size:26px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.sp-pix small{font-size:13px;color:var(--bx-text-2)}
+.sp-pix-chave{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sp-pix-chave code{flex:1 1 180px;min-width:0;padding:10px 12px;border-radius:10px;background:var(--bx-surface-2);font-size:14px;overflow-wrap:anywhere}
+.sp-pags{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.sp-pags li{display:grid;gap:4px;padding:10px 12px;border-radius:10px;border:1px solid var(--bx-border)}
+.sp-pags li.ok{border-color:color-mix(in srgb,var(--bx-green) 35%,transparent)}
+.sp-pags li > div{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.sp-pags li span{font-weight:700;font-variant-numeric:tabular-nums}
+.sp-pags small{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;line-height:1.45;color:var(--bx-text-2)}
+.sp-pags li.ok small{color:var(--bx-green)}
 .sp-garantia{grid-template-columns:24px minmax(0,1fr);align-items:start;color:var(--bx-green)}
 .sp-garantia p{margin:0;font-size:13px;line-height:1.55;color:var(--bx-text-2)}
 @media (max-width:980px){ .sp-grid{grid-template-columns:1fr} }

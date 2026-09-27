@@ -6,7 +6,10 @@
 // chegou -- e vem do ambiente do servidor, nunca do repositorio.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sbAdmin, carregarAutorizado, erro, enderecoRecebimento, BUCKET_SERVICOS } from '@/lib/servicosServer'
+import {
+  sbAdmin, carregarAutorizado, erro, enderecoRecebimento, BUCKET_SERVICOS, pagamentosDoPedido, etapaDevida,
+  envioLiberado, pixRecebimento,
+} from '@/lib/servicosServer'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +32,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const sol = sols?.[0]
     if (!sol) return erro(404, 'Solicitação não encontrada')
 
+    // Pagamento por etapa: o endereco so sai depois do sinal (ou do integral).
+    const pagamentos = await pagamentosDoPedido(id)
+    const devida = etapaDevida(sol.status, !!sol.proposta_aceita_em, pagamentos)
+
     const paths = (midias || []).map(m => m.path)
     const { data: assinadas } = paths.length
       ? await sb.storage.from(BUCKET_SERVICOS).createSignedUrls(paths, 600)
@@ -42,7 +49,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       midias: (midias || []).map(({ path, ...m }) => ({ ...m, url: urlPor.get(path) || null })),
       // A proposta so aparece para o cliente depois de enviada (rascunho do painel fica oculto).
       procedimentos: sol.proposta_enviada_em ? procs || [] : [],
-      endereco: sol.status === 'aceito' ? enderecoRecebimento() : null,
+      endereco: sol.status === 'aceito' && envioLiberado(pagamentos) ? enderecoRecebimento() : null,
+      pagamentos: pagamentos.map(({ etapa, valor_cents, pago_em }) => ({ etapa, valor_cents, pago_em })),
+      devida: devida ? { etapa: devida.etapa, valor_cents: devida.valor_cents } : null,
+      pix: devida ? pixRecebimento() : null,
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error('[servicos/id GET]', e instanceof Error ? e.message : e)

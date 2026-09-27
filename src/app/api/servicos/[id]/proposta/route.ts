@@ -7,7 +7,7 @@
 // duas respostas simultaneas nao passam. A Bynx e avisada por e-mail.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sbAdmin, carregarAutorizado, erro, registrarEvento, notificarAdmin } from '@/lib/servicosServer'
+import { sbAdmin, carregarAutorizado, erro, registrarEvento, notificarAdmin, notificarCliente } from '@/lib/servicosServer'
 import { TERMO_PROPOSTA_VERSAO } from '@/lib/servicos'
 
 export const dynamic = 'force-dynamic'
@@ -50,6 +50,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       `O cliente respondeu a proposta de tratamento: ${resumo}.`,
       aprovados.length ? 'Já dá para levar as cartas para a bancada.' : 'Nada foi aprovado: a carta volta sem serviço.',
     ])
+    // Com algo aprovado, o servico e cobrado agora, antes da bancada.
+    if (aprovados.length) await notificarCliente(id, 'cobrar_servico')
     return NextResponse.json({ ok: true, aprovados: aprovados.length, recusados: recusados.length })
   } catch (e) {
     console.error('[servicos/proposta]', e instanceof Error ? e.message : e)

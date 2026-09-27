@@ -128,9 +128,9 @@ export const NAO_RESOLVE = [
 
 export const PASSOS = [
   { t: 'Orçamento pelas fotos', d: 'Você manda frente e verso. A Bynx diz o que dá para fazer e quanto custa, antes de qualquer envio.' },
-  { t: 'Você aprova e envia', d: 'O endereço aparece só depois do aceite, com o guia de embalagem.' },
+  { t: 'Você aprova e envia', d: 'Você aprova o orçamento e paga o sinal, que cobre o seguro e o frete de volta. Aí aparece o endereço, com o guia de embalagem.' },
   { t: 'Chegada filmada', d: 'O pacote é aberto em vídeo, sem corte, com a etiqueta visível. A carta ganha um número de custódia e uma ficha de condição com fotos de cada canto.' },
-  { t: 'Você aprova o tratamento', d: 'Para cada carta chega uma proposta: o que foi encontrado, o que fazer, o risco e a alternativa de não mexer. Nada começa sem o seu sim.' },
+  { t: 'Você aprova o tratamento', d: 'Para cada carta chega uma proposta: o que foi encontrado, o que fazer, o risco e a alternativa de não mexer. Com o seu sim e o pagamento do serviço, a carta vai para a bancada.' },
   { t: 'Bancada e descanso', d: 'Depois da prensa, a carta descansa. É essa etapa que faz o resultado durar, e ela não tem atalho.' },
   { t: 'Volta com laudo e rastreio', d: 'Fotos de saída na mesma luz da entrada, embalagem lacrada e código de rastreio na sua conta.' },
 ]
@@ -187,6 +187,10 @@ export interface Faq { q: string; a: string }
 
 export const FAQ_RESTAURACAO: Faq[] = [
   {
+    q: 'Quando eu pago?',
+    a: 'Em duas partes. No aceite do orçamento você paga o sinal, que cobre o seguro e o frete de volta. O serviço só é cobrado quando a carta já chegou e você aprovou a proposta de tratamento, antes de a Bynx tocar nela. No pré-grading, que não tem proposta, o pagamento é um só, no aceite.',
+  },
+  {
     q: 'E se a carta se perder no correio?',
     a: 'Ela viaja com valor declarado nos dois sentidos, e cada etapa fica registrada na sua conta com foto. O endereço de envio só aparece depois que você aprova o orçamento.',
   },
@@ -233,8 +237,8 @@ export const FAQ_PRE_GRADING: Faq[] = [
     q: 'Vocês enviam a carta para a graduadora por mim?',
     a: 'Por enquanto a carta volta para você preparada para o envio, e a escolha da graduadora fica com você, com a recomendação do laudo.',
   },
-  FAQ_RESTAURACAO[0],
-  FAQ_RESTAURACAO[4],
+  // Por pergunta, nao por posicao: a ordem do FAQ da restauracao muda.
+  ...FAQ_RESTAURACAO.filter(f => ['Quando eu pago?', 'E se a carta se perder no correio?', 'Como sei que a carta que volta é a mesma?'].includes(f.q)),
 ]
 
 // ── Formulario ───────────────────────────────────────────────────────────────

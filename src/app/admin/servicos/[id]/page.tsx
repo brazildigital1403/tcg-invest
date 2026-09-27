@@ -41,9 +41,12 @@ type Item = {
 type Evento = { id: string; status: string; nota: string | null; created_at: string }
 type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; mime: string; tamanho: number; url: string | null }
 type Proc = Procedimento & { id: string; item_id: string; decisao: string }
+type Pagamento = { id: string; etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; metodo: string | null; pago_em: string | null }
+const ROTULO_ETAPA: Record<string, string> = { sinal: 'Sinal (seguro + frete)', servico: 'Serviço', integral: 'Pagamento integral' }
 type Dados = {
   solicitacao: Sol; cliente: { name: string; email: string } | null; itens: Item[]; eventos: Evento[]; midias: Midia[]
   procedimentos: Proc[]; pendencias_entrada: string[]; pendencias_saida: string[]
+  pagamentos: Pagamento[]
 }
 
 const ROTULO_MIDIA: Record<string, string> = {
@@ -123,7 +126,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
   if (erroCarga) return <div className="sv-adm"><style>{CSS}</style><p className="ad-erro">{erroCarga}</p><button type="button" className="ad-bt" onClick={carregar}>Tentar de novo</button></div>
   if (!dados) return <div className="sv-adm"><style>{CSS}</style><p className="ad-muted">Carregando...</p></div>
 
-  const { solicitacao: s, cliente, itens, eventos, midias, procedimentos, pendencias_entrada, pendencias_saida } = dados
+  const { solicitacao: s, cliente, itens, eventos, midias, procedimentos, pendencias_entrada, pendencias_saida, pagamentos } = dados
   const objetivo = OBJETIVOS.find(o => o.id === s.objetivo)?.rotulo
   const vez = turnoServico(s.status)
 
@@ -206,6 +209,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
             ocupado={ocupado}
             pendencias={s.status === 'recebida' ? pendencias_entrada : pendencias_saida}
             procs={procedimentos}
+            pagamentos={pagamentos}
             mover={(para, extra) => acao({ acao: 'status', para, ...extra }, `status-${para}`, `Status: ${STATUS_SERVICO[para]}.`)}
             enviarProposta={() => acao({ acao: 'enviar_proposta' }, 'enviar_proposta', 'Proposta enviada ao cliente.')}
           />
@@ -220,7 +224,23 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
               <div className="ad-total"><dt>Total</dt><dd>{reais(s.total_cents)}</dd></div>
             </dl>
             {s.orcamento_obs && <p className="ad-obs">{s.orcamento_obs}</p>}
-            {s.pago_em
+            {pagamentos.length > 0 ? (
+              <div className="ad-pags">
+                {pagamentos.map(pg => (
+                  <div key={pg.id} className={`ad-pag${pg.pago_em ? ' ad-pag-ok' : ''}`}>
+                    <div><b>{ROTULO_ETAPA[pg.etapa]}</b><span>{reais(pg.valor_cents)}</span></div>
+                    {pg.pago_em
+                      ? <small><IconCheck size={12} /> {pg.metodo === 'stripe' ? 'Cartão' : 'Pix'} em {fmtDataHoraBRT.format(new Date(pg.pago_em))}</small>
+                      : ['aceito', 'recebida', 'proposta', 'em_bancada', 'descansando', 'pronta'].includes(s.status) && (
+                        <button type="button" className="ad-bt" disabled={!!ocupado}
+                          onClick={() => confirm(`Confirmar que o Pix de ${reais(pg.valor_cents)} (${ROTULO_ETAPA[pg.etapa].toLowerCase()}) caiu?`) && acao({ acao: 'pagamento', etapa: pg.etapa }, `pagamento-${pg.etapa}`, 'Pagamento confirmado.')}>
+                          {ocupado === `pagamento-${pg.etapa}` ? 'Salvando...' : 'Confirmar Pix'}
+                        </button>
+                      )}
+                  </div>
+                ))}
+              </div>
+            ) : s.pago_em
               ? <p className="ad-ok" style={{ margin: 0 }}><IconCheck size={14} /> Pago via Pix em {fmtDataHoraBRT.format(new Date(s.pago_em))}</p>
               : s.total_cents != null && ['orcado', 'aceito', 'recebida', 'proposta', 'em_bancada', 'descansando', 'pronta'].includes(s.status) && (
                 <button type="button" className="ad-bt" disabled={!!ocupado} onClick={() => confirm('Confirmar que o Pix deste pedido caiu?') && acao({ acao: 'pagamento' }, 'pagamento', 'Pagamento registrado.')}>
@@ -350,8 +370,8 @@ const ROTULO_ACAO: Record<string, string> = {
 }
 const PERIGO = ['cancelado', 'recusado_cliente', 'devolvida_sem_servico']
 
-function Acoes({ sol, ocupado, pendencias, procs, mover, enviarProposta }: {
-  sol: Sol; ocupado: string; pendencias: string[]; procs: Proc[]
+function Acoes({ sol, ocupado, pendencias, procs, pagamentos, mover, enviarProposta }: {
+  sol: Sol; ocupado: string; pendencias: string[]; procs: Proc[]; pagamentos: Pagamento[]
   mover: (para: string, extra?: Record<string, unknown>) => Promise<boolean>
   enviarProposta: () => Promise<boolean>
 }) {
@@ -362,6 +382,8 @@ function Acoes({ sol, ocupado, pendencias, procs, mover, enviarProposta }: {
   // Bancada a partir da chegada so no pre-grading; no resto, a proposta vem antes.
   const opcoes = (TRANSICOES_ADMIN[sol.status] || []).filter(p => !(sol.status === 'recebida' && p === 'em_bancada' && !preGrading))
   const aprovados = procs.filter(p => p.decisao === 'aprovado').length
+  const aberto = (e: string) => pagamentos.some(pg => pg.etapa === e && !pg.pago_em)
+  const bancadaSemPagamento = (sol.status === 'proposta' && aberto('servico')) || (sol.status === 'recebida' && aberto('integral'))
   if (!opcoes.length) return null
 
   return (
@@ -372,6 +394,12 @@ function Acoes({ sol, ocupado, pendencias, procs, mover, enviarProposta }: {
           <b>Antes de seguir, falta:</b>
           <ul>{pendencias.map(p => <li key={p}>{p}</li>)}</ul>
         </div>
+      )}
+      {opcoes.includes('em_bancada') && bancadaSemPagamento && (
+        <p className="ad-aviso"><IconWarning size={14} /> A bancada só libera depois do pagamento {sol.status === 'proposta' ? 'do serviço' : ''} confirmado, no quadro Valores.</p>
+      )}
+      {sol.status === 'aceito' && aberto('sinal') && (
+        <p className="ad-aviso"><IconWarning size={14} /> O cliente só vê o endereço depois do sinal confirmado.</p>
       )}
       {sol.status === 'recebida' && !preGrading && (
         <>
@@ -413,6 +441,7 @@ function Acoes({ sol, ocupado, pendencias, procs, mover, enviarProposta }: {
             disabled={!!ocupado
               || (para === 'enviada' && (!rastreio.trim() || !sol.pago_em))
               || (para === 'em_bancada' && sol.status === 'proposta' && (!sol.proposta_aceita_em || !aprovados))
+              || (para === 'em_bancada' && bancadaSemPagamento)
               || (para === 'em_bancada' && sol.status === 'recebida' && pendencias.length > 0)
               || (para === 'pronta' && pendencias.length > 0)}
             onClick={async () => {
@@ -547,6 +576,12 @@ const CSS = `
 .ad-pill-cliente{color:var(--bx-blue);background:color-mix(in srgb,var(--bx-blue) 12%,transparent)}
 .ad-pill-fim{color:var(--bx-text-3);background:var(--bx-surface-2)}
 .ad-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.ad-pags{display:grid;gap:8px}
+.ad-pag{display:grid;gap:6px;padding:10px 12px;border-radius:10px;border:1px solid var(--bx-border-2);background:var(--bx-bg)}
+.ad-pag > div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
+.ad-pag span{font-variant-numeric:tabular-nums;font-weight:700}
+.ad-pag small{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--bx-green)}
+.ad-pag-ok{border-color:color-mix(in srgb,var(--bx-green) 35%,transparent)}
 .ad-objetivo{font-size:13px;color:var(--bx-text-2);margin:4px 0 0}
 .ad-objetivo-grad b{color:var(--ac-1)}
 .ad-pend{padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--bx-red) 7%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 26%,transparent);font-size:13px}
