@@ -146,7 +146,6 @@ function Pedido({ id }: { id: string }) {
               </li>
             )
           })}
-          ))}
         </ol>
       )}
 
