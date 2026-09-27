@@ -464,7 +464,9 @@ function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir,
       )}
 
       <div className="ad-midias">
-        <GaleriaMidias midias={paraGaleria(midias)} tamanho={92} />
+        {/* So fotos do cliente e extras (dano, processo, rasante, laudo): as fotos do
+            protocolo aparecem nos checklists de entrada e saida logo abaixo. */}
+        <GaleriaMidias midias={paraGaleria(midias.filter(m => !(m.posicao && TIPOS_CHECKLIST.has(m.tipo))))} tamanho={92} />
       </div>
 
       {item.aceito !== false && chegou && (
@@ -515,6 +517,9 @@ function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir,
     </article>
   )
 }
+
+// Tipos do protocolo fotografico: com posicao, vivem nos checklists, nao na galeria.
+const TIPOS_CHECKLIST = new Set([...FOTOS_ENTRADA, ...FOTOS_SAIDA].map(f => f.tipo))
 
 function paraGaleria(ms: Midia[]) {
   return ms.map(m => ({ id: m.id, url: m.url, mime: m.mime, rotulo: ROTULO_MIDIA[m.tipo] || m.tipo }))
