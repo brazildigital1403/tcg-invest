@@ -107,6 +107,21 @@ export default function MeusLances() {
     }
   }, [carregar])
 
+  // Ancora (#ml-a_pagar, vinda de "Arremates a pagar"): a secao so existe
+  // depois da primeira resposta, entao o navegador nao rola sozinho. Rola uma
+  // vez, no primeiro estado pronto; o polling nao puxa a tela de novo.
+  const ancoraFeita = useRef(false)
+  useEffect(() => {
+    if (estado.tipo !== 'pronto' || ancoraFeita.current) return
+    ancoraFeita.current = true
+    const id = decodeURIComponent(window.location.hash.slice(1))
+    if (!id) return
+    const alvo = document.getElementById(id)
+    if (!alvo) return
+    const reduzir = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    alvo.scrollIntoView({ behavior: reduzir ? 'auto' : 'smooth', block: 'start' })
+  }, [estado.tipo])
+
   // Relogio da tela (1s), acertado pelo servidor.
   useEffect(() => {
     const t = setInterval(() => setAgora(Date.now() + deslocamento.current), 1000)
@@ -316,6 +331,8 @@ const S: Record<string, CSSProperties> = {
   secaoTitulo: {
     display: 'flex', alignItems: 'center', gap: 8,
     fontSize: 15, fontWeight: 800, color: 'var(--bx-text)', margin: '0 0 10px',
+    // Cabecalho fixo da casca tem 56px: a ancora nao pode parar debaixo dele.
+    scrollMarginTop: 72,
   },
   contagem: {
     fontSize: 12, fontWeight: 700, color: 'var(--bx-text-3)', fontVariantNumeric: 'tabular-nums',
