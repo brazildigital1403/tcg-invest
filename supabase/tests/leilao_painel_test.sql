@@ -279,8 +279,12 @@ begin
     perform public.leilao_cancelar_rodada('c5000000-0000-4000-8000-000000000004', 'f5000000-0000-4000-8000-000000000001', null);
     raise exception 'FALHOU T12c: cancelou rodada com lote encerrado';
   exception when others then
-    if sqlerrm <> 'lote_ja_abriu' then raise exception 'FALHOU T12c: %', sqlerrm; end if;
+    -- O tick do T11 ja encerra esta rodada (o unico lote fechou sem lances),
+    -- entao a recusa pode vir como rodada_fechada; as duas barram o cancelamento.
+    if sqlerrm not in ('lote_ja_abriu', 'rodada_fechada') then raise exception 'FALHOU T12c: %', sqlerrm; end if;
   end;
+  assert (select status from public.leilao_rodadas where id = 'c5000000-0000-4000-8000-000000000004') <> 'cancelada',
+    'FALHOU T12d: rodada com lote encerrado virou cancelada';
 end $$;
 
 -- ─── T13: cancelar rascunho -> rodada cancelada, lotes cancelado ────────────
