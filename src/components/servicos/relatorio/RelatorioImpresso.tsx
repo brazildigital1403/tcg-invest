@@ -16,7 +16,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  SERVICOS, ESCALA, PILARES, DANOS, IDENTIFICACAO, RISCOS, GRADUADORAS, OBJETIVOS, ALERTA_GRADUACAO,
+  SERVICOS, ESCALA, PILARES, DANOS, IDENTIFICACAO, RISCOS, GRADUADORAS, compararCentralizacao, OBJETIVOS, ALERTA_GRADUACAO,
   CUSTODIA, CUSTODIA_PRE_GRADING, FOTOS_ENTRADA, FOTOS_SAIDA, brl, compararFicha, fmtDataHoraAnoBRT, fmtDataAnoBRT,
   type FichaCondicao,
 } from '@/lib/servicos'
@@ -430,6 +430,7 @@ function montarBlocos(d: RelatorioDados): Bloco[] {
         }]
       }
       const quando = GRADUADORAS.find(g => g.nome === la.graduadora)?.quando
+      const limite = compararCentralizacao(la.graduadora, la.centralizacaoFrente, la.centralizacaoVerso)
       const lo = la.faixa ? Math.floor(la.faixa.min) : 0
       const hi = la.faixa ? Math.ceil(la.faixa.max) : 0
       return [
@@ -460,6 +461,12 @@ function montarBlocos(d: RelatorioDados): Bloco[] {
                     </tbody>
                   </table>
                   <div className="leg">Medida com régua sobre a foto em luz difusa. Centralização vem da impressão e não tem correção.</div>
+                  {limite && (
+                    <div>
+                      <p><b>{limite.texto}</b></p>
+                      <div className="leg">{limite.nota}</div>
+                    </div>
+                  )}
                   <div className="faixa-selo">
                     <div className="rot sem-marca">3. Faixa provável</div>
                     <div className="faixa-num num">{la.faixa ? la.faixa.texto : 'Não registrada'}</div>

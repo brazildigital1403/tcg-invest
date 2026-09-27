@@ -695,6 +695,108 @@ export function lerGraduadora(v: unknown): string | null {
   return g ? g.nome : null
 }
 
+// ── Limite de centralizacao publicado por graduadora ───────────────────────
+// Numeros = lado maior da proporcao (55 = 55/45), da nota mais alta para a
+// mais baixa. Verso null = a graduadora nao separa o verso naquela nota.
+// So fonte oficial, consultada em 27/09/2026. Revisar quando alguma mudar.
+//  - PSA: psacard.com/gradingstandards (vale para "cards" em geral).
+//  - BGS: beckett.com/grading/scale (fora do ar na consulta; lida a copia de
+//    03/05/2026 do Wayback Machine). Gem Mint 9.5 e 50/50 num sentido e 55/45
+//    no outro: aqui entra o pior sentido.
+//  - CGC: cgccards.com/card-grading/grading-scale. Para TCG so a nota 10 tem
+//    numero; do 9 para baixo o limite publicado e de esporte/nao-esporte.
+//  - TAG: taggrading.com/pages/rubric, coluna de verso de TCG (ate a nota 8).
+//  - GBA: gbagrading.com.br/terms fala de centralizacao so de forma qualitativa.
+
+export const LIMITES_CONSULTA = '27/09/2026'
+
+export interface LimiteCentralizacao { nota: string; frente: number; verso: number | null }
+
+export const LIMITES_CENTRALIZACAO: Record<string, { limites: LimiteCentralizacao[]; obs?: string }> = {
+  PSA: {
+    limites: [
+      { nota: 'GEM-MT 10', frente: 55, verso: 75 },
+      { nota: 'MINT 9', frente: 60, verso: 90 },
+      { nota: 'NM-MT 8', frente: 65, verso: 90 },
+      { nota: 'NM 7', frente: 70, verso: 90 },
+      { nota: 'EX-MT 6', frente: 80, verso: 90 },
+      { nota: 'EX 5', frente: 85, verso: 90 },
+    ],
+    obs: 'A PSA admite uma folga de 5% na frente para notas 7 ou maiores, conforme o apelo visual.',
+  },
+  BGS: {
+    limites: [
+      { nota: 'Pristine 10', frente: 50, verso: 60 },
+      { nota: 'Gem Mint 9.5', frente: 55, verso: 60 },
+      { nota: 'Mint 9', frente: 55, verso: 70 },
+      { nota: 'NM/Mint 8', frente: 60, verso: 80 },
+      { nota: 'NM 7', frente: 65, verso: 90 },
+      { nota: 'EX Mint 6', frente: 70, verso: 95 },
+    ],
+    obs: 'A Beckett apresenta esses números como referência geral, não como regra.',
+  },
+  CGC: {
+    limites: [
+      { nota: 'Pristine 10', frente: 50, verso: null },
+      { nota: 'Gem Mint 10', frente: 55, verso: 75 },
+    ],
+    obs: 'Para TCG, a CGC publica limite de centralização só na nota 10.',
+  },
+  TAG: {
+    limites: [
+      { nota: 'Pristine 10', frente: 51, verso: 52 },
+      { nota: 'Gem Mint 10', frente: 55, verso: 65 },
+      { nota: 'Mint 9', frente: 60, verso: 75 },
+      { nota: '8.5', frente: 62.5, verso: 85 },
+      { nota: '8', frente: 65, verso: 95 },
+    ],
+  },
+}
+
+/**
+ * Lado maior da centralizacao anotada ("55/45" -> 55). Aceita virgula e mais de
+ * uma proporcao ("55/45 e 52/48", um por eixo): vale a pior. null se nao ler.
+ */
+export function lerProporcao(v: unknown): number | null {
+  if (typeof v !== 'string') return null
+  const pares = [...v.matchAll(/(\d{1,3}(?:[.,]\d+)?)\s*\/\s*(\d{1,3}(?:[.,]\d+)?)/g)]
+  if (!pares.length) return null
+  let pior = 0
+  for (const [, a, b] of pares) {
+    const x = Number(a.replace(',', '.')), y = Number(b.replace(',', '.'))
+    if (!(x >= 0 && y >= 0) || Math.abs(x + y - 100) > 1) return null
+    pior = Math.max(pior, x, y)
+  }
+  return pior
+}
+
+const pct = (n: number) => `${String(n).replace('.', ',')}/${String(Math.round((100 - n) * 10) / 10).replace('.', ',')}`
+
+/**
+ * Compara a centralizacao medida com o limite publicado da graduadora. Texto
+ * pronto para o relatorio, ou null quando nao ha graduadora ou medida legivel.
+ * Nunca promete nota: diz so em que faixa da tabela a centralizacao cabe.
+ */
+export function compararCentralizacao(graduadora: string | null, frente: unknown, verso: unknown): { texto: string; nota: string } | null {
+  if (!graduadora) return null
+  const nota = `Critério publicado pela ${graduadora}, consultado em ${LIMITES_CONSULTA}. A centralização é só um dos critérios da nota.`
+  const tab = LIMITES_CENTRALIZACAO[graduadora]
+  if (!tab) return { texto: `A ${graduadora} não publica limite de centralização em proporção, então esta comparação não se aplica.`, nota: `Consultado em ${LIMITES_CONSULTA}.` }
+  const f = lerProporcao(frente), v = lerProporcao(verso)
+  if (f == null || v == null) return null
+  const notaCompleta = tab.obs ? `${nota} ${tab.obs}` : nota
+  const cabe = tab.limites.find(l => f <= l.frente && (l.verso == null || v <= l.verso))
+  if (cabe) {
+    const lim = `frente até ${pct(cabe.frente)}${cabe.verso != null ? ` e verso até ${pct(cabe.verso)}` : ''}`
+    return { texto: `Pela centralização, a carta cabe no limite da ${graduadora} para ${cabe.nota} (${lim}).`, nota: notaCompleta }
+  }
+  const ultima = tab.limites[tab.limites.length - 1]
+  return {
+    texto: `A centralização fica fora dos limites publicados pela ${graduadora}. O mais largo da tabela, ${ultima.nota}, vai até ${pct(ultima.frente)} na frente${ultima.verso != null ? ` e ${pct(ultima.verso)} no verso` : ''}.`,
+    nota: notaCompleta,
+  }
+}
+
 /**
  * O que falta para o laudo valer (trava de "pronta" e relatorio). Anexo em PDF
  * nao cumpre: o relatorio imprime o laudo preenchido.
