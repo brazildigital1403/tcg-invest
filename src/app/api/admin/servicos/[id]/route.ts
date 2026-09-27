@@ -237,9 +237,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // ── Pagamento (Pix combinado fora do site) ──────────────────────────────
     if (body.acao === 'pagamento') {
       if (!['orcado', 'aceito', 'recebida', 'proposta', 'em_bancada', 'descansando', 'pronta'].includes(sol.status)) return erro(409, 'Pagamento não se aplica a este status')
-      const { error } = await sb.from('servico_solicitacoes')
-        .update({ pagamento_metodo: 'pix_manual', pago_em: new Date().toISOString() }).eq('id', id)
+      // So na transicao "nao pago -> pago": dois cliques (ou duas abas) nao
+      // registram o pagamento duas vezes.
+      const { data: marcou, error } = await sb.from('servico_solicitacoes')
+        .update({ pagamento_metodo: 'pix_manual', pago_em: new Date().toISOString() })
+        .eq('id', id).is('pago_em', null).select('id')
       if (error) throw new Error(error.message)
+      if (!marcou?.length) return erro(409, 'Este pedido já está com o pagamento registrado')
       await registrarEvento(id, sol.status, 'Pagamento via Pix confirmado')
       return NextResponse.json({ ok: true })
     }

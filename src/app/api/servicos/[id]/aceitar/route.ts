@@ -1,8 +1,10 @@
 // POST /api/servicos/[id]/aceitar -- o cliente responde ao orcamento.
 //
-// Body: { termo_aceito: true, itens?: { [item_id]: boolean } } para aceitar
-// (por carta: o que vier false fica de fora), ou { recusar: true } para
-// recusar tudo. So vale na transicao orcado -> aceito | recusado_cliente; o
+// Body: { termo_aceito: true } para aceitar o orcamento INTEIRO, ou
+// { recusar: true } para recusar tudo. Nao existe aceite parcial: o orcamento
+// e um valor unico, entao tirar uma carta sem reorcar deixaria o total errado
+// (achado do painel de pagamento, 27/09/2026). Para desistir de uma carta, o
+// cliente recusa e a Bynx reorca. So vale na transicao orcado -> aceito | recusado_cliente; o
 // update filtra pelo status atual, entao duas respostas simultaneas nao passam.
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -33,15 +35,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (body.termo_aceito !== true) return erro(400, 'Aceite o termo de ciência de risco para seguir')
 
     const { data: itens } = await sb.from('servico_itens').select('id, aceito').eq('solicitacao_id', id)
-    // Carta recusada pela Bynx no orcamento ja vem com aceito=false e fica assim.
-    const escolha = (body.itens && typeof body.itens === 'object' ? body.itens : {}) as Record<string, unknown>
-    const aceitos: string[] = []
-    const recusados: string[] = []
-    for (const it of itens || []) {
-      if (it.aceito === false) continue
-      if (escolha[it.id] === false) recusados.push(it.id)
-      else aceitos.push(it.id)
-    }
+    // Carta recusada pela Bynx no orcamento ja vem com aceito=false e fica assim;
+    // todas as outras entram (aceite do pedido inteiro).
+    const aceitos = (itens || []).filter(it => it.aceito !== false).map(it => it.id)
     if (!aceitos.length) return erro(400, 'Nenhuma carta aceita. Para desistir, recuse o orçamento.')
 
     const { data, error } = await sb.from('servico_solicitacoes')
@@ -51,7 +47,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!data?.length) return erro(409, 'Este pedido mudou de estado. Atualize a página.')
 
     await sb.from('servico_itens').update({ aceito: true }).in('id', aceitos)
-    if (recusados.length) await sb.from('servico_itens').update({ aceito: false, recusa_motivo: 'Recusada pelo cliente' }).in('id', recusados)
 
     await registrarEvento(id, 'aceito', `Orçamento aceito: ${aceitos.length} ${aceitos.length === 1 ? 'carta' : 'cartas'}`)
     await notificarCliente(id, 'aceito')
