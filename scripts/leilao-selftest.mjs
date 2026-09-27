@@ -213,16 +213,31 @@ try {
     const agora = Date.parse('2026-09-28T12:00:00Z')
     const s = Math.floor(agora / 1000)
     const h = 3600 * 1000
+    const m = 60 * 1000
     // Prazo de 48h: a sessao para no teto de 24h da Stripe (menos a folga).
     assert.equal(L.expiraSessaoLeilao(agora + 48 * h, agora), s + 24 * 3600 - 60)
-    // Prazo de 5h: a sessao vence exatamente no prazo, nunca depois.
-    assert.equal(L.expiraSessaoLeilao(agora + 5 * h, agora), s + 5 * 3600)
-    // Menos de 31 min ate o prazo: a Stripe nao aceita, a rota recusa.
-    assert.equal(L.expiraSessaoLeilao(agora + 30 * 60 * 1000, agora), null)
-    assert.equal(L.expiraSessaoLeilao(agora + 31 * 60 * 1000, agora), s + 31 * 60)
+    // Prazo de 5h: a sessao vence em pagar_ate + 14 min (dentro da carencia de 15 do tick).
+    assert.equal(L.expiraSessaoLeilao(agora + 5 * h, agora), s + 5 * 3600 + 14 * 60)
+    assert.equal(L.SESSAO_ALEM_DO_PRAZO_SEG, 14 * 60)
+    // Prazo de 23h50: a extensao esbarra no teto de 24h da Stripe.
+    assert.equal(L.expiraSessaoLeilao(agora + 23 * h + 50 * m, agora), s + 24 * 3600 - 60)
+    // 30 min ate o prazo: antes recusava, agora cabe (30 + 14 >= 31).
+    assert.equal(L.expiraSessaoLeilao(agora + 30 * m, agora), s + 44 * 60)
+    // Limite: 17 min ate o prazo -> 31 min de sessao, o minimo com folga.
+    assert.equal(L.expiraSessaoLeilao(agora + 17 * m, agora), s + 31 * 60)
+    // 16 min ate o prazo: nem com a extensao cabe o minimo da Stripe.
+    assert.equal(L.expiraSessaoLeilao(agora + 16 * m, agora), null)
+    // Prazo vencido (mesmo dentro da carencia): nao abre.
+    assert.equal(L.expiraSessaoLeilao(agora - 5 * m, agora), null)
+    assert.equal(L.expiraSessaoLeilao(agora, agora), null)
     assert.equal(L.expiraSessaoLeilao(agora - h, agora), null)
     assert.equal(L.expiraSessaoLeilao(NaN, agora), null)
-  }, 'expires_at da sessao respeita pagar_ate e os limites da Stripe')
+    // Nunca passa de pagar_ate + 14 min em nenhum prazo.
+    for (let min = 17; min <= 48 * 60; min += 7) {
+      const e = L.expiraSessaoLeilao(agora + min * m, agora)
+      assert.ok(e != null && e <= s + min * 60 + 14 * 60 && e >= s + 31 * 60, `prazo ${min} min -> ${e}`)
+    }
+  }, 'expires_at da sessao: ate pagar_ate + 14 min, minimo 30 min e teto 24h da Stripe')
 
   ok(() => {
     // O pedido gravado fecha com a Stripe: total - liquido = application_fee.

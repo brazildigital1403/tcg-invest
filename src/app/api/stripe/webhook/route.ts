@@ -417,6 +417,11 @@ export async function POST(req: NextRequest) {
   }
 
   let processError: string | null = null
+  // Falha do lado do LEILAO numa venda ja paga. Nao derruba o evento (a venda,
+  // a receita e os emails ja rodaram; re-entrega da Stripe reprocessaria tudo
+  // isso), mas marca o evento como 'error' em stripe_events_processed com o
+  // motivo -- fica rastreavel por `where result = 'error'`.
+  let erroLeilao: string | null = null
 
   try {
     switch (event.type) {
@@ -563,6 +568,15 @@ export async function POST(req: NextRequest) {
           // (leilao_marcar_vendido, migration 20260928100000). Falha aqui nao
           // desfaz a venda: o pedido ja esta pago e o tick nunca marca calote
           // em lote com pedido pago -- fica no log para o Du conferir.
+          // ★ RASTRO: erro da RPC (ou resultado fora de vendido/ja_vendido)
+          // vira `erroLeilao` e o evento fecha como result='error' com a
+          // mensagem em stripe_events_processed. NAO devolvemos 5xx para a
+          // Stripe re-entregar: a re-entrega cai no 'duplicate' da idempotencia
+          // por event.id (nada seria refeito), e apagar a linha para forcar
+          // reprocessamento rodaria de novo a venda inteira (receita, emails,
+          // baixa). Conserto e manual: rodar leilao_marcar_vendido(lote, pedido)
+          // -- a funcao e idempotente. A rota de checkout recusa novo pagamento
+          // de lote que ja tem pedido pago, entao nao ha segunda cobranca.
           // ★ `leilao_id` fica FORA dos selects de pedido/itens acima de
           // proposito: sem a migration do motor a coluna nao existe, e o select
           // quebraria a baixa de TODA venda. So pedido com metadata de leilao
@@ -576,8 +590,10 @@ export async function POST(req: NextRequest) {
             })
             if (errLeilao) {
               console.error(`[webhook] CRITICAL: leilao ${leilaoId} do pedido ${pedido.numero} nao virou vendido:`, errLeilao.message)
+              erroLeilao = `${erroLeilao ? erroLeilao + ' | ' : ''}leilao_marcar_vendido(${leilaoId}, ${pedido.id}) falhou: ${errLeilao.message}`
             } else if (rLeilao !== 'vendido' && rLeilao !== 'ja_vendido') {
               console.error(`[webhook] CRITICAL: leilao ${leilaoId} pago no pedido ${pedido.numero}, mas ficou como esta (${rLeilao}) — conferir`)
+              erroLeilao = `${erroLeilao ? erroLeilao + ' | ' : ''}leilao_marcar_vendido(${leilaoId}, ${pedido.id}) = ${rLeilao}`
             } else {
               console.log(`[webhook] venda: leilao ${leilaoId} -> vendido (${rLeilao}) pelo pedido ${pedido.numero}`)
             }
@@ -1776,12 +1792,14 @@ export async function POST(req: NextRequest) {
     processError = err.message || 'unknown'
     console.error(`[webhook] CRITICAL UNHANDLED: ${event.type}:`, err.message, err.stack)
   } finally {
-    // Marca evento como processado (ok ou error)
+    // Marca evento como processado (ok ou error). Erro do leilao numa venda
+    // paga tambem fecha como 'error' (rastro), sem mudar a resposta.
+    const erroFinal = processError || erroLeilao
     await marcarEventoComoFinalizado(
       supabase,
       event.id,
-      processError ? 'error' : 'ok',
-      processError || undefined
+      erroFinal ? 'error' : 'ok',
+      erroFinal || undefined
     ).catch(console.error)
   }
 

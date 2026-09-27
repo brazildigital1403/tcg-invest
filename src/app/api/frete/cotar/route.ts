@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       // Lote arrematado: uma carta, pelo preco de martelo, saindo de onde o
       // vendedor envia. Mesmo pacote e mesma origem que o checkout do lote
       // re-cota em /api/leiloes/[id]/checkout.
-      if (!LEILAO_ATIVO) return NextResponse.json({ error: 'Lote nao encontrado.' }, { status: 404 })
+      if (!LEILAO_ATIVO) return NextResponse.json({ error: 'Lote não encontrado.' }, { status: 404 })
       const { data: lts } = await sb
         .from('leiloes')
         .select('id, vendedor_user_id, preco_atual_cents, lance_inicial_cents, status')
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         .limit(1)
       const lt = lts?.[0]
       if (!lt || lt.status !== 'aguardando_pagamento') {
-        return NextResponse.json({ error: 'Lote nao encontrado.' }, { status: 404 })
+        return NextResponse.json({ error: 'Lote não encontrado.' }, { status: 404 })
       }
       const r = await resolverRecebedor(sb, lt.vendedor_user_id)
       lojaCep = r?.cepOrigem ?? null

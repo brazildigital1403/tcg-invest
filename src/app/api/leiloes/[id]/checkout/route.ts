@@ -44,9 +44,25 @@ import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
  *   20260928100000) recusa o segundo insert e a rota devolve a sessao do
  *   primeiro.
  *
- * ★ PRAZO. `expires_at` da sessao nunca passa de `pagar_ate` (nem de 24h, teto
- *   da Stripe). Com menos de ~31 min ate o prazo, a Stripe nao aceita sessao
- *   que respeite o prazo: a rota recusa (409).
+ * ★ PRAZO. `expires_at` da sessao vai ate `pagar_ate` + 14 min (dentro da
+ *   carencia de 15 min do tick, que nao marca calote com sessao aberta), nunca
+ *   alem de 24h (teto da Stripe). Se nem assim sobra o minimo de 30 min da
+ *   Stripe, a rota recusa (409). A tela continua mostrando `pagar_ate`.
+ *
+ * ★ SEM DUPLA COBRANCA. GET e POST recusam (409) lote que ja tem pedido pago
+ *   -- por leiloes.pedido_id, pedidos.leilao_id ou pedido_itens.leilao_id, com
+ *   pago_em ou status pago/enviado/entregue (mesmo criterio do tick). Cobre o
+ *   lote que ficou em 'aguardando_pagamento' porque o webhook pagou o pedido
+ *   mas nao conseguiu marcar o lote.
+ *
+ * ★ CANCELAMENTO NO MEIO. O lote so passa a apontar para o pedido novo se
+ *   AINDA esta aguardando_pagamento com este comprador na lideranca. Se o lote
+ *   mudou entre o carregar e o fim (cancelado pela loja, calote), a sessao
+ *   recem-criada e expirada, o pedido e cancelado e a rota responde 409 --
+ *   a URL nunca sai.
+ *
+ * LOJA: pedidos.loja_id = lote.loja_id quando a loja do lote e do mesmo dono
+ * que recebe; senao, a loja que o resolverRecebedor escolheu.
  */
 
 export const dynamic = 'force-dynamic'
@@ -137,6 +153,18 @@ async function carregar(req: NextRequest, id: string): Promise<Contexto> {
       res: resposta(403, { erro: 'nao_vencedor', error: 'Só quem venceu o lote pode pagar por ele.' }),
     }
   }
+
+  // Antes de qualquer status: lote com pedido pago nunca abre outro pagamento.
+  let pago: string | null
+  try {
+    pago = await pedidoPagoDoLote(db, lote)
+  } catch (e) {
+    console.error('[leilao/checkout] pedido pago do lote', id, (e as Error)?.message)
+    return { ok: false, res: resposta(500, { error: 'Não foi possível carregar o lote. Tente de novo.' }) }
+  }
+  if (pago) {
+    return { ok: false, res: resposta(409, { erro: 'pago', error: 'Este lote já foi pago.', pedido_id: pago }) }
+  }
   if (lote.status === 'vendido') {
     return {
       ok: false,
@@ -165,6 +193,59 @@ async function carregar(req: NextRequest, id: string): Promise<Contexto> {
 
   const recebedor = await resolverRecebedor(db, lote.vendedor_user_id)
   return { ok: true, db, compradorId, lote, recebedor }
+}
+
+const STATUS_PAGO = ['pago', 'enviado', 'entregue']
+
+function estaPago(p: { pago_em: string | null; status: string }): boolean {
+  return p.pago_em != null || STATUS_PAGO.includes(p.status)
+}
+
+/**
+ * Id de um pedido PAGO do lote, ou null. Mesmo criterio do calote no tick:
+ * leiloes.pedido_id, pedidos.leilao_id ou pedido_itens.leilao_id, com pago_em
+ * ou status pago/enviado/entregue. Erro de leitura -> throw (nunca "nao pago").
+ */
+async function pedidoPagoDoLote(db: SupabaseClient, lote: LoteCheckout): Promise<string | null> {
+  type Ped = { id: string; pago_em: string | null; status: string }
+  const filtro = lote.pedido_id ? `leilao_id.eq.${lote.id},id.eq.${lote.pedido_id}` : `leilao_id.eq.${lote.id}`
+  const [{ data: peds, error: e1 }, { data: itens, error: e2 }] = await Promise.all([
+    db.from('pedidos').select('id, pago_em, status').or(filtro),
+    db.from('pedido_itens').select('pedido_id').eq('leilao_id', lote.id),
+  ])
+  if (e1) throw new Error(`pedidos do lote: ${e1.message}`)
+  if (e2) throw new Error(`itens do lote: ${e2.message}`)
+  const direto = ((peds ?? []) as Ped[]).find(estaPago)
+  if (direto) return direto.id
+
+  const conhecidos = new Set(((peds ?? []) as Ped[]).map(p => p.id))
+  const viaItem = [...new Set(((itens ?? []) as { pedido_id: string }[]).map(i => i.pedido_id))].filter(
+    pid => !conhecidos.has(pid)
+  )
+  if (viaItem.length === 0) return null
+  const { data: outros, error: e3 } = await db.from('pedidos').select('id, pago_em, status').in('id', viaItem)
+  if (e3) throw new Error(`pedidos dos itens do lote: ${e3.message}`)
+  return ((outros ?? []) as Ped[]).find(estaPago)?.id ?? null
+}
+
+/**
+ * Loja do pedido: a do lote quando ela e do mesmo dono que recebe (o lote
+ * pode ter sido criado por uma loja que nao e a mais antiga do dono); senao a
+ * que o resolverRecebedor escolheu.
+ */
+async function lojaDoPedido(db: SupabaseClient, lote: LoteCheckout, r: Recebedor): Promise<string | null> {
+  if (!lote.loja_id || lote.loja_id === r.lojaId) return r.lojaId
+  const { data, error } = await db
+    .from('lojas')
+    .select('id')
+    .eq('id', lote.loja_id)
+    .eq('owner_user_id', r.ownerUserId)
+    .limit(1)
+  if (error) {
+    console.error('[leilao/checkout] loja do lote', lote.id, error.code, error.message)
+    return r.lojaId
+  }
+  return data?.[0] ? lote.loja_id : r.lojaId
 }
 
 function podeVender(r: Recebedor | null): boolean {
@@ -386,6 +467,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       if (reuso.tipo !== 'livre') return respostaReuso(reuso)
     }
 
+    const lojaId = await lojaDoPedido(db, lote, recebedor)
+
     // ── 1. Stripe (o id do pedido nasce aqui) ────────────────────────────
     const pedidoId = randomUUID()
     const nome = nomeDoLote(lote)
@@ -405,7 +488,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       bynx_pedido_id: pedidoId,
       bynx_leilao_id: lote.id,
       bynx_vendedor_user_id: lote.vendedor_user_id,
-      ...(recebedor.lojaId ? { bynx_loja_id: recebedor.lojaId } : {}),
+      ...(lojaId ? { bynx_loja_id: lojaId } : {}),
     }
 
     let session: Stripe.Checkout.Session
@@ -444,7 +527,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // ── 2. Pedido (ja com a sessao) ───────────────────────────────────────
     const { error: pedErr } = await db.from('pedidos').insert({
       id: pedidoId,
-      loja_id: recebedor.lojaId,
+      loja_id: lojaId,
       vendedor_user_id: lote.vendedor_user_id,
       comprador_user_id: compradorId,
       leilao_id: lote.id,
@@ -500,14 +583,30 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     // ── 4. Lote aponta para o pedido em andamento ─────────────────────────
-    // Nao bloqueia: o webhook grava pedido_id de novo ao confirmar, e a regra
-    // do calote tambem acha o pedido por pedidos.leilao_id.
-    const { error: loteErr } = await db
+    // So se o lote AINDA espera ESTE comprador. Se mudou no meio (loja
+    // cancelou, tick marcou calote), a URL nao sai: sessao expirada, pedido
+    // cancelado, 409. Erro de escrita tambem desfaz (nao da para confirmar).
+    const { data: loteOk, error: loteErr } = await db
       .from('leiloes')
       .update({ pedido_id: pedidoId })
       .eq('id', lote.id)
       .eq('status', 'aguardando_pagamento')
-    if (loteErr) console.error('[leilao/checkout] lote.pedido_id', lote.id, loteErr.code, loteErr.message)
+      .eq('lider_user_id', compradorId)
+      .select('id')
+    if (loteErr || !loteOk || loteOk.length === 0) {
+      if (loteErr) console.error('[leilao/checkout] lote.pedido_id', lote.id, loteErr.code, loteErr.message)
+      await desfazerSessao()
+      try {
+        await cancelarAberto(db, pedidoId, 'Lote mudou de estado durante o checkout.')
+      } catch (e) {
+        console.error('[leilao/checkout] CRITICAL: pedido sem lote ficou aberto', pedidoId, (e as Error)?.message)
+      }
+      if (loteErr) return resposta(500, { error: 'Erro ao iniciar o pagamento.' })
+      return resposta(409, {
+        erro: 'fechado',
+        error: 'Este lote não está mais disponível para pagamento.',
+      })
+    }
 
     return resposta(200, { url: session.url, pedido_id: pedidoId })
   } catch (err) {

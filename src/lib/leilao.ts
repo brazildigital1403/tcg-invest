@@ -472,18 +472,28 @@ export const SESSAO_STRIPE_MIN_SEG = 30 * 60
 export const SESSAO_STRIPE_MAX_SEG = 24 * 60 * 60
 /** Folga para relogio e ida e volta: a Stripe mede a partir da criacao dela. */
 const SESSAO_FOLGA_SEG = 60
+/**
+ * Quanto a sessao pode passar de `pagar_ate`: 14 min, dentro da carencia de
+ * 15 min do tick (leilao_tick passo 5). Quem abriu o pagamento perto do fim
+ * do prazo ainda consegue concluir, e o tick nunca marca calote com sessao
+ * aberta. ★ Mudou aqui, conferir a carencia e a janela de 30 min do tick.
+ */
+export const SESSAO_ALEM_DO_PRAZO_SEG = 14 * 60
 
 /**
  * `expires_at` (segundos Unix) da sessao de pagamento de um arremate.
- * Nunca depois de `pagar_ate`, nunca alem de 24h (teto da Stripe). Se sobra
- * menos que o minimo da Stripe (30 min + folga) ate o prazo, devolve null: nao
- * da para abrir sessao que respeite o prazo, e a rota recusa.
+ * No maximo `pagar_ate` + 14 min (dentro da carencia do tick) e nunca alem de
+ * 24h (teto da Stripe). Se nem com a extensao sobra o minimo da Stripe (30 min
+ * + folga), devolve null e a rota recusa. Prazo ja vencido tambem devolve null:
+ * a extensao e so para quem abre o pagamento ANTES do prazo. A tela continua
+ * mostrando `pagar_ate`.
  */
 export function expiraSessaoLeilao(pagarAteMs: number, agoraMs: number): number | null {
   if (!Number.isFinite(pagarAteMs) || !Number.isFinite(agoraMs)) return null
+  if (agoraMs >= pagarAteMs) return null
   const agoraSeg = Math.floor(agoraMs / 1000)
-  const prazoSeg = Math.floor(pagarAteMs / 1000)
-  const alvo = Math.min(prazoSeg, agoraSeg + SESSAO_STRIPE_MAX_SEG - SESSAO_FOLGA_SEG)
+  const limiteSeg = Math.floor(pagarAteMs / 1000) + SESSAO_ALEM_DO_PRAZO_SEG
+  const alvo = Math.min(limiteSeg, agoraSeg + SESSAO_STRIPE_MAX_SEG - SESSAO_FOLGA_SEG)
   if (alvo < agoraSeg + SESSAO_STRIPE_MIN_SEG + SESSAO_FOLGA_SEG) return null
   return alvo
 }

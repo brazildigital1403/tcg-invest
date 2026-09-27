@@ -192,7 +192,7 @@ export default function PagarLote({
         window.location.href = j.url
         return
       }
-      if (j?.erro === 'processando' && typeof j?.pedido_id === 'string') {
+      if ((j?.erro === 'processando' || j?.erro === 'pago') && typeof j?.pedido_id === 'string') {
         window.location.href = `/pedido/${j.pedido_id}`
         return
       }
