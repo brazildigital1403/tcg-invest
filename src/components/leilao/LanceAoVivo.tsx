@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { IconChart, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
 import {
   formatarBRL,
+  formatarTempoAnel,
   formatarTempoRestante,
   horarioBrasilia,
   incrementoCents,
@@ -553,14 +554,21 @@ export default function LanceAoVivo({
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
+  // `relogio` = texto completo (aria-label); `relogioAnel` = so a maior
+  // unidade, que e o que cabe dentro do anel de 64px.
   let relogio = ''
+  let relogioAnel = ''
+  const marcar = (ms: number | null) => {
+    relogio = ms == null ? '--:--' : formatarTempoRestante(ms)
+    relogioAnel = ms == null ? '--:--' : formatarTempoAnel(ms)
+  }
   if (st === 'em_breve') {
     const ini = lote.iniciaEm ? Date.parse(lote.iniciaEm) : NaN
-    relogio = Number.isFinite(ini) && ini > agora ? formatarTempoRestante(ini - agora) : '--:--'
+    marcar(Number.isFinite(ini) && ini > agora ? ini - agora : null)
   } else if (aberto) {
-    relogio = Number.isFinite(restanteMs) ? formatarTempoRestante(restanteMs) : '--:--'
+    marcar(Number.isFinite(restanteMs) ? restanteMs : null)
   } else if (conferindo) {
-    relogio = formatarTempoRestante(0)
+    marcar(0)
   }
   // Fracao do anel: o que resta do lote. Total = fim - inicio (ja conta as
   // prorrogacoes); sem inicio legivel, a duracao configurada.
@@ -698,7 +706,7 @@ export default function LanceAoVivo({
         {relogio ? (
           <Anel
             fracao={st === 'em_breve' ? 0 : fracaoAnel}
-            texto={relogio}
+            texto={relogioAnel}
             urgente={anelUrgente}
             rotulo={st === 'em_breve' ? `Começa em ${relogio}` : conferindo ? 'Conferindo encerramento' : `Faltam ${relogio}`}
           />

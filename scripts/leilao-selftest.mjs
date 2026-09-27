@@ -67,6 +67,24 @@ try {
   }, 'formatarTempoRestante')
 
   ok(() => {
+    const s = 1000, m = 60 * s, h = 60 * m, d = 24 * h
+    assert.equal(L.formatarTempoAnel(3 * d + 4 * h + 5 * m), '3d')
+    assert.equal(L.formatarTempoAnel(d), '1d')
+    assert.equal(L.formatarTempoAnel(d - s), '23h')
+    assert.equal(L.formatarTempoAnel(2 * h + 59 * m), '2h')
+    assert.equal(L.formatarTempoAnel(h), '1h')
+    assert.equal(L.formatarTempoAnel(h - s), '59min')
+    assert.equal(L.formatarTempoAnel(12 * m + 30 * s), '12min')
+    assert.equal(L.formatarTempoAnel(10 * m), '10min')
+    assert.equal(L.formatarTempoAnel(10 * m - s), '09:59')
+    assert.equal(L.formatarTempoAnel(65 * s), '01:05')
+    assert.equal(L.formatarTempoAnel(0), '00:00')
+    assert.equal(L.formatarTempoAnel(-5 * s), '00:00')
+    assert.equal(L.formatarTempoAnel(NaN), '00:00')
+    for (const v of [3 * d, 23 * h, 59 * m, 9 * m + 59 * s]) assert.ok(L.formatarTempoAnel(v).length <= 5, 'cabe no anel')
+  }, 'formatarTempoAnel: so a maior unidade, mm:ss abaixo de 10 min')
+
+  ok(() => {
     const base = { status: 'ativo', iniciaEm: '2026-09-27T20:00:00Z', terminaEm: '2026-09-27T20:01:00Z', softCloseSeg: 10 }
     assert.equal(L.statusPublico(base, Date.parse('2026-09-27T19:59:00Z')), 'em_breve')
     assert.equal(L.statusPublico(base, Date.parse('2026-09-27T20:00:30Z')), 'ao_vivo')

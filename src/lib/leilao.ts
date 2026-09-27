@@ -184,6 +184,20 @@ export function formatarTempoRestante(ms: number): string {
   return `${pad2(m)}:${pad2(s)}`
 }
 
+/**
+ * Texto DENTRO do anel do relogio (64px): so a maior unidade, que e o que
+ * cabe ("3d", "2h", "12min"). Abaixo de 10 min vira "mm:ss", onde o segundo
+ * importa. Arredonda para baixo, como o relogio completo. O texto completo
+ * (formatarTempoRestante) segue no aria-label do anel.
+ */
+export function formatarTempoAnel(ms: number): string {
+  const total = Math.max(0, Math.floor((Number.isFinite(ms) ? ms : 0) / 1000))
+  if (total >= 86400) return `${Math.floor(total / 86400)}d`
+  if (total >= 3600) return `${Math.floor(total / 3600)}h`
+  if (total >= 600) return `${Math.floor(total / 60)}min`
+  return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`
+}
+
 /** Janela final em que o lote aparece como "encerrando". */
 const JANELA_ENCERRANDO_MS = 10_000
 
