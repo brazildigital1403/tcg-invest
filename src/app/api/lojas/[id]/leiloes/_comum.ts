@@ -15,7 +15,10 @@ import { resolverRecebedor, podeReceber } from '@/lib/vendedorRecebimento'
  *   o id da rodada nunca alcanca rodada de outra loja.
  */
 
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/** Prazo de repasse exigido para agendar rodada (Protecao Bynx). */
+export const REPASSE_LEILAO_DIAS = 30
+
+export const UUID_RE =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const SEM_CACHE = { 'Cache-Control': 'no-store, max-age=0' }
 
@@ -74,6 +77,21 @@ export async function recebimentoDaLoja(
   }
   if (!podeReceber(r)) {
     return { podeReceber: false, motivo: 'Ative os recebimentos em Pagamentos para receber pelos arremates.' }
+  }
+  // ★ REPASSE DE 30 DIAS (Protecao Bynx, decisao do Du 28/09). Sem retencao do
+  //   dinheiro, o que cobre o estorno de uma reclamacao (ate 21 + 7 dias depois
+  //   do envio) e o saldo da loja ainda nao repassado: com delay de 30 dias o
+  //   reverse_transfer do estorno encontra saldo. Com 14 nao.
+  //   Fonte: `repasse_prazo` JA GRAVADO (lojas, ou users quando a loja usa a
+  //   conta do dono -- o resolvedor escolhe). O PATCH de /api/lojas/[id]/connect
+  //   aplica o delay_days na Stripe ANTES de gravar ("a Stripe manda, o banco
+  //   obedece"), entao o banco espelha o payout schedule sem chamar a Stripe a
+  //   cada agendamento. null normaliza para 30 (piso da Stripe BR em conta nova).
+  if (r.repassePrazo !== REPASSE_LEILAO_DIAS) {
+    return {
+      podeReceber: false,
+      motivo: `Para leiloar, o repasse da loja precisa estar em ${REPASSE_LEILAO_DIAS} dias. Ajuste em Pagamentos.`,
+    }
   }
   // Frete calculado sem CEP de origem: o checkout do arremate recusa. Barrar
   // aqui evita uma rodada inteira de lotes que ninguem consegue pagar.
