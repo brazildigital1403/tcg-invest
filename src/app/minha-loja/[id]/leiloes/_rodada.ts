@@ -9,16 +9,52 @@ export const STATUS_RODADA: Record<string, { label: string; cor: string }> = {
   cancelada: { label: 'Cancelada', cor: 'var(--bx-text-3)' },
 }
 
-/** fetch com o Bearer da sessao (padrao do painel da loja). Lanca com a mensagem da rota. */
-export async function chamarPainel<T = Record<string, unknown>>(url: string, init: RequestInit = {}): Promise<T> {
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token || ''
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
-  if (init.body && !(init.body instanceof FormData)) headers['Content-Type'] = 'application/json'
-  const r = await fetch(url, { ...init, headers: { ...headers, ...(init.headers as Record<string, string> | undefined) } })
-  const j = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error((j as { error?: string })?.error || 'Não foi possível concluir. Tente de novo.')
-  return j as T
+/** Erro de busca que estourou `timeoutMs` (a tela distingue de erro da rota). */
+export class TempoEsgotado extends Error {
+  constructor() { super('A busca demorou demais.') }
+}
+
+/**
+ * fetch com o Bearer da sessao (padrao do painel da loja). Lanca com a mensagem da rota.
+ * `timeoutMs`: aborta a busca inteira (sessao, request e corpo) e lanca TempoEsgotado.
+ * `init.signal` continua valendo: abortado por fora, lanca o AbortError do fetch.
+ */
+export async function chamarPainel<T = Record<string, unknown>>(
+  url: string, init: RequestInit = {}, opts: { timeoutMs?: number } = {},
+): Promise<T> {
+  const ctrl = new AbortController()
+  const externo = init.signal ?? null
+  const repassar = () => ctrl.abort(externo?.reason)
+  if (externo) {
+    if (externo.aborted) repassar()
+    else externo.addEventListener('abort', repassar, { once: true })
+  }
+  let estourou = false
+  const timer = opts.timeoutMs && opts.timeoutMs > 0
+    ? setTimeout(() => { estourou = true; ctrl.abort() }, opts.timeoutMs)
+    : null
+  try {
+    const { data } = await supabase.auth.getSession()
+    if (ctrl.signal.aborted) throw new DOMException('Aborted', 'AbortError')
+    const token = data.session?.access_token || ''
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+    if (init.body && !(init.body instanceof FormData)) headers['Content-Type'] = 'application/json'
+    const r = await fetch(url, {
+      ...init, signal: ctrl.signal,
+      headers: { ...headers, ...(init.headers as Record<string, string> | undefined) },
+    })
+    const j = await r.json().catch(() => ({}))
+    // Abortado no meio do corpo: o catch acima devolveu {}, que nao e resposta.
+    if (ctrl.signal.aborted) throw new DOMException('Aborted', 'AbortError')
+    if (!r.ok) throw new Error((j as { error?: string })?.error || 'Não foi possível concluir. Tente de novo.')
+    return j as T
+  } catch (e) {
+    if (estourou) throw new TempoEsgotado()
+    throw e
+  } finally {
+    if (timer) clearTimeout(timer)
+    externo?.removeEventListener('abort', repassar)
+  }
 }
 
 export interface RodadaResumo {

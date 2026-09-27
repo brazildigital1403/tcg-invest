@@ -28,8 +28,14 @@
 --           b600...05 rascunho (ana)      -- c600...03
 -- ============================================================================
 
--- ─── Fila limpa: pendentes de outras provas nao entram nesta (desfeito no fim)
-update public.leilao_eventos set processado_em = now() where processado_em is null;
+-- ─── Fila limpa: so pendentes dos lotes DESTAS fixtures (sobra de rodada
+--     anterior interrompida). Evento de outro leilao nao e tocado; o T6 filtra
+--     a reserva pelas rodadas daqui. (Desfeito no fim, de qualquer forma.)
+update public.leilao_eventos set processado_em = now()
+ where processado_em is null
+   and leilao_id in ('b6000000-0000-4000-8000-000000000001', 'b6000000-0000-4000-8000-000000000002',
+                     'b6000000-0000-4000-8000-000000000003', 'b6000000-0000-4000-8000-000000000004',
+                     'b6000000-0000-4000-8000-000000000005');
 
 -- ─── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -186,9 +192,13 @@ begin
     'FALHOU T5b: motivo padrao';
 end $$;
 
--- ─── T6: o consumidor reserva os 4 e grava o sino (mesmo caminho da rota) ───
+-- ─── T6: o consumidor reserva os 4 e grava o sino ──────────────────────────
+-- Reserva o teto (500) e fica so com os eventos das rodadas daqui: pendente de
+-- outro leilao pode vir junto e fica reservado ate o raise final desfazer tudo.
 create temp table _r on commit drop as
-select * from public.leilao_eventos_reservar(100, 120);
+select * from public.leilao_eventos_reservar(500, 120)
+ where rodada_id in ('c6000000-0000-4000-8000-000000000001', 'c6000000-0000-4000-8000-000000000002',
+                     'c6000000-0000-4000-8000-000000000003');
 
 do $$
 declare
@@ -200,7 +210,7 @@ begin
   assert not exists (select 1 from _r where tipo <> 'cancelado'), 'FALHOU T6b: reservou outro tipo';
   select reserva into tok from _r limit 1;
 
-  -- Itens no formato que /api/cron-leilao-avisos manda (planejarAvisos: so sino).
+  -- Itens em formato equivalente; o plano do consumidor é provado no selftest.
   res := public.leilao_eventos_concluir(tok, (
     select jsonb_agg(jsonb_build_object(
       'id', id,

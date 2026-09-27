@@ -14,7 +14,9 @@ import { contextoPainel, json, UUID_RE } from '../../_comum'
  *   - rodada por PK + loja_id;
  *   - lotes por rodada_id + loja_id, ordenados por ordem (indice
  *     uq_leiloes_rodada_ordem, dezenas de linhas);
- *   - pedidos por leilao_id (idx_pedidos_leilao) ou id, sempre da loja.
+ *   - pedidos por leilao_id (idx_pedidos_leilao) e, so para o pedido_id de
+ *     lote que nao voltou assim, por id; sempre da loja, em blocos de 50
+ *     (URL curta, sem .or() com a lista inteira).
  *   Nada toca pokemon_cards.
  * ★ Nunca sai: lider_maximo_cents, user_id de ninguem, nome/e-mail/endereco
  *   do comprador. O lider aparece so pelo apelido mascarado ("j***a"), com a
@@ -32,6 +34,29 @@ type Linha = Record<string, unknown>
 
 /** Mesma folga do SQL: so fecha quando termina_em <= now() - 1s. */
 const FOLGA_FECHAR_MS = 1000
+
+/** Tamanho de cada `.in()` (mantem a URL do PostgREST curta). */
+const BLOCO_IN = 50
+
+const COLUNAS_PEDIDO = 'id, numero, status, created_at, leilao_id'
+
+function blocos<T>(xs: T[], n: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n))
+  return out
+}
+
+/** Pedidos da loja com `coluna` em `valores`, em blocos de BLOCO_IN. Falha de um bloco lanca. */
+async function pedidosPor(sb: SupabaseClient, lojaId: string, coluna: 'leilao_id' | 'id', valores: string[]) {
+  const res = await Promise.all(blocos(valores, BLOCO_IN).map(b =>
+    sb.from('pedidos').select(COLUNAS_PEDIDO).eq('loja_id', lojaId).in(coluna, b).limit(500)))
+  const out: PedidoResumo[] = []
+  for (const r of res) {
+    if (r.error) throw new Error(`pedidos por ${coluna}: ${r.error.code} ${r.error.message}`)
+    out.push(...((r.data ?? []) as PedidoResumo[]))
+  }
+  return out
+}
 
 const COLUNAS_RODADA = 'id, numero, titulo, status, inicia_em, link_transmissao'
 
@@ -101,19 +126,15 @@ export async function GET(req: NextRequest, ctx: Params) {
     const pedidoIds = lotes.map(l => l.pedido_id).filter((x): x is string => typeof x === 'string' && UUID_RE.test(x))
     let pedidos: PedidoResumo[] = []
     if (ids.length > 0) {
-      const filtro = [`leilao_id.in.(${ids.join(',')})`]
-      if (pedidoIds.length > 0) filtro.push(`id.in.(${pedidoIds.join(',')})`)
-      const { data, error } = await c.sb
-        .from('pedidos')
-        .select('id, numero, status, created_at, leilao_id')
-        .eq('loja_id', lojaId)
-        .or(filtro.join(','))
-        .limit(500)
-      if (error) {
+      try {
+        const porLeilao = await pedidosPor(c.sb, lojaId, 'leilao_id', ids)
+        const vistos = new Set(porLeilao.map(p => p.id))
+        const faltam = [...new Set(pedidoIds)].filter(id => !vistos.has(id))
+        const porId = faltam.length > 0 ? await pedidosPor(c.sb, lojaId, 'id', faltam) : []
+        pedidos = [...porLeilao, ...porId.filter(p => !vistos.has(p.id))]
+      } catch (e) {
         // Sem pedidos a tela ainda mostra o lote; so o link falta.
-        console.error('[lojas/leiloes/ao-vivo] pedidos', error.code, error.message)
-      } else {
-        pedidos = (data ?? []) as PedidoResumo[]
+        console.error('[lojas/leiloes/ao-vivo]', (e as Error).message)
       }
     }
 

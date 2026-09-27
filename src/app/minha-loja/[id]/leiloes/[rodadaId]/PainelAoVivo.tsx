@@ -11,6 +11,11 @@ import {
 import { SH } from '../../_shared'
 import { chamarPainel } from '../_rodada'
 
+/** Cada busca do painel aborta sozinha depois disso. */
+const TIMEOUT_BUSCA_MS = 10_000
+/** Rodada encerrada: releitura enquanto a aba esta visivel. */
+const POLL_ENCERRADA_MS = 60_000
+
 /**
  * Painel "Ao vivo" + "Resultado" da rodada, no editor da loja.
  *
@@ -21,9 +26,11 @@ import { chamarPainel } from '../_rodada'
  *   arremate/pedido, e os totais arrematado e pago.
  *
  * Polling de GET /api/lojas/[id]/leiloes/[rodadaId]/ao-vivo: 5s, 2s nos
- * últimos 30s do lote no ar; parado com a aba oculta (volta na hora ao
- * aparecer). Rodada encerrada: uma leitura só. O relógio da contagem usa o
- * `server_now` da resposta (deslocamento sobre o relógio do aparelho).
+ * últimos 30s do lote no ar; rodada encerrada, 60s. Parado com a aba oculta
+ * (volta na hora ao aparecer). Cada busca aborta em 10s (e no desmonte); se
+ * falhar, a tela mostra há quanto tempo está sem atualização e segue tentando.
+ * O relógio da contagem usa o `server_now` da resposta (deslocamento sobre o
+ * relógio do aparelho).
  */
 
 interface PedidoLote { id: string; numero: number; status: string }
@@ -82,6 +89,8 @@ export default function PainelAoVivo({
 }) {
   const [dados, setDados] = useState<RespostaAoVivo | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  /** Hora (relogio do servidor) da ultima resposta boa. */
+  const [ultimoOk, setUltimoOk] = useState<number | null>(null)
   /** Relogio do SERVIDOR: Date.now() + deslocamento da ultima resposta. */
   const [agora, setAgora] = useState(() => Date.now())
   const deslocamento = useRef(0)
@@ -92,59 +101,80 @@ export default function PainelAoVivo({
 
   const aoVivo = statusRodada === 'ao_vivo'
 
-  const buscar = useCallback(async (): Promise<RespostaAoVivo | null> => {
+  /** Uma busca; abortada por `signal` (desmonte) nao mexe no estado. */
+  const buscar = useCallback(async (signal: AbortSignal): Promise<RespostaAoVivo | null> => {
     const t0 = Date.now()
     try {
-      const j = await chamarPainel<RespostaAoVivo>(`/api/lojas/${lojaId}/leiloes/${rodadaId}/ao-vivo`, { cache: 'no-store' })
+      const j = await chamarPainel<RespostaAoVivo>(
+        `/api/lojas/${lojaId}/leiloes/${rodadaId}/ao-vivo`,
+        { cache: 'no-store', signal },
+        { timeoutMs: TIMEOUT_BUSCA_MS },
+      )
       const t1 = Date.now()
       const srv = Date.parse(j.server_now)
       if (Number.isFinite(srv)) deslocamento.current = srv - (t0 + t1) / 2
+      const agoraSrv = Date.now() + deslocamento.current
       setDados(j)
       setErro(null)
-      setAgora(Date.now() + deslocamento.current)
+      setUltimoOk(agoraSrv)
+      setAgora(agoraSrv)
       return j
     } catch (e) {
-      setErro((e as Error).message)
+      if (signal.aborted) return null
+      setErro((e as Error).message || 'Não foi possível atualizar.')
+      setAgora(Date.now() + deslocamento.current)
       return null
     }
   }, [lojaId, rodadaId])
 
-  // Polling: 5s / 2s no fim do lote; pausa com a aba oculta.
+  // Polling: 5s / 2s no fim do lote, 60s com a rodada encerrada; pausa com a
+  // aba oculta e busca na hora ao voltar.
   useEffect(() => {
     let vivo = true
     let timer: ReturnType<typeof setTimeout> | null = null
+    let ctrl: AbortController | null = null
     const limpar = () => { if (timer) { clearTimeout(timer); timer = null } }
 
     const ciclo = async () => {
       limpar()
-      if (emVoo.current) return
+      if (!vivo || emVoo.current) return
       emVoo.current = true
-      const j = await buscar()
-      emVoo.current = false
-      if (!vivo || !aoVivo || document.hidden) return
+      const meu = new AbortController()
+      ctrl = meu
+      let j: RespostaAoVivo | null = null
+      try {
+        j = await buscar(meu.signal)
+      } finally {
+        emVoo.current = false
+        if (ctrl === meu) ctrl = null
+      }
+      if (!vivo || document.hidden) return
       const ativo = j?.lotes.find(l => l.status === 'ativo')
       limpar()
-      timer = setTimeout(ciclo, intervaloPolling(ativo?.termina_em ?? null, Date.now() + deslocamento.current))
+      timer = setTimeout(ciclo, aoVivo
+        ? intervaloPolling(ativo?.termina_em ?? null, Date.now() + deslocamento.current)
+        : POLL_ENCERRADA_MS)
     }
 
     ciclo()
-    if (!aoVivo) return () => { vivo = false; limpar() }
-
     const onVis = () => { if (document.hidden) limpar(); else ciclo() }
     document.addEventListener('visibilitychange', onVis)
     return () => {
       vivo = false
       limpar()
+      ctrl?.abort()
+      emVoo.current = false
       document.removeEventListener('visibilitychange', onVis)
     }
   }, [aoVivo, buscar])
 
-  // Relógio da contagem (só com a rodada no ar).
+  // Relógio: contagem com a rodada no ar, e o "sem atualização há Xs" com falha.
+  const tique = aoVivo || erro !== null
   useEffect(() => {
-    if (!aoVivo) return
+    if (!tique) return
     const t = setInterval(() => { if (!document.hidden) setAgora(Date.now() + deslocamento.current) }, 1000)
     return () => clearInterval(t)
-  }, [aoVivo])
+  }, [tique])
 
   // Status mudou no servidor: o editor recarrega a rodada (uma vez por status).
   useEffect(() => {
@@ -159,7 +189,7 @@ export default function PainelAoVivo({
     return (
       <section style={SH.card}>
         <h2 style={SH.cardH3}>{aoVivo ? 'Ao vivo' : 'Resultado'}</h2>
-        <p style={S.suave} role={erro ? 'alert' : undefined}>{erro || 'Carregando…'}</p>
+        <p style={S.suave}>{erro ? `${erro} Tentando de novo.` : 'Carregando…'}</p>
       </section>
     )
   }
@@ -172,11 +202,18 @@ export default function PainelAoVivo({
   const fila = lotes.filter(l => l.status === 'agendado' || l.status === 'rascunho')
   const fechados = lotes.filter(l => FECHADOS.has(l.status))
   const totais = totaisRodada(lotes)
+  const semAtualizacao = erro !== null && ultimoOk !== null
+    ? (
+      <p style={S.faixa}>
+        Sem atualização há {Math.max(0, Math.round((agoraSrv - ultimoOk) / 1000))}s. Tentando de novo.
+      </p>
+    )
+    : null
 
   return (
     <>
       {aoVivo && (
-        <section style={SH.card} aria-live="polite">
+        <section style={SH.card}>
           <div style={S.topo}>
             <h2 style={{ ...SH.cardH3, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={S.ponto} aria-hidden /> Ao vivo
@@ -188,7 +225,7 @@ export default function PainelAoVivo({
             )}
           </div>
 
-          {erro && <p style={S.erroLinha} role="alert">{erro} Tentando de novo…</p>}
+          {semAtualizacao}
 
           {ativo ? (
             <LoteNoAr lote={ativo} total={total} agoraSrv={agoraSrv} />
@@ -220,7 +257,7 @@ export default function PainelAoVivo({
 
       <section style={SH.card}>
         <h2 style={SH.cardH3}>Resultado</h2>
-        {!aoVivo && erro && <p style={S.erroLinha} role="alert">{erro}</p>}
+        {!aoVivo && semAtualizacao}
         <div style={S.totais}>
           <div style={S.total}>
             <span style={S.totalRot}>Total arrematado</span>
@@ -291,9 +328,14 @@ function LoteNoAr({ lote, total, agoraSrv }: { lote: LoteAoVivo; total: number; 
   const final = Number.isFinite(restante) && restante <= JANELA_FINAL_MS
   const src = fotoDe(lote)
   const comLance = lote.n_lances > 0 && lote.preco_atual_cents != null
+  const preco = comLance ? lote.preco_atual_cents! : lote.lance_inicial_cents
+  // Leitor de tela: so preco e lider (a contagem muda todo segundo e nao entra).
+  const anuncio = `${comLance ? 'Lance atual' : 'Lance inicial'} ${formatarBRL(preco)}`
+    + (lote.lider_apelido ? `, líder ${lote.lider_apelido}` : '')
 
   return (
     <div style={S.noAr}>
+      <span style={S.somenteLeitor} aria-live="polite" aria-atomic="true">{anuncio}</span>
       <div style={S.noArTopo}>
         <div style={S.foto}>
           {src && <Image src={src} alt={lote.card_name} fill sizes="96px" style={{ objectFit: 'cover' }} />}
@@ -304,7 +346,7 @@ function LoteNoAr({ lote, total, agoraSrv }: { lote: LoteAoVivo; total: number; 
             {lote.card_name}{lote.card_numero ? ` ${lote.card_numero}` : ''}
           </span>
           <span style={S.totalRot}>{comLance ? 'Lance atual' : 'Lance inicial'}</span>
-          <strong style={S.preco}>{formatarBRL(comLance ? lote.preco_atual_cents! : lote.lance_inicial_cents)}</strong>
+          <strong style={S.preco}>{formatarBRL(preco)}</strong>
           <span style={S.detalhe}>
             {lote.n_lances} {lote.n_lances === 1 ? 'lance' : 'lances'}
             {lote.lider_apelido ? ` · Líder ${lote.lider_apelido}` : ''}
@@ -336,7 +378,14 @@ const S: Record<string, CSSProperties> = {
     color: 'var(--bx-text)', fontSize: 13, fontWeight: 700, textDecoration: 'none',
   },
   suave: { fontSize: 13, color: 'var(--bx-text-3)', margin: 0, lineHeight: 1.45 },
-  erroLinha: { fontSize: 12, color: 'var(--bx-red)', margin: '0 0 10px' },
+  faixa: {
+    fontSize: 12, color: 'var(--bx-text-2)', margin: '0 0 10px', padding: '6px 10px', borderRadius: 8,
+    background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', fontVariantNumeric: 'tabular-nums',
+  },
+  somenteLeitor: {
+    position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden',
+    clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+  },
   noAr: { display: 'flex', flexDirection: 'column', gap: 12 },
   noArTopo: { display: 'flex', gap: 12, alignItems: 'flex-start' },
   foto: {

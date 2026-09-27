@@ -41,9 +41,9 @@
 --      instante em que o tick ja virou a rodada para ao_vivo mas ainda nao
 --      abriu o primeiro lote.
 --      Erros: rodada_nao_encontrada, rodada_fechada, lote_ja_abriu.
---      ★ Nao gera evento em leilao_eventos: o consumidor de avisos (fatia 3)
---        nao conhece "rodada cancelada". Quem seguia lote agendado nao e
---        avisado -- PENDENCIA para o Du decidir se vira aviso.
+--      ★ Aqui nao gera evento em leilao_eventos. O aviso de "rodada
+--        cancelada" para quem seguia lote agendado entra em
+--        20260928130000_leilao_painel_avisos.sql, que recria esta funcao.
 --
 --   4. leilao_adicionar_lote(p_rodada, p_loja, p_lote jsonb) -> uuid
 --      Insere um lote no FIM da fila, sob `for update` na rodada. Fecha a
