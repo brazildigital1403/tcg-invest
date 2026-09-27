@@ -12,6 +12,8 @@ import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, Ic
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { canceladoSemCobranca } from '@/lib/pedidoStatus'
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
+import ProtecaoBynx from './ProtecaoBynx'
 
 /**
  * /pedido/[id] — acompanhamento do pedido.
@@ -55,6 +57,13 @@ interface Pedido {
   enviado_em: string | null
   loja_id: string
   comprador_user_id: string
+  // Leilao / Protecao Bynx (colunas das migrations 20260928*; ausentes = null)
+  leilao_id?: string | null
+  entregue_em?: string | null
+  prazo_reclamacao_ate?: string | null
+  reclamacao_aberta?: boolean | null
+  recebido_automatico?: boolean | null
+  cancelado_por?: string | null
 }
 
 const PASSOS = [
@@ -360,7 +369,10 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
                 <span style={{ display: 'inline-flex', marginTop: 1 }}><IconArrowRight size={18} color="#f87171" /></span>
                 <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55 }}>
                   {reembolsado
-                    ? `Este pedido foi cancelado pela loja e o valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado no seu cartão.`
+                    ? pedido.cancelado_por === 'bynx' || pedido.cancelado_por === 'comprador'
+                      // Protecao Bynx (leilao): quem cancelou nao foi a loja.
+                      ? `Este pedido foi cancelado e o valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado.`
+                      : `Este pedido foi cancelado pela loja e o valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado no seu cartão.`
                     : canceladoSemCobranca(pedido)
                       ? 'O pagamento não foi concluído a tempo, então o pedido foi cancelado. Nada foi cobrado.'
                       : 'Este pedido foi cancelado.'}
@@ -416,6 +428,11 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Reembolsado tambem monta: mostra a decisao da reclamacao, se houver. */}
+          {LEILAO_ATIVO && souComprador && ['pago', 'enviado', 'entregue', 'reembolsado'].includes(pedido.status) && (
+            <ProtecaoBynx pedido={pedido} onMudou={buscar} />
           )}
 
           {podeAvaliar && (
