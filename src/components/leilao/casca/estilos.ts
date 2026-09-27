@@ -36,11 +36,13 @@ export const CSS_CASCA = `
 @media (prefers-reduced-motion: reduce) { .lc-aovivo-ponto { animation: none; } }
 
 /* Conta: Entrar ou avatar */
+/* Desenho de 34px (como no mockup), alvo de toque de 44px pelo ::after. */
 .lc-entrar {
-  min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--bx-border-2); background: transparent;
+  position: relative; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--bx-border-2); background: transparent;
   color: var(--bx-text); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; flex-shrink: 0;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
+.lc-entrar::after { content: ''; position: absolute; inset: -5px -2px; }
 .lc-entrar:hover { background: var(--bx-surface-2); }
 .lc-avatar-btn { width: 44px; height: 44px; display: grid; place-items: center; border: none; background: transparent; padding: 0; cursor: pointer; flex-shrink: 0; }
 .lc-avatar {

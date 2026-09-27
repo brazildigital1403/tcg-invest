@@ -3,10 +3,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound, permanentRedirect } from 'next/navigation'
-import Breadcrumb from '@/components/ui/Breadcrumb'
 import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
-import SeloVerificado from '@/components/ui/SeloVerificado'
 import LanceAoVivo from '@/components/leilao/LanceAoVivo'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { IconChevronRight } from '@/components/ui/Icons'
@@ -24,7 +22,8 @@ import { buscarLojaDoLote, buscarLotePorCodigo, buscarReferenciaMercadoCents, bu
  * no generateMetadata: la o redirect nao vira header HTTP).
  *
  * O server entrega o estado no momento da visita; a ilha LanceAoVivo assume
- * dali (relogio, polling, lance).
+ * dali (relogio, polling, lance). Visual da casca do Bynx Leiloes (mockup de
+ * 27/09/2026); a trilha fica so no JSON-LD (BreadcrumbList).
  */
 
 // DECISAO DO DU: cache. Provisorio: sem cache enquanto a superficie de cache
@@ -189,17 +188,16 @@ export default async function LotePage({ params }: Params) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(produtoSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(trilhaSchema) }} />
       <style>{`
-        .lt-cols { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
-        @media (min-width: 900px) { .lt-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; } }
+        .lt-cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 900px) { .lt-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; } }
         .lt-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
         .lt-ghost:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
+        .lt-ghost:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
         /* CTA de lance fixo no celular: folga no fim da pagina para ele nao cobrir o ultimo bloco. */
-        @media (max-width: 768px) { .lt-wrap { padding-bottom: 80px; } }
+        @media (max-width: 768px) { .lt-wrap { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
       `}</style>
 
       <div className="lt-wrap" style={S.wrap}>
-        <Breadcrumb items={trilha} />
-
         <div className="lt-cols">
           <div style={{ minWidth: 0 }}>
             {fotos.length > 0 ? (
@@ -222,6 +220,29 @@ export default async function LotePage({ params }: Params) {
               urlLote={url}
             />
 
+            {loja && (
+              <Link href={`/lojas/${loja.slug}`} prefetch={false} className="lt-ghost" style={S.loja}>
+                {loja.logoUrl ? (
+                  <Image src={loja.logoUrl} alt="" width={28} height={28} sizes="28px" style={S.lojaLogo} />
+                ) : (
+                  <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{(loja.nome ?? loja.slug).charAt(0).toUpperCase()}</span>
+                )}
+                <span style={S.lojaNome}>{loja.nome ?? loja.slug}</span>
+                {loja.verificada && <span style={S.selo}>Verificada</span>}
+              </Link>
+            )}
+
+            {rodada && (
+              <Link href={urlRodada(rodada.numero)} prefetch={false} className="lt-ghost" style={S.rodada}>
+                <span style={S.rodadaTexto}>
+                  Faz parte da <strong style={S.rodadaForte}>Rodada {rodada.numero}</strong>
+                  {rodada.titulo ? ` · ${tituloRodada(rodada)}` : ''}
+                  {rodada.status === 'ao_vivo' ? <span style={S.rodadaVivo}> · ao vivo agora</span> : null}
+                </span>
+                <IconChevronRight size={16} />
+              </Link>
+            )}
+
             <div style={S.acoes}>
               {l.cardSlug && (
                 <Link href={`/carta/${l.cardSlug}`} prefetch={false} className="lt-ghost" style={S.ghost}>
@@ -230,36 +251,6 @@ export default async function LotePage({ params }: Params) {
               )}
               <BotaoCompartilhar compacto url={url} titulo={`${nome} — leilão na Bynx`} texto={resumo(l)} />
             </div>
-
-            {loja && (
-              <Link href={`/lojas/${loja.slug}`} prefetch={false} className="lt-ghost" style={S.loja}>
-                {loja.logoUrl ? (
-                  <Image src={loja.logoUrl} alt={loja.nome ?? loja.slug} width={42} height={42} sizes="42px" style={S.lojaLogo} />
-                ) : (
-                  <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{(loja.nome ?? loja.slug).charAt(0)}</span>
-                )}
-                <span style={{ minWidth: 0 }}>
-                  <span style={S.lojaRotulo}>Leilão da loja</span>
-                  <span style={S.lojaNome}>
-                    {loja.nome ?? loja.slug}
-                    {loja.verificada && <SeloVerificado />}
-                  </span>
-                </span>
-              </Link>
-            )}
-
-            {rodada && (
-              <Link href={urlRodada(rodada.numero)} prefetch={false} className="lt-ghost" style={S.rodada}>
-                <span style={S.rodadaTexto}>
-                  Este lote faz parte da rodada <strong style={S.rodadaForte}>{tituloRodada(rodada)}</strong>
-                  {loja ? <> da loja <strong style={S.rodadaForte}>{loja.nome ?? loja.slug}</strong></> : null}.
-                </span>
-                <span style={S.rodadaCta}>
-                  {rodada.status === 'ao_vivo' ? 'Acompanhar a rodada ao vivo' : 'Ver a rodada'}
-                  <IconChevronRight size={16} />
-                </span>
-              </Link>
-            )}
 
             <div style={S.card}>
               {ficha.filter(([, v]) => !!v).map(([k, v]) => <Ficha key={k} k={k} v={v as string} />)}
@@ -279,9 +270,9 @@ export default async function LotePage({ params }: Params) {
 }
 
 const S: Record<string, CSSProperties> = {
-  wrap: { maxWidth: 1100, margin: '0 auto' },
+  wrap: { maxWidth: 1200, margin: '0 auto' },
   colInfo: { display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 },
-  h1: { fontSize: 22, fontWeight: 700, color: 'var(--bx-text)', margin: 0, lineHeight: 1.3 },
+  h1: { fontSize: 18, fontWeight: 800, color: 'var(--bx-text)', margin: 0, lineHeight: 1.3, letterSpacing: '-0.01em' },
   semFoto: {
     aspectRatio: '245 / 342', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 16,
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', color: 'var(--bx-text-3)', fontSize: 13,
@@ -289,28 +280,30 @@ const S: Record<string, CSSProperties> = {
   avisoFoto: { fontSize: 12, color: 'var(--bx-text-3)', margin: '8px 0 0' },
   acoes: { display: 'flex', gap: 8, alignItems: 'stretch' },
   ghost: {
-    flex: 1, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10,
+    flex: 1, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12,
     border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'var(--bx-text)',
     fontSize: 14, fontWeight: 600, textDecoration: 'none',
   },
   loja: {
-    display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, textDecoration: 'none',
-    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'inherit',
+    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', minHeight: 48, borderRadius: 12,
+    textDecoration: 'none', border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'inherit',
   },
-  lojaLogo: { width: 42, height: 42, borderRadius: 10, objectFit: 'cover', flexShrink: 0 },
+  lojaLogo: { width: 28, height: 28, borderRadius: 8, objectFit: 'cover', flexShrink: 0 },
   lojaLogoVazia: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bx-surface-3)',
-    color: 'var(--bx-text-2)', fontWeight: 700, fontSize: 18,
+    display: 'grid', placeItems: 'center', background: 'var(--bx-surface-3)', color: 'var(--bx-text)', fontWeight: 800, fontSize: 12,
   },
-  lojaRotulo: { display: 'block', fontSize: 11, color: 'var(--bx-text-3)', fontWeight: 600 },
-  lojaNome: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, fontWeight: 700, color: 'var(--bx-text)' },
+  lojaNome: {
+    flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--bx-text)',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  selo: { fontSize: 11, fontWeight: 700, color: 'var(--bx-green)', flexShrink: 0 },
   rodada: {
-    display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 12, textDecoration: 'none',
-    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'inherit', minHeight: 44,
+    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', minHeight: 48, borderRadius: 12,
+    textDecoration: 'none', border: '1px solid var(--bx-border)', color: 'var(--bx-text-3)',
   },
-  rodadaTexto: { fontSize: 14, color: 'var(--bx-text-2)', lineHeight: 1.5, overflowWrap: 'anywhere' },
+  rodadaTexto: { flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--bx-text-2)', lineHeight: 1.45, overflowWrap: 'anywhere' },
   rodadaForte: { color: 'var(--bx-text)', fontWeight: 700 },
-  rodadaCta: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: 'var(--ac-1)' },
+  rodadaVivo: { color: 'var(--ac-2)', fontWeight: 700 },
   card: {
     display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 12,
     border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',

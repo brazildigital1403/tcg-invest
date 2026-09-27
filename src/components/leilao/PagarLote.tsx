@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
-import { IconArrowRight, IconCard, IconClock, IconPokeball, IconShield, IconWarning } from '@/components/ui/Icons'
+import { IconArrowRight, IconCard, IconPokeball, IconShield, IconWarning } from '@/components/ui/Icons'
 import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
 import { calcularArremate } from '@/lib/leilao-taxas'
 
@@ -18,6 +18,10 @@ import { calcularArremate } from '@/lib/leilao-taxas'
  * servico escolhido na hora de abrir o pagamento.
  *
  * Fatia 2: so cartao (o Pix entra quando PIX_DISPONIVEL virar true).
+ *
+ * VISUAL (casca do Bynx Leiloes, mockup aprovado em 27/09/2026): arremate,
+ * prazo em destaque, entrega, conta e o botao de pagar fixo no fim da tela no
+ * celular. O acento e o do comprador (.bx-ctx-comprador, na pagina).
  */
 
 interface OpcaoFrete {
@@ -251,14 +255,26 @@ export default function PagarLote({
   const precisaFrete = ehCalculado && freteCents == null
   const imagem = dados.lote.imagem || imagemInicial
 
+  const podePagar = !!v && v.pode_vender
+
   return (
-    <div style={S.coluna}>
+    <div className={podePagar ? 'pg-com-cta' : undefined} style={S.coluna}>
       <style>{`
         .pg-cta, .pg-ghost, .pg-op { transition: filter 0.15s ease, background 0.15s ease, border-color 0.15s ease; }
         .pg-cta:hover:not(:disabled) { filter: brightness(1.08); }
         .pg-ghost:hover, .pg-op:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
         .pg-cta:focus-visible, .pg-ghost:focus-visible, .pg-op:focus-visible, .pg-campo:focus-visible {
           outline: 2px solid var(--ac-1); outline-offset: 2px;
+        }
+        .pg-cta-fixo { margin-top: 2px; }
+        @media (max-width: 768px) {
+          /* Pagar fixo no fim da tela (sem bottom nav na casca do leilao). */
+          .pg-cta-fixo {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 150; margin: 0;
+            padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+            background: var(--bx-bg-elev); border-top: 1px solid var(--bx-border); box-shadow: var(--bx-shadow);
+          }
+          .pg-com-cta { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
         }
         @media (prefers-reduced-motion: reduce) { .pg-cta, .pg-ghost, .pg-op { transition: none; } }
       `}</style>
@@ -276,28 +292,25 @@ export default function PagarLote({
         </div>
       )}
 
-      <div style={S.card}>
-        <div style={S.item}>
-          <div style={S.thumb}>
-            {imagem ? (
-              <Image src={imagem} alt={dados.lote.nome || nomeInicial} width={72} height={100} sizes="72px" style={S.thumbImg} />
-            ) : (
-              <IconPokeball size={26} color="var(--bx-text-3)" />
-            )}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <p style={S.itemNome}>{dados.lote.nome || nomeInicial}</p>
-            {dados.lote.condicao && <p style={S.itemMeta}>{dados.lote.condicao}</p>}
-            {v && <p style={S.itemMeta}>Vendido por {v.nome}</p>}
-          </div>
+      <div style={S.arrem}>
+        <div style={S.thumb}>
+          {imagem ? (
+            <Image src={imagem} alt={dados.lote.nome || nomeInicial} width={54} height={75} sizes="64px" style={S.thumbImg} />
+          ) : (
+            <IconPokeball size={22} color="var(--bx-text-3)" />
+          )}
         </div>
-        {dados.pagar_ate && (
-          <p style={S.prazo}>
-            <IconClock size={16} />
-            Pague até {horarioBrasilia(dados.pagar_ate)}
-          </p>
-        )}
+        <div style={{ minWidth: 0 }}>
+          <p style={S.itemNome}>{dados.lote.nome || nomeInicial}</p>
+          <p style={S.itemMeta}>Você arrematou por {formatarBRL(precoCents)}</p>
+          {(dados.lote.condicao || v) && (
+            <p style={S.itemFraco}>
+              {[dados.lote.condicao, v ? `Vendido por ${v.nome}` : null].filter(Boolean).join(' · ')}
+            </p>
+          )}
+        </div>
       </div>
+      {dados.pagar_ate && <p style={S.prazo}>Pague até {horarioBrasilia(dados.pagar_ate)}</p>}
 
       {!v || !v.pode_vender ? (
         <div style={S.card}>
@@ -307,8 +320,8 @@ export default function PagarLote({
       ) : (
         <>
           {ehCalculado && (
-            <div style={S.card}>
-              <p style={S.secao}>Entrega</p>
+            <section aria-labelledby="pg-entrega" style={S.bloco}>
+              <h2 id="pg-entrega" style={S.rot}>Entrega</h2>
               <div style={S.cepLinha}>
                 <input
                   className="pg-campo"
@@ -321,7 +334,7 @@ export default function PagarLote({
                   onKeyDown={e => {
                     if (e.key === 'Enter') cotar()
                   }}
-                  placeholder="Seu CEP"
+                  placeholder="CEP"
                   inputMode="numeric"
                   autoComplete="postal-code"
                   aria-label="CEP de entrega"
@@ -359,11 +372,10 @@ export default function PagarLote({
                   })}
                 </div>
               )}
-            </div>
+            </section>
           )}
 
-          <div style={S.card}>
-            <p style={S.secao}>Resumo</p>
+          <section aria-label="Resumo do pagamento" style={S.conta}>
             <div style={S.linha}>
               <span style={S.rotulo}>Arremate</span>
               <span>{formatarBRL(precoCents)}</span>
@@ -380,7 +392,7 @@ export default function PagarLote({
               <span style={S.rotulo}>Frete</span>
               <span>
                 {freteCents == null ? (
-                  <span style={S.rotulo}>calcule acima</span>
+                  <span style={S.rotulo}>informe o CEP</span>
                 ) : freteCents === 0 ? (
                   <span style={{ color: 'var(--bx-green)' }}>Grátis</span>
                 ) : (
@@ -392,7 +404,17 @@ export default function PagarLote({
               <span>Total</span>
               <span style={S.totalValor}>{total == null ? '—' : formatarBRL(total)}</span>
             </div>
+          </section>
 
+          <p style={S.nota}>
+            <IconShield size={14} />
+            <span>
+              Pagamento pela Stripe. Os dados do cartão não passam pela Bynx. A taxa de proteção cobre a
+              intermediação até a entrega.
+            </span>
+          </p>
+
+          <div className="pg-cta-fixo">
             <button
               type="button"
               onClick={() => pagar(ehCalculado)}
@@ -406,15 +428,10 @@ export default function PagarLote({
                 'Calcule o frete para continuar'
               ) : (
                 <>
-                  <IconCard size={18} /> Pagar {total == null ? '' : formatarBRL(total)}
+                  <IconCard size={18} /> Pagar com cartão{total == null ? '' : ` · ${formatarBRL(total)}`}
                 </>
               )}
             </button>
-            <p style={S.nota}>
-              <IconShield size={14} />
-              Pagamento pela Stripe. Os dados do cartão não passam pela Bynx. A taxa de proteção cobre a
-              intermediação até a entrega.
-            </p>
           </div>
         </>
       )}
@@ -427,7 +444,19 @@ export default function PagarLote({
 }
 
 const S: Record<string, CSSProperties> = {
-  coluna: { display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 24 },
+  coluna: { display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 24 },
+  arrem: {
+    display: 'flex', gap: 12, alignItems: 'center', padding: 10, borderRadius: 12,
+    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
+  },
+  bloco: { display: 'flex', flexDirection: 'column', gap: 8 },
+  rot: {
+    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bx-text-3)', margin: 0,
+  },
+  conta: {
+    display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px', borderRadius: 12,
+    border: '1px solid var(--bx-border)',
+  },
   card: {
     display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12,
     border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'var(--bx-text)',
@@ -435,21 +464,21 @@ const S: Record<string, CSSProperties> = {
   aviTitulo: { fontSize: 16, fontWeight: 700, color: 'var(--bx-text)', margin: 0 },
   aviTexto: { fontSize: 14, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.5 },
   acoes: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 },
-  item: { display: 'flex', gap: 12, alignItems: 'center' },
   thumb: {
-    width: 72, height: 100, borderRadius: 8, overflow: 'hidden', flexShrink: 0, display: 'flex',
+    width: 54, height: 75, borderRadius: 6, overflow: 'hidden', flexShrink: 0, display: 'flex',
     alignItems: 'center', justifyContent: 'center', background: 'var(--bx-surface-2)',
   },
   thumbImg: { width: '100%', height: '100%', objectFit: 'contain' },
-  itemNome: { fontSize: 16, fontWeight: 700, color: 'var(--bx-text)', margin: 0, lineHeight: 1.3 },
-  itemMeta: { fontSize: 13, color: 'var(--bx-text-3)', margin: '4px 0 0' },
+  itemNome: { fontSize: 15, fontWeight: 700, color: 'var(--bx-text)', margin: 0, lineHeight: 1.3, overflowWrap: 'anywhere' },
+  itemMeta: { fontSize: 12.5, color: 'var(--bx-text-2)', margin: '2px 0 0', fontVariantNumeric: 'tabular-nums' },
+  itemFraco: { fontSize: 12, color: 'var(--bx-text-3)', margin: '2px 0 0' },
   prazo: {
-    display: 'flex', alignItems: 'center', gap: 6, margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ac-1)',
+    margin: 0, padding: '10px 12px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: 'var(--ac-1)',
+    border: '1px solid var(--ac-1)', background: 'rgba(var(--ac-1-rgb), 0.08)',
   },
-  secao: { fontSize: 13, fontWeight: 700, color: 'var(--bx-text-2)', margin: 0 },
   cepLinha: { display: 'flex', gap: 8 },
   campo: {
-    flex: 1, minWidth: 0, minHeight: 44, padding: '0 12px', borderRadius: 10, fontSize: 16, fontWeight: 600,
+    flex: 1, minWidth: 0, minHeight: 44, padding: '0 12px', borderRadius: 12, fontSize: 16, fontWeight: 600,
     fontFamily: 'inherit', background: 'var(--bx-bg)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)',
   },
   btnCep: {
@@ -470,17 +499,17 @@ const S: Record<string, CSSProperties> = {
   opNome: { display: 'block', fontSize: 14, fontWeight: 600 },
   opPrazo: { display: 'block', fontSize: 12, color: 'var(--bx-text-3)' },
   opPreco: { fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
-  linha: { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 14, fontVariantNumeric: 'tabular-nums' },
+  linha: { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, fontVariantNumeric: 'tabular-nums' },
   rotulo: { color: 'var(--bx-text-3)' },
   total: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, paddingTop: 10,
-    borderTop: '1px solid var(--bx-border)', fontSize: 15, fontWeight: 700,
+    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, paddingTop: 8, marginTop: 2,
+    borderTop: '1px solid var(--bx-border)', fontSize: 15, fontWeight: 800,
   },
-  totalValor: { fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--ac-1)' },
+  totalValor: { fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--bx-text)' },
   cta: {
     width: '100%', minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', textDecoration: 'none', marginTop: 4,
+    borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 800,
+    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', textDecoration: 'none', fontVariantNumeric: 'tabular-nums',
   },
   ctaOff: { opacity: 0.6, cursor: 'default' },
   ghost: {
@@ -488,7 +517,10 @@ const S: Record<string, CSSProperties> = {
     border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'var(--bx-text)',
     fontSize: 14, fontWeight: 600, textDecoration: 'none',
   },
-  nota: { display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: 'var(--bx-text-3)', margin: 0, lineHeight: 1.5 },
+  nota: {
+    display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 6, fontSize: 11.5, color: 'var(--bx-text-3)',
+    margin: 0, lineHeight: 1.5, textAlign: 'center',
+  },
   faixa: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 600,
   },
