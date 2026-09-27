@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
-import { IconChart, IconClock, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
+import { IconChart, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
 import {
   formatarBRL,
   formatarTempoRestante,
@@ -55,6 +55,13 @@ import { urlPagar } from '@/lib/leilao-urls'
  * nele). Sem o "conferindo" proprio: o fechamento preguicoso roda na rota da
  * rodada, que ja busca a 2s nessa hora. `aoParticipar` avisa a rodada quando
  * a pessoa tem lance no lote (para ela conferir o arremate quando fechar).
+ *
+ * VISUAL (casca do Bynx Leiloes, mockup aprovado em 27/09/2026): lance atual
+ * grande em DM Sans 800 com numeros tabulares, relogio em ANEL (traco no
+ * acento; vermelho nos ultimos 10s) e o CTA fixo no fim da tela no celular.
+ * `variante="rodada"` (tela heroi da live) usa o preco maior e ganha o botao
+ * "+ incremento", que so abre a folha ja no proximo degrau: nenhum lance sai
+ * sem o Confirmar.
  */
 
 const INTERVALO_NORMAL_MS = 10_000
@@ -64,6 +71,8 @@ const JANELA_FINAL_MS = 120_000
 const FATOR_AVISO_MERCADO = 1.5
 /** Acima de N vezes o lance minimo atual, o Confirmar pede um segundo toque. */
 const FATOR_CONFIRMACAO_DUPLA = 3
+/** Ultimos N ms: o anel do relogio fica vermelho. */
+const ANEL_URGENTE_MS = 10_000
 const FOCAVEIS = 'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
 
 type Aba = 'rapido' | 'maximo'
@@ -126,6 +135,8 @@ export default function LanceAoVivo({
   loteExterno,
   pollingExterno = false,
   aoParticipar,
+  variante = 'lote',
+  aposMercado,
 }: {
   loteInicial: LotePublico
   serverNow: string
@@ -139,6 +150,10 @@ export default function LanceAoVivo({
   pollingExterno?: boolean
   /** Chamado quando o servidor confirma que quem esta logado tem lance neste lote. */
   aoParticipar?: (loteId: string) => void
+  /** 'rodada' = tela heroi da live (preco maior e botao "+ incremento"). */
+  variante?: 'lote' | 'rodada'
+  /** Bloco logo abaixo do Mercado Brasileiro (a rodada poe ali a faixa de resultado). */
+  aposMercado?: ReactNode
 }) {
   const [lote, setLote] = useState<LotePublico>(loteInicial)
 
@@ -366,11 +381,11 @@ export default function LanceAoVivo({
   }, [precoCents])
 
   // ── Folha ────────────────────────────────────────────────────────────────
-  const abrirFolha = () => {
+  const abrirFolha = (valorInicial: number = minimo) => {
     setErro(null)
     setAviso(null)
     setAba('rapido')
-    setValorTxt(centsParaCampo(minimo))
+    setValorTxt(centsParaCampo(valorInicial))
     setConfirmarAlto(false)
     setAberta(true)
   }
@@ -547,6 +562,13 @@ export default function LanceAoVivo({
   } else if (conferindo) {
     relogio = formatarTempoRestante(0)
   }
+  // Fracao do anel: o que resta do lote. Total = fim - inicio (ja conta as
+  // prorrogacoes); sem inicio legivel, a duracao configurada.
+  const iniMs = lote.iniciaEm ? Date.parse(lote.iniciaEm) : NaN
+  const totalMs = Number.isFinite(iniMs) && Number.isFinite(fimMs) && fimMs > iniMs ? fimMs - iniMs : lote.duracaoSeg * 1000
+  const fracaoAnel =
+    aberto && Number.isFinite(restanteMs) && totalMs > 0 ? Math.min(1, Math.max(0, restanteMs / totalMs)) : 0
+  const anelUrgente = conferindo || (aberto && restanteMs <= ANEL_URGENTE_MS)
   const horaAbsoluta =
     st === 'em_breve' && lote.iniciaEm
       ? `Começa em ${horarioBrasilia(lote.iniciaEm)}`
@@ -592,10 +614,25 @@ export default function LanceAoVivo({
   } else if (!online) {
     cta = <div style={S.ctaInfo}>Sem conexão. O lance fica disponível quando a internet voltar.</div>
   } else {
+    const degrau = chipsRapidos[1]
     cta = (
-      <button ref={ctaRef} type="button" onClick={abrirFolha} disabled={logado === null} className="lv-cta-btn" style={S.ctaBtn}>
-        Dar lance · mínimo {formatarBRL(minimo)}
-      </button>
+      <div style={S.ctaLinha}>
+        <button ref={ctaRef} type="button" onClick={() => abrirFolha()} disabled={logado === null} className="lv-cta-btn" style={S.ctaBtn}>
+          Dar lance · {formatarBRL(minimo)}
+        </button>
+        {variante === 'rodada' && (
+          <button
+            type="button"
+            onClick={() => abrirFolha(degrau)}
+            disabled={logado === null}
+            className="lv-cta-btn lv-cta-mais"
+            style={S.ctaMais}
+            aria-label={`Dar lance de ${formatarBRL(degrau)}`}
+          >
+            + {formatarBRL(degrau - minimo)}
+          </button>
+        )}
+      </div>
     )
   }
 
@@ -606,6 +643,7 @@ export default function LanceAoVivo({
         .lv-cta-btn:hover:not(:disabled) { filter: brightness(1.08); }
         .lv-cta-btn:focus-visible, .lv-foco:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
         .lv-cta-btn:disabled { opacity: 0.6; cursor: default; }
+        .lv-cta-mais:hover:not(:disabled) { filter: none; background: var(--bx-surface-2); }
         .lv-cta-fixo { margin-top: 16px; }
         @media (max-width: 768px) {
           /* Casca do Bynx Leiloes: sem bottom nav. O CTA encosta no fim da tela
@@ -643,61 +681,57 @@ export default function LanceAoVivo({
           a cada tique do relogio, e aria-live nele leria a tela inteira. */}
       <p className="lv-sr" aria-live="polite" aria-atomic="true">{anuncio}</p>
 
-      <div style={S.linhaStatus}>
-        <span
-          style={{
-            ...S.status,
-            ...(st === 'encerrando' || conferindo ? S.statusUrgente : aberto ? S.statusVivo : null),
-          }}
-        >
-          {conferindo ? ROTULO_STATUS.encerrando : ROTULO_STATUS[st]}
-        </span>
-        {relogio && (
-          <span style={{ ...S.relogio, ...(st === 'encerrando' || conferindo ? { color: 'var(--bx-red)' } : null) }}>
-            <IconClock size={16} />
-            <span>{st === 'em_breve' ? `Começa em ${relogio}` : relogio}</span>
+      <div style={S.lanceLinha}>
+        <div style={S.lanceCol}>
+          <span style={S.precoRotulo}>
+            {lote.nLances > 0 ? (st === 'arrematado' ? 'Arrematado por' : 'Lance atual') : 'Lance inicial'}
           </span>
-        )}
-      </div>
-      {horaAbsoluta && <p style={S.horaAbs}>{horaAbsoluta}</p>}
-
-      <div style={S.precoBloco}>
-        <span style={S.precoRotulo}>
-          {lote.nLances > 0 ? (st === 'arrematado' ? 'Arrematado por' : 'Lance atual') : 'Lance inicial'}
-        </span>
-        <span style={S.preco}>{formatarBRL(precoCents)}</span>
-        <span style={S.precoMeta}>
-          {lote.nLances === 0 ? 'Nenhum lance ainda' : lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`}
-          {lote.nParticipantes > 1 ? ` · ${lote.nParticipantes} participantes` : ''}
-          {lote.liderApelido && lote.nLances > 0 ? ` · liderando: ${lote.liderApelido}` : ''}
-        </span>
-        {lote.prorrogacoes > 0 && aberto && (
+          <span style={{ ...S.preco, fontSize: variante === 'rodada' ? 40 : 34 }}>{formatarBRL(precoCents)}</span>
           <span style={S.precoMeta}>
-            Prorrogado {lote.prorrogacoes === 1 ? '1 vez' : `${lote.prorrogacoes} vezes`}: lance nos últimos {lote.softCloseSeg}s
-            estende o fim.
+            {lote.nLances === 0 ? 'Nenhum lance ainda' : lote.nLances === 1 ? '1 lance' : `${lote.nLances} lances`}
+            {lote.nParticipantes > 1 ? ` · ${lote.nParticipantes} participantes` : ''}
+            {lote.liderApelido && lote.nLances > 0 ? ` · liderando: ${lote.liderApelido}` : ''}
           </span>
-        )}
-        {referenciaMercadoCents && (
-          <span style={S.mercado}>
-            <IconChart size={14} />
-            <span>
-              Mercado Brasileiro: a partir de{' '}
-              {lote.cardSlug ? (
-                <Link href={`/carta/${lote.cardSlug}`} style={S.mercadoLink}>
-                  {formatarBRL(referenciaMercadoCents)}
-                </Link>
-              ) : (
-                <strong style={S.mercadoValor}>{formatarBRL(referenciaMercadoCents)}</strong>
-              )}
-              {lote.nLances > 0 && (() => {
-                const pct = Math.round((precoCents / referenciaMercadoCents - 1) * 100)
-                if (pct === 0) return ' · no valor de mercado'
-                return pct < 0 ? ` · ${-pct}% abaixo` : ` · ${pct}% acima`
-              })()}
-            </span>
-          </span>
+          {horaAbsoluta && <span style={S.horaAbs}>{horaAbsoluta}</span>}
+        </div>
+        {relogio ? (
+          <Anel
+            fracao={st === 'em_breve' ? 0 : fracaoAnel}
+            texto={relogio}
+            urgente={anelUrgente}
+            rotulo={st === 'em_breve' ? `Começa em ${relogio}` : conferindo ? 'Conferindo encerramento' : `Faltam ${relogio}`}
+          />
+        ) : (
+          <span style={{ ...S.status, ...(st === 'arrematado' ? S.statusFeito : null) }}>{ROTULO_STATUS[st]}</span>
         )}
       </div>
+      {lote.prorrogacoes > 0 && aberto && (
+        <p style={S.nota}>
+          Prorrogado {lote.prorrogacoes === 1 ? '1 vez' : `${lote.prorrogacoes} vezes`}: lance nos últimos {lote.softCloseSeg}s
+          estende o fim.
+        </p>
+      )}
+      {referenciaMercadoCents && (
+        <p style={S.mercado}>
+          <IconChart size={14} />
+          <span>
+            Mercado Brasileiro: a partir de{' '}
+            {lote.cardSlug ? (
+              <Link href={`/carta/${lote.cardSlug}`} style={S.mercadoLink}>
+                {formatarBRL(referenciaMercadoCents)}
+              </Link>
+            ) : (
+              <strong style={S.mercadoValor}>{formatarBRL(referenciaMercadoCents)}</strong>
+            )}
+            {lote.nLances > 0 && (() => {
+              const pct = Math.round((precoCents / referenciaMercadoCents - 1) * 100)
+              if (pct === 0) return ' · no valor de mercado'
+              return pct < 0 ? ` · ${-pct}% abaixo` : ` · ${pct}% acima`
+            })()}
+          </span>
+        </p>
+      )}
+      {aposMercado}
 
       {estouGanhando && (aberto || st === 'arrematado') && (
         <div role="status" style={{ ...S.faixa, ...S.faixaGanhando }}>
@@ -872,31 +906,27 @@ export default function LanceAoVivo({
 }
 
 const S: Record<string, CSSProperties> = {
-  bloco: { display: 'flex', flexDirection: 'column', gap: 10 },
-  linhaStatus: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  bloco: { display: 'flex', flexDirection: 'column', gap: 12 },
+  lanceLinha: { display: 'flex', alignItems: 'center', gap: 12 },
+  lanceCol: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 },
   status: {
-    display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-    background: 'var(--bx-surface-2)', color: 'var(--bx-text-2)',
-    // Longhands: statusVivo/statusUrgente trocam so a cor (shorthand + borderColor gera aviso do React).
+    flexShrink: 0, display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12,
+    fontWeight: 700, background: 'var(--bx-surface-2)', color: 'var(--bx-text-2)',
+    // Longhands: statusFeito troca so a cor (shorthand + borderColor gera aviso do React).
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)',
   },
-  statusVivo: { background: 'rgba(var(--ac-1-rgb), 0.12)', color: 'var(--ac-1)', borderColor: 'var(--ac-1)' },
-  statusUrgente: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)', background: 'var(--bx-surface-2)' },
-  relogio: {
-    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 22, fontWeight: 800, color: 'var(--bx-text)',
-    fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
+  statusFeito: { color: 'var(--bx-green)', borderColor: 'var(--bx-green)' },
+  horaAbs: { fontSize: 12.5, color: 'var(--bx-text-3)' },
+  precoRotulo: { fontSize: 10.5, color: 'var(--bx-text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' },
+  preco: {
+    fontSize: 40, fontWeight: 800, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+    lineHeight: 1, overflowWrap: 'anywhere',
   },
-  horaAbs: { fontSize: 12, color: 'var(--bx-text-3)', margin: 0 },
-  precoBloco: {
-    display: 'flex', flexDirection: 'column', gap: 2, padding: 14, borderRadius: 12,
-    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
-  },
-  precoRotulo: { fontSize: 12, color: 'var(--bx-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' },
-  preco: { fontSize: 32, fontWeight: 800, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' },
-  precoMeta: { fontSize: 13, color: 'var(--bx-text-2)' },
+  precoMeta: { fontSize: 12.5, color: 'var(--bx-text-2)' },
+  nota: { fontSize: 12.5, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.5 },
   mercado: {
-    display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8,
-    borderTop: '1px solid var(--bx-border)', fontSize: 13, color: 'var(--bx-text-2)',
+    display: 'flex', alignItems: 'center', gap: 6, margin: 0, paddingTop: 10,
+    borderTop: '1px solid var(--bx-border)', fontSize: 12.5, color: 'var(--bx-text-2)', lineHeight: 1.5,
   },
   mercadoLink: { color: 'var(--bx-text)', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 2 },
   mercadoValor: { color: 'var(--bx-text)', fontWeight: 700 },
@@ -906,10 +936,16 @@ const S: Record<string, CSSProperties> = {
   },
   faixaGanhando: { color: 'var(--bx-green)', borderColor: 'var(--bx-green)' },
   faixaSuperado: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)' },
+  ctaLinha: { display: 'flex', gap: 8 },
+  ctaMais: {
+    flexShrink: 0, minWidth: 84, minHeight: 48, padding: '0 12px', borderRadius: 12, cursor: 'pointer',
+    background: 'transparent', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)',
+    fontFamily: 'inherit', fontSize: 13, fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+  },
   ctaBtn: {
-    width: '100%', minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-    background: 'var(--bx-brand)', color: 'var(--bx-brand-ink)', textDecoration: 'none',
+    flex: 1, width: '100%', minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 800,
+    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', textDecoration: 'none',
     fontVariantNumeric: 'tabular-nums',
   },
   ctaInfo: {
@@ -963,4 +999,49 @@ const S: Record<string, CSSProperties> = {
   totalFinal: { fontSize: 15, fontWeight: 800, color: 'var(--bx-text)', borderTop: '1px solid var(--bx-border)', paddingTop: 6, marginTop: 2 },
   totalNota: { fontSize: 12, color: 'var(--bx-text-3)', margin: '6px 0 0' },
   erro: { fontSize: 13, color: 'var(--bx-red)', margin: '10px 0 0', lineHeight: 1.5 },
+}
+
+/**
+ * Relogio em anel (64px). Traco no gradiente do acento do contexto; nos
+ * ultimos 10s (ou conferindo o fechamento) fica em --bx-red. So o traco muda:
+ * nada anima por conta propria, entao prefers-reduced-motion nao tem o que
+ * desligar aqui.
+ */
+function Anel({ fracao, texto, urgente, rotulo }: { fracao: number; texto: string; urgente: boolean; rotulo: string }) {
+  const id = useId().replace(/:/g, '')
+  const R = 28
+  const C = 2 * Math.PI * R
+  const tam = texto.length > 6 ? 10.5 : texto.length > 5 ? 12 : 15
+  return (
+    <span role="timer" aria-label={rotulo} style={SA.anel}>
+      <svg viewBox="0 0 64 64" width={64} height={64} aria-hidden style={SA.svg}>
+        <defs>
+          <linearGradient id={`lv-anel-${id}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--ac-1)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--ac-2)' }} />
+          </linearGradient>
+        </defs>
+        <circle cx="32" cy="32" r={R} fill="none" stroke="var(--bx-border)" strokeWidth="5" />
+        {fracao > 0 && (
+          <circle
+            cx="32" cy="32" r={R} fill="none" strokeWidth="5" strokeLinecap="round"
+            stroke={urgente ? 'var(--bx-red)' : `url(#lv-anel-${id})`}
+            strokeDasharray={C}
+            strokeDashoffset={C * (1 - fracao)}
+            transform="rotate(-90 32 32)"
+          />
+        )}
+      </svg>
+      <b style={{ ...SA.texto, fontSize: tam, color: urgente ? 'var(--bx-red)' : 'var(--bx-text)' }}>{texto}</b>
+    </span>
+  )
+}
+
+const SA: Record<string, CSSProperties> = {
+  anel: { position: 'relative', width: 64, height: 64, flex: '0 0 64px' },
+  svg: { position: 'absolute', inset: 0 },
+  texto: {
+    position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontWeight: 800,
+    fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em', whiteSpace: 'nowrap',
+  },
 }

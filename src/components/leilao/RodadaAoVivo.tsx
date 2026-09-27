@@ -1,20 +1,24 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import CardItem from '@/components/ui/CardItem'
-import { IconCheck, IconClock } from '@/components/ui/Icons'
+import SeloVerificado from '@/components/ui/SeloVerificado'
+import { IconCheck, IconClock, IconPlay } from '@/components/ui/Icons'
 import LanceAoVivo from '@/components/leilao/LanceAoVivo'
+import TransmissaoRodada from '@/components/leilao/TransmissaoRodada'
 import { cardDoLote } from '@/components/leilao/cardDoLote'
 import { supabase } from '@/lib/supabaseClient'
 import { formatarBRL, formatarTempoRestante, horarioBrasilia, type EstadoLote, type LotePublico } from '@/lib/leilao'
-import { urlLote, urlPagar } from '@/lib/leilao-urls'
+import { embedYoutube, idVideoYoutube, urlLote, urlPagar } from '@/lib/leilao-urls'
 import {
   intervaloPollRodada,
   loteQueFechou,
   resultadoLoteRodada,
   resultadoRecente,
   separarLotesRodada,
+  tituloRodada,
   type EstadoRodada,
   type StatusRodada,
 } from '@/lib/leilao-rodada'
@@ -41,7 +45,24 @@ import {
  * LanceAoVivo avisa por `aoParticipar`), a ilha consulta a rota do lote com o
  * token. Se ela venceu e o lote esta aguardando pagamento, fica uma faixa
  * persistente com o prazo e o botao de pagar.
+ *
+ * VISUAL (casca do Bynx Leiloes, mockup aprovado em 27/09/2026): topo com a
+ * loja e "Assistir", tira de progresso (um segmento por lote), palco com a
+ * foto grande do lote no ar, lance e anel (LanceAoVivo variante "rodada"),
+ * faixa de resultado abaixo do Mercado Brasileiro e a fila de miniaturas.
+ *
+ * TRANSMISSAO: link de VIDEO do YouTube vira player youtube-nocookie
+ * clique-para-carregar; no celular fica recolhido acima do palco (o
+ * "Assistir" abre e fecha), no desktop (>= 1024px) em coluna ao lado. Link de
+ * canal, Instagram ou outro: so o botao, que abre o link.
  */
+
+export interface LojaDaRodada {
+  slug: string
+  nome: string | null
+  logoUrl: string | null
+  verificada: boolean
+}
 
 interface Arremate {
   id: string
@@ -80,9 +101,14 @@ function esperar(ms: number) {
 export default function RodadaAoVivo({
   estadoInicial,
   urlRodada,
+  loja,
+  compartilhar,
 }: {
   estadoInicial: EstadoRodada
   urlRodada: string
+  loja: LojaDaRodada | null
+  /** Botao de compartilhar (montado no servidor), no topo ao lado do Assistir. */
+  compartilhar?: ReactNode
 }) {
   const [estado, setEstado] = useState<EstadoRodada>(estadoInicial)
   const baseInicial = Date.parse(estadoInicial.server_now)
@@ -285,10 +311,15 @@ export default function RodadaAoVivo({
     }
   }, [estadoInicial.rodada.numero, aplicar])
 
+  // ── Transmissao ─────────────────────────────────────────────────────────
+  const [videoAberto, setVideoAberto] = useState(false)
+  const [tocando, setTocando] = useState(false)
+
   // ── Derivados ───────────────────────────────────────────────────────────
   const { rodada } = estado
   const { ativo, proximos, encerrados } = separarLotesRodada(estado.lotes)
-  const total = estado.lotes.filter(l => l.status !== 'cancelado').length
+  const visiveis = estado.lotes.filter(l => l.status !== 'cancelado')
+  const total = visiveis.length
   const ini = rodada.iniciaEm ? Date.parse(rodada.iniciaEm) : NaN
   const faltaMs = Number.isFinite(ini) ? ini - agora : NaN
   const aoVivo = rodada.status === 'ao_vivo'
@@ -296,204 +327,382 @@ export default function RodadaAoVivo({
   const res = resultado ? resultadoLoteRodada(resultado) : null
   // "Arrematado por R$ X" -> "arrematado por R$ X" depois dos dois pontos.
   const resTexto = res ? res.texto.charAt(0).toLowerCase() + res.texto.slice(1) : ''
+  const titulo = tituloRodada(rodada)
+  const lojaNome = loja ? loja.nome ?? loja.slug : null
+
+  const link = rodada.linkTransmissao
+  const mostrarTransmissao = !!link && (rodada.status === 'agendada' || aoVivo)
+  const videoId = mostrarTransmissao ? idVideoYoutube(link) : null
+  const embed = mostrarTransmissao ? embedYoutube(link) : null
+  const temPlayer = !!videoId && !!embed
+
+  // Posicao do lote no ar na rodada (1-based, sem os cancelados).
+  const posAtivo = ativo ? visiveis.findIndex(l => l.id === ativo.id) + 1 : 0
+  const fotoAtivo = ativo ? ativo.fotos[0] || ativo.cardImage : null
+
+  const faixaResultado = resultado && res ? (
+    <div role="status" className="rd-resultado" style={{ ...S.resultado, ...(res.tipo === 'arrematado' ? S.resultadoOk : null) }}>
+      <span style={S.resultadoTexto}>
+        {res.tipo === 'arrematado' && <IconCheck size={14} />}
+        <span>
+          {resultado.ordem != null ? `Lote ${resultado.ordem} encerrado` : 'Lote encerrado'}: {resTexto}
+        </span>
+      </span>
+      {!ativo && (
+        <span style={S.resultadoNome}>
+          {resultado.cardName}
+          {proximos.length > 0 && aoVivo ? ' · Próximo lote em instantes.' : ' · Este foi o último lote.'}
+        </span>
+      )}
+    </div>
+  ) : null
 
   return (
-    <div style={S.coluna} className={aoVivo && ativo ? 'rd-com-cta' : undefined}>
+    <div className={`rd-raiz${aoVivo && ativo ? ' rd-com-cta' : ''}`}>
       <style>{`
+        .rd-raiz { display: flex; flex-direction: column; gap: 14px; }
         .rd-lote { display: block; text-decoration: none; color: inherit; border-radius: 18px; transition: transform 0.15s ease; }
         .rd-lote:hover { transform: translateY(-2px); }
-        .rd-lote:focus-visible, .rd-link:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+        .rd-lote:focus-visible, .rd-link:focus-visible, .rd-mini:focus-visible, .rd-btn:focus-visible, .rd-video-capa:focus-visible {
+          outline: 2px solid var(--ac-1); outline-offset: 2px;
+        }
         .rd-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
         @media (min-width: 640px) { .rd-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; } }
-        .rd-destaque { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
-        .rd-topo-lote { display: grid; gap: 12px; grid-template-columns: 112px minmax(0, 1fr); align-items: start; }
-        @media (min-width: 900px) {
-          .rd-destaque { grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start; }
-          .rd-topo-lote { grid-template-columns: minmax(0, 1fr); }
+        .rd-btn { transition: background 0.15s ease, border-color 0.15s ease; }
+        .rd-btn:hover { background: var(--bx-surface-3); border-color: var(--bx-border-2); }
+        /* Duas colunas so com player e a partir de 1024px: lote a esquerda, live a direita. */
+        .rd-cols { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+        .rd-principal { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+        .rd-video { min-width: 0; }
+        .rd-video-fechado { display: none; }
+        @media (min-width: 1024px) {
+          .rd-cols.rd-com-video { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+          .rd-com-video .rd-video { order: 2; position: sticky; top: 72px; }
+          .rd-com-video .rd-video-fechado { display: block; }
+          .rd-assistir-mobile { display: none !important; }
         }
+        /* Palco: a foto do lote e o centro da tela. */
+        .rd-palco { height: 250px; }
+        @media (min-width: 640px) { .rd-palco { height: 340px; } }
         /* CTA de lance fixo no celular: folga no fim para ele nao cobrir o ultimo bloco. */
-        @media (max-width: 768px) { .rd-com-cta { padding-bottom: 80px; } }
+        @media (max-width: 768px) { .rd-com-cta { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
         .rd-resultado { animation: rd-entra 0.2s ease; }
         .rd-pagar { transition: filter 0.15s ease; }
         .rd-pagar:hover { filter: brightness(1.08); }
         .rd-pagar:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+        .rd-fila { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+        .rd-fila::-webkit-scrollbar { display: none; }
+        .rd-mini { transition: border-color 0.15s ease; }
+        .rd-mini:hover { border-color: var(--bx-border-2); }
+        .rd-ponto { animation: rd-pulsa 1.2s ease-in-out infinite; }
         @keyframes rd-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        @keyframes rd-pulsa { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
         @media (prefers-reduced-motion: reduce) {
           .rd-lote, .rd-lote:hover { transition: none; transform: none; }
-          .rd-resultado { animation: none; }
+          .rd-resultado, .rd-ponto { animation: none; }
         }
       `}</style>
 
-      {/* ─── Status da rodada ─── */}
-      <section aria-label="Situação da rodada" style={S.statusBloco}>
-        <div style={S.linhaStatus}>
-          <span style={{ ...S.pill, ...(aoVivo ? S.pillVivo : rodada.status === 'agendada' ? S.pillAgendada : null) }}>
-            {aoVivo && <span aria-hidden style={S.ponto} />}
-            {ROTULO_RODADA[rodada.status]}
-          </span>
-          {rodada.status === 'agendada' && Number.isFinite(faltaMs) && (
-            <span style={S.relogio}>
-              <IconClock size={16} />
-              <span>{faltaMs > 0 ? `Começa em ${formatarTempoRestante(faltaMs)}` : 'Começando...'}</span>
-            </span>
-          )}
-          {aoVivo && total > 0 && (
-            <span style={S.contagem}>
-              {encerrados.length} de {total} {total === 1 ? 'lote encerrado' : 'lotes encerrados'}
-            </span>
-          )}
-        </div>
-        {rodada.status === 'agendada' && rodada.iniciaEm && (
-          <p style={S.horaAbs}>Início em {horarioBrasilia(rodada.iniciaEm)}</p>
-        )}
-        {rodada.status === 'encerrada' && (
-          <p style={S.horaAbs}>
-            {arrematados === 0
-              ? 'Rodada encerrada. Nenhum lote foi arrematado.'
-              : `Rodada encerrada. ${arrematados} ${arrematados === 1 ? 'lote arrematado' : 'lotes arrematados'}.`}
-          </p>
-        )}
-        {rodada.status === 'cancelada' && <p style={S.horaAbs}>Esta rodada foi cancelada pela loja.</p>}
-      </section>
-
-      {/* ─── Arremates de quem esta logado (persistente) ─── */}
-      {arremates.map(a => (
-        <div key={a.id} role="status" style={S.arremate}>
-          <p style={S.arremateTexto}>
-            <IconCheck size={18} />
-            <span>
-              Você arrematou <strong>{a.cardName}</strong>
-              {a.precoCents != null ? ` por ${formatarBRL(a.precoCents)}` : ''}.
-              {a.pagarAte ? ` Pague até ${horarioBrasilia(a.pagarAte)}.` : ' Conclua o pagamento pela Bynx.'}
-            </span>
-          </p>
-          <Link href={urlPagar(a.slug)} prefetch={false} className="rd-pagar bx-ctx-comprador" style={S.arrematePagar}>
-            Pagar agora
+      {/* ─── Topo: loja, titulo, Assistir ─── */}
+      <div style={S.topo}>
+        {loja ? (
+          <Link href={`/lojas/${loja.slug}`} prefetch={false} className="rd-link" style={S.lojaLogoLink} aria-label={`Loja ${lojaNome}`}>
+            {loja.logoUrl ? (
+              <Image src={loja.logoUrl} alt="" width={36} height={36} sizes="36px" style={S.lojaLogo} />
+            ) : (
+              <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{(lojaNome ?? '?').charAt(0).toUpperCase()}</span>
+            )}
           </Link>
-        </div>
-      ))}
-
-      {/* ─── No ar ─── */}
-      {(aoVivo || (resultado && res)) && (
-        <section aria-labelledby="rd-no-ar" style={S.secao}>
-          <h2 id="rd-no-ar" style={S.h2}>{aoVivo ? 'No ar agora' : 'Último lote'}</h2>
-
-          {resultado && res && (
-            <div role="status" className="rd-resultado" style={S.resultado}>
-              <span style={{ ...S.resultadoTexto, color: res.tipo === 'arrematado' ? 'var(--bx-green)' : 'var(--bx-text-2)' }}>
-                {res.tipo === 'arrematado' && <IconCheck size={18} />}
-                <span>
-                  {resultado.ordem != null ? `Lote ${resultado.ordem} encerrado` : 'Lote encerrado'}: {resTexto}
-                </span>
-              </span>
-              <span style={S.resultadoNome}>
-                {resultado.cardName}
-                {!ativo && (proximos.length > 0 && aoVivo ? ' · Próximo lote em instantes.' : ' · Este foi o último lote.')}
-              </span>
-            </div>
+        ) : null}
+        <div style={S.topoTexto}>
+          {loja && (
+            <Link href={`/lojas/${loja.slug}`} prefetch={false} className="rd-link" style={S.lojaNome}>
+              <span style={S.cortar}>{lojaNome}</span>
+              {loja.verificada && <SeloVerificado />}
+            </Link>
           )}
+          <h1 style={S.h1}>
+            Rodada {rodada.numero}
+            {rodada.titulo ? <span style={S.h1Fraco}> · {titulo}</span> : null}
+          </h1>
+        </div>
+        {mostrarTransmissao && (temPlayer ? (
+          <button
+            type="button"
+            className="rd-btn rd-assistir-mobile"
+            style={S.btnTopo}
+            aria-expanded={videoAberto}
+            onClick={() => {
+              if (videoAberto) {
+                // Recolher PARA o video: player escondido tocando seria audio sem tela.
+                setVideoAberto(false)
+                setTocando(false)
+              } else {
+                setVideoAberto(true)
+                setTocando(true)
+              }
+            }}
+          >
+            <IconPlay size={14} />
+            {videoAberto ? 'Fechar' : 'Assistir'}
+          </button>
+        ) : (
+          <a href={link as string} target="_blank" rel="noopener noreferrer nofollow" className="rd-btn" style={S.btnTopo}>
+            <IconPlay size={14} />
+            Assistir
+          </a>
+        ))}
+        {compartilhar && <div style={S.compartilhar}>{compartilhar}</div>}
+      </div>
+      {rodada.descricao && <p style={S.desc}>{rodada.descricao}</p>}
 
-          {!aoVivo ? null : ativo ? (
-            <div className="rd-destaque">
-              <div className="rd-topo-lote">
-                <Link href={urlLote(ativo.slug)} prefetch={false} className="rd-lote" aria-label={`Ver o lote ${ativo.cardName}`}>
-                  <CardItem card={cardDoLote(ativo)} mode="readonly" hidePriceTable ocultarSemPreco />
-                </Link>
-                <div style={S.infoAtivo} className="rd-info-ativo">
-                  <span style={S.ordem}>
-                    {ativo.ordem != null ? `Lote ${ativo.ordem} de ${total}` : 'Lote no ar'}
+      <div className={`rd-cols${temPlayer ? ' rd-com-video' : ''}`}>
+        {temPlayer && (
+          <div className={`rd-video${videoAberto ? '' : ' rd-video-fechado'}`}>
+            <TransmissaoRodada
+              videoId={videoId as string}
+              embedUrl={embed as string}
+              titulo={titulo}
+              tocando={tocando}
+              aoTocar={() => setTocando(true)}
+            />
+          </div>
+        )}
+
+        <div className="rd-principal">
+            {/* ─── Situacao (fora do ar) ─── */}
+            {!aoVivo && (
+              <section aria-label="Situação da rodada" style={S.statusBloco}>
+                <div style={S.linhaStatus}>
+                  <span style={{ ...S.pill, ...(rodada.status === 'agendada' ? S.pillAgendada : null) }}>
+                    {ROTULO_RODADA[rodada.status]}
                   </span>
-                  <Link href={urlLote(ativo.slug)} prefetch={false} className="rd-link" style={S.nomeAtivo}>
-                    {ativo.cardName}
-                  </Link>
-                  {[ativo.setNome, ativo.condicao].filter(Boolean).length > 0 && (
-                    <span style={S.metaAtivo}>{[ativo.setNome, ativo.condicao].filter(Boolean).join(' · ')}</span>
+                  {rodada.status === 'agendada' && Number.isFinite(faltaMs) && (
+                    <span style={S.relogio}>
+                      <IconClock size={16} />
+                      <span>{faltaMs > 0 ? `Começa em ${formatarTempoRestante(faltaMs)}` : 'Começando...'}</span>
+                    </span>
                   )}
                 </div>
-              </div>
-              <LanceAoVivo
-                key={ativo.id}
-                loteInicial={ativo}
-                loteExterno={ativo}
-                pollingExterno
-                serverNow={serverNowAtivo}
-                referenciaMercadoCents={estado.referenciaMercadoCents ?? null}
-                urlLote={urlLote(ativo.slug)}
-                urlLogin={urlRodada}
-                aoParticipar={aoParticipar}
-              />
-            </div>
-          ) : resultado ? null : (
-            <div role="status" style={S.aguardando}>
-              {proximos.length > 0 ? 'Preparando o próximo lote...' : 'Fechando a rodada...'}
-            </div>
-          )}
-        </section>
-      )}
+                {rodada.status === 'agendada' && rodada.iniciaEm && (
+                  <p style={S.horaAbs}>Início em {horarioBrasilia(rodada.iniciaEm)}</p>
+                )}
+                {rodada.status === 'encerrada' && (
+                  <p style={S.horaAbs}>
+                    {arrematados === 0
+                      ? 'Rodada encerrada. Nenhum lote foi arrematado.'
+                      : `Rodada encerrada. ${arrematados} ${arrematados === 1 ? 'lote arrematado' : 'lotes arrematados'}.`}
+                  </p>
+                )}
+                {rodada.status === 'cancelada' && <p style={S.horaAbs}>Esta rodada foi cancelada pela loja.</p>}
+              </section>
+            )}
 
-      {/* ─── Fila ─── */}
-      {proximos.length > 0 && (
-        <section aria-labelledby="rd-proximos" style={S.secao}>
-          <h2 id="rd-proximos" style={S.h2}>
-            {rodada.status === 'agendada' ? 'Lotes da rodada' : 'Próximos lotes'} · {proximos.length}
-          </h2>
-          <div className="rd-grid">
-            {proximos.map(l => (
-              <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="rd-lote">
-                <CardItem
-                  card={cardDoLote(l)}
-                  mode="readonly"
-                  hidePriceTable
-                  ocultarSemPreco
-                  badge={l.ordem != null ? <span style={S.badge}>{l.ordem}</span> : undefined}
-                  footerSlot={
-                    <div style={S.rodape}>
-                      <span style={S.rodapeForte}>Inicial {formatarBRL(l.lanceInicialCents)}</span>
-                      <span style={S.rodapeFraco}>{l.duracaoSeg}s de lances</span>
-                    </div>
-                  }
-                />
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ─── Encerrados ─── */}
-      {encerrados.length > 0 && (
-        <section aria-labelledby="rd-encerrados" style={S.secao}>
-          <h2 id="rd-encerrados" style={S.h2}>Encerrados · {encerrados.length}</h2>
-          <div className="rd-grid">
-            {encerrados.map(l => {
-              const r = resultadoLoteRodada(l)
-              return (
-                <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="rd-lote">
-                  <CardItem
-                    card={cardDoLote(l)}
-                    mode="readonly"
-                    hidePriceTable
-                    ocultarSemPreco
-                    badge={l.ordem != null ? <span style={S.badge}>{l.ordem}</span> : undefined}
-                    footerSlot={
-                      <div style={S.rodape}>
-                        <span style={{ ...S.rodapeForte, color: r?.tipo === 'arrematado' ? 'var(--bx-green)' : 'var(--bx-text-3)' }}>
-                          {r?.texto ?? 'Encerrado'}
-                        </span>
-                      </div>
-                    }
-                  />
+            {/* ─── Arremates de quem esta logado (persistente) ─── */}
+            {arremates.map(a => (
+              <div key={a.id} role="status" style={S.arremate}>
+                <p style={S.arremateTexto}>
+                  <IconCheck size={18} />
+                  <span>
+                    Você arrematou <strong>{a.cardName}</strong>
+                    {a.precoCents != null ? ` por ${formatarBRL(a.precoCents)}` : ''}.
+                    {a.pagarAte ? ` Pague até ${horarioBrasilia(a.pagarAte)}.` : ' Conclua o pagamento pela Bynx.'}
+                  </span>
+                </p>
+                <Link href={urlPagar(a.slug)} prefetch={false} className="rd-pagar bx-ctx-comprador" style={S.arrematePagar}>
+                  Pagar agora
                 </Link>
-              )
-            })}
-          </div>
-        </section>
-      )}
+              </div>
+            ))}
+
+            {/* ─── Tira de progresso: um segmento por lote ─── */}
+            {aoVivo && total > 0 && (
+              <div
+                role="img"
+                aria-label={ativo ? `Lote ${posAtivo} de ${total}` : `${encerrados.filter(l => l.status !== 'cancelado').length} de ${total} lotes encerrados`}
+                style={S.tira}
+              >
+                {visiveis.map(l => (
+                  <i
+                    key={l.id}
+                    style={{
+                      ...S.seg,
+                      background: l.status === 'ativo' ? 'var(--ac-grad)' : l.status === 'agendado' ? 'var(--bx-border)' : 'var(--bx-text-3)',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* ─── Palco: o lote no ar ─── */}
+            {aoVivo && ativo ? (
+              <>
+                <Link href={urlLote(ativo.slug)} prefetch={false} className="rd-palco rd-link" style={S.palco} aria-label={`Ver o lote ${ativo.cardName}`}>
+                  {fotoAtivo ? (
+                    <Image
+                      src={fotoAtivo}
+                      alt={ativo.cardName}
+                      width={245}
+                      height={342}
+                      priority
+                      sizes="(max-width: 640px) 60vw, 256px"
+                      style={S.palcoImg}
+                    />
+                  ) : (
+                    <span style={S.palcoSem}>Sem foto</span>
+                  )}
+                  <span style={{ ...S.palcoSelo, left: 10 }}>Lote {posAtivo} de {total}</span>
+                  <span style={{ ...S.palcoSelo, ...S.palcoVivo, right: 10 }}>
+                    <span className="rd-ponto" aria-hidden style={S.ponto} />
+                    AO VIVO
+                  </span>
+                </Link>
+                <Link href={urlLote(ativo.slug)} prefetch={false} className="rd-link" style={S.nomeAtivo}>
+                  <span>
+                    {ativo.cardName}
+                    {ativo.cardNumero ? ` ${ativo.cardNumero}` : ''}
+                    {[ativo.setNome, ativo.condicao].filter(Boolean).length > 0 && (
+                      <span style={S.metaAtivo}> · {[ativo.setNome, ativo.condicao].filter(Boolean).join(' · ')}</span>
+                    )}
+                  </span>
+                </Link>
+                <LanceAoVivo
+                  key={ativo.id}
+                  variante="rodada"
+                  loteInicial={ativo}
+                  loteExterno={ativo}
+                  pollingExterno
+                  serverNow={serverNowAtivo}
+                  referenciaMercadoCents={estado.referenciaMercadoCents ?? null}
+                  urlLote={urlLote(ativo.slug)}
+                  urlLogin={urlRodada}
+                  aoParticipar={aoParticipar}
+                  aposMercado={faixaResultado}
+                />
+              </>
+            ) : aoVivo ? (
+              <>
+                {faixaResultado}
+                {!resultado && (
+                  <div role="status" style={S.aguardando}>
+                    {proximos.length > 0 ? 'Preparando o próximo lote...' : 'Fechando a rodada...'}
+                  </div>
+                )}
+              </>
+            ) : (
+              faixaResultado
+            )}
+
+            {/* ─── Proximos: fila de miniaturas na live, grade na agendada ─── */}
+            {proximos.length > 0 && aoVivo && (
+              <section aria-labelledby="rd-proximos" style={S.secao}>
+                <h2 id="rd-proximos" style={S.rot}>Próximos</h2>
+                <div className="rd-fila">
+                  {proximos.map(l => {
+                    const img = l.fotos[0] || l.cardImage
+                    const pos = visiveis.findIndex(x => x.id === l.id) + 1
+                    return (
+                      <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="rd-mini" style={S.mini} aria-label={`Lote ${pos}: ${l.cardName}`}>
+                        {img ? (
+                          <Image src={img} alt="" width={245} height={342} sizes="64px" style={S.miniImg} />
+                        ) : (
+                          <span style={S.miniSem} />
+                        )}
+                        <span style={S.miniNum}>{pos}</span>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+            {proximos.length > 0 && !aoVivo && (
+              <section aria-labelledby="rd-proximos" style={S.secao}>
+                <h2 id="rd-proximos" style={S.h2}>
+                  {rodada.status === 'agendada' ? 'Lotes da rodada' : 'Próximos lotes'} · {proximos.length}
+                </h2>
+                <div className="rd-grid">
+                  {proximos.map(l => (
+                    <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="rd-lote">
+                      <CardItem
+                        card={cardDoLote(l)}
+                        mode="readonly"
+                        hidePriceTable
+                        ocultarSemPreco
+                        badge={l.ordem != null ? <span style={S.badge}>{l.ordem}</span> : undefined}
+                        footerSlot={
+                          <div style={S.rodape}>
+                            <span style={S.rodapeForte}>Inicial {formatarBRL(l.lanceInicialCents)}</span>
+                            <span style={S.rodapeFraco}>{l.duracaoSeg}s de lances</span>
+                          </div>
+                        }
+                      />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ─── Encerrados ─── */}
+            {encerrados.length > 0 && (
+              <section aria-labelledby="rd-encerrados" style={S.secao}>
+                <h2 id="rd-encerrados" style={aoVivo ? S.rot : S.h2}>Encerrados · {encerrados.length}</h2>
+                <div className="rd-grid">
+                  {encerrados.map(l => {
+                    const r = resultadoLoteRodada(l)
+                    return (
+                      <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="rd-lote">
+                        <CardItem
+                          card={cardDoLote(l)}
+                          mode="readonly"
+                          hidePriceTable
+                          ocultarSemPreco
+                          badge={l.ordem != null ? <span style={S.badge}>{l.ordem}</span> : undefined}
+                          footerSlot={
+                            <div style={S.rodape}>
+                              <span style={{ ...S.rodapeForte, color: r?.tipo === 'arrematado' ? 'var(--bx-green)' : 'var(--bx-text-3)' }}>
+                                {r?.texto ?? 'Encerrado'}
+                              </span>
+                            </div>
+                          }
+                        />
+                      </Link>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+        </div>
+      </div>
     </div>
   )
 }
 
 const S: Record<string, CSSProperties> = {
-  coluna: { display: 'flex', flexDirection: 'column', gap: 20 },
+  topo: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 },
+  lojaLogoLink: { flexShrink: 0, display: 'flex', minHeight: 44, alignItems: 'center', borderRadius: 10 },
+  lojaLogo: { width: 36, height: 36, borderRadius: 10, objectFit: 'cover', flexShrink: 0 },
+  lojaLogoVazia: {
+    display: 'grid', placeItems: 'center', background: 'var(--bx-surface-3)', color: 'var(--bx-text)',
+    fontWeight: 800, fontSize: 14,
+  },
+  topoTexto: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' },
+  lojaNome: {
+    display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: 'var(--bx-text)',
+    textDecoration: 'none', minWidth: 0, borderRadius: 6,
+  },
+  cortar: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  h1: {
+    margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--bx-text-3)', lineHeight: 1.4,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  h1Fraco: { fontWeight: 500 },
+  btnTopo: {
+    flexShrink: 0, minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 14px',
+    borderRadius: 999, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)',
+    fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', cursor: 'pointer',
+  },
+  compartilhar: { flexShrink: 0 },
+  desc: { fontSize: 13, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' },
   statusBloco: {
     display: 'flex', flexDirection: 'column', gap: 6, padding: 14, borderRadius: 12,
     background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
@@ -502,34 +711,50 @@ const S: Record<string, CSSProperties> = {
   pill: {
     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700,
     background: 'var(--bx-surface-2)', color: 'var(--bx-text-2)',
-    // Longhands: pillVivo/pillAgendada trocam so a cor (shorthand + borderColor gera aviso do React).
+    // Longhands: pillAgendada troca so a cor (shorthand + borderColor gera aviso do React).
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)',
   },
-  pillVivo: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)' },
   pillAgendada: { background: 'rgba(var(--ac-1-rgb), 0.12)', color: 'var(--ac-1)', borderColor: 'var(--ac-1)' },
-  ponto: { width: 8, height: 8, borderRadius: 999, background: 'var(--bx-red)' },
   relogio: {
     display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 18, fontWeight: 800, color: 'var(--bx-text)',
     fontVariantNumeric: 'tabular-nums',
   },
-  contagem: { fontSize: 13, color: 'var(--bx-text-2)', fontVariantNumeric: 'tabular-nums' },
   horaAbs: { fontSize: 13, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.5 },
-  secao: { display: 'flex', flexDirection: 'column', gap: 12 },
-  h2: { fontSize: 17, fontWeight: 700, color: 'var(--bx-text)', margin: 0 },
-  infoAtivo: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 },
-  ordem: { fontSize: 12, fontWeight: 700, color: 'var(--bx-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  tira: { display: 'flex', gap: 3 },
+  seg: { flex: 1, height: 4, borderRadius: 2 },
+  palco: {
+    position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 16,
+    border: '1px solid var(--bx-border)', textDecoration: 'none', color: 'inherit', overflow: 'hidden',
+    background: 'radial-gradient(110% 80% at 50% 25%, rgba(var(--ac-1-rgb), 0.16), transparent 62%), var(--bx-bg-elev)',
+  },
+  palcoImg: { height: '90%', width: 'auto', maxWidth: '80%', objectFit: 'contain', borderRadius: 10, boxShadow: 'var(--bx-shadow)' },
+  palcoSem: { fontSize: 13, color: 'var(--bx-text-3)' },
+  palcoSelo: {
+    position: 'absolute', top: 10, height: 26, padding: '0 9px', borderRadius: 999, display: 'inline-flex',
+    alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--bx-text)', background: 'var(--bx-scrim)',
+    border: '1px solid var(--bx-border-2)', fontVariantNumeric: 'tabular-nums',
+  },
+  palcoVivo: { color: 'var(--ac-2)', borderColor: 'var(--ac-2)', fontWeight: 800, letterSpacing: '0.06em' },
+  ponto: { width: 7, height: 7, borderRadius: 999, background: 'var(--ac-2)' },
   nomeAtivo: {
-    fontSize: 18, fontWeight: 700, color: 'var(--bx-text)', textDecoration: 'none', lineHeight: 1.3,
-    overflowWrap: 'anywhere', minHeight: 44, display: 'flex', alignItems: 'center',
+    fontSize: 16, fontWeight: 700, color: 'var(--bx-text)', textDecoration: 'none', lineHeight: 1.35,
+    overflowWrap: 'anywhere', minHeight: 44, display: 'flex', alignItems: 'center', borderRadius: 6,
   },
-  metaAtivo: { fontSize: 13, color: 'var(--bx-text-2)' },
+  metaAtivo: { fontWeight: 500, color: 'var(--bx-text-3)' },
+  secao: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 },
+  h2: { fontSize: 17, fontWeight: 700, color: 'var(--bx-text)', margin: 0 },
+  rot: {
+    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bx-text-3)', margin: 0,
+  },
   resultado: {
-    display: 'flex', flexDirection: 'column', gap: 2, padding: '10px 14px', borderRadius: 12,
-    background: 'var(--bx-surface)', border: '1px solid var(--bx-border-2)',
+    display: 'flex', flexDirection: 'column', gap: 2, padding: '9px 11px', borderRadius: 10,
+    background: 'var(--bx-surface)', color: 'var(--bx-text-2)',
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border-2)',
   },
-  resultadoNome: { fontSize: 13, color: 'var(--bx-text-2)', overflowWrap: 'anywhere' },
+  resultadoOk: { color: 'var(--bx-green)', borderColor: 'var(--bx-green)', background: 'color-mix(in srgb, var(--bx-green) 8%, transparent)' },
+  resultadoNome: { fontSize: 12.5, color: 'var(--bx-text-2)', fontWeight: 500, overflowWrap: 'anywhere' },
   resultadoTexto: {
-    display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+    display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
   },
   arremate: {
     display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10,
@@ -548,6 +773,16 @@ const S: Record<string, CSSProperties> = {
     minHeight: 96, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 16,
     borderRadius: 12, background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
     color: 'var(--bx-text-2)', fontSize: 14, fontWeight: 600,
+  },
+  mini: {
+    position: 'relative', flex: '0 0 56px', width: 56, borderRadius: 8, overflow: 'hidden',
+    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', minHeight: 44,
+  },
+  miniImg: { width: '100%', height: 'auto', display: 'block' },
+  miniSem: { display: 'block', width: '100%', aspectRatio: '245 / 342' },
+  miniNum: {
+    position: 'absolute', left: 3, top: 3, fontSize: 10, fontWeight: 800, color: 'var(--bx-text)',
+    background: 'var(--bx-scrim)', borderRadius: 5, padding: '0 4px', fontVariantNumeric: 'tabular-nums',
   },
   badge: {
     fontSize: 12, fontWeight: 800, color: 'var(--bx-text)', background: 'var(--bx-bg-elev)',

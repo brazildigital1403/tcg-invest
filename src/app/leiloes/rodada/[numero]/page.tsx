@@ -1,12 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import Image from 'next/image'
 import { notFound, permanentRedirect } from 'next/navigation'
-import Breadcrumb from '@/components/ui/Breadcrumb'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
-import SeloVerificado from '@/components/ui/SeloVerificado'
-import { IconPlay } from '@/components/ui/Icons'
 import RodadaAoVivo from '@/components/leilao/RodadaAoVivo'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
@@ -38,7 +33,10 @@ import {
  * aceita zero a esquerda; a pagina compara com o canonico e redireciona).
  *
  * O server entrega a rodada e os lotes no HTML (SEO e primeira pintura); a
- * ilha RodadaAoVivo assume dali (polling da rodada, troca de lote, lance).
+ * ilha RodadaAoVivo assume dali (polling da rodada, troca de lote, lance) e
+ * desenha a tela inteira no formato do Bynx Leiloes (topo, tira, palco).
+ * A trilha continua no JSON-LD (BreadcrumbList); na tela, o cabecalho da
+ * casca ja leva de volta ao inicio da ferramenta.
  */
 
 // DECISAO DO DU: cache. Provisorio: sem cache enquanto a superficie de cache
@@ -138,7 +136,6 @@ export default async function RodadaPage({ params }: Params) {
 
   const titulo = tituloRodada(r)
   const url = urlRodada(r.numero)
-  const lojaNome = nomeLoja(loja)
   const trilha = [
     { name: 'Início', href: '/' },
     { name: 'Leilões', href: urlHome() },
@@ -167,69 +164,24 @@ export default async function RodadaPage({ params }: Params) {
     })),
   }
 
-  const mostrarTransmissao = !!r.linkTransmissao && (r.status === 'agendada' || r.status === 'ao_vivo')
-
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(listaSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(trilhaSchema) }} />
-      <style>{`
-        .rp-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
-        .rp-ghost:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
-        .rp-prim { transition: filter 0.15s ease; }
-        .rp-prim:hover { filter: brightness(1.08); }
-        .rp-ghost:focus-visible, .rp-prim:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
-      `}</style>
-
       <div style={S.wrap}>
-        <Breadcrumb items={trilha} />
-
-        <header style={S.header}>
-          {loja && (
-            <Link href={`/lojas/${loja.slug}`} prefetch={false} className="rp-ghost" style={S.loja}>
-              {loja.logoUrl ? (
-                <Image src={loja.logoUrl} alt={lojaNome ?? ''} width={36} height={36} sizes="36px" style={S.lojaLogo} />
-              ) : (
-                <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{(lojaNome ?? '?').charAt(0)}</span>
-              )}
-              <span style={{ minWidth: 0 }}>
-                <span style={S.lojaRotulo}>Rodada da loja</span>
-                <span style={S.lojaNome}>
-                  {lojaNome}
-                  {loja.verificada && <SeloVerificado />}
-                </span>
-              </span>
-            </Link>
-          )}
-
-          <h1 style={S.h1}>{titulo}</h1>
-          {r.descricao && <p style={S.desc}>{r.descricao}</p>}
-
-          <div style={S.acoes}>
-            {mostrarTransmissao && (
-              <a
-                href={r.linkTransmissao as string}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                className="rp-prim"
-                style={S.prim}
-              >
-                <IconPlay size={16} />
-                Assistir à transmissão
-              </a>
-            )}
-            <div style={mostrarTransmissao ? S.compartilharCompacto : S.compartilhar}>
-              <BotaoCompartilhar
-                compacto={mostrarTransmissao}
-                url={url}
-                titulo={`${titulo} — ${rotuloTituloRodada(r.status)} na Bynx`}
-                texto={descricaoRodada(r, loja, visiveis.length)}
-              />
-            </div>
-          </div>
-        </header>
-
-        <RodadaAoVivo estadoInicial={estadoInicial} urlRodada={url} />
+        <RodadaAoVivo
+          estadoInicial={estadoInicial}
+          urlRodada={url}
+          loja={loja}
+          compartilhar={
+            <BotaoCompartilhar
+              compacto
+              url={url}
+              titulo={`${titulo} — ${rotuloTituloRodada(r.status)} na Bynx`}
+              texto={descricaoRodada(r, loja, visiveis.length)}
+            />
+          }
+        />
 
         <p style={S.nota}>
           Lance exige conta na Bynx. Quem arremata paga pela Bynx, no cartão, com pagamento protegido.
@@ -240,32 +192,6 @@ export default async function RodadaPage({ params }: Params) {
 }
 
 const S: Record<string, CSSProperties> = {
-  wrap: { maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 },
-  header: { display: 'flex', flexDirection: 'column', gap: 10 },
-  loja: {
-    alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px 6px 6px', minHeight: 48,
-    borderRadius: 12, textDecoration: 'none', color: 'inherit', border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
-    maxWidth: '100%',
-  },
-  lojaLogo: { width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 },
-  lojaLogoVazia: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bx-surface-3)',
-    color: 'var(--bx-text-2)', fontWeight: 700, fontSize: 16,
-  },
-  lojaRotulo: { display: 'block', fontSize: 11, color: 'var(--bx-text-3)', fontWeight: 600 },
-  lojaNome: {
-    display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: 'var(--bx-text)',
-    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-  },
-  h1: { fontSize: 24, fontWeight: 700, color: 'var(--bx-text)', margin: 0, lineHeight: 1.25, overflowWrap: 'anywhere' },
-  desc: { fontSize: 14, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' },
-  acoes: { display: 'flex', gap: 8, alignItems: 'stretch' },
-  prim: {
-    flex: 1, minHeight: 48, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 10, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', fontSize: 15, fontWeight: 800,
-    textDecoration: 'none',
-  },
-  compartilhar: { flex: 1 },
-  compartilharCompacto: { flexShrink: 0 },
+  wrap: { maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 },
   nota: { fontSize: 12, color: 'var(--bx-text-3)', margin: 0, lineHeight: 1.5 },
 }
