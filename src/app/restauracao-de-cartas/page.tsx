@@ -5,7 +5,7 @@ import BeforeAfterSlider from '@/components/servicos/BeforeAfterSlider'
 import GaleriaCasos from '@/components/servicos/GaleriaCasos'
 import StickyCta from '@/components/servicos/StickyCta'
 import {
-  JsonLd, Faixa, Cabecalho, Garantias, ResolveNaoResolve, Custodia, ComoFunciona, NaoRegistrado, Precos,
+  JsonLd, Faixa, Cabecalho, Garantias, ResolveNaoResolve, ShortsBancada, Custodia, ComoFunciona, NaoRegistrado, Precos,
   QuemFaz, VideoProcesso, FaqServico, CtaFinal, agendarHref,
 } from '@/components/servicos/Secoes'
 import { IconArrowRight } from '@/components/ui/Icons'
@@ -68,6 +68,8 @@ export default function RestauracaoPage() {
         </section>
 
         <ResolveNaoResolve />
+
+        <ShortsBancada />
 
         {CASOS.length > 1 && (
           <Faixa id="casos">

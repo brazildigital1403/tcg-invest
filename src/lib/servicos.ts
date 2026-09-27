@@ -57,7 +57,7 @@ export const PRAZOS = {
 export const LINKS = {
   whatsapp: null as string | null,
   instagram: 'https://instagram.com/bynx.gg',
-  youtube: null as string | null,
+  youtube: 'https://www.youtube.com/@bynx_gg' as string | null,
   /** Id do video longo do YouTube (secao "Veja o processo inteiro"). */
   videoProcessoId: null as string | null,
   videoProcessoDuracao: null as string | null,
@@ -585,4 +585,17 @@ export const TERMO_PROPOSTA_V1 = [
   'Autorizo apenas os procedimentos que marquei como aprovados. Os recusados não serão realizados.',
   'Sei que o resultado depende das características do material e do histórico da carta, e que nenhuma nota de graduação é garantida.',
   'O valor declarado no pedido é a referência para qualquer indenização relacionada a este serviço.',
+]
+
+
+// ── Shorts da bancada (secao em carrossel na landing) ───────────────────────
+// Legenda escrita para a pagina (sem contracao), a partir do titulo do video.
+// `vertical`: o YouTube tem miniatura vertical (oardefault) para este short;
+// sem ela, o componente usa a hqdefault.
+export const SHORTS: { id: string; titulo: string; tema: string; vertical: boolean }[] = [
+  { id: '8ROgeOQHqP8', tema: 'Preparação', titulo: 'O ritual de preparação antes da graduação', vertical: true },
+  { id: 'p8qU2bMirkI', tema: 'Centralização', titulo: 'Como medimos a centralização antes de graduar', vertical: false },
+  { id: 'WfhJcA3RXqQ', tema: 'Limpeza', titulo: 'Cartas de 1999 depois de anos esquecidas numa caixa', vertical: false },
+  { id: 'invoH6DVGCU', tema: 'Resultado', titulo: 'Uma Clefairy graduada na AGS: a nota surpreendeu', vertical: false },
+  { id: 'hpGch0jUrQQ', tema: 'Resultado', titulo: 'Os três iniciais de Kanto na AGS: saiu 10?', vertical: true },
 ]

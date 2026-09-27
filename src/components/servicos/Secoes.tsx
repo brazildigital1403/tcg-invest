@@ -13,8 +13,10 @@ import {
 import {
   RESOLVE, ATENUA, NAO_RESOLVE, PASSOS, CUSTODIA, PRECOS, PRAZOS, CIDADE, LINKS, SERVICOS,
   CASO_RECUSADO, precoDoServico, brl, type Faq, type ServicoId,
+  SHORTS,
 } from '@/lib/servicos'
 import VideoLazy from './VideoLazy'
+import ShortsCarrossel from './ShortsCarrossel'
 import { DiagramaDefeito, DEFEITO_POR_TITULO, IlustracaoBancada, IlustracaoCustodia } from './Mockups'
 
 export function agendarHref(servico: ServicoId) {
@@ -210,6 +212,23 @@ export function QuemFaz({ foto, alt }: { foto?: string | null; alt?: boolean }) 
         </div>
       </div>
     </Faixa>
+  )
+}
+
+/** Shorts gravados na bancada, em carrossel. Faixa propria, com brilho de fundo. */
+export function ShortsBancada() {
+  if (!SHORTS.length) return null
+  return (
+    <section id="videos" className="sv-band sv-band-shorts">
+      <div className="bx-gutter sv-container">
+        <Cabecalho
+          eyebrow="Na bancada"
+          titulo="Veja o trabalho de perto"
+          sub="Preparação, medição, limpeza e o resultado na graduadora. Tudo gravado na bancada da Bynx, sem roteiro e sem corte de mágica."
+        />
+        <ShortsCarrossel shorts={SHORTS} canal={LINKS.youtube} />
+      </div>
+    </section>
   )
 }
 
