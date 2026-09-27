@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { planejarDecisao } from '@/lib/leilao-reclamacao'
+import { planejarDecisao, restanteEstornavel, conferirRefund } from '@/lib/leilao-reclamacao'
 import {
-  SEM_CACHE, UUID_RE, sbServico, carregarPedido, lotesDoPedido, estornarNaStripe, sino, emailSeguro, contato, nomeDaLoja,
+  SEM_CACHE, UUID_RE, sbServico, carregarPedido, lotesDoPedido, estornarNaStripe, situacaoNaStripe, sino, emailSeguro, contato, nomeDaLoja,
 } from '@/lib/reclamacaoServer'
 import { renderReclamacaoDecisaoEmail } from '@/lib/email'
 
@@ -25,7 +25,12 @@ import { renderReclamacaoDecisaoEmail } from '@/lib/email'
  *   idempotencyKey 'reclamacao-<rid>' e procura previa pela mesma chave; so
  *   depois pedido_reclamacao_resolver grava (idempotente pelo refund). Se o
  *   banco falhar com o refund feito, repetir o clique reaproveita o refund.
- *   O valor gravado e o que a STRIPE devolveu, nao o pedido.
+ *   Refund reaproveitado com valor DIFERENTE do plano atual -> 409 sem gravar
+ *   (ex.: 1a tentativa parcial caiu no banco, agora o admin pede total).
+ *   Refund fora de succeeded/pending (failed, canceled) -> 502 sem gravar.
+ * ★ RESTANTE vem da STRIPE (amount - amount_refunded da charge, que pega
+ *   estorno manual no dashboard) e do banco, o menor dos dois; o refund desta
+ *   propria chave volta para o restante (retry). Ver restanteEstornavel.
  * ★ FINANCEIRO: lancamentos e comissao de parceiro ficam com o webhook
  *   charge.refunded (proporcional ao devolvido). Nao duplicar aqui.
  * ★ LOTE: so no estorno do restante inteiro (estorno_total ou devolucao
@@ -62,7 +67,25 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
     const pedido = await carregarPedido(sb, rec.pedido_id)
     if (!pedido) return json(404, { error: 'Pedido não encontrado.' })
 
-    const restante = Math.max(0, pedido.total_comprador_cents - (pedido.valor_reembolsado_cents || 0))
+    const chave = `reclamacao-${rid}`
+    let charge: { amount: number; amountRefunded: number } | null = null
+    let refundDestaChaveCents = 0
+    if (pedido.stripe_payment_intent_id && decisao !== 'improcedente') {
+      try {
+        const sit = await situacaoNaStripe(pedido.stripe_payment_intent_id, chave)
+        charge = sit.charge
+        refundDestaChaveCents = sit.refundDestaChaveCents
+      } catch (e) {
+        console.error('[reclamacao decidir] leitura da Stripe falhou:', (e as Error)?.message)
+        return json(502, { error: 'Não foi possível consultar o pagamento na Stripe. Nada foi alterado. Tente de novo em instantes.' })
+      }
+    }
+    const restante = restanteEstornavel({
+      totalCents: pedido.total_comprador_cents,
+      reembolsadoBancoCents: pedido.valor_reembolsado_cents || 0,
+      charge,
+      refundDestaChaveCents,
+    })
     const plano = planejarDecisao({ r: rec, decisao, valorCents: body?.valor_cents, restanteCents: restante, agora: Date.now() })
     if (!plano.ok) return json(409, { error: plano.erro })
     // Sem trava por pedidos.status aqui de proposito: no retry depois de uma
@@ -78,15 +101,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
       try {
         const r = await estornarNaStripe({
           paymentIntent: pedido.stripe_payment_intent_id,
-          chave: `reclamacao-${rid}`,
+          chave,
           amountCents: plano.valorCents,
           metadata: { pedido_id: pedido.id, reclamacao_id: rid, decisao },
         })
+        const conf = conferirRefund(r, plano.valorCents)
+        if (!conf.ok) {
+          console.error(`[reclamacao decidir] refund ${r.id} recusado (${r.reaproveitado ? 'reaproveitado' : 'novo'}, ${r.amount}/${plano.valorCents}, ${r.status}) | ${rid}`)
+          return json(conf.http, { error: conf.erro, refund: r.id })
+        }
         refundId = r.id
         valor = r.amount
-        if (r.amount !== plano.valorCents) {
-          console.warn(`[reclamacao decidir] refund ${r.id} ja existia com ${r.amount} (pedido ${plano.valorCents}) -- gravando o da Stripe`)
-        }
       } catch (e) {
         console.error('[reclamacao decidir] refund falhou:', (e as Error)?.message)
         return json(502, { error: 'A Stripe não aceitou o estorno. Nada foi alterado. Tente de novo em instantes.' })

@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { enviarEmailRenderizado, type EmailRenderizado } from '@/lib/email'
-import { FOTO_MIMES, type SlotFoto } from '@/lib/leilao-reclamacao'
+import { FOTO_MIMES, refundValido, type SlotFoto } from '@/lib/leilao-reclamacao'
 
 /**
  * Servidor da Protecao Bynx (reclamacao de pedido de leilao). Schema em
@@ -129,6 +129,15 @@ function stripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2025-03-31.basil' as Stripe.StripeConfig['apiVersion'] })
 }
 
+export interface RefundFeito {
+  id: string
+  amount: number
+  /** succeeded | pending | failed | canceled | requires_action (conferir com conferirRefund). */
+  status: string | null
+  /** true = achado pela chave (retry), nao criado agora. */
+  reaproveitado: boolean
+}
+
 /**
  * Estorno de destination charge: devolve ao comprador, reverte o transfer da
  * loja e a taxa da Bynx NA MESMA PROPORCAO (reverse_transfer +
@@ -146,11 +155,11 @@ export async function estornarNaStripe(args: {
   chave: string
   amountCents: number | null
   metadata: Record<string, string>
-}): Promise<{ id: string; amount: number }> {
+}): Promise<RefundFeito> {
   const s = stripe()
   const existentes = await s.refunds.list({ payment_intent: args.paymentIntent, limit: 100 })
   const achado = existentes.data.find(r => r.metadata?.bynx_chave === args.chave && r.status !== 'failed' && r.status !== 'canceled')
-  if (achado) return { id: achado.id, amount: achado.amount }
+  if (achado) return { id: achado.id, amount: achado.amount, status: achado.status ?? null, reaproveitado: true }
 
   const refund = await s.refunds.create(
     {
@@ -162,7 +171,30 @@ export async function estornarNaStripe(args: {
     },
     { idempotencyKey: args.chave },
   )
-  return { id: refund.id, amount: refund.amount }
+  return { id: refund.id, amount: refund.amount, status: refund.status ?? null, reaproveitado: false }
+}
+
+/**
+ * O que a Stripe sabe do pagamento, para calcular o restante estornavel
+ * (restanteEstornavel em lib/leilao-reclamacao): a charge (amount e
+ * amount_refunded -- inclui estorno manual pelo dashboard) e o refund desta
+ * chave, se ja existir e contar como devolvido. Leitura so; nunca estorna.
+ */
+export async function situacaoNaStripe(paymentIntent: string, chave: string): Promise<{
+  charge: { amount: number; amountRefunded: number } | null
+  refundDestaChaveCents: number
+}> {
+  const s = stripe()
+  const [pi, refunds] = await Promise.all([
+    s.paymentIntents.retrieve(paymentIntent, { expand: ['latest_charge'] }),
+    s.refunds.list({ payment_intent: paymentIntent, limit: 100 }),
+  ])
+  const ch = pi.latest_charge && typeof pi.latest_charge !== 'string' ? pi.latest_charge : null
+  const nosso = refunds.data.find(r => r.metadata?.bynx_chave === chave && refundValido(r.status))
+  return {
+    charge: ch ? { amount: ch.amount, amountRefunded: ch.amount_refunded } : null,
+    refundDestaChaveCents: nosso?.amount ?? 0,
+  }
 }
 
 // ─── Avisos ─────────────────────────────────────────────────────────────────

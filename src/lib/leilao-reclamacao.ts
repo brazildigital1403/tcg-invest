@@ -271,6 +271,63 @@ export function planejarDecisao(args: {
   }
 }
 
+/**
+ * Quanto ainda da para estornar, pela STRIPE e pelo banco (vence o menor).
+ *   - Stripe: `amount - amount_refunded` da charge. Pega estorno manual feito
+ *     no dashboard, que o banco (valor_reembolsado_cents) nao ve.
+ *   - O refund DESTA decisao (mesma chave) volta para o restante: no retry
+ *     depois de falha do banco ele ja esta em amount_refunded, e sem isso o
+ *     estorno_total viraria "nada a estornar" e o reaproveitamento nunca
+ *     aconteceria.
+ * Sem charge legivel (null), fica so o banco.
+ */
+export function restanteEstornavel(a: {
+  totalCents: number
+  reembolsadoBancoCents: number
+  charge: { amount: number; amountRefunded: number } | null
+  refundDestaChaveCents: number
+}): number {
+  const peloBanco = Math.max(0, Math.floor(a.totalCents) - Math.max(0, Math.floor(a.reembolsadoBancoCents || 0)))
+  if (!a.charge) return peloBanco
+  const pelaStripe = Math.max(0,
+    Math.floor(a.charge.amount) - Math.floor(a.charge.amountRefunded || 0) + Math.max(0, Math.floor(a.refundDestaChaveCents || 0)))
+  return Math.min(peloBanco, pelaStripe)
+}
+
+/** Status de refund que a Stripe conta como devolvido (ou a caminho). */
+export function refundValido(status: string | null | undefined): boolean {
+  return status === 'succeeded' || status === 'pending'
+}
+
+const reais = (c: number) => `R$ ${(c / 100).toFixed(2).replace('.', ',')}`
+
+/**
+ * Confere o refund que voltou da Stripe antes de gravar a decisao.
+ *   - status fora de succeeded/pending (failed, canceled, requires_action):
+ *     nao grava nada -> 502;
+ *   - refund reaproveitado pela chave com valor DIFERENTE do plano atual (ex.:
+ *     1a tentativa foi parcial e falhou no banco; agora o admin pede total):
+ *     nao grava nada -> 409. Gravar o valor antigo sob a decisao nova deixaria
+ *     reclamacao e pedido mentindo sobre o que voltou.
+ * `esperadoCents` null = estorno do restante inteiro (sem comparar).
+ */
+export function conferirRefund(
+  r: { amount: number; status: string | null | undefined },
+  esperadoCents: number | null,
+): { ok: true } | { ok: false; http: 409 | 502; erro: string } {
+  if (!refundValido(r.status)) {
+    return { ok: false, http: 502, erro: `A Stripe não concluiu o estorno (situação: ${r.status || 'desconhecida'}). Nada foi gravado. Confira na Stripe antes de tentar de novo.` }
+  }
+  if (esperadoCents != null && r.amount !== esperadoCents) {
+    return {
+      ok: false,
+      http: 409,
+      erro: `Já existe um estorno desta reclamação na Stripe de ${reais(r.amount)}, diferente dos ${reais(esperadoCents)} desta decisão. Nada foi gravado. Confira esse estorno na Stripe antes de decidir de novo.`,
+    }
+  }
+  return { ok: true }
+}
+
 // ─── Validacao de entrada ───────────────────────────────────────────────────
 
 /** Link de video: so https, ate 500 caracteres. '' ou null -> null; invalido -> false. */
