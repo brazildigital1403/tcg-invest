@@ -31,9 +31,6 @@ export const TIPO_POR_SLOT: Record<Slot, string> = {
   cantos: 'cliente_extra',
 }
 
-/** Termo de ciencia de risco vigente. Trocar a versao quando o texto mudar. */
-export const TERMO_VERSAO_ATUAL = 'v1-2026-09'
-
 export function numeroSolicitacao(n: number | string) {
   return numeroServico(Number(n))
 }

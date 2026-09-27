@@ -8,7 +8,8 @@
 // update filtra pelo status atual, entao duas respostas simultaneas nao passam.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sbAdmin, carregarAutorizado, erro, registrarEvento, notificarCliente, TERMO_VERSAO_ATUAL } from '@/lib/servicosServer'
+import { sbAdmin, carregarAutorizado, erro, registrarEvento, notificarCliente } from '@/lib/servicosServer'
+import { termoDoServico } from '@/lib/servicos'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!aceitos.length) return erro(400, 'Nenhuma carta aceita. Para desistir, recuse o orçamento.')
 
     const { data, error } = await sb.from('servico_solicitacoes')
-      .update({ status: 'aceito', termo_versao: TERMO_VERSAO_ATUAL, termo_aceito_em: new Date().toISOString() })
+      .update({ status: 'aceito', termo_versao: termoDoServico(auth.sol.servico).versao, termo_aceito_em: new Date().toISOString() })
       .eq('id', id).eq('status', 'orcado').select('id')
     if (error) throw new Error(error.message)
     if (!data?.length) return erro(409, 'Este pedido mudou de estado. Atualize a página.')

@@ -16,7 +16,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { authFetch } from '@/lib/authFetch'
 import {
-  STATUS_SERVICO, SERVICOS, TERMO_V1, GUIA_EMBALAGEM, CAMPOS_LAUDO, brl, numeroServico, fmtDataHoraBRT, turnoServico,
+  STATUS_SERVICO, SERVICOS, termoDoServico, GUIA_EMBALAGEM, CAMPOS_LAUDO, brl, numeroServico, fmtDataHoraBRT, turnoServico,
   PILARES, ESCALA, DANOS, TERMO_PROPOSTA_V1, RISCOS, OBJETIVOS, ALERTA_GRADUACAO, type FichaCondicao,
 } from '@/lib/servicos'
 import { IconCheck, IconClose, IconTruck, IconShield, IconWarning, IconBox } from '@/components/ui/Icons'
@@ -238,7 +238,7 @@ function Pedido({ id }: { id: string }) {
               )}
               <div className="sp-termo">
                 <b>Termo de ciência</b>
-                <ul>{TERMO_V1.map(t => <li key={t}>{t}</li>)}</ul>
+                <ul>{termoDoServico(s.servico).itens.map(t => <li key={t}>{t}</li>)}</ul>
               </div>
               <label className="sp-chk">
                 <input type="checkbox" checked={termo} onChange={e => setTermo(e.target.checked)} />

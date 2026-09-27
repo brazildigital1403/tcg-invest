@@ -406,8 +406,11 @@ export const fmtDataHoraBRT = new Intl.DateTimeFormat('pt-BR', {
 })
 
 // ── Termo de ciencia de risco (aceito junto com o orcamento) ─────────────────
-// Versao em servicosServer.TERMO_VERSAO_ATUAL: trocar as duas juntas quando o
-// texto mudar. RASCUNHO v1 para revisao do Du (inclusive juridica).
+// Cada texto tem uma versao, gravada em servico_solicitacoes.termo_versao no
+// aceite. Texto aceito NUNCA muda: correcao vira versao nova. RASCUNHO para
+// revisao do Du (inclusive juridica).
+// v1: aceito ate 27/09/2026 em todos os servicos (fala de restauracao ate no
+// pre-grading, e o item 3 tinha a frase quebrada). Fica aqui para o historico.
 
 export const TERMO_V1 = [
   'A restauração é um trabalho de conservação: prensagem, umidade controlada e limpeza a seco. A Bynx não usa tinta, cola nem corte.',
@@ -417,6 +420,40 @@ export const TERMO_V1 = [
   'A carta viaja pelo valor declarado no orçamento. Ao chegar, o pacote é aberto em vídeo e a carta recebe um número de custódia.',
   'Se na chegada a carta estiver diferente das fotos, a Bynx avisa antes de qualquer trabalho, e você decide se segue.',
 ]
+
+/** v2: restauracao e completo. Igual a v1, com o item 3 corrigido. */
+export const TERMO_V2 = [
+  TERMO_V1[0],
+  TERMO_V1[1],
+  'A Bynx para no ponto seguro: quando seguir com o trabalho pode danificar a carta, ele é interrompido, mesmo que o defeito não tenha saído por completo.',
+  TERMO_V1[3],
+  TERMO_V1[4],
+  TERMO_V1[5],
+]
+
+/** Pre-grading v1: avaliacao sem intervencao nenhuma na carta. */
+export const TERMO_PRE_GRADING_V1 = [
+  'O pré-grading é uma avaliação: a carta é medida, examinada com lupa e fotografada em luz difusa e rasante. Nada é feito na carta: sem limpeza e sem nenhum tratamento.',
+  'O resultado é uma faixa de nota provável, não uma nota. A nota final é atribuída só pela graduadora, com critérios próprios que podem mudar.',
+  'O laudo descreve a carta como ela chegou, na data da avaliação. A condição pode mudar depois, no manuseio, na guarda ou no envio.',
+  'A Bynx não é afiliada a nenhuma graduadora. Os nomes delas aparecem só para identificar o critério usado na comparação.',
+  TERMO_V1[4],
+  'Se na chegada a carta estiver diferente das fotos, a Bynx avisa antes da avaliação, e você decide se segue.',
+]
+
+/** Todo texto de termo ja publicado, pela versao gravada no pedido. */
+export const TERMOS_POR_VERSAO: Record<string, string[]> = {
+  'v1-2026-09': TERMO_V1,
+  'v2-2026-09': TERMO_V2,
+  'pg-v1-2026-09': TERMO_PRE_GRADING_V1,
+}
+
+/** Termo vigente para aceitar agora, conforme o servico do pedido. */
+export function termoDoServico(servico: string): { versao: string; itens: string[] } {
+  return servico === 'pre_grading'
+    ? { versao: 'pg-v1-2026-09', itens: TERMO_PRE_GRADING_V1 }
+    : { versao: 'v2-2026-09', itens: TERMO_V2 }
+}
 
 export const GUIA_EMBALAGEM = [
   'Carta em sleeve e depois em toploader. A fita vai só no toploader, nunca na carta.',
