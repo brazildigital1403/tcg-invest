@@ -36,9 +36,15 @@ import { calcularArremate } from '@/lib/leilao-taxas'
  * do dar_lance (`lider`, `seu_maximo_cents`) atualiza na hora. Nada fica no
  * aparelho: outra aba, outro celular ou sessao nova mostram o mesmo.
  *
- * "Lance unico" x "Lance maximo": os dois mandam `maximoCents` ao RPC, que e
- * quem aplica o lance automatico. No unico o teto e o proprio valor digitado;
- * no maximo, o banco so sobe ate onde precisar. A diferenca e de explicacao.
+ * "Lance rapido" x "Lance maximo": TODO lance e automatico. As duas abas mandam
+ * `maximoCents` ao RPC, que so sobe o preco ate onde precisar para vencer. No
+ * rapido o teto e o chip escolhido; no maximo, o valor digitado. A diferenca e
+ * so de entrada (chip x campo), nunca de regra.
+ *
+ * ENCERRAMENTO: relogio local zerado com o lote ainda `ativo` no servidor NAO
+ * esconde nada por conta propria. A tela mostra "Conferindo encerramento...",
+ * busca o estado na hora e segue a cada 2s ate o servidor fechar (ou estender,
+ * se um lance de ultimo segundo prorrogou).
  */
 
 const INTERVALO_NORMAL_MS = 10_000
@@ -46,8 +52,13 @@ const INTERVALO_FINAL_MS = 2_000
 const JANELA_FINAL_MS = 120_000
 /** Aviso de lance muito acima da referencia do Mercado Brasileiro. */
 const FATOR_AVISO_MERCADO = 1.5
+/** Acima de N vezes o lance minimo atual, o Confirmar pede um segundo toque. */
+const FATOR_CONFIRMACAO_DUPLA = 3
+/** Fallback da altura da bottom nav do AppLayout ate a medida real chegar. */
+const NAV_FALLBACK = 'calc(57px + env(safe-area-inset-bottom, 0px))'
+const FOCAVEIS = 'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
 
-type Aba = 'unico' | 'maximo'
+type Aba = 'rapido' | 'maximo'
 
 /** Minha posicao no lote, sempre como o servidor disse. */
 interface MinhaPosicao {
@@ -115,23 +126,31 @@ export default function LanceAoVivo({
   const [agora, setAgora] = useState<number>(Number.isFinite(baseInicial) ? baseInicial : 0)
 
   const [logado, setLogado] = useState<boolean | null>(null)
-  const [meuUserId, setMeuUserId] = useState<string | null>(null)
   const [online, setOnline] = useState(true)
   const [posicao, setPosicao] = useState<MinhaPosicao | null>(null)
+  /** O servidor diz se quem esta logado e o vendedor (o id do vendedor nunca vem). */
+  const [proprio, setProprio] = useState(false)
+  /** Altura real da bottom nav (0 no desktop, onde ela some). null = ainda nao medida. */
+  const [navH, setNavH] = useState<number | null>(null)
   /** Hora local do ultimo lance confirmado: leitura que saiu antes dele e chegou depois nao desfaz. */
   const ultimoLanceEmRef = useRef(0)
   /** Maior versao do lote ja vista (leitura ou retorno do lance). */
   const versaoRef = useRef(loteInicial.versao)
 
   const [aberta, setAberta] = useState(false)
-  const [aba, setAba] = useState<Aba>('unico')
+  const [aba, setAba] = useState<Aba>('rapido')
   const [valorTxt, setValorTxt] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  /** Segundo toque pendente no Confirmar (valor muito acima do minimo). */
+  const [confirmarAlto, setConfirmarAlto] = useState(false)
+  /** Area visivel (teclado do iOS aberto encolhe o visualViewport, nao o layout). */
+  const [vv, setVv] = useState<{ h: number; top: number } | null>(null)
   const idemRef = useRef<{ chave: string; valor: number } | null>(null)
   const campoRef = useRef<HTMLInputElement>(null)
   const ctaRef = useRef<HTMLButtonElement>(null)
+  const folhaRef = useRef<HTMLDivElement>(null)
 
   // ── Relogio ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -146,11 +165,9 @@ export default function LanceAoVivo({
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setLogado(!!data.session?.user)
-      setMeuUserId(data.session?.user?.id ?? null)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setLogado(!!session?.user)
-      setMeuUserId(session?.user?.id ?? null)
     })
     const on = () => setOnline(true)
     const off = () => setOnline(false)
@@ -185,6 +202,7 @@ export default function LanceAoVivo({
       const j = (await r.json()) as Partial<EstadoLote>
       aplicarServerNow(j.server_now, enviadoEm)
       if (j.lote) {
+        setProprio(j.proprio === true)
         const novo = j.lote
         // Resposta atrasada nao pode desfazer um lance ja visto. (Ref, nao o
         // updater do setState: o updater pode rodar so no proximo render.)
@@ -205,10 +223,14 @@ export default function LanceAoVivo({
 
   const st = statusPublico(lote, agora)
   const aberto = st === 'ao_vivo' || st === 'encerrando'
+  // Relogio local zerou, mas o servidor ainda nao fechou: nada de "Encerrado"
+  // por conta propria. Um lance de ultimo segundo pode ter prorrogado.
+  const conferindo = lote.status === 'ativo' && st === 'encerrado'
   const vivoOuAgendado = aberto || st === 'em_breve' || st === 'encerrado'
   const fimMs = lote.terminaEm ? Date.parse(lote.terminaEm) : NaN
   const restanteMs = Number.isFinite(fimMs) ? fimMs - agora : Infinity
-  const intervalo = aberto && restanteMs <= JANELA_FINAL_MS ? INTERVALO_FINAL_MS : INTERVALO_NORMAL_MS
+  const intervalo =
+    conferindo || (aberto && restanteMs <= JANELA_FINAL_MS) ? INTERVALO_FINAL_MS : INTERVALO_NORMAL_MS
 
   useEffect(() => {
     // Lote que ja fechou de vez (arrematado, sem lances, cancelado) nao muda mais.
@@ -232,12 +254,43 @@ export default function LanceAoVivo({
     }
   }, [vivoOuAgendado, intervalo, buscarEstado])
 
-  // Logou (ou ja estava logado): uma leitura na hora traz a posicao do
-  // servidor, inclusive em lote ja arrematado (o polling para nesses).
+  // Montagem (assim que a sessao resolve, logado ou nao) e a cada troca de
+  // sessao: uma leitura na hora acerta o relogio pelo servidor (o server_now do
+  // HTML chega atrasado pela latencia) e traz a posicao e o `proprio`, inclusive
+  // em lote ja arrematado (o polling para nesses).
   useEffect(() => {
-    if (logado) buscarEstado()
-    else setPosicao(null)
+    if (logado === null) return
+    if (!logado) {
+      setPosicao(null)
+      setProprio(false)
+    }
+    buscarEstado()
   }, [logado, buscarEstado])
+
+  // Relogio zerou com o lote ativo: confere na hora, sem esperar a proxima volta.
+  useEffect(() => {
+    if (conferindo) buscarEstado()
+  }, [conferindo, buscarEstado])
+
+  // Altura real da bottom nav do AppLayout (nao ha variavel dela): o CTA fixo
+  // fica logo acima. Some no desktop (display none) e a medida vira 0.
+  useEffect(() => {
+    const nav = document.querySelector<HTMLElement>('.tcg-bottom-nav')
+    if (!nav) return
+    const medir = () => setNavH(nav.offsetHeight)
+    medir()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', medir)
+      return () => window.removeEventListener('resize', medir)
+    }
+    const ro = new ResizeObserver(medir)
+    ro.observe(nav)
+    window.addEventListener('resize', medir)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', medir)
+    }
+  }, [])
 
   // ── Derivados ───────────────────────────────────────────────────────────
   const precoCents = lote.nLances > 0 && lote.precoAtualCents != null ? lote.precoAtualCents : lote.lanceInicialCents
@@ -249,14 +302,20 @@ export default function LanceAoVivo({
     return [a, b, c]
   }, [minimo])
 
-  const proprio = !!meuUserId && meuUserId === lote.vendedorUserId
   const estouGanhando = !!posicao?.voceLidera && lote.nLances > 0
   const fuiSuperado = !!posicao && !posicao.voceLidera && posicao.seuMaximoCents != null && lote.nLances > 0
 
   const valorCents = reaisParaCents(valorTxt)
+  // O valor e sempre o TETO: o total mostrado e o maximo que pode ser cobrado.
   const arremate = valorCents ? calcularArremate(valorCents) : null
   const acimaDoMercado =
     !!valorCents && !!referenciaMercadoCents && valorCents > referenciaMercadoCents * FATOR_AVISO_MERCADO
+  const valorAlto = !!valorCents && valorCents > minimo * FATOR_CONFIRMACAO_DUPLA
+
+  // Mudou o valor ou a aba: o segundo toque volta a ser pedido.
+  useEffect(() => {
+    setConfirmarAlto(false)
+  }, [valorCents, aba])
 
   // aria-live: anuncia so quando o PRECO muda, nunca a cada tique do relogio.
   const [anuncio, setAnuncio] = useState('')
@@ -272,8 +331,9 @@ export default function LanceAoVivo({
   const abrirFolha = () => {
     setErro(null)
     setAviso(null)
-    setAba('unico')
+    setAba('rapido')
     setValorTxt(centsParaCampo(minimo))
+    setConfirmarAlto(false)
     setAberta(true)
   }
   const fecharFolha = useCallback(() => {
@@ -281,19 +341,69 @@ export default function LanceAoVivo({
     setTimeout(() => ctaRef.current?.focus(), 0)
   }, [])
 
+  const trocarAba = (a: Aba) => {
+    setAba(a)
+    // Rapido so tem os chips: valor digitado fora deles volta para o minimo.
+    if (a === 'rapido' && (valorCents == null || !chipsRapidos.includes(valorCents))) {
+      setValorTxt(centsParaCampo(minimo))
+    }
+    // No maximo o campo e a entrada: foca (e abre o teclado) so quando a pessoa escolhe.
+    if (a === 'maximo') setTimeout(() => campoRef.current?.focus(), 0)
+  }
+
   useEffect(() => {
     if (!aberta) return
-    const t = setTimeout(() => campoRef.current?.focus(), 50)
+    // Foco no dialogo, nao no campo: no celular isso abriria o teclado sem pedir.
+    const t = setTimeout(() => folhaRef.current?.focus(), 50)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') fecharFolha()
+      if (e.key === 'Escape') {
+        fecharFolha()
+        return
+      }
+      if (e.key !== 'Tab') return
+      // Trap de foco: Tab e Shift+Tab ciclam dentro da folha.
+      const raiz = folhaRef.current
+      if (!raiz) return
+      const focaveis = Array.from(raiz.querySelectorAll<HTMLElement>(FOCAVEIS)).filter(
+        el => el.getClientRects().length > 0
+      )
+      if (!focaveis.length) {
+        e.preventDefault()
+        raiz.focus()
+        return
+      }
+      const primeiro = focaveis[0]
+      const ultimo = focaveis[focaveis.length - 1]
+      const ativo = document.activeElement as HTMLElement | null
+      const dentro = !!ativo && raiz.contains(ativo) && ativo !== raiz
+      if (e.shiftKey && (!dentro || ativo === primeiro)) {
+        e.preventDefault()
+        ultimo.focus()
+      } else if (!e.shiftKey && (!dentro || ativo === ultimo)) {
+        e.preventDefault()
+        primeiro.focus()
+      }
     }
     document.addEventListener('keydown', onKey)
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+
+    // Teclado do iOS: o layout viewport nao encolhe, o visualViewport sim. O
+    // fundo acompanha a area visivel para o Confirmar nao ficar sob o teclado.
+    const vvp = typeof window !== 'undefined' ? window.visualViewport : null
+    const aplicarVv = () => {
+      if (vvp) setVv({ h: vvp.height, top: vvp.offsetTop })
+    }
+    aplicarVv()
+    vvp?.addEventListener('resize', aplicarVv)
+    vvp?.addEventListener('scroll', aplicarVv)
     return () => {
       clearTimeout(t)
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = overflow
+      vvp?.removeEventListener('resize', aplicarVv)
+      vvp?.removeEventListener('scroll', aplicarVv)
+      setVv(null)
     }
   }, [aberta, fecharFolha])
 
@@ -305,6 +415,11 @@ export default function LanceAoVivo({
     }
     if (valorCents < minimo) {
       setErro(`O lance mínimo agora é ${formatarBRL(minimo)}.`)
+      return
+    }
+    // Valor muito acima do minimo (zero a mais, dedo escorregou): segundo toque.
+    if (valorAlto && !confirmarAlto) {
+      setConfirmarAlto(true)
       return
     }
     setErro(null)
@@ -333,8 +448,14 @@ export default function LanceAoVivo({
         body: JSON.stringify({ maximoCents: valorCents, idem, vistoCents: minimo }),
       })
       const j = await r.json().catch(() => null)
-      // Resposta chegou (sucesso ou erro de regra): a chave ja foi usada.
-      idemRef.current = null
+      // A chave so e descartada quando o servidor respondeu de verdade: 2xx, ou
+      // 4xx com erro conhecido (regra do lance). 5xx ou corpo que nao e JSON
+      // (proxy, timeout) pode ter gravado o lance: o reenvio do mesmo valor
+      // precisa da MESMA chave para o banco nao registrar dois.
+      const erroConhecido = !!j && typeof j.erro === 'string' && j.erro !== 'desconhecido'
+      if (j && (r.ok || (r.status >= 400 && r.status < 500 && erroConhecido))) {
+        idemRef.current = null
+      }
 
       if (!r.ok || !j || j.ok === false) {
         const minimoServidor = typeof j?.minimoCents === 'number' ? j.minimoCents : null
@@ -362,8 +483,8 @@ export default function LanceAoVivo({
         versao: Math.max(atual.versao, res.versao),
       }))
       if (res.lider) {
-        setAberta(false)
         setAviso(null)
+        fecharFolha()
       } else {
         // Outro teto automatico cobriu na hora. A folha fica aberta com o novo minimo.
         setAviso(`Outro participante tinha um lance máximo maior. Lance atual: ${formatarBRL(res.precoCents)}.`)
@@ -385,11 +506,13 @@ export default function LanceAoVivo({
     relogio = Number.isFinite(ini) && ini > agora ? formatarTempoRestante(ini - agora) : '--:--'
   } else if (aberto) {
     relogio = Number.isFinite(restanteMs) ? formatarTempoRestante(restanteMs) : '--:--'
+  } else if (conferindo) {
+    relogio = formatarTempoRestante(0)
   }
   const horaAbsoluta =
     st === 'em_breve' && lote.iniciaEm
       ? `Começa em ${horarioBrasilia(lote.iniciaEm)}`
-      : aberto && lote.terminaEm
+      : (aberto || conferindo) && lote.terminaEm
         ? `Termina em ${horarioBrasilia(lote.terminaEm)}`
         : lote.encerradoEm
           ? `Encerrado em ${horarioBrasilia(lote.encerradoEm)}`
@@ -398,7 +521,13 @@ export default function LanceAoVivo({
   const loginHref = `${urlLote}?auth=login&next=${encodeURIComponent(urlLote)}`
 
   let cta: ReactNode
-  if (!aberto) {
+  if (conferindo) {
+    cta = (
+      <div role="status" style={S.ctaInfo}>
+        Conferindo encerramento...
+      </div>
+    )
+  } else if (!aberto) {
     cta = (
       <div style={S.ctaInfo}>
         {st === 'em_breve' ? 'Os lances abrem quando o lote começar.' : ROTULO_STATUS[st]}
@@ -423,31 +552,38 @@ export default function LanceAoVivo({
   }
 
   return (
-    <section aria-label="Lance ao vivo" style={S.bloco}>
+    <section
+      aria-label="Lance ao vivo"
+      style={{ ...S.bloco, ...(navH != null ? ({ '--lv-nav-h': `${navH}px` } as CSSProperties) : null) }}
+    >
       <style>{`
         .lv-cta-btn { transition: filter 0.15s ease, transform 0.15s ease; }
         .lv-cta-btn:hover:not(:disabled) { filter: brightness(1.08); }
         .lv-cta-btn:focus-visible, .lv-foco:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
         .lv-cta-btn:disabled { opacity: 0.6; cursor: default; }
         .lv-cta-fixo { margin-top: 16px; }
-        .lv-cta-espaco { display: none; }
         @media (max-width: 768px) {
-          /* Acima da bottom nav do AppLayout (~57px + safe area). */
+          /* Logo acima da bottom nav do AppLayout (altura medida em --lv-nav-h,
+             que ja inclui a safe area). A folga no fim da pagina fica no wrapper. */
           .lv-cta-fixo {
             position: fixed; left: 0; right: 0; z-index: 150; margin: 0;
-            bottom: calc(57px + env(safe-area-inset-bottom, 0px));
+            bottom: var(--lv-nav-h, ${NAV_FALLBACK});
             padding: 10px 16px; background: var(--bx-bg-elev); border-top: 1px solid var(--bx-border);
             box-shadow: var(--bx-shadow);
           }
-          .lv-cta-espaco { display: block; height: 72px; }
         }
-        .lv-folha-fundo { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; justify-content: center; }
+        .lv-folha-fundo { position: fixed; inset: 0; z-index: 400; background: var(--bx-scrim); display: flex; align-items: flex-end; justify-content: center; }
         .lv-folha {
-          width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto;
+          width: 100%; max-width: 520px; max-height: 92vh; max-height: min(92dvh, 100%); overflow-y: auto;
           background: var(--bx-bg-elev); border: 1px solid var(--bx-border); border-bottom: none;
           border-radius: 18px 18px 0 0; box-shadow: var(--bx-shadow);
-          padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+          padding: 16px 16px 0; outline: none;
           animation: lv-sobe 0.2s ease;
+        }
+        /* Confirmar sempre visivel, inclusive com o teclado aberto. */
+        .lv-folha-rodape {
+          position: sticky; bottom: 0; background: var(--bx-bg-elev);
+          padding: 8px 0 calc(16px + env(safe-area-inset-bottom, 0px)); margin-top: 8px;
         }
         @media (min-width: 769px) { .lv-folha-fundo { align-items: center; } .lv-folha { border-radius: 18px; border-bottom: 1px solid var(--bx-border); } }
         @keyframes lv-sobe { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -462,11 +598,16 @@ export default function LanceAoVivo({
       <p className="lv-sr" aria-live="polite" aria-atomic="true">{anuncio}</p>
 
       <div style={S.linhaStatus}>
-        <span style={{ ...S.status, ...(st === 'encerrando' ? S.statusUrgente : aberto ? S.statusVivo : null) }}>
-          {ROTULO_STATUS[st]}
+        <span
+          style={{
+            ...S.status,
+            ...(st === 'encerrando' || conferindo ? S.statusUrgente : aberto ? S.statusVivo : null),
+          }}
+        >
+          {conferindo ? ROTULO_STATUS.encerrando : ROTULO_STATUS[st]}
         </span>
         {relogio && (
-          <span style={{ ...S.relogio, ...(st === 'encerrando' ? { color: 'var(--bx-red)' } : null) }}>
+          <span style={{ ...S.relogio, ...(st === 'encerrando' || conferindo ? { color: 'var(--bx-red)' } : null) }}>
             <IconClock size={16} />
             <span>{st === 'em_breve' ? `Começa em ${relogio}` : relogio}</span>
           </span>
@@ -509,7 +650,6 @@ export default function LanceAoVivo({
       )}
 
       <div className="lv-cta-fixo">{cta}</div>
-      <div className="lv-cta-espaco" aria-hidden="true" />
 
       <p style={S.protecao}>
         <IconShield size={14} />
@@ -519,11 +659,19 @@ export default function LanceAoVivo({
       {aberta && (
         <div
           className="lv-folha-fundo"
+          style={vv ? { top: vv.top, height: vv.h, bottom: 'auto' } : undefined}
           onClick={e => {
             if (e.target === e.currentTarget) fecharFolha()
           }}
         >
-          <div className="lv-folha" role="dialog" aria-modal="true" aria-labelledby="lv-folha-titulo">
+          <div
+            ref={folhaRef}
+            className="lv-folha"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lv-folha-titulo"
+            tabIndex={-1}
+          >
             <div style={S.folhaTopo}>
               <h2 id="lv-folha-titulo" style={S.folhaTitulo}>Dar lance</h2>
               <button type="button" onClick={fecharFolha} aria-label="Fechar" className="lv-foco" style={S.fechar}>
@@ -531,60 +679,69 @@ export default function LanceAoVivo({
               </button>
             </div>
 
-            <div role="tablist" aria-label="Tipo de lance" style={S.abas}>
-              {(['unico', 'maximo'] as const).map(a => (
+            <div role="group" aria-label="Tipo de lance" style={S.abas}>
+              {(['rapido', 'maximo'] as const).map(a => (
                 <button
                   key={a}
                   type="button"
-                  role="tab"
-                  aria-selected={aba === a}
-                  onClick={() => setAba(a)}
+                  aria-pressed={aba === a}
+                  onClick={() => trocarAba(a)}
                   className="lv-foco"
                   style={{ ...S.aba, ...(aba === a ? S.abaAtiva : null) }}
                 >
-                  {a === 'unico' ? 'Lance único' : 'Lance máximo'}
+                  {a === 'rapido' ? 'Lance rápido' : 'Lance máximo'}
                 </button>
               ))}
             </div>
             <p style={S.abaTexto}>
-              {aba === 'unico'
-                ? 'Você oferece exatamente este valor.'
-                : 'Informe o máximo que aceita pagar. A Bynx cobre os lances dos outros por você, no menor valor necessário, até esse limite. Ninguém vê o seu máximo.'}
+              {aba === 'rapido'
+                ? 'Todo lance é automático. O valor que você escolher é o seu limite: você paga o menor valor necessário para vencer, até o limite que informou.'
+                : 'Todo lance é automático. Informe o máximo que aceita pagar: você paga o menor valor necessário para vencer, até o limite que informou. Ninguém vê o seu máximo.'}
             </p>
 
             <p style={S.rotuloCampo}>Lance mínimo agora: {formatarBRL(minimo)}</p>
-            <div style={S.chipsRapidos}>
-              {chipsRapidos.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  className="lv-chip-rapido lv-foco"
-                  onClick={() => setValorTxt(centsParaCampo(c))}
-                  style={{ ...S.chipRapido, ...(valorCents === c ? S.chipRapidoAtivo : null) }}
-                >
-                  {formatarBRL(c)}
-                </button>
-              ))}
-            </div>
 
-            <label htmlFor="lv-valor" style={S.rotuloCampo}>
-              {aba === 'unico' ? 'Seu lance' : 'Seu lance máximo'}
-            </label>
-            <div style={S.campoWrap}>
-              <span style={S.campoPrefixo}>R$</span>
-              <input
-                id="lv-valor"
-                ref={campoRef}
-                inputMode="decimal"
-                autoComplete="off"
-                value={valorTxt}
-                onChange={e => {
-                  setValorTxt(e.target.value)
-                  setErro(null)
-                }}
-                style={S.campo}
-              />
-            </div>
+            {aba === 'rapido' ? (
+              <div style={S.chipsRapidos}>
+                {chipsRapidos.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-pressed={valorCents === c}
+                    className="lv-chip-rapido lv-foco"
+                    onClick={() => {
+                      setValorTxt(centsParaCampo(c))
+                      setErro(null)
+                    }}
+                    style={{ ...S.chipRapido, ...(valorCents === c ? S.chipRapidoAtivo : null) }}
+                  >
+                    {formatarBRL(c)}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <label htmlFor="lv-valor" style={S.rotuloCampo}>
+                  Seu lance máximo
+                </label>
+                <div style={S.campoWrap}>
+                  <span style={S.campoPrefixo}>R$</span>
+                  <input
+                    id="lv-valor"
+                    ref={campoRef}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    value={valorTxt}
+                    onChange={e => {
+                      setValorTxt(e.target.value)
+                      setErro(null)
+                    }}
+                    style={S.campo}
+                  />
+                </div>
+              </>
+            )}
 
             {acimaDoMercado && referenciaMercadoCents && (
               <p style={S.avisoMercado}>
@@ -596,34 +753,51 @@ export default function LanceAoVivo({
 
             {arremate && (
               <dl style={S.total}>
-                <div style={S.totalLinha}><dt>Lance</dt><dd>{formatarBRL(arremate.precoCents)}</dd></div>
-                <div style={S.totalLinha}><dt>Taxa de proteção</dt><dd>{formatarBRL(arremate.protecaoCents)}</dd></div>
-                <div style={S.totalLinha}><dt>Custo do cartão</dt><dd>{formatarBRL(arremate.custoMetodoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>Seu limite</dt><dd>{formatarBRL(arremate.precoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>Taxa de proteção</dt><dd>até {formatarBRL(arremate.protecaoCents)}</dd></div>
+                <div style={S.totalLinha}><dt>Custo do cartão</dt><dd>até {formatarBRL(arremate.custoMetodoCents)}</dd></div>
                 <div style={{ ...S.totalLinha, ...S.totalFinal }}>
-                  <dt>Total estimado se arrematar</dt><dd>{formatarBRL(arremate.compradorPagaCents)}</dd>
+                  <dt>Total máximo se arrematar</dt><dd>até {formatarBRL(arremate.compradorPagaCents)}</dd>
                 </div>
               </dl>
             )}
-            {arremate && <p style={S.totalNota}>Frete calculado no pagamento, pelo seu CEP.</p>}
+            {arremate && (
+              <p style={S.totalNota}>
+                Se ninguém disputar até o seu limite, você paga menos. Frete calculado no pagamento, pelo seu CEP.
+              </p>
+            )}
 
-            {aviso && <p role="alert" style={S.avisoMercado}><IconWarning size={14} />{aviso}</p>}
-            {erro && <p role="alert" style={S.erro}>{erro}</p>}
+            <div className="lv-folha-rodape">
+              {aviso && <p role="alert" style={S.avisoMercado}><IconWarning size={14} />{aviso}</p>}
+              {confirmarAlto && valorCents && (
+                <p role="alert" style={S.avisoMercado}>
+                  <IconWarning size={14} />
+                  Este valor é mais de {FATOR_CONFIRMACAO_DUPLA} vezes o lance mínimo atual ({formatarBRL(minimo)}).
+                  Toque de novo para confirmar.
+                </p>
+              )}
+              {erro && <p role="alert" style={S.erro}>{erro}</p>}
 
-            <button
-              type="button"
-              onClick={confirmar}
-              disabled={!valorCents || enviando || !online || !aberto}
-              className="lv-cta-btn"
-              style={{ ...S.ctaBtn, marginTop: 12 }}
-            >
-              {enviando
-                ? 'Registrando lance...'
-                : !aberto
-                  ? 'Lote encerrado'
-                  : valorCents
-                    ? `Confirmar lance de ${formatarBRL(valorCents)}`
-                    : 'Informe o valor do lance'}
-            </button>
+              <button
+                type="button"
+                onClick={confirmar}
+                disabled={!valorCents || enviando || !online || !aberto}
+                className="lv-cta-btn"
+                style={{ ...S.ctaBtn, marginTop: 10 }}
+              >
+                {enviando
+                  ? 'Registrando lance...'
+                  : conferindo
+                    ? 'Conferindo encerramento...'
+                    : !aberto
+                      ? 'Lote encerrado'
+                      : valorCents
+                        ? confirmarAlto
+                          ? `Confirmar ${formatarBRL(valorCents)} mesmo assim`
+                          : `Confirmar lance de ${formatarBRL(valorCents)}`
+                        : 'Informe o valor do lance'}
+              </button>
+            </div>
           </div>
         </div>
       )}

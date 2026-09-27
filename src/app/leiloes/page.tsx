@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 20
 
 export const metadata: Metadata = {
-  title: 'Leilões ao vivo — Bynx',
+  title: 'Leilões ao vivo',
   description:
     'Lotes de cartas Pokémon em leilão ao vivo, com lance em reais e pagamento protegido pela Bynx.',
   alternates: { canonical: '/leiloes' },
@@ -44,7 +44,7 @@ export default async function LeiloesPage({
   const { ordem: ordemParam } = await searchParams
   const ordem = ordemValida(ordemParam)
   const lotes = await listarLotesVitrine(ordem)
-  const serverNow = new Date().toISOString()
+  const renderizadoEm = new Date().toISOString()
 
   return (
     <AppLayout>
@@ -111,7 +111,7 @@ export default async function LeiloesPage({
                     badge={<span style={S.badgePreco}>{formatarBRL(preco)}</span>}
                     footerSlot={
                       <div style={S.rodape}>
-                        <SeloTempo lote={l} serverNow={serverNow} />
+                        <SeloTempo lote={l} renderizadoEm={renderizadoEm} />
                         <span style={S.lances}>
                           {l.nLances === 0 ? 'Sem lance' : l.nLances === 1 ? '1 lance' : `${l.nLances} lances`}
                         </span>

@@ -11,7 +11,7 @@ import SeloVerificado from '@/components/ui/SeloVerificado'
 import LanceAoVivo from '@/components/leilao/LanceAoVivo'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { codigoDoSlug, formatarBRL, type LotePublico } from '@/lib/leilao'
+import { codigoDoSlug, dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
 import { buscarLojaDoLote, buscarLotePorCodigo, buscarReferenciaMercadoCents } from '../_dados'
 
 /**
@@ -56,6 +56,21 @@ function resumo(l: LotePublico): string {
   return `${nomeCompleto(l)} em leilão na Bynx. ${lance}. Pagamento protegido, no cartão.`
 }
 
+/** schema.org: aberto = InStock, arrematado = SoldOut, sem lances/cancelado = OutOfStock. */
+function disponibilidade(l: LotePublico): 'InStock' | 'SoldOut' | 'OutOfStock' {
+  switch (l.status) {
+    case 'ativo':
+    case 'agendado':
+      return 'InStock'
+    case 'aguardando_pagamento':
+    case 'vendido':
+    case 'calote':
+      return 'SoldOut'
+    default:
+      return 'OutOfStock'
+  }
+}
+
 /** Lote que ja nao volta a ter lance nao deve ficar no indice. */
 function deveIndexar(l: LotePublico): boolean {
   return l.status !== 'sem_lances' && l.status !== 'cancelado'
@@ -73,7 +88,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const l = await carregar(slug)
   if (!l) {
     return {
-      title: 'Lote não encontrado — Bynx',
+      title: 'Lote não encontrado',
       description: 'Este lote não existe ou saiu do ar.',
       robots: { index: false, follow: false },
     }
@@ -132,21 +147,21 @@ export default async function LotePage({ params }: Params) {
     { name: nome, href: url },
   ]
 
-  const aberto = l.status === 'ativo' || l.status === 'agendado'
+  const validoAte = l.terminaEm ? dataBrasiliaISO(l.terminaEm) : ''
   const produtoSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: nome,
     description: resumo(l),
-    image: fotos,
+    ...(fotos.length ? { image: fotos } : {}),
     ...(l.setNome ? { category: l.setNome } : {}),
     offers: {
       '@type': 'Offer',
       url: `https://bynx.gg${url}`,
       price: (precoVitrine(l) / 100).toFixed(2),
       priceCurrency: 'BRL',
-      ...(l.terminaEm ? { priceValidUntil: l.terminaEm } : {}),
-      availability: aberto ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+      ...(validoAte ? { priceValidUntil: validoAte } : {}),
+      availability: `https://schema.org/${disponibilidade(l)}`,
       ...(loja ? { seller: { '@type': 'Store', name: loja.nome ?? loja.slug, url: `https://bynx.gg/lojas/${loja.slug}` } } : {}),
     },
   }
@@ -175,9 +190,11 @@ export default async function LotePage({ params }: Params) {
         @media (min-width: 900px) { .lt-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; } }
         .lt-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
         .lt-ghost:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
+        /* CTA de lance fixo no celular: folga no fim da pagina para ele nao cobrir o ultimo bloco. */
+        @media (max-width: 768px) { .lt-wrap { padding-bottom: 80px; } }
       `}</style>
 
-      <div style={S.wrap}>
+      <div className="lt-wrap" style={S.wrap}>
         <Breadcrumb items={trilha} />
 
         <div className="lt-cols">

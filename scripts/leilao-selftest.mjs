@@ -74,6 +74,8 @@ try {
   ok(() => {
     assert.equal(L.mascararApelido('joana'), 'j***a')
     assert.equal(L.mascararApelido('J'), '***')
+    assert.equal(L.mascararApelido('jo'), '***')
+    assert.equal(L.mascararApelido('  ana '), 'a***a')
     assert.equal(L.mascararApelido(null), '***')
   }, 'mascararApelido')
 
@@ -91,6 +93,8 @@ try {
     const nb = (s) => s.replace(/ /g, ' ')
     assert.equal(nb(L.formatarBRL(123456)), 'R$ 1.234,56')
     assert.equal(nb(L.horarioBrasilia('2026-09-28T00:30:00Z')), '27/09/2026, 21:30 (Brasília)')
+    assert.equal(L.horarioBrasilia('2026-09-28T03:05:00Z'), '28/09/2026, 00:05 (Brasília)')
+    assert.equal(L.dataBrasiliaISO('2026-09-28T00:30:00Z'), '2026-09-27')
     const e = L.erroDoLance('abaixo_minimo:1500')
     assert.equal(e.codigo, 'abaixo_minimo')
     assert.equal(e.status, 409)
@@ -157,6 +161,53 @@ try {
     assert.equal(T.comissaoVendedorLeilaoCents(1999), 140) // sem a fixa abaixo de R$ 20
     assert.equal(T.calcularArremate(0).compradorPagaCents, 0)
   }, 'taxas: minimo da protecao e fixa so a partir de R$ 20')
+
+  ok(() => {
+    // Pix: sem estimativa de custo, nunca "zero".
+    const p = T.calcularArremate(5000, 'pix')
+    assert.equal(p.custoStripeEstimadoCents, null)
+    assert.equal(p.bynxLiquidoEstimadoCents, null)
+    assert.equal(typeof T.calcularArremate(5000).bynxLiquidoEstimadoCents, 'number')
+  }, 'pix: custo e liquido Bynx sem estimativa (null)')
+
+  ok(() => {
+    // Pedido de 3 lotes: fixa de R$ 0,40 e minimo de R$ 2 UMA vez, sobre o total.
+    const precos = [1000, 1500, 2500] // 50,00 no total
+    const ped = T.calcularPedidoLeilao(precos)
+    assert.equal(ped.precoCents, 5000)
+    assert.equal(ped.nLotes, 3)
+    assert.equal(ped.comissaoVendedorCents, 350 + 40) // 6,99% de 50 + UMA fixa
+    assert.equal(ped.protecaoCents, 250) // 5% de 50 (acima do minimo)
+    assert.equal(ped.custoMetodoCents, 240) // 4,8% de 50
+    assert.equal(ped.compradorPagaCents, 5000 + 250 + 240)
+    assert.equal(ped.vendedorRecebeCents, 5000 - 390)
+    assert.equal(ped.compradorPagaCents - ped.applicationFeeCents, ped.vendedorRecebeCents)
+    // Igual a um lote so do mesmo valor total: a conta nao depende de quantos itens.
+    const um = T.calcularArremate(5000)
+    for (const k of ['comissaoVendedorCents', 'protecaoCents', 'custoMetodoCents', 'compradorPagaCents', 'vendedorRecebeCents', 'applicationFeeCents']) {
+      assert.equal(ped[k], um[k], k)
+    }
+    // Somar 3 arremates separados cobraria a fixa 3x e o minimo 3x: o pedido cobra menos.
+    const separados = precos.map(p => T.calcularArremate(p))
+    const somaFixas = separados.reduce((a, x) => a + x.comissaoVendedorCents, 0)
+    const somaProtecao = separados.reduce((a, x) => a + x.protecaoCents, 0)
+    assert.ok(ped.comissaoVendedorCents <= somaFixas, 'comissao por pedido <= soma por item')
+    assert.equal(somaProtecao, 200 + 200 + 200) // cada item cairia no minimo
+    assert.ok(ped.protecaoCents < somaProtecao, 'minimo da protecao uma vez so')
+    // Invariante: metodo nao muda o liquido do vendedor, tambem no pedido.
+    assert.equal(T.calcularPedidoLeilao(precos, 'pix').vendedorRecebeCents, ped.vendedorRecebeCents)
+    assert.equal(T.calcularPedidoLeilao(precos, 'pix').bynxLiquidoEstimadoCents, null)
+  }, 'pedido de 3 lotes: fixa e minimo uma vez por pedido')
+
+  ok(() => {
+    // 3 lotes pequenos (R$ 5 cada = R$ 15): abaixo de R$ 20 nao ha fixa; protecao no minimo UMA vez.
+    const ped = T.calcularPedidoLeilao([500, 500, 500])
+    assert.equal(ped.comissaoVendedorCents, 105)
+    assert.equal(ped.protecaoCents, 200)
+    // Invalidos nao entram; pedido vazio zera.
+    assert.equal(T.calcularPedidoLeilao([1000, 0, -5, NaN]).nLotes, 1)
+    assert.equal(T.calcularPedidoLeilao([]).compradorPagaCents, 0)
+  }, 'pedido de 3 lotes pequenos e entradas invalidas')
 
   console.log(`\n${n} blocos ok`)
 } finally {

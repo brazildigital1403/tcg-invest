@@ -41,12 +41,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim()
   if (!token) return erro(401, 'nao_autenticado', 'Entre na sua conta para dar lances.')
 
-  let body: { maximoCents?: unknown; idem?: unknown; vistoCents?: unknown }
+  let bruto: unknown
   try {
-    body = await req.json()
+    bruto = await req.json()
   } catch {
     return erro(400, 'corpo_invalido', 'Pedido inválido.')
   }
+  // `null`, numero, string ou array sao JSON valido, mas nao sao o corpo esperado.
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) {
+    return erro(400, 'corpo_invalido', 'Pedido inválido.')
+  }
+  const body = bruto as { maximoCents?: unknown; idem?: unknown; vistoCents?: unknown }
 
   const maximoCents = body.maximoCents
   if (
@@ -80,6 +85,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   })
 
   if (error) {
+    // unique_violation: a mesma chave `idem` ja foi usada em outro lote/valor.
+    // E erro do pedido, nao do servidor: 400, e a tela gera chave nova.
+    if (error.code === '23505') {
+      return erro(400, 'idem_invalido', 'Pedido inválido. Atualize a página e tente de novo.')
+    }
     const e = erroDoLance(`${error.message ?? ''} ${error.details ?? ''}`, {
       vistoCents,
       httpStatus: status,

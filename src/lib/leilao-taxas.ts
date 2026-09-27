@@ -13,6 +13,11 @@
  * INVARIANTE (a mesma do comissao.ts): o vendedor recebe o MESMO liquido em
  * qualquer metodo. O metodo so muda o que o COMPRADOR paga.
  *
+ * ★ FIXA POR PEDIDO, NUNCA POR ITEM: a fixa de R$ 0,40 (vendedor) e o minimo
+ * de R$ 2 da protecao (comprador) incidem UMA vez sobre o total do pedido.
+ * Tres lotes arrematados na mesma rodada viram um pedido so e pagam uma fixa,
+ * nao tres. `calcularPedidoLeilao` e a conta; `calcularArremate` e o caso de 1.
+ *
  * Fatia 1 e so cartao; o parametro `metodo` existe para o Pix entrar depois
  * sem mexer na conta do vendedor.
  */
@@ -33,11 +38,13 @@ const STRIPE_CARTAO_PCT = 0.0399
 const STRIPE_CARTAO_FIXO_CENTS = 39
 
 export interface Arremate {
-  /** Preco do martelo (lance vencedor). */
+  /** Soma dos precos de martelo do pedido (1 lote = o proprio lance vencedor). */
   precoCents: number
-  /** Comissao do vendedor (6,99% + fixa). */
+  /** Quantidade de lotes no pedido. */
+  nLotes: number
+  /** Comissao do vendedor (6,99% + fixa UMA vez por pedido). */
   comissaoVendedorCents: number
-  /** Taxa de protecao do comprador (5%, min R$ 2). */
+  /** Taxa de protecao do comprador (5%, min R$ 2 UMA vez por pedido). */
   protecaoCents: number
   /** Custo do metodo, pago pelo comprador. */
   custoMetodoCents: number
@@ -49,10 +56,10 @@ export interface Arremate {
   bynxBrutoCents: number
   /** application_fee_amount da Stripe (destination charge). */
   applicationFeeCents: number
-  /** Estimativa do custo da Stripe no total cobrado (so cartao). */
-  custoStripeEstimadoCents: number
-  /** bynxBruto - custo Stripe estimado. */
-  bynxLiquidoEstimadoCents: number
+  /** Estimativa do custo da Stripe no total cobrado. null = sem custo estimado (Pix). */
+  custoStripeEstimadoCents: number | null
+  /** bynxBruto - custo Stripe estimado. null quando nao ha estimativa de custo. */
+  bynxLiquidoEstimadoCents: number | null
 }
 
 export function comissaoVendedorLeilaoCents(precoCents: number): number {
@@ -67,20 +74,31 @@ export function protecaoCompradorCents(precoCents: number): number {
   return Math.max(Math.round(precoCents * LEILAO_PROTECAO_PCT), LEILAO_PROTECAO_MIN_CENTS)
 }
 
-export function calcularArremate(precoCents: number, metodo: MetodoPagamento = 'cartao'): Arremate {
-  const preco = Number.isFinite(precoCents) && precoCents > 0 ? Math.round(precoCents) : 0
-  const comissao = comissaoVendedorLeilaoCents(preco)
-  const protecao = protecaoCompradorCents(preco)
-  const custoMetodo = acrescimoCompradorCents(preco, metodo)
-  const compradorPaga = preco + protecao + custoMetodo
-  const vendedorRecebe = preco - comissao
+/**
+ * Conta de um PEDIDO de leilao (1 ou mais lotes do mesmo vendedor). Tudo sobre
+ * o subtotal: percentuais, fixa do vendedor e minimo da protecao aplicados uma
+ * vez. Preco invalido (<= 0, NaN) nao entra na soma.
+ */
+export function calcularPedidoLeilao(precosCents: readonly number[], metodo: MetodoPagamento = 'cartao'): Arremate {
+  const validos = (precosCents ?? [])
+    .filter(p => Number.isFinite(p) && p > 0)
+    .map(p => Math.round(p))
+  const subtotal = validos.reduce((a, p) => a + p, 0)
+  const comissao = comissaoVendedorLeilaoCents(subtotal)
+  const protecao = protecaoCompradorCents(subtotal)
+  const custoMetodo = subtotal > 0 ? acrescimoCompradorCents(subtotal, metodo) : 0
+  const compradorPaga = subtotal + protecao + custoMetodo
+  const vendedorRecebe = subtotal - comissao
   const applicationFee = compradorPaga - vendedorRecebe
   const custoStripe =
-    metodo === 'cartao' && compradorPaga > 0
-      ? Math.round(compradorPaga * STRIPE_CARTAO_PCT) + STRIPE_CARTAO_FIXO_CENTS
-      : 0
+    metodo === 'cartao'
+      ? compradorPaga > 0
+        ? Math.round(compradorPaga * STRIPE_CARTAO_PCT) + STRIPE_CARTAO_FIXO_CENTS
+        : 0
+      : null
   return {
-    precoCents: preco,
+    precoCents: subtotal,
+    nLotes: validos.length,
     comissaoVendedorCents: comissao,
     protecaoCents: protecao,
     custoMetodoCents: custoMetodo,
@@ -89,6 +107,11 @@ export function calcularArremate(precoCents: number, metodo: MetodoPagamento = '
     bynxBrutoCents: applicationFee,
     applicationFeeCents: applicationFee,
     custoStripeEstimadoCents: custoStripe,
-    bynxLiquidoEstimadoCents: applicationFee - custoStripe,
+    bynxLiquidoEstimadoCents: custoStripe == null ? null : applicationFee - custoStripe,
   }
+}
+
+/** Um lote so: o caso de 1 item de calcularPedidoLeilao. */
+export function calcularArremate(precoCents: number, metodo: MetodoPagamento = 'cartao'): Arremate {
+  return calcularPedidoLeilao([precoCents], metodo)
 }

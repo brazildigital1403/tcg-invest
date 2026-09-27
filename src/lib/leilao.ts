@@ -38,7 +38,6 @@ export interface LotePublico {
   slug: string
   rodadaId: string | null
   ordem: number | null
-  vendedorUserId: string
   lojaId: string | null
   cardId: string | null
   cardSlug: string | null
@@ -97,6 +96,8 @@ export interface EstadoLote {
   voceLidera: boolean
   /** O SEU teto em leilao_proxy (nunca o de outra pessoa). null sem lance. */
   seuMaximoCents: number | null
+  /** true = o usuario do Bearer e o vendedor do lote. O id do vendedor nunca sai. */
+  proprio: boolean
 }
 
 /**
@@ -220,11 +221,11 @@ export function statusPublico(
 
 // ─── Apelido, slug, codigo ──────────────────────────────────────────────────
 
-/** "joana" -> "j***a". Curto demais vira "***". */
+/** "joana" -> "j***a". Menos de 3 caracteres vira "***" (igual ao SQL leilao_mascarar). */
 export function mascararApelido(nome: string | null | undefined): string {
   const s = (nome ?? '').trim()
-  if (s.length < 2) return '***'
   const chars = Array.from(s)
+  if (chars.length < 3) return '***'
   return `${chars[0]}***${chars[chars.length - 1]}`.toLowerCase()
 }
 
@@ -275,19 +276,38 @@ export function formatarBRL(cents: number): string {
   })
 }
 
-/** "27/09/2026, 21:30 (Brasília)" — sempre America/Sao_Paulo. */
+/**
+ * "27/09/2026, 21:30 (Brasília)" — sempre America/Sao_Paulo.
+ *
+ * Montado a mao a partir das partes: toLocaleString varia entre o ICU do Node
+ * e o do navegador (virgula, espaco estreito), e isso quebra a hidratacao.
+ */
+const FMT_BRASILIA = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
 export function horarioBrasilia(date: Date | string | number): string {
   const d = date instanceof Date ? date : new Date(date)
   if (Number.isNaN(d.getTime())) return ''
-  const txt = d.toLocaleString('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  return `${txt} (Brasília)`
+  const p: Record<string, string> = {}
+  for (const part of FMT_BRASILIA.formatToParts(d)) p[part.type] = part.value
+  const hora = p.hour === '24' ? '00' : p.hour
+  return `${p.day}/${p.month}/${p.year}, ${hora}:${p.minute} (Brasília)`
+}
+
+/** "2026-09-27" no fuso de Brasilia (priceValidUntil do JSON-LD). */
+export function dataBrasiliaISO(date: Date | string | number): string {
+  const d = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(d.getTime())) return ''
+  const p: Record<string, string> = {}
+  for (const part of FMT_BRASILIA.formatToParts(d)) p[part.type] = part.value
+  return `${p.year}-${p.month}-${p.day}`
 }
 
 // ─── Erros do lance ─────────────────────────────────────────────────────────
@@ -395,7 +415,6 @@ export function lotePublicoDeLinha(r: Linha): LotePublico {
     slug: String(r.slug ?? ''),
     rodadaId: str(r.rodada_id),
     ordem: num(r.ordem),
-    vendedorUserId: String(r.vendedor_user_id ?? ''),
     lojaId: str(r.loja_id),
     cardId: str(r.card_id),
     cardSlug: str(r.card_slug),

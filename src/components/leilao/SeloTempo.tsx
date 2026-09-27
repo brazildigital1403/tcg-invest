@@ -5,30 +5,33 @@ import { IconClock } from '@/components/ui/Icons'
 import { formatarTempoRestante, statusPublico, type LotePublico } from '@/lib/leilao'
 
 /**
- * Selo de tempo da vitrine. Conta no relogio do SERVIDOR: `serverNow` vem da
- * renderizacao e vira um deslocamento sobre o relogio do aparelho (celular com
- * hora errada nao pode mostrar lote aberto ou fechado errado).
+ * Selo de tempo da vitrine. Conta pelo relogio do APARELHO a partir de
+ * `termina_em` / `inicia_em`.
  *
- * O primeiro render usa o proprio `serverNow` como "agora" — igual no servidor
- * e no cliente, sem erro de hidratacao. O tique comeca no efeito.
+ * Por que nao um deslocamento sobre o `server_now` do RSC: esse horario fica
+ * congelado no HTML (latencia da resposta, aba restaurada do bfcache, pagina
+ * aberta ha minutos) e o erro vira contagem adiantada ou atrasada. Na vitrine
+ * o selo e so indicativo; o lance e a pagina do lote acertam pelo servidor.
+ *
+ * O primeiro render usa `renderizadoEm` como "agora" — igual no servidor e no
+ * cliente, sem erro de hidratacao. Na montagem passa para o relogio local.
  */
 export default function SeloTempo({
   lote,
-  serverNow,
+  renderizadoEm,
 }: {
   lote: Pick<LotePublico, 'status' | 'iniciaEm' | 'terminaEm' | 'softCloseSeg'>
-  serverNow: string
+  renderizadoEm: string
 }) {
-  const base = Date.parse(serverNow)
+  const base = Date.parse(renderizadoEm)
   const [agora, setAgora] = useState<number>(Number.isFinite(base) ? base : 0)
 
   useEffect(() => {
-    const offset = Number.isFinite(base) ? base - Date.now() : 0
-    const tick = () => setAgora(Date.now() + offset)
+    const tick = () => setAgora(Date.now())
     tick()
     const t = setInterval(tick, 1000)
     return () => clearInterval(t)
-  }, [base])
+  }, [])
 
   const st = statusPublico(lote, agora)
   let texto = ''

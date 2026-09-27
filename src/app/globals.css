@@ -65,6 +65,8 @@
   /* efeitos */
   --bx-shadow:     0 16px 48px rgba(0,0,0,0.55);
   --bx-hero-wash:  radial-gradient(140% 120% at 12% 30%, rgba(245,158,11,0.07), transparent 60%);
+  /* veu atras de modal/folha — mesmo valor do overlay do drawer do AppLayout e dos modais */
+  --bx-scrim:      rgba(0,0,0,0.7);
 }
 
 /* Acento do contexto Lorcana ("tinta", teal->azul) — mesmo mecanismo da Loja.
@@ -122,6 +124,7 @@
 
   --bx-shadow:     0 12px 32px rgba(20,30,60,0.12);
   --bx-hero-wash:  radial-gradient(140% 120% at 12% 30%, rgba(245,158,11,0.10), transparent 60%);
+  --bx-scrim:      rgba(0,0,0,0.7);
 }
 
 body {
