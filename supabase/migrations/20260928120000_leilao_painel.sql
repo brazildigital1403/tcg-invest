@@ -5,7 +5,7 @@
 --   leiloes, uq_leiloes_rodada_ordem, trigger leilao_valida_lote). Sobe com o
 --   Du, depois do motor.
 --
--- Tres RPCs chamadas SO pelas rotas /api/lojas/[id]/leiloes/[rodadaId] com
+-- Quatro RPCs chamadas SO pelas rotas /api/lojas/[id]/leiloes/[rodadaId] com
 -- service_role, depois de a rota conferir o dono da loja. Todas recebem
 -- `p_loja` e so acham a rodada se ela for DAQUELA loja: o id da rodada vindo
 -- da URL nunca alcanca rodada de outra loja, mesmo com bug na rota.
@@ -45,6 +45,23 @@
 --        nao conhece "rodada cancelada". Quem seguia lote agendado nao e
 --        avisado -- PENDENCIA para o Du decidir se vira aviso.
 --
+--   4. leilao_adicionar_lote(p_rodada, p_loja, p_lote jsonb) -> uuid
+--      Insere um lote no FIM da fila, sob `for update` na rodada. Fecha a
+--      corrida "adicionar x agendar": sem a trava, o agendar podia passar entre
+--      a conferencia da rota e o insert e deixar lote em rascunho numa rodada
+--      agendada (o motor nao encerra rodada assim). Aqui o agendar espera a
+--      trava da rodada; quando pega, ja ve o lote novo (e confere as fotos
+--      dele). E a ordem = coalesce(max(ordem),0)+1 e calculada DENTRO da trava:
+--      duas inclusoes simultaneas enfileiram, nao batem no indice unico.
+--      p_lote chega com os campos JA VALIDADOS pela rota (validarLote + carta
+--      lida por PK no catalogo): card_id, card_slug, card_name, card_numero,
+--      set_nome, card_image, fotos (array), condicao, idioma, graduadora, nota,
+--      descricao, slug_base, lance_inicial_cents, duracao_seg. O codigo sai de
+--      leilao_novo_codigo() e fecha o slug ("<slug_base>-<codigo>"); colisao
+--      de codigo (unico) tenta de novo ate 5 vezes. vendedor_user_id vem da
+--      rodada travada, nao do cliente.
+--      Erros: rodada_nao_encontrada, rodada_nao_rascunho, lote_invalido.
+--
 -- ★ ORDEM DE TRAVA: rodada, depois lotes -- a mesma de leilao_avancar_rodada.
 --   leilao_fechar_lote trava lote e depois rodada, mas so em lote ATIVO, e
 --   agendar/reordenar recusam rodada que tenha lote aberto. No cancelar em
@@ -60,6 +77,7 @@
 --   pokemon_cards / pokemon_cards_all.
 --
 -- ROLLBACK (uma linha por objeto):
+--   drop function if exists public.leilao_adicionar_lote(uuid, uuid, jsonb);
 --   drop function if exists public.leilao_cancelar_rodada(uuid, uuid, text);
 --   drop function if exists public.leilao_reordenar_lotes(uuid, uuid, uuid[]);
 --   drop function if exists public.leilao_agendar_rodada(uuid, uuid, integer);
@@ -263,13 +281,97 @@ comment on function public.leilao_cancelar_rodada(uuid, uuid, text) is
 
 
 -- ----------------------------------------------------------------------------
+-- 3b. Adicionar lote (fim da fila, sob a trava da rodada)
+-- ----------------------------------------------------------------------------
+
+create or replace function public.leilao_adicionar_lote(
+  p_rodada uuid,
+  p_loja uuid,
+  p_lote jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+set lock_timeout = '3s'
+as $$
+declare
+  v_r          record;
+  v_ordem      integer;
+  v_codigo     text;
+  v_slug_base  text;
+  v_id         uuid;
+  v_constraint text;
+begin
+  if p_lote is null or jsonb_typeof(p_lote) <> 'object'
+     or jsonb_typeof(p_lote->'fotos') is distinct from 'array'
+     or btrim(coalesce(p_lote->>'card_name', '')) = '' then
+    raise exception 'lote_invalido';
+  end if;
+
+  -- Mesma trava do agendar/reordenar/cancelar: rodada primeiro.
+  select id, status, vendedor_user_id into v_r
+  from public.leilao_rodadas
+  where id = p_rodada and loja_id = p_loja
+  for update;
+  if not found then
+    raise exception 'rodada_nao_encontrada';
+  end if;
+  if v_r.status <> 'rascunho' then
+    raise exception 'rodada_nao_rascunho';
+  end if;
+
+  select coalesce(max(ordem), 0) + 1 into v_ordem
+  from public.leiloes
+  where rodada_id = p_rodada;
+
+  v_slug_base := coalesce(nullif(btrim(p_lote->>'slug_base'), ''), 'carta');
+
+  for i in 1..5 loop
+    v_codigo := public.leilao_novo_codigo();
+    begin
+      insert into public.leiloes (
+        codigo, slug, rodada_id, ordem, vendedor_user_id, loja_id,
+        card_id, card_slug, card_name, card_numero, set_nome, card_image,
+        fotos, condicao, idioma, graduadora, nota, descricao,
+        lance_inicial_cents, duracao_seg, soft_close_seg, status
+      ) values (
+        v_codigo, v_slug_base || '-' || v_codigo, p_rodada, v_ordem, v_r.vendedor_user_id, p_loja,
+        p_lote->>'card_id', p_lote->>'card_slug', btrim(p_lote->>'card_name'), p_lote->>'card_numero',
+        p_lote->>'set_nome', p_lote->>'card_image',
+        p_lote->'fotos', p_lote->>'condicao', p_lote->>'idioma', p_lote->>'graduadora',
+        p_lote->>'nota', p_lote->>'descricao',
+        (p_lote->>'lance_inicial_cents')::integer, (p_lote->>'duracao_seg')::integer, 10, 'rascunho'
+      )
+      returning id into v_id;
+      return v_id;
+    exception when unique_violation then
+      get stacked diagnostics v_constraint = constraint_name;
+      -- So o codigo (aleatorio) tenta de novo. A ordem esta sob a trava da
+      -- rodada; se bater, e bug, e sobe.
+      if v_constraint is distinct from 'leiloes_codigo_key' then
+        raise;
+      end if;
+    end;
+  end loop;
+  raise exception 'lote_invalido';
+end;
+$$;
+
+comment on function public.leilao_adicionar_lote(uuid, uuid, jsonb) is
+  'Painel da loja: insere lote no fim da fila (ordem = max+1) sob for update na rodada, so com rodada em rascunho. Campos ja validados pela rota. So service_role.';
+
+
+-- ----------------------------------------------------------------------------
 -- 4. Grants (nasce fechada)
 -- ----------------------------------------------------------------------------
 
 revoke all on function public.leilao_agendar_rodada(uuid, uuid, integer)  from public, anon, authenticated;
 revoke all on function public.leilao_reordenar_lotes(uuid, uuid, uuid[])  from public, anon, authenticated;
 revoke all on function public.leilao_cancelar_rodada(uuid, uuid, text)    from public, anon, authenticated;
+revoke all on function public.leilao_adicionar_lote(uuid, uuid, jsonb)     from public, anon, authenticated;
 
 grant execute on function public.leilao_agendar_rodada(uuid, uuid, integer) to service_role;
 grant execute on function public.leilao_reordenar_lotes(uuid, uuid, uuid[]) to service_role;
 grant execute on function public.leilao_cancelar_rodada(uuid, uuid, text)   to service_role;
+grant execute on function public.leilao_adicionar_lote(uuid, uuid, jsonb)    to service_role;

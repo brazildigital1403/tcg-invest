@@ -220,6 +220,23 @@ exception when others then
   if sqlerrm <> 'rodada_nao_rascunho' then raise exception 'FALHOU T9: %', sqlerrm; end if;
 end $$;
 
+-- ─── T9b: adicionar lote em rodada AGENDADA recusa e nao insere nada ───────
+do $$
+declare n_antes integer;
+begin
+  select count(*) into n_antes from public.leiloes where rodada_id = 'c5000000-0000-4000-8000-000000000001';
+  begin
+    perform public.leilao_adicionar_lote('c5000000-0000-4000-8000-000000000001', 'f5000000-0000-4000-8000-000000000001',
+      '{"card_name":"Charmander","slug_base":"charmander","fotos":["https://x.test/f9.webp","https://x.test/v9.webp"],
+        "lance_inicial_cents":1000,"duracao_seg":30}'::jsonb);
+    raise exception 'FALHOU T9b: adicionou lote em rodada agendada';
+  exception when others then
+    if sqlerrm <> 'rodada_nao_rascunho' then raise exception 'FALHOU T9b: %', sqlerrm; end if;
+  end;
+  assert (select count(*) from public.leiloes where rodada_id = 'c5000000-0000-4000-8000-000000000001') = n_antes,
+    'FALHOU T9c: lote entrou na rodada agendada';
+end $$;
+
 -- ─── T10: reordenar com a rodada agendada ainda vale ────────────────────────
 do $$
 begin
@@ -298,7 +315,39 @@ begin
          = 'cancelado|desisti', 'FALHOU T15: lote agendado nao cancelou';
 end $$;
 
--- ─── T16: nenhuma das tres executa como authenticated/anon ──────────────────
+-- ─── T17: adicionar em rascunho -> ordem sequencial, slug fecha no codigo ──
+do $$
+declare
+  a uuid; b uuid; r record;
+  j jsonb := '{"card_id":"sv1-1","card_name":"Bulbasaur","slug_base":"bulbasaur-sv1-1",
+               "fotos":["https://x.test/f17.webp","https://x.test/v17.webp"],
+               "condicao":"NM","idioma":"pt","lance_inicial_cents":500,"duracao_seg":45}';
+begin
+  a := public.leilao_adicionar_lote('c5000000-0000-4000-8000-000000000002', 'f5000000-0000-4000-8000-000000000001', j);
+  b := public.leilao_adicionar_lote('c5000000-0000-4000-8000-000000000002', 'f5000000-0000-4000-8000-000000000001', j);
+  assert (select ordem from public.leiloes where id = a) = 1, 'FALHOU T17a: primeiro lote nao e ordem 1';
+  assert (select ordem from public.leiloes where id = b) = 2, 'FALHOU T17b: segundo lote nao e ordem 2';
+  select * into r from public.leiloes where id = a;
+  assert r.status = 'rascunho' and r.loja_id = 'f5000000-0000-4000-8000-000000000001'
+         and r.vendedor_user_id = 'a5000000-0000-4000-8000-000000000001', 'FALHOU T17c: dono/status errado';
+  assert r.slug = 'bulbasaur-sv1-1-' || r.codigo, format('FALHOU T17d: slug %s', r.slug);
+  assert jsonb_array_length(r.fotos) = 2 and r.lance_inicial_cents = 500 and r.duracao_seg = 45,
+    'FALHOU T17e: campos do lote';
+  -- rodada de outra loja nao e encontrada
+  begin
+    perform public.leilao_adicionar_lote('c5000000-0000-4000-8000-000000000002', 'f5000000-0000-4000-8000-000000000002', j);
+    raise exception 'FALHOU T17f: adicionou em rodada de outra loja';
+  exception when others then
+    if sqlerrm <> 'rodada_nao_encontrada' then raise exception 'FALHOU T17f: %', sqlerrm; end if;
+  end;
+  -- apos reordenar (2,1), o proximo continua no fim
+  perform public.leilao_reordenar_lotes('c5000000-0000-4000-8000-000000000002', 'f5000000-0000-4000-8000-000000000001',
+                                        array[b, a]);
+  a := public.leilao_adicionar_lote('c5000000-0000-4000-8000-000000000002', 'f5000000-0000-4000-8000-000000000001', j);
+  assert (select ordem from public.leiloes where id = a) = 3, 'FALHOU T17g: terceiro lote nao e ordem 3';
+end $$;
+
+-- ─── T16: nenhuma das quatro executa como authenticated/anon ──────────────────
 do $$
 begin
   assert not has_function_privilege('authenticated', 'public.leilao_agendar_rodada(uuid, uuid, integer)', 'execute'),
@@ -307,6 +356,10 @@ begin
     'FALHOU T16b: anon executa reordenar';
   assert not has_function_privilege('authenticated', 'public.leilao_cancelar_rodada(uuid, uuid, text)', 'execute'),
     'FALHOU T16c: authenticated executa cancelar';
+  assert not has_function_privilege('authenticated', 'public.leilao_adicionar_lote(uuid, uuid, jsonb)', 'execute'),
+    'FALHOU T16e: authenticated executa adicionar';
+  assert has_function_privilege('service_role', 'public.leilao_adicionar_lote(uuid, uuid, jsonb)', 'execute'),
+    'FALHOU T16f: service_role sem execute em adicionar';
   assert has_function_privilege('service_role', 'public.leilao_agendar_rodada(uuid, uuid, integer)', 'execute'),
     'FALHOU T16d: service_role sem execute';
 end $$;
