@@ -41,6 +41,13 @@ on conflict (id) do update
   set cpf = excluded.cpf, cep = excluded.cep, suspended_at = excluded.suspended_at,
       username = excluded.username;
 
+-- Loja do vendedor: pedidos.loja_id pode ser NOT NULL em ambiente anterior a
+-- 20260924210000_connect_no_usuario (caso da branch de prova em 28/09).
+insert into public.lojas (id, owner_user_id, slug, nome, cidade, estado)
+values ('f0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
+        'leilao-teste-loja', 'Loja Teste Leilao', 'Sao Paulo', 'SP')
+on conflict (id) do nothing;
+
 -- L1: avulso, ativo, inicial R$ 10,00, soft close 10s, termina em 1h.
 insert into public.leiloes (id, vendedor_user_id, card_name, slug, lance_inicial_cents,
                             duracao_seg, soft_close_seg, status, inicia_em, termina_em)
@@ -484,10 +491,10 @@ end $$;
 -- L1 esta aguardando_pagamento desde o T11 (lider: ana).
 update public.leiloes set pagar_ate = now() - interval '1 hour'
  where id = 'b0000000-0000-4000-8000-000000000001';
-insert into public.pedidos (id, vendedor_user_id, comprador_user_id, item_nome,
+insert into public.pedidos (id, loja_id, vendedor_user_id, comprador_user_id, item_nome,
                             valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
                             status, stripe_session_id, leilao_id)
-values ('e0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
+values ('e0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
         'a0000000-0000-4000-8000-000000000002', 'Charizard ex', 8500, 8500, 'pix', 30,
         'aguardando_pagamento', 'cs_test_leilao_t15', 'b0000000-0000-4000-8000-000000000001');
 select public.leilao_tick();
@@ -501,10 +508,10 @@ end $$;
 -- checkout cancelado + pedido PAGO (sem sessao, ligado so por leilao_id)
 update public.pedidos set status = 'cancelado', cancelado_em = now()
  where id = 'e0000000-0000-4000-8000-000000000001';
-insert into public.pedidos (id, vendedor_user_id, comprador_user_id, item_nome,
+insert into public.pedidos (id, loja_id, vendedor_user_id, comprador_user_id, item_nome,
                             valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
                             status, pago_em, leilao_id)
-values ('e0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001',
+values ('e0000000-0000-4000-8000-000000000002', 'f0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
         'a0000000-0000-4000-8000-000000000002', 'Charizard ex', 8500, 8500, 'pix', 30,
         'pago', now(), 'b0000000-0000-4000-8000-000000000001');
 select public.leilao_tick();
