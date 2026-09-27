@@ -17,6 +17,11 @@ writeFileSync(join(tmp, 'r.mjs'), ts.transpileModule(src, {
 }).outputText)
 
 const R = await import(pathToFileURL(join(tmp, 'r.mjs')).href)
+const srcE = readFileSync(join(raiz, 'src/lib/estornoLancamento.ts'), 'utf8')
+writeFileSync(join(tmp, 'e.mjs'), ts.transpileModule(srcE, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText)
+const E = await import(pathToFileURL(join(tmp, 'e.mjs')).href)
 const DIA = 24 * 60 * 60 * 1000
 const t = iso => new Date(iso).getTime()
 
@@ -157,6 +162,52 @@ try {
     assert.equal(R.validarFotos(['ped/usr/frente-1.webp', 'ped/usr/frente-2.webp'], pasta, false).ok, false)
     assert.equal(R.validarFotos('nao e lista', pasta, true).ok, false)
   }, 'validarFotos (pasta, slot, repeticao, obrigatoriedade)')
+
+  ok(() => {
+    const base = { totalCents: 7490, reembolsadoBancoCents: 0, refundDestaChaveCents: 0 }
+    // Sem charge legivel: so o banco.
+    assert.equal(R.restanteEstornavel({ ...base, charge: null }), 7490)
+    assert.equal(R.restanteEstornavel({ ...base, reembolsadoBancoCents: 1500, charge: null }), 5990)
+    // Estorno manual de 2000 no dashboard: o banco nao ve, a Stripe sim.
+    assert.equal(R.restanteEstornavel({ ...base, charge: { amount: 7490, amountRefunded: 2000 } }), 5490)
+    // Retry: o refund desta chave (7490) ja esta na charge -> restante volta a 7490.
+    assert.equal(R.restanteEstornavel({ ...base, charge: { amount: 7490, amountRefunded: 7490 }, refundDestaChaveCents: 7490 }), 7490)
+    // Totalmente estornado por fora: nada a estornar.
+    assert.equal(R.restanteEstornavel({ ...base, charge: { amount: 7490, amountRefunded: 7490 } }), 0)
+    // Vence o menor: banco ja registrou 1500, Stripe mostra 1500.
+    assert.equal(R.restanteEstornavel({ ...base, reembolsadoBancoCents: 1500, charge: { amount: 7490, amountRefunded: 1500 } }), 5990)
+  }, 'restanteEstornavel (Stripe x banco, estorno manual, retry)')
+
+  ok(() => {
+    assert.deepEqual(R.conferirRefund({ amount: 7490, status: 'succeeded' }, 7490), { ok: true })
+    assert.deepEqual(R.conferirRefund({ amount: 7490, status: 'pending' }, 7490), { ok: true })
+    assert.deepEqual(R.conferirRefund({ amount: 7490, status: 'succeeded' }, null), { ok: true })
+    const dif = R.conferirRefund({ amount: 1500, status: 'succeeded' }, 7490)
+    assert.equal(dif.ok, false); assert.equal(dif.http, 409)
+    assert.match(dif.erro, /R\$ 15,00/); assert.match(dif.erro, /R\$ 74,90/)
+    for (const st of ['failed', 'canceled', 'requires_action', null]) {
+      const r = R.conferirRefund({ amount: 7490, status: st }, 7490)
+      assert.equal(r.ok, false, String(st)); assert.equal(r.http, 502)
+    }
+  }, 'conferirRefund (valor diferente -> 409, status ruim -> 502)')
+
+  ok(() => {
+    const V = E.valorLancamentoAposEstorno
+    // Venda de loja: charge 100,00, taxa da Bynx 8,80. Parcial 30% e depois 20%
+    // (amount_refunded cumulativo 3000 -> 5000): sobra 50% da taxa ORIGINAL.
+    let atual = 8.8
+    atual = V({ amount: 10000, amountRefunded: 3000, applicationFeeAmount: 880, atualReais: atual })
+    assert.equal(atual, 6.16)
+    atual = V({ amount: 10000, amountRefunded: 5000, applicationFeeAmount: 880, atualReais: atual })
+    assert.equal(atual, 4.4, 'o 2o parcial nao pode reduzir em dobro (bug antigo dava 3,08)')
+    atual = V({ amount: 10000, amountRefunded: 10000, applicationFeeAmount: 880, atualReais: atual })
+    assert.equal(atual, 0)
+    // Evento antigo reentregue fora de ordem nao devolve receita.
+    assert.equal(V({ amount: 10000, amountRefunded: 3000, applicationFeeAmount: 880, atualReais: 4.4 }), 4.4)
+    // Cobranca direta (assinatura): sem application_fee, a base e o amount.
+    assert.equal(V({ amount: 2990, amountRefunded: 1495, applicationFeeAmount: null, atualReais: 29.9 }), 14.95)
+    assert.equal(V({ amount: 0, amountRefunded: 0, applicationFeeAmount: null, atualReais: 0 }), 0)
+  }, 'valorLancamentoAposEstorno (base original, parciais cumulativos, fora de ordem)')
 
   console.log(`\n${n} blocos ok`)
 } finally {

@@ -30,6 +30,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
 import { registrarVendaParceiro, registrarRenovacaoParceiro, reverterComissaoParceiro } from '@/lib/parceiros'
 import { carimbarConvite } from '@/lib/campanhaConvites'
+import { valorLancamentoAposEstorno } from '@/lib/estornoLancamento'
 
 // ─── Mapas de descrição (sincronizados com checkout/SCAN_PACKAGES) ──────────
 
@@ -1412,7 +1413,6 @@ export async function POST(req: NextRequest) {
         const bruto = charge.amount || 0
         const devolvido = charge.amount_refunded || 0
         const integral = bruto > 0 && devolvido >= bruto
-        const fracaoQueSobra = bruto > 0 ? Math.max(0, 1 - devolvido / bruto) : 0
 
         console.log(
           `[webhook] estorno: PI ${pi} — devolvido ${devolvido}/${bruto} (${integral ? 'integral' : 'parcial'})`
@@ -1430,7 +1430,17 @@ export async function POST(req: NextRequest) {
           if (!lanc) {
             console.log(`[webhook] estorno: sem lancamento para o PI ${pi} — nada a reverter`)
           } else {
-            const novoValor = Math.round(Number(lanc.valor_bruto) * fracaoQueSobra * 100) / 100
+            // Base = valor ORIGINAL da charge (application_fee na venda de
+            // loja, amount na cobranca direta) x fracao que sobra. Antes a
+            // fracao cumulativa era aplicada sobre o valor_bruto ja reduzido
+            // pelo estorno anterior e o 2o parcial reduzia em dobro. Ver
+            // src/lib/estornoLancamento.ts (coberto por autoteste).
+            const novoValor = valorLancamentoAposEstorno({
+              amount: bruto,
+              amountRefunded: devolvido,
+              applicationFeeAmount: charge.application_fee_amount,
+              atualReais: Number(lanc.valor_bruto),
+            })
             const { error: revErr } = await supabase
               .from('lancamentos')
               .update({
