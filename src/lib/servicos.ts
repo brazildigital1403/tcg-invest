@@ -142,6 +142,14 @@ export const CUSTODIA = [
   { t: 'Envio com valor declarado', d: 'A carta viaja segurada pelo valor que você informou no orçamento.' },
 ]
 
+/** Custodia do pre-grading: sem etapa de descanso (e da prensa) e sem falar em seguro. */
+export const CUSTODIA_PRE_GRADING = [
+  CUSTODIA[0],
+  CUSTODIA[1],
+  { t: 'Status na sua conta a cada etapa', d: 'Recebida, em bancada, pronta, enviada. Com foto em cada passo.' },
+  { t: 'Envio com valor declarado', d: 'A carta viaja com o valor declarado que você informou no orçamento.' },
+]
+
 // ── Pre-grading ──────────────────────────────────────────────────────────────
 
 export const LAUDO_ITENS = [
@@ -598,4 +606,46 @@ export const SHORTS: { id: string; titulo: string; tema: string; vertical: boole
   { id: 'WfhJcA3RXqQ', tema: 'Limpeza', titulo: 'Cartas de 1999 depois de anos esquecidas numa caixa', vertical: false },
   { id: 'invoH6DVGCU', tema: 'Resultado', titulo: 'Uma Clefairy graduada na AGS: a nota surpreendeu', vertical: false },
   { id: 'hpGch0jUrQQ', tema: 'Resultado', titulo: 'Os três iniciais de Kanto na AGS: saiu 10?', vertical: true },
+]
+
+
+// ── Pre-grading: passos e FAQ proprios da landing ──────────────────────────
+// A landing do pre-grading nao tem proposta de tratamento: o pagamento e um
+// so, no aceite (FAQ "Quando eu pago?"). Por isso os passos sao outros.
+
+export const PASSOS_PRE_GRADING = [
+  {
+    t: 'Orçamento pelas fotos',
+    d: PRAZOS.orcamento
+      ? `Você manda frente e verso. A Bynx responde em até ${PRAZOS.orcamento}, antes de qualquer envio.`
+      : 'Você manda frente e verso. A Bynx responde antes de qualquer envio.',
+  },
+  { t: 'Você aprova e envia', d: 'No pré-grading o pagamento é um só, no aceite. Aí aparece o endereço, com o guia de embalagem.' },
+  { t: 'Chegada filmada', d: PASSOS[2].d },
+  { t: 'Medição na bancada', d: 'Régua, lupa e luz rasante, frente e verso. Nenhuma etapa é feita no olho.' },
+  { t: 'Laudo na sua conta', d: 'Faixa provável, graduadora recomendada, próximo passo e as fotos de entrada.' },
+  { t: 'Volta preparada', d: 'Sleeve, toploader, embalagem lacrada e código de rastreio na sua conta.' },
+]
+
+/** Perguntas que so a landing do pre-grading faz. Entram antes das emprestadas da restauracao. */
+export const FAQ_PRE_GRADING_EXTRA: Faq[] = [
+  {
+    q: 'E se o laudo disser que não vale graduar?',
+    a: `${PRECOS ? `Os R$ ${brl(PRECOS.preGrading)}` : 'O pré-grading'} ${PRECOS ? 'pagaram' : 'pagou'} justamente essa resposta. A carta volta com o laudo e a decisão é sua.`,
+  },
+  {
+    q: 'Dá para avaliar só pelas fotos?',
+    a: 'As fotos servem para o orçamento. A medição que vira laudo é feita com a carta na bancada.',
+  },
+  {
+    q: 'Posso mandar várias cartas de uma vez?',
+    a: `Sim, até ${MAX_CARTAS_POR_SOLICITACAO} por solicitação.${PRECOS?.desc10a20 != null ? ` De 10 a 20 cartas entra o desconto de ${PRECOS.desc10a20}%.` : ''}`,
+  },
+]
+
+/** FAQ completo da landing (HTML e JSON-LD): as proprias, as novas, depois as da restauracao. */
+export const FAQ_PRE_GRADING_LANDING: Faq[] = [
+  ...FAQ_PRE_GRADING.filter(f => !FAQ_RESTAURACAO.includes(f)),
+  ...FAQ_PRE_GRADING_EXTRA,
+  ...FAQ_PRE_GRADING.filter(f => FAQ_RESTAURACAO.includes(f)),
 ]
