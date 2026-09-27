@@ -304,3 +304,168 @@ export async function buscarLojasPorId(ids: string[]): Promise<Map<string, LojaD
   }
   return mapa
 }
+
+// ─── Vitrine (/leiloes) ─────────────────────────────────────────────────────
+
+export interface ResumoRodada {
+  /** Lotes publicos nao cancelados. */
+  n: number
+  /** Ate 3 imagens de carta, na ordem da rodada (mosaico da agenda e do palco). */
+  imagens: string[]
+}
+
+/**
+ * Contagem e mosaico de cada rodada numa leitura so, pelo indice
+ * (rodada_id, ordem). Complementar: falha vira mapa vazio e a lista sai sem
+ * contagem nem mosaico.
+ */
+export async function resumirLotesPorRodada(rodadaIds: string[]): Promise<Map<string, ResumoRodada>> {
+  const mapa = new Map<string, ResumoRodada>()
+  const unicos = [...new Set(rodadaIds.filter(Boolean))]
+  if (!unicos.length) return mapa
+  const db = getServiceSupabase()
+  if (!db) return mapa
+  const { data, error } = await db
+    .from('leiloes_publico')
+    .select('rodada_id, status, ordem, card_image')
+    .in('rodada_id', unicos)
+    .order('ordem', { ascending: true })
+    .limit(LIMITE_LOTES_RODADA * unicos.length)
+  if (error || !data) {
+    if (error) console.error('[leiloes] resumo das rodadas:', error.code, error.message)
+    return mapa
+  }
+  for (const r of data as Array<{ rodada_id: string | null; status: string | null; card_image: string | null }>) {
+    if (!r.rodada_id || r.status === 'cancelado') continue
+    const atual = mapa.get(r.rodada_id) ?? { n: 0, imagens: [] }
+    atual.n += 1
+    if (r.card_image && atual.imagens.length < 3) atual.imagens.push(r.card_image)
+    mapa.set(r.rodada_id, atual)
+  }
+  return mapa
+}
+
+export interface Arrematado {
+  lote: LotePublico
+  /**
+   * Menor preco do Mercado Brasileiro HOJE (preco_min atual, nao congelado no
+   * arremate). null para carta graduada, sem carta do catalogo ou sem preco.
+   */
+  mercadoHojeCents: number | null
+}
+
+/**
+ * Ultimos lotes PAGOS (status 'vendido'), do mais recente para o mais antigo.
+ *
+ * Sem indice por (status, encerrado_em) em `leiloes`: hoje a tabela e pequena
+ * (lotes de leilao, nao catalogo) e a leitura com filtro + order + limit 6 e
+ * barata. Se a tabela crescer a ponto de pesar, o indice parcial
+ * `(encerrado_em desc) where status = 'vendido'` e DECISAO DO DU (schema).
+ *
+ * A referencia do Mercado vem por PK na view `pokemon_cards` (in(id), <= 6
+ * linhas). Complementar: falha vira lista vazia e a secao some.
+ */
+export async function listarArrematadosRecentes(limite = 6): Promise<Arrematado[]> {
+  const db = getServiceSupabase()
+  if (!db) return []
+  const { data, error } = await db
+    .from('leiloes_publico')
+    .select(`${COLUNAS_LOTE_RODADA}, fotos`)
+    .eq('status', 'vendido')
+    .order('encerrado_em', { ascending: false, nullsFirst: false })
+    .limit(limite)
+  if (error || !data) {
+    if (error) console.error('[leiloes] arrematados:', error.code, error.message)
+    return []
+  }
+  const lotes = (data as unknown[]).map(r => lotePublicoDeLinha(r as Record<string, unknown>))
+
+  const ids = [...new Set(lotes.filter(l => l.cardId && !l.graduadora).map(l => l.cardId as string))]
+  const precos = new Map<string, number>()
+  if (ids.length) {
+    const ref = await db.from('pokemon_cards').select('id, preco_min').in('id', ids)
+    if (ref.error) console.error('[leiloes] mercado dos arrematados:', ref.error.code, ref.error.message)
+    for (const r of (ref.data ?? []) as Array<{ id: unknown; preco_min: unknown }>) {
+      const v = Number(r.preco_min)
+      if (Number.isFinite(v) && v > 0) precos.set(String(r.id), Math.round(v * 100))
+    }
+  }
+  return lotes.map(lote => ({
+    lote,
+    mercadoHojeCents: lote.cardId && !lote.graduadora ? precos.get(lote.cardId) ?? null : null,
+  }))
+}
+
+export interface LojaDoLeilao extends LojaDoLote {
+  id: string
+  /** Rodadas reais: agendada, ao vivo ou encerrada (rascunho e cancelada fora). */
+  nRodadas: number
+  /** Estrelas das avaliacoes recebidas pelo dono (RPC get_avaliacoes_usuario). */
+  estrelas: number[]
+}
+
+const STATUS_RODADA_REAL = ['agendada', 'ao_vivo', 'encerrada']
+const LIMITE_LOJAS_LEILAO = 8
+
+/**
+ * Lojas com pelo menos uma rodada real, da que mais fez para a que menos fez.
+ * Tres leituras pequenas: loja_id das rodadas (tabela de uma linha por live),
+ * lojas por PK (so 'ativa', a mesma regra da pagina /lojas/[slug]) e a
+ * avaliacao de cada dono pela RPC da casa (a mesma do ReputacaoCard).
+ * Complementar: falha vira lista vazia e a secao some.
+ */
+export async function listarLojasDoLeilao(): Promise<LojaDoLeilao[]> {
+  const db = getServiceSupabase()
+  if (!db) return []
+  const rod = await db
+    .from('leilao_rodadas')
+    .select('loja_id')
+    .in('status', STATUS_RODADA_REAL)
+    .not('loja_id', 'is', null)
+    .limit(2000)
+  if (rod.error || !rod.data) {
+    if (rod.error) console.error('[leiloes] lojas do leilao:', rod.error.code, rod.error.message)
+    return []
+  }
+  const contagem = new Map<string, number>()
+  for (const r of rod.data as Array<{ loja_id: string | null }>) {
+    if (r.loja_id) contagem.set(r.loja_id, (contagem.get(r.loja_id) ?? 0) + 1)
+  }
+  if (!contagem.size) return []
+
+  const lj = await db
+    .from('lojas')
+    .select('id, slug, nome, logo_url, verificada, owner_user_id')
+    .in('id', [...contagem.keys()])
+    .eq('status', 'ativa')
+  if (lj.error || !lj.data) {
+    if (lj.error) console.error('[leiloes] lojas do leilao (lojas):', lj.error.code, lj.error.message)
+    return []
+  }
+  const lojas = (lj.data as Array<Record<string, unknown>>)
+    .filter(d => d.slug)
+    .map(d => ({
+      id: String(d.id),
+      slug: String(d.slug),
+      nome: (d.nome as string | null) ?? null,
+      logoUrl: (d.logo_url as string | null) ?? null,
+      verificada: d.verificada === true,
+      owner: (d.owner_user_id as string | null) ?? null,
+      nRodadas: contagem.get(String(d.id)) ?? 0,
+    }))
+    .sort((a, b) => b.nRodadas - a.nRodadas || (a.nome ?? a.slug).localeCompare(b.nome ?? b.slug, 'pt-BR'))
+    .slice(0, LIMITE_LOJAS_LEILAO)
+
+  const avaliacoes = await Promise.all(
+    lojas.map(async l => {
+      if (!l.owner) return [] as number[]
+      const { data, error } = await db.rpc('get_avaliacoes_usuario', { p_user_id: l.owner })
+      if (error || !Array.isArray(data)) return [] as number[]
+      return (data as Array<{ estrelas: unknown }>).map(a => Number(a.estrelas)).filter(Number.isFinite)
+    })
+  )
+  return lojas.map((l, i) => ({
+    id: l.id, slug: l.slug, nome: l.nome, logoUrl: l.logoUrl, verificada: l.verificada,
+    nRodadas: l.nRodadas, estrelas: avaliacoes[i],
+  }))
+}

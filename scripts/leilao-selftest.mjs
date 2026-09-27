@@ -849,7 +849,10 @@ try {
     assert.equal(U.urlHome('ao-vivo'), '/leiloes', 'aba padrao sem query: canonico')
     assert.equal(U.urlHome('agenda'), '/leiloes?aba=agenda')
     assert.equal(U.urlHome('como-funciona'), '/leiloes?aba=como-funciona')
-    assert.equal(U.abaValida('encerrados'), 'encerrados')
+    assert.equal(U.abaValida('resultados'), 'resultados')
+    assert.equal(U.abaValida('encerrados'), 'resultados', 'nome antigo da aba continua abrindo Resultados')
+    assert.equal(U.urlHome('resultados'), '/leiloes?aba=resultados')
+    assert.deepEqual(U.ABAS_LEILOES.map(a => a.rotulo), ['Ao vivo', 'Agenda', 'Resultados', 'Como funciona'])
     for (const v of ['', null, undefined, 'xpto', 'AGENDA']) assert.equal(U.abaValida(v), 'ao-vivo', `aba(${v})`)
     assert.equal(U.urlLote('charizard-ex-abc123'), '/leiloes/charizard-ex-abc123')
     assert.equal(U.urlPagar('charizard-ex-abc123'), '/leiloes/charizard-ex-abc123/pagar')
@@ -1061,6 +1064,109 @@ try {
     assert.equal(R.rodapeResultado({ status: 'cancelado', precoAtualCents: null, nLances: 0 }).texto, 'Cancelado')
     assert.equal(R.rodapeResultado({ status: 'ativo', precoAtualCents: 100, nLances: 1 }), null)
   }, 'rodada: rodape dos resultados')
+
+  // ── Vitrine (src/lib/leilao-vitrine.ts) ──────────────────────────────
+  {
+    const srcV = readFileSync(join(raiz, 'src/lib/leilao-vitrine.ts'), 'utf8')
+    const outV = ts.transpileModule(srcV, {
+      compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    }).outputText.replace(/from '\.\/(leilao|leilao-taxas)'/g, "from './$1.mjs'")
+    writeFileSync(join(tmp, 'leilao-vitrine.mjs'), outV)
+  }
+  const V = await import(pathToFileURL(join(tmp, 'leilao-vitrine.mjs')).href)
+
+  ok(() => {
+    const motor = readFileSync(join(raiz, 'supabase/migrations/20260928090000_leilao_motor.sql'), 'utf8')
+    assert.ok(
+      motor.includes(`pagar_ate = now() + interval '${V.PRAZO_PAGAMENTO_ARREMATE_HORAS} hours'`),
+      'prazo da vitrine igual ao pagar_ate do motor'
+    )
+    assert.equal(V.rotuloTaxaProtecao(), `5% (mínimo ${L.formatarBRL(200)})`, 'taxa lida de leilao-taxas')
+  }, 'vitrine: prazo e taxa espelham motor e libs')
+
+  ok(() => {
+    const m = 60_000, h = 60 * m
+    assert.equal(V.textoComecaEm(-5 * m), 'começa em instantes')
+    assert.equal(V.textoComecaEm(30_000), 'começa em instantes')
+    assert.equal(V.textoComecaEm(12 * m + 40_000), 'começa em 12 min')
+    assert.equal(V.textoComecaEm(h + 14 * m), 'começa em 1h 14min')
+    assert.equal(V.textoComecaEm(NaN), 'começa em instantes')
+    assert.equal(V.horaCurtaBrasilia('2026-09-27T22:00:00Z'), '19h')
+    assert.equal(V.horaCurtaBrasilia('2026-09-28T00:30:00Z'), '21h30')
+    assert.equal(V.horaCurtaBrasilia(null), '--')
+    const agora = Date.parse('2026-09-27T15:00:00Z') // domingo 12h em Brasilia
+    assert.equal(V.quandoRodada('2026-09-27T22:00:00Z', agora), 'Hoje, 19h')
+    assert.equal(V.quandoRodada('2026-09-28T02:59:00Z', agora), 'Hoje, 23h59', 'ainda domingo em Brasilia')
+    assert.equal(V.quandoRodada('2026-09-28T03:00:00Z', agora), 'Amanhã, 0h')
+    assert.equal(V.quandoRodada('2026-10-03T22:00:00Z', agora), 'Sáb 03/10, 19h')
+  }, 'vitrine: começa em, hora e dia em Brasilia')
+
+  ok(() => {
+    const agora = Date.parse('2026-09-27T15:00:00Z') // dom 27/09, 12h Brasilia
+    const r = (id, iniciaEm) => ({ id, iniciaEm })
+    const dias = V.agruparSemana([
+      r('c', '2026-09-29T23:00:00Z'),
+      r('a', '2026-09-28T02:30:00Z'), // dom 23h30 em Brasilia: hoje
+      r('b', '2026-09-27T20:00:00Z'),
+      r('fora', '2026-10-04T03:00:00Z'), // dom 04/10 00h: 8o dia, fora
+      r('antes', '2026-09-26T20:00:00Z'),
+      r('sem', null),
+    ], agora)
+    assert.equal(dias.length, 7)
+    assert.deepEqual(dias.map(d => d.rotulo), ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'])
+    assert.deepEqual(dias.map(d => d.dia), [27, 28, 29, 30, 1, 2, 3], 'vira o mes')
+    assert.equal(dias[0].hoje, true)
+    assert.equal(dias[1].hoje, false)
+    assert.deepEqual(dias[0].itens.map(i => i.id), ['b', 'a'], 'ordem do horario, fuso de Brasilia')
+    assert.deepEqual(dias[2].itens.map(i => i.id), ['c'])
+    assert.equal(dias.flatMap(d => d.itens).length, 3, 'fora da janela e sem horario ficam de fora')
+    assert.equal(V.semanaVazia(dias), false)
+    assert.equal(V.semanaVazia(V.agruparSemana([], agora)), true)
+    assert.equal(V.rotuloDiaSemana('2026-10-01'), 'QUI')
+  }, 'vitrine: agenda da semana (7 dias, Brasilia)')
+
+  ok(() => {
+    assert.equal(V.rotuloAvaliacao([]), 'Loja nova na Bynx')
+    assert.equal(V.rotuloAvaliacao([0, 9, NaN]), 'Loja nova na Bynx', 'estrela fora de 1..5 nao conta')
+    assert.equal(V.rotuloAvaliacao([5]), '5 de 5 (1 avaliação)')
+    assert.equal(V.rotuloAvaliacao([5, 5, 4]), '4,7 de 5 (3 avaliações)')
+    assert.equal(V.rotuloRodadas(1), '1 rodada')
+    assert.equal(V.rotuloRodadas(6), '6 rodadas')
+  }, 'vitrine: rotulos de loja (avaliacao real ou loja nova)')
+
+  ok(() => {
+    const ics = V.gerarIcsRodada({
+      numero: 42,
+      titulo: 'Vulcano Cards: rodada ao vivo; SIR, noite',
+      iniciaEm: '2026-09-29T23:00:00Z',
+      url: 'https://bynx.gg/leiloes/rodada/42',
+      descricao: 'Linha 1\nLinha 2',
+      agoraMs: Date.parse('2026-09-27T15:00:00Z'),
+    })
+    const linhas = ics.split('\r\n')
+    assert.ok(ics.endsWith('\r\n'), 'termina com CRLF')
+    assert.equal(linhas[0], 'BEGIN:VCALENDAR')
+    assert.ok(linhas.includes('UID:rodada-42@bynx.gg'))
+    assert.ok(linhas.includes('DTSTART:20260929T230000Z'), 'inicio em UTC')
+    assert.ok(linhas.includes('DTEND:20260930T000000Z'), 'fim = inicio + 60 min')
+    assert.ok(linhas.includes('DTSTAMP:20260927T150000Z'))
+    assert.ok(linhas.includes('SUMMARY:Vulcano Cards: rodada ao vivo\\; SIR\\, noite'), 'escapa ; e ,')
+    assert.ok(ics.includes('Linha 1\\nLinha 2\\nhttps://bynx.gg/leiloes/rodada/42'), 'quebra de linha escapada')
+    assert.ok(linhas.includes('URL:https://bynx.gg/leiloes/rodada/42'))
+    assert.equal(linhas.filter(l => l === 'BEGIN:VEVENT').length, 1)
+    const enc = new TextEncoder()
+    for (const l of linhas) assert.ok(enc.encode(l).length <= 75, `linha dobrada em 75 octetos: ${l}`)
+    const longo = V.gerarIcsRodada({
+      numero: 7, titulo: 'Ç'.repeat(80), iniciaEm: '2026-09-29T23:00:00Z', url: 'https://bynx.gg/leiloes/rodada/7', agoraMs: 0,
+    })
+    const sum = longo.split('\r\n').filter((l, i, arr) => l.startsWith('SUMMARY:') || (l.startsWith(' ') && arr[i - 1] && !arr[i - 1].startsWith('DESCRIPTION')))
+    assert.ok(sum.length > 1, 'titulo longo dobra em varias linhas')
+    const desdobrado = longo.replace(/\r\n /g, '')
+    assert.ok(desdobrado.includes(`SUMMARY:${'Ç'.repeat(80)}`), 'desdobrar devolve o titulo inteiro (nao corta caractere)')
+    assert.equal(V.gerarIcsRodada({ numero: 1, titulo: 'x', iniciaEm: 'nao e data', url: 'u', agoraMs: 0 }), null)
+    assert.equal(V.nomeArquivoIcs(42), 'bynx-rodada-42.ics')
+    assert.equal(V.escaparIcs('a\\b'), 'a\\\\b')
+  }, 'vitrine: .ics da rodada (UTC, escape, dobra RFC 5545)')
 
   console.log(`\n${n} blocos ok`)
 } finally {

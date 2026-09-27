@@ -1,10 +1,13 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { urlHome } from '@/lib/leilao-urls'
 import SeloAoVivo from './SeloAoVivo'
 import LeilaoConta from './LeilaoConta'
+import LeilaoNav, { LeilaoNavLinks } from './LeilaoNav'
 
 /**
- * Cabecalho do Bynx Leiloes (56px): logo | Leiloes, selo AO VIVO quando ha
+ * Cabecalho do Bynx Leiloes (56px): logo | Leiloes, nav no desktop (Ao vivo,
+ * Agenda, Resultados, Como funciona, Para lojas), selo AO VIVO quando ha
  * rodada no ar, e a conta (Entrar ou avatar).
  *
  * O selo e ilha de cliente (consulta /api/leiloes/no-ar): o layout nao le o
@@ -21,6 +24,9 @@ export default function LeilaoHeader() {
           <span className="lc-div" aria-hidden />
           <span className="lc-prod">Leilões</span>
         </Link>
+        <Suspense fallback={<LeilaoNavLinks ativa={null} />}>
+          <LeilaoNav />
+        </Suspense>
         <span className="lc-sp" />
         <SeloAoVivo />
         <LeilaoConta />

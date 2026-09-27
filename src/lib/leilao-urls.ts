@@ -12,17 +12,22 @@
 export const BASE_LEILOES = '/leiloes'
 
 /** Abas da home da ferramenta (links ?aba=, sem JS). */
-export type AbaLeiloes = 'ao-vivo' | 'agenda' | 'encerrados' | 'como-funciona'
+export type AbaLeiloes = 'ao-vivo' | 'agenda' | 'resultados' | 'como-funciona'
 
 export const ABAS_LEILOES: ReadonlyArray<{ chave: AbaLeiloes; rotulo: string }> = [
   { chave: 'ao-vivo', rotulo: 'Ao vivo' },
   { chave: 'agenda', rotulo: 'Agenda' },
-  { chave: 'encerrados', rotulo: 'Encerrados' },
+  { chave: 'resultados', rotulo: 'Resultados' },
   { chave: 'como-funciona', rotulo: 'Como funciona' },
 ]
 
+/**
+ * Aba da query. `encerrados` e o nome antigo de `resultados` (link ja
+ * compartilhado continua abrindo a mesma aba).
+ */
 export function abaValida(v: unknown): AbaLeiloes {
-  return v === 'agenda' || v === 'encerrados' || v === 'como-funciona' ? v : 'ao-vivo'
+  if (v === 'encerrados') return 'resultados'
+  return v === 'agenda' || v === 'resultados' || v === 'como-funciona' ? v : 'ao-vivo'
 }
 
 /** Home da ferramenta. A aba padrao (ao vivo) fica sem query: e o canonico. */

@@ -1,35 +1,52 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import CardItem from '@/components/ui/CardItem'
 import SeloTempo from '@/components/leilao/SeloTempo'
 import LeilaoAbas from '@/components/leilao/casca/LeilaoAbas'
 import { cardDoLote } from '@/components/leilao/cardDoLote'
-import { IconChevronRight, IconClock } from '@/components/ui/Icons'
+import { CSS_VITRINE } from '@/components/leilao/vitrine/estilos'
+import { HeroSemRodada, PalcoAoVivo, PalcoProxima } from '@/components/leilao/vitrine/Palco'
+import CardHoje from '@/components/leilao/vitrine/CardHoje'
+import FaixaGarantia from '@/components/leilao/vitrine/FaixaGarantia'
+import Arrematados from '@/components/leilao/vitrine/Arrematados'
+import AgendaSemana from '@/components/leilao/vitrine/AgendaSemana'
+import LojasDoLeilao from '@/components/leilao/vitrine/LojasDoLeilao'
+import { ComoFunciona, PerguntasFrequentes } from '@/components/leilao/vitrine/ComoFunciona'
+import BlocoLojista from '@/components/leilao/vitrine/BlocoLojista'
+import ListaRodadas from '@/components/leilao/vitrine/ListaRodadas'
+import { IconClock } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
-import { separarLotesRodada, tituloRodada, type RodadaPublica } from '@/lib/leilao-rodada'
-import { abaValida, urlHome, urlLote, urlRodada } from '@/lib/leilao-urls'
+import type { RodadaPublica } from '@/lib/leilao-rodada'
+import { abaValida, urlHome, urlLote } from '@/lib/leilao-urls'
+import { agruparSemana, horaCurtaBrasilia, quandoRodada, semanaVazia } from '@/lib/leilao-vitrine'
 import {
   buscarLojasPorId,
   buscarLotesDaRodada,
   buscarRodadasAoVivo,
   contarLotesPorRodada,
+  listarArrematadosRecentes,
+  listarLojasDoLeilao,
   listarLotesVitrine,
   listarRodadasAgendadas,
   listarRodadasEncerradas,
-  type LojaDoLote,
+  resumirLotesPorRodada,
+  type ResumoRodada,
 } from './_dados'
 
 /**
  * /leiloes — inicio do Bynx Leiloes.
  *
- * Abas por link (?aba=agenda|encerrados|como-funciona), sem estado de
- * cliente: funciona sem JS e o link pode ser compartilhado. A aba padrao
- * ("Ao vivo") mostra o destaque da rodada no ar, "Hoje mais tarde" (rodadas
- * agendadas para hoje, horario de Brasilia) e a grade "Terminando".
+ * Abas por link (?aba=agenda|resultados|como-funciona; o antigo
+ * ?aba=encerrados cai em resultados), sem estado de cliente: funciona sem JS
+ * e o link pode ser compartilhado. Canonico sempre /leiloes.
+ *
+ * A aba padrao e a VITRINE (mockup v2 aprovado pelo Du): palco da rodada no
+ * ar (ou a proxima agendada, ou o hero sem rodada), card "Hoje", faixa de
+ * garantia, arrematados, agenda da semana, lojas, como funciona, perguntas e
+ * o bloco para lojas. So dado do banco; secao sem dado some.
  */
 
 // DECISAO DO DU: cache. Provisorio: sem cache nenhum enquanto a superficie de
@@ -42,48 +59,13 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 20
 
 export const metadata: Metadata = {
-  title: 'Leilões ao vivo',
+  title: 'Leilão de cartas Pokémon ao vivo, com lance em reais',
   description:
     'Lotes de cartas Pokémon em leilão ao vivo, com lance em reais e pagamento protegido pela Bynx.',
   alternates: { canonical: urlHome() },
 }
 
-// ─── Horario de Brasilia ────────────────────────────────────────────────────
-
-const FMT_HORA = new Intl.DateTimeFormat('pt-BR', {
-  timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-})
-const FMT_DIA = new Intl.DateTimeFormat('pt-BR', {
-  timeZone: 'America/Sao_Paulo', weekday: 'short', day: '2-digit', month: '2-digit',
-})
-
-/** "19h" / "19h30" em Brasilia. */
-function horaCurta(iso: string | null): string {
-  if (!iso) return '--'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '--'
-  const p: Record<string, string> = {}
-  for (const part of FMT_HORA.formatToParts(d)) p[part.type] = part.value
-  const h = String(Number(p.hour === '24' ? '0' : p.hour))
-  return p.minute === '00' ? `${h}h` : `${h}h${p.minute}`
-}
-
-/** "Hoje" / "Amanhã" / "sáb., 04/10" em Brasilia. */
-function diaCurto(iso: string | null, hojeISO: string, amanhaISO: string): string {
-  if (!iso) return ''
-  const dia = dataBrasiliaISO(iso)
-  if (dia === hojeISO) return 'Hoje'
-  if (dia === amanhaISO) return 'Amanhã'
-  return FMT_DIA.format(new Date(iso))
-}
-
-function precoDoLote(l: LotePublico): number {
-  return l.nLances > 0 && l.precoAtualCents != null ? l.precoAtualCents : l.lanceInicialCents
-}
-
-function nomeLoja(loja: LojaDoLote | undefined | null): string | null {
-  return loja ? loja.nome ?? loja.slug : null
-}
+const DIA_MS = 24 * 60 * 60 * 1000
 
 // ─── Pagina ─────────────────────────────────────────────────────────────────
 
@@ -99,126 +81,118 @@ export default async function LeiloesPage({
 
   let conteudo: ReactNode
   if (aba === 'agenda') conteudo = await abaAgenda()
-  else if (aba === 'encerrados') conteudo = await abaEncerrados()
+  else if (aba === 'resultados') conteudo = await abaResultados()
   else if (aba === 'como-funciona') conteudo = <AbaComoFunciona />
   else conteudo = await abaAoVivo()
 
   return (
-    <div style={S.wrap}>
-      <style>{`
-        .lh-card, .lh-linha { transition: background 0.15s ease, border-color 0.15s ease; }
-        .lh-linha:hover { background: var(--bx-surface-2); }
-        .lh-lote { display: block; text-decoration: none; color: inherit; border-radius: 18px; transition: transform 0.15s ease; }
-        .lh-lote:hover { transform: translateY(-2px); }
-        .lh-lote:focus-visible, .lh-linha:focus-visible, .lh-cta:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
-        .lh-cta { transition: filter 0.15s ease; }
-        .lh-cta:hover { filter: brightness(1.08); }
-        .lh-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        @media (min-width: 640px) { .lh-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; } }
-        .lh-destaque { display: grid; grid-template-columns: minmax(0, 1fr); }
-        @media (min-width: 769px) { .lh-destaque { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .lh-destaque-foto { height: 100% !important; min-height: 240px; } }
-        .lh-ponto { animation: lh-pulsa 1.2s ease-in-out infinite; }
-        @keyframes lh-pulsa { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-        @media (prefers-reduced-motion: reduce) {
-          .lh-lote, .lh-lote:hover { transition: none; transform: none; }
-          .lh-ponto { animation: none; }
-        }
-      `}</style>
-      <h1 style={S.sr}>Bynx Leilões</h1>
+    <div className="vt-wrap" style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <style>{CSS_VITRINE}</style>
       <LeilaoAbas ativa={aba} />
-      {conteudo}
+      <div className="vt">
+        <header className="vt-hero">
+          <h1>Leilão de cartas Pokémon ao vivo</h1>
+          <p>Lojas verificadas, lance em reais e pagamento protegido pela Bynx.</p>
+        </header>
+        {conteudo}
+      </div>
     </div>
   )
 }
 
-// ─── Aba: Ao vivo ───────────────────────────────────────────────────────────
+// ─── Aba: Ao vivo (vitrine) ─────────────────────────────────────────────────
 
 async function abaAoVivo() {
   const agora = Date.now()
   const hojeISO = dataBrasiliaISO(agora)
-  const [noAr, agendadas, lotesAbertos] = await Promise.all([
-    buscarRodadasAoVivo(),
-    listarRodadasAgendadas(20),
-    listarLotesVitrine('terminando'),
-  ])
-  // O lote no ar de uma rodada ao vivo ja aparece no destaque (ou em "Tambem
-  // ao vivo"): a grade "Terminando" fica com os lotes de prazo proprio.
-  const rodadasNoAr = new Set(noAr.map(r => r.id))
-  const lotes = lotesAbertos.filter(l => !l.rodadaId || !rodadasNoAr.has(l.rodadaId))
-  const hoje = agendadas.filter(r => r.iniciaEm && dataBrasiliaISO(r.iniciaEm) === hojeISO)
-  const destaque = noAr[0] ?? null
-  const outrasNoAr = noAr.slice(1)
-
-  const [lotesDestaque, lojas, contagem] = await Promise.all([
-    destaque ? buscarLotesDaRodada(destaque.id) : Promise.resolve([] as LotePublico[]),
-    buscarLojasPorId([...noAr, ...hoje].map(r => r.lojaId ?? '')),
-    contarLotesPorRodada([...outrasNoAr, ...hoje].map(r => r.id)),
-  ])
   const renderizadoEm = new Date(agora).toISOString()
 
-  if (!destaque && hoje.length === 0 && lotes.length === 0) {
-    return (
-      <div style={S.vazio}>
-        <span style={S.vazioIcone}><IconClock size={22} /></span>
-        <p style={S.vazioTitulo}>Nenhum leilão aberto agora</p>
-        <p style={S.vazioTexto}>
-          Quando uma loja abrir uma rodada ao vivo, ela aparece aqui. As próximas rodadas ficam na Agenda; enquanto
-          isso, as cartas à venda com preço fixo estão no Mercado.
-        </p>
-        <div style={S.vazioAcoes}>
-          <Link href={urlHome('agenda')} prefetch={false} className="lh-cta" style={S.ctaSec}>Ver a agenda</Link>
-          <Link href="/marketplace" prefetch={false} className="lh-cta" style={S.cta}>Ir para o Mercado</Link>
-        </div>
-      </div>
+  const [noAr, agendadas, lotesAbertos, arrematados, lojasLeilao] = await Promise.all([
+    buscarRodadasAoVivo(),
+    listarRodadasAgendadas(60),
+    listarLotesVitrine('terminando'),
+    listarArrematadosRecentes(6),
+    listarLojasDoLeilao(),
+  ])
+
+  const destaque = noAr[0] ?? null
+  const outrasNoAr = noAr.slice(1)
+  // Sem rodada no ar, o palco mostra a proxima agendada (a primeira pelo horario).
+  const proxima = destaque ? null : agendadas[0] ?? null
+  const hoje = agendadas.filter(
+    r => r.iniciaEm && dataBrasiliaISO(r.iniciaEm) === hojeISO && r.id !== proxima?.id
+  )
+  const dias = agruparSemana<RodadaPublica>([...noAr, ...agendadas], agora)
+  const semana = dias.flatMap(d => d.itens)
+
+  // O lote no ar de uma rodada ao vivo ja esta no palco: "Terminando" fica
+  // com os lotes de prazo proprio.
+  const rodadasNoAr = new Set(noAr.map(r => r.id))
+  const lotes = lotesAbertos.filter(l => !l.rodadaId || !rodadasNoAr.has(l.rodadaId))
+
+  const ids = [...noAr, ...hoje, ...semana, ...(proxima ? [proxima] : [])]
+  const [lotesDestaque, lojas, resumo] = await Promise.all([
+    destaque ? buscarLotesDaRodada(destaque.id) : Promise.resolve([] as LotePublico[]),
+    buscarLojasPorId(ids.map(r => r.lojaId ?? '')),
+    resumirLotesPorRodada(ids.map(r => r.id)),
+  ])
+  const contagem = contagemDe(resumo)
+
+  let palco: ReactNode
+  if (destaque) {
+    palco = (
+      <PalcoAoVivo
+        rodada={destaque}
+        loja={lojas.get(destaque.lojaId ?? '') ?? null}
+        lotes={lotesDestaque}
+        renderizadoEm={renderizadoEm}
+      />
     )
+  } else if (proxima) {
+    palco = (
+      <PalcoProxima
+        rodada={proxima}
+        loja={lojas.get(proxima.lojaId ?? '') ?? null}
+        resumo={resumo.get(proxima.id) ?? null}
+        renderizadoEm={renderizadoEm}
+      />
+    )
+  } else {
+    palco = <HeroSemRodada />
   }
 
   return (
-    <div style={S.coluna}>
-      {destaque && (
-        <Destaque
-          rodada={destaque}
-          loja={lojas.get(destaque.lojaId ?? '') ?? null}
-          lotes={lotesDestaque}
-          renderizadoEm={renderizadoEm}
-        />
-      )}
+    <>
+      <div className={hoje.length > 0 ? 'vt-dobra vt-com-hoje' : 'vt-dobra'}>
+        {palco}
+        {hoje.length > 0 && <CardHoje rodadas={hoje} lojas={lojas} resumo={resumo} renderizadoEm={renderizadoEm} />}
+      </div>
 
       {outrasNoAr.length > 0 && (
-        <section aria-labelledby="lh-tambem" style={S.secao}>
-          <h2 id="lh-tambem" style={S.rot}>Também ao vivo</h2>
-          <ListaRodadas
-            rodadas={outrasNoAr}
-            lojas={lojas}
-            contagem={contagem}
-            quando={() => 'Agora'}
-          />
+        <section className="vt-sec" aria-labelledby="vt-tambem-t">
+          <div className="vt-sec-t"><h2 id="vt-tambem-t">Também ao vivo</h2></div>
+          <ListaRodadas rodadas={outrasNoAr} lojas={lojas} contagem={contagem} quando={() => 'Agora'} />
         </section>
       )}
 
-      {hoje.length > 0 && (
-        <section aria-labelledby="lh-hoje" style={S.secao}>
-          <h2 id="lh-hoje" style={S.rot}>Hoje mais tarde</h2>
-          <ListaRodadas rodadas={hoje} lojas={lojas} contagem={contagem} quando={r => horaCurta(r.iniciaEm)} />
-        </section>
-      )}
+      <FaixaGarantia />
 
       {lotes.length > 0 && (
-        <section aria-labelledby="lh-terminando" style={S.secao}>
-          <h2 id="lh-terminando" style={S.rot}>Terminando</h2>
-          <div className="lh-grid">
+        <section className="vt-sec" aria-labelledby="vt-terminando-t">
+          <div className="vt-sec-t"><h2 id="vt-terminando-t">Terminando</h2></div>
+          <div className="vt-grade vt-grade-auto">
             {lotes.map(l => (
-              <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="lh-lote">
+              <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="vt-lote">
                 <CardItem
                   card={cardDoLote(l)}
                   mode="readonly"
                   hidePriceTable
                   ocultarSemPreco
-                  badge={<span style={S.badgePreco}>{formatarBRL(precoDoLote(l))}</span>}
+                  badge={<span className="vt-tag">{formatarBRL(precoDoLote(l))}</span>}
                   footerSlot={
-                    <div style={S.rodape}>
+                    <div className="vt-rodape-lote">
                       <SeloTempo lote={l} renderizadoEm={renderizadoEm} />
-                      <span style={S.lances}>
+                      <span className="vt-lances">
                         {l.nLances === 0 ? 'Sem lance' : l.nLances === 1 ? '1 lance' : `${l.nLances} lances`}
                       </span>
                     </div>
@@ -229,106 +203,29 @@ async function abaAoVivo() {
           </div>
         </section>
       )}
-    </div>
+
+      {arrematados.length > 0 && <Arrematados itens={arrematados} />}
+      {!semanaVazia(dias) && <AgendaSemana dias={dias} lojas={lojas} resumo={resumo} />}
+      {lojasLeilao.length > 0 && <LojasDoLeilao lojas={lojasLeilao} />}
+      <ComoFunciona />
+      <PerguntasFrequentes />
+      <BlocoLojista />
+    </>
   )
 }
 
-/** Cartao da rodada no ar: foto do lote no ar, preco, tempo e "Entrar na rodada". */
-function Destaque({
-  rodada,
-  loja,
-  lotes,
-  renderizadoEm,
-}: {
-  rodada: RodadaPublica
-  loja: LojaDoLote | null
-  lotes: LotePublico[]
-  renderizadoEm: string
-}) {
-  const { ativo } = separarLotesRodada(lotes)
-  const visiveis = lotes.filter(l => l.status !== 'cancelado')
-  const pos = ativo ? visiveis.findIndex(l => l.id === ativo.id) + 1 : 0
-  const foto = ativo ? ativo.fotos[0] || ativo.cardImage : visiveis.find(l => l.cardImage)?.cardImage ?? null
-  const url = urlRodada(rodada.numero)
-  return (
-    <article className="lh-destaque" style={S.destaque}>
-      <Link href={url} prefetch={false} className="lh-destaque-foto" style={S.destaqueFoto} aria-label={`Entrar na rodada ${rodada.numero}`}>
-        {foto ? (
-          <Image src={foto} alt="" width={245} height={342} priority sizes="(max-width: 768px) 40vw, 180px" style={S.destaqueImg} />
-        ) : null}
-        <span style={S.seloVivo}>
-          <span className="lh-ponto" aria-hidden style={S.ponto} />
-          AO VIVO
-        </span>
-      </Link>
-      <div style={S.destaqueInfo}>
-        <p style={S.destaqueLoja}>
-          {nomeLoja(loja) ?? 'Rodada ao vivo'}
-          <span style={S.fraco}> · Rodada {rodada.numero}{rodada.titulo ? ` · ${tituloRodada(rodada)}` : ''}</span>
-        </p>
-        {ativo ? (
-          <div style={S.linha3}>
-            <span style={S.precoM}>{formatarBRL(precoDoLote(ativo))}</span>
-            <SeloTempo lote={ativo} renderizadoEm={renderizadoEm} />
-            <span style={S.fracoNum}>Lote {pos} de {visiveis.length}</span>
-          </div>
-        ) : (
-          <p style={S.fracoP}>Próximo lote em instantes.</p>
-        )}
-        {ativo && <p style={S.destaqueNome}>{ativo.cardName}</p>}
-        <Link href={url} prefetch={false} className="lh-cta" style={S.cta}>Entrar na rodada</Link>
-      </div>
-    </article>
-  )
+function precoDoLote(l: LotePublico): number {
+  return l.nLances > 0 && l.precoAtualCents != null ? l.precoAtualCents : l.lanceInicialCents
 }
 
-/** Lista de rodadas em linhas: hora, loja, lotes e seta. Toda a linha e o link. */
-function ListaRodadas({
-  rodadas,
-  lojas,
-  contagem,
-  quando,
-}: {
-  rodadas: RodadaPublica[]
-  lojas: Map<string, LojaDoLote>
-  contagem: Map<string, number>
-  quando: (r: RodadaPublica) => string
-}) {
-  return (
-    <ul style={S.lista}>
-      {rodadas.map((r, i) => {
-        const loja = lojas.get(r.lojaId ?? '') ?? null
-        const nome = nomeLoja(loja)
-        const n = contagem.get(r.id)
-        return (
-          <li key={r.id} style={i > 0 ? S.itemBorda : undefined}>
-            <Link href={urlRodada(r.numero)} prefetch={false} className="lh-linha" style={S.linhaRodada}>
-              <span style={S.hora}>{quando(r)}</span>
-              {loja?.logoUrl ? (
-                <Image src={loja.logoUrl} alt="" width={26} height={26} sizes="26px" style={S.lojaMini} />
-              ) : (
-                <span style={{ ...S.lojaMini, ...S.lojaMiniVazia }}>{(nome ?? 'B').charAt(0).toUpperCase()}</span>
-              )}
-              <span style={S.linhaTexto}>
-                <span style={S.linhaForte}>{nome ?? tituloRodada(r)}</span>
-                {n != null ? ` · ${n === 1 ? '1 lote' : `${n} lotes`}` : ''}
-                {nome && r.titulo ? <span style={S.linhaSub}>{tituloRodada(r)}</span> : null}
-              </span>
-              <IconChevronRight size={16} color="var(--bx-text-3)" />
-            </Link>
-          </li>
-        )
-      })}
-    </ul>
-  )
+function contagemDe(resumo: Map<string, ResumoRodada>): Map<string, number> {
+  return new Map([...resumo].map(([id, r]) => [id, r.n]))
 }
 
 // ─── Aba: Agenda ────────────────────────────────────────────────────────────
 
 async function abaAgenda() {
   const agora = Date.now()
-  const hojeISO = dataBrasiliaISO(agora)
-  const amanhaISO = dataBrasiliaISO(agora + 24 * 60 * 60 * 1000)
   const rodadas = await listarRodadasAgendadas(40)
   if (!rodadas.length) {
     return <Vazio titulo="Nenhuma rodada agendada" texto="Quando uma loja agendar uma rodada ao vivo, ela aparece aqui com o dia e o horário." />
@@ -340,30 +237,30 @@ async function abaAgenda() {
   // Agrupa por dia (Brasilia), na ordem do horario.
   const grupos: Array<{ dia: string; rodadas: RodadaPublica[] }> = []
   for (const r of rodadas) {
-    const dia = diaCurto(r.iniciaEm, hojeISO, amanhaISO) || 'Sem horário'
+    const dia = (quandoRodada(r.iniciaEm, agora).split(',')[0] || 'Sem horário').trim()
     const ultimo = grupos[grupos.length - 1]
     if (ultimo && ultimo.dia === dia) ultimo.rodadas.push(r)
     else grupos.push({ dia, rodadas: [r] })
   }
   return (
-    <div style={S.coluna}>
+    <>
       {grupos.map(g => (
-        <section key={g.dia} aria-label={g.dia} style={S.secao}>
-          <h2 style={S.rot}>{g.dia}</h2>
-          <ListaRodadas rodadas={g.rodadas} lojas={lojas} contagem={contagem} quando={r => horaCurta(r.iniciaEm)} />
+        <section key={g.dia} aria-label={g.dia} className="vt-sec">
+          <p className="vt-rot">{g.dia}</p>
+          <ListaRodadas rodadas={g.rodadas} lojas={lojas} contagem={contagem} quando={r => horaCurtaBrasilia(r.iniciaEm)} />
         </section>
       ))}
-      <p style={S.nota}>Horários de Brasília.</p>
-    </div>
+      <p className="vt-fraco" style={{ fontSize: 12, margin: 0 }}>Horários de Brasília.</p>
+    </>
   )
 }
 
-// ─── Aba: Encerrados ────────────────────────────────────────────────────────
+// ─── Aba: Resultados ────────────────────────────────────────────────────────
 
-async function abaEncerrados() {
+async function abaResultados() {
   const agora = Date.now()
   const hojeISO = dataBrasiliaISO(agora)
-  const ontemISO = dataBrasiliaISO(agora - 24 * 60 * 60 * 1000)
+  const ontemISO = dataBrasiliaISO(agora - DIA_MS)
   const rodadas = await listarRodadasEncerradas(20)
   if (!rodadas.length) {
     return <Vazio titulo="Nenhuma rodada encerrada ainda" texto="O resultado de cada rodada ao vivo fica aqui depois que ela termina." />
@@ -380,7 +277,7 @@ async function abaEncerrados() {
     return `${dia.slice(8, 10)}/${dia.slice(5, 7)}`
   }
   return (
-    <section aria-label="Rodadas encerradas" style={S.secao}>
+    <section aria-label="Rodadas encerradas" className="vt-sec">
       <ListaRodadas rodadas={rodadas} lojas={lojas} contagem={contagem} quando={quando} />
     </section>
   )
@@ -388,136 +285,30 @@ async function abaEncerrados() {
 
 // ─── Aba: Como funciona ─────────────────────────────────────────────────────
 
-const PASSOS: ReadonlyArray<{ titulo: string; texto: string }> = [
-  {
-    titulo: 'A loja abre uma rodada ao vivo',
-    texto: 'Cada lote entra no ar na ordem da live, com o relógio correndo. Você acompanha a transmissão e o lance na mesma tela.',
-  },
-  {
-    titulo: 'Todo lance é automático',
-    texto: 'Você informa o máximo que aceita pagar e paga só o necessário para vencer. Ninguém vê o seu máximo. Lance nos últimos segundos prorroga o fim do lote.',
-  },
-  {
-    titulo: 'Arrematou, paga pela Bynx',
-    texto: 'O pagamento é no cartão, dentro do prazo, e você confere a taxa de proteção e o frete antes de confirmar. Sem o pagamento no prazo, o arremate é cancelado.',
-  },
-  {
-    titulo: 'Pagamento protegido',
-    texto: 'Os dados do cartão não passam pela Bynx e a taxa de proteção cobre a intermediação até a entrega.',
-  },
-]
-
 function AbaComoFunciona() {
   return (
-    <div style={S.coluna}>
-      <ol style={S.passos}>
-        {PASSOS.map((p, i) => (
-          <li key={p.titulo} style={S.passo}>
-            <span style={S.passoNum}>{i + 1}</span>
-            <span>
-              <strong style={S.passoTitulo}>{p.titulo}</strong>
-              <span style={S.passoTexto}>{p.texto}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <div style={S.vazioAcoes}>
-        <Link href={urlHome()} prefetch={false} className="lh-cta" style={S.cta}>Ver o que está ao vivo</Link>
-        <Link href="/para-lojistas" prefetch={false} className="lh-cta" style={S.ctaSec}>Sou lojista</Link>
-      </div>
-    </div>
+    <>
+      <ComoFunciona />
+      <PerguntasFrequentes />
+      <BlocoLojista />
+    </>
   )
 }
 
 function Vazio({ titulo, texto }: { titulo: string; texto: string }) {
   return (
-    <div style={S.vazio}>
-      <span style={S.vazioIcone}><IconClock size={22} /></span>
-      <p style={S.vazioTitulo}>{titulo}</p>
-      <p style={S.vazioTexto}>{texto}</p>
-      <Link href={urlHome()} prefetch={false} className="lh-cta" style={S.ctaSec}>Voltar ao início</Link>
+    <div className="vt-heroi" style={{ alignItems: 'center', textAlign: 'center' }}>
+      <span
+        style={{
+          width: 48, height: 48, borderRadius: 999, display: 'grid', placeItems: 'center',
+          background: 'rgba(var(--ac-1-rgb), 0.12)', color: 'var(--ac-1)',
+        }}
+      >
+        <IconClock size={22} />
+      </span>
+      <h2>{titulo}</h2>
+      <p>{texto}</p>
+      <Link href={urlHome()} prefetch={false} className="vt-cta-sec">Voltar ao início</Link>
     </div>
   )
-}
-
-const S: Record<string, CSSProperties> = {
-  wrap: { maxWidth: 1200, margin: '0 auto' },
-  sr: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', margin: 0 },
-  coluna: { display: 'flex', flexDirection: 'column', gap: 20 },
-  secao: { display: 'flex', flexDirection: 'column', gap: 10 },
-  rot: {
-    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bx-text-3)', margin: 0,
-  },
-  destaque: { borderRadius: 16, overflow: 'hidden', border: '1px solid var(--bx-border)', background: 'var(--bx-surface)' },
-  destaqueFoto: {
-    position: 'relative', height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'radial-gradient(120% 90% at 30% 20%, rgba(var(--ac-1-rgb), 0.14), transparent 60%), var(--bx-bg-elev)',
-  },
-  destaqueImg: { height: 166, width: 'auto', borderRadius: 8, boxShadow: 'var(--bx-shadow)' },
-  seloVivo: {
-    position: 'absolute', top: 10, right: 10, display: 'inline-flex', alignItems: 'center', gap: 6, height: 26,
-    padding: '0 10px', borderRadius: 999, border: '1px solid var(--ac-2)', color: 'var(--ac-2)', background: 'var(--bx-scrim)',
-    fontSize: 11, fontWeight: 800, letterSpacing: '0.06em',
-  },
-  ponto: { width: 7, height: 7, borderRadius: 999, background: 'var(--ac-2)' },
-  destaqueInfo: { padding: 12, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', minWidth: 0 },
-  destaqueLoja: { fontSize: 14, fontWeight: 700, color: 'var(--bx-text)', margin: 0, overflowWrap: 'anywhere' },
-  destaqueNome: { fontSize: 13, color: 'var(--bx-text-2)', margin: 0, overflowWrap: 'anywhere' },
-  fraco: { fontWeight: 500, color: 'var(--bx-text-3)' },
-  fracoP: { fontSize: 13, color: 'var(--bx-text-3)', margin: 0 },
-  fracoNum: { fontSize: 12.5, color: 'var(--bx-text-3)', fontVariantNumeric: 'tabular-nums' },
-  linha3: { display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' },
-  precoM: { fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums' },
-  cta: {
-    minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 18px', borderRadius: 12,
-    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', fontWeight: 800, fontSize: 14, textDecoration: 'none',
-  },
-  ctaSec: {
-    minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 18px', borderRadius: 12,
-    border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)', fontWeight: 700, fontSize: 14, textDecoration: 'none',
-  },
-  lista: { listStyle: 'none', margin: 0, padding: 0, border: '1px solid var(--bx-border)', borderRadius: 12, overflow: 'hidden' },
-  itemBorda: { borderTop: '1px solid var(--bx-border)' },
-  linhaRodada: {
-    display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, padding: '8px 12px', fontSize: 13,
-    color: 'var(--bx-text-2)', textDecoration: 'none',
-  },
-  hora: { fontWeight: 800, minWidth: 44, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 },
-  lojaMini: { width: 26, height: 26, borderRadius: 8, objectFit: 'cover', flexShrink: 0 },
-  lojaMiniVazia: {
-    display: 'grid', placeItems: 'center', background: 'var(--bx-surface-3)', color: 'var(--bx-text)', fontSize: 11, fontWeight: 800,
-  },
-  linhaTexto: { flex: 1, minWidth: 0, overflowWrap: 'anywhere' },
-  linhaForte: { color: 'var(--bx-text)', fontWeight: 600 },
-  linhaSub: { display: 'block', fontSize: 12, color: 'var(--bx-text-3)' },
-  badgePreco: {
-    background: 'var(--bx-bg-elev)', border: '1px solid var(--bx-border-2)', borderRadius: 8,
-    padding: '4px 8px', fontSize: 12, fontWeight: 800, color: 'var(--bx-text)',
-    fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-  },
-  rodape: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' },
-  lances: { fontSize: 11, color: 'var(--bx-text-3)', fontWeight: 600, whiteSpace: 'nowrap' },
-  nota: { fontSize: 12, color: 'var(--bx-text-3)', margin: 0 },
-  passos: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 720 },
-  passo: {
-    display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 14px', borderRadius: 12,
-    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
-  },
-  passoNum: {
-    width: 28, height: 28, borderRadius: 999, flexShrink: 0, display: 'grid', placeItems: 'center',
-    background: 'rgba(var(--ac-1-rgb), 0.12)', color: 'var(--ac-1)', fontWeight: 800, fontSize: 13,
-  },
-  passoTitulo: { display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--bx-text)', marginBottom: 2 },
-  passoTexto: { display: 'block', fontSize: 13.5, color: 'var(--bx-text-2)', lineHeight: 1.5 },
-  vazio: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 8,
-    padding: '40px 16px', borderRadius: 16, border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
-  },
-  vazioIcone: {
-    width: 48, height: 48, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(var(--ac-1-rgb), 0.12)', color: 'var(--ac-1)',
-  },
-  vazioTitulo: { fontSize: 16, fontWeight: 700, color: 'var(--bx-text)', margin: 0 },
-  vazioTexto: { fontSize: 14, color: 'var(--bx-text-2)', margin: 0, maxWidth: 420, lineHeight: 1.5 },
-  vazioAcoes: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 },
 }

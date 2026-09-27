@@ -22,6 +22,20 @@ export const CSS_CASCA = `
   outline: 2px solid var(--ac-1); outline-offset: 2px;
 }
 
+/* Nav do desktop (no celular quem navega sao as abas da home) */
+.lc-nav { display: none; }
+@media (min-width: 769px) {
+  .lc-nav { display: flex; align-items: center; gap: 4px; margin-left: 12px; min-width: 0; }
+  .lc-abas { display: none !important; }
+}
+.lc-nav-l {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 9px; border-radius: 8px; white-space: nowrap;
+  font-size: 13.5px; font-weight: 600; color: var(--bx-text-2); text-decoration: none; transition: color 0.15s ease, background 0.15s ease;
+}
+.lc-nav-l:hover { color: var(--bx-text); background: var(--bx-surface-2); }
+.lc-nav-l[aria-current="page"] { color: var(--bx-text); }
+.lc-nav-l:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+
 /* Selo AO VIVO: so a opacidade pulsa; desligado com prefers-reduced-motion */
 .lc-aovivo {
   display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px;
