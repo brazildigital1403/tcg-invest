@@ -9,6 +9,7 @@ import { IconArrowRight, IconClock, IconHistory, IconPokeball, IconWarning } fro
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { formatarBRL, formatarTempoRestante, horarioBrasilia, statusPublico } from '@/lib/leilao'
 import type { ItemMeu, RespostaMeus } from '@/lib/leilao-meus'
+import { urlHome, urlLote, urlMeusLances, urlPagar } from '@/lib/leilao-urls'
 
 /**
  * Ilha de /leiloes/meus-lances. Busca GET /api/leiloes/meus com o Bearer da
@@ -17,12 +18,9 @@ import type { ItemMeu, RespostaMeus } from '@/lib/leilao-meus'
  * a tela do lote.
  */
 
-// TODO trocar por leilao-urls
-const URL_PAGINA = '/leiloes/meus-lances'
-const urlLote = (slug: string) => `/leiloes/${slug}`
-const urlPagar = (slug: string) => `/leiloes/${slug}/pagar`
+const URL_PAGINA = urlMeusLances()
 const urlPedido = (id: string) => `/pedido/${id}`
-const URL_VITRINE = '/leiloes'
+const URL_VITRINE = urlHome()
 
 const INTERVALO_MS = 15_000
 
