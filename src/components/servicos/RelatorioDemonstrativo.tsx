@@ -35,7 +35,7 @@ interface Exemplo {
 const EXEMPLOS = {
   pre_grading: {
     pasta: '/servicos/relatorio-pre-grading',
-    intro: 'Relatório de um pedido de pré-grading de um Charizard do Base Set. Escolha uma página para ver em tamanho grande.',
+    intro: 'Relatório de um pedido de pré-grading de um Charizard do Base Set. Escolha uma página para ver a composição em tamanho grande.',
     fotos: { t: 'Registro de entrada', d: 'Mesma luz, mesmo enquadramento.' },
     paginas: [
       { t: 'Capa e resumo', d: 'A frente na chegada em tamanho real, a faixa provável, a graduadora recomendada e o próximo passo. O essencial cabe em uma folha.' },
@@ -48,11 +48,11 @@ const EXEMPLOS = {
   },
   completo: {
     pasta: '/servicos/relatorio-exemplo',
-    intro: 'Relatório de um pedido de restauração + pré-grading de um Charizard do Base Set. Escolha uma página para ver em tamanho grande.',
+    intro: 'Relatório de um pedido de restauração + pré-grading de um Charizard do Base Set. Escolha uma página para ver a composição em tamanho grande.',
     fotos: { t: 'Chegada e saída', d: 'Mesma luz, mesmo enquadramento.' },
     paginas: [
       { t: 'Capa e resumo', d: 'Chegada e saída lado a lado, faixa provável, graduadora recomendada e próximo passo. O essencial cabe em uma folha.' },
-      { t: 'Ficha de condição', d: 'Cada pilar avaliado na chegada e na saída, e cada dano com o estado final. Você vê exatamente o que mudou.' },
+      { t: 'Ficha de condição', d: 'Cada pilar avaliado na chegada e na saída, e cada dano com o estado final. Tudo lado a lado, ponto por ponto.' },
       { t: 'Proposta de tratamento', d: 'Cada procedimento com problema, risco e alternativa. Só fazemos o que você aprovou, e o que você recusou fica registrado.' },
       { t: 'Antes e depois', d: 'Frente, verso e os quatro cantos fotografados na chegada e na saída, com a mesma luz e o mesmo enquadramento.' },
       { t: 'Detalhe e luz rasante', d: 'Cantos do verso, bordas, ângulo e luz rasante, que revela na superfície o que a foto comum esconde.' },
@@ -71,7 +71,7 @@ export default function RelatorioDemonstrativo({ exemplo }: { exemplo: ExemploRe
   const grande = (i: number) => `${pasta}/pagina-${i + 1}.webp`
   const mini = (i: number) => `${pasta}/pagina-${i + 1}-560.webp`
   const srcSet = (i: number) => `${mini(i)} 560w, ${grande(i)} 1240w`
-  const alt = (i: number) => `Página ${i + 1} de ${TOTAL} do relatório de exemplo: ${PAGINAS[i].t.toLowerCase()}`
+  const alt = (i: number) => `Página ${i + 1} de ${TOTAL} do relatório de exemplo, com o texto borrado: ${PAGINAS[i].t.toLowerCase()}`
   const DESTAQUES = [
     { Ic: IconArticle, t: `${TOTAL} páginas por carta`, d: 'Impressas em A4.' },
     { Ic: IconCamera, ...fotos },
@@ -152,7 +152,10 @@ export default function RelatorioDemonstrativo({ exemplo }: { exemplo: ExemploRe
 
       <div className="rd-grid">
         <div className="rd-palco-w">
-          <span className="rd-selo"><i aria-hidden />Exemplo com dados fictícios</span>
+          <div className="rd-selo-w">
+            <span className="rd-selo"><i aria-hidden />Exemplo com dados fictícios</span>
+            <p className="rd-selo-nota">Texto borrado de propósito. O relatório completo é exclusivo de quem envia a carta para a Bynx.</p>
+          </div>
           <button type="button" className="rd-palco" onClick={() => abrir(ativa)} aria-label={`Ampliar a página ${ativa + 1}: ${PAGINAS[ativa].t}`}>
             <span className="rd-folha rd-f3" aria-hidden>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -228,7 +231,7 @@ export default function RelatorioDemonstrativo({ exemplo }: { exemplo: ExemploRe
           <div className="rd-m-topo" onClick={e => e.stopPropagation()}>
             <div className="rd-m-tit">
               <b>{PAGINAS[aberta].t}</b>
-              <span><span className="rd-m-cont">{aberta + 1} / {TOTAL}</span> Exemplo com dados fictícios</span>
+              <span><span className="rd-m-cont">{aberta + 1} / {TOTAL}</span> Exemplo fictício, texto borrado</span>
             </div>
             <button ref={botaoFechar} type="button" className="rd-m-x" onClick={fechar} aria-label="Fechar"><IconClose size={20} /></button>
           </div>
@@ -273,6 +276,8 @@ const CSS = `
 .rd-palco-w::before{content:"";position:absolute;inset:6% -4% 12%;background:radial-gradient(55% 55% at 50% 50%,rgba(var(--ac-1-rgb),0.16),transparent 70%);pointer-events:none}
 .rd-selo{position:relative;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.04em;padding:6px 12px;border-radius:999px;background:var(--bx-surface-2);border:1px solid var(--bx-border-2);color:var(--bx-text-2)}
 .rd-selo i{width:7px;height:7px;border-radius:50%;background:var(--ac-grad)}
+.rd-selo-w{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;max-width:340px;text-align:center}
+.rd-selo-nota{margin:0;font-size:12.5px;line-height:1.45;color:var(--bx-text-3)}
 .rd-palco{position:relative;display:block;width:min(100%,420px);aspect-ratio:${W}/${H};padding:0;border:0;background:none;cursor:zoom-in;font:inherit;color:inherit}
 .rd-folha{position:absolute;inset:0;border-radius:6px;overflow:hidden;background:var(--bx-bg-elev);border:1px solid var(--bx-border-2);box-shadow:var(--bx-shadow);transition:transform .2s ease}
 .rd-folha img{display:block;width:100%;height:100%;object-fit:cover}

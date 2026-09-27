@@ -110,7 +110,7 @@ export default function PreGradingPage() {
           <Cabecalho
             eyebrow="O relatório"
             titulo="O que volta com a sua carta"
-            sub="Cada carta volta com um relatório de bancada impresso: ficha de condição, laudo, fotos de entrada, valores e termos. Veja o exemplo completo, página por página."
+            sub="Cada carta volta com um relatório de bancada impresso: ficha de condição, laudo, fotos de entrada, valores e termos. Veja como ele é montado, página por página."
           />
           <RelatorioDemonstrativo exemplo="pre_grading" />
         </Faixa>
