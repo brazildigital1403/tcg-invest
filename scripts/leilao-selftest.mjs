@@ -13,7 +13,7 @@ import ts from 'typescript'
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 const tmp = mkdtempSync(join(tmpdir(), 'leilao-selftest-'))
 
-for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos', 'email-lote', 'leilao-painel']) {
+for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos', 'email-lote', 'leilao-painel', 'leilao-rodada']) {
   const src = readFileSync(join(raiz, 'src/lib', `${nome}.ts`), 'utf8')
   const out = ts.transpileModule(src, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -26,6 +26,7 @@ const T = await import(pathToFileURL(join(tmp, 'leilao-taxas.mjs')).href)
 const A = await import(pathToFileURL(join(tmp, 'leilao-avisos.mjs')).href)
 const EL = await import(pathToFileURL(join(tmp, 'email-lote.mjs')).href)
 const P = await import(pathToFileURL(join(tmp, 'leilao-painel.mjs')).href)
+const R = await import(pathToFileURL(join(tmp, 'leilao-rodada.mjs')).href)
 
 let n = 0
 const ok = (fn, nome) => {
@@ -699,6 +700,105 @@ try {
     assert.equal(P.erroDoPainel('ordem_invalida').status, 409)
     assert.equal(P.erroDoPainel('deadlock detected').status, 500)
   }, 'painel: erros das RPCs')
+
+  // ─── Rodada publica (src/lib/leilao-rodada.ts) ───
+  const loteR = (o = {}) => ({
+    id: 'x', codigo: 'abc123', slug: 's-abc123', rodadaId: 'r', ordem: 1, lojaId: null, cardId: null, cardSlug: null,
+    cardName: 'Pikachu', cardNumero: null, setNome: null, cardImage: null, fotos: [], condicao: null, idioma: null,
+    graduadora: null, nota: null, descricao: null, lanceInicialCents: 1000, precoAtualCents: null, liderApelido: null,
+    nLances: 0, nParticipantes: 0, duracaoSeg: 60, softCloseSeg: 10, iniciaEm: null, terminaEm: null, prorrogacoes: 0,
+    status: 'agendado', encerradoEm: null, versao: 0, game: 'pokemon', ...o,
+  })
+
+  ok(() => {
+    assert.equal(R.numeroDaRodada('42'), 42)
+    assert.equal(R.numeroDaRodada(' 7 '), 7)
+    for (const v of ['0', '042', '-1', '1.5', 'abc', '', null, undefined, '1e3', '9999999999999999']) {
+      assert.equal(R.numeroDaRodada(v), null, `numero(${v})`)
+    }
+    assert.equal(R.urlRodada(42), '/leiloes/rodada/42')
+    assert.equal(R.tituloRodada({ titulo: '  ', numero: 3 }), 'Rodada #3')
+    assert.equal(R.tituloRodada({ titulo: 'Live de sexta', numero: 3 }), 'Live de sexta')
+  }, 'rodada: numero, url e titulo')
+
+  ok(() => {
+    assert.equal(R.deveIndexarRodada('agendada'), true)
+    assert.equal(R.deveIndexarRodada('ao_vivo'), true)
+    for (const st of ['encerrada', 'cancelada', 'rascunho']) assert.equal(R.deveIndexarRodada(st), false)
+    const r = R.rodadaPublicaDeLinha({
+      id: 'u', numero: '12', loja_id: null, titulo: '', descricao: null, modo: 'ao_vivo', status: 'xpto',
+      inicia_em: '2026-09-28T12:00:00Z', link_transmissao: 'https://youtube.com/x', vendedor_user_id: 'segredo',
+    })
+    assert.equal(r.numero, 12)
+    assert.equal(r.titulo, null)
+    assert.equal(r.status, 'rascunho')
+    assert.ok(!('vendedorUserId' in r) && !JSON.stringify(r).includes('segredo'), 'vendedor nao sai')
+    assert.ok(!R.COLUNAS_RODADA.includes('vendedor_user_id'))
+    assert.ok(!R.COLUNAS_LOTE_RODADA.includes('vendedor_user_id') && !R.COLUNAS_LOTE_RODADA.includes('lider_maximo'))
+  }, 'rodada: indexacao, mapeador e colunas publicas')
+
+  ok(() => {
+    const lotes = [
+      loteR({ id: 'c', ordem: 3, status: 'agendado' }),
+      loteR({ id: 'a', ordem: 1, status: 'aguardando_pagamento', precoAtualCents: 12000, nLances: 4 }),
+      loteR({ id: 'b', ordem: 2, status: 'ativo' }),
+      loteR({ id: 'd', ordem: 4, status: 'agendado' }),
+      loteR({ id: 'e', ordem: 5, status: 'cancelado' }),
+    ]
+    const s1 = R.separarLotesRodada(lotes)
+    assert.equal(s1.ativo.id, 'b')
+    assert.deepEqual(s1.proximos.map(l => l.id), ['c', 'd'])
+    assert.deepEqual(s1.encerrados.map(l => l.id), ['a', 'e'])
+    assert.equal(R.separarLotesRodada([]).ativo, null)
+  }, 'rodada: separar no ar, fila e encerrados pela ordem')
+
+  ok(() => {
+    const brl = L.formatarBRL(12000)
+    assert.deepEqual(R.resultadoLoteRodada({ status: 'aguardando_pagamento', precoAtualCents: 12000, nLances: 3 }),
+      { tipo: 'arrematado', texto: `Arrematado por ${brl}` })
+    assert.equal(R.resultadoLoteRodada({ status: 'vendido', precoAtualCents: 12000, nLances: 1 }).tipo, 'arrematado')
+    assert.deepEqual(R.resultadoLoteRodada({ status: 'sem_lances', precoAtualCents: null, nLances: 0 }),
+      { tipo: 'sem_lances', texto: 'Sem lances' })
+    assert.equal(R.resultadoLoteRodada({ status: 'cancelado', precoAtualCents: null, nLances: 0 }).texto, 'Cancelado')
+    assert.equal(R.resultadoLoteRodada({ status: 'ativo', precoAtualCents: 100, nLances: 1 }), null)
+    assert.equal(R.resultadoLoteRodada({ status: 'agendado', precoAtualCents: null, nLances: 0 }), null)
+    for (const st of ['aguardando_pagamento', 'sem_lances', 'cancelado']) {
+      const t = R.resultadoLoteRodada({ status: st, precoAtualCents: 500, nLances: 1 }).texto
+      assert.ok(!/\b(pra|pro|num|numa)\b/i.test(t), `contracao: ${t}`)
+      assert.ok(!/\p{Extended_Pictographic}/u.test(t), `emoji: ${t}`)
+    }
+  }, 'rodada: resultado do lote encerrado')
+
+  ok(() => {
+    const novos = [loteR({ id: 'a', status: 'sem_lances' }), loteR({ id: 'b', status: 'ativo' })]
+    assert.equal(R.loteQueFechou('a', novos).id, 'a')
+    assert.equal(R.loteQueFechou('b', novos), null, 'ainda ativo')
+    assert.equal(R.loteQueFechou(null, novos), null)
+    assert.equal(R.loteQueFechou('z', novos), null, 'sumiu')
+    assert.equal(R.loteQueFechou('a', [loteR({ id: 'a', status: 'agendado' })]), null, 'voltou para a fila nao e resultado')
+  }, 'rodada: lote que fechou entre duas leituras')
+
+  ok(() => {
+    const v1 = R.versaoRodada('ao_vivo', [{ versao: 3 }, { versao: 1 }])
+    const v2 = R.versaoRodada('ao_vivo', [{ versao: 4 }, { versao: 1 }])
+    const v3 = R.versaoRodada('encerrada', [{ versao: 4 }, { versao: 1 }])
+    assert.ok(v2 > v1 && v3 > v2)
+    assert.ok(R.versaoRodada('agendada', [{ versao: 1 }]) > R.versaoRodada('encerrada', [{ versao: 0 }]), 'lote vence rank')
+    assert.equal(R.versaoRodada('agendada', []), 1)
+  }, 'rodada: versao so cresce')
+
+  ok(() => {
+    const agora = Date.parse('2026-09-28T12:00:00Z')
+    const em = s => new Date(agora + s * 1000).toISOString()
+    assert.equal(R.intervaloPollRodada('agendada', null, agora), 30000)
+    assert.equal(R.intervaloPollRodada('ao_vivo', em(40), agora), 3000)
+    assert.equal(R.intervaloPollRodada('ao_vivo', em(16), agora), 3000)
+    assert.equal(R.intervaloPollRodada('ao_vivo', em(15), agora), 2000)
+    assert.equal(R.intervaloPollRodada('ao_vivo', em(-3), agora), 2000, 'relogio zerado espera o fecho')
+    assert.equal(R.intervaloPollRodada('ao_vivo', null, agora), 3000, 'entre lotes')
+    assert.equal(R.intervaloPollRodada('encerrada', em(5), agora), null)
+    assert.equal(R.intervaloPollRodada('cancelada', null, agora), null)
+  }, 'rodada: intervalo do polling')
 
   console.log(`\n${n} blocos ok`)
 } finally {

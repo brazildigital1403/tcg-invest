@@ -45,6 +45,12 @@ import { calcularArremate } from '@/lib/leilao-taxas'
  * esconde nada por conta propria. A tela mostra "Conferindo encerramento...",
  * busca o estado na hora e segue a cada 2s ate o servidor fechar (ou estender,
  * se um lance de ultimo segundo prorrogou).
+ *
+ * NA PAGINA DA RODADA (`pollingExterno`): quem busca e a rodada (uma leitura
+ * publica para todos os lotes). A ilha nao roda o proprio polling; recebe o
+ * lote atualizado em `loteExterno` e so consulta a propria rota quando
+ * precisa da posicao de quem esta logado (montagem, troca de sessao, depois
+ * do lance, e quando o lote mudou e a pessoa ja deu lance nele).
  */
 
 const INTERVALO_NORMAL_MS = 10_000
@@ -114,13 +120,30 @@ export default function LanceAoVivo({
   serverNow,
   referenciaMercadoCents,
   urlLote,
+  urlLogin,
+  loteExterno,
+  pollingExterno = false,
 }: {
   loteInicial: LotePublico
   serverNow: string
   referenciaMercadoCents: number | null
   urlLote: string
+  /** Pagina para onde o login volta. Padrao: a do lote. */
+  urlLogin?: string
+  /** Lote atualizado por quem faz o polling de fora (pagina da rodada). */
+  loteExterno?: LotePublico | null
+  /** true = nao roda o polling proprio; o estado chega por `loteExterno`. */
+  pollingExterno?: boolean
 }) {
   const [lote, setLote] = useState<LotePublico>(loteInicial)
+
+  // Lote vindo de fora: aplica durante o render (padrao do React para derivar
+  // estado de prop), so se for o mesmo lote e mais novo.
+  const [externoVisto, setExternoVisto] = useState<LotePublico | null | undefined>(loteExterno)
+  if (loteExterno !== externoVisto) {
+    setExternoVisto(loteExterno)
+    if (loteExterno && loteExterno.id === lote.id && loteExterno.versao > lote.versao) setLote(loteExterno)
+  }
   const baseInicial = Date.parse(serverNow)
   const offsetRef = useRef<number>(0)
   const [agora, setAgora] = useState<number>(Number.isFinite(baseInicial) ? baseInicial : 0)
@@ -235,9 +258,23 @@ export default function LanceAoVivo({
   const intervalo =
     conferindo || (aberto && restanteMs <= JANELA_FINAL_MS) ? INTERVALO_FINAL_MS : INTERVALO_NORMAL_MS
 
+  // Versao que entrou por fora tambem conta para descartar leitura atrasada.
+  useEffect(() => {
+    versaoRef.current = Math.max(versaoRef.current, lote.versao)
+  }, [lote.versao])
+
+  // Na rodada: o lote mudou (lance de alguem, fechamento) e a pessoa ja deu
+  // lance nele -> confere a propria posicao (lidera? foi superada? venceu?).
+  const participei = posicao?.seuMaximoCents != null
+  const versaoExterna = loteExterno && loteExterno.id === loteInicial.id ? loteExterno.versao : null
+  useEffect(() => {
+    if (pollingExterno && participei && versaoExterna != null) buscarEstado()
+  }, [pollingExterno, participei, versaoExterna, buscarEstado])
+
   useEffect(() => {
     // Lote que ja fechou de vez (arrematado, sem lances, cancelado) nao muda mais.
-    if (!vivoOuAgendado) return
+    // Na rodada, quem busca e a pagina (pollingExterno).
+    if (!vivoOuAgendado || pollingExterno) return
     let vivo = true
     let t: ReturnType<typeof setTimeout> | undefined
     const volta = async () => {
@@ -255,7 +292,7 @@ export default function LanceAoVivo({
       if (t) clearTimeout(t)
       document.removeEventListener('visibilitychange', aoVoltar)
     }
-  }, [vivoOuAgendado, intervalo, buscarEstado])
+  }, [vivoOuAgendado, pollingExterno, intervalo, buscarEstado])
 
   // Montagem (assim que a sessao resolve, logado ou nao) e a cada troca de
   // sessao: uma leitura na hora acerta o relogio pelo servidor (o server_now do
@@ -522,7 +559,8 @@ export default function LanceAoVivo({
           ? `Encerrado em ${horarioBrasilia(lote.encerradoEm)}`
           : ''
 
-  const loginHref = `${urlLote}?auth=login&next=${encodeURIComponent(urlLote)}`
+  const voltarPara = urlLogin || urlLote
+  const loginHref = `${voltarPara}?auth=login&next=${encodeURIComponent(voltarPara)}`
 
   // Quem venceu e ainda nao pagou: o CTA leva ao pagamento, com o prazo.
   const devePagar = lote.status === 'aguardando_pagamento' && !!posicao?.voceLidera && !!pagarAte

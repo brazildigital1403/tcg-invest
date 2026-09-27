@@ -10,9 +10,11 @@ import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 import LanceAoVivo from '@/components/leilao/LanceAoVivo'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
+import { IconChevronRight } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { codigoDoSlug, dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
-import { buscarLojaDoLote, buscarLotePorCodigo, buscarReferenciaMercadoCents } from '../_dados'
+import { tituloRodada, urlRodada } from '@/lib/leilao-rodada'
+import { buscarLojaDoLote, buscarLotePorCodigo, buscarReferenciaMercadoCents, buscarRodadaPorId } from '../_dados'
 
 /**
  * /leiloes/[slug] — pagina publica de um lote.
@@ -132,9 +134,10 @@ export default async function LotePage({ params }: Params) {
   if (!l) notFound()
   if (l.slug && l.slug !== slug) permanentRedirect(urlDoLote(l))
 
-  const [loja, referenciaMercadoCents] = await Promise.all([
+  const [loja, referenciaMercadoCents, rodada] = await Promise.all([
     buscarLojaDoLote(l.lojaId),
     buscarReferenciaMercadoCents(l.cardId, l.graduadora),
+    buscarRodadaPorId(l.rodadaId),
   ])
   const serverNow = new Date().toISOString()
 
@@ -245,6 +248,19 @@ export default async function LotePage({ params }: Params) {
               </Link>
             )}
 
+            {rodada && (
+              <Link href={urlRodada(rodada.numero)} prefetch={false} className="lt-ghost" style={S.rodada}>
+                <span style={S.rodadaTexto}>
+                  Este lote faz parte da rodada <strong style={S.rodadaForte}>{tituloRodada(rodada)}</strong>
+                  {loja ? <> da loja <strong style={S.rodadaForte}>{loja.nome ?? loja.slug}</strong></> : null}.
+                </span>
+                <span style={S.rodadaCta}>
+                  {rodada.status === 'ao_vivo' ? 'Acompanhar a rodada ao vivo' : 'Ver a rodada'}
+                  <IconChevronRight size={16} />
+                </span>
+              </Link>
+            )}
+
             <div style={S.card}>
               {ficha.filter(([, v]) => !!v).map(([k, v]) => <Ficha key={k} k={k} v={v as string} />)}
             </div>
@@ -288,6 +304,13 @@ const S: Record<string, CSSProperties> = {
   },
   lojaRotulo: { display: 'block', fontSize: 11, color: 'var(--bx-text-3)', fontWeight: 600 },
   lojaNome: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, fontWeight: 700, color: 'var(--bx-text)' },
+  rodada: {
+    display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 12, textDecoration: 'none',
+    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'inherit', minHeight: 44,
+  },
+  rodadaTexto: { fontSize: 14, color: 'var(--bx-text-2)', lineHeight: 1.5, overflowWrap: 'anywhere' },
+  rodadaForte: { color: 'var(--bx-text)', fontWeight: 700 },
+  rodadaCta: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: 'var(--ac-1)' },
   card: {
     display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 12,
     border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
