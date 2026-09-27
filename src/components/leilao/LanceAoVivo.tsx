@@ -130,6 +130,8 @@ export default function LanceAoVivo({
   const [posicao, setPosicao] = useState<MinhaPosicao | null>(null)
   /** O servidor diz se quem esta logado e o vendedor (o id do vendedor nunca vem). */
   const [proprio, setProprio] = useState(false)
+  /** Prazo para pagar o arremate. So vem do servidor para quem venceu. */
+  const [pagarAte, setPagarAte] = useState<string | null>(null)
   /** Altura real da bottom nav (0 no desktop, onde ela some). null = ainda nao medida. */
   const [navH, setNavH] = useState<number | null>(null)
   /** Hora local do ultimo lance confirmado: leitura que saiu antes dele e chegou depois nao desfaz. */
@@ -203,6 +205,7 @@ export default function LanceAoVivo({
       aplicarServerNow(j.server_now, enviadoEm)
       if (j.lote) {
         setProprio(j.proprio === true)
+        setPagarAte(typeof j.pagarAte === 'string' ? j.pagarAte : null)
         const novo = j.lote
         // Resposta atrasada nao pode desfazer um lance ja visto. (Ref, nao o
         // updater do setState: o updater pode rodar so no proximo render.)
@@ -263,6 +266,7 @@ export default function LanceAoVivo({
     if (!logado) {
       setPosicao(null)
       setProprio(false)
+      setPagarAte(null)
     }
     buscarEstado()
   }, [logado, buscarEstado])
@@ -520,8 +524,17 @@ export default function LanceAoVivo({
 
   const loginHref = `${urlLote}?auth=login&next=${encodeURIComponent(urlLote)}`
 
+  // Quem venceu e ainda nao pagou: o CTA leva ao pagamento, com o prazo.
+  const devePagar = lote.status === 'aguardando_pagamento' && !!posicao?.voceLidera && !!pagarAte
+
   let cta: ReactNode
-  if (conferindo) {
+  if (devePagar) {
+    cta = (
+      <Link href={`${urlLote}/pagar`} prefetch={false} className="lv-cta-btn bx-ctx-comprador" style={{ ...S.ctaBtn, background: 'var(--ac-grad)' }}>
+        Pagar até {horarioBrasilia(pagarAte!)}
+      </Link>
+    )
+  } else if (conferindo) {
     cta = (
       <div role="status" style={S.ctaInfo}>
         Conferindo encerramento...
