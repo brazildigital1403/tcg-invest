@@ -13,7 +13,8 @@ import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { IconChevronRight } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { codigoDoSlug, dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
-import { tituloRodada, urlRodada } from '@/lib/leilao-rodada'
+import { tituloRodada } from '@/lib/leilao-rodada'
+import { urlHome, urlLote, urlRodada } from '@/lib/leilao-urls'
 import { buscarLojaDoLote, buscarLotePorCodigo, buscarReferenciaMercadoCents, buscarRodadaPorId } from '../_dados'
 
 /**
@@ -39,7 +40,7 @@ export const maxDuration = 20
 type Params = { params: Promise<{ slug: string }> }
 
 function urlDoLote(l: Pick<LotePublico, 'slug'>) {
-  return `/leiloes/${l.slug}`
+  return urlLote(l.slug)
 }
 
 function nomeCompleto(l: LotePublico): string {
@@ -146,7 +147,7 @@ export default async function LotePage({ params }: Params) {
   const url = urlDoLote(l)
   const trilha = [
     { name: 'Início', href: '/' },
-    { name: 'Leilões', href: '/leiloes' },
+    { name: 'Leilões', href: urlHome() },
     { name: nome, href: url },
   ]
 

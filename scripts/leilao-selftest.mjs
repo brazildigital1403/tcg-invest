@@ -13,11 +13,11 @@ import ts from 'typescript'
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 const tmp = mkdtempSync(join(tmpdir(), 'leilao-selftest-'))
 
-for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos', 'email-lote', 'leilao-painel', 'leilao-rodada']) {
+for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos', 'email-lote', 'leilao-painel', 'leilao-rodada', 'leilao-urls']) {
   const src = readFileSync(join(raiz, 'src/lib', `${nome}.ts`), 'utf8')
   const out = ts.transpileModule(src, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-  }).outputText.replace(/from '\.\/(comissao|leilao|leilao-taxas|leilao-avisos)'/g, "from './$1.mjs'")
+  }).outputText.replace(/from '\.\/(comissao|leilao|leilao-taxas|leilao-avisos|leilao-urls)'/g, "from './$1.mjs'")
   writeFileSync(join(tmp, `${nome}.mjs`), out)
 }
 
@@ -27,6 +27,7 @@ const A = await import(pathToFileURL(join(tmp, 'leilao-avisos.mjs')).href)
 const EL = await import(pathToFileURL(join(tmp, 'email-lote.mjs')).href)
 const P = await import(pathToFileURL(join(tmp, 'leilao-painel.mjs')).href)
 const R = await import(pathToFileURL(join(tmp, 'leilao-rodada.mjs')).href)
+const U = await import(pathToFileURL(join(tmp, 'leilao-urls.mjs')).href)
 
 let n = 0
 const ok = (fn, nome) => {
@@ -823,6 +824,66 @@ try {
     assert.equal(R.intervaloPollRodada('encerrada', em(5), agora), null)
     assert.equal(R.intervaloPollRodada('cancelada', null, agora), null)
   }, 'rodada: intervalo do polling')
+
+  // ─── URLs e transmissao (src/lib/leilao-urls.ts) ───
+  ok(() => {
+    assert.equal(U.urlHome(), '/leiloes')
+    assert.equal(U.urlHome('ao-vivo'), '/leiloes', 'aba padrao sem query: canonico')
+    assert.equal(U.urlHome('agenda'), '/leiloes?aba=agenda')
+    assert.equal(U.urlHome('como-funciona'), '/leiloes?aba=como-funciona')
+    assert.equal(U.abaValida('encerrados'), 'encerrados')
+    for (const v of ['', null, undefined, 'xpto', 'AGENDA']) assert.equal(U.abaValida(v), 'ao-vivo', `aba(${v})`)
+    assert.equal(U.urlLote('charizard-ex-abc123'), '/leiloes/charizard-ex-abc123')
+    assert.equal(U.urlPagar('charizard-ex-abc123'), '/leiloes/charizard-ex-abc123/pagar')
+    assert.equal(U.urlPagar('x-abc123', { cancelado: true }), '/leiloes/x-abc123/pagar?cancelado=1')
+    assert.equal(U.urlRodada(42), '/leiloes/rodada/42')
+    assert.equal(R.urlRodada, U.urlRodada, 'leilao-rodada reexporta a mesma funcao')
+    assert.equal(U.urlMeusLances(), '/leiloes/meus-lances')
+    assert.equal(U.urlMeusLances('pagar'), '/leiloes/meus-lances?aba=pagar')
+    assert.equal(A.linkLote('x-abc123'), U.urlLote('x-abc123'), 'sino usa a mesma url')
+    assert.equal(U.urlLote('a/b'), '/leiloes/a%2Fb', 'slug nunca abre caminho novo')
+  }, 'urls: home, abas, lote, pagar, rodada, meus lances')
+
+  ok(() => {
+    const id = 'dQw4w9WgXcQ'
+    const validos = [
+      `https://www.youtube.com/watch?v=${id}`,
+      `https://youtube.com/watch?v=${id}&t=30s`,
+      `https://m.youtube.com/watch?feature=share&v=${id}`,
+      `http://www.youtube.com/watch?v=${id}`,
+      `www.youtube.com/watch?v=${id}`,
+      `https://youtu.be/${id}`,
+      `https://youtu.be/${id}?si=abc`,
+      `https://www.youtube.com/live/${id}`,
+      `https://www.youtube.com/live/${id}?feature=shared`,
+      `https://youtube.com/embed/${id}`,
+      `https://www.youtube-nocookie.com/embed/${id}`,
+      `https://www.youtube.com/shorts/${id}`,
+      `  https://youtu.be/${id}  `,
+    ]
+    for (const v of validos) {
+      assert.equal(U.idVideoYoutube(v), id, v)
+      assert.equal(U.embedYoutube(v), `https://www.youtube-nocookie.com/embed/${id}`, v)
+    }
+    const invalidos = [
+      'https://www.youtube.com/@vulcanocards',
+      'https://www.youtube.com/@vulcanocards/live',
+      'https://www.youtube.com/channel/UC1234567890',
+      'https://www.youtube.com/c/Vulcano',
+      'https://www.youtube.com/watch',
+      'https://www.youtube.com/watch?v=curto',
+      `https://www.youtube.com/watch?v=${id}x`,
+      'https://www.instagram.com/vulcanocards/live/',
+      `https://evil.test/watch?v=${id}`,
+      `https://youtube.com.evil.test/watch?v=${id}`,
+      `https://u:p@www.youtube.com/watch?v=${id}`,
+      `javascript:alert(1)//youtu.be/${id}`,
+      `https://youtu.be/`,
+      '', null, undefined, 'nao e link',
+    ]
+    for (const v of invalidos) assert.equal(U.idVideoYoutube(v), null, `invalido: ${v}`)
+    assert.equal(U.embedYoutube('https://www.youtube.com/@loja/live'), null, 'canal: so botao')
+  }, 'transmissao: parser do YouTube (video vira embed, canal vira botao)')
 
   console.log(`\n${n} blocos ok`)
 } finally {

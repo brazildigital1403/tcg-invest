@@ -17,11 +17,11 @@ import {
   numeroDaRodada,
   rotuloTituloRodada,
   tituloRodada,
-  urlRodada,
   versaoRodada,
   type EstadoRodada,
   type RodadaPublica,
 } from '@/lib/leilao-rodada'
+import { urlHome, urlLote, urlRodada } from '@/lib/leilao-urls'
 import {
   buscarLojaDoLote,
   buscarLotesDaRodada,
@@ -142,7 +142,7 @@ export default async function RodadaPage({ params }: Params) {
   const lojaNome = nomeLoja(loja)
   const trilha = [
     { name: 'Início', href: '/' },
-    { name: 'Leilões', href: '/leiloes' },
+    { name: 'Leilões', href: urlHome() },
     { name: titulo, href: url },
   ]
 
@@ -156,7 +156,7 @@ export default async function RodadaPage({ params }: Params) {
     itemListElement: visiveis.map((l, i) => ({
       '@type': 'ListItem',
       position: i + 1,
-      url: `https://bynx.gg/leiloes/${l.slug}`,
+      url: `https://bynx.gg${urlLote(l.slug)}`,
       name: [l.cardName, l.cardNumero, rotuloGraduacao(l)].filter(Boolean).join(' '),
     })),
   }

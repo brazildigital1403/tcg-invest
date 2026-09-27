@@ -8,6 +8,7 @@ import LanceAoVivo from '@/components/leilao/LanceAoVivo'
 import { cardDoLote } from '@/components/leilao/cardDoLote'
 import { supabase } from '@/lib/supabaseClient'
 import { formatarBRL, formatarTempoRestante, horarioBrasilia, type EstadoLote, type LotePublico } from '@/lib/leilao'
+import { urlLote, urlPagar } from '@/lib/leilao-urls'
 import {
   intervaloPollRodada,
   loteQueFechou,
@@ -366,7 +367,7 @@ export default function RodadaAoVivo({
               {a.pagarAte ? ` Pague até ${horarioBrasilia(a.pagarAte)}.` : ' Conclua o pagamento pela Bynx.'}
             </span>
           </p>
-          <Link href={`/leiloes/${a.slug}/pagar`} prefetch={false} className="rd-pagar bx-ctx-comprador" style={S.arrematePagar}>
+          <Link href={urlPagar(a.slug)} prefetch={false} className="rd-pagar bx-ctx-comprador" style={S.arrematePagar}>
             Pagar agora
           </Link>
         </div>
@@ -395,14 +396,14 @@ export default function RodadaAoVivo({
           {!aoVivo ? null : ativo ? (
             <div className="rd-destaque">
               <div className="rd-topo-lote">
-                <Link href={`/leiloes/${ativo.slug}`} prefetch={false} className="rd-lote" aria-label={`Ver o lote ${ativo.cardName}`}>
+                <Link href={urlLote(ativo.slug)} prefetch={false} className="rd-lote" aria-label={`Ver o lote ${ativo.cardName}`}>
                   <CardItem card={cardDoLote(ativo)} mode="readonly" hidePriceTable ocultarSemPreco />
                 </Link>
                 <div style={S.infoAtivo} className="rd-info-ativo">
                   <span style={S.ordem}>
                     {ativo.ordem != null ? `Lote ${ativo.ordem} de ${total}` : 'Lote no ar'}
                   </span>
-                  <Link href={`/leiloes/${ativo.slug}`} prefetch={false} className="rd-link" style={S.nomeAtivo}>
+                  <Link href={urlLote(ativo.slug)} prefetch={false} className="rd-link" style={S.nomeAtivo}>
                     {ativo.cardName}
                   </Link>
                   {[ativo.setNome, ativo.condicao].filter(Boolean).length > 0 && (
@@ -417,7 +418,7 @@ export default function RodadaAoVivo({
                 pollingExterno
                 serverNow={serverNowAtivo}
                 referenciaMercadoCents={estado.referenciaMercadoCents ?? null}
-                urlLote={`/leiloes/${ativo.slug}`}
+                urlLote={urlLote(ativo.slug)}
                 urlLogin={urlRodada}
                 aoParticipar={aoParticipar}
               />
@@ -438,7 +439,7 @@ export default function RodadaAoVivo({
           </h2>
           <div className="rd-grid">
             {proximos.map(l => (
-              <Link key={l.id} href={`/leiloes/${l.slug}`} prefetch={false} className="rd-lote">
+              <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="rd-lote">
                 <CardItem
                   card={cardDoLote(l)}
                   mode="readonly"
@@ -466,7 +467,7 @@ export default function RodadaAoVivo({
             {encerrados.map(l => {
               const r = resultadoLoteRodada(l)
               return (
-                <Link key={l.id} href={`/leiloes/${l.slug}`} prefetch={false} className="rd-lote">
+                <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="rd-lote">
                   <CardItem
                     card={cardDoLote(l)}
                     mode="readonly"

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { IconCheck, IconLink } from '@/components/ui/Icons'
-import { urlRodada } from '@/lib/leilao-rodada'
+import { urlRodada } from '@/lib/leilao-urls'
 import { SH } from '../../_shared'
 
 /**

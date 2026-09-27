@@ -6,6 +6,7 @@ import PagarLote from '@/components/leilao/PagarLote'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { codigoDoSlug, type LotePublico } from '@/lib/leilao'
+import { urlHome, urlLote, urlPagar } from '@/lib/leilao-urls'
 import { buscarLotePorCodigo } from '../../_dados'
 
 /**
@@ -48,11 +49,11 @@ export default async function PagarLotePage({ params, searchParams }: Props) {
   if (!codigo) notFound()
   const l = await buscarLotePorCodigo(codigo)
   if (!l) notFound()
-  if (l.slug && l.slug !== slug) redirect(`/leiloes/${l.slug}/pagar`)
+  if (l.slug && l.slug !== slug) redirect(urlPagar(l.slug))
 
   const sp = await searchParams
   const cancelado = sp.cancelado === '1'
-  const urlLote = `/leiloes/${l.slug}`
+  const urlDoLote = urlLote(l.slug)
   const nome = nomeCompleto(l)
 
   return (
@@ -61,8 +62,8 @@ export default async function PagarLotePage({ params, searchParams }: Props) {
         <PageHeader
           trilha={[
             { name: 'Início', href: '/' },
-            { name: 'Leilões', href: '/leiloes' },
-            { name: nome, href: urlLote },
+            { name: 'Leilões', href: urlHome() },
+            { name: nome, href: urlDoLote },
             { name: 'Pagamento', href: '#' },
           ]}
           titulo="Pagar lote arrematado"
@@ -70,7 +71,8 @@ export default async function PagarLotePage({ params, searchParams }: Props) {
         />
         <PagarLote
           loteId={l.id}
-          urlLote={urlLote}
+          urlLote={urlDoLote}
+          urlPagar={urlPagar(l.slug)}
           nomeInicial={nome}
           imagemInicial={l.fotos[0] || l.cardImage}
           cancelado={cancelado}

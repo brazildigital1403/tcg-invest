@@ -3,6 +3,7 @@ import { enviarIsolando, type EmailLoteItem, type ResultadoEmail } from './email
 import { createClient } from '@supabase/supabase-js'
 import { formatarBRL } from './leilao'
 import { prazoCurtoBrasilia } from './leilao-avisos'
+import { urlLote as caminhoLote, urlPagar as caminhoPagar } from './leilao-urls'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = 'Bynx <noreply@bynx.gg>'
@@ -2626,8 +2627,9 @@ export async function enviarLoteEmails(
   return res
 }
 
-function urlLote(slug: string, campaign: string, sufixo = ''): string {
-  return addUtm(`${URL_CANONICA}/leiloes/${encodeURIComponent(slug)}${sufixo}`, campaign)
+/** Link absoluto do lote (ou do pagamento) com UTM. Caminho sai de leilao-urls. */
+function urlLote(slug: string, campaign: string, pagar = false): string {
+  return addUtm(`${URL_CANONICA}${pagar ? caminhoPagar(slug) : caminhoLote(slug)}`, campaign)
 }
 
 /** Bloco de destaque: rotulo pequeno + valor grande (tokens surface/border). */
@@ -2681,7 +2683,7 @@ export function renderLeilaoVenceuEmail(a: LeilaoEmailArgs): EmailRenderizado {
     ${p(`${escapeHtml(nome)}, o lote é seu por ${forte(formatarBRL(a.precoCents))}.`)}
     ${prazo ? blocoLeilao('Pague até (horário de Brasília)', prazo, '#f59e0b') : ''}
     ${p('No pagamento você confere o frete e o total antes de confirmar. Sem o pagamento dentro do prazo, o arremate é cancelado e a loja é avisada.')}
-    ${btn('Pagar', urlLote(a.slug, 'leilao_venceu', '/pagar'))}
+    ${btn('Pagar', urlLote(a.slug, 'leilao_venceu', true))}
   `, prazo ? `Pague até ${prazo} (Brasília)` : `Você venceu: ${a.cardName}`)
   return {
     to: a.to,

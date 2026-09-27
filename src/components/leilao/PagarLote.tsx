@@ -65,12 +65,15 @@ function fmtCep(v: string): string {
 export default function PagarLote({
   loteId,
   urlLote,
+  urlPagar,
   nomeInicial,
   imagemInicial,
   cancelado,
 }: {
   loteId: string
   urlLote: string
+  /** Esta pagina (volta do login). Vem de urlPagar() em src/lib/leilao-urls.ts. */
+  urlPagar: string
   nomeInicial: string
   imagemInicial: string | null
   cancelado: boolean
@@ -84,7 +87,6 @@ export default function PagarLote({
   const [indo, setIndo] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  const urlPagar = `${urlLote}/pagar`
   const loginHref = `${urlPagar}?auth=login&next=${encodeURIComponent(urlPagar)}`
 
   const carregar = useCallback(async () => {

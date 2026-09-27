@@ -101,9 +101,8 @@ export function numeroDaRodada(param: string | null | undefined): number | null 
   return Number.isSafeInteger(n) && n > 0 ? n : null
 }
 
-export function urlRodada(numero: number): string {
-  return `/leiloes/rodada/${numero}`
-}
+/** Mantido aqui por compatibilidade: a fonte e src/lib/leilao-urls.ts. */
+export { urlRodada } from './leilao-urls'
 
 /** Titulo exibido: o da loja, ou "Rodada #42". */
 export function tituloRodada(r: Pick<RodadaPublica, 'titulo' | 'numero'>): string {

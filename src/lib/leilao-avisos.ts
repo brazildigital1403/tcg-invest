@@ -28,6 +28,7 @@
  */
 
 import { formatarBRL } from './leilao'
+import { urlLote } from './leilao-urls'
 
 export const DEBOUNCE_SUPERADO_MS = 10 * 60 * 1000
 export const SEM_EMAIL_FINAL_MS = 15 * 60 * 1000
@@ -114,7 +115,7 @@ export function prazoCurtoBrasilia(date: Date | string | number | null | undefin
 }
 
 export function linkLote(slug: string): string {
-  return `/leiloes/${slug}`
+  return urlLote(slug)
 }
 
 function ms(iso: string | null | undefined): number {

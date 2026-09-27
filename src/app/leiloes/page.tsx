@@ -9,6 +9,7 @@ import { cardDoLote } from '@/components/leilao/cardDoLote'
 import { IconClock } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { formatarBRL } from '@/lib/leilao'
+import { urlHome, urlLote } from '@/lib/leilao-urls'
 import { listarLotesVitrine, ordemValida, ORDENS_VITRINE } from './_dados'
 
 /**
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
   title: 'Leilões ao vivo',
   description:
     'Lotes de cartas Pokémon em leilão ao vivo, com lance em reais e pagamento protegido pela Bynx.',
-  alternates: { canonical: '/leiloes' },
+  alternates: { canonical: urlHome() },
 }
 
 export default async function LeiloesPage({
@@ -73,7 +74,7 @@ export default async function LeiloesPage({
             return (
               <Link
                 key={o.chave}
-                href={o.chave === 'terminando' ? '/leiloes' : `/leiloes?ordem=${o.chave}`}
+                href={o.chave === 'terminando' ? urlHome() : `${urlHome()}?ordem=${o.chave}`}
                 className="lv-chip"
                 aria-current={ativo ? 'page' : undefined}
                 prefetch={false}
@@ -102,7 +103,7 @@ export default async function LeiloesPage({
             {lotes.map(l => {
               const preco = l.nLances > 0 && l.precoAtualCents != null ? l.precoAtualCents : l.lanceInicialCents
               return (
-                <Link key={l.id} href={`/leiloes/${l.slug}`} prefetch={false} className="lv-lote">
+                <Link key={l.id} href={urlLote(l.slug)} prefetch={false} className="lv-lote">
                   <CardItem
                     card={cardDoLote(l)}
                     mode="readonly"

@@ -17,6 +17,7 @@ import {
   type StatusPublico,
 } from '@/lib/leilao'
 import { calcularArremate } from '@/lib/leilao-taxas'
+import { urlPagar } from '@/lib/leilao-urls'
 
 /**
  * Ilha ao vivo da pagina do lote: preco, relogio, faixa de lideranca, CTA e a
@@ -588,7 +589,7 @@ export default function LanceAoVivo({
   let cta: ReactNode
   if (devePagar) {
     cta = (
-      <Link href={`${urlLote}/pagar`} prefetch={false} className="lv-cta-btn bx-ctx-comprador" style={{ ...S.ctaBtn, background: 'var(--ac-grad)' }}>
+      <Link href={urlPagar(lote.slug)} prefetch={false} className="lv-cta-btn bx-ctx-comprador" style={{ ...S.ctaBtn, background: 'var(--ac-grad)' }}>
         Pagar até {horarioBrasilia(pagarAte!)}
       </Link>
     )

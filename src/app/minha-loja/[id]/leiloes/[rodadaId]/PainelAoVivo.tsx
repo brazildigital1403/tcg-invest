@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { IconArrowRight, IconClock, IconPlay } from '@/components/ui/Icons'
 import { formatarBRL, formatarTempoRestante, horarioBrasilia } from '@/lib/leilao'
+import { urlLote } from '@/lib/leilao-urls'
 import {
   JANELA_FINAL_MS, ROTULO_RESULTADO, intervaloPolling, resultadoDoLote, totaisRodada, type TomResultado,
 } from '@/lib/leilao-painel'
@@ -362,7 +363,7 @@ function LoteNoAr({ lote, total, agoraSrv }: { lote: LoteAoVivo; total: number; 
         {lote.termina_em && <span style={S.detalhe}>Fim {horarioBrasilia(lote.termina_em)}</span>}
       </div>
 
-      <Link href={`/leiloes/${lote.slug}`} target="_blank" rel="noopener noreferrer" style={S.btnGhost}>
+      <Link href={urlLote(lote.slug)} target="_blank" rel="noopener noreferrer" style={S.btnGhost}>
         Abrir página pública do lote <IconArrowRight size={16} />
       </Link>
     </div>
