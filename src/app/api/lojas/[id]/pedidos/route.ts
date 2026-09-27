@@ -97,14 +97,23 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         return NextResponse.json({ error: `Só dá para enviar um pedido pago. Esse está como "${pedido.status}".` }, { status: 409 })
       }
 
-      const { error: upErr } = await sb
+      // .eq('status','pago'): compare-and-set. A checagem acima leu o status
+      // antes; entre a leitura e o update o pedido pode ter virado
+      // 'cancelando'/'reembolsado' (cancelamento por atraso do leilao, webhook
+      // de estorno). So envia quem ainda esta pago.
+      const { data: enviou, error: upErr } = await sb
         .from('pedidos')
         .update({ status: 'enviado', rastreio, enviado_em: new Date().toISOString(), updated_at: new Date().toISOString() })
         .eq('id', pedido.id)
+        .eq('status', 'pago')
+        .select('id')
 
       if (upErr) {
         console.error('[pedidos PATCH enviar]', upErr.message)
         return NextResponse.json({ error: 'Erro ao marcar como enviado.' }, { status: 500 })
+      }
+      if (!enviou?.length) {
+        return NextResponse.json({ error: 'O pedido mudou de situação e não está mais aguardando envio. Atualize a página.' }, { status: 409 })
       }
 
       // Avisa o comprador (sino + email). Falha aqui nao desfaz o envio.

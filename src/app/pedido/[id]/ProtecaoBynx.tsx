@@ -98,7 +98,10 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
 
   if (!ehLeilao) return null
 
-  const base = { ...pedido, ehLeilao: true }
+  // 'cancelando': uma tentativa de cancelamento por atraso caiu no meio. O
+  // card segue como pago para o comprador poder repetir (o estorno e reaproveitado).
+  const emCancelamento = pedido.status === 'cancelando'
+  const base = { ...pedido, status: emCancelamento ? 'pago' : pedido.status, ehLeilao: true }
   const pode = podeReclamar(base, agora)
   const cancelar = podeCancelarPorAtraso(base, agora)
   const limiteEnvio = prazoEnvio(base)
@@ -166,7 +169,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
       <style>{CSS}</style>
 
       {/* Pago: prazo de envio da loja / cancelamento por atraso */}
-      {pedido.status === 'pago' && (
+      {(pedido.status === 'pago' || emCancelamento) && (
         cancelar.pode ? (
           <div className="pb-card pb-alerta">
             <div className="pb-head"><IconWarning size={18} color="var(--bx-amber)" /><b>A loja não enviou no prazo</b></div>

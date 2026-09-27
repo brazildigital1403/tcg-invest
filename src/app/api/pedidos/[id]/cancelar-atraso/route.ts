@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { podeCancelarPorAtraso, fmtPrazo } from '@/lib/leilao-reclamacao'
+import { podeCancelarPorAtraso, fmtPrazo, conferirRefund } from '@/lib/leilao-reclamacao'
 import {
   SEM_CACHE, UUID_RE, sbServico, usuarioDoBearer, carregarPedido, ehPedidoDeLeilao, lotesDoPedido,
   estornarNaStripe, sino, emailSeguro, contato, nomeDaLoja,
@@ -22,8 +22,17 @@ import { renderCancelamentoAtrasoEmail } from '@/lib/email'
  *     charge.refunded, que ja cobre o estorno integral de qualquer origem.
  *     Fazer aqui tambem aplicaria a reversao duas vezes.
  * Provedor antes do banco: a Stripe estorna primeiro; o pedido so vira
- * 'reembolsado' depois. O lote vai para 'cancelado' (leilao_marcar_reembolsado,
- * idempotente -- o webhook chama de novo sem efeito).
+ * 'reembolsado' depois.
+ *
+ * ★ CORRIDA COM O "ENVIAR" DA LOJA. Antes da Stripe, compare-and-set
+ *   pago -> 'cancelando' (update com .eq('status','pago'), atomico no banco).
+ *   O "enviar" (/api/lojas/[id]/pedidos) so vale de 'pago', entao a loja nao
+ *   marca como enviado um pedido que ja esta sendo estornado -- e se ela
+ *   enviou primeiro, o CAS pega 0 linhas e nada e estornado. Stripe recusou
+ *   -> volta para 'pago'. Queda no meio deixa 'cancelando': o comprador pode
+ *   repetir (o refund e reaproveitado pela chave).
+ * O lote vai para 'cancelado' (leilao_marcar_reembolsado, idempotente -- o
+ * webhook chama de novo sem efeito).
  */
 
 export const dynamic = 'force-dynamic'
@@ -44,7 +53,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const pedido = await carregarPedido(sb, pedidoId)
     if (!pedido || pedido.comprador_user_id !== userId) return json(404, { error: 'Pedido não encontrado.' })
     const ehLeilao = await ehPedidoDeLeilao(sb, pedido)
-    const pode = podeCancelarPorAtraso({ ...pedido, ehLeilao }, Date.now())
+    // 'cancelando' = tentativa anterior caiu no meio: segue como se fosse pago.
+    const retomando = pedido.status === 'cancelando'
+    const pode = podeCancelarPorAtraso({ ...pedido, status: retomando ? 'pago' : pedido.status, ehLeilao }, Date.now())
     if (!pode.pode) {
       if (pode.motivo === 'no_prazo') {
         return json(409, { error: `A loja ainda está no prazo de envio. Se não enviar, você pode cancelar a partir de ${fmtPrazo(pode.liberaEm)}.` })
@@ -52,6 +63,30 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return json(409, { error: 'Este pedido não pode ser cancelado por aqui.' })
     }
     if (!pedido.stripe_payment_intent_id) return json(409, { error: 'Pedido sem pagamento associado. Fale com o suporte.' })
+
+    // CAS antes da Stripe: so um lado ganha (este ou o "enviar" da loja).
+    if (!retomando) {
+      const { data: travou, error: tErr } = await sb
+        .from('pedidos')
+        .update({ status: 'cancelando', updated_at: new Date().toISOString() })
+        .eq('id', pedido.id)
+        .eq('status', 'pago')
+        .select('id')
+      if (tErr) {
+        console.error('[cancelar-atraso] trava falhou:', tErr.message)
+        return json(500, { error: 'Erro ao iniciar o cancelamento. Nada foi alterado.' })
+      }
+      if (!travou?.length) {
+        return json(409, { error: 'O pedido mudou de situação (a loja pode ter acabado de enviar). Atualize a página.' })
+      }
+    }
+    const destravar = async () => {
+      const { error } = await sb.from('pedidos')
+        .update({ status: 'pago', updated_at: new Date().toISOString() })
+        .eq('id', pedido.id)
+        .eq('status', 'cancelando')
+      if (error) console.error('[cancelar-atraso] CRITICAL: pedido ficou em cancelando |', pedido.id, '|', error.message)
+    }
 
     let refundId: string
     try {
@@ -61,9 +96,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         amountCents: null,
         metadata: { pedido_id: pedido.id, origem: 'cancelamento_atraso' },
       })
+      const conf = conferirRefund(r, null)
+      if (!conf.ok) {
+        console.error(`[cancelar-atraso] refund ${r.id} com status ${r.status} | ${pedido.id}`)
+        await destravar()
+        return json(502, { error: 'Não foi possível concluir o estorno agora. Nada foi alterado. Tente de novo em instantes.' })
+      }
       refundId = r.id
     } catch (e) {
       console.error('[cancelar-atraso] refund falhou:', (e as Error)?.message)
+      // Queda de rede: a Stripe pode ter estornado. Fica em 'cancelando' (a
+      // loja nao envia) e o retry reaproveita o refund pela chave. Recusa
+      // definitiva da Stripe: devolve o pedido para 'pago'.
+      if ((e as { type?: string })?.type !== 'StripeConnectionError') await destravar()
       return json(502, { error: 'Não foi possível processar o estorno agora. Nada foi alterado. Tente de novo em instantes.' })
     }
 
@@ -79,7 +124,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         updated_at: agora,
       })
       .eq('id', pedido.id)
-      .eq('status', 'pago')
+      .eq('status', 'cancelando')
       .select('id')
     if (upErr || !mexeu?.length) {
       // O webhook charge.refunded pode ter chegado antes e marcado o pedido.

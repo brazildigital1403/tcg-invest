@@ -56,6 +56,7 @@ interface Pedido {
 const LABEL: Record<string, string> = {
   aguardando_pagamento: 'Aguardando pagamento',
   pago: 'Preparando envio',
+  cancelando: 'Cancelando',
   enviado: 'A caminho',
   entregue: 'Entregue',
   cancelado: 'Cancelado',

@@ -76,6 +76,7 @@ const LABEL_ESTRELA = ['', 'Muito ruim', 'Ruim', 'Ok', 'Boa', 'Excelente!']
 const LABEL: Record<string, string> = {
   aguardando_pagamento: 'Aguardando pagamento',
   pago: 'Pago',
+  cancelando: 'Cancelando',
   enviado: 'Enviado',
   entregue: 'Entregue',
   cancelado: 'Cancelado',

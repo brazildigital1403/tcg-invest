@@ -42,7 +42,7 @@ interface Pedido {
 }
 
 const LABEL: Record<string, string> = {
-  pago: 'A enviar', enviado: 'Em trânsito', entregue: 'Concluído',
+  pago: 'A enviar', cancelando: 'Cancelando', enviado: 'Em trânsito', entregue: 'Concluído',
   cancelado: 'Cancelado', reembolsado: 'Reembolsado',
 }
 const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
