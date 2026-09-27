@@ -140,7 +140,7 @@ const S: Record<string, CSSProperties> = {
   headAcao: { flexShrink: 0 },
   btnPrim: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, boxSizing: 'border-box',
-    background: 'var(--ac-grad)', color: '#fff', padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700,
     border: 0, cursor: 'pointer',
   },
   item: {
@@ -155,7 +155,7 @@ const S: Record<string, CSSProperties> = {
   h2: { fontSize: 16, fontWeight: 800, margin: '10px 0 6px', color: 'var(--bx-text)' },
   txt: { fontSize: 13, color: 'var(--bx-text-2)', lineHeight: 1.55, maxWidth: 380, margin: '0 auto' },
   erro: {
-    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: 'var(--bx-red)',
+    background: 'color-mix(in srgb, var(--bx-red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--bx-red) 25%, transparent)', color: 'var(--bx-red)',
     borderRadius: 10, padding: '10px 14px', fontSize: 13,
   },
 }

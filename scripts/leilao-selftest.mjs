@@ -518,12 +518,27 @@ try {
     const limpa = P.validarRodada({ inicia_em: '', link_transmissao: '' }, true)
     assert.equal(limpa.valor.iniciaEm, null)
     assert.equal(limpa.valor.linkTransmissao, null)
-  }, 'painel: validacao da rodada')
+    for (const l of ['https://youtube.com/live/x', 'https://www.youtube.com/watch?v=1', 'https://m.youtube.com/x',
+      'https://youtu.be/abc', 'https://www.instagram.com/loja/live', 'https://twitch.tv/loja',
+      'https://m.twitch.tv/loja', 'https://www.tiktok.com/@loja/live']) {
+      assert.equal(P.linkValido(l), true, l)
+    }
+    for (const l of ['https://evil.test/live', 'https://youtube.com.evil.test/x', 'https://notyoutube.com/x',
+      'https://studio.youtube.com/x', 'https://u:p@youtube.com/x', 'https://youtube.com:8443/x', 'http://youtube.com/x']) {
+      assert.equal(P.linkValido(l), false, l)
+    }
+    const agora = Date.parse('2026-09-28T12:00:00Z')
+    assert.equal(P.validarRodada({ inicia_em: '2026-11-27T12:00:00Z' }, true, agora).ok, true)
+    assert.equal(P.validarRodada({ inicia_em: '2026-11-27T12:00:01Z' }, true, agora).ok, false)
+  }, 'painel: validacao da rodada (hosts da transmissao, inicio ate 60 dias)')
 
   ok(() => {
-    const opts = { fotosPermitidas: 'https://s.test/leiloes/L1/', graduadorasValidas: ['psa', 'cgc'] }
+    const LJ = '11111111-2222-4333-8444-555555555555'
+    const pasta = `https://abc.supabase.co/storage/v1/object/public/loja-fotos/leiloes/${LJ}/`
+    const opts = { fotosDaLoja: { origemSupabase: 'https://abc.supabase.co', lojaId: LJ }, graduadorasValidas: ['psa', 'cgc'] }
     const base = {
-      card_id: 'sv3pt5-199', fotos: ['https://s.test/leiloes/L1/a.webp', 'https://s.test/leiloes/L1/b.webp'],
+      card_id: 'sv3pt5-199',
+      fotos: [`${pasta}0f8b6c1e-1a2b-4c3d-8e4f-000000000001.webp`, `${pasta}0f8b6c1e-1a2b-4c3d-8e4f-000000000002.jpg`],
       condicao: 'nm', idioma: 'EN', lance_inicial_cents: 1000, duracao_seg: 45,
     }
     const r = P.validarLote(base, opts)
@@ -548,7 +563,38 @@ try {
     assert.equal(g.valor.graduadora, 'psa')
     assert.equal(g.valor.nota, '9.5')
     assert.equal(P.validarLote({ ...base, graduadora: 'psa', nota: '11' }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, fotos: ['qualquer', 'coisa'] }, { ...opts, fotosDaLoja: null }).ok, true)
   }, 'painel: validacao do lote (fotos, condicao, graduacao, lance, duracao)')
+
+  ok(() => {
+    const LJ = '11111111-2222-4333-8444-555555555555'
+    const OUTRA = '99999999-2222-4333-8444-555555555555'
+    const O = 'https://abc.supabase.co'
+    const nome = '0f8b6c1e-1a2b-4c3d-8e4f-000000000001'
+    const pasta = `${O}/storage/v1/object/public/loja-fotos/leiloes/${LJ}/`
+    const v = u => P.fotoLeilaoValida(u, O, LJ)
+    assert.equal(v(`${pasta}${nome}.webp`), true)
+    assert.equal(v(`${pasta}${nome}.jpeg`), true)
+    assert.equal(v(`${pasta}${nome}.png`), true)
+    assert.equal(v(`${pasta}${nome}.gif`), false, 'extensao fora da lista')
+    assert.equal(v(`${pasta}foto.webp`), false, 'nome que nao e uuid')
+    assert.equal(v(`${pasta}../${OUTRA}/${nome}.webp`), false, '../')
+    assert.equal(v(`${pasta}%2e%2e/${OUTRA}/${nome}.webp`), false, '%2e')
+    assert.equal(v(`${pasta}%2E%2E%2F${nome}.webp`), false, '%2E maiusculo')
+    assert.equal(v(`${pasta}x%2f${nome}.webp`), false, '%2f')
+    assert.equal(v(`${O}/storage/v1/object/public/loja-fotos/leiloes/${OUTRA}/${nome}.webp`), false, 'outra loja')
+    assert.equal(v(`${O}/storage/v1/object/public/outro-bucket/leiloes/${LJ}/${nome}.webp`), false, 'outro bucket')
+    assert.equal(v(`${O}/storage/v1/object/public/loja-fotos/produtos/${LJ}/${nome}.webp`), false, 'outra pasta')
+    assert.equal(v(`${pasta}${nome}.webp?download=1`), false, 'query')
+    assert.equal(v(`${pasta}${nome}.webp#x`), false, 'hash')
+    assert.equal(v(`https://evil.test/storage/v1/object/public/loja-fotos/leiloes/${LJ}/${nome}.webp`), false, 'outro host')
+    assert.equal(v(`https://abc.supabase.co.evil.test/storage/v1/object/public/loja-fotos/leiloes/${LJ}/${nome}.webp`), false, 'host sufixo')
+    assert.equal(v(`https://u:p@abc.supabase.co/storage/v1/object/public/loja-fotos/leiloes/${LJ}/${nome}.webp`), false, 'credencial')
+    assert.equal(v(`http://abc.supabase.co/storage/v1/object/public/loja-fotos/leiloes/${LJ}/${nome}.webp`), false, 'http')
+    assert.equal(v(`${pasta}${nome}.webp `), false, 'espaco')
+    assert.equal(v(`${pasta.replace('/leiloes/', '//leiloes/')}${nome}.webp`), false, 'barra dupla')
+    assert.equal(P.fotoLeilaoValida(`${pasta}${nome}.webp`, O, 'nao-uuid'), false, 'loja invalida')
+  }, 'painel: URL da foto so da pasta da loja (../, %2e, outra loja, outro bucket, query)')
 
   ok(() => {
     const agora = Date.parse('2026-09-28T12:00:00Z')

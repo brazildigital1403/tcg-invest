@@ -255,10 +255,21 @@ export function slugLote(
   nota: string | null | undefined,
   codigo: string
 ): string {
+  return `${slugBaseLote(cardSlugOuNome, graduadora, nota)}-${slugify(codigo)}`
+}
+
+/**
+ * Slug do lote SEM o codigo: {slug-da-carta}-{graduadora-nota?}. Usado quando
+ * o codigo nasce no banco (leilao_adicionar_lote fecha com "-{codigo}").
+ */
+export function slugBaseLote(
+  cardSlugOuNome: string,
+  graduadora: string | null | undefined,
+  nota: string | null | undefined
+): string {
   const partes = [slugify(cardSlugOuNome) || 'carta']
   const grad = slugify([graduadora, nota].filter(Boolean).join(' '))
   if (graduadora && grad) partes.push(grad)
-  partes.push(slugify(codigo))
   return partes.join('-')
 }
 

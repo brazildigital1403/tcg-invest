@@ -113,12 +113,27 @@ type Resultado<T> = { ok: true; valor: T } | { ok: false; erro: string }
 
 const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 
-/** Link da transmissao: so https, sem espaco, ate 300 caracteres. */
+/**
+ * Plataformas de transmissao aceitas. O link aparece na pagina publica da
+ * rodada: dominio livre viraria vitrine de phishing com o selo da Bynx.
+ */
+export const HOSTS_TRANSMISSAO = ['youtube.com', 'youtu.be', 'instagram.com', 'twitch.tv', 'tiktok.com'] as const
+
+/** Maximo de dias a frente para o inicio da rodada. */
+export const INICIO_MAX_DIAS = 60
+
+/**
+ * Link da transmissao: https, sem espaco, sem usuario/senha, ate 300
+ * caracteres, host exatamente um de HOSTS_TRANSMISSAO ou o mesmo com "www."
+ * ou "m." na frente.
+ */
 export function linkValido(v: string): boolean {
   if (!v || v.length > 300 || /\s/.test(v)) return false
   try {
     const u = new URL(v)
-    return u.protocol === 'https:' && !!u.hostname && u.hostname.includes('.')
+    if (u.protocol !== 'https:' || u.username || u.password || u.port) return false
+    const host = u.hostname.toLowerCase().replace(/^(www|m)\./, '')
+    return (HOSTS_TRANSMISSAO as readonly string[]).includes(host)
   } catch {
     return false
   }
@@ -130,7 +145,8 @@ export function linkValido(v: string): boolean {
  */
 export function validarRodada(
   b: Record<string, unknown>,
-  parcial: boolean
+  parcial: boolean,
+  agoraMs: number = Date.now()
 ): Resultado<Partial<RodadaInput>> {
   const out: Partial<RodadaInput> = {}
   if (!parcial || 'titulo' in b) {
@@ -149,18 +165,64 @@ export function validarRodada(
     } else {
       const t = Date.parse(String(b.inicia_em))
       if (!Number.isFinite(t)) return { ok: false, erro: 'Data de início inválida.' }
+      if (t > agoraMs + INICIO_MAX_DIAS * 86_400_000) {
+        return { ok: false, erro: `O início pode ser no máximo ${INICIO_MAX_DIAS} dias à frente.` }
+      }
       out.iniciaEm = new Date(t).toISOString()
     }
   }
   if ('link_transmissao' in b) {
     const l = texto(b.link_transmissao)
-    if (l && !linkValido(l)) return { ok: false, erro: 'Link da transmissão inválido. Use o endereço completo com https://.' }
+    if (l && !linkValido(l)) {
+      return {
+        ok: false,
+        erro: 'Link da transmissão inválido. Use o endereço completo com https:// do YouTube, Instagram, Twitch ou TikTok.',
+      }
+    }
     out.linkTransmissao = l || null
   }
   return { ok: true, valor: out }
 }
 
 // ─── Validacao do lote ──────────────────────────────────────────────────────
+
+const RE_UUID_LOJA = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * URL de foto do lote: SO a publica que a rota /leiloes/foto devolve, no
+ * bucket `loja-fotos`, pasta leiloes/{lojaId}/, nome {uuid}.{jpg|jpeg|png|webp}.
+ *
+ * Nao basta `startsWith(prefixo)`: "…/leiloes/{loja}/../{outra}/x.webp" passa no
+ * prefixo e o navegador resolve para outra pasta; "%2e%2e" e "%2f" idem, depois
+ * de decodificado no storage. Por isso:
+ *   - recusa, no texto cru, espaco, "?", "#", "..", "\\", "%2e" e "%2f";
+ *   - normaliza com new URL e exige que o href normalizado seja IGUAL ao texto
+ *     (nada foi reescrito), https, sem usuario/senha, mesmo origin do Supabase;
+ *   - pathname casando exatamente o formato da rota de foto.
+ */
+export function fotoLeilaoValida(url: string, origemSupabase: string, lojaId: string): boolean {
+  if (typeof url !== 'string' || !url || url.length > 500) return false
+  if (!RE_UUID_LOJA.test(lojaId)) return false
+  if (/[\s?#\\]/.test(url) || url.includes('..')) return false
+  const baixo = url.toLowerCase()
+  if (baixo.includes('%2e') || baixo.includes('%2f') || baixo.includes('%5c')) return false
+  let u: URL
+  let origem: string
+  try {
+    u = new URL(url)
+    origem = new URL(origemSupabase).origin
+  } catch {
+    return false
+  }
+  if (u.href !== url) return false
+  if (u.protocol !== 'https:' || u.username || u.password) return false
+  if (u.origin !== origem) return false
+  if (u.search || u.hash) return false
+  const re = new RegExp(
+    `^/storage/v1/object/public/loja-fotos/leiloes/${lojaId}/[0-9a-f-]{36}\\.(jpg|jpeg|png|webp)$`
+  )
+  return re.test(u.pathname)
+}
 
 export interface LoteInput {
   cardId: string
@@ -177,12 +239,16 @@ export interface LoteInput {
 /**
  * Body de adicionar lote. A carta vem so pelo `card_id` do catalogo: nome,
  * numero, set e imagem o servidor le por PK, nunca confia no que o cliente
- * mandou. `fotosPermitidas` = prefixo de URL do bucket da loja (a foto tem de
- * ter subido pela rota de foto do leilao).
+ * mandou. Foto: so a que subiu pela rota de foto do leilao DESTA loja
+ * (fotoLeilaoValida). `fotosDaLoja` null = tela (so conta as fotos); a rota
+ * SEMPRE passa origem do Supabase + lojaId.
  */
 export function validarLote(
   b: Record<string, unknown>,
-  opts: { fotosPermitidas: string; graduadorasValidas: readonly string[] }
+  opts: {
+    fotosDaLoja: { origemSupabase: string; lojaId: string } | null
+    graduadorasValidas: readonly string[]
+  }
 ): Resultado<LoteInput> {
   const cardId = texto(b.card_id)
   if (!cardId || cardId.length > 120) return { ok: false, erro: 'Escolha a carta do catálogo.' }
@@ -191,7 +257,8 @@ export function validarLote(
   if (fotos.length !== FOTOS_OBRIGATORIAS) {
     return { ok: false, erro: 'Envie as duas fotos reais da carta: frente e verso.' }
   }
-  if (!fotos.every(u => u.startsWith(opts.fotosPermitidas) && u.length <= 500)) {
+  const fl = opts.fotosDaLoja
+  if (fl && !fotos.every(u => fotoLeilaoValida(u, fl.origemSupabase, fl.lojaId))) {
     return { ok: false, erro: 'Foto inválida. Envie de novo pelo botão de foto.' }
   }
   if (new Set(fotos).size !== fotos.length) return { ok: false, erro: 'Frente e verso precisam ser fotos diferentes.' }
@@ -290,6 +357,7 @@ export function erroDoPainel(msg: string | null | undefined): { status: number; 
     ['lote_ja_abriu', 409, 'Um lote desta rodada já abriu para lances. A rodada não pode mais ser cancelada.'],
     ['ordem_invalida', 409, 'A lista de lotes mudou. Atualize a página e tente de novo.'],
     ['lote_fechado', 409, 'Só é possível reordenar lotes que ainda não abriram.'],
+    ['lote_invalido', 400, 'Lote inválido. Confira os dados e tente de novo.'],
   ]
   for (const [cod, status, mensagem] of tabela) {
     if (new RegExp(`\\b${cod}\\b`).test(s)) return { status, mensagem }

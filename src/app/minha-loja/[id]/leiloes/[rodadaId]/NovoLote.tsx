@@ -59,8 +59,15 @@ function cardDaLinha(row: Linha): CardItemData {
 }
 
 export default function NovoLote({
-  lojaId, rodadaId, onCriado, onCancelar,
-}: { lojaId: string; rodadaId: string; onCriado: () => void; onCancelar: () => void }) {
+  lojaId, rodadaId, onCriado, onCancelar, onEnviando,
+}: {
+  lojaId: string
+  rodadaId: string
+  onCriado: () => void
+  onCancelar: () => void
+  /** true enquanto o POST do lote esta no ar: o editor trava o Agendar. */
+  onEnviando?: (enviando: boolean) => void
+}) {
   const [aba, setAba] = useState<'catalogo' | 'colecao'>('catalogo')
   const [escolhida, setEscolhida] = useState<Escolhida | null>(null)
 
@@ -122,16 +129,19 @@ export default function NovoLote({
       lance_inicial_cents: reaisParaCents(lanceTxt),
       duracao_seg: duracao,
     }
-    // Mesma validacao do servidor, so para avisar antes (o prefixo da foto o
-    // servidor confere; aqui qualquer URL passa).
-    const v = validarLote(corpo, { fotosPermitidas: '', graduadorasValidas: GRADUADORAS.map(g => g.slug) })
+    // Mesma validacao do servidor, so para avisar antes (a URL da foto o
+    // servidor confere com fotoLeilaoValida; aqui so conta as duas).
+    const v = validarLote(corpo, { fotosDaLoja: null, graduadorasValidas: GRADUADORAS.map(g => g.slug) })
     if (!v.ok) { setErro(v.erro); return }
     setSalvando(true)
     setErro(null)
+    onEnviando?.(true)
     try {
       await chamarPainel(`/api/lojas/${lojaId}/leiloes/${rodadaId}/lotes`, { method: 'POST', body: JSON.stringify(corpo) })
+      onEnviando?.(false)
       onCriado()
     } catch (e) {
+      onEnviando?.(false)
       setErro((e as Error).message)
       setSalvando(false)
     }
@@ -185,9 +195,9 @@ export default function NovoLote({
                   {url ? (
                     <div style={S.foto}>
                       <Image src={url} alt={lado === 'frente' ? 'Frente da carta' : 'Verso da carta'} fill sizes="128px" style={{ objectFit: 'cover' }} />
-                      {/* 30px sobre a miniatura: mesma excecao medida do form de produto. */}
-                      <button onClick={() => set(null)} style={S.remFoto} aria-label={`Remover foto do ${lado}`}>
-                        <IconClose size={14} />
+                      {/* Alvo de toque 44x44 no canto; o circulo visivel continua de 30px. */}
+                      <button type="button" onClick={() => set(null)} style={S.remFoto} aria-label={`Remover foto do ${lado}`}>
+                        <span style={S.remFotoCirculo}><IconClose size={14} /></span>
                       </button>
                     </div>
                   ) : (
@@ -458,8 +468,12 @@ const S: Record<string, CSSProperties> = {
   fotoCol: { minWidth: 0 },
   foto: { position: 'relative', width: '100%', aspectRatio: '63 / 88', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--bx-border)' },
   remFoto: {
-    position: 'absolute', top: 4, right: 4, width: 30, height: 30, borderRadius: '50%', background: 'var(--bx-scrim)',
+    position: 'absolute', top: 0, right: 0, width: 44, height: 44, background: 'transparent',
     color: 'var(--bx-text)', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  remFotoCirculo: {
+    width: 30, height: 30, borderRadius: '50%', background: 'var(--bx-scrim)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   addFoto: {
     width: '100%', aspectRatio: '63 / 88', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -490,7 +504,7 @@ const S: Record<string, CSSProperties> = {
   sugestao: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 4 },
   btnPrim: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, boxSizing: 'border-box',
-    background: 'var(--ac-grad)', color: '#fff', padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 0, cursor: 'pointer',
+    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 0, cursor: 'pointer',
   },
   btnGhost: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, boxSizing: 'border-box',
@@ -498,7 +512,7 @@ const S: Record<string, CSSProperties> = {
     borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   erro: {
-    marginTop: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: 'var(--bx-red)',
+    marginTop: 12, background: 'color-mix(in srgb, var(--bx-red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--bx-red) 25%, transparent)', color: 'var(--bx-red)',
     borderRadius: 10, padding: '10px 14px', fontSize: 13,
   },
 }

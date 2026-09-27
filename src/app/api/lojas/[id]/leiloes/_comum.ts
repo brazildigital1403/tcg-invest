@@ -42,18 +42,42 @@ export async function contextoPainel(req: NextRequest, lojaId: string): Promise<
   return { ok: true, sb: auth.sb, loja: auth.loja as LojaPainel }
 }
 
-/** A loja pode ativar a rodada agora? Mesma regra do checkout do arremate. */
+/**
+ * A loja pode ativar a rodada agora? Mesma regra do checkout do arremate.
+ *
+ * ★ RECEBEDOR DA LOJA CERTA. Nao existe no repo resolvedor por lojaId: o
+ *   `resolverRecebedor` e por DONO e, com duas lojas ativas do mesmo dono,
+ *   escolhe a MAIS ANTIGA -- e e ele que o checkout do arremate usa
+ *   (/api/leiloes/[id]/checkout). Se a loja da URL nao for a que o resolvedor
+ *   escolhe, o dinheiro, o prazo de repasse e o CEP/modo de frete do arremate
+ *   sairiam de OUTRA loja do mesmo dono, e esta conferencia de Connect/CEP
+ *   estaria olhando a loja errada. Por isso: recebedor resolvido tem de ser
+ *   exatamente esta loja (tipo 'loja' e lojaId igual); senao, nao agenda.
+ *   Caso raro (dono com duas lojas ativas agendando pela mais nova). Quando
+ *   existir resolvedor por loja, trocar aqui e no checkout juntos.
+ */
 export async function recebimentoDaLoja(
   sb: SupabaseClient,
   loja: LojaPainel
 ): Promise<{ podeReceber: boolean; motivo: string | null }> {
+  if (loja.status !== 'ativa') {
+    return { podeReceber: false, motivo: 'Sua loja precisa estar ativa para agendar.' }
+  }
   const r = await resolverRecebedor(sb, loja.owner_user_id)
+  if (!r) return { podeReceber: false, motivo: 'Não foi possível conferir os recebimentos da loja.' }
+  if (r.tipo !== 'loja' || r.lojaId !== loja.id) {
+    return {
+      podeReceber: false,
+      motivo:
+        'Os arremates desta conta são recebidos por outra loja sua. Por enquanto, crie a rodada na sua loja mais antiga.',
+    }
+  }
   if (!podeReceber(r)) {
     return { podeReceber: false, motivo: 'Ative os recebimentos em Pagamentos para receber pelos arremates.' }
   }
   // Frete calculado sem CEP de origem: o checkout do arremate recusa. Barrar
   // aqui evita uma rodada inteira de lotes que ninguem consegue pagar.
-  if (r!.freteModo === 'calculado' && !r!.cepOrigem) {
+  if (r.freteModo === 'calculado' && !r.cepOrigem) {
     return { podeReceber: false, motivo: 'Informe o CEP de envio da loja para o frete dos arremates.' }
   }
   return { podeReceber: true, motivo: null }
@@ -77,6 +101,7 @@ export function pastaFotos(lojaId: string) {
   return `leiloes/${lojaId}/`
 }
 
-export function prefixoFotos(sb: SupabaseClient, lojaId: string): string {
-  return sb.storage.from('loja-fotos').getPublicUrl(pastaFotos(lojaId)).data.publicUrl
+/** Origin do Supabase configurado (de onde saem as URLs publicas do storage). */
+export function origemSupabase(sb: SupabaseClient): string {
+  return new URL(sb.storage.from('loja-fotos').getPublicUrl('x').data.publicUrl).origin
 }

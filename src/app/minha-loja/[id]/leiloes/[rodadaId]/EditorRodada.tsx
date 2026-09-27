@@ -34,6 +34,10 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
   const [erro, setErro] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
   const [novoAberto, setNovoAberto] = useState(false)
+  // Lote a caminho do servidor: o Agendar espera (o banco serializa os dois
+  // pela trava da rodada, mas agendar no meio recusaria o lote que o lojista
+  // acabou de montar).
+  const [enviandoLote, setEnviandoLote] = useState(false)
   const [agora, setAgora] = useState(() => Date.now())
 
   // form da rodada
@@ -107,7 +111,7 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
   async function salvarRodada() {
     if (!rodada) return
     if ((data || hora) && !inicioISO) { setErro('Data ou hora de início inválida.'); return }
-    if (link.trim() && !linkValido(link.trim())) { setErro('Link da transmissão inválido. Use o endereço completo com https://.'); return }
+    if (link.trim() && !linkValido(link.trim())) { setErro('Link da transmissão inválido. Use o endereço completo com https:// do YouTube, Instagram, Twitch ou TikTok.'); return }
     setOcupado(true)
     setErro(null)
     try {
@@ -170,7 +174,7 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
   }
 
   async function agendar() {
-    if (!rodada?.inicia_em) return
+    if (!rodada?.inicia_em || enviandoLote) return
     const ok = await showConfirm({
       message: 'Agendar a rodada?',
       description: `Começa em ${horarioBrasilia(rodada.inicia_em)} com ${lotes.length} ${lotes.length === 1 ? 'lote' : 'lotes'}. Depois de agendada, os dados e os lotes não mudam mais; você ainda pode reordenar os lotes ou cancelar a rodada antes de ela começar.`,
@@ -339,7 +343,8 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
                   <NovoLote
                     lojaId={lojaId}
                     rodadaId={rodadaId}
-                    onCancelar={() => setNovoAberto(false)}
+                    onCancelar={() => { setEnviandoLote(false); setNovoAberto(false) }}
+                    onEnviando={setEnviandoLote}
                     onCriado={async () => { setNovoAberto(false); await carregar() }}
                   />
                 </div>
@@ -370,10 +375,10 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
                   )}
                   <button
                     onClick={agendar}
-                    disabled={ocupado || sujo || pendencias.length > 0}
-                    style={{ ...S.btnPrim, width: '100%', marginTop: 12, opacity: ocupado || sujo || pendencias.length > 0 ? 0.55 : 1 }}
+                    disabled={ocupado || enviandoLote || sujo || pendencias.length > 0}
+                    style={{ ...S.btnPrim, width: '100%', marginTop: 12, opacity: ocupado || enviandoLote || sujo || pendencias.length > 0 ? 0.55 : 1 }}
                   >
-                    Agendar rodada
+                    {enviandoLote ? 'Salvando o lote…' : 'Agendar rodada'}
                   </button>
                 </>
               )}
@@ -412,11 +417,11 @@ const S: Record<string, CSSProperties> = {
     width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
     background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', borderRadius: 10, color: 'var(--bx-text)', cursor: 'pointer',
   },
-  btnPerigo: { color: 'var(--bx-red)', borderColor: 'rgba(239,68,68,0.3)', marginLeft: 'auto' },
-  btnPerigoTexto: { color: 'var(--bx-red)', borderColor: 'rgba(239,68,68,0.3)' },
+  btnPerigo: { color: 'var(--bx-red)', borderColor: 'color-mix(in srgb, var(--bx-red) 30%, transparent)', marginLeft: 'auto' },
+  btnPerigoTexto: { color: 'var(--bx-red)', borderColor: 'color-mix(in srgb, var(--bx-red) 30%, transparent)' },
   btnPrim: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, boxSizing: 'border-box',
-    background: 'var(--ac-grad)', color: '#fff', padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 0, cursor: 'pointer',
+    background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 0, cursor: 'pointer',
   },
   btnGhost: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, boxSizing: 'border-box',
@@ -427,7 +432,7 @@ const S: Record<string, CSSProperties> = {
   aviso: { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--bx-amber)', margin: 0, lineHeight: 1.4 },
   okMsg: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--bx-green)', margin: 0 },
   erro: {
-    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: 'var(--bx-red)',
+    background: 'color-mix(in srgb, var(--bx-red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--bx-red) 25%, transparent)', color: 'var(--bx-red)',
     borderRadius: 10, padding: '10px 14px', fontSize: 13,
   },
 }

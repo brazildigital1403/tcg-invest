@@ -1,11 +1,10 @@
-import { randomInt } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { GRADUADORAS } from '@/lib/graduadoras'
-import { slugLote } from '@/lib/leilao'
-import { validarLote } from '@/lib/leilao-painel'
+import { slugBaseLote } from '@/lib/leilao'
+import { validarLote, erroDoPainel } from '@/lib/leilao-painel'
 import {
-  contextoPainel, json, prefixoFotos, UUID_RE, COLUNAS_LOTE_PAINEL,
+  contextoPainel, json, origemSupabase, UUID_RE, COLUNAS_LOTE_PAINEL,
 } from '../../_comum'
 
 /**
@@ -19,26 +18,21 @@ import {
  *   aqui, por PK, no catalogo (pokemon_cards) -- a tela nunca decide o que o
  *   comprador ve como "carta". Leitura por PK: 1 linha pelo indice, sem varrer
  *   a tabela.
- * ★ FOTOS: so URL da pasta leiloes/{lojaId}/ do bucket (subida pela rota
- *   /leiloes/foto). Frente e verso, as duas obrigatorias.
- * ★ ORDEM: max + 1. Duas inclusoes juntas batem no indice unico
- *   (rodada_id, ordem) e a segunda tenta de novo; o codigo (unico) idem.
- * ★ CORRIDA COM O AGENDAR: a rodada e conferida em rascunho antes e DEPOIS do
- *   insert. Se o agendar passou no meio, o lote recem-criado e removido e a
- *   rota responde 409 -- rodada agendada nao fica com lote em rascunho (o
- *   motor nao encerra rodada assim).
+ * ★ FOTOS: so URL publica da pasta leiloes/{lojaId}/ do bucket, no formato
+ *   exato que a rota /leiloes/foto devolve (fotoLeilaoValida: mesmo origin do
+ *   Supabase, sem query/hash/"..", nome {uuid}.ext). Frente e verso.
+ * ★ INSERT PELA RPC leilao_adicionar_lote (migration 20260928120000): trava a
+ *   rodada (for update), exige rascunho, calcula ordem = max + 1 e insere na
+ *   mesma transacao. O agendar trava a mesma linha, entao nao ha janela em
+ *   que uma rodada agendada ganhe lote em rascunho, e duas inclusoes juntas
+ *   enfileiram em vez de bater no indice unico (rodada_id, ordem). O codigo
+ *   do lote nasce no banco e fecha o slug. Rodada inexistente, de outra loja
+ *   ou fora do rascunho: quem responde e a RPC (404 / 409).
  */
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string; rodadaId: string }> }
-
-const BASE36 = '0123456789abcdefghijklmnopqrstuvwxyz'
-function novoCodigo(): string {
-  let s = ''
-  for (let i = 0; i < 6; i++) s += BASE36[randomInt(36)]
-  return s
-}
 
 const GRADUADORAS_SLUGS = GRADUADORAS.map(g => g.slug)
 
@@ -61,14 +55,10 @@ export async function POST(req: NextRequest, ctx: Params) {
     if (!UUID_RE.test(rodadaId)) return json(404, { error: 'Rodada não encontrada.' })
     if (c.loja.status !== 'ativa') return json(403, { error: 'Sua loja precisa estar ativa.' })
 
-    const st = await statusRodada(c.sb, lojaId, rodadaId)
-    if (!st) return json(404, { error: 'Rodada não encontrada.' })
-    if (st !== 'rascunho') return json(409, { error: 'Só é possível adicionar lote com a rodada em rascunho.' })
-
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return json(400, { error: 'Requisição inválida.' })
     const v = validarLote(body as Record<string, unknown>, {
-      fotosPermitidas: prefixoFotos(c.sb, lojaId),
+      fotosDaLoja: { origemSupabase: origemSupabase(c.sb), lojaId },
       graduadorasValidas: GRADUADORAS_SLUGS,
     })
     if (!v.ok) return json(400, { error: v.erro })
@@ -93,63 +83,45 @@ export async function POST(req: NextRequest, ctx: Params) {
       ? String(carta.number) + (carta.set_total ? `/${carta.set_total}` : '')
       : null
 
-    let criado: Record<string, unknown> | null = null
-    for (let tentativa = 0; tentativa < 3 && !criado; tentativa++) {
-      const { data: ult, error: eOrd } = await c.sb
-        .from('leiloes')
-        .select('ordem')
-        .eq('rodada_id', rodadaId)
-        .order('ordem', { ascending: false })
-        .limit(1)
-      if (eOrd) throw new Error(`ordem: ${eOrd.message}`)
-      const ordem = (Number((ult?.[0] as { ordem?: number } | undefined)?.ordem) || 0) + 1
-      const codigo = novoCodigo()
-
-      const { data, error } = await c.sb
-        .from('leiloes')
-        .insert({
-          codigo,
-          slug: slugLote(String(carta.slug || nome), l.graduadora, l.nota, codigo),
-          rodada_id: rodadaId,
-          ordem,
-          vendedor_user_id: c.loja.owner_user_id,
-          loja_id: lojaId,
-          card_id: String(carta.id),
-          card_slug: carta.slug ? String(carta.slug) : null,
-          card_name: nome,
-          card_numero: numero,
-          set_nome: carta.set_name ? String(carta.set_name) : null,
-          card_image: (carta.image_large || carta.image_small || null) as string | null,
-          fotos: l.fotos,
-          condicao: l.condicao,
-          idioma: l.idioma,
-          graduadora: l.graduadora,
-          nota: l.nota,
-          descricao: l.descricao,
-          lance_inicial_cents: l.lanceInicialCents,
-          duracao_seg: l.duracaoSeg,
-          soft_close_seg: 10,
-          status: 'rascunho',
-        })
-        .select(COLUNAS_LOTE_PAINEL)
-        .single()
-      if (!error && data) {
-        criado = data as unknown as Record<string, unknown>
-        break
+    // Insert sob a trava da rodada (leilao_adicionar_lote): confere rascunho,
+    // calcula a ordem e grava na mesma transacao -- o agendar espera.
+    const { data: novoId, error: eRpc } = await c.sb.rpc('leilao_adicionar_lote', {
+      p_rodada: rodadaId,
+      p_loja: lojaId,
+      p_lote: {
+        card_id: String(carta.id),
+        card_slug: carta.slug ? String(carta.slug) : null,
+        card_name: nome,
+        card_numero: numero,
+        set_nome: carta.set_name ? String(carta.set_name) : null,
+        card_image: (carta.image_large || carta.image_small || null) as string | null,
+        slug_base: slugBaseLote(String(carta.slug || nome), l.graduadora, l.nota),
+        fotos: l.fotos,
+        condicao: l.condicao,
+        idioma: l.idioma,
+        graduadora: l.graduadora,
+        nota: l.nota,
+        descricao: l.descricao,
+        lance_inicial_cents: l.lanceInicialCents,
+        duracao_seg: l.duracaoSeg,
+      },
+    })
+    if (eRpc) {
+      if (/\brodada_nao_rascunho\b/.test(eRpc.message)) {
+        return json(409, { error: 'Só é possível adicionar lote com a rodada em rascunho.' })
       }
-      if (error?.code !== '23505') {
-        console.error('[lojas/leiloes/lotes POST] insert', error?.code, error?.message)
-        return json(500, { error: 'Erro ao adicionar o lote.' })
-      }
+      const e = erroDoPainel(eRpc.message)
+      if (e.status === 500) console.error('[lojas/leiloes/lotes POST] rpc', eRpc.code, eRpc.message)
+      return json(e.status, { error: e.status === 500 ? 'Erro ao adicionar o lote.' : e.mensagem })
     }
-    if (!criado) return json(409, { error: 'Muitas alterações ao mesmo tempo. Tente de novo.' })
 
-    // O agendar pode ter passado entre a primeira conferencia e o insert.
-    const depois = await statusRodada(c.sb, lojaId, rodadaId)
-    if (depois !== 'rascunho') {
-      await c.sb.from('leiloes').delete().eq('id', criado.id as string).eq('status', 'rascunho')
-      return json(409, { error: 'A rodada saiu do rascunho enquanto o lote era salvo. Nada foi adicionado.' })
-    }
+    const { data: criadoRows, error: eLer } = await c.sb
+      .from('leiloes')
+      .select(COLUNAS_LOTE_PAINEL)
+      .eq('id', String(novoId))
+      .limit(1)
+    if (eLer) throw new Error(`lote criado: ${eLer.message}`)
+    const criado = criadoRows?.[0] ?? null
     return json(200, { ok: true, lote: criado })
   } catch (err) {
     console.error('[lojas/leiloes/lotes POST] erro:', (err as Error)?.message)
