@@ -31,6 +31,13 @@
 --      transicoes que mexem em DUAS tabelas (reclamacao + pedidos) numa
 --      transacao, com `for update` na linha do pedido/reclamacao.
 --   5. bucket privado 'reclamacoes' (fotos frente/verso/embalagem).
+--   6. pedidos.status ganha 'cancelando': trava do cancelamento por atraso
+--      ANTES da Stripe (compare-and-set pago -> cancelando pela rota). O
+--      "enviar" da loja so vale de 'pago', entao nao corre com o estorno.
+--   7. pedidos.reclamacao_uploads + pedido_reclamacao_reservar_upload: teto
+--      de URLs assinadas de foto emitidas por pedido (contador no banco,
+--      incremento atomico -- a contagem de arquivos na pasta nao via URL
+--      emitida e nunca usada).
 --
 -- ★ NASCE FECHADA. Default privilege do Supabase da tudo pro authenticated em
 --   tabela nova: `revoke all` antes do grant, RLS ligada antes de qualquer linha.
@@ -55,6 +62,7 @@
 --   so vale dentro de transacao).
 --
 -- ROLLBACK (nesta ordem):
+--   drop function if exists public.pedido_reclamacao_reservar_upload(uuid, uuid, integer);
 --   drop function if exists public.pedido_reclamacao_resolver(uuid, text, text, integer, text, text, text);
 --   drop function if exists public.pedido_reclamacao_abrir(uuid, uuid, text, text, text[], text, timestamptz, timestamptz);
 --   drop table if exists public.pedido_reclamacoes;
@@ -65,7 +73,12 @@
 --     drop column if exists valor_reembolsado_cents,
 --     drop column if exists prazo_reclamacao_ate,
 --     drop column if exists recebido_automatico,
---     drop column if exists reclamacao_aberta;
+--     drop column if exists reclamacao_aberta,
+--     drop column if exists reclamacao_uploads;
+--   -- so depois de conferir que nenhum pedido esta em 'cancelando':
+--   alter table public.pedidos drop constraint if exists pedidos_status_check;
+--   alter table public.pedidos add constraint pedidos_status_check check (status in
+--     ('aguardando_pagamento','pago','enviado','entregue','cancelado','reembolsado'));
 --   delete from storage.buckets where id = 'reclamacoes';  -- so se vazio
 -- ============================================================================
 
@@ -81,7 +94,8 @@ alter table public.pedidos
   add column if not exists recebido_automatico boolean not null default false,
   add column if not exists prazo_reclamacao_ate timestamptz,
   add column if not exists valor_reembolsado_cents integer not null default 0,
-  add column if not exists aviso_recebimento_em timestamptz;
+  add column if not exists aviso_recebimento_em timestamptz,
+  add column if not exists reclamacao_uploads integer not null default 0;
 
 comment on column public.pedidos.reclamacao_aberta is
   'Leilao: ha reclamacao nao resolvida. Trava o fechamento automatico (enviado + 21 dias).';
@@ -93,6 +107,19 @@ comment on column public.pedidos.valor_reembolsado_cents is
   'Soma estornada por decisao de reclamacao (parcial ou total). Estorno de cancelamento continua em stripe_refund_id.';
 comment on column public.pedidos.aviso_recebimento_em is
   'Leilao: quando o aviso do dia 14 ("confirme ou conte o problema") saiu. Marca de idempotencia do cron.';
+comment on column public.pedidos.reclamacao_uploads is
+  'Leilao: URLs assinadas de foto de reclamacao ja emitidas para este pedido. Teto em pedido_reclamacao_reservar_upload.';
+
+-- 'cancelando': estado de passagem do cancelamento por atraso (Protecao Bynx).
+-- A rota faz pago -> cancelando (CAS) ANTES de estornar na Stripe; o "enviar"
+-- da loja filtra status = 'pago' e nao pega um pedido que ja esta sendo
+-- estornado. Stripe recusou -> volta para 'pago'. Deu certo -> 'reembolsado'.
+-- Tabela de centenas de linhas: NOT VALID + VALIDATE e so por higiene de lock.
+alter table public.pedidos drop constraint if exists pedidos_status_check;
+alter table public.pedidos add constraint pedidos_status_check
+  check (status in ('aguardando_pagamento', 'pago', 'cancelando', 'enviado', 'entregue', 'cancelado', 'reembolsado'))
+  not valid;
+alter table public.pedidos validate constraint pedidos_status_check;
 
 
 -- ----------------------------------------------------------------------------
@@ -284,9 +311,11 @@ comment on function public.pedido_reclamacao_abrir(uuid, uuid, text, text, text[
 -- A rota ja estornou na Stripe (provedor antes do banco) e passa o refund.
 -- Idempotente: reclamacao ja fechada com o MESMO refund devolve 'ja_resolvida'.
 -- Fechando (resolvida/improcedente): desliga a trava do pedido e soma o valor
--- estornado. Estorno total (estorno_total/devolucao) marca o pedido como
--- reembolsado -- o webhook charge.refunded faria o mesmo; o guard de status
--- deixa quem chegar depois sem efeito.
+-- estornado. O pedido so vira 'reembolsado' quando a SOMA estornada por
+-- reclamacao cobre o total pago (valor_reembolsado_cents >= total_comprador_cents),
+-- qualquer que seja a decisao -- o rotulo da decisao nao prova que o dinheiro
+-- inteiro voltou. Estorno parcial por fora (dashboard) fica com o webhook
+-- charge.refunded; o guard de status deixa quem chegar depois sem efeito.
 
 create or replace function public.pedido_reclamacao_resolver(
   p_reclamacao uuid,
@@ -306,6 +335,7 @@ as $$
 declare
   v_rec public.pedido_reclamacoes%rowtype;
   v_valor integer := greatest(coalesce(p_valor_cents, 0), 0);
+  v_cobre_total boolean;
 begin
   if p_status not in ('resolvida', 'improcedente', 'aguardando_devolucao') then
     raise exception 'status_invalido';
@@ -345,9 +375,10 @@ begin
        set reclamacao_aberta = false,
            valor_reembolsado_cents = valor_reembolsado_cents + v_valor,
            updated_at = now()
-     where id = v_rec.pedido_id;
+     where id = v_rec.pedido_id
+    returning valor_reembolsado_cents >= total_comprador_cents into v_cobre_total;
 
-    if p_decisao in ('estorno_total', 'devolucao') and v_valor > 0 then
+    if v_valor > 0 and coalesce(v_cobre_total, false) then
       update public.pedidos
          set status = 'reembolsado',
              cancelado_em = now(),
@@ -367,11 +398,46 @@ $$;
 comment on function public.pedido_reclamacao_resolver(uuid, text, text, integer, text, text, text) is
   'Admin fecha (resolvida/improcedente) ou manda para devolucao. Chamado DEPOIS do estorno na Stripe. Idempotente pelo refund. So service_role.';
 
+-- ----------------------------------------------------------------------------
+-- 4c. Reservar upload de foto (comprador, pela rota de upload-url)
+-- ----------------------------------------------------------------------------
+-- Um incremento atomico por URL emitida: `update ... where uploads < teto`.
+-- Duas chamadas juntas nao passam do teto (a segunda espera a linha). A
+-- contagem de arquivos no bucket nao servia: URL emitida e nao usada nao vira
+-- arquivo, e um loop juntava URLs sem limite para subir tudo de uma vez.
+-- Teto por pedido (o pedido tem um comprador so), vale pela vida do pedido.
+
+create or replace function public.pedido_reclamacao_reservar_upload(
+  p_pedido uuid,
+  p_comprador uuid,
+  p_teto integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+set lock_timeout = '3s'
+as $$
+begin
+  update public.pedidos
+     set reclamacao_uploads = reclamacao_uploads + 1
+   where id = p_pedido
+     and comprador_user_id = p_comprador
+     and reclamacao_uploads < greatest(coalesce(p_teto, 0), 0);
+  return found;
+end;
+$$;
+
+comment on function public.pedido_reclamacao_reservar_upload(uuid, uuid, integer) is
+  'Conta uma URL assinada de foto de reclamacao; false = teto atingido (ou nao e o comprador). So service_role.';
+
 revoke all on function public.pedidos_prazo_reclamacao() from public, anon, authenticated;
 revoke all on function public.pedido_reclamacao_abrir(uuid, uuid, text, text, text[], text, timestamptz, timestamptz) from public, anon, authenticated;
 revoke all on function public.pedido_reclamacao_resolver(uuid, text, text, integer, text, text, text) from public, anon, authenticated;
 grant execute on function public.pedido_reclamacao_abrir(uuid, uuid, text, text, text[], text, timestamptz, timestamptz) to service_role;
 grant execute on function public.pedido_reclamacao_resolver(uuid, text, text, integer, text, text, text) to service_role;
+revoke all on function public.pedido_reclamacao_reservar_upload(uuid, uuid, integer) from public, anon, authenticated;
+grant execute on function public.pedido_reclamacao_reservar_upload(uuid, uuid, integer) to service_role;
 
 
 -- ----------------------------------------------------------------------------

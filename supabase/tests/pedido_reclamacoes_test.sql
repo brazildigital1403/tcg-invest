@@ -99,6 +99,9 @@ begin
   assert not has_function_privilege('authenticated',
     'public.pedido_reclamacao_resolver(uuid, text, text, integer, text, text, text)', 'execute'),
     'FALHOU T0g: authenticated executa resolver';
+  assert not has_function_privilege('authenticated',
+    'public.pedido_reclamacao_reservar_upload(uuid, uuid, integer)', 'execute'),
+    'FALHOU T0j: authenticated executa reservar_upload';
   select public into v_pub from storage.buckets where id = 'reclamacoes';
   assert v_pub is not null and v_pub = false, format('FALHOU T0h: bucket reclamacoes public=%s', v_pub);
   assert not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects'
@@ -406,6 +409,57 @@ begin
   exception when raise_exception then
     if sqlerrm <> 'decisao_invalida' then raise exception 'FALHOU T9e: %', sqlerrm; end if;
   end;
+end $$;
+
+-- T9f: 'estorno_total' que NAO cobre o total pago nao marca 'reembolsado'
+-- (o rotulo da decisao nao prova que o dinheiro inteiro voltou).
+do $$
+declare v_rid uuid; v_res text; p record;
+begin
+  select id into v_rid from public.pedido_reclamacoes
+   where pedido_id = 'e7000000-0000-4000-8000-000000000006' and status = 'aguardando_loja';
+  v_res := public.pedido_reclamacao_resolver(v_rid, 'resolvida', 'estorno_total', 5000, 're_test_4', 'admin', null);
+  assert v_res = 'resolvida', format('FALHOU T9f: %s', v_res);
+  select status, valor_reembolsado_cents into p from public.pedidos where id = 'e7000000-0000-4000-8000-000000000006';
+  assert p.status = 'enviado' and p.valor_reembolsado_cents = 5000, format('FALHOU T9g: pedido %s', p);
+end $$;
+
+
+-- ─── T10: status 'cancelando' (trava do cancelamento por atraso) ────────────
+do $$
+declare n int;
+begin
+  -- CAS da rota: pago -> cancelando.
+  update public.pedidos set status = 'cancelando'
+   where id = 'e7000000-0000-4000-8000-000000000004' and status = 'pago';
+  get diagnostics n = row_count;
+  assert n = 1, 'FALHOU T10a: check de status recusou cancelando';
+  -- O "enviar" da loja filtra status = 'pago': nao pega o pedido travado.
+  update public.pedidos set status = 'enviado'
+   where id = 'e7000000-0000-4000-8000-000000000004' and status = 'pago';
+  get diagnostics n = row_count;
+  assert n = 0, 'FALHOU T10b: enviar pegou pedido em cancelando';
+  begin
+    update public.pedidos set status = 'sumiu' where id = 'e7000000-0000-4000-8000-000000000004';
+    raise exception 'FALHOU T10c: check de status aceitou lixo';
+  exception when check_violation then null;
+  end;
+end $$;
+
+
+-- ─── T11: teto de URLs de upload por pedido ─────────────────────────────────
+do $$
+begin
+  assert public.pedido_reclamacao_reservar_upload('e7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002', 2),
+    'FALHOU T11a: primeira reserva';
+  assert public.pedido_reclamacao_reservar_upload('e7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002', 2),
+    'FALHOU T11b: segunda reserva';
+  assert not public.pedido_reclamacao_reservar_upload('e7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002', 2),
+    'FALHOU T11c: passou do teto';
+  assert not public.pedido_reclamacao_reservar_upload('e7000000-0000-4000-8000-000000000002', 'a7000000-0000-4000-8000-000000000003', 2),
+    'FALHOU T11d: outro usuario reservou';
+  assert (select reclamacao_uploads from public.pedidos where id = 'e7000000-0000-4000-8000-000000000001') = 2,
+    'FALHOU T11e: contador';
 end $$;
 
 -- ─── Fim: desfaz tudo ───────────────────────────────────────────────────────
