@@ -83,7 +83,7 @@
 --   drop function if exists public.leilao_agendar_rodada(uuid, uuid, integer);
 -- ============================================================================
 
-set lock_timeout = '3s';
+set local lock_timeout = '3s';
 
 
 -- ----------------------------------------------------------------------------
