@@ -381,6 +381,33 @@ try {
         assert.ok(!/\p{Extended_Pictographic}/u.test(t), `emoji: ${t}`)
       }
     }, 'avisos: tipos sem aviso, e-mail enviavel, copy limpa')
+
+    ok(() => {
+      // Rodada cancelada (leilao_cancelar_rodada, 20260928130000): so sino ao seguidor.
+      let [p] = plano([ev(1, 'cancelado', { user_id: 'S1', payload: { motivo: 'x' } })], lote({ status: 'cancelado' }))
+      assert.equal(p.sinos.length, 1)
+      assert.equal(p.sinos[0].user_id, 'S1')
+      assert.equal(p.sinos[0].title, 'Leilão cancelado')
+      assert.match(p.sinos[0].message, /Charizard ex/)
+      assert.equal(p.sinos[0].data.link, '/leiloes/charizard-ex-abc123')
+      assert.equal(p.emails.length, 0, 'cancelado nunca manda e-mail')
+      // Retry sem e-mail marcado: continua sem e-mail.
+      ;[p] = plano([ev(1, 'cancelado', { user_id: 'S1', tentativas: 3 })], lote({ status: 'cancelado' }))
+      assert.equal(p.emails.length, 0)
+      // Lote que nao esta mais cancelado (estado mudou): nada.
+      ;[p] = plano([ev(1, 'cancelado', { user_id: 'S1' })], lote({ status: 'agendado' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+      // Sem usuario: nada.
+      ;[p] = plano([ev(1, 'cancelado', { user_id: null })], lote({ status: 'cancelado' }))
+      assert.equal(p.nota, 'sem_usuario')
+      // Varios seguidores do mesmo lote: um sino para cada (nao agrupa como superado).
+      const ps = plano([ev(1, 'cancelado', { user_id: 'S1' }), ev(2, 'cancelado', { user_id: 'S2' })], lote({ status: 'cancelado' }))
+      assert.deepEqual(ps.map(x => x.sinos[0]?.user_id), ['S1', 'S2'])
+      for (const t of [p.sinos, ps[0].sinos].flat().flatMap(s => [s.title, s.message])) {
+        assert.ok(!/\b(pra|pro|num|numa)\b/i.test(t), `contracao: ${t}`)
+        assert.ok(!/\p{Extended_Pictographic}/u.test(t), `emoji: ${t}`)
+      }
+    }, 'avisos: cancelado -> so sino ao seguidor, sem e-mail')
   }
 
   // ─── email-lote: grupo nunca partido, isolamento do endereco ruim ─────────
@@ -595,6 +622,64 @@ try {
     assert.equal(v(`${pasta.replace('/leiloes/', '//leiloes/')}${nome}.webp`), false, 'barra dupla')
     assert.equal(P.fotoLeilaoValida(`${pasta}${nome}.webp`, O, 'nao-uuid'), false, 'loja invalida')
   }, 'painel: URL da foto so da pasta da loja (../, %2e, outra loja, outro bucket, query)')
+
+  ok(() => {
+    const LJ = '11111111-2222-4333-8444-555555555555'
+    const OUTRA = '99999999-2222-4333-8444-555555555555'
+    const O = 'https://abc.supabase.co'
+    const nome = '0f8b6c1e-1a2b-4c3d-8e4f-000000000001'
+    const url = `${O}/storage/v1/object/public/loja-fotos/leiloes/${LJ}/${nome}.webp`
+    assert.equal(P.caminhoFotoLeilao(url, O, LJ), `leiloes/${LJ}/${nome}.webp`)
+    assert.equal(P.caminhoFotoLeilao(url, O, OUTRA), null, 'foto de outra loja')
+    assert.equal(P.caminhoFotoLeilao(url.replace(`/${LJ}/`, `/${LJ}/../${OUTRA}/`), O, LJ), null, '../')
+    assert.equal(P.caminhoFotoLeilao('https://images.pokemontcg.io/x.png', O, LJ), null, 'imagem do catalogo')
+    assert.equal(P.caminhoFotoLeilao(url, 'https://outro.supabase.co', LJ), null, 'outro host')
+    assert.equal(P.caminhoFotoLeilao('', O, LJ), null)
+  }, 'painel: caminho da foto para apagar (so da pasta da loja)')
+
+  ok(() => {
+    const agora = Date.parse('2026-09-28T12:00:00Z')
+    const em = s => new Date(agora + s * 1000).toISOString()
+    assert.equal(P.intervaloPolling(null, agora), 5000)
+    assert.equal(P.intervaloPolling(em(31), agora), 5000)
+    assert.equal(P.intervaloPolling(em(30), agora), 2000)
+    assert.equal(P.intervaloPolling(em(1), agora), 2000)
+    assert.equal(P.intervaloPolling(em(-3), agora), 2000, 'vencido: fechamento a caminho')
+    assert.equal(P.intervaloPolling('lixo', agora), 5000)
+  }, 'painel ao vivo: polling 5s, 2s nos ultimos 30s')
+
+  ok(() => {
+    const r = P.resultadoDoLote
+    assert.equal(r('agendado', null), 'na_fila')
+    assert.equal(r('ativo', null), 'no_ar')
+    assert.equal(r('aguardando_pagamento', 'aguardando_pagamento'), 'aguardando_pagamento')
+    assert.equal(r('vendido', 'pago'), 'pago')
+    assert.equal(r('vendido', null), 'pago')
+    assert.equal(r('vendido', 'enviado'), 'enviado')
+    assert.equal(r('vendido', 'entregue'), 'entregue')
+    assert.equal(r('calote', null), 'calote')
+    assert.equal(r('sem_lances', null), 'sem_lances')
+    assert.equal(r('cancelado', 'reembolsado'), 'cancelado')
+    for (const k of Object.keys(P.ROTULO_RESULTADO)) {
+      const t = P.ROTULO_RESULTADO[k].label
+      assert.ok(!/\b(pra|pro|num|numa)\b/i.test(t), `contracao: ${t}`)
+    }
+    const ped = (id, status, dia, leilao = 'L1') => ({ id, numero: 1, status, created_at: `2026-09-${dia}T12:00:00Z`, leilao_id: leilao })
+    const lista = [ped('A', 'cancelado', 28), ped('B', 'aguardando_pagamento', 29), ped('C', 'pago', 27, 'L2')]
+    assert.equal(P.pedidoDoLote('L1', null, lista)?.id, 'B', 'mais recente nao cancelado')
+    assert.equal(P.pedidoDoLote('L1', 'C', lista)?.id, 'C', 'pedido_id do lote vence')
+    assert.equal(P.pedidoDoLote('L1', null, [ped('A', 'cancelado', 28)])?.id, 'A', 'so cancelado')
+    assert.equal(P.pedidoDoLote('L3', null, lista), null)
+    const t = P.totaisRodada([
+      { status: 'vendido', preco_atual_cents: 10000 },
+      { status: 'aguardando_pagamento', preco_atual_cents: 5000 },
+      { status: 'calote', preco_atual_cents: 2000 },
+      { status: 'sem_lances', preco_atual_cents: null },
+      { status: 'cancelado', preco_atual_cents: 3000 },
+      { status: 'ativo', preco_atual_cents: 1500 },
+    ])
+    assert.deepEqual(t, { arrematadoCents: 17000, pagoCents: 10000, nArrematados: 3, nPagos: 1 })
+  }, 'painel ao vivo: resultado por lote, pedido do lote e totais')
 
   ok(() => {
     const agora = Date.parse('2026-09-28T12:00:00Z')

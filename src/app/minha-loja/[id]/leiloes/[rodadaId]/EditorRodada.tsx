@@ -11,6 +11,7 @@ import { brasiliaParaISO, isoParaBrasilia, linkValido, pendenciasAgendar } from 
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../../_shared'
 import { STATUS_RODADA, chamarPainel, type LotePainel, type RodadaResumo } from '../_rodada'
 import NovoLote from './NovoLote'
+import PainelAoVivo from './PainelAoVivo'
 
 /**
  * Editor de uma rodada ao vivo da loja.
@@ -81,6 +82,18 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
     const t = setInterval(() => setAgora(Date.now()), 30_000)
     return () => clearInterval(t)
   }, [])
+
+  // Agendada e ja passou da hora: recarrega a cada 15s (aba visivel) ate o
+  // tick do banco virar a rodada para ao_vivo e o painel ao vivo aparecer sem
+  // o lojista atualizar a pagina.
+  useEffect(() => {
+    if (rodada?.status !== 'agendada' || !rodada.inicia_em) return
+    const ini = Date.parse(rodada.inicia_em)
+    const t = setInterval(() => {
+      if (Date.now() >= ini && !document.hidden) carregar()
+    }, 15_000)
+    return () => clearInterval(t)
+  }, [rodada?.status, rodada?.inicia_em, carregar])
 
   const editavel = rodada?.status === 'rascunho'
   const podeOrdenar = (rodada?.status === 'rascunho' || rodada?.status === 'agendada')
@@ -158,7 +171,7 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
   async function remover(l: LotePainel) {
     const ok = await showConfirm({
       message: `Remover "${l.card_name}" da rodada?`,
-      description: 'As fotos enviadas deste lote deixam de ser usadas.',
+      description: 'As fotos enviadas deste lote também são apagadas.',
       confirmLabel: 'Remover', danger: true,
     })
     if (!ok) return
@@ -248,6 +261,15 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
           </header>
 
           {erro && <div style={S.erro} role="alert">{erro}</div>}
+
+          {(rodada.status === 'ao_vivo' || rodada.status === 'encerrada') && (
+            <PainelAoVivo
+              lojaId={lojaId}
+              rodadaId={rodadaId}
+              statusRodada={rodada.status}
+              onStatusRodada={() => { carregar() }}
+            />
+          )}
 
           {/* ─── Dados da rodada ─── */}
           <section style={SH.card}>

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { GRADUADORAS } from '@/lib/graduadoras'
 import { slugBaseLote } from '@/lib/leilao'
-import { validarLote, erroDoPainel } from '@/lib/leilao-painel'
+import { validarLote, erroDoPainel, caminhoFotoLeilao } from '@/lib/leilao-painel'
 import {
   contextoPainel, json, origemSupabase, UUID_RE, COLUNAS_LOTE_PAINEL,
 } from '../../_comum'
@@ -12,7 +12,8 @@ import {
  *
  * POST   { card_id, fotos: [frente, verso], condicao, idioma, graduadora?, nota?,
  *          descricao?, lance_inicial_cents, duracao_seg } -> cria no fim da fila
- * DELETE ?lote_id= -> remove (so lote em rascunho de rodada em rascunho)
+ * DELETE ?lote_id= -> remove (so lote em rascunho de rodada em rascunho) e
+ *          apaga do bucket as fotos dele que sejam da pasta leiloes/{lojaId}/
  *
  * ★ A CARTA VEM SO PELO card_id. Nome, numero, set, imagem e slug sao lidos
  *   aqui, por PK, no catalogo (pokemon_cards) -- a tela nunca decide o que o
@@ -129,6 +130,43 @@ export async function POST(req: NextRequest, ctx: Params) {
   }
 }
 
+/**
+ * Apaga do bucket as fotos do lote removido. So o que passa em
+ * caminhoFotoLeilao (mesma validacao de fotoLeilaoValida: pasta
+ * leiloes/{lojaId}/ desta loja, nome {uuid}.ext) vira caminho; o resto e
+ * ignorado. Foto que outro lote da loja ainda usa fica. Qualquer falha so
+ * loga: o lote ja foi removido e a resposta nao muda por causa do arquivo.
+ */
+async function apagarFotos(sb: SupabaseClient, lojaId: string, fotos: unknown) {
+  try {
+    const urls = Array.isArray(fotos) ? fotos.filter((u): u is string => typeof u === 'string') : []
+    const origem = origemSupabase(sb)
+    const alvos: string[] = []
+    for (const url of new Set(urls)) {
+      const caminho = caminhoFotoLeilao(url, origem, lojaId)
+      if (!caminho) continue
+      const { data: emUso, error } = await sb
+        .from('leiloes')
+        .select('id')
+        .eq('loja_id', lojaId)
+        // jsonb: o filtro vai como JSON ("cs.[...]"), nao como array do Postgres.
+        .contains('fotos', JSON.stringify([url]))
+        .limit(1)
+      if (error) {
+        console.error('[lojas/leiloes/lotes DELETE] conferir foto', error.code, error.message)
+        continue
+      }
+      if (emUso && emUso.length > 0) continue
+      alvos.push(caminho)
+    }
+    if (alvos.length === 0) return
+    const { error } = await sb.storage.from('loja-fotos').remove(alvos)
+    if (error) console.error('[lojas/leiloes/lotes DELETE] apagar fotos', alvos.length, error.message)
+  } catch (err) {
+    console.error('[lojas/leiloes/lotes DELETE] apagar fotos erro:', (err as Error)?.message)
+  }
+}
+
 export async function DELETE(req: NextRequest, ctx: Params) {
   try {
     const { id: lojaId, rodadaId } = await ctx.params
@@ -153,12 +191,14 @@ export async function DELETE(req: NextRequest, ctx: Params) {
       .eq('rodada_id', rodadaId)
       .eq('loja_id', lojaId)
       .eq('status', 'rascunho')
-      .select('id')
+      .select('id, fotos')
     if (error) {
       console.error('[lojas/leiloes/lotes DELETE]', error.code, error.message)
       return json(500, { error: 'Erro ao remover o lote.' })
     }
     if (!data || data.length === 0) return json(404, { error: 'Lote não encontrado.' })
+
+    await apagarFotos(c.sb, lojaId, (data[0] as { fotos?: unknown }).fotos)
     return json(200, { ok: true })
   } catch (err) {
     console.error('[lojas/leiloes/lotes DELETE] erro:', (err as Error)?.message)

@@ -364,3 +364,135 @@ export function erroDoPainel(msg: string | null | undefined): { status: number; 
   }
   return { status: 500, mensagem: 'Não foi possível concluir. Tente de novo.' }
 }
+
+// ─── Fotos do lote no storage ───────────────────────────────────────────────
+
+/**
+ * Caminho no bucket `loja-fotos` ("leiloes/{lojaId}/{uuid}.ext") de uma foto
+ * do lote, ou null se a URL nao for exatamente uma foto desta loja no formato
+ * da rota /leiloes/foto. Mesma validacao de `fotoLeilaoValida`: o DELETE do
+ * lote so apaga o que passou nela -- URL de outra pasta, de outra loja ou de
+ * outro host nunca vira caminho.
+ */
+export function caminhoFotoLeilao(url: string, origemSupabase: string, lojaId: string): string | null {
+  if (!fotoLeilaoValida(url, origemSupabase, lojaId)) return null
+  const marca = '/storage/v1/object/public/loja-fotos/'
+  const p = new URL(url).pathname
+  const i = p.indexOf(marca)
+  if (i < 0) return null
+  const caminho = p.slice(i + marca.length)
+  return caminho.startsWith(`leiloes/${lojaId}/`) ? caminho : null
+}
+
+// ─── Ao vivo e resultado da rodada ──────────────────────────────────────────
+
+/** Polling do painel ao vivo: 5s normal, 2s nos ultimos 30s do lote no ar. */
+export const POLL_NORMAL_MS = 5_000
+export const POLL_FINAL_MS = 2_000
+export const JANELA_FINAL_MS = 30_000
+
+/**
+ * Proximo intervalo do polling. `terminaEm` do lote no ar (null = nenhum no
+ * ar). Ja vencido conta como final: o fechamento esta a caminho e a tela quer
+ * ver o proximo lote logo.
+ */
+export function intervaloPolling(terminaEm: string | null | undefined, agoraMs: number = Date.now()): number {
+  const fim = terminaEm ? Date.parse(terminaEm) : NaN
+  if (!Number.isFinite(fim)) return POLL_NORMAL_MS
+  return fim - agoraMs <= JANELA_FINAL_MS ? POLL_FINAL_MS : POLL_NORMAL_MS
+}
+
+export type ResultadoLote =
+  | 'rascunho' | 'na_fila' | 'no_ar' | 'aguardando_pagamento'
+  | 'pago' | 'enviado' | 'entregue' | 'calote' | 'sem_lances' | 'cancelado'
+
+/** Tom visual do resultado (a tela converte em token de cor). */
+export type TomResultado = 'vivo' | 'ok' | 'alerta' | 'perigo' | 'neutro'
+
+export const ROTULO_RESULTADO: Record<ResultadoLote, { label: string; tom: TomResultado }> = {
+  rascunho: { label: 'Rascunho', tom: 'neutro' },
+  na_fila: { label: 'Na fila', tom: 'neutro' },
+  no_ar: { label: 'No ar', tom: 'vivo' },
+  aguardando_pagamento: { label: 'Aguardando pagamento', tom: 'alerta' },
+  pago: { label: 'Pago', tom: 'ok' },
+  enviado: { label: 'Enviado', tom: 'ok' },
+  entregue: { label: 'Entregue', tom: 'ok' },
+  calote: { label: 'Não pago no prazo', tom: 'perigo' },
+  sem_lances: { label: 'Sem lances', tom: 'neutro' },
+  cancelado: { label: 'Cancelado', tom: 'neutro' },
+}
+
+/**
+ * Resultado de um lote para a loja, a partir do status do lote e do status do
+ * pedido que o vendeu (null = sem pedido). Vendido sem pedido legivel conta
+ * como pago: o lote so vira `vendido` pelo webhook, com o pedido pago.
+ */
+export function resultadoDoLote(statusLote: string, statusPedido: string | null | undefined): ResultadoLote {
+  switch (statusLote) {
+    case 'rascunho': return 'rascunho'
+    case 'agendado': return 'na_fila'
+    case 'ativo': return 'no_ar'
+    case 'aguardando_pagamento': return 'aguardando_pagamento'
+    case 'calote': return 'calote'
+    case 'sem_lances': return 'sem_lances'
+    case 'vendido':
+      if (statusPedido === 'enviado') return 'enviado'
+      if (statusPedido === 'entregue') return 'entregue'
+      return 'pago'
+    default: return 'cancelado'
+  }
+}
+
+export interface PedidoResumo {
+  id: string
+  numero: number
+  status: string
+  created_at: string
+  leilao_id: string | null
+}
+
+/**
+ * O pedido que representa o lote: o `pedido_id` gravado no lote (o que pagou)
+ * quando existe; senao o mais recente que nao foi cancelado; senao o mais
+ * recente. Apos calote pode haver mais de um pedido para o mesmo lote.
+ */
+export function pedidoDoLote(
+  loteId: string,
+  pedidoId: string | null | undefined,
+  pedidos: PedidoResumo[],
+): PedidoResumo | null {
+  if (pedidoId) {
+    const p = pedidos.find(x => x.id === pedidoId)
+    if (p) return p
+  }
+  const doLote = pedidos
+    .filter(x => x.leilao_id === loteId)
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+  return doLote.find(x => x.status !== 'cancelado' && x.status !== 'reembolsado') ?? doLote[0] ?? null
+}
+
+/**
+ * Totais da rodada. Arrematado = lotes com vencedor (aguardando pagamento,
+ * vendido e os nao pagos no prazo), pelo preco do martelo. Pago = so os
+ * vendidos. Valores do item, sem frete.
+ */
+export function totaisRodada(lotes: Array<{ status: string; preco_atual_cents: number | null }>): {
+  arrematadoCents: number
+  pagoCents: number
+  nArrematados: number
+  nPagos: number
+} {
+  let arrematadoCents = 0, pagoCents = 0, nArrematados = 0, nPagos = 0
+  for (const l of lotes) {
+    const v = Number.isFinite(l.preco_atual_cents) ? Number(l.preco_atual_cents) : 0
+    if (l.status === 'aguardando_pagamento' || l.status === 'vendido' || l.status === 'calote') {
+      arrematadoCents += v
+      nArrematados++
+    }
+    if (l.status === 'vendido') {
+      pagoCents += v
+      nPagos++
+    }
+  }
+  return { arrematadoCents, pagoCents, nArrematados, nPagos }
+}
