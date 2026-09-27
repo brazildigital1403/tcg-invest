@@ -3,6 +3,7 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { numeroDaRodada, separarLotesRodada, versaoRodada, type EstadoRodada } from '@/lib/leilao-rodada'
 import { lerLotesDaRodada, lerReferenciaMercadoCents, lerRodadaPorNumero } from '@/app/leiloes/_dados'
+import { lerLancesDoLote } from '@/app/leiloes/rodada/_dados-rodada'
 
 /**
  * GET /api/leiloes/rodada/[numero]/estado
@@ -21,7 +22,10 @@ import { lerLotesDaRodada, lerReferenciaMercadoCents, lerRodadaPorNumero } from 
  * PESO: fila e encerrados saem sem `fotos` e sem `lider_apelido` (so a
  * card_image); o lote no ar ganha os dois numa leitura por PK. A referencia
  * do Mercado Brasileiro do lote no ar (aviso de lance alto) e outra leitura
- * por PK em `pokemon_cards`, so para carta sem graduacao.
+ * por PK em `pokemon_cards`, so para carta sem graduacao. O feed de lances
+ * sao os ultimos 8 lances do lote no ar pela view `leilao_lances_publico`
+ * (apelido mascarado, sem user_id), pelo indice (leilao_id, id desc) com
+ * limit: 8 linhas por volta, em paralelo com a referencia.
  *
  * CACHE: 1s na CDN para a resposta 200 (ver `cacheCurto`); o resto sem cache.
  *
@@ -76,7 +80,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ numero: string
     }
 
     const noAr = separarLotesRodada(lotes).ativo
-    const referenciaMercadoCents = noAr ? await lerReferenciaMercadoCents(db, noAr.cardId, noAr.graduadora) : null
+    const [referenciaMercadoCents, lances] = noAr
+      ? await Promise.all([lerReferenciaMercadoCents(db, noAr.cardId, noAr.graduadora), lerLancesDoLote(db, noAr.id)])
+      : [null, null]
 
     const corpo: EstadoRodada = {
       rodada,
@@ -84,6 +90,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ numero: string
       server_now: new Date().toISOString(),
       versao: versaoRodada(rodada.status, lotes),
       referenciaMercadoCents,
+      // null (falha da leitura complementar): o campo fica de fora e a tela
+      // mantem o feed que ja tinha, em vez de apagar.
+      ...(noAr && lances ? { lances, lancesLoteId: noAr.id } : noAr ? {} : { lances: [], lancesLoteId: null }),
     }
     return NextResponse.json(corpo, { headers: cacheCurto })
   } catch (e) {

@@ -23,6 +23,8 @@ import {
   buscarRodadaPorNumero,
   type LojaDoLote,
 } from '../../_dados'
+import { buscarReferenciasFila, buscarReputacaoLoja, lerLancesDoLote } from '../_dados-rodada'
+import { getServiceSupabase } from '@/lib/supabaseServer'
 
 /**
  * /leiloes/rodada/[numero] — pagina publica de uma rodada ao vivo da loja.
@@ -122,9 +124,19 @@ export default async function RodadaPage({ params }: Params) {
   if (!r) notFound()
   if (String(r.numero) !== param) permanentRedirect(urlRodada(r.numero))
 
-  const [loja, lotes] = await Promise.all([buscarLojaDoLote(r.lojaId), buscarLotesDaRodada(r.id)])
+  const [loja, lotes, reputacao] = await Promise.all([
+    buscarLojaDoLote(r.lojaId),
+    buscarLotesDaRodada(r.id),
+    buscarReputacaoLoja(r.lojaId),
+  ])
   const noAr = lotes.find(l => l.status === 'ativo') ?? null
-  const referenciaMercadoCents = noAr ? await buscarReferenciaMercadoCents(noAr.cardId, noAr.graduadora) : null
+  const db = noAr ? getServiceSupabase() : null
+  // Complementares: referencia, feed e Mercado da fila. Falha vira "sem dado".
+  const [referenciaMercadoCents, lances, referenciasFila] = await Promise.all([
+    noAr ? buscarReferenciaMercadoCents(noAr.cardId, noAr.graduadora) : Promise.resolve(null),
+    noAr && db ? lerLancesDoLote(db, noAr.id) : Promise.resolve(null),
+    buscarReferenciasFila(lotes),
+  ])
   const serverNow = new Date().toISOString()
   const estadoInicial: EstadoRodada = {
     rodada: r,
@@ -132,6 +144,8 @@ export default async function RodadaPage({ params }: Params) {
     server_now: serverNow,
     versao: versaoRodada(r.status, lotes),
     referenciaMercadoCents,
+    lances: lances ?? [],
+    lancesLoteId: noAr?.id ?? null,
   }
 
   const titulo = tituloRodada(r)
@@ -173,6 +187,8 @@ export default async function RodadaPage({ params }: Params) {
           estadoInicial={estadoInicial}
           urlRodada={url}
           loja={loja}
+          reputacao={reputacao}
+          referenciasFila={referenciasFila}
           compartilhar={
             <BotaoCompartilhar
               compacto

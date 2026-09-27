@@ -979,6 +979,89 @@ try {
     assert.deepEqual(M.emBlocos(cem).map(b => b.length), [50, 50, 1])
   }, 'meus lances: blocos de 50')
 
+  // ─── Rodada v2: feed, atalhos, regras (src/lib/leilao-rodada.ts) ───
+  const norm = t => String(t).replace(/\s/g, ' ')
+  ok(() => {
+    const linhas = [
+      { id: 7, apelido: 'j***a', valor_cents: 124000, automatico: false, created_at: '2026-09-27T20:00:10Z', user_id: 'x' },
+      { id: 9, apelido: 'm***o', valor_cents: '114000', automatico: true, created_at: '2026-09-27T20:00:05Z' },
+      { id: 'lixo', apelido: 'z', valor_cents: 100 },
+      { id: 3, apelido: null, valor_cents: 0 },
+      { id: 4, apelido: '', valor_cents: 500, automatico: 'sim', created_at: null },
+    ]
+    const f = R.lancesPublicosDeLinhas(linhas)
+    assert.deepEqual(f.map(l => l.id), [9, 7, 4], 'mais novo primeiro, invalidos fora')
+    assert.equal(f[0].valorCents, 114000)
+    assert.equal(f[0].automatico, true)
+    assert.equal(f[2].automatico, false, 'so true literal conta como automatico')
+    assert.equal(f[2].apelido, 'Participante', 'apelido vazio vira neutro')
+    for (const l of f) assert.ok(!('user_id' in l) && !('userId' in l), 'feed nunca carrega user_id')
+    const muitos = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, apelido: 'a', valor_cents: 100 * (i + 1) }))
+    assert.equal(R.lancesPublicosDeLinhas(muitos).length, R.LIMITE_FEED_LANCES)
+    assert.equal(R.LIMITE_FEED_LANCES, 8)
+    assert.deepEqual(R.lancesPublicosDeLinhas(null), [])
+    assert.ok(!R.COLUNAS_LANCE_PUBLICO.includes('user'), 'colunas do feed sem user_id')
+  }, 'rodada: feed de lances (linhas da view)')
+
+  ok(() => {
+    const agora = Date.parse('2026-09-27T20:00:00Z')
+    assert.equal(R.tempoDesde('2026-09-27T20:00:00Z', agora), 'agora')
+    assert.equal(R.tempoDesde('2026-09-27T19:59:48Z', agora), '12s')
+    assert.equal(R.tempoDesde('2026-09-27T19:57:00Z', agora), '3min')
+    assert.equal(R.tempoDesde('2026-09-27T18:00:00Z', agora), '2h')
+    assert.equal(R.tempoDesde('2026-09-25T20:00:00Z', agora), '2d')
+    assert.equal(R.tempoDesde('2026-09-27T20:00:05Z', agora), 'agora', 'relogio adiantado nao vira negativo')
+    assert.equal(R.tempoDesde('', agora), '')
+    assert.equal(R.tempoDesde(null, agora), '')
+  }, 'rodada: tempo desde o lance')
+
+  ok(() => {
+    assert.equal(R.idsNovos(null, [{ id: 1 }, { id: 2 }]).size, 0, 'primeira leitura nao pisca')
+    assert.deepEqual([...R.idsNovos(new Set([1, 2]), [{ id: 3 }, { id: 2 }, { id: 1 }])], [3])
+    assert.equal(R.idsNovos(new Set([1]), [{ id: 1 }]).size, 0)
+    assert.equal(R.inicialApelido('j***a'), 'J')
+    assert.equal(R.inicialApelido('  élio'), 'É')
+    assert.equal(R.inicialApelido(''), '?')
+    assert.equal(R.inicialApelido(null), '?')
+  }, 'rodada: linha nova e inicial do apelido')
+
+  ok(() => {
+    // Com lance: +1 degrau = minimo; +2 = minimo + incremento da faixa dele.
+    const a = R.atalhosLance({ lanceInicialCents: 50000, precoAtualCents: 124000, nLances: 14 })
+    assert.deepEqual(a.map(x => x.valorCents), [134000, 144000])
+    assert.equal(a[0].valorCents, L.minimoProximoCents({ lanceInicialCents: 50000, precoAtualCents: 124000, nLances: 14 }))
+    assert.equal(norm(a[0].rotulo), '+ R$ 100,00')
+    assert.equal(norm(a[1].rotulo), '+ R$ 200,00')
+    // Fronteira de faixa: 1900 + 100 = 2000, que ja sobe de faixa (+200).
+    assert.deepEqual(R.atalhosLance({ lanceInicialCents: 1000, precoAtualCents: 1900, nLances: 2 }).map(x => x.valorCents), [2000, 2200])
+    // Sem lance: o inicial e o inicial + incremento, rotulo com o valor cheio.
+    const b = R.atalhosLance({ lanceInicialCents: 15000, precoAtualCents: null, nLances: 0 })
+    assert.deepEqual(b.map(x => x.valorCents), [15000, 16000])
+    assert.equal(norm(b[0].rotulo), 'R$ 150,00')
+  }, 'rodada: atalhos +1 e +2 degraus')
+
+  ok(() => {
+    assert.equal(R.PRAZO_PAGAMENTO_HORAS, 48)
+    const sql = readFileSync(join(raiz, 'supabase/migrations/20260928090000_leilao_motor.sql'), 'utf8')
+    assert.ok(sql.includes(`pagar_ate = now() + interval '${R.PRAZO_PAGAMENTO_HORAS} hours'`), 'prazo espelha o SQL')
+    assert.equal(R.textoProrrogacao(10, 0), 'Lance nos últimos 10s volta o relógio para 10s')
+    assert.equal(R.textoProrrogacao(10, 1), 'Lance nos últimos 10s volta o relógio para 10s · prorrogado 1 vez')
+    assert.equal(R.textoProrrogacao(10, 2), 'Lance nos últimos 10s volta o relógio para 10s · prorrogado 2 vezes')
+    assert.equal(R.textoProrrogacao(0, 3), null, 'sem soft close a linha some')
+    assert.equal(R.textoAvaliacao(4.94, 32), '4,9 de 5 · 32 avaliações')
+    assert.equal(R.textoAvaliacao(5, 1), '5,0 de 5 · 1 avaliação')
+    assert.equal(R.textoAvaliacao(null, 0), null, 'sem avaliacao: a tela diz loja nova')
+    assert.equal(R.textoAvaliacao(4, 0), null)
+  }, 'rodada: prazo, prorrogacao e avaliacao')
+
+  ok(() => {
+    assert.equal(norm(R.rodapeResultado({ status: 'vendido', precoAtualCents: 38000, nLances: 9 }).texto), 'Arrematado R$ 380,00 · 9 lances')
+    assert.equal(norm(R.rodapeResultado({ status: 'aguardando_pagamento', precoAtualCents: 1500, nLances: 1 }).texto), 'Arrematado R$ 15,00 · 1 lance')
+    assert.deepEqual(R.rodapeResultado({ status: 'sem_lances', precoAtualCents: null, nLances: 0 }), { tipo: 'sem_lances', texto: 'Sem lances' })
+    assert.equal(R.rodapeResultado({ status: 'cancelado', precoAtualCents: null, nLances: 0 }).texto, 'Cancelado')
+    assert.equal(R.rodapeResultado({ status: 'ativo', precoAtualCents: 100, nLances: 1 }), null)
+  }, 'rodada: rodape dos resultados')
+
   console.log(`\n${n} blocos ok`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

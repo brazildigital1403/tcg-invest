@@ -19,6 +19,7 @@ import {
 } from '@/lib/leilao'
 import { calcularArremate } from '@/lib/leilao-taxas'
 import { urlPagar } from '@/lib/leilao-urls'
+import { atalhosLance, textoProrrogacao } from '@/lib/leilao-rodada'
 
 /**
  * Ilha ao vivo da pagina do lote: preco, relogio, faixa de lideranca, CTA e a
@@ -60,9 +61,11 @@ import { urlPagar } from '@/lib/leilao-urls'
  * VISUAL (casca do Bynx Leiloes, mockup aprovado em 27/09/2026): lance atual
  * grande em DM Sans 800 com numeros tabulares, relogio em ANEL (traco no
  * acento; vermelho nos ultimos 10s) e o CTA fixo no fim da tela no celular.
- * `variante="rodada"` (tela heroi da live) usa o preco maior e ganha o botao
- * "+ incremento", que so abre a folha ja no proximo degrau: nenhum lance sai
- * sem o Confirmar.
+ * `variante="rodada"` (tela heroi da live) usa o preco maior e ganha os
+ * atalhos "+1 degrau" e "+2 degraus" (atalhosLance): no desktop os dois acima
+ * do CTA, no celular o "+2 degraus" ao lado do CTA fixo. Eles so ABREM a folha
+ * ja preenchida: nenhum lance sai sem o Confirmar. A linha da prorrogacao
+ * (soft close) fica sempre visivel enquanto o lote esta aberto.
  */
 
 const INTERVALO_NORMAL_MS = 10_000
@@ -349,6 +352,7 @@ export default function LanceAoVivo({
   // ── Derivados ───────────────────────────────────────────────────────────
   const precoCents = lote.nLances > 0 && lote.precoAtualCents != null ? lote.precoAtualCents : lote.lanceInicialCents
   const minimo = minimoProximoCents(lote)
+  const atalhos = atalhosLance(lote)
   const chipsRapidos = useMemo(() => {
     const a = minimo
     const b = a + incrementoCents(a)
@@ -622,7 +626,7 @@ export default function LanceAoVivo({
   } else if (!online) {
     cta = <div style={S.ctaInfo}>Sem conexão. O lance fica disponível quando a internet voltar.</div>
   } else {
-    const degrau = chipsRapidos[1]
+    const dois = atalhos[1]
     cta = (
       <div style={S.ctaLinha}>
         <button ref={ctaRef} type="button" onClick={() => abrirFolha()} disabled={logado === null} className="lv-cta-btn" style={S.ctaBtn}>
@@ -631,19 +635,23 @@ export default function LanceAoVivo({
         {variante === 'rodada' && (
           <button
             type="button"
-            onClick={() => abrirFolha(degrau)}
+            onClick={() => abrirFolha(dois.valorCents)}
             disabled={logado === null}
-            className="lv-cta-btn lv-cta-mais"
+            className="lv-cta-btn lv-cta-mais lv-so-celular"
             style={S.ctaMais}
             // O botao so ABRE a folha ja preenchida com o valor; quem confirma e a folha.
-            aria-label={`Abrir lance em ${formatarBRL(degrau)}`}
+            aria-label={`Abrir lance em ${formatarBRL(dois.valorCents)}`}
           >
-            + {formatarBRL(degrau - minimo)}
+            {dois.rotulo}
           </button>
         )}
       </div>
     )
   }
+  // Atalhos do desktop: mesmo estado em que o CTA e "Dar lance".
+  const mostrarAtalhos =
+    variante === 'rodada' && aberto && !devePagar && !conferindo && !proprio && logado !== false && online
+  const prorrogacaoRodada = variante === 'rodada' && (aberto || conferindo) ? textoProrrogacao(lote.softCloseSeg, lote.prorrogacoes) : null
 
   return (
     <section aria-label="Lance ao vivo" style={S.bloco}>
@@ -654,6 +662,16 @@ export default function LanceAoVivo({
         .lv-cta-btn:disabled { opacity: 0.6; cursor: default; }
         .lv-cta-mais:hover:not(:disabled) { filter: none; background: var(--bx-surface-2); }
         .lv-cta-fixo { margin-top: 16px; }
+        .lv-rapidos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .lv-rapidos + .lv-cta-fixo { margin-top: 0; }
+        .lv-rapido { transition: background 0.15s ease, border-color 0.15s ease; }
+        .lv-rapido:hover:not(:disabled) { background: var(--bx-surface-2); border-color: var(--ac-1); }
+        .lv-rapido:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
+        .lv-so-celular { display: none; }
+        @media (max-width: 768px) {
+          .lv-rapidos { display: none; }
+          .lv-so-celular { display: inline-flex; align-items: center; justify-content: center; }
+        }
         @media (max-width: 768px) {
           /* Casca do Bynx Leiloes: sem bottom nav. O CTA encosta no fim da tela
              e a safe area (barra do iPhone) entra no padding, com o fundo por
@@ -715,7 +733,7 @@ export default function LanceAoVivo({
           <span style={{ ...S.status, ...(st === 'arrematado' ? S.statusFeito : null) }}>{ROTULO_STATUS[st]}</span>
         )}
       </div>
-      {lote.prorrogacoes > 0 && aberto && (
+      {variante !== 'rodada' && lote.prorrogacoes > 0 && aberto && (
         <p style={S.nota}>
           Prorrogado {lote.prorrogacoes === 1 ? '1 vez' : `${lote.prorrogacoes} vezes`}: lance nos últimos {lote.softCloseSeg}s
           estende o fim.
@@ -759,7 +777,25 @@ export default function LanceAoVivo({
         </div>
       )}
 
+      {mostrarAtalhos && (
+        <div className="lv-rapidos">
+          {atalhos.map(a => (
+            <button
+              key={a.valorCents}
+              type="button"
+              onClick={() => abrirFolha(a.valorCents)}
+              disabled={logado === null}
+              className="lv-rapido"
+              style={S.rapido}
+              aria-label={`Abrir lance em ${formatarBRL(a.valorCents)}`}
+            >
+              {a.rotulo}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="lv-cta-fixo">{cta}</div>
+      {prorrogacaoRodada && <p style={S.prorrogacao}>{prorrogacaoRodada}</p>}
 
       <p style={S.protecao}>
         <IconShield size={14} />
@@ -947,6 +983,11 @@ const S: Record<string, CSSProperties> = {
   faixaGanhando: { color: 'var(--bx-green)', borderColor: 'var(--bx-green)' },
   faixaSuperado: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)' },
   ctaLinha: { display: 'flex', gap: 8 },
+  rapido: {
+    minHeight: 44, borderRadius: 12, border: '1px solid var(--bx-border-2)', background: 'transparent', color: 'var(--bx-text)',
+    fontFamily: 'inherit', fontSize: 14, fontWeight: 800, fontVariantNumeric: 'tabular-nums', cursor: 'pointer', whiteSpace: 'nowrap',
+  },
+  prorrogacao: { fontSize: 12, color: 'var(--bx-text-3)', margin: 0, lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' },
   ctaMais: {
     flexShrink: 0, minWidth: 84, minHeight: 48, padding: '0 12px', borderRadius: 12, cursor: 'pointer',
     background: 'transparent', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)',

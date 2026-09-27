@@ -8,7 +8,7 @@
  * em rascunho e o link que a loja divulga na live nao pode mudar.
  */
 
-import { formatarBRL, lotePublicoDeLinha, type LotePublico } from './leilao'
+import { formatarBRL, incrementoCents, lotePublicoDeLinha, minimoProximoCents, type LotePublico } from './leilao'
 
 export type StatusRodada = 'rascunho' | 'agendada' | 'ao_vivo' | 'encerrada' | 'cancelada'
 
@@ -37,6 +37,13 @@ export interface EstadoRodada {
    * o aviso de lance alto. null sem lote no ar, carta graduada ou sem preco.
    */
   referenciaMercadoCents?: number | null
+  /**
+   * Ultimos lances do lote NO AR (mais novo primeiro, ate LIMITE_FEED_LANCES),
+   * da view `leilao_lances_publico`: apelido mascarado, nunca user_id.
+   * `lancesLoteId` diz de qual lote sao (a tela ignora se o lote no ar mudou).
+   */
+  lances?: LancePublico[]
+  lancesLoteId?: string | null
 }
 
 /** Colunas lidas de `leilao_rodadas`. ★ Nunca incluir vendedor_user_id. */
@@ -249,4 +256,142 @@ export function intervaloPollRodada(
   const fim = terminaEmAtivo ? Date.parse(terminaEmAtivo) : NaN
   if (Number.isFinite(fim) && fim - agoraMs <= JANELA_FINAL_RODADA_MS) return POLL_RODADA_FINAL_MS
   return POLL_RODADA_AO_VIVO_MS
+}
+
+// ─── Feed de lances do lote no ar ───────────────────────────────────────────
+
+/** Uma linha de `leilao_lances_publico`. ★ Sem user_id: so o apelido mascarado. */
+export interface LancePublico {
+  id: number
+  /** Ja mascarado pela view ("j***a"). */
+  apelido: string
+  valorCents: number
+  /** true = lance do teto oculto (o servidor cobriu sozinho). */
+  automatico: boolean
+  createdAt: string
+}
+
+/**
+ * Colunas lidas de `leilao_lances_publico` para o feed. ★ Nunca user_id (a view
+ * nem tem) nem leilao_id (o feed ja e de um lote so).
+ */
+export const COLUNAS_LANCE_PUBLICO = 'id, apelido, valor_cents, automatico, created_at'
+
+/** Quantos lances do lote no ar vao no payload da rodada (leitura pelo indice (leilao_id, id desc)). */
+export const LIMITE_FEED_LANCES = 8
+
+/** Linhas da view -> feed, mais novo primeiro. Linha sem id ou valor fica de fora. */
+export function lancesPublicosDeLinhas(linhas: unknown[] | null | undefined): LancePublico[] {
+  const out: LancePublico[] = []
+  for (const x of linhas ?? []) {
+    const r = (x ?? {}) as Linha
+    const id = Number(r.id)
+    const valor = Number(r.valor_cents)
+    if (!Number.isSafeInteger(id) || !Number.isFinite(valor) || valor <= 0) continue
+    out.push({
+      id,
+      apelido: str(r.apelido) ?? 'Participante',
+      valorCents: Math.round(valor),
+      automatico: r.automatico === true,
+      createdAt: str(r.created_at) ?? '',
+    })
+  }
+  return out.sort((a, b) => b.id - a.id).slice(0, LIMITE_FEED_LANCES)
+}
+
+/**
+ * Ha quanto tempo, curto, para a coluna do feed: "agora", "12s", "3min",
+ * "2h", "1d". Pelo relogio do SERVIDOR (agoraMs ja corrigido). Vazio se a
+ * data nao for legivel.
+ */
+export function tempoDesde(iso: string | null | undefined, agoraMs: number): string {
+  const t = iso ? Date.parse(iso) : NaN
+  if (!Number.isFinite(t) || !Number.isFinite(agoraMs)) return ''
+  const s = Math.max(0, Math.floor((agoraMs - t) / 1000))
+  if (s < 1) return 'agora'
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h`
+  return `${Math.floor(h / 24)}d`
+}
+
+/**
+ * Ids que chegaram nesta leitura e nao estavam na anterior (para destacar a
+ * linha nova). Primeira leitura (`anteriores` null) nao destaca nada: quem
+ * acabou de abrir a pagina nao ve o feed inteiro piscar.
+ */
+export function idsNovos(anteriores: ReadonlySet<number> | null, lances: ReadonlyArray<Pick<LancePublico, 'id'>>): Set<number> {
+  const novos = new Set<number>()
+  if (!anteriores) return novos
+  for (const l of lances) if (!anteriores.has(l.id)) novos.add(l.id)
+  return novos
+}
+
+/** Inicial do avatar do feed ("j***a" -> "J"). */
+export function inicialApelido(apelido: string | null | undefined): string {
+  const c = (apelido ?? '').trim().charAt(0)
+  return c ? c.toLocaleUpperCase('pt-BR') : '?'
+}
+
+// ─── Atalhos de lance e regras ──────────────────────────────────────────────
+
+/**
+ * Os dois atalhos de lance da rodada: +1 e +2 degraus da tabela de
+ * incrementos (a mesma do SQL). O 1o e o minimo aceito agora; o 2o, o minimo
+ * + o incremento da faixa dele. Rotulo relativo ao lance atual ("+ R$ 100")
+ * quando ja ha lance; sem lance, o valor cheio ("R$ 150,00"), porque "+ R$ 0"
+ * nao diz nada. So ABREM a folha preenchida: nenhum lance sai sem o Confirmar.
+ */
+export function atalhosLance(
+  lote: Pick<LotePublico, 'lanceInicialCents' | 'precoAtualCents' | 'nLances'>
+): Array<{ valorCents: number; rotulo: string }> {
+  const d1 = minimoProximoCents(lote)
+  const d2 = d1 + incrementoCents(d1)
+  const comLance = lote.nLances > 0 && lote.precoAtualCents != null
+  const base = comLance ? (lote.precoAtualCents as number) : 0
+  return [d1, d2].map(v => ({
+    valorCents: v,
+    rotulo: comLance ? `+ ${formatarBRL(v - base)}` : formatarBRL(v),
+  }))
+}
+
+/**
+ * ★ Prazo para pagar o arremate, em horas. ESPELHO de `pagar_ate = now() +
+ * interval '48 hours'` em leilao_fechar_lote (20260928090000_leilao_motor.sql).
+ * Mudou la, muda aqui no mesmo commit.
+ */
+export const PRAZO_PAGAMENTO_HORAS = 48
+
+/**
+ * Linha da prorrogacao na rodada. O SQL empurra o fim para `agora +
+ * soft_close_seg` (nao soma ao que falta): "volta o relogio para 10s".
+ * Sem soft close (0), null: a linha some.
+ */
+export function textoProrrogacao(softCloseSeg: number, prorrogacoes: number): string | null {
+  if (!Number.isFinite(softCloseSeg) || softCloseSeg <= 0) return null
+  const base = `Lance nos últimos ${softCloseSeg}s volta o relógio para ${softCloseSeg}s`
+  if (!Number.isFinite(prorrogacoes) || prorrogacoes <= 0) return base
+  return `${base} · prorrogado ${prorrogacoes === 1 ? '1 vez' : `${prorrogacoes} vezes`}`
+}
+
+/** "4,9 de 5 · 32 avaliações" / null sem avaliacao (a tela mostra "Loja nova na Bynx"). */
+export function textoAvaliacao(media: number | null | undefined, total: number | null | undefined): string | null {
+  if (!total || total <= 0 || media == null || !Number.isFinite(media)) return null
+  const m = (Math.round(media * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return `${m} de 5 · ${total} ${total === 1 ? 'avaliação' : 'avaliações'}`
+}
+
+/** "Arrematado R$ 380,00 · 9 lances" / "Sem lances" / "Cancelado". null se nao fechou. */
+export function rodapeResultado(
+  l: Pick<LotePublico, 'status' | 'precoAtualCents' | 'nLances'>
+): { tipo: TipoResultado; texto: string } | null {
+  const r = resultadoLoteRodada(l)
+  if (!r) return null
+  if (r.tipo !== 'arrematado') return r
+  const partes = ['Arrematado']
+  if (l.precoAtualCents != null && l.nLances > 0) partes[0] = `Arrematado ${formatarBRL(l.precoAtualCents)}`
+  if (l.nLances > 0) partes.push(l.nLances === 1 ? '1 lance' : `${l.nLances} lances`)
+  return { tipo: 'arrematado', texto: partes.join(' · ') }
 }
