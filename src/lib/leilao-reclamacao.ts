@@ -30,7 +30,7 @@ export type MotivoReclamacao = keyof typeof MOTIVOS
 export const LISTA_MOTIVOS = Object.keys(MOTIVOS) as MotivoReclamacao[]
 
 export function ehMotivo(v: unknown): v is MotivoReclamacao {
-  return typeof v === 'string' && v in MOTIVOS
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(MOTIVOS, v)
 }
 /** Nos tres motivos de "chegou, mas", as fotos frente/verso/embalagem sao obrigatorias. */
 export function motivoExigeFoto(m: MotivoReclamacao): boolean {
@@ -64,6 +64,9 @@ export const RESPOSTAS_LOJA: Record<RespostaLoja, string> = {
   aceitar: 'Aceito o estorno',
   contraproposta: 'Proponho um acordo',
   provas: 'Envio minhas provas',
+}
+export function ehRespostaLoja(v: unknown): v is RespostaLoja {
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(RESPOSTAS_LOJA, v)
 }
 
 export const DIAS_UTEIS_ENVIO = 3
