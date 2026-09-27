@@ -11,8 +11,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { requireAdmin } from '@/lib/admin-auth'
-import { numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio } from '@/lib/servicos'
-import { sendServicoClienteEmail } from '@/lib/email'
+import {
+  numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio,
+  ESCALA, PILARES, CAMPOS_LAUDO, FOTOS_SAIDA, type FichaCondicao,
+} from '@/lib/servicos'
+import { sendServicoClienteEmail, sendServicoProntaEmail, SERVICO_PRONTA_DETALHE, type ServicoProntaItem } from '@/lib/email'
 
 export const BUCKET_SERVICOS = 'servico-midias'
 export const FOTO_MAX_BYTES = 10 * 1024 * 1024
@@ -212,14 +215,7 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         cta: { rotulo: 'Ver e decidir a proposta', href: link },
       })
     } else if (etapa === 'pronta') {
-      await sendServicoClienteEmail({
-        ...base, assunto: `Sua carta está pronta: pedido ${numero}`, selo: 'Pronta', titulo: 'Trabalho concluído',
-        paragrafos: [
-          'A carta saiu da bancada. As fotos de saída, na mesma luz da entrada, e o laudo estão no pedido.',
-          'Ela segue para a embalagem e o envio. Você recebe o rastreio assim que for postada.',
-        ],
-        cta,
-      })
+      await enviarEmailPronta(sb, solicitacaoId, { ...base, numero, servico, link })
     } else if (etapa === 'enviada') {
       await sendServicoClienteEmail({
         ...base, assunto: `Sua carta foi enviada: pedido ${numero}`, selo: 'A caminho', titulo: 'Sua carta está a caminho',
@@ -233,6 +229,149 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
   } catch (e) {
     console.error('[servicos] email cliente', etapa, e instanceof Error ? e.message : e)
   }
+}
+
+// ── E-mail "Carta pronta" ────────────────────────────────────────────────────
+//
+// Monta o e-mail ilustrado (antes e depois, galeria, condicao, procedimentos,
+// laudo). As fotos saem do bucket PRIVADO por link assinado de longa duracao:
+// e-mail fica na caixa por meses, e link de 10 min (o da pagina) morreria
+// antes da pessoa abrir. Expirado, a imagem some e sobra o `alt`; as fotos
+// continuam na pagina do pedido, com link novo a cada visita.
+
+/** Validade dos links assinados das fotos do e-mail "pronta". */
+export const VALIDADE_FOTOS_EMAIL_DIAS = 30
+
+/**
+ * O fluxo de pagamento ainda nao foi decidido. Enquanto for false, o e-mail
+ * mostra "Ver o resultado completo" mesmo com pedido nao pago. Ligar quando a
+ * pagina do pedido tiver o botao de pagar: dai o CTA vira "Pagar R$ X e
+ * liberar o envio" (total_cents, so se pago_em for nulo).
+ */
+const PRONTA_COBRA_NO_EMAIL = false
+
+const ROTULO_ESCALA = new Map<string, string>(ESCALA.map(e => [e.id, e.rotulo]))
+const ORDEM_ESCALA = new Map<string, number>(ESCALA.map((e, i) => [e.id, i]))
+const LAUDO_NO_EMAIL = ['faixa_nota', 'graduadora', 'centralizacao_frente', 'centralizacao_verso', 'proximo_passo'] as const
+
+/**
+ * Imagem publica do catalogo. `servico_itens.card_id` guarda o SLUG (o
+ * formulario grava o slug), mas aceita o id tambem, igual a pagina /carta.
+ * Consulta pontual pelos indices unicos (slug e pkey), nunca varredura.
+ */
+async function imagemDoCatalogo(sb: SupabaseClient, cardId: string | null): Promise<string | null> {
+  if (!cardId) return null
+  try {
+    const pega = (r: { data: { image_large: string | null; image_small: string | null }[] | null }) =>
+      r.data?.[0] ? r.data[0].image_large || r.data[0].image_small || null : null
+    const porSlug = pega(await sb.from('pokemon_cards').select('image_large, image_small').eq('slug', cardId).limit(1))
+    if (porSlug) return porSlug
+    return pega(await sb.from('pokemon_cards').select('image_large, image_small').eq('id', cardId).limit(1))
+  } catch {
+    return null
+  }
+}
+
+function condicaoDoItem(entrada: FichaCondicao | null, saida: FichaCondicao | null): ServicoProntaItem['condicao'] {
+  if (!entrada && !saida) return []
+  const linhas: NonNullable<ServicoProntaItem['condicao']> = []
+  for (const lado of ['frente', 'verso'] as const) {
+    for (const p of PILARES) {
+      const a = entrada?.[lado]?.[p.id] || null
+      const b = saida?.[lado]?.[p.id] || null
+      if (!a && !b) continue
+      linhas.push({
+        lado: lado === 'frente' ? 'Frente' : 'Verso',
+        pilar: p.rotulo,
+        chegada: a ? ROTULO_ESCALA.get(a) || null : null,
+        saida: b ? ROTULO_ESCALA.get(b) || null : null,
+        melhorou: !!(a && b && (ORDEM_ESCALA.get(b) ?? 99) < (ORDEM_ESCALA.get(a) ?? 99)),
+      })
+    }
+  }
+  return linhas
+}
+
+async function enviarEmailPronta(
+  sb: SupabaseClient,
+  solicitacaoId: string,
+  ctx: { to: string; nome?: string | null; numero: string; servico: string; link: string },
+) {
+  const [{ data: sols }, { data: itens }, { data: midias }, { data: procs }] = await Promise.all([
+    sb.from('servico_solicitacoes').select('total_cents, pago_em').eq('id', solicitacaoId).limit(1),
+    sb.from('servico_itens').select('id, nome, card_id, custodia, aceito, laudo, ficha_entrada, ficha_saida')
+      .eq('solicitacao_id', solicitacaoId).order('created_at'),
+    sb.from('servico_midias').select('item_id, tipo, posicao, path')
+      .eq('solicitacao_id', solicitacaoId).in('tipo', ['entrada_difusa', 'saida_difusa', 'saida_canto']).order('created_at'),
+    sb.from('servico_procedimentos').select('item_id, ordem, problema, procedimento')
+      .eq('solicitacao_id', solicitacaoId).eq('decisao', 'aprovado').order('ordem'),
+  ])
+  const sol = sols?.[0]
+  const aceitas = (itens || []).filter(i => i.aceito !== false)
+  if (!aceitas.length) return
+  const detalhe = aceitas.slice(0, SERVICO_PRONTA_DETALHE)
+
+  // Ultima midia de cada slot (se o admin refez a foto, vale a mais nova).
+  const midiaPor = new Map<string, string>()
+  for (const m of midias || []) midiaPor.set(`${m.item_id}:${m.tipo}:${m.posicao || ''}`, m.path)
+
+  // Galeria: protocolo de saida, sem a frente difusa (ela ja esta no depois).
+  const slotsGaleria = FOTOS_SAIDA.filter(s => !(s.tipo === 'saida_difusa' && s.posicao === 'frente'))
+  const plano = detalhe.map(it => {
+    const antes = midiaPor.get(`${it.id}:entrada_difusa:frente`) || null
+    const depois = midiaPor.get(`${it.id}:saida_difusa:frente`) || null
+    const galeria = slotsGaleria
+      .map(s => ({ path: midiaPor.get(`${it.id}:${s.tipo}:${s.posicao}`), legenda: s.rotulo }))
+      .filter((g): g is { path: string; legenda: string } => !!g.path)
+      .slice(0, 4)
+    return { it, antes, depois, galeria }
+  })
+
+  // Um so pedido de assinatura para tudo o que vai no e-mail.
+  const paths = plano.flatMap(x => [x.antes, x.depois, ...x.galeria.map(g => g.path)]).filter((v): v is string => !!v)
+  const urlPor = new Map<string, string>()
+  if (paths.length) {
+    const { data: assinadas, error } = await sb.storage.from(BUCKET_SERVICOS)
+      .createSignedUrls(paths, VALIDADE_FOTOS_EMAIL_DIAS * 24 * 60 * 60)
+    if (error) console.error('[servicos] email pronta: assinatura', error.message)
+    for (const a of assinadas || []) if (a.path && a.signedUrl) urlPor.set(a.path, a.signedUrl)
+  }
+  const url = (path: string | null) => (path ? urlPor.get(path) || null : null)
+
+  const imagens = await Promise.all(detalhe.map(it => imagemDoCatalogo(sb, it.card_id)))
+
+  const itensEmail: ServicoProntaItem[] = aceitas.map((it, i) => {
+    const x = plano[i]
+    if (!x) return { nome: it.nome, custodia: it.custodia }
+    const laudo = (it.laudo && typeof it.laudo === 'object' ? it.laudo : {}) as Record<string, unknown>
+    return {
+      nome: it.nome,
+      custodia: it.custodia,
+      imagemCatalogo: imagens[i],
+      fotoAntes: url(x.antes),
+      fotoDepois: url(x.depois),
+      galeria: x.galeria.map(g => ({ url: url(g.path), legenda: g.legenda }))
+        .filter((g): g is { url: string; legenda: string } => !!g.url),
+      condicao: condicaoDoItem(it.ficha_entrada as FichaCondicao | null, it.ficha_saida as FichaCondicao | null),
+      procedimentos: (procs || []).filter(pr => pr.item_id === it.id)
+        .map(pr => ({ feito: pr.procedimento, motivo: pr.problema })),
+      laudo: LAUDO_NO_EMAIL
+        .map(k => ({ rotulo: CAMPOS_LAUDO.find(c => c.k === k)?.rotulo || k, valor: typeof laudo[k] === 'string' ? (laudo[k] as string).trim() : '' }))
+        .filter(l => l.valor),
+    }
+  })
+
+  const cobrar = PRONTA_COBRA_NO_EMAIL && sol && !sol.pago_em && (sol.total_cents || 0) > 0
+  await sendServicoProntaEmail({
+    to: ctx.to,
+    nome: ctx.nome,
+    numero: ctx.numero,
+    servico: ctx.servico,
+    pedidoUrl: ctx.link,
+    valorAPagarCents: cobrar ? sol.total_cents : null,
+    validadeFotosDias: VALIDADE_FOTOS_EMAIL_DIAS,
+    itens: itensEmail,
+  })
 }
 
 /** Aviso interno ao admin (ex.: cliente decidiu a proposta). Nunca derruba a rota. */

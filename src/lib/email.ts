@@ -677,6 +677,303 @@ export async function sendServicoClienteEmail(args: {
   return enviar({ from: FROM, to: args.to, subject: subjUser(args.assunto), html })
 }
 
+// ── SERVIÇOS — "Carta pronta" (o momento do resultado) ───────────────────────
+//
+// ★ O e-mail mais importante do servico: a pessoa confiou a carta e agora ve o
+// resultado. Por isso ele foge do modelo generico acima: hero com a carta do
+// catalogo, antes e depois na mesma luz, galeria de saida, condicao pilar a
+// pilar (escala textual, NUNCA numero: numero parece nota de graduadora),
+// procedimentos feitos, laudo resumido e custodia.
+//
+// ★ As fotos vem do bucket PRIVADO por link assinado de longa duracao (quem
+// monta e o servicosServer). Quando o link expira, a imagem some e sobra o
+// `alt`, por isso todo `alt` e todo rodape lembram que as fotos tambem ficam
+// na pagina do pedido.
+//
+// ★ Gmail corta o e-mail acima de ~102 KB de HTML. Detalhe completo so nas
+// primeiras SERVICO_PRONTA_DETALHE cartas; as demais viram lista curta.
+
+export const SERVICO_PRONTA_DETALHE = 3
+
+export interface ServicoProntaItem {
+  nome: string
+  custodia?: string | null
+  /** Imagem publica do catalogo (pokemontcg.io ou equivalente). */
+  imagemCatalogo?: string | null
+  /** Entrada difusa, frente. */
+  fotoAntes?: string | null
+  /** Saida difusa, frente (mesma luz da entrada). */
+  fotoDepois?: string | null
+  /** Ate 4 fotos finais, sem repetir a frente de saida. */
+  galeria?: { url: string; legenda: string }[]
+  /** Condicao pilar a pilar. Rotulos ja na escala textual. */
+  condicao?: { lado: string; pilar: string; chegada?: string | null; saida?: string | null; melhorou?: boolean }[]
+  /** Procedimentos aprovados, ou seja, o que foi feito. */
+  procedimentos?: { feito: string; motivo?: string | null }[]
+  /** Laudo resumido (rotulo e valor). */
+  laudo?: { rotulo: string; valor: string }[]
+}
+
+export interface ServicoProntaArgs {
+  to: string
+  nome?: string | null
+  /** #S-0001 */
+  numero: string
+  /** Nome do servico (Restauração, Pré-grading...). */
+  servico: string
+  /** `${APP}/servico/{id}` */
+  pedidoUrl: string
+  /** Quando vier (> 0), o CTA vira "Pagar R$ X e liberar o envio". */
+  valorAPagarCents?: number | null
+  /** Validade dos links assinados das fotos, so para o texto do rodape. */
+  validadeFotosDias?: number
+  itens: ServicoProntaItem[]
+}
+
+/** Nome curto da carta: "Umbreon VMAX · Evolving Skies" vira "Umbreon VMAX". */
+function nomeCurtoCarta(nome: string): string {
+  return (nome || '').split(' · ')[0].trim() || 'sua carta'
+}
+
+function imgServico(src: string, alt: string, width: number, radius = 10): string {
+  return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${width}" style="display:block;max-width:100%;height:auto;border:0;border-radius:${radius}px;margin:0 auto;font-size:12px;line-height:1.4;color:#9ca3af;${FONT}"/>`
+}
+
+function rotuloSecao(texto: string): string {
+  return `<p style="margin:28px 0 10px;font-size:11px;font-weight:800;color:#f59e0b;letter-spacing:0.08em;text-transform:uppercase;${FONT}">${escapeHtml(texto)}</p>`
+}
+
+/** Moldura dourada da carta no hero. Sem imagem, desenha uma carta em HTML. */
+function cartaHero(item: ServicoProntaItem, width: number, fluido = false): string {
+  const nome = nomeCurtoCarta(item.nome)
+  const src = item.imagemCatalogo || item.fotoDepois || null
+  const miolo = src
+    ? imgServico(src, `${nome}${item.imagemCatalogo ? '' : ', foto de saída'}`, width, 10)
+    : `<table role="presentation" width="${fluido ? '100%' : width}" cellpadding="0" cellspacing="0" border="0" bgcolor="#0d0f14" style="background-color:#0d0f14;border-radius:10px;">
+        <tr><td height="${Math.round(width * 1.39)}" align="center" valign="middle" style="padding:${fluido ? 10 : 16}px;${FONT}">
+          <p style="margin:0 0 10px;font-size:10px;font-weight:800;letter-spacing:0.12em;color:#f59e0b;text-transform:uppercase;${FONT}">Bancada Bynx</p>
+          <p style="margin:0;font-size:${fluido ? 13 : 16}px;font-weight:800;line-height:1.3;color:#f0f0f0;${FONT}">${escapeHtml(nome)}</p>
+          ${item.custodia ? `<p style="margin:10px 0 0;font-size:11px;color:#9ca3af;${FONT}">${escapeHtml(item.custodia)}</p>` : ''}
+        </td></tr>
+      </table>`
+  return `<table role="presentation"${fluido ? ' width="100%"' : ''} cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
+    <tr><td bgcolor="#f59e0b" style="background-color:#f59e0b;background-image:linear-gradient(135deg,#f59e0b,#ef4444);padding:4px;border-radius:14px;">${miolo}</td></tr>
+  </table>`
+}
+
+function duasColunas(esq: string, dir: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td width="50%" valign="top" style="padding-right:6px;">${esq}</td>
+      <td width="50%" valign="top" style="padding-left:6px;">${dir}</td>
+    </tr>
+  </table>`
+}
+
+function legendaFoto(texto: string, cor = '#9ca3af'): string {
+  return `<p style="margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:${cor};${FONT}">${escapeHtml(texto)}</p>`
+}
+
+function blocoItemPronto(item: ServicoProntaItem, varias: boolean): string {
+  const nome = nomeCurtoCarta(item.nome)
+  const partes: string[] = []
+
+  if (varias) {
+    partes.push(`<p style="margin:0 0 4px;font-size:18px;font-weight:800;color:#f0f0f0;letter-spacing:-0.02em;${FONT}">${escapeHtml(item.nome)}</p>`)
+    if (item.custodia) partes.push(`<p style="margin:0;font-size:12px;color:#9ca3af;${FONT}">Custódia ${escapeHtml(item.custodia)}</p>`)
+  }
+
+  // Antes e depois
+  if (item.fotoAntes && item.fotoDepois) {
+    partes.push(rotuloSecao('Antes e depois, na mesma luz'))
+    partes.push(duasColunas(
+      `${legendaFoto('Na chegada')}${imgServico(item.fotoAntes, `${nome} na chegada, frente. A foto também fica na página do pedido.`, 238)}`,
+      `${legendaFoto('Na saída', '#22c55e')}${imgServico(item.fotoDepois, `${nome} na saída, frente. A foto também fica na página do pedido.`, 238)}`,
+    ))
+  } else if (item.fotoDepois || item.fotoAntes) {
+    const unica = (item.fotoDepois || item.fotoAntes) as string
+    partes.push(rotuloSecao(item.fotoDepois ? 'Como ela saiu da bancada' : 'Registro da bancada'))
+    partes.push(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">${imgServico(unica, `${nome}, frente. A foto também fica na página do pedido.`, 280)}</td></tr></table>`)
+  }
+
+  // Galeria das fotos finais (ate 4, em grade 2x2)
+  const galeria = (item.galeria || []).slice(0, 4)
+  if (galeria.length) {
+    partes.push(rotuloSecao('Mais fotos da saída'))
+    const cel = (g?: { url: string; legenda: string }) => g
+      ? `${imgServico(g.url, `${nome}: ${g.legenda}. A foto também fica na página do pedido.`, 238, 8)}<p style="margin:6px 0 12px;font-size:11px;color:#9ca3af;text-align:center;${FONT}">${escapeHtml(g.legenda)}</p>`
+      : '&nbsp;'
+    for (let i = 0; i < galeria.length; i += 2) partes.push(duasColunas(cel(galeria[i]), cel(galeria[i + 1])))
+  }
+
+  // Condicao chegada -> saida, pilar a pilar
+  const cond = item.condicao || []
+  if (cond.length) {
+    const temSaida = cond.some(c => c.saida)
+    partes.push(rotuloSecao(temSaida ? 'Condição: chegada e saída' : 'Condição registrada'))
+    let ladoAtual = ''
+    const linhas = cond.map(c => {
+      const cab = c.lado !== ladoAtual
+        ? `<tr><td colspan="2" bgcolor="#141620" style="background-color:#141620;padding:8px 14px;font-size:11px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;${FONT}">${escapeHtml(c.lado)}</td></tr>`
+        : ''
+      ladoAtual = c.lado
+      const valor = c.chegada && c.saida
+        ? `<span style="color:#9ca3af;white-space:nowrap;">${escapeHtml(c.chegada)} <span style="color:#6b7280;">&rarr;</span></span> <strong style="color:${c.melhorou ? '#22c55e' : '#f0f0f0'};white-space:nowrap;">${escapeHtml(c.saida)}</strong>`
+        : `<strong style="color:#f0f0f0;white-space:nowrap;">${escapeHtml(c.saida || c.chegada || '')}</strong>`
+      return `${cab}<tr>
+        <td style="padding:9px 14px;font-size:13px;color:#9ca3af;border-top:1px solid #2d3748;${FONT}">${escapeHtml(c.pilar)}</td>
+        <td align="right" style="padding:9px 14px;font-size:13px;border-top:1px solid #2d3748;${FONT}">${valor}</td>
+      </tr>`
+    }).join('')
+    partes.push(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">${linhas}</table>`)
+    if (cond.some(c => c.melhorou)) {
+      partes.push(`<p style="margin:8px 0 0;font-size:12px;color:#6b7280;${FONT}">Em verde, os pontos que melhoraram. A escala é da bancada: excelente, muito bom, bom, regular e ruim.</p>`)
+    }
+  }
+
+  // O que foi feito
+  const procs = item.procedimentos || []
+  if (procs.length) {
+    partes.push(rotuloSecao('O que o Edu fez na bancada'))
+    partes.push(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${procs.map(pr => `
+      <tr>
+        <td width="18" valign="top" style="padding:12px 0 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="8" height="8" bgcolor="#f59e0b" style="background-color:#f59e0b;width:8px;height:8px;border-radius:2px;font-size:1px;line-height:1px;">&nbsp;</td></tr></table></td>
+        <td valign="top" style="padding:6px 0;${FONT}">
+          <p style="margin:0;font-size:14px;line-height:1.5;color:#f0f0f0;${FONT}">${escapeHtml(pr.feito)}</p>
+          ${pr.motivo ? `<p style="margin:2px 0 0;font-size:12px;line-height:1.5;color:#9ca3af;${FONT}">Motivo: ${escapeHtml(pr.motivo)}</p>` : ''}
+        </td>
+      </tr>`).join('')}</table>`)
+  }
+
+  // Laudo resumido
+  const laudo = item.laudo || []
+  if (laudo.length) {
+    partes.push(rotuloSecao('Laudo resumido'))
+    partes.push(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid rgba(245,158,11,0.35);">
+      ${laudo.map((l, i) => `<tr>
+        <td style="padding:9px 14px;font-size:13px;color:#9ca3af;${i ? 'border-top:1px solid #2d3748;' : ''}${FONT}">${escapeHtml(l.rotulo)}</td>
+        <td align="right" style="padding:9px 14px;font-size:13px;font-weight:700;color:#f0f0f0;${i ? 'border-top:1px solid #2d3748;' : ''}${FONT}">${escapeHtml(l.valor)}</td>
+      </tr>`).join('')}
+    </table>`)
+    if (laudo.some(l => /faixa/i.test(l.rotulo))) {
+      partes.push(`<p style="margin:8px 0 0;font-size:12px;color:#6b7280;${FONT}">A faixa é uma estimativa da bancada. A nota final é sempre da graduadora.</p>`)
+    }
+  }
+
+  return partes.join('')
+}
+
+/** Monta assunto e HTML sem enviar. Usado pelo envio e pela pre-visualizacao. */
+export function renderServicoProntaEmail(args: ServicoProntaArgs): { subject: string; html: string; preheader: string } {
+  const primeiro = primeiroNome(args.nome, 'colecionador')
+  const itens = args.itens.length ? args.itens : [{ nome: 'sua carta' }]
+  const varias = itens.length > 1
+  const detalhe = itens.slice(0, SERVICO_PRONTA_DETALHE)
+  const resto = itens.slice(SERVICO_PRONTA_DETALHE)
+  const nome1 = nomeCurtoCarta(itens[0].nome)
+  const dias = args.validadeFotosDias ?? 30
+  const pagar = args.valorAPagarCents && args.valorAPagarCents > 0 ? args.valorAPagarCents : null
+  const valorFmt = pagar ? (pagar / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : ''
+  const urlCta = addUtm(args.pedidoUrl, 'servico-pronta', 'cta-button')
+  const temAntesDepois = detalhe.some(i => i.fotoAntes && i.fotoDepois)
+
+  const subject = varias
+    ? `Suas ${itens.length} cartas estão prontas${temAntesDepois ? ': veja o antes e depois' : ''} (${args.numero})`
+    : `${nome1} está pronta${temAntesDepois ? ': veja o antes e depois' : ''} (${args.numero})`
+  const preheader = temAntesDepois
+    ? `O antes e depois ${varias ? 'das suas cartas' : `da ${nome1}`}, na mesma luz, e tudo o que foi feito na bancada.`
+    : `${varias ? 'Suas cartas saíram' : 'Sua carta saiu'} da bancada. Veja o resultado e o laudo.`
+
+  // Hero: 1 carta grande, ou ate 3 lado a lado
+  // Varias cartas: celulas em porcentagem, senao 3 x 130px estoura um
+  // celular de 375px (medido: 460px de largura).
+  // So entram cartas COM imagem: misturar com o desenho em HTML (altura fixa)
+  // deixava a coluna da imagem espremida no celular. Nenhuma com imagem: uma
+  // carta desenhada so, representando o pedido.
+  const comImagem = detalhe.filter(i => i.imagemCatalogo || i.fotoDepois)
+  const heroCartas = !varias
+    ? cartaHero(itens[0], 220)
+    : comImagem.length >= 2
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;max-width:${comImagem.length * 150}px;table-layout:fixed;"><tr>
+          ${comImagem.map(i => `<td width="${Math.floor(100 / comImagem.length)}%" valign="top" style="padding:0 4px;">${cartaHero(i, 130, true)}</td>`).join('')}
+        </tr></table>`
+      : cartaHero(comImagem[0] || itens[0], comImagem.length ? 220 : 180)
+  const pontos = ['#f59e0b', '#ef4444', '#f59e0b', '#22c55e', '#f59e0b', '#ef4444', '#f59e0b']
+    .map(c => `<td width="6" height="6" bgcolor="${c}" style="background-color:${c};width:6px;height:6px;border-radius:3px;font-size:1px;line-height:1px;">&nbsp;</td><td width="8" style="font-size:1px;line-height:1px;">&nbsp;</td>`).join('')
+  const hero = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1c24" style="background-color:#1a1c24;background-image:radial-gradient(circle at 50% 0%,rgba(245,158,11,0.30),rgba(26,28,36,0) 70%);border-radius:16px;border:1px solid rgba(245,158,11,0.35);">
+      <tr><td align="center" style="padding:24px 16px 22px;${FONT}">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 18px;"><tr>${pontos}</tr></table>
+        ${heroCartas}
+        <p style="margin:18px 0 0;font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#f59e0b;${FONT}">Saiu da bancada</p>
+        <p style="margin:4px 0 0;font-size:15px;font-weight:700;color:#f0f0f0;${FONT}">${escapeHtml(varias ? `${itens.length} cartas · pedido ${args.numero}` : itens[0].nome)}</p>
+        ${!varias && itens[0].custodia ? `<p style="margin:4px 0 0;font-size:12px;color:#9ca3af;${FONT}">Custódia ${escapeHtml(itens[0].custodia)} · pedido ${escapeHtml(args.numero)}</p>` : ''}
+      </td></tr>
+    </table>`
+
+  const titulo = varias ? 'Missão cumprida: suas cartas estão prontas' : 'Missão cumprida: sua carta está pronta'
+  const intro = varias
+    ? `Terminamos. As suas ${itens.length} cartas saíram da bancada do Edu e estão prontas para voltar para a sua coleção. Separamos abaixo o antes e depois de cada uma, na mesma luz da chegada, e tudo o que foi feito.`
+    : `Terminamos. A <strong style="color:#f0f0f0;">${escapeHtml(nome1)}</strong> saiu da bancada do Edu e está pronta para voltar para a sua coleção. Separamos abaixo o antes e depois, na mesma luz da chegada, e tudo o que foi feito.`
+
+  const blocos = detalhe.map((it, i) => `${varias && i > 0 ? divider() : varias ? '<div style="height:24px;"></div>' : ''}${blocoItemPronto(it, varias)}`).join('')
+
+  const listaResto = resto.length ? `
+    ${divider()}
+    ${rotuloSecao(`E mais ${resto.length} ${resto.length === 1 ? 'carta' : 'cartas'}`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;">
+      ${resto.map((it, i) => `<tr>
+        <td style="padding:10px 14px;font-size:13px;color:#f0f0f0;${i ? 'border-top:1px solid #2d3748;' : ''}${FONT}">${escapeHtml(it.nome)}</td>
+        <td align="right" style="padding:10px 14px;font-size:12px;color:#9ca3af;white-space:nowrap;${i ? 'border-top:1px solid #2d3748;' : ''}${FONT}">${escapeHtml(it.custodia || '')}</td>
+      </tr>`).join('')}
+    </table>
+    ${p('As fotos, a condição e o laudo de cada uma estão na página do pedido.', 'font-size:13px;')}` : ''
+
+  // Proximo passo. O VML do btn() tem 240px: o rotulo com valor nao cabe no
+  // Outlook desktop, entao alarga so aqui (sem mexer no helper compartilhado).
+  // E o `nowrap` do btn() empurrava o e-mail para 411px num celular de 375px:
+  // aqui o rotulo pode quebrar em duas linhas.
+  const passo = pagar
+    ? `Falta só o pagamento de <strong style="color:#f0f0f0;">${valorFmt}</strong>. Assim que ele for confirmado, ${varias ? 'as cartas seguem' : 'a carta segue'} para a embalagem lacrada e você recebe o código de rastreio.`
+    : `Agora ${varias ? 'as cartas seguem' : 'a carta segue'} para a embalagem lacrada, com valor declarado. Você recebe o código de rastreio assim que ${varias ? 'forem postadas' : 'ela for postada'}.`
+  const cta = btn(pagar ? `Pagar ${valorFmt} e liberar o envio` : 'Ver o resultado completo', urlCta)
+    .replace('width:240px', 'width:340px')
+    .replace('white-space:nowrap;padding:14px 32px;', 'white-space:normal;line-height:1.35;text-align:center;padding:14px 24px;')
+  const linkSecundario = pagar
+    ? `<p style="margin:14px 0 0;text-align:center;font-size:13px;${FONT}"><a href="${urlCta}" style="color:#f59e0b;text-decoration:underline;">Ver o resultado completo</a></p>`
+    : ''
+
+  const proximo = `
+    ${divider()}
+    ${rotuloSecao('Próximo passo')}
+    ${p(passo, 'margin-top:0;')}
+    ${cta}
+    ${linkSecundario}
+    ${divider()}
+    ${p(varias ? 'Obrigado por confiar as suas cartas à Bynx. Foi um prazer cuidar delas.' : 'Obrigado por confiar a sua carta à Bynx. Foi um prazer cuidar dela.', 'margin:0;color:#f0f0f0;')}
+    ${p('Edu, da bancada da Bynx', 'margin:4px 0 0;font-size:13px;color:#9ca3af;')}`
+
+  const html = baseLayout(`
+    ${badge(args.servico, '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:12px;"></div>
+    ${hero}
+    <div style="height:28px;"></div>
+    ${h1(escapeHtml(titulo))}
+    ${p(`Oi, ${escapeHtml(primeiro)}.`)}
+    ${p(intro)}
+    ${blocos}
+    ${listaResto}
+    ${proximo}
+  `, preheader, `<p style="margin:10px 16px 0;font-size:12px;line-height:1.6;color:#4b5563;${FONT}">Os links das fotos deste e-mail valem por ${dias} dias. Depois disso, todas as fotos continuam na página do pedido ${escapeHtml(args.numero)}.</p>`)
+
+  return { subject: subjUser(subject), html, preheader }
+}
+
+export async function sendServicoProntaEmail(args: ServicoProntaArgs) {
+  const { subject, html } = renderServicoProntaEmail(args)
+  return enviar({ from: FROM, to: args.to, subject, html })
+}
+
 // ── 5. SUPORTE — confirmação de ticket criado (para usuário) ─────────────────
 
 export async function sendTicketCreatedUserEmail(args: {
