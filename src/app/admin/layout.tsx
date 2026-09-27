@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconTarget } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconTarget, IconShield } from '@/components/ui/Icons'
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
 import { lojaCache } from '@/lib/lojaCache'
@@ -107,6 +108,8 @@ const adminMenu: MenuItem[] = [
   { label: 'Tickets', href: '/admin/tickets', Icon: IconChat, countKey: 'tickets' },
   { label: 'Cartas', href: '/admin/card-requests', Icon: IconCardAlert, countKey: 'cartas', attention: true },
   { label: 'Serviços', href: '/admin/servicos', Icon: IconTarget, countKey: 'servicos', attention: true },
+  // Protecao Bynx (reclamacoes de pedido de leilao): so com o leilao ligado.
+  ...(LEILAO_ATIVO ? [{ label: 'Reclamações', href: '/admin/reclamacoes', Icon: IconShield }] : []),
   { label: 'Lojas', href: '/admin/lojas', Icon: IconStore, countKey: 'lojas' },
   { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, countKey: 'marketplace' },
   { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },
