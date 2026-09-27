@@ -1556,8 +1556,22 @@ export async function POST(req: NextRequest) {
                   p_leilao: leilaoId,
                   p_pedido: pedido.id,
                 })
+                // ★ RASTRO igual ao do leilao_marcar_vendido: erro da RPC (ou
+                // resultado fora do esperado) vira `erroLeilao` e o evento fecha
+                // como result='error' em stripe_events_processed. Sem 5xx: o
+                // estorno do pedido ja rodou e a re-entrega cairia no
+                // 'duplicate'. Conserto manual: rodar
+                // leilao_marcar_reembolsado(lote, pedido) -- idempotente.
+                // Esperados: cancelado | ja_cancelado | outro_pedido (estorno de
+                // pedido antigo nao derruba o lote vendido por outro).
+                // ignorado:<status> fica rastreado: pedido pago e estornado de
+                // um lote que nunca virou vendido e anomalia para conferir.
                 if (errEst) {
                   console.error(`[webhook] CRITICAL: leilao ${leilaoId} (pedido ${pedido.numero}) nao foi cancelado no estorno:`, errEst.message)
+                  erroLeilao = `${erroLeilao ? erroLeilao + ' | ' : ''}leilao_marcar_reembolsado(${leilaoId}, ${pedido.id}) falhou: ${errEst.message}`
+                } else if (rEst !== 'cancelado' && rEst !== 'ja_cancelado' && rEst !== 'outro_pedido') {
+                  console.error(`[webhook] CRITICAL: leilao ${leilaoId} estornado no pedido ${pedido.numero}, resultado inesperado (${rEst}) — conferir`)
+                  erroLeilao = `${erroLeilao ? erroLeilao + ' | ' : ''}leilao_marcar_reembolsado(${leilaoId}, ${pedido.id}) = ${rEst}`
                 } else {
                   console.log(`[webhook] estorno: leilao ${leilaoId} -> ${rEst} (pedido ${pedido.numero})`)
                 }
