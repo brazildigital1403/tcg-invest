@@ -205,9 +205,8 @@ export const buscarRodadaPorId = cache(async (rodadaId: string | null): Promise<
  * Rodadas NO AR agora. Le `leilao_rodadas` filtrando `status = 'ao_vivo'`,
  * que e exatamente o predicado do indice parcial `idx_leilao_rodadas_ao_vivo`:
  * o indice so tem as rodadas no ar (unidades), entao a leitura toca poucas
- * paginas, nunca a tabela inteira. `cache()`: a casca (selo AO VIVO do
- * cabecalho) e a home pedem a mesma coisa no mesmo request, e sai uma
- * consulta so. Falha LANCA; quem e complementar (a casca) segura o erro.
+ * paginas, nunca a tabela inteira. Usada pela home (o selo AO VIVO do
+ * cabecalho tem rota propria, /api/leiloes/no-ar). Falha LANCA.
  */
 export const buscarRodadasAoVivo = cache(async (): Promise<RodadaPublica[]> => {
   const db = dbOuErro()
