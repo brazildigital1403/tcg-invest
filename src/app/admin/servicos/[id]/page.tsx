@@ -89,17 +89,34 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
     finally { setOcupado('') }
   }
 
+  // Envio puro de UMA midia: url assinada, upload direto no bucket e registro.
+  // Nao mexe no `ocupado` nem recarrega: quem chama decide quando recarregar
+  // (o checklist de fotos recarrega uma vez so, no fim do lote). Lanca erro.
+  async function enviarMidia(tipo: string, itemId: string | null, file: File, posicao: string | null = null) {
+    const post = async (payload: Record<string, unknown>, falha: string) => {
+      let r: Response
+      try {
+        r = await fetch(`/api/admin/servicos/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      } catch { throw new Error('Sem conexão com o servidor.') }
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || falha)
+      return d
+    }
+    const d = await post({ acao: 'midia_url', tipo, item_id: itemId, mime: file.type }, 'Não deu para preparar o envio.')
+    const { error } = await supabase.storage.from('servico-midias').uploadToSignedUrl(d.path, d.token, file, { contentType: file.type })
+    if (error) throw new Error('O arquivo não subiu. Tente de novo.')
+    await post({ acao: 'midia_confirmar', tipo, item_id: itemId, posicao, path: d.path }, 'Não deu para registrar o arquivo.')
+  }
+
+  // Uploads avulsos (video, laudo, arquivos do pedido): um arquivo por vez.
   async function subirMidia(tipo: string, itemId: string | null, file: File, posicao: string | null = null) {
     const chave = posicao ? `midia-${tipo}-${posicao}` : `midia-${tipo}-${itemId}`
     setOcupado(chave); setMsg(null)
     try {
-      const r = await fetch(`/api/admin/servicos/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'midia_url', tipo, item_id: itemId, mime: file.type }) })
-      const d = await r.json().catch(() => ({}))
-      if (!r.ok) { setMsg({ tipo: 'erro', t: d.error || 'Não deu para preparar o envio.' }); return }
-      const { error } = await supabase.storage.from('servico-midias').uploadToSignedUrl(d.path, d.token, file, { contentType: file.type })
-      if (error) { setMsg({ tipo: 'erro', t: 'O arquivo não subiu. Tente de novo.' }); return }
-      await acao({ acao: 'midia_confirmar', tipo, item_id: itemId, posicao, path: d.path }, chave, 'Arquivo enviado.')
-    } catch { setMsg({ tipo: 'erro', t: 'Sem conexão com o servidor.' }) }
+      await enviarMidia(tipo, itemId, file, posicao)
+      setMsg({ tipo: 'ok', t: 'Arquivo enviado.' })
+      await carregar()
+    } catch (e) { setMsg({ tipo: 'erro', t: e instanceof Error ? e.message : 'Não deu certo.' }) }
     finally { setOcupado('') }
   }
 
@@ -159,6 +176,8 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
                   procs={procedimentos.filter(p => p.item_id === it.id)}
                   ocupado={ocupado}
                   subir={(tipo, f, posicao) => subirMidia(tipo, it.id, f, posicao)}
+                  enviarFoto={(slot, f) => enviarMidia(slot.tipo, it.id, f, slot.posicao)}
+                  recarregar={carregar}
                   salvarLaudo={laudo => acao({ acao: 'laudo', item_id: it.id, laudo }, `laudo-${it.id}`, 'Laudo salvo.')}
                   salvarFicha={(lado, ficha) => acao({ acao: 'ficha', item_id: it.id, lado, ficha }, `ficha-${lado}-${it.id}`, 'Ficha salva.')}
                   salvarProcs={lista => acao({ acao: 'procedimentos', item_id: it.id, procedimentos: lista }, `procs-${it.id}`, 'Proposta da carta salva.')}
@@ -412,9 +431,11 @@ function Acoes({ sol, ocupado, pendencias, procs, mover, enviarProposta }: {
 
 // ── Uma carta ───────────────────────────────────────────────────────────────
 
-function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir, salvarLaudo, salvarFicha, salvarProcs }: {
+function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir, enviarFoto, recarregar, salvarLaudo, salvarFicha, salvarProcs }: {
   idx: number; item: Item; status: string; servico: string; midias: Midia[]; procs: Proc[]; ocupado: string
   subir: (tipo: string, f: File, posicao?: string | null) => void
+  enviarFoto: (slot: SlotFoto, f: File) => Promise<void>
+  recarregar: () => Promise<void>
   salvarLaudo: (laudo: Record<string, string>) => Promise<boolean>
   salvarFicha: (lado: 'entrada' | 'saida', ficha: FichaCondicao) => Promise<boolean>
   salvarProcs: (lista: Procedimento[]) => Promise<boolean>
@@ -422,7 +443,6 @@ function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir,
   const chegou = ['recebida', 'proposta', 'em_bancada', 'descansando', 'pronta', 'enviada', 'entregue', 'devolvida_sem_servico'].includes(status)
   const naBancada = ['em_bancada', 'descansando', 'pronta', 'enviada', 'entregue'].includes(status)
   const tratada = procs.some(p => p.decisao === 'aprovado')
-  const subirSlot = (slot: SlotFoto, f: File) => subir(slot.tipo, f, slot.posicao)
   const [laudo, setLaudo] = useState<Record<string, string>>(item.laudo || {})
   const [abrirLaudo, setAbrirLaudo] = useState(!!item.laudo)
 
@@ -451,7 +471,7 @@ function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir,
         <div className="ad-fase">
           <span className="ad-fase-h">Entrada</span>
           <FichaCondicaoForm titulo="Ficha de entrada" valor={item.ficha_entrada} ocupado={!!ocupado} onSalvar={f => salvarFicha('entrada', f)} />
-          <ChecklistFotos titulo="Fotos de entrada" slots={FOTOS_ENTRADA} midias={midias} ocupado={ocupado} onFile={subirSlot} />
+          <ChecklistFotos titulo="Fotos de entrada" slots={FOTOS_ENTRADA} midias={midias} enviar={enviarFoto} aoConcluir={recarregar} />
           {servico !== 'pre_grading' && (
             <PropostaEditor procs={procs} editavel={status === 'recebida'} ocupado={!!ocupado} onSalvar={salvarProcs} />
           )}
@@ -462,7 +482,7 @@ function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir,
         <div className="ad-fase">
           <span className="ad-fase-h">Saída</span>
           <FichaCondicaoForm titulo="Ficha de saída" valor={item.ficha_saida} ocupado={!!ocupado} onSalvar={f => salvarFicha('saida', f)} />
-          <ChecklistFotos titulo="Fotos de saída" slots={FOTOS_SAIDA} midias={midias} ocupado={ocupado} onFile={subirSlot} />
+          <ChecklistFotos titulo="Fotos de saída" slots={FOTOS_SAIDA} midias={midias} enviar={enviarFoto} aoConcluir={recarregar} />
         </div>
       )}
 

@@ -55,7 +55,8 @@ async function pendencias(sb: SupabaseClient, id: string, servico: string, fase:
         const f = fotosFaltando(FOTOS_SAIDA, doItem)
         if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de saída${n}`)
       }
-      if (servico !== 'restauracao' && !it.laudo) faltas.push(`Laudo de pré-grading${n}`)
+      // Laudo vale preenchido no formulario OU anexado (PDF/imagem do tipo 'laudo').
+      if (servico !== 'restauracao' && !it.laudo && !doItem.some(m => m.tipo === 'laudo')) faltas.push(`Laudo de pré-grading${n}`)
     }
   })
   return faltas
