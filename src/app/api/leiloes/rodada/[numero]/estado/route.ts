@@ -23,7 +23,7 @@ import { lerLotesDaRodada, lerReferenciaMercadoCents, lerRodadaPorNumero } from 
  * do Mercado Brasileiro do lote no ar (aviso de lance alto) e outra leitura
  * por PK em `pokemon_cards`, so para carta sem graduacao.
  *
- * SEM CACHE em nenhuma camada: muda a cada lance e cada lote que abre.
+ * CACHE: 1s na CDN para a resposta 200 (ver `cacheCurto`); o resto sem cache.
  *
  * FECHAMENTO PREGUICOSO: igual a rota de estado do lote. Lote `ativo` vencido
  * ha 1s ou mais -> `leilao_fechar_lote` (service role; a funcao ja avanca a
@@ -33,6 +33,12 @@ import { lerLotesDaRodada, lerReferenciaMercadoCents, lerRodadaPorNumero } from 
 export const dynamic = 'force-dynamic'
 
 const semCache = { 'Cache-Control': 'no-store, max-age=0' }
+// DECISAO DO DU (27/09/2026): cache de 1s na CDN so na resposta 200. A resposta
+// e publica e igual para todo espectador; com 100 pessoas na live o banco recebe
+// ~1 leitura por segundo em vez de 33-50. Erros e 404 seguem sem cache. O cliente
+// corrige o relogio com o header `Age` (RodadaAoVivo.tsx). O fechamento preguicoso
+// so roda na requisicao que refaz o cache, o que basta (1 por segundo).
+const cacheCurto = { 'Cache-Control': 'public, max-age=0, s-maxage=1' }
 const FOLGA_FECHAR_MS = 1000
 
 export async function GET(_req: Request, ctx: { params: Promise<{ numero: string }> }) {
@@ -79,7 +85,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ numero: string
       versao: versaoRodada(rodada.status, lotes),
       referenciaMercadoCents,
     }
-    return NextResponse.json(corpo, { headers: semCache })
+    return NextResponse.json(corpo, { headers: cacheCurto })
   } catch (e) {
     console.error('[leilao/rodada/estado]', numero, (e as Error).message)
     return NextResponse.json(

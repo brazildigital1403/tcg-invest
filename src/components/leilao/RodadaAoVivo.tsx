@@ -219,6 +219,12 @@ export default function RodadaAoVivo({
             if (r.status === 404) return
             if (!r.ok) throw new Error(String(r.status))
             const j = (await r.json()) as EstadoRodada
+            // A CDN guarda esta resposta por 1s: o `Age` diz ha quanto tempo o
+            // server_now foi gerado. Soma para o relogio nao ficar atrasado.
+            const idadeSeg = Number(r.headers.get('age'))
+            if (j?.server_now && Number.isFinite(idadeSeg) && idadeSeg > 0 && idadeSeg < 30) {
+              j.server_now = new Date(Date.parse(j.server_now) + idadeSeg * 1000).toISOString()
+            }
             if (vivo && j?.rodada && Array.isArray(j.lotes)) aplicar(j, enviadoEm)
             return
           } catch {
