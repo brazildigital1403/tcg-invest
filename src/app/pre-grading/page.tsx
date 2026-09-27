@@ -4,6 +4,7 @@ import PublicFooter from '@/components/ui/PublicFooter'
 import StickyCta from '@/components/servicos/StickyCta'
 import {
   JsonLd, Faixa, Cabecalho, Garantias, Custodia, ComoFunciona, Precos, QuemFaz, FaqServico, CtaFinal, agendarHref,
+  ShortsBancada,
 } from '@/components/servicos/Secoes'
 import { SV_CSS } from '@/components/servicos/css'
 import { IconTarget, IconCheck, IconArrowRight } from '@/components/ui/Icons'
@@ -92,6 +93,12 @@ export default function PreGradingPage() {
             ))}
           </div>
         </Faixa>
+
+        {/* Centralizacao e resultado na graduadora abrem o carrossel no pre-grading. */}
+        <ShortsBancada
+          destaque={['p8qU2bMirkI', 'invoH6DVGCU', 'hpGch0jUrQQ']}
+          sub="Como medimos a centralização, como a carta é preparada e o que a graduadora devolveu. Tudo gravado na bancada da Bynx."
+        />
 
         <Faixa id="graduadoras">
           <Cabecalho eyebrow="Para onde mandar" titulo="Qual graduadora vale para a sua carta" sub="A carta sai preparada para qualquer uma. O laudo indica a que faz mais sentido." />

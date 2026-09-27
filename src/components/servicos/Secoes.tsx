@@ -215,18 +215,25 @@ export function QuemFaz({ foto, alt }: { foto?: string | null; alt?: boolean }) 
   )
 }
 
-/** Shorts gravados na bancada, em carrossel. Faixa propria, com brilho de fundo. */
-export function ShortsBancada() {
+/**
+ * Shorts gravados na bancada, em carrossel. Faixa propria, com brilho de fundo.
+ * `destaque`: ids que abrem o carrossel (cada landing puxa os mais ligados a ela).
+ */
+export function ShortsBancada({ destaque = [], sub }: { destaque?: string[]; sub?: string }) {
   if (!SHORTS.length) return null
+  const lista = [...SHORTS].sort((a, b) => {
+    const ia = destaque.indexOf(a.id), ib = destaque.indexOf(b.id)
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+  })
   return (
     <section id="videos" className="sv-band sv-band-shorts">
       <div className="bx-gutter sv-container">
         <Cabecalho
           eyebrow="Na bancada"
           titulo="Veja o trabalho de perto"
-          sub="Preparação, medição, limpeza e o resultado na graduadora. Tudo gravado na bancada da Bynx, sem roteiro e sem corte de mágica."
+          sub={sub || 'Preparação, medição, limpeza e o resultado na graduadora. Tudo gravado na bancada da Bynx, sem roteiro e sem corte de mágica.'}
         />
-        <ShortsCarrossel shorts={SHORTS} canal={LINKS.youtube} />
+        <ShortsCarrossel shorts={lista} canal={LINKS.youtube} />
       </div>
     </section>
   )
