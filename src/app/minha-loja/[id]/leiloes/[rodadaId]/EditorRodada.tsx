@@ -12,6 +12,7 @@ import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../
 import { STATUS_RODADA, chamarPainel, type LotePainel, type RodadaResumo } from '../_rodada'
 import NovoLote from './NovoLote'
 import PainelAoVivo from './PainelAoVivo'
+import LinkDivulgar from './LinkDivulgar'
 
 /**
  * Editor de uma rodada ao vivo da loja.
@@ -261,6 +262,8 @@ export default function EditorRodada({ lojaId, rodadaId }: { lojaId: string; rod
           </header>
 
           {erro && <div style={S.erro} role="alert">{erro}</div>}
+
+          {(rodada.status === 'agendada' || rodada.status === 'ao_vivo') && <LinkDivulgar numero={rodada.numero} />}
 
           {(rodada.status === 'ao_vivo' || rodada.status === 'encerrada') && (
             <PainelAoVivo
