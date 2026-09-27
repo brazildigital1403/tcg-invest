@@ -34,7 +34,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     // Pagamento por etapa: o endereco so sai depois do sinal (ou do integral).
     const pagamentos = await pagamentosDoPedido(id)
-    const devida = etapaDevida(sol.status, !!sol.proposta_aceita_em, pagamentos)
+    // O servico so vira "devido" depois que a cobranca saiu (com recusa na
+    // proposta, o admin confere o valor antes). Ate la: "recalculando".
+    const cobrancaEnviada = (eventos || []).some(e => e.status === 'cobranca_servico')
+    const devidaBruta = etapaDevida(sol.status, !!sol.proposta_aceita_em, pagamentos)
+    const devida = devidaBruta?.etapa === 'servico' && !cobrancaEnviada ? null : devidaBruta
+    const recalculando = devidaBruta?.etapa === 'servico' && !cobrancaEnviada
 
     const paths = (midias || []).map(m => m.path)
     const { data: assinadas } = paths.length
@@ -52,6 +57,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       endereco: sol.status === 'aceito' && envioLiberado(pagamentos) ? enderecoRecebimento() : null,
       pagamentos: pagamentos.map(({ etapa, valor_cents, pago_em }) => ({ etapa, valor_cents, pago_em })),
       devida: devida ? { etapa: devida.etapa, valor_cents: devida.valor_cents } : null,
+      recalculando,
       pix: devida ? pixRecebimento() : null,
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {

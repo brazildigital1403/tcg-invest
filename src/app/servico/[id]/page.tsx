@@ -46,6 +46,7 @@ type Pag = { etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; pago_
 type Dados = {
   solicitacao: Sol; itens: Item[]; eventos: Evento[]; midias: Midia[]; procedimentos: Proc[]; endereco: string | null
   pagamentos: Pag[]; devida: { etapa: Pag['etapa']; valor_cents: number } | null; pix: { chave: string; nome: string | null } | null
+  recalculando: boolean
 }
 const ETAPA_PAG: Record<string, { t: string; d: string }> = {
   sinal: { t: 'Sinal', d: 'Seguro e frete de volta, pago no aceite. Libera o endereço de envio.' },
@@ -117,7 +118,7 @@ function Pedido({ id }: { id: string }) {
   if (erro) return <div className="sp"><style>{CSS}</style><div className="sp-card sp-vazio"><IconShield size={24} /><p>{erro}</p><Link className="sp-bt" href="/compras">Minhas compras</Link></div></div>
   if (!dados) return <div className="sp"><style>{CSS}</style><p className="sp-muted">Carregando...</p></div>
 
-  const { solicitacao: s, itens, eventos, midias, procedimentos, endereco, pagamentos, devida, pix } = dados
+  const { solicitacao: s, itens, eventos, midias, procedimentos, endereco, pagamentos, devida, pix, recalculando } = dados
   const pendentes = procedimentos.filter(p => p.decisao === 'pendente')
   const tudoDecidido = pendentes.every(p => decisoes[p.id])
   const objetivoRotulo = OBJETIVOS.find(o => o.id === s.objetivo)?.rotulo
@@ -204,10 +205,14 @@ function Pedido({ id }: { id: string }) {
             </section>
           )}
 
-          {s.status === 'proposta' && s.proposta_aceita_em && (
+          {s.status === 'proposta' && s.proposta_aceita_em && !devida && (
             <section className="sp-card">
               <h2>Recebemos a sua decisão</h2>
-              <p className="sp-muted">A Bynx segue só com os procedimentos que você aprovou. O prazo conta a partir de agora.</p>
+              <p className="sp-muted">
+                {recalculando
+                  ? 'Como parte da proposta foi recusada, a Bynx está recalculando o valor do serviço. Você recebe a cobrança com o valor certo por e-mail e aqui nesta página.'
+                  : 'A Bynx segue só com os procedimentos que você aprovou.'}
+              </p>
             </section>
           )}
 

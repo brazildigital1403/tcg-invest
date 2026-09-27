@@ -210,6 +210,8 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
             pendencias={s.status === 'recebida' ? pendencias_entrada : pendencias_saida}
             procs={procedimentos}
             pagamentos={pagamentos}
+            cobrancaEnviada={eventos.some(e => e.status === 'cobranca_servico')}
+            cobrarServico={valor => acao({ acao: 'cobrar_servico', valor_cents: valor }, 'cobrar_servico', 'Cobrança do serviço enviada ao cliente.')}
             mover={(para, extra) => acao({ acao: 'status', para, ...extra }, `status-${para}`, `Status: ${STATUS_SERVICO[para]}.`)}
             enviarProposta={() => acao({ acao: 'enviar_proposta' }, 'enviar_proposta', 'Proposta enviada ao cliente.')}
           />
@@ -370,8 +372,9 @@ const ROTULO_ACAO: Record<string, string> = {
 }
 const PERIGO = ['cancelado', 'recusado_cliente', 'devolvida_sem_servico']
 
-function Acoes({ sol, ocupado, pendencias, procs, pagamentos, mover, enviarProposta }: {
+function Acoes({ sol, ocupado, pendencias, procs, pagamentos, cobrancaEnviada, cobrarServico, mover, enviarProposta }: {
   sol: Sol; ocupado: string; pendencias: string[]; procs: Proc[]; pagamentos: Pagamento[]
+  cobrancaEnviada: boolean; cobrarServico: (valor: number) => Promise<boolean>
   mover: (para: string, extra?: Record<string, unknown>) => Promise<boolean>
   enviarProposta: () => Promise<boolean>
 }) {
@@ -384,6 +387,10 @@ function Acoes({ sol, ocupado, pendencias, procs, pagamentos, mover, enviarPropo
   const aprovados = procs.filter(p => p.decisao === 'aprovado').length
   const aberto = (e: string) => pagamentos.some(pg => pg.etapa === e && !pg.pago_em)
   const bancadaSemPagamento = (sol.status === 'proposta' && aberto('servico')) || (sol.status === 'recebida' && aberto('integral'))
+  const pagServico = pagamentos.find(pg => pg.etapa === 'servico' && !pg.pago_em)
+  const recusados = procs.filter(p => p.decisao === 'recusado').length
+  const [valorServico, setValorServico] = useState(pagServico ? brl(pagServico.valor_cents / 100) : '')
+  const mostraCobranca = sol.status === 'proposta' && !!sol.proposta_aceita_em && !!pagServico && aprovados > 0
   if (!opcoes.length) return null
 
   return (
@@ -393,6 +400,26 @@ function Acoes({ sol, ocupado, pendencias, procs, pagamentos, mover, enviarPropo
         <div className="ad-pend">
           <b>Antes de seguir, falta:</b>
           <ul>{pendencias.map(p => <li key={p}>{p}</li>)}</ul>
+        </div>
+      )}
+      {mostraCobranca && (
+        <div className="ad-cobranca">
+          <b>Cobrança do serviço</b>
+          <span className="ad-muted" style={{ margin: 0 }}>
+            {cobrancaEnviada
+              ? 'Enviada ao cliente. Se mudar o valor, a cobrança é reenviada.'
+              : recusados > 0
+                ? `O cliente recusou ${recusados} ${recusados === 1 ? 'procedimento' : 'procedimentos'}. Confira o valor antes de cobrar.`
+                : 'Confira o valor e envie a cobrança.'}
+          </span>
+          <div className="ad-cobranca-lin">
+            <span>R$</span>
+            <input className="ad-in" inputMode="decimal" value={valorServico} onChange={e => setValorServico(e.target.value.replace(/[^\d.,]/g, ''))} />
+            <button type="button" className="ad-bt ad-bt-pri" disabled={!!ocupado || !(paraCents(valorServico) > 0)}
+              onClick={() => confirm(`Enviar ao cliente a cobrança do serviço de R$ ${valorServico}?`) && cobrarServico(paraCents(valorServico))}>
+              {ocupado === 'cobrar_servico' ? 'Enviando...' : cobrancaEnviada ? 'Reenviar com este valor' : 'Enviar cobrança'}
+            </button>
+          </div>
         </div>
       )}
       {opcoes.includes('em_bancada') && bancadaSemPagamento && (
@@ -576,6 +603,9 @@ const CSS = `
 .ad-pill-cliente{color:var(--bx-blue);background:color-mix(in srgb,var(--bx-blue) 12%,transparent)}
 .ad-pill-fim{color:var(--bx-text-3);background:var(--bx-surface-2)}
 .ad-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.ad-cobranca{display:grid;gap:8px;padding:12px;border-radius:10px;border:1px solid rgba(var(--ac-1-rgb),.4);background:var(--bx-bg)}
+.ad-cobranca > b{font-size:13.5px}
+.ad-cobranca-lin{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;font-size:14px;color:var(--bx-text-2)}
 .ad-pags{display:grid;gap:8px}
 .ad-pag{display:grid;gap:6px;padding:10px 12px;border-radius:10px;border:1px solid var(--bx-border-2);background:var(--bx-bg)}
 .ad-pag > div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}

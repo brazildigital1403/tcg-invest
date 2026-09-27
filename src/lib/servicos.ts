@@ -328,6 +328,8 @@ export const STATUS_SERVICO: Record<string, string> = {
   entregue: 'Entregue',
   devolvida_sem_servico: 'Devolvida sem serviço',
   cancelado: 'Cancelado',
+  // Marcador da linha do tempo (nao e status do pedido).
+  cobranca_servico: 'Cobrança do serviço',
 }
 
 /**

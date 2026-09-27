@@ -313,6 +313,32 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ ok: true })
     }
 
+    // ── Cobrar o servico (com valor conferido/ajustado) ────────────────────
+    // Depois da resposta da proposta e antes do Pix do servico. Ajusta o valor
+    // da etapa (e o orcamento/total do pedido, pra tudo bater) e envia a
+    // cobranca. Pode repetir enquanto o servico nao foi pago (reenvia com o
+    // valor novo).
+    if (body.acao === 'cobrar_servico') {
+      if (sol.status !== 'proposta' || !sol.proposta_aceita_em) return erro(409, 'A cobrança do serviço sai depois da resposta da proposta')
+      const valor = cents(body.valor_cents)
+      if (valor == null || Number.isNaN(valor) || valor <= 0) return erro(400, 'Informe o valor do serviço')
+      const { count } = await sb.from('servico_procedimentos').select('id', { count: 'exact', head: true })
+        .eq('solicitacao_id', id).eq('decisao', 'aprovado')
+      if (!count) return erro(409, 'Nenhum procedimento aprovado: devolva a carta sem serviço')
+      const { data: mudou, error } = await sb.from('servico_pagamentos').update({ valor_cents: valor })
+        .eq('solicitacao_id', id).eq('etapa', 'servico').is('pago_em', null).select('id')
+      if (error) throw new Error(error.message)
+      if (!mudou?.length) return erro(409, 'O serviço já está pago ou este pedido não tem a etapa de serviço')
+      const { data: cur } = await sb.from('servico_solicitacoes').select('seguro_cents, frete_volta_cents').eq('id', id).limit(1)
+      await sb.from('servico_solicitacoes').update({
+        orcamento_cents: valor,
+        total_cents: valor + (cur?.[0]?.seguro_cents || 0) + (cur?.[0]?.frete_volta_cents || 0),
+      }).eq('id', id)
+      await registrarEvento(id, 'cobranca_servico', `Cobrança do serviço enviada: R$ ${(valor / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+      await notificarCliente(id, 'cobrar_servico')
+      return NextResponse.json({ ok: true })
+    }
+
     // ── Enviar a proposta ao cliente ───────────────────────────────────────
     if (body.acao === 'enviar_proposta') {
       if (sol.status !== 'recebida') return erro(409, 'A proposta sai depois da chegada da carta')
