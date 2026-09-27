@@ -13,7 +13,7 @@ import ts from 'typescript'
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 const tmp = mkdtempSync(join(tmpdir(), 'leilao-selftest-'))
 
-for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos']) {
+for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos', 'email-lote']) {
   const src = readFileSync(join(raiz, 'src/lib', `${nome}.ts`), 'utf8')
   const out = ts.transpileModule(src, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -24,6 +24,7 @@ for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos']) {
 const L = await import(pathToFileURL(join(tmp, 'leilao.mjs')).href)
 const T = await import(pathToFileURL(join(tmp, 'leilao-taxas.mjs')).href)
 const A = await import(pathToFileURL(join(tmp, 'leilao-avisos.mjs')).href)
+const EL = await import(pathToFileURL(join(tmp, 'email-lote.mjs')).href)
 
 let n = 0
 const ok = (fn, nome) => {
@@ -379,6 +380,96 @@ try {
         assert.ok(!/\p{Extended_Pictographic}/u.test(t), `emoji: ${t}`)
       }
     }, 'avisos: tipos sem aviso, e-mail enviavel, copy limpa')
+  }
+
+  // ─── email-lote: grupo nunca partido, isolamento do endereco ruim ─────────
+  {
+    const mk = (to, grupo, extra = {}) => ({ to, subject: 's', html: 'h', grupo, ...extra })
+    // Remetente falso: recusa (validation_error) todo lote com "ruim", aceita o resto.
+    const falso = (opt = {}) => {
+      const log = []
+      return {
+        log,
+        lote: async itens => {
+          log.push(['lote', itens.map(i => i.to)])
+          if (opt.lote) return opt.lote(itens)
+          return itens.some(i => i.to.startsWith('ruim'))
+            ? { ok: false, nome: 'validation_error', erro: 'Invalid `to` field' }
+            : { ok: true }
+        },
+        um: async item => {
+          log.push(['um', item.to, item.chave])
+          if (opt.um) return opt.um(item)
+          return item.to.startsWith('ruim')
+            ? { ok: false, nome: 'validation_error', erro: 'Invalid `to` field' }
+            : { ok: true }
+        },
+      }
+    }
+
+    await (async () => {
+      const g = EL.empacotar(EL.agrupar([mk('a', 1), mk('b', 1), mk('c', 2), mk('d', 3), mk('e', 3)]), 3)
+      assert.deepEqual(g, [[[0, 1], [2]], [[3, 4]]])
+      const g2 = EL.empacotar(EL.agrupar([mk('a', 1), mk('b', 2), mk('c', 2), mk('d', 2)]), 3)
+      assert.deepEqual(g2, [[[0]], [[1, 2, 3]]])
+      n++; console.log('ok ', 'email-lote: grupo inteiro no mesmo lote')
+    })()
+
+    await (async () => {
+      const itens = [mk('a', 1), mk('b', 1), mk('c', 2), mk('ruim', 3, { chave: 'k3' }), mk('e', 4), mk('f', 5)]
+      const r = falso()
+      const res = await EL.enviarIsolando(itens, r)
+      assert.deepEqual(res.map(x => x.ok), [true, true, true, false, true, true])
+      assert.match(res[3].erro, /^validation_error/)
+      // O ruim so saiu com erro depois de isolado e tentado sozinho, com chave.
+      assert.deepEqual(r.log.filter(l => l[0] === 'um'), [['um', 'ruim', 'k3']])
+      n++; console.log('ok ', 'email-lote: recusa de conteudo isola so o culpado')
+    })()
+
+    await (async () => {
+      // Erro que nao e de conteudo: lote inteiro falha, sem divisao.
+      const r = falso({ lote: async () => ({ ok: false, nome: 'rate_limit_exceeded', erro: 'x' }) })
+      const res = await EL.enviarIsolando([mk('a', 1), mk('b', 2), mk('c', 3)], r)
+      assert.ok(res.every(x => !x.ok && x.erro.startsWith('rate_limit_exceeded')))
+      assert.equal(r.log.length, 1)
+      // Excecao do provedor vira erro, nao derruba.
+      const r2 = falso({ lote: async () => { throw new Error('rede') } })
+      const res2 = await EL.enviarIsolando([mk('a', 1), mk('b', 2)], r2)
+      assert.ok(res2.every(x => !x.ok && x.erro === 'rede'))
+      n++; console.log('ok ', 'email-lote: erro transitorio nao divide')
+    })()
+
+    await (async () => {
+      // Grupo com 2 e-mails, um ruim: dentro do grupo cai para um a um.
+      const r = falso()
+      const res = await EL.enviarIsolando([mk('a', 1), mk('ruim', 1), mk('c', 2)], r)
+      assert.deepEqual(res.map(x => x.ok), [true, false, true])
+      // unitario: fora do lote, com chave; chave ja usada conta como enviado.
+      const r2 = falso({ um: async i => i.to === 'x' ? { ok: false, nome: 'invalid_idempotent_request', erro: 'x' } : { ok: true } })
+      const res2 = await EL.enviarIsolando([mk('x', 7, { unitario: true, chave: 'k7' }), mk('y', 8)], r2)
+      assert.deepEqual(res2.map(x => x.ok), [true, true])
+      assert.deepEqual(r2.log, [['um', 'y', undefined], ['um', 'x', 'k7']])
+      n++; console.log('ok ', 'email-lote: grupo com item ruim e envio unitario com chave')
+    })()
+
+    await (async () => {
+      // Sem tempo: nada chamado depois do corte; pausa entre chamadas.
+      let chamadas = 0
+      const pausas = []
+      const r = falso({ lote: async () => { chamadas++; return { ok: true } } })
+      const res = await EL.enviarIsolando(
+        [mk('a', 1), mk('b', 1), mk('c', 2), mk('d', 2)], r,
+        { tamanho: 2, deveParar: () => chamadas >= 1, pausaMs: 500, esperar: async ms => { pausas.push(ms) } })
+      assert.deepEqual(res.map(x => x.ok ? 'ok' : x.erro), ['ok', 'ok', 'sem_tempo', 'sem_tempo'])
+      assert.deepEqual(pausas, [])
+      let c2 = 0
+      const r2 = falso({ lote: async () => { c2++; return { ok: true } } })
+      await EL.enviarIsolando([mk('a', 1), mk('b', 1), mk('c', 2), mk('d', 2)], r2,
+        { tamanho: 2, pausaMs: 500, esperar: async ms => { pausas.push(ms) } })
+      assert.equal(c2, 2)
+      assert.deepEqual(pausas, [500])
+      n++; console.log('ok ', 'email-lote: orcamento de tempo e pausa')
+    })()
   }
 
   console.log(`\n${n} blocos ok`)

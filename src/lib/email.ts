@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { enviarIsolando, type EmailLoteItem, type ResultadoEmail } from './email-lote'
 import { createClient } from '@supabase/supabase-js'
 import { formatarBRL } from './leilao'
 import { prazoCurtoBrasilia } from './leilao-avisos'
@@ -2578,52 +2579,51 @@ export interface EmailRenderizado {
   html: string
 }
 
-/** Resultado de um lote enviado: indices (na lista de entrada) + erro, se houve. */
-export interface ResultadoLoteEmails {
-  indices: number[]
-  ok: boolean
-  erro?: string
-}
+export type { EmailLoteItem, ResultadoEmail } from './email-lote'
 
 /**
- * Envia e-mails ja renderizados em lotes de ate 100 (resend.batch.send).
- * Cada lote e uma chamada: o resultado diz quais indices foram aceitos.
+ * Envia e-mails ja renderizados em lotes de ate 100 (resend.batch.send) e
+ * devolve o resultado POR MENSAGEM, na ordem da entrada. A logica (grupo nunca
+ * partido, divisao ao meio na recusa de conteudo, envio unitario com chave)
+ * esta em ./email-lote, que o autoteste cobre sem rede.
  *
- * ★ O lote do Resend e tudo-ou-nada: um item invalido recusa a chamada
- * inteira. Filtre enderecos antes (emailEnviavel em lib/leilao-avisos).
- * ★ As chamadas saem em SERIE de proposito (limite de requisicoes por segundo
- * da conta); sao poucas, uma por 100 e-mails.
+ * ★ SDK resend 4.8.0: `emails.send(payload, { idempotencyKey })` e
+ *   `batch.send(payload, { idempotencyKey })` aceitam chave (vai no header
+ *   Idempotency-Key; o Resend guarda por 24h). A chave do lote vale para a
+ *   chamada inteira, nao por item -- por isso so o envio UNITARIO usa a chave
+ *   do item. Nao ha modo "permissivo" de lote nesta versao: um item invalido
+ *   recusa o lote todo, dai a divisao.
+ * ★ Chamadas em SERIE com pausa de 500ms entre elas (limite de requisicoes por
+ *   segundo da conta). No caso normal e uma chamada so por 100 e-mails.
  */
 export async function enviarLoteEmails(
-  emails: EmailRenderizado[],
+  emails: EmailLoteItem[],
   opts: { tamanho?: number; deveParar?: () => boolean } = {},
-): Promise<ResultadoLoteEmails[]> {
-  const tamanho = Math.max(1, Math.min(opts.tamanho ?? 100, 100))
-  const out: ResultadoLoteEmails[] = []
-  for (let i = 0; i < emails.length; i += tamanho) {
-    const indices = emails.slice(i, i + tamanho).map((_, k) => i + k)
-    if (opts.deveParar?.()) {
-      out.push({ indices, ok: false, erro: 'sem_tempo' })
-      continue
-    }
-    try {
-      const res = await resend.batch.send(
-        indices.map(k => ({ from: FROM, to: emails[k].to, subject: emails[k].subject, html: emails[k].html })),
-      )
-      if (res.error) {
-        const erro = `${res.error.name ?? 'erro'}: ${res.error.message ?? JSON.stringify(res.error)}`
-        console.error(`[email] FALHA no lote de ${indices.length} e-mail(s): ${erro}`)
-        out.push({ indices, ok: false, erro })
-      } else {
-        out.push({ indices, ok: true })
+): Promise<ResultadoEmail[]> {
+  const payload = (e: EmailLoteItem) => ({ from: FROM, to: e.to, subject: e.subject, html: e.html })
+  const erro = (e: { name?: string; message?: string } | null | undefined) =>
+    ({ ok: false as const, nome: e?.name, erro: e?.message ?? JSON.stringify(e) })
+  const res = await enviarIsolando(emails, {
+    lote: async itens => {
+      const r = await resend.batch.send(itens.map(payload))
+      if (r.error) {
+        console.error(`[email] FALHA no lote de ${itens.length} e-mail(s): ${r.error.name}: ${r.error.message}`)
+        return erro(r.error)
       }
-    } catch (err) {
-      const erro = (err as Error)?.message || 'excecao no envio'
-      console.error(`[email] FALHA (excecao) no lote de ${indices.length} e-mail(s): ${erro}`)
-      out.push({ indices, ok: false, erro })
-    }
-  }
-  return out
+      return { ok: true }
+    },
+    um: async item => {
+      const r = await resend.emails.send(payload(item), item.chave ? { idempotencyKey: item.chave } : undefined)
+      if (r.error) {
+        if (r.error.name !== 'invalid_idempotent_request') {
+          console.error(`[email] FALHA no envio unitario: ${r.error.name}: ${r.error.message}`)
+        }
+        return erro(r.error)
+      }
+      return { ok: true }
+    },
+  }, { tamanho: opts.tamanho, deveParar: opts.deveParar, pausaMs: 500 })
+  return res
 }
 
 function urlLote(slug: string, campaign: string, sufixo = ''): string {
