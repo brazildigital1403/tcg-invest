@@ -45,9 +45,13 @@ export function urlRodada(numero: number): string {
   return `${BASE_LEILOES}/rodada/${numero}`
 }
 
-/** Area de quem da lance. `pagar` abre direto nos arremates a pagar. */
-export function urlMeusLances(aba?: 'pagar'): string {
-  return `${BASE_LEILOES}/meus-lances${aba ? `?aba=${aba}` : ''}`
+/**
+ * Area de quem da lance. `pagar` desce direto ate os arremates a pagar: a
+ * ancora e o id da secao em src/app/leiloes/meus-lances/MeusLances.tsx
+ * (`ml-${grupo}`). Mudou o id la, muda aqui.
+ */
+export function urlMeusLances(secao?: 'pagar'): string {
+  return `${BASE_LEILOES}/meus-lances${secao === 'pagar' ? '#ml-a_pagar' : ''}`
 }
 
 // ─── Transmissao ────────────────────────────────────────────────────────────

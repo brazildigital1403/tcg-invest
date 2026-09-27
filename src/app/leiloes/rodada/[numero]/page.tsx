@@ -3,7 +3,6 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound, permanentRedirect } from 'next/navigation'
-import AppLayout from '@/components/ui/AppLayout'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
 import SeloVerificado from '@/components/ui/SeloVerificado'
@@ -171,7 +170,7 @@ export default async function RodadaPage({ params }: Params) {
   const mostrarTransmissao = !!r.linkTransmissao && (r.status === 'agendada' || r.status === 'ao_vivo')
 
   return (
-    <AppLayout>
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(listaSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(trilhaSchema) }} />
       <style>{`
@@ -236,7 +235,7 @@ export default async function RodadaPage({ params }: Params) {
           Lance exige conta na Bynx. Quem arremata paga pela Bynx, no cartão, com pagamento protegido.
         </p>
       </div>
-    </AppLayout>
+    </>
   )
 }
 

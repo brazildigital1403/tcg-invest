@@ -64,8 +64,6 @@ const JANELA_FINAL_MS = 120_000
 const FATOR_AVISO_MERCADO = 1.5
 /** Acima de N vezes o lance minimo atual, o Confirmar pede um segundo toque. */
 const FATOR_CONFIRMACAO_DUPLA = 3
-/** Fallback da altura da bottom nav do AppLayout ate a medida real chegar. */
-const NAV_FALLBACK = 'calc(57px + env(safe-area-inset-bottom, 0px))'
 const FOCAVEIS = 'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
 
 type Aba = 'rapido' | 'maximo'
@@ -162,8 +160,6 @@ export default function LanceAoVivo({
   const [proprio, setProprio] = useState(false)
   /** Prazo para pagar o arremate. So vem do servidor para quem venceu. */
   const [pagarAte, setPagarAte] = useState<string | null>(null)
-  /** Altura real da bottom nav (0 no desktop, onde ela some). null = ainda nao medida. */
-  const [navH, setNavH] = useState<number | null>(null)
   /** Hora local do ultimo lance confirmado: leitura que saiu antes dele e chegou depois nao desfaz. */
   const ultimoLanceEmRef = useRef(0)
   /** Maior versao do lote ja vista (leitura ou retorno do lance). */
@@ -333,26 +329,6 @@ export default function LanceAoVivo({
   useEffect(() => {
     if (conferindo && !pollingExterno) buscarEstado()
   }, [conferindo, pollingExterno, buscarEstado])
-
-  // Altura real da bottom nav do AppLayout (nao ha variavel dela): o CTA fixo
-  // fica logo acima. Some no desktop (display none) e a medida vira 0.
-  useEffect(() => {
-    const nav = document.querySelector<HTMLElement>('.tcg-bottom-nav')
-    if (!nav) return
-    const medir = () => setNavH(nav.offsetHeight)
-    medir()
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', medir)
-      return () => window.removeEventListener('resize', medir)
-    }
-    const ro = new ResizeObserver(medir)
-    ro.observe(nav)
-    window.addEventListener('resize', medir)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', medir)
-    }
-  }, [])
 
   // ── Derivados ───────────────────────────────────────────────────────────
   const precoCents = lote.nLances > 0 && lote.precoAtualCents != null ? lote.precoAtualCents : lote.lanceInicialCents
@@ -624,10 +600,7 @@ export default function LanceAoVivo({
   }
 
   return (
-    <section
-      aria-label="Lance ao vivo"
-      style={{ ...S.bloco, ...(navH != null ? ({ '--lv-nav-h': `${navH}px` } as CSSProperties) : null) }}
-    >
+    <section aria-label="Lance ao vivo" style={S.bloco}>
       <style>{`
         .lv-cta-btn { transition: filter 0.15s ease, transform 0.15s ease; }
         .lv-cta-btn:hover:not(:disabled) { filter: brightness(1.08); }
@@ -635,12 +608,13 @@ export default function LanceAoVivo({
         .lv-cta-btn:disabled { opacity: 0.6; cursor: default; }
         .lv-cta-fixo { margin-top: 16px; }
         @media (max-width: 768px) {
-          /* Logo acima da bottom nav do AppLayout (altura medida em --lv-nav-h,
-             que ja inclui a safe area). A folga no fim da pagina fica no wrapper. */
+          /* Casca do Bynx Leiloes: sem bottom nav. O CTA encosta no fim da tela
+             e a safe area (barra do iPhone) entra no padding, com o fundo por
+             baixo dela. A folga no fim da pagina fica no wrapper. */
           .lv-cta-fixo {
-            position: fixed; left: 0; right: 0; z-index: 150; margin: 0;
-            bottom: var(--lv-nav-h, ${NAV_FALLBACK});
-            padding: 10px 16px; background: var(--bx-bg-elev); border-top: 1px solid var(--bx-border);
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 150; margin: 0;
+            padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+            background: var(--bx-bg-elev); border-top: 1px solid var(--bx-border);
             box-shadow: var(--bx-shadow);
           }
         }

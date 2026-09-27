@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
-import AppLayout from '@/components/ui/AppLayout'
 import PageHeader from '@/components/ui/PageHeader'
 import PagarLote from '@/components/leilao/PagarLote'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
@@ -19,7 +18,7 @@ import { buscarLotePorCodigo } from '../../_dados'
  *
  * Pagina privada: fora do indice e sem cache (cada visita e de uma pessoa).
  * Acento do comprador (`.bx-ctx-comprador`), igual ao /checkout. Sem padding
- * lateral proprio: o `.tcg-content` do AppLayout ja da o gutter.
+ * lateral proprio: o `main.bx-gutter` da casca de /leiloes ja da o gutter.
  */
 
 // DECISAO DO DU: cache. Mesmo regime da pagina do lote (force-dynamic): esta
@@ -57,7 +56,7 @@ export default async function PagarLotePage({ params, searchParams }: Props) {
   const nome = nomeCompleto(l)
 
   return (
-    <AppLayout>
+    <>
       <div className="bx-ctx-comprador" style={{ maxWidth: 720, margin: '0 auto' }}>
         <PageHeader
           trilha={[
@@ -78,6 +77,6 @@ export default async function PagarLotePage({ params, searchParams }: Props) {
           cancelado={cancelado}
         />
       </div>
-    </AppLayout>
+    </>
   )
 }

@@ -198,3 +198,105 @@ export const buscarRodadaPorId = cache(async (rodadaId: string | null): Promise<
   if (error || !data) return null
   return rodadaPublicaDeLinha(data as unknown as Record<string, unknown>)
 })
+
+// ─── Casca e home da ferramenta ─────────────────────────────────────────────
+
+/**
+ * Rodadas NO AR agora. Le `leilao_rodadas` filtrando `status = 'ao_vivo'`,
+ * que e exatamente o predicado do indice parcial `idx_leilao_rodadas_ao_vivo`:
+ * o indice so tem as rodadas no ar (unidades), entao a leitura toca poucas
+ * paginas, nunca a tabela inteira. `cache()`: a casca (selo AO VIVO do
+ * cabecalho) e a home pedem a mesma coisa no mesmo request, e sai uma
+ * consulta so. Falha LANCA; quem e complementar (a casca) segura o erro.
+ */
+export const buscarRodadasAoVivo = cache(async (): Promise<RodadaPublica[]> => {
+  const db = dbOuErro()
+  const { data, error } = await db
+    .from('leilao_rodadas')
+    .select(COLUNAS_RODADA)
+    .eq('status', 'ao_vivo')
+    .order('numero', { ascending: true })
+    .limit(LIMITE_RODADAS_NO_AR)
+  if (error) throw new Error(`[leiloes] rodadas no ar: ${error.code} ${error.message}`)
+  return (data ?? []).map(r => rodadaPublicaDeLinha(r as unknown as Record<string, unknown>))
+})
+
+const LIMITE_RODADAS_NO_AR = 6
+
+/**
+ * Proximas rodadas agendadas, pelo horario (indice parcial
+ * `idx_leilao_rodadas_agendada` em inicia_em). Falha LANCA.
+ */
+export async function listarRodadasAgendadas(limite = 20): Promise<RodadaPublica[]> {
+  const db = dbOuErro()
+  const { data, error } = await db
+    .from('leilao_rodadas')
+    .select(COLUNAS_RODADA)
+    .eq('status', 'agendada')
+    .order('inicia_em', { ascending: true, nullsFirst: false })
+    .limit(limite)
+  if (error) throw new Error(`[leiloes] rodadas agendadas: ${error.code} ${error.message}`)
+  return (data ?? []).map(r => rodadaPublicaDeLinha(r as unknown as Record<string, unknown>))
+}
+
+/**
+ * Rodadas encerradas mais recentes. Sem indice proprio: `leilao_rodadas` e
+ * uma tabela pequena (uma linha por live de loja). Se crescer a ponto de
+ * pesar, entra um indice parcial em (inicia_em) where status = 'encerrada'.
+ * Falha LANCA.
+ */
+export async function listarRodadasEncerradas(limite = 20): Promise<RodadaPublica[]> {
+  const db = dbOuErro()
+  const { data, error } = await db
+    .from('leilao_rodadas')
+    .select(COLUNAS_RODADA)
+    .eq('status', 'encerrada')
+    .order('inicia_em', { ascending: false, nullsFirst: false })
+    .limit(limite)
+  if (error) throw new Error(`[leiloes] rodadas encerradas: ${error.code} ${error.message}`)
+  return (data ?? []).map(r => rodadaPublicaDeLinha(r as unknown as Record<string, unknown>))
+}
+
+/**
+ * Quantos lotes publicos (nao cancelados) cada rodada tem. Uma leitura so,
+ * pelo indice (rodada_id, ordem). Complementar: falha vira mapa vazio e a
+ * lista sai sem a contagem.
+ */
+export async function contarLotesPorRodada(rodadaIds: string[]): Promise<Map<string, number>> {
+  const mapa = new Map<string, number>()
+  if (!rodadaIds.length) return mapa
+  const db = getServiceSupabase()
+  if (!db) return mapa
+  const { data, error } = await db
+    .from('leiloes_publico')
+    .select('rodada_id, status')
+    .in('rodada_id', rodadaIds)
+    .limit(LIMITE_LOTES_RODADA * rodadaIds.length)
+  if (error || !data) return mapa
+  for (const r of data as Array<{ rodada_id: string | null; status: string | null }>) {
+    if (!r.rodada_id || r.status === 'cancelado') continue
+    mapa.set(r.rodada_id, (mapa.get(r.rodada_id) ?? 0) + 1)
+  }
+  return mapa
+}
+
+/** Lojas por id (PK), para as listas de rodada. Complementar: falha vira mapa vazio. */
+export async function buscarLojasPorId(ids: string[]): Promise<Map<string, LojaDoLote>> {
+  const mapa = new Map<string, LojaDoLote>()
+  const unicos = [...new Set(ids.filter(Boolean))]
+  if (!unicos.length) return mapa
+  const db = getServiceSupabase()
+  if (!db) return mapa
+  const { data, error } = await db.from('lojas').select('id, slug, nome, logo_url, verificada').in('id', unicos)
+  if (error || !data) return mapa
+  for (const d of data as Array<Record<string, unknown>>) {
+    if (!d.slug) continue
+    mapa.set(String(d.id), {
+      slug: String(d.slug),
+      nome: (d.nome as string | null) ?? null,
+      logoUrl: (d.logo_url as string | null) ?? null,
+      verificada: d.verificada === true,
+    })
+  }
+  return mapa
+}

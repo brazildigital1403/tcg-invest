@@ -3,7 +3,6 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound, permanentRedirect } from 'next/navigation'
-import AppLayout from '@/components/ui/AppLayout'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import GaleriaProduto from '@/components/lojas/GaleriaProduto'
 import BotaoCompartilhar from '@/components/ui/BotaoCompartilhar'
@@ -186,7 +185,7 @@ export default async function LotePage({ params }: Params) {
   ]
 
   return (
-    <AppLayout>
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(produtoSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(trilhaSchema) }} />
       <style>{`
@@ -275,7 +274,7 @@ export default async function LotePage({ params }: Params) {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   )
 }
 

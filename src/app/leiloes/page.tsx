@@ -2,7 +2,6 @@ import type { CSSProperties } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import AppLayout from '@/components/ui/AppLayout'
 import CardItem from '@/components/ui/CardItem'
 import SeloTempo from '@/components/leilao/SeloTempo'
 import { cardDoLote } from '@/components/leilao/cardDoLote'
@@ -48,7 +47,7 @@ export default async function LeiloesPage({
   const renderizadoEm = new Date().toISOString()
 
   return (
-    <AppLayout>
+    <>
       <style>{`
         .lv-chip { transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
         .lv-chip:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
@@ -125,7 +124,7 @@ export default async function LeiloesPage({
           </div>
         )}
       </div>
-    </AppLayout>
+    </>
   )
 }
 
