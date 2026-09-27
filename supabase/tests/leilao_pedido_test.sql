@@ -1,9 +1,13 @@
 -- ============================================================================
 -- Roteiro de prova da fatia 2 (20260928100000_leilao_pedido.sql).
 --
--- SEM begin/rollback de proposito: rodar como UMA transacao so. O ultimo
--- comando e `raise exception 'LEILAO_PEDIDO_TODOS_OK'` -- a excecao desfaz
--- tudo e nao deixa rastro. Chegar nela = tudo passou. Qualquer outra excecao
+-- ★ TEM DE RODAR COMO TRANSACAO UNICA: `psql -1 -v ON_ERROR_STOP=1 -f` ou o
+--   arquivo inteiro num unico execute_sql (um texto so). Rodado comando a
+--   comando (autocommit), as fixtures FICAM no banco e o raise do fim nao
+--   desfaz nada.
+-- SEM begin/rollback de proposito: o ultimo comando e
+-- `raise exception 'LEILAO_PEDIDO_TODOS_OK'` -- a excecao desfaz tudo e nao
+-- deixa rastro. Chegar nela = tudo passou. Qualquer outra excecao
 -- ("FALHOU Tn: ...") para antes e aponta o bloco.
 --
 -- Rodar SO na branch de prova, como `postgres`, com o motor
@@ -12,7 +16,9 @@
 -- Usuarios: a100...01 vendedor | a100...02 comprador | a100...03 authenticated qualquer
 -- Loja:     f100...01 (pedidos.loja_id pode ser NOT NULL na branch)
 -- Lotes:    b100...01 aguardando_pagamento | b100...02 calote | b100...03 cancelado
--- Pedidos:  e100...01..06
+--           b100...04 vira calote no T10 (e volta a vendido no T11)
+--           b100...05 calote (T8g)
+-- Pedidos:  e100...01..07
 -- ============================================================================
 
 -- ─── Fixtures ───────────────────────────────────────────────────────────────
@@ -42,7 +48,11 @@ values
   ('b1000000-0000-4000-8000-000000000003', 'a1000000-0000-4000-8000-000000000001',
    'f1000000-0000-4000-8000-000000000001', 'Mew', 'mew-pedido-3', 1000,
    null, null, null, 0, 60, 'cancelado',
-   now() - interval '2 hours', now() - interval '1 hour', now() - interval '1 hour', null);
+   now() - interval '2 hours', now() - interval '1 hour', now() - interval '1 hour', null),
+  ('b1000000-0000-4000-8000-000000000005', 'a1000000-0000-4000-8000-000000000001',
+   'f1000000-0000-4000-8000-000000000001', 'Ditto', 'ditto-pedido-5', 1000,
+   2000, 'a1000000-0000-4000-8000-000000000002', 2000, 1, 60, 'calote',
+   now() - interval '60 hours', now() - interval '50 hours', now() - interval '50 hours', now() - interval '2 hours');
 
 -- Pedido 01: checkout aberto do lote 01.
 insert into public.pedidos (id, loja_id, vendedor_user_id, comprador_user_id, item_nome,
@@ -67,19 +77,35 @@ begin
 exception when check_violation then null;
 end $$;
 
+-- T1b: a definicao das duas CHECKs, independente de haver anuncio na branch.
+do $$
+declare d text;
+begin
+  select pg_get_constraintdef(c.oid) into d from pg_constraint c
+   where c.conname = 'pedido_itens_origem_chk' and c.conrelid = 'public.pedido_itens'::regclass;
+  assert d is not null, 'FALHOU T1b: pedido_itens_origem_chk nao existe';
+  assert d ~ 'num_nonnulls\(marketplace_id, produto_id, leilao_id\) = 1',
+    format('FALHOU T1b: pedido_itens_origem_chk = %s', d);
+  select pg_get_constraintdef(c.oid) into d from pg_constraint c
+   where c.conname = 'pedidos_item_origem_chk' and c.conrelid = 'public.pedidos'::regclass;
+  assert d is not null, 'FALHOU T1b: pedidos_item_origem_chk nao existe';
+  assert d ~ 'num_nonnulls\(marketplace_id, produto_id, leilao_id\) <= 1',
+    format('FALHOU T1b: pedidos_item_origem_chk = %s', d);
+end $$;
+
 do $$
 declare v_mp uuid;
 begin
   select id into v_mp from public.marketplace limit 1;
   if v_mp is null then
-    raise notice 'T1b pulado: marketplace vazio na branch';
+    raise notice 'T1c pulado: marketplace vazio na branch (a definicao ja foi conferida no T1b)';
     return;
   end if;
   begin
     insert into public.pedido_itens (pedido_id, marketplace_id, leilao_id, nome, tipo, preco_cents, quantidade)
     values ('e1000000-0000-4000-8000-000000000001', v_mp, 'b1000000-0000-4000-8000-000000000001',
             'Duas origens', 'carta', 100, 1);
-    raise exception 'FALHOU T1b: aceitou item com duas origens';
+    raise exception 'FALHOU T1c: aceitou item com duas origens';
   exception when check_violation then null;
   end;
 end $$;
@@ -203,9 +229,16 @@ begin
   r := public.leilao_marcar_reembolsado('b1000000-0000-4000-8000-000000000001', 'e1000000-0000-4000-8000-000000000001');
   assert r = 'ja_cancelado', format('FALHOU T8f: %s', r);
 
-  -- lote que nunca foi vendido nao e cancelado por estorno
+  -- T8g: lote em calote (nunca vendido) nao e cancelado por estorno
+  select versao into v0 from public.leiloes where id = 'b1000000-0000-4000-8000-000000000005';
+  r := public.leilao_marcar_reembolsado('b1000000-0000-4000-8000-000000000005', 'e1000000-0000-4000-8000-000000000001');
+  assert r = 'ignorado:calote', format('FALHOU T8g: %s', r);
+  select * into l from public.leiloes where id = 'b1000000-0000-4000-8000-000000000005';
+  assert l.status = 'calote' and l.versao = v0, format('FALHOU T8g: lote mexido (%s, v%s)', l.status, l.versao);
+
+  -- T8h: lote vendido por OUTRO pedido nao e cancelado pelo estorno deste
   r := public.leilao_marcar_reembolsado('b1000000-0000-4000-8000-000000000002', 'e1000000-0000-4000-8000-000000000001');
-  assert r = 'outro_pedido', format('FALHOU T8g: %s', r);
+  assert r = 'outro_pedido', format('FALHOU T8h: %s', r);
 end $$;
 
 -- ─── T9: as duas funcoes sao so do service_role ─────────────────────────────
@@ -225,6 +258,8 @@ end $$;
 
 -- ─── T10: o tick nao marca calote com checkout aberto do lote ───────────────
 -- Lote 01 ja cancelado; monta um lote novo vencido com pedido aberto.
+-- pagar_ate - 20 min: passou a carencia (15) e a sessao ainda pode estar
+-- aberta (checkout so conta ate pagar_ate + 30 min).
 insert into public.leiloes (id, vendedor_user_id, loja_id, card_name, slug, lance_inicial_cents,
                             preco_atual_cents, lider_user_id, lider_maximo_cents, n_lances,
                             duracao_seg, status, inicia_em, termina_em, encerrado_em, pagar_ate)
@@ -232,7 +267,7 @@ values ('b1000000-0000-4000-8000-000000000004', 'a1000000-0000-4000-8000-0000000
         'f1000000-0000-4000-8000-000000000001', 'Snorlax', 'snorlax-pedido-4', 1000,
         2000, 'a1000000-0000-4000-8000-000000000002', 2000, 1, 60, 'aguardando_pagamento',
         now() - interval '60 hours', now() - interval '50 hours', now() - interval '50 hours',
-        now() - interval '1 hour');
+        now() - interval '20 minutes');
 insert into public.pedidos (id, loja_id, vendedor_user_id, comprador_user_id, item_nome,
                             valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
                             stripe_session_id, status, leilao_id)
@@ -257,6 +292,48 @@ declare l record;
 begin
   select * into l from public.leiloes where id = 'b1000000-0000-4000-8000-000000000004';
   assert l.status = 'calote', format('FALHOU T10b: status %s <> calote', l.status);
+end $$;
+
+-- ─── T11: calote -> vendido marca os eventos 'calote' como processados ─────
+do $$
+declare n int;
+begin
+  select count(*) into n from public.leilao_eventos
+   where leilao_id = 'b1000000-0000-4000-8000-000000000004' and tipo = 'calote' and processado_em is null;
+  assert n = 1, format('FALHOU T11 (pre): eventos calote pendentes = %s', n);
+end $$;
+
+insert into public.pedidos (id, loja_id, vendedor_user_id, comprador_user_id, item_nome,
+                            valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
+                            stripe_session_id, status, pago_em, leilao_id)
+values ('e1000000-0000-4000-8000-000000000007', 'f1000000-0000-4000-8000-000000000001',
+        'a1000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000002', 'Snorlax',
+        2000, 2700, 'pix', 30, 'cs_test_leilao_p07', 'pago', now(),
+        'b1000000-0000-4000-8000-000000000004');
+
+do $$
+declare r text; l record; n int; pl jsonb;
+begin
+  r := public.leilao_marcar_vendido('b1000000-0000-4000-8000-000000000004', 'e1000000-0000-4000-8000-000000000007');
+  assert r = 'vendido', format('FALHOU T11: %s', r);
+  select * into l from public.leiloes where id = 'b1000000-0000-4000-8000-000000000004';
+  assert l.status = 'vendido', format('FALHOU T11b: status %s', l.status);
+  select count(*) into n from public.leilao_eventos
+   where leilao_id = l.id and tipo = 'calote' and processado_em is null;
+  assert n = 0, format('FALHOU T11c: %s evento(s) calote ainda pendente(s)', n);
+  select payload into pl from public.leilao_eventos
+   where leilao_id = l.id and tipo = 'pago' order by id desc limit 1;
+  assert pl->>'de' = 'calote' and (pl->>'reverteu_calote')::boolean,
+    format('FALHOU T11d: payload do pago %s', pl);
+end $$;
+
+-- T11e: pagamento normal (sem calote) registra reverteu_calote = false.
+do $$
+declare pl jsonb;
+begin
+  select payload into pl from public.leilao_eventos
+   where leilao_id = 'b1000000-0000-4000-8000-000000000001' and tipo = 'pago' limit 1;
+  assert pl->>'reverteu_calote' = 'false', format('FALHOU T11e: payload %s', pl);
 end $$;
 
 -- ─── Fim: desfaz tudo ───────────────────────────────────────────────────────

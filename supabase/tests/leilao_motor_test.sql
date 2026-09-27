@@ -23,7 +23,9 @@
 --   01 vendedor | 02 ana | 03 bia | 04 caio | 05 dudu (sem CPF) | 06 eva (suspensa)
 -- Lotes: b000...01 avulso L1 | b000...02 R1 e b000...03 R2 (rodada c000...01)
 --        b000...05 avulso atrasado (T16) | b000...06..09 rodadas de validacao (T17/T18)
+--        b000...10 checkout esquecido | b000...11 pago (T19)
 -- Pedidos (T15): e000...01 checkout em andamento | e000...02 pago
+--        (T19): e000...03 checkout esquecido | e000...04 pago
 -- ============================================================================
 
 begin;
@@ -488,8 +490,10 @@ begin
 end $$;
 
 -- ─── T15: calote NAO marca lote com checkout em andamento ou pedido pago ────
--- L1 esta aguardando_pagamento desde o T11 (lider: ana).
-update public.leiloes set pagar_ate = now() - interval '1 hour'
+-- L1 esta aguardando_pagamento desde o T11 (lider: ana). pagar_ate - 20 min:
+-- fora da carencia (15) e dentro da janela em que a sessao pode estar aberta
+-- (30). Com mais de 30 min o checkout nao segura mais (T19).
+update public.leiloes set pagar_ate = now() - interval '20 minutes'
  where id = 'b0000000-0000-4000-8000-000000000001';
 insert into public.pedidos (id, loja_id, vendedor_user_id, comprador_user_id, item_nome,
                             valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
@@ -606,6 +610,69 @@ begin
   select * into r4 from public.leilao_rodadas where id = 'c0000000-0000-4000-8000-000000000004';
   assert r3.status = 'ao_vivo', format('FALHOU T18: encerrou rodada com lote em rascunho (%s)', r3.status);
   assert r4.status = 'ao_vivo', format('FALHOU T18b: encerrou rodada em que nada abriu (%s)', r4.status);
+end $$;
+
+-- ─── T19: checkout esquecido NAO segura calote depois de pagar_ate + 30 min ─
+-- A sessao do lote expira no maximo em pagar_ate + 14 min. Pedido ainda
+-- 'aguardando_pagamento' depois de pagar_ate + 30 min = webhook de expiracao
+-- perdido: nao pode segurar o calote para sempre.
+insert into public.leiloes (id, vendedor_user_id, loja_id, card_name, slug, lance_inicial_cents,
+                            preco_atual_cents, lider_user_id, lider_maximo_cents, n_lances,
+                            duracao_seg, status, inicia_em, termina_em, encerrado_em, pagar_ate)
+values ('b0000000-0000-4000-8000-000000000010', 'a0000000-0000-4000-8000-000000000001',
+        'f0000000-0000-4000-8000-000000000001', 'Gengar', 'gengar-teste-t19', 1000,
+        2000, 'a0000000-0000-4000-8000-000000000002', 2000, 1, 60, 'aguardando_pagamento',
+        now() - interval '60 hours', now() - interval '50 hours', now() - interval '50 hours',
+        now() - interval '29 minutes');
+insert into public.pedidos (id, loja_id, vendedor_user_id, comprador_user_id, item_nome,
+                            valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
+                            status, stripe_session_id, leilao_id)
+values ('e0000000-0000-4000-8000-000000000003', 'f0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
+        'a0000000-0000-4000-8000-000000000002', 'Gengar', 2000, 2000, 'cartao', 30,
+        'aguardando_pagamento', 'cs_test_leilao_t19', 'b0000000-0000-4000-8000-000000000010');
+select public.leilao_tick();
+do $$
+declare l record;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000010';
+  assert l.status = 'aguardando_pagamento',
+    format('FALHOU T19a: calote com checkout ainda dentro de pagar_ate + 30 min (%s)', l.status);
+end $$;
+
+update public.leiloes set pagar_ate = now() - interval '31 minutes'
+ where id = 'b0000000-0000-4000-8000-000000000010';
+select public.leilao_tick();
+do $$
+declare l record; v int;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000010';
+  assert l.status = 'calote',
+    format('FALHOU T19b: checkout esquecido segurou calote depois de pagar_ate + 30 min (%s)', l.status);
+  select count(*) into v from public.leilao_eventos where leilao_id = l.id and tipo = 'calote';
+  assert v = 1, format('FALHOU T19b: eventos calote = %s', v);
+end $$;
+
+-- controle: pedido PAGO segura o calote mesmo muito depois do prazo
+insert into public.leiloes (id, vendedor_user_id, loja_id, card_name, slug, lance_inicial_cents,
+                            preco_atual_cents, lider_user_id, lider_maximo_cents, n_lances,
+                            duracao_seg, status, inicia_em, termina_em, encerrado_em, pagar_ate)
+values ('b0000000-0000-4000-8000-000000000011', 'a0000000-0000-4000-8000-000000000001',
+        'f0000000-0000-4000-8000-000000000001', 'Haunter', 'haunter-teste-t19', 1000,
+        2000, 'a0000000-0000-4000-8000-000000000002', 2000, 1, 60, 'aguardando_pagamento',
+        now() - interval '60 hours', now() - interval '50 hours', now() - interval '50 hours',
+        now() - interval '10 hours');
+insert into public.pedidos (id, loja_id, vendedor_user_id, comprador_user_id, item_nome,
+                            valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
+                            status, pago_em, stripe_session_id, leilao_id)
+values ('e0000000-0000-4000-8000-000000000004', 'f0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
+        'a0000000-0000-4000-8000-000000000002', 'Haunter', 2000, 2000, 'cartao', 30,
+        'pago', now(), 'cs_test_leilao_t19b', 'b0000000-0000-4000-8000-000000000011');
+select public.leilao_tick();
+do $$
+declare l record;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000011';
+  assert l.status = 'aguardando_pagamento', format('FALHOU T19c: calote com pedido pago (%s)', l.status);
 end $$;
 
 select 'leilao_motor_test: TODOS OK' as resultado;

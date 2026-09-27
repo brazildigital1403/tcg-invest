@@ -13,6 +13,8 @@
 --      recusado. Novo: num_nonnulls(marketplace_id, produto_id, leilao_id) = 1
 --      -- continua exigindo EXATAMENTE uma origem por item. Todas as linhas de
 --      hoje tem leilao_id null e uma das duas outras, entao validam igual.
+--      Idem pedidos_item_origem_chk (atalho do item no pedido):
+--      num_nonnulls(marketplace_id, produto_id, leilao_id) <= 1.
 --
 --   2. UM checkout aberto por lote (indice unico parcial).
 --      pedidos(leilao_id) where status = 'aguardando_pagamento'. E a trava de
@@ -28,7 +30,10 @@
 --        aguardando_pagamento | calote  -> vendido, pedido_id, versao + 1,
 --                                          evento 'pago' (ja processado)
 --      ★ 'calote' volta para 'vendido': pagamento que chega depois do calote
---        (pendencia registrada no motor) nao pode ser descartado.
+--        (pendencia registrada no motor) nao pode ser descartado. Nesse ramo os
+--        eventos 'calote' pendentes do lote (processado_em null) sao marcados
+--        processados -- o consumidor de eventos nao avisa calote de um lote que
+--        acabou pago -- e o evento 'pago' leva `reverteu_calote: true`.
 --      Idempotente: lote ja vendido por ESTE pedido devolve 'ja_vendido' e nao
 --      mexe em nada (a Stripe re-entrega evento). Confere que o pedido e do
 --      lote e esta pago; qualquer outro caso devolve o motivo e nao muda nada
@@ -51,26 +56,42 @@
 --   `create unique index` le pedidos inteira -- ambos em milissegundos neste
 --   tamanho. Nada toca pokemon_cards / pokemon_cards_all.
 --   ★ O `drop constraint` + `add constraint` pegam ACCESS EXCLUSIVE em
---   pedido_itens por um instante (tabela pequena, sem fila esperada).
+--   pedido_itens e pedidos por um instante (tabelas pequenas). `lock_timeout`
+--   de 3s no topo: com fila, falha em vez de enfileirar o checkout atras dela.
+--   (`set local` so vale dentro de transacao: rodar a migration como uma so.)
 --
 -- ROLLBACK (nesta ordem):
 --   drop function if exists public.leilao_marcar_reembolsado(uuid, uuid);
 --   drop function if exists public.leilao_marcar_vendido(uuid, uuid);
 --   drop index if exists public.pedidos_leilao_aberto_uniq;
+--   alter table public.pedidos drop constraint if exists pedidos_item_origem_chk;
+--   alter table public.pedidos add constraint pedidos_item_origem_chk
+--     check (num_nonnulls(marketplace_id, produto_id) <= 1);
 --   alter table public.pedido_itens drop constraint if exists pedido_itens_origem_chk;
 --   alter table public.pedido_itens add constraint pedido_itens_origem_chk
 --     check (num_nonnulls(marketplace_id, produto_id) = 1);
 --   (o ultimo passo FALHA se ja existir item de leilao: apagar/ajustar antes)
 -- ============================================================================
 
+-- Fila de lock em pedidos/pedido_itens nao pode travar o checkout do
+-- marketplace: se nao pegar a trava em 3s, a migration falha e roda de novo.
+set local lock_timeout = '3s';
+
 
 -- ----------------------------------------------------------------------------
--- 1. Item de leilao em pedido_itens
+-- 1. Item de leilao em pedido_itens (e o atalho em pedidos)
 -- ----------------------------------------------------------------------------
 
 alter table public.pedido_itens drop constraint if exists pedido_itens_origem_chk;
 alter table public.pedido_itens add constraint pedido_itens_origem_chk
   check (num_nonnulls(marketplace_id, produto_id, leilao_id) = 1);
+
+-- Atalho do item no pedido: no maximo UMA origem (pedido de carrinho tem as
+-- tres nulas). Sem isso um pedido podia apontar para anuncio E lote ao mesmo
+-- tempo.
+alter table public.pedidos drop constraint if exists pedidos_item_origem_chk;
+alter table public.pedidos add constraint pedidos_item_origem_chk
+  check (num_nonnulls(marketplace_id, produto_id, leilao_id) <= 1);
 
 
 -- ----------------------------------------------------------------------------
@@ -132,9 +153,20 @@ begin
      set status = 'vendido', pedido_id = p_pedido, versao = versao + 1
    where id = p_leilao;
 
+  -- Calote revertido: o aviso de calote pendente nao pode mais sair.
+  if v_status = 'calote' then
+    update public.leilao_eventos
+       set processado_em = now()
+     where leilao_id = p_leilao
+       and tipo = 'calote'
+       and processado_em is null;
+  end if;
+
   insert into public.leilao_eventos (leilao_id, tipo, user_id, payload, processado_em)
   values (p_leilao, 'pago', v_comprador,
-          jsonb_build_object('pedido_id', p_pedido, 'de', v_status), now());
+          jsonb_build_object('pedido_id', p_pedido, 'de', v_status,
+                             'reverteu_calote', v_status = 'calote'),
+          now());
 
   return 'vendido';
 end;

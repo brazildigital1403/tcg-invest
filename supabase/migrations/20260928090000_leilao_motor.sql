@@ -57,9 +57,14 @@
 --     - nao existe pedido pago do lote (leiloes.pedido_id OU pedidos.leilao_id OU
 --       pedido_itens.leilao_id com pedidos.pago_em not null);
 --     - nao existe checkout em andamento (pedido do lote com stripe_session_id
---       not null, status fora de cancelado/reembolsado e cancelado_em null).
---   Checkout expirado precisa ser cancelado pelo fluxo de pedidos para o
---   calote andar. ★ PENDENCIA DA FATIA 2 (webhook): pagamento que chega para
+--       not null, status fora de cancelado/reembolsado e cancelado_em null)
+--       ENQUANTO a sessao ainda pode estar aberta: so conta se now() <
+--       pagar_ate + 30 min. A rota de checkout cria a sessao com expires_at no
+--       maximo em pagar_ate + 14 min (dentro da carencia), entao depois de
+--       pagar_ate + 30 min nenhuma sessao do lote esta aberta e um pedido
+--       'aguardando_pagamento' esquecido (webhook de expiracao perdido) nao
+--       segura o calote para sempre. ★ Pedido PAGO segura o calote SEMPRE.
+--   ★ PENDENCIA DA FATIA 2 (webhook): pagamento que chega para
 --   lote ja em 'calote' (Pix compensado tarde, por exemplo) tem de voltar o
 --   lote para 'vendido' e ligar pedido_id -- nao pode ser descartado.
 --
@@ -1091,9 +1096,10 @@ begin
 
   -- 5. Calote SO com certeza: pagar_ate + 15 min de carencia, nenhum pedido
   --    pago do lote e nenhum checkout em andamento. Na duvida, espera: o
-  --    proximo tick reavalia.
+  --    proximo tick reavalia. Checkout so conta ate pagar_ate + 30 min (a
+  --    sessao expira no maximo em pagar_ate + 14 min); pedido pago, sempre.
   for r in
-    select l.id, l.lider_user_id, l.pedido_id from public.leiloes l
+    select l.id, l.lider_user_id, l.pedido_id, l.pagar_ate from public.leiloes l
     where l.status = 'aguardando_pagamento'
       and l.pagar_ate <= now() - interval '15 minutes'
     for update of l skip locked
@@ -1106,7 +1112,8 @@ begin
                   or p.status in ('pago', 'enviado', 'entregue')
                   or (p.stripe_session_id is not null
                       and p.status not in ('cancelado', 'reembolsado')
-                      and p.cancelado_em is null)))
+                      and p.cancelado_em is null
+                      and now() < r.pagar_ate + interval '30 minutes')))
          or exists (
            select 1 from public.pedido_itens i
            join public.pedidos p on p.id = i.pedido_id
@@ -1115,7 +1122,8 @@ begin
                   or p.status in ('pago', 'enviado', 'entregue')
                   or (p.stripe_session_id is not null
                       and p.status not in ('cancelado', 'reembolsado')
-                      and p.cancelado_em is null))) then
+                      and p.cancelado_em is null
+                      and now() < r.pagar_ate + interval '30 minutes'))) then
         v_calotes_adiados := v_calotes_adiados + 1;
       else
         update public.leiloes set status = 'calote', versao = versao + 1 where id = r.id;
@@ -1143,7 +1151,7 @@ end;
 $$;
 
 comment on function public.leilao_tick() is
-  'Relogio do leilao (pg_cron): ativa agendados, fecha vencidos (folga 1s), avanca rodada ao vivo, marca calote apos pagar_ate + 15 min se nao houver pedido pago nem checkout em andamento. Erro por lote/rodada vira evento erro_tick. So postgres/service_role.';
+  'Relogio do leilao (pg_cron): ativa agendados, fecha vencidos (folga 1s), avanca rodada ao vivo, marca calote apos pagar_ate + 15 min se nao houver pedido pago nem checkout em andamento (checkout so conta ate pagar_ate + 30 min). Erro por lote/rodada vira evento erro_tick. So postgres/service_role.';
 
 
 -- ----------------------------------------------------------------------------
