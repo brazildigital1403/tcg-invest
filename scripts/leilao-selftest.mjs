@@ -13,7 +13,7 @@ import ts from 'typescript'
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 const tmp = mkdtempSync(join(tmpdir(), 'leilao-selftest-'))
 
-for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos', 'email-lote']) {
+for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos', 'email-lote', 'leilao-painel']) {
   const src = readFileSync(join(raiz, 'src/lib', `${nome}.ts`), 'utf8')
   const out = ts.transpileModule(src, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -25,6 +25,7 @@ const L = await import(pathToFileURL(join(tmp, 'leilao.mjs')).href)
 const T = await import(pathToFileURL(join(tmp, 'leilao-taxas.mjs')).href)
 const A = await import(pathToFileURL(join(tmp, 'leilao-avisos.mjs')).href)
 const EL = await import(pathToFileURL(join(tmp, 'email-lote.mjs')).href)
+const P = await import(pathToFileURL(join(tmp, 'leilao-painel.mjs')).href)
 
 let n = 0
 const ok = (fn, nome) => {
@@ -471,6 +472,102 @@ try {
       n++; console.log('ok ', 'email-lote: orcamento de tempo e pausa')
     })()
   }
+
+  // ─── Painel da loja (fatia 5) ─────────────────────────────────────────────
+  ok(() => {
+    assert.equal(P.sugestaoLanceInicialCents(100), 6000)
+    assert.equal(P.sugestaoLanceInicialCents(10.99), 600)
+    assert.equal(P.sugestaoLanceInicialCents(0.5), 100)
+    assert.equal(P.sugestaoLanceInicialCents(0), null)
+    assert.equal(P.sugestaoLanceInicialCents(null), null)
+    assert.equal(P.sugestaoLanceInicialCents(NaN), null)
+  }, 'painel: sugestao 60% do menor preco, sem preco nao sugere')
+
+  ok(() => {
+    assert.equal(P.reaisParaCents('1.234,56'), 123456)
+    assert.equal(P.reaisParaCents('12,5'), 1250)
+    assert.equal(P.reaisParaCents('12'), 1200)
+    assert.equal(P.reaisParaCents('12.50'), 1250)
+    assert.equal(P.reaisParaCents('1.000'), 100000)
+    assert.equal(P.reaisParaCents('R$ 60,00'), 6000)
+    assert.equal(P.reaisParaCents(''), null)
+    assert.equal(P.reaisParaCents('0'), null)
+  }, 'painel: reais digitados para centavos')
+
+  ok(() => {
+    assert.equal(P.brasiliaParaISO('2026-09-28', '21:30'), '2026-09-29T00:30:00.000Z')
+    assert.equal(P.brasiliaParaISO('2026-12-31', '23:59'), '2027-01-01T02:59:00.000Z')
+    assert.equal(P.brasiliaParaISO('2026-02-31', '10:00'), null)
+    assert.equal(P.brasiliaParaISO('2026-09-28', '24:00'), null)
+    assert.equal(P.brasiliaParaISO('28/09/2026', '10:00'), null)
+    assert.deepEqual(P.isoParaBrasilia('2026-09-29T00:30:00.000Z'), { data: '2026-09-28', hora: '21:30' })
+    assert.deepEqual(P.isoParaBrasilia(null), { data: '', hora: '' })
+    const ida = P.brasiliaParaISO('2026-01-01', '00:05')
+    const volta = P.isoParaBrasilia(ida)
+    assert.deepEqual(volta, { data: '2026-01-01', hora: '00:05' })
+  }, 'painel: horario de Brasilia ida e volta')
+
+  ok(() => {
+    assert.equal(P.validarRodada({ titulo: 'ab' }, false).ok, false)
+    const r = P.validarRodada({ titulo: '  Live de sexta  ', link_transmissao: 'https://instagram.com/loja' }, false)
+    assert.equal(r.ok, true)
+    assert.equal(r.valor.titulo, 'Live de sexta')
+    assert.equal(P.validarRodada({ link_transmissao: 'http://x.com' }, true).ok, false)
+    assert.equal(P.validarRodada({ link_transmissao: 'javascript:alert(1)' }, true).ok, false)
+    assert.equal(P.validarRodada({ inicia_em: 'ontem' }, true).ok, false)
+    const limpa = P.validarRodada({ inicia_em: '', link_transmissao: '' }, true)
+    assert.equal(limpa.valor.iniciaEm, null)
+    assert.equal(limpa.valor.linkTransmissao, null)
+  }, 'painel: validacao da rodada')
+
+  ok(() => {
+    const opts = { fotosPermitidas: 'https://s.test/leiloes/L1/', graduadorasValidas: ['psa', 'cgc'] }
+    const base = {
+      card_id: 'sv3pt5-199', fotos: ['https://s.test/leiloes/L1/a.webp', 'https://s.test/leiloes/L1/b.webp'],
+      condicao: 'nm', idioma: 'EN', lance_inicial_cents: 1000, duracao_seg: 45,
+    }
+    const r = P.validarLote(base, opts)
+    assert.equal(r.ok, true)
+    assert.equal(r.valor.condicao, 'NM')
+    assert.equal(r.valor.idioma, 'en')
+    assert.equal(r.valor.graduadora, null)
+    assert.equal(P.validarLote({ ...base, fotos: [base.fotos[0]] }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, fotos: [base.fotos[0], base.fotos[0]] }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, fotos: ['https://outro.test/a.webp', base.fotos[1]] }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, condicao: 'LP' }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, condicao: 'M' }, opts).ok, true)
+    assert.equal(P.validarLote({ ...base, duracao_seg: 20 }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, lance_inicial_cents: 99 }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, lance_inicial_cents: 10.5 }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, card_id: '' }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, graduadora: 'bgs', nota: '9' }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, graduadora: 'psa' }, opts).ok, false)
+    assert.equal(P.validarLote({ ...base, nota: '9' }, opts).ok, false)
+    const g = P.validarLote({ ...base, graduadora: 'PSA', nota: '9,5' }, opts)
+    assert.equal(g.ok, true)
+    assert.equal(g.valor.graduadora, 'psa')
+    assert.equal(g.valor.nota, '9.5')
+    assert.equal(P.validarLote({ ...base, graduadora: 'psa', nota: '11' }, opts).ok, false)
+  }, 'painel: validacao do lote (fotos, condicao, graduacao, lance, duracao)')
+
+  ok(() => {
+    const agora = Date.parse('2026-09-28T12:00:00Z')
+    const ok2 = { fotos: ['a', 'b'] }
+    assert.deepEqual(P.pendenciasAgendar({ iniciaEm: '2026-09-28T12:10:00Z', lotes: [ok2], podeReceber: true }, agora), [])
+    const p = P.pendenciasAgendar({ iniciaEm: '2026-09-28T12:09:59Z', lotes: [{ fotos: ['a'] }, { fotos: null }], podeReceber: false }, agora)
+    assert.equal(p.length, 3)
+    assert.match(p[0], /2 lotes/)
+    assert.match(p[1], /10 minutos/)
+    assert.equal(P.pendenciasAgendar({ iniciaEm: null, lotes: [], podeReceber: true }, agora).length, 2)
+  }, 'painel: pendencias antes de agendar')
+
+  ok(() => {
+    assert.equal(P.erroDoPainel('lote_sem_fotos:b500').status, 409)
+    assert.equal(P.erroDoPainel('rodada_nao_encontrada').status, 404)
+    assert.equal(P.erroDoPainel('inicio_cedo').status, 409)
+    assert.equal(P.erroDoPainel('ordem_invalida').status, 409)
+    assert.equal(P.erroDoPainel('deadlock detected').status, 500)
+  }, 'painel: erros das RPCs')
 
   console.log(`\n${n} blocos ok`)
 } finally {

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { lojaCache } from '@/lib/lojaCache'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 
 type Loja = { id: string; slug: string | null; nome: string; logo_url: string | null; status: string | null }
 
@@ -34,6 +35,8 @@ const IcoChevron = (p: IcoP) => <Ico {...p}><path d="M6 9l6 6 6-6" /></Ico>
 const IcoPlus = (p: IcoP) => <Ico {...p}><path d="M12 5v14" /><path d="M5 12h14" /></Ico>
 const IcoProdutos = (p: IcoP) => <Ico {...p}><path d="M12 2.5 21 7v10l-9 4.5L3 17V7z" /><path d="M3 7l9 4.5L21 7" /><path d="M12 11.5v10" /></Ico>
 const IcoPedidos = (p: IcoP) => <Ico {...p}><path d="M8 3h8a1 1 0 0 1 1 1v1H7V4a1 1 0 0 1 1-1z" /><path d="M7 5H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2" /><path d="M9 12l2 2 4-4" /></Ico>
+// Martelo do leilao (so aparece com LEILAO_ATIVO).
+const IcoLeiloes = (p: IcoP) => <Ico {...p}><path d="M14.5 3.5l6 6" /><path d="M11 7l6 6" /><path d="M12.5 5.5l-5 5 6 6 5-5" /><path d="M10 13l-6.5 6.5" /><path d="M3 21h8" /></Ico>
 const IcoPagamentos = (p: IcoP) => <Ico {...p}><path d="M3 9.5 12 4l9 5.5" /><path d="M4 10v8" /><path d="M9 10v8" /><path d="M15 10v8" /><path d="M20 10v8" /><path d="M2.5 20.5h19" /></Ico>
 
 type NavDef = { key: string; label: string; href: string; Icon: (p: IcoP) => React.ReactElement; external?: boolean }
@@ -55,6 +58,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
   const isProdutos = seg[2] === 'produtos'
   const isPedidos = seg[2] === 'pedidos'
   const isPagamentos = seg[2] === 'pagamentos'
+  const isLeiloes = seg[2] === 'leiloes'
   const isHub = pathname === '/minha-loja'
   const activeLoja = useMemo(() => lojas.find((l) => l.id === activeId) || null, [lojas, activeId])
 
@@ -94,6 +98,7 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
       items.push({ key: 'minhavitrine', label: 'Minha vitrine', href: `${base}/vitrine`, Icon: IcoLojas })
       items.push({ key: 'produtos', label: 'Produtos', href: `${base}/produtos`, Icon: IcoProdutos })
       items.push({ key: 'pedidos', label: 'Pedidos', href: `${base}/pedidos`, Icon: IcoPedidos })
+      if (LEILAO_ATIVO) items.push({ key: 'leiloes', label: 'Leilões', href: `${base}/leiloes`, Icon: IcoLeiloes })
       items.push({ key: 'pagamentos', label: 'Pagamentos', href: `${base}/pagamentos`, Icon: IcoPagamentos })
       items.push({ key: 'analytics', label: 'Analytics', href: `${base}/analytics`, Icon: IcoAnalytics })
       items.push({ key: 'plano', label: 'Plano & cobrança', href: `${base}/plano`, Icon: IcoPlano })
@@ -104,10 +109,11 @@ export default function MinhaLojaLayout({ children }: { children: React.ReactNod
 
   const isActive = (it: NavDef) => {
     if (it.external) return false
-    if (it.key === 'visao') return !!activeId && !isPlano && !isVitrine && !isAnalytics && !isProdutos && !isPedidos && !isPagamentos
+    if (it.key === 'visao') return !!activeId && !isPlano && !isVitrine && !isAnalytics && !isProdutos && !isPedidos && !isPagamentos && !isLeiloes
     if (it.key === 'minhavitrine') return isVitrine
     if (it.key === 'produtos') return isProdutos
     if (it.key === 'pedidos') return isPedidos
+    if (it.key === 'leiloes') return isLeiloes
     if (it.key === 'pagamentos') return isPagamentos
     if (it.key === 'analytics') return isAnalytics
     if (it.key === 'plano') return isPlano
