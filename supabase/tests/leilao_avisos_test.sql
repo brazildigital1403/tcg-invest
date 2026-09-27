@@ -19,10 +19,18 @@
 --   usuarios em auth.users antes de public.users (a 03 fica SO em public.users
 --   de proposito, para provar que sino de usuario sem auth nao trava a fila).
 --
+-- ★ O QUE ESTE ROTEIRO NAO PROVA: o `for update skip locked` entre DUAS
+--   sessoes concorrentes. Numa transacao unica ha uma sessao so, e a propria
+--   sessao nunca "pula" linha que ela mesma travou -- T3 prova so que a
+--   RESERVA VIVA (reservado_ate no futuro) separa quem chega depois. O skip
+--   locked de verdade exige dois psql abertos ao mesmo tempo (um segura a
+--   transacao com a reserva aberta, o outro chama reservar); fica para a prova
+--   manual na branch.
+--
 -- Usuarios: a300...01 vendedor | a300...02 ana | a300...03 sem auth.users
 -- Loja:     f300...01
 -- Lote:     b300...01 ativo
--- Eventos:  marcados por payload->>'t' (e1..e9)
+-- Eventos:  marcados por payload->>'t' (e0..e9)
 -- ============================================================================
 
 -- ─── Fila limpa: pendentes de outras provas nao entram nesta (desfeito no fim)
@@ -221,6 +229,59 @@ begin
     format('FALHOU T8b: tentativas %s', e.tentativas);
   select count(*) into n from public.leilao_eventos_reservar(100, 120) x where x.id = v_id;
   assert n = 1, 'FALHOU T8c: liberado nao voltou para a fila';
+end $$;
+
+-- ─── T11: livre com tentativas >= 5 fecha como desistencia na RESERVA ──────
+-- e6: 5 tentativas, livre            -> fechado, nao reservado
+-- e7, e8: novos                      -> reservados (mesmo token, usados na T12)
+-- e9: 5 tentativas, espera no futuro -> intocado (ainda nao esta livre)
+insert into public.leilao_eventos (leilao_id, tipo, user_id, payload, tentativas, ultimo_erro, reservado_ate) values
+  ('b3000000-0000-4000-8000-000000000001', 'superado', 'a3000000-0000-4000-8000-000000000002', '{"t":"e6"}', 5, 'rate_limit', now() - interval '1 second'),
+  ('b3000000-0000-4000-8000-000000000001', 'venceu',   'a3000000-0000-4000-8000-000000000002', '{"t":"e7"}', 0, null, null),
+  ('b3000000-0000-4000-8000-000000000001', 'venceu',   'a3000000-0000-4000-8000-000000000002', '{"t":"e8"}', 0, null, null),
+  ('b3000000-0000-4000-8000-000000000001', 'superado', 'a3000000-0000-4000-8000-000000000002', '{"t":"e9"}', 5, 'rate_limit', now() + interval '10 minutes');
+insert into _r select 3, * from public.leilao_eventos_reservar(100, 120);
+do $$
+declare tags text; e record;
+begin
+  select string_agg(payload->>'t', ',' order by id) into tags from _r where rodada = 3;
+  assert tags = 'e7,e8', format('FALHOU T11: reservados %s', tags);
+  select * into e from public.leilao_eventos where payload->>'t' = 'e6';
+  assert e.processado_em is not null and e.reserva is null and e.tentativas = 5,
+    format('FALHOU T11b: e6 processado=%s tentativas=%s', e.processado_em, e.tentativas);
+  assert e.ultimo_erro = 'desistiu: tentativas esgotadas (ultimo: rate_limit)', format('FALHOU T11c: %s', e.ultimo_erro);
+  select * into e from public.leilao_eventos where payload->>'t' = 'e9';
+  assert e.processado_em is null and e.ultimo_erro = 'rate_limit', 'FALHOU T11d: e9 em espera foi fechado antes da hora';
+end $$;
+
+-- ─── T12: item invalido no concluir nao derruba os outros ──────────────────
+do $$
+declare r jsonb; v_tok uuid; v7 bigint; v8 bigint; e record; n int;
+begin
+  select reserva into v_tok from _r where rodada = 3 limit 1;
+  select id into v7 from _r where rodada = 3 and payload->>'t' = 'e7';
+  select id into v8 from _r where rodada = 3 and payload->>'t' = 'e8';
+  r := public.leilao_eventos_concluir(v_tok, jsonb_build_array(
+    -- e7: user_id malformado no sino -> erro de cast dentro do item.
+    jsonb_build_object('id', v7, 'email_ok', true, 'finalizar', true,
+      'sinos', jsonb_build_array(jsonb_build_object('user_id', 'nao-e-uuid', 'title', 'x', 'message', 'x'))),
+    -- id nao numerico: nem da para saber qual evento e.
+    jsonb_build_object('id', 'abc', 'finalizar', true),
+    -- e8: valido, vem DEPOIS dos dois ruins.
+    jsonb_build_object('id', v8, 'email_ok', true, 'finalizar', true,
+      'sinos', jsonb_build_array(jsonb_build_object(
+        'user_id', 'a3000000-0000-4000-8000-000000000002', 'title', 'Você venceu: Pikachu (e8)', 'message', 'x')))));
+  assert (r->>'finalizados')::int = 1 and (r->>'invalidos')::int = 2 and (r->>'sinos')::int = 1,
+    format('FALHOU T12: %s', r);
+  select * into e from public.leilao_eventos where id = v8;
+  assert e.processado_em is not null and e.sino_em is not null and e.email_em is not null, 'FALHOU T12b: e8 nao concluiu';
+  select * into e from public.leilao_eventos where id = v7;
+  assert e.processado_em is null and e.sino_em is null and e.reserva = v_tok,
+    format('FALHOU T12c: e7 processado=%s sino=%s', e.processado_em, e.sino_em);
+  assert e.ultimo_erro like 'concluir: %', format('FALHOU T12d: %s', e.ultimo_erro);
+  assert e.email_em is not null, 'FALHOU T12e: e-mail ja enviado de e7 nao ficou marcado';
+  select count(*) into n from public.notifications where title = 'Você venceu: Pikachu (e8)';
+  assert n = 1, format('FALHOU T12f: %s sinos de e8', n);
 end $$;
 
 -- ─── T9: parametros e limites ───────────────────────────────────────────────

@@ -22,6 +22,9 @@
 --      volta sozinho para a fila -- nao se perde.
 --      Devolve tambem `ultimo_email_superado_em`: o ultimo e-mail de
 --      'superado' ja enviado para o mesmo usuario + lote (debounce de 10 min).
+--      Evento livre que ja gastou 5 tentativas (a rota morreu 5 vezes sem
+--      concluir) NAO e reservado de novo: a propria reserva o fecha como
+--      desistencia (`ultimo_erro = 'desistiu: tentativas esgotadas (ultimo: ...)'`).
 --
 --   2. leilao_eventos_concluir(p_reserva, p_itens jsonb) -> jsonb
 --      Um item por evento: { id, sinos: [...], email_ok, finalizar, liberar, erro }.
@@ -37,6 +40,11 @@
 --          (tentativas^2 minutos) e `ultimo_erro`. Na 5a tentativa desiste:
 --          processado_em = now() com `ultimo_erro = 'desistiu: ...'`.
 --          Monitoria: `where ultimo_erro like 'desistiu:%'`.
+--      Cada item roda no seu proprio bloco begin/exception: item invalido
+--      (id nao numerico, user_id malformado, lock_timeout) desfaz so o que ele
+--      fez, grava `ultimo_erro = 'concluir: ...'` nele (e `email_em` se o
+--      e-mail ja saiu), conta em `invalidos` e o laco segue. O evento fica
+--      reservado e volta quando a reserva vence.
 --
 -- ★ A JANELA QUE SOBRA: e-mail aceito pelo Resend e a chamada de concluir
 --   falhar (rede) antes de gravar `email_em`. A reserva vence e o e-mail sai de
@@ -147,13 +155,30 @@ declare
   v_token uuid := gen_random_uuid();
   v_lim   integer := greatest(1, least(coalesce(p_limite, 100), 500));
   v_seg   integer := greatest(30, least(coalesce(p_reserva_seg, 120), 900));
+  c_max   constant smallint := 5;
 begin
+  -- Quem ja gastou as 5 tentativas e voltou livre (a rota morreu no meio 5
+  -- vezes, ou a reserva venceu sem concluir) NAO volta para a fila: fecha como
+  -- desistencia, guardando o ultimo erro. Sem isso o evento girava para sempre.
+  update public.leilao_eventos e
+     set processado_em = now(), reserva = null, reservado_ate = null,
+         ultimo_erro = left('desistiu: tentativas esgotadas'
+                            || coalesce(' (ultimo: ' || e.ultimo_erro || ')', ''), 500)
+   where e.id in (
+     select x.id
+       from public.leilao_eventos x
+      where x.processado_em is null
+        and (x.reservado_ate is null or x.reservado_ate < now())
+        and x.tentativas >= c_max
+      for update skip locked);
+
   return query
   with alvo as (
     select e.id
       from public.leilao_eventos e
      where e.processado_em is null
        and (e.reservado_ate is null or e.reservado_ate < now())
+       and e.tentativas < c_max
      order by e.id
      limit v_lim
      for update skip locked
@@ -181,7 +206,7 @@ end;
 $$;
 
 comment on function public.leilao_eventos_reservar(integer, integer) is
-  'Consumidor de avisos: reserva ate p_limite (1-500) eventos pendentes livres por p_reserva_seg (30-900s), skip locked, tentativas + 1. Mesmo token em todas as linhas. So service_role.';
+  'Consumidor de avisos: reserva ate p_limite (1-500) eventos pendentes livres por p_reserva_seg (30-900s), skip locked, tentativas + 1. Mesmo token em todas as linhas. Livre com tentativas >= 5 e fechado como desistencia. So service_role.';
 
 
 -- ----------------------------------------------------------------------------
@@ -206,7 +231,9 @@ declare
   v_desist    int := 0;
   v_liberados int := 0;
   v_perdidos  int := 0;
+  v_invalidos int := 0;
   v_sinos     int := 0;
+  v_msg       text;
   v_n         int;
 begin
   if p_reserva is null or p_itens is null or jsonb_typeof(p_itens) <> 'array' then
@@ -214,69 +241,94 @@ begin
   end if;
 
   for v_item in select value from jsonb_array_elements(p_itens) loop
-    v_id := nullif(v_item->>'id', '')::bigint;
+    v_id := null;
+    -- ★ Cada item no seu proprio bloco: um item invalido (id nao numerico,
+    --   sino com user_id malformado, lock_timeout na linha) desfaz SO o que
+    --   ele fez, grava ultimo_erro nele e o laco segue com os outros.
+    begin
+      v_id := nullif(v_item->>'id', '')::bigint;
 
-    select * into v_ev
-      from public.leilao_eventos e
-     where e.id = v_id
-       and e.reserva = p_reserva
-       and e.processado_em is null
-     for update;
-    if not found then
-      v_perdidos := v_perdidos + 1;
-      continue;
-    end if;
+      select * into v_ev
+        from public.leilao_eventos e
+       where e.id = v_id
+         and e.reserva = p_reserva
+         and e.processado_em is null
+       for update;
+      if not found then
+        v_perdidos := v_perdidos + 1;
+        continue;
+      end if;
 
-    -- Sino: exatamente uma vez por evento.
-    if v_ev.sino_em is null
-       and jsonb_typeof(v_item->'sinos') = 'array'
-       and jsonb_array_length(v_item->'sinos') > 0 then
-      for v_sino in select value from jsonb_array_elements(v_item->'sinos') loop
-        insert into public.notifications (user_id, type, title, message, read, data)
-        select u.id, 'leilao', left(v_sino->>'title', 200), left(v_sino->>'message', 1000),
-               false, coalesce(v_sino->'data', '{}'::jsonb)
-          from auth.users u
-         where u.id = nullif(v_sino->>'user_id', '')::uuid
-           and coalesce(v_sino->>'title', '') <> '';
-        get diagnostics v_n = row_count;
-        v_sinos := v_sinos + v_n;
-      end loop;
-      update public.leilao_eventos set sino_em = now() where id = v_id;
-    end if;
+      -- Sino: exatamente uma vez por evento.
+      if v_ev.sino_em is null
+         and jsonb_typeof(v_item->'sinos') = 'array'
+         and jsonb_array_length(v_item->'sinos') > 0 then
+        for v_sino in select value from jsonb_array_elements(v_item->'sinos') loop
+          insert into public.notifications (user_id, type, title, message, read, data)
+          select u.id, 'leilao', left(v_sino->>'title', 200), left(v_sino->>'message', 1000),
+                 false, coalesce(v_sino->'data', '{}'::jsonb)
+            from auth.users u
+           where u.id = nullif(v_sino->>'user_id', '')::uuid
+             and coalesce(v_sino->>'title', '') <> '';
+          get diagnostics v_n = row_count;
+          v_sinos := v_sinos + v_n;
+        end loop;
+        update public.leilao_eventos set sino_em = now() where id = v_id;
+      end if;
 
-    if coalesce((v_item->>'email_ok')::boolean, false) then
-      update public.leilao_eventos set email_em = coalesce(email_em, now()) where id = v_id;
-    end if;
+      if coalesce((v_item->>'email_ok')::boolean, false) then
+        update public.leilao_eventos set email_em = coalesce(email_em, now()) where id = v_id;
+      end if;
 
-    v_erro := left(nullif(v_item->>'erro', ''), 500);
+      v_erro := left(nullif(v_item->>'erro', ''), 500);
 
-    if coalesce((v_item->>'finalizar')::boolean, false) then
-      update public.leilao_eventos
-         set processado_em = now(), reserva = null, reservado_ate = null,
-             ultimo_erro = coalesce(v_erro, ultimo_erro)
-       where id = v_id;
-      v_final := v_final + 1;
-    elsif coalesce((v_item->>'liberar')::boolean, false) then
-      -- Rota sem tempo: volta para a fila sem gastar tentativa.
-      update public.leilao_eventos
-         set reserva = null, reservado_ate = null,
-             tentativas = greatest(tentativas - 1, 0)
-       where id = v_id;
-      v_liberados := v_liberados + 1;
-    elsif v_ev.tentativas >= 5 then
-      update public.leilao_eventos
-         set processado_em = now(), reserva = null, reservado_ate = null,
-             ultimo_erro = 'desistiu: ' || coalesce(v_erro, 'sem detalhe')
-       where id = v_id;
-      v_desist := v_desist + 1;
-    else
-      update public.leilao_eventos
-         set reserva = null,
-             reservado_ate = now() + make_interval(mins => v_ev.tentativas * v_ev.tentativas),
-             ultimo_erro = coalesce(v_erro, 'falha sem detalhe')
-       where id = v_id;
-      v_falhas := v_falhas + 1;
-    end if;
+      if coalesce((v_item->>'finalizar')::boolean, false) then
+        update public.leilao_eventos
+           set processado_em = now(), reserva = null, reservado_ate = null,
+               ultimo_erro = coalesce(v_erro, ultimo_erro)
+         where id = v_id;
+        v_final := v_final + 1;
+      elsif coalesce((v_item->>'liberar')::boolean, false) then
+        -- Rota sem tempo / leitura falhou: volta para a fila sem gastar tentativa.
+        update public.leilao_eventos
+           set reserva = null, reservado_ate = null,
+               tentativas = greatest(tentativas - 1, 0)
+         where id = v_id;
+        v_liberados := v_liberados + 1;
+      elsif v_ev.tentativas >= 5 then
+        update public.leilao_eventos
+           set processado_em = now(), reserva = null, reservado_ate = null,
+               ultimo_erro = 'desistiu: ' || coalesce(v_erro, 'sem detalhe')
+         where id = v_id;
+        v_desist := v_desist + 1;
+      else
+        update public.leilao_eventos
+           set reserva = null,
+               reservado_ate = now() + make_interval(mins => v_ev.tentativas * v_ev.tentativas),
+               ultimo_erro = coalesce(v_erro, 'falha sem detalhe')
+         where id = v_id;
+        v_falhas := v_falhas + 1;
+      end if;
+    exception when others then
+      v_invalidos := v_invalidos + 1;
+      v_msg := left('concluir: ' || sqlerrm, 500);
+      raise warning 'leilao_eventos_concluir item %: %', coalesce(v_id::text, v_item::text), sqlerrm;
+      if v_id is not null then
+        -- Registra o erro no proprio evento e deixa a reserva vencer (volta
+        -- sozinho, contando tentativa). Se o e-mail ja saiu, guarda email_em
+        -- para o retry nao reenviar.
+        begin
+          update public.leilao_eventos
+             set ultimo_erro = v_msg,
+                 email_em = case
+                   when v_item->>'email_ok' = 'true' then coalesce(email_em, now())
+                   else email_em end
+           where id = v_id and reserva = p_reserva and processado_em is null;
+        exception when others then
+          null;  -- nem o registro coube (ex.: lock_timeout): a reserva vence igual.
+        end;
+      end if;
+    end;
   end loop;
 
   return jsonb_build_object(
@@ -285,13 +337,14 @@ begin
     'desistidos', v_desist,
     'liberados', v_liberados,
     'perdidos', v_perdidos,
+    'invalidos', v_invalidos,
     'sinos', v_sinos
   );
 end;
 $$;
 
 comment on function public.leilao_eventos_concluir(uuid, jsonb) is
-  'Consumidor de avisos: por evento reservado por p_reserva grava sinos (uma vez, type leilao), marca email_em, finaliza, libera ou registra falha (espera tentativas^2 min; desiste na 5a). So service_role.';
+  'Consumidor de avisos: por evento reservado por p_reserva grava sinos (uma vez, type leilao), marca email_em, finaliza, libera ou registra falha (espera tentativas^2 min; desiste na 5a). Item com erro nao derruba os outros (conta em invalidos). So service_role.';
 
 
 -- ----------------------------------------------------------------------------
