@@ -7,7 +7,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { IconClose, IconDashboard, IconHistory, IconLogout, IconShield, IconWallet } from '@/components/ui/Icons'
-import { urlMeusLances } from '@/lib/leilao-urls'
+import { urlHome, urlMeusLances } from '@/lib/leilao-urls'
 
 /**
  * Canto direito do cabecalho do Bynx Leiloes.
@@ -108,7 +108,7 @@ export default function LeilaoConta() {
 
   if (!user) {
     return (
-      <button type="button" className="lc-entrar" onClick={() => openLogin({ next: pathname || '/leiloes' })}>
+      <button type="button" className="lc-entrar" onClick={() => openLogin({ next: pathname || urlHome() })}>
         Entrar
       </button>
     )
