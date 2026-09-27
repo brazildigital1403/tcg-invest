@@ -38,6 +38,40 @@
 --     - Elegibilidade por PK em users: suspended_at -> suspenso; CPF sem 11
 --       digitos ou CEP sem 8 -> cadastro_incompleto (o arremate vira pedido com
 --       entrega; sem isso nao ha como cobrar nem enviar).
+--     - Teto maximo por lance: R$ 1.000.000,00 (100000000 cents), espelho de
+--       MAXIMO_CENTS_TETO na rota. Acima -> pedido_invalido. Com esse teto (e o
+--       CHECK nas colunas) nenhuma soma de centavos chega perto do limite do
+--       integer (2,1 bi).
+--     - Lider repetindo o mesmo teto (ou um menor): nada muda, nada e gravado.
+--       'teto_ajustado' so nasce quando o teto de fato sobe.
+--
+-- ★ FECHAMENTO COM FOLGA DE 1s. leilao_fechar_lote e o tick so fecham lote com
+--   termina_em <= now() - 1s. Motivo: dar_lance julga pelo now() do INICIO da
+--   transacao dele. Um lance que chegou em termina_em - 0,2s mas ainda espera a
+--   trava perderia a vez se o fechamento pegasse a linha primeiro. Na janela de
+--   1s o lote segue 'ativo' mas o dar_lance ja recusa (corte exato), entao a
+--   folga nao aceita lance atrasado -- so evita recusar lance em voo.
+--
+-- ★ CALOTE SO COM CERTEZA. O tick marca 'calote' apenas quando TODAS valem:
+--     - pagar_ate + 15 min de carencia ja passou;
+--     - nao existe pedido pago do lote (leiloes.pedido_id OU pedidos.leilao_id OU
+--       pedido_itens.leilao_id com pedidos.pago_em not null);
+--     - nao existe checkout em andamento (pedido do lote com stripe_session_id
+--       not null, status fora de cancelado/reembolsado e cancelado_em null).
+--   Checkout expirado precisa ser cancelado pelo fluxo de pedidos para o
+--   calote andar. ★ PENDENCIA DA FATIA 2 (webhook): pagamento que chega para
+--   lote ja em 'calote' (Pix compensado tarde, por exemplo) tem de voltar o
+--   lote para 'vendido' e ligar pedido_id -- nao pode ser descartado.
+--
+-- ★ TICK RESILIENTE. Cada lote/rodada roda num bloco begin/exception proprio:
+--   um lote com problema grava evento 'erro_tick' (sqlstate + mensagem, ja
+--   processado, so para monitoria) e o resto do tick segue.
+--
+-- ★ RODADA SO ENCERRA DE VERDADE. Nao encerra com lote em 'rascunho' (a loja
+--   ainda esta montando) nem se nenhum lote chegou a abrir (encerrado_em null
+--   em todos). Lote de rodada 'prazo' precisa de inicia_em para ser agendado
+--   (trigger leilao_valida_lote); sem isso ele nunca abriria e a rodada nunca
+--   fecharia.
 --
 -- ★ O TETO NAO VAZA. `lider_maximo_cents`, `lider_user_id`, `segundo_user_id`,
 --   `pedido_id`, `pagar_ate` e `cancelado_motivo` NAO tem GRANT de coluna para
@@ -65,6 +99,7 @@
 --   drop view if exists public.leilao_lances_publico;
 --   drop view if exists public.leiloes_publico;
 --   drop function if exists public.leilao_tick();
+--   drop function if exists public.leilao_erro_tick(uuid, uuid, text, text, text);
 --   drop function if exists public.leilao_fechar_lote(uuid);
 --   drop function if exists public.leilao_avancar_rodada(uuid);
 --   drop function if exists public.dar_lance(uuid, integer, uuid);
@@ -75,6 +110,9 @@
 --   alter table public.pedidos drop column if exists leilao_id;
 --   drop table if exists public.leilao_eventos, public.leilao_seguidores,
 --     public.leilao_proxy, public.leilao_lances, public.leiloes, public.leilao_rodadas;
+--   (os triggers leiloes_valida / leilao_rodadas_modo caem junto com as tabelas)
+--   drop function if exists public.leilao_valida_lote();
+--   drop function if exists public.leilao_rodada_modo_fixo();
 --   drop function if exists public.leilao_novo_codigo();
 --   drop function if exists public.leilao_incremento(integer);
 -- ============================================================================
@@ -123,7 +161,8 @@ as $$
   from generate_series(1, 6)
 $$;
 
--- "joana" -> "j***a"; curto demais -> "***". Espelho de mascararApelido().
+-- "joana" -> "j***a"; menos de 3 caracteres -> "***" (com 2, "j***o" entregaria
+-- o nome inteiro). Espelho de mascararApelido() em src/lib/leilao.ts.
 create or replace function public.leilao_mascarar(p_nome text)
 returns text
 language sql
@@ -132,7 +171,7 @@ parallel safe
 set search_path = public, pg_temp
 as $$
   select case
-    when char_length(btrim(coalesce(p_nome, ''))) < 2 then '***'
+    when char_length(btrim(coalesce(p_nome, ''))) < 3 then '***'
     else lower(left(btrim(p_nome), 1) || '***' || right(btrim(p_nome), 1))
   end
 $$;
@@ -141,6 +180,9 @@ $$;
 -- ----------------------------------------------------------------------------
 -- 2. Tabelas
 -- ----------------------------------------------------------------------------
+-- FKs para users com `on delete restrict` (vendedor_user_id, lider_user_id,
+-- leilao_lances.user_id, leilao_proxy.user_id):
+-- DECISAO DO DU: restrict (auditoria) x set null; a rota admin de excluir usuario falha para quem deu lance.
 
 create table if not exists public.leilao_rodadas (
   id uuid primary key default gen_random_uuid(),
@@ -184,11 +226,11 @@ create table if not exists public.leiloes (
   nota text,
   descricao text,
   slug text not null,
-  lance_inicial_cents integer not null check (lance_inicial_cents >= 100),
+  lance_inicial_cents integer not null check (lance_inicial_cents between 100 and 100000000),
   preco_atual_cents integer check (preco_atual_cents is null or preco_atual_cents >= lance_inicial_cents),
   lider_user_id uuid references public.users(id) on delete restrict,
   -- ★ PRIVADO: teto oculto do lider. Sem grant de coluna, fora das views.
-  lider_maximo_cents integer,
+  lider_maximo_cents integer check (lider_maximo_cents is null or lider_maximo_cents <= 100000000),
   n_lances integer not null default 0 check (n_lances >= 0),
   n_participantes integer not null default 0 check (n_participantes >= 0),
   duracao_seg integer not null check (duracao_seg between 10 and 2592000),
@@ -241,7 +283,7 @@ comment on table public.leilao_lances is
 create table if not exists public.leilao_proxy (
   leilao_id uuid not null references public.leiloes(id) on delete cascade,
   user_id uuid not null references public.users(id) on delete restrict,
-  maximo_cents integer not null check (maximo_cents > 0),
+  maximo_cents integer not null check (maximo_cents between 1 and 100000000),
   -- ★ Desempate: "desde quando vale ESTE teto". Renovado quando o teto sobe.
   created_at timestamptz not null default clock_timestamp(),
   atualizado_em timestamptz not null default clock_timestamp(),
@@ -260,17 +302,20 @@ create table if not exists public.leilao_seguidores (
 
 create table if not exists public.leilao_eventos (
   id bigint generated always as identity primary key,
-  leilao_id uuid not null references public.leiloes(id) on delete cascade,
-  -- superado | encerrado | venceu | calote | iniciado | teto_ajustado
+  -- null so em erro_tick de rodada (rodada_id preenchido).
+  leilao_id uuid references public.leiloes(id) on delete cascade,
+  rodada_id uuid references public.leilao_rodadas(id) on delete cascade,
+  -- superado | encerrado | venceu | calote | iniciado | teto_ajustado | erro_tick
   tipo text not null,
   user_id uuid references public.users(id) on delete set null,
   payload jsonb not null default '{}'::jsonb,
   processado_em timestamptz,
-  created_at timestamptz not null default clock_timestamp()
+  created_at timestamptz not null default clock_timestamp(),
+  check (leilao_id is not null or rodada_id is not null)
 );
 
 comment on table public.leilao_eventos is
-  'Fila de eventos do leilao para notificacao (processado_em null = pendente). teto_ajustado ja nasce processado: e so auditoria + idempotencia.';
+  'Fila de eventos do leilao para notificacao (processado_em null = pendente). teto_ajustado e erro_tick ja nascem processados: auditoria/idempotencia e monitoria (where tipo = ''erro_tick'').';
 
 
 -- ----------------------------------------------------------------------------
@@ -318,13 +363,15 @@ create index if not exists idx_leilao_eventos_pendentes
   on public.leilao_eventos (created_at) where processado_em is null;
 create index if not exists idx_leilao_eventos_leilao
   on public.leilao_eventos (leilao_id);
+create index if not exists idx_leilao_eventos_rodada
+  on public.leilao_eventos (rodada_id) where rodada_id is not null;
 -- idempotencia do lance que so sobe o teto do lider (backstop do replay)
 create unique index if not exists uq_leilao_eventos_teto_idem
   on public.leilao_eventos ((payload->>'idem')) where tipo = 'teto_ajustado';
 
 
 -- ----------------------------------------------------------------------------
--- 4. Triggers de updated_at
+-- 4. Triggers (updated_at e validacao)
 -- ----------------------------------------------------------------------------
 
 drop trigger if exists leilao_rodadas_touch on public.leilao_rodadas;
@@ -334,6 +381,50 @@ create trigger leilao_rodadas_touch before update on public.leilao_rodadas
 drop trigger if exists leiloes_touch on public.leiloes;
 create trigger leiloes_touch before update on public.leiloes
   for each row execute function public.touch_updated_at();
+
+-- Lote de rodada 'prazo' so pode ser agendado com inicia_em: o tick so ativa
+-- lote de prazo pela hora propria; sem ela o lote ficaria agendado para sempre
+-- e a rodada nunca encerraria. CHECK nao enxerga a outra tabela, por isso e
+-- trigger (e leilao_rodada_modo_fixo impede trocar o modo depois).
+create or replace function public.leilao_valida_lote()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if new.status = 'agendado' and new.rodada_id is not null and new.inicia_em is null
+     and exists (select 1 from public.leilao_rodadas r
+                 where r.id = new.rodada_id and r.modo = 'prazo') then
+    raise exception 'lote_prazo_sem_inicio'
+      using detail = format('leilao %s: lote de rodada prazo precisa de inicia_em', new.id);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists leiloes_valida on public.leiloes;
+create trigger leiloes_valida before insert or update of status, inicia_em, rodada_id
+  on public.leiloes
+  for each row execute function public.leilao_valida_lote();
+
+create or replace function public.leilao_rodada_modo_fixo()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if new.modo is distinct from old.modo
+     and exists (select 1 from public.leiloes l where l.rodada_id = old.id) then
+    raise exception 'rodada_modo_fixo'
+      using detail = format('rodada %s ja tem lotes; o modo nao muda', old.id);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists leilao_rodadas_modo on public.leilao_rodadas;
+create trigger leilao_rodadas_modo before update of modo on public.leilao_rodadas
+  for each row execute function public.leilao_rodada_modo_fixo();
 
 
 -- ----------------------------------------------------------------------------
@@ -551,7 +642,10 @@ begin
   if v_uid is null then
     raise exception 'nao_autenticado';
   end if;
-  if p_leilao is null or p_idem is null or p_maximo_cents is null or p_maximo_cents < 1 then
+  -- Teto de R$ 1 milhao (espelho de MAXIMO_CENTS_TETO na rota). Tambem e o que
+  -- mantem teto + incremento longe do limite do integer.
+  if p_leilao is null or p_idem is null or p_maximo_cents is null
+     or p_maximo_cents < 1 or p_maximo_cents > 100000000 then
     raise exception 'pedido_invalido';
   end if;
 
@@ -618,16 +712,6 @@ begin
     select p.maximo_cents into v_meu_max
     from public.leilao_proxy p where p.leilao_id = p_leilao and p.user_id = v_uid;
 
-    if p_maximo_cents > coalesce(v_meu_max, 0) then
-      update public.leilao_proxy
-         set maximo_cents = p_maximo_cents, created_at = v_relogio, atualizado_em = v_relogio
-       where leilao_id = p_leilao and user_id = v_uid;
-      update public.leiloes
-         set lider_maximo_cents = p_maximo_cents
-       where id = p_leilao;
-      v_meu_max := p_maximo_cents;
-    end if;
-
     v_res := jsonb_build_object(
       'ok', true,
       'preco_cents', coalesce(v_l.preco_atual_cents, v_l.lance_inicial_cents),
@@ -637,11 +721,25 @@ begin
       'minimo_proximo_cents', v_min,
       'n_lances', v_l.n_lances,
       'versao', v_l.versao,
-      'seu_maximo_cents', v_meu_max
+      'seu_maximo_cents', greatest(p_maximo_cents, coalesce(v_meu_max, 0))
     );
+
+    -- Mesmo teto (ou menor): nada muda, nada e gravado. Um replay deste idem
+    -- cai aqui de novo e devolve o mesmo retrato.
+    if p_maximo_cents <= coalesce(v_meu_max, 0) then
+      return v_res;
+    end if;
+
+    update public.leilao_proxy
+       set maximo_cents = p_maximo_cents, created_at = v_relogio, atualizado_em = v_relogio
+     where leilao_id = p_leilao and user_id = v_uid;
+    update public.leiloes
+       set lider_maximo_cents = p_maximo_cents
+     where id = p_leilao;
     insert into public.leilao_eventos (leilao_id, tipo, user_id, payload, processado_em)
     values (p_leilao, 'teto_ajustado', v_uid,
-            jsonb_build_object('idem', p_idem::text, 'resultado', v_res), now());
+            jsonb_build_object('idem', p_idem::text, 'resultado', v_res,
+                               'de_cents', v_meu_max, 'para_cents', p_maximo_cents), now());
     return v_res;
   end if;
 
@@ -755,8 +853,12 @@ comment on function public.dar_lance(uuid, integer, uuid) is
 -- ----------------------------------------------------------------------------
 
 -- Rodada ao vivo sem lote ativo -> ativa o proximo agendado por ordem, com
--- inicia_em=now() e termina_em=now()+duracao_seg. Sem proximo e sem ativo ->
--- encerra a rodada. Rodada 'prazo' so e encerrada quando nada resta.
+-- inicia_em=now() e termina_em=now()+duracao_seg. Rodada 'prazo' nao ativa
+-- nada aqui (o tick ativa cada lote pela hora propria).
+-- Encerra a rodada SO quando: nenhum lote em rascunho/agendado/ativo E pelo
+-- menos um lote chegou a abrir e fechar (encerrado_em not null). Rodada com
+-- lote em rascunho esta sendo montada; rodada em que nada abriu (tudo
+-- cancelado, por exemplo) fica para a loja/admin decidir.
 -- Trava a RODADA: fechamento preguicoso e tick nao ativam dois lotes juntos.
 create or replace function public.leilao_avancar_rodada(p_rodada uuid)
 returns uuid
@@ -790,6 +892,7 @@ begin
     for update skip locked;
 
     if v_prox is not null then
+      -- now() + duracao: mesmo com tick atrasado o lote abre com a duracao cheia.
       update public.leiloes
          set status = 'ativo',
              inicia_em = now(),
@@ -803,7 +906,10 @@ begin
   end if;
 
   if not exists (select 1 from public.leiloes
-                 where rodada_id = p_rodada and status in ('agendado', 'ativo')) then
+                 where rodada_id = p_rodada
+                   and status in ('rascunho', 'agendado', 'ativo'))
+     and exists (select 1 from public.leiloes
+                 where rodada_id = p_rodada and encerrado_em is not null) then
     update public.leilao_rodadas set status = 'encerrada' where id = p_rodada;
   end if;
   return null;
@@ -814,6 +920,8 @@ $$;
 -- estado com service_role). skip locked: se um lance segura a linha, o proximo
 -- tick fecha. A clausula where e reavaliada na versao travada (termina_em pode
 -- ter sido empurrado pelo soft close).
+-- ★ Folga de 1s (termina_em <= now() - 1s): lance que chegou antes do fim e
+--   ainda espera a trava nao perde a vez para o fechamento. Ver cabecalho.
 create or replace function public.leilao_fechar_lote(p_leilao uuid)
 returns text
 language plpgsql
@@ -828,7 +936,7 @@ declare
 begin
   select * into v_l
   from public.leiloes
-  where id = p_leilao and status = 'ativo' and termina_em <= now()
+  where id = p_leilao and status = 'ativo' and termina_em <= now() - interval '1 second'
   for update skip locked;
   if not found then
     return null;
@@ -873,6 +981,22 @@ begin
 end;
 $$;
 
+-- Registro de erro do tick (monitoria). Nasce processado: nao e notificacao.
+create or replace function public.leilao_erro_tick(p_leilao uuid, p_rodada uuid, p_etapa text,
+                                                   p_estado text, p_msg text)
+returns void
+language sql
+set search_path = public, pg_temp
+as $$
+  insert into public.leilao_eventos (leilao_id, rodada_id, tipo, payload, processado_em)
+  values (p_leilao, p_rodada, 'erro_tick',
+          jsonb_build_object('etapa', p_etapa, 'sqlstate', p_estado, 'mensagem', left(p_msg, 500)),
+          now());
+$$;
+
+-- Cada lote/rodada roda no proprio bloco begin/exception (subtransacao): um
+-- lote com problema grava 'erro_tick' e o resto do tick segue. O que falhou
+-- volta ao estado anterior e o proximo tick tenta de novo.
 create or replace function public.leilao_tick()
 returns jsonb
 language plpgsql
@@ -882,12 +1006,14 @@ set lock_timeout = '2s'
 set statement_timeout = '20s'
 as $$
 declare
-  r           record;
-  v_rodadas   integer := 0;
-  v_ativados  integer := 0;
-  v_fechados  integer := 0;
-  v_avancados integer := 0;
-  v_calotes   integer := 0;
+  r                 record;
+  v_rodadas         integer := 0;
+  v_ativados        integer := 0;
+  v_fechados        integer := 0;
+  v_avancados       integer := 0;
+  v_calotes         integer := 0;
+  v_calotes_adiados integer := 0;
+  v_erros           integer := 0;
 begin
   -- 1. Rodadas agendadas que chegaram na hora -> ao_vivo.
   for r in
@@ -895,12 +1021,19 @@ begin
     where status = 'agendada' and inicia_em <= now()
     for update skip locked
   loop
-    update public.leilao_rodadas set status = 'ao_vivo' where id = r.id;
-    v_rodadas := v_rodadas + 1;
+    begin
+      update public.leilao_rodadas set status = 'ao_vivo' where id = r.id;
+      v_rodadas := v_rodadas + 1;
+    exception when others then
+      perform public.leilao_erro_tick(null, r.id, 'abrir_rodada', sqlstate, sqlerrm);
+      v_erros := v_erros + 1;
+    end;
   end loop;
 
   -- 2. Lotes com hora propria (avulsos ou de rodada 'prazo') -> ativo.
   --    Lote de rodada ao vivo NAO entra aqui: ele espera o anterior fechar.
+  --    Tick atrasado: termina_em = greatest(inicia_em, now()) + duracao. O lote
+  --    nunca abre ja vencido (e o passo 3 nao o fecha no mesmo tick).
   for r in
     select l.id from public.leiloes l
     where l.status = 'agendado' and l.inicia_em <= now()
@@ -910,51 +1043,90 @@ begin
                         and rr.status in ('agendada', 'ao_vivo')))
     for update of l skip locked
   loop
-    update public.leiloes
-       set status = 'ativo',
-           termina_em = coalesce(termina_em, inicia_em + make_interval(secs => duracao_seg)),
-           versao = versao + 1
-     where id = r.id;
-    v_ativados := v_ativados + 1;
+    begin
+      update public.leiloes
+         set status = 'ativo',
+             termina_em = greatest(inicia_em, now()) + make_interval(secs => duracao_seg),
+             versao = versao + 1
+       where id = r.id;
+      v_ativados := v_ativados + 1;
+    exception when others then
+      perform public.leilao_erro_tick(r.id, null, 'ativar', sqlstate, sqlerrm);
+      v_erros := v_erros + 1;
+    end;
   end loop;
 
-  -- 3. Fecha vencidos (e, em rodada ao vivo, ativa o proximo no mesmo passo).
+  -- 3. Fecha vencidos, com a folga de 1s (e, em rodada ao vivo, ativa o
+  --    proximo no mesmo passo).
   for r in
     select id from public.leiloes
-    where status = 'ativo' and termina_em <= now()
+    where status = 'ativo' and termina_em <= now() - interval '1 second'
     order by termina_em
     limit 500
   loop
-    if public.leilao_fechar_lote(r.id) is not null then
-      v_fechados := v_fechados + 1;
-    end if;
+    begin
+      if public.leilao_fechar_lote(r.id) is not null then
+        v_fechados := v_fechados + 1;
+      end if;
+    exception when others then
+      perform public.leilao_erro_tick(r.id, null, 'fechar', sqlstate, sqlerrm);
+      v_erros := v_erros + 1;
+    end;
   end loop;
 
   -- 4. Rodadas ao vivo sem lote ativo (inicio da rodada ou lote cancelado no
-  --    meio): ativa o proximo; sem nada restante, encerra.
+  --    meio): ativa o proximo; sem nada restante, encerra (ver regras acima).
   for r in
     select id from public.leilao_rodadas where status = 'ao_vivo'
   loop
-    if public.leilao_avancar_rodada(r.id) is not null then
-      v_avancados := v_avancados + 1;
-    end if;
+    begin
+      if public.leilao_avancar_rodada(r.id) is not null then
+        v_avancados := v_avancados + 1;
+      end if;
+    exception when others then
+      perform public.leilao_erro_tick(null, r.id, 'avancar_rodada', sqlstate, sqlerrm);
+      v_erros := v_erros + 1;
+    end;
   end loop;
 
-  -- 5. Calote: arrematante nao pagou ate pagar_ate. Pedido ja pago nao vira
-  --    calote (o webhook marca 'vendido'; se ainda nao marcou, espera).
+  -- 5. Calote SO com certeza: pagar_ate + 15 min de carencia, nenhum pedido
+  --    pago do lote e nenhum checkout em andamento. Na duvida, espera: o
+  --    proximo tick reavalia.
   for r in
     select l.id, l.lider_user_id, l.pedido_id from public.leiloes l
-    where l.status = 'aguardando_pagamento' and l.pagar_ate <= now()
+    where l.status = 'aguardando_pagamento'
+      and l.pagar_ate <= now() - interval '15 minutes'
     for update of l skip locked
   loop
-    if r.pedido_id is not null and exists (
-         select 1 from public.pedidos p where p.id = r.pedido_id and p.pago_em is not null) then
-      continue;
-    end if;
-    update public.leiloes set status = 'calote', versao = versao + 1 where id = r.id;
-    insert into public.leilao_eventos (leilao_id, tipo, user_id, payload)
-    values (r.id, 'calote', r.lider_user_id, '{}'::jsonb);
-    v_calotes := v_calotes + 1;
+    begin
+      if exists (
+           select 1 from public.pedidos p
+           where (p.id = r.pedido_id or p.leilao_id = r.id)
+             and (p.pago_em is not null
+                  or p.status in ('pago', 'enviado', 'entregue')
+                  or (p.stripe_session_id is not null
+                      and p.status not in ('cancelado', 'reembolsado')
+                      and p.cancelado_em is null)))
+         or exists (
+           select 1 from public.pedido_itens i
+           join public.pedidos p on p.id = i.pedido_id
+           where i.leilao_id = r.id
+             and (p.pago_em is not null
+                  or p.status in ('pago', 'enviado', 'entregue')
+                  or (p.stripe_session_id is not null
+                      and p.status not in ('cancelado', 'reembolsado')
+                      and p.cancelado_em is null))) then
+        v_calotes_adiados := v_calotes_adiados + 1;
+      else
+        update public.leiloes set status = 'calote', versao = versao + 1 where id = r.id;
+        insert into public.leilao_eventos (leilao_id, tipo, user_id, payload)
+        values (r.id, 'calote', r.lider_user_id, '{}'::jsonb);
+        v_calotes := v_calotes + 1;
+      end if;
+    exception when others then
+      perform public.leilao_erro_tick(r.id, null, 'calote', sqlstate, sqlerrm);
+      v_erros := v_erros + 1;
+    end;
   end loop;
 
   return jsonb_build_object(
@@ -963,13 +1135,15 @@ begin
     'fechados', v_fechados,
     'avancados', v_avancados,
     'calotes', v_calotes,
+    'calotes_adiados', v_calotes_adiados,
+    'erros', v_erros,
     'em', now()
   );
 end;
 $$;
 
 comment on function public.leilao_tick() is
-  'Relogio do leilao (pg_cron): ativa agendados, fecha vencidos, avanca rodada ao vivo, marca calote apos pagar_ate. So postgres/service_role.';
+  'Relogio do leilao (pg_cron): ativa agendados, fecha vencidos (folga 1s), avanca rodada ao vivo, marca calote apos pagar_ate + 15 min se nao houver pedido pago nem checkout em andamento. Erro por lote/rodada vira evento erro_tick. So postgres/service_role.';
 
 
 -- ----------------------------------------------------------------------------
@@ -985,6 +1159,10 @@ revoke all on function public.dar_lance(uuid, integer, uuid)   from public, anon
 revoke all on function public.leilao_avancar_rodada(uuid)      from public, anon, authenticated;
 revoke all on function public.leilao_fechar_lote(uuid)         from public, anon, authenticated;
 revoke all on function public.leilao_tick()                    from public, anon, authenticated;
+revoke all on function public.leilao_erro_tick(uuid, uuid, text, text, text) from public, anon, authenticated;
+-- funcoes de trigger: o Postgres nao checa EXECUTE ao disparar; revoke so por higiene
+revoke all on function public.leilao_valida_lote()            from public, anon, authenticated;
+revoke all on function public.leilao_rodada_modo_fixo()       from public, anon, authenticated;
 
 grant execute on function public.leilao_incremento(integer)     to anon, authenticated, service_role;
 grant execute on function public.leilao_mascarar(text)          to anon, authenticated, service_role;

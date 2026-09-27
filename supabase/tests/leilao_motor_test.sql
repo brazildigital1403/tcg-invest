@@ -22,6 +22,8 @@
 -- Usuarios (uuid a000...0N):
 --   01 vendedor | 02 ana | 03 bia | 04 caio | 05 dudu (sem CPF) | 06 eva (suspensa)
 -- Lotes: b000...01 avulso L1 | b000...02 R1 e b000...03 R2 (rodada c000...01)
+--        b000...05 avulso atrasado (T16) | b000...06..09 rodadas de validacao (T17/T18)
+-- Pedidos (T15): e000...01 checkout em andamento | e000...02 pago
 -- ============================================================================
 
 begin;
@@ -148,6 +150,16 @@ exception when others then
   if sqlerrm <> 'nao_autenticado' then raise exception 'FALHOU T5d: %', sqlerrm; end if;
 end $$;
 
+-- T5e: teto acima de R$ 1 milhao -> pedido_invalido (espelho da rota)
+select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+do $$
+begin
+  perform public.dar_lance('b0000000-0000-4000-8000-000000000001', 100000001, gen_random_uuid());
+  raise exception 'FALHOU T5e: aceitou teto acima de R$ 1 mi';
+exception when others then
+  if sqlerrm <> 'pedido_invalido' then raise exception 'FALHOU T5e: %', sqlerrm; end if;
+end $$;
+
 -- ─── T6: idempotencia ───────────────────────────────────────────────────────
 -- bia 70,00 com idem fixo: vence caio (55,00) em min(70,00; 55,00+5,00) = 60,00
 select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
@@ -184,6 +196,14 @@ begin
   assert l.preco_atual_cents = 6000, format('FALHOU T6c: replay mexeu no preco (%s)', l.preco_atual_cents);
 end $$;
 
+-- retrato antes do T7 (o ajuste de teto nao pode mexer em nada publico)
+select set_config('leilao_test.n_lances',
+         (select n_lances::text from public.leiloes where id = 'b0000000-0000-4000-8000-000000000001'), true),
+       set_config('leilao_test.lances',
+         (select count(*)::text from public.leilao_lances where leilao_id = 'b0000000-0000-4000-8000-000000000001'), true),
+       set_config('leilao_test.versao',
+         (select versao::text from public.leiloes where id = 'b0000000-0000-4000-8000-000000000001'), true);
+
 -- ─── T7: lider so sobe o teto -> preco nao muda, nada publico ───────────────
 select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 set local role authenticated;
@@ -197,6 +217,19 @@ begin
   assert (r2->>'repetido')::boolean,                  'FALHOU T7: replay do ajuste de teto';
 end $$;
 
+-- ─── T7c: lider repetindo o mesmo teto (ou menor) nao grava nada ────────────
+do $$
+declare r jsonb;
+begin
+  r := public.dar_lance('b0000000-0000-4000-8000-000000000001', 8000, gen_random_uuid());
+  assert (r->>'ok')::boolean and (r->>'lider')::boolean
+     and (r->>'preco_cents')::int = 6000 and (r->>'seu_maximo_cents')::int = 8000,
+         format('FALHOU T7c: mesmo teto %s', r);
+  assert not (r ? 'repetido'),                        'FALHOU T7c: idem novo marcado como repetido';
+  r := public.dar_lance('b0000000-0000-4000-8000-000000000001', 7000, gen_random_uuid());
+  assert (r->>'seu_maximo_cents')::int = 8000,        format('FALHOU T7c: teto menor baixou o teto %s', r);
+end $$;
+
 reset role;
 do $$
 declare l record; v int;
@@ -207,6 +240,18 @@ begin
   select count(*) into v from public.leilao_eventos
    where tipo = 'teto_ajustado' and payload->>'idem' = 'd0000000-0000-4000-8000-00000000000b';
   assert v = 1, format('FALHOU T7b: %s eventos teto_ajustado', v);
+  -- T7 + T7c: um unico teto_ajustado no lote (o que subiu 7000 -> 8000)
+  select count(*) into v from public.leilao_eventos
+   where tipo = 'teto_ajustado' and leilao_id = l.id;
+  assert v = 1, format('FALHOU T7c: %s teto_ajustado no lote (lider repetindo gravou)', v);
+  -- nada publico mudou: nem historico, nem contador, nem versao
+  select count(*) into v from public.leilao_lances where leilao_id = l.id;
+  assert v = current_setting('leilao_test.lances')::int,
+         format('FALHOU T7b: leilao_lances %s -> %s', current_setting('leilao_test.lances'), v);
+  assert l.n_lances = current_setting('leilao_test.n_lances')::int,
+         format('FALHOU T7b: n_lances %s -> %s', current_setting('leilao_test.n_lances'), l.n_lances);
+  assert l.versao = current_setting('leilao_test.versao')::int,
+         format('FALHOU T7b: versao %s -> %s', current_setting('leilao_test.versao'), l.versao);
 end $$;
 
 -- ─── T8: soft close estende ─────────────────────────────────────────────────
@@ -265,7 +310,29 @@ begin
     raise exception 'FALHOU T9e: anon rodou o tick';
   exception when insufficient_privilege then null;
   end;
-  perform 1 from public.leilao_lances_publico where leilao_id = 'b0000000-0000-4000-8000-000000000001';
+  select to_jsonb(x) into j from public.leilao_lances_publico x
+   where x.leilao_id = 'b0000000-0000-4000-8000-000000000001'
+   order by x.id desc limit 1;
+  assert j is not null,                        'FALHOU T9f: anon nao le o historico publico';
+  assert j->>'apelido' ~ '^.\*\*\*.$',          format('FALHOU T9f: apelido sem mascara (%s)', j->>'apelido');
+  assert not (j ? 'user_id'),                  'FALHOU T9f: historico expoe user_id';
+  assert not (j ? 'idem_key') and not (j ? 'resultado'), 'FALHOU T9f: historico expoe idem/resultado';
+end $$;
+
+-- T9g: authenticated le SO o proprio teto em leilao_proxy
+select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+declare v_meu int; v_outros int;
+begin
+  select count(*) into v_meu from public.leilao_proxy
+   where leilao_id = 'b0000000-0000-4000-8000-000000000001'
+     and user_id = 'a0000000-0000-4000-8000-000000000004';
+  select count(*) into v_outros from public.leilao_proxy
+   where leilao_id = 'b0000000-0000-4000-8000-000000000001'
+     and user_id <> 'a0000000-0000-4000-8000-000000000004';
+  assert v_meu = 1,    format('FALHOU T9g: caio nao le o proprio teto (%s)', v_meu);
+  assert v_outros = 0, format('FALHOU T9g: caio le teto de outra pessoa (%s linhas)', v_outros);
 end $$;
 
 -- ─── T10: corte exato (now() >= termina_em) ─────────────────────────────────
@@ -282,8 +349,18 @@ exception when others then
   if sqlerrm <> 'leilao_fechado' then raise exception 'FALHOU T10: %', sqlerrm; end if;
 end $$;
 
--- ─── T11: tick fecha o avulso com vencedor e segundo colocado ───────────────
+-- ─── T11: folga de 1s, depois tick fecha o avulso com vencedor e 2o ────────
 reset role;
+select public.leilao_tick();
+do $$
+declare l record;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000001';
+  assert l.status = 'ativo', format('FALHOU T11a: fechou dentro da folga de 1s (%s)', l.status);
+end $$;
+
+update public.leiloes set termina_em = now() - interval '1 second'
+ where id = 'b0000000-0000-4000-8000-000000000001';
 select public.leilao_tick();
 do $$
 declare l record; v int;
@@ -357,8 +434,18 @@ begin
   assert r.status = 'encerrada',   format('FALHOU T12d: rodada %s', r.status);
 end $$;
 
--- ─── T13: calote depois de pagar_ate ────────────────────────────────────────
-update public.leiloes set pagar_ate = now() - interval '1 second'
+-- ─── T13: calote so depois de pagar_ate + 15 min de carencia ───────────────
+update public.leiloes set pagar_ate = now() - interval '14 minutes'
+ where id = 'b0000000-0000-4000-8000-000000000002';
+select public.leilao_tick();
+do $$
+declare l record;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000002';
+  assert l.status = 'aguardando_pagamento', format('FALHOU T13a: calote dentro da carencia (%s)', l.status);
+end $$;
+
+update public.leiloes set pagar_ate = now() - interval '16 minutes'
  where id = 'b0000000-0000-4000-8000-000000000002';
 select public.leilao_tick();
 do $$
@@ -386,6 +473,132 @@ begin
      and public.leilao_incremento(1000000) = 100000, 'FALHOU T14: tabela de incrementos';
   assert public.leilao_mascarar('joana') = 'j***a' and public.leilao_mascarar('J') = '***',
          'FALHOU T14b: mascara';
+  -- nome curto: com 2 letras "j***o" entregaria o nome inteiro
+  assert public.leilao_mascarar('Jo') = '***' and public.leilao_mascarar(' jo ') = '***'
+     and public.leilao_mascarar('') = '***' and public.leilao_mascarar(null) = '***',
+         format('FALHOU T14c: nome curto %s', public.leilao_mascarar('Jo'));
+  assert public.leilao_mascarar('Ana') = 'a***a', 'FALHOU T14c: 3 letras';
+end $$;
+
+-- ─── T15: calote NAO marca lote com checkout em andamento ou pedido pago ────
+-- L1 esta aguardando_pagamento desde o T11 (lider: ana).
+update public.leiloes set pagar_ate = now() - interval '1 hour'
+ where id = 'b0000000-0000-4000-8000-000000000001';
+insert into public.pedidos (id, vendedor_user_id, comprador_user_id, item_nome,
+                            valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
+                            status, stripe_session_id, leilao_id)
+values ('e0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
+        'a0000000-0000-4000-8000-000000000002', 'Charizard ex', 8500, 8500, 'pix', 30,
+        'aguardando_pagamento', 'cs_test_leilao_t15', 'b0000000-0000-4000-8000-000000000001');
+select public.leilao_tick();
+do $$
+declare l record;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000001';
+  assert l.status = 'aguardando_pagamento', format('FALHOU T15a: calote com checkout em andamento (%s)', l.status);
+end $$;
+
+-- checkout cancelado + pedido PAGO (sem sessao, ligado so por leilao_id)
+update public.pedidos set status = 'cancelado', cancelado_em = now()
+ where id = 'e0000000-0000-4000-8000-000000000001';
+insert into public.pedidos (id, vendedor_user_id, comprador_user_id, item_nome,
+                            valor_item_cents, total_comprador_cents, metodo, repasse_prazo,
+                            status, pago_em, leilao_id)
+values ('e0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001',
+        'a0000000-0000-4000-8000-000000000002', 'Charizard ex', 8500, 8500, 'pix', 30,
+        'pago', now(), 'b0000000-0000-4000-8000-000000000001');
+select public.leilao_tick();
+do $$
+declare l record; v int;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000001';
+  assert l.status = 'aguardando_pagamento', format('FALHOU T15b: calote com pedido pago (%s)', l.status);
+  select count(*) into v from public.leilao_eventos where leilao_id = l.id and tipo = 'calote';
+  assert v = 0, format('FALHOU T15b: evento calote gravado (%s)', v);
+end $$;
+
+-- controle: sem o pedido pago (so o cancelado), ai sim vira calote
+delete from public.pedidos where id = 'e0000000-0000-4000-8000-000000000002';
+select public.leilao_tick();
+do $$
+declare l record;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000001';
+  assert l.status = 'calote', format('FALHOU T15c: controle nao virou calote (%s)', l.status);
+end $$;
+
+-- ─── T16: tick atrasado nao abre-e-fecha ────────────────────────────────────
+-- Agendado para 10 min atras, 30s de duracao: abre com os 30s cheios.
+insert into public.leiloes (id, vendedor_user_id, card_name, slug, lance_inicial_cents,
+                            duracao_seg, soft_close_seg, status, inicia_em)
+values ('b0000000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000001',
+        'Gengar', 'gengar-teste-atrasado', 500, 30, 10, 'agendado',
+        now() - interval '10 minutes');
+select public.leilao_tick();
+do $$
+declare l record;
+begin
+  select * into l from public.leiloes where id = 'b0000000-0000-4000-8000-000000000005';
+  assert l.status = 'ativo', format('FALHOU T16: status %s (abriu e fechou no mesmo tick?)', l.status);
+  assert l.termina_em = now() + interval '30 seconds',
+         format('FALHOU T16: termina_em %s (esperado now()+30s)', l.termina_em);
+end $$;
+
+-- ─── T17: lote de rodada 'prazo' exige inicia_em; modo da rodada e fixo ─────
+insert into public.leilao_rodadas (id, vendedor_user_id, titulo, modo, status)
+values ('c0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001',
+        'Rodada prazo teste', 'prazo', 'rascunho');
+do $$
+begin
+  insert into public.leiloes (id, rodada_id, ordem, vendedor_user_id, card_name, slug,
+                              lance_inicial_cents, duracao_seg, status)
+  values ('b0000000-0000-4000-8000-000000000006', 'c0000000-0000-4000-8000-000000000002', 1,
+          'a0000000-0000-4000-8000-000000000001', 'Eevee', 'eevee-teste-prazo', 500, 86400, 'agendado');
+  raise exception 'FALHOU T17: lote prazo sem inicia_em aceito';
+exception when others then
+  if sqlerrm <> 'lote_prazo_sem_inicio' then raise exception 'FALHOU T17: %', sqlerrm; end if;
+end $$;
+
+insert into public.leiloes (id, rodada_id, ordem, vendedor_user_id, card_name, slug,
+                            lance_inicial_cents, duracao_seg, status)
+values ('b0000000-0000-4000-8000-000000000006', 'c0000000-0000-4000-8000-000000000002', 1,
+        'a0000000-0000-4000-8000-000000000001', 'Eevee', 'eevee-teste-prazo', 500, 86400, 'rascunho');
+do $$
+begin
+  update public.leiloes set status = 'agendado' where id = 'b0000000-0000-4000-8000-000000000006';
+  raise exception 'FALHOU T17b: agendou lote prazo sem inicia_em';
+exception when others then
+  if sqlerrm <> 'lote_prazo_sem_inicio' then raise exception 'FALHOU T17b: %', sqlerrm; end if;
+end $$;
+do $$
+begin
+  update public.leilao_rodadas set modo = 'ao_vivo' where id = 'c0000000-0000-4000-8000-000000000002';
+  raise exception 'FALHOU T17c: trocou o modo de rodada com lote';
+exception when others then
+  if sqlerrm <> 'rodada_modo_fixo' then raise exception 'FALHOU T17c: %', sqlerrm; end if;
+end $$;
+
+-- ─── T18: rodada ao vivo nao encerra com rascunho nem sem lote aberto ───────
+insert into public.leilao_rodadas (id, vendedor_user_id, titulo, modo, status, inicia_em) values
+  ('c0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001',
+   'Rodada com rascunho', 'ao_vivo', 'ao_vivo', now() - interval '1 minute'),
+  ('c0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000001',
+   'Rodada sem lote aberto', 'ao_vivo', 'ao_vivo', now() - interval '1 minute');
+insert into public.leiloes (id, rodada_id, ordem, vendedor_user_id, card_name, slug,
+                            lance_inicial_cents, duracao_seg, status)
+values
+  ('b0000000-0000-4000-8000-000000000007', 'c0000000-0000-4000-8000-000000000003', 1,
+   'a0000000-0000-4000-8000-000000000001', 'Snorlax', 'snorlax-teste-rascunho', 500, 30, 'rascunho'),
+  ('b0000000-0000-4000-8000-000000000008', 'c0000000-0000-4000-8000-000000000004', 1,
+   'a0000000-0000-4000-8000-000000000001', 'Lapras', 'lapras-teste-cancelado', 500, 30, 'cancelado');
+select public.leilao_tick();
+do $$
+declare r3 record; r4 record;
+begin
+  select * into r3 from public.leilao_rodadas where id = 'c0000000-0000-4000-8000-000000000003';
+  select * into r4 from public.leilao_rodadas where id = 'c0000000-0000-4000-8000-000000000004';
+  assert r3.status = 'ao_vivo', format('FALHOU T18: encerrou rodada com lote em rascunho (%s)', r3.status);
+  assert r4.status = 'ao_vivo', format('FALHOU T18b: encerrou rodada em que nada abriu (%s)', r4.status);
 end $$;
 
 select 'leilao_motor_test: TODOS OK' as resultado;
