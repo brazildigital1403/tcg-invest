@@ -7,6 +7,8 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconCheck, IconWallet, IconPhone, IconBolt, IconCard, IconPokeball } from '@/components/ui/Icons'
+import { LEILAO_ATIVO } from '@/lib/leilao-flag'
+import ReclamacoesLoja from './ReclamacoesLoja'
 
 /**
  * /minha-loja/[id]/pedidos — o painel onde o lojista despacha as vendas.
@@ -187,6 +189,9 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
       </header>
 
       {erro && <div style={S.erro}>{erro}</div>}
+
+      {/* Protecao Bynx: reclamacoes de pedidos de leilao (some sozinho sem nenhuma). */}
+      {LEILAO_ATIVO && <ReclamacoesLoja lojaId={lojaId} />}
 
       {resumo && resumo.total > 0 && (
         <div style={S.kpis}>
