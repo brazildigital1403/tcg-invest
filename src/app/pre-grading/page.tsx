@@ -12,8 +12,9 @@ import {
 } from '@/components/ui/Icons'
 import { MockupLaudo, DiagramaDefeito, IlustracaoCustodia, IlustracaoBancada, type TipoDefeito, type TomDefeito } from '@/components/servicos/Mockups'
 import {
-  MedicaoCentralizacao, LeituraBancada, PranchaLaudo, SlabsGraduadoras, SlabAberto, ReguaSeparador, CartaDentroDoLimite,
+  MedicaoCentralizacao, LeituraBancada, SlabsGraduadoras, SlabAberto, ReguaSeparador, CartaDentroDoLimite,
 } from '@/components/servicos/MockupsPreGrading'
+import RelatorioDemonstrativo from '@/components/servicos/RelatorioDemonstrativo'
 import {
   SERVICOS_PUBLICADO, FAQ_PRE_GRADING_LANDING, PASSOS_PRE_GRADING, CUSTODIA_PRE_GRADING, SERVICOS, PRECOS, PRAZOS, LINKS, CIDADE,
   precoDoServico, brl, jsonLdServico,
@@ -109,9 +110,9 @@ export default function PreGradingPage() {
           <Cabecalho
             eyebrow="O relatório"
             titulo="O que volta com a sua carta"
-            sub="Um laudo por carta, na sua conta, comparado com o critério da graduadora indicada."
+            sub="Cada carta volta com um relatório de bancada impresso: fotos de chegada e saída, ficha de condição, laudo, valores e termos. Veja o exemplo completo, página por página."
           />
-          <PranchaLaudo />
+          <RelatorioDemonstrativo />
         </Faixa>
 
         {/* Centralizacao e resultado na graduadora abrem o carrossel no pre-grading. */}
