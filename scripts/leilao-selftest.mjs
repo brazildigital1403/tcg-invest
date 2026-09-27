@@ -13,16 +13,17 @@ import ts from 'typescript'
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 const tmp = mkdtempSync(join(tmpdir(), 'leilao-selftest-'))
 
-for (const nome of ['comissao', 'leilao', 'leilao-taxas']) {
+for (const nome of ['comissao', 'leilao', 'leilao-taxas', 'leilao-avisos']) {
   const src = readFileSync(join(raiz, 'src/lib', `${nome}.ts`), 'utf8')
   const out = ts.transpileModule(src, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-  }).outputText.replace(/from '\.\/(comissao|leilao|leilao-taxas)'/g, "from './$1.mjs'")
+  }).outputText.replace(/from '\.\/(comissao|leilao|leilao-taxas|leilao-avisos)'/g, "from './$1.mjs'")
   writeFileSync(join(tmp, `${nome}.mjs`), out)
 }
 
 const L = await import(pathToFileURL(join(tmp, 'leilao.mjs')).href)
 const T = await import(pathToFileURL(join(tmp, 'leilao-taxas.mjs')).href)
+const A = await import(pathToFileURL(join(tmp, 'leilao-avisos.mjs')).href)
 
 let n = 0
 const ok = (fn, nome) => {
@@ -250,6 +251,135 @@ try {
       assert.equal(total - liquido, a.applicationFeeCents)
     }
   }, 'pedido do arremate: total - liquido = application_fee (frete integral)')
+
+  // ─── Avisos (fatia 3): matriz, debounce e ultimos 15 min ─────────────────
+  {
+    const agora = Date.parse('2026-09-28T15:00:00Z')
+    const min = 60 * 1000
+    const iso = (t) => new Date(t).toISOString()
+    const lote = (o = {}) => ({
+      id: 'L1', slug: 'charizard-ex-abc123', card_name: 'Charizard ex', status: 'ativo',
+      termina_em: iso(agora + 60 * min), pagar_ate: null, lider_user_id: 'U9',
+      vendedor_user_id: 'V1', preco_atual_cents: 5000, ...o,
+    })
+    const ev = (id, tipo, o = {}) => ({
+      id, leilao_id: 'L1', tipo, user_id: 'U1', payload: {}, created_at: iso(agora),
+      tentativas: 1, sino_em: null, email_em: null, ultimo_email_superado_em: null, ...o,
+    })
+    const plano = (evs, l = lote()) => A.planejarAvisos(evs, new Map([[l.id, l]]), agora)
+
+    ok(() => {
+      assert.equal(A.prazoCurtoBrasilia('2026-09-30T00:30:00Z'), '29/09 21:30')
+      assert.equal(A.prazoCurtoBrasilia('2026-01-01T03:00:00Z'), '01/01 00:00')
+      assert.equal(A.prazoCurtoBrasilia(null), '')
+      assert.equal(A.prazoCurtoBrasilia('lixo'), '')
+      assert.equal(A.linkLote('x-abc123'), '/leiloes/x-abc123')
+    }, 'avisos: prazo curto em Brasilia e link do lote')
+
+    ok(() => {
+      const [p] = plano([ev(1, 'superado', { payload: { preco_cents: 5000, minimo_proximo_cents: 5500 } })])
+      assert.equal(p.sinos.length, 1)
+      assert.equal(p.sinos[0].user_id, 'U1')
+      assert.equal(p.sinos[0].data.link, '/leiloes/charizard-ex-abc123')
+      assert.equal(p.emails.length, 1)
+      assert.equal(p.emails[0].modelo, 'superado')
+      assert.equal(p.emails[0].minimoProximoCents, 5500)
+      // Preco mudou depois do evento: o minimo do payload envelheceu e sai.
+      const [q] = plano([ev(1, 'superado', { payload: { preco_cents: 4000, minimo_proximo_cents: 4400 } })])
+      assert.equal(q.emails[0].minimoProximoCents, undefined)
+    }, 'avisos: superado -> sino + e-mail')
+
+    ok(() => {
+      // Ultimos 15 min: so sino.
+      let [p] = plano([ev(1, 'superado')], lote({ termina_em: iso(agora + 14 * min) }))
+      assert.equal(p.sinos.length, 1)
+      assert.equal(p.emails.length, 0)
+      ;[p] = plano([ev(1, 'superado')], lote({ termina_em: iso(agora + 15 * min) }))
+      assert.equal(p.emails.length, 1)
+      // Lote ao vivo de 60s: nunca e-mail.
+      ;[p] = plano([ev(1, 'superado')], lote({ termina_em: iso(agora + 40 * 1000) }))
+      assert.equal(p.emails.length, 0)
+      // Debounce: e-mail de superado ha 9 min -> so sino; ha 10 min -> e-mail.
+      ;[p] = plano([ev(1, 'superado', { ultimo_email_superado_em: iso(agora - 9 * min) })])
+      assert.equal(p.sinos.length, 1)
+      assert.equal(p.emails.length, 0)
+      ;[p] = plano([ev(1, 'superado', { ultimo_email_superado_em: iso(agora - 10 * min) })])
+      assert.equal(p.emails.length, 1)
+      // Lote ja fechado: so sino.
+      ;[p] = plano([ev(1, 'superado')], lote({ status: 'aguardando_pagamento' }))
+      assert.equal(p.emails.length, 0)
+      // Retry com e-mail ja enviado: nao reenvia.
+      ;[p] = plano([ev(1, 'superado', { email_em: iso(agora - min) })])
+      assert.equal(p.emails.length, 0)
+    }, 'avisos: superado sem e-mail nos ultimos 15 min e debounce de 10 min')
+
+    ok(() => {
+      // Tres superados do mesmo usuario + lote no mesmo lote de eventos: um aviso so.
+      const ps = plano([ev(1, 'superado'), ev(2, 'superado', { user_id: 'U2' }), ev(3, 'superado'), ev(4, 'superado')])
+      assert.deepEqual(ps.map(p => p.sinos.length), [0, 1, 0, 1])
+      assert.deepEqual(ps.map(p => p.emails.length), [0, 1, 0, 1])
+      // Quem voltou a liderar nao recebe nada.
+      const [p] = plano([ev(1, 'superado')], lote({ lider_user_id: 'U1' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+    }, 'avisos: superados agrupados por usuario + lote')
+
+    ok(() => {
+      const pagar = '2026-09-30T00:30:00Z'
+      let [p] = plano([ev(1, 'venceu')], lote({ status: 'aguardando_pagamento', lider_user_id: 'U1', pagar_ate: pagar }))
+      assert.equal(p.sinos.length, 1)
+      assert.equal(p.sinos[0].title, 'Você venceu: Charizard ex')
+      assert.equal(p.sinos[0].message, 'Pague até 29/09 21:30 (Brasília).')
+      assert.equal(p.emails.length, 1)
+      assert.equal(p.emails[0].modelo, 'venceu')
+      assert.equal(p.emails[0].pagarAte, pagar)
+      // Ja pago (vendido): nada.
+      ;[p] = plano([ev(1, 'venceu')], lote({ status: 'vendido', lider_user_id: 'U1' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+    }, 'avisos: venceu -> sino + e-mail com prazo, so se ainda aguarda pagamento')
+
+    ok(() => {
+      let [p] = plano([ev(1, 'encerrado', { user_id: null, payload: { resultado: 'sem_lances' } })],
+        lote({ status: 'sem_lances', lider_user_id: null }))
+      assert.equal(p.sinos[0].user_id, 'V1')
+      assert.equal(p.emails[0].modelo, 'sem_lances')
+      assert.equal(p.emails[0].userId, 'V1')
+      // Encerrado com vencedor: quem avisa e o 'venceu'.
+      ;[p] = plano([ev(1, 'encerrado', { user_id: null, payload: { resultado: 'aguardando_pagamento' } })],
+        lote({ status: 'aguardando_pagamento' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+    }, 'avisos: encerrado sem lances -> vendedor')
+
+    ok(() => {
+      let [p] = plano([ev(1, 'calote')], lote({ status: 'calote', lider_user_id: 'U1' }))
+      assert.deepEqual(p.sinos.map(s => s.user_id), ['U1', 'V1'])
+      assert.deepEqual(p.emails.map(e => e.modelo), ['calote_vencedor', 'calote_vendedor'])
+      // Pagamento tardio reverteu para vendido: nada sai.
+      ;[p] = plano([ev(1, 'calote')], lote({ status: 'vendido' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+    }, 'avisos: calote -> vencedor e vendedor, so se ainda em calote')
+
+    ok(() => {
+      for (const t of ['pago', 'reembolsado', 'iniciado', 'teto_ajustado', 'erro_tick']) {
+        const [p] = plano([ev(1, t)])
+        assert.equal(p.sinos.length + p.emails.length, 0, t)
+      }
+      const [p] = A.planejarAvisos([ev(1, 'venceu')], new Map(), agora)
+      assert.equal(p.nota, 'sem_lote')
+      assert.ok(A.emailEnviavel('a@b.co'))
+      assert.ok(!A.emailEnviavel('sem-arroba'))
+      assert.ok(!A.emailEnviavel(null))
+      assert.ok(!A.emailEnviavel('a b@c.com'))
+      // Copy sem contracao e sem emoji.
+      const textos = plano([ev(1, 'calote')], lote({ status: 'calote', lider_user_id: 'U1' }))[0].sinos
+        .concat(plano([ev(1, 'venceu')], lote({ status: 'aguardando_pagamento', lider_user_id: 'U1', pagar_ate: iso(agora) }))[0].sinos)
+        .concat(plano([ev(1, 'superado')])[0].sinos)
+        .flatMap(s => [s.title, s.message])
+      for (const t of textos) {
+        assert.ok(!/\b(pra|pro|num|numa)\b/i.test(t), `contracao: ${t}`)
+        assert.ok(!/\p{Extended_Pictographic}/u.test(t), `emoji: ${t}`)
+      }
+    }, 'avisos: tipos sem aviso, e-mail enviavel, copy limpa')
+  }
 
   console.log(`\n${n} blocos ok`)
 } finally {

@@ -1,5 +1,7 @@
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
+import { formatarBRL } from './leilao'
+import { prazoCurtoBrasilia } from './leilao-avisos'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = 'Bynx <noreply@bynx.gg>'
@@ -2556,4 +2558,177 @@ export async function sendReembolsoCompradorEmail(args: {
     subject: subjUser(`↩️ Reembolso: ${args.itemNome}`),
     html,
   })
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LEILAO — avisos (fatia 3). Consumidor: /api/cron-leilao-avisos.
+//
+// ★ Os modelos so RENDERIZAM ({ subject, html }); quem envia e
+// `enviarLoteEmails`, em lote (resend.batch.send, ate 100 por chamada). O cron
+// de trial das lojas estourou 30s mandando um e-mail por vez (~3,3s cada);
+// aqui um lote inteiro sai em uma chamada.
+// ★ Sem emoji (nem no assunto), sem contracao, cores dos tokens da bynx-ui em
+// hex (cliente de e-mail nao le var()). Horario sempre America/Sao_Paulo.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface EmailRenderizado {
+  to: string
+  subject: string
+  html: string
+}
+
+/** Resultado de um lote enviado: indices (na lista de entrada) + erro, se houve. */
+export interface ResultadoLoteEmails {
+  indices: number[]
+  ok: boolean
+  erro?: string
+}
+
+/**
+ * Envia e-mails ja renderizados em lotes de ate 100 (resend.batch.send).
+ * Cada lote e uma chamada: o resultado diz quais indices foram aceitos.
+ *
+ * ★ O lote do Resend e tudo-ou-nada: um item invalido recusa a chamada
+ * inteira. Filtre enderecos antes (emailEnviavel em lib/leilao-avisos).
+ * ★ As chamadas saem em SERIE de proposito (limite de requisicoes por segundo
+ * da conta); sao poucas, uma por 100 e-mails.
+ */
+export async function enviarLoteEmails(
+  emails: EmailRenderizado[],
+  opts: { tamanho?: number; deveParar?: () => boolean } = {},
+): Promise<ResultadoLoteEmails[]> {
+  const tamanho = Math.max(1, Math.min(opts.tamanho ?? 100, 100))
+  const out: ResultadoLoteEmails[] = []
+  for (let i = 0; i < emails.length; i += tamanho) {
+    const indices = emails.slice(i, i + tamanho).map((_, k) => i + k)
+    if (opts.deveParar?.()) {
+      out.push({ indices, ok: false, erro: 'sem_tempo' })
+      continue
+    }
+    try {
+      const res = await resend.batch.send(
+        indices.map(k => ({ from: FROM, to: emails[k].to, subject: emails[k].subject, html: emails[k].html })),
+      )
+      if (res.error) {
+        const erro = `${res.error.name ?? 'erro'}: ${res.error.message ?? JSON.stringify(res.error)}`
+        console.error(`[email] FALHA no lote de ${indices.length} e-mail(s): ${erro}`)
+        out.push({ indices, ok: false, erro })
+      } else {
+        out.push({ indices, ok: true })
+      }
+    } catch (err) {
+      const erro = (err as Error)?.message || 'excecao no envio'
+      console.error(`[email] FALHA (excecao) no lote de ${indices.length} e-mail(s): ${erro}`)
+      out.push({ indices, ok: false, erro })
+    }
+  }
+  return out
+}
+
+function urlLote(slug: string, campaign: string, sufixo = ''): string {
+  return addUtm(`${URL_CANONICA}/leiloes/${encodeURIComponent(slug)}${sufixo}`, campaign)
+}
+
+/** Bloco de destaque: rotulo pequeno + valor grande (tokens surface/border). */
+function blocoLeilao(rotulo: string, valor: string, cor = '#f0f0f0'): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 4px;">
+    <tr><td bgcolor="#12141a" style="background-color:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 18px;${FONT}">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.45);${FONT}">${rotulo}</p>
+      <p style="margin:0;font-size:22px;font-weight:800;color:${cor};letter-spacing:-0.02em;${FONT}">${valor}</p>
+    </td></tr>
+  </table>`
+}
+
+function forte(t: string): string {
+  return `<strong style="color:#f0f0f0;">${escapeHtml(t)}</strong>`
+}
+
+export interface LeilaoEmailArgs {
+  to: string
+  nome: string | null
+  cardName: string
+  slug: string
+  precoCents: number
+  minimoProximoCents?: number
+  terminaEm?: string | null
+  pagarAte?: string | null
+}
+
+/** Participante: alguem cobriu o lance. */
+export function renderLeilaoSuperadoEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const fim = prazoCurtoBrasilia(a.terminaEm)
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('Seu lance foi superado')}
+    ${p(`${escapeHtml(nome)}, outro participante passou o seu lance em ${forte(a.cardName)}.`)}
+    ${blocoLeilao('Lance atual', formatarBRL(a.precoCents))}
+    ${a.minimoProximoCents ? p(`Para voltar à frente, o lance mínimo agora é ${forte(formatarBRL(a.minimoProximoCents))}.`) : ''}
+    ${fim ? p(`O lote termina em ${forte(fim)} (horário de Brasília), se não houver prorrogação.`) : ''}
+    ${btn('Dar novo lance', urlLote(a.slug, 'leilao_superado'))}
+  `, `Lance atual em ${a.cardName}: ${formatarBRL(a.precoCents)}`)
+  return { to: a.to, subject: subjUser(`Seu lance foi superado: ${a.cardName}`), html }
+}
+
+/** Vencedor: arrematou, precisa pagar ate o prazo. */
+export function renderLeilaoVenceuEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const prazo = prazoCurtoBrasilia(a.pagarAte)
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1(`Você venceu: ${escapeHtml(a.cardName)}`)}
+    ${p(`${escapeHtml(nome)}, o lote é seu por ${forte(formatarBRL(a.precoCents))}.`)}
+    ${prazo ? blocoLeilao('Pague até (horário de Brasília)', prazo, '#f59e0b') : ''}
+    ${p('No pagamento você confere o frete e o total antes de confirmar. Sem o pagamento dentro do prazo, o arremate é cancelado e a loja é avisada.')}
+    ${btn('Pagar', urlLote(a.slug, 'leilao_venceu', '/pagar'))}
+  `, prazo ? `Pague até ${prazo} (Brasília)` : `Você venceu: ${a.cardName}`)
+  return {
+    to: a.to,
+    subject: subjUser(prazo
+      ? `Você venceu: ${a.cardName}. Pague até ${prazo} (Brasília)`
+      : `Você venceu: ${a.cardName}`),
+    html,
+  }
+}
+
+/** Vendedor: lote terminou sem nenhum lance. */
+export function renderLeilaoSemLancesEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('O lote terminou sem lances')}
+    ${p(`${escapeHtml(nome)}, o lote ${forte(a.cardName)} chegou ao fim sem nenhum lance. A carta continua com você.`)}
+    ${p('Você pode colocar a carta em uma nova rodada quando quiser.')}
+    ${btn('Ver o lote', urlLote(a.slug, 'leilao_sem_lances'))}
+  `, `${a.cardName} terminou sem lances`)
+  return { to: a.to, subject: subjUser(`Lote encerrado sem lances: ${a.cardName}`), html }
+}
+
+/** Vencedor: o prazo de pagamento passou. */
+export function renderLeilaoCaloteVencedorEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const prazo = prazoCurtoBrasilia(a.pagarAte)
+  const html = baseLayout(`
+    ${badge('Leilão', '#ef4444', '')}
+    ${h1('O prazo para pagar terminou')}
+    ${p(`${escapeHtml(nome)}, o pagamento de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) não foi confirmado${prazo ? ` até ${forte(prazo)} (horário de Brasília)` : ' dentro do prazo'}. O arremate foi cancelado e a loja foi avisada.`)}
+    ${p('Se você pagou e mesmo assim recebeu este aviso, fale com o suporte da Bynx pelo app.')}
+    ${btn('Ver o lote', urlLote(a.slug, 'leilao_calote_vencedor'))}
+  `, `Pagamento de ${a.cardName} não confirmado`)
+  return { to: a.to, subject: subjUser(`Prazo de pagamento encerrado: ${a.cardName}`), html }
+}
+
+/** Vendedor: o vencedor nao pagou. */
+export function renderLeilaoCaloteVendedorEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const prazo = prazoCurtoBrasilia(a.pagarAte)
+  const html = baseLayout(`
+    ${badge('Leilão', '#ef4444', '')}
+    ${h1('O vencedor não pagou')}
+    ${p(`${escapeHtml(nome)}, o vencedor de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) não pagou${prazo ? ` até ${forte(prazo)} (horário de Brasília)` : ' dentro do prazo'}.`)}
+    ${p('Nada foi cobrado e não há envio a fazer. A carta continua com você.')}
+    ${btn('Ver o lote', urlLote(a.slug, 'leilao_calote_vendedor'))}
+  `, `O vencedor de ${a.cardName} não pagou`)
+  return { to: a.to, subject: subjUser(`Arremate não pago: ${a.cardName}`), html }
 }
