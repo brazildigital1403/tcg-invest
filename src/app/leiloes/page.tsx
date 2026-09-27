@@ -136,11 +136,15 @@ export default async function LeiloesPage({
 async function abaAoVivo() {
   const agora = Date.now()
   const hojeISO = dataBrasiliaISO(agora)
-  const [noAr, agendadas, lotes] = await Promise.all([
+  const [noAr, agendadas, lotesAbertos] = await Promise.all([
     buscarRodadasAoVivo(),
     listarRodadasAgendadas(20),
     listarLotesVitrine('terminando'),
   ])
+  // O lote no ar de uma rodada ao vivo ja aparece no destaque (ou em "Tambem
+  // ao vivo"): a grade "Terminando" fica com os lotes de prazo proprio.
+  const rodadasNoAr = new Set(noAr.map(r => r.id))
+  const lotes = lotesAbertos.filter(l => !l.rodadaId || !rodadasNoAr.has(l.rodadaId))
   const hoje = agendadas.filter(r => r.iniciaEm && dataBrasiliaISO(r.iniciaEm) === hojeISO)
   const destaque = noAr[0] ?? null
   const outrasNoAr = noAr.slice(1)

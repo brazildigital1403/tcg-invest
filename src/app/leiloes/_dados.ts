@@ -47,7 +47,12 @@ export async function listarLotesVitrine(ordem: OrdemVitrine): Promise<LotePubli
   } else if (ordem === 'novos') {
     q = q.in('status', ['agendado', 'ativo']).order('inicia_em', { ascending: false, nullsFirst: false })
   } else {
-    q = q.in('status', ['agendado', 'ativo']).order('termina_em', { ascending: true, nullsFirst: false })
+    // Terminando: so lote ABERTO (status 'ativo') e com prazo. Lote 'agendado'
+    // de rodada ainda esta na fila, nao termina em nada; entrava aqui antes.
+    q = q
+      .eq('status', 'ativo')
+      .not('termina_em', 'is', null)
+      .order('termina_em', { ascending: true })
   }
 
   const { data, error } = await q.limit(LIMITE_VITRINE)
