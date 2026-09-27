@@ -137,10 +137,15 @@ function Pedido({ id }: { id: string }) {
 
       {!encerrado && (
         <ol className="sp-etapas" aria-label="Andamento do pedido">
-          {ETAPAS.map((e, i) => (
-            <li key={e.t} className={i < etapaAtual ? 'feito' : i === etapaAtual ? 'agora' : ''}>
-              <span>{i < etapaAtual ? <IconCheck size={12} strokeWidth={2.6} /> : i + 1}</span>{e.t}
-            </li>
+          {ETAPAS.map((e, i) => {
+            // Entregue e o fim da jornada: a ultima etapa fica verde (concluida), nao laranja (em andamento).
+            const feito = i < etapaAtual || (s.status === 'entregue' && i === etapaAtual)
+            return (
+              <li key={e.t} className={feito ? `feito${i === etapaAtual ? ' fim' : ''}` : i === etapaAtual ? 'agora' : ''}>
+                <span>{feito ? <IconCheck size={12} strokeWidth={2.6} /> : i + 1}</span>{e.t}
+              </li>
+            )
+          })}
           ))}
         </ol>
       )}
@@ -432,6 +437,7 @@ const CSS = `
 .sp-etapas li span{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--bx-surface-2)}
 .sp-etapas li.feito{color:var(--bx-text-2)}
 .sp-etapas li.feito span{background:color-mix(in srgb,var(--bx-green) 16%,transparent);color:var(--bx-green)}
+.sp-etapas li.fim{color:var(--bx-text);border-color:color-mix(in srgb,var(--bx-green) 50%,transparent)}
 .sp-etapas li.agora{color:var(--bx-text);border-color:rgba(var(--ac-1-rgb),.5)}
 .sp-etapas li.agora span{background:var(--ac-grad);color:var(--bx-brand-ink)}
 .sp-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
