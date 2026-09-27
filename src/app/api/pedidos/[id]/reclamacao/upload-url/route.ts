@@ -3,7 +3,7 @@ import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { SLOTS_FOTO, podeReclamar, type SlotFoto } from '@/lib/leilao-reclamacao'
 import {
   BUCKET_RECLAMACOES, SEM_CACHE, UUID_RE, sbServico, usuarioDoBearer, carregarPedido, ehPedidoDeLeilao,
-  caminhoFoto, mimeValido, pastaFotos,
+  caminhoFoto, mimeValido,
 } from '@/lib/reclamacaoServer'
 
 /**
@@ -15,13 +15,22 @@ import {
  * pelo cliente: <pedido>/<comprador>/<slot>-<uuid>.<ext>. Padrao do
  * servico-midias.
  *
- * So o comprador, so pedido de leilao que ainda aceita reclamacao. Teto de 12
- * arquivos por pasta: um loop de reemissao nao enche o bucket.
+ * So o comprador, so pedido de leilao que ainda aceita reclamacao.
+ *
+ * ★ TETO DE URLs EMITIDAS, nao de arquivos. Contar arquivos na pasta nao
+ *   segurava: URL emitida e ainda nao usada nao vira arquivo, entao um loop
+ *   juntava centenas de URLs e subia tudo depois. Agora cada URL reserva uma
+ *   vaga em pedidos.reclamacao_uploads (pedido_reclamacao_reservar_upload,
+ *   incremento atomico com `where uploads < teto`) ANTES de ser emitida.
+ *   Teto por pedido, pela vida do pedido: 3 fotos x 5 tentativas = 15
+ *   (troca de foto, reenvio, uma segunda reclamacao depois de fechada a
+ *   primeira). Passou disso, suporte. Vaga gasta com URL que falhou na
+ *   emissao nao volta -- simples e a favor do teto.
  */
 
 export const dynamic = 'force-dynamic'
 
-const TETO_ARQUIVOS = 12
+const TETO_URLS_POR_PEDIDO = 15
 
 function json(status: number, corpo: Record<string, unknown>) {
   return NextResponse.json(corpo, { status, headers: SEM_CACHE })
@@ -49,9 +58,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const pode = podeReclamar({ ...pedido, ehLeilao }, Date.now())
     if (!pode.pode) return json(409, { error: 'Este pedido não aceita reclamação agora.' })
 
-    const pasta = pastaFotos(pedidoId, userId)
-    const { data: existentes } = await sb.storage.from(BUCKET_RECLAMACOES).list(pasta.replace(/\/$/, ''), { limit: 50 })
-    if ((existentes?.length || 0) >= TETO_ARQUIVOS) return json(429, { error: 'Limite de envios de foto atingido. Fale com o suporte.' })
+    const { data: reservou, error: rErr } = await sb.rpc('pedido_reclamacao_reservar_upload', {
+      p_pedido: pedidoId, p_comprador: userId, p_teto: TETO_URLS_POR_PEDIDO,
+    })
+    if (rErr) {
+      console.error('[reclamacao upload-url] reserva:', rErr.message)
+      return json(500, { error: 'Não foi possível preparar o envio da foto.' })
+    }
+    if (reservou !== true) return json(429, { error: 'Limite de envios de foto atingido. Fale com o suporte.' })
 
     const { data, error } = await sb.storage.from(BUCKET_RECLAMACOES).createSignedUploadUrl(caminhoFoto(pedidoId, userId, slot, mime))
     if (error || !data) {

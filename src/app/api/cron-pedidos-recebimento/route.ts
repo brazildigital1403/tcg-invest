@@ -28,6 +28,12 @@ import { enviarLoteEmails, renderRecebimentoAvisoEmail, type EmailLoteItem } fro
  *             aviso nao se repete (sino gravado ja cobre).
  * LOTE de 100 pedidos por execucao, mais antigos primeiro; para de processar
  * aos ~20s (o que sobrar fica para a proxima hora).
+ * ★ FILTRO DE LEILAO NO BANCO, nao em memoria. Antes o lote de 100 vinha de
+ *   TODOS os pedidos 'enviado' e o filtro de leilao era depois: 100 pedidos de
+ *   marketplace parados ha mais de 14 dias ocupavam o lote inteiro para sempre
+ *   e nenhum leilao era processado. Agora sao duas leituras ja filtradas
+ *   (atalho pedidos.leilao_id, e pedido_itens!inner com leilao_id para o
+ *   carrinho) e o candidato ja avisado que ainda nao fecha fica de fora.
  *
  * `?dry=1`: so le e devolve o plano, sem gravar nem enviar.
  * Auth: Bearer ${CRON_SECRET}, comparado em tempo constante.
@@ -43,6 +49,7 @@ import { enviarLoteEmails, renderRecebimentoAvisoEmail, type EmailLoteItem } fro
  * nada fica pela metade, o proximo ciclo so nao acontece.
  */
 
+// DECISAO DO DU: maxDuration. 30s com orcamento interno de 20s; mudar so com ele.
 export const maxDuration = 30
 export const dynamic = 'force-dynamic'
 
@@ -78,27 +85,45 @@ export async function GET(req: NextRequest) {
     const agora = Date.now()
     const corte = new Date(agora - DIAS_AVISO_RECEBIMENTO * DIA_MS).toISOString()
 
-    const { data, error } = await sb
+    const corteFechar = new Date(agora - DIAS_FECHAMENTO_AUTO * DIA_MS).toISOString()
+    const COLS = 'id, numero, status, loja_id, vendedor_user_id, comprador_user_id, item_nome, leilao_id, enviado_em, reclamacao_aberta, aviso_recebimento_em'
+    // Candidato = ainda nao avisado (>= 14 dias) OU ja no ponto de fechar (>= 21).
+    const pendente = `aviso_recebimento_em.is.null,enviado_em.lte."${corteFechar}"`
+
+    // Leilao pelo atalho (pedidos.leilao_id)...
+    const qAtalho = sb
       .from('pedidos')
-      .select('id, numero, status, loja_id, vendedor_user_id, comprador_user_id, item_nome, leilao_id, enviado_em, reclamacao_aberta, aviso_recebimento_em')
+      .select(COLS)
       .eq('status', 'enviado')
       .eq('reclamacao_aberta', false)
+      .not('leilao_id', 'is', null)
       .lte('enviado_em', corte)
+      .or(pendente)
       .order('enviado_em', { ascending: true })
       .limit(LIMITE)
-    if (error) throw new Error(`pedidos: ${error.message}`)
-    const peds = (data || []) as Ped[]
-
-    // Leilao pelo atalho ou pelo item (carrinho).
-    const semAtalho = peds.filter(p => !p.leilao_id).map(p => p.id)
-    const comItem = new Set<string>()
-    if (semAtalho.length) {
-      const { data: itens } = await sb.from('pedido_itens').select('pedido_id').in('pedido_id', semAtalho).not('leilao_id', 'is', null)
-      for (const i of itens || []) comItem.add(i.pedido_id as string)
-    }
+    // ...ou so pelo item (carrinho): inner join em pedido_itens com lote.
+    const qItem = sb
+      .from('pedidos')
+      .select(`${COLS}, pedido_itens!inner(leilao_id)`)
+      .eq('status', 'enviado')
+      .eq('reclamacao_aberta', false)
+      .is('leilao_id', null)
+      .not('pedido_itens.leilao_id', 'is', null)
+      .lte('enviado_em', corte)
+      .or(pendente)
+      .order('enviado_em', { ascending: true })
+      .limit(LIMITE)
+    const [rA, rI] = await Promise.all([qAtalho, qItem])
+    if (rA.error) throw new Error(`pedidos (atalho): ${rA.error.message}`)
+    if (rI.error) throw new Error(`pedidos (item): ${rI.error.message}`)
+    const vistos = new Set<string>()
+    const peds = ([...(rA.data || []), ...(rI.data || [])] as unknown as Ped[])
+      .filter(p => (vistos.has(p.id) ? false : (vistos.add(p.id), true)))
+      .sort((a, b) => String(a.enviado_em).localeCompare(String(b.enviado_em)))
+      .slice(0, LIMITE)
 
     const plano = peds
-      .map(p => ({ p, acao: acaoRecebimento({ ...p, ehLeilao: !!p.leilao_id || comItem.has(p.id) }, agora) }))
+      .map(p => ({ p, acao: acaoRecebimento({ ...p, ehLeilao: true }, agora) }))
       .filter((x): x is { p: Ped; acao: 'fechar' | 'avisar' } => x.acao !== null)
 
     if (dry) {

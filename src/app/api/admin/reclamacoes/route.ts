@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { lojaSemResposta, podeDecidir, type ReclamacaoEstado } from '@/lib/leilao-reclamacao'
+import { lojaSemResposta, podeDecidir, STATUS_ABERTOS, type ReclamacaoEstado } from '@/lib/leilao-reclamacao'
 import { SEM_CACHE, COLUNAS_RECLAMACAO, sbServico, assinarFotos } from '@/lib/reclamacaoServer'
 
 /**
@@ -10,6 +10,11 @@ import { SEM_CACHE, COLUNAS_RECLAMACAO, sbServico, assinarFotos } from '@/lib/re
  * valores), a loja, o comprador, a resposta da loja e as fotos em signed URL
  * de 10 min. `sem_resposta` = prazo da loja venceu sem resposta (decisao a
  * favor do comprador); `pode_decidir` libera os botoes.
+ *
+ * ORDEM: todas as ABERTAS primeiro, da mais antiga para a mais nova (a que
+ * espera ha mais tempo e a mais urgente), depois as fechadas mais recentes.
+ * Duas leituras: antes era um `limit 200` por created_at desc, e uma aberta
+ * antiga caia fora da fila quando chegavam 200 mais novas.
  */
 
 export const dynamic = 'force-dynamic'
@@ -24,16 +29,23 @@ export async function GET(req: NextRequest) {
   if (unauth) return unauth
   try {
     const sb = sbServico()
-    const { data, error } = await sb
-      .from('pedido_reclamacoes')
-      .select(COLUNAS_RECLAMACAO)
-      .order('created_at', { ascending: false })
-      .limit(200)
+    const [abertas, fechadas] = await Promise.all([
+      sb.from('pedido_reclamacoes').select(COLUNAS_RECLAMACAO)
+        .in('status', STATUS_ABERTOS)
+        .order('created_at', { ascending: true })
+        .limit(500),
+      sb.from('pedido_reclamacoes').select(COLUNAS_RECLAMACAO)
+        .not('status', 'in', `(${STATUS_ABERTOS.join(',')})`)
+        .order('created_at', { ascending: false })
+        .limit(200),
+    ])
+    const error = abertas.error || fechadas.error
     if (error) {
       console.error('[admin/reclamacoes]', error.message)
       return NextResponse.json({ error: 'Erro ao carregar.' }, { status: 500, headers: SEM_CACHE })
     }
-    const linhas = (data || []) as unknown as Linha[]
+    if ((abertas.data?.length || 0) >= 500) console.warn('[admin/reclamacoes] 500+ abertas: a fila corta as mais novas')
+    const linhas = [...(abertas.data || []), ...(fechadas.data || [])] as unknown as Linha[]
 
     const idsPed = [...new Set(linhas.map(l => l.pedido_id))]
     const idsLoja = [...new Set(linhas.map(l => l.loja_id))]
@@ -51,7 +63,7 @@ export async function GET(req: NextRequest) {
     const P = porId(peds.data), L = porId(lojas.data), U = porId(users.data)
 
     const agora = Date.now()
-    const aberta = (s: string) => s === 'aguardando_loja' || s === 'em_analise' || s === 'aguardando_devolucao'
+    // A ordem ja vem das duas leituras (abertas antigas primeiro, depois fechadas).
     const reclamacoes = linhas
       .map(l => {
         const p = P[l.pedido_id] as { total_comprador_cents?: number; valor_reembolsado_cents?: number } | undefined
@@ -66,7 +78,6 @@ export async function GET(req: NextRequest) {
           restante_cents: Math.max(0, (p?.total_comprador_cents || 0) - (p?.valor_reembolsado_cents || 0)),
         }
       })
-      .sort((a, b) => Number(aberta(String(b.status))) - Number(aberta(String(a.status))))
 
     return NextResponse.json({ reclamacoes }, { headers: SEM_CACHE })
   } catch (err) {
