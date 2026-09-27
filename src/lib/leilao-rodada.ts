@@ -32,24 +32,34 @@ export interface EstadoRodada {
   server_now: string
   /** Cresce a cada mudanca da rodada ou de qualquer lote: descarta resposta velha. */
   versao: number
+  /**
+   * Referencia do Mercado Brasileiro (menor preco, centavos) do lote NO AR, para
+   * o aviso de lance alto. null sem lote no ar, carta graduada ou sem preco.
+   */
+  referenciaMercadoCents?: number | null
 }
 
 /** Colunas lidas de `leilao_rodadas`. ★ Nunca incluir vendedor_user_id. */
 export const COLUNAS_RODADA = 'id, numero, loja_id, titulo, descricao, modo, status, inicia_em, link_transmissao'
 
 /**
- * Colunas lidas de `leiloes_publico` para a rodada. Fora: vendedor_user_id
- * (a view tem, a pagina nao precisa) e descricao (fica na pagina do lote;
- * a resposta do polling sai para todo mundo a cada 2-3s).
+ * Colunas lidas de `leiloes_publico` para TODOS os lotes da rodada. Fora:
+ * vendedor_user_id (a view tem, a pagina nao precisa), descricao (fica na
+ * pagina do lote), `fotos` (fila e encerrados mostram a card_image) e
+ * `lider_apelido` (so importa no lote no ar). A resposta do polling sai para
+ * todo mundo a cada 2-3s: cada coluna aqui pesa x lotes x leitores.
  */
 export const COLUNAS_LOTE_RODADA = [
   'id', 'codigo', 'slug', 'rodada_id', 'ordem', 'loja_id',
-  'card_id', 'card_slug', 'card_name', 'card_numero', 'set_nome', 'card_image', 'fotos',
+  'card_id', 'card_slug', 'card_name', 'card_numero', 'set_nome', 'card_image',
   'condicao', 'idioma', 'graduadora', 'nota',
-  'lance_inicial_cents', 'preco_atual_cents', 'lider_apelido',
+  'lance_inicial_cents', 'preco_atual_cents',
   'n_lances', 'n_participantes', 'duracao_seg', 'soft_close_seg',
   'inicia_em', 'termina_em', 'prorrogacoes', 'status', 'encerrado_em', 'versao', 'game',
 ].join(', ')
+
+/** Complemento do lote NO AR, lido por PK (uma linha): fotos e apelido do lider. */
+export const COLUNAS_LOTE_ATIVO_EXTRA = 'fotos, lider_apelido'
 
 const STATUS_RODADA_VALIDOS: ReadonlyArray<StatusRodada> = ['rascunho', 'agendada', 'ao_vivo', 'encerrada', 'cancelada']
 
@@ -76,12 +86,19 @@ export function lotesDaRodadaDeLinhas(linhas: unknown[] | null | undefined): Lot
   return (linhas ?? []).map(r => lotePublicoDeLinha(r as Linha)).sort(porOrdem)
 }
 
-/** "42" -> 42. So digitos, sem zero a esquerda, dentro do bigint seguro. null se nao for numero de rodada. */
+/**
+ * "42" -> 42. So digitos, dentro do inteiro seguro. null se nao for numero de
+ * rodada. Zero a esquerda e aceito ("042" -> 42): a pagina compara com o
+ * canonico e responde 308 para /leiloes/rodada/42 (link digitado a mao ou
+ * colado de lista numerada nao vira 404).
+ */
 export function numeroDaRodada(param: string | null | undefined): number | null {
   const s = (param ?? '').trim()
-  if (!/^[1-9]\d{0,14}$/.test(s)) return null
-  const n = Number(s)
-  return Number.isSafeInteger(n) ? n : null
+  if (!/^\d+$/.test(s)) return null
+  const semZeros = s.replace(/^0+/, '')
+  if (!semZeros || semZeros.length > 15) return null
+  const n = Number(semZeros)
+  return Number.isSafeInteger(n) && n > 0 ? n : null
 }
 
 export function urlRodada(numero: number): string {
@@ -91,6 +108,20 @@ export function urlRodada(numero: number): string {
 /** Titulo exibido: o da loja, ou "Rodada #42". */
 export function tituloRodada(r: Pick<RodadaPublica, 'titulo' | 'numero'>): string {
   return r.titulo?.trim() || `Rodada #${r.numero}`
+}
+
+/** Complemento do titulo/OG pelo status: "leilão ao vivo" so quando esta no ar. */
+export function rotuloTituloRodada(status: StatusRodada): string {
+  switch (status) {
+    case 'ao_vivo':
+      return 'leilão ao vivo'
+    case 'agendada':
+      return 'leilão agendado'
+    case 'cancelada':
+      return 'leilão cancelado'
+    default:
+      return 'resultado do leilão'
+  }
 }
 
 /** So rodada que ainda vai acontecer ou esta no ar vai para o indice. */
@@ -158,6 +189,20 @@ export function loteQueFechou(idAnterior: string | null, lotesNovos: LotePublico
   return resultadoLoteRodada(l) ? l : null
 }
 
+/** Resultado de lote mais velho que isso (aba que voltou do fundo) nao vira faixa. */
+export const RESULTADO_RECENTE_MS = 10_000
+
+/**
+ * O fechamento aconteceu ha menos de RESULTADO_RECENTE_MS pelo relogio do
+ * SERVIDOR? Sem `encerradoEm` legivel, conta como recente (nao some com o
+ * resultado de quem estava olhando).
+ */
+export function resultadoRecente(encerradoEm: string | null | undefined, serverNowMs: number): boolean {
+  const fim = encerradoEm ? Date.parse(encerradoEm) : NaN
+  if (!Number.isFinite(fim) || !Number.isFinite(serverNowMs)) return true
+  return serverNowMs - fim < RESULTADO_RECENTE_MS
+}
+
 const RANK_STATUS_RODADA: Record<StatusRodada, number> = {
   rascunho: 0, agendada: 1, ao_vivo: 2, encerrada: 3, cancelada: 3,
 }
@@ -178,20 +223,29 @@ export function versaoRodada(status: StatusRodada, lotes: Array<Pick<LotePublico
 export const POLL_RODADA_AO_VIVO_MS = 3_000
 export const POLL_RODADA_FINAL_MS = 2_000
 export const POLL_RODADA_AGENDADA_MS = 30_000
+/** Agendada a N ms (ou menos) do inicio, ou ja passada: polling de ao vivo. */
+export const JANELA_INICIO_RODADA_MS = 30_000
 /** Ultimos N ms do lote no ar: polling mais curto. */
 export const JANELA_FINAL_RODADA_MS = 15_000
 
 /**
  * Proximo intervalo do polling da rodada. null = parar (encerrada, cancelada).
  * Ao vivo: 3s, e 2s nos ultimos 15s do lote (ou com o relogio ja zerado,
- * esperando o fechamento). Agendada: 30s.
+ * esperando o fechamento). Agendada: 30s, e 3s quando faltam 30s ou menos
+ * para `iniciaEm` (ou o horario ja passou e o servidor ainda nao abriu).
  */
 export function intervaloPollRodada(
   status: StatusRodada,
   terminaEmAtivo: string | null | undefined,
-  agoraMs: number
+  agoraMs: number,
+  iniciaEm?: string | null
 ): number | null {
-  if (status === 'agendada') return POLL_RODADA_AGENDADA_MS
+  if (status === 'agendada') {
+    const ini = iniciaEm ? Date.parse(iniciaEm) : NaN
+    return Number.isFinite(ini) && ini - agoraMs <= JANELA_INICIO_RODADA_MS
+      ? POLL_RODADA_AO_VIVO_MS
+      : POLL_RODADA_AGENDADA_MS
+  }
   if (status !== 'ao_vivo') return null
   const fim = terminaEmAtivo ? Date.parse(terminaEmAtivo) : NaN
   if (Number.isFinite(fim) && fim - agoraMs <= JANELA_FINAL_RODADA_MS) return POLL_RODADA_FINAL_MS

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { lotePublicoDeLinha, type LotePublico } from '@/lib/leilao'
 import {
+  COLUNAS_LOTE_ATIVO_EXTRA,
   COLUNAS_LOTE_RODADA,
   COLUNAS_RODADA,
   lotesDaRodadaDeLinhas,
@@ -104,15 +105,23 @@ export const buscarLojaDoLote = cache(async (lojaId: string | null): Promise<Loj
  * Leitura por PK na view `pokemon_cards`. So para carta sem graduacao: slab
  * nao tem preco comparavel no catalogo. Falha vira null (o aviso so some).
  */
+export async function lerReferenciaMercadoCents(
+  db: SupabaseClient,
+  cardId: string | null,
+  graduadora: string | null
+): Promise<number | null> {
+  if (!cardId || graduadora) return null
+  const { data, error } = await db.from('pokemon_cards').select('preco_min').eq('id', cardId).maybeSingle()
+  if (error || !data) return null
+  const v = Number((data as { preco_min?: unknown }).preco_min)
+  return Number.isFinite(v) && v > 0 ? Math.round(v * 100) : null
+}
+
 export const buscarReferenciaMercadoCents = cache(
   async (cardId: string | null, graduadora: string | null): Promise<number | null> => {
-    if (!cardId || graduadora) return null
     const db = getServiceSupabase()
     if (!db) return null
-    const { data, error } = await db.from('pokemon_cards').select('preco_min').eq('id', cardId).maybeSingle()
-    if (error || !data) return null
-    const v = Number((data as { preco_min?: unknown }).preco_min)
-    return Number.isFinite(v) && v > 0 ? Math.round(v * 100) : null
+    return lerReferenciaMercadoCents(db, cardId, graduadora)
   }
 )
 
@@ -130,7 +139,12 @@ export async function lerRodadaPorNumero(db: SupabaseClient, numero: number): Pr
   return data ? rodadaPublicaDeLinha(data as unknown as Record<string, unknown>) : null
 }
 
-/** Lotes publicos da rodada (pelo indice rodada_id, ordem). Falha LANCA. */
+/**
+ * Lotes publicos da rodada (pelo indice rodada_id, ordem), com as colunas
+ * enxutas de COLUNAS_LOTE_RODADA. O lote NO AR ganha fotos e apelido do lider
+ * numa segunda leitura por PK (uma linha), em vez de levar as duas colunas em
+ * todos os lotes a cada volta do polling. Falha LANCA.
+ */
 export async function lerLotesDaRodada(db: SupabaseClient, rodadaId: string): Promise<LotePublico[]> {
   const { data, error } = await db
     .from('leiloes_publico')
@@ -139,7 +153,18 @@ export async function lerLotesDaRodada(db: SupabaseClient, rodadaId: string): Pr
     .order('ordem', { ascending: true })
     .limit(LIMITE_LOTES_RODADA)
   if (error) throw new Error(`[leiloes] lotes da rodada ${rodadaId}: ${error.code} ${error.message}`)
-  return lotesDaRodadaDeLinhas(data as unknown[] | null)
+  const lotes = lotesDaRodadaDeLinhas(data as unknown[] | null)
+
+  const i = lotes.findIndex(l => l.status === 'ativo')
+  if (i < 0) return lotes
+  const ativo = lotes[i]
+  const extra = await db.from('leiloes_publico').select(COLUNAS_LOTE_ATIVO_EXTRA).eq('id', ativo.id).maybeSingle()
+  if (extra.error) throw new Error(`[leiloes] lote no ar ${ativo.id}: ${extra.error.code} ${extra.error.message}`)
+  if (extra.data) {
+    const { fotos, liderApelido } = lotePublicoDeLinha(extra.data as unknown as Record<string, unknown>)
+    lotes[i] = { ...ativo, fotos, liderApelido }
+  }
+  return lotes
 }
 
 /** Teto de seguranca da lista de lotes de uma rodada (a loja monta dezenas, nao milhares). */

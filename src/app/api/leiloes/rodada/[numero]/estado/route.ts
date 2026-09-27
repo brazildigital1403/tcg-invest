@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { numeroDaRodada, separarLotesRodada, versaoRodada, type EstadoRodada } from '@/lib/leilao-rodada'
-import { lerLotesDaRodada, lerRodadaPorNumero } from '@/app/leiloes/_dados'
+import { lerLotesDaRodada, lerReferenciaMercadoCents, lerRodadaPorNumero } from '@/app/leiloes/_dados'
 
 /**
  * GET /api/leiloes/rodada/[numero]/estado
@@ -17,6 +17,11 @@ import { lerLotesDaRodada, lerRodadaPorNumero } from '@/app/leiloes/_dados'
  * colunas explicitas. Nada de user_id, teto, pedido ou pagar_ate. A posicao
  * de quem esta logado (voce lidera, seu maximo) continua vindo da rota do
  * lote, que a ilha de lance consulta so quando precisa.
+ *
+ * PESO: fila e encerrados saem sem `fotos` e sem `lider_apelido` (so a
+ * card_image); o lote no ar ganha os dois numa leitura por PK. A referencia
+ * do Mercado Brasileiro do lote no ar (aviso de lance alto) e outra leitura
+ * por PK em `pokemon_cards`, so para carta sem graduacao.
  *
  * SEM CACHE em nenhuma camada: muda a cada lance e cada lote que abre.
  *
@@ -64,11 +69,15 @@ export async function GET(_req: Request, ctx: { params: Promise<{ numero: string
       }
     }
 
+    const noAr = separarLotesRodada(lotes).ativo
+    const referenciaMercadoCents = noAr ? await lerReferenciaMercadoCents(db, noAr.cardId, noAr.graduadora) : null
+
     const corpo: EstadoRodada = {
       rodada,
       lotes,
       server_now: new Date().toISOString(),
       versao: versaoRodada(rodada.status, lotes),
+      referenciaMercadoCents,
     }
     return NextResponse.json(corpo, { headers: semCache })
   } catch (e) {

@@ -713,9 +713,13 @@ try {
   ok(() => {
     assert.equal(R.numeroDaRodada('42'), 42)
     assert.equal(R.numeroDaRodada(' 7 '), 7)
-    for (const v of ['0', '042', '-1', '1.5', 'abc', '', null, undefined, '1e3', '9999999999999999']) {
+    assert.equal(R.numeroDaRodada('042'), 42, 'zero a esquerda: a pagina redireciona 308 para o canonico')
+    assert.equal(R.numeroDaRodada('0007'), 7)
+    assert.equal(R.numeroDaRodada('000000000000000000000042'), 42)
+    for (const v of ['0', '000', '-1', '1.5', 'abc', '', null, undefined, '1e3', '9999999999999999', '4 2', '+4']) {
       assert.equal(R.numeroDaRodada(v), null, `numero(${v})`)
     }
+    assert.notEqual(String(R.numeroDaRodada('042')), '042', 'canonico difere do param -> 308')
     assert.equal(R.urlRodada(42), '/leiloes/rodada/42')
     assert.equal(R.tituloRodada({ titulo: '  ', numero: 3 }), 'Rodada #3')
     assert.equal(R.tituloRodada({ titulo: 'Live de sexta', numero: 3 }), 'Live de sexta')
@@ -735,6 +739,13 @@ try {
     assert.ok(!('vendedorUserId' in r) && !JSON.stringify(r).includes('segredo'), 'vendedor nao sai')
     assert.ok(!R.COLUNAS_RODADA.includes('vendedor_user_id'))
     assert.ok(!R.COLUNAS_LOTE_RODADA.includes('vendedor_user_id') && !R.COLUNAS_LOTE_RODADA.includes('lider_maximo'))
+    const cols = R.COLUNAS_LOTE_RODADA.split(', ')
+    assert.ok(!cols.includes('fotos') && !cols.includes('lider_apelido') && cols.includes('card_image'), 'polling enxuto')
+    assert.deepEqual(R.COLUNAS_LOTE_ATIVO_EXTRA.split(', ').sort(), ['fotos', 'lider_apelido'])
+    assert.equal(R.rotuloTituloRodada('ao_vivo'), 'leilão ao vivo')
+    assert.equal(R.rotuloTituloRodada('agendada'), 'leilão agendado')
+    assert.equal(R.rotuloTituloRodada('encerrada'), 'resultado do leilão')
+    for (const st of ['agendada', 'encerrada', 'cancelada']) assert.ok(!R.rotuloTituloRodada(st).includes('ao vivo'), st)
   }, 'rodada: indexacao, mapeador e colunas publicas')
 
   ok(() => {
@@ -776,6 +787,13 @@ try {
     assert.equal(R.loteQueFechou(null, novos), null)
     assert.equal(R.loteQueFechou('z', novos), null, 'sumiu')
     assert.equal(R.loteQueFechou('a', [loteR({ id: 'a', status: 'agendado' })]), null, 'voltou para a fila nao e resultado')
+    const t0 = Date.parse('2026-09-28T12:00:00Z')
+    const iso = ms => new Date(t0 + ms).toISOString()
+    assert.equal(R.resultadoRecente(iso(0), t0 + 3000), true)
+    assert.equal(R.resultadoRecente(iso(0), t0 + 9999), true)
+    assert.equal(R.resultadoRecente(iso(0), t0 + 10000), false, 'aba voltando do fundo')
+    assert.equal(R.resultadoRecente(iso(0), t0 + 120000), false)
+    assert.equal(R.resultadoRecente(null, t0), true, 'sem encerrado_em nao esconde')
   }, 'rodada: lote que fechou entre duas leituras')
 
   ok(() => {
@@ -791,6 +809,12 @@ try {
     const agora = Date.parse('2026-09-28T12:00:00Z')
     const em = s => new Date(agora + s * 1000).toISOString()
     assert.equal(R.intervaloPollRodada('agendada', null, agora), 30000)
+    assert.equal(R.intervaloPollRodada('agendada', null, agora, null), 30000, 'sem horario')
+    assert.equal(R.intervaloPollRodada('agendada', null, agora, em(600)), 30000, 'longe do inicio')
+    assert.equal(R.intervaloPollRodada('agendada', null, agora, em(31)), 30000)
+    assert.equal(R.intervaloPollRodada('agendada', null, agora, em(30)), 3000, '30s do inicio')
+    assert.equal(R.intervaloPollRodada('agendada', null, agora, em(5)), 3000)
+    assert.equal(R.intervaloPollRodada('agendada', null, agora, em(-20)), 3000, 'horario passou, servidor ainda nao abriu')
     assert.equal(R.intervaloPollRodada('ao_vivo', em(40), agora), 3000)
     assert.equal(R.intervaloPollRodada('ao_vivo', em(16), agora), 3000)
     assert.equal(R.intervaloPollRodada('ao_vivo', em(15), agora), 2000)

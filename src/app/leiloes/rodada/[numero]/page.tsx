@@ -15,20 +15,28 @@ import { horarioBrasilia } from '@/lib/leilao'
 import {
   deveIndexarRodada,
   numeroDaRodada,
+  rotuloTituloRodada,
   tituloRodada,
   urlRodada,
   versaoRodada,
   type EstadoRodada,
   type RodadaPublica,
 } from '@/lib/leilao-rodada'
-import { buscarLojaDoLote, buscarLotesDaRodada, buscarRodadaPorNumero, type LojaDoLote } from '../../_dados'
+import {
+  buscarLojaDoLote,
+  buscarLotesDaRodada,
+  buscarReferenciaMercadoCents,
+  buscarRodadaPorNumero,
+  type LojaDoLote,
+} from '../../_dados'
 
 /**
  * /leiloes/rodada/[numero] — pagina publica de uma rodada ao vivo da loja.
  *
  * IDENTIDADE: `leilao_rodadas.numero` (curto, fixo). Sem slug de titulo: o
  * link que a loja divulga na live nao pode mudar se o titulo mudar.
- * "/leiloes/rodada/042" -> 308 para "/leiloes/rodada/42".
+ * "/leiloes/rodada/042" -> 308 para "/leiloes/rodada/42" (numeroDaRodada
+ * aceita zero a esquerda; a pagina compara com o canonico e redireciona).
  *
  * O server entrega a rodada e os lotes no HTML (SEO e primeira pintura); a
  * ilha RodadaAoVivo assume dali (polling da rodada, troca de lote, lance).
@@ -85,7 +93,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const [loja, lotes] = await Promise.all([buscarLojaDoLote(r.lojaId), buscarLotesDaRodada(r.id)])
   const nLotes = lotes.filter(l => l.status !== 'cancelado').length
   const loja_ = nomeLoja(loja)
-  const titulo = `${tituloRodada(r)} — leilão ao vivo${loja_ ? ` da loja ${loja_}` : ''}`
+  const titulo = `${tituloRodada(r)} — ${rotuloTituloRodada(r.status)}${loja_ ? ` da loja ${loja_}` : ''}`
   const descricao = descricaoRodada(r, loja, nLotes)
   const url = urlRodada(r.numero)
   const imagem = lotes.find(l => l.fotos[0] || l.cardImage)
@@ -118,8 +126,16 @@ export default async function RodadaPage({ params }: Params) {
   if (String(r.numero) !== param) permanentRedirect(urlRodada(r.numero))
 
   const [loja, lotes] = await Promise.all([buscarLojaDoLote(r.lojaId), buscarLotesDaRodada(r.id)])
+  const noAr = lotes.find(l => l.status === 'ativo') ?? null
+  const referenciaMercadoCents = noAr ? await buscarReferenciaMercadoCents(noAr.cardId, noAr.graduadora) : null
   const serverNow = new Date().toISOString()
-  const estadoInicial: EstadoRodada = { rodada: r, lotes, server_now: serverNow, versao: versaoRodada(r.status, lotes) }
+  const estadoInicial: EstadoRodada = {
+    rodada: r,
+    lotes,
+    server_now: serverNow,
+    versao: versaoRodada(r.status, lotes),
+    referenciaMercadoCents,
+  }
 
   const titulo = tituloRodada(r)
   const url = urlRodada(r.numero)
@@ -207,7 +223,7 @@ export default async function RodadaPage({ params }: Params) {
               <BotaoCompartilhar
                 compacto={mostrarTransmissao}
                 url={url}
-                titulo={`${titulo} — leilão ao vivo na Bynx`}
+                titulo={`${titulo} — ${rotuloTituloRodada(r.status)} na Bynx`}
                 texto={descricaoRodada(r, loja, visiveis.length)}
               />
             </div>

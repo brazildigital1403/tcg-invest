@@ -49,8 +49,11 @@ import { calcularArremate } from '@/lib/leilao-taxas'
  * NA PAGINA DA RODADA (`pollingExterno`): quem busca e a rodada (uma leitura
  * publica para todos os lotes). A ilha nao roda o proprio polling; recebe o
  * lote atualizado em `loteExterno` e so consulta a propria rota quando
- * precisa da posicao de quem esta logado (montagem, troca de sessao, depois
- * do lance, e quando o lote mudou e a pessoa ja deu lance nele).
+ * precisa da posicao de quem esta logado (montagem COM sessao, troca de
+ * sessao, depois do lance, e quando o lote mudou e a pessoa ja deu lance
+ * nele). Sem o "conferindo" proprio: o fechamento preguicoso roda na rota da
+ * rodada, que ja busca a 2s nessa hora. `aoParticipar` avisa a rodada quando
+ * a pessoa tem lance no lote (para ela conferir o arremate quando fechar).
  */
 
 const INTERVALO_NORMAL_MS = 10_000
@@ -123,6 +126,7 @@ export default function LanceAoVivo({
   urlLogin,
   loteExterno,
   pollingExterno = false,
+  aoParticipar,
 }: {
   loteInicial: LotePublico
   serverNow: string
@@ -134,6 +138,8 @@ export default function LanceAoVivo({
   loteExterno?: LotePublico | null
   /** true = nao roda o polling proprio; o estado chega por `loteExterno`. */
   pollingExterno?: boolean
+  /** Chamado quando o servidor confirma que quem esta logado tem lance neste lote. */
+  aoParticipar?: (loteId: string) => void
 }) {
   const [lote, setLote] = useState<LotePublico>(loteInicial)
 
@@ -265,11 +271,21 @@ export default function LanceAoVivo({
 
   // Na rodada: o lote mudou (lance de alguem, fechamento) e a pessoa ja deu
   // lance nele -> confere a propria posicao (lidera? foi superada? venceu?).
+  // So a VERSAO externa dispara: `participei` virar true acontece justamente
+  // depois de uma leitura (ou do lance, que ja rele), e reler ali duplicaria.
   const participei = posicao?.seuMaximoCents != null
-  const versaoExterna = loteExterno && loteExterno.id === loteInicial.id ? loteExterno.versao : null
+  const participeiRef = useRef(participei)
   useEffect(() => {
-    if (pollingExterno && participei && versaoExterna != null) buscarEstado()
-  }, [pollingExterno, participei, versaoExterna, buscarEstado])
+    participeiRef.current = participei
+    if (participei) aoParticipar?.(loteInicial.id)
+  }, [participei, aoParticipar, loteInicial.id])
+  const versaoExterna = loteExterno && loteExterno.id === loteInicial.id ? loteExterno.versao : null
+  const versaoExternaVistaRef = useRef(versaoExterna)
+  useEffect(() => {
+    if (!pollingExterno || versaoExterna == null || versaoExterna === versaoExternaVistaRef.current) return
+    versaoExternaVistaRef.current = versaoExterna
+    if (participeiRef.current) buscarEstado()
+  }, [pollingExterno, versaoExterna, buscarEstado])
 
   useEffect(() => {
     // Lote que ja fechou de vez (arrematado, sem lances, cancelado) nao muda mais.
@@ -298,20 +314,24 @@ export default function LanceAoVivo({
   // sessao: uma leitura na hora acerta o relogio pelo servidor (o server_now do
   // HTML chega atrasado pela latencia) e traz a posicao e o `proprio`, inclusive
   // em lote ja arrematado (o polling para nesses).
+  // Na rodada sem sessao nao ha posicao a ler: o lote e o relogio ja chegam
+  // pela leitura da rodada.
   useEffect(() => {
     if (logado === null) return
     if (!logado) {
       setPosicao(null)
       setProprio(false)
       setPagarAte(null)
+      if (pollingExterno) return
     }
     buscarEstado()
-  }, [logado, buscarEstado])
+  }, [logado, pollingExterno, buscarEstado])
 
   // Relogio zerou com o lote ativo: confere na hora, sem esperar a proxima volta.
+  // Na rodada quem confere e o polling dela (2s com o relogio zerado).
   useEffect(() => {
-    if (conferindo) buscarEstado()
-  }, [conferindo, buscarEstado])
+    if (conferindo && !pollingExterno) buscarEstado()
+  }, [conferindo, pollingExterno, buscarEstado])
 
   // Altura real da bottom nav do AppLayout (nao ha variavel dela): o CTA fixo
   // fica logo acima. Some no desktop (display none) e a medida vira 0.
@@ -881,7 +901,9 @@ const S: Record<string, CSSProperties> = {
   linhaStatus: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   status: {
     display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-    background: 'var(--bx-surface-2)', color: 'var(--bx-text-2)', border: '1px solid var(--bx-border)',
+    background: 'var(--bx-surface-2)', color: 'var(--bx-text-2)',
+    // Longhands: statusVivo/statusUrgente trocam so a cor (shorthand + borderColor gera aviso do React).
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)',
   },
   statusVivo: { background: 'rgba(var(--ac-1-rgb), 0.12)', color: 'var(--ac-1)', borderColor: 'var(--ac-1)' },
   statusUrgente: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)', background: 'var(--bx-surface-2)' },
@@ -905,7 +927,7 @@ const S: Record<string, CSSProperties> = {
   mercadoValor: { color: 'var(--bx-text)', fontWeight: 700 },
   faixa: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-    border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)', background: 'var(--bx-surface)',
   },
   faixaGanhando: { color: 'var(--bx-green)', borderColor: 'var(--bx-green)' },
   faixaSuperado: { color: 'var(--bx-red)', borderColor: 'var(--bx-red)' },
@@ -940,7 +962,8 @@ const S: Record<string, CSSProperties> = {
   rotuloCampo: { display: 'block', fontSize: 12, color: 'var(--bx-text-3)', fontWeight: 600, margin: '0 0 6px' },
   chipsRapidos: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 },
   chipRapido: {
-    minHeight: 44, borderRadius: 999, border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
+    minHeight: 44, borderRadius: 999, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)',
+    background: 'var(--bx-surface)',
     color: 'var(--bx-text)', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
     fontVariantNumeric: 'tabular-nums', padding: '0 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
   },
