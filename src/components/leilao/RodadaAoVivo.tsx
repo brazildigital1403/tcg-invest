@@ -401,7 +401,13 @@ export default function RodadaAoVivo({
         }
       `}</style>
 
-      {/* ─── Topo: loja, titulo, Assistir ─── */}
+      {/* ─── Topo: loja, titulo, Assistir ───
+          Como no mockup aprovado: o NOME DA LOJA em destaque (700) e
+          "Rodada N · titulo" apagado embaixo. O h1 unico da pagina continua
+          sendo a rodada ("Rodada N · titulo"), so visualmente discreto: e o
+          que identifica esta URL (a loja tem varias rodadas; o nome dela ja
+          esta no <title> e na descricao, ver generateMetadata). A loja e um
+          link comum, fora da hierarquia de titulos. */}
       <div style={S.topo}>
         {loja ? (
           <Link href={`/lojas/${loja.slug}`} prefetch={false} className="rd-link" style={S.lojaLogoLink} aria-label={`Loja ${lojaNome}`}>
@@ -421,7 +427,7 @@ export default function RodadaAoVivo({
           )}
           <h1 style={S.h1}>
             Rodada {rodada.numero}
-            {rodada.titulo ? <span style={S.h1Fraco}> · {titulo}</span> : null}
+            {rodada.titulo ? ` · ${titulo}` : null}
           </h1>
         </div>
         {mostrarTransmissao && (temPlayer ? (
@@ -695,11 +701,11 @@ const S: Record<string, CSSProperties> = {
     textDecoration: 'none', minWidth: 0, borderRadius: 6,
   },
   cortar: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  // h1 semantico, visualmente discreto (a loja e quem se destaca no topo).
   h1: {
-    margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--bx-text-3)', lineHeight: 1.4,
+    margin: 0, fontSize: 12, fontWeight: 500, color: 'var(--bx-text-3)', lineHeight: 1.4,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
-  h1Fraco: { fontWeight: 500 },
   btnTopo: {
     flexShrink: 0, minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 14px',
     borderRadius: 999, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)',
