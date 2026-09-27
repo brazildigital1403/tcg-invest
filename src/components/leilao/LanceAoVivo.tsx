@@ -635,7 +635,8 @@ export default function LanceAoVivo({
             disabled={logado === null}
             className="lv-cta-btn lv-cta-mais"
             style={S.ctaMais}
-            aria-label={`Dar lance de ${formatarBRL(degrau)}`}
+            // O botao so ABRE a folha ja preenchida com o valor; quem confirma e a folha.
+            aria-label={`Abrir lance em ${formatarBRL(degrau)}`}
           >
             + {formatarBRL(degrau - minimo)}
           </button>
