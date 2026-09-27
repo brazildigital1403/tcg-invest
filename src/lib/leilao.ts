@@ -80,15 +80,43 @@ export interface LanceResultado {
   minimoProximoCents: number
   nLances: number
   versao: number
+  /**
+   * Teto de quem deu o lance. O SQL so devolve quando o lider ajusta o proprio
+   * teto; nos outros casos vem null e a tela usa o valor que enviou.
+   */
+  seuMaximoCents: number | null
+  /** true = replay do mesmo `idem` (a rede reenviou); nada novo foi gravado. */
+  repetido: boolean
 }
 
+/** Resposta de GET /api/leiloes/[id]/estado. */
+export interface EstadoLote {
+  lote: LotePublico
+  server_now: string
+  /** Calculado no servidor para o usuario do Bearer. false sem login. */
+  voceLidera: boolean
+  /** O SEU teto em leilao_proxy (nunca o de outra pessoa). null sem lance. */
+  seuMaximoCents: number | null
+}
+
+/**
+ * Codigos de erro do lance. Os do banco sao exatamente os `raise` de
+ * `dar_lance` (supabase/migrations/20260928090000_leilao_motor.sql); os demais
+ * nascem na rota ou no PostgREST.
+ */
 export type CodigoErroLance =
+  // raise do dar_lance
   | 'nao_autenticado'
+  | 'pedido_invalido'
   | 'cadastro_incompleto'
+  | 'suspenso'
   | 'leilao_fechado'
+  | 'idem_invalido'
   | 'proprio_leilao'
   | 'abaixo_minimo'
-  | 'suspenso'
+  // PostgREST / Postgres
+  | 'sessao_expirada'
+  | 'lote_ocupado'
   | 'desconhecido'
 
 // ─── Incrementos ────────────────────────────────────────────────────────────
@@ -272,32 +300,75 @@ export interface ErroLance {
   minimoCents?: number
 }
 
+/** Contexto opcional para diferenciar os dois casos de `abaixo_minimo`. */
+export interface ContextoErroLance {
+  /** Lance minimo que a tela mostrava quando o usuario confirmou. */
+  vistoCents?: number | null
+  /** Status HTTP da resposta do PostgREST (401 = token vencido/invalido). */
+  httpStatus?: number | null
+  /** `error.code` do PostgREST/Postgres (PGRST301, 55P03, 57014...). */
+  pgCode?: string | null
+}
+
+const MSG_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre de novo para dar lance.'
+const MSG_PEDIDO_INVALIDO = 'Pedido inválido. Atualize a página e tente de novo.'
+
 /**
- * Converte a mensagem do `raise` do dar_lance em erro de tela.
+ * Converte o erro do RPC `dar_lance` em erro de tela.
  * Formatos aceitos: "abaixo_minimo:1500", "leilao_fechado", ou texto que os contenha.
+ *
+ * abaixo_minimo tem duas causas com mensagens diferentes:
+ *   - o minimo do servidor SUBIU em relacao ao que a tela mostrava
+ *     (`vistoCents`) -> outro lance chegou primeiro;
+ *   - o minimo e o mesmo que a tela mostrava -> o valor digitado ficou abaixo.
+ * Sem `vistoCents`, mensagem neutra com o minimo atual.
  */
-export function erroDoLance(msg: string | null | undefined): ErroLance {
+export function erroDoLance(msg: string | null | undefined, ctx: ContextoErroLance = {}): ErroLance {
   const s = (msg ?? '').trim()
+
+  // Token vencido/invalido: o PostgREST barra antes de chegar na funcao.
+  if (ctx.httpStatus === 401 || /^PGRST30\d$/.test(ctx.pgCode ?? '') || /\bjwt\b/i.test(s)) {
+    return { codigo: 'sessao_expirada', status: 401, mensagem: MSG_SESSAO_EXPIRADA }
+  }
+
   const m = s.match(/abaixo_minimo:(\d+)/)
   if (m) {
     const minimoCents = Number(m[1])
-    return {
-      codigo: 'abaixo_minimo',
-      status: 409,
-      minimoCents,
-      mensagem: `Outro lance chegou primeiro. Lance mínimo agora: ${formatarBRL(minimoCents)}.`,
+    const visto = ctx.vistoCents
+    let mensagem: string
+    if (visto != null && Number.isFinite(visto) && minimoCents > visto) {
+      mensagem = `Outro lance chegou primeiro. Lance mínimo agora: ${formatarBRL(minimoCents)}.`
+    } else if (visto != null && Number.isFinite(visto)) {
+      mensagem = `O valor informado está abaixo do lance mínimo de ${formatarBRL(minimoCents)}.`
+    } else {
+      mensagem = `O lance mínimo agora é ${formatarBRL(minimoCents)}.`
     }
+    return { codigo: 'abaixo_minimo', status: 409, minimoCents, mensagem }
   }
-  const tabela: Array<[Exclude<CodigoErroLance, 'abaixo_minimo' | 'desconhecido'>, number, string]> = [
-    ['nao_autenticado', 401, 'Entre na sua conta para dar lances.'],
-    ['cadastro_incompleto', 403, 'Complete seu cadastro para dar lances.'],
-    ['leilao_fechado', 409, 'Este lote já foi encerrado.'],
-    ['proprio_leilao', 403, 'Você não pode dar lance no seu próprio lote.'],
+
+  // Ordem importa so se um codigo contiver outro; hoje nenhum contem.
+  const tabela: Array<[Exclude<CodigoErroLance, 'abaixo_minimo' | 'desconhecido' | 'lote_ocupado'>, number, string]> = [
+    ['nao_autenticado', 401, MSG_SESSAO_EXPIRADA],
+    ['pedido_invalido', 400, MSG_PEDIDO_INVALIDO],
+    ['idem_invalido', 400, MSG_PEDIDO_INVALIDO],
+    ['cadastro_incompleto', 403, 'Complete seu cadastro (CPF e CEP) para dar lances.'],
     ['suspenso', 403, 'Sua conta está impedida de dar lances no momento.'],
+    ['leilao_fechado', 409, 'Este lote não está aberto para lances.'],
+    ['proprio_leilao', 403, 'Você não pode dar lance no seu próprio lote.'],
   ]
   for (const [codigo, status, mensagem] of tabela) {
-    if (s.includes(codigo)) return { codigo, status, mensagem }
+    if (new RegExp(`\\b${codigo}\\b`).test(s)) return { codigo, status, mensagem }
   }
+
+  // lock_timeout (55P03) / statement_timeout (57014): lote disputado demais.
+  if (ctx.pgCode === '55P03' || ctx.pgCode === '57014') {
+    return {
+      codigo: 'lote_ocupado',
+      status: 503,
+      mensagem: 'Muitos lances ao mesmo tempo neste lote. Tente de novo em instantes.',
+    }
+  }
+
   return {
     codigo: 'desconhecido',
     status: 500,
@@ -365,5 +436,7 @@ export function lanceResultadoDeJson(r: Linha): LanceResultado {
     minimoProximoCents: num(r.minimo_proximo_cents) ?? 0,
     nLances: num(r.n_lances) ?? 0,
     versao: num(r.versao) ?? 0,
+    seuMaximoCents: num(r.seu_maximo_cents),
+    repetido: r.repetido === true,
   }
 }

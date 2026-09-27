@@ -11,6 +11,7 @@ import {
   incrementoCents,
   minimoProximoCents,
   statusPublico,
+  type EstadoLote,
   type LanceResultado,
   type LotePublico,
   type StatusPublico,
@@ -29,10 +30,11 @@ import { calcularArremate } from '@/lib/leilao-taxas'
  * deslocamento vem do `server_now` de cada resposta; celular com hora errada
  * nao abre nem fecha lote errado na tela.
  *
- * QUEM LIDERA: a view publica nao diz se o lider e voce (o apelido vem
- * mascarado). A tela guarda o SEU teto do ultimo lance aceito e compara com o
- * preco: preco acima do seu teto = superado. Empate fica com voce (o teto mais
- * antigo vence no banco).
+ * QUEM LIDERA: vem do SERVIDOR. A rota de estado devolve `voceLidera` e
+ * `seuMaximoCents` para o usuario do Bearer (o apelido da view vem mascarado e
+ * o teto dos outros nunca sai do banco). Entre uma leitura e outra, o retorno
+ * do dar_lance (`lider`, `seu_maximo_cents`) atualiza na hora. Nada fica no
+ * aparelho: outra aba, outro celular ou sessao nova mostram o mesmo.
  *
  * "Lance unico" x "Lance maximo": os dois mandam `maximoCents` ao RPC, que e
  * quem aplica o lance automatico. No unico o teto e o proprio valor digitado;
@@ -47,30 +49,20 @@ const FATOR_AVISO_MERCADO = 1.5
 
 type Aba = 'unico' | 'maximo'
 
-interface MeuLance {
-  maximoCents: number
-  versao: number
+/** Minha posicao no lote, sempre como o servidor disse. */
+interface MinhaPosicao {
+  voceLidera: boolean
+  /** Meu teto em leilao_proxy; null = nunca dei lance neste lote. */
+  seuMaximoCents: number | null
 }
 
-function chaveMeuLance(id: string) {
-  return `bx-leilao-meu-${id}`
-}
-
-function lerMeuLance(id: string): MeuLance | null {
+async function tokenAtual(): Promise<string | null> {
   try {
-    const raw = sessionStorage.getItem(chaveMeuLance(id))
-    if (!raw) return null
-    const v = JSON.parse(raw) as MeuLance
-    return Number.isFinite(v?.maximoCents) ? v : null
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token ?? null
   } catch {
     return null
   }
-}
-
-function gravarMeuLance(id: string, v: MeuLance) {
-  try {
-    sessionStorage.setItem(chaveMeuLance(id), JSON.stringify(v))
-  } catch {}
 }
 
 /** "1.234,56" / "1234,5" / "1234" -> centavos. null se invalido. */
@@ -125,7 +117,11 @@ export default function LanceAoVivo({
   const [logado, setLogado] = useState<boolean | null>(null)
   const [meuUserId, setMeuUserId] = useState<string | null>(null)
   const [online, setOnline] = useState(true)
-  const [meuLance, setMeuLance] = useState<MeuLance | null>(null)
+  const [posicao, setPosicao] = useState<MinhaPosicao | null>(null)
+  /** Hora local do ultimo lance confirmado: leitura que saiu antes dele e chegou depois nao desfaz. */
+  const ultimoLanceEmRef = useRef(0)
+  /** Maior versao do lote ja vista (leitura ou retorno do lance). */
+  const versaoRef = useRef(loteInicial.versao)
 
   const [aberta, setAberta] = useState(false)
   const [aba, setAba] = useState<Aba>('unico')
@@ -156,7 +152,6 @@ export default function LanceAoVivo({
       setLogado(!!session?.user)
       setMeuUserId(session?.user?.id ?? null)
     })
-    setMeuLance(lerMeuLance(loteInicial.id))
     const on = () => setOnline(true)
     const off = () => setOnline(false)
     setOnline(typeof navigator === 'undefined' ? true : navigator.onLine)
@@ -181,14 +176,27 @@ export default function LanceAoVivo({
   const buscarEstado = useCallback(async () => {
     const enviadoEm = Date.now()
     try {
-      const r = await fetch(`/api/leiloes/${loteInicial.id}/estado`, { cache: 'no-store' })
+      const token = await tokenAtual()
+      const r = await fetch(`/api/leiloes/${loteInicial.id}/estado`, {
+        cache: 'no-store',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
       if (!r.ok) return
-      const j = (await r.json()) as { lote?: LotePublico; server_now?: string }
+      const j = (await r.json()) as Partial<EstadoLote>
       aplicarServerNow(j.server_now, enviadoEm)
       if (j.lote) {
         const novo = j.lote
-        // Resposta atrasada nao pode desfazer um lance ja visto.
+        // Resposta atrasada nao pode desfazer um lance ja visto. (Ref, nao o
+        // updater do setState: o updater pode rodar so no proximo render.)
+        if (novo.versao < versaoRef.current) return
+        versaoRef.current = novo.versao
         setLote(atual => (novo.versao >= atual.versao ? novo : atual))
+        if (enviadoEm >= ultimoLanceEmRef.current) {
+          setPosicao({
+            voceLidera: j.voceLidera === true,
+            seuMaximoCents: typeof j.seuMaximoCents === 'number' ? j.seuMaximoCents : null,
+          })
+        }
       }
     } catch {
       // Rede instavel: a proxima volta tenta de novo.
@@ -224,6 +232,13 @@ export default function LanceAoVivo({
     }
   }, [vivoOuAgendado, intervalo, buscarEstado])
 
+  // Logou (ou ja estava logado): uma leitura na hora traz a posicao do
+  // servidor, inclusive em lote ja arrematado (o polling para nesses).
+  useEffect(() => {
+    if (logado) buscarEstado()
+    else setPosicao(null)
+  }, [logado, buscarEstado])
+
   // ── Derivados ───────────────────────────────────────────────────────────
   const precoCents = lote.nLances > 0 && lote.precoAtualCents != null ? lote.precoAtualCents : lote.lanceInicialCents
   const minimo = minimoProximoCents(lote)
@@ -235,10 +250,8 @@ export default function LanceAoVivo({
   }, [minimo])
 
   const proprio = !!meuUserId && meuUserId === lote.vendedorUserId
-  const estouGanhando =
-    !!meuLance && lote.nLances > 0 && lote.precoAtualCents != null && lote.precoAtualCents <= meuLance.maximoCents
-  const fuiSuperado =
-    !!meuLance && lote.precoAtualCents != null && lote.precoAtualCents > meuLance.maximoCents
+  const estouGanhando = !!posicao?.voceLidera && lote.nLances > 0
+  const fuiSuperado = !!posicao && !posicao.voceLidera && posicao.seuMaximoCents != null && lote.nLances > 0
 
   const valorCents = reaisParaCents(valorTxt)
   const arremate = valorCents ? calcularArremate(valorCents) : null
@@ -306,8 +319,7 @@ export default function LanceAoVivo({
 
     const enviadoEm = Date.now()
     try {
-      const { data } = await supabase.auth.getSession()
-      const token = data.session?.access_token
+      const token = await tokenAtual()
       if (!token) {
         setErro('Sua sessão expirou. Entre de novo para dar lance.')
         setEnviando(false)
@@ -316,7 +328,9 @@ export default function LanceAoVivo({
       const r = await fetch(`/api/leiloes/${lote.id}/lance`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ maximoCents: valorCents, idem }),
+        // vistoCents: o minimo que a tela mostrava. O servidor usa para dizer se
+        // outro lance chegou primeiro ou se o valor digitado ficou abaixo.
+        body: JSON.stringify({ maximoCents: valorCents, idem, vistoCents: minimo }),
       })
       const j = await r.json().catch(() => null)
       // Resposta chegou (sucesso ou erro de regra): a chave ja foi usada.
@@ -332,9 +346,14 @@ export default function LanceAoVivo({
 
       const res = j as LanceResultado
       aplicarServerNow(res.serverNow, enviadoEm)
-      const meu: MeuLance = { maximoCents: valorCents, versao: res.versao }
-      setMeuLance(meu)
-      gravarMeuLance(lote.id, meu)
+      ultimoLanceEmRef.current = Date.now()
+      versaoRef.current = Math.max(versaoRef.current, res.versao)
+      // seu_maximo_cents so vem quando o lider ajusta o proprio teto. Nos outros
+      // casos o teto gravado e o maior entre o enviado e o que ja havia.
+      setPosicao(atual => ({
+        voceLidera: res.lider,
+        seuMaximoCents: res.seuMaximoCents ?? Math.max(valorCents, atual?.seuMaximoCents ?? 0),
+      }))
       setLote(atual => ({
         ...atual,
         precoAtualCents: res.precoCents,
@@ -477,8 +496,8 @@ export default function LanceAoVivo({
         <div role="status" style={{ ...S.faixa, ...S.faixaGanhando }}>
           <IconCheck size={16} />
           {st === 'arrematado' ? 'Você venceu este lote' : 'Você está ganhando'}
-          {aberto && meuLance && meuLance.maximoCents > precoCents
-            ? ` · seu máximo: ${formatarBRL(meuLance.maximoCents)}`
+          {aberto && posicao?.seuMaximoCents != null && posicao.seuMaximoCents > precoCents
+            ? ` · seu máximo: ${formatarBRL(posicao.seuMaximoCents)}`
             : ''}
         </div>
       )}

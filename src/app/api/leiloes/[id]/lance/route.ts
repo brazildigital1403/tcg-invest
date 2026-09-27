@@ -5,7 +5,11 @@ import { erroDoLance, lanceResultadoDeJson } from '@/lib/leilao'
 
 /**
  * POST /api/leiloes/[id]/lance
- * body: { maximoCents: int, idem: uuid }
+ * body: { maximoCents: int, idem: uuid, vistoCents?: int }
+ *
+ * `vistoCents` (opcional) = lance minimo que a tela mostrava ao confirmar. So
+ * serve para a mensagem de abaixo_minimo: minimo do banco maior que o visto =
+ * outro lance chegou primeiro; igual = o valor digitado ficou abaixo.
  *
  * Exige login (Bearer). Chama o RPC `dar_lance` com o client DO USUARIO: o
  * banco resolve auth.uid(), trava a linha, aplica incremento, lance automatico
@@ -37,7 +41,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim()
   if (!token) return erro(401, 'nao_autenticado', 'Entre na sua conta para dar lances.')
 
-  let body: { maximoCents?: unknown; idem?: unknown }
+  let body: { maximoCents?: unknown; idem?: unknown; vistoCents?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -55,6 +59,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   const idem = typeof body.idem === 'string' ? body.idem : ''
   if (!UUID_RE.test(idem)) return erro(400, 'idem_invalido', 'Pedido inválido. Atualize a página e tente de novo.')
+  const vistoCents =
+    typeof body.vistoCents === 'number' && Number.isInteger(body.vistoCents) && body.vistoCents > 0
+      ? body.vistoCents
+      : null
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -65,15 +73,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     global: { headers: { Authorization: `Bearer ${token}` } },
   })
 
-  const { data, error } = await supabase.rpc('dar_lance', {
+  const { data, error, status } = await supabase.rpc('dar_lance', {
     p_leilao: id,
     p_maximo_cents: maximoCents,
     p_idem: idem,
   })
 
   if (error) {
-    const e = erroDoLance(`${error.message ?? ''} ${error.details ?? ''}`)
-    if (e.codigo === 'desconhecido') console.error('[leilao/lance] rpc', id, error.code, error.message)
+    const e = erroDoLance(`${error.message ?? ''} ${error.details ?? ''}`, {
+      vistoCents,
+      httpStatus: status,
+      pgCode: error.code,
+    })
+    if (e.codigo === 'desconhecido' || e.codigo === 'lote_ocupado') {
+      console.error('[leilao/lance] rpc', id, error.code, error.message)
+    }
     return erro(e.status, e.codigo, e.mensagem, e.minimoCents != null ? { minimoCents: e.minimoCents } : undefined)
   }
 

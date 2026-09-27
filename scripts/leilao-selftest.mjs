@@ -95,10 +95,33 @@ try {
     assert.equal(e.codigo, 'abaixo_minimo')
     assert.equal(e.status, 409)
     assert.equal(e.minimoCents, 1500)
-    assert.equal(nb(e.mensagem), 'Outro lance chegou primeiro. Lance mínimo agora: R$ 15,00.')
+    assert.equal(nb(e.mensagem), 'O lance mínimo agora é R$ 15,00.')
+    // Minimo subiu em relacao ao que a tela mostrava: outro lance chegou antes.
+    assert.equal(
+      nb(L.erroDoLance('abaixo_minimo:1500', { vistoCents: 1200 }).mensagem),
+      'Outro lance chegou primeiro. Lance mínimo agora: R$ 15,00.'
+    )
+    // Mesmo minimo que a tela mostrava: o valor digitado ficou abaixo.
+    assert.equal(
+      nb(L.erroDoLance('abaixo_minimo:1500', { vistoCents: 1500 }).mensagem),
+      'O valor informado está abaixo do lance mínimo de R$ 15,00.'
+    )
     assert.equal(L.erroDoLance('ERROR: leilao_fechado').codigo, 'leilao_fechado')
     assert.equal(L.erroDoLance('xyz').status, 500)
-    for (const c of ['nao_autenticado', 'cadastro_incompleto', 'leilao_fechado', 'proprio_leilao', 'suspenso']) {
+    for (const [c, st] of [['pedido_invalido', 400], ['idem_invalido', 400], ['nao_autenticado', 401]]) {
+      assert.equal(L.erroDoLance(c).codigo, c)
+      assert.equal(L.erroDoLance(c).status, st)
+    }
+    const jwt = L.erroDoLance('JWT expired', { httpStatus: 401, pgCode: 'PGRST301' })
+    assert.equal(jwt.codigo, 'sessao_expirada')
+    assert.equal(jwt.status, 401)
+    assert.equal(jwt.mensagem, 'Sua sessão expirou. Entre de novo para dar lance.')
+    assert.equal(L.erroDoLance('canceling statement due to lock timeout', { pgCode: '55P03' }).status, 503)
+    const codigos = [
+      'nao_autenticado', 'pedido_invalido', 'cadastro_incompleto', 'suspenso',
+      'leilao_fechado', 'idem_invalido', 'proprio_leilao',
+    ]
+    for (const c of codigos) {
       const msg = L.erroDoLance(c).mensagem
       assert.ok(!/\b(pra|pro|num|numa)\b/i.test(msg), `contracao em ${c}`)
     }
