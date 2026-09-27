@@ -12,9 +12,9 @@ import { urlHome, urlMeusLances } from '@/lib/leilao-urls'
 /**
  * Canto direito do cabecalho do Bynx Leiloes.
  *
- * Deslogado: "Entrar" abre o modal de login com `next` = a pagina atual (sem
- * `next`, o modal manda para /dashboard-financeiro e tira a pessoa da
- * ferramenta). Logado: avatar que abre a folha com Meus lances, Arremates a
+ * Deslogado: "Entrar" abre o modal de login com `next` = a pagina atual com a
+ * query (?aba=...). Sem `next`, o modal manda para /dashboard-financeiro e
+ * tira a pessoa da ferramenta. Logado: avatar que abre a folha com Meus lances, Arremates a
  * pagar, Ir para o app Bynx e Sair. No pagamento, so "Pagamento protegido".
  *
  * A sessao vive no navegador (supabase-js); o servidor nao sabe quem olha.
@@ -23,6 +23,9 @@ import { urlHome, urlMeusLances } from '@/lib/leilao-urls'
 
 /** Destino de "Ir para o app Bynx" para quem esta logado. */
 const APP_BYNX = '/dashboard-financeiro'
+
+/** Mesmo seletor do trap de foco da folha de lance (LanceAoVivo). */
+const FOCAVEIS = 'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
 
 function iniciais(u: User): string {
   const meta = (u.user_metadata ?? {}) as Record<string, unknown>
@@ -65,7 +68,9 @@ export default function LeilaoConta() {
     if (devolverFoco) setTimeout(() => botaoRef.current?.focus(), 0)
   }, [])
 
-  // Trocou de pagina (clicou num item): a folha fecha sozinha.
+  // Trocou de pagina: a folha fecha sozinha. O clique no item tambem fecha
+  // (fecharNoClique), porque o destino pode ser a propria pagina (Meus lances
+  // estando em Meus lances, ou so a ancora #ml-a_pagar) e ai o pathname nao muda.
   const [rotaVista, setRotaVista] = useState(pathname)
   if (rotaVista !== pathname) {
     setRotaVista(pathname)
@@ -76,7 +81,33 @@ export default function LeilaoConta() {
     if (!aberta) return
     const t = setTimeout(() => folhaRef.current?.focus(), 30)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') fechar()
+      if (e.key === 'Escape') {
+        fechar()
+        return
+      }
+      if (e.key !== 'Tab') return
+      // Trap de foco (mesmo laco da LanceAoVivo): Tab e Shift+Tab ciclam dentro da folha.
+      const raiz = folhaRef.current
+      if (!raiz) return
+      const focaveis = Array.from(raiz.querySelectorAll<HTMLElement>(FOCAVEIS)).filter(
+        el => el.getClientRects().length > 0
+      )
+      if (!focaveis.length) {
+        e.preventDefault()
+        raiz.focus()
+        return
+      }
+      const primeiro = focaveis[0]
+      const ultimo = focaveis[focaveis.length - 1]
+      const ativo = document.activeElement as HTMLElement | null
+      const dentro = !!ativo && raiz.contains(ativo) && ativo !== raiz
+      if (e.shiftKey && (!dentro || ativo === primeiro)) {
+        e.preventDefault()
+        ultimo.focus()
+      } else if (!e.shiftKey && (!dentro || ativo === ultimo)) {
+        e.preventDefault()
+        primeiro.focus()
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => {
@@ -84,6 +115,8 @@ export default function LeilaoConta() {
       document.removeEventListener('keydown', onKey)
     }
   }, [aberta, fechar])
+
+  const fecharNoClique = () => fechar(false)
 
   async function sair() {
     setAberta(false)
@@ -108,7 +141,7 @@ export default function LeilaoConta() {
 
   if (!user) {
     return (
-      <button type="button" className="lc-entrar" onClick={() => openLogin({ next: pathname || urlHome() })}>
+      <button type="button" className="lc-entrar" onClick={() => openLogin({ next: (pathname || urlHome()) + window.location.search })}>
         Entrar
       </button>
     )
@@ -146,15 +179,15 @@ export default function LeilaoConta() {
                 <IconClose size={18} />
               </button>
             </div>
-            <Link href={urlMeusLances()} prefetch={false} className="lc-item">
+            <Link href={urlMeusLances()} prefetch={false} className="lc-item" onClick={fecharNoClique}>
               <IconHistory size={18} />
               Meus lances
             </Link>
-            <Link href={urlMeusLances('pagar')} prefetch={false} className="lc-item">
+            <Link href={urlMeusLances('pagar')} prefetch={false} className="lc-item" onClick={fecharNoClique}>
               <IconWallet size={18} />
               Arremates a pagar
             </Link>
-            <Link href={APP_BYNX} prefetch={false} className="lc-item">
+            <Link href={APP_BYNX} prefetch={false} className="lc-item" onClick={fecharNoClique}>
               <IconDashboard size={18} />
               Ir para o app Bynx
             </Link>
