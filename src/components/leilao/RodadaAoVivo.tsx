@@ -358,7 +358,7 @@ export default function RodadaAoVivo({
   ) : null
 
   return (
-    <div className={`rd-raiz${aoVivo && ativo ? ' rd-com-cta' : ''}`}>
+    <div className="rd-raiz">
       <style>{`
         .rd-raiz { display: flex; flex-direction: column; gap: 14px; }
         .rd-lote { display: block; text-decoration: none; color: inherit; border-radius: 18px; transition: transform 0.15s ease; }
@@ -384,8 +384,6 @@ export default function RodadaAoVivo({
         /* Palco: a foto do lote e o centro da tela. */
         .rd-palco { height: 250px; }
         @media (min-width: 640px) { .rd-palco { height: 340px; } }
-        /* CTA de lance fixo no celular: folga no fim para ele nao cobrir o ultimo bloco. */
-        @media (max-width: 768px) { .rd-com-cta { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
         .rd-resultado { animation: rd-entra 0.2s ease; }
         .rd-pagar { transition: filter 0.15s ease; }
         .rd-pagar:hover { filter: brightness(1.08); }

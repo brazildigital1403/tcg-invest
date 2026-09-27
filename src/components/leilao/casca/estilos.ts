@@ -113,4 +113,9 @@ export const CSS_CASCA = `
 }
 .lc-link:hover { color: var(--bx-text); }
 @media (min-width: 769px) { .lc-rodape-in { flex-direction: row; align-items: center; justify-content: space-between; } }
+/* CTA fixo no fim da tela (lance ou pagar, so no celular): a folga fica DEPOIS
+   do rodape, senao o CTA cobre os links. So existe quando o CTA esta na tela. */
+@media (max-width: 768px) {
+  .lc-casca:has(.lv-cta-fixo, .pg-cta-fixo) .lc-rodape { padding-bottom: calc(18px + 84px + env(safe-area-inset-bottom, 0px)); }
+}
 `

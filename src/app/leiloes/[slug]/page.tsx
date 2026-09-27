@@ -193,8 +193,6 @@ export default async function LotePage({ params }: Params) {
         .lt-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
         .lt-ghost:hover { background: var(--bx-surface-2); border-color: var(--bx-border-2); }
         .lt-ghost:focus-visible { outline: 2px solid var(--ac-1); outline-offset: 2px; }
-        /* CTA de lance fixo no celular: folga no fim da pagina para ele nao cobrir o ultimo bloco. */
-        @media (max-width: 768px) { .lt-wrap { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
       `}</style>
 
       <div className="lt-wrap" style={S.wrap}>

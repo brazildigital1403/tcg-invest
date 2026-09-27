@@ -255,10 +255,8 @@ export default function PagarLote({
   const precisaFrete = ehCalculado && freteCents == null
   const imagem = dados.lote.imagem || imagemInicial
 
-  const podePagar = !!v && v.pode_vender
-
   return (
-    <div className={podePagar ? 'pg-com-cta' : undefined} style={S.coluna}>
+    <div style={S.coluna}>
       <style>{`
         .pg-cta, .pg-ghost, .pg-op { transition: filter 0.15s ease, background 0.15s ease, border-color 0.15s ease; }
         .pg-cta:hover:not(:disabled) { filter: brightness(1.08); }
@@ -274,7 +272,6 @@ export default function PagarLote({
             padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
             background: var(--bx-bg-elev); border-top: 1px solid var(--bx-border); box-shadow: var(--bx-shadow);
           }
-          .pg-com-cta { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
         }
         @media (prefers-reduced-motion: reduce) { .pg-cta, .pg-ghost, .pg-op { transition: none; } }
       `}</style>
@@ -408,10 +405,7 @@ export default function PagarLote({
 
           <p style={S.nota}>
             <IconShield size={14} />
-            <span>
-              Pagamento pela Stripe. Os dados do cartão não passam pela Bynx. A taxa de proteção cobre a
-              intermediação até a entrega.
-            </span>
+            <span>Os dados do cartão não passam pela Bynx.</span>
           </p>
 
           <div className="pg-cta-fixo">
@@ -518,7 +512,7 @@ const S: Record<string, CSSProperties> = {
     fontSize: 14, fontWeight: 600, textDecoration: 'none',
   },
   nota: {
-    display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 6, fontSize: 11.5, color: 'var(--bx-text-3)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 11.5, color: 'var(--bx-text-3)',
     margin: 0, lineHeight: 1.5, textAlign: 'center',
   },
   faixa: {

@@ -648,7 +648,8 @@ export default function LanceAoVivo({
         @media (max-width: 768px) {
           /* Casca do Bynx Leiloes: sem bottom nav. O CTA encosta no fim da tela
              e a safe area (barra do iPhone) entra no padding, com o fundo por
-             baixo dela. A folga no fim da pagina fica no wrapper. */
+             baixo dela. A folga no fim da pagina fica no rodape da casca
+             (.lc-casca:has(.lv-cta-fixo) em casca/estilos.ts). */
           .lv-cta-fixo {
             position: fixed; left: 0; right: 0; bottom: 0; z-index: 150; margin: 0;
             padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
