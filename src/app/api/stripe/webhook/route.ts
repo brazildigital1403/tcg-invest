@@ -328,6 +328,30 @@ async function marcarEventoComoFinalizado(
   }).eq('event_id', eventId)
 }
 
+// ─── Helper: lotes de leilao de um pedido ────────────────────────────────────
+//
+// Le `leilao_id` em pedidos + pedido_itens numa consulta PROPRIA. Antes da
+// migration do motor a coluna nao existe: a consulta falha, o erro e ignorado
+// e a lista volta vazia -- a venda comum segue intocada. `extra` e o
+// bynx_leilao_id do metadata da sessao, quando houver.
+
+async function leiloesDoPedido(
+  supabase: SupabaseClient,
+  pedidoId: string,
+  extra: string | null | undefined
+): Promise<string[]> {
+  const ids = new Set<string>()
+  if (extra) ids.add(extra)
+  const [{ data: ped }, { data: itens }] = await Promise.all([
+    supabase.from('pedidos').select('leilao_id').eq('id', pedidoId).limit(1),
+    supabase.from('pedido_itens').select('leilao_id').eq('pedido_id', pedidoId).not('leilao_id', 'is', null),
+  ])
+  for (const r of [...(ped || []), ...(itens || [])] as { leilao_id: string | null }[]) {
+    if (r.leilao_id) ids.add(r.leilao_id)
+  }
+  return Array.from(ids)
+}
+
 // ─── Handler principal ───────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -529,6 +553,34 @@ export async function POST(req: NextRequest) {
 
           if (baixas.length === 0) {
             console.error(`[webhook] CRITICAL: pedido ${pedido.numero} pago sem item pra baixar`)
+          }
+
+          // ── Lote de leilao pago -> vendido ───────────────────────────────
+          // Item de leilao tem marketplace_id e produto_id nulos: a baixa abaixo
+          // passa reto por ele (lote nao e estoque). Quem muda e o LOTE:
+          // aguardando_pagamento OU calote -> vendido + pedido_id (pagamento que
+          // chega depois do calote nao e descartado). Idempotente no banco
+          // (leilao_marcar_vendido, migration 20260928100000). Falha aqui nao
+          // desfaz a venda: o pedido ja esta pago e o tick nunca marca calote
+          // em lote com pedido pago -- fica no log para o Du conferir.
+          // ★ `leilao_id` fica FORA dos selects de pedido/itens acima de
+          // proposito: sem a migration do motor a coluna nao existe, e o select
+          // quebraria a baixa de TODA venda. So pedido com metadata de leilao
+          // (e leitura propria) entra aqui.
+          const leilaoMeta = session.metadata?.bynx_leilao_id
+          const leiloesPagos = leilaoMeta ? await leiloesDoPedido(supabase, pedido.id, leilaoMeta) : []
+          for (const leilaoId of leiloesPagos) {
+            const { data: rLeilao, error: errLeilao } = await supabase.rpc('leilao_marcar_vendido', {
+              p_leilao: leilaoId,
+              p_pedido: pedido.id,
+            })
+            if (errLeilao) {
+              console.error(`[webhook] CRITICAL: leilao ${leilaoId} do pedido ${pedido.numero} nao virou vendido:`, errLeilao.message)
+            } else if (rLeilao !== 'vendido' && rLeilao !== 'ja_vendido') {
+              console.error(`[webhook] CRITICAL: leilao ${leilaoId} pago no pedido ${pedido.numero}, mas ficou como esta (${rLeilao}) — conferir`)
+            } else {
+              console.log(`[webhook] venda: leilao ${leilaoId} -> vendido (${rLeilao}) pelo pedido ${pedido.numero}`)
+            }
           }
 
           for (const baixa of baixas) {
@@ -1474,6 +1526,26 @@ export async function POST(req: NextRequest) {
               }
 
               console.log(`[webhook] estorno: pedido ${pedido.numero} marcado como reembolsado`)
+            }
+
+            // ── Lote de leilao reembolsado -> cancelado ('reembolsado') ─────
+            // FORA do guard de status acima: o cancelamento pela loja marca o
+            // pedido 'reembolsado' ANTES deste evento chegar, e o lote ainda
+            // precisa sair de 'vendido'. So mexe se este pedido e o que vendeu
+            // o lote. Idempotente (leilao_marcar_reembolsado, 20260928100000).
+            if (pedido) {
+              const leiloesEstorno = await leiloesDoPedido(supabase, pedido.id, null)
+              for (const leilaoId of leiloesEstorno) {
+                const { data: rEst, error: errEst } = await supabase.rpc('leilao_marcar_reembolsado', {
+                  p_leilao: leilaoId,
+                  p_pedido: pedido.id,
+                })
+                if (errEst) {
+                  console.error(`[webhook] CRITICAL: leilao ${leilaoId} (pedido ${pedido.numero}) nao foi cancelado no estorno:`, errEst.message)
+                } else {
+                  console.log(`[webhook] estorno: leilao ${leilaoId} -> ${rEst} (pedido ${pedido.numero})`)
+                }
+              }
             }
           } catch (err) {
             console.error('[webhook] CRITICAL: excecao atualizando pedido no estorno:', (err as Error)?.message)
