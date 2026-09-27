@@ -21,7 +21,7 @@ import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { dataBrasiliaISO, formatarBRL, type LotePublico } from '@/lib/leilao'
 import type { RodadaPublica } from '@/lib/leilao-rodada'
 import { abaValida, urlHome, urlLote } from '@/lib/leilao-urls'
-import { agruparSemana, horaCurtaBrasilia, quandoRodada, semanaVazia } from '@/lib/leilao-vitrine'
+import { agruparSemana, escolherPalcoAoVivo, horaCurtaBrasilia, quandoRodada, semanaVazia } from '@/lib/leilao-vitrine'
 import {
   buscarLojasPorId,
   buscarLotesDaRodada,
@@ -115,10 +115,8 @@ async function abaAoVivo() {
     listarLojasDoLeilao(),
   ])
 
-  const destaque = noAr[0] ?? null
-  const outrasNoAr = noAr.slice(1)
   // Sem rodada no ar, o palco mostra a proxima agendada (a primeira pelo horario).
-  const proxima = destaque ? null : agendadas[0] ?? null
+  const proxima = noAr.length ? null : agendadas[0] ?? null
   const hoje = agendadas.filter(
     r => r.iniciaEm && dataBrasiliaISO(r.iniciaEm) === hojeISO && r.id !== proxima?.id
   )
@@ -131,11 +129,14 @@ async function abaAoVivo() {
   const lotes = lotesAbertos.filter(l => !l.rodadaId || !rodadasNoAr.has(l.rodadaId))
 
   const ids = [...noAr, ...hoje, ...semana, ...(proxima ? [proxima] : [])]
-  const [lotesDestaque, lojas, resumo] = await Promise.all([
-    destaque ? buscarLotesDaRodada(destaque.id) : Promise.resolve([] as LotePublico[]),
+  const [lojas, resumo] = await Promise.all([
     buscarLojasPorId(ids.map(r => r.lojaId ?? '')),
     resumirLotesPorRodada(ids.map(r => r.id)),
   ])
+  // Varias no ar: o palco fica com a mais movimentada (mais lances no lote no
+  // ar; empate, a que termina primeiro). As demais vao para "Tambem ao vivo".
+  const { destaque, outras: outrasNoAr } = escolherPalcoAoVivo(noAr, id => resumo.get(id)?.noAr)
+  const lotesDestaque = destaque ? await buscarLotesDaRodada(destaque.id) : ([] as LotePublico[])
   const contagem = contagemDe(resumo)
 
   let palco: ReactNode

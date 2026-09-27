@@ -8,6 +8,7 @@ import {
   type LancePublico,
 } from '@/lib/leilao-rodada'
 import type { LotePublico } from '@/lib/leilao'
+import { contarRodadasDaLoja } from '../_dados'
 
 /**
  * Leituras server-side proprias da pagina da RODADA (/leiloes/rodada/[numero])
@@ -43,7 +44,7 @@ export interface ReputacaoLoja {
   /** Media das avaliacoes recebidas pelo dono da loja. null = sem avaliacao. */
   media: number | null
   total: number
-  /** Rodadas da loja que foram ao ar (ao vivo ou encerradas). null = nao deu para contar. */
+  /** Rodadas da loja pela regra unica (contarRodadasDaLoja). null = nao deu para contar. */
   rodadas: number | null
 }
 
@@ -51,7 +52,7 @@ export interface ReputacaoLoja {
  * Reputacao da loja para o topo e o cartao da rodada. As avaliacoes vem da
  * MESMA RPC do ReputacaoCard (`get_avaliacoes_usuario`, avaliado = dono da
  * loja). O id do dono so e usado aqui no servidor: nao sai na pagina.
- * Rodadas: contagem pelo indice `idx_leilao_rodadas_loja`.
+ * Rodadas: `contarRodadasDaLoja` (../_dados), a MESMA regra da vitrine.
  *
  * Complementar: qualquer falha vira "sem dado" (a linha some), nunca derruba
  * a pagina.
@@ -63,11 +64,7 @@ export const buscarReputacaoLoja = cache(async (lojaId: string | null): Promise<
 
   const [dono, rodadas] = await Promise.all([
     db.from('lojas').select('owner_user_id').eq('id', lojaId).maybeSingle(),
-    db
-      .from('leilao_rodadas')
-      .select('id', { count: 'exact', head: true })
-      .eq('loja_id', lojaId)
-      .in('status', ['ao_vivo', 'encerrada']),
+    contarRodadasDaLoja(db, lojaId),
   ])
 
   let media: number | null = null
@@ -87,7 +84,7 @@ export const buscarReputacaoLoja = cache(async (lojaId: string | null): Promise<
   return {
     media,
     total,
-    rodadas: rodadas.error || rodadas.count == null ? null : rodadas.count,
+    rodadas,
   }
 })
 

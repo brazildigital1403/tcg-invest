@@ -1135,6 +1135,50 @@ try {
   }, 'vitrine: rotulos de loja (avaliacao real ou loja nova)')
 
   ok(() => {
+    assert.deepEqual([...V.STATUS_RODADA_FOI_AO_AR], ['ao_vivo', 'encerrada'])
+    for (const s of ['ao_vivo', 'encerrada']) assert.equal(V.rodadaFoiAoAr(s), true, s)
+    for (const s of ['agendada', 'cancelada', 'rascunho', null, undefined, '']) assert.equal(V.rodadaFoiAoAr(s), false, String(s))
+    const m = V.contarRodadasPorLoja([
+      { loja_id: 'A', status: 'encerrada' },
+      { loja_id: 'A', status: 'encerrada' },
+      { loja_id: 'A', status: 'encerrada' },
+      { loja_id: 'A', status: 'ao_vivo' },
+      { loja_id: 'A', status: 'agendada' }, // o 5o que a vitrine contava antes
+      { loja_id: 'A', status: 'cancelada' },
+      { loja_id: 'A', status: 'rascunho' },
+      { loja_id: 'B', status: 'agendada' },
+      { loja_id: null, status: 'encerrada' },
+    ])
+    assert.equal(m.get('A'), 4, 'so o que ja foi ao ar')
+    assert.equal(m.has('B'), false, 'loja so com agendada nao conta')
+    assert.equal(m.size, 1)
+  }, 'vitrine: regra unica de rodadas por loja (ao_vivo + encerrada)')
+
+  ok(() => {
+    const r = (id, numero) => ({ id, numero })
+    const rodadas = [r('velha', 10), r('quente', 12), r('morna', 11), r('sem-lote', 9)]
+    const noAr = {
+      velha: { nLances: 0, terminaEm: '2026-09-27T20:00:00Z' },
+      quente: { nLances: 7, terminaEm: '2026-09-27T20:10:00Z' },
+      morna: { nLances: 3, terminaEm: '2026-09-27T20:05:00Z' },
+    }
+    const p = V.escolherPalcoAoVivo(rodadas, id => noAr[id])
+    assert.equal(p.destaque.id, 'quente', 'mais lances vence a mais antiga')
+    assert.deepEqual(p.outras.map(x => x.id), ['morna', 'velha', 'sem-lote'], 'demais na mesma ordem')
+
+    const empate = V.escolherPalcoAoVivo([r('a', 1), r('b', 2), r('c', 3)], id => ({
+      a: { nLances: 5, terminaEm: '2026-09-27T20:10:00Z' },
+      b: { nLances: 5, terminaEm: '2026-09-27T20:02:00Z' },
+      c: { nLances: 5, terminaEm: null },
+    })[id])
+    assert.deepEqual([empate.destaque.id, ...empate.outras.map(x => x.id)], ['b', 'a', 'c'], 'empate: termina primeiro; sem prazo por ultimo')
+
+    const zero = V.escolherPalcoAoVivo([r('y', 8), r('x', 3)], () => null)
+    assert.deepEqual([zero.destaque.id, ...zero.outras.map(x => x.id)], ['x', 'y'], 'sem resumo: numero da rodada')
+    assert.deepEqual(V.escolherPalcoAoVivo([], () => null), { destaque: null, outras: [] })
+  }, 'vitrine: palco fica com a rodada ao vivo mais movimentada')
+
+  ok(() => {
     const ics = V.gerarIcsRodada({
       numero: 42,
       titulo: 'Vulcano Cards: rodada ao vivo; SIR, noite',

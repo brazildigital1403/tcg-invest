@@ -124,7 +124,70 @@ export function semanaVazia(dias: ReadonlyArray<DiaDaSemana<unknown>>): boolean 
   return dias.every(d => d.itens.length === 0)
 }
 
+// ─── Palco (rodada no ar em destaque) ───────────────────────────────────────
+
+/** Estado do lote NO AR de uma rodada ao vivo, para escolher o palco. */
+export interface LoteNoArResumo {
+  nLances: number
+  terminaEm: string | null
+}
+
+/**
+ * Com varias rodadas ao vivo, o palco fica com a MAIS MOVIMENTADA: a que tem
+ * mais lances (n_lances) no lote no ar. Empate: a que termina primeiro
+ * (termina_em do lote no ar; sem prazo vai para o fim). Ultimo desempate:
+ * numero da rodada (estavel). Rodada sem lote no ar conta como 0 lance e sem
+ * prazo. As demais saem na mesma ordem, para "Também ao vivo".
+ */
+export function escolherPalcoAoVivo<T extends { id: string; numero: number }>(
+  rodadas: readonly T[],
+  loteNoAr: (rodadaId: string) => LoteNoArResumo | null | undefined
+): { destaque: T | null; outras: T[] } {
+  const prazo = (iso: string | null | undefined) => {
+    const t = iso ? Date.parse(iso) : NaN
+    return Number.isFinite(t) ? t : Infinity
+  }
+  const chave = new Map(
+    rodadas.map(r => {
+      const l = loteNoAr(r.id)
+      const n = Number(l?.nLances)
+      return [r.id, { n: Number.isFinite(n) && n > 0 ? n : 0, fim: prazo(l?.terminaEm) }] as const
+    })
+  )
+  const ordenadas = [...rodadas].sort((a, b) => {
+    const ka = chave.get(a.id)!, kb = chave.get(b.id)!
+    return kb.n - ka.n || (ka.fim === kb.fim ? 0 : ka.fim < kb.fim ? -1 : 1) || a.numero - b.numero
+  })
+  return { destaque: ordenadas[0] ?? null, outras: ordenadas.slice(1) }
+}
+
 // ─── Lojas ──────────────────────────────────────────────────────────────────
+
+/**
+ * ★ REGRA UNICA de "quantas rodadas a loja fez" (vitrine e pagina da rodada
+ * leem daqui; antes cada tela contava de um jeito e divergiam, 5 x 4).
+ *
+ * Conta so rodada que JA FOI AO AR: `ao_vivo` ou `encerrada`. Fica de fora
+ * `agendada` (ainda nao aconteceu, pode ser cancelada), `cancelada` e
+ * `rascunho`. A rodada no ar agora conta.
+ */
+export const STATUS_RODADA_FOI_AO_AR = ['ao_vivo', 'encerrada'] as const
+
+export function rodadaFoiAoAr(status: string | null | undefined): boolean {
+  return (STATUS_RODADA_FOI_AO_AR as readonly string[]).includes(status ?? '')
+}
+
+/** Contagem por loja a partir das linhas de `leilao_rodadas`, pela regra acima. */
+export function contarRodadasPorLoja(
+  linhas: ReadonlyArray<{ loja_id: string | null; status: string | null }>
+): Map<string, number> {
+  const mapa = new Map<string, number>()
+  for (const r of linhas) {
+    if (!r.loja_id || !rodadaFoiAoAr(r.status)) continue
+    mapa.set(r.loja_id, (mapa.get(r.loja_id) ?? 0) + 1)
+  }
+  return mapa
+}
 
 /** "1 rodada" / "6 rodadas". */
 export function rotuloRodadas(n: number): string {

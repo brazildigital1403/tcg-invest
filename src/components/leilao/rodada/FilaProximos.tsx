@@ -27,7 +27,7 @@ export default function FilaProximos({
         <span style={S.qtd}>{proximos.length} na fila</span>
       </div>
       <ol style={S.lista}>
-        {proximos.map(l => {
+        {proximos.map((l, i) => {
           const img = l.fotos[0] || l.cardImage
           const ref = referencias[l.id]
           return (
@@ -35,7 +35,15 @@ export default function FilaProximos({
               <Link href={urlLote(l.slug)} prefetch={false} className="fp-it" style={S.it}>
                 <span style={S.ordem}>{posicao(l.id)}</span>
                 {img ? (
-                  <Image src={img} alt="" width={38} height={53} sizes="38px" style={S.img} />
+                  <Image
+                    src={img}
+                    alt=""
+                    width={38}
+                    height={53}
+                    sizes="38px"
+                    loading={i < FILA_EAGER ? 'eager' : 'lazy'}
+                    style={S.img}
+                  />
                 ) : (
                   <span style={{ ...S.img, background: 'var(--bx-surface-3)' }} />
                 )}
@@ -57,6 +65,15 @@ export default function FilaProximos({
     </section>
   )
 }
+
+/**
+ * Miniaturas da fila que carregam JA (eager). Com o `loading="lazy"` padrao do
+ * next/image, a miniatura so e pedida quando o navegador decide que ela
+ * chegou perto da tela: medido em 375px na rodada 31, as tags tinham src no
+ * HTML mas `currentSrc` vazio (caixa vazia) depois do carregamento. Sao ~2 a
+ * 6 KB cada (largura 64/128); da 7a em diante segue lazy.
+ */
+const FILA_EAGER = 6
 
 const S: Record<string, CSSProperties> = {
   caixa: {

@@ -10,6 +10,7 @@ import {
   rodadaPublicaDeLinha,
   type RodadaPublica,
 } from '@/lib/leilao-rodada'
+import { contarRodadasPorLoja, STATUS_RODADA_FOI_AO_AR, type LoteNoArResumo } from '@/lib/leilao-vitrine'
 
 /**
  * Leituras server-side do leilao. Sempre pela view `leiloes_publico` (sem o
@@ -312,6 +313,8 @@ export interface ResumoRodada {
   n: number
   /** Ate 3 imagens de carta, na ordem da rodada (mosaico da agenda e do palco). */
   imagens: string[]
+  /** Lote no ar (status 'ativo'): lances e prazo, para escolher o palco. null = nenhum. */
+  noAr: LoteNoArResumo | null
 }
 
 /**
@@ -327,7 +330,7 @@ export async function resumirLotesPorRodada(rodadaIds: string[]): Promise<Map<st
   if (!db) return mapa
   const { data, error } = await db
     .from('leiloes_publico')
-    .select('rodada_id, status, ordem, card_image')
+    .select('rodada_id, status, ordem, card_image, n_lances, termina_em')
     .in('rodada_id', unicos)
     .order('ordem', { ascending: true })
     .limit(LIMITE_LOTES_RODADA * unicos.length)
@@ -335,11 +338,16 @@ export async function resumirLotesPorRodada(rodadaIds: string[]): Promise<Map<st
     if (error) console.error('[leiloes] resumo das rodadas:', error.code, error.message)
     return mapa
   }
-  for (const r of data as Array<{ rodada_id: string | null; status: string | null; card_image: string | null }>) {
+  type Linha = {
+    rodada_id: string | null; status: string | null; card_image: string | null
+    n_lances: number | null; termina_em: string | null
+  }
+  for (const r of data as Linha[]) {
     if (!r.rodada_id || r.status === 'cancelado') continue
-    const atual = mapa.get(r.rodada_id) ?? { n: 0, imagens: [] }
+    const atual = mapa.get(r.rodada_id) ?? { n: 0, imagens: [], noAr: null }
     atual.n += 1
     if (r.card_image && atual.imagens.length < 3) atual.imagens.push(r.card_image)
+    if (r.status === 'ativo') atual.noAr = { nLances: Number(r.n_lances) || 0, terminaEm: r.termina_em ?? null }
     mapa.set(r.rodada_id, atual)
   }
   return mapa
@@ -398,18 +406,53 @@ export async function listarArrematadosRecentes(limite = 6): Promise<Arrematado[
 
 export interface LojaDoLeilao extends LojaDoLote {
   id: string
-  /** Rodadas reais: agendada, ao vivo ou encerrada (rascunho e cancelada fora). */
+  /** Rodadas que ja foram ao ar (regra unica: contarRodadasPorLoja). */
   nRodadas: number
   /** Estrelas das avaliacoes recebidas pelo dono (RPC get_avaliacoes_usuario). */
   estrelas: number[]
 }
 
-const STATUS_RODADA_REAL = ['agendada', 'ao_vivo', 'encerrada']
 const LIMITE_LOJAS_LEILAO = 8
 
 /**
- * Lojas com pelo menos uma rodada real, da que mais fez para a que menos fez.
- * Tres leituras pequenas: loja_id das rodadas (tabela de uma linha por live),
+ * Rodadas por loja pela REGRA UNICA de leilao-vitrine.ts (so as que ja foram
+ * ao ar: ao_vivo ou encerrada). Vitrine (todas as lojas, sem `lojaIds`) e
+ * pagina da rodada (uma loja) leem daqui, entao o numero e o mesmo nas duas.
+ * `leilao_rodadas` e uma tabela pequena (uma linha por live de loja); com
+ * `lojaIds` a leitura vai pelo indice `idx_leilao_rodadas_loja`.
+ * Complementar: falha vira null (quem chama esconde o numero).
+ */
+export async function lerRodadasPorLoja(
+  db: SupabaseClient,
+  lojaIds?: readonly string[]
+): Promise<Map<string, number> | null> {
+  let q = db
+    .from('leilao_rodadas')
+    .select('loja_id, status')
+    .in('status', [...STATUS_RODADA_FOI_AO_AR])
+    .not('loja_id', 'is', null)
+  if (lojaIds) {
+    const unicos = [...new Set(lojaIds.filter(Boolean))]
+    if (!unicos.length) return new Map()
+    q = q.in('loja_id', unicos)
+  }
+  const { data, error } = await q.limit(2000)
+  if (error || !data) {
+    if (error) console.error('[leiloes] rodadas por loja:', error.code, error.message)
+    return null
+  }
+  return contarRodadasPorLoja(data as Array<{ loja_id: string | null; status: string | null }>)
+}
+
+/** Rodadas de UMA loja pela regra unica. null = nao deu para contar. */
+export async function contarRodadasDaLoja(db: SupabaseClient, lojaId: string): Promise<number | null> {
+  const mapa = await lerRodadasPorLoja(db, [lojaId])
+  return mapa ? mapa.get(lojaId) ?? 0 : null
+}
+
+/**
+ * Lojas com pelo menos uma rodada que ja foi ao ar, da que mais fez para a
+ * que menos fez. Tres leituras pequenas: rodadas por loja (lerRodadasPorLoja),
  * lojas por PK (so 'ativa', a mesma regra da pagina /lojas/[slug]) e a
  * avaliacao de cada dono pela RPC da casa (a mesma do ReputacaoCard).
  * Complementar: falha vira lista vazia e a secao some.
@@ -417,21 +460,8 @@ const LIMITE_LOJAS_LEILAO = 8
 export async function listarLojasDoLeilao(): Promise<LojaDoLeilao[]> {
   const db = getServiceSupabase()
   if (!db) return []
-  const rod = await db
-    .from('leilao_rodadas')
-    .select('loja_id')
-    .in('status', STATUS_RODADA_REAL)
-    .not('loja_id', 'is', null)
-    .limit(2000)
-  if (rod.error || !rod.data) {
-    if (rod.error) console.error('[leiloes] lojas do leilao:', rod.error.code, rod.error.message)
-    return []
-  }
-  const contagem = new Map<string, number>()
-  for (const r of rod.data as Array<{ loja_id: string | null }>) {
-    if (r.loja_id) contagem.set(r.loja_id, (contagem.get(r.loja_id) ?? 0) + 1)
-  }
-  if (!contagem.size) return []
+  const contagem = await lerRodadasPorLoja(db)
+  if (!contagem?.size) return []
 
   const lj = await db
     .from('lojas')
