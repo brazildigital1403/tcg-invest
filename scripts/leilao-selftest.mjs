@@ -839,7 +839,7 @@ try {
     assert.equal(U.urlRodada(42), '/leiloes/rodada/42')
     assert.equal(R.urlRodada, U.urlRodada, 'leilao-rodada reexporta a mesma funcao')
     assert.equal(U.urlMeusLances(), '/leiloes/meus-lances')
-    assert.equal(U.urlMeusLances('pagar'), '/leiloes/meus-lances?aba=pagar')
+    assert.equal(U.urlMeusLances('pagar'), '/leiloes/meus-lances#ml-a_pagar')
     assert.equal(A.linkLote('x-abc123'), U.urlLote('x-abc123'), 'sino usa a mesma url')
     assert.equal(U.urlLote('a/b'), '/leiloes/a%2Fb', 'slug nunca abre caminho novo')
   }, 'urls: home, abas, lote, pagar, rodada, meus lances')
@@ -884,6 +884,82 @@ try {
     for (const v of invalidos) assert.equal(U.idVideoYoutube(v), null, `invalido: ${v}`)
     assert.equal(U.embedYoutube('https://www.youtube.com/@loja/live'), null, 'canal: so botao')
   }, 'transmissao: parser do YouTube (video vira embed, canal vira botao)')
+
+  // ── Meus lances (src/lib/leilao-meus.ts) ──────────────────────────────
+  {
+    const srcM = readFileSync(join(raiz, 'src/lib/leilao-meus.ts'), 'utf8')
+    const outM = ts.transpileModule(srcM, {
+      compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    }).outputText.replace(/from '\.\/leilao'/g, "from './leilao.mjs'")
+    writeFileSync(join(tmp, 'leilao-meus.mjs'), outM)
+  }
+  const M = await import(pathToFileURL(join(tmp, 'leilao-meus.mjs')).href)
+
+  ok(() => {
+    assert.equal(M.grupoDoLote('ativo', true), 'liderando')
+    assert.equal(M.grupoDoLote('ativo', false), 'superado')
+    assert.equal(M.grupoDoLote('agendado', false), 'superado')
+    assert.equal(M.grupoDoLote('aguardando_pagamento', true), 'a_pagar')
+    assert.equal(M.grupoDoLote('aguardando_pagamento', true, true), 'pagos', 'webhook pagou, lote nao marcado')
+    assert.equal(M.grupoDoLote('aguardando_pagamento', false), 'encerrados', 'outro venceu')
+    assert.equal(M.grupoDoLote('vendido', true), 'pagos')
+    assert.equal(M.grupoDoLote('vendido', false), 'encerrados')
+    assert.equal(M.grupoDoLote('calote', true), 'encerrados')
+    assert.equal(M.grupoDoLote('sem_lances', false), 'encerrados')
+    assert.equal(M.grupoDoLote('cancelado', true), 'encerrados')
+  }, 'meus lances: grupo de cada lote')
+
+  ok(() => {
+    const base = { seuMaximoCents: 5000, pagarAte: '2026-09-28T15:00:00Z', pedidoId: null, pedidoPagoId: null }
+    const lote = st => ({ status: st })
+    assert.equal(M.pagamentoDoLote({ ...base, lote: lote('ativo'), voceLidera: true }), null)
+    assert.equal(M.pagamentoDoLote({ ...base, lote: lote('aguardando_pagamento'), voceLidera: false }), null, 'prazo so para quem venceu')
+    assert.deepEqual(M.pagamentoDoLote({ ...base, lote: lote('aguardando_pagamento'), voceLidera: true }),
+      { estado: 'aguardando', pagarAte: '2026-09-28T15:00:00Z', pedidoId: null })
+    assert.deepEqual(M.pagamentoDoLote({ ...base, lote: lote('aguardando_pagamento'), voceLidera: true, pedidoPagoId: 'p1' }),
+      { estado: 'pago', pagarAte: null, pedidoId: 'p1' })
+    assert.deepEqual(M.pagamentoDoLote({ ...base, lote: lote('vendido'), voceLidera: true, pedidoId: 'p2' }),
+      { estado: 'pago', pagarAte: null, pedidoId: 'p2' })
+    assert.deepEqual(M.pagamentoDoLote({ ...base, lote: lote('calote'), voceLidera: true }),
+      { estado: 'calote', pagarAte: null, pedidoId: null })
+  }, 'meus lances: status do pagamento')
+
+  ok(() => {
+    const L0 = { status: 'ativo', terminaEm: null, iniciaEm: null, encerradoEm: null }
+    const e = (id, st, lidera, extra = {}) => ({
+      lote: { ...L0, id, status: st, ...extra.lote },
+      seuMaximoCents: 1000, voceLidera: lidera,
+      pagarAte: extra.pagarAte ?? null, pedidoId: null, pedidoPagoId: extra.pago ?? null,
+    })
+    const r = M.agruparMeus([
+      e('a', 'ativo', true, { lote: { terminaEm: '2026-09-28T12:05:00Z' } }),
+      e('b', 'ativo', true, { lote: { terminaEm: '2026-09-28T12:01:00Z' } }),
+      e('c', 'agendado', true, { lote: { iniciaEm: '2026-09-28T11:00:00Z' } }),
+      e('d', 'ativo', false),
+      e('f', 'aguardando_pagamento', true, { pagarAte: '2026-09-29T12:00:00Z' }),
+      e('g', 'aguardando_pagamento', true, { pagarAte: '2026-09-28T12:00:00Z' }),
+      e('h', 'aguardando_pagamento', true, { pago: 'px' }),
+      e('i', 'vendido', false, { lote: { encerradoEm: '2026-09-27T10:00:00Z' } }),
+      e('j', 'sem_lances', false, { lote: { encerradoEm: '2026-09-27T12:00:00Z' } }),
+    ], '2026-09-28T12:00:00Z')
+    assert.equal(r.server_now, '2026-09-28T12:00:00Z')
+    assert.deepEqual(r.grupos.map(g => g.grupo), ['liderando', 'superado', 'a_pagar', 'pagos', 'encerrados'])
+    const ids = g => r.grupos.find(x => x.grupo === g).itens.map(i => i.lote.id)
+    assert.deepEqual(ids('liderando'), ['b', 'a', 'c'], 'ativo que termina antes primeiro, agendado no fim')
+    assert.deepEqual(ids('a_pagar'), ['g', 'f'], 'prazo mais curto primeiro')
+    assert.deepEqual(ids('pagos'), ['h'])
+    assert.deepEqual(ids('encerrados'), ['j', 'i'], 'mais recente primeiro')
+    assert.equal(r.grupos[0].titulo, 'Liderando')
+    assert.equal(r.grupos.find(x => x.grupo === 'encerrados').titulo, 'Encerrados sem vitória')
+    assert.deepEqual(M.agruparMeus([], 'x').grupos, [], 'grupo vazio fica de fora')
+  }, 'meus lances: agrupamento e ordem')
+
+  ok(() => {
+    assert.deepEqual(M.emBlocos([], 50), [])
+    assert.deepEqual(M.emBlocos([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]])
+    const cem = Array.from({ length: 101 }, (_, i) => i)
+    assert.deepEqual(M.emBlocos(cem).map(b => b.length), [50, 50, 1])
+  }, 'meus lances: blocos de 50')
 
   console.log(`\n${n} blocos ok`)
 } finally {
