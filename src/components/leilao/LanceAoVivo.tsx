@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
-import { IconClock, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
+import { IconChart, IconClock, IconClose, IconShield, IconWarning, IconCheck } from '@/components/ui/Icons'
 import {
   formatarBRL,
   formatarTempoRestante,
@@ -644,6 +644,26 @@ export default function LanceAoVivo({
             estende o fim.
           </span>
         )}
+        {referenciaMercadoCents && (
+          <span style={S.mercado}>
+            <IconChart size={14} />
+            <span>
+              Mercado Brasileiro: a partir de{' '}
+              {lote.cardSlug ? (
+                <Link href={`/carta/${lote.cardSlug}`} style={S.mercadoLink}>
+                  {formatarBRL(referenciaMercadoCents)}
+                </Link>
+              ) : (
+                <strong style={S.mercadoValor}>{formatarBRL(referenciaMercadoCents)}</strong>
+              )}
+              {lote.nLances > 0 && (() => {
+                const pct = Math.round((precoCents / referenciaMercadoCents - 1) * 100)
+                if (pct === 0) return ' · no valor de mercado'
+                return pct < 0 ? ` · ${-pct}% abaixo` : ` · ${pct}% acima`
+              })()}
+            </span>
+          </span>
+        )}
       </div>
 
       {estouGanhando && (aberto || st === 'arrematado') && (
@@ -839,6 +859,12 @@ const S: Record<string, CSSProperties> = {
   precoRotulo: { fontSize: 12, color: 'var(--bx-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' },
   preco: { fontSize: 32, fontWeight: 800, color: 'var(--bx-text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' },
   precoMeta: { fontSize: 13, color: 'var(--bx-text-2)' },
+  mercado: {
+    display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8,
+    borderTop: '1px solid var(--bx-border)', fontSize: 13, color: 'var(--bx-text-2)',
+  },
+  mercadoLink: { color: 'var(--bx-text)', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 2 },
+  mercadoValor: { color: 'var(--bx-text)', fontWeight: 700 },
   faixa: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 700,
     border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
