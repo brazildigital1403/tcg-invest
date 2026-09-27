@@ -3,15 +3,19 @@
  * 28/09). Funcoes PURAS -- sem rede, sem banco -- usadas pelas rotas, pelo
  * cron e pela UI, e cobertas por scripts/reclamacao-selftest.mjs.
  *
- * Regras:
- *   - a loja envia em ate 3 dias uteis depois do pagamento; sem envio, o
- *     comprador pode pedir o cancelamento (estorno integral);
- *   - o comprador reclama em ate 7 dias depois da entrega (confirmacao dele ou
- *     fechamento automatico);
- *   - sem confirmacao, o pedido vira entregue em enviado + 21 dias; aviso no
- *     dia 14. Reclamacao aberta trava o fechamento;
- *   - a loja responde em 3 dias uteis; silencio = decisao a favor do comprador;
- *   - a Bynx decide em ate 5 dias uteis.
+ * Regras (prazos encurtados em 28/09 para caber no repasse de 30 dias; os
+ * numeros vivem SO nas constantes DIAS_* abaixo -- UI, e-mail e rotas
+ * interpolam, e o SQL de 20260928140000_pedido_reclamacoes.sql espelha):
+ *   - a loja envia em ate DIAS_UTEIS_ENVIO (3) dias uteis depois do pagamento;
+ *     sem envio, o comprador pode pedir o cancelamento (estorno integral);
+ *   - o comprador reclama em ate DIAS_RECLAMAR (5) dias depois da entrega
+ *     (confirmacao dele ou fechamento automatico);
+ *   - sem confirmacao, o pedido vira entregue em enviado + DIAS_FECHAMENTO_AUTO
+ *     (12) dias; aviso no dia DIAS_AVISO_RECEBIMENTO (8). Reclamacao aberta
+ *     trava o fechamento;
+ *   - a loja responde em DIAS_UTEIS_LOJA (2) dias uteis; silencio = decisao a
+ *     favor do comprador;
+ *   - a Bynx decide em ate DIAS_UTEIS_DECISAO (3) dias uteis.
  *
  * ★ DIA UTIL: segunda a sexta, fora dos feriados nacionais de data FIXA. Os
  *   moveis (Carnaval, Sexta-feira Santa, Corpus Christi) NAO entram: contar um
@@ -70,15 +74,16 @@ export function ehRespostaLoja(v: unknown): v is RespostaLoja {
 }
 
 export const DIAS_UTEIS_ENVIO = 3
-export const DIAS_RECLAMAR = 7
-export const DIAS_UTEIS_LOJA = 3
-export const DIAS_UTEIS_DECISAO = 5
-export const DIAS_AVISO_RECEBIMENTO = 14
-export const DIAS_FECHAMENTO_AUTO = 21
+/** Espelhado no SQL (interval '5 days'): mudar aqui exige migration nova. */
+export const DIAS_RECLAMAR = 5
+export const DIAS_UTEIS_LOJA = 2
+export const DIAS_UTEIS_DECISAO = 3
+export const DIAS_AVISO_RECEBIMENTO = 8
+export const DIAS_FECHAMENTO_AUTO = 12
 
 export const ROTULO_BOTAO_PROBLEMA = 'Tive um problema com este pedido'
 export const TEXTO_PROTECAO =
-  'Você tem até 7 dias depois da entrega para nos contar. A loja responde em até 3 dias úteis e a Bynx decide se ela não resolver.'
+  `Você tem até ${DIAS_RECLAMAR} dias depois da entrega para nos contar. A loja responde em até ${DIAS_UTEIS_LOJA} dias úteis e a Bynx decide se ela não resolver.`
 
 const DIA_MS = 24 * 60 * 60 * 1000
 const OFFSET_BRT_MS = -3 * 60 * 60 * 1000
@@ -175,7 +180,7 @@ export function podeReclamar(p: PedidoPrazo, agora: number): PodeReclamar {
   return { pode: true, ate }
 }
 
-/** Prazo da loja para enviar: 3 dias uteis depois do pagamento. */
+/** Prazo da loja para enviar: DIAS_UTEIS_ENVIO dias uteis depois do pagamento. */
 export function prazoEnvio(p: PedidoPrazo): Date | null {
   return p.pago_em ? somarDiasUteis(p.pago_em, DIAS_UTEIS_ENVIO) : null
 }

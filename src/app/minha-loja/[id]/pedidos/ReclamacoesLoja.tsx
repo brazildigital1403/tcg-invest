@@ -14,7 +14,7 @@ import {
  * Bynx). A pagina so monta com LEILAO_ATIVO; se a rota responder 404 (flag
  * desligada no servidor), nada aparece.
  *
- * A loja responde em 3 dias uteis: aceitar o estorno, propor um acordo (valor)
+ * A loja responde em DIAS_UTEIS_LOJA dias uteis: aceitar o estorno, propor um acordo (valor)
  * ou enviar provas (texto com rastreio/links). Dinheiro nao se move aqui --
  * quem estorna e a Bynx.
  */

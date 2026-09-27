@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { formatarBRL } from './leilao'
 import { prazoCurtoBrasilia } from './leilao-avisos'
 import { urlLote as caminhoLote, urlPagar as caminhoPagar } from './leilao-urls'
+import { DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from './leilao-reclamacao'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = 'Bynx <noreply@bynx.gg>'
@@ -2857,22 +2858,22 @@ export function renderReclamacaoDecisaoEmail(a: ReclamacaoEmailBase & {
   return { to: a.to, subject: subjUser(`${t.titulo}: pedido #${a.pedidoNumero}`), html }
 }
 
-/** Comprador: dia 14 depois do envio, sem confirmacao. */
+/** Comprador: dia DIAS_AVISO_RECEBIMENTO depois do envio, sem confirmacao. */
 export function renderRecebimentoAvisoEmail(a: ReclamacaoEmailBase & { fechaEm: string }): EmailRenderizado {
   const nome = primeiroNome(a.nome, 'Colecionador')
   const html = baseLayout(`
     ${badge('Proteção Bynx', '#f59e0b', '')}
     ${h1('Confirme ou nos conte se houve problema')}
-    ${p(`${escapeHtml(nome)}, a ${forte(a.lojaNome)} enviou ${forte(a.itemNome)} (pedido #${escapeHtml(String(a.pedidoNumero))}) há 14 dias e ainda não recebemos a sua confirmação.`)}
+    ${p(`${escapeHtml(nome)}, a ${forte(a.lojaNome)} enviou ${forte(a.itemNome)} (pedido #${escapeHtml(String(a.pedidoNumero))}) há ${DIAS_AVISO_RECEBIMENTO} dias e ainda não recebemos a sua confirmação.`)}
     ${p('Se a carta chegou bem, confirme o recebimento. Se chegou com problema ou ainda não chegou, abra uma reclamação pelo pedido.')}
     ${a.fechaEm ? blocoLeilao('Confirmação automática em (horário de Brasília)', escapeHtml(a.fechaEm)) : ''}
-    ${p('Depois da confirmação automática, você ainda tem 7 dias para relatar um problema.')}
+    ${p(`Depois da confirmação automática, você ainda tem ${DIAS_RECLAMAR} dias para relatar um problema.`)}
     ${btn('Abrir o pedido', urlPedidoComprador(a.pedidoId, 'recebimento_aviso'))}
   `, `Seu pedido #${a.pedidoNumero} chegou?`)
   return { to: a.to, subject: subjUser(`Seu pedido #${a.pedidoNumero} chegou? Confirme ou nos conte`), html }
 }
 
-/** Comprador e loja: cancelamento por atraso no envio (3 dias uteis). */
+/** Comprador e loja: cancelamento por atraso no envio (DIAS_UTEIS_ENVIO dias uteis). */
 export function renderCancelamentoAtrasoEmail(a: ReclamacaoEmailBase & {
   papel: 'comprador' | 'loja'
   valorCents: number
@@ -2883,8 +2884,8 @@ export function renderCancelamentoAtrasoEmail(a: ReclamacaoEmailBase & {
     ${badge('Proteção Bynx', '#ef4444', '')}
     ${h1(comprador ? 'Pedido cancelado e estornado' : 'Pedido cancelado por atraso no envio')}
     ${comprador
-      ? p(`${escapeHtml(nome)}, o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}) não foi enviado pela ${forte(a.lojaNome)} dentro de 3 dias úteis. Como você pediu, ele foi cancelado e o valor integral foi estornado.`)
-      : p(`${escapeHtml(nome)}, o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}) não foi enviado dentro de 3 dias úteis depois do pagamento. O comprador pediu o cancelamento e o valor foi estornado integralmente. O repasse deste pedido foi revertido e não há envio a fazer.`)}
+      ? p(`${escapeHtml(nome)}, o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}) não foi enviado pela ${forte(a.lojaNome)} dentro de ${DIAS_UTEIS_ENVIO} dias úteis. Como você pediu, ele foi cancelado e o valor integral foi estornado.`)
+      : p(`${escapeHtml(nome)}, o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}) não foi enviado dentro de ${DIAS_UTEIS_ENVIO} dias úteis depois do pagamento. O comprador pediu o cancelamento e o valor foi estornado integralmente. O repasse deste pedido foi revertido e não há envio a fazer.`)}
     ${blocoLeilao('Valor estornado', formatarBRL(a.valorCents), '#22c55e')}
     ${comprador ? p('O estorno volta para o mesmo meio de pagamento em alguns dias úteis, no prazo do banco emissor.') : ''}
     ${comprador

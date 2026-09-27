@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { enviarEmailRenderizado, type EmailRenderizado } from '@/lib/email'
-import { FOTO_MIMES, refundValido, type SlotFoto } from '@/lib/leilao-reclamacao'
+import { FOTO_MIMES, DIAS_RECLAMAR, refundValido, type SlotFoto } from '@/lib/leilao-reclamacao'
 
 /**
  * Servidor da Protecao Bynx (reclamacao de pedido de leilao). Schema em
@@ -231,7 +231,7 @@ export function erroDoAbrir(msg: string): { status: number; mensagem: string } {
   if (msg.includes('nao_e_comprador')) return { status: 403, mensagem: 'Você não é o comprador deste pedido.' }
   if (msg.includes('nao_e_leilao')) return { status: 409, mensagem: 'A reclamação por aqui vale só para pedidos de leilão.' }
   if (msg.includes('status_invalido')) return { status: 409, mensagem: 'Este pedido não está em um estado que permita reclamação.' }
-  if (msg.includes('prazo_encerrado')) return { status: 409, mensagem: 'O prazo de 7 dias depois da entrega já terminou.' }
+  if (msg.includes('prazo_encerrado')) return { status: 409, mensagem: `O prazo de ${DIAS_RECLAMAR} dias depois da entrega já terminou.` }
   if (msg.includes('ja_existe')) return { status: 409, mensagem: 'Já existe uma reclamação aberta para este pedido.' }
   return { status: 500, mensagem: 'Não foi possível registrar a reclamação.' }
 }

@@ -17,7 +17,8 @@
 -- Usuarios: a700...01 vendedor (dono da loja) | a700...02 comprador | a700...03 outro
 -- Loja:     f700...01 (pedidos.loja_id e NOT NULL)
 -- Lote:     b700...01 (so para dar leilao_id aos pedidos)
--- Pedidos:  e700...01 leilao enviado          | e700...02 leilao entregue ha 10 dias
+-- Pedidos:  e700...01 leilao enviado          | e700...02 leilao entregue ha 6 dias
+--           (fora dos 5 de DIAS_RECLAMAR; dentro dos 7 antigos)
 --           e700...03 SEM leilao, enviado     | e700...04 leilao pago (nao enviado)
 --           e700...05 leilao enviado (vira entregue no T1)
 --           e700...06 leilao so pelo ITEM (pedido_itens.leilao_id), enviado
@@ -56,7 +57,7 @@ values
   ('e7000000-0000-4000-8000-000000000002', 'f7000000-0000-4000-8000-000000000001',
    'a7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002', 'Charizard',
    5000, 2000, 490, 7490, 880, 6610, 'cartao', 30, 'entregue', 'b7000000-0000-4000-8000-000000000001',
-   now() - interval '20 days', now() - interval '18 days', now() - interval '10 days'),
+   now() - interval '14 days', now() - interval '12 days', now() - interval '6 days'),
   ('e7000000-0000-4000-8000-000000000003', 'f7000000-0000-4000-8000-000000000001',
    'a7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002', 'Carta sem leilao',
    5000, 2000, 490, 7490, 880, 6610, 'cartao', 30, 'enviado', null,
@@ -119,7 +120,8 @@ declare v_prazo timestamptz; v_ent timestamptz;
 begin
   select prazo_reclamacao_ate, entregue_em into v_prazo, v_ent
     from public.pedidos where id = 'e7000000-0000-4000-8000-000000000005';
-  assert v_prazo = v_ent + interval '7 days', format('FALHOU T1a: prazo %s entregue %s', v_prazo, v_ent);
+  -- espelho de DIAS_RECLAMAR em src/lib/leilao-reclamacao.ts
+  assert v_prazo = v_ent + interval '5 days', format('FALHOU T1a: prazo %s entregue %s', v_prazo, v_ent);
   select prazo_reclamacao_ate into v_prazo from public.pedidos where id = 'e7000000-0000-4000-8000-000000000003';
   assert v_prazo is null, format('FALHOU T1b: pedido sem leilao ganhou prazo %s', v_prazo);
 end $$;
@@ -155,7 +157,7 @@ begin
   v_id := public.pedido_reclamacao_abrir(
     'e7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002',
     'nao_chegou', 'O rastreio parou ha uma semana.', '{}', null,
-    now() + interval '3 days', now() + interval '10 days');
+    now() + interval '2 days', now() + interval '5 days');
   assert v_id is not null, 'FALHOU T2a: sem id';
   select * into r from public.pedido_reclamacoes where id = v_id;
   assert r.status = 'aguardando_loja', format('FALHOU T2b: status %s', r.status);
@@ -171,7 +173,7 @@ do $$
 begin
   perform public.pedido_reclamacao_abrir(
     'e7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002',
-    'nao_chegou', 'Tentando abrir de novo.', '{}', null, now() + interval '3 days', null);
+    'nao_chegou', 'Tentando abrir de novo.', '{}', null, now() + interval '2 days', null);
   raise exception 'FALHOU T3: aceitou a segunda reclamacao';
 exception when raise_exception then
   if sqlerrm <> 'ja_existe' then raise exception 'FALHOU T3: erro %', sqlerrm; end if;
@@ -221,12 +223,12 @@ begin
   perform public.pedido_reclamacao_abrir(
     'e7000000-0000-4000-8000-000000000005', 'a7000000-0000-4000-8000-000000000002',
     'danificado', 'Chegou com a quina amassada.', array['p/c/frente.webp', 'p/c/verso.webp'], null,
-    now() + interval '3 days', null);
+    now() + interval '2 days', null);
   raise exception 'FALHOU T5a: aceitou 2 fotos';
 exception when check_violation then null;
 end $$;
 
--- T5b: com 3 fotos passa (pedido entregue ontem, dentro dos 7 dias).
+-- T5b: com 3 fotos passa (pedido entregue ontem, dentro dos 5 dias).
 do $$
 declare v_id uuid;
 begin
@@ -234,7 +236,7 @@ begin
     'e7000000-0000-4000-8000-000000000005', 'a7000000-0000-4000-8000-000000000002',
     'danificado', 'Chegou com a quina amassada.',
     array['p/c/frente.webp', 'p/c/verso.webp', 'p/c/embalagem.webp'], 'https://youtu.be/abc',
-    now() + interval '3 days', now() + interval '10 days');
+    now() + interval '2 days', now() + interval '5 days');
   assert v_id is not null, 'FALHOU T5b: sem id';
 end $$;
 
@@ -252,7 +254,7 @@ do $$
 begin
   perform public.pedido_reclamacao_abrir(
     'e7000000-0000-4000-8000-000000000006', 'a7000000-0000-4000-8000-000000000002',
-    'nao_chegou', 'Carrinho com lote nao chegou.', '{}', null, now() + interval '3 days', null);
+    'nao_chegou', 'Carrinho com lote nao chegou.', '{}', null, now() + interval '2 days', null);
 end $$;
 
 
@@ -387,7 +389,7 @@ begin
   -- Fechada a anterior, o indice parcial deixa abrir outra.
   v_novo := public.pedido_reclamacao_abrir(
     'e7000000-0000-4000-8000-000000000006', 'a7000000-0000-4000-8000-000000000002',
-    'nao_chegou', 'Continua sem chegar.', '{}', null, now() + interval '3 days', null);
+    'nao_chegou', 'Continua sem chegar.', '{}', null, now() + interval '2 days', null);
   assert v_novo is not null and v_novo <> v_rid, 'FALHOU T9c: nao abriu a segunda';
 end $$;
 

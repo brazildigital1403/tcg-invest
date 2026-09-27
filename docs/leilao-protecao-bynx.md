@@ -3,6 +3,10 @@
 > **RASCUNHO para revisão do advogado. NÃO publicado nos Termos de Uso.**
 > Vale só para compras feitas em leilão na Bynx. Compras no marketplace e em
 > vitrines de loja seguem as regras atuais.
+>
+> Prazos encurtados em 28/09 para caber no repasse de 30 dias. Os números desta
+> cláusula espelham as constantes `DIAS_*` de `src/lib/leilao-reclamacao.ts`
+> (fonte única do sistema): mudou lá, muda aqui.
 
 ## Cláusula X — Proteção Bynx para compras em leilão
 
@@ -17,12 +21,12 @@ pedido pela própria plataforma e recebe o estorno integral do valor pago.
 
 **X.3 Confirmação de recebimento.** O comprador confirma o recebimento na
 página do pedido. Sem confirmação, o pedido é considerado entregue
-automaticamente 21 (vinte e um) dias depois do envio. No 14º (décimo quarto)
+automaticamente 12 (doze) dias depois do envio. No 8º (oitavo)
 dia a Bynx avisa o comprador para confirmar ou relatar um problema. Uma
 reclamação aberta suspende a confirmação automática.
 
 **X.4 Prazo para reclamar.** O comprador pode abrir uma reclamação enquanto o
-pedido estiver em trânsito e em até 7 (sete) dias corridos depois da entrega
+pedido estiver em trânsito e em até 5 (cinco) dias corridos depois da entrega
 (a confirmação do comprador ou a confirmação automática, o que ocorrer
 primeiro).
 
@@ -32,12 +36,12 @@ falsificação; (d) o item chegou danificado. Nos motivos (b), (c) e (d), o
 comprador deve enviar fotos da frente e do verso do item e da embalagem
 recebida; vídeo é opcional.
 
-**X.6 Resposta da loja.** A loja é avisada e tem 3 (três) dias úteis para
+**X.6 Resposta da loja.** A loja é avisada e tem 2 (dois) dias úteis para
 responder, podendo aceitar o estorno, propor um acordo ou apresentar provas. A
 ausência de resposta no prazo resulta em decisão favorável ao comprador.
 
 **X.7 Decisão da Bynx.** Quando a loja não resolver a reclamação, a Bynx
-analisa as informações das duas partes e decide em até 5 (cinco) dias úteis,
+analisa as informações das duas partes e decide em até 3 (três) dias úteis,
 podendo determinar: (a) estorno total; (b) estorno parcial; (c) devolução do
 item, com estorno integral após o recebimento pela loja, sendo o frete de
 devolução custeado pela parte que deu causa ao problema; ou (d) encerramento
@@ -75,4 +79,8 @@ meios legais cabíveis.
   consegue mudar o prazo para 14 dias depois de agendar (ver pendências).
 - **Direito de arrependimento (art. 49 CDC):** compra em leilão online pode
   ser enquadrada como compra fora do estabelecimento. Confirmar com o advogado
-  se o prazo de 7 dias da X.4 precisa conviver com o arrependimento sem motivo.
+  se o prazo de 5 dias da X.4 precisa conviver com o arrependimento sem motivo
+  (que é de 7 dias no art. 49).
+- **Pior caso × repasse de 30 dias:** ver o bloco "pior caso" em
+  `scripts/reclamacao-selftest.mjs` (pagamento → envio no limite → fechamento
+  automático → reclamação no último dia → loja e Bynx no último dia útil).

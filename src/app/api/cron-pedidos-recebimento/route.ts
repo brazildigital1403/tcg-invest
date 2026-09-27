@@ -13,10 +13,10 @@ import { enviarLoteEmails, renderRecebimentoAvisoEmail, type EmailLoteItem } fro
  * Protecao Bynx, SO pedidos de LEILAO (pedidos.leilao_id ou item com
  * leilao_id). Marketplace e produto nao sao tocados.
  *
- *   - enviado ha 21 dias, sem confirmacao e SEM reclamacao aberta -> 'entregue'
+ *   - enviado ha DIAS_FECHAMENTO_AUTO dias, sem confirmacao e SEM reclamacao aberta -> 'entregue'
  *     com recebido_automatico = true. O trigger da migration 20260928140000
- *     grava prazo_reclamacao_ate = entregue_em + 7 dias.
- *   - enviado ha 14 dias, sem aviso ainda -> sino + e-mail "Confirme ou nos
+ *     grava prazo_reclamacao_ate = entregue_em + DIAS_RECLAMAR dias.
+ *   - enviado ha DIAS_AVISO_RECEBIMENTO dias, sem aviso ainda -> sino + e-mail "Confirme ou nos
  *     conte se houve problema" e marca aviso_recebimento_em.
  *
  * IDEMPOTENTE: cada update filtra pelo estado de origem (compare-and-set):
@@ -30,7 +30,7 @@ import { enviarLoteEmails, renderRecebimentoAvisoEmail, type EmailLoteItem } fro
  * aos ~20s (o que sobrar fica para a proxima hora).
  * ★ FILTRO DE LEILAO NO BANCO, nao em memoria. Antes o lote de 100 vinha de
  *   TODOS os pedidos 'enviado' e o filtro de leilao era depois: 100 pedidos de
- *   marketplace parados ha mais de 14 dias ocupavam o lote inteiro para sempre
+ *   marketplace parados ha mais de DIAS_AVISO_RECEBIMENTO dias ocupavam o lote inteiro para sempre
  *   e nenhum leilao era processado. Agora sao duas leituras ja filtradas
  *   (atalho pedidos.leilao_id, e pedido_itens!inner com leilao_id para o
  *   carrinho) e o candidato ja avisado que ainda nao fecha fica de fora.
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
 
     const corteFechar = new Date(agora - DIAS_FECHAMENTO_AUTO * DIA_MS).toISOString()
     const COLS = 'id, numero, status, loja_id, vendedor_user_id, comprador_user_id, item_nome, leilao_id, enviado_em, reclamacao_aberta, aviso_recebimento_em'
-    // Candidato = ainda nao avisado (>= 14 dias) OU ja no ponto de fechar (>= 21).
+    // Candidato = ainda nao avisado (>= DIAS_AVISO_RECEBIMENTO) OU ja no ponto de fechar (>= DIAS_FECHAMENTO_AUTO).
     const pendente = `aviso_recebimento_em.is.null,enviado_em.lte."${corteFechar}"`
 
     // Leilao pelo atalho (pedidos.leilao_id)...

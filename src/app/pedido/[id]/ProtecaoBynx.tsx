@@ -8,7 +8,7 @@ import { comprimirImagem } from '@/lib/comprimirImagem'
 import { IconShield, IconCamera, IconCheck, IconWarning, IconClock } from '@/components/ui/Icons'
 import {
   MOTIVOS, LISTA_MOTIVOS, SLOTS_FOTO, ROTULO_SLOT, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES,
-  ROTULO_BOTAO_PROBLEMA, TEXTO_PROTECAO, motivoExigeFoto, podeReclamar, podeCancelarPorAtraso, prazoEnvio,
+  ROTULO_BOTAO_PROBLEMA, TEXTO_PROTECAO, DIAS_UTEIS_ENVIO, motivoExigeFoto, podeReclamar, podeCancelarPorAtraso, prazoEnvio,
   fmtPrazo, type MotivoReclamacao, type SlotFoto, type StatusReclamacao, type RespostaLoja, type Decisao,
 } from '@/lib/leilao-reclamacao'
 
@@ -16,9 +16,9 @@ import {
  * Protecao Bynx no /pedido/[id] -- SO pedido de leilao, SO o comprador.
  * (A pagina ja confere LEILAO_ATIVO e souComprador antes de montar.)
  *
- *   pago     -> prazo de envio da loja (3 dias uteis); passado, o botao de
+ *   pago     -> prazo de envio da loja (DIAS_UTEIS_ENVIO); passado, o botao de
  *               cancelar com estorno integral.
- *   enviado / entregue dentro de 7 dias -> "Tive um problema com este pedido"
+ *   enviado / entregue dentro de DIAS_RECLAMAR -> "Tive um problema com este pedido"
  *               e o formulario (motivo, descricao, 3 fotos quando o motivo
  *               pede, video opcional).
  *   com reclamacao -> o estado dela (resposta da loja, decisao, valor).
@@ -173,7 +173,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
         cancelar.pode ? (
           <div className="pb-card pb-alerta">
             <div className="pb-head"><IconWarning size={18} color="var(--bx-amber)" /><b>A loja não enviou no prazo</b></div>
-            <p className="pb-txt">O prazo de 3 dias úteis para o envio terminou{limiteEnvio ? ` em ${fmtPrazo(limiteEnvio)}` : ''}. Você pode cancelar e receber o valor de volta, integralmente.</p>
+            <p className="pb-txt">O prazo de {DIAS_UTEIS_ENVIO} dias úteis para o envio terminou{limiteEnvio ? ` em ${fmtPrazo(limiteEnvio)}` : ''}. Você pode cancelar e receber o valor de volta, integralmente.</p>
             {confirmaCancelar ? (
               <div className="pb-linha">
                 <button type="button" className="pb-bt pb-bt-perigo" disabled={!!enviando} onClick={pedirCancelamento}>{enviando || 'Confirmar cancelamento'}</button>

@@ -11,9 +11,9 @@ import { renderReclamacaoRespostaCompradorEmail } from '@/lib/email'
  * POST /api/lojas/[id]/reclamacoes/[rid]/responder
  *   { tipo: 'aceitar' | 'contraproposta' | 'provas', texto, contraproposta_cents? }
  *
- * A loja responde a reclamacao dentro de 3 dias uteis (prazo_loja_ate). A
- * resposta leva a reclamacao para 'em_analise' e a Bynx decide em ate 5 dias
- * uteis a partir de agora. Dinheiro NAO se move aqui: mesmo o "aceitar" so
+ * A loja responde a reclamacao dentro de DIAS_UTEIS_LOJA dias uteis
+ * (prazo_loja_ate). A resposta leva a reclamacao para 'em_analise' e a Bynx
+ * decide em ate DIAS_UTEIS_DECISAO dias uteis a partir de agora. Dinheiro NAO se move aqui: mesmo o "aceitar" so
  * registra a concordancia -- quem estorna e o admin (/api/admin/reclamacoes).
  *
  * Depois do prazo a rota recusa: o silencio ja conta a favor do comprador.

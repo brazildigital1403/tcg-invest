@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import {
-  MOTIVOS, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, ehMotivo, motivoExigeFoto, podeReclamar, somarDiasUteis,
+  MOTIVOS, DIAS_RECLAMAR, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, ehMotivo, motivoExigeFoto, podeReclamar, somarDiasUteis,
   validarDescricao, validarFotos, validarVideoUrl, fmtPrazo,
 } from '@/lib/leilao-reclamacao'
 import {
@@ -15,7 +15,7 @@ import { renderReclamacaoAbertaLojaEmail } from '@/lib/email'
  *   { motivo, descricao, fotos?: string[], video_url?: string }
  *
  * O comprador abre a reclamacao de um pedido de LEILAO (Protecao Bynx):
- *   - enviado, ou entregue ha no maximo 7 dias;
+ *   - enviado, ou entregue ha no maximo DIAS_RECLAMAR dias;
  *   - motivo nao_chegou | diferente_do_anuncio | suspeita_falsificacao | danificado;
  *   - nos 3 ultimos, fotos frente/verso/embalagem obrigatorias, ja enviadas ao
  *     bucket pela URL de /reclamacao/upload-url. O servidor confere que cada
@@ -23,7 +23,7 @@ import { renderReclamacaoAbertaLojaEmail } from '@/lib/email'
  *   - video opcional, so link https.
  * Grava pela RPC pedido_reclamacao_abrir (trava o pedido, confere tudo de novo
  * sob lock e liga pedidos.reclamacao_aberta na mesma transacao) e avisa a loja
- * (sino + e-mail). O prazo da loja (3 dias uteis) e o da Bynx (+5) saem de
+ * (sino + e-mail). O prazo da loja (DIAS_UTEIS_LOJA) e o da Bynx (+DIAS_UTEIS_DECISAO) saem de
  * lib/leilao-reclamacao.
  */
 
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const ehLeilao = await ehPedidoDeLeilao(sb, pedido)
     const pode = podeReclamar({ ...pedido, ehLeilao }, Date.now())
     if (!pode.pode) {
-      const msg = pode.motivo === 'prazo_encerrado' ? 'O prazo de 7 dias depois da entrega já terminou.'
+      const msg = pode.motivo === 'prazo_encerrado' ? `O prazo de ${DIAS_RECLAMAR} dias depois da entrega já terminou.`
         : pode.motivo === 'ja_aberta' ? 'Já existe uma reclamação aberta para este pedido.'
         : pode.motivo === 'nao_e_leilao' ? 'A reclamação por aqui vale só para pedidos de leilão.'
         : 'Este pedido não está em um estado que permita reclamação.'

@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fmtBRL } from '@/lib/comissao'
 import { IconClock, IconCheck, IconWarning } from '@/components/ui/Icons'
 import {
-  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, fmtPrazo,
+  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, fmtPrazo,
   type MotivoReclamacao, type StatusReclamacao, type RespostaLoja, type Decisao,
 } from '@/lib/leilao-reclamacao'
 
@@ -112,7 +112,7 @@ export default function AdminReclamacoesPage() {
     <div className="ar-wrap">
       <style>{CSS}</style>
       <h1 className="ar-h1">Reclamações de leilão</h1>
-      <p className="ar-sub">Proteção Bynx. A loja tem 3 dias úteis para responder; sem resposta, a decisão é a favor do comprador. A Bynx decide em até 5 dias úteis. Horários de Brasília.</p>
+      <p className="ar-sub">Proteção Bynx. A loja tem {DIAS_UTEIS_LOJA} dias úteis para responder; sem resposta, a decisão é a favor do comprador. A Bynx decide em até {DIAS_UTEIS_DECISAO} dias úteis. Horários de Brasília.</p>
 
       <div className="ar-segs">
         {SEGS.map(s => {

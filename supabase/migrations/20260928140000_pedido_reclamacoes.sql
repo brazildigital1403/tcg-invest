@@ -9,10 +9,13 @@
 -- agendar da rodada). A protecao do comprador de LEILAO vira politica com prazo:
 --   - loja envia em ate 3 dias uteis; sem envio, o comprador pede o cancelamento
 --     e recebe estorno integral (rota, sem schema novo);
---   - comprador reclama em ate 7 dias depois da entrega (confirmacao dele ou
---     fechamento automatico em enviado + 21 dias);
---   - loja responde em 3 dias uteis; silencio = decisao a favor do comprador;
---   - a Bynx (admin) decide em ate 5 dias uteis e estorna pela Stripe.
+--   - comprador reclama em ate 5 dias depois da entrega (confirmacao dele ou
+--     fechamento automatico em enviado + 12 dias, aviso no dia 8);
+--   - loja responde em 2 dias uteis; silencio = decisao a favor do comprador;
+--   - a Bynx (admin) decide em ate 3 dias uteis e estorna pela Stripe.
+--   Prazos encurtados em 28/09 para caber no repasse de 30 dias. A fonte e
+--   src/lib/leilao-reclamacao.ts (DIAS_*); aqui so o '5 days' e executavel,
+--   espelho de DIAS_RECLAMAR. Os prazos uteis chegam calculados pela rota.
 -- Marketplace e produto de loja NAO mudam: tudo aqui so vale para pedido de
 -- leilao, e as rotas conferem LEILAO_ATIVO.
 --
@@ -23,7 +26,7 @@
 --      a tabela NAO e reescrita.
 --   2. trigger pedidos_prazo_reclamacao_trg: quando um pedido de leilao vira
 --      'entregue' (confirmacao do comprador, cron, admin), grava
---      prazo_reclamacao_ate = entregue_em + 7 dias. Um lugar so, qualquer
+--      prazo_reclamacao_ate = entregue_em + 5 dias. Um lugar so, qualquer
 --      caminho. Pedido que nao e de leilao passa intacto.
 --   3. tabela pedido_reclamacoes + indice unico parcial (uma reclamacao aberta
 --      por pedido).
@@ -98,15 +101,15 @@ alter table public.pedidos
   add column if not exists reclamacao_uploads integer not null default 0;
 
 comment on column public.pedidos.reclamacao_aberta is
-  'Leilao: ha reclamacao nao resolvida. Trava o fechamento automatico (enviado + 21 dias).';
+  'Leilao: ha reclamacao nao resolvida. Trava o fechamento automatico (enviado + 12 dias).';
 comment on column public.pedidos.recebido_automatico is
-  'Leilao: virou entregue pelo cron (enviado + 21 dias sem confirmacao nem reclamacao).';
+  'Leilao: virou entregue pelo cron (enviado + 12 dias sem confirmacao nem reclamacao).';
 comment on column public.pedidos.prazo_reclamacao_ate is
-  'Leilao: ate quando o comprador pode reclamar (entregue_em + 7 dias). Gravado pelo trigger pedidos_prazo_reclamacao_trg.';
+  'Leilao: ate quando o comprador pode reclamar (entregue_em + 5 dias). Gravado pelo trigger pedidos_prazo_reclamacao_trg.';
 comment on column public.pedidos.valor_reembolsado_cents is
   'Soma estornada por decisao de reclamacao (parcial ou total). Estorno de cancelamento continua em stripe_refund_id.';
 comment on column public.pedidos.aviso_recebimento_em is
-  'Leilao: quando o aviso do dia 14 ("confirme ou conte o problema") saiu. Marca de idempotencia do cron.';
+  'Leilao: quando o aviso do dia 8 ("confirme ou conte o problema") saiu. Marca de idempotencia do cron.';
 comment on column public.pedidos.reclamacao_uploads is
   'Leilao: URLs assinadas de foto de reclamacao ja emitidas para este pedido. Teto em pedido_reclamacao_reservar_upload.';
 
@@ -138,7 +141,8 @@ begin
      and (new.leilao_id is not null
           or exists (select 1 from public.pedido_itens i
                       where i.pedido_id = new.id and i.leilao_id is not null)) then
-    new.prazo_reclamacao_ate := coalesce(new.entregue_em, now()) + interval '7 days';
+    -- espelho de DIAS_RECLAMAR em src/lib/leilao-reclamacao.ts
+    new.prazo_reclamacao_ate := coalesce(new.entregue_em, now()) + interval '5 days';
   end if;
   return new;
 end;
@@ -167,7 +171,7 @@ create table if not exists public.pedido_reclamacoes (
   -- Caminhos no bucket privado 'reclamacoes'. Nunca URL.
   fotos text[] not null default '{}',
   video_url text check (video_url is null or (char_length(video_url) <= 500 and video_url ~ '^https://')),
-  -- aguardando_loja     loja tem ate prazo_loja_ate (3 dias uteis) para responder
+  -- aguardando_loja     loja tem ate prazo_loja_ate (2 dias uteis) para responder
   -- em_analise          loja respondeu; a Bynx decide ate prazo_decisao_ate
   -- aguardando_devolucao decisao 'devolucao': estorno total quando a carta voltar
   -- resolvida           estorno feito (total ou parcial)
@@ -272,8 +276,9 @@ begin
   if v_ped.status not in ('enviado', 'entregue') then
     raise exception 'status_invalido';
   end if;
+  -- espelho de DIAS_RECLAMAR em src/lib/leilao-reclamacao.ts
   if v_ped.status = 'entregue'
-     and coalesce(v_ped.prazo_reclamacao_ate, coalesce(v_ped.entregue_em, v_ped.updated_at) + interval '7 days') < now() then
+     and coalesce(v_ped.prazo_reclamacao_ate, coalesce(v_ped.entregue_em, v_ped.updated_at) + interval '5 days') < now() then
     raise exception 'prazo_encerrado';
   end if;
   if v_ped.reclamacao_aberta then
@@ -301,7 +306,7 @@ end;
 $$;
 
 comment on function public.pedido_reclamacao_abrir(uuid, uuid, text, text, text[], text, timestamptz, timestamptz) is
-  'Comprador abre reclamacao de pedido de leilao (enviado, ou entregue dentro de 7 dias). Liga pedidos.reclamacao_aberta na mesma transacao. So service_role.';
+  'Comprador abre reclamacao de pedido de leilao (enviado, ou entregue dentro de 5 dias). Liga pedidos.reclamacao_aberta na mesma transacao. So service_role.';
 
 
 -- ----------------------------------------------------------------------------

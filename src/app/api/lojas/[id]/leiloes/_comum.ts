@@ -79,8 +79,9 @@ export async function recebimentoDaLoja(
     return { podeReceber: false, motivo: 'Ative os recebimentos em Pagamentos para receber pelos arremates.' }
   }
   // ★ REPASSE DE 30 DIAS (Protecao Bynx, decisao do Du 28/09). Sem retencao do
-  //   dinheiro, o que cobre o estorno de uma reclamacao (ate 21 + 7 dias depois
-  //   do envio) e o saldo da loja ainda nao repassado: com delay de 30 dias o
+  //   dinheiro, o que cobre o estorno de uma reclamacao (ate DIAS_FECHAMENTO_AUTO +
+  //   DIAS_RECLAMAR dias depois do envio, mais os prazos uteis da loja e da
+  //   Bynx -- ver o pior caso em scripts/reclamacao-selftest.mjs) e o saldo da loja ainda nao repassado: com delay de 30 dias o
   //   reverse_transfer do estorno encontra saldo. Com 14 nao.
   //   Fonte: `repasse_prazo` JA GRAVADO (lojas, ou users quando a loja usa a
   //   conta do dono -- o resolvedor escolhe). O PATCH de /api/lojas/[id]/connect

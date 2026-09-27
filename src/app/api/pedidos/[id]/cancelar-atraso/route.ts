@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { podeCancelarPorAtraso, fmtPrazo, conferirRefund } from '@/lib/leilao-reclamacao'
+import { podeCancelarPorAtraso, fmtPrazo, conferirRefund, DIAS_UTEIS_ENVIO } from '@/lib/leilao-reclamacao'
 import {
   SEM_CACHE, UUID_RE, sbServico, usuarioDoBearer, carregarPedido, ehPedidoDeLeilao, lotesDoPedido,
   estornarNaStripe, sino, emailSeguro, contato, nomeDaLoja,
@@ -10,7 +10,7 @@ import { renderCancelamentoAtrasoEmail } from '@/lib/email'
 /**
  * POST /api/pedidos/[id]/cancelar-atraso
  *
- * Protecao Bynx: a loja tem 3 dias uteis depois do pagamento para enviar um
+ * Protecao Bynx: a loja tem DIAS_UTEIS_ENVIO dias uteis depois do pagamento para enviar um
  * pedido de LEILAO. Passado o prazo sem envio, o COMPRADOR pode pedir o
  * cancelamento e recebe o estorno integral.
  *
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         status: 'reembolsado',
         cancelado_em: agora,
         cancelado_por: 'comprador',
-        cancelamento_motivo: 'Loja não enviou em 3 dias úteis (Proteção Bynx)',
+        cancelamento_motivo: `Loja não enviou em ${DIAS_UTEIS_ENVIO} dias úteis (Proteção Bynx)`,
         stripe_refund_id: refundId,
         updated_at: agora,
       })
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       await sino(sb, userId, 'Pedido cancelado e estornado',
         `O pedido #${pedido.numero} foi cancelado por atraso no envio e o valor foi estornado.`, `/pedido/${pedido.id}`)
       await sino(sb, lojista, 'Pedido cancelado por atraso',
-        `O comprador cancelou o pedido #${pedido.numero}: o envio não aconteceu em 3 dias úteis.`, `/minha-loja/${pedido.loja_id}/pedidos`)
+        `O comprador cancelou o pedido #${pedido.numero}: o envio não aconteceu em ${DIAS_UTEIS_ENVIO} dias úteis.`, `/minha-loja/${pedido.loja_id}/pedidos`)
       const base = {
         pedidoId: pedido.id, pedidoNumero: pedido.numero, itemNome: pedido.item_nome,
         lojaNome: loja.nome, lojaId: pedido.loja_id, valorCents: pedido.total_comprador_cents,
