@@ -136,7 +136,7 @@ const S: Record<string, CSSProperties> = {
   chips: { display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 16, paddingBottom: 2 },
   chip: {
     display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 16px', whiteSpace: 'nowrap',
-    borderRadius: 999, border: '1px solid var(--bx-border)', background: 'var(--bx-surface)',
+    borderRadius: 999, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--bx-border)', background: 'var(--bx-surface)',
     color: 'var(--bx-text-2)', fontSize: 13, fontWeight: 600, textDecoration: 'none',
   },
   chipAtivo: {
