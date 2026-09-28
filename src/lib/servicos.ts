@@ -65,14 +65,17 @@ const reaisVd = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFracti
 
 /**
  * Expresso (painel de precificacao, 28/09/2026): so pre-grading, + R$ 80, 1
- * carta por pedido e 1 expresso por vez na bancada (de qualquer cliente),
+ * carta por pedido e ate EXPRESSO_VAGAS expressos ao mesmo tempo na bancada (de
+ * qualquer cliente; o Du subiu de 1 para 3 no mesmo dia),
  * postado em ate 2 dias uteis apos a chegada, volta por SEDEX. Restauracao e
  * completo nao tem expresso: o descanso nao acelera. Pedido padrao do mesmo
  * cliente so comeca depois que o expresso for enviado.
  */
 export const EXPRESSO_MAX_CARTAS = 1
+/** Quantos expressos podem estar abertos ao mesmo tempo na bancada. */
+export const EXPRESSO_VAGAS = 3
 export const EXPRESSO_SERVICOS: readonly ServicoId[] = ['pre_grading']
-/** Status em que um expresso ocupa a vaga unica da bancada (a partir do aceite). */
+/** Status em que um expresso ocupa uma vaga da bancada (a partir do aceite). */
 export const STATUS_EXPRESSO_OCUPA_VAGA = ['aceito', 'recebida', 'em_bancada', 'pronta'] as const
 /** Acima disso o prazo padrao sai no orcamento. */
 export const PRAZO_PADRAO_ATE_CARTAS = 5

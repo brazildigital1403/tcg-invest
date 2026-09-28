@@ -93,7 +93,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   // Expresso so existe no pre-grading: trocar de servico volta ao padrao sozinho.
   const temExpresso = PRECOS?.expresso != null && EXPRESSO_SERVICOS.includes(servico)
   const prazo = temExpresso ? prazoEscolhido : 'padrao'
-  // Vaga unica do expresso na bancada (null = ainda perguntando).
+  // Vagas do expresso na bancada (null = ainda perguntando).
   const [vagaExpresso, setVagaExpresso] = useState<boolean | null>(null)
   useEffect(() => {
     let vivo = true

@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server'
 import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
 import {
   MAX_CARTAS_POR_SOLICITACAO, QUEIXAS, OBJETIVOS, GRADUADORAS_ALVO, EXPRESSO_MAX_CARTAS, EXPRESSO_SERVICOS,
-  STATUS_EXPRESSO_EM_ANDAMENTO, STATUS_EXPRESSO_OCUPA_VAGA, type ServicoId,
+  STATUS_EXPRESSO_EM_ANDAMENTO, STATUS_EXPRESSO_OCUPA_VAGA, EXPRESSO_VAGAS, type ServicoId,
 } from '@/lib/servicos'
 import {
   sbAdmin, usuarioDoToken, erro, registrarEvento, caminhoFoto, urlDeUpload, numeroSolicitacao,
@@ -26,12 +26,12 @@ const MAX_POR_DIA = 5
 const SERVICOS_OK = ['restauracao', 'pre_grading', 'completo']
 const VALOR_MAX_CENTS = 100_000_000 // R$ 1 milhao por carta: acima disso e digitacao errada
 
-/** A vaga unica do expresso esta livre? (1 expresso por vez na bancada, de qualquer cliente) */
+/** Ainda ha vaga de expresso? (ate EXPRESSO_VAGAS abertos na bancada, de qualquer cliente) */
 async function vagaExpressoLivre(sb: ReturnType<typeof sbAdmin>): Promise<boolean> {
   const { count, error } = await sb.from('servico_solicitacoes').select('id', { count: 'exact', head: true })
     .eq('prazo', 'expresso').in('status', [...STATUS_EXPRESSO_OCUPA_VAGA])
   if (error) throw new Error(error.message)
-  return (count ?? 0) === 0
+  return (count ?? 0) < EXPRESSO_VAGAS
 }
 
 // GET /api/servicos -- so diz se a vaga do expresso esta livre (o formulario
