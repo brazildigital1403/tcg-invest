@@ -42,7 +42,7 @@ type Proc = {
 }
 type Evento = { id: string; status: string; nota: string | null; created_at: string }
 type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; mime: string; url: string | null }
-type Pag = { etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; pago_em: string | null }
+type Pag = { etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; pago_em: string | null; reembolsado_cents?: number | null; reembolsado_em?: string | null }
 type Dados = {
   solicitacao: Sol; itens: Item[]; eventos: Evento[]; midias: Midia[]; procedimentos: Proc[]; endereco: string | null
   pagamentos: Pag[]; devida: { etapa: Pag['etapa']; valor_cents: number } | null; pix: { chave: string; nome: string | null } | null
@@ -406,6 +406,13 @@ function Pedido({ id }: { id: string }) {
                   <li key={pg.etapa} className={pg.pago_em ? 'ok' : ''}>
                     <div><b>{ETAPA_PAG[pg.etapa]?.t}</b><span>R$ {brl(pg.valor_cents / 100)}</span></div>
                     <small>{pg.pago_em ? <><IconCheck size={12} /> Pago em {fmtDataHoraBRT.format(new Date(pg.pago_em))}</> : ETAPA_PAG[pg.etapa]?.d}</small>
+                    {!!pg.reembolsado_cents && (
+                      <small className="sp-estorno">
+                        {pg.reembolsado_cents >= pg.valor_cents ? 'Estornado' : `Estornado R$ ${brl(pg.reembolsado_cents / 100)}`}
+                        {pg.reembolsado_em ? ` em ${fmtDataHoraBRT.format(new Date(pg.reembolsado_em))}` : ''}
+                        {pg.reembolsado_cents < pg.valor_cents ? `. Ficou R$ ${brl((pg.valor_cents - pg.reembolsado_cents) / 100)}.` : '.'}
+                      </small>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -580,6 +587,7 @@ const CSS = `
 .sp-pags li.ok{border-color:color-mix(in srgb,var(--bx-green) 35%,transparent)}
 .sp-pags li > div{display:flex;justify-content:space-between;gap:10px;font-size:14px}
 .sp-pags li span{font-weight:700;font-variant-numeric:tabular-nums}
+.sp-pags li small.sp-estorno,.sp-pags li.ok small.sp-estorno{color:var(--bx-amber);font-weight:600}
 .sp-pags small{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;line-height:1.45;color:var(--bx-text-2)}
 .sp-pags li.ok small{color:var(--bx-green)}
 .sp-garantia{grid-template-columns:24px minmax(0,1fr);align-items:start;color:var(--bx-green)}

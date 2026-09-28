@@ -53,7 +53,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       // A proposta so aparece para o cliente depois de enviada (rascunho do painel fica oculto).
       procedimentos: sol.proposta_enviada_em ? procs || [] : [],
       endereco: sol.status === 'aceito' && envioLiberado(pagamentos) ? enderecoRecebimento() : null,
-      pagamentos: pagamentos.map(({ etapa, valor_cents, pago_em }) => ({ etapa, valor_cents, pago_em })),
+      pagamentos: pagamentos.map(({ etapa, valor_cents, pago_em, reembolsado_cents, reembolsado_em }) => ({ etapa, valor_cents, pago_em, reembolsado_cents, reembolsado_em })),
       devida: devida ? { etapa: devida.etapa, valor_cents: devida.valor_cents } : null,
       recalculando,
       pix: devida ? pixRecebimento() : null,
