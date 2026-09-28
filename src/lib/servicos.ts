@@ -12,6 +12,10 @@
 
 export const SERVICOS_PUBLICADO = false
 export const SERVICOS_FORM_ATIVO = true
+// Pagamento por cartao (Stripe Checkout) no /servico/[id]. Desligado: o botao
+// nao aparece e POST /api/servicos/[id]/checkout responde 404. So liga depois
+// do webhook da fatia 5 provado -- sem ele o pagamento nao seria registrado.
+export const SERVICOS_CARTAO_ATIVO = false
 
 export type ServicoId = 'restauracao' | 'pre_grading' | 'completo'
 

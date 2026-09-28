@@ -17,9 +17,9 @@ import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { authFetch } from '@/lib/authFetch'
 import {
   STATUS_SERVICO, SERVICOS, termoDoServico, GUIA_EMBALAGEM, CAMPOS_LAUDO, brl, numeroServico, fmtDataHoraBRT, turnoServico,
-  PILARES, ESCALA, DANOS, TERMO_PROPOSTA_V1, RISCOS, OBJETIVOS, ALERTA_GRADUACAO, type FichaCondicao,
+  PILARES, ESCALA, DANOS, TERMO_PROPOSTA_V1, RISCOS, OBJETIVOS, ALERTA_GRADUACAO, SERVICOS_CARTAO_ATIVO, type FichaCondicao,
 } from '@/lib/servicos'
-import { IconCheck, IconClose, IconTruck, IconShield, IconWarning, IconBox } from '@/components/ui/Icons'
+import { IconCheck, IconClose, IconTruck, IconShield, IconWarning, IconBox, IconWallet } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import Rastreio from '@/components/servicos/Rastreio'
 
@@ -102,6 +102,35 @@ function Pedido({ id }: { id: string }) {
     } catch { setErro('Sem conexão. Tente de novo em instantes.') }
   }, [id])
   useEffect(() => { carregar() }, [carregar])
+
+  // Volta do Checkout da Stripe (?pagamento=ok|cancelado). Quem confirma e o
+  // webhook, entao no "ok" a pagina rele algumas vezes ate a etapa aparecer paga.
+  useEffect(() => {
+    if (!SERVICOS_CARTAO_ATIVO) return
+    const url = new URL(window.location.href)
+    const retorno = url.searchParams.get('pagamento')
+    if (retorno !== 'ok' && retorno !== 'cancelado') return
+    url.searchParams.delete('pagamento')
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+    if (retorno === 'cancelado') {
+      setMsg({ ok: false, t: 'Pagamento com cartão cancelado. Nada foi cobrado. Você pode tentar de novo ou pagar com Pix.' })
+      return
+    }
+    setMsg({ ok: true, t: 'Recebemos o seu pagamento. A confirmação aparece aqui em instantes.' })
+    let vezes = 0
+    const t = window.setInterval(() => { vezes += 1; carregar(); if (vezes >= 5) window.clearInterval(t) }, 3000)
+    return () => window.clearInterval(t)
+  }, [carregar])
+
+  async function pagarCartao() {
+    setOcupado(true); setMsg(null)
+    try {
+      const r = await authFetch(`/api/servicos/${id}/checkout`, { method: 'POST' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.url) { setMsg({ ok: false, t: d.error || 'Não foi possível abrir o pagamento com cartão. Tente de novo.' }); setOcupado(false); return }
+      window.location.href = d.url
+    } catch { setMsg({ ok: false, t: 'Sem conexão. Tente de novo.' }); setOcupado(false) }
+  }
 
   async function postar(rota: string, body: object, ok: string) {
     setOcupado(true); setMsg(null)
@@ -265,6 +294,7 @@ function Pedido({ id }: { id: string }) {
                     ? 'O sinal cobre o frete de volta da sua carta e o valor declarado nos Correios. O serviço só é cobrado quando você aprovar a proposta de tratamento. Com o sinal confirmado, o endereço de envio aparece aqui.'
                     : 'Com o pagamento confirmado, o endereço de envio aparece aqui.'}
               </p>
+              <div className="sp-metodos">
               <div className="sp-pix">
                 <span>Pix</span>
                 <b>R$ {brl(devida.valor_cents / 100)}</b>
@@ -278,6 +308,17 @@ function Pedido({ id }: { id: string }) {
                   </>
                 ) : <small>A chave Pix chega por e-mail ou WhatsApp.</small>}
                 <small>Na descrição do Pix, escreva <b>{numeroServico(s.numero)}</b>.</small>
+              </div>
+              {SERVICOS_CARTAO_ATIVO && (
+                <div className="sp-pix sp-cartao">
+                  <span>Cartão de crédito</span>
+                  <b>R$ {brl(devida.valor_cents / 100)}</b>
+                  <small>Mesmo valor do Pix, sem acréscimo. O pagamento abre em uma página segura e volta para cá.</small>
+                  <button type="button" className="sp-bt sp-bt-pri" disabled={ocupado} onClick={pagarCartao}>
+                    <IconWallet size={16} /> Pagar com cartão
+                  </button>
+                </div>
+              )}
               </div>
               <p className="sp-muted">Depois do Pix, a Bynx confirma o pagamento e esta página atualiza sozinha no próximo acesso. Você também recebe um e-mail.</p>
             </section>
@@ -529,6 +570,9 @@ const CSS = `
 .sp-pix > span{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ac-1)}
 .sp-pix > b{font-size:26px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
 .sp-pix small{font-size:13px;color:var(--bx-text-2)}
+.sp-metodos{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.sp-cartao{align-content:start}
+.sp-cartao .sp-bt{margin-top:4px}
 .sp-pix-chave{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .sp-pix-chave code{flex:1 1 180px;min-width:0;padding:10px 12px;border-radius:10px;background:var(--bx-surface-2);font-size:14px;overflow-wrap:anywhere}
 .sp-pags{list-style:none;margin:0;padding:0;display:grid;gap:10px}

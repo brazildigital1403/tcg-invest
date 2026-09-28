@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  sbAdmin, carregarAutorizado, erro, enderecoRecebimento, BUCKET_SERVICOS, pagamentosDoPedido, etapaDevida,
+  sbAdmin, carregarAutorizado, erro, enderecoRecebimento, BUCKET_SERVICOS, pagamentosDoPedido, etapaCobravel,
   envioLiberado, pixRecebimento,
 } from '@/lib/servicosServer'
 
@@ -37,9 +37,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     // O servico so vira "devido" depois que a cobranca saiu (com recusa na
     // proposta, o admin confere o valor antes). Ate la: "recalculando".
     const cobrancaEnviada = (eventos || []).some(e => e.status === 'cobranca_servico')
-    const devidaBruta = etapaDevida(sol.status, !!sol.proposta_aceita_em, pagamentos)
-    const devida = devidaBruta?.etapa === 'servico' && !cobrancaEnviada ? null : devidaBruta
-    const recalculando = devidaBruta?.etapa === 'servico' && !cobrancaEnviada
+    const { devida, recalculando } = etapaCobravel(sol.status, !!sol.proposta_aceita_em, pagamentos, cobrancaEnviada)
 
     const paths = (midias || []).map(m => m.path)
     const { data: assinadas } = paths.length

@@ -231,6 +231,18 @@ export function etapaDevida(status: string, propostaAceita: boolean, linhas: Lin
   return null
 }
 
+/**
+ * A etapa que o cliente pode pagar agora, ja com a trava da cobranca: o servico
+ * so vira "devido" depois que a cobranca saiu (evento 'cobranca_servico'); com
+ * recusa na proposta, o admin confere o valor antes. Ate la: "recalculando".
+ * Uma fonte so para o GET do pedido e para o checkout do cartao.
+ */
+export function etapaCobravel(status: string, propostaAceita: boolean, linhas: LinhaPagamento[], cobrancaEnviada: boolean) {
+  const bruta = etapaDevida(status, propostaAceita, linhas)
+  const recalculando = bruta?.etapa === 'servico' && !cobrancaEnviada
+  return { devida: recalculando ? null : bruta, recalculando }
+}
+
 /** Etapa paga libera o envio da carta (endereco)? */
 export function envioLiberado(linhas: LinhaPagamento[]) {
   if (!linhas.length) return true // pedido antigo, sem etapas: mantem o comportamento anterior
