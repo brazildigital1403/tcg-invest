@@ -33,7 +33,7 @@ import { carimbarConvite } from '@/lib/campanhaConvites'
 import {
   sbAdmin as sbServicos, confirmarPagamento as confirmarPagamentoServico, aposConfirmarPagamento,
   registrarEvento as registrarEventoServico, notificarAdmin as notificarAdminServico, ROTULO_ETAPA as ROTULO_ETAPA_SERVICO,
-  type EtapaPagamento as EtapaPagamentoServico,
+  aposEstorno as aposEstornoServico, type EtapaPagamento as EtapaPagamentoServico,
 } from '@/lib/servicosServer'
 import { numeroServico } from '@/lib/servicos'
 
@@ -493,6 +493,129 @@ async function tratarPagamentoServico(event: Stripe.Event): Promise<{ status: nu
   return ok('confirmado')
 }
 
+// ─── Servico de bancada: conciliacao de estorno do cartao (fatia 6) ─────────
+//
+// O estorno normal nasce no painel admin (/api/admin/servicos/[id], acao
+// 'estornar'), que cria o refund na Stripe e grava o banco. Este ramo so
+// CONCILIA: estorno feito direto no painel da Stripe, ou gravacao do painel
+// que falhou depois do refund. Ramo ISOLADO: entra so charge.refunded /
+// refund.updated cujo PaymentIntent esta em servico_pagamentos (o id e UNIQUE
+// la). Marketplace e assinaturas nunca passam por aqui.
+//
+// ★ Iguala reembolsado_cents ao total estornado da charge, SO PARA CIMA. Nunca
+//   diminui (refund que falhou depois vira aviso ao admin, nao conta no banco).
+// ★ Idempotente pela transicao: o update filtra pelo valor lido. Reentrega ou
+//   evento de um estorno que o painel ja gravou encontra o banco igual e sai com
+//   200 sem evento e sem e-mail. So quem sobe o valor registra e avisa.
+// ★ Sem a trava por event.id (mesmo motivo da fatia 5): 500 aqui precisa ser
+//   reprocessado na reentrega.
+
+const EVENTOS_ESTORNO_SERVICO = new Set(['charge.refunded', 'refund.updated'])
+
+function piDoEstorno(event: Stripe.Event): string | null {
+  const obj = event.data.object as Stripe.Charge | Stripe.Refund
+  const pi = obj.payment_intent
+  return typeof pi === 'string' ? pi : pi?.id || null
+}
+
+/** Linha de servico_pagamentos do PaymentIntent deste estorno, ou null (nao e servico). */
+async function pagamentoServicoDoEstorno(event: Stripe.Event): Promise<{ id: string } | null> {
+  if (!EVENTOS_ESTORNO_SERVICO.has(event.type)) return null
+  const pi = piDoEstorno(event)
+  if (!pi) return null
+  const { data, error } = await sbServicos().from('servico_pagamentos').select('id').eq('stripe_payment_intent_id', pi).limit(1)
+  if (error) throw new Error(error.message)
+  return data?.[0] ? { id: data[0].id as string } : null
+}
+
+async function conciliarEstornoServico(
+  event: Stripe.Event, stripe: Stripe, pagamentoId: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const sb = sbServicos()
+  const piId = piDoEstorno(event)
+  const tag = `[webhook/servico-estorno] ${event.type} ${event.id} PI ${piId} pagamento ${pagamentoId}`
+  const ok = (resultado: string) => ({ status: 200, body: { received: true, servico_estorno: resultado } })
+  const brlS = (c: number) => `R$ ${(c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+  const teste = event.livemode ? '' : ' (modo de teste)'
+
+  // ── Total estornado da charge, segundo a Stripe ────────────────────────────
+  let total: number
+  let refundId: string | null = null
+  if (event.type === 'charge.refunded') {
+    total = (event.data.object as Stripe.Charge).amount_refunded || 0
+  } else {
+    const refund = event.data.object as Stripe.Refund
+    refundId = refund.id
+    if (refund.status === 'failed' || refund.status === 'canceled') {
+      // O dinheiro NAO voltou, mas o banco pode ja ter somado. Nunca diminuir:
+      // o admin confere e decide.
+      console.error(`${tag}: refund ${refund.id} ${refund.status} (${refund.failure_reason || 'sem motivo'}) -- conferir, banco nao alterado`)
+      const { data: sols } = await sb.from('servico_pagamentos').select('solicitacao_id').eq('id', pagamentoId).limit(1)
+      if (sols?.[0]) {
+        await notificarAdminServico(sols[0].solicitacao_id as string, 'Estorno no cartão não concluído:', [
+          `A Stripe marcou o refund ${refund.id} de ${brlS(refund.amount || 0)} como ${refund.status === 'failed' ? 'falhou' : 'cancelado'}${refund.failure_reason ? ` (${refund.failure_reason})` : ''}.`,
+          'O painel não desconta estornos sozinho. Confira na Stripe e no pedido o que de fato voltou ao cliente.',
+          `PaymentIntent: ${piId}${teste}`,
+        ])
+      }
+      return ok('refund_nao_concluido')
+    }
+    const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id
+    if (!chargeId) {
+      console.warn(`${tag}: refund sem charge -- nada a conciliar`)
+      return ok('sem_charge')
+    }
+    const charge = await stripe.charges.retrieve(chargeId) // falha aqui = 500 = a Stripe reenvia
+    total = charge.amount_refunded || 0
+  }
+
+  // ── Transicao para cima, filtrada pelo valor lido ──────────────────────────
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    const { data: linhas, error } = await sb.from('servico_pagamentos')
+      .select('id, solicitacao_id, etapa, valor_cents, metodo, pago_em, reembolsado_cents')
+      .eq('id', pagamentoId).limit(1)
+    if (error) throw new Error(error.message)
+    const linha = linhas?.[0]
+    if (!linha) return ok('linha_sumiu')
+    if (linha.metodo !== 'stripe' || !linha.pago_em) {
+      console.error(`${tag}: estorno numa etapa que o banco nao da como paga no cartao (metodo ${linha.metodo}) -- nada alterado, conferir`)
+      return ok('revisao')
+    }
+    const atual = Number(linha.reembolsado_cents || 0)
+    let alvo = total
+    if (alvo > linha.valor_cents) {
+      console.error(`${tag}: Stripe estornou ${total}, acima do valor da etapa ${linha.valor_cents} -- limitando ao valor da etapa`)
+      alvo = linha.valor_cents
+    }
+    if (alvo <= atual) {
+      if (alvo < atual) console.warn(`${tag}: Stripe mostra ${alvo}, banco ${atual} -- nunca diminui, ignorando`)
+      else console.log(`${tag}: ja conciliado (${atual}) -- nada a fazer`)
+      return ok('ja_conciliado')
+    }
+
+    const agora = new Date().toISOString()
+    const { data: subiu, error: eU } = await sb.from('servico_pagamentos')
+      .update({ reembolsado_cents: alvo, reembolsado_em: agora, ...(refundId ? { stripe_refund_id: refundId } : {}) })
+      .eq('id', linha.id).eq('reembolsado_cents', atual).select('id')
+    if (eU) throw new Error(eU.message)
+    if (!subiu?.length) continue // outro caminho gravou no meio: le de novo
+
+    const delta = alvo - atual
+    const rotulo = ROTULO_ETAPA_SERVICO[linha.etapa as EtapaPagamentoServico] || linha.etapa
+    const { data: sols } = await sb.from('servico_solicitacoes').select('status').eq('id', linha.solicitacao_id).limit(1)
+    console.log(`${tag}: CONCILIADO ${atual} -> ${alvo} (+${delta}) na etapa ${linha.etapa}`)
+    await aposEstornoServico(linha.solicitacao_id as string, String(sols?.[0]?.status || 'aceito'), delta, 'stripe', agora, teste)
+    await notificarAdminServico(linha.solicitacao_id as string, 'Estorno registrado pela Stripe:', [
+      `${brlS(delta)} de ${rotulo.toLowerCase()} foi estornado na Stripe e registrado pela conciliação automática (total ${brlS(alvo)} de ${brlS(linha.valor_cents)}).`,
+      'Isso acontece quando o estorno é feito direto no painel da Stripe, ou quando o painel da Bynx não conseguiu gravar depois de estornar. O motivo, se houver, está na Stripe.',
+      `PaymentIntent: ${piId}`,
+      `Evento: ${event.id}${teste}`,
+    ])
+    return ok('conciliado')
+  }
+  throw new Error('conciliacao de estorno disputada 3 vezes seguidas')
+}
+
 // ─── Handler principal ───────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -562,6 +685,30 @@ export async function POST(req: NextRequest) {
       if (error) console.warn(`[webhook/servico] auditoria do evento ${event.id} falhou:`, error.message)
     })
     return NextResponse.json(res.body, { status: res.status })
+  }
+
+  // ── Servico de bancada (estorno do cartao): conciliacao isolada ──
+  // Ver conciliarEstornoServico. Falha na busca = 500 (a Stripe reenvia), nunca
+  // cai no ramo do marketplace sem saber de quem e o estorno.
+  if (EVENTOS_ESTORNO_SERVICO.has(event.type)) {
+    let res: { status: number; body: Record<string, unknown> } | null = null
+    try {
+      const pag = await pagamentoServicoDoEstorno(event)
+      if (pag) res = await conciliarEstornoServico(event, stripe, pag.id)
+    } catch (err) {
+      console.error(`[webhook/servico-estorno] falha transitoria em ${event.type} ${event.id} -- 500 para a Stripe reenviar:`, err instanceof Error ? err.message : err)
+      res = { status: 500, body: { error: 'Falha temporária' } }
+    }
+    if (res) {
+      await supabase.from('stripe_events_processed').upsert({
+        event_id: event.id, event_type: event.type, livemode: event.livemode,
+        result: res.status === 200 ? 'ok' : 'error',
+        error_message: res.status === 200 ? null : 'servico-estorno: falha transitoria',
+      }, { onConflict: 'event_id' }).then(({ error }) => {
+        if (error) console.warn(`[webhook/servico-estorno] auditoria do evento ${event.id} falhou:`, error.message)
+      })
+      return NextResponse.json(res.body, { status: res.status })
+    }
   }
 
   // ── Extrai metadata pra idempotência (best-effort, antes do switch) ──

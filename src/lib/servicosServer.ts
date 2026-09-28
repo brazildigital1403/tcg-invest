@@ -12,7 +12,7 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
-  numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio,
+  numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio, fmtDataHoraAnoBRT,
   ESCALA, PILARES, CAMPOS_LAUDO, FOTOS_ENTRADA, FOTOS_SAIDA, compararFicha, fotosFaltando, faltasDoLaudo,
   type FichaCondicao,
 } from '@/lib/servicos'
@@ -113,7 +113,10 @@ export async function urlDeUpload(path: string) {
 // update filtra pelo status atual), entao cada e-mail sai uma vez. Falha de
 // envio nunca derruba a rota: loga e segue.
 
-export type EtapaEmail = 'recebido' | 'orcado' | 'recusado_bynx' | 'aceito' | 'liberado_envio' | 'cobrar_servico' | 'servico_pago' | 'recebida' | 'proposta' | 'pronta' | 'enviada'
+export type EtapaEmail = 'recebido' | 'orcado' | 'recusado_bynx' | 'aceito' | 'liberado_envio' | 'cobrar_servico' | 'servico_pago' | 'recebida' | 'proposta' | 'pronta' | 'enviada' | 'estorno'
+
+/** Dados que so o e-mail de estorno precisa (o resto do pedido vem do banco). */
+export interface ExtraEmailEstorno { valorCents: number; metodo: 'stripe' | 'pix_manual'; em: string }
 
 const APP = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 const reais = (c: number | null | undefined) => `R$ ${brl((c || 0) / 100)}`
@@ -284,6 +287,21 @@ export async function aposConfirmarPagamento(solicitacaoId: string, statusAtual:
   if (etapa === 'servico') await notificarCliente(solicitacaoId, 'servico_pago')
 }
 
+/**
+ * O que acontece DEPOIS que um estorno foi gravado (a transicao do
+ * reembolsado_cents aconteceu nesta chamada): evento neutro na linha do tempo
+ * (o cliente ve; o motivo NAO vai aqui) + e-mail ao cliente. Uma regra so para o
+ * estorno pelo painel e para a conciliacao do webhook. Nunca muda o status do
+ * pedido: essa decisao fica com o admin.
+ */
+export async function aposEstorno(
+  solicitacaoId: string, statusAtual: string, valorCents: number, metodo: 'stripe' | 'pix_manual', em: string, sufixoNota = '',
+) {
+  const nota = metodo === 'stripe' ? `Estorno de ${reais(valorCents)} no cartão` : `Devolução de ${reais(valorCents)} por Pix`
+  await registrarEvento(solicitacaoId, statusAtual, `${nota}${sufixoNota}`)
+  await notificarCliente(solicitacaoId, 'estorno', { valorCents, metodo, em })
+}
+
 function blocoPix(valor: number, numero: string) {
   const pix = pixRecebimento()
   return pix
@@ -291,7 +309,7 @@ function blocoPix(valor: number, numero: string) {
     : `Valor: ${reais(valor)}\nA chave Pix chega por e-mail ou WhatsApp. Na descrição do Pix, escreva: ${numero}`
 }
 
-export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail) {
+export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail, extra?: ExtraEmailEstorno) {
   try {
     const sb = sbAdmin()
     const { data: sols } = await sb.from('servico_solicitacoes')
@@ -417,6 +435,24 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
           `Nada começa sem a sua decisão. O prazo${PRAZOS.padraoDiasUteis ? ` de ${PRAZOS.padraoDiasUteis} dias úteis` : ''} conta a partir dela.`,
         ],
         cta: { rotulo: 'Ver e decidir a proposta', href: link },
+      })
+    } else if (etapa === 'estorno') {
+      if (!extra || !(extra.valorCents > 0)) return
+      const quando = fmtDataHoraAnoBRT.format(extra.em).replace(' ', ' às ')
+      await sendServicoClienteEmail({
+        ...base,
+        assunto: extra.metodo === 'stripe' ? `Estorno no cartão: pedido ${numero}` : `Devolução por Pix: pedido ${numero}`,
+        selo: extra.metodo === 'stripe' ? 'Estorno no cartão' : 'Devolução por Pix',
+        titulo: extra.metodo === 'stripe' ? `Estorno de ${reais(extra.valorCents)}` : `Devolução de ${reais(extra.valorCents)}`,
+        paragrafos: extra.metodo === 'stripe'
+          ? [
+            `Fizemos o estorno de ${reais(extra.valorCents)} no cartão usado no pedido ${numero}, em ${quando} (horário de Brasília).`,
+            'O valor volta pela operadora do cartão. Dependendo do banco emissor, ele pode levar alguns dias para aparecer na fatura.',
+          ]
+          : [
+            `Registramos a devolução de ${reais(extra.valorCents)} por Pix referente ao pedido ${numero}, em ${quando} (horário de Brasília).`,
+          ],
+        cta,
       })
     } else if (etapa === 'pronta') {
       await enviarEmailPronta(sb, solicitacaoId, { ...base, numero, servico, link })

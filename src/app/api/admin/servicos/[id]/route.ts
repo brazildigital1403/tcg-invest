@@ -7,6 +7,8 @@
 //   status          qualquer transicao de TRANSICOES_ADMIN (custodia na chegada,
 //                   rastreio de volta no envio)
 //   pagamento       marca Pix combinado fora do site
+//   estornar        estorno de uma etapa paga: cartao na Stripe (primeiro) e
+//                   depois no banco; Pix so registra a devolucao feita no banco
 //   laudo           grava o laudo de uma carta
 //   ficha           ficha de condicao de entrada ou saida de uma carta
 //   procedimentos   rascunho da proposta de tratamento de uma carta
@@ -17,14 +19,15 @@
 // abertas nao passam a mesma transicao duas vezes.
 
 import { NextRequest, NextResponse } from 'next/server'
+import Stripe from 'stripe'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
   sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS, sincronizarPagamentos, pagamentosDoPedido,
-  confirmarPagamento, aposConfirmarPagamento, pendencias, type EtapaPagamento,
+  confirmarPagamento, aposConfirmarPagamento, aposEstorno, notificarAdmin, pendencias, ROTULO_ETAPA, type EtapaPagamento,
 } from '@/lib/servicosServer'
 import {
   TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, RISCOS,
-  validarFicha, lerFaixaNota, lerGraduadora, STATUS_EXPRESSO_EM_ANDAMENTO,
+  validarFicha, lerFaixaNota, lerGraduadora, STATUS_EXPRESSO_EM_ANDAMENTO, brl,
 } from '@/lib/servicos'
 
 export const dynamic = 'force-dynamic'
@@ -244,6 +247,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ ok: true })
     }
 
+    // ── Estorno de uma etapa paga ───────────────────────────────────────────
+    if (body.acao === 'estornar') return await estornar(id, sol.status, body)
+
     // ── Ficha de condicao (entrada ou saida) ───────────────────────────────
     if (body.acao === 'ficha') {
       const lado = body.lado === 'saida' ? 'saida' : 'entrada'
@@ -412,4 +418,170 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     console.error('[admin/servicos/id POST]', e instanceof Error ? e.message : e)
     return erro(500, 'Erro interno')
   }
+}
+
+// ── Estorno (fatia 6) ────────────────────────────────────────────────────────
+//
+// ★ ORDEM: provedor antes do banco. O refund nasce na Stripe e SO DEPOIS o
+//   reembolsado_cents e somado. Se a gravacao falhar depois do refund, o erro diz
+//   que o dinheiro SAIU e nada e repetido: a conciliacao do webhook (charge.refunded)
+//   iguala o banco ao total da Stripe sozinha.
+// ★ IDEMPOTENCIA em tres camadas:
+//   1. Chave da Stripe presa ao estado ANTERIOR (pagamento + total ja estornado).
+//      Dois cliques a partir do mesmo estado caem na mesma chave: mesmo valor ->
+//      o mesmo refund volta; valor diferente -> a Stripe recusa a chave. Nunca
+//      nascem dois refunds do mesmo estado.
+//   2. Antes de criar, confere o total ja estornado NA STRIPE. Se for maior que o
+//      do banco, ha estorno ainda nao conciliado: recusa (o estado do banco esta
+//      velho e a chave do item 1 nao protegeria).
+//   3. O update so soma onde reembolsado_cents ainda e o valor lido. Quem perdeu
+//      a corrida (outro clique, ou o webhook) nao registra evento nem e-mail.
+// ★ O motivo nao tem coluna: vai na metadata do refund (fica na Stripe), no log e
+//   no e-mail interno. Nunca na linha do tempo (o cliente le a linha do tempo).
+// ★ Estorno nunca muda o status do pedido. A decisao fica com o admin.
+
+const reaisE = (c: number) => `R$ ${brl(c / 100)}`
+
+async function estornar(id: string, statusAtual: string, body: Record<string, unknown>) {
+  const sb = sbAdmin()
+  const pagamentoId = String(body.pagamento_id || '')
+  const motivo = typeof body.motivo === 'string' ? body.motivo.trim().replace(/\s+/g, ' ').slice(0, 300) : ''
+  if (!/^[0-9a-f-]{36}$/i.test(pagamentoId)) return erro(400, 'Etapa de pagamento inválida')
+  if (motivo.length < 3) return erro(400, 'Diga o motivo do estorno')
+
+  const { data: pl, error: eP } = await sb.from('servico_pagamentos')
+    .select('id, etapa, valor_cents, metodo, pago_em, stripe_payment_intent_id, reembolsado_cents')
+    .eq('id', pagamentoId).eq('solicitacao_id', id).limit(1)
+  if (eP) throw new Error(eP.message)
+  const pg = pl?.[0]
+  if (!pg) return erro(404, 'Etapa de pagamento não encontrada neste pedido')
+  if (!pg.pago_em) return erro(409, 'Esta etapa não foi paga: não há o que estornar')
+
+  const ja = Number(pg.reembolsado_cents || 0)
+  const restante = pg.valor_cents - ja
+  if (restante <= 0) return erro(409, 'Esta etapa já foi estornada por inteiro')
+  const bruto = body.valor_cents
+  const valor = bruto === undefined || bruto === null || bruto === '' ? restante : cents(bruto)
+  if (valor === null || Number.isNaN(valor) || valor <= 0) return erro(400, 'Valor do estorno inválido')
+  if (valor > restante) return erro(400, `O máximo que ainda dá para estornar nesta etapa é ${reaisE(restante)}`)
+  const novoTotal = ja + valor
+  const rotulo = ROTULO_ETAPA[pg.etapa as EtapaPagamento] || pg.etapa
+  const tag = `[admin/servicos/estorno] pedido ${id} pagamento ${pg.id} etapa ${pg.etapa}`
+
+  // ── Pix: a Bynx devolve pelo banco; aqui so se registra ────────────────────
+  if (pg.metodo === 'pix_manual') {
+    if (body.pix_devolvido !== true) {
+      return erro(409, 'Estorno de Pix é manual: devolva o valor pelo banco e depois registre aqui a devolução.')
+    }
+    const agora = new Date().toISOString()
+    const { data: gravou, error } = await sb.from('servico_pagamentos')
+      .update({ reembolsado_cents: novoTotal, reembolsado_em: agora })
+      .eq('id', pg.id).eq('reembolsado_cents', ja).select('id')
+    if (error) throw new Error(error.message)
+    if (!gravou?.length) return erro(409, 'O pagamento mudou em outra aba. Recarregue e confira antes de registrar de novo.')
+    console.log(`${tag}: devolucao Pix registrada ${valor} (total ${novoTotal}/${pg.valor_cents}) -- motivo: ${motivo}`)
+    await aposEstorno(id, statusAtual, valor, 'pix_manual', agora)
+    await notificarAdmin(id, 'Devolução por Pix registrada:', [
+      `${reaisE(valor)} de ${rotulo.toLowerCase()} (total devolvido ${reaisE(novoTotal)} de ${reaisE(pg.valor_cents)}).`,
+      `Motivo: ${motivo}`,
+    ])
+    return NextResponse.json({ ok: true, reembolsado_cents: novoTotal })
+  }
+
+  if (pg.metodo !== 'stripe' || !pg.stripe_payment_intent_id) {
+    return erro(409, 'Esta etapa não tem pagamento com cartão registrado na Stripe')
+  }
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error(`${tag}: STRIPE_SECRET_KEY ausente`)
+    return erro(503, 'Stripe indisponível no momento. Nada foi estornado.')
+  }
+  const apiVersion = '2025-03-31.basil' as Stripe.StripeConfig['apiVersion']
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion })
+  const piId = pg.stripe_payment_intent_id as string
+
+  // ── Camada 2: o banco esta em dia com a Stripe? ────────────────────────────
+  try {
+    const pi = await stripe.paymentIntents.retrieve(piId, { expand: ['latest_charge'] })
+    const charge = typeof pi.latest_charge === 'object' ? pi.latest_charge : null
+    if (pi.status !== 'succeeded' || !charge) {
+      console.error(`${tag}: PI ${piId} status ${pi.status}, sem charge -- recusado`)
+      return erro(409, 'O pagamento na Stripe não está concluído. Confira no painel da Stripe. Nada foi estornado.')
+    }
+    if (pi.metadata?.pagamento_id && pi.metadata.pagamento_id !== pg.id) {
+      console.error(`${tag}: PI ${piId} aponta para outro pagamento (${pi.metadata.pagamento_id}) -- recusado`)
+      return erro(409, 'Este pagamento da Stripe pertence a outra etapa. Confira antes de estornar. Nada foi estornado.')
+    }
+    if ((charge.amount_refunded || 0) !== ja) {
+      console.error(`${tag}: Stripe ja estornou ${charge.amount_refunded}, o banco diz ${ja} -- recusado ate conciliar`)
+      return erro(409, `A Stripe mostra ${reaisE(charge.amount_refunded || 0)} já estornado nesta etapa e o painel mostra ${reaisE(ja)}. Aguarde a conciliação (alguns segundos) e recarregue antes de estornar de novo. Nada foi estornado agora.`)
+    }
+  } catch (e) {
+    const code = (e as { code?: string })?.code
+    console.error(`${tag}: falha lendo o PI ${piId}:`, code || '', e instanceof Error ? e.message : e)
+    return erro(502, code === 'resource_missing'
+      ? 'Este pagamento não existe na conta da Stripe configurada (conta ou modo diferente). Nada foi estornado.'
+      : 'Não foi possível falar com a Stripe agora. Nada foi estornado. Tente de novo.')
+  }
+
+  // ── Provedor primeiro ──────────────────────────────────────────────────────
+  let refund: Stripe.Refund
+  try {
+    refund = await stripe.refunds.create({
+      payment_intent: piId,
+      amount: valor,
+      reason: 'requested_by_customer',
+      metadata: { solicitacao_id: id, pagamento_id: String(pg.id), etapa: String(pg.etapa), origem: 'painel_admin', motivo },
+    }, {
+      // Camada 1: presa ao estado anterior, nao ao valor pedido.
+      idempotencyKey: `servico-estorno:${pg.id}:de-${ja}`,
+    })
+  } catch (e) {
+    const err = e as { code?: string; type?: string; message?: string }
+    console.error(`${tag}: Stripe recusou o refund de ${valor}:`, err.type || '', err.code || '', err.message || e)
+    if (err.type === 'StripeIdempotencyError') {
+      return erro(409, 'Outro estorno desta etapa foi pedido ao mesmo tempo com outro valor. Recarregue e confira antes de tentar de novo. Nada foi estornado agora.')
+    }
+    return erro(502, `A Stripe recusou o estorno${err.message ? `: ${err.message}` : ''}. Nada foi estornado.`)
+  }
+  if (refund.status === 'failed' || refund.status === 'canceled') {
+    console.error(`${tag}: refund ${refund.id} nasceu ${refund.status} -- nada gravado`)
+    return erro(502, `A Stripe não concluiu o estorno (status ${refund.status}). Nada foi registrado. Confira no painel da Stripe.`)
+  }
+
+  // ── Banco depois, so na transicao ──────────────────────────────────────────
+  const agora = new Date().toISOString()
+  const saiu = `O estorno de ${reaisE(valor)} SAIU na Stripe (refund ${refund.id})`
+  const { data: gravou, error: eU } = await sb.from('servico_pagamentos')
+    .update({ reembolsado_cents: novoTotal, reembolsado_em: agora, stripe_refund_id: refund.id })
+    .eq('id', pg.id).eq('reembolsado_cents', ja).select('id')
+  if (eU) {
+    console.error(`${tag}: CRITICAL refund ${refund.id} de ${valor} criado no PI ${piId}, mas o banco falhou: ${eU.message}`)
+    return erro(500, `${saiu}, mas não foi gravado no painel. NÃO estorne de novo: confira na Stripe. A conciliação automática deve registrar em instantes.`)
+  }
+  if (!gravou?.length) {
+    // Outro clique (mesma chave, mesmo refund) ou o webhook gravou antes.
+    const { data: agoraL, error: eR } = await sb.from('servico_pagamentos')
+      .select('reembolsado_cents').eq('id', pg.id).limit(1)
+    const atual = Number(agoraL?.[0]?.reembolsado_cents || 0)
+    if (!eR && atual >= novoTotal) {
+      console.log(`${tag}: refund ${refund.id} ja estava registrado (total ${atual}) -- sem evento duplicado`)
+      await notificarAdmin(id, 'Estorno no cartão:', [
+        `${reaisE(valor)} de ${rotulo.toLowerCase()} (refund ${refund.id}), já registrado por outra aba ou pela conciliação.`,
+        `Motivo: ${motivo}`,
+      ])
+      return NextResponse.json({ ok: true, ja_registrado: true, reembolsado_cents: atual })
+    }
+    console.error(`${tag}: CRITICAL refund ${refund.id} de ${valor} criado no PI ${piId}, banco em ${atual} (esperado ${ja}) -- conferir`)
+    return erro(409, `${saiu}, mas o pagamento mudou no meio e o painel não somou. NÃO estorne de novo: confira na Stripe e recarregue.`)
+  }
+
+  console.log(`${tag}: ESTORNADO ${valor} refund ${refund.id} status ${refund.status} (total ${novoTotal}/${pg.valor_cents}) -- motivo: ${motivo}`)
+  await aposEstorno(id, statusAtual, valor, 'stripe', agora)
+  await notificarAdmin(id, 'Estorno no cartão:', [
+    `${reaisE(valor)} de ${rotulo.toLowerCase()} (total estornado ${reaisE(novoTotal)} de ${reaisE(pg.valor_cents)}).`,
+    `Motivo: ${motivo}`,
+    `Refund: ${refund.id} (${refund.status})`,
+    `PaymentIntent: ${piId}`,
+  ])
+  return NextResponse.json({ ok: true, reembolsado_cents: novoTotal, refund_status: refund.status })
 }

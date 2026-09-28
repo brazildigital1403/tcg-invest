@@ -14,12 +14,12 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import {
   STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, CORREIOS_VD, taxaValorDeclaradoCents, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
-  STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, turnoServico, type FichaCondicao, type SlotFoto,
+  STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, fmtDataHoraAnoBRT, turnoServico, type FichaCondicao, type SlotFoto,
 } from '@/lib/servicos'
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
 import ChecklistFotos from '@/components/servicos/admin/ChecklistFotos'
 import PropostaEditor, { type Procedimento } from '@/components/servicos/admin/PropostaEditor'
-import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning } from '@/components/ui/Icons'
+import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning, IconHistory } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import Rastreio from '@/components/servicos/Rastreio'
 
@@ -41,7 +41,10 @@ type Item = {
 type Evento = { id: string; status: string; nota: string | null; created_at: string }
 type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; mime: string; tamanho: number; url: string | null }
 type Proc = Procedimento & { id: string; item_id: string; decisao: string }
-type Pagamento = { id: string; etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; metodo: string | null; pago_em: string | null }
+type Pagamento = {
+  id: string; etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; metodo: string | null; pago_em: string | null
+  reembolsado_cents?: number; reembolsado_em?: string | null
+}
 const ROTULO_ETAPA: Record<string, string> = { sinal: 'Sinal (valor declarado + frete)', servico: 'Serviço', integral: 'Pagamento integral' }
 type Dados = {
   solicitacao: Sol; cliente: { name: string; email: string } | null; itens: Item[]; eventos: Evento[]; midias: Midia[]
@@ -246,6 +249,14 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
                           {ocupado === `pagamento-${pg.etapa}` ? 'Salvando...' : 'Confirmar Pix'}
                         </button>
                       )}
+                    {pg.pago_em && (
+                      <Estorno pg={pg} ocupado={ocupado}
+                        estornar={(valor, motivo) => acao(
+                          { acao: 'estornar', pagamento_id: pg.id, valor_cents: valor, motivo, ...(pg.metodo === 'pix_manual' ? { pix_devolvido: true } : {}) },
+                          `estorno-${pg.id}`,
+                          pg.metodo === 'stripe' ? 'Estorno feito na Stripe e registrado.' : 'Devolução por Pix registrada.',
+                        )} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -280,6 +291,73 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
         </aside>
       </div>
     </div>
+  )
+}
+
+// ── Estorno de uma etapa paga ───────────────────────────────────────────────
+// Cartao: o servidor cria o refund na Stripe e so depois grava. Pix: a Bynx
+// devolve pelo banco e aqui so registra. Nada muda o status do pedido.
+
+function Estorno({ pg, ocupado, estornar }: {
+  pg: Pagamento; ocupado: string
+  estornar: (valorCents: number, motivo: string) => Promise<boolean>
+}) {
+  const ja = pg.reembolsado_cents || 0
+  const restante = pg.valor_cents - ja
+  const cartao = pg.metodo === 'stripe'
+  const [aberto, setAberto] = useState(false)
+  const [valor, setValor] = useState(brl(restante / 100))
+  const [motivo, setMotivo] = useState('')
+  const valorCents = paraCents(valor)
+  const valorOk = Number.isInteger(valorCents) && valorCents > 0 && valorCents <= restante
+  const rotulo = `estorno-${pg.id}`
+
+  async function enviar() {
+    if (!valorOk || motivo.trim().length < 3) return
+    const pergunta = cartao
+      ? `Estornar ${reais(valorCents)} no cartão do cliente? Isso não pode ser desfeito.`
+      : `Confirmar que você já devolveu ${reais(valorCents)} por Pix ao cliente? O registro não pode ser desfeito.`
+    if (!confirm(pergunta)) return
+    if (await estornar(valorCents, motivo.trim())) { setAberto(false); setMotivo('') }
+  }
+
+  return (
+    <>
+      {ja > 0 && (
+        <small className="ad-estornado">
+          <IconHistory size={12} /> {cartao ? 'Estornado' : 'Devolvido por Pix'} {reais(ja)}
+          {pg.reembolsado_em ? ` em ${fmtDataHoraAnoBRT.format(new Date(pg.reembolsado_em))}` : ''}
+          {ja < pg.valor_cents ? ` (resta ${reais(restante)})` : ''}
+        </small>
+      )}
+      {restante > 0 && (pg.metodo === 'stripe' || pg.metodo === 'pix_manual') && (
+        aberto ? (
+          <div className="ad-estorno">
+            {!cartao && (
+              <p className="ad-aviso"><IconWarning size={14} /> Estorno de Pix é manual: devolva pelo banco primeiro. Aqui só se registra a devolução.</p>
+            )}
+            <label><span>Valor (máximo {reais(restante)})</span>
+              <input className="ad-in" inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} />
+            </label>
+            <label><span>Motivo (fica no registro interno, o cliente não vê)</span>
+              <input className="ad-in" value={motivo} onChange={e => setMotivo(e.target.value)} maxLength={300} placeholder="Ex.: carta recusada na chegada" />
+            </label>
+            {!valorOk && valor.trim() !== '' && <p className="ad-erro" style={{ margin: 0 }}>Valor entre R$ 0,01 e {reais(restante)}.</p>}
+            <div className="ad-estorno-bts">
+              <button type="button" className="ad-bt" disabled={ocupado === rotulo} onClick={() => setAberto(false)}>Cancelar</button>
+              <button type="button" className="ad-bt ad-bt-perigo" disabled={!!ocupado || !valorOk || motivo.trim().length < 3} onClick={enviar}>
+                {ocupado === rotulo ? 'Estornando...' : cartao ? `Estornar ${valorOk ? reais(valorCents) : ''}` : 'Registrar devolução'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="ad-bt ad-bt-perigo ad-bt-estorno" disabled={!!ocupado}
+            onClick={() => { setValor(brl(restante / 100)); setAberto(true) }}>
+            {cartao ? 'Estornar' : 'Registrar devolução do Pix'}
+          </button>
+        )
+      )}
+    </>
   )
 }
 
@@ -641,6 +719,11 @@ const CSS = `
 .ad-pag span{font-variant-numeric:tabular-nums;font-weight:700}
 .ad-pag small{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--bx-green)}
 .ad-pag-ok{border-color:color-mix(in srgb,var(--bx-green) 35%,transparent)}
+.ad-pag small.ad-estornado{color:var(--bx-text-2)}
+.ad-estorno{display:grid;gap:8px;padding-top:8px;border-top:1px solid var(--bx-border-2)}
+.ad-estorno label{display:grid;gap:4px;font-size:12px;color:var(--bx-text-2)}
+.ad-estorno-bts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.ad-bt-estorno{min-height:34px;font-size:12.5px;justify-self:start}
 .ad-objetivo{font-size:13px;color:var(--bx-text-2);margin:4px 0 0}
 .ad-objetivo-grad b{color:var(--ac-1)}
 .ad-pend{padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--bx-red) 7%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 26%,transparent);font-size:13px}
