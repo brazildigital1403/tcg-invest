@@ -44,6 +44,25 @@ export function motivoExigeFoto(m: MotivoReclamacao): boolean {
 export const SLOTS_FOTO = ['frente', 'verso', 'embalagem'] as const
 export type SlotFoto = (typeof SLOTS_FOTO)[number]
 export const ROTULO_SLOT: Record<SlotFoto, string> = { frente: 'Frente da carta', verso: 'Verso da carta', embalagem: 'Embalagem' }
+
+/**
+ * URLs assinadas das fotos -> itens do GaleriaMidias. O rotulo sai do nome do
+ * arquivo (`<pedido>/<comprador>/<slot>-<uuid>.<ext>`, gravado pela rota de
+ * upload); nome fora do padrao vira "Foto N".
+ */
+export function fotosParaGaleria(urls: string[]): { id: string; url: string; mime: string; rotulo: string }[] {
+  return urls.map((url, i) => {
+    const arquivo = url.split('?')[0].split('/').pop() || ''
+    const slot = arquivo.split('-')[0] as SlotFoto
+    const ext = (arquivo.split('.').pop() || '').toLowerCase()
+    return {
+      id: `${i}-${arquivo}`,
+      url,
+      mime: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg',
+      rotulo: ROTULO_SLOT[slot] || `Foto ${i + 1}`,
+    }
+  })
+}
 export const FOTO_MIMES = ['image/jpeg', 'image/png', 'image/webp']
 
 export type StatusReclamacao = 'aguardando_loja' | 'em_analise' | 'aguardando_devolucao' | 'resolvida' | 'improcedente'

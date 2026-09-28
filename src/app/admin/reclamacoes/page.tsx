@@ -10,8 +10,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fmtBRL } from '@/lib/comissao'
 import { IconClock, IconCheck, IconWarning } from '@/components/ui/Icons'
+import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import {
-  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, fmtPrazo,
+  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, fmtPrazo, fotosParaGaleria,
   type MotivoReclamacao, type StatusReclamacao, type RespostaLoja, type Decisao,
 } from '@/lib/leilao-reclamacao'
 
@@ -172,10 +173,7 @@ export default function AdminReclamacoesPage() {
                       <p className="ar-cit">{r.descricao}</p>
                       {r.fotos_url.length > 0 && (
                         <div className="ar-fotos">
-                          {r.fotos_url.map((u, i) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <a key={i} href={u} target="_blank" rel="noopener noreferrer"><img src={u} alt={`Foto ${i + 1}`} /></a>
-                          ))}
+                          <GaleriaMidias midias={fotosParaGaleria(r.fotos_url)} tamanho={110} />
                         </div>
                       )}
                       {r.video_url && <a className="ar-a" href={r.video_url} target="_blank" rel="noopener noreferrer nofollow">Abrir o vídeo</a>}
@@ -267,8 +265,7 @@ const CSS = `
 .ar-bloco{border-top:1px solid var(--bx-border);padding-top:12px}
 .ar-rot{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--bx-text-3);margin-bottom:6px}
 .ar-cit{margin:4px 0;font-size:13px;line-height:1.55;color:var(--bx-text-2);white-space:pre-wrap;overflow-wrap:anywhere}
-.ar-fotos{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.ar-fotos img{width:110px;height:150px;object-fit:cover;border-radius:8px;border:1px solid var(--bx-border);display:block}
+.ar-fotos{margin-top:8px}
 .ar-a{color:var(--ac-1);font-size:12.5px;font-weight:700}
 .ar-acoes{border-top:1px solid var(--bx-border);padding-top:12px;display:grid;gap:8px}
 .ar-bts{display:flex;gap:8px;flex-wrap:wrap}

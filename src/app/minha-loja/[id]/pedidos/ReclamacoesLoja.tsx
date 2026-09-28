@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { fmtBRL } from '@/lib/comissao'
 import { IconShield, IconClock, IconCheck } from '@/components/ui/Icons'
+import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import {
-  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, fmtPrazo,
+  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, fmtPrazo, fotosParaGaleria,
   type MotivoReclamacao, type StatusReclamacao, type RespostaLoja, type Decisao,
 } from '@/lib/leilao-reclamacao'
 
@@ -118,12 +119,7 @@ export default function ReclamacoesLoja({ lojaId }: { lojaId: string }) {
             </div>
             <p className="rl-desc">{r.descricao}</p>
             {r.fotos_url.length > 0 && (
-              <div className="rl-fotos">
-                {r.fotos_url.map((u, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <a key={i} href={u} target="_blank" rel="noopener noreferrer"><img src={u} alt={`Foto ${i + 1} da reclamação`} /></a>
-                ))}
-              </div>
+              <GaleriaMidias midias={fotosParaGaleria(r.fotos_url)} tamanho={72} />
             )}
             {r.video_url && <a className="rl-link" href={r.video_url} target="_blank" rel="noopener noreferrer nofollow">Ver o vídeo enviado</a>}
 
@@ -189,8 +185,6 @@ const CSS = `
 .rl-pill{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:999px;background:var(--bx-surface-2);color:var(--bx-text-2) !important}
 .rl-pill-hot{background:color-mix(in srgb,var(--bx-amber) 14%,transparent);color:var(--bx-amber) !important}
 .rl-desc{margin:0;font-size:12.5px;line-height:1.55;color:var(--bx-text-2);white-space:pre-wrap;overflow-wrap:anywhere}
-.rl-fotos{display:flex;gap:6px;flex-wrap:wrap}
-.rl-fotos img{width:72px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--bx-border);display:block}
 .rl-prazo{margin:0;font-size:12px;color:var(--bx-amber)}
 .rl-quadro{padding:10px 12px;border-radius:10px;background:var(--bx-surface-2);font-size:12.5px;line-height:1.5;display:grid;gap:4px}
 .rl-cit{color:var(--bx-text-2);white-space:pre-wrap;overflow-wrap:anywhere}
