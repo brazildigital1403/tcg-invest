@@ -16,7 +16,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  SERVICOS, ESCALA, PILARES, DANOS, IDENTIFICACAO, RISCOS, GRADUADORAS, compararCentralizacao, OBJETIVOS, ALERTA_GRADUACAO,
+  SERVICOS, ESCALA, PILARES, DANOS, IDENTIFICACAO, RISCOS, GRADUADORAS, compararCentralizacao, CORREIOS_VD, OBJETIVOS, ALERTA_GRADUACAO,
   CUSTODIA, CUSTODIA_PRE_GRADING, FOTOS_ENTRADA, FOTOS_SAIDA, brl, compararFicha, fmtDataHoraAnoBRT, fmtDataAnoBRT,
   type FichaCondicao,
 } from '@/lib/servicos'
@@ -713,7 +713,7 @@ function montarBlocos(d: RelatorioDados): Bloco[] {
   // ── Fechamento ──
   const custodias = aceitas.map(c => c.custodia).filter(Boolean) as string[]
   const fe = { cab: 'Fechamento', custodia: custodias.length === 1 ? custodias[0] : null }
-  const semSeguro = tipo === 'pre_grading' || !p.seguroCents
+  const semSeguro = !p.seguroCents
   const pagos = d.pagamentos.filter(x => x.pagoEm)
   const totalPago = pagos.reduce((s, x) => s + x.valorCents, 0) - d.pagamentos.reduce((s, x) => s + x.reembolsadoCents, 0)
   const emAberto = (p.totalCents || 0) - pagos.reduce((s, x) => s + x.valorCents, 0)
@@ -729,7 +729,7 @@ function montarBlocos(d: RelatorioDados): Bloco[] {
           <table>
             <tbody>
               <tr><td>Serviço · {nomeServico}{p.servicoConferido ? ' (conferido após a sua decisão)' : ''}</td><td className="v">{reais(p.orcamentoCents || 0)}</td></tr>
-              {!semSeguro && <tr><td>Seguro sobre o valor declarado{p.seguroPct != null ? ` (${p.seguroPct}%)` : ''}</td><td className="v">{reais(p.seguroCents || 0)}</td></tr>}
+              {!semSeguro && <tr><td>Valor declarado nos Correios{p.seguroTarifa ? ` (${CORREIOS_VD.pct}% sobre o que passa de R$ 25,63)` : ''}</td><td className="v">{reais(p.seguroCents || 0)}</td></tr>}
               {!!p.freteVoltaCents && <tr><td>Frete de volta</td><td className="v">{reais(p.freteVoltaCents)}</td></tr>}
               <tr className="total"><td>Total</td><td className="v">{reais(p.totalCents || 0)}</td></tr>
             </tbody>
@@ -944,7 +944,7 @@ function Danos({ entrada, saida }: { entrada: FichaCondicao | null; saida: Ficha
 }
 
 const ROTULO_ETAPA_PAPEL: Record<RelatorioPagamento['etapa'], [string, string]> = {
-  sinal: ['Sinal', 'seguro + frete de volta'],
+  sinal: ['Sinal', 'valor declarado + frete de volta'],
   servico: ['Serviço', ''],
   integral: ['Pagamento', 'integral, no aceite'],
   unico: ['Pagamento', ''],

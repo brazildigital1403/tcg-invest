@@ -6,7 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  numeroServico, OBJETIVOS, ROTULO_GRADUADORA, PRECOS, STATUS_SERVICO, STATUS_RELATORIO,
+  numeroServico, OBJETIVOS, ROTULO_GRADUADORA, taxaValorDeclaradoCents, STATUS_SERVICO, STATUS_RELATORIO,
   lerFaixaNota, lerGraduadora, textoDoTermo, type FichaCondicao, type ServicoId,
 } from '@/lib/servicos'
 import { BUCKET_SERVICOS, pagamentosDoPedido, pendencias } from '@/lib/servicosServer'
@@ -116,8 +116,8 @@ export async function montarRelatorio(sb: SupabaseClient, id: string): Promise<R
     termos.push({ titulo: TITULO_TERMO[sol.proposta_termo_versao] || 'Termo da proposta de tratamento', versao: sol.proposta_termo_versao, aceitoEm: sol.proposta_aceita_em, itens: textoDoTermo(sol.proposta_termo_versao) })
   }
 
-  const seguroPct = PRECOS?.seguroPct != null && sol.seguro_cents != null
-    && sol.seguro_cents === Math.round(sol.valor_declarado_cents * PRECOS.seguroPct / 100) ? PRECOS.seguroPct : null
+  const seguroTarifa = sol.seguro_cents != null && sol.seguro_cents > 0
+    && sol.seguro_cents === taxaValorDeclaradoCents(sol.valor_declarado_cents)
   const video = (midias || []).find(m => m.tipo === 'video_abertura')
   const objetivo = sol.objetivo === 'outro' ? texto(sol.objetivo_outro) : OBJETIVOS.find(o => o.id === sol.objetivo)?.rotulo || null
 
@@ -178,7 +178,7 @@ export async function montarRelatorio(sb: SupabaseClient, id: string): Promise<R
         valorDeclaradoCents: sol.valor_declarado_cents,
         orcamentoCents: sol.orcamento_cents,
         seguroCents: sol.seguro_cents,
-        seguroPct,
+        seguroTarifa,
         freteVoltaCents: sol.frete_volta_cents,
         totalCents: sol.total_cents,
         rastreioIda: texto(sol.rastreio_ida),

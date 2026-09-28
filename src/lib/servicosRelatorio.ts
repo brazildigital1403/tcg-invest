@@ -97,9 +97,10 @@ export interface RelatorioDados {
     criadoEm: string
     valorDeclaradoCents: number
     orcamentoCents: number | null
+    /** Taxa de valor declarado dos Correios na volta (coluna seguro_cents, nome antigo). */
     seguroCents: number | null
-    /** Percentual do seguro, so quando o valor gravado bate com a regra (senao o rotulo sai sem %). */
-    seguroPct: number | null
+    /** true quando o valor gravado bate com a tarifa de balcao dos Correios (entra o % no rotulo). */
+    seguroTarifa: boolean
     freteVoltaCents: number | null
     totalCents: number | null
     rastreioIda: string | null

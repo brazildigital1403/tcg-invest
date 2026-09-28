@@ -13,7 +13,7 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import {
-  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
+  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, CORREIOS_VD, taxaValorDeclaradoCents, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
   STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, turnoServico, type FichaCondicao, type SlotFoto,
 } from '@/lib/servicos'
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
@@ -42,7 +42,7 @@ type Evento = { id: string; status: string; nota: string | null; created_at: str
 type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; mime: string; tamanho: number; url: string | null }
 type Proc = Procedimento & { id: string; item_id: string; decisao: string }
 type Pagamento = { id: string; etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; metodo: string | null; pago_em: string | null }
-const ROTULO_ETAPA: Record<string, string> = { sinal: 'Sinal (seguro + frete)', servico: 'Serviço', integral: 'Pagamento integral' }
+const ROTULO_ETAPA: Record<string, string> = { sinal: 'Sinal (valor declarado + frete)', servico: 'Serviço', integral: 'Pagamento integral' }
 type Dados = {
   solicitacao: Sol; cliente: { name: string; email: string } | null; itens: Item[]; eventos: Evento[]; midias: Midia[]
   procedimentos: Proc[]; pendencias_entrada: string[]; pendencias_saida: string[]
@@ -224,7 +224,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
             <dl className="ad-dl">
               <div><dt>Declarado</dt><dd>{reais(s.valor_declarado_cents)}</dd></div>
               <div><dt>Serviço</dt><dd>{reais(s.orcamento_cents)}</dd></div>
-              <div><dt>Seguro</dt><dd>{reais(s.seguro_cents)}</dd></div>
+              <div><dt>Valor declarado (Correios)</dt><dd>{reais(s.seguro_cents)}</dd></div>
               <div><dt>Frete de volta</dt><dd>{reais(s.frete_volta_cents)}</dd></div>
               <div className="ad-total"><dt>Total</dt><dd>{reais(s.total_cents)}</dd></div>
             </dl>
@@ -285,8 +285,11 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
   sol: Sol; itens: Item[]; ocupado: boolean
   enviar: (p: Record<string, unknown>) => Promise<boolean>
 }) {
-  // Seguro so em restauracao e completo (pre-grading nao mexe na carta), como na tabela publica.
-  const sugestaoSeguro = PRECOS?.seguroPct != null && sol.servico !== 'pre_grading' ? Math.round(sol.valor_declarado_cents * PRECOS.seguroPct / 100) : null
+  // Taxa de valor declarado dos Correios na volta (coluna seguro_cents, nome antigo).
+  // Sugestao pela tarifa de balcao; o admin corrige se postar por contrato.
+  const sugestaoSeguro = taxaValorDeclaradoCents(sol.valor_declarado_cents)
+  const acimaSedex = sol.valor_declarado_cents > CORREIOS_VD.tetoSedexCents
+  const acimaPac = sol.valor_declarado_cents > CORREIOS_VD.tetoPacCents
   const [decisao, setDecisao] = useState<Record<string, { aceito: boolean; motivo: string }>>(() =>
     Object.fromEntries(itens.map(i => [i.id, { aceito: i.aceito !== false, motivo: i.recusa_motivo || '' }])))
   const [servico, setServico] = useState(sol.orcamento_cents != null ? brl(sol.orcamento_cents / 100) : '')
@@ -329,10 +332,16 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
       {!todasRecusadas && (
         <div className="ad-valores">
           <label><span>Serviço</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={servico} onChange={e => setServico(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
-          <label><span>Seguro{PRECOS?.seguroPct != null ? ` (${PRECOS.seguroPct}%)` : ''}</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
+          <label><span>Valor declarado Correios ({CORREIOS_VD.pct}% acima de R$ 25,63)</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <label><span>Frete de volta</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={frete} onChange={e => setFrete(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <div className="ad-total-orc"><span>Total</span><b>{total == null ? 'valor inválido' : reais(total)}</b></div>
         </div>
+      )}
+      {!todasRecusadas && acimaSedex && (
+        <p className="ad-aviso"><IconWarning size={14} /> Valor declarado acima do teto do SEDEX ({reais(CORREIOS_VD.tetoSedexCents)}, vigente desde {CORREIOS_VD.vigencia}): os Correios não aceitam declarar esse valor. Combine a entrega com o cliente antes de orçar.</p>
+      )}
+      {!todasRecusadas && !acimaSedex && acimaPac && (
+        <p className="ad-aviso"><IconWarning size={14} /> Acima do teto do PAC ({reais(CORREIOS_VD.tetoPacCents)}): a volta precisa ir por SEDEX. Considere isso no frete.</p>
       )}
       <textarea className="ad-in" rows={3} placeholder="Observação para o cliente (opcional)" value={obs} maxLength={2000} onChange={e => setObs(e.target.value)} />
       <button

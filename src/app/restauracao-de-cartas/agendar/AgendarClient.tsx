@@ -574,7 +574,7 @@ function CartaBloco({ idx, total, carta, tentou, onChange }: {
         </div>
 
         <div className="ag-fld">
-          <label htmlFor={`ag-valor-${idx}`}>Valor declarado <em>base do seguro</em></label>
+          <label htmlFor={`ag-valor-${idx}`}>Valor declarado <em>base do envio nos Correios</em></label>
           <span className="ag-rs">
             <b>R$</b>
             <input id={`ag-valor-${idx}`} className={inv(valorNum(carta.valor) <= 0)} value={carta.valor} onChange={e => onChange({ valor: e.target.value.replace(/[^\d.,]/g, '') })} inputMode="decimal" placeholder="0,00" />

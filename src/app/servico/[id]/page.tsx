@@ -49,7 +49,7 @@ type Dados = {
   recalculando: boolean
 }
 const ETAPA_PAG: Record<string, { t: string; d: string }> = {
-  sinal: { t: 'Sinal', d: 'Seguro e frete de volta, pago no aceite. Libera o endereço de envio.' },
+  sinal: { t: 'Sinal', d: 'Frete de volta e valor declarado nos Correios, pago no aceite. Libera o endereço de envio.' },
   servico: { t: 'Serviço', d: 'Pago quando você aprova a proposta. Libera a bancada.' },
   integral: { t: 'Pagamento', d: 'Pago no aceite. Libera o endereço de envio.' },
 }
@@ -228,7 +228,7 @@ function Pedido({ id }: { id: string }) {
               <h2>Seu orçamento</h2>
               <dl className="sp-dl">
                 <div><dt>Serviço</dt><dd>{reais(s.orcamento_cents)}</dd></div>
-                {s.seguro_cents ? <div><dt>Seguro</dt><dd>{reais(s.seguro_cents)}</dd></div> : null}
+                {s.seguro_cents ? <div><dt>Valor declarado nos Correios</dt><dd>{reais(s.seguro_cents)}</dd></div> : null}
                 {s.frete_volta_cents ? <div><dt>Frete de volta</dt><dd>{reais(s.frete_volta_cents)}</dd></div> : null}
                 <div className="sp-total"><dt>Total</dt><dd>{reais(s.total_cents)}</dd></div>
               </dl>
@@ -262,7 +262,7 @@ function Pedido({ id }: { id: string }) {
                 {devida.etapa === 'servico'
                   ? 'Com o pagamento do serviço, sua carta vai para a bancada e o prazo começa a contar.'
                   : devida.etapa === 'sinal'
-                    ? 'O sinal cobre o seguro e o frete de volta da sua carta. O serviço só é cobrado quando você aprovar a proposta de tratamento. Com o sinal confirmado, o endereço de envio aparece aqui.'
+                    ? 'O sinal cobre o frete de volta da sua carta e o valor declarado nos Correios. O serviço só é cobrado quando você aprovar a proposta de tratamento. Com o sinal confirmado, o endereço de envio aparece aqui.'
                     : 'Com o pagamento confirmado, o endereço de envio aparece aqui.'}
               </p>
               <div className="sp-pix">

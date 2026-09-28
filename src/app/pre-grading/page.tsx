@@ -24,7 +24,7 @@ import {
 // no lugar do slider e o argumento em reais ("quanto a nota muda o preco").
 // As secoes ilustradas (metodo, laudo, graduadoras, slab) vem de
 // MockupsPreGrading. Custodia, passos, preco e "quem faz" tem variante local
-// porque o texto do pre-grading difere (sem seguro, sem proposta de
+// porque o texto do pre-grading difere (sem descanso, sem proposta de
 // tratamento, prazo contado da chegada) e Secoes.tsx fica intacto.
 
 const title = 'Pré-grading de cartas Pokémon: nota provável e laudo'
@@ -220,7 +220,7 @@ function ComoFuncionaPreGrading() {
 
 const CUSTODIA_ICONES = [IconCamera, IconEye, IconHistory, IconTruck]
 
-/** Sem a frase do seguro (os 7% valem so para restauracao e completo) e sem a etapa de descanso. */
+/** Sem a etapa de descanso. */
 function CustodiaPreGrading() {
   return (
     <Faixa id="custodia">
@@ -256,11 +256,10 @@ function PrecosPreGrading() {
   const dias = PRAZOS.padraoDiasUteis
   return (
     <Faixa id="preco" alt>
-      <Cabecalho eyebrow="Investimento e prazo" titulo="Preço por carta" sub="O orçamento pelas fotos é grátis. Frete de ida e volta por sua conta." />
+      <Cabecalho eyebrow="Investimento e prazo" titulo="Preço por carta" sub="O orçamento pelas fotos é grátis. Frete de ida e volta por sua conta, com valor declarado nos Correios." />
       <div className="sv-g3">
         {[...SERVICOS].sort((a, b) => (a.id === 'pre_grading' ? -1 : b.id === 'pre_grading' ? 1 : 0)).map(s => {
           const v = precoDoServico(s.id)!
-          const seguro = s.id !== 'pre_grading' && PRECOS!.seguroPct != null ? ` + ${PRECOS!.seguroPct}% de seguro` : ''
           const prazo = dias
             ? s.id === 'pre_grading'
               ? `${dias} dias úteis após a chegada da carta. `
@@ -270,7 +269,7 @@ function PrecosPreGrading() {
             <div key={s.id} className={`sv-plan${s.id === 'pre_grading' ? ' sv-plan-dest' : ''}`}>
               {s.id === 'completo' && <span className="sv-ribbon">Mais completo</span>}
               <span className="sv-plan-nome">{s.nome}</span>
-              <span className="sv-plan-v">R$ {brl(v)} <small>por carta{seguro}</small></span>
+              <span className="sv-plan-v">R$ {brl(v)} <small>por carta</small></span>
               <span className="sv-plan-d">{prazo}{s.descricao}</span>
             </div>
           )

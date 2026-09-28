@@ -21,25 +21,47 @@ export interface Precos {
   completo: number
   /** Acrescimo do prazo expresso. null = sem expresso. */
   expresso: number | null
-  /** Seguro sobre o valor declarado, em %. null = ainda nao definido. */
-  seguroPct: number | null
   /** Desconto por volume, em %. null = sem desconto anunciado. */
   desc10a20: number | null
   descAcima20: number | null
 }
 
 /**
- * Valores por carta definidos pelo Du em 26/09/2026. Seguro (7%, so restauracao
- * e completo) e descontos por volume (10% de 10 a 20 cartas, 15% acima) seguem
- * a referencia de mercado, decisao dele no mesmo dia. Expresso: + R$ 350 por
- * ate 4 dias corridos (PRAZOS).
+ * Valores por carta definidos pelo Du em 26/09/2026. Descontos por volume (10% de
+ * 10 a 20 cartas, 15% acima) seguem a referencia de mercado, decisao dele no
+ * mesmo dia. Expresso: + R$ 350 por ate 4 dias corridos (PRAZOS).
+ * O antigo "seguro 7%" saiu em 28/09/2026: a Bynx nao vende seguro. Na volta o
+ * cliente paga so a taxa de valor declarado dos Correios (CORREIOS_VD).
  */
+// ── Valor declarado dos Correios (envio de volta) ───────────────────────────
+// Fonte oficial: correios.com.br/enviar/servicos-adicionais e
+// /receber/encomenda/indenizacoes, vigencia 12/04/2026, consulta 27/09/2026.
+// Balcao, sem contrato: 2% sobre o que passa da cobertura automatica. Os tetos
+// reajustam todo abril: revisar. Indenizacao ate o valor declarado, sem
+// franquia, proporcional ao dano (perda, roubo, avaria).
+export const CORREIOS_VD = {
+  pct: 2,
+  coberturaAutomaticaCents: 2563,
+  tetoSedexCents: 3968048,
+  tetoPacCents: 466829,
+  vigencia: '12/04/2026',
+}
+
+/** Taxa dos Correios para declarar o valor da carta na volta, em centavos. */
+export function taxaValorDeclaradoCents(valorDeclaradoCents: number): number {
+  return Math.round(Math.max(0, valorDeclaradoCents - CORREIOS_VD.coberturaAutomaticaCents) * CORREIOS_VD.pct / 100)
+}
+
+/** Rotulo unico da linha que ocupa a coluna seguro_cents (nome antigo no banco). */
+export const ROTULO_VALOR_DECLARADO = 'Valor declarado nos Correios'
+
+const reaisVd = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 export const PRECOS: Precos | null = {
   restauracao: 165,
   preGrading: 80,
   completo: 450,
   expresso: 350,
-  seguroPct: 7,
   desc10a20: 10,
   descAcima20: 15,
 }
@@ -128,7 +150,7 @@ export const NAO_RESOLVE = [
 
 export const PASSOS = [
   { t: 'Orçamento pelas fotos', d: 'Você manda frente e verso. A Bynx diz o que dá para fazer e quanto custa, antes de qualquer envio.' },
-  { t: 'Você aprova e envia', d: 'Você aprova o orçamento e paga o sinal, que cobre o seguro e o frete de volta. Aí aparece o endereço, com o guia de embalagem.' },
+  { t: 'Você aprova e envia', d: 'Você aprova o orçamento e paga o sinal, que cobre o frete de volta e o valor declarado nos Correios. Aí aparece o endereço, com o guia de embalagem.' },
   { t: 'Chegada filmada', d: 'O pacote é aberto em vídeo, sem corte, com a etiqueta visível. A carta ganha um número de custódia e uma ficha de condição com fotos de cada canto.' },
   { t: 'Você aprova o tratamento', d: 'Para cada carta chega uma proposta: o que foi encontrado, o que fazer, o risco e a alternativa de não mexer. Com o seu sim e o pagamento do serviço, a carta vai para a bancada.' },
   { t: 'Bancada e descanso', d: 'Depois da prensa, a carta descansa. É essa etapa que faz o resultado durar, e ela não tem atalho.' },
@@ -139,15 +161,15 @@ export const CUSTODIA = [
   { t: 'Vídeo do pacote abrindo', d: 'Plano único, sem corte, com a etiqueta visível do começo ao fim.' },
   { t: 'Foto de entrada antes de qualquer toque', d: 'Na mesma luz e no mesmo enquadramento da foto de saída, para você comparar.' },
   { t: 'Status na sua conta a cada etapa', d: 'Recebida, em bancada, descansando, pronta, enviada. Com foto em cada passo.' },
-  { t: 'Envio com valor declarado', d: 'A carta viaja segurada pelo valor que você informou no orçamento.' },
+  { t: 'Envio com valor declarado', d: `Na volta, a carta vai com valor declarado nos Correios pelo valor que você informou. Você paga só a taxa deles (${CORREIOS_VD.pct}% sobre o que passa de R$ ${reaisVd(CORREIOS_VD.coberturaAutomaticaCents)}), sem margem da Bynx.` },
 ]
 
-/** Custodia do pre-grading: sem etapa de descanso (e da prensa) e sem falar em seguro. */
+/** Custodia do pre-grading: sem etapa de descanso (e da prensa). */
 export const CUSTODIA_PRE_GRADING = [
   CUSTODIA[0],
   CUSTODIA[1],
   { t: 'Status na sua conta a cada etapa', d: 'Recebida, em bancada, pronta, enviada. Com foto em cada passo.' },
-  { t: 'Envio com valor declarado', d: 'A carta viaja com o valor declarado que você informou no orçamento.' },
+  CUSTODIA[3],
 ]
 
 // ── Pre-grading ──────────────────────────────────────────────────────────────
@@ -196,11 +218,11 @@ export interface Faq { q: string; a: string }
 export const FAQ_RESTAURACAO: Faq[] = [
   {
     q: 'Quando eu pago?',
-    a: 'Em duas partes. No aceite do orçamento você paga o sinal, que cobre o seguro e o frete de volta. O serviço só é cobrado quando a carta já chegou e você aprovou a proposta de tratamento, antes de a Bynx tocar nela. No pré-grading, que não tem proposta, o pagamento é um só, no aceite.',
+    a: 'Em duas partes. No aceite do orçamento você paga o sinal, que cobre o frete de volta e o valor declarado nos Correios. O serviço só é cobrado quando a carta já chegou e você aprovou a proposta de tratamento, antes de a Bynx tocar nela. No pré-grading, que não tem proposta, o pagamento é um só, no aceite.',
   },
   {
     q: 'E se a carta se perder no correio?',
-    a: 'Ela viaja com valor declarado nos dois sentidos, e cada etapa fica registrada na sua conta com foto. O endereço de envio só aparece depois que você aprova o orçamento.',
+    a: `Na ida, declare o valor na postagem. Na volta, a Bynx envia com valor declarado nos Correios, e você paga só a taxa deles: ${CORREIOS_VD.pct}% sobre o que passa de R$ ${reaisVd(CORREIOS_VD.coberturaAutomaticaCents)}. Em perda, roubo ou avaria no transporte, os Correios indenizam até o valor declarado, sem franquia. O teto do SEDEX hoje é R$ ${reaisVd(CORREIOS_VD.tetoSedexCents)}: carta acima disso, combinamos a entrega com você antes. Cada etapa fica registrada na sua conta com foto.`,
   },
   {
     q: 'A graduadora vai perceber que a carta foi tratada?',

@@ -110,7 +110,7 @@ export function Custodia({ alt }: { alt?: boolean }) {
       <div className="sv-g4">
         {CUSTODIA.map((c, i) => {
           const Ic = CUSTODIA_ICONES[i] || IconShield
-          const d = i === 3 && PRECOS?.seguroPct != null ? `${c.d} Seguro de ${PRECOS.seguroPct}% sobre o valor declarado.` : c.d
+          const d = c.d
           return (
             <div key={c.t} className="sv-card sv-card-hover sv-feat">
               <span className="sv-ic sv-ic-lg sv-ic-ok"><Ic size={20} /></span>
@@ -164,16 +164,15 @@ export function Precos({ destaque, alt }: { destaque: ServicoId; alt?: boolean }
   const prazo = PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a aprovação da proposta de tratamento. ` : ''
   return (
     <Faixa id="preco" alt={alt}>
-      <Cabecalho eyebrow="Investimento e prazo" titulo="Preço por carta" sub="O orçamento pelas fotos é grátis. Frete de ida e volta por sua conta." />
+      <Cabecalho eyebrow="Investimento e prazo" titulo="Preço por carta" sub="O orçamento pelas fotos é grátis. Frete de ida e volta por sua conta, com valor declarado nos Correios." />
       <div className="sv-g3">
         {SERVICOS.map(s => {
           const v = precoDoServico(s.id)!
-          const seguro = s.id !== 'pre_grading' && PRECOS!.seguroPct != null ? ` + ${PRECOS!.seguroPct}% de seguro` : ''
           return (
             <div key={s.id} className={`sv-plan${s.id === destaque ? ' sv-plan-dest' : ''}`}>
               {s.id === 'completo' && <span className="sv-ribbon">Mais completo</span>}
               <span className="sv-plan-nome">{s.nome}</span>
-              <span className="sv-plan-v">R$ {brl(v)} <small>por carta{seguro}</small></span>
+              <span className="sv-plan-v">R$ {brl(v)} <small>por carta</small></span>
               <span className="sv-plan-d">{prazo}{s.descricao}</span>
             </div>
           )

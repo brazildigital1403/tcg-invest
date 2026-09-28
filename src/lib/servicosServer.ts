@@ -125,7 +125,7 @@ export function enderecoRecebimento(): string | null {
 }
 
 // ── Pagamento por etapa (fatia 3) ───────────────────────────────────────────
-// sinal    no aceite: seguro + frete de volta (a Bynx gasta com ou sem servico)
+// sinal    no aceite: valor declarado dos Correios + frete de volta (a Bynx gasta com ou sem servico)
 // servico  na aprovacao da proposta, antes da bancada: servico (+ expresso)
 // integral pre-grading sozinho: tudo no aceite (nao tem proposta)
 // Decisao do Du, 27/09/2026, seguindo o painel de pagamento.
@@ -303,11 +303,11 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         ...base, assunto: `Orçamento do pedido ${numero}`, selo: 'Orçamento pronto', titulo: `Seu orçamento: ${reais(sol.total_cents)}`,
         paragrafos: [
           `Analisamos as fotos. ${aceitas.length === 1 ? 'Uma carta pode' : `${aceitas.length} cartas podem`} ser tratada${aceitas.length === 1 ? '' : 's'}${recusadas.length ? `, e ${recusadas.length === 1 ? 'uma ficou' : `${recusadas.length} ficaram`} de fora (o motivo está no pedido)` : ''}.`,
-          'Para seguir, abra o pedido, leia o termo e aprove. Você paga agora só o sinal (seguro e frete de volta); o serviço é cobrado depois que a carta chegar e você aprovar a proposta de tratamento.',
+          'Para seguir, abra o pedido, leia o termo e aprove. Você paga agora só o sinal (frete de volta e valor declarado nos Correios); o serviço é cobrado depois que a carta chegar e você aprovar a proposta de tratamento.',
         ],
         linhas: [
           { rotulo: 'Serviço', valor: reais(sol.orcamento_cents) },
-          ...(sol.seguro_cents ? [{ rotulo: 'Seguro', valor: reais(sol.seguro_cents) }] : []),
+          ...(sol.seguro_cents ? [{ rotulo: 'Valor declarado nos Correios', valor: reais(sol.seguro_cents) }] : []),
           ...(sol.frete_volta_cents ? [{ rotulo: 'Frete de volta', valor: reais(sol.frete_volta_cents) }] : []),
           { rotulo: 'Total', valor: reais(sol.total_cents) },
         ],
@@ -332,7 +332,7 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
           titulo: devida.etapa === 'sinal' ? `Falta o sinal de ${reais(devida.valor_cents)}` : `Falta o pagamento de ${reais(devida.valor_cents)}`,
           paragrafos: [
             devida.etapa === 'sinal'
-              ? 'O sinal cobre o seguro e o frete de volta da sua carta. O valor do serviço só é cobrado depois, quando você aprovar a proposta de tratamento.'
+              ? 'O sinal cobre o frete de volta da sua carta e o valor declarado nos Correios. O valor do serviço só é cobrado depois, quando você aprovar a proposta de tratamento.'
               : 'Assim que o pagamento cair, liberamos o endereço de envio.',
             'Depois do Pix, a Bynx confirma o pagamento e o endereço de envio aparece na página do pedido e no seu e-mail.',
           ],
