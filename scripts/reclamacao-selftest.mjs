@@ -34,9 +34,9 @@ try {
     assert.equal(R.DIAS_UTEIS_ENVIO, 3)
     assert.equal(R.DIAS_RECLAMAR, 5)
     assert.equal(R.DIAS_UTEIS_LOJA, 2)
-    assert.equal(R.DIAS_UTEIS_DECISAO, 3)
-    assert.equal(R.DIAS_AVISO_RECEBIMENTO, 8)
-    assert.equal(R.DIAS_FECHAMENTO_AUTO, 12)
+    assert.equal(R.DIAS_UTEIS_DECISAO, 2)
+    assert.equal(R.DIAS_AVISO_RECEBIMENTO, 6)
+    assert.equal(R.DIAS_FECHAMENTO_AUTO, 10)
     assert.match(R.TEXTO_PROTECAO, /até 5 dias depois da entrega/)
     assert.match(R.TEXTO_PROTECAO, /até 2 dias úteis/)
     // O SQL nao importa a constante: o intervalo do trigger e da RPC espelha.
@@ -104,16 +104,16 @@ try {
   ok(() => {
     const env = t('2026-09-01T12:00:00Z')
     const p = { status: 'enviado', ehLeilao: true, enviado_em: new Date(env).toISOString() }
-    assert.equal(R.acaoRecebimento(p, env + 8 * DIA - 1), null)
-    assert.equal(R.acaoRecebimento(p, env + 8 * DIA), 'avisar')
-    assert.equal(R.acaoRecebimento({ ...p, aviso_recebimento_em: 'x' }, env + 9 * DIA), null)
-    assert.equal(R.acaoRecebimento({ ...p, aviso_recebimento_em: 'x' }, env + 12 * DIA - 1), null)
-    assert.equal(R.acaoRecebimento(p, env + 12 * DIA), 'fechar')
-    assert.equal(R.acaoRecebimento({ ...p, aviso_recebimento_em: 'x' }, env + 12 * DIA), 'fechar')
+    assert.equal(R.acaoRecebimento(p, env + 6 * DIA - 1), null)
+    assert.equal(R.acaoRecebimento(p, env + 6 * DIA), 'avisar')
+    assert.equal(R.acaoRecebimento({ ...p, aviso_recebimento_em: 'x' }, env + 7 * DIA), null)
+    assert.equal(R.acaoRecebimento({ ...p, aviso_recebimento_em: 'x' }, env + 10 * DIA - 1), null)
+    assert.equal(R.acaoRecebimento(p, env + 10 * DIA), 'fechar')
+    assert.equal(R.acaoRecebimento({ ...p, aviso_recebimento_em: 'x' }, env + 10 * DIA), 'fechar')
     assert.equal(R.acaoRecebimento({ ...p, reclamacao_aberta: true }, env + 30 * DIA), null, 'reclamacao trava')
     assert.equal(R.acaoRecebimento({ ...p, status: 'entregue' }, env + 30 * DIA), null)
     assert.equal(R.acaoRecebimento({ ...p, ehLeilao: false }, env + 30 * DIA), null)
-  }, 'acaoRecebimento (aviso dia 8, fecha dia 12, reclamacao trava)')
+  }, 'acaoRecebimento (aviso dia 6, fecha dia 10, reclamacao trava)')
 
   // ★ PIOR CASO x REPASSE DE 30 DIAS. Cada etapa no limite: a loja envia no
   // ultimo minuto, o comprador nao confirma (fechamento automatico), reclama no
@@ -135,14 +135,14 @@ try {
     const pago = '2026-10-09T13:00:00Z'
     const c = cadeia(pago)
     assert.equal(R.fmtPrazo(c.envio), '15/10 às 23:59')    // 13, 14, 15 (12 e feriado)
-    assert.equal(R.fmtPrazo(c.entregue), '27/10 às 23:59')  // envio + 12
-    assert.equal(R.fmtPrazo(c.reclama), '01/11 às 23:59')   // entrega + 5 (domingo)
+    assert.equal(R.fmtPrazo(c.entregue), '25/10 às 23:59')  // envio + 10
+    assert.equal(R.fmtPrazo(c.reclama), '30/10 às 23:59')   // entrega + 5
     assert.equal(R.fmtPrazo(c.loja), '04/11 às 23:59')      // 03, 04 (02/11 e feriado)
-    assert.equal(R.fmtPrazo(c.decisao), '09/11 às 23:59')   // 05, 06, 09
-    // NAO cabe em 30: decisao 31 dias civis depois do pagamento.
-    assert.equal(diasCivis(pago, c.decisao), 31)
-    assert.ok(t(c.decisao) > t(pago) + 30 * DIA)
-  }, 'pior caso na sexta antes de feriado: decisao em pagamento + 31 dias (NAO cabe em 30)')
+    assert.equal(R.fmtPrazo(c.decisao), '06/11 às 23:59')   // 05, 06
+    // Cabe em 30: decisao 28 dias civis depois do pagamento.
+    assert.equal(diasCivis(pago, c.decisao), 28)
+    assert.ok(t(c.decisao) <= t(pago) + 30 * DIA)
+  }, 'pior caso na sexta antes de feriado: decisao em pagamento + 28 dias (cabe em 30)')
 
   ok(() => {
     // Varredura de 10 anos (2026-2035), pagamento as 10h de cada dia.
@@ -153,15 +153,13 @@ try {
       if (d > 30) acima++
       if (d > pior) { pior = d; piorPago = new Date(ms).toISOString() }
     }
-    // Pior caso real: quarta 07/10/2026 -> decisao 09/11 (envio 13/10 por
-    // causa do 12/10, reclamacao cai numa sexta 30/10, 02/11 feriado).
-    assert.equal(pior, 33, `pior caso mudou: ${pior} dias (pago ${piorPago})`)
-    assert.equal(piorPago, '2026-10-07T13:00:00.000Z')
-    assert.equal(diasCivis('2026-10-07T13:00:00Z', cadeia('2026-10-07T13:00:00Z').decisao), 33)
+    // Decisao do Du (28/09): fecha em 10, Bynx decide em 2 dias uteis. Pior caso
+    // real em 10 anos: 28 dias civis; nenhuma data passa do repasse de 30.
     console.log(`    pior caso: ${pior} dias civis (pago ${piorPago}); ${acima} de ${total} datas de pagamento passam de 30`)
+    assert.equal(acima, 0, `${acima} datas passam de 30 dias (pior ${pior}, pago ${piorPago})`)
     // Trava de regressao: alongar qualquer prazo sem rever o repasse quebra aqui.
-    assert.ok(pior <= 33)
-  }, 'pior caso em 10 anos de calendario: 33 dias civis do pagamento a decisao')
+    assert.ok(pior <= 30)
+  }, 'pior caso em 10 anos de calendario: cabe no repasse de 30 dias')
 
   ok(() => {
     const prazo = '2026-10-01T02:59:59.999Z'

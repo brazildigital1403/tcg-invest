@@ -10,9 +10,9 @@
 --   - loja envia em ate 3 dias uteis; sem envio, o comprador pede o cancelamento
 --     e recebe estorno integral (rota, sem schema novo);
 --   - comprador reclama em ate 5 dias depois da entrega (confirmacao dele ou
---     fechamento automatico em enviado + 12 dias, aviso no dia 8);
+--     fechamento automatico em enviado + 10 dias, aviso no dia 6);
 --   - loja responde em 2 dias uteis; silencio = decisao a favor do comprador;
---   - a Bynx (admin) decide em ate 3 dias uteis e estorna pela Stripe.
+--   - a Bynx (admin) decide em ate 2 dias uteis e estorna pela Stripe.
 --   Prazos encurtados em 28/09 para caber no repasse de 30 dias. A fonte e
 --   src/lib/leilao-reclamacao.ts (DIAS_*); aqui so o '5 days' e executavel,
 --   espelho de DIAS_RECLAMAR. Os prazos uteis chegam calculados pela rota.
@@ -101,15 +101,15 @@ alter table public.pedidos
   add column if not exists reclamacao_uploads integer not null default 0;
 
 comment on column public.pedidos.reclamacao_aberta is
-  'Leilao: ha reclamacao nao resolvida. Trava o fechamento automatico (enviado + 12 dias).';
+  'Leilao: ha reclamacao nao resolvida. Trava o fechamento automatico (enviado + 10 dias).';
 comment on column public.pedidos.recebido_automatico is
-  'Leilao: virou entregue pelo cron (enviado + 12 dias sem confirmacao nem reclamacao).';
+  'Leilao: virou entregue pelo cron (enviado + 10 dias sem confirmacao nem reclamacao).';
 comment on column public.pedidos.prazo_reclamacao_ate is
   'Leilao: ate quando o comprador pode reclamar (entregue_em + 5 dias). Gravado pelo trigger pedidos_prazo_reclamacao_trg.';
 comment on column public.pedidos.valor_reembolsado_cents is
   'Soma estornada por decisao de reclamacao (parcial ou total). Estorno de cancelamento continua em stripe_refund_id.';
 comment on column public.pedidos.aviso_recebimento_em is
-  'Leilao: quando o aviso do dia 8 ("confirme ou conte o problema") saiu. Marca de idempotencia do cron.';
+  'Leilao: quando o aviso do dia 6 ("confirme ou conte o problema") saiu. Marca de idempotencia do cron.';
 comment on column public.pedidos.reclamacao_uploads is
   'Leilao: URLs assinadas de foto de reclamacao ja emitidas para este pedido. Teto em pedido_reclamacao_reservar_upload.';
 

@@ -21,7 +21,7 @@ pedido pela própria plataforma e recebe o estorno integral do valor pago.
 
 **X.3 Confirmação de recebimento.** O comprador confirma o recebimento na
 página do pedido. Sem confirmação, o pedido é considerado entregue
-automaticamente 12 (doze) dias depois do envio. No 8º (oitavo)
+automaticamente 10 (dez) dias depois do envio. No 6º (sexto)
 dia a Bynx avisa o comprador para confirmar ou relatar um problema. Uma
 reclamação aberta suspende a confirmação automática.
 
@@ -41,7 +41,7 @@ responder, podendo aceitar o estorno, propor um acordo ou apresentar provas. A
 ausência de resposta no prazo resulta em decisão favorável ao comprador.
 
 **X.7 Decisão da Bynx.** Quando a loja não resolver a reclamação, a Bynx
-analisa as informações das duas partes e decide em até 3 (três) dias úteis,
+analisa as informações das duas partes e decide em até 2 (dois) dias úteis,
 podendo determinar: (a) estorno total; (b) estorno parcial; (c) devolução do
 item, com estorno integral após o recebimento pela loja, sendo o frete de
 devolução custeado pela parte que deu causa ao problema; ou (d) encerramento

@@ -77,9 +77,9 @@ export const DIAS_UTEIS_ENVIO = 3
 /** Espelhado no SQL (interval '5 days'): mudar aqui exige migration nova. */
 export const DIAS_RECLAMAR = 5
 export const DIAS_UTEIS_LOJA = 2
-export const DIAS_UTEIS_DECISAO = 3
-export const DIAS_AVISO_RECEBIMENTO = 8
-export const DIAS_FECHAMENTO_AUTO = 12
+export const DIAS_UTEIS_DECISAO = 2
+export const DIAS_AVISO_RECEBIMENTO = 6
+export const DIAS_FECHAMENTO_AUTO = 10
 
 export const ROTULO_BOTAO_PROBLEMA = 'Tive um problema com este pedido'
 export const TEXTO_PROTECAO =
