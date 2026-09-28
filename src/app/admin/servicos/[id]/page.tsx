@@ -46,6 +46,7 @@ const ROTULO_ETAPA: Record<string, string> = { sinal: 'Sinal (valor declarado + 
 type Dados = {
   solicitacao: Sol; cliente: { name: string; email: string } | null; itens: Item[]; eventos: Evento[]; midias: Midia[]
   procedimentos: Proc[]; pendencias_entrada: string[]; pendencias_saida: string[]
+  fila_expresso?: { id: string; numero: number }[]
   pagamentos: Pagamento[]
 }
 
@@ -126,7 +127,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
   if (erroCarga) return <div className="sv-adm"><style>{CSS}</style><p className="ad-erro">{erroCarga}</p><button type="button" className="ad-bt" onClick={carregar}>Tentar de novo</button></div>
   if (!dados) return <div className="sv-adm"><style>{CSS}</style><p className="ad-muted">Carregando...</p></div>
 
-  const { solicitacao: s, cliente, itens, eventos, midias, procedimentos, pendencias_entrada, pendencias_saida, pagamentos } = dados
+  const { solicitacao: s, cliente, itens, eventos, midias, procedimentos, pendencias_entrada, pendencias_saida, pagamentos, fila_expresso } = dados
   const objetivo = OBJETIVOS.find(o => o.id === s.objetivo)?.rotulo
   const vez = turnoServico(s.status)
 
@@ -141,6 +142,9 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
           <p className="ad-muted">
             {SERVICOS.find(x => x.id === s.servico)?.nome} · {itens.length} {itens.length === 1 ? 'carta' : 'cartas'} · prazo {s.prazo === 'expresso' ? 'expresso' : 'padrão'} · pedido em {fmtDataHoraBRT.format(new Date(s.created_at))}
           </p>
+          {!!fila_expresso?.length && (
+            <p className="ad-aviso"><IconWarning size={14} /> Fila: este cliente tem expresso em andamento ({fila_expresso.map(e => <Link key={e.id} href={`/admin/servicos/${e.id}`}>{numeroServico(e.numero)}</Link>).reduce<React.ReactNode[]>((a, el, i) => (i ? [...a, ', ', el] : [el]), [])}). Este pedido só entra na bancada depois que o expresso for enviado.</p>
+          )}
           {objetivo && (
             <p className={`ad-objetivo${s.objetivo === 'graduacao' ? ' ad-objetivo-grad' : ''}`}>
               Objetivo: <b>{s.objetivo === 'outro' ? s.objetivo_outro : objetivo}</b>
@@ -327,7 +331,7 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
       </div>
 
       {!todasRecusadas && sol.prazo === 'expresso' && PRECOS?.expresso != null && (
-        <p className="ad-aviso"><IconWarning size={14} /> Pedido expresso: inclua os R$ {brl(PRECOS.expresso)} do prazo expresso no valor do serviço.</p>
+        <p className="ad-aviso"><IconWarning size={14} /> Pedido expresso: inclua R$ {brl(PRECOS.expresso)} por carta ({itens.filter(i => decisao[i.id]?.aceito !== false).length} × R$ {brl(PRECOS.expresso)} = R$ {brl(PRECOS.expresso * itens.filter(i => decisao[i.id]?.aceito !== false).length)}) no valor do serviço.</p>
       )}
       {!todasRecusadas && (
         <div className="ad-valores">

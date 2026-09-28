@@ -30,7 +30,7 @@ import {
 import {
   SERVICOS, SERVICOS_FORM_ATIVO, PRECOS, PRAZOS, LINKS, QUEIXAS, FOTO_SLOTS, MAX_CARTAS_POR_SOLICITACAO,
   OBJETIVOS, GRADUADORAS_ALVO, ROTULO_GRADUADORA, ALERTA_GRADUACAO,
-  precoDoServico, brl, taxaValorDeclaradoCents, CORREIOS_VD, type ServicoId, type FotoSlotId,
+  precoDoServico, brl, taxaValorDeclaradoCents, CORREIOS_VD, EXPRESSO_MAX_CARTAS, AVISO_FILA_EXPRESSO, type ServicoId, type FotoSlotId,
 } from '@/lib/servicos'
 
 interface Foto { file: File; url: string }
@@ -99,6 +99,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const [tentou, setTentou] = useState(false)
   const [aviso, setAviso] = useState('')
   const [numero, setNumero] = useState<string | null>(null)
+  const [filaExpresso, setFilaExpresso] = useState(false)
   const [pedidoId, setPedidoId] = useState<string | null>(null)
   const [enviando, setEnviando] = useState('')
   const [erroEnvio, setErroEnvio] = useState('')
@@ -149,8 +150,9 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
     })
     if (erroW) p.push('Confira o WhatsApp')
     if (!ciente) p.push('Marque a ciência sobre recusa')
+    if (prazo === 'expresso' && qtd > EXPRESSO_MAX_CARTAS) p.push(`O expresso aceita até ${EXPRESSO_MAX_CARTAS} cartas`)
     return p
-  }, [logado, cartas, erroW, ciente, objetivo, objetivoOutro, graduadora])
+  }, [logado, cartas, erroW, ciente, objetivo, objetivoOutro, graduadora, prazo, qtd])
 
   const precoUnit = precoDoServico(servico)
   const totalDeclarado = cartas.reduce((s, c) => s + valorNum(c.valor), 0)
@@ -159,7 +161,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const previsao = useMemo(() => {
     if (precoUnit == null) return null
     const servicoR = precoUnit * qtd
-    const expressoR = prazo === 'expresso' && PRECOS?.expresso != null ? PRECOS.expresso : 0
+    const expressoR = prazo === 'expresso' && PRECOS?.expresso != null ? PRECOS.expresso * qtd : 0
     const pctDesc = qtd > 20 ? PRECOS?.descAcima20 : qtd >= 10 ? PRECOS?.desc10a20 : null
     const descontoR = pctDesc ? Math.round(servicoR * pctDesc) / 100 : 0
     const correiosR = taxaValorDeclaradoCents(Math.round(totalDeclarado * 100)) / 100
@@ -210,6 +212,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
         const d = await r.json().catch(() => ({}))
         if (!r.ok) { setErroEnvio(d.error || 'Não conseguimos registrar o pedido. Tente de novo.'); return }
         envioRef.current = { id: d.id, numero: d.numero, uploads: d.uploads, feitos: [] }
+        setFilaExpresso(d.fila_expresso === true)
       }
 
       // 2. Sobe cada foto direto no bucket privado, pela URL assinada.
@@ -273,6 +276,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             <span className="sv-eyebrow">Solicitação registrada</span>
             <h2 className="sv-h1">{numero}</h2>
             <p className="sv-sub">Recebemos as fotos. O orçamento chega em até {PRAZOS.orcamento || 'poucos dias úteis'}, no seu e-mail e na página do pedido.</p>
+            {filaExpresso && <p className="sv-sub">{AVISO_FILA_EXPRESSO}</p>}
             <p className="ag-alerta"><IconWarning size={16} /> Não envie a carta ainda. O endereço aparece depois que você aprova o orçamento.</p>
             <a className="sv-cta" href={pedidoId ? `/servico/${pedidoId}` : '/compras'}>Acompanhar o pedido</a>
           </div>
@@ -390,12 +394,18 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                           ? (PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação` : 'Prazo informado no orçamento')
                           : (PRAZOS.expressoDias ? `${PRAZOS.expressoDias} dias corridos após a sua aprovação` : 'Prioridade na bancada')}</small>
                       </span>
-                      <span className="sv-opt-r">{p === 'padrao' ? 'Sem custo' : `+ R$ ${brl(PRECOS!.expresso!)}`}</span>
+                      <span className="sv-opt-r">{p === 'padrao' ? 'Sem custo' : `+ R$ ${brl(PRECOS!.expresso!)} por carta`}</span>
                     </button>
                   )
                 })}
               </div>
-            ) : (
+            ) : null}
+            {PRECOS?.expresso != null && prazo === 'expresso' && (
+              <p className={qtd > EXPRESSO_MAX_CARTAS ? 'ag-erro' : 'sv-small'} style={{ margin: 0 }}>
+                O expresso aceita até {EXPRESSO_MAX_CARTAS} cartas por pedido.{qtd > EXPRESSO_MAX_CARTAS ? ' Mande as outras num pedido padrão.' : ''} Se você também mandar um pedido padrão, ele entra na bancada depois que o expresso for enviado.
+              </p>
+            )}
+            {PRECOS?.expresso == null && (
               <p className="sv-p ag-dica-topo">{PRAZOS.padraoDiasUteis ? `Prazo de ${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação da proposta de tratamento.` : 'O prazo vem no orçamento, contado a partir da sua aprovação da proposta de tratamento.'}</p>
             )}
 
@@ -448,7 +458,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
               <div className="ag-linhas ag-previsao">
                 <span className="ag-prev-t">Previsão do orçamento</span>
                 <div><span>{SERVICOS.find(s => s.id === servico)?.nome} ({qtd} × R$ {brl(precoUnit!)})</span><b>R$ {brl(previsao.servicoR)}</b></div>
-                {previsao.expressoR > 0 && <div><span>Prazo expresso</span><b>R$ {brl(previsao.expressoR)}</b></div>}
+                {previsao.expressoR > 0 && <div><span>Prazo expresso ({qtd} × R$ {brl(PRECOS!.expresso!)})</span><b>R$ {brl(previsao.expressoR)}</b></div>}
                 {previsao.descontoR > 0 && <div><span>Desconto por volume ({previsao.pctDesc}%)</span><b>− R$ {brl(previsao.descontoR)}</b></div>}
                 <div><span>Taxa dos Correios pelo valor declarado, na volta</span><b>R$ {brl(previsao.correiosR)}</b></div>
                 <div><span>Frete de volta</span><b className="ag-prev-obs">no orçamento</b></div>

@@ -24,7 +24,7 @@ import {
 } from '@/lib/servicosServer'
 import {
   TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, RISCOS,
-  validarFicha, lerFaixaNota, lerGraduadora,
+  validarFicha, lerFaixaNota, lerGraduadora, STATUS_EXPRESSO_EM_ANDAMENTO,
 } from '@/lib/servicos'
 
 export const dynamic = 'force-dynamic'
@@ -57,6 +57,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       sb.from('servico_procedimentos').select('*').eq('solicitacao_id', id).order('ordem'),
     ])
 
+    // Pedido padrao atras de um expresso do mesmo cliente: a fila da bancada
+    // manda terminar e enviar o expresso antes.
+    const { data: expressos } = sol.prazo === 'padrao'
+      ? await sb.from('servico_solicitacoes').select('id, numero').eq('user_id', sol.user_id).eq('prazo', 'expresso')
+        .in('status', [...STATUS_EXPRESSO_EM_ANDAMENTO]).order('numero').limit(3)
+      : { data: [] as { id: string; numero: number }[] }
+
     const paths = (midias || []).map(m => m.path)
     const { data: assinadas } = paths.length
       ? await sb.storage.from(BUCKET_SERVICOS).createSignedUrls(paths, 600)
@@ -70,6 +77,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       eventos: eventos || [],
       midias: (midias || []).map(m => ({ ...m, url: urlPor.get(m.path) || null })),
       procedimentos: procs || [],
+      fila_expresso: (expressos || []).map(e => ({ id: e.id, numero: e.numero })),
       pagamentos: await pagamentosDoPedido(id),
       pendencias_entrada: ['recebida'].includes(sol.status) ? await pendencias(sb, id, sol.servico, 'entrada') : [],
       pendencias_saida: ['em_bancada', 'descansando'].includes(sol.status) ? await pendencias(sb, id, sol.servico, 'saida') : [],

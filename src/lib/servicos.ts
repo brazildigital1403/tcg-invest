@@ -23,7 +23,7 @@ export interface Precos {
   restauracao: number
   preGrading: number
   completo: number
-  /** Acrescimo do prazo expresso. null = sem expresso. */
+  /** Acrescimo do prazo expresso, POR CARTA. null = sem expresso. */
   expresso: number | null
   /** Desconto por volume, em %. null = sem desconto anunciado. */
   desc10a20: number | null
@@ -33,7 +33,8 @@ export interface Precos {
 /**
  * Valores por carta definidos pelo Du em 26/09/2026. Descontos por volume (10% de
  * 10 a 20 cartas, 15% acima) seguem a referencia de mercado, decisao dele no
- * mesmo dia. Expresso: + R$ 350 por ate 4 dias corridos (PRAZOS).
+ * mesmo dia. Expresso: + R$ 350 por carta, ate EXPRESSO_MAX_CARTAS cartas por
+ * pedido, em ate 4 dias corridos (PRAZOS). Decisao do Du em 28/09/2026.
  * O antigo "seguro 7%" saiu em 28/09/2026: a Bynx nao vende seguro. Na volta o
  * cliente paga so a taxa de valor declarado dos Correios (CORREIOS_VD).
  */
@@ -60,6 +61,16 @@ export function taxaValorDeclaradoCents(valorDeclaradoCents: number): number {
 export const ROTULO_VALOR_DECLARADO = 'Valor declarado nos Correios'
 
 const reaisVd = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/**
+ * Expresso e pedido proprio de ate 4 cartas (decisao do Du, 28/09/2026): a
+ * bancada e de uma pessoa so. Quem tem mais cartas manda as outras num pedido
+ * padrao, e o prazo desse pedido so comeca depois que o expresso for enviado.
+ */
+export const EXPRESSO_MAX_CARTAS = 4
+/** Status em que um pedido expresso ainda ocupa a bancada (segura o prazo dos padrao). */
+export const STATUS_EXPRESSO_EM_ANDAMENTO = ['aguardando_orcamento', 'orcado', 'aceito', 'recebida', 'proposta', 'em_bancada', 'descansando', 'pronta'] as const
+export const AVISO_FILA_EXPRESSO = 'Você tem um pedido expresso em andamento. O prazo deste pedido começa a contar depois que o expresso for enviado.'
 
 export const PRECOS: Precos | null = {
   restauracao: 165,

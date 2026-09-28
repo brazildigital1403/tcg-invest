@@ -9,7 +9,7 @@
 import { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
-import { MAX_CARTAS_POR_SOLICITACAO, QUEIXAS, OBJETIVOS, GRADUADORAS_ALVO } from '@/lib/servicos'
+import { MAX_CARTAS_POR_SOLICITACAO, QUEIXAS, OBJETIVOS, GRADUADORAS_ALVO, EXPRESSO_MAX_CARTAS, STATUS_EXPRESSO_EM_ANDAMENTO } from '@/lib/servicos'
 import {
   sbAdmin, usuarioDoToken, erro, registrarEvento, caminhoFoto, urlDeUpload, numeroSolicitacao,
   FOTO_MIMES, SLOTS, SLOTS_OBRIGATORIOS, type Slot,
@@ -66,6 +66,9 @@ export async function POST(req: NextRequest) {
     const cartas = Array.isArray(body.cartas) ? (body.cartas as CartaEntrada[]) : []
     if (cartas.length < 1 || cartas.length > MAX_CARTAS_POR_SOLICITACAO) {
       return erro(400, `Envie de 1 a ${MAX_CARTAS_POR_SOLICITACAO} cartas`)
+    }
+    if (prazo === 'expresso' && cartas.length > EXPRESSO_MAX_CARTAS) {
+      return erro(400, `O expresso aceita até ${EXPRESSO_MAX_CARTAS} cartas por pedido. Mande as outras num pedido padrão.`)
     }
 
     const queixasOk = new Set<string>(QUEIXAS)
@@ -168,7 +171,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ id: sol.id, numero: numeroSolicitacao(sol.numero), uploads })
+    // Pedido padrao com expresso do mesmo cliente ainda na bancada: o prazo
+    // deste so conta depois do envio do expresso (fila de uma pessoa so).
+    let filaExpresso = false
+    if (prazo === 'padrao') {
+      const { count: exp } = await sb.from('servico_solicitacoes').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).eq('prazo', 'expresso').neq('id', sol.id)
+        .in('status', [...STATUS_EXPRESSO_EM_ANDAMENTO])
+      filaExpresso = (exp ?? 0) > 0
+    }
+
+    return NextResponse.json({ id: sol.id, numero: numeroSolicitacao(sol.numero), uploads, fila_expresso: filaExpresso })
   } catch (e) {
     console.error('[servicos POST]', e instanceof Error ? e.message : e)
     return erro(500, 'Erro interno')
