@@ -30,7 +30,7 @@ import {
 import {
   SERVICOS, SERVICOS_FORM_ATIVO, PRECOS, PRAZOS, LINKS, QUEIXAS, FOTO_SLOTS, MAX_CARTAS_POR_SOLICITACAO,
   OBJETIVOS, GRADUADORAS_ALVO, ROTULO_GRADUADORA, ALERTA_GRADUACAO,
-  precoDoServico, brl, type ServicoId, type FotoSlotId,
+  precoDoServico, brl, taxaValorDeclaradoCents, CORREIOS_VD, type ServicoId, type FotoSlotId,
 } from '@/lib/servicos'
 
 interface Foto { file: File; url: string }
@@ -154,6 +154,17 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
 
   const precoUnit = precoDoServico(servico)
   const totalDeclarado = cartas.reduce((s, c) => s + valorNum(c.valor), 0)
+  // Previsao do orcamento: servico por carta, expresso, desconto por volume e a
+  // taxa de valor declarado dos Correios na volta. O frete so sai no orcamento.
+  const previsao = useMemo(() => {
+    if (precoUnit == null) return null
+    const servicoR = precoUnit * qtd
+    const expressoR = prazo === 'expresso' && PRECOS?.expresso != null ? PRECOS.expresso : 0
+    const pctDesc = qtd > 20 ? PRECOS?.descAcima20 : qtd >= 10 ? PRECOS?.desc10a20 : null
+    const descontoR = pctDesc ? Math.round(servicoR * pctDesc) / 100 : 0
+    const correiosR = taxaValorDeclaradoCents(Math.round(totalDeclarado * 100)) / 100
+    return { servicoR, expressoR, pctDesc, descontoR, correiosR, total: servicoR + expressoR - descontoR + correiosR }
+  }, [precoUnit, qtd, prazo, totalDeclarado])
 
   async function enviar() {
     setTentou(true)
@@ -431,9 +442,22 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             <div className="ag-linhas">
               <div><span>Serviço</span><b>{SERVICOS.find(s => s.id === servico)?.nome}</b></div>
               <div><span>Cartas</span><b>{qtd}</b></div>
-              <div><span>Valor declarado</span><b>R$ {brl(totalDeclarado)}</b></div>
-              {precoUnit != null && <div><span>Estimativa</span><b>R$ {brl(precoUnit * qtd)}</b></div>}
+              <div><span>Valor declarado das cartas</span><b>R$ {brl(totalDeclarado)}</b></div>
             </div>
+            {previsao && (
+              <div className="ag-linhas ag-previsao">
+                <span className="ag-prev-t">Previsão do orçamento</span>
+                <div><span>{SERVICOS.find(s => s.id === servico)?.nome} ({qtd} × R$ {brl(precoUnit!)})</span><b>R$ {brl(previsao.servicoR)}</b></div>
+                {previsao.expressoR > 0 && <div><span>Prazo expresso</span><b>R$ {brl(previsao.expressoR)}</b></div>}
+                {previsao.descontoR > 0 && <div><span>Desconto por volume ({previsao.pctDesc}%)</span><b>− R$ {brl(previsao.descontoR)}</b></div>}
+                <div><span>Taxa dos Correios pelo valor declarado, na volta</span><b>R$ {brl(previsao.correiosR)}</b></div>
+                <div><span>Frete de volta</span><b className="ag-prev-obs">no orçamento</b></div>
+                <div className="ag-prev-total"><span>Total previsto</span><b>R$ {brl(previsao.total)} + frete</b></div>
+                {totalDeclarado * 100 > CORREIOS_VD.tetoSedexCents && (
+                  <p className="ag-prev-nota">O valor declarado passa do teto dos Correios. Combinamos a entrega com você no orçamento.</p>
+                )}
+              </div>
+            )}
             {tentou && pendencias.length > 0 && (
               <ul className="ag-pend" role="alert">
                 {pendencias.slice(0, 4).map(p => <li key={p}>{p}</li>)}
@@ -450,7 +474,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                 {LINKS.whatsapp && <a className="sv-ghost" href={LINKS.whatsapp}><IconWhatsApp size={18} /> Pedir pelo WhatsApp</a>}
               </div>
             )}
-            <p className="sv-small" style={{ textAlign: 'center', margin: 0 }}>Nada é cobrado agora. O preço final vem no orçamento.</p>
+            <p className="sv-small" style={{ textAlign: 'center', margin: 0 }}>Nada é cobrado agora. O valor final vem no orçamento, depois que analisamos as fotos.</p>
           </div>
         </aside>
       </div>
@@ -710,7 +734,13 @@ const AG_CSS = `
 .ag-linhas{display:grid;gap:10px}
 .ag-linhas div{display:flex;justify-content:space-between;gap:10px;font-size:14px}
 .ag-linhas span{color:var(--bx-text-2)}
-.ag-linhas b{font-variant-numeric:tabular-nums;text-align:right}
+.ag-linhas b{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.ag-previsao{padding-top:14px;border-top:1px solid var(--bx-border)}
+.ag-prev-t{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bx-text-3)}
+.ag-prev-obs{font-weight:500;color:var(--bx-text-2)}
+.ag-prev-total{padding-top:10px;border-top:1px solid var(--bx-border);font-size:15px}
+.ag-prev-total span{color:var(--bx-text);font-weight:700}
+.ag-prev-nota{margin:0;font-size:12px;color:var(--bx-text-2)}
 .ag-pend{margin:0;padding:12px 14px 12px 30px;border-radius:12px;background:color-mix(in srgb,var(--bx-red) 8%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 26%,transparent);font-size:13px;line-height:1.6;color:var(--bx-text)}
 
 .ag-erro{margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--bx-red)}
