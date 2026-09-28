@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       return erro(400, `Envie de 1 a ${MAX_CARTAS_POR_SOLICITACAO} cartas`)
     }
     if (prazo === 'expresso' && cartas.length > EXPRESSO_MAX_CARTAS) {
-      return erro(400, `O expresso aceita até ${EXPRESSO_MAX_CARTAS} cartas por pedido. Mande as outras num pedido padrão.`)
+      return erro(400, `O expresso aceita até ${EXPRESSO_MAX_CARTAS} cartas por pedido. Deixe aqui só as cartas com pressa e mande as outras em um pedido padrão.`)
     }
 
     const queixasOk = new Set<string>(QUEIXAS)

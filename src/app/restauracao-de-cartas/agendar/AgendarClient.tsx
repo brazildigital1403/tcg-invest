@@ -25,7 +25,7 @@ import { authFetch } from '@/lib/authFetch'
 import { comprimirImagem } from '@/lib/comprimirImagem'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
-  IconCheck, IconMinus, IconPlus, IconUpload, IconClose, IconWhatsApp, IconWarning, IconAccount,
+  IconCheck, IconMinus, IconPlus, IconUpload, IconClose, IconWhatsApp, IconWarning, IconAccount, IconClock,
 } from '@/components/ui/Icons'
 import {
   SERVICOS, SERVICOS_FORM_ATIVO, PRECOS, PRAZOS, LINKS, QUEIXAS, FOTO_SLOTS, MAX_CARTAS_POR_SOLICITACAO,
@@ -401,9 +401,18 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
               </div>
             ) : null}
             {PRECOS?.expresso != null && prazo === 'expresso' && (
-              <p className={qtd > EXPRESSO_MAX_CARTAS ? 'ag-erro' : 'sv-small'} style={{ margin: 0 }}>
-                O expresso aceita até {EXPRESSO_MAX_CARTAS} cartas por pedido.{qtd > EXPRESSO_MAX_CARTAS ? ' Mande as outras num pedido padrão.' : ''} Se você também mandar um pedido padrão, ele entra na bancada depois que o expresso for enviado.
-              </p>
+              <div className={`ag-exp${qtd > EXPRESSO_MAX_CARTAS ? ' ag-exp-erro' : ''}`} role={qtd > EXPRESSO_MAX_CARTAS ? 'alert' : undefined}>
+                <span className="ag-exp-ic">{qtd > EXPRESSO_MAX_CARTAS ? <IconWarning size={18} /> : <IconClock size={18} />}</span>
+                <div>
+                  <b>{qtd > EXPRESSO_MAX_CARTAS
+                    ? `O expresso aceita até ${EXPRESSO_MAX_CARTAS} cartas. Este pedido tem ${qtd}.`
+                    : `Expresso: até ${EXPRESSO_MAX_CARTAS} cartas por pedido`}</b>
+                  <p>{qtd > EXPRESSO_MAX_CARTAS
+                    ? 'Deixe aqui só as cartas com pressa e mande as outras em um pedido padrão.'
+                    : 'Tem mais cartas? Mande as outras em um pedido padrão.'}{' '}
+                    As cartas do pedido padrão entram na bancada depois que as expressas forem enviadas. É assim que conseguimos cumprir o prazo.</p>
+                </div>
+              </div>
             )}
             {PRECOS?.expresso == null && (
               <p className="sv-p ag-dica-topo">{PRAZOS.padraoDiasUteis ? `Prazo de ${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação da proposta de tratamento.` : 'O prazo vem no orçamento, contado a partir da sua aprovação da proposta de tratamento.'}</p>
@@ -751,6 +760,12 @@ const AG_CSS = `
 .ag-prev-total{padding-top:10px;border-top:1px solid var(--bx-border);font-size:15px}
 .ag-prev-total span{color:var(--bx-text);font-weight:700}
 .ag-prev-nota{margin:0;font-size:12px;color:var(--bx-text-2)}
+.ag-exp{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:12px;border:1px solid var(--bx-border-2);background:var(--bx-surface);transition:border-color .15s ease,background .15s ease}
+.ag-exp-ic{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:rgba(var(--ac-1-rgb),.12);color:var(--ac-1)}
+.ag-exp b{display:block;font-size:14px;margin-bottom:4px}
+.ag-exp p{margin:0;font-size:13px;line-height:1.5;color:var(--bx-text-2)}
+.ag-exp-erro{border-color:rgba(var(--ac-2-rgb),.55);background:rgba(var(--ac-2-rgb),.06)}
+.ag-exp-erro .ag-exp-ic{background:rgba(var(--ac-2-rgb),.14);color:var(--ac-2)}
 .ag-pend{margin:0;padding:12px 14px 12px 30px;border-radius:12px;background:color-mix(in srgb,var(--bx-red) 8%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 26%,transparent);font-size:13px;line-height:1.6;color:var(--bx-text)}
 
 .ag-erro{margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--bx-red)}

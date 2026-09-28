@@ -64,7 +64,7 @@ const reaisVd = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFracti
 
 /**
  * Expresso e pedido proprio de ate 4 cartas (decisao do Du, 28/09/2026): a
- * bancada e de uma pessoa so. Quem tem mais cartas manda as outras num pedido
+ * bancada e de uma pessoa so. Quem tem mais cartas manda as outras em um pedido
  * padrao, e o prazo desse pedido so comeca depois que o expresso for enviado.
  */
 export const EXPRESSO_MAX_CARTAS = 4
