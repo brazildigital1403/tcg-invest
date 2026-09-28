@@ -271,6 +271,19 @@ export async function confirmarPagamento(solicitacaoId: string, etapa: EtapaPaga
   return { ok: true as const, tudoPago }
 }
 
+/**
+ * O que acontece DEPOIS que confirmarPagamento fez a transicao (ok: true):
+ * evento na linha do tempo + e-mail ao cliente. Uma regra so para o Pix manual
+ * (admin) e para o cartao (webhook). So chamar quando a transicao aconteceu
+ * nesta chamada -- e isso que garante um e-mail e um evento por etapa.
+ */
+export async function aposConfirmarPagamento(solicitacaoId: string, statusAtual: string, etapa: EtapaPagamento, metodo: 'pix_manual' | 'stripe', sufixoNota = '') {
+  const rotulo = metodo === 'stripe' ? 'Cartão' : 'Pix'
+  await registrarEvento(solicitacaoId, statusAtual, `${rotulo} confirmado: ${ROTULO_ETAPA[etapa].toLowerCase()}${sufixoNota}`)
+  if ((etapa === 'sinal' || etapa === 'integral') && statusAtual === 'aceito') await notificarCliente(solicitacaoId, 'liberado_envio')
+  if (etapa === 'servico') await notificarCliente(solicitacaoId, 'servico_pago')
+}
+
 function blocoPix(valor: number, numero: string) {
   const pix = pixRecebimento()
   return pix

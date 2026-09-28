@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
   sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS, sincronizarPagamentos, pagamentosDoPedido,
-  confirmarPagamento, ROTULO_ETAPA, pendencias, type EtapaPagamento,
+  confirmarPagamento, aposConfirmarPagamento, pendencias, type EtapaPagamento,
 } from '@/lib/servicosServer'
 import {
   TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, RISCOS,
@@ -231,9 +231,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         if (!linhas.some(l => l.etapa === etapa)) return erro(400, 'Etapa de pagamento inválida')
         const r = await confirmarPagamento(id, etapa, 'pix_manual')
         if (!r.ok) return erro(409, 'Esta etapa já está paga')
-        await registrarEvento(id, sol.status, `Pix confirmado: ${ROTULO_ETAPA[etapa].toLowerCase()}`)
-        if ((etapa === 'sinal' || etapa === 'integral') && sol.status === 'aceito') await notificarCliente(id, 'liberado_envio')
-        if (etapa === 'servico') await notificarCliente(id, 'servico_pago')
+        await aposConfirmarPagamento(id, sol.status, etapa, 'pix_manual')
         return NextResponse.json({ ok: true, tudoPago: r.tudoPago })
       }
       // Pedido antigo, sem etapas: um pagamento so. So na transicao "nao pago -> pago".

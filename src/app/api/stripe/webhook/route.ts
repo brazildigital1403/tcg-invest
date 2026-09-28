@@ -30,6 +30,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
 import { registrarVendaParceiro, registrarRenovacaoParceiro, reverterComissaoParceiro } from '@/lib/parceiros'
 import { carimbarConvite } from '@/lib/campanhaConvites'
+import {
+  sbAdmin as sbServicos, confirmarPagamento as confirmarPagamentoServico, aposConfirmarPagamento,
+  registrarEvento as registrarEventoServico, notificarAdmin as notificarAdminServico, ROTULO_ETAPA as ROTULO_ETAPA_SERVICO,
+  type EtapaPagamento as EtapaPagamentoServico,
+} from '@/lib/servicosServer'
+import { numeroServico } from '@/lib/servicos'
 
 // ─── Mapas de descrição (sincronizados com checkout/SCAN_PACKAGES) ──────────
 
@@ -328,6 +334,165 @@ async function marcarEventoComoFinalizado(
   }).eq('event_id', eventId)
 }
 
+// ─── Servico de bancada: pagamento de etapa por cartao (fatia 5) ────────────
+//
+// Ramo ISOLADO: so entra evento checkout.session.* cuja metadata tenha
+// pagamento_id + solicitacao_id (gravada por /api/servicos/[id]/checkout).
+// Assinaturas e marketplace nunca passam por aqui, e este ramo nunca cai neles.
+//
+// ★ NAO usa a trava por event.id (stripe_events_processed) como porta: aquela
+//   trava grava ANTES de processar, entao um 500 aqui viraria "duplicate" na
+//   reentrega e o pagamento nunca seria confirmado. A idempotencia deste ramo e
+//   a TRANSICAO: confirmarPagamento so grava onde pago_em is null. Reentrega
+//   encontra a etapa ja paga por este cartao e devolve 200 sem efeito.
+// ★ Resposta: 200 para tudo que foi processado, ja estava processado ou nao
+//   pode ser confirmado (divergencia vai para revisao humana, reenviar nao
+//   resolve). 500 so para falha transitoria (banco), para a Stripe reenviar.
+// ★ Divergencia (Session trocada, valor ou moeda diferente, etapa ja paga por
+//   Pix, linha sumida) NUNCA confirma: loga, registra um evento neutro no
+//   pedido (o cliente ve a linha do tempo, entao o detalhe vai so no log e no
+//   e-mail do admin) e avisa o admin uma vez por Session.
+
+const EVENTOS_SERVICO = new Set([
+  'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+  'checkout.session.expired',
+  'checkout.session.async_payment_failed',
+])
+
+function ehEventoDeServico(event: Stripe.Event): boolean {
+  if (!EVENTOS_SERVICO.has(event.type)) return false
+  const md = (event.data.object as Stripe.Checkout.Session)?.metadata
+  return !!(md?.pagamento_id && md?.solicitacao_id)
+}
+
+/** Evento neutro no pedido + e-mail ao admin, uma vez por referencia (a Stripe re-entrega). */
+async function sinalizarRevisaoServico(
+  solicitacaoId: string, statusAtual: string, ref: string, titulo: string, detalhe: string[],
+) {
+  const sb = sbServicos()
+  const nota = `Pagamento com cartão em conferência pela Bynx (ref. ${ref.slice(-8)})`
+  const { data: ja, error } = await sb.from('servico_eventos').select('id')
+    .eq('solicitacao_id', solicitacaoId).eq('nota', nota).limit(1)
+  if (error) throw new Error(error.message)
+  if (ja?.length) return
+  await registrarEventoServico(solicitacaoId, statusAtual, nota)
+  await notificarAdminServico(solicitacaoId, titulo, detalhe)
+}
+
+async function tratarPagamentoServico(event: Stripe.Event): Promise<{ status: number; body: Record<string, unknown> }> {
+  const session = event.data.object as Stripe.Checkout.Session
+  const pagamentoId = String(session.metadata?.pagamento_id || '')
+  const solicitacaoId = String(session.metadata?.solicitacao_id || '')
+  const tag = `[webhook/servico] ${event.type} ${event.id} session ${session.id} pagamento ${pagamentoId}`
+  const ok = (resultado: string) => ({ status: 200, body: { received: true, servico: resultado } })
+
+  // Expirou ou falhou: so registra. Nada e marcado, nada e desfeito.
+  if (event.type === 'checkout.session.expired' || event.type === 'checkout.session.async_payment_failed') {
+    console.log(`${tag}: ${event.type === 'checkout.session.expired' ? 'Session expirou sem pagamento' : 'pagamento assincrono falhou'} -- nada a fazer`)
+    return ok('registrado')
+  }
+
+  if (session.payment_status !== 'paid') {
+    // Cartao chega 'paid' no completed. Qualquer outro estado espera o
+    // async_payment_succeeded (ou nunca vira pago).
+    console.log(`${tag}: payment_status=${session.payment_status} -- aguardando, nada confirmado`)
+    return ok('aguardando')
+  }
+
+  const sb = sbServicos()
+  const [{ data: linhas, error: errL }, { data: sols, error: errS }] = await Promise.all([
+    sb.from('servico_pagamentos')
+      .select('id, solicitacao_id, etapa, valor_cents, metodo, pago_em, stripe_checkout_session_id, stripe_payment_intent_id')
+      .eq('id', pagamentoId).limit(1),
+    sb.from('servico_solicitacoes').select('id, numero, status').eq('id', solicitacaoId).limit(1),
+  ])
+  if (errL || errS) throw new Error((errL || errS)!.message)
+
+  const linha = linhas?.[0]
+  const sol = sols?.[0]
+  const piId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null
+  const brlS = (c: number | null | undefined) => `R$ ${((c || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+  const refs = [`Session: ${session.id}`, `PaymentIntent: ${piId || '(sem)'}`, `Evento: ${event.id}${event.livemode ? '' : ' (modo de teste)'}`]
+
+  if (!sol) {
+    console.error(`${tag}: CRITICAL pago, mas a solicitacao ${solicitacaoId} nao existe -- conferir e estornar na Stripe`)
+    return ok('solicitacao_inexistente')
+  }
+  if (!linha || linha.solicitacao_id !== sol.id) {
+    console.error(`${tag}: CRITICAL pago, mas a linha de pagamento ${linha ? 'pertence a outro pedido' : 'nao existe (reorcamento apagou?)'} -- nada confirmado`)
+    await sinalizarRevisaoServico(sol.id, sol.status, session.id, 'Cartão pago sem etapa correspondente:', [
+      `A Stripe confirmou ${brlS(session.amount_total)} com cartão, mas a etapa de pagamento indicada não ${linha ? 'pertence a este pedido' : 'existe mais'}.`,
+      'Nada foi marcado como pago. Confira o valor e decida entre registrar na etapa certa ou estornar na Stripe.',
+      ...refs,
+    ])
+    return ok('revisao')
+  }
+
+  const etapa = linha.etapa as EtapaPagamentoServico
+  const rotulo = ROTULO_ETAPA_SERVICO[etapa] || etapa
+
+  // Reentrega (ou o completed e o async_payment_succeeded da mesma Session):
+  // a etapa ja foi paga por ESTE cartao. 200, sem evento e sem e-mail.
+  if (linha.pago_em && linha.metodo === 'stripe' && linha.stripe_checkout_session_id === session.id) {
+    console.log(`${tag}: etapa ${etapa} ja confirmada por esta Session -- reentrega, ignorando`)
+    return ok('ja_processado')
+  }
+
+  const problemas: string[] = []
+  if (linha.stripe_checkout_session_id !== session.id) {
+    problemas.push(`A Session gravada na etapa é ${linha.stripe_checkout_session_id || '(nenhuma)'}, não a deste pagamento.`)
+  }
+  if ((session.currency || '').toLowerCase() !== 'brl') problemas.push(`Moeda ${session.currency}, esperado BRL.`)
+  if (session.amount_total !== linha.valor_cents) {
+    problemas.push(`Valor pago ${brlS(session.amount_total)}, valor da etapa ${brlS(linha.valor_cents)}.`)
+  }
+  if (session.metadata?.etapa && session.metadata.etapa !== linha.etapa) {
+    problemas.push(`A metadata diz etapa ${session.metadata.etapa}, a linha é ${linha.etapa}.`)
+  }
+  if (session.client_reference_id && session.client_reference_id !== linha.id) {
+    problemas.push('client_reference_id diferente da etapa.')
+  }
+  if (linha.pago_em) {
+    // Ja paga por outro meio (Pix confirmado pelo admin) ou por outra Session:
+    // o cliente pagou duas vezes. Nunca sobrescrever; o admin estorna um.
+    problemas.push(`A etapa já estava paga (${linha.metodo === 'pix_manual' ? 'Pix' : linha.metodo}) em ${linha.pago_em}: provável pagamento em dobro, estornar o cartão.`)
+  }
+
+  if (problemas.length) {
+    console.error(`${tag}: NAO confirmado, divergencia -- ${problemas.join(' | ')}`)
+    await sinalizarRevisaoServico(sol.id, sol.status, session.id, `Cartão em conferência (${rotulo.toLowerCase()}):`, [
+      `A Stripe confirmou um pagamento com cartão de ${brlS(session.amount_total)} para ${rotulo.toLowerCase()}, mas ele não foi registrado automaticamente:`,
+      ...problemas,
+      ...refs,
+    ])
+    return ok('revisao')
+  }
+
+  // ── Transicao: pago_em null -> agora. So quem fizer a transicao notifica. ──
+  const r = await confirmarPagamentoServico(sol.id, etapa, 'stripe', piId ? { stripe_payment_intent_id: piId } : {})
+  if (!r.ok) {
+    // Perdeu a corrida para outra entrega (ou para o Pix) entre a leitura e o update.
+    const { data: agora, error: errA } = await sb.from('servico_pagamentos')
+      .select('metodo, stripe_checkout_session_id').eq('id', linha.id).limit(1)
+    if (errA) throw new Error(errA.message)
+    if (agora?.[0]?.metodo === 'stripe' && agora[0].stripe_checkout_session_id === session.id) {
+      console.log(`${tag}: outra entrega confirmou no meio -- ignorando`)
+      return ok('ja_processado')
+    }
+    console.error(`${tag}: NAO confirmado, a etapa foi paga por ${agora?.[0]?.metodo} no meio do processamento`)
+    await sinalizarRevisaoServico(sol.id, sol.status, session.id, `Cartão em conferência (${rotulo.toLowerCase()}):`, [
+      `A etapa ${rotulo.toLowerCase()} foi registrada por outro meio enquanto o cartão de ${brlS(session.amount_total)} era confirmado: provável pagamento em dobro, estornar o cartão.`,
+      ...refs,
+    ])
+    return ok('revisao')
+  }
+
+  console.log(`${tag}: PAGO -- pedido ${numeroServico(Number(sol.numero))} etapa ${etapa} ${brlS(linha.valor_cents)}${r.tudoPago ? ' (tudo pago)' : ''}`)
+  await aposConfirmarPagamento(sol.id, sol.status, etapa, 'stripe', event.livemode ? '' : ' (modo de teste)')
+  return ok('confirmado')
+}
+
 // ─── Handler principal ───────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -377,6 +542,27 @@ export async function POST(req: NextRequest) {
   }
 
   console.log(`[webhook] Recebido: ${event.type} (${event.id})`)
+
+  // ── Servico de bancada (cartao): ramo isolado, antes da trava por event.id ──
+  // Ver tratarPagamentoServico: a idempotencia aqui e a transicao do pago_em.
+  if (ehEventoDeServico(event)) {
+    let res: { status: number; body: Record<string, unknown> }
+    try {
+      res = await tratarPagamentoServico(event)
+    } catch (err) {
+      console.error(`[webhook/servico] falha transitoria em ${event.type} ${event.id} -- 500 para a Stripe reenviar:`, err instanceof Error ? err.message : err)
+      res = { status: 500, body: { error: 'Falha temporária' } }
+    }
+    // Trilha de auditoria (best-effort; nunca e porta de idempotencia deste ramo).
+    await supabase.from('stripe_events_processed').upsert({
+      event_id: event.id, event_type: event.type, livemode: event.livemode,
+      result: res.status === 200 ? 'ok' : 'error',
+      error_message: res.status === 200 ? null : 'servico: falha transitoria',
+    }, { onConflict: 'event_id' }).then(({ error }) => {
+      if (error) console.warn(`[webhook/servico] auditoria do evento ${event.id} falhou:`, error.message)
+    })
+    return NextResponse.json(res.body, { status: res.status })
+  }
 
   // ── Extrai metadata pra idempotência (best-effort, antes do switch) ──
   let metadataParaIdempotencia: { userId?: string; lojaId?: string } = {}
