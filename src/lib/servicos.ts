@@ -33,8 +33,9 @@ export interface Precos {
 /**
  * Valores por carta definidos pelo Du em 26/09/2026. Descontos por volume (10% de
  * 10 a 20 cartas, 15% acima) seguem a referencia de mercado, decisao dele no
- * mesmo dia. Expresso: + R$ 350 por carta, ate EXPRESSO_MAX_CARTAS cartas por
- * pedido, em ate 4 dias corridos (PRAZOS). Decisao do Du em 28/09/2026.
+ * mesmo dia. Tabela revista em 28/09/2026 pelo painel de precificacao (decisao
+ * do Du): Completo R$ 229 (sem quebra de slab), restauracao "a partir de"
+ * R$ 165 com valor final na proposta, expresso so no pre-grading.
  * O antigo "seguro 7%" saiu em 28/09/2026: a Bynx nao vende seguro. Na volta o
  * cliente paga so a taxa de valor declarado dos Correios (CORREIOS_VD).
  */
@@ -63,11 +64,21 @@ export const ROTULO_VALOR_DECLARADO = 'Valor declarado nos Correios'
 const reaisVd = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /**
- * Expresso e pedido proprio de ate 4 cartas (decisao do Du, 28/09/2026): a
- * bancada e de uma pessoa so. Quem tem mais cartas manda as outras em um pedido
- * padrao, e o prazo desse pedido so comeca depois que o expresso for enviado.
+ * Expresso (painel de precificacao, 28/09/2026): so pre-grading, + R$ 80, 1
+ * carta por pedido e 1 expresso por vez na bancada (de qualquer cliente),
+ * postado em ate 2 dias uteis apos a chegada, volta por SEDEX. Restauracao e
+ * completo nao tem expresso: o descanso nao acelera. Pedido padrao do mesmo
+ * cliente so comeca depois que o expresso for enviado.
  */
-export const EXPRESSO_MAX_CARTAS = 4
+export const EXPRESSO_MAX_CARTAS = 1
+export const EXPRESSO_SERVICOS: readonly ServicoId[] = ['pre_grading']
+/** Status em que um expresso ocupa a vaga unica da bancada (a partir do aceite). */
+export const STATUS_EXPRESSO_OCUPA_VAGA = ['aceito', 'recebida', 'em_bancada', 'pronta'] as const
+/** Acima disso o prazo padrao sai no orcamento. */
+export const PRAZO_PADRAO_ATE_CARTAS = 5
+/** Restauracao tem valor final na proposta: o preco publicado e piso. */
+export const PRECO_A_PARTIR: readonly ServicoId[] = ['restauracao']
+export const rotuloPreco = (id: ServicoId, v: number) => `${PRECO_A_PARTIR.includes(id) ? 'a partir de ' : ''}R$ ${brl(v)}`
 /** Status em que um pedido expresso ainda ocupa a bancada (segura o prazo dos padrao). */
 export const STATUS_EXPRESSO_EM_ANDAMENTO = ['aguardando_orcamento', 'orcado', 'aceito', 'recebida', 'proposta', 'em_bancada', 'descansando', 'pronta'] as const
 export const AVISO_FILA_EXPRESSO = 'Você tem um pedido expresso em andamento. O prazo deste pedido começa a contar depois que o expresso for enviado.'
@@ -75,8 +86,8 @@ export const AVISO_FILA_EXPRESSO = 'Você tem um pedido expresso em andamento. O
 export const PRECOS: Precos | null = {
   restauracao: 165,
   preGrading: 80,
-  completo: 450,
-  expresso: 350,
+  completo: 229,
+  expresso: 80,
   desc10a20: 10,
   descAcima20: 15,
 }
@@ -85,8 +96,8 @@ export const PRECOS: Precos | null = {
 export const PRAZOS = {
   /** Dias uteis apos a chegada da carta. */
   padraoDiasUteis: 5 as number | null,
-  /** Dias corridos do expresso. */
-  expressoDias: 4 as number | null,
+  /** Dias uteis entre a chegada e a postagem de volta, no expresso. */
+  expressoDiasUteis: 2 as number | null,
   /** Prazo do orcamento depois do envio das fotos. */
   orcamento: '48 horas' as string | null,
 }

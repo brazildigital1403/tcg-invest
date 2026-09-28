@@ -30,7 +30,8 @@ import {
 import {
   SERVICOS, SERVICOS_FORM_ATIVO, PRECOS, PRAZOS, LINKS, QUEIXAS, FOTO_SLOTS, MAX_CARTAS_POR_SOLICITACAO,
   OBJETIVOS, GRADUADORAS_ALVO, ROTULO_GRADUADORA, ALERTA_GRADUACAO,
-  precoDoServico, brl, taxaValorDeclaradoCents, CORREIOS_VD, EXPRESSO_MAX_CARTAS, AVISO_FILA_EXPRESSO, type ServicoId, type FotoSlotId,
+  precoDoServico, brl, taxaValorDeclaradoCents, CORREIOS_VD, EXPRESSO_MAX_CARTAS, EXPRESSO_SERVICOS, AVISO_FILA_EXPRESSO,
+  PRAZO_PADRAO_ATE_CARTAS, PRECO_A_PARTIR, rotuloPreco, type ServicoId, type FotoSlotId,
 } from '@/lib/servicos'
 
 interface Foto { file: File; url: string }
@@ -88,7 +89,17 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const [qtd, setQtd] = useState(qtdInicial)
   const [logado, setLogado] = useState<boolean | null>(null)
   const [cartas, setCartas] = useState<CartaForm[]>(() => Array.from({ length: qtdInicial }, novaCarta))
-  const [prazo, setPrazo] = useState<'padrao' | 'expresso'>('padrao')
+  const [prazoEscolhido, setPrazo] = useState<'padrao' | 'expresso'>('padrao')
+  // Expresso so existe no pre-grading: trocar de servico volta ao padrao sozinho.
+  const temExpresso = PRECOS?.expresso != null && EXPRESSO_SERVICOS.includes(servico)
+  const prazo = temExpresso ? prazoEscolhido : 'padrao'
+  // Vaga unica do expresso na bancada (null = ainda perguntando).
+  const [vagaExpresso, setVagaExpresso] = useState<boolean | null>(null)
+  useEffect(() => {
+    let vivo = true
+    fetch('/api/servicos', { cache: 'no-store' }).then(r => r.json()).then(d => { if (vivo) setVagaExpresso(d.expresso_disponivel === true) }).catch(() => { if (vivo) setVagaExpresso(false) })
+    return () => { vivo = false }
+  }, [])
   const [objetivo, setObjetivo] = useState('')
   const [objetivoOutro, setObjetivoOutro] = useState('')
   const [graduadora, setGraduadora] = useState('')
@@ -150,7 +161,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
     })
     if (erroW) p.push('Confira o WhatsApp')
     if (!ciente) p.push('Marque a ciência sobre recusa')
-    if (prazo === 'expresso' && qtd > EXPRESSO_MAX_CARTAS) p.push(`O expresso aceita até ${EXPRESSO_MAX_CARTAS} cartas`)
+    if (prazo === 'expresso' && qtd > EXPRESSO_MAX_CARTAS) p.push('O expresso é para 1 carta')
     return p
   }, [logado, cartas, erroW, ciente, objetivo, objetivoOutro, graduadora, prazo, qtd])
 
@@ -161,7 +172,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const previsao = useMemo(() => {
     if (precoUnit == null) return null
     const servicoR = precoUnit * qtd
-    const expressoR = prazo === 'expresso' && PRECOS?.expresso != null ? PRECOS.expresso * qtd : 0
+    const expressoR = prazo === 'expresso' && PRECOS?.expresso != null ? PRECOS.expresso : 0
     const pctDesc = qtd > 20 ? PRECOS?.descAcima20 : qtd >= 10 ? PRECOS?.desc10a20 : null
     const descontoR = pctDesc ? Math.round(servicoR * pctDesc) / 100 : 0
     const correiosR = taxaValorDeclaradoCents(Math.round(totalDeclarado * 100)) / 100
@@ -302,7 +313,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                   <button key={s.id} type="button" role="radio" aria-checked={on} className={`sv-opt${on ? ' sv-opt-on' : ''}`} onClick={() => setServico(s.id)}>
                     <span className="sv-opt-dot">{on && <IconCheck size={13} strokeWidth={2.6} />}</span>
                     <span className="sv-opt-l"><b>{s.nome}</b><small>{s.curto}</small></span>
-                    {preco != null && <span className="sv-opt-r">R$ {brl(preco)}<small>por carta</small></span>}
+                    {preco != null && <span className="sv-opt-r">{rotuloPreco(s.id, preco)}<small>por carta</small></span>}
                   </button>
                 )
               })}
@@ -381,41 +392,43 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
           <div className="sv-card ag-bloco">
             <div className="ag-bloco-h"><span className="ag-n">4</span><h2 className="sv-h3">Prazo e contato</h2></div>
 
-            {PRECOS?.expresso != null ? (
+            {temExpresso ? (
               <div className="ag-opts ag-opts-2" role="radiogroup" aria-label="Prazo">
                 {(['padrao', 'expresso'] as const).map(p => {
                   const on = p === prazo
+                  const semVaga = p === 'expresso' && vagaExpresso === false
                   return (
-                    <button key={p} type="button" role="radio" aria-checked={on} className={`sv-opt${on ? ' sv-opt-on' : ''}`} onClick={() => setPrazo(p)}>
+                    <button key={p} type="button" role="radio" aria-checked={on} disabled={semVaga} className={`sv-opt${on ? ' sv-opt-on' : ''}`} onClick={() => setPrazo(p)}>
                       <span className="sv-opt-dot">{on && <IconCheck size={13} strokeWidth={2.6} />}</span>
                       <span className="sv-opt-l">
                         <b>{p === 'padrao' ? 'Padrão' : 'Expresso'}</b>
                         <small>{p === 'padrao'
-                          ? (PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação` : 'Prazo informado no orçamento')
-                          : (PRAZOS.expressoDias ? `${PRAZOS.expressoDias} dias corridos após a sua aprovação` : 'Prioridade na bancada')}</small>
+                          ? (qtd > PRAZO_PADRAO_ATE_CARTAS ? 'Prazo informado no orçamento' : PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a chegada` : 'Prazo informado no orçamento')
+                          : semVaga ? 'Agenda do expresso ocupada agora' : `1 carta, postada em até ${PRAZOS.expressoDiasUteis} dias úteis após a chegada`}</small>
                       </span>
-                      <span className="sv-opt-r">{p === 'padrao' ? 'Sem custo' : `+ R$ ${brl(PRECOS!.expresso!)} por carta`}</span>
+                      <span className="sv-opt-r">{p === 'padrao' ? 'Sem custo' : `+ R$ ${brl(PRECOS!.expresso!)}`}</span>
                     </button>
                   )
                 })}
               </div>
-            ) : null}
-            {PRECOS?.expresso != null && prazo === 'expresso' && (
+            ) : (
+              <p className="sv-p ag-dica-topo">{qtd > PRAZO_PADRAO_ATE_CARTAS
+                ? `Com mais de ${PRAZO_PADRAO_ATE_CARTAS} cartas, o prazo vem no orçamento.`
+                : PRAZOS.padraoDiasUteis ? `Prazo de ${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação da proposta de tratamento.` : 'O prazo vem no orçamento, contado a partir da sua aprovação da proposta de tratamento.'}</p>
+            )}
+            {prazo === 'expresso' && (
               <div className={`ag-exp${qtd > EXPRESSO_MAX_CARTAS ? ' ag-exp-erro' : ''}`} role={qtd > EXPRESSO_MAX_CARTAS ? 'alert' : undefined}>
                 <span className="ag-exp-ic">{qtd > EXPRESSO_MAX_CARTAS ? <IconWarning size={18} /> : <IconClock size={18} />}</span>
                 <div>
                   <b>{qtd > EXPRESSO_MAX_CARTAS
-                    ? `O expresso aceita até ${EXPRESSO_MAX_CARTAS} cartas. Este pedido tem ${qtd}.`
-                    : `Expresso: até ${EXPRESSO_MAX_CARTAS} cartas por pedido`}</b>
+                    ? `O expresso é para 1 carta. Este pedido tem ${qtd}.`
+                    : 'Expresso: 1 carta, volta por SEDEX'}</b>
                   <p>{qtd > EXPRESSO_MAX_CARTAS
-                    ? 'Deixe aqui só as cartas com pressa e mande as outras em um pedido padrão.'
+                    ? 'Deixe aqui só a carta com pressa e mande as outras em um pedido padrão.'
                     : 'Tem mais cartas? Mande as outras em um pedido padrão.'}{' '}
-                    As cartas do pedido padrão entram na bancada depois que as expressas forem enviadas. É assim que conseguimos cumprir o prazo.</p>
+                    As cartas do pedido padrão entram na bancada depois que a expressa for enviada. É assim que conseguimos cumprir o prazo.</p>
                 </div>
               </div>
-            )}
-            {PRECOS?.expresso == null && (
-              <p className="sv-p ag-dica-topo">{PRAZOS.padraoDiasUteis ? `Prazo de ${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação da proposta de tratamento.` : 'O prazo vem no orçamento, contado a partir da sua aprovação da proposta de tratamento.'}</p>
             )}
 
             <div className="ag-dois">
@@ -466,8 +479,8 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             {previsao && (
               <div className="ag-linhas ag-previsao">
                 <span className="ag-prev-t">Previsão do orçamento</span>
-                <div><span>{SERVICOS.find(s => s.id === servico)?.nome} ({qtd} × R$ {brl(precoUnit!)})</span><b>R$ {brl(previsao.servicoR)}</b></div>
-                {previsao.expressoR > 0 && <div><span>Prazo expresso ({qtd} × R$ {brl(PRECOS!.expresso!)})</span><b>R$ {brl(previsao.expressoR)}</b></div>}
+                <div><span>{SERVICOS.find(s => s.id === servico)?.nome} ({qtd} × {PRECO_A_PARTIR.includes(servico) ? 'a partir de ' : ''}R$ {brl(precoUnit!)})</span><b>R$ {brl(previsao.servicoR)}</b></div>
+                {previsao.expressoR > 0 && <div><span>Prazo expresso</span><b>R$ {brl(previsao.expressoR)}</b></div>}
                 {previsao.descontoR > 0 && <div><span>Desconto por volume ({previsao.pctDesc}%)</span><b>− R$ {brl(previsao.descontoR)}</b></div>}
                 <div><span>Taxa dos Correios pelo valor declarado, na volta</span><b>R$ {brl(previsao.correiosR)}</b></div>
                 <div><span>Frete de volta</span><b className="ag-prev-obs">no orçamento</b></div>

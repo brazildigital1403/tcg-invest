@@ -13,7 +13,7 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import {
-  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, CORREIOS_VD, taxaValorDeclaradoCents, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
+  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, PRAZOS, CORREIOS_VD, taxaValorDeclaradoCents, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
   STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, fmtDataHoraAnoBRT, turnoServico, type FichaCondicao, type SlotFoto,
 } from '@/lib/servicos'
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
@@ -409,7 +409,7 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
       </div>
 
       {!todasRecusadas && sol.prazo === 'expresso' && PRECOS?.expresso != null && (
-        <p className="ad-aviso"><IconWarning size={14} /> Pedido expresso: inclua R$ {brl(PRECOS.expresso)} por carta ({itens.filter(i => decisao[i.id]?.aceito !== false).length} × R$ {brl(PRECOS.expresso)} = R$ {brl(PRECOS.expresso * itens.filter(i => decisao[i.id]?.aceito !== false).length)}) no valor do serviço.</p>
+        <p className="ad-aviso"><IconWarning size={14} /> Pedido expresso: inclua R$ {brl(PRECOS.expresso)} no valor do serviço. A volta vai por SEDEX (considere no frete) e a carta precisa ser postada em até {PRAZOS.expressoDiasUteis} dias úteis após a chegada.</p>
       )}
       {!todasRecusadas && (
         <div className="ad-valores">

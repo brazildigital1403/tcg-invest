@@ -9,7 +9,10 @@
 import { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
-import { MAX_CARTAS_POR_SOLICITACAO, QUEIXAS, OBJETIVOS, GRADUADORAS_ALVO, EXPRESSO_MAX_CARTAS, STATUS_EXPRESSO_EM_ANDAMENTO } from '@/lib/servicos'
+import {
+  MAX_CARTAS_POR_SOLICITACAO, QUEIXAS, OBJETIVOS, GRADUADORAS_ALVO, EXPRESSO_MAX_CARTAS, EXPRESSO_SERVICOS,
+  STATUS_EXPRESSO_EM_ANDAMENTO, STATUS_EXPRESSO_OCUPA_VAGA, type ServicoId,
+} from '@/lib/servicos'
 import {
   sbAdmin, usuarioDoToken, erro, registrarEvento, caminhoFoto, urlDeUpload, numeroSolicitacao,
   FOTO_MIMES, SLOTS, SLOTS_OBRIGATORIOS, type Slot,
@@ -22,6 +25,24 @@ const limitador = criarLimitador({ janelaMs: 10 * 60_000, max: 10 })
 const MAX_POR_DIA = 5
 const SERVICOS_OK = ['restauracao', 'pre_grading', 'completo']
 const VALOR_MAX_CENTS = 100_000_000 // R$ 1 milhao por carta: acima disso e digitacao errada
+
+/** A vaga unica do expresso esta livre? (1 expresso por vez na bancada, de qualquer cliente) */
+async function vagaExpressoLivre(sb: ReturnType<typeof sbAdmin>): Promise<boolean> {
+  const { count, error } = await sb.from('servico_solicitacoes').select('id', { count: 'exact', head: true })
+    .eq('prazo', 'expresso').in('status', [...STATUS_EXPRESSO_OCUPA_VAGA])
+  if (error) throw new Error(error.message)
+  return (count ?? 0) === 0
+}
+
+// GET /api/servicos -- so diz se a vaga do expresso esta livre (o formulario
+// mostra a opcao desabilitada quando nao esta). Sem dado de ninguem.
+export async function GET() {
+  try {
+    return NextResponse.json({ expresso_disponivel: await vagaExpressoLivre(sbAdmin()) }, { headers: { 'Cache-Control': 'no-store' } })
+  } catch {
+    return NextResponse.json({ expresso_disponivel: false }, { headers: { 'Cache-Control': 'no-store' } })
+  }
+}
 
 interface CartaEntrada {
   nome?: unknown
@@ -67,8 +88,11 @@ export async function POST(req: NextRequest) {
     if (cartas.length < 1 || cartas.length > MAX_CARTAS_POR_SOLICITACAO) {
       return erro(400, `Envie de 1 a ${MAX_CARTAS_POR_SOLICITACAO} cartas`)
     }
+    if (prazo === 'expresso' && !EXPRESSO_SERVICOS.includes(servico as ServicoId)) {
+      return erro(400, 'O expresso existe só para o pré-grading.')
+    }
     if (prazo === 'expresso' && cartas.length > EXPRESSO_MAX_CARTAS) {
-      return erro(400, `O expresso aceita até ${EXPRESSO_MAX_CARTAS} cartas por pedido. Deixe aqui só as cartas com pressa e mande as outras em um pedido padrão.`)
+      return erro(400, 'O expresso é para 1 carta por pedido. Deixe aqui só a carta com pressa e mande as outras em um pedido padrão.')
     }
 
     const queixasOk = new Set<string>(QUEIXAS)
@@ -113,6 +137,10 @@ export async function POST(req: NextRequest) {
       .gte('created_at', desde)
     if ((count ?? 0) >= MAX_POR_DIA) {
       return erro(429, 'Você já enviou vários pedidos hoje. Aguarde o orçamento ou fale com a gente.')
+    }
+
+    if (prazo === 'expresso' && !(await vagaExpressoLivre(sb))) {
+      return erro(409, 'A agenda do expresso está ocupada agora. Siga no prazo padrão ou tente de novo mais tarde.')
     }
 
     const { data: solRows, error: solErr } = await sb

@@ -17,7 +17,7 @@ import {
 import RelatorioDemonstrativo from '@/components/servicos/RelatorioDemonstrativo'
 import {
   SERVICOS_PUBLICADO, FAQ_PRE_GRADING_LANDING, PASSOS_PRE_GRADING, CUSTODIA_PRE_GRADING, SERVICOS, PRECOS, PRAZOS, LINKS, CIDADE,
-  precoDoServico, brl, jsonLdServico,
+  precoDoServico, brl, jsonLdServico, rotuloPreco, PRAZO_PADRAO_ATE_CARTAS,
 } from '@/lib/servicos'
 
 // Landing do pre-grading (fase 1). Mesmo esqueleto da restauracao, com o laudo
@@ -262,14 +262,14 @@ function PrecosPreGrading() {
           const v = precoDoServico(s.id)!
           const prazo = dias
             ? s.id === 'pre_grading'
-              ? `${dias} dias úteis após a chegada da carta. `
-              : `${dias} dias úteis após a aprovação da proposta de tratamento. `
+              ? `${dias} dias úteis após a chegada da carta (até ${PRAZO_PADRAO_ATE_CARTAS} cartas). `
+              : `${dias} dias úteis após a aprovação da proposta de tratamento (até ${PRAZO_PADRAO_ATE_CARTAS} cartas). `
             : ''
           return (
             <div key={s.id} className={`sv-plan${s.id === 'pre_grading' ? ' sv-plan-dest' : ''}`}>
               {s.id === 'completo' && <span className="sv-ribbon">Mais completo</span>}
               <span className="sv-plan-nome">{s.nome}</span>
-              <span className="sv-plan-v">R$ {brl(v)} <small>por carta</small></span>
+              <span className="sv-plan-v">{rotuloPreco(s.id, v)} <small>por carta</small></span>
               <span className="sv-plan-d">{prazo}{s.descricao}</span>
             </div>
           )
@@ -279,6 +279,8 @@ function PrecosPreGrading() {
         <div className="sv-pills">
           {PRECOS.desc10a20 != null && <span className="sv-pill">{PRECOS.desc10a20}% de desconto de 10 a 20 cartas</span>}
           {PRECOS.descAcima20 != null && <span className="sv-pill">{PRECOS.descAcima20}% acima de 20 cartas</span>}
+          {PRECOS.expresso != null && <span className="sv-pill">Expresso no pré-grading: + R$ {brl(PRECOS.expresso)}, 1 carta, postada em até {PRAZOS.expressoDiasUteis} dias úteis após a chegada</span>}
+          <span className="sv-pill">Loja ou mais de 50 cartas: proposta sob consulta</span>
         </div>
       )}
     </Faixa>
