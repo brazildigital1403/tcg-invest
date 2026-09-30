@@ -7,6 +7,7 @@ import { getUserPlan } from '@/lib/isPro'
 import { ENFORCEMENT_ATIVO } from '@/lib/checkCardLimit'
 import PriceChart from '@/components/PriceChart'
 import AppLayout from '@/components/ui/AppLayout'
+import AvisoRecebimentoPessoa from '@/components/marketplace/AvisoRecebimentoPessoa'
 import OnboardingModal from '@/components/ui/OnboardingModal'
 import AddCardModal from '@/components/dashboard/AddCardModal'
 import CardDetailModal from '@/components/dashboard/CardDetailModal'
@@ -421,6 +422,13 @@ export default function DashboardFinanceiro() {
         }
       `}</style>
       <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 1200, margin: '0 auto' }}>
+
+        {/* ★ ACIMA DO HERO de proposito: quem tem carta no ar sem poder vender
+            precisa ler isso antes do patrimonio. A faixa se esconde sozinha
+            para quem tem loja, para quem ja recebe e para quem nao anuncia --
+            ver o cabecalho do componente. Sem prop de contagem: esta tela nao
+            carrega anuncio, e ele conta. */}
+        <AvisoRecebimentoPessoa userId={userId} />
 
         {/* ── HERO ── */}
         <div style={{
