@@ -2492,6 +2492,97 @@ export async function sendPedidoCompradorEmail(args: {
 }
 
 /** Comprador: a loja despachou. Fecha o ciclo da compra. */
+/**
+ * Lembrete de pagamento -- a sessao do checkout ainda esta VIVA.
+ *
+ * ★ POR QUE EXISTE (30/09/2026). O unico pedido de cliente real que a Bynx
+ * teve (o #9, R$ 1.950,88, 5 Elite Trainer Box) nasceu num domingo as 21:34,
+ * nunca chegou ao PaymentIntent e morreu 24h depois na expiracao da Stripe.
+ * Ninguem falou com ele nesse meio tempo: o handler de
+ * `checkout.session.expired` cancelava o pedido em silencio.
+ *
+ * ★ A DIFERENCA ENTRE ESTE E-MAIL E O DE EXPIRADO E O LINK. Aqui a Session
+ * ainda existe, entao o botao leva DE VOLTA ao mesmo checkout, com o mesmo
+ * preco e o mesmo frete ja cotados -- a pessoa continua de onde parou. Depois
+ * de expirar nao ha o que continuar: o de expirado leva a vitrine e a compra
+ * comeca de novo. Por isso sao duas funcoes e nao uma com condicional.
+ */
+export async function sendPagamentoLembreteEmail(args: {
+  to: string
+  nomeUser: string
+  pedidoNumero: number | string
+  itemNome: string
+  nomeVendedor: string
+  totalBRL: string
+  /** URL da Session da Stripe, que so existe enquanto ela esta aberta. */
+  urlCheckout: string
+  /** Horas que ainda restam antes de a sessao vencer. */
+  horasRestantes: number
+}) {
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
+  const prazo = args.horasRestantes >= 2
+    ? `cerca de ${Math.floor(args.horasRestantes)} horas`
+    : 'menos de uma hora'
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">🛒</div></div>
+    ${h1('Seu pedido está esperando o pagamento')}
+    ${p(`${escapeHtml(firstName)}, o seu pedido de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> em <strong style="color:#f0f0f0;">${escapeHtml(args.nomeVendedor)}</strong> ficou sem concluir o pagamento.`)}
+    ${divider()}
+    ${p(`<strong style="color:#f0f0f0;">Pedido #${args.pedidoNumero}</strong>`)}
+    ${p(`Total: <strong style="color:#f0f0f0;">${args.totalBRL}</strong>`)}
+    ${divider()}
+    ${p(`O item continua reservado para você por ${prazo}. O botão abaixo leva de volta para a mesma tela de pagamento, com o frete que você já escolheu.`)}
+    ${btn('Concluir o pagamento', args.urlCheckout)}
+    ${p('Se você desistiu, não precisa fazer nada: o pedido se cancela sozinho e nada é cobrado. E se alguma etapa travou, responda este e-mail que a gente resolve.')}
+  `, `Conclua o pagamento do pedido #${args.pedidoNumero}`)
+
+  return enviar({
+    from: FROM,
+    to: args.to,
+    subject: subjUser(`🛒 Falta só o pagamento: ${args.itemNome}`),
+    html,
+  })
+}
+
+/**
+ * O pedido venceu sem pagamento. Nada foi cobrado, e a compra pode ser refeita.
+ *
+ * ★ NAO E UM E-MAIL DE ERRO, E UM CONVITE. O tom importa: a pessoa nao fez
+ * nada errado e nao deve nada. O que ela precisa saber e (1) que nao foi
+ * cobrada, porque essa e a primeira duvida de quem ve "pedido cancelado", e
+ * (2) que o item ainda esta la.
+ */
+export async function sendPedidoExpiradoEmail(args: {
+  to: string
+  nomeUser: string
+  pedidoNumero: number | string
+  itemNome: string
+  nomeVendedor: string
+  /** Onde a compra recomeca: o produto, o anuncio ou a vitrine da loja. */
+  urlVolta: string
+}) {
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
+
+  const html = baseLayout(`
+    ${h1('O prazo do seu pedido venceu')}
+    ${p(`${escapeHtml(firstName)}, o pedido de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> em <strong style="color:#f0f0f0;">${escapeHtml(args.nomeVendedor)}</strong> foi cancelado porque o pagamento não foi concluído no prazo.`)}
+    ${divider()}
+    ${p('<strong style="color:#f0f0f0;">Nada foi cobrado de você.</strong> Nenhum valor saiu do seu cartão e não há nada a estornar.')}
+    ${divider()}
+    ${p('O item voltou para a vitrine e continua disponível. Se você ainda quiser, basta refazer a compra.')}
+    ${btn('Ver o item de novo', addUtm(args.urlVolta, 'pedido_expirado'))}
+    ${p('Se alguma coisa travou no caminho — o frete, a forma de pagamento, qualquer etapa da tela — responda este e-mail. Saber onde travou ajuda a gente a consertar.')}
+  `, `Pedido #${args.pedidoNumero} cancelado por falta de pagamento`)
+
+  return enviar({
+    from: FROM,
+    to: args.to,
+    subject: subjUser(`O prazo do pedido #${args.pedidoNumero} venceu`),
+    html,
+  })
+}
+
 export async function sendPedidoEnviadoEmail(args: {
   to: string
   nomeUser: string

@@ -24,7 +24,7 @@
 // 5. Renovação detecta se sub é de user ou de loja (busca em ambas as tabelas).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sendPurchaseConfirmationEmail, sendPaginaLendariaEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail, sendConnectAtivoEmail, sendConnectPendenciaEmail, sendVendaLojistaEmail, sendPedidoCompradorEmail } from '@/lib/email'
+import { sendPurchaseConfirmationEmail, sendPaginaLendariaEmail, sendEmailLojaPlanoAlterado, sendReferralEngagedEmail, sendPaymentFailedEmail, sendDisputeAdminEmail, sendMasterSetUnlockedEmail, sendConnectAtivoEmail, sendConnectPendenciaEmail, sendVendaLojistaEmail, sendPedidoCompradorEmail, sendPedidoExpiradoEmail } from '@/lib/email'
 import Stripe from 'stripe'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { classificarConta } from '@/lib/connect-status'
@@ -1421,6 +1421,101 @@ export async function POST(req: NextRequest) {
           break
         }
         console.log(`[webhook] session.expired: pedido #${mexeu[0].numero} cancelado por falta de pagamento`)
+
+        /**
+         * ★ CANCELAR NAO E AVISAR (30/09/2026). Ate aqui o pedido morria em
+         * silencio: nem o comprador nem quem vendia ficavam sabendo. O #9
+         * provou o custo -- R$ 1.950,88, o unico pedido de cliente real que a
+         * Bynx teve, expirou sem que ninguem falasse com ele, e o lojista
+         * nunca soube que quase vendeu R$ 1.749,50.
+         *
+         * ★ NADA AQUI PODE DERRUBAR O CANCELAMENTO, que e a parte que importa
+         * e ja aconteceu. Por isso o bloco inteiro vive num try proprio: falha
+         * de e-mail nao pode fazer a Stripe re-entregar um evento cujo efeito
+         * no banco ja esta gravado.
+         */
+        try {
+          const { data: ped } = await supabase
+            .from('pedidos')
+            .select('id, numero, item_nome, comprador_user_id, vendedor_user_id, loja_id, total_comprador_cents')
+            .eq('id', pedidoId)
+            .single()
+
+          if (ped) {
+            const [{ data: comprador }, { data: loja }, { data: itens }] = await Promise.all([
+              supabase.from('users').select('email, name').eq('id', ped.comprador_user_id).maybeSingle(),
+              ped.loja_id
+                ? supabase.from('lojas').select('nome, slug').eq('id', ped.loja_id).maybeSingle()
+                : Promise.resolve({ data: null }),
+              supabase.from('pedido_itens').select('produto_id, marketplace_id').eq('pedido_id', ped.id),
+            ])
+
+            const nomeVendedor = loja?.nome || 'Bynx'
+            const base = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
+
+            /**
+             * ★ ONDE A COMPRA RECOMECA. Item unico volta para a propria
+             * pagina dele -- e o unico link que reabre a MESMA decisao. Com
+             * dois ou mais itens nao existe uma pagina so, e mandar para a
+             * primeira seria escolher pela pessoa: nesse caso o destino e a
+             * vitrine de quem vendia.
+             */
+            let urlVolta = `${base}/marketplace`
+            if (itens?.length === 1 && itens[0].produto_id) {
+              urlVolta = `${base}/produto/${itens[0].produto_id}`
+            } else if (itens?.length === 1 && itens[0].marketplace_id) {
+              const { data: anuncio } = await supabase
+                .from('marketplace').select('slug').eq('id', itens[0].marketplace_id).maybeSingle()
+              urlVolta = anuncio?.slug ? `${base}/anuncio/${anuncio.slug}` : urlVolta
+            } else if (loja?.slug) {
+              urlVolta = `${base}/lojas/${loja.slug}`
+            }
+
+            // Sino do comprador: ele abre o app e entende sozinho.
+            await supabase.from('notifications').insert({
+              user_id: ped.comprador_user_id,
+              type: 'aviso',
+              title: 'O prazo do seu pedido venceu',
+              message: `O pedido #${ped.numero} foi cancelado porque o pagamento nao foi concluido. Nada foi cobrado, e o item continua disponivel.`,
+              data: { link: urlVolta.replace(base, ''), pedido_expirado: ped.id },
+            })
+
+            if (comprador?.email) {
+              await sendPedidoExpiradoEmail({
+                to: comprador.email,
+                nomeUser: comprador.name || '',
+                pedidoNumero: ped.numero,
+                itemNome: ped.item_nome,
+                nomeVendedor,
+                urlVolta,
+              })
+            }
+
+            /**
+             * ★ QUEM VENDE TAMBEM PRECISA SABER, e nao e cortesia: e a unica
+             * informacao que permite ir atras do cliente. So o SINO, sem
+             * e-mail -- avisar por e-mail que uma venda NAO aconteceu, cada
+             * vez que uma sessao vence, viraria ruido no primeiro dia de
+             * movimento de verdade.
+             */
+            if (ped.vendedor_user_id && ped.vendedor_user_id !== ped.comprador_user_id) {
+              const totalBRL = (ped.total_comprador_cents / 100).toLocaleString('pt-BR', {
+                style: 'currency', currency: 'BRL',
+              })
+              await supabase.from('notifications').insert({
+                user_id: ped.vendedor_user_id,
+                type: 'aviso',
+                title: 'Um pedido seu venceu sem pagamento',
+                message: `Alguem montou o pedido #${ped.numero} (${ped.item_nome}, ${totalBRL}) e nao concluiu o pagamento no prazo. O item voltou para a vitrine.`,
+                data: { link: ped.loja_id ? `/minha-loja/${ped.loja_id}/pedidos` : '/marketplace' },
+              })
+            }
+          }
+        } catch (errAviso: any) {
+          // O pedido JA esta cancelado. Perder o aviso e ruim; desfazer o
+          // cancelamento por causa dele seria pior.
+          console.error(`[webhook] session.expired: avisos falharam:`, errAviso?.message)
+        }
         break
       }
 
