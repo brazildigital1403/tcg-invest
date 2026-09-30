@@ -211,7 +211,7 @@ const CONDICAO_TEXTO: Record<string, string> = {
   D: 'Damaged: danificada, com dobra, rasgo ou mancha.',
 }
 
-function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading, erro, userId, isPro }: {
+function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading, erro, userId, isPro, pedirCep }: {
   card: any
   precoMercado: number
   precoFonte: 'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null
@@ -221,6 +221,11 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
   erro?: string | null
   userId: string
   isPro: boolean
+  /**
+   * true quando nao ha CEP de origem para cotar frete -- nem no cadastro da
+   * pessoa nem na loja dela. Ver o comentario do campo, mais abaixo.
+   */
+  pedirCep: boolean
 }) {
   const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
   const [preco, setPreco]       = useState(grad && card.valor_graduada ? Number(card.valor_graduada).toFixed(2).replace('.', ',') : (precoMercado > 0 ? precoMercado.toFixed(2).replace('.', ',') : ''))
@@ -228,6 +233,11 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
   const [variante, setVariante] = useState(card.variante || 'normal')
   const [descricao, setDescricao] = useState('')
   const [fotos, setFotos] = useState<string[]>([])
+  const [cep, setCep] = useState('')
+  const [cepErro, setCepErro] = useState<string | null>(null)
+
+  const cepDigitos = cep.replace(/\D/g, '')
+  const cepOk = !pedirCep || cepDigitos.length === 8
 
   const precoNum = parseFloat(String(preco).replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')) || 0
   // Graduada nao compara: o preco do catalogo e o da carta crua, e o slab
@@ -286,7 +296,18 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
     <div style={{ padding: 12, borderRadius: 12, border: '1px dashed var(--bx-border-2)', fontSize: 12.5, color: 'var(--bx-text-3)', lineHeight: 1.45 }}>Sem preço de mercado para esta carta. Defina o valor livremente.</div>
   )
 
-  const publicar = () => onConfirm({ preco: precoNum, condicao: grad ? null : condicao, variante, descricao, fotos, graduada: !!grad, graduadora: grad ? card.graduadora : null, nota: grad ? card.nota : null, black_label: grad ? !!card.black_label : false, cert_graduacao: grad ? (card.cert_graduacao || null) : null, subnotas: grad ? (card.subnotas || null) : null })
+  const publicar = () => {
+    // O CEP vai junto e e travado AQUI, nao no servidor: o formulario inteiro
+    // esta preenchido, e deixar o insert falhar por isso devolveria um erro
+    // generico depois de uma ida ao banco.
+    if (pedirCep && cepDigitos.length !== 8) {
+      setCepErro('Informe o CEP de onde você posta, com 8 dígitos.')
+      document.getElementById('bx-an-cep')?.focus()
+      return
+    }
+    setCepErro(null)
+    onConfirm({ preco: precoNum, condicao: grad ? null : condicao, variante, descricao, fotos, graduada: !!grad, graduadora: grad ? card.graduadora : null, nota: grad ? card.nota : null, black_label: grad ? !!card.black_label : false, cert_graduacao: grad ? (card.cert_graduacao || null) : null, subnotas: grad ? (card.subnotas || null) : null, cep: pedirCep ? cepDigitos : null })
+  }
 
   return (
     <div className="bx-an-det">
@@ -383,6 +404,44 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
             </div>
           </div>
 
+          {/*
+            ★ CEP DE ENVIO (F4 do epico de recebimento, 30/09/2026).
+            So aparece para quem NAO tem CEP de origem em lugar nenhum -- nem
+            no cadastro nem na loja. Medido no dia: dos 22 vendedores sem loja
+            com anuncio no ar, 8 estavam nessa situacao (37 anuncios,
+            R$ 9.598,34) e nao conseguiam nem ATIVAR o recebimento, porque
+            /api/recebimentos/onboard recusa sem CEP de 8 digitos.
+
+            Pedir aqui e nao no cadastro e de proposito: no cadastro o CEP e
+            uma pergunta sem motivo aparente, e na hora de anunciar ele tem
+            um -- e o ponto de onde a carta sai, e sem ele o comprador nao ve
+            frete nem botao de comprar.
+          */}
+          {pedirCep && (
+            <div>
+              <label htmlFor="bx-an-cep" className="bx-an-rot">CEP de onde você posta</label>
+              <input
+                id="bx-an-cep"
+                value={cep}
+                onChange={e => {
+                  const d = e.target.value.replace(/\D/g, '').slice(0, 8)
+                  setCep(d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d)
+                  if (cepErro) setCepErro(null)
+                }}
+                inputMode="numeric"
+                autoComplete="postal-code"
+                placeholder="00000-000"
+                aria-invalid={!!cepErro}
+                aria-describedby="bx-an-cep-ajuda"
+                className="bx-an-texto"
+                style={{ maxWidth: 200, fontSize: 16 }}
+              />
+              <div id="bx-an-cep-ajuda" style={{ fontSize: 12.5, color: cepErro ? 'var(--bx-red)' : 'var(--bx-text-2)', marginTop: 6, lineHeight: 1.45 }}>
+                {cepErro || 'É por ele que o frete é calculado para quem compra. Fica guardado para os próximos anúncios, e não aparece no seu perfil.'}
+              </div>
+            </div>
+          )}
+
           {/* Observacoes */}
           <div>
             <label htmlFor="bx-an-obs" className="bx-an-rot">Observações <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>(opcional)</span></label>
@@ -405,7 +464,7 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
           <span style={{ fontSize: 12.5, color: 'var(--bx-text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resumo}</span>
           <span style={{ fontSize: 20, fontWeight: 900, color: 'var(--ac-1)', whiteSpace: 'nowrap' }}>{precoNum > 0 ? fmt(precoNum) : 'R$ 0,00'}</span>
         </div>
-        <button type="button" onClick={publicar} disabled={precoNum <= 0 || loading} className="bx-an-publicar">
+        <button type="button" onClick={publicar} disabled={precoNum <= 0 || !cepOk || loading} className="bx-an-publicar">
           {loading ? <><span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Publicando…</> : 'Publicar anúncio'}
         </button>
       </div>
@@ -432,8 +491,38 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
   const [cartaCatalogo, setCartaCatalogo] = useState<any | null>(null)
 
   const [isPro, setIsPro] = useState(false)
+
+  /**
+   * ★ PEDIR O CEP SO A QUEM NAO TEM NENHUM (F4, 30/09/2026).
+   *
+   * O CEP de origem e o que permite cotar frete, e ele pode vir de dois
+   * lugares: da LOJA (quando a pessoa tem uma, ativa e com CEP) ou do CADASTRO
+   * dela. A ordem e a mesma do `resolverRecebedor`, que e quem decide isso no
+   * checkout -- se divergisse, o modal pediria CEP a quem o servidor considera
+   * resolvido, ou pior, deixaria passar quem ele considera sem.
+   *
+   * Comeca em `false` para que o campo nao PISQUE na tela de quem ja tem CEP:
+   * durante a consulta nao pedimos nada, e o campo aparece so se a resposta
+   * disser que falta.
+   */
+  const [pedirCep, setPedirCep] = useState(false)
+
   useEffect(() => {
-    supabase.from('users').select('is_pro').eq('id', userId).single().then(({ data }) => setIsPro(!!(data as any)?.is_pro))
+    let vivo = true
+    // Uma ida so: a RLS de `users` libera a propria linha, e a de `lojas`
+    // libera a loja ativa -- as duas leituras que o modal ja podia fazer.
+    Promise.all([
+      supabase.from('users').select('is_pro, cep').eq('id', userId).maybeSingle(),
+      supabase.from('lojas').select('cep').eq('owner_user_id', userId).eq('status', 'ativa')
+        .order('created_at', { ascending: true }).limit(1),
+    ]).then(([me, lojas]) => {
+      if (!vivo) return
+      setIsPro(!!(me.data as any)?.is_pro)
+      const oito = (v: unknown) => String(v || '').replace(/\D/g, '').length === 8
+      const temNaLoja = (lojas.data || []).some(l => oito((l as any)?.cep))
+      setPedirCep(!oito((me.data as any)?.cep) && !temNaLoja)
+    })
+    return () => { vivo = false }
   }, [userId])
 
   // Abre direto no step 2 quando a carta ja vem escolhida (ex: vindo da colecao).
@@ -530,6 +619,45 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
     setErroPublicar(null)
     if (!cartaSel || dados.preco <= 0) return
     setLoading(true)
+
+    /**
+     * ★ O CEP VAI PARA O BANCO ANTES DO ANUNCIO, e a ordem tem motivo: se o
+     * anuncio entrasse primeiro e a gravacao do CEP falhasse, a pessoa sairia
+     * daqui com exatamente o problema que a F4 existe para resolver -- carta
+     * no ar, sem frete cotavel e sem botao de comprar, sem saber por que.
+     * Falhando aqui, nada foi criado e o formulario continua preenchido.
+     *
+     * A escrita passa por ROTA porque `authenticated` nao tem GRANT UPDATE em
+     * `users`: um update pelo navegador voltaria "sucesso" com zero linhas
+     * afetadas, calado. A rota /api/recebimentos ja valida os 8 digitos e ja
+     * e a dona desse campo -- nao vale uma segunda porta para o mesmo dado.
+     */
+    if (dados.cep) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          setLoading(false)
+          setErroPublicar('Sua sessão expirou. Entre de novo para publicar.')
+          return
+        }
+        const r = await fetch('/api/recebimentos', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ cep: dados.cep }),
+        })
+        if (!r.ok) {
+          const j = await r.json().catch(() => null)
+          setLoading(false)
+          setErroPublicar(j?.error || 'Não consegui salvar o CEP. Tente de novo.')
+          return
+        }
+        setPedirCep(false)
+      } catch {
+        setLoading(false)
+        setErroPublicar('Não consegui salvar o CEP. Verifique a conexão e tente de novo.')
+        return
+      }
+    }
     // ★ card_id sai do CATALOGO, nao do user_card (achado 23/08/2026).
     //
     // Ate aqui gravava `cartaSel.card_id` cru, e isso nasceu quebrado em 45
@@ -633,7 +761,7 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
             )
             : step === 'escolher'
             ? <EscolherCarta userId={userId} cartaSel={cartaSel} onSelect={handleSelectCard} />
-            : <DetalhesAnuncio userId={userId} isPro={isPro} card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} erro={erroPublicar} />
+            : <DetalhesAnuncio userId={userId} isPro={isPro} pedirCep={pedirCep} card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} erro={erroPublicar} />
           }
         </div>
       </div>
