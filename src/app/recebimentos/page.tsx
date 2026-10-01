@@ -18,8 +18,9 @@ import { IconWallet, IconCheck, IconSearch, IconWarning, IconClock, IconKey, Ico
  * R$ 27.877 parados -- e para elas nao existia caminho nenhum, nem ruim.
  *
  * ★ QUEM TEM LOJA NAO VEM PARA CA. A tela detecta a loja e aponta para o
- * painel dela, em vez de abrir uma segunda conta Connect paralela. A conta da
- * loja continua valendo; o `resolverRecebedor` e que escolhe qual usar.
+ * painel dela. Nao e so para evitar confusao: desde 01/10/2026 as contas NAO
+ * se herdam (ver `vendedorRecebimento.ts`), entao a conta ativada aqui nao
+ * faria a loja vender -- quem tem loja ativa o Connect DELA, no painel dela.
  *
  * ★ O CEP FICA ANTES DO BOTAO, de proposito. Quem vende de casa nao tem painel
  * de frete fixo: a cotacao sai do CEP dela. Sem CEP, a conta seria aprovada e o

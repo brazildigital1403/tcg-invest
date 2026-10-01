@@ -13,9 +13,10 @@ import { classificarConta } from '@/lib/connect-status'
  * 18 pessoas, R$ 27.877 parados, e nenhuma delas tinha por onde ativar
  * recebimento -- aquela rota exige um `lojaId`.
  *
- * ★ QUEM TEM LOJA CONTINUA USANDO A ROTA DA LOJA. As duas convivem porque o
- * `resolverRecebedor` ja sabe escolher: conta da loja quando ela tem uma, conta
- * do dono quando nao tem. Nada foi movido de lugar.
+ * ★ QUEM TEM LOJA CONTINUA USANDO A ROTA DA LOJA, e as duas contas sao
+ * INDEPENDENTES: desde 01/10/2026 uma nao cobre a outra (decisao do Du, "loja
+ * sempre tem conta propria"). Anuncio de loja cobra pela conta da loja;
+ * anuncio de pessoa, pela conta da pessoa. Nada foi movido de lugar.
  *
  * Auth: Bearer do PROPRIO usuario. Nao existe versao de admin aqui -- conta
  * Connect e dado pessoal, e o admin nao precisa dela para trabalhar.

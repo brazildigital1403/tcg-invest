@@ -77,7 +77,8 @@ export type AnuncioPublico = {
    * ★ DEIXOU DE SER "TEM LOJA" (24/09/2026). Ate aqui isto era
    * `lojaPodeVender`, e sem loja nao havia caminho -- o que condenava 70 dos
    * 100 anuncios ao "Tenho interesse" para sempre. Agora quem responde e o
-   * `resolverRecebedor`: vale a conta da loja, e vale a conta da pessoa.
+   * `resolverRecebedor`: anuncio de loja vale pela conta DA LOJA, anuncio de
+   * pessoa pela conta DA PESSOA -- sem heranca entre as duas (01/10/2026).
    *
    * Continua exigindo o Connect LIBERADO, e nao so cadastrado: oferecer
    * "Comprar" a quem nao pode receber e prometer o que quebra no fim do

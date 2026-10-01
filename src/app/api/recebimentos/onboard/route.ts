@@ -11,8 +11,10 @@ import { normalizarPrazo } from '@/lib/comissao'
  * Stripe -- a Bynx nunca ve esses dados.
  *
  * ★ E O ESPELHO de /api/lojas/[id]/connect/onboard para quem nao tem loja.
- * A conta nasce no usuario, e a loja dele (se um dia existir) HERDA essa conta
- * pelo `resolverRecebedor` -- ninguem refaz cadastro por ter aberto uma loja.
+ * A conta nasce no USUARIO e fica dele: a loja que ele abrir depois NAO herda
+ * esta conta (mudou em 01/10/2026 -- ver `vendedorRecebimento.ts`). Abrir loja
+ * pede ativar o Connect dela, e e de proposito: o CNPJ que fatura tem de ser o
+ * de quem aparece na nota. Os anuncios PESSOAIS continuam cobrando por aqui.
  *
  * ★ QUEM PODE ATIVAR: quem anuncia (decisao do Du, 24/09/2026). O guard e ter
  * pelo menos um anuncio no ar. Nao e burocracia: conta Express e uma conta que

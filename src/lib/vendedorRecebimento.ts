@@ -10,13 +10,29 @@ import { normalizarPrazo } from '@/lib/comissao'
  * vendedores, R$ 27.877 parados. Para eles nao havia caminho nenhum: nem
  * ruim, nem lento. Nenhum.
  *
- * ★ A CONTA PASSA A VIVER NO USUARIO, E A DA LOJA CONTINUA VALENDO. O
- * resolvedor usa a conta da loja quando ela tem uma, e a do dono quando nao
- * tem. Foi a pergunta do Du que derrubou o plano anterior (mover tudo para o
- * usuario): assim as 3 lojas que ja movimentam dinheiro nao sao tocadas, quem
- * anuncia hoje e abre loja amanha nao refaz cadastro, e a segunda loja do
- * mesmo dono herda a mesma conta. O dia em que uma loja precisar de CNPJ
- * proprio, basta criar a conta DELA -- o ponteiro ja e o campo que existe.
+ * ★ CADA LADO COM A SUA CONTA, SEM HERANCA (decisao do Du: "loja sempre tem
+ * conta propria, assim deixamos a Bynx mais profissional"). A conta passou a
+ * poder viver no USUARIO, e a da loja continua existindo -- mas uma nunca
+ * cobre a outra:
+ *
+ *     anuncio de LOJA   -> so a conta DA LOJA
+ *     anuncio de PESSOA -> so a conta DA PESSOA
+ *
+ * ★ POR QUE A HERANCA SAIU (01/10/2026). Entre 24/09 e hoje o resolvedor usava
+ * a conta do dono quando a loja nao tinha uma propria, e o comentario que
+ * estava aqui vendia isso como vantagem ("a segunda loja do mesmo dono herda a
+ * mesma conta"). Era exatamente o que o Du recusou depois, e a implementacao
+ * ficou contradizendo a decisao por uma semana. Nunca disparou -- zero usuarios
+ * tinham conta pessoal nesse periodo, e as 4 lojas com Connect tem conta
+ * propria --, entao tirar nao muda nada hoje. O que ela faria no primeiro caso
+ * real: quem ativasse o recebimento pessoal e depois abrisse loja veria a loja
+ * cobrando pela conta PESSOAL dele, calado, sem nunca ter pedido isso.
+ *
+ * ★ O CUSTO ACEITO: loja sem Connect proprio nao vende, mesmo que o dono
+ * receba como pessoa. E o comportamento correto -- o CNPJ que fatura precisa
+ * ser o de quem aparece na nota -- e tambem o que ja acontecia na pratica.
+ * Quem abrir loja ativa o Connect dela: a tela de Pagamentos existe para
+ * isso, e o `AvisoRecebimentos` cobra o lojista desde 12/09.
  *
  * ★ O FRETE SAI DE ONDE A CARTA ESTA. Loja envia da loja (CEP e modo dela);
  * pessoa envia de casa, e ai o modo e sempre CALCULADO -- pessoa fisica nao
@@ -40,8 +56,6 @@ export type Recebedor = {
   connectAccountId: string | null
   connectStatus: string
   chargesEnabled: boolean
-  /** true quando a loja esta usando a conta do dono, nao uma propria. */
-  contaHerdada: boolean
   repassePrazo: number
   freteModo: 'fixo' | 'calculado'
   freteCents: number
@@ -89,14 +103,8 @@ export async function resolverRecebedor(
 
   const loja = lojas?.[0] || null
 
-  // A conta da pessoa e o piso: a da loja so entra por cima quando existe.
+  // Sem cruzamento: a loja le a conta dela, a pessoa le a dela. Ver o cabecalho.
   const contaPessoa = user.stripe_connect_account_id || null
-  const contaLoja = loja?.stripe_connect_account_id || null
-  const usaDaLoja = !!contaLoja
-
-  const conta = usaDaLoja ? contaLoja : contaPessoa
-  const status = usaDaLoja ? loja!.stripe_connect_status : user.stripe_connect_status
-  const charges = usaDaLoja ? !!loja!.connect_charges_enabled : !!user.connect_charges_enabled
 
   if (loja) {
     return {
@@ -107,16 +115,17 @@ export async function resolverRecebedor(
       slug: loja.slug,
       logoUrl: loja.logo_url,
       verificada: !!loja.verificada,
-      connectAccountId: conta,
-      connectStatus: String(status || 'nao_iniciado'),
-      chargesEnabled: charges,
-      contaHerdada: !usaDaLoja && !!contaPessoa,
-      // O prazo de repasse e do dono da conta que vai receber.
-      repassePrazo: normalizarPrazo(usaDaLoja ? loja.repasse_prazo : user.repasse_prazo),
+      connectAccountId: loja.stripe_connect_account_id || null,
+      connectStatus: String(loja.stripe_connect_status || 'nao_iniciado'),
+      chargesEnabled: !!loja.connect_charges_enabled,
+      // O prazo e o da LOJA, porque e a conta dela que recebe.
+      repassePrazo: normalizarPrazo(loja.repasse_prazo),
       freteModo: loja.frete_modo === 'calculado' ? 'calculado' : 'fixo',
       freteCents: Math.max(0, loja.frete_cents || 0),
       freteGratisAcimaCents: loja.frete_gratis_acima_cents ?? null,
-      // A loja sem CEP cai no CEP do dono: e de la que a carta sai de qualquer jeito.
+      // ★ ESTE fallback FICA, e nao contradiz o de cima: ele e de FRETE, nao
+      // de conta. O CEP diz de onde a carta sai fisicamente, e sai da casa do
+      // dono de qualquer jeito. Dinheiro e endereco sao perguntas separadas.
       cepOrigem: cepLimpo(loja.cep) || cepLimpo(user.cep),
     }
   }
@@ -132,7 +141,6 @@ export async function resolverRecebedor(
     connectAccountId: contaPessoa,
     connectStatus: String(user.stripe_connect_status || 'nao_iniciado'),
     chargesEnabled: !!user.connect_charges_enabled,
-    contaHerdada: false,
     repassePrazo: normalizarPrazo(user.repasse_prazo),
     // Sem painel de frete: quem vende de casa cota pelo CEP, sempre.
     freteModo: 'calculado',
