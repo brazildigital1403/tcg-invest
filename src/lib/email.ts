@@ -2425,7 +2425,13 @@ export async function sendVendaLojistaEmail(args: {
   to: string
   nomeUser: string
   nomeLoja: string
-  lojaId: string
+  /**
+   * ★ AUSENTE quem vende SEM LOJA (01/10/2026, F5). Antes o tipo exigia a
+   * string e o webhook passava o `loja_id` nulo do pedido: o botao do
+   * e-mail apontava para `/minha-loja/null/pedidos`. Mesmo padrao do
+   * `sendConnectAtivoEmail`, que ja nascia opcional.
+   */
+  lojaId?: string | null
   pedidoNumero: number | string
   itemNome: string
   liquidoBRL: string
@@ -2434,12 +2440,13 @@ export async function sendVendaLojistaEmail(args: {
   repassePrazo: number
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
-  const url = `${APP_URL}/minha-loja/${args.lojaId}/pedidos`
+  const semLoja = !args.lojaId
+  const url = semLoja ? `${APP_URL}/vendas` : `${APP_URL}/minha-loja/${args.lojaId}/pedidos`
 
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">💰</div></div>
     ${h1('Você vendeu!')}
-    ${p(`${escapeHtml(firstName)}, <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> foi vendido na sua vitrine da Bynx. O pagamento já está confirmado.`)}
+    ${p(`${escapeHtml(firstName)}, <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> ${semLoja ? 'foi vendido na Bynx' : 'foi vendido na sua vitrine da Bynx'}. O pagamento já está confirmado.`)}
     ${divider()}
     ${p(`<strong style="color:#f0f0f0;">Pedido #${args.pedidoNumero}</strong>`)}
     ${p(`Comprador: ${escapeHtml(args.compradorNome)}`)}

@@ -75,13 +75,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     // ─── Avisa o lojista (sino). Falha aqui nao desfaz a review. ─
     try {
-      const { data: loja } = await sb.from('lojas').select('slug').eq('id', pedido.loja_id).single()
+      // `.single()` com id nulo devolve erro e `loja` fica null, caindo no
+      // fallback -- que apontava para `/minha-loja/null/pedidos`. Agora nem
+      // consulta quando nao ha loja.
+      const { data: loja } = pedido.loja_id
+        ? await sb.from('lojas').select('slug').eq('id', pedido.loja_id).maybeSingle()
+        : { data: null }
       await sb.from('notifications').insert({
         user_id: pedido.vendedor_user_id,
         type: 'avaliacao',
         title: 'Voce recebeu uma avaliacao!',
         message: `${estrelas} estrela${estrelas > 1 ? 's' : ''} pela venda de "${pedido.item_nome}".`,
-        data: { link: loja?.slug ? `/lojas/${loja.slug}` : `/minha-loja/${pedido.loja_id}/pedidos` },
+        data: { link: loja?.slug ? `/lojas/${loja.slug}` : (pedido.loja_id ? `/minha-loja/${pedido.loja_id}/pedidos` : '/vendas') },
       })
     } catch (err) {
       console.error('[pedidos avaliar] falha no sino:', (err as Error)?.message)
