@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
-import { IconArrowRight, IconCard, IconPokeball, IconShield, IconWarning } from '@/components/ui/Icons'
+import { IconArrowRight, IconCard, IconClock, IconLoja, IconPokeball, IconShield, IconWarning } from '@/components/ui/Icons'
 import { formatarBRL, horarioBrasilia } from '@/lib/leilao'
 import { calcularArremate } from '@/lib/leilao-taxas'
 
@@ -43,6 +43,10 @@ interface DadosPagamento {
     frete_fixo_cents: number | null
     pode_vender: boolean
     motivo: string | null
+    /** Por que nao da para pagar: 'cep' e 'recebimento' sao pendencias do vendedor. */
+    bloqueio?: 'nenhum' | 'cep' | 'recebimento'
+    /** Slug da loja (so quando o vendedor e loja), para o link "Ver a loja". */
+    slug?: string | null
   } | null
 }
 
@@ -90,6 +94,7 @@ export default function PagarLote({
   const [erroFrete, setErroFrete] = useState<string | null>(null)
   const [indo, setIndo] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [conferindo, setConferindo] = useState(false)
 
   const loginHref = `${urlPagar}?auth=login&next=${encodeURIComponent(urlPagar)}`
 
@@ -144,6 +149,17 @@ export default function PagarLote({
     })
     return () => sub.subscription.unsubscribe()
   }, [carregar])
+
+  // "Conferir de novo" na espera: rele sem trocar a tela por "Carregando".
+  async function conferir() {
+    if (conferindo) return
+    setConferindo(true)
+    try {
+      await carregar()
+    } finally {
+      setConferindo(false)
+    }
+  }
 
   async function cotar() {
     const d = cep.replace(/\D/g, '')
@@ -310,10 +326,12 @@ export default function PagarLote({
       {dados.pagar_ate && <p style={S.prazo}>Pague até {horarioBrasilia(dados.pagar_ate)}</p>}
 
       {!v || !v.pode_vender ? (
-        <div style={S.card}>
-          <p style={S.aviTitulo}>Pagamento indisponível no momento</p>
-          <p style={S.aviTexto}>{v?.motivo || 'O vendedor ainda não recebe pagamentos pela Bynx.'}</p>
-        </div>
+        <EmEspera
+          vendedor={v}
+          pagarAte={dados.pagar_ate}
+          conferindo={conferindo}
+          onConferir={conferir}
+        />
       ) : (
         <>
           {ehCalculado && (
@@ -437,7 +455,130 @@ export default function PagarLote({
   )
 }
 
+/**
+ * Arremate que ainda nao pode ser pago. Dois casos, com textos diferentes de
+ * proposito:
+ *   - vendedor null: a leitura do vendedor falhou (nao e culpa de ninguem que
+ *     o comprador conheca). Antes caia na frase "o vendedor ainda nao recebe",
+ *     que era falsa nesse caso.
+ *   - pendencia do vendedor ('recebimento' ou 'cep'): a loja so agenda rodada
+ *     com recebimento ativo e CEP (api/lojas/[id]/leiloes/_comum.ts), entao
+ *     isso so aparece se a conta for restrita depois do agendamento.
+ * So promete o que e verdade hoje: nada foi cobrado, o lote fica reservado ate
+ * pagar_ate, e se o prazo passar o arremate e cancelado sem cobranca. NAO diz
+ * que a loja foi avisada: nao existe esse aviso.
+ */
+function EmEspera({
+  vendedor,
+  pagarAte,
+  conferindo,
+  onConferir,
+}: {
+  vendedor: DadosPagamento['vendedor']
+  pagarAte: string | null
+  conferindo: boolean
+  onConferir: () => void
+}) {
+  const [conferidoEm, setConferidoEm] = useState<string | null>(null)
+  const [anterior, setAnterior] = useState(conferindo)
+  // Terminou uma conferencia e a tela continua em espera: registra a hora.
+  if (anterior !== conferindo) {
+    setAnterior(conferindo)
+    if (!conferindo) {
+      setConferidoEm(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }))
+    }
+  }
+
+  const falhaLeitura = !vendedor
+  const nome = vendedor?.nome || 'O vendedor'
+  const linkLoja = vendedor?.tipo === 'loja' && vendedor.slug ? `/lojas/${vendedor.slug}` : null
+
+  const titulo = falhaLeitura ? 'Não conseguimos carregar o pagamento' : 'Pagamento em espera'
+  const texto = falhaLeitura
+    ? 'Os dados do vendedor não carregaram agora. Nada foi cobrado e o seu arremate continua reservado.'
+    : vendedor?.bloqueio === 'cep'
+      ? `${nome} ainda não informou o CEP de onde a carta sai, e sem ele não é possível calcular o frete. Nada foi cobrado.`
+      : `${nome} precisa concluir um ajuste no recebimento antes de você pagar. Nada foi cobrado.`
+
+  const passos = [
+    pagarAte
+      ? `Seu arremate fica reservado para você até ${horarioBrasilia(pagarAte)}.`
+      : 'Seu arremate fica reservado para você até o fim do prazo de pagamento.',
+    falhaLeitura
+      ? 'Toque em Tentar de novo. Se continuar assim, volte em alguns minutos.'
+      : 'Quando o ajuste for concluído, o botão de pagar aparece nesta tela.',
+    'Se o prazo terminar antes, o arremate é cancelado e nada é cobrado.',
+  ]
+
+  return (
+    <section aria-labelledby="pg-espera" style={S.espera}>
+      <div style={S.esperaIc} aria-hidden="true">
+        {falhaLeitura ? <IconWarning size={24} color="var(--ac-1)" /> : <IconClock size={24} color="var(--ac-1)" />}
+      </div>
+      <h2 id="pg-espera" style={S.esperaTitulo}>{titulo}</h2>
+      <p style={S.esperaTexto}>{texto}</p>
+
+      <div style={S.passos}>
+        <p style={S.rot}>O que acontece agora</p>
+        <ol style={S.passosLista}>
+          {passos.map((t, i) => (
+            <li key={i} style={S.passo}>
+              <span style={S.passoN}>{i + 1}</span>
+              <span>{t}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div style={S.acoes}>
+        <button
+          type="button"
+          onClick={onConferir}
+          disabled={conferindo}
+          className="pg-cta"
+          style={{ ...S.cta, ...(conferindo ? S.ctaOff : null) }}
+        >
+          {conferindo ? 'Conferindo...' : falhaLeitura ? 'Tentar de novo' : 'Conferir de novo'}
+        </button>
+        {linkLoja && (
+          <Link href={linkLoja} prefetch={false} className="pg-ghost" style={S.ghost}>
+            <IconLoja size={16} color="currentColor" /> Ver a loja
+          </Link>
+        )}
+      </div>
+      {conferidoEm && !conferindo && (
+        <p role="status" style={S.conferido}>Conferido às {conferidoEm}. Ainda em espera.</p>
+      )}
+    </section>
+  )
+}
+
 const S: Record<string, CSSProperties> = {
+  espera: {
+    display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 12, padding: '20px 16px 16px',
+    borderRadius: 12, border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'var(--bx-text)',
+  },
+  esperaIc: {
+    width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    alignSelf: 'center', background: 'rgba(var(--ac-1-rgb), 0.12)',
+  },
+  esperaTitulo: { fontSize: 18, fontWeight: 800, margin: 0, textAlign: 'center', lineHeight: 1.3 },
+  esperaTexto: {
+    fontSize: 14, color: 'var(--bx-text-2)', margin: 0, lineHeight: 1.5, textAlign: 'center',
+    maxWidth: 440, alignSelf: 'center',
+  },
+  passos: {
+    display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 10,
+    border: '1px solid var(--bx-border)', background: 'var(--bx-bg)',
+  },
+  passosLista: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 },
+  passo: { display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, color: 'var(--bx-text-2)', lineHeight: 1.45 },
+  passoN: {
+    width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center',
+    justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--ac-1)',
+    border: '1px solid rgba(var(--ac-1-rgb), 0.4)', fontVariantNumeric: 'tabular-nums',
+  },
+  conferido: { fontSize: 12, color: 'var(--bx-text-3)', margin: 0, textAlign: 'center' },
   coluna: { display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 24 },
   arrem: {
     display: 'flex', gap: 12, alignItems: 'center', padding: 10, borderRadius: 12,
@@ -507,7 +648,7 @@ const S: Record<string, CSSProperties> = {
   },
   ctaOff: { opacity: 0.6, cursor: 'default' },
   ghost: {
-    minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10,
+    minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10,
     border: '1px solid var(--bx-border)', background: 'var(--bx-surface)', color: 'var(--bx-text)',
     fontSize: 14, fontWeight: 600, textDecoration: 'none',
   },

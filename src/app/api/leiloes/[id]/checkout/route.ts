@@ -295,6 +295,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
                 : null,
             pode_vender: podeVender(r),
             motivo: podeVender(r) ? null : motivoSemPagamento(r),
+            // A tela escolhe o texto por aqui, nao pela frase: 'cep' e 'recebimento'
+            // sao do vendedor; 'nenhum' quando pode vender.
+            bloqueio: podeVender(r) ? 'nenhum' : podeReceber(r) && !r.cepOrigem ? 'cep' : 'recebimento',
+            slug: r.tipo === 'loja' ? r.slug : null,
           }
         : null,
     })
