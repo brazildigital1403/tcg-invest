@@ -117,7 +117,6 @@ export async function GET(req: NextRequest) {
       connect_charges_enabled: c.charges,
       connect_payouts_enabled: c.payouts,
       connect_requirements: c.requirements,
-      updated_at: new Date().toISOString(),
     }
     if (c.status === 'ativo' && user.stripe_connect_status !== 'ativo') {
       patch.connect_onboarded_em = new Date().toISOString()
@@ -157,7 +156,10 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Nada para atualizar.' }, { status: 400 })
     }
 
-    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    // `users` nao tem `updated_at` (so `lojas` tem). Citar a coluna fazia o
+    // update inteiro falhar com 42703 -- era por isso que salvar o CEP por
+    // aqui nunca gravava, inclusive pelo campo novo do Anunciar.
+    const patch: Record<string, unknown> = {}
 
     // ── CEP de envio ─────────────────────────────────────────────────────
     // ★ NAO E DETALHE DE CADASTRO: e a ORIGEM da cotacao de frete. Quem vende

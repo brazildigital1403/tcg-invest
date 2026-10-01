@@ -115,14 +115,30 @@ export async function POST(req: NextRequest) {
         .update({
           stripe_connect_account_id: accountId,
           stripe_connect_status: 'pendente',
-          updated_at: new Date().toISOString(),
+          // ★ SEM `updated_at` AQUI: `users` NAO TEM essa coluna -- `lojas`
+          //   tem, e esta rota nasceu copiando a da loja. O update falhava com
+          //   42703 DEPOIS de a conta ja existir na Stripe, entao a pessoa via
+          //   "Erro ao salvar a conta" e o banco ficava sem o account_id. Ver
+          //   o bloco de erro logo abaixo.
         })
         .eq('id', user.id)
 
       if (upErr) {
-        console.error('[recebimentos/onboard] falha ao salvar account id:', upErr.message)
-        // A conta existe na Stripe e nao gravou aqui: abortar evita criar uma
-        // conta orfa nova a cada clique.
+        // ★ ESTE ERRO DERRUBOU A FUNCIONALIDADE INTEIRA POR 6 DIAS (25/09 a
+        //   01/10). O update citava `updated_at`, que nao existe em `users`:
+        //   falhava SEMPRE, para todo mundo, 0 de 450 usuarios ativaram. E o
+        //   comentario antigo aqui dizia que abortar "evita criar uma conta
+        //   orfa nova a cada clique" -- nao evita: a conta ja foi criada na
+        //   Stripe na linha de cima. Cada clique deixava uma conta Express
+        //   orfa na conta LIVE da Bynx.
+        //
+        //   Descoberto pelo print que a Barbara mandou ("Erro ao salvar a
+        //   conta. Tente de novo."), depois de ela dizer que nao conseguia.
+        console.error(
+          '[recebimentos/onboard] CRITICAL: conta', accountId,
+          'criada na Stripe e NAO gravada no banco:', upErr.message,
+          '| user', user.id, '-- reconciliar a mao'
+        )
         return NextResponse.json({ error: 'Erro ao salvar a conta. Tente de novo.' }, { status: 500 })
       }
 
