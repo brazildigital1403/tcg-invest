@@ -79,6 +79,8 @@ function Conteudo() {
   const [salvandoCep, setSalvandoCep] = useState(false)
   const [cepOk, setCepOk] = useState(false)
   const [salvandoPrazo, setSalvandoPrazo] = useState(false)
+  /** O GET inicial falhou. A tela nao pode fingir que carregou -- ver `carregar`. */
+  const [falhouCarregar, setFalhouCarregar] = useState(false)
 
   const token = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
@@ -94,10 +96,18 @@ function Conteudo() {
       const r = await fetch('/api/recebimentos', { headers: { Authorization: `Bearer ${t}` } })
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Falha ao carregar')
+      setFalhouCarregar(false)
       setInfo(j)
       setCepTxt(j.cep ? fmtCep(j.cep) : '')
     } catch (e) {
       setErro((e as Error).message)
+      // ★ A FALHA PRECISA FICAR VISIVEL COMO FALHA (01/10/2026). Antes, `info`
+      //   ficava null e a tela seguia renderizando normal: `temCep` virava
+      //   false mesmo com CEP no banco, o botao de ativar aparecia CINZA e o
+      //   texto mandava informar um CEP que a pessoa ja tinha. Quem caia nisso
+      //   nao via erro nenhum -- via uma tela que simplesmente nao deixava
+      //   seguir. Agora a tela admite que nao carregou e oferece tentar de novo.
+      setFalhouCarregar(true)
     } finally {
       setCarregando(false)
     }
@@ -119,9 +129,14 @@ function Conteudo() {
       })
       const j = await r.json().catch(() => null)
       if (!r.ok) throw new Error(j?.error || 'Falha ao salvar')
-      setInfo(prev => (prev ? { ...prev, cep: d } : prev))
+      // ★ ANTES ERA `prev ? {...prev, cep: d} : prev`, e com `prev` null o CEP
+      //   salvava no banco sem destravar NADA na tela: a pessoa via "CEP
+      //   salvo" e o botao de ativar continuava cinza, para sempre naquela
+      //   sessao. Recarregar e o unico jeito de a tela refletir o que o
+      //   servidor passou a saber.
       setCepOk(true)
       setTimeout(() => setCepOk(false), 2500)
+      await carregar()
     } catch (e) {
       setErro((e as Error).message)
     } finally {
@@ -196,6 +211,18 @@ function Conteudo() {
 
       {carregando ? (
         <div style={{ ...S.card, textAlign: 'center', color: 'var(--bx-text-3)' }}>Carregando…</div>
+      ) : falhouCarregar ? (
+        /* ★ Nao conseguimos ler o seu estado -- entao nao mostramos um estado.
+           Fingir que carregou e o que fazia a tela travar em silencio. */
+        <div style={{ ...S.card, textAlign: 'center' }}>
+          <div style={{ ...S.icone, color: '#f59e0b' }}><IconWarning size={34} strokeWidth={1.2} /></div>
+          <h2 style={S.h2}>Não consegui carregar os seus dados</h2>
+          <p style={S.txt}>
+            Pode ter sido a conexão. Nada foi perdido — seus anúncios e o seu cadastro estão no
+            lugar. Tente de novo em um instante.
+          </p>
+          <button onClick={carregar} style={S.btn}>Tentar de novo</button>
+        </div>
       ) : (
         <div style={S.colunas}>
           {/* ─── Quem tem loja gerencia por la ──────────────────────────── */}
@@ -268,21 +295,43 @@ function Conteudo() {
                   pagamento e o envio acontecem por fora. Ativando o recebimento, o botão de comprar
                   aparece nos seus anúncios e a venda fecha aqui dentro.
                 </p>
-                {/* ★ O CEP E PRE-REQUISITO, nao um passo depois: sem ele o frete
-                    nao cota e o botao continuaria escondido mesmo com a conta
-                    aprovada. Por isso o botao fica travado ate o CEP existir. */}
+                {/* ★ O BOTAO NAO FICA MAIS MORTO (01/10/2026). Antes ele era
+                    `disabled` sem CEP, e o motivo vivia num `title` -- tooltip
+                    que NAO EXISTE em telefone, que e onde a maior parte do
+                    publico esta. A pessoa via um botao cinza que nao respondia
+                    e nao tinha como descobrir por que; o CEP, que e a causa,
+                    fica num card ABAIXO, fora da vista.
+
+                    Agora o botao sempre clica. Sem CEP, ele leva ate o campo e
+                    poe o cursor nele: a pergunta "por que nao funciona?" vira
+                    "ah, e isto aqui". O CEP continua obrigatorio -- a rota
+                    tambem recusa sem ele --, mas obrigatorio deixou de ser
+                    sinonimo de bloqueado. */}
                 <button
-                  onClick={ativar}
-                  disabled={indo || !temCep}
-                  title={temCep ? undefined : 'Informe o CEP de envio primeiro'}
-                  style={{ ...S.btn, opacity: indo || !temCep ? 0.5 : 1, cursor: temCep ? 'pointer' : 'not-allowed' }}
+                  onClick={() => {
+                    if (!temCep) {
+                      setErro(null)
+                      const campo = document.getElementById('bx-cep-envio')
+                      campo?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      setTimeout(() => campo?.focus(), 350)
+                      return
+                    }
+                    ativar()
+                  }}
+                  disabled={indo}
+                  style={{ ...S.btn, opacity: indo ? 0.6 : 1 }}
                 >
-                  {indo ? 'Abrindo…' : 'Ativar recebimentos'}
+                  {indo ? 'Abrindo…' : temCep ? 'Ativar recebimentos' : 'Começar'}
                 </button>
+
+                {/* ★ O ERRO FICA AQUI, NAO SO NO TOPO: quem clica esta olhando
+                    para o botao, e uma mensagem a 400px dali nao e lida. */}
+                {erro && <p style={S.erroInline} role="alert">{erro}</p>}
+
                 <p style={S.mini}>
                   {temCep
                     ? 'Leva uns 3 minutos. Você precisa do CPF (ou CNPJ) e dos dados bancários.'
-                    : 'Informe o CEP de envio logo abaixo para liberar a ativação.'}
+                    : 'Primeiro o CEP de onde você posta — o botão leva você até ele.'}
                 </p>
               </div>
             )}
@@ -297,6 +346,7 @@ function Conteudo() {
             </p>
             <div style={S.linhaCampo}>
               <input
+                id="bx-cep-envio"
                 value={cepTxt}
                 onChange={e => setCepTxt(fmtCep(e.target.value))}
                 placeholder="00000-000"
@@ -451,4 +501,6 @@ const S: Record<string, React.CSSProperties> = {
     background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
     color: '#fca5a5', borderRadius: 12, padding: '11px 14px', fontSize: 13, marginBottom: 14,
   },
+  // Erro ao lado do botao, nao so no topo da pagina.
+  erroInline: { margin: '10px 0 0', fontSize: 12.5, color: '#f87171', lineHeight: 1.5 },
 }
