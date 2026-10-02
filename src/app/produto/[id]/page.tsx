@@ -53,6 +53,8 @@ interface Produto {
   preco_cents: number
   estoque: number
   peso_g: number | null
+  /** `pt`, `en`, `jp`... Decide a caixa: ETB inglesa e brasileira nao medem igual. */
+  idioma: string | null
   /** Medidas da embalagem em cm, informadas pelo lojista. Null = nao informou. */
   largura_cm: number | null
   altura_cm: number | null
@@ -93,7 +95,7 @@ const buscar = cache(async function buscar(id: string): Promise<{ produto: Produ
 
   const q = db
     .from('loja_produtos')
-    .select('id, slug, tipo, nome, descricao, preco_cents, estoque, peso_g, largura_cm, altura_cm, comprimento_cm, vendidos, fotos, loja_id')
+    .select('id, slug, tipo, nome, descricao, preco_cents, estoque, peso_g, idioma, largura_cm, altura_cm, comprimento_cm, vendidos, fotos, loja_id')
     .eq('ativo', true)
     .limit(1)
 
@@ -172,6 +174,14 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
   // Tudo ou nada, igual ao cadastro e ao calculo do frete: com uma medida
   // faltando a cotacao cai na estimativa, entao a ficha nao pode dizer que ha
   // medida.
+  // Rotulo so para os idiomas que o comprador reconhece de cara; o resto cai
+  // na sigla, que e melhor do que nao dizer nada.
+  const IDIOMA_NOME: Record<string, string> = {
+    pt: 'Português', en: 'Inglês', jp: 'Japonês', es: 'Espanhol',
+    fr: 'Francês', de: 'Alemão', it: 'Italiano', cn: 'Chinês', kr: 'Coreano',
+  }
+  const idiomaRotulo = produto.idioma ? (IDIOMA_NOME[produto.idioma] || produto.idioma.toUpperCase()) : null
+
   const temMedidas = !!(produto.largura_cm && produto.altura_cm && produto.comprimento_cm)
   const medidas = `${produto.largura_cm} x ${produto.altura_cm} x ${produto.comprimento_cm} cm`
 
@@ -324,6 +334,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                   a dela porque toda carta usa a MESMA embalagem; produto, nao. */}
               <div style={S.ficha}>
                 <Ficha k="Tipo" v={rotulo} />
+                {idiomaRotulo ? <Ficha k="Idioma" v={idiomaRotulo} /> : null}
                 {produto.peso_g ? <Ficha k="Peso" v={`${produto.peso_g} g`} /> : null}
                 {temMedidas ? <Ficha k="Embalagem" v={medidas} /> : null}
                 <Ficha k="Estoque" v={`${produto.estoque} ${produto.estoque > 1 ? 'unidades' : 'unidade'}`} />

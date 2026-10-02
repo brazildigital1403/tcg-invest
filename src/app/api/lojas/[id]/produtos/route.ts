@@ -24,7 +24,26 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 const SELECT_LOJA = 'id, owner_user_id, nome, status, plano, plano_expira_em'
 const TIPOS = ['selado', 'pelucia', 'funko', 'fichario', 'acessorio'] as const
-const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, largura_cm, altura_cm, comprimento_cm, vendidos, fotos, ativo, created_at'
+
+/**
+ * ★ IDIOMA DO PRODUTO (02/10/2026, Quadro #447). A coluna existia no banco
+ * desde sempre, com default 'pt', e NINGUEM escolhia: nem o formulario nem
+ * esta rota tinham o campo, e nenhuma tela lia. Resultado: os 7 produtos
+ * cadastrados estavam marcados como portugues, incluindo a Elite Trainer Box
+ * "Pitch Black" da Mais Que Geek, que a foto do proprio anuncio mostra ser
+ * INGLESA ("ELITE TRAINER BOX", "WARNING: CHOKING HAZARD").
+ *
+ * Importa porque o mesmo produto tem caixa diferente em cada idioma -- a ETB
+ * inglesa mede 8,6 x 16,5 x 18,8 cm e a brasileira nao -- e e a medida que
+ * decide o frete. Sem saber o idioma nao da para ter tabela de medida padrao.
+ *
+ * Os 9 sao os mesmos do `AddCardModal`, de proposito: um conjunto novo so
+ * para produto seria mais uma lista para divergir.
+ */
+const IDIOMAS = ['pt', 'en', 'jp', 'es', 'fr', 'de', 'it', 'cn', 'kr'] as const
+type Idioma = (typeof IDIOMAS)[number]
+const ehIdioma = (v: unknown): v is Idioma => IDIOMAS.includes(v as Idioma)
+const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, largura_cm, altura_cm, comprimento_cm, idioma, vendidos, fotos, ativo, created_at'
 
 type Tipo = (typeof TIPOS)[number]
 const ehTipo = (v: unknown): v is Tipo => TIPOS.includes(v as Tipo)
@@ -81,6 +100,9 @@ function validar(p: Record<string, unknown>, parcial: boolean): string | null {
     if (informadas.length < DIMS.length) {
       return 'Informe as três medidas da embalagem, ou deixe as três em branco.'
     }
+  }
+  if ('idioma' in p && p.idioma != null && p.idioma !== '' && !ehIdioma(p.idioma)) {
+    return 'Idioma inválido.'
   }
   if ('descricao' in p && p.descricao != null && String(p.descricao).length > 1000) {
     return 'Descrição muito longa (máx. 1000 caracteres).'
@@ -150,6 +172,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         preco_cents: Number(body.preco_cents),
         estoque: Number(body.estoque),
         peso_g: pesoParaGramas(body.peso_g),
+        idioma: ehIdioma(body.idioma) ? body.idioma : 'pt',
         largura_cm: cm(body.largura_cm),
         altura_cm: cm(body.altura_cm),
         comprimento_cm: cm(body.comprimento_cm),
@@ -192,6 +215,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if ('estoque' in body) patch.estoque = Number(body.estoque)
     if ('peso_g' in body) patch.peso_g = pesoParaGramas(body.peso_g)
     for (const k of DIMS) if (k in body) patch[k] = cm(body[k])
+    if ('idioma' in body && ehIdioma(body.idioma)) patch.idioma = body.idioma
     if ('ativo' in body) patch.ativo = !!body.ativo
     if ('fotos' in body && Array.isArray(body.fotos)) patch.fotos = body.fotos.slice(0, LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(auth.loja as { plano: string; plano_expira_em: string | null })])
 

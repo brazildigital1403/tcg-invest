@@ -36,6 +36,13 @@ const TIPOS = [
   { v: 'acessorio', ic: IconTag, label: 'Acessório' },
 ] as const
 type TipoV = (typeof TIPOS)[number]['v']
+
+// Os mesmos 9 do AddCardModal, de proposito: um conjunto novo so para produto
+// seria mais uma lista para divergir da outra com o tempo.
+const IDIOMAS = ['pt', 'en', 'jp', 'es', 'fr', 'de', 'it', 'cn', 'kr'] as const
+const IDIOMA_LABEL: Record<string, string> = {
+  pt: 'PT', en: 'EN', jp: 'JP', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', cn: 'CN', kr: 'KR',
+}
 const icone = (t: string) => TIPOS.find(x => x.v === t)?.ic || IconBox
 const rotulo = (t: string) => TIPOS.find(x => x.v === t)?.label || t
 
@@ -47,6 +54,8 @@ interface Produto {
   preco_cents: number
   estoque: number
   peso_g: number | null
+  /** `pt`, `en`, `jp`... O mesmo produto tem caixa diferente em cada idioma. */
+  idioma: string | null
   /** Medidas da embalagem em cm; null = a Bynx estima pelo tipo. */
   largura_cm: number | null
   altura_cm: number | null
@@ -83,6 +92,11 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
   //   a dimensao por tipo, e o frete cobra pelo MAIOR entre peso real e peso
   //   cubado (volume / 6000): a ETB de 500 g era declarada 25x20x12 e virava
   //   1 kg de cubado. Quem tem a caixa na mao e o lojista.
+  // ★ IDIOMA (02/10/2026). A coluna existia no banco com default 'pt' e
+  //   ninguem escolhia -- os 7 produtos estavam como portugues, incluindo uma
+  //   ETB que a foto mostra ser inglesa. Importa porque a caixa muda com o
+  //   idioma, e e a caixa que decide o frete.
+  const [idioma, setIdioma] = useState('pt')
   const [largTxt, setLargTxt] = useState('')
   const [altTxt, setAltTxt] = useState('')
   const [comprTxt, setComprTxt] = useState('')
@@ -114,7 +128,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
 
   function limpar() {
     setTipo('selado'); setNome(''); setPrecoTxt(''); setEstoqueTxt('1'); setPesoTxt('')
-    setLargTxt(''); setAltTxt(''); setComprTxt('')
+    setIdioma('pt'); setLargTxt(''); setAltTxt(''); setComprTxt('')
     setDescricao(''); setFotos([]); setEditId(null)
   }
   function abrirNovo() { limpar(); setForm(true) }
@@ -122,6 +136,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
     setTipo(p.tipo as TipoV); setNome(p.nome)
     setPrecoTxt((p.preco_cents / 100).toFixed(2).replace('.', ','))
     setEstoqueTxt(String(p.estoque)); setPesoTxt(p.peso_g ? String(p.peso_g) : '')
+    setIdioma(p.idioma || 'pt')
     setLargTxt(p.largura_cm ? String(p.largura_cm) : '')
     setAltTxt(p.altura_cm ? String(p.altura_cm) : '')
     setComprTxt(p.comprimento_cm ? String(p.comprimento_cm) : '')
@@ -183,7 +198,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
     setErro(null)
     try {
       const t = await token()
-      const corpo = { tipo, nome: nome.trim(), preco_cents: preco, estoque: est, peso_g: peso, largura_cm: largura, altura_cm: altura, comprimento_cm: comprimento, descricao: descricao.trim() || null, fotos }
+      const corpo = { tipo, nome: nome.trim(), idioma, preco_cents: preco, estoque: est, peso_g: peso, largura_cm: largura, altura_cm: altura, comprimento_cm: comprimento, descricao: descricao.trim() || null, fotos }
       const r = await fetch(`/api/lojas/${lojaId}/produtos`, {
         method: editId ? 'PATCH' : 'POST',
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
@@ -314,6 +329,29 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
               <label style={S.lbl}>Estoque</label>
               <input value={estoqueTxt} onChange={e => setEstoqueTxt(e.target.value.replace(/[^0-9]/g, ''))} placeholder="1" inputMode="numeric" style={S.input} />
             </div>
+          </div>
+
+          <label style={S.lbl}>Idioma</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+            {IDIOMAS.map(i => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setIdioma(i)}
+                aria-pressed={idioma === i}
+                style={{
+                  minHeight: 36, padding: '0 13px', borderRadius: 999,
+                  fontSize: 12.5, fontWeight: idioma === i ? 800 : 600,
+                  fontFamily: 'inherit', cursor: 'pointer',
+                  background: idioma === i ? 'var(--ac-grad)' : 'var(--bx-surface)',
+                  color: idioma === i ? 'var(--bx-brand-ink)' : 'var(--bx-text-2)',
+                  border: idioma === i ? 'none' : '1px solid var(--bx-border)',
+                  transition: 'background .15s ease, border-color .15s ease, color .15s ease',
+                }}
+              >
+                {IDIOMA_LABEL[i]}
+              </button>
+            ))}
           </div>
 
           <label style={S.lbl}>Peso (g)</label>
