@@ -4,6 +4,7 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { podeExpirar, liberaEm as calcLiberaEm } from '@/lib/marketplaceStatus'
 import { badgesDaCarta } from '@/lib/badgesCarta'
 import { resolverRecebedor, podeReceber } from '@/lib/vendedorRecebimento'
+import { pesoDeCartasG } from '@/lib/melhor-envio'
 
 /**
  * Um anuncio do marketplace, para a pagina PUBLICA dele.
@@ -30,14 +31,18 @@ import { resolverRecebedor, podeReceber } from '@/lib/vendedorRecebimento'
 
 /**
  * ★ O FRETE DA CARTA JA TEM PESO PADRAO, e ele nunca apareceu na tela.
- * `pacoteDeCarta` (src/lib/melhor-envio.ts) cota toda carta como 80 g em
- * 13x18x2 cm, com seguro pelo valor do anuncio. O Du achou que a Bynx nao
- * tinha essa informacao em lugar nenhum -- tinha, so que enterrada no codigo,
- * o que na pratica e a mesma coisa pra quem compra e pra quem vende.
- * Estes valores existem pra EXIBIR o que ja e cobrado; a fonte da cotacao
- * continua sendo o `pacoteDeCarta`, nao daqui.
+ * O Du achou que a Bynx nao tinha essa informacao em lugar nenhum -- tinha,
+ * so que enterrada no codigo, o que na pratica e a mesma coisa pra quem
+ * compra e pra quem vende. Estes valores existem pra EXIBIR o que ja e
+ * cobrado; a fonte da cotacao continua sendo o `pacoteDeCartas`.
+ *
+ * ★ NAO CRAVAR O NUMERO AQUI (02/10/2026). Ate hoje esta linha dizia 80 g e a
+ * de `melhor-envio.ts` tambem: duas copias da mesma conta, que e exatamente
+ * o jeito de uma envelhecer sem a outra. Quando a gramatura foi corrigida
+ * para 19 g, a ficha publica teria continuado anunciando 80 g para o
+ * comprador. Agora ela DERIVA da lib de frete -- muda la, muda aqui.
  */
-export const CARTA_PESO_G = 80
+export const CARTA_PESO_G = pesoDeCartasG(1)
 export const CARTA_DIMENSOES = '13 x 18 x 2 cm'
 
 export type AnuncioPublico = {

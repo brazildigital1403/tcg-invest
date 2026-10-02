@@ -44,17 +44,75 @@ function soDigitos(cep: string): string {
   return String(cep || '').replace(/\D/g, '').slice(0, 8)
 }
 
-/** Carta em toploader + envelope rigido: peso/medidas conservadores. */
-export function pacoteDeCarta(precoCents: number): ItemFrete {
+/**
+ * ★ UMA REMESSA DE CARTAS E UM VOLUME SO (02/10/2026).
+ *
+ * O peso antigo era **80 g por carta**, e as rotas empilhavam um pacote por
+ * item: 10 cartas viravam 800 g e 4.680 cm3 -- uma caixa de sapato para um
+ * envelope que pesa 154 g. Medido na API de cotacao, rota Fortaleza -> SP:
+ *
+ *     cartas   declarava   frete      com o peso certo
+ *      2        160 g      R$ 17,43   R$ 17,43   (igual)
+ *      4        320 g      R$ 21,87   R$ 17,44   -R$ 4,43
+ *     10        800 g      R$ 23,51   R$ 17,50   -R$ 6,01
+ *
+ * E o pior nao era o preco: a partir de 4 cartas o **Correios Mini Envios
+ * sumia da lista** (teto de 300 g), justo a modalidade mais barata do pais
+ * para item leve. Com o peso certo ele volta.
+ *
+ * ★ A GRAMATURA, DECOMPOSTA (decisao do Du: modelo conservador). Envelope
+ * entra UMA vez; cada carta leva o proprio toploader:
+ *
+ *     envelope ............  4 g   (uma vez, e a embalagem)
+ *     carta ............... 1,8 g  }  por carta
+ *     toploader 3x4 ...... ~13 g   }  = 15 g
+ *
+ * Uma carta da 19 g, que e a faixa de 18-22 g levantada na pesquisa. Dez dao
+ * 154 g, dentro do teto de 300 g do Mini Envios.
+ *
+ * ★ POR QUE CONSERVADOR E NAO ENXUTO. Cartas empilhadas em sleeve com um
+ * protetor para o lote pesariam ~3 g por carta, nao 15. Mas as duas contas
+ * caem na MESMA faixa de preco ate ~16 cartas -- medido --, entao o numero
+ * seguro sai de graca. E ele deixa de ser gratis no dia em que a Bynx emitir
+ * a etiqueta: ai a transportadora cobra a diferenca de quem subdeclarou, e
+ * quem paga e o vendedor.
+ */
+export const CARTA_EMBALAGEM_G = 4
+export const CARTA_UNITARIA_G = 15
+/** Espessura de uma carta em toploader, em mm. */
+const CARTA_ESPESSURA_MM = 1.6
+/** Acima disto nao e mais envelope; o chamador nao tem esse caso hoje. */
+const TETO_CARTAS = 60
+
+/** Peso declarado de uma remessa com `n` cartas, em gramas. */
+export function pesoDeCartasG(n: number): number {
+  const qtd = Math.max(1, Math.min(Math.floor(n) || 1, TETO_CARTAS))
+  return CARTA_EMBALAGEM_G + CARTA_UNITARIA_G * qtd
+}
+
+/**
+ * N cartas numa remessa: UM volume, area do envelope fixa, crescendo so na
+ * espessura. `quantity` fica em 1 de proposito -- passar N faz a transportadora
+ * cotar N volumes, que e exatamente o erro que isto corrige.
+ */
+export function pacoteDeCartas(n: number, valorTotalCents: number): ItemFrete {
+  const qtd = Math.max(1, Math.min(Math.floor(n) || 1, TETO_CARTAS))
+  const espessuraCm = (3 + CARTA_ESPESSURA_MM * qtd) / 10
   return {
-    id: 'carta',
+    id: 'cartas',
     widthCm: 13,
     heightCm: 18,
-    lengthCm: 2,
-    weightKg: 0.08,
-    insuranceValue: Math.max(1, precoCents / 100),
+    // Inteiro, com piso de 2 cm: a cotacao nao aceita fracao de cm.
+    lengthCm: Math.max(2, Math.ceil(espessuraCm)),
+    weightKg: pesoDeCartasG(qtd) / 1000,
+    insuranceValue: Math.max(1, valorTotalCents / 100),
     quantity: 1,
   }
+}
+
+/** Uma carta. Mantido para os chamadores de item unico. */
+export function pacoteDeCarta(precoCents: number): ItemFrete {
+  return pacoteDeCartas(1, precoCents)
 }
 
 // Dimensoes default por tipo (cm). Os tipos batem com os do /api/lojas/[id]/produtos:

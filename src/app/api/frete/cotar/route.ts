@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
-import { cotarFrete, pacoteDeCarta, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
+import { cotarFrete, pacoteDeCarta, pacoteDeCartas, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
 import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
 import { resolverRecebedor } from '@/lib/vendedorRecebimento'
 
@@ -104,9 +104,23 @@ export async function POST(req: NextRequest) {
       }
       if (idsCarta.length) {
         const { data } = await sb.from('marketplace').select('id, price, user_id').in('id', idsCarta).is('removido_em', null)
+        // ★ AS CARTAS VIRAM UM VOLUME SO, nao um pacote por item (02/10/2026).
+        //   Empilhar `pacoteDeCarta` por carta declarava 80 g cada: 10 cartas
+        //   davam 800 g, o frete subia de R$ 17,50 para R$ 23,51 e o Correios
+        //   Mini Envios sumia da lista a partir da 4a (teto de 300 g). Dez
+        //   cartas pesam 154 g de verdade e cabem no mesmo envelope.
+        //   ★ Esta conta tem que ser IDENTICA a de `/api/carrinho`, senao o
+        //     resumo e o checkout cotam volumes diferentes e todo carrinho
+        //     com 2+ cartas cai no 409 de "opcao nao disponivel".
+        let nCartas = 0
+        let valorCartasCents = 0
         for (const an of data || []) {
           if (an.user_id !== loja.owner_user_id) continue
-          pacotes.push({ ...pacoteDeCarta(Math.round(Number(an.price) * 100)), id: `c-${an.id}` })
+          nCartas += 1
+          valorCartasCents += Math.round(Number(an.price) * 100)
+        }
+        if (nCartas > 0) {
+          pacotes.push({ ...pacoteDeCartas(nCartas, valorCartasCents), id: 'cartas' })
         }
       }
 

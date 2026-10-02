@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { comissaoVendedorCents, acrescimoCompradorCents, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
-import { cotarFrete, pacoteDeCarta, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
+import { cotarFrete, pacoteDeCartas, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
 
 /**
  * Carrinho por loja.
@@ -207,11 +207,21 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'A loja ainda não configurou o CEP de origem.' }, { status: 409 })
         }
         try {
-          const pacotes: ItemFrete[] = validos.map(i =>
-            i.tipo === 'produto'
-              ? { ...pacoteDeProduto(i.peso_g ?? null, i.tipo_produto ?? null, i.preco_cents, i.qtd), id: `p-${i.id}` }
-              : { ...pacoteDeCarta(i.preco_cents), id: `c-${i.id}` }
-          )
+          // ★ UM VOLUME PARA TODAS AS CARTAS, N volumes para os produtos.
+          //   Carta empilha no mesmo envelope; produto selado nao. Declarar um
+          //   pacote por carta punha 80 g em cada uma e tirava o Mini Envios
+          //   da lista a partir da 4a. Ver `pacoteDeCartas`.
+          //   ★ Conta IDENTICA a de `/api/frete/cotar`: divergir aqui faz a
+          //     opcao escolhida no resumo sumir no checkout, e o comprador
+          //     leva um 409 no momento de pagar.
+          const pacotes: ItemFrete[] = validos
+            .filter(i => i.tipo === 'produto')
+            .map(i => ({ ...pacoteDeProduto(i.peso_g ?? null, i.tipo_produto ?? null, i.preco_cents, i.qtd), id: `p-${i.id}` }))
+          const cartas = validos.filter(i => i.tipo !== 'produto')
+          if (cartas.length) {
+            const valorCents = cartas.reduce((t, i) => t + i.preco_cents, 0)
+            pacotes.push({ ...pacoteDeCartas(cartas.length, valorCents), id: 'cartas' })
+          }
           const opcoes = pacotes.length ? await cotarFrete(loja.cep, cepDest, pacotes) : []
           const escolhido = opcoes.find(o => o.id === servicoId)
           if (!escolhido) {
