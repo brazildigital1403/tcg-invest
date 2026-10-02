@@ -183,7 +183,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   // chave guarda o que foi cotado: mudou servico, cartas, valor ou prazo, a
   // estimativa deixa de valer e o botao volta.
   const chaveFrete = `${servico}|${qtd}|${Math.round(totalDeclarado * 100)}|${prazo}`
-  const [freteEst, setFreteEst] = useState<{ chave: string; carregando: boolean; frete?: number; vd?: number; nome?: string; aviso?: string } | null>(null)
+  const [freteEst, setFreteEst] = useState<{ chave: string; carregando: boolean; frete?: number; vd?: number; nome?: string; aviso?: string; semCep?: boolean } | null>(null)
   const estimativa = freteEst?.chave === chaveFrete ? freteEst : null
   async function estimarFrete() {
     setFreteEst({ chave: chaveFrete, carregando: true })
@@ -194,7 +194,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: d.error || 'Não foi possível estimar agora.' }); return }
-      if (d.sem_cep) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Cadastre o seu CEP em Minha Conta para estimar.' }); return }
+      if (d.sem_cep) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Falta o seu CEP no cadastro.', semCep: true }); return }
       if (d.sem_opcao) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Sem opção de envio para o seu CEP. Vem no orçamento.' }); return }
       setFreteEst({ chave: chaveFrete, carregando: false, frete: d.frete_cents / 100, vd: d.valor_declarado_cents / 100, nome: d.servico_frete })
     } catch {
@@ -514,7 +514,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                       ? <button type="button" className="ag-prev-bt" onClick={estimarFrete} disabled={!!estimativa?.carregando}>{estimativa?.carregando ? 'Calculando...' : 'Estimar pelo meu CEP'}</button>
                       : <b className="ag-prev-obs">no orçamento</b>}
                 </div>
-                {estimativa?.aviso && <p className="ag-prev-nota">{estimativa.aviso}</p>}
+                {estimativa?.aviso && <p className="ag-prev-nota">{estimativa.aviso}{estimativa.semCep && <> <a href="/minha-conta#endereco" target="_blank" rel="noopener">Cadastrar em Minha Conta</a></>}</p>}
                 <div className="ag-prev-total">
                   <span>Total previsto</span>
                   <b>{estimativa?.frete != null
