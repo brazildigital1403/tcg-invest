@@ -55,6 +55,8 @@ interface Produto {
   peso_g: number | null
   /** `pt`, `en`, `jp`... Decide a caixa: ETB inglesa e brasileira nao medem igual. */
   idioma: string | null
+  /** Subtipo de `selado`: etb, booster_box, blister... Null nos outros tipos. */
+  formato: string | null
   /** Medidas da embalagem em cm, informadas pelo lojista. Null = nao informou. */
   largura_cm: number | null
   altura_cm: number | null
@@ -95,7 +97,7 @@ const buscar = cache(async function buscar(id: string): Promise<{ produto: Produ
 
   const q = db
     .from('loja_produtos')
-    .select('id, slug, tipo, nome, descricao, preco_cents, estoque, peso_g, idioma, largura_cm, altura_cm, comprimento_cm, vendidos, fotos, loja_id')
+    .select('id, slug, tipo, nome, descricao, preco_cents, estoque, peso_g, idioma, formato, largura_cm, altura_cm, comprimento_cm, vendidos, fotos, loja_id')
     .eq('ativo', true)
     .limit(1)
 
@@ -181,6 +183,16 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
     fr: 'Francês', de: 'Alemão', it: 'Italiano', cn: 'Chinês', kr: 'Coreano',
   }
   const idiomaRotulo = produto.idioma ? (IDIOMA_NOME[produto.idioma] || produto.idioma.toUpperCase()) : null
+
+  const FORMATO_NOME: Record<string, string> = {
+    etb: 'Elite Trainer Box', booster_box: 'Booster Box', bundle: 'Bundle',
+    blister: 'Blister', deck: 'Deck', lata: 'Lata',
+    colecao: 'Coleção especial', pacote: 'Pacote avulso',
+  }
+  // ★ O FORMATO SUBSTITUI O TIPO na ficha quando existe: dizer "Selado" para
+  //   quem esta olhando uma Elite Trainer Box e a informacao mais pobre das
+  //   duas, e o lojista ja se deu o trabalho de classificar.
+  const formatoRotulo = produto.formato ? (FORMATO_NOME[produto.formato] || null) : null
 
   const temMedidas = !!(produto.largura_cm && produto.altura_cm && produto.comprimento_cm)
   const medidas = `${produto.largura_cm} x ${produto.altura_cm} x ${produto.comprimento_cm} cm`
@@ -333,7 +345,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                   comprador uma medida que ninguem mediu. A carta pode mostrar
                   a dela porque toda carta usa a MESMA embalagem; produto, nao. */}
               <div style={S.ficha}>
-                <Ficha k="Tipo" v={rotulo} />
+                <Ficha k="Tipo" v={formatoRotulo || rotulo} />
                 {idiomaRotulo ? <Ficha k="Idioma" v={idiomaRotulo} /> : null}
                 {produto.peso_g ? <Ficha k="Peso" v={`${produto.peso_g} g`} /> : null}
                 {temMedidas ? <Ficha k="Embalagem" v={medidas} /> : null}
