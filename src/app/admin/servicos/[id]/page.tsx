@@ -437,7 +437,7 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
       {!todasRecusadas && (
         <div className="ad-valores">
           <label><span>Serviço</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={servico} onChange={e => setServico(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
-          <label><span>Valor declarado Correios ({CORREIOS_VD.pct}% acima de R$ 25,63)</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
+          <label><span>Valor declarado Correios (use Cotar frete)</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <label><span>Frete de volta</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={frete} onChange={e => setFrete(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <div className="ad-total-orc"><span>Total</span><b>{total == null ? 'valor inválido' : reais(total)}</b></div>
         </div>

@@ -505,7 +505,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                 <div><span>{SERVICOS.find(s => s.id === servico)?.nome} ({qtd} × {PRECO_A_PARTIR.includes(servico) ? 'a partir de ' : ''}R$ {brl(precoUnit!)})</span><b>R$ {brl(previsao.servicoR)}</b></div>
                 {previsao.expressoR > 0 && <div><span>Prazo expresso</span><b>R$ {brl(previsao.expressoR)}</b></div>}
                 {previsao.descontoR > 0 && <div><span>Desconto por volume ({previsao.pctDesc}%)</span><b>− R$ {brl(previsao.descontoR)}</b></div>}
-                <div><span>Taxa dos Correios pelo valor declarado, na volta</span><b>R$ {brl(estimativa?.vd ?? previsao.correiosR)}</b></div>
+                <div><span>Taxa dos Correios pelo valor declarado, na volta{estimativa?.vd != null ? '' : ' (estimativa)'}</span><b>R$ {brl(estimativa?.vd ?? previsao.correiosR)}</b></div>
                 <div>
                   <span>Frete de volta{estimativa?.nome ? ` (${estimativa.nome})` : ''}</span>
                   {estimativa?.frete != null

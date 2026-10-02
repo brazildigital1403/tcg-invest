@@ -190,7 +190,7 @@ export const CUSTODIA = [
   { t: 'Vídeo do pacote abrindo', d: 'Plano único, sem corte, com a etiqueta visível do começo ao fim.' },
   { t: 'Foto de entrada antes de qualquer toque', d: 'Na mesma luz e no mesmo enquadramento da foto de saída, para você comparar.' },
   { t: 'Status na sua conta a cada etapa', d: 'Recebida, em bancada, descansando, pronta, enviada. Com foto em cada passo.' },
-  { t: 'Envio com valor declarado', d: `Na volta, a carta vai com valor declarado nos Correios pelo valor que você informou. Você paga só a taxa deles (${CORREIOS_VD.pct}% sobre o que passa de R$ ${reaisVd(CORREIOS_VD.coberturaAutomaticaCents)}), sem margem da Bynx.` },
+  { t: 'Envio com valor declarado', d: 'Na volta, a carta vai com valor declarado nos Correios pelo valor que você informou. Você paga só a taxa deles, cotada no orçamento, sem margem da Bynx.' },
 ]
 
 /** Custodia do pre-grading: sem etapa de descanso (e da prensa). */
@@ -251,7 +251,7 @@ export const FAQ_RESTAURACAO: Faq[] = [
   },
   {
     q: 'E se a carta se perder no correio?',
-    a: `Na ida, declare o valor na postagem. Na volta, a Bynx envia com valor declarado nos Correios, e você paga só a taxa deles: ${CORREIOS_VD.pct}% sobre o que passa de R$ ${reaisVd(CORREIOS_VD.coberturaAutomaticaCents)}. Em perda, roubo ou avaria no transporte, os Correios indenizam até o valor declarado, sem franquia. O teto do SEDEX hoje é R$ ${reaisVd(CORREIOS_VD.tetoSedexCents)}: carta acima disso, combinamos a entrega com você antes. Cada etapa fica registrada na sua conta com foto.`,
+    a: `Na ida, declare o valor na postagem. Na volta, a Bynx envia com valor declarado nos Correios, e você paga só a taxa de valor declarado deles, cotada no orçamento, sem margem da Bynx. Em perda, roubo ou avaria no transporte, os Correios indenizam até o valor declarado, sem franquia. O teto do SEDEX hoje é R$ ${reaisVd(CORREIOS_VD.tetoSedexCents)}: carta acima disso, combinamos a entrega com você antes. Cada etapa fica registrada na sua conta com foto.`,
   },
   {
     q: 'A graduadora vai perceber que a carta foi tratada?',
