@@ -636,10 +636,21 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
               ★ 02/10/2026: deixou de ser so a LOJA. Quem vende sem loja
               tambem fecha venda hoje -- a Barbara foi a primeira --, entao o
               campo le a conta da pessoa quando nao ha loja. */}
+          {/* ★ O "Comprar" LEVA AO ANUNCIO, NAO AO CHECKOUT (02/10/2026).
+              Ele pulava direto para o pagamento, e isso virou problema no dia
+              em que o carrinho passou a aceitar vendedor sem loja: a pagina do
+              anuncio e o unico lugar com "Adicionar ao carrinho", entao o
+              caminho MAIS RAPIDO da vitrine era justamente o que escondia a
+              saida do frete caro. Quem clicasse aqui na carta de R$ 0,90 caia
+              num checkout de R$ 19,54 -- 95% de frete -- sem nunca saber que
+              havia mais 12 cartas do mesmo vendedor para dividir o envio.
+              De quebra, resolve uma divergencia que ja existia: o card de
+              PRODUTO sempre levou a /produto/[slug] e o de carta ia ao
+              checkout. Mesmo grid, mesmo rotulo, destinos diferentes. */}
           {!isMeu && !isBuyer && card.status === 'disponivel' && (
             card.seller_vende ? (
               <Link
-                href={`/checkout/${card.id}`}
+                href={`/anuncio/${card.slug || card.id}`}
                 className="bx-ctx-comprador"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px', borderRadius: 10, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}
               >
@@ -939,7 +950,7 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
         <div className="mkt-hero-acoes" style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'nowrap' }}>
           {!isMeu && card.status === 'disponivel' ? (
             card.seller_vende ? (
-              <Link href={`/checkout/${card.id}`} className="bx-ctx-comprador" style={{ flex: 1, minWidth: 0, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              <Link href={`/anuncio/${card.slug || card.id}`} className="bx-ctx-comprador" style={{ flex: 1, minWidth: 0, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 <IconCarrinho size={16} /> Comprar
               </Link>
             ) : (
@@ -1066,7 +1077,7 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
         {/* Loja com recebimento ativo fecha a venda na hora, igual ao card do grid.
             Antes o destaque sempre dizia "Tenho interesse", ate pra loja com checkout. */}
         {!isMeu && (card.seller_vende ? (
-          <Link href={`/checkout/${card.id}`} className="bx-ctx-comprador" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '9px', borderRadius: 10, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}>
+          <Link href={`/anuncio/${card.slug || card.id}`} className="bx-ctx-comprador" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '9px', borderRadius: 10, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}>
             <IconCarrinho size={15} /> Comprar
           </Link>
         ) : (
