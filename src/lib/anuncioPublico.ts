@@ -167,3 +167,71 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
     lojaEstado: l?.estado?.trim() || null,
   }
 })
+
+/** Carta do mesmo vendedor, no bloco "Mais deste vendedor". */
+export type OutroDoVendedor = {
+  id: string
+  slug: string | null
+  nome: string
+  imagem: string | null
+  precoCents: number
+  condicao: string | null
+}
+
+/**
+ * As outras cartas a venda do mesmo vendedor.
+ *
+ * ★ POR QUE EXISTE (02/10/2026). O frete e quase todo custo fixo de postagem:
+ * medido na cotacao real, 1 carta de Fortaleza para SP custa R$ 17,43 e 10
+ * cartas na mesma remessa custam R$ 17,49. Mas quem abria o anuncio de uma
+ * carta de R$ 0,90 via R$ 17,44 de frete e ia embora, porque NADA na tela
+ * dizia que a mesma vendedora tinha mais 12 cartas e que o envio seria um so.
+ * O carrinho por vendedor subiu em `36cb82a` e ficou sem convite: carrinho
+ * possivel nao e carrinho usado.
+ *
+ * ★ `disponivel` DE VERDADE: exige `status = 'disponivel'` E `removido_em`
+ * nulo. Travado em negociacao e moderado pelo admin ficam de fora -- o numero
+ * na faixa tem que bater com o que a pessoa encontra ao clicar, senao a
+ * primeira impressao do recurso e a de um numero que mente.
+ *
+ * Nao recebe o recebedor de volta: quem chama ja sabe se o vendedor fecha
+ * venda (`podeComprar` do proprio anuncio), e as cartas sao as mesmas pessoa.
+ */
+export const buscarOutrosDoVendedor = cache(async function buscarOutrosDoVendedor(
+  vendedorId: string,
+  excetoAnuncioId: string,
+  limite = 6,
+): Promise<{ itens: OutroDoVendedor[]; total: number }> {
+  const db = getServiceSupabase()
+  if (!db) return { itens: [], total: 0 }
+
+  const { data, error, count } = await db
+    .from('marketplace')
+    .select('id, slug, card_name, card_image, fotos, price, condicao', { count: 'exact' })
+    .eq('user_id', vendedorId)
+    .eq('status', 'disponivel')
+    .is('removido_em', null)
+    .neq('id', excetoAnuncioId)
+    // ★ MAIS BARATAS PRIMEIRO, de proposito. Quem esta nesta tela chegou por
+    //   uma carta e vai decidir se junta outra para diluir o frete -- abrir
+    //   com a mais cara e desenhar para o caso que nao existe.
+    .order('price', { ascending: true })
+    .limit(limite)
+
+  if (error) {
+    console.error('[anuncio] outros do vendedor:', error.message)
+    return { itens: [], total: 0 }
+  }
+
+  const itens: OutroDoVendedor[] = (data || []).map(c => ({
+    id: c.id as string,
+    slug: (c.slug as string) || null,
+    nome: (c.card_name as string) || 'Carta',
+    // A foto do vendedor vence a imagem do catalogo, igual a pagina do anuncio.
+    imagem: (Array.isArray(c.fotos) && c.fotos[0]) || (c.card_image as string) || null,
+    precoCents: Math.round(Number(c.price) * 100),
+    condicao: (c.condicao as string) || null,
+  }))
+
+  return { itens, total: count ?? itens.length }
+})

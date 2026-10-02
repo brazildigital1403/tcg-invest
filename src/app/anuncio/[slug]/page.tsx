@@ -14,7 +14,7 @@ import BotaoInteresse from './BotaoInteresse'
 import CronometroLiberacao from '@/components/marketplace/CronometroLiberacao'
 import ChatDock from '@/components/marketplace/ChatDock'
 import { IconShield, IconLocation, IconCarrinho, IconTruck } from '@/components/ui/Icons'
-import { buscarAnuncioPublico, CARTA_PESO_G, CARTA_DIMENSOES, type AnuncioPublico } from '@/lib/anuncioPublico'
+import { buscarAnuncioPublico, buscarOutrosDoVendedor, CARTA_PESO_G, CARTA_DIMENSOES, type AnuncioPublico, type OutroDoVendedor } from '@/lib/anuncioPublico'
 import SelosPagamento from '@/components/ui/SelosPagamento'
 
 /**
@@ -127,6 +127,10 @@ export default async function AnuncioPage({
   // nao vira header HTTP e o crawler receberia a mesma pagina em duas URLs.
   if (a.slug && a.slug !== slug) permanentRedirect(`/anuncio/${a.slug}`)
 
+  // ★ As outras cartas do mesmo vendedor. Depois do redirect de proposito:
+  //   nao vale consultar o banco para uma pagina que vai responder 308.
+  const outros = await buscarOutrosDoVendedor(a.vendedorId, a.id)
+
   const trilha = [
     { name: 'Início', href: '/' },
     { name: 'Mercado', href: '/marketplace' },
@@ -157,6 +161,43 @@ export default async function AnuncioPage({
             </div>
 
             <div style={S.preco}>{fmtBRL(a.preco)}</div>
+
+            {/* ★ O CONVITE PARA JUNTAR (02/10/2026). O frete e quase todo
+                custo fixo de postagem -- 1 carta de Fortaleza para SP custa
+                R$ 17,43 e 10 na mesma remessa custam R$ 17,49, medido na
+                cotacao real. So que quem abria a carta de R$ 0,90 via o frete
+                de R$ 17,44 e ia embora: nada na tela dizia que a mesma pessoa
+                tinha mais 12 cartas e que o envio seria UM so.
+
+                A faixa so aparece quando ha o que juntar E quando a compra
+                fecha: oferecer "junte mais" a quem nao recebe pagamento seria
+                prometer um carrinho que o checkout recusa no fim.
+
+                O tom muda com a relacao frete/preco. Sem o CEP do visitante
+                nao da para dizer o VALOR do frete aqui (a pagina e server-side
+                e cotar por render seria uma chamada ao Melhor Envio por
+                pageview), entao o texto e qualitativo e o numero aparece no
+                checkout, que e onde ele ja e oficial. */}
+            {a.disponivel && a.podeComprar && outros.total > 0 && (
+              <div style={S.faixa}>
+                <div style={S.faixaTopo}>
+                  <IconTruck size={15} style={S.faixaIcone} />
+                  <p style={S.faixaTitulo}>
+                    {a.preco <= 20
+                      ? 'O frete pode custar mais que a carta'
+                      : 'Um envio só'}
+                  </p>
+                </div>
+                <p style={S.faixaTexto}>
+                  Este vendedor tem mais {outros.total}{' '}
+                  {outros.total === 1 ? 'carta' : 'cartas'}, e o envio é um só para
+                  tudo que você levar junto.
+                </p>
+                <Link href="#mais-do-vendedor" style={S.faixaLink}>
+                  Ver as {outros.total} {outros.total === 1 ? 'carta' : 'cartas'}
+                </Link>
+              </div>
+            )}
 
             {/* ★ QUEM RECEBE COMPRA, QUEM NAO RECEBE NEGOCIA (24/09/2026).
                 A regra era "loja compra, colecionador negocia" -- e isso
@@ -282,6 +323,51 @@ export default async function AnuncioPage({
               </section>
             )}
 
+            {/* ★ A GRADE DO MESMO VENDEDOR. Ancora da faixa la de cima.
+                Mais BARATAS primeiro (a ordenacao vem da query): quem chegou
+                aqui veio de uma carta e esta decidindo se junta outra para
+                diluir o frete -- abrir com a mais cara e desenhar para o caso
+                que nao existe.
+
+                Cada card leva ao anuncio da carta, nunca ao checkout: e de la
+                que se adiciona ao carrinho, e foi exatamente o atalho para o
+                checkout que escondia o carrinho da vitrine (a13c013). */}
+            {outros.itens.length > 0 && (
+              <section id="mais-do-vendedor" style={S.bloco}>
+                <h2 style={S.h2}>Mais deste vendedor</h2>
+                <div style={{ ...S.grade, gridTemplateColumns: 'repeat(auto-fill, minmax(118px, 1fr))' }}>
+                  {outros.itens.map((o: OutroDoVendedor) => (
+                    <Link key={o.id} href={`/anuncio/${o.slug || o.id}`} style={S.mini}>
+                      <span style={S.miniFoto}>
+                        {o.imagem && (
+                          <Image
+                            src={o.imagem}
+                            alt={o.nome}
+                            fill
+                            sizes="(max-width: 880px) 45vw, 130px"
+                            style={{ objectFit: 'cover' }}
+                          />
+                        )}
+                      </span>
+                      <span style={S.miniCorpo}>
+                        <span style={S.miniNome}>{o.nome}</span>
+                        <span style={S.miniPreco}>{fmtBRL(o.precoCents / 100)}</span>
+                        {o.condicao && <span style={S.miniCond}>{o.condicao}</span>}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+                {outros.total > outros.itens.length && (
+                  <Link
+                    href={a.vendedorUsername ? `/perfil/${a.vendedorUsername}` : `/perfil/${a.vendedorId}`}
+                    style={S.verTodas}
+                  >
+                    Ver todas as {outros.total}
+                  </Link>
+                )}
+              </section>
+            )}
+
             <section style={S.bloco}>
               <h2 style={S.h2}>Como funciona</h2>
               <p style={S.comoItem}><IconShield size={14} style={S.comoIcone} /> Pagamento processado pela Stripe. A Bynx nunca guarda os dados do cartão.</p>
@@ -368,4 +454,45 @@ const S: Record<string, React.CSSProperties> = {
   desc: { fontSize: 14, lineHeight: 1.65, color: 'var(--bx-text-2)', margin: 0, whiteSpace: 'pre-wrap' },
   comoItem: { display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.6, color: 'var(--bx-text-2)', margin: '0 0 8px' },
   comoIcone: { flexShrink: 0, marginTop: 2, opacity: 0.8 },
+
+  // ── "Mais deste vendedor" ────────────────────────────────────────────
+  faixa: {
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
+    borderRadius: 12, padding: '12px 13px', marginBottom: 13,
+  },
+  faixaTopo: { display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 },
+  faixaIcone: { flexShrink: 0, marginTop: 1, opacity: 0.75 },
+  faixaTitulo: { fontSize: 13.5, fontWeight: 700, lineHeight: 1.35, margin: 0 },
+  faixaTexto: { fontSize: 12.5, color: 'var(--bx-text-2)', lineHeight: 1.5, margin: '0 0 11px' },
+  faixaLink: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    minHeight: 44, borderRadius: 10, textDecoration: 'none',
+    background: 'rgba(255,255,255,0.045)', border: '1px solid var(--bx-border-2)',
+    color: 'var(--bx-text)', fontSize: 13, fontWeight: 700,
+  },
+  grade: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(0, 1fr))', gap: 9 },
+  mini: {
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border)',
+    borderRadius: 11, overflow: 'hidden', textDecoration: 'none', display: 'block',
+    minWidth: 0,
+  },
+  // ★ `display: block` nos quatro: sao <span> dentro de um <a>, e span e
+  //   INLINE. Sem isto o `aspectRatio` da foto colapsa -- o `fill` do
+  //   next/image fica sem altura para preencher e o card sai so com texto --
+  //   e o preco gruda na condicao na mesma linha ("R$ 9,90NM").
+  miniFoto: { display: 'block', position: 'relative', width: '100%', aspectRatio: '1 / 1.1', background: 'rgba(255,255,255,0.03)' },
+  miniCorpo: { display: 'block', padding: '8px 9px 10px' },
+  miniNome: {
+    fontSize: 11.5, fontWeight: 700, lineHeight: 1.3, color: 'var(--bx-text)',
+    margin: '0 0 4px', display: '-webkit-box', WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical', overflow: 'hidden',
+  },
+  miniPreco: { display: 'block', fontSize: 13, fontWeight: 800, color: 'var(--ac-1)', margin: 0, letterSpacing: '-0.02em' },
+  miniCond: { display: 'block', fontSize: 10, color: 'var(--bx-text-3)', margin: '3px 0 0' },
+  verTodas: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 44,
+    marginTop: 10, borderRadius: 10, textDecoration: 'none',
+    background: 'rgba(255,255,255,0.045)', border: '1px solid var(--bx-border-2)',
+    color: 'var(--bx-text)', fontSize: 13, fontWeight: 700,
+  },
 }
