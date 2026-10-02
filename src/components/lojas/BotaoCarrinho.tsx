@@ -33,12 +33,20 @@ import { IconPlus, IconMinus, IconCheck, IconTrash, IconArrowRight } from '@/com
 export default function BotaoCarrinho({
   id,
   tipo,
-  lojaId,
+  vendedorId,
+  lojaId = null,
   estoque = 1,
 }: {
   id: string
   tipo: TipoItem
-  lojaId: string
+  /**
+   * ★ `users.id` de quem vende -- e por ele que o carrinho agrupa (02/10/2026).
+   * Era `lojaId` obrigatorio, e isso deixava de fora todo anuncio de pessoa
+   * fisica: 70 dos 96 do mercado. Ver `src/lib/carrinho.ts`.
+   */
+  vendedorId: string
+  /** `lojas.id` quando o item e de loja. Anuncio de pessoa fisica vai null. */
+  lojaId?: string | null
   /** Teto do "+". A carta ignora (sempre 1). O servidor revalida no checkout. */
   estoque?: number
 }) {
@@ -60,7 +68,7 @@ export default function BotaoCarrinho({
     return (
       <button
         type="button"
-        onClick={() => { alternar({ id, tipo, lojaId }) }}
+        onClick={() => { alternar({ id, tipo, vendedorId, lojaId }) }}
         className="bx-cart-add"
         style={S.btn}
       >
@@ -86,7 +94,7 @@ export default function BotaoCarrinho({
           <button
             type="button"
             className="bx-cart-step"
-            onClick={() => { podeQtd && qtd > 1 ? definirQtd(id, qtd - 1) : alternar({ id, tipo, lojaId }) }}
+            onClick={() => { podeQtd && qtd > 1 ? definirQtd(id, qtd - 1) : alternar({ id, tipo, vendedorId, lojaId }) }}
             aria-label={podeQtd && qtd > 1 ? 'Diminuir quantidade' : 'Remover do carrinho'}
             style={S.step}
           >

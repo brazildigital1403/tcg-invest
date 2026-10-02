@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { limparLoja } from '@/lib/carrinho'
+import { limparVendedor } from '@/lib/carrinho'
 import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
 import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, IconBolt, IconPokeball } from '@/components/ui/Icons'
@@ -53,7 +53,10 @@ interface Pedido {
   created_at: string
   pago_em: string | null
   enviado_em: string | null
-  loja_id: string
+  /** Nulo em pedido de pessoa fisica -- quem vende sem loja. */
+  loja_id: string | null
+  /** Sempre preenchido, com ou sem loja. E por ele que o carrinho e limpo. */
+  vendedor_user_id: string
   comprador_user_id: string
 }
 
@@ -149,7 +152,7 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     return () => clearTimeout(t)
   }, [veioDoPagamento, pedido, tentativas, buscar])
 
-  // ★ ESVAZIA O CARRINHO DA LOJA QUE FOI PAGA (08/09/2026).
+  // ★ ESVAZIA O CARRINHO DO VENDEDOR QUE FOI PAGO (08/09/2026).
   //
   // `limparLoja` existia em `lib/carrinho.ts` e NUNCA foi chamada -- grep no
   // src inteiro dava zero. Quem pagava pelo carrinho voltava pra ca e os
@@ -157,10 +160,14 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   // novo, e a carta ja vendida sujava a proxima cesta.
   //
   // So com `?ok=1` (retorno da Stripe) e com o pedido carregado -- assim o
-  // `loja_id` e o de verdade, nao um palpite da URL.
+  // vendedor e o de verdade, nao um palpite da URL.
+  //
+  // ★ LE `vendedor_user_id`, NAO `loja_id` (02/10/2026). Com a sacola por
+  //   vendedor, pedido de pessoa fisica tem `loja_id` NULO: a condicao antiga
+  //   saia cedo e o carrinho dela nunca era esvaziado depois de pago.
   useEffect(() => {
-    if (!veioDoPagamento || !pedido?.loja_id) return
-    limparLoja(pedido.loja_id)
+    if (!veioDoPagamento || !pedido?.vendedor_user_id) return
+    limparVendedor(pedido.vendedor_user_id)
   }, [veioDoPagamento, pedido])
 
   // Contexto pos-venda: quem sou eu, nome da loja e se ja avaliei este pedido.
@@ -171,8 +178,12 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
       const { data: auth } = await supabase.auth.getUser()
       if (active) setMeuId(auth.user?.id ?? null)
 
-      const { data: lj } = await supabase.from('lojas').select('nome').eq('id', pedido.loja_id).maybeSingle()
-      if (active && lj?.nome) setLojaNome(lj.nome)
+      // Pedido de pessoa fisica nao tem loja: a consulta nao roda, e a tela
+      // cai no nome do vendedor que ja vem no proprio pedido.
+      if (pedido.loja_id) {
+        const { data: lj } = await supabase.from('lojas').select('nome').eq('id', pedido.loja_id).maybeSingle()
+        if (active && lj?.nome) setLojaNome(lj.nome)
+      }
 
       const { data: av } = await supabase.from('avaliacoes').select('id').eq('pedido_id', pedido.id).limit(1)
       if (active) setJaAvaliou((av?.length ?? 0) > 0)

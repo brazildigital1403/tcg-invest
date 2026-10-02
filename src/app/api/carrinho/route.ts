@@ -2,13 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { comissaoVendedorCents, acrescimoCompradorCents, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
+import { resolverRecebedor, type Recebedor } from '@/lib/vendedorRecebimento'
 import { cotarFrete, pacoteDeCartas, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
 
 /**
- * Carrinho por loja.
+ * Carrinho por VENDEDOR -- loja ou pessoa fisica.
  *
- * POST /api/carrinho/resumo   -> { loja_id, itens:[{id,tipo}], metodo } -> conta completa
+ * POST /api/carrinho/resumo   -> { vendedor_id, itens:[{id,tipo}], metodo } -> conta
  * POST /api/carrinho/checkout -> idem + auth -> cria pedido (N itens) + Session
+ *
+ * ★ ERA POR LOJA ATE 02/10/2026. A rota lia `lojas` direto, entao quem vende
+ * SEM loja nao tinha carrinho nenhum: so dava para comprar um item por vez,
+ * pagando um frete inteiro em cada. Numa carta de R$ 0,90 isso significava
+ * R$ 17,44 de frete por carta. Hoje 70 dos 96 anuncios sao de pessoa fisica.
+ *
+ * ★ QUEM RESOLVE E `resolverRecebedor`, e a regra dele e EXCLUSIVA: tendo loja
+ * ativa quem recebe e a conta DA LOJA, senao a da pessoa -- nunca as duas.
+ * Usar a mesma funcao do checkout de item unico e o que impede esta rota de
+ * ter uma segunda opiniao sobre de quem e o dinheiro.
  *
  * ★ O cliente manda SO IDs. ★ Preco, nome, imagem e disponibilidade sao lidos
  * daqui do servidor. Se aceitassemos preco do cliente, editar o localStorage
@@ -46,8 +57,18 @@ interface ItemResolvido {
   qtd_ajustada?: boolean
 }
 
-/** Le os itens do banco e diz quais ainda estao a venda NESTA loja. */
-async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owner_user_id: string }, entradas: Entrada[]) {
+/**
+ * Le os itens do banco e diz quais ainda estao a venda DESTE vendedor.
+ *
+ * ★ Carta casa por `owner_user_id` e produto por `loja_id`, e e por isso que
+ * produto de pessoa fisica nao existe: `loja_produtos` so tem dono com loja.
+ * Anuncio de pessoa fisica chega aqui com `lojaId` null e nenhum produto.
+ */
+async function resolverItens(
+  db: ReturnType<typeof sb>,
+  alvo: { lojaId: string | null; ownerUserId: string },
+  entradas: Entrada[]
+) {
   const idsCarta = entradas.filter(e => e.tipo === 'carta').map(e => e.id)
   const idsProd = entradas.filter(e => e.tipo === 'produto').map(e => e.id)
   const out: ItemResolvido[] = []
@@ -64,8 +85,8 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
       .in('id', idsCarta)
     for (const id of idsCarta) {
       const c = data?.find(x => x.id === id)
-      if (!c || c.user_id !== loja.owner_user_id) {
-        out.push({ id, tipo: 'carta', nome: 'Item removido', imagem: null, preco_cents: 0, disponivel: false, motivo: 'não está mais nesta loja', qtd: 1, estoque: 0 })
+      if (!c || c.user_id !== alvo.ownerUserId) {
+        out.push({ id, tipo: 'carta', nome: 'Item removido', imagem: null, preco_cents: 0, disponivel: false, motivo: 'não é mais deste vendedor', qtd: 1, estoque: 0 })
         continue
       }
       out.push({
@@ -92,7 +113,7 @@ async function resolverItens(db: ReturnType<typeof sb>, loja: { id: string; owne
       .in('id', idsProd)
     for (const id of idsProd) {
       const p = data?.find(x => x.id === id)
-      if (!p || p.loja_id !== loja.id) {
+      if (!p || !alvo.lojaId || p.loja_id !== alvo.lojaId) {
         out.push({ id, tipo: 'produto', nome: 'Item removido', imagem: null, preco_cents: 0, disponivel: false, motivo: 'não está mais nesta loja', qtd: 1, estoque: 0 })
         continue
       }
@@ -156,7 +177,7 @@ function montarConta(itens: ItemResolvido[], prazo: 14 | 30, metodo: MetodoPagam
 
 async function carregar(req: NextRequest) {
   const body = await req.json().catch(() => null)
-  const lojaId = body?.loja_id
+  const vendedorId = body?.vendedor_id
   const entradas: Entrada[] = Array.isArray(body?.itens)
     ? body.itens
         .filter((i: unknown): i is Entrada => !!i && typeof (i as Entrada).id === 'string' && ((i as Entrada).tipo === 'carta' || (i as Entrada).tipo === 'produto'))
@@ -164,15 +185,15 @@ async function carregar(req: NextRequest) {
         .map((i: Entrada) => ({ ...i, qtd: Math.max(1, Math.min(Math.floor(Number(i.qtd)) || 1, 99)) }))
     : []
   const metodo: MetodoPagamento = ehMetodoValido(body?.metodo) ? body.metodo : 'cartao'
-  return { lojaId, entradas, metodo, body }
+  return { vendedorId, entradas, metodo, body }
 }
 
 export async function POST(req: NextRequest) {
   // Rota unica: /api/carrinho?acao=resumo|checkout
   const acao = new URL(req.url).searchParams.get('acao') || 'resumo'
   try {
-    const { lojaId, entradas, metodo, body } = await carregar(req)
-    if (!lojaId || entradas.length === 0) {
+    const { vendedorId, entradas, metodo, body } = await carregar(req)
+    if (!vendedorId || entradas.length === 0) {
       return NextResponse.json({ error: 'Carrinho vazio.' }, { status: 400 })
     }
     if (metodo === 'pix' && !PIX_DISPONIVEL) {
@@ -180,12 +201,31 @@ export async function POST(req: NextRequest) {
     }
 
     const db = sb()
-    const { data: ls } = await db.from('lojas').select(SELECT_LOJA).eq('id', lojaId).eq('status', 'ativa').limit(1)
-    const loja = ls?.[0]
-    if (!loja) return NextResponse.json({ error: 'Loja indisponível.' }, { status: 409 })
+    const recebedor = await resolverRecebedor(db, vendedorId)
+    if (!recebedor) {
+      return NextResponse.json({ error: 'Vendedor indisponível.' }, { status: 409 })
+    }
 
-    const prazo = normalizarPrazo(loja.repasse_prazo)
-    const itens = await resolverItens(db, loja, entradas)
+    // ★ DADOS DE EXIBICAO, separados dos de DINHEIRO. O `recebedor` traz o que
+    //   decide a cobranca (conta Connect, prazo, frete, CEP de origem); isto
+    //   aqui e so a coluna de confianca da tela -- cidade, logo, plano. Loja
+    //   tem painel proprio, pessoa fisica tem o perfil publico.
+    let cidade: string | null = null
+    let estado: string | null = null
+    let plano: string | null = null
+    if (recebedor.tipo === 'loja' && recebedor.lojaId) {
+      const { data: ls } = await db.from('lojas').select(SELECT_LOJA).eq('id', recebedor.lojaId).limit(1)
+      const l = ls?.[0]
+      cidade = (l?.cidade as string) ?? null
+      estado = (l?.estado as string) ?? null
+      plano = (l?.plano as string) ?? null
+    } else {
+      const { data: pu } = await db.from('public_users').select('city').eq('id', recebedor.ownerUserId).limit(1)
+      cidade = (pu?.[0]?.city as string) ?? null
+    }
+
+    const prazo = normalizarPrazo(recebedor.repassePrazo)
+    const itens = await resolverItens(db, { lojaId: recebedor.lojaId, ownerUserId: recebedor.ownerUserId }, entradas)
     const validos = itens.filter(i => i.disponivel)
     const subtotalPrevio = validos.reduce((acc, i) => acc + i.preco_cents * i.qtd, 0)
 
@@ -195,7 +235,7 @@ export async function POST(req: NextRequest) {
     // nunca se confia no preco que o cliente mandou. Sem cep ainda (o comprador
     // acabou de abrir o carrinho), o resumo devolve frete_pendente e o total
     // fica indefinido, igual ao checkout de item unico.
-    const ehCalculado = loja.frete_modo === 'calculado'
+    const ehCalculado = recebedor.freteModo === 'calculado'
     let freteCents = 0
     let fretePendente = false
 
@@ -203,8 +243,10 @@ export async function POST(req: NextRequest) {
       const cepDest = String(body?.cep || '').replace(/\D/g, '')
       const servicoId = Number(body?.servico)
       if (cepDest.length === 8 && servicoId) {
-        if (String(loja.cep || '').replace(/\D/g, '').length !== 8) {
-          return NextResponse.json({ error: 'A loja ainda não configurou o CEP de origem.' }, { status: 409 })
+        if (!recebedor.cepOrigem) {
+          // Vale para os dois: loja sem CEP e pessoa que nunca informou de onde
+          // posta. O texto fala de VENDEDOR porque hoje a maioria nao tem loja.
+          return NextResponse.json({ error: 'Esse vendedor ainda não informou o CEP de envio.' }, { status: 409 })
         }
         try {
           // ★ UM VOLUME PARA TODAS AS CARTAS, N volumes para os produtos.
@@ -222,7 +264,7 @@ export async function POST(req: NextRequest) {
             const valorCents = cartas.reduce((t, i) => t + i.preco_cents, 0)
             pacotes.push({ ...pacoteDeCartas(cartas.length, valorCents), id: 'cartas' })
           }
-          const opcoes = pacotes.length ? await cotarFrete(loja.cep, cepDest, pacotes) : []
+          const opcoes = pacotes.length ? await cotarFrete(recebedor.cepOrigem, cepDest, pacotes) : []
           const escolhido = opcoes.find(o => o.id === servicoId)
           if (!escolhido) {
             return NextResponse.json(
@@ -239,8 +281,8 @@ export async function POST(req: NextRequest) {
         fretePendente = true
       }
     } else {
-      const base = Math.max(0, loja.frete_cents || 0)
-      const limite = loja.frete_gratis_acima_cents
+      const base = Math.max(0, recebedor.freteCents || 0)
+      const limite = recebedor.freteGratisAcimaCents
       freteCents = limite != null && subtotalPrevio >= limite ? 0 : base
     }
 
@@ -252,7 +294,7 @@ export async function POST(req: NextRequest) {
       // Best effort — falha aqui nao pode derrubar o carrinho.
       let rating: { media: number; total: number } | null = null
       try {
-        const { data: avs } = await db.from('avaliacoes').select('estrelas').eq('avaliado_id', loja.owner_user_id)
+        const { data: avs } = await db.from('avaliacoes').select('estrelas').eq('avaliado_id', recebedor.ownerUserId)
         const notas = (avs || []).map(a => a.estrelas).filter((n): n is number => typeof n === 'number')
         if (notas.length) rating = { media: notas.reduce((x, y) => x + y, 0) / notas.length, total: notas.length }
       } catch (e) {
@@ -260,20 +302,26 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({
-        loja: {
-          id: loja.id, nome: loja.nome, slug: loja.slug,
-          pode_vender: !!loja.connect_charges_enabled,
+        // ★ A CHAVE E `vendedor`, nao `loja`. Quem monta a tela precisa saber
+        //   que pode vir pessoa fisica: `tipo` diz qual, `loja_id` e null
+        //   nesse caso, e a copy muda ("enviado pela loja" x "pelo vendedor").
+        vendedor: {
+          tipo: recebedor.tipo,
+          id: recebedor.ownerUserId,
+          loja_id: recebedor.lojaId,
+          nome: recebedor.nome,
+          slug: recebedor.slug,
+          pode_vender: recebedor.chargesEnabled,
           frete_modo: ehCalculado ? 'calculado' : 'fixo',
           // Pra coluna de confianca do carrinho: quem esta vendendo, onde fica,
-          // se e verificada e como as pessoas avaliaram. Comprar de uma loja
-          // que voce nao conhece e o atrito real aqui.
-          logo_url: loja.logo_url ?? null,
-          verificada: !!loja.verificada,
-          cidade: loja.cidade ?? null,
-          estado: loja.estado ?? null,
-          plano: loja.plano ?? null,
+          // se e verificado e como as pessoas avaliaram. Comprar de quem voce
+          // nao conhece e o atrito real aqui.
+          logo_url: recebedor.logoUrl,
+          verificada: recebedor.verificada,
+          cidade,
+          estado,
+          plano,
           rating,
-          owner_user_id: loja.owner_user_id,
         },
         itens,
         ...conta,
@@ -293,11 +341,11 @@ export async function POST(req: NextRequest) {
     const compradorId = authData?.user?.id
     if (!compradorId) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
 
-    if (loja.owner_user_id === compradorId) {
-      return NextResponse.json({ error: 'Você não pode comprar da sua própria loja.' }, { status: 400 })
+    if (recebedor.ownerUserId === compradorId) {
+      return NextResponse.json({ error: 'Você não pode comprar os seus próprios anúncios.' }, { status: 400 })
     }
-    if (!loja.stripe_connect_account_id || !loja.connect_charges_enabled) {
-      return NextResponse.json({ error: 'Essa loja ainda está ativando os recebimentos.' }, { status: 409 })
+    if (!recebedor.connectAccountId || !recebedor.chargesEnabled) {
+      return NextResponse.json({ error: 'Esse vendedor ainda está ativando os recebimentos.' }, { status: 409 })
     }
     if (conta.validos.length === 0) {
       return NextResponse.json({ error: 'Nenhum item do seu carrinho está disponível.' }, { status: 409 })
@@ -325,8 +373,11 @@ export async function POST(req: NextRequest) {
     const { data: pedidoIns, error: pedErr } = await db
       .from('pedidos')
       .insert({
-        loja_id: loja.id,
-        vendedor_user_id: loja.owner_user_id,
+        // ★ NULL quando quem vende e pessoa fisica, igual ao checkout de item
+        //   unico. E o `vendedor_user_id` que manda, e o pos-venda de quem nao
+        //   tem loja le exatamente por `loja_id is null` (rota /api/vendas).
+        loja_id: recebedor.lojaId,
+        vendedor_user_id: recebedor.ownerUserId,
         comprador_user_id: compradorId,
         // Atalho so quando e 1 item; com N, a verdade esta em pedido_itens.
         marketplace_id: conta.validos.length === 1 && primeiro.tipo === 'carta' ? primeiro.id : null,
@@ -341,7 +392,7 @@ export async function POST(req: NextRequest) {
         liquido_loja_cents: conta.liquido_loja_cents,
         metodo,
         repasse_prazo: prazo,
-        stripe_connect_account_id: loja.stripe_connect_account_id,
+        stripe_connect_account_id: recebedor.connectAccountId,
         status: 'aguardando_pagamento',
       })
       .select('id, numero')
@@ -385,7 +436,7 @@ export async function POST(req: NextRequest) {
     if (conta.acrescimo_cents > 0) {
       linhas.push(brl(conta.acrescimo_cents, metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'))
     }
-    if (conta.frete_cents > 0) linhas.push(brl(conta.frete_cents, `Frete — ${loja.nome}`))
+    if (conta.frete_cents > 0) linhas.push(brl(conta.frete_cents, `Frete — ${recebedor.nome}`))
 
     try {
       const session = await stripe.checkout.sessions.create({
@@ -395,10 +446,16 @@ export async function POST(req: NextRequest) {
         shipping_address_collection: { allowed_countries: ['BR'] },
         phone_number_collection: { enabled: true },
         client_reference_id: String(pedidoIns.id),
-        metadata: { bynx_pedido_id: String(pedidoIns.id), bynx_loja_id: String(loja.id) },
+        // `bynx_loja_id` so quando existe loja -- mesmo padrao do checkout de
+        // item unico (marketplace/[id]/checkout). Pessoa fisica nao tem.
+        metadata: {
+          bynx_pedido_id: String(pedidoIns.id),
+          bynx_vendedor_id: String(recebedor.ownerUserId),
+          ...(recebedor.lojaId ? { bynx_loja_id: String(recebedor.lojaId) } : {}),
+        },
         payment_intent_data: {
           application_fee_amount: conta.comissao_bynx_cents,
-          transfer_data: { destination: loja.stripe_connect_account_id },
+          transfer_data: { destination: recebedor.connectAccountId },
           metadata: { bynx_pedido_id: String(pedidoIns.id) },
         },
         success_url: `${base}/pedido/${pedidoIns.id}?ok=1`,

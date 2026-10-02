@@ -1,10 +1,22 @@
 /**
- * Carrinho da Bynx — mora no localStorage, agrupado POR LOJA.
+ * Carrinho da Bynx — mora no localStorage, agrupado POR VENDEDOR.
  *
- * POR QUE POR LOJA: cada loja tem a propria conta Stripe Connect e o proprio
- * frete. Nao existe "pagar tudo junto" de 2 lojas — seriam 2 cobrancas, 2
- * splits e 2 fretes. Entao o carrinho ja nasce separado e cada loja fecha o
- * proprio checkout.
+ * POR QUE POR VENDEDOR: cada vendedor tem a propria conta Stripe Connect e o
+ * proprio frete. Nao existe "pagar tudo junto" de 2 vendedores — seriam 2
+ * cobrancas, 2 splits e 2 fretes. Entao o carrinho ja nasce separado e cada
+ * vendedor fecha o proprio checkout.
+ *
+ * ★ ERA POR LOJA ATE 02/10/2026, e isso deixava de fora quem vende SEM loja.
+ * A Barbara ativou o recebimento com 13 anuncios e nao conseguia vender duas
+ * cartas juntas: o frete de uma carta de R$ 0,90 dela custava R$ 17,44, e a
+ * unica saida do comprador era pagar esse frete de novo na segunda carta.
+ * Hoje 70 dos 96 anuncios do mercado sao de pessoa fisica.
+ *
+ * ★ O AGRUPADOR E `vendedorId` (o `owner_user_id`), NAO `lojaId`. E o mesmo
+ * recorte de `resolverRecebedor`: tendo loja ativa quem recebe e a conta DA
+ * LOJA, senao a da pessoa. Nunca as duas -- isso seria a heranca de conta que
+ * saiu em 4a0de6f. `lojaId` continua aqui porque PRODUTO vive em
+ * `loja_produtos` e precisa dela; para carta de pessoa fisica ele e null.
  *
  * POR QUE LOCALSTORAGE: pra o visitante montar carrinho ANTES de ter conta. O
  * login so e pedido no "Finalizar". Carrinho no banco exigiria login pra
@@ -20,7 +32,11 @@
  * Nome e imagem sao relidos junto — o anuncio pode ter sido editado ou vendido.
  */
 
-const CHAVE = 'bynx_carrinho_v1'
+// ★ v2: o formato do item mudou (`lojaId` obrigatorio -> `vendedorId`), e o
+// navegador nao sabe resolver loja -> dono sozinho. Carrinho gravado na v1 e
+// descartado em vez de migrado pela metade: ficar com item sem vendedor seria
+// gravar um pedido sem saber de quem e a conta que recebe.
+const CHAVE = 'bynx_carrinho_v2'
 const EVENTO = 'bynx:carrinho'
 
 export type TipoItem = 'carta' | 'produto'
@@ -29,7 +45,10 @@ export interface ItemCarrinho {
   /** id do anuncio (marketplace) ou do produto (loja_produtos) */
   id: string
   tipo: TipoItem
-  lojaId: string
+  /** `users.id` de quem vende. E por ele que o carrinho agrupa. */
+  vendedorId: string
+  /** `lojas.id` quando o item e de loja; null em anuncio de pessoa fisica. */
+  lojaId: string | null
   /** Unidades. Sempre 1 pra carta. O servidor revalida contra o estoque. */
   qtd: number
   /** so pra exibir enquanto o servidor nao responde; NUNCA usado em conta */
@@ -48,7 +67,14 @@ function ler(): Carrinho {
     return arr
       .filter(
         (i): i is ItemCarrinho =>
-          !!i && typeof i.id === 'string' && (i.tipo === 'carta' || i.tipo === 'produto') && typeof i.lojaId === 'string'
+          !!i &&
+          typeof i.id === 'string' &&
+          (i.tipo === 'carta' || i.tipo === 'produto') &&
+          // Sem `vendedorId` nao da pra saber de quem e a conta que recebe.
+          typeof i.vendedorId === 'string' &&
+          i.vendedorId.length > 0 &&
+          // Produto SEMPRE tem loja; carta pode nao ter.
+          (i.tipo !== 'produto' || typeof i.lojaId === 'string')
       )
       // Normaliza a quantidade: item gravado antes desta versao nao tem `qtd`,
       // e carta e sempre 1 unidade.
@@ -77,15 +103,15 @@ export function obterCarrinho(): Carrinho {
   return ler()
 }
 
-/** Itens de uma loja especifica. */
-export function itensDaLoja(lojaId: string): Carrinho {
-  return ler().filter(i => i.lojaId === lojaId)
+/** Itens de um vendedor especifico. */
+export function itensDoVendedor(vendedorId: string): Carrinho {
+  return ler().filter(i => i.vendedorId === vendedorId)
 }
 
-/** Lojas presentes no carrinho, na ordem em que apareceram. */
-export function lojasNoCarrinho(): string[] {
+/** Vendedores presentes no carrinho, na ordem em que apareceram. */
+export function vendedoresNoCarrinho(): string[] {
   const vistos: string[] = []
-  for (const i of ler()) if (!vistos.includes(i.lojaId)) vistos.push(i.lojaId)
+  for (const i of ler()) if (!vistos.includes(i.vendedorId)) vistos.push(i.vendedorId)
   return vistos
 }
 
@@ -151,9 +177,9 @@ export function alternar(item: Omit<ItemCarrinho, 'addedAt' | 'qtd'> & { qtd?: n
   return true
 }
 
-/** Esvazia a loja inteira — usado depois que o pedido dela e criado. */
-export function limparLoja(lojaId: string): void {
-  gravar(ler().filter(i => i.lojaId !== lojaId))
+/** Esvazia o vendedor inteiro — usado depois que o pedido dele e criado. */
+export function limparVendedor(vendedorId: string): void {
+  gravar(ler().filter(i => i.vendedorId !== vendedorId))
 }
 
 export function limparTudo(): void {

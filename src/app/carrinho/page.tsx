@@ -10,7 +10,7 @@ import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import BandeirasCartao from '@/components/ui/BandeirasCartao'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { fmtBRL, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
-import { lojasNoCarrinho, itensDaLoja, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
+import { vendedoresNoCarrinho, itensDoVendedor, remover, definirQtd, assinarCarrinho, type ItemCarrinho } from '@/lib/carrinho'
 import { IconBox, IconTrash, IconTruck, IconPokeball, IconArrowRight, IconPlus, IconMinus, IconShield, IconLocation, IconStarFilled, IconBolt, IconCard } from '@/components/ui/Icons'
 import SeloVerificado from '@/components/ui/SeloVerificado'
 
@@ -40,13 +40,24 @@ interface ItemResumo {
 }
 interface OpcaoFrete { id: number; nome: string; empresa: string; precoCents: number; prazoDias: number }
 interface Resumo {
-  loja: {
-    id: string; nome: string; slug: string; pode_vender: boolean
+  /**
+   * ★ `vendedor`, nao `loja` (02/10/2026). A sacola passou a agrupar por quem
+   * VENDE, e `tipo` diz se e loja ou pessoa fisica -- do link do cabecalho ate
+   * a copy de "enviado por", as duas se comportam diferente.
+   */
+  vendedor: {
+    tipo: 'loja' | 'pessoa'
+    /** `users.id` do vendedor. */
+    id: string
+    /** `lojas.id`, ou null quando quem vende e pessoa fisica. */
+    loja_id: string | null
+    nome: string
+    slug: string | null
+    pode_vender: boolean
     frete_modo: 'fixo' | 'calculado'
     logo_url: string | null; verificada: boolean
     cidade: string | null; estado: string | null; plano: string | null
     rating: { media: number; total: number } | null
-    owner_user_id: string
   }
   itens: ItemResumo[]
   subtotal_cents: number
@@ -78,8 +89,8 @@ export default function CarrinhoPage() {
 
 function CarrinhoInner() {
   const { openSignup } = useAuthModal()
-  const [lojas, setLojas] = useState<string[]>([])
-  const [itensPorLoja, setItensPorLoja] = useState<Record<string, ItemCarrinho[]>>({})
+  const [vendedores, setVendedores] = useState<string[]>([])
+  const [itensPorVendedor, setItensPorVendedor] = useState<Record<string, ItemCarrinho[]>>({})
   const [resumos, setResumos] = useState<Record<string, Resumo>>({})
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -92,7 +103,7 @@ function CarrinhoInner() {
   // aparece de qualquer jeito, com "a calcular" -- escondendo o bloco inteiro,
   // o comprador com duas lojas nunca via que existe um total geral, que e
   // justamente o numero que ele quer no primeiro olhar.
-  const totalGeralCents = lojas.reduce<number | null>((acc, id) => {
+  const totalGeralCents = vendedores.reduce<number | null>((acc, id) => {
     const t = resumos[id]?.total_comprador_cents
     return acc == null || t == null ? null : acc + t
   }, 0)
@@ -122,20 +133,20 @@ function CarrinhoInner() {
   }, [])
 
   const lerLocal = useCallback(() => {
-    const ls = lojasNoCarrinho()
-    setLojas(ls)
+    const ls = vendedoresNoCarrinho()
+    setVendedores(ls)
     const mapa: Record<string, ItemCarrinho[]> = {}
-    for (const l of ls) mapa[l] = itensDaLoja(l)
-    setItensPorLoja(mapa)
+    for (const l of ls) mapa[l] = itensDoVendedor(l)
+    setItensPorVendedor(mapa)
     return { ls, mapa }
   }, [])
 
-  const buscarResumo = useCallback(async (lojaId: string, itens: ItemCarrinho[], svc?: number | null, cepStr?: string) => {
+  const buscarResumo = useCallback(async (vendedorId: string, itens: ItemCarrinho[], svc?: number | null, cepStr?: string) => {
     const r = await fetch('/api/carrinho?acao=resumo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        loja_id: lojaId,
+        vendedor_id: vendedorId,
         itens: itens.map(i => ({ id: i.id, tipo: i.tipo, qtd: i.qtd })),
         metodo,
         ...(svc ? { servico: svc, cep: (cepStr || '').replace(/\D/g, '') } : {}),
@@ -154,7 +165,7 @@ function CarrinhoInner() {
     try {
       const out: Record<string, Resumo> = {}
       await Promise.all(ls.map(async l => {
-        try { out[l] = await buscarResumo(l, mapa[l], servico[l], cep[l]) } catch { /* loja some da lista */ }
+        try { out[l] = await buscarResumo(l, mapa[l], servico[l], cep[l]) } catch { /* vendedor some da lista */ }
       }))
       setResumos(out)
     } catch (e) {
@@ -175,29 +186,29 @@ function CarrinhoInner() {
     recarregar()
   }), [recarregar])
 
-  async function cotar(lojaId: string) {
-    const cd = (cep[lojaId] || '').replace(/\D/g, '')
+  async function cotar(vendedorId: string) {
+    const cd = (cep[vendedorId] || '').replace(/\D/g, '')
     if (cd.length !== 8) { setErro('Digite um CEP com 8 dígitos.'); return }
-    setCotando(lojaId); setErro(null)
+    setCotando(vendedorId); setErro(null)
     try {
       const r = await fetch('/api/frete/cotar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo: 'carrinho',
-          loja_id: lojaId,
-          itens: (itensPorLoja[lojaId] || []).map(i => ({ id: i.id, tipo: i.tipo, qtd: i.qtd })),
+          vendedor_id: vendedorId,
+          itens: (itensPorVendedor[vendedorId] || []).map(i => ({ id: i.id, tipo: i.tipo, qtd: i.qtd })),
           cep: cd,
         }),
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Não consegui calcular o frete.')
       const ops = (j.opcoes || []) as OpcaoFrete[]
-      setOpcoes(o => ({ ...o, [lojaId]: ops }))
+      setOpcoes(o => ({ ...o, [vendedorId]: ops }))
       if (ops.length) {
-        setServico(sv => ({ ...sv, [lojaId]: ops[0].id }))
-        const novo = await buscarResumo(lojaId, itensPorLoja[lojaId] || [], ops[0].id, cd)
-        setResumos(rs => ({ ...rs, [lojaId]: novo }))
+        setServico(sv => ({ ...sv, [vendedorId]: ops[0].id }))
+        const novo = await buscarResumo(vendedorId, itensPorVendedor[vendedorId] || [], ops[0].id, cd)
+        setResumos(rs => ({ ...rs, [vendedorId]: novo }))
       }
     } catch (e) {
       setErro((e as Error).message)
@@ -206,22 +217,22 @@ function CarrinhoInner() {
     }
   }
 
-  async function escolherServico(lojaId: string, id: number) {
-    setServico(sv => ({ ...sv, [lojaId]: id }))
+  async function escolherServico(vendedorId: string, id: number) {
+    setServico(sv => ({ ...sv, [vendedorId]: id }))
     try {
-      const novo = await buscarResumo(lojaId, itensPorLoja[lojaId] || [], id, cep[lojaId])
-      setResumos(rs => ({ ...rs, [lojaId]: novo }))
+      const novo = await buscarResumo(vendedorId, itensPorVendedor[vendedorId] || [], id, cep[vendedorId])
+      setResumos(rs => ({ ...rs, [vendedorId]: novo }))
     } catch (e) {
       setErro((e as Error).message)
     }
   }
 
-  async function finalizar(lojaId: string) {
+  async function finalizar(vendedorId: string) {
     if (!uid) { openSignup(); return }
-    setIndo(lojaId); setErro(null)
+    setIndo(vendedorId); setErro(null)
     try {
       const { data } = await supabase.auth.getSession()
-      const cd = (cep[lojaId] || '').replace(/\D/g, '')
+      const cd = (cep[vendedorId] || '').replace(/\D/g, '')
       const r = await fetch('/api/carrinho?acao=checkout', {
         method: 'POST',
         headers: {
@@ -229,10 +240,10 @@ function CarrinhoInner() {
           Authorization: `Bearer ${data.session?.access_token || ''}`,
         },
         body: JSON.stringify({
-          loja_id: lojaId,
-          itens: (itensPorLoja[lojaId] || []).map(i => ({ id: i.id, tipo: i.tipo, qtd: i.qtd })),
+          vendedor_id: vendedorId,
+          itens: (itensPorVendedor[vendedorId] || []).map(i => ({ id: i.id, tipo: i.tipo, qtd: i.qtd })),
           metodo,
-          ...(servico[lojaId] ? { servico: servico[lojaId], cep: cd } : {}),
+          ...(servico[vendedorId] ? { servico: servico[vendedorId], cep: cd } : {}),
         }),
       })
       const j = await r.json()
@@ -245,7 +256,7 @@ function CarrinhoInner() {
   }
 
   const totalUnidades = Object.values(resumos).reduce((acc, r) => acc + unidades(r), 0)
-  const vazio = !carregando && lojas.length === 0
+  const vazio = !carregando && vendedores.length === 0
 
   return (
     <AppLayout>
@@ -266,7 +277,7 @@ function CarrinhoInner() {
           titulo="Seu carrinho"
           descricao="Revise os itens, calcule o frete e finalize a compra."
           stat={totalUnidades > 0
-            ? `${totalUnidades} ${totalUnidades === 1 ? 'unidade' : 'unidades'} · ${lojas.length} ${lojas.length === 1 ? 'loja' : 'lojas'}`
+            ? `${totalUnidades} ${totalUnidades === 1 ? 'unidade' : 'unidades'} · ${vendedores.length} ${vendedores.length === 1 ? 'vendedor' : 'vendedores'}`
             : undefined}
         />
 
@@ -283,14 +294,14 @@ function CarrinhoInner() {
           <div style={S.vazio}>
             <IconBox size={30} color="var(--bx-text-faint)" />
             <p style={S.vazioTit}>Seu carrinho está vazio</p>
-            <p style={S.vazioSub}>Adicione produtos das lojas parceiras e finalize a compra aqui.</p>
-            <Link href="/lojas" className="bx-cart-cta" style={S.ctaGhost}>Ver lojas</Link>
+            <p style={S.vazioSub}>Junte várias cartas do mesmo vendedor e pague um frete só.</p>
+            <Link href="/marketplace" className="bx-cart-cta" style={S.ctaGhost}>Ver o mercado</Link>
           </div>
         )}
 
         {/* ★ TUDO O QUE E ACAO DE COMPRA SO EXISTE COM CARRINHO CHEIO
             (08/09/2026). REGRESSAO MINHA DO MESMO DIA: quando tirei o seletor
-            de pagamento de dentro do `lojas.map` (ele renderizava um por loja,
+            de pagamento de dentro do `vendedores.map` (ele renderizava um por loja,
             com estado unico), ele passou a renderizar SEMPRE -- e carrinho
             vazio exibia Pix, Cartao e as bandeiras embaixo do "Seu carrinho
             esta vazio". Parecia site quebrado, e foi assim que o Du viu. */}
@@ -298,47 +309,56 @@ function CarrinhoInner() {
         <div className="bx-compra-cols">
           {/* ─── PALCO: o que estou levando, agrupado por loja ─────────── */}
           <div>
-        {lojas.map(lojaId => {
-          const r = resumos[lojaId]
+        {vendedores.map(vendedorId => {
+          const r = resumos[vendedorId]
           if (!r) return null
-          const ops = opcoes[lojaId]
-          const calc = r.loja.frete_modo === 'calculado'
-          const podeFechar = r.qtd_validos > 0 && r.loja.pode_vender && !r.frete_pendente
+          const ops = opcoes[vendedorId]
+          const calc = r.vendedor.frete_modo === 'calculado'
+          const podeFechar = r.qtd_validos > 0 && r.vendedor.pode_vender && !r.frete_pendente
 
           return (
-            <section key={lojaId} style={S.card}>
-              {/* ★ Cabecalho de CONFIANCA da loja. O atrito real aqui nao e
-                  preco, e comprar de uma loja que voce nao conhece — entao o
-                  card abre dizendo QUEM esta vendendo: logo, selo de
-                  verificada, cidade e reputacao. */}
+            <section key={vendedorId} style={S.card}>
+              {/* ★ Cabecalho de CONFIANCA do vendedor. O atrito real aqui nao
+                  e preco, e comprar de quem voce nao conhece — entao o card
+                  abre dizendo QUEM esta vendendo: logo, selo de verificada,
+                  cidade e reputacao.
+                  ★ O destino muda com o tipo: loja tem vitrine propria, pessoa
+                  fisica tem o perfil publico. Mandar os dois para /lojas daria
+                  404 em 70 dos 96 anuncios do mercado. */}
               <div style={S.lojaTopo}>
-                <Link href={`/lojas/${r.loja.slug}`} style={S.lojaBloco}>
-                  {r.loja.logo_url ? (
-                    <Image src={r.loja.logo_url} alt={r.loja.nome} width={38} height={38} sizes="38px" style={S.lojaLogo} />
+                <Link
+                  href={r.vendedor.tipo === 'loja' && r.vendedor.slug
+                    ? `/lojas/${r.vendedor.slug}`
+                    : `/perfil/${r.vendedor.slug || r.vendedor.id}`}
+                  style={S.lojaBloco}
+                >
+                  {r.vendedor.logo_url ? (
+                    <Image src={r.vendedor.logo_url} alt={r.vendedor.nome} width={38} height={38} sizes="38px" style={S.lojaLogo} />
                   ) : (
-                    <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{(r.loja.nome || 'L').charAt(0).toUpperCase()}</span>
+                    <span style={{ ...S.lojaLogo, ...S.lojaLogoVazia }}>{(r.vendedor.nome || 'L').charAt(0).toUpperCase()}</span>
                   )}
                   <span style={{ minWidth: 0 }}>
                     <span style={S.lojaNome}>
-                      {r.loja.nome}
-                      {r.loja.verificada && <SeloVerificado size={15} />}
+                      {r.vendedor.nome}
+                      {r.vendedor.verificada && <SeloVerificado size={15} />}
                     </span>
                     <span style={S.lojaMeta}>
-                      {r.loja.cidade && (
+                      {r.vendedor.cidade && (
                         <span style={S.metaItem}>
                           <IconLocation size={11} color="var(--bx-text-3)" />
-                          {r.loja.cidade}{r.loja.estado ? `, ${r.loja.estado}` : ''}
+                          {r.vendedor.cidade}{r.vendedor.estado ? `, ${r.vendedor.estado}` : ''}
                         </span>
                       )}
-                      {r.loja.rating && (
+                      {r.vendedor.rating && (
                         <span style={S.metaItem}>
                           <IconStarFilled size={11} color="var(--ac-1)" />
-                          {r.loja.rating.media.toFixed(1).replace('.', ',')}
-                          <span style={S.mutSm}>({r.loja.rating.total})</span>
+                          {r.vendedor.rating.media.toFixed(1).replace('.', ',')}
+                          <span style={S.mutSm}>({r.vendedor.rating.total})</span>
                         </span>
                       )}
                       <span style={S.metaItem}>
-                        <IconShield size={11} color="var(--bx-text-3)" /> Vendido e enviado pela loja
+                        <IconShield size={11} color="var(--bx-text-3)" />
+                        {r.vendedor.tipo === 'loja' ? 'Vendido e enviado pela loja' : 'Vendido e enviado por este vendedor'}
                       </span>
                     </span>
                   </span>
@@ -408,16 +428,16 @@ function CarrinhoInner() {
                   </div>
                   <div style={S.cepRow}>
                     <input
-                      value={cep[lojaId] || ''}
-                      onChange={e => setCep(c => ({ ...c, [lojaId]: e.target.value }))}
+                      value={cep[vendedorId] || ''}
+                      onChange={e => setCep(c => ({ ...c, [vendedorId]: e.target.value }))}
                       placeholder="Seu CEP"
                       inputMode="numeric"
                       maxLength={9}
                       style={S.input}
                       aria-label="CEP de entrega"
                     />
-                    <button type="button" onClick={() => cotar(lojaId)} disabled={cotando === lojaId} style={S.btnCalc}>
-                      {cotando === lojaId ? 'Calculando…' : 'Calcular'}
+                    <button type="button" onClick={() => cotar(vendedorId)} disabled={cotando === vendedorId} style={S.btnCalc}>
+                      {cotando === vendedorId ? 'Calculando…' : 'Calcular'}
                     </button>
                   </div>
                   {ops && ops.length > 0 && (
@@ -426,8 +446,8 @@ function CarrinhoInner() {
                         <button
                           key={o.id}
                           type="button"
-                          onClick={() => escolherServico(lojaId, o.id)}
-                          style={{ ...S.opcao, ...(servico[lojaId] === o.id ? S.opcaoOn : {}) }}
+                          onClick={() => escolherServico(vendedorId, o.id)}
+                          style={{ ...S.opcao, ...(servico[vendedorId] === o.id ? S.opcaoOn : {}) }}
                         >
                           <span style={S.opNome}>{o.empresa} {o.nome}</span>
                           <span style={S.opPreco}>{fmtBRL(o.precoCents)}</span>
@@ -445,7 +465,7 @@ function CarrinhoInner() {
 
           {/* ─── ACAO: pagamento, contas e botoes ──────────────────────── */}
           <div className="bx-compra-sticky">
-            {/* ★ O SELETOR DE PAGAMENTO SAIU DE DENTRO DO `lojas.map`
+            {/* ★ O SELETOR DE PAGAMENTO SAIU DE DENTRO DO `vendedores.map`
                 (08/09/2026). Ele era renderizado UMA VEZ POR LOJA -- 121px
                 cada -- mas o estado sempre foi UM SO (`metodo`). Com o Pix
                 desligado ninguem percebia; no dia em que ligar, mexer no
@@ -479,15 +499,15 @@ function CarrinhoInner() {
               })}
             </div>
           </div>
-            {lojas.length > 1 && (
-              <p style={S.notaPag}>Vale para todas as lojas.</p>
+            {vendedores.length > 1 && (
+              <p style={S.notaPag}>Vale para todos os vendedores.</p>
             )}
 
             {/* ★ TOTAL GERAL com rotulo. Com mais de uma loja a tela passa a
                 ter DOIS numeros diferentes (o total da loja e o total de
                 tudo), e num app de patrimonio conta ambigua derruba confianca
                 mais rapido que qualquer outra coisa. */}
-            {lojas.length > 1 && (
+            {vendedores.length > 1 && (
               <div style={S.geral}>
                 <span style={S.geralK}>Total geral</span>
                 <span style={S.geralV}>
@@ -496,13 +516,13 @@ function CarrinhoInner() {
               </div>
             )}
 
-            {lojas.map(lojaId => {
-              const r = resumos[lojaId]
+            {vendedores.map(vendedorId => {
+              const r = resumos[vendedorId]
               if (!r) return null
-              const podeFechar = r.qtd_validos > 0 && r.loja.pode_vender && !r.frete_pendente
+              const podeFechar = r.qtd_validos > 0 && r.vendedor.pode_vender && !r.frete_pendente
               return (
-                <div key={lojaId} style={S.painelLoja}>
-                  {lojas.length > 1 && <div style={S.painelLojaNome}>{r.loja.nome}</div>}
+                <div key={vendedorId} style={S.painelLoja}>
+                  {vendedores.length > 1 && <div style={S.painelLojaNome}>{r.vendedor.nome}</div>}
               <div style={S.conta}>
                 <div style={S.contaLinha}><span style={S.mut}>Subtotal</span><span>{fmtBRL(r.subtotal_cents)}</span></div>
                 {/* Rotulo passou a seguir o METODO: dizia "cartao" mesmo com
@@ -521,20 +541,24 @@ function CarrinhoInner() {
                 </div>
               </div>
 
-              {!r.loja.pode_vender ? (
-                <p style={S.aviso}>Esta loja ainda não finaliza vendas pela Bynx. Fale com ela pela página da loja.</p>
+              {!r.vendedor.pode_vender ? (
+                <p style={S.aviso}>
+                  {r.vendedor.tipo === 'loja'
+                    ? 'Esta loja ainda não finaliza vendas pela Bynx. Fale com ela pela página da loja.'
+                    : 'Este vendedor ainda não finaliza vendas pela Bynx. Use "Tenho interesse" no anúncio para negociar.'}
+                </p>
               ) : r.qtd_validos === 0 ? (
                 <p style={S.aviso}>Nenhum item deste carrinho está disponível.</p>
               ) : (
                 <button
                   type="button"
-                  onClick={() => finalizar(lojaId)}
-                  disabled={!podeFechar || indo === lojaId}
+                  onClick={() => finalizar(vendedorId)}
+                  disabled={!podeFechar || indo === vendedorId}
                   className="bx-ctx-comprador bx-cart-cta"
-                  style={{ ...S.cta, opacity: !podeFechar || indo === lojaId ? 0.55 : 1 }}
+                  style={{ ...S.cta, opacity: !podeFechar || indo === vendedorId ? 0.55 : 1 }}
                 >
-                  {indo === lojaId ? 'Abrindo pagamento…' : r.frete_pendente ? 'Calcule o frete' : 'Finalizar compra'}
-                  {podeFechar && indo !== lojaId && <IconArrowRight size={17} color="currentColor" />}
+                  {indo === vendedorId ? 'Abrindo pagamento…' : r.frete_pendente ? 'Calcule o frete' : 'Finalizar compra'}
+                  {podeFechar && indo !== vendedorId && <IconArrowRight size={17} color="currentColor" />}
                 </button>
               )}
             </div>
@@ -555,7 +579,7 @@ function CarrinhoInner() {
         <div style={S.brands}><BandeirasCartao /></div>
         </>)}
 
-        {lojas.length > 1 && (
+        {vendedores.length > 1 && (
           <p style={S.nota}>
             Cada loja tem o próprio frete e o próprio pagamento, então a compra é finalizada uma loja por vez.
           </p>

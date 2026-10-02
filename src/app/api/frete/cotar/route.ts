@@ -65,22 +65,25 @@ export async function POST(req: NextRequest) {
 
     // ── Modo carrinho: N itens da MESMA loja numa remessa so ───────────────
     if (ehCarrinho) {
-      const lojaId = body?.loja_id
+      // ★ `vendedor_id`, nao `loja_id` (02/10/2026). A sacola agrupa por quem
+      //   vende, e `resolverRecebedor` e quem sabe se e loja ou pessoa -- a
+      //   MESMA funcao que o modo item unico ja usa logo abaixo. Enquanto esta
+      //   rota lia `lojas` direto, quem vendia sem loja nao tinha carrinho.
+      const vendedorId = body?.vendedor_id
       const entradas: { id: string; tipo: string; qtd?: number }[] = Array.isArray(body?.itens)
         ? body.itens.filter((i: unknown) => !!i && typeof (i as { id?: unknown }).id === 'string').slice(0, 50)
         : []
-      if (!lojaId || entradas.length === 0) {
+      if (!vendedorId || entradas.length === 0) {
         return NextResponse.json({ error: 'Carrinho vazio.' }, { status: 400 })
       }
 
-      const { data: ljs } = await sb.from('lojas').select('id, cep, frete_modo, owner_user_id').eq('id', lojaId).eq('status', 'ativa').limit(1)
-      const loja = ljs?.[0]
-      if (!loja) return NextResponse.json({ error: 'Loja indisponivel.' }, { status: 409 })
-      if (loja.frete_modo !== 'calculado') {
-        return NextResponse.json({ error: 'Essa loja usa frete fixo.' }, { status: 409 })
+      const recebedor = await resolverRecebedor(sb, vendedorId)
+      if (!recebedor) return NextResponse.json({ error: 'Vendedor indisponivel.' }, { status: 409 })
+      if (recebedor.freteModo !== 'calculado') {
+        return NextResponse.json({ error: 'Esse vendedor usa frete fixo.' }, { status: 409 })
       }
-      if (!loja.cep || digits(loja.cep).length !== 8) {
-        return NextResponse.json({ error: 'A loja ainda nao configurou o CEP de origem.' }, { status: 409 })
+      if (!recebedor.cepOrigem) {
+        return NextResponse.json({ error: 'Esse vendedor ainda nao informou o CEP de envio.' }, { status: 409 })
       }
 
       const idsProd = entradas.filter(e => e.tipo === 'produto').map(e => e.id)
@@ -98,7 +101,7 @@ export async function POST(req: NextRequest) {
           .select('id, preco_cents, peso_g, tipo, loja_id')
           .in('id', idsProd)
         for (const pr of data || []) {
-          if (pr.loja_id !== loja.id) continue
+          if (!recebedor.lojaId || pr.loja_id !== recebedor.lojaId) continue
           pacotes.push({ ...pacoteDeProduto(pr.peso_g, pr.tipo, pr.preco_cents, qtdDe(pr.id)), id: `p-${pr.id}` })
         }
       }
@@ -115,7 +118,7 @@ export async function POST(req: NextRequest) {
         let nCartas = 0
         let valorCartasCents = 0
         for (const an of data || []) {
-          if (an.user_id !== loja.owner_user_id) continue
+          if (an.user_id !== recebedor.ownerUserId) continue
           nCartas += 1
           valorCartasCents += Math.round(Number(an.price) * 100)
         }
@@ -128,7 +131,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Nenhum item valido pra cotar.' }, { status: 409 })
       }
 
-      const ops = await cotarFrete(loja.cep, cep, pacotes)
+      const ops = await cotarFrete(recebedor.cepOrigem, cep, pacotes)
       if (ops.length === 0) {
         return NextResponse.json({ error: 'Nenhuma opcao de frete pra esse CEP.' }, { status: 422 })
       }

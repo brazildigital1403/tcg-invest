@@ -186,14 +186,18 @@ export default async function AnuncioPage({
               </div>
             )}
 
-            {/* Carrinho SO em carta de loja. O carrinho da Bynx e organizado
-                POR LOJA -- a API recebe `loja_id` e rejeita item cujo dono nao
-                seja aquele lojista. Venda de pessoa fisica ja fecha pelo
-                "Comprar agora", mas juntar duas cartas dela num pedido so
-                ainda nao existe: e o carrinho por VENDEDOR, que nao foi feito. */}
-            {a.disponivel && a.podeComprar && a.lojaId && (
+            {/* ★ CARRINHO PARA QUALQUER VENDEDOR (02/10/2026). Ate aqui a
+                condicao exigia `a.lojaId`, porque a sacola era por LOJA -- e
+                isso tirava do carrinho os 70 anuncios de pessoa fisica do
+                mercado. Quem tinha 13 cartas a venda so conseguia vender uma
+                por vez, com um frete inteiro em cada: numa carta de R$ 0,90,
+                R$ 17,44 de frete por carta.
+                Agora a sacola agrupa por VENDEDOR e a condicao e so poder
+                comprar. `lojaId` segue indo quando existe, porque produto
+                precisa dela. */}
+            {a.disponivel && a.podeComprar && (
               <div style={S.carrinhoLinha}>
-                <BotaoCarrinho id={a.id} tipo="carta" lojaId={a.lojaId ?? ''} />
+                <BotaoCarrinho id={a.id} tipo="carta" vendedorId={a.vendedorId} lojaId={a.lojaId} />
               </div>
             )}
 

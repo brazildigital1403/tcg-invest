@@ -60,6 +60,8 @@ interface Produto {
 
 interface LojaDoProduto {
   id: string
+  /** Dono da loja: e ele quem recebe, e e a chave do carrinho por vendedor. */
+  owner_user_id: string
   slug: string
   nome: string | null
   logo_url: string | null
@@ -97,7 +99,7 @@ const buscar = cache(async function buscar(id: string): Promise<{ produto: Produ
 
   const { data: ls } = await db
     .from('lojas')
-    .select('id, slug, nome, logo_url, verificada, cidade, estado, connect_charges_enabled')
+    .select('id, owner_user_id, slug, nome, logo_url, verificada, cidade, estado, connect_charges_enabled')
     .eq('id', produto.loja_id)
     .eq('status', 'ativa')
     // Loja oculta (de teste) nao tem pagina publica de produto. Sem isto a
@@ -253,7 +255,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               )}
 
               {!esgotado && podeVender && (
-                <BotaoCarrinho id={produto.id} tipo="produto" lojaId={loja.id} estoque={produto.estoque} />
+                <BotaoCarrinho id={produto.id} tipo="produto" vendedorId={loja.owner_user_id} lojaId={loja.id} estoque={produto.estoque} />
               )}
 
               <div style={S.acoesLinha}>

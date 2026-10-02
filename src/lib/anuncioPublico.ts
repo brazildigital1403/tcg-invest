@@ -68,6 +68,8 @@ export type AnuncioPublico = {
   travado: boolean
   /** ISO de quando ele volta pro marketplace. `null` quando nao e travado. */
   liberaEm: string | null
+  /** `users.id` de quem vende. E a chave do carrinho por vendedor. */
+  vendedorId: string
   vendedorNome: string
   vendedorCidade: string | null
   vendedorUsername: string | null
@@ -149,6 +151,7 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
     disponivel: a.status === 'disponivel',
     travado: podeExpirar(a.status),
     liberaEm: calcLiberaEm(a.status, a.status_em),
+    vendedorId: a.user_id as string,
     vendedorNome: (l?.nome || u?.name || 'Vendedor Bynx').trim(),
     vendedorCidade: u?.city?.trim() || null,
     vendedorUsername: u?.username || null,

@@ -46,7 +46,7 @@ import {
 
 type Aba = 'faltam' | 'tenho' | 'avenda'
 type GrupoVendedor = {
-  chave: string; vendedor: string; lojaId: string | null; compraDireta: boolean
+  chave: string; vendedor: string; vendedorId: string; lojaId: string | null; compraDireta: boolean
   itens: { carta: CartaDaMeta; oferta: OfertaMeta }[]; soma: number
 }
 type Toast = { texto: string; desfazer?: () => void }
@@ -176,7 +176,7 @@ export default function MetaPage() {
     const grupos = new Map<string, GrupoVendedor>()
     for (const i of itens) {
       const chave = i.oferta.lojaId || `v:${i.oferta.vendedor}`
-      const g = grupos.get(chave) || { chave, vendedor: i.oferta.vendedor, lojaId: i.oferta.lojaId, compraDireta: i.oferta.compraDireta, itens: [], soma: 0 }
+      const g = grupos.get(chave) || { chave, vendedor: i.oferta.vendedor, vendedorId: i.oferta.vendedorId, lojaId: i.oferta.lojaId, compraDireta: i.oferta.compraDireta, itens: [], soma: 0 }
       g.itens.push(i); g.soma += i.oferta.preco
       grupos.set(chave, g)
     }
@@ -198,8 +198,10 @@ export default function MetaPage() {
   }, [aVenda, orcamento])
 
   function colocarNoCarrinho(g: GrupoVendedor) {
-    if (!g.lojaId) return
-    for (const i of g.itens) if (!estaNoCarrinho(i.oferta.id)) adicionarAoCarrinho({ id: i.oferta.id, tipo: 'carta', lojaId: g.lojaId })
+    // ★ O guard passou a ser `vendedorId`, nao `lojaId` (02/10/2026): a sacola
+    //   agrupa por vendedor, e quem vende sem loja tambem entra.
+    if (!g.vendedorId) return
+    for (const i of g.itens) if (!estaNoCarrinho(i.oferta.id)) adicionarAoCarrinho({ id: i.oferta.id, tipo: 'carta', vendedorId: g.vendedorId, lojaId: g.lojaId })
     setNoCarrinho(prev => new Set([...prev, ...g.itens.map(i => i.oferta.id)]))
   }
 
