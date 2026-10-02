@@ -21,10 +21,22 @@ import { normalizarPrazo } from '@/lib/comissao'
  * a PLATAFORMA responde por perante a Stripe, entao ela nasce ligada a alguem
  * que esta de fato vendendo, e nao a qualquer cadastro.
  *
- * ★ `business_type` NAO VAI DEFINIDO: quem escolhe e a pessoa no onboarding, e
- * `individual` com CPF e uma opcao valida no BR. Cravar aqui obrigaria CNPJ a
- * quem nao tem -- foi exatamente o que travou a GhosTCG, parada com 40
- * requisitos `past_due` por ter entrado como empresa.
+ * ★ `business_type: 'individual'` VAI CRAVADO (02/10/2026). Esta rota serve
+ * quem vende SEM loja -- a loja tem a dela, `/api/lojas/[id]/connect`, e la o
+ * CNPJ e legitimo. Aqui nao ha empresa para declarar, e deixar a Stripe
+ * perguntar so oferece uma porta errada para a pessoa entrar.
+ *
+ * ★ O COMENTARIO QUE ESTAVA AQUI DIZIA O CONTRARIO, E ESTAVA ERRADO: afirmava
+ * que cravar "obrigaria CNPJ a quem nao tem". E o inverso -- `individual` e
+ * justamente o que DISPENSA o CNPJ; quem o exige e `company`. O engano
+ * custou duas pessoas: a conta que entrou como empresa pede CNPJ, quadro
+ * societario, endereco e telefone COMERCIAIS -- 40 requisitos que pessoa
+ * fisica nao tem como cumprir.
+ *
+ * ★ DUAS DE DUAS ERRARAM A PORTA. O Lenix (`acct_1UM5BCAAJNKrwVj1`, criado
+ * em 02/10 09:03) ficou Restrita com as 40 exigencias de empresa, sem ter
+ * empresa. A conta Express tambem NAO deixa trocar o `business_type` depois:
+ * so saindo e comecando outra.
  */
 
 export async function POST(req: NextRequest) {
@@ -93,6 +105,9 @@ export async function POST(req: NextRequest) {
         type: 'express',
         country: 'BR',
         default_currency: 'brl',
+        // Ver o cabecalho: quem vende sem loja e pessoa fisica, e a Stripe
+        // para de perguntar quando o tipo ja vem definido.
+        business_type: 'individual',
         email: user.email || undefined,
         capabilities: {
           card_payments: { requested: true },
