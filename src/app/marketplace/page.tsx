@@ -307,7 +307,7 @@ function ProdutoCard({ card }: { card: any }) {
         <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: '#f59e0b', margin: 0 }}>{fmt(card.price)}</p>
         <VendedorLoja card={card} variante="card" />
         <div style={{ marginTop: 'auto' }}>
-          {card.seller_loja_vende ? (
+          {card.seller_vende ? (
             <Link href={href} className="bx-ctx-comprador" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '10px', borderRadius: 10, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}>
               <IconCarrinho size={15} /> Comprar
             </Link>
@@ -629,11 +629,15 @@ function AnuncioCard({ card, userId, userWhatsapp, onAction, railMode }: {
               a venda na hora -- pagamento, frete e rastreio pela Bynx --,
               entao o card leva direto ao checkout. Sem loja nao ha como
               cobrar, e o caminho honesto e "Tenho interesse" + conversa.
-              `seller_loja_vende` exige o Connect: loja sem recebimento ativo
+              `seller_vende` exige o Connect: vendedor sem recebimento ativo
               nao fecha venda, e oferecer "Comprar" ali seria prometer o que
-              quebra no fim. */}
+              quebra no fim.
+
+              ★ 02/10/2026: deixou de ser so a LOJA. Quem vende sem loja
+              tambem fecha venda hoje -- a Barbara foi a primeira --, entao o
+              campo le a conta da pessoa quando nao ha loja. */}
           {!isMeu && !isBuyer && card.status === 'disponivel' && (
-            card.seller_loja_vende ? (
+            card.seller_vende ? (
               <Link
                 href={`/checkout/${card.id}`}
                 className="bx-ctx-comprador"
@@ -934,7 +938,7 @@ function HeroEditorial({ card, motivo, userId, onAction }: { card: any; motivo: 
             Antes empilhavam no mobile e custavam ~50px de altura. */}
         <div className="mkt-hero-acoes" style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'nowrap' }}>
           {!isMeu && card.status === 'disponivel' ? (
-            card.seller_loja_vende ? (
+            card.seller_vende ? (
               <Link href={`/checkout/${card.id}`} className="bx-ctx-comprador" style={{ flex: 1, minWidth: 0, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '11px 14px', borderRadius: 11, fontWeight: 800, fontSize: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 <IconCarrinho size={16} /> Comprar
               </Link>
@@ -1061,7 +1065,7 @@ function TrioCard({ card, top, userId, onAction }: { card: any; top: boolean; us
 
         {/* Loja com recebimento ativo fecha a venda na hora, igual ao card do grid.
             Antes o destaque sempre dizia "Tenho interesse", ate pra loja com checkout. */}
-        {!isMeu && (card.seller_loja_vende ? (
+        {!isMeu && (card.seller_vende ? (
           <Link href={`/checkout/${card.id}`} className="bx-ctx-comprador" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '9px', borderRadius: 10, fontWeight: 800, fontSize: 13, textDecoration: 'none' }}>
             <IconCarrinho size={15} /> Comprar
           </Link>
@@ -1213,7 +1217,13 @@ function MarketplaceInner() {
     if (sellerIds.length > 0) {
       const { data: sellers } = await supabase
         .from('public_users')
-        .select('id, name, city')
+        // ★ `vende_online` (02/10/2026): o Mercado roda no NAVEGADOR, com a
+        //   chave anon, e nao enxerga `users.connect_charges_enabled`. Sem
+        //   este campo na view publica ele so sabia consultar `lojas` -- e
+        //   quem vende SEM loja ficava eternamente em "Tenho interesse",
+        //   mesmo com o recebimento ativo e a pagina do anuncio ja dizendo
+        //   "Comprar agora". O booleano ja embute o CEP de origem.
+        .select('id, name, city, vende_online')
         .in('id', sellerIds)
 
       sellerMap = (sellers || []).reduce((acc: any, s: any) => {
@@ -1234,6 +1244,8 @@ function MarketplaceInner() {
         .neq('oculta', true)
       for (const l of lojasDosVendedores || []) {
         if (sellerMap[l.owner_user_id]) {
+          // Quem tem loja vende PELA loja -- ver a regra em `seller_vende`.
+          sellerMap[l.owner_user_id].tem_loja = true
           sellerMap[l.owner_user_id].loja_slug = l.slug
           // Identidade da loja no card (#9, 12/09/2026): ate aqui so o slug
           // era lido, e o card mostrava o nome da PESSOA dona da loja.
@@ -1311,7 +1323,20 @@ function MarketplaceInner() {
       seller_whatsapp: sellerMap[c.user_id]?.whatsapp,
       seller_city: sellerMap[c.user_id]?.city,
       seller_loja_slug: sellerMap[c.user_id]?.loja_slug ?? null,
-      seller_loja_vende: !!sellerMap[c.user_id]?.loja_vende,
+      // ★ EXCLUSIVO, NUNCA `loja_vende || vende_online`. `resolverRecebedor`
+      //   escolhe UM recebedor: tendo loja ativa, quem recebe e a conta DA
+      //   LOJA, mesmo que a pessoa tenha conta propria ativa. Um `||` aqui
+      //   ofereceria "Comprar" num anuncio que o checkout recusaria depois --
+      //   e seria a heranca de conta pela porta dos fundos, justo o que saiu
+      //   em 4a0de6f.
+      //
+      //   Loja ativa porem OCULTA nao entra em `lojasDosVendedores`, entao
+      //   cai no ramo da pessoa. Como nenhum dono de loja tem conta pessoal,
+      //   o resultado e `false` -- erra para "Tenho interesse", nunca para um
+      //   "Comprar" que quebra. Conferido no banco em 02/10.
+      seller_vende: sellerMap[c.user_id]?.tem_loja
+        ? !!sellerMap[c.user_id]?.loja_vende
+        : !!sellerMap[c.user_id]?.vende_online,
       seller_loja_nome: sellerMap[c.user_id]?.loja_nome ?? null,
       seller_loja_logo: sellerMap[c.user_id]?.loja_logo ?? null,
       seller_loja_verificada: !!sellerMap[c.user_id]?.loja_verificada,
@@ -1378,7 +1403,7 @@ function MarketplaceInner() {
           seller_loja_verificada: !!l.verificada,
           seller_loja_cidade: l.cidade,
           seller_loja_natureza: l.natureza,
-          seller_loja_vende: !!l.connect_charges_enabled,
+          seller_vende: !!l.connect_charges_enabled,
           preco_mercado: 0,
         }
       })
