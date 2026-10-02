@@ -108,7 +108,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const { data: ps } = await db
       .from('loja_produtos')
-      .select('id, slug, loja_id, tipo, nome, preco_cents, estoque, peso_g, fotos, ativo, largura_cm, altura_cm, comprimento_cm')
+      .select('id, slug, loja_id, tipo, nome, preco_cents, estoque, peso_g, fotos, ativo, largura_cm, altura_cm, comprimento_cm, formato, idioma')
       .eq('id', produtoId)
       .limit(1)
 

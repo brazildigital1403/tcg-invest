@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       if (idsProd.length) {
         const { data } = await sb
           .from('loja_produtos')
-          .select('id, preco_cents, peso_g, tipo, loja_id, largura_cm, altura_cm, comprimento_cm')
+          .select('id, preco_cents, peso_g, tipo, loja_id, largura_cm, altura_cm, comprimento_cm, formato, idioma')
           .in('id', idsProd)
         for (const pr of data || []) {
           if (!recebedor.lojaId || pr.loja_id !== recebedor.lojaId) continue
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     if (tipo === 'produto') {
       const { data: prods } = await sb
         .from('loja_produtos')
-        .select('id, loja_id, preco_cents, peso_g, tipo, largura_cm, altura_cm, comprimento_cm')
+        .select('id, loja_id, preco_cents, peso_g, tipo, largura_cm, altura_cm, comprimento_cm, formato, idioma')
         .eq('id', id)
         .limit(1)
       const prod = prods?.[0]

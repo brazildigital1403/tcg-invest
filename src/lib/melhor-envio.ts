@@ -1,3 +1,4 @@
+import { medidaPadrao } from '@/lib/medidasProduto'
 /**
  * Melhor Envio — cotacao de frete (Fase 1: SO cotacao, sem etiqueta).
  *
@@ -207,11 +208,18 @@ const DIMS_POR_TIPO: Record<string, { w: number; h: number; l: number }> = {
   outros: { w: 22, h: 18, l: 10 },
 }
 
-/** Medida da embalagem informada pelo lojista. Qualquer campo pode faltar. */
+/**
+ * O que se sabe sobre a embalagem de um produto. Tudo pode faltar.
+ *
+ * `formato` e `idioma` entram para consultar a medida de FABRICA quando o
+ * lojista nao mediu: produto selado tem caixa identica em qualquer loja.
+ */
 export type DimsProduto = {
   largura_cm?: number | null
   altura_cm?: number | null
   comprimento_cm?: number | null
+  formato?: string | null
+  idioma?: string | null
 }
 
 /**
@@ -239,13 +247,23 @@ export function pacoteDeProduto(
   qtd = 1,
   dims?: DimsProduto | null,
 ): ItemFrete {
+  // ★ A ORDEM IMPORTA (02/10/2026): o que o LOJISTA mediu vence tudo -- ele tem
+  //   a caixa na mao e pode ter reembalado --, depois a medida de FABRICA da
+  //   tabela por (formato, idioma), e so entao a estimativa antiga por tipo,
+  //   que erra mas e o comportamento que ja existia.
   const estimado = DIMS_POR_TIPO[tipo || 'outros'] || DIMS_POR_TIPO.outros
+  const fabrica = medidaPadrao(dims?.formato, dims?.idioma)
   const w = Number(dims?.largura_cm) || 0
   const h = Number(dims?.altura_cm) || 0
   const l = Number(dims?.comprimento_cm) || 0
-  const d = w > 0 && h > 0 && l > 0 ? { w, h, l } : estimado
-  // Sem peso cadastrado: fallback de 300g (o lojista deveria preencher).
-  const kg = pesoG && pesoG > 0 ? pesoG / 1000 : 0.3
+  const d = w > 0 && h > 0 && l > 0
+    ? { w, h, l }
+    : fabrica
+      ? { w: fabrica.largura_cm, h: fabrica.altura_cm, l: fabrica.comprimento_cm }
+      : estimado
+  // Peso: o do cadastro vence; depois o de fabrica; so entao os 300 g de
+  // ultimo recurso, que e numero velho e nao medido.
+  const kg = pesoG && pesoG > 0 ? pesoG / 1000 : fabrica ? fabrica.peso_g / 1000 : 0.3
   const n = Math.max(1, Math.floor(qtd) || 1)
   return {
     id: 'produto',

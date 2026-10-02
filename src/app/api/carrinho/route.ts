@@ -111,7 +111,7 @@ async function resolverItens(
   if (idsProd.length) {
     const { data } = await db
       .from('loja_produtos')
-      .select('id, nome, fotos, preco_cents, estoque, ativo, loja_id, tipo, peso_g, largura_cm, altura_cm, comprimento_cm')
+      .select('id, nome, fotos, preco_cents, estoque, ativo, loja_id, tipo, peso_g, largura_cm, altura_cm, comprimento_cm, formato, idioma')
       .in('id', idsProd)
     for (const id of idsProd) {
       const p = data?.find(x => x.id === id)
@@ -132,7 +132,7 @@ async function resolverItens(
         // A medida do lojista viaja com o item: e ela que o pacote usa, e sem
         // isto o resumo cotaria um volume e o checkout outro -- 409 na hora
         // de pagar, que foi o cuidado tomado tambem na consolidacao da carta.
-        dims: { largura_cm: p.largura_cm, altura_cm: p.altura_cm, comprimento_cm: p.comprimento_cm },
+        dims: { largura_cm: p.largura_cm, altura_cm: p.altura_cm, comprimento_cm: p.comprimento_cm, formato: p.formato, idioma: p.idioma },
         // A quantidade vem do cliente e e CORTADA no estoque real. Nunca se
         // confia no numero que chegou -- ele mora no localStorage dele.
         qtd: qtdPedida(id) > p.estoque ? Math.max(1, p.estoque) : qtdPedida(id),
