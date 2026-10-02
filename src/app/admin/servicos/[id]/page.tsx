@@ -19,7 +19,7 @@ import {
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
 import ChecklistFotos from '@/components/servicos/admin/ChecklistFotos'
 import PropostaEditor, { type Procedimento } from '@/components/servicos/admin/PropostaEditor'
-import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning, IconHistory } from '@/components/ui/Icons'
+import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning, IconHistory, IconTruck } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import Rastreio from '@/components/servicos/Rastreio'
 
@@ -378,6 +378,29 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
   const [seguro, setSeguro] = useState(sol.seguro_cents != null ? brl(sol.seguro_cents / 100) : sugestaoSeguro != null ? brl(sugestaoSeguro / 100) : '')
   const [frete, setFrete] = useState(sol.frete_volta_cents != null ? brl(sol.frete_volta_cents / 100) : '')
   const [obs, setObs] = useState(sol.orcamento_obs || '')
+  // Cotacao da volta pelo Melhor Envio (envelope A4 com relatorio; so le).
+  type OpcaoVolta = { id: number; nome: string; empresa: string; prazoDias: number; freteCents: number; valorDeclaradoCents: number; pesoG: number }
+  const [cot, setCot] = useState<{ carregando: boolean; erro: string; opcoes: OpcaoVolta[]; cep: string; escolhida: number | null }>({ carregando: false, erro: '', opcoes: [], cep: '', escolhida: null })
+  async function cotarVolta() {
+    const aceitas = itens.filter(i => decisao[i.id]?.aceito !== false)
+    setCot(c => ({ ...c, carregando: true, erro: '' }))
+    try {
+      const r = await fetch(`/api/admin/servicos/${sol.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'cotar_frete', cartas: aceitas.length || 1, valor_declarado_cents: aceitas.reduce((t, i) => t + i.valor_declarado_cents, 0) }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setCot(c => ({ ...c, carregando: false, erro: d.error || 'Não foi possível cotar.' })); return }
+      setCot({ carregando: false, erro: (d.opcoes || []).length ? '' : 'Nenhuma opção para esse CEP.', opcoes: d.opcoes || [], cep: d.cep_destino || '', escolhida: null })
+    } catch {
+      setCot(c => ({ ...c, carregando: false, erro: 'Sem conexão.' }))
+    }
+  }
+  function usarOpcao(o: OpcaoVolta) {
+    setFrete(brl(o.freteCents / 100))
+    setSeguro(brl(o.valorDeclaradoCents / 100))
+    setCot(c => ({ ...c, escolhida: o.id }))
+  }
 
   const todasRecusadas = itens.every(i => decisao[i.id]?.aceito === false)
   const total = useMemo(() => {
@@ -417,6 +440,30 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
           <label><span>Valor declarado Correios ({CORREIOS_VD.pct}% acima de R$ 25,63)</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <label><span>Frete de volta</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={frete} onChange={e => setFrete(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <div className="ad-total-orc"><span>Total</span><b>{total == null ? 'valor inválido' : reais(total)}</b></div>
+        </div>
+      )}
+      {!todasRecusadas && (
+        <div className="ad-cot">
+          <button type="button" className="ad-bt" disabled={cot.carregando} onClick={cotarVolta}>
+            <IconTruck size={15} /> {cot.carregando ? 'Cotando...' : cot.opcoes.length ? 'Cotar de novo' : 'Cotar frete de volta'}
+          </button>
+          {cot.erro && <p className="ad-muted">{cot.erro}</p>}
+          {cot.opcoes.length > 0 && (
+            <>
+              <p className="ad-muted">Envelope A4 com relatório, {cot.opcoes[0].pesoG} g, até o CEP {cot.cep}{sol.prazo === 'expresso' ? ' · só SEDEX (expresso)' : ''}. Escolher preenche o frete e o valor declarado.</p>
+              <ul className="ad-cot-l">
+                {cot.opcoes.map(o => (
+                  <li key={o.id}>
+                    <button type="button" className={cot.escolhida === o.id ? 'on' : ''} onClick={() => usarOpcao(o)}>
+                      <b>{o.empresa} {o.nome}</b>
+                      <span>{o.prazoDias} {o.prazoDias === 1 ? 'dia útil' : 'dias úteis'}</span>
+                      <span>frete {reais(o.freteCents)} + valor declarado {reais(o.valorDeclaradoCents)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
       {!todasRecusadas && acimaSedex && (
@@ -747,6 +794,14 @@ textarea.ad-in{resize:vertical}
 .ad-ok{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--bx-green);margin:0 0 12px}
 .ad-erro{font-size:13px;color:var(--bx-red);margin:0 0 12px}
 .ad-aviso{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;line-height:1.45;color:var(--bx-text-2);margin:0}
+.ad-cot{display:grid;gap:8px}
+.ad-cot .ad-bt{justify-self:start;display:inline-flex;align-items:center;gap:6px}
+.ad-cot-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ad-cot-l button{width:100%;display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--bx-border);background:var(--bx-surface);color:var(--bx-text);font:inherit;font-size:13px;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.ad-cot-l button:hover{border-color:var(--bx-border-2);background:var(--bx-surface-2)}
+.ad-cot-l button.on{border-color:rgba(var(--ac-1-rgb),.6)}
+.ad-cot-l button span{color:var(--bx-text-2);font-size:12.5px}
+.ad-cot-l button span:last-child{grid-column:1 / -1}
 .ad-aviso svg{flex-shrink:0;margin-top:2px;color:var(--ac-1)}
 .ad-obs{font-size:13px;line-height:1.5;color:var(--bx-text-2);margin:0;padding:10px 12px;border-radius:9px;background:var(--bx-surface-2);white-space:pre-wrap}
 

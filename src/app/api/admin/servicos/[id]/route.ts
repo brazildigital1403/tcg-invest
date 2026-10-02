@@ -24,6 +24,7 @@ import { requireAdmin } from '@/lib/admin-auth'
 import {
   sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS, sincronizarPagamentos, pagamentosDoPedido,
   confirmarPagamento, aposConfirmarPagamento, aposEstorno, notificarAdmin, pendencias, ROTULO_ETAPA, type EtapaPagamento,
+  cotarVoltaServico,
 } from '@/lib/servicosServer'
 import {
   TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, RISCOS,
@@ -103,6 +104,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const { data: solRows } = await sb.from('servico_solicitacoes').select('id, status, pago_em, servico, proposta_aceita_em').eq('id', id).limit(1)
     const sol = solRows?.[0]
     if (!sol) return erro(404, 'Solicitação não encontrada')
+
+    // ── Cotar frete de volta (so le; nao grava nada) ─────────────────────
+    // Cartas que entram no servico (as decisoes ainda nao salvas vem no corpo).
+    if (body.acao === 'cotar_frete') {
+      const { data: full } = await sb.from('servico_solicitacoes').select('user_id, prazo, valor_declarado_cents').eq('id', id).limit(1)
+      const { data: us } = await sb.from('users').select('cep').eq('id', full?.[0]?.user_id).limit(1)
+      const cep = String(us?.[0]?.cep || '').replace(/\D/g, '')
+      if (cep.length !== 8) return erro(409, 'O cliente não tem CEP válido no cadastro. Digite o frete à mão.')
+      const cartas = Math.max(1, Number(body.cartas) || 1)
+      const valor = Number(body.valor_declarado_cents) > 0 ? Number(body.valor_declarado_cents) : full?.[0]?.valor_declarado_cents || 0
+      try {
+        const opcoes = await cotarVoltaServico({ servico: sol.servico, cartas, valorDeclaradoCents: valor, expresso: full?.[0]?.prazo === 'expresso', cepDestino: cep })
+        return NextResponse.json({ opcoes, cep_destino: cep.slice(0, 5) + '-' + cep.slice(5) })
+      } catch (e) {
+        console.error('[admin/servicos cotar_frete]', e instanceof Error ? e.message : e)
+        return erro(502, 'Não foi possível cotar agora. Digite o frete à mão.')
+      }
+    }
 
     // ── Orcar ──────────────────────────────────────────────────────────────
     if (body.acao === 'orcar') {

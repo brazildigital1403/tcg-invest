@@ -17,6 +17,7 @@ import {
   type FichaCondicao,
 } from '@/lib/servicos'
 import { sendServicoClienteEmail, sendServicoProntaEmail, SERVICO_PRONTA_DETALHE, type ServicoProntaItem } from '@/lib/email'
+import { cotarFrete, pacoteServicoVolta } from '@/lib/melhor-envio'
 
 export const BUCKET_SERVICOS = 'servico-midias'
 export const FOTO_MAX_BYTES = 10 * 1024 * 1024
@@ -125,6 +126,48 @@ const reais = (c: number | null | undefined) => `R$ ${brl((c || 0) / 100)}`
 export function enderecoRecebimento(): string | null {
   const e = process.env.SERVICOS_ENDERECO?.trim()
   return e ? e.replace(/\\n/g, '\n') : null
+}
+
+// ── Frete de volta (Melhor Envio) ───────────────────────────────────────────
+// Cota o envelope A4 da volta (pacoteServicoVolta) do CEP da bancada (tirado do
+// SERVICOS_ENDERECO) ate o CEP do cadastro do cliente. Duas cotacoes por
+// opcao: com seguro minimo (frete puro) e com o valor declarado real; a
+// diferenca e a taxa de valor declarado que a transportadora cobra, e e ela
+// que vai na linha "Valor declarado nos Correios" -- assim nada e cobrado duas
+// vezes. So Correios (PAC/SEDEX): e o que a landing promete e a regra de
+// indenizacao que explicamos ao cliente. Expresso: so SEDEX.
+
+export function cepOrigemServicos(): string | null {
+  const direto = process.env.SERVICOS_CEP_ORIGEM?.replace(/\D/g, '')
+  if (direto && direto.length === 8) return direto
+  const m = enderecoRecebimento()?.match(/\b(\d{5})-?(\d{3})\b/)
+  return m ? m[1] + m[2] : null
+}
+
+export interface OpcaoVolta { id: number; nome: string; empresa: string; prazoDias: number; freteCents: number; valorDeclaradoCents: number; pesoG: number }
+
+export async function cotarVoltaServico(p: {
+  servico: string; cartas: number; valorDeclaradoCents: number; expresso: boolean; cepDestino: string
+}): Promise<OpcaoVolta[]> {
+  const origem = cepOrigemServicos()
+  if (!origem) throw new Error('CEP de origem ausente no SERVICOS_ENDERECO')
+  const destino = String(p.cepDestino || '').replace(/\D/g, '')
+  if (destino.length !== 8) throw new Error('CEP de destino inválido')
+  const comVd = pacoteServicoVolta(p.servico, p.cartas, p.valorDeclaradoCents)
+  const semVd = { ...comVd, insuranceValue: 1 }
+  // Lista inteira (50): o SEDEX costuma ficar fora das 12 mais baratas e sem ele nao da para separar a taxa.
+  const [cheio, puro] = await Promise.all([cotarFrete(origem, destino, [comVd], 50), cotarFrete(origem, destino, [semVd], 50)])
+  const puroPor = new Map(puro.map(o => [o.id, o.precoCents]))
+  return cheio
+    .filter(o => /correios/i.test(o.empresa) && (!p.expresso || /sedex/i.test(o.nome)))
+    .map(o => {
+      const frete = Math.min(o.precoCents, puroPor.get(o.id) ?? o.precoCents)
+      return {
+        id: o.id, nome: o.nome, empresa: o.empresa, prazoDias: o.prazoDias,
+        freteCents: frete, valorDeclaradoCents: Math.max(0, o.precoCents - frete), pesoG: Math.round(comVd.weightKg * 1000),
+      }
+    })
+    .slice(0, 4)
 }
 
 // ── Pagamento por etapa (fatia 3) ───────────────────────────────────────────

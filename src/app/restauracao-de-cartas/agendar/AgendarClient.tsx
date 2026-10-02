@@ -179,6 +179,29 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
     return { servicoR, expressoR, pctDesc, descontoR, correiosR, total: servicoR + expressoR - descontoR + correiosR }
   }, [precoUnit, qtd, prazo, totalDeclarado])
 
+  // Frete de volta estimado pelo CEP do cadastro (so logado, sob demanda). A
+  // chave guarda o que foi cotado: mudou servico, cartas, valor ou prazo, a
+  // estimativa deixa de valer e o botao volta.
+  const chaveFrete = `${servico}|${qtd}|${Math.round(totalDeclarado * 100)}|${prazo}`
+  const [freteEst, setFreteEst] = useState<{ chave: string; carregando: boolean; frete?: number; vd?: number; nome?: string; aviso?: string } | null>(null)
+  const estimativa = freteEst?.chave === chaveFrete ? freteEst : null
+  async function estimarFrete() {
+    setFreteEst({ chave: chaveFrete, carregando: true })
+    try {
+      const r = await authFetch('/api/servicos/frete-estimado', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ servico, cartas: qtd, valor_declarado_cents: Math.round(totalDeclarado * 100), prazo }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: d.error || 'Não foi possível estimar agora.' }); return }
+      if (d.sem_cep) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Cadastre o seu CEP em Minha Conta para estimar.' }); return }
+      if (d.sem_opcao) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Sem opção de envio para o seu CEP. Vem no orçamento.' }); return }
+      setFreteEst({ chave: chaveFrete, carregando: false, frete: d.frete_cents / 100, vd: d.valor_declarado_cents / 100, nome: d.servico_frete })
+    } catch {
+      setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Sem conexão.' })
+    }
+  }
+
   async function enviar() {
     setTentou(true)
     setWhatsTocado(true)
@@ -482,9 +505,22 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                 <div><span>{SERVICOS.find(s => s.id === servico)?.nome} ({qtd} × {PRECO_A_PARTIR.includes(servico) ? 'a partir de ' : ''}R$ {brl(precoUnit!)})</span><b>R$ {brl(previsao.servicoR)}</b></div>
                 {previsao.expressoR > 0 && <div><span>Prazo expresso</span><b>R$ {brl(previsao.expressoR)}</b></div>}
                 {previsao.descontoR > 0 && <div><span>Desconto por volume ({previsao.pctDesc}%)</span><b>− R$ {brl(previsao.descontoR)}</b></div>}
-                <div><span>Taxa dos Correios pelo valor declarado, na volta</span><b>R$ {brl(previsao.correiosR)}</b></div>
-                <div><span>Frete de volta</span><b className="ag-prev-obs">no orçamento</b></div>
-                <div className="ag-prev-total"><span>Total previsto</span><b>R$ {brl(previsao.total)} + frete</b></div>
+                <div><span>Taxa dos Correios pelo valor declarado, na volta</span><b>R$ {brl(estimativa?.vd ?? previsao.correiosR)}</b></div>
+                <div>
+                  <span>Frete de volta{estimativa?.nome ? ` (${estimativa.nome})` : ''}</span>
+                  {estimativa?.frete != null
+                    ? <b>R$ {brl(estimativa.frete)}</b>
+                    : logado
+                      ? <button type="button" className="ag-prev-bt" onClick={estimarFrete} disabled={!!estimativa?.carregando}>{estimativa?.carregando ? 'Calculando...' : 'Estimar pelo meu CEP'}</button>
+                      : <b className="ag-prev-obs">no orçamento</b>}
+                </div>
+                {estimativa?.aviso && <p className="ag-prev-nota">{estimativa.aviso}</p>}
+                <div className="ag-prev-total">
+                  <span>Total previsto</span>
+                  <b>{estimativa?.frete != null
+                    ? `R$ ${brl(previsao.total - previsao.correiosR + (estimativa.vd ?? 0) + estimativa.frete)}`
+                    : `R$ ${brl(previsao.total)} + frete`}</b>
+                </div>
                 {totalDeclarado * 100 > CORREIOS_VD.tetoSedexCents && (
                   <p className="ag-prev-nota">O valor declarado passa do teto dos Correios. Combinamos a entrega com você no orçamento.</p>
                 )}
@@ -773,6 +809,8 @@ const AG_CSS = `
 .ag-prev-total{padding-top:10px;border-top:1px solid var(--bx-border);font-size:15px}
 .ag-prev-total span{color:var(--bx-text);font-weight:700}
 .ag-prev-nota{margin:0;font-size:12px;color:var(--bx-text-2)}
+.ag-prev-bt{background:none;border:0;padding:0;min-height:24px;font:inherit;font-size:13px;font-weight:600;color:var(--ac-1);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.ag-prev-bt:disabled{opacity:.6;cursor:default}
 .ag-exp{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:12px;border:1px solid var(--bx-border-2);background:var(--bx-surface);transition:border-color .15s ease,background .15s ease}
 .ag-exp-ic{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:rgba(var(--ac-1-rgb),.12);color:var(--ac-1)}
 .ag-exp b{display:block;font-size:14px;margin-bottom:4px}
