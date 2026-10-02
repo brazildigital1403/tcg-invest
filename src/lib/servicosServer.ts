@@ -18,6 +18,7 @@ import {
 } from '@/lib/servicos'
 import { sendServicoClienteEmail, sendServicoProntaEmail, SERVICO_PRONTA_DETALHE, type ServicoProntaItem } from '@/lib/email'
 import { cotarFrete, pacoteServicoVolta } from '@/lib/melhor-envio'
+import { notify } from '@/lib/notify'
 
 export const BUCKET_SERVICOS = 'servico-midias'
 export const FOTO_MAX_BYTES = 10 * 1024 * 1024
@@ -352,6 +353,22 @@ function blocoPix(valor: number, numero: string) {
     : `Valor: ${reais(valor)}\nA chave Pix chega por e-mail ou WhatsApp. Na descrição do Pix, escreva: ${numero}`
 }
 
+/** Texto do sino por marco do pedido de servico (o e-mail segue com o detalhe). */
+const SINO_SERVICO: Partial<Record<EtapaEmail, { t: string; m: string | ((totalCents: number | null) => string) }>> = {
+  recebido: { t: 'Pedido de serviço registrado', m: `recebemos as fotos. O orçamento chega em até ${PRAZOS.orcamento || '48 horas'}.` },
+  orcado: { t: 'Seu orçamento chegou', m: total => `${total ? `${reais(total)}. ` : ''}Abra o pedido para aprovar.` },
+  recusado_bynx: { t: 'Pedido não aceito', m: 'o motivo está no pedido.' },
+  aceito: { t: 'Orçamento aprovado', m: 'falta o pagamento para liberar o endereço de envio.' },
+  liberado_envio: { t: 'Pode enviar a sua carta', m: 'pagamento confirmado. O endereço de envio está no pedido.' },
+  cobrar_servico: { t: 'Falta o pagamento do serviço', m: 'confira o valor no pedido.' },
+  servico_pago: { t: 'Pagamento do serviço confirmado', m: 'sua carta vai para a bancada.' },
+  recebida: { t: 'Sua carta chegou', m: 'o pacote foi aberto em vídeo e a carta recebeu o número de custódia.' },
+  proposta: { t: 'Proposta de tratamento', m: 'aprove ou recuse cada procedimento no pedido.' },
+  estorno: { t: 'Estorno registrado', m: 'o valor está no pedido.' },
+  pronta: { t: 'Sua carta está pronta', m: 'veja as fotos e o laudo no pedido.' },
+  enviada: { t: 'Sua carta está a caminho', m: 'o rastreio está no pedido.' },
+}
+
 export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail, extra?: ExtraEmailEstorno) {
   try {
     const sb = sbAdmin()
@@ -365,9 +382,19 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail,
       sb.from('servico_itens').select('nome, aceito, recusa_motivo, custodia').eq('solicitacao_id', solicitacaoId).order('created_at'),
     ])
     const u = us?.[0]
+    const numero = numeroServico(sol.numero)
+
+    // Sino: o mesmo marco do e-mail, curto, levando ao pedido. Vai antes do
+    // e-mail e nao depende dele (conta sem e-mail tambem ve o aviso).
+    const sino = SINO_SERVICO[etapa]
+    if (sino) {
+      await notify(sol.user_id, etapa === 'enviada' ? 'enviado' : 'aviso', sino.t,
+        `${numero}: ${typeof sino.m === 'function' ? sino.m(sol.total_cents) : sino.m}`,
+        { link: `/servico/${sol.id}`, servico_id: sol.id, etapa })
+        .catch(() => false)
+    }
     if (!u?.email) return
 
-    const numero = numeroServico(sol.numero)
     const servico = SERVICOS.find(x => x.id === sol.servico)?.nome || 'Serviço'
     const link = `${APP}/servico/${sol.id}`
     const cta = { rotulo: 'Ver o pedido', href: link }
