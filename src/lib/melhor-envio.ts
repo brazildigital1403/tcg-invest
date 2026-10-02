@@ -60,42 +60,49 @@ function soDigitos(cep: string): string {
  * sumia da lista** (teto de 300 g), justo a modalidade mais barata do pais
  * para item leve. Com o peso certo ele volta.
  *
- * ★ A GRAMATURA, DECOMPOSTA (decisao do Du: modelo conservador). A embalagem
- * entra UMA vez; cada carta leva o proprio toploader:
+ * ★ A GRAMATURA, DECOMPOSTA (decisao do Du). A embalagem entra UMA vez; a
+ * carta entra em sleeve, SEM toploader:
  *
  *     envelope de seguranca 12x18 ...  2,4 g  }
  *     2 papeloes de protecao ........  8   g  }  tara, uma vez = 20 g
  *     declaracao de conteudo (A4) ...  4,7 g  }
  *     envelope plastico da declaracao  3   g  }
  *
- *     carta .......................... 1,9 g  }
- *     penny sleeve ................... 0,45 g }  por carta = 10 g
- *     toploader 3x4 regular .......... 7   g  }
+ *     carta .......................... 1,9 g  }  por carta = 3 g
+ *     penny sleeve ................... 0,45 g }  (2,35 g + folga)
  *
  * ★ A DECLARACAO DE CONTEUDO E TARA E QUASE TODO MUNDO ESQUECE. Ela e
  * obrigatoria, vai COLADA POR FORA do pacote, e sozinha pesa mais que duas
  * cartas. A primeira versao desta funcao (commit 260fcdd) usava tara de 4 g
  * justamente por ter esquecido dela.
  *
- * ★ POR QUE 10 g POR CARTA E NAO 15. A Cardmarket publica os limites por
- * faixa: "ate 20 g: 4 cartas · ate 50 g: 17 cartas · ate 100 g: 40 cartas".
+ * ★ A PROVA DOS 3 g POR CARTA. A Cardmarket publica os limites por faixa:
+ * "ate 20 g: 4 cartas · ate 50 g: 17 cartas · ate 100 g: 40 cartas".
  * Regredindo, o modelo deles e tara ~12 g + 2,2 g por carta -- e 2,2 g e
- * exatamente carta + penny sleeve. Dezessete TOPLOADERS pesariam 120 g
- * sozinhos, entao a conta deles prova que, em pedido de varias cartas,
- * ninguem poe toploader em cada uma: vao empilhadas em sleeve, com um ou
- * dois protetores para o lote. Os 10 g daqui ainda assumem toploader em
- * TODAS -- e a margem conservadora que o Du pediu, agora sem o exagero de
- * 5x que a primeira versao tinha.
+ * exatamente carta + penny sleeve, chegando pelo outro lado ao mesmo numero.
+ * Os 3 g daqui sao os 2,35 g calculados mais folga para pedido cheio de holo
+ * e full art, que pesam ate 1,98 g cada.
  *
- * ★ O QUE O EXAGERO CUSTAVA. Com 15 g por carta, 20 cartas davam 304 g e
- * estouravam o teto de 300 g do Mini Envios: R$ 22,13 em vez de R$ 18,29,
- * sem a modalidade mais barata na lista. Era o mesmo bug que esta funcao
- * nasceu para corrigir, so que a partir da 20a carta em vez da 4a.
+ * ★ A PROVA DE QUE NINGUEM USA TOPLOADER EM TODAS. Dezessete toploaders
+ * pesam 120 g sozinhos, e a Cardmarket declara 17 cartas numa carta de 50 g.
+ * Em pedido de varias cartas elas vao empilhadas em sleeve, com um ou dois
+ * protetores para o lote -- que e o que a tara ja cobre. Toploader e para a
+ * carta cara avulsa, e quando houver, os ~7 g dele cabem na folga: uma carta
+ * assim daria 30 g contra os 23 g declarados, e as duas estao no piso
+ * tarifario.
+ *
+ * ★ HISTORICO DOS NUMEROS DESTA FUNCAO, porque os dois erros foram meus:
+ *   80 g por carta (ate 02/10) -- 4 cartas estouravam o teto de 300 g do
+ *     Mini Envios e o frete ia de R$ 17,44 para R$ 21,87.
+ *   4 + 15n (260fcdd) -- tara sem a declaracao de conteudo e toploader em
+ *     cada carta; 20 cartas davam 304 g e perdiam o Mini de novo.
+ *   20 + 10n (8251f26) -- tara certa, toploader ainda em todas.
+ *   20 + 3n (agora) -- o que de fato vai no envelope.
  */
 export const CARTA_EMBALAGEM_G = 20
-export const CARTA_UNITARIA_G = 10
-/** Espessura de uma carta em toploader, em mm. */
-const CARTA_ESPESSURA_MM = 1.2
+export const CARTA_UNITARIA_G = 3
+/** Espessura de uma carta em sleeve, em mm (carta 0,30 + sleeve 0,10). */
+const CARTA_ESPESSURA_MM = 0.4
 /** Acima disto nao e mais envelope; o chamador nao tem esse caso hoje. */
 const TETO_CARTAS = 60
 
