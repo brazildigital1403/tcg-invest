@@ -222,7 +222,13 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
             pagamentos={pagamentos}
             cobrancaEnviada={eventos.some(e => e.status === 'cobranca_servico')}
             cobrarServico={valor => acao({ acao: 'cobrar_servico', valor_cents: valor }, 'cobrar_servico', 'Cobrança do serviço enviada ao cliente.')}
-            mover={(para, extra) => acao({ acao: 'status', para, ...extra }, `status-${para}`, `Status: ${STATUS_SERVICO[para]}.`)}
+            mover={(para, extra) => {
+              // A carta pode chegar antes do Pix: deixa marcar, mas avisa.
+              const primeira = pagamentos.find(p => p.etapa === 'integral' || p.etapa === 'sinal')
+              if (para === 'recebida' && primeira && !primeira.pago_em
+                && !confirm(`O pagamento ${primeira.etapa === 'sinal' ? 'do sinal' : 'do orçamento'} ainda não foi confirmado. Marcar a carta como recebida mesmo assim?`)) return Promise.resolve(false)
+              return acao({ acao: 'status', para, ...extra }, `status-${para}`, `Status: ${STATUS_SERVICO[para]}.`)
+            }}
             enviarProposta={() => acao({ acao: 'enviar_proposta' }, 'enviar_proposta', 'Proposta enviada ao cliente.')}
           />
 

@@ -337,7 +337,7 @@ function Pedido({ id }: { id: string }) {
                 <p className="sp-aviso"><IconWarning size={15} /> {devida ? 'O endereço de envio aparece aqui assim que o pagamento acima for confirmado.' : 'O endereço de envio chega por e-mail ou WhatsApp em seguida.'}</p>
               )}
               <ol className="sp-guia">{GUIA_EMBALAGEM.map(g => <li key={g}>{g}</li>)}</ol>
-              <div className="sp-rastreio">
+              {endereco && <div className="sp-rastreio">
                 {s.rastreio_ida && <Rastreio codigo={s.rastreio_ida} />}
                 <label htmlFor="sp-rastreio">{s.rastreio_ida ? 'Informou errado? Corrija abaixo' : 'Código de rastreio da postagem'}</label>
                 <div>
@@ -346,7 +346,7 @@ function Pedido({ id }: { id: string }) {
                     {s.rastreio_ida ? 'Corrigir' : 'Informar'}
                   </button>
                 </div>
-              </div>
+              </div>}
             </section>
           )}
 
