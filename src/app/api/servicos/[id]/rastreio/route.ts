@@ -6,7 +6,7 @@
 // (brecha achada no teste do #S-0003, 02/10/2026).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sbAdmin, carregarAutorizado, erro, registrarEvento, pagamentosDoPedido, envioLiberado } from '@/lib/servicosServer'
+import { sbAdmin, carregarAutorizado, erro, registrarEvento, pagamentosDoPedido, envioLiberado, avisarAdminNoSino } from '@/lib/servicosServer'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!data?.length) return erro(409, 'Este pedido mudou de estado. Atualize a página.')
 
     await registrarEvento(id, 'aceito', `Rastreio de ida informado: ${codigo}`)
+    await avisarAdminNoSino(id, 'Carta postada', `Rastreio de ida: ${codigo}.`)
     return NextResponse.json({ ok: true, codigo })
   } catch (e) {
     console.error('[servicos/rastreio]', e instanceof Error ? e.message : e)

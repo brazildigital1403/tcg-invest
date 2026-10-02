@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNovaSolicitacaoServicoAdminEmail } from '@/lib/email'
 import {
-  sbAdmin, carregarAutorizado, erro, registrarEvento, numeroSolicitacao, notificarCliente,
+  sbAdmin, carregarAutorizado, erro, registrarEvento, numeroSolicitacao, notificarCliente, avisarAdminNoSino,
   BUCKET_SERVICOS, FOTO_MAX_BYTES, FOTO_MIMES, SLOTS, SLOTS_OBRIGATORIOS, TIPO_POR_SLOT, type Slot,
 } from '@/lib/servicosServer'
 
@@ -90,6 +90,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       if (!count) {
         await registrarEvento(id, 'fotos_completas', 'Fotos recebidas, aguardando orçamento')
         await notificarCliente(id, 'recebido')
+        await avisarAdminNoSino(id, 'Pedido novo', `${(itens || []).length} ${(itens || []).length === 1 ? 'carta' : 'cartas'} esperando orçamento.`)
         const destino = process.env.ADMIN_EMAIL
         if (destino) {
           const { data: sol } = await sb.from('servico_solicitacoes').select('whatsapp').eq('id', id).limit(1)

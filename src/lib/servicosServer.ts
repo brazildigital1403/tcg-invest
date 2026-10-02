@@ -329,6 +329,8 @@ export async function aposConfirmarPagamento(solicitacaoId: string, statusAtual:
   await registrarEvento(solicitacaoId, statusAtual, `${rotulo} confirmado: ${ROTULO_ETAPA[etapa].toLowerCase()}${sufixoNota}`)
   if ((etapa === 'sinal' || etapa === 'integral') && statusAtual === 'aceito') await notificarCliente(solicitacaoId, 'liberado_envio')
   if (etapa === 'servico') await notificarCliente(solicitacaoId, 'servico_pago')
+  // Pix quem confirma e o proprio admin; cartao chega sozinho pelo webhook.
+  if (metodo === 'stripe') await avisarAdminNoSino(solicitacaoId, 'Cartão pago', `${ROTULO_ETAPA[etapa]} confirmado pela Stripe${sufixoNota}.`)
 }
 
 /**
@@ -676,7 +678,33 @@ async function enviarEmailPronta(
 }
 
 /** Aviso interno ao admin (ex.: cliente decidiu a proposta). Nunca derruba a rota. */
+/**
+ * Sino do admin: aviso curto que abre o pedido no painel. Usado nos marcos em
+ * que a bancada precisa agir e dentro do notificarAdmin, para todo e-mail
+ * interno ter o par no sino. O painel e por senha, nao por conta, entao o sino
+ * vai para a CONTA de usuario do SERVICOS_SINO_EMAIL (ou do ADMIN_EMAIL, se
+ * esse e-mail tiver conta na Bynx). Sem conta, nao grava nada.
+ */
+export async function avisarAdminNoSino(solicitacaoId: string, titulo: string, mensagem: string) {
+  const email = process.env.SERVICOS_SINO_EMAIL || process.env.ADMIN_EMAIL
+  if (!email) return
+  try {
+    const sb = sbAdmin()
+    const [{ data: us }, { data: sols }] = await Promise.all([
+      sb.from('users').select('id').ilike('email', email.trim()).limit(1),
+      sb.from('servico_solicitacoes').select('id, numero').eq('id', solicitacaoId).limit(1),
+    ])
+    const adminId = us?.[0]?.id
+    const sol = sols?.[0]
+    if (!adminId || !sol) return
+    await notify(adminId, 'aviso', `${titulo} ${numeroServico(sol.numero)}`, mensagem, { link: `/admin/servicos/${sol.id}`, servico_id: sol.id })
+  } catch (e) {
+    console.error('[servicos] sino admin', e instanceof Error ? e.message : e)
+  }
+}
+
 export async function notificarAdmin(solicitacaoId: string, titulo: string, paragrafos: string[]) {
+  await avisarAdminNoSino(solicitacaoId, titulo.replace(/:\s*$/, ''), paragrafos[0] || 'Abra o pedido no painel.')
   const destino = process.env.ADMIN_EMAIL
   if (!destino) return
   try {
