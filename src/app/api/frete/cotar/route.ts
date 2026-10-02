@@ -98,11 +98,11 @@ export async function POST(req: NextRequest) {
       if (idsProd.length) {
         const { data } = await sb
           .from('loja_produtos')
-          .select('id, preco_cents, peso_g, tipo, loja_id')
+          .select('id, preco_cents, peso_g, tipo, loja_id, largura_cm, altura_cm, comprimento_cm')
           .in('id', idsProd)
         for (const pr of data || []) {
           if (!recebedor.lojaId || pr.loja_id !== recebedor.lojaId) continue
-          pacotes.push({ ...pacoteDeProduto(pr.peso_g, pr.tipo, pr.preco_cents, qtdDe(pr.id)), id: `p-${pr.id}` })
+          pacotes.push({ ...pacoteDeProduto(pr.peso_g, pr.tipo, pr.preco_cents, qtdDe(pr.id), pr), id: `p-${pr.id}` })
         }
       }
       if (idsCarta.length) {
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     if (tipo === 'produto') {
       const { data: prods } = await sb
         .from('loja_produtos')
-        .select('id, loja_id, preco_cents, peso_g, tipo')
+        .select('id, loja_id, preco_cents, peso_g, tipo, largura_cm, altura_cm, comprimento_cm')
         .eq('id', id)
         .limit(1)
       const prod = prods?.[0]
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
       const loja = ljs?.[0]
       lojaCep = loja?.cep ?? null
       modo = loja?.frete_modo ?? 'fixo'
-      pacote = pacoteDeProduto(prod.peso_g, prod.tipo, prod.preco_cents, qtd)
+      pacote = pacoteDeProduto(prod.peso_g, prod.tipo, prod.preco_cents, qtd, prod)
     } else {
       const { data: ans } = await sb
         .from('marketplace')

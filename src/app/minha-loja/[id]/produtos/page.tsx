@@ -17,8 +17,15 @@ import { comprimirImagem } from '@/lib/comprimirImagem'
  * Aqui e selado/pelucia/funko/fichario/acessorio: a loja descreve do zero e tem
  * ESTOQUE (N unidades). Estoque 0 some da vitrine sozinho e volta quando repoe.
  *
- * `peso_g` (gramas) alimenta o frete calculado (Melhor Envio). So precisa
- * preencher se a loja usa frete calculado; a dimensao a Bynx estima pelo tipo.
+ * `peso_g` (gramas) e as tres medidas em cm alimentam o frete calculado
+ * (Melhor Envio). So precisa preencher se a loja usa frete calculado.
+ *
+ * ★ A DIMENSAO DEIXOU DE SER ESTIMATIVA NOSSA (02/10/2026, Quadro #447). Ate
+ * aqui a Bynx chutava o volume por TIPO de produto, e o frete cobra pelo MAIOR
+ * entre peso real e peso cubado (volume / 6000): a ETB de 500 g era declarada
+ * 25x20x12 e virava 1 kg de cubado -- R$ 18,95 contra R$ 17,99 de uma caixa
+ * 20x15x9, medido BH -> SP. As tres medidas sao TUDO OU NADA; em branco, o
+ * `DIMS_POR_TIPO` segue como fallback.
  */
 
 const TIPOS = [
@@ -40,6 +47,10 @@ interface Produto {
   preco_cents: number
   estoque: number
   peso_g: number | null
+  /** Medidas da embalagem em cm; null = a Bynx estima pelo tipo. */
+  largura_cm: number | null
+  altura_cm: number | null
+  comprimento_cm: number | null
   vendidos: number
   fotos: string[]
   ativo: boolean
@@ -68,6 +79,13 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
   const [precoTxt, setPrecoTxt] = useState('')
   const [estoqueTxt, setEstoqueTxt] = useState('1')
   const [pesoTxt, setPesoTxt] = useState('')
+  // ★ Medidas da embalagem (02/10/2026, Quadro #447). Ate aqui a Bynx ESTIMAVA
+  //   a dimensao por tipo, e o frete cobra pelo MAIOR entre peso real e peso
+  //   cubado (volume / 6000): a ETB de 500 g era declarada 25x20x12 e virava
+  //   1 kg de cubado. Quem tem a caixa na mao e o lojista.
+  const [largTxt, setLargTxt] = useState('')
+  const [altTxt, setAltTxt] = useState('')
+  const [comprTxt, setComprTxt] = useState('')
   const [descricao, setDescricao] = useState('')
   const [fotos, setFotos] = useState<string[]>([])
 
@@ -96,6 +114,7 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
 
   function limpar() {
     setTipo('selado'); setNome(''); setPrecoTxt(''); setEstoqueTxt('1'); setPesoTxt('')
+    setLargTxt(''); setAltTxt(''); setComprTxt('')
     setDescricao(''); setFotos([]); setEditId(null)
   }
   function abrirNovo() { limpar(); setForm(true) }
@@ -103,6 +122,9 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
     setTipo(p.tipo as TipoV); setNome(p.nome)
     setPrecoTxt((p.preco_cents / 100).toFixed(2).replace('.', ','))
     setEstoqueTxt(String(p.estoque)); setPesoTxt(p.peso_g ? String(p.peso_g) : '')
+    setLargTxt(p.largura_cm ? String(p.largura_cm) : '')
+    setAltTxt(p.altura_cm ? String(p.altura_cm) : '')
+    setComprTxt(p.comprimento_cm ? String(p.comprimento_cm) : '')
     setDescricao(p.descricao || '')
     setFotos(p.fotos || []); setEditId(p.id); setForm(true)
   }
@@ -142,11 +164,26 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
     if (!Number.isInteger(est) || est < 0) return setErro('Estoque inválido.')
     if (peso !== null && (!Number.isInteger(peso) || peso <= 0 || peso > 30000)) return setErro('Peso inválido. Use de 1 a 30000 g.')
 
+    // ★ TUDO OU NADA: com uma medida faltando o volume seria parte medida e
+    //   parte estimada, e nao daria para saber qual mandou no peso cubado.
+    //   Mesma regra no servidor -- esta aqui so poupa a ida.
+    const medidas = [largTxt, altTxt, comprTxt].map(t => (t.trim() ? Number(t) : null))
+    const preenchidas = medidas.filter(m => m !== null)
+    if (preenchidas.length > 0) {
+      if (preenchidas.some(m => !Number.isInteger(m) || (m as number) < 1 || (m as number) > 100)) {
+        return setErro('Medida inválida. Use de 1 a 100 cm em cada lado.')
+      }
+      if (preenchidas.length < 3) {
+        return setErro('Informe as três medidas da embalagem, ou deixe as três em branco.')
+      }
+    }
+    const [largura, altura, comprimento] = medidas
+
     setSalvando(true)
     setErro(null)
     try {
       const t = await token()
-      const corpo = { tipo, nome: nome.trim(), preco_cents: preco, estoque: est, peso_g: peso, descricao: descricao.trim() || null, fotos }
+      const corpo = { tipo, nome: nome.trim(), preco_cents: preco, estoque: est, peso_g: peso, largura_cm: largura, altura_cm: altura, comprimento_cm: comprimento, descricao: descricao.trim() || null, fotos }
       const r = await fetch(`/api/lojas/${lojaId}/produtos`, {
         method: editId ? 'PATCH' : 'POST',
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
@@ -281,7 +318,18 @@ export default function LojaProdutosPage({ params }: { params: Promise<{ id: str
 
           <label style={S.lbl}>Peso (g)</label>
           <input value={pesoTxt} onChange={e => setPesoTxt(e.target.value.replace(/[^0-9]/g, ''))} placeholder="Ex: 850" inputMode="numeric" style={S.input} />
-          <p style={S.hint}>Usado pra calcular o frete. Só precisa preencher se sua loja usa frete calculado.</p>
+
+          <label style={{ ...S.lbl, marginTop: 12 }}>Medidas da embalagem (cm)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+            <input value={largTxt} onChange={e => setLargTxt(e.target.value.replace(/[^0-9]/g, ''))} placeholder="Largura" inputMode="numeric" aria-label="Largura em centímetros" style={S.input} />
+            <input value={altTxt} onChange={e => setAltTxt(e.target.value.replace(/[^0-9]/g, ''))} placeholder="Altura" inputMode="numeric" aria-label="Altura em centímetros" style={S.input} />
+            <input value={comprTxt} onChange={e => setComprTxt(e.target.value.replace(/[^0-9]/g, ''))} placeholder="Comprimento" inputMode="numeric" aria-label="Comprimento em centímetros" style={S.input} />
+          </div>
+          <p style={S.hint}>
+            Peso e medidas calculam o frete. Só precisa preencher se a sua loja usa frete
+            calculado — e medir a caixa costuma baratear o envio, porque sem as medidas a
+            Bynx estima pelo tipo de produto e a estimativa é sempre maior que a caixa real.
+          </p>
 
           <label style={S.lbl}>Descrição (opcional)</label>
           <textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Lacrado, pronta entrega…" rows={3} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />

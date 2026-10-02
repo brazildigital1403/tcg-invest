@@ -108,7 +108,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const { data: ps } = await db
       .from('loja_produtos')
-      .select('id, slug, loja_id, tipo, nome, preco_cents, estoque, peso_g, fotos, ativo')
+      .select('id, slug, loja_id, tipo, nome, preco_cents, estoque, peso_g, fotos, ativo, largura_cm, altura_cm, comprimento_cm')
       .eq('id', produtoId)
       .limit(1)
 
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         return NextResponse.json({ error: 'A loja ainda não configurou o CEP de origem.' }, { status: 409 })
       }
       try {
-        const opcoes = await cotarFrete(loja.cep, cepDest, [pacoteDeProduto(p.peso_g, p.tipo, p.preco_cents, qtd)])
+        const opcoes = await cotarFrete(loja.cep, cepDest, [pacoteDeProduto(p.peso_g, p.tipo, p.preco_cents, qtd, p)])
         const escolhido = opcoes.find(o => o.id === servicoId)
         if (!escolhido) {
           return NextResponse.json(

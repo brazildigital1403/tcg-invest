@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { comissaoVendedorCents, acrescimoCompradorCents, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { resolverRecebedor, type Recebedor } from '@/lib/vendedorRecebimento'
-import { cotarFrete, pacoteDeCartas, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
+import { cotarFrete, pacoteDeCartas, pacoteDeProduto, type ItemFrete, type DimsProduto } from '@/lib/melhor-envio'
 
 /**
  * Carrinho por VENDEDOR -- loja ou pessoa fisica.
@@ -49,6 +49,8 @@ interface ItemResolvido {
   peso_g?: number | null
   /** O tipo do PRODUTO (selado/pelucia/...), que define a dimensao do pacote. */
   tipo_produto?: string | null
+  /** Medida da embalagem informada pelo lojista; null cai na estimativa por tipo. */
+  dims?: DimsProduto | null
   /** Unidades efetivamente vendaveis: o pedido do cliente cortado no estoque. */
   qtd: number
   /** Estoque atual, pro seletor da tela saber o teto. Carta e sempre 1. */
@@ -109,7 +111,7 @@ async function resolverItens(
   if (idsProd.length) {
     const { data } = await db
       .from('loja_produtos')
-      .select('id, nome, fotos, preco_cents, estoque, ativo, loja_id, tipo, peso_g')
+      .select('id, nome, fotos, preco_cents, estoque, ativo, loja_id, tipo, peso_g, largura_cm, altura_cm, comprimento_cm')
       .in('id', idsProd)
     for (const id of idsProd) {
       const p = data?.find(x => x.id === id)
@@ -127,6 +129,10 @@ async function resolverItens(
         motivo: !p.ativo || p.estoque <= 0 ? 'esgotou' : undefined,
         peso_g: p.peso_g ?? null,
         tipo_produto: p.tipo ?? null,
+        // A medida do lojista viaja com o item: e ela que o pacote usa, e sem
+        // isto o resumo cotaria um volume e o checkout outro -- 409 na hora
+        // de pagar, que foi o cuidado tomado tambem na consolidacao da carta.
+        dims: { largura_cm: p.largura_cm, altura_cm: p.altura_cm, comprimento_cm: p.comprimento_cm },
         // A quantidade vem do cliente e e CORTADA no estoque real. Nunca se
         // confia no numero que chegou -- ele mora no localStorage dele.
         qtd: qtdPedida(id) > p.estoque ? Math.max(1, p.estoque) : qtdPedida(id),
@@ -258,7 +264,7 @@ export async function POST(req: NextRequest) {
           //     leva um 409 no momento de pagar.
           const pacotes: ItemFrete[] = validos
             .filter(i => i.tipo === 'produto')
-            .map(i => ({ ...pacoteDeProduto(i.peso_g ?? null, i.tipo_produto ?? null, i.preco_cents, i.qtd), id: `p-${i.id}` }))
+            .map(i => ({ ...pacoteDeProduto(i.peso_g ?? null, i.tipo_produto ?? null, i.preco_cents, i.qtd, i.dims), id: `p-${i.id}` }))
           const cartas = validos.filter(i => i.tipo !== 'produto')
           if (cartas.length) {
             const valorCents = cartas.reduce((t, i) => t + i.preco_cents, 0)

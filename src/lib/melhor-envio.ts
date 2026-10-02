@@ -132,6 +132,64 @@ export function pacoteDeCartas(n: number, valorTotalCents: number): ItemFrete {
   }
 }
 
+/**
+ * ★ VOLTA DO SERVICO DE BANCADA (restauracao / pre-grading), 02/10/2026.
+ *
+ * Diferente da venda (pacoteDeCartas) em tres pontos, decisao do Du:
+ *   1. TODA carta volta em sleeve + toploader: e carta de valor saindo da
+ *      bancada, nao lote de varejo.
+ *   2. O relatorio impresso vai junto, PLANO (A4), entao o envelope e A4 com
+ *      um papelao A4 rigido, nao o 12x18 da venda.
+ *   3. O numero de paginas depende do servico (ver PAGINAS_RELATORIO).
+ *
+ *     envelope de seguranca A4 ......... 12 g  }
+ *     papelao rigido A4 ................ 40 g  }  tara, uma vez = 60 g
+ *     declaracao de conteudo (A4) ......  4,7 g}  (ESTIMATIVA ate o Du pesar
+ *     envelope plastico da declaracao ..  3 g  }   o kit real)
+ *
+ *     carta 1,9 + penny sleeve 0,45 + toploader ~7 ...  10 g por carta
+ *     folha A4 75 g/m2 ............................... 4,7 g por pagina
+ *
+ * 1 carta de pre-grading (6 paginas): 60 + 10 + 28 = 98 g. Tudo cabe na
+ * primeira faixa de frete (ate 250 g) ate umas 8 cartas.
+ */
+export const SERVICO_TARA_G = 60
+export const SERVICO_CARTA_G = 10
+export const FOLHA_A4_G = 4.7
+/** Paginas do relatorio: fixas (fechamento + termos) e por carta, por servico. */
+export const PAGINAS_RELATORIO: Record<string, { fixas: number; porCarta: number }> = {
+  pre_grading: { fixas: 2, porCarta: 4 },
+  restauracao: { fixas: 2, porCarta: 5 },
+  completo: { fixas: 2, porCarta: 6 },
+}
+
+export function paginasRelatorio(servico: string, cartas: number): number {
+  const p = PAGINAS_RELATORIO[servico] || PAGINAS_RELATORIO.completo
+  return p.fixas + p.porCarta * Math.max(1, Math.floor(cartas) || 1)
+}
+
+export function pesoServicoVoltaG(servico: string, cartas: number): number {
+  const n = Math.max(1, Math.min(Math.floor(cartas) || 1, TETO_CARTAS))
+  return Math.ceil(SERVICO_TARA_G + SERVICO_CARTA_G * n + FOLHA_A4_G * paginasRelatorio(servico, n))
+}
+
+/** A volta de um pedido de servico: UM envelope A4, crescendo na espessura (toploader ~1,5 mm). */
+export function pacoteServicoVolta(servico: string, cartas: number, valorDeclaradoCents: number): ItemFrete {
+  const n = Math.max(1, Math.min(Math.floor(cartas) || 1, TETO_CARTAS))
+  return {
+    id: 'servico-volta',
+    // Envelope C4 (22,9 x 32,4) declarado 23 x 32: o frete cobra o MAIOR entre
+    // peso real e cubado (volume / 6000), e 23 x 32 x 2 = 245 g cubado fica na
+    // primeira faixa (ate 250 g); 24 x 33 x 2 daria 264 g e pularia de faixa.
+    widthCm: 23,
+    heightCm: 32,
+    lengthCm: Math.max(2, Math.ceil((5 + 1.5 * n) / 10)),
+    weightKg: pesoServicoVoltaG(servico, n) / 1000,
+    insuranceValue: Math.max(1, valorDeclaradoCents / 100),
+    quantity: 1,
+  }
+}
+
 /** Uma carta. Mantido para os chamadores de item unico. */
 export function pacoteDeCarta(precoCents: number): ItemFrete {
   return pacoteDeCartas(1, precoCents)
@@ -149,9 +207,43 @@ const DIMS_POR_TIPO: Record<string, { w: number; h: number; l: number }> = {
   outros: { w: 22, h: 18, l: 10 },
 }
 
-/** Produto da loja: peso vem do cadastro (pedido ao lojista); dimensao default por tipo. */
-export function pacoteDeProduto(pesoG: number | null, tipo: string | null, precoCents: number, qtd = 1): ItemFrete {
-  const d = DIMS_POR_TIPO[tipo || 'outros'] || DIMS_POR_TIPO.outros
+/** Medida da embalagem informada pelo lojista. Qualquer campo pode faltar. */
+export type DimsProduto = {
+  largura_cm?: number | null
+  altura_cm?: number | null
+  comprimento_cm?: number | null
+}
+
+/**
+ * Produto da loja. Peso e dimensao vem do cadastro; `DIMS_POR_TIPO` so entra
+ * quando o lojista nao informou.
+ *
+ * ★ A DIMENSAO PASSOU A SER DO LOJISTA (02/10/2026, Quadro #447). O frete
+ * cobra pelo MAIOR entre peso real e peso cubado (volume / 6000), e a
+ * estimativa por tipo inflava o cubado a ponto de ele mandar no lugar do peso:
+ * a ETB de 500 g declarava 25x20x12 = 1,00 kg de cubado. Medido BH -> SP,
+ * R$ 18,95 contra R$ 17,99 de uma caixa 20x15x9. Eram numeros que ninguem
+ * mediu -- a mesma natureza dos "80 g por carta" que inflavam o frete de carta
+ * ate a manha do mesmo dia.
+ *
+ * ★ POR QUE NAO BASTAVA TROCAR OS NUMEROS: a correcao da carta tinha fonte; a
+ * da ETB nao teria nenhuma. Quem tem a caixa na mao e o lojista.
+ *
+ * ★ TUDO OU NADA nas tres medidas: com uma faltando, o volume declarado seria
+ * parte medida e parte chutada, e nao da para saber qual mandou no cubado.
+ */
+export function pacoteDeProduto(
+  pesoG: number | null,
+  tipo: string | null,
+  precoCents: number,
+  qtd = 1,
+  dims?: DimsProduto | null,
+): ItemFrete {
+  const estimado = DIMS_POR_TIPO[tipo || 'outros'] || DIMS_POR_TIPO.outros
+  const w = Number(dims?.largura_cm) || 0
+  const h = Number(dims?.altura_cm) || 0
+  const l = Number(dims?.comprimento_cm) || 0
+  const d = w > 0 && h > 0 && l > 0 ? { w, h, l } : estimado
   // Sem peso cadastrado: fallback de 300g (o lojista deveria preencher).
   const kg = pesoG && pesoG > 0 ? pesoG / 1000 : 0.3
   const n = Math.max(1, Math.floor(qtd) || 1)
@@ -168,7 +260,7 @@ export function pacoteDeProduto(pesoG: number | null, tipo: string | null, preco
   }
 }
 
-export async function cotarFrete(fromCep: string, toCep: string, itens: ItemFrete[]): Promise<OpcaoFrete[]> {
+export async function cotarFrete(fromCep: string, toCep: string, itens: ItemFrete[], max = MAX_OPCOES): Promise<OpcaoFrete[]> {
   const token = process.env.MELHOR_ENVIO_TOKEN
   if (!token) throw new Error('MELHOR_ENVIO_TOKEN ausente')
 
@@ -216,5 +308,5 @@ export async function cotarFrete(fromCep: string, toCep: string, itens: ItemFret
     }))
     .filter(o => Number.isFinite(o.precoCents) && o.precoCents > 0)
     .sort((a, b) => a.precoCents - b.precoCents)
-    .slice(0, MAX_OPCOES)
+    .slice(0, max)
 }

@@ -24,7 +24,7 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 const SELECT_LOJA = 'id, owner_user_id, nome, status, plano, plano_expira_em'
 const TIPOS = ['selado', 'pelucia', 'funko', 'fichario', 'acessorio'] as const
-const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, vendidos, fotos, ativo, created_at'
+const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, largura_cm, altura_cm, comprimento_cm, vendidos, fotos, ativo, created_at'
 
 type Tipo = (typeof TIPOS)[number]
 const ehTipo = (v: unknown): v is Tipo => TIPOS.includes(v as Tipo)
@@ -35,6 +35,15 @@ function pesoParaGramas(v: unknown): number | null {
   const w = Number(v)
   return Number.isFinite(w) ? Math.round(w) : NaN
 }
+
+/** Medida em cm. Vazio vira null (= usar a estimativa por tipo). */
+function cm(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.round(n) : NaN
+}
+
+const DIMS = ['largura_cm', 'altura_cm', 'comprimento_cm'] as const
 
 /** Valida os campos comuns de create/update. Devolve erro (string) ou null. */
 function validar(p: Record<string, unknown>, parcial: boolean): string | null {
@@ -57,6 +66,21 @@ function validar(p: Record<string, unknown>, parcial: boolean): string | null {
     const w = pesoParaGramas(p.peso_g)
     if (w === null) return null
     if (!Number.isInteger(w) || w <= 0 || w > 30000) return 'Peso inválido. Use de 1 a 30000 g.'
+  }
+  // ★ TUDO OU NADA nas tres medidas. Com uma faltando, o volume declarado
+  //   seria parte medida e parte estimada por tipo, e nao daria para saber
+  //   qual das duas mandou no peso cubado -- que e o que o frete cobra.
+  const informadas = DIMS.filter(k => k in p && p[k] != null && p[k] !== '')
+  if (informadas.length > 0) {
+    for (const k of informadas) {
+      const n = cm(p[k])
+      if (n === null || !Number.isInteger(n) || n < 1 || n > 100) {
+        return 'Medida inválida. Use de 1 a 100 cm em cada lado.'
+      }
+    }
+    if (informadas.length < DIMS.length) {
+      return 'Informe as três medidas da embalagem, ou deixe as três em branco.'
+    }
   }
   if ('descricao' in p && p.descricao != null && String(p.descricao).length > 1000) {
     return 'Descrição muito longa (máx. 1000 caracteres).'
@@ -126,6 +150,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         preco_cents: Number(body.preco_cents),
         estoque: Number(body.estoque),
         peso_g: pesoParaGramas(body.peso_g),
+        largura_cm: cm(body.largura_cm),
+        altura_cm: cm(body.altura_cm),
+        comprimento_cm: cm(body.comprimento_cm),
         // Corte pelo plano da loja (antes era 10 pra todos). Ver src/lib/planoLoja.ts.
         fotos: Array.isArray(body.fotos) ? body.fotos.slice(0, LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(loja as { plano: string; plano_expira_em: string | null })]) : [],
       })
@@ -164,6 +191,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if ('preco_cents' in body) patch.preco_cents = Number(body.preco_cents)
     if ('estoque' in body) patch.estoque = Number(body.estoque)
     if ('peso_g' in body) patch.peso_g = pesoParaGramas(body.peso_g)
+    for (const k of DIMS) if (k in body) patch[k] = cm(body[k])
     if ('ativo' in body) patch.ativo = !!body.ativo
     if ('fotos' in body && Array.isArray(body.fotos)) patch.fotos = body.fotos.slice(0, LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(auth.loja as { plano: string; plano_expira_em: string | null })])
 
