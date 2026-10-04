@@ -512,6 +512,77 @@ export const fmtDataAnoBRT = {
 /** Status em que o relatorio de bancada pode ser gerado (painel e rota). */
 export const STATUS_RELATORIO = ['pronta', 'enviada', 'entregue', 'devolvida_sem_servico'] as const
 
+/**
+ * ★ O relatorio do CLIENTE so existe com o pedido ENTREGUE (decisao do Du,
+ * 04/10/2026): o admin aperta "Entregue" e o cliente passa a ter o documento
+ * fisico (na caixa) e o digital. Vale na rota GET /api/servicos/[id]/relatorio
+ * e nos botoes "Abrir relatorio" da /servicos e da /servico/[id]. O painel do
+ * admin continua com STATUS_RELATORIO.
+ */
+export const STATUS_RELATORIO_CLIENTE = 'entregue'
+
+/** Linha de 7 etapas do pedido, em linguagem do cliente (/servicos e /servico/[id]). */
+export const ETAPAS_SERVICO = [
+  { t: 'Orçamento', status: ['aguardando_orcamento', 'orcado'] },
+  { t: 'Envio', status: ['aceito'] },
+  { t: 'Proposta', status: ['recebida', 'proposta'] },
+  { t: 'Na bancada', status: ['em_bancada', 'descansando'] },
+  { t: 'Pronta', status: ['pronta'] },
+  { t: 'A caminho', status: ['enviada'] },
+  { t: 'Entregue', status: ['entregue'] },
+] as const
+
+/** Indice da etapa (0 a 6), ou -1 em cancelado, recusado e devolvido sem servico. */
+export function indiceEtapa(status: string): number {
+  return ETAPAS_SERVICO.findIndex(e => (e.status as readonly string[]).includes(status))
+}
+
+/** Rotulo da etapa. Pre-grading nao tem proposta: a 3a etapa vira "Chegada". */
+export function rotuloEtapa(servico: string, i: number): string {
+  if (i === 2 && servico === 'pre_grading') return 'Chegada'
+  return ETAPAS_SERVICO[i]?.t || ''
+}
+
+/**
+ * A frase "Agora:" do card da /servicos: o que acontece com a carta neste
+ * momento, por status e servico. Sem prazo em dias (as duas fontes de prazo
+ * ainda divergem) e sem promessa que a tela do pedido nao cumpre. null = sem
+ * frase (encerrados).
+ */
+export function fraseAgora(p: {
+  status: string; servico: string; rastreio_ida: string | null; proposta_aceita_em: string | null
+}, devida: boolean): string | null {
+  const pre = p.servico === 'pre_grading'
+  switch (p.status) {
+    case 'aguardando_orcamento': return 'Estamos olhando as suas fotos para montar o orçamento.'
+    case 'orcado': return 'O orçamento está pronto. Falta a sua aprovação.'
+    case 'aceito':
+      if (devida) return 'Falta o pagamento. Depois dele liberamos o endereço de envio.'
+      if (p.rastreio_ida) return 'A carta está a caminho da bancada.'
+      return 'Aprovado. Agora é com você: embale e envie a carta.'
+    case 'recebida':
+      if (devida) return 'A carta chegou. Falta o pagamento em aberto para seguirmos.'
+      return pre
+        ? 'A carta chegou. Abrimos o pacote em vídeo e estamos fotografando cada canto e borda na mesma luz.'
+        : 'Chegou e foi aberta em vídeo. Estamos registrando cada dano antes de montar a proposta de tratamento.'
+    case 'proposta':
+      if (!p.proposta_aceita_em) return 'A proposta de tratamento está pronta. Decida carta por carta o que tratamos.'
+      if (devida) return 'Recebemos a sua decisão. Falta o pagamento do serviço para a carta ir para a bancada.'
+      return 'Recebemos a sua decisão. A cobrança do serviço chega por e-mail e aparece no pedido.'
+    case 'em_bancada':
+      if (pre) return 'Estamos medindo a centralização e examinando cantos, bordas e superfície sob luz rasante.'
+      if (p.servico === 'completo') return 'Na bancada: primeiro o tratamento à mão, depois a avaliação para graduação.'
+      return 'A carta está na bancada, em tratamento à mão.'
+    case 'descansando': return 'A carta está descansando depois da prensa. É esse descanso que faz o resultado durar.'
+    case 'pronta':
+      if (pre) return 'Avaliação concluída. Estamos preparando a carta para voltar.'
+      if (p.servico === 'completo') return 'Tratamento e avaliação concluídos. Estamos preparando a carta para voltar.'
+      return 'Tratamento concluído. Estamos preparando a carta para voltar.'
+    case 'enviada': return 'A carta está voltando para você.'
+    default: return null
+  }
+}
+
 // ── Termo de ciencia de risco (aceito junto com o orcamento) ─────────────────
 // Cada texto tem uma versao, gravada em servico_solicitacoes.termo_versao no
 // aceite. Texto aceito NUNCA muda: correcao vira versao nova. RASCUNHO para

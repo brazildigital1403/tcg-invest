@@ -1281,6 +1281,8 @@ const CSS = `
 .rel-doc .assin .linha b{display:block;font-size:9pt}
 
 @media screen and (max-width:820px){.rel-doc .pagina{zoom:.46}}
+/* 210 mm x .46 = 365 px: passa de 320 (Galaxy/iPhone SE). Abaixo de 380, .38 = 302 px. */
+@media screen and (max-width:379px){.rel-doc .pagina{zoom:.38}}
 @media print{
   .rel-doc .pagina{margin:0;box-shadow:none;break-after:page;outline:0}
   .rel-doc .pagina:last-child{break-after:auto}

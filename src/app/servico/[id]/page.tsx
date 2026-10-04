@@ -18,8 +18,9 @@ import { authFetch } from '@/lib/authFetch'
 import {
   STATUS_SERVICO, SERVICOS, termoDoServico, GUIA_EMBALAGEM, CAMPOS_LAUDO, brl, numeroServico, fmtDataHoraBRT, turnoServico,
   PILARES, ESCALA, DANOS, TERMO_PROPOSTA_V1, RISCOS, OBJETIVOS, ALERTA_GRADUACAO, SERVICOS_CARTAO_ATIVO, type FichaCondicao,
+  ETAPAS_SERVICO, indiceEtapa, rotuloEtapa, STATUS_RELATORIO_CLIENTE,
 } from '@/lib/servicos'
-import { IconCheck, IconClose, IconTruck, IconShield, IconWarning, IconBox, IconWallet } from '@/components/ui/Icons'
+import { IconCheck, IconClose, IconTruck, IconShield, IconWarning, IconBox, IconWallet, IconArticle } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import Rastreio from '@/components/servicos/Rastreio'
 
@@ -54,16 +55,6 @@ const ETAPA_PAG: Record<string, { t: string; d: string }> = {
   integral: { t: 'Pagamento', d: 'Pago no aceite. Libera o endereço de envio.' },
 }
 
-// Linha de etapas: onde o pedido esta, em linguagem do cliente.
-const ETAPAS = [
-  { t: 'Orçamento', status: ['aguardando_orcamento', 'orcado'] },
-  { t: 'Envio', status: ['aceito'] },
-  { t: 'Proposta', status: ['recebida', 'proposta'] },
-  { t: 'Na bancada', status: ['em_bancada', 'descansando'] },
-  { t: 'Pronta', status: ['pronta'] },
-  { t: 'A caminho', status: ['enviada'] },
-  { t: 'Entregue', status: ['entregue'] },
-]
 const ROTULO_MIDIA: Record<string, string> = {
   cliente_frente: 'Sua foto · frente', cliente_verso: 'Sua foto · verso', cliente_extra: 'Sua foto',
   entrada_difusa: 'Entrada', entrada_rasante: 'Entrada · rasante', saida_difusa: 'Saída', saida_rasante: 'Saída · rasante',
@@ -102,6 +93,18 @@ function Pedido({ id }: { id: string }) {
     } catch { setErro('Sem conexão. Tente de novo em instantes.') }
   }, [id])
   useEffect(() => { carregar() }, [carregar])
+
+  // Os botoes da /servicos chegam com ancora (#pagar, #orcamento, #cartas...).
+  // A secao so existe depois do GET, entao o navegador nao rola sozinho: rola
+  // uma vez, quando o pedido aparece.
+  const temDados = !!dados
+  useEffect(() => {
+    if (!temDados) return
+    const alvo = window.location.hash.slice(1)
+    if (!/^[a-z]+$/.test(alvo)) return
+    const t = window.setTimeout(() => document.getElementById(alvo)?.scrollIntoView({ block: 'start' }), 0)
+    return () => window.clearTimeout(t)
+  }, [temDados])
 
   // Volta do Checkout da Stripe (?pagamento=ok|cancelado). Quem confirma e o
   // webhook, entao no "ok" a pagina rele algumas vezes ate a etapa aparecer paga.
@@ -151,7 +154,7 @@ function Pedido({ id }: { id: string }) {
   const pendentes = procedimentos.filter(p => p.decisao === 'pendente')
   const tudoDecidido = pendentes.every(p => decisoes[p.id])
   const objetivoRotulo = OBJETIVOS.find(o => o.id === s.objetivo)?.rotulo
-  const etapaAtual = ETAPAS.findIndex(e => e.status.includes(s.status))
+  const etapaAtual = indiceEtapa(s.status)
   const encerrado = turnoServico(s.status) === 'fim' && s.status !== 'entregue'
   const aceitas = itens.filter(i => i.aceito !== false)
 
@@ -167,12 +170,12 @@ function Pedido({ id }: { id: string }) {
 
       {!encerrado && (
         <ol className="sp-etapas" aria-label="Andamento do pedido">
-          {ETAPAS.map((e, i) => {
+          {ETAPAS_SERVICO.map((e, i) => {
             // Entregue e o fim da jornada: a ultima etapa fica verde (concluida), nao laranja (em andamento).
             const feito = i < etapaAtual || (s.status === 'entregue' && i === etapaAtual)
             return (
               <li key={e.t} className={feito ? `feito${i === etapaAtual ? ' fim' : ''}` : i === etapaAtual ? 'agora' : ''}>
-                <span>{feito ? <IconCheck size={12} strokeWidth={2.6} /> : i + 1}</span>{e.t}
+                <span>{feito ? <IconCheck size={12} strokeWidth={2.6} /> : i + 1}</span>{rotuloEtapa(s.servico, i)}
               </li>
             )
           })}
@@ -187,8 +190,17 @@ function Pedido({ id }: { id: string }) {
       <div className="sp-grid">
         <div className="sp-col">
 
+          {s.status === STATUS_RELATORIO_CLIENTE && (
+            <section className="sp-card sp-relatorio" id="relatorio">
+              <h2><IconArticle size={18} /> Relatório da bancada</h2>
+              <p className="sp-muted">O mesmo documento que voltou na caixa com a sua carta: fotos da entrada e da saída, o que foi feito e o laudo.</p>
+              <Link className="sp-bt" href={`/servico/${s.id}/relatorio`}><IconArticle size={16} /> Abrir relatório</Link>
+              <small className="sp-dica">Para salvar em PDF: Compartilhar e depois Imprimir.</small>
+            </section>
+          )}
+
           {s.status === 'proposta' && !s.proposta_aceita_em && pendentes.length > 0 && (
-            <section className="sp-card sp-card-acao">
+            <section className="sp-card sp-card-acao" id="proposta">
               <h2>Proposta de tratamento</h2>
               <p className="sp-muted">Sua carta chegou e foi registrada com fotos de cada canto e borda. Para cada procedimento abaixo, você decide: fazer ou não fazer. Nada começa sem a sua resposta.</p>
               {s.objetivo === 'graduacao' && <p className="sp-aviso"><IconWarning size={15} /> {ALERTA_GRADUACAO}</p>}
@@ -253,7 +265,7 @@ function Pedido({ id }: { id: string }) {
           )}
 
           {s.status === 'orcado' && (
-            <section className="sp-card sp-card-acao">
+            <section className="sp-card sp-card-acao" id="orcamento">
               <h2>Seu orçamento</h2>
               <dl className="sp-dl">
                 <div><dt>Serviço</dt><dd>{reais(s.orcamento_cents)}</dd></div>
@@ -285,7 +297,7 @@ function Pedido({ id }: { id: string }) {
           )}
 
           {devida && (
-            <section className="sp-card sp-card-acao">
+            <section className="sp-card sp-card-acao" id="pagar">
               <h2>{devida.etapa === 'servico' ? 'Pagamento do serviço' : devida.etapa === 'sinal' ? 'Pagamento do sinal' : 'Pagamento'}</h2>
               <p className="sp-muted">
                 {devida.etapa === 'servico'
@@ -325,7 +337,7 @@ function Pedido({ id }: { id: string }) {
           )}
 
           {s.status === 'aceito' && (
-            <section className="sp-card sp-card-acao">
+            <section className="sp-card sp-card-acao" id="envio">
               <h2>Como enviar a sua carta</h2>
               {endereco ? (
                 <div className="sp-endereco">
@@ -351,7 +363,7 @@ function Pedido({ id }: { id: string }) {
           )}
 
           {s.rastreio_volta && (
-            <section className="sp-card">
+            <section className="sp-card" id="volta">
               <h2><IconTruck size={18} /> Sua carta está a caminho</h2>
               <Rastreio codigo={s.rastreio_volta} />
             </section>
@@ -364,7 +376,7 @@ function Pedido({ id }: { id: string }) {
             </section>
           )}
 
-          <section className="sp-card">
+          <section className="sp-card" id="cartas">
             <h2>{itens.length === 1 ? 'Sua carta' : 'Suas cartas'}</h2>
             <div className="sp-itens">
               {itens.map(it => (
@@ -591,6 +603,10 @@ const CSS = `
 .sp-pags small{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;line-height:1.45;color:var(--bx-text-2)}
 .sp-pags li.ok small{color:var(--bx-green)}
 .sp-garantia{grid-template-columns:24px minmax(0,1fr);align-items:start;color:var(--bx-green)}
+.sp-card[id]{scroll-margin-top:76px}
+.sp-relatorio .sp-bt{justify-self:start}
+.sp-dica{font-size:12px;color:var(--bx-text-3)}
+@media (max-width:480px){.sp-relatorio .sp-bt{justify-self:stretch}}
 .sp-garantia p{margin:0;font-size:13px;line-height:1.55;color:var(--bx-text-2)}
 @media (max-width:980px){ .sp-grid{grid-template-columns:1fr} }
 @media (max-width:640px){

@@ -10,11 +10,12 @@
 // desenhar, cada foto vira um JPEG de ate 1400 px no lado maior (mais de
 // 400 dpi na maior moldura do papel, 63 x 88 mm), que o PDF embute como esta.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import RelatorioImpresso, { type EstadoImpressao } from '@/components/servicos/relatorio/RelatorioImpresso'
 import type { RelatorioDados } from '@/lib/servicosRelatorio'
 import { IconChevronLeft, IconWarning } from '@/components/ui/Icons'
+import { authFetch } from '@/lib/authFetch'
 
 const LADO_MAX_PX = 1400
 const QUALIDADE_JPEG = 0.86
@@ -59,13 +60,19 @@ async function prepararFotos(d: RelatorioDados, criadas: string[]): Promise<Rela
   return { ...d, cartas: d.cartas.map(c => ({ ...c, fotos: c.fotos.map(f => ({ ...f, url: f.url ? novo.get(f.url) ?? null : null })) })) }
 }
 
-export function RelatorioTela({ id, dados, recarregar, carregando, erro, pendencias }: {
-  id: string
+const INSTRUCAO_ADMIN = (
+  <>No Chrome: destino <b>Salvar como PDF</b>, papel <b>A4</b>, margens <b>Nenhuma</b>, escala <b>100%</b> (padrão) e <b>Gráficos de plano de fundo</b> ligado.</>
+)
+
+export function RelatorioTela({ dados, recarregar, carregando, erro, pendencias, voltar, instrucao = INSTRUCAO_ADMIN }: {
   dados: RelatorioDados | null
   recarregar: () => void
   carregando: boolean
   erro?: string
   pendencias?: string[]
+  /** Link da barra (admin: o pedido no painel; dono: o /servico/[id]). */
+  voltar: { href: string; rotulo: string }
+  instrucao?: ReactNode
 }) {
   const [estado, setEstado] = useState<EstadoImpressao | null>(null)
   const [preparado, setPreparado] = useState<{ de: RelatorioDados; dados: RelatorioDados } | null>(null)
@@ -102,16 +109,14 @@ export function RelatorioTela({ id, dados, recarregar, carregando, erro, pendenc
       <style>{CSS_TELA}</style>
       <div className="rel-tela" data-theme="light">
         <div className="rel-barra">
-          <Link href={`/admin/servicos/${id}`} className="rel-voltar"><IconChevronLeft size={16} /> Pedido</Link>
+          <Link href={voltar.href} className="rel-voltar"><IconChevronLeft size={16} /> {voltar.rotulo}</Link>
           {dados && (
             <>
               <div className="rel-barra-acoes">
                 <button type="button" className="rel-bt rel-bt-pri" disabled={!pronto} onClick={() => window.print()}>Imprimir / Salvar PDF</button>
                 <button type="button" className="rel-bt" disabled={carregando} onClick={recarregar}>{carregando ? 'Recarregando...' : 'Recarregar fotos'}</button>
               </div>
-              <p className="rel-instrucao">
-                No Chrome: destino <b>Salvar como PDF</b>, papel <b>A4</b>, margens <b>Nenhuma</b>, escala <b>100%</b> (padrão) e <b>Gráficos de plano de fundo</b> ligado.
-              </p>
+              <p className="rel-instrucao">{instrucao}</p>
               <p className={`rel-situacao${estado?.estouro.length || estado?.fotos === 'erro' ? ' rel-ruim' : ''}`} role="status">{situacao}</p>
             </>
           )}
@@ -131,7 +136,11 @@ export function RelatorioTela({ id, dados, recarregar, carregando, erro, pendenc
   )
 }
 
-export default function RelatorioPagina({ id }: { id: string }) {
+/**
+ * Busca o relatorio. Admin usa a sessao por cookie (fetch simples); o dono
+ * usa o token do Supabase (authFetch), como as outras rotas /api/servicos/[id].
+ */
+function useRelatorio(endpoint: string, dono: boolean) {
   const [dados, setDados] = useState<RelatorioDados | null>(null)
   const [erro, setErro] = useState<{ t: string; pendencias?: string[] } | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -139,10 +148,11 @@ export default function RelatorioPagina({ id }: { id: string }) {
   const carregar = useCallback(async () => {
     setCarregando(true)
     try {
-      const r = await fetch(`/api/admin/servicos/${id}/relatorio`, { cache: 'no-store' })
+      const r = dono ? await authFetch(endpoint, { cache: 'no-store' }) : await fetch(endpoint, { cache: 'no-store' })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) {
-        setErro({ t: r.status === 409 && d.pendencias ? 'O relatório ainda não pode sair. Falta:' : d.error || 'Não deu para montar o relatório.', pendencias: d.pendencias })
+        if (dono) setErro({ t: r.status === 401 ? 'Entre na sua conta para ver este relatório.' : d.error || 'Não deu para abrir o relatório.' })
+        else setErro({ t: r.status === 409 && d.pendencias ? 'O relatório ainda não pode sair. Falta:' : d.error || 'Não deu para montar o relatório.', pendencias: d.pendencias })
         return
       }
       setErro(null)
@@ -152,7 +162,7 @@ export default function RelatorioPagina({ id }: { id: string }) {
     } finally {
       setCarregando(false)
     }
-  }, [id])
+  }, [endpoint, dono])
 
   useEffect(() => {
     let vivo = true
@@ -161,7 +171,26 @@ export default function RelatorioPagina({ id }: { id: string }) {
     return () => { vivo = false }
   }, [carregar])
 
-  return <RelatorioTela id={id} dados={dados} recarregar={carregar} carregando={carregando} erro={erro?.t} pendencias={erro?.pendencias} />
+  return { dados, erro, carregando, carregar }
+}
+
+/** Painel do admin: /admin/servicos/[id]/relatorio. */
+export default function RelatorioPagina({ id }: { id: string }) {
+  const { dados, erro, carregando, carregar } = useRelatorio(`/api/admin/servicos/${id}/relatorio`, false)
+  return (
+    <RelatorioTela dados={dados} recarregar={carregar} carregando={carregando} erro={erro?.t} pendencias={erro?.pendencias}
+      voltar={{ href: `/admin/servicos/${id}`, rotulo: 'Pedido' }} />
+  )
+}
+
+/** Cliente (dono): /servico/[id]/relatorio. A rota so responde com o pedido entregue. */
+export function RelatorioDono({ id }: { id: string }) {
+  const { dados, erro, carregando, carregar } = useRelatorio(`/api/servicos/${id}/relatorio`, true)
+  return (
+    <RelatorioTela dados={dados} recarregar={carregar} carregando={carregando} erro={erro?.t}
+      voltar={{ href: `/servico/${id}`, rotulo: 'Voltar ao pedido' }}
+      instrucao={<>No celular: toque em <b>Compartilhar</b> e depois em <b>Imprimir</b> para salvar em PDF. No computador: destino <b>Salvar como PDF</b>, papel <b>A4</b>, margens <b>Nenhuma</b>.</>} />
+  )
 }
 
 // A raiz fica no escopo ESCURO (tokens do :root) e captura as cores das faixas
