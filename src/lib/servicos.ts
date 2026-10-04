@@ -419,6 +419,37 @@ export function turnoServico(status: string): 'bynx' | 'cliente' | 'fim' {
   return 'bynx'
 }
 
+// ── Pagamento por etapa: o calculo puro ─────────────────────────────────────
+// Vive aqui (e nao no servicosServer) para a lista /servicos, que e client-side,
+// usar a MESMA conta do GET do pedido e do checkout. O servicosServer reexporta.
+
+export type EtapaPagamento = 'sinal' | 'servico' | 'integral'
+
+export interface LinhaPagamento {
+  id: string; etapa: EtapaPagamento; valor_cents: number; metodo: string | null; pago_em: string | null
+  reembolsado_cents?: number; reembolsado_em?: string | null
+}
+
+/** A etapa que o cliente deve pagar AGORA (ou null). */
+export function etapaDevida(status: string, propostaAceita: boolean, linhas: LinhaPagamento[]): LinhaPagamento | null {
+  const aberta = (e: EtapaPagamento) => linhas.find(l => l.etapa === e && !l.pago_em) || null
+  if (status === 'aceito' || status === 'recebida') return aberta('integral') || aberta('sinal')
+  if (status === 'proposta' && propostaAceita) return aberta('servico')
+  return null
+}
+
+/**
+ * A etapa que o cliente pode pagar agora, ja com a trava da cobranca: o servico
+ * so vira "devido" depois que a cobranca saiu (evento 'cobranca_servico'); com
+ * recusa na proposta, o admin confere o valor antes. Ate la: "recalculando".
+ * Uma fonte so para o GET do pedido, o checkout do cartao e a lista /servicos.
+ */
+export function etapaCobravel(status: string, propostaAceita: boolean, linhas: LinhaPagamento[], cobrancaEnviada: boolean) {
+  const bruta = etapaDevida(status, propostaAceita, linhas)
+  const recalculando = bruta?.etapa === 'servico' && !cobrancaEnviada
+  return { devida: recalculando ? null : bruta, recalculando }
+}
+
 export const MIDIAS_ADMIN = [
   { tipo: 'video_abertura', rotulo: 'Vídeo de abertura', porItem: false },
   { tipo: 'entrada_difusa', rotulo: 'Entrada · difusa', porItem: true },

@@ -775,3 +775,19 @@ export function IconChevronLeft({ size = 20, color = defaultColor, strokeWidth =
     </svg>
   )
 }
+
+/**
+ * Restauracao e pre-grading (servicos de bancada): carta com o brilho do
+ * restauro e a lupa da inspecao sobre o canto. O contorno da carta para antes
+ * da lente, para as linhas nao se cruzarem em tamanho pequeno.
+ */
+export function IconRestauro({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <path d="M9 16H4.3a1.8 1.8 0 01-1.8-1.8V3.8A1.8 1.8 0 014.3 2h6.4a1.8 1.8 0 011.8 1.8v4.7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M6.5 4.8v3.4M4.8 6.5h3.4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+      <circle cx="13" cy="12.5" r="3.3" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M15.4 14.9L18 17.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}

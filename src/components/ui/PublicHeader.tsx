@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import {
   IconSearch, IconChevronDown, IconPokedex, IconScan, IconAccount, IconArticle, IconShield,
-  IconStar,
+  IconStar, IconRestauro,
 } from '@/components/ui/Icons'
 import LinkCarrinho from '@/components/ui/LinkCarrinho'
 
@@ -79,8 +79,8 @@ const EXPLORAR_FERRAMENTAS = [
   { href: '/separadores-pokemon', label: 'Separadores', sub: 'Organize suas pastas', Icon: IconSeparador },
   { href: '/fichario-lendario', label: 'Páginas Lendárias', sub: 'Fundo contínuo pro fichário', Icon: IconLendariasMini },
   { href: '/cartas-graduadas', label: 'Cartas graduadas', sub: 'Notas, graduadoras e Black Label', Icon: IconShield },
-  { href: '/restauracao-de-cartas', label: 'Restauração', sub: 'Vinco, amassado e carta ondulada', Icon: IconSearch },
-  { href: '/pre-grading', label: 'Pré-grading', sub: 'A nota provável antes de graduar', Icon: IconSearch },
+  { href: '/restauracao-de-cartas', label: 'Restauração', sub: 'Vinco, amassado e carta ondulada', Icon: IconRestauro },
+  { href: '/pre-grading', label: 'Pré-grading', sub: 'A nota provável antes de graduar', Icon: IconRestauro },
 ]
 const EXPLORAR_COMUNIDADE = [
   { href: '/colecionadores', label: 'Colecionadores', sub: 'Perfis e coleções', Icon: IconAccount },

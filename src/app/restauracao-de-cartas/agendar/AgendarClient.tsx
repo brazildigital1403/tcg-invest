@@ -312,7 +312,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             <p className="sv-sub">Recebemos as fotos. O orçamento chega em até {PRAZOS.orcamento || 'poucos dias úteis'}, no seu e-mail e na página do pedido.</p>
             {filaExpresso && <p className="sv-sub">{AVISO_FILA_EXPRESSO}</p>}
             <p className="ag-alerta"><IconWarning size={16} /> Não envie a carta ainda. O endereço aparece depois que você aprova o orçamento.</p>
-            <a className="sv-cta" href={pedidoId ? `/servico/${pedidoId}` : '/compras'}>Acompanhar o pedido</a>
+            <a className="sv-cta" href={pedidoId ? `/servico/${pedidoId}` : '/servicos'}>Acompanhar o pedido</a>
           </div>
         </div>
       </section>

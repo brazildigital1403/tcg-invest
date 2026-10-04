@@ -14,11 +14,16 @@ import { requireAdmin } from '@/lib/admin-auth'
 import {
   numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio, fmtDataHoraAnoBRT,
   ESCALA, PILARES, CAMPOS_LAUDO, FOTOS_ENTRADA, FOTOS_SAIDA, compararFicha, fotosFaltando, faltasDoLaudo,
-  type FichaCondicao,
+  etapaDevida, type FichaCondicao, type EtapaPagamento, type LinhaPagamento,
 } from '@/lib/servicos'
 import { sendServicoClienteEmail, sendServicoProntaEmail, SERVICO_PRONTA_DETALHE, type ServicoProntaItem } from '@/lib/email'
 import { cotarFrete, pacoteServicoVolta } from '@/lib/melhor-envio'
 import { notify } from '@/lib/notify'
+
+// O calculo do valor devido mora em servicos.ts (a lista /servicos, client-side,
+// usa a mesma conta). Reexportado para os importadores de sempre.
+export { etapaDevida, etapaCobravel } from '@/lib/servicos'
+export type { EtapaPagamento, LinhaPagamento } from '@/lib/servicos'
 
 export const BUCKET_SERVICOS = 'servico-midias'
 export const FOTO_MAX_BYTES = 10 * 1024 * 1024
@@ -177,18 +182,12 @@ export async function cotarVoltaServico(p: {
 // integral pre-grading sozinho: tudo no aceite (nao tem proposta)
 // Decisao do Du, 27/09/2026, seguindo o painel de pagamento.
 
-export type EtapaPagamento = 'sinal' | 'servico' | 'integral'
 export const ROTULO_ETAPA: Record<EtapaPagamento, string> = { sinal: 'Sinal', servico: 'Serviço', integral: 'Pagamento' }
 
 /** Chave Pix de recebimento: so no servidor (env), como o endereco. */
 export function pixRecebimento(): { chave: string; nome: string | null } | null {
   const chave = process.env.SERVICOS_PIX_CHAVE?.trim()
   return chave ? { chave, nome: process.env.SERVICOS_PIX_NOME?.trim() || null } : null
-}
-
-export interface LinhaPagamento {
-  id: string; etapa: EtapaPagamento; valor_cents: number; metodo: string | null; pago_em: string | null
-  reembolsado_cents?: number; reembolsado_em?: string | null
 }
 
 /** Quanto cobrar em cada etapa, a partir do orcamento. */
@@ -268,26 +267,6 @@ export async function pendencias(sb: SupabaseClient, id: string, servico: string
     }
   })
   return faltas
-}
-
-/** A etapa que o cliente deve pagar AGORA (ou null). */
-export function etapaDevida(status: string, propostaAceita: boolean, linhas: LinhaPagamento[]): LinhaPagamento | null {
-  const aberta = (e: EtapaPagamento) => linhas.find(l => l.etapa === e && !l.pago_em) || null
-  if (status === 'aceito' || status === 'recebida') return aberta('integral') || aberta('sinal')
-  if (status === 'proposta' && propostaAceita) return aberta('servico')
-  return null
-}
-
-/**
- * A etapa que o cliente pode pagar agora, ja com a trava da cobranca: o servico
- * so vira "devido" depois que a cobranca saiu (evento 'cobranca_servico'); com
- * recusa na proposta, o admin confere o valor antes. Ate la: "recalculando".
- * Uma fonte so para o GET do pedido e para o checkout do cartao.
- */
-export function etapaCobravel(status: string, propostaAceita: boolean, linhas: LinhaPagamento[], cobrancaEnviada: boolean) {
-  const bruta = etapaDevida(status, propostaAceita, linhas)
-  const recalculando = bruta?.etapa === 'servico' && !cobrancaEnviada
-  return { devida: recalculando ? null : bruta, recalculando }
 }
 
 /** Etapa paga libera o envio da carta (endereco)? */

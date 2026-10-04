@@ -144,7 +144,7 @@ function Pedido({ id }: { id: string }) {
     finally { setOcupado(false) }
   }
 
-  if (erro) return <div className="sp"><style>{CSS}</style><div className="sp-card sp-vazio"><IconShield size={24} /><p>{erro}</p><Link className="sp-bt" href="/compras">Minhas compras</Link></div></div>
+  if (erro) return <div className="sp"><style>{CSS}</style><div className="sp-card sp-vazio"><IconShield size={24} /><p>{erro}</p><Link className="sp-bt" href="/servicos">Meus serviços</Link></div></div>
   if (!dados) return <div className="sp"><style>{CSS}</style><p className="sp-muted">Carregando...</p></div>
 
   const { solicitacao: s, itens, eventos, midias, procedimentos, endereco, pagamentos, devida, pix, recalculando } = dados
@@ -159,7 +159,7 @@ function Pedido({ id }: { id: string }) {
     <div className="sp">
       <style>{CSS}</style>
       <PageHeader
-        trilha={[INICIO, { name: 'Compras', href: '/compras' }, { name: numeroServico(s.numero), href: `/servico/${s.id}` }]}
+        trilha={[INICIO, { name: 'Meus serviços', href: '/servicos' }, { name: numeroServico(s.numero), href: `/servico/${s.id}` }]}
         titulo={`${SERVICOS.find(x => x.id === s.servico)?.nome || 'Serviço'} ${numeroServico(s.numero)}`}
         selo={<span className={`sp-pill${encerrado ? ' sp-pill-fim' : ''}`}>{STATUS_SERVICO[s.status] || s.status}</span>}
         descricao={`Pedido feito em ${fmtDataHoraBRT.format(new Date(s.created_at))}. ${itens.length} ${itens.length === 1 ? 'carta' : 'cartas'}.`}
