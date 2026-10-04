@@ -677,6 +677,27 @@ export async function sendServicoClienteEmail(args: {
   return enviar({ from: FROM, to: args.to, subject: subjUser(args.assunto), html })
 }
 
+// ── CONTA — completar o endereco (campanha de 04/10/2026) ────────────────────
+// Relacionamento (respeita o descadastro). Sem emoji, nem no assunto. Vai para
+// quem esta sem CEP: o frete das compras e a volta dos servicos cotam por ele.
+
+export async function sendCompletarEnderecoEmail(args: { to: string; nome?: string | null }) {
+  const primeiro = primeiroNome(args.nome, 'colecionador')
+  const montarHtml = (rodape: string) => baseLayout(`
+    ${badge('Minha Conta', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Falta só o seu CEP')}
+    ${p(`Oi, ${escapeHtml(primeiro)}.`)}
+    ${p('O seu cadastro na Bynx está sem endereço. Agora dá para completar em Minha Conta: você digita o CEP e a rua, o bairro e a cidade se preenchem sozinhos. Falta só o número.')}
+    ${p('<strong style="color:#f0f0f0;">Para que serve:</strong>')}
+    ${p('O frete das cartas que você compra no Mercado sai calculado na hora, sem esperar o vendedor.')}
+    ${p('Se mandar uma carta para restauração ou pré-grading, o frete de volta já vem no orçamento.')}
+    ${p('O endereço não aparece no seu perfil público. Só é usado para calcular e enviar o que é seu.')}
+    ${btn('Completar meu endereço', addUtm(`${APP_URL}/minha-conta#endereco`, 'endereco-out26', 'cta-button'))}
+  `, 'Digite o CEP e o resto se preenche sozinho. Leva menos de um minuto.', rodape)
+  return enviarNurture({ from: FROM, to: args.to, subject: subjUser('Falta só o seu CEP'), montarHtml })
+}
+
 // ── SERVIÇOS — "Carta pronta" (o momento do resultado) ───────────────────────
 //
 // ★ O e-mail mais importante do servico: a pessoa confiou a carta e agora ve o

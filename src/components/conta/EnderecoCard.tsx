@@ -6,7 +6,7 @@
 // servicos. O CEP preenche rua, bairro, cidade e UF pelo ViaCEP. Salva por
 // /api/conta/endereco (a tabela users nao concede UPDATE dessas colunas).
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/authFetch'
 import { IconLocation, IconCheck, IconWarning } from '@/components/ui/Icons'
 
@@ -26,6 +26,11 @@ export default function EnderecoCard({ inicial, onSalvo }: { inicial: Endereco; 
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; t: string } | null>(null)
   const semCep = (inicial.cep || '').replace(/\D/g, '').length !== 8
   const set = (k: keyof Endereco, v: string) => { setE(x => ({ ...x, [k]: v })); setMsg(null) }
+  // O link do e-mail e do sino chega com #endereco, mas a pagina carrega os
+  // dados depois: o salto nativo do navegador acontece antes deste card existir.
+  useEffect(() => {
+    if (window.location.hash === '#endereco') document.getElementById('endereco')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   async function buscarCep(valor: string) {
     const d = valor.replace(/\D/g, '')
