@@ -79,6 +79,8 @@ const EXPLORAR_FERRAMENTAS = [
   { href: '/separadores-pokemon', label: 'Separadores', sub: 'Organize suas pastas', Icon: IconSeparador },
   { href: '/fichario-lendario', label: 'Páginas Lendárias', sub: 'Fundo contínuo pro fichário', Icon: IconLendariasMini },
   { href: '/cartas-graduadas', label: 'Cartas graduadas', sub: 'Notas, graduadoras e Black Label', Icon: IconShield },
+  { href: '/restauracao-de-cartas', label: 'Restauração', sub: 'Vinco, amassado e carta ondulada', Icon: IconSearch },
+  { href: '/pre-grading', label: 'Pré-grading', sub: 'A nota provável antes de graduar', Icon: IconSearch },
 ]
 const EXPLORAR_COMUNIDADE = [
   { href: '/colecionadores', label: 'Colecionadores', sub: 'Perfis e coleções', Icon: IconAccount },

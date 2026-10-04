@@ -86,6 +86,13 @@ export default function PublicFooter({ hideTopBorder = false }: Props) {
         </a>
         <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
         <a
+          href="/restauracao-de-cartas"
+          style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}
+        >
+          Restauração e pré-grading
+        </a>
+        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+        <a
           href="/planos"
           style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13 }}
         >

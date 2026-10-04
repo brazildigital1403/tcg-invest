@@ -5,12 +5,13 @@
 // listas, FAQ e casos. Uma fonte so, pra pagina, JSON-LD e formulario nunca
 // divergirem (a mesma conta em dois lugares sempre diverge).
 //
-// ★ Enquanto SERVICOS_PUBLICADO = false as paginas saem com noindex e nada no
-// site aponta pra elas. SERVICOS_FORM_ATIVO liga o envio do formulario
+// ★ Publicado em 04/10/2026 (decisao do Du): index nas duas landings, sitemap,
+// rodape, cabecalho publico e menu do app. Com false, voltam a noindex (os
+// links e o sitemap nao leem esta flag: remover a mao). SERVICOS_FORM_ATIVO liga o envio do formulario
 // (tabelas da F7 + rotas /api/servicos da F8). Desligado, nada sai do navegador.
 // Valor `null` = decisao pendente do Du: a secao que depende dele nao aparece.
 
-export const SERVICOS_PUBLICADO = false
+export const SERVICOS_PUBLICADO = true
 export const SERVICOS_FORM_ATIVO = true
 // Pagamento por cartao (Stripe Checkout) no /servico/[id]. Desligado: o botao
 // nao aparece e POST /api/servicos/[id]/checkout responde 404. So liga depois

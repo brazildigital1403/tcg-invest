@@ -16,7 +16,7 @@ import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconBalanca, IconAccount,
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
-  IconChat, IconStar, IconStarFilled, IconEye, IconArticle, IconTarget, IconBox,
+  IconChat, IconStar, IconStarFilled, IconEye, IconArticle, IconTarget, IconBox, IconSearch,
 } from '@/components/ui/Icons'
 import { useMetasVisivel } from '@/components/metas/useMetasVisivel'
 import MuroPosTrial from '@/components/ui/MuroPosTrial'
@@ -202,6 +202,8 @@ const ITEM_MINHA_LOJA: MenuItem = { name: 'Loja', full: 'Minha Loja', href: '/mi
 const ITEM_VENDER: MenuItem = { name: 'Vender', full: 'Vender na Bynx', href: '/minha-loja/nova', Icon: IconMinhaLoja, group: 'conta' }
 const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas, group: 'explorar' }
 const ITEM_BLOG: MenuItem = { name: 'Blog', full: 'Blog', href: '/blog', Icon: IconArticle, group: 'explorar' }
+// Servicos de bancada (04/10/2026): a landing de restauracao leva tambem ao pre-grading.
+const ITEM_BANCADA: MenuItem = { name: 'Bancada', full: 'Restauração e pré-grading', href: '/restauracao-de-cartas', Icon: IconSearch, group: 'explorar' }
 const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat, group: 'conta' }
 // Nenhum dos itens de menu levava pra oferta: dentro do app o preco so existia
 // em /minha-conta, que nem esta na barra de baixo do celular.
@@ -323,10 +325,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return comMetas(semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE]), metasVisivel)
+      return comMetas(semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_SUPORTE]), metasVisivel)
     }
     if (isLojistaPuro) {
-      const lojista = [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
+      const lojista = [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
       // Lojista que vendeu sem loja ANTES de abrir a dela ainda precisa chegar
       // naqueles pedidos: eles nao aparecem no painel da loja.
       if (temVenda) lojista.splice(3, 0, ITEM_VENDAS)
@@ -338,7 +340,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     else base.push(ITEM_VENDER)
     if (ehParceiro) base.push(ITEM_PARCEIROS)
     if (temVenda) base.push(ITEM_VENDAS)
-    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_SUPORTE)
+    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_SUPORTE)
     return comMetas(semDash(base), metasVisivel)
   }, [temLoja, temCartas, temVenda, isLojistaPuro, podeDashboard, ehParceiro, metasVisivel])
 
