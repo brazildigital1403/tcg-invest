@@ -203,7 +203,7 @@ const ITEM_VENDER: MenuItem = { name: 'Vender', full: 'Vender na Bynx', href: '/
 const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas, group: 'explorar' }
 const ITEM_BLOG: MenuItem = { name: 'Blog', full: 'Blog', href: '/blog', Icon: IconArticle, group: 'explorar' }
 // Servicos de bancada (04/10/2026): a landing de restauracao leva tambem ao pre-grading.
-const ITEM_BANCADA: MenuItem = { name: 'Bancada', full: 'Restauração e pré-grading', href: '/restauracao-de-cartas', Icon: IconSearch, group: 'explorar' }
+const ITEM_BANCADA: MenuItem = { name: 'Restauração', full: 'Restauração', href: '/restauracao-de-cartas', Icon: IconSearch, group: 'explorar' }
 const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat, group: 'conta' }
 // Nenhum dos itens de menu levava pra oferta: dentro do app o preco so existia
 // em /minha-conta, que nem esta na barra de baixo do celular.
