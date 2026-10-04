@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     await registrarEvento(id, 'aceito', `Orçamento aceito: ${aceitos.length} ${aceitos.length === 1 ? 'carta' : 'cartas'}`)
     await notificarCliente(id, 'aceito')
-    await avisarAdminNoSino(id, 'Orçamento aprovado', 'Confira o Pix quando cair e confirme no quadro Valores.')
+    await avisarAdminNoSino(id, 'Orçamento aprovado', 'Aguardando o pagamento. Pix você confirma no quadro Valores; cartão confirma sozinho.')
     return NextResponse.json({ ok: true, status: 'aceito', aceitos: aceitos.length })
   } catch (e) {
     console.error('[servicos/aceitar]', e instanceof Error ? e.message : e)

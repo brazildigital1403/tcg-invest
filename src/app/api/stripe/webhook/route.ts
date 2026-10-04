@@ -590,6 +590,12 @@ async function conciliarEstornoServico(
     if (alvo <= atual) {
       if (alvo < atual) console.warn(`${tag}: Stripe mostra ${alvo}, banco ${atual} -- nunca diminui, ignorando`)
       else console.log(`${tag}: ja conciliado (${atual}) -- nada a fazer`)
+      // O charge.refunded nao traz o id do refund; quando ele concilia primeiro, o
+      // refund.updated que chega depois so completa o id (sem evento nem aviso).
+      if (refundId) {
+        await sb.from('servico_pagamentos').update({ stripe_refund_id: refundId })
+          .eq('id', linha.id).is('stripe_refund_id', null)
+      }
       return ok('ja_conciliado')
     }
 
