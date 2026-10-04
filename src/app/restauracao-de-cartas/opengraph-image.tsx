@@ -11,5 +11,7 @@ export default function Image() {
     sub: 'Conservação sem tinta, cola nem corte, com relatório de chegada e saída',
     selos: ['Custódia filmada', 'Orçamento pelas fotos', 'Brasil todo'],
     url: 'bynx.gg/restauracao-de-cartas',
+    visual: 'antesDepois',
+    cartaUrl: 'https://images.pokemontcg.io/base1/2_hires.png',
   })
 }
