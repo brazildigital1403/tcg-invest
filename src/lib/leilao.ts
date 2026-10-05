@@ -116,6 +116,7 @@ export type CodigoErroLance =
   | 'pedido_invalido'
   | 'cadastro_incompleto'
   | 'suspenso'
+  | 'menor_de_idade'
   | 'leilao_fechado'
   | 'idem_invalido'
   | 'proprio_leilao'
@@ -403,6 +404,7 @@ export function erroDoLance(msg: string | null | undefined, ctx: ContextoErroLan
     ['idem_invalido', 400, MSG_PEDIDO_INVALIDO],
     ['cadastro_incompleto', 403, 'Complete seu cadastro (CPF e CEP) para dar lances.'],
     ['suspenso', 403, 'Sua conta está impedida de dar lances no momento.'],
+    ['menor_de_idade', 403, 'Os lances são permitidos só para maiores de 18 anos.'],
     ['leilao_fechado', 409, 'Este lote não está aberto para lances.'],
     ['proprio_leilao', 403, 'Você não pode dar lance no seu próprio lote.'],
   ]

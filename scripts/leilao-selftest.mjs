@@ -146,7 +146,7 @@ try {
     assert.equal(L.erroDoLance('canceling statement due to lock timeout', { pgCode: '55P03' }).status, 503)
     const codigos = [
       'nao_autenticado', 'pedido_invalido', 'cadastro_incompleto', 'suspenso',
-      'leilao_fechado', 'idem_invalido', 'proprio_leilao',
+      'leilao_fechado', 'idem_invalido', 'proprio_leilao', 'menor_de_idade',
     ]
     for (const c of codigos) {
       const msg = L.erroDoLance(c).mensagem

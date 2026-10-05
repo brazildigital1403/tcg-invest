@@ -9,6 +9,7 @@ const H = PRAZO_PAGAMENTO_ARREMATE_HORAS
  * digitados. Cada resposta so afirma o que o codigo faz hoje:
  * - lance rapido (chips) ou maximo, teto oculto (leilao_proxy), soft close;
  * - cadastro completo = CPF e CEP (raise cadastro_incompleto do dar_lance);
+ * - so maiores de 18 (raise menor_de_idade do dar_lance, 20260928160000);
  * - aviso no sino e por e-mail ao vencer e no calote (leilao-avisos.ts);
  * - calote apos o prazo + carencia (tick), sem suspensao automatica.
  * "E se a carta nao chegar?" fica de fora ate o Du decidir a politica.
@@ -43,7 +44,7 @@ export function ComoFunciona() {
 const PERGUNTAS: ReadonlyArray<{ q: string; r: string }> = [
   {
     q: 'Como eu dou lance?',
-    r: 'Entre na rodada ao vivo com a sua conta Bynx, com CPF e CEP no cadastro. Escolha um lance rápido ou defina o máximo que aceita pagar: a Bynx cobre os lances por você até esse valor e ninguém vê o seu máximo. Lance nos últimos segundos prorroga o fim do lote.',
+    r: 'Entre na rodada ao vivo com a sua conta Bynx, com CPF e CEP no cadastro. Os lances são permitidos só para maiores de 18 anos. Escolha um lance rápido ou defina o máximo que aceita pagar: a Bynx cobre os lances por você até esse valor e ninguém vê o seu máximo. Lance nos últimos segundos prorroga o fim do lote.',
   },
   {
     q: 'É seguro comprar em leilão?',
