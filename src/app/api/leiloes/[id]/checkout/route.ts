@@ -87,6 +87,7 @@ interface LoteCheckout {
   loja_id: string | null
   pagar_ate: string | null
   pedido_id: string | null
+  cancelado_motivo: string | null
   preco_atual_cents: number | null
   lance_inicial_cents: number
   card_id: string | null
@@ -101,7 +102,7 @@ interface LoteCheckout {
 
 // Literal: o supabase-js infere a linha pela string. NUNCA lider_maximo_cents.
 const COLUNAS =
-  'id, slug, status, lider_user_id, vendedor_user_id, loja_id, pagar_ate, pedido_id, preco_atual_cents, lance_inicial_cents, card_id, card_name, card_numero, card_image, fotos, condicao, graduadora, nota'
+  'id, slug, status, lider_user_id, vendedor_user_id, loja_id, pagar_ate, pedido_id, preco_atual_cents, lance_inicial_cents, card_id, card_name, card_numero, card_image, fotos, condicao, graduadora, nota, cancelado_motivo'
 
 function nomeDoLote(l: LoteCheckout): string {
   return [l.card_name, l.card_numero, rotuloGraduacao(l)].filter(Boolean).join(' ')
@@ -179,7 +180,9 @@ async function carregar(req: NextRequest, id: string): Promise<Contexto> {
         error:
           lote.status === 'calote'
             ? 'O prazo para pagar este lote terminou.'
-            : 'Este lote não está mais disponível para pagamento.',
+            : lote.status === 'cancelado' && lote.cancelado_motivo === 'vendedor_sem_recebimento'
+              ? 'O arremate foi cancelado porque a loja não conseguiu receber o pagamento. Nada foi cobrado.'
+              : 'Este lote não está mais disponível para pagamento.',
       }),
     }
   }
@@ -269,6 +272,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (!c.ok) return c.res
     const { lote, recebedor: r } = c
     const precoCents = precoDoLote(lote)
+
+    // O vencedor esta vendo a tela de espera por pendencia do VENDEDOR: grava o
+    // bloqueio (uma vez so) e enfileira o aviso a ele. No fim do prazo, o tick
+    // cancela em vez de marcar calote (migration 20260928150000). Falha de
+    // leitura do vendedor (r null) nao conta: ninguem sabe de quem e a culpa.
+    // Falhar aqui nao derruba a tela.
+    if (r && !podeVender(r)) {
+      const { error: bloqErr } = await c.db.rpc('leilao_registrar_bloqueio', { p_leilao: lote.id })
+      if (bloqErr) console.error('[leilao/checkout] registrar bloqueio', lote.id, bloqErr.code, bloqErr.message)
+    }
 
     return resposta(200, {
       lote: {

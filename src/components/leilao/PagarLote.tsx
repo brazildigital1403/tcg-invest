@@ -464,9 +464,12 @@ export default function PagarLote({
  *   - pendencia do vendedor ('recebimento' ou 'cep'): a loja so agenda rodada
  *     com recebimento ativo e CEP (api/lojas/[id]/leiloes/_comum.ts), entao
  *     isso so aparece se a conta for restrita depois do agendamento.
- * So promete o que e verdade hoje: nada foi cobrado, o lote fica reservado ate
- * pagar_ate, e se o prazo passar o arremate e cancelado sem cobranca. NAO diz
- * que a loja foi avisada: nao existe esse aviso.
+ * So promete o que e verdade: nada foi cobrado, o lote fica reservado ate
+ * pagar_ate, e se o prazo passar o arremate e cancelado sem cobranca. Na
+ * pendencia do vendedor, a rota do checkout registra o bloqueio e enfileira o
+ * aviso a loja, e o tick cancela sem marcar calote (migration 20260928150000)
+ * -- por isso "avisamos a loja" e "nao conta contra voce" so aparecem nesse
+ * caso. Na falha de leitura ninguem sabe de quem e a culpa: texto neutro.
  */
 function EmEspera({
   vendedor,
@@ -497,8 +500,8 @@ function EmEspera({
   const texto = falhaLeitura
     ? 'Os dados do vendedor não carregaram agora. Nada foi cobrado e o seu arremate continua reservado.'
     : vendedor?.bloqueio === 'cep'
-      ? `${nome} ainda não informou o CEP de onde a carta sai, e sem ele não é possível calcular o frete. Nada foi cobrado.`
-      : `${nome} precisa concluir um ajuste no recebimento antes de você pagar. Nada foi cobrado.`
+      ? `${nome} ainda não informou o CEP de onde a carta sai, e sem ele não é possível calcular o frete. Já avisamos a loja. Nada foi cobrado.`
+      : `${nome} precisa concluir um ajuste no recebimento antes de você pagar. Já avisamos a loja. Nada foi cobrado.`
 
   const passos = [
     pagarAte
@@ -507,7 +510,9 @@ function EmEspera({
     falhaLeitura
       ? 'Toque em Tentar de novo. Se continuar assim, volte em alguns minutos.'
       : 'Quando o ajuste for concluído, o botão de pagar aparece nesta tela.',
-    'Se o prazo terminar antes, o arremate é cancelado e nada é cobrado.',
+    falhaLeitura
+      ? 'Se o prazo terminar antes, o arremate é cancelado e nada é cobrado.'
+      : 'Se o prazo terminar antes, o arremate é cancelado, nada é cobrado e isso não conta contra você.',
   ]
 
   return (

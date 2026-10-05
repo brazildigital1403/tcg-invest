@@ -8,6 +8,9 @@ import {
   renderLeilaoSemLancesEmail,
   renderLeilaoCaloteVencedorEmail,
   renderLeilaoCaloteVendedorEmail,
+  renderLeilaoBloqueioVendedorEmail,
+  renderLeilaoCanceladoVendedorCompradorEmail,
+  renderLeilaoCanceladoVendedorLojaEmail,
   type EmailRenderizado,
   type EmailLoteItem,
   type LeilaoEmailArgs,
@@ -124,6 +127,7 @@ function renderizar(e: EmailPlanejado, to: string, nome: string | null): EmailRe
     minimoProximoCents: e.minimoProximoCents,
     terminaEm: e.lote.termina_em,
     pagarAte: e.pagarAte ?? e.lote.pagar_ate,
+    lojaId: e.lote.loja_id ?? null,
   }
   switch (e.modelo) {
     case 'superado': return renderLeilaoSuperadoEmail(a)
@@ -131,6 +135,9 @@ function renderizar(e: EmailPlanejado, to: string, nome: string | null): EmailRe
     case 'sem_lances': return renderLeilaoSemLancesEmail(a)
     case 'calote_vencedor': return renderLeilaoCaloteVencedorEmail(a)
     case 'calote_vendedor': return renderLeilaoCaloteVendedorEmail(a)
+    case 'bloqueio_vendedor': return renderLeilaoBloqueioVendedorEmail(a)
+    case 'cancelado_vendedor_comprador': return renderLeilaoCanceladoVendedorCompradorEmail(a)
+    case 'cancelado_vendedor_loja': return renderLeilaoCanceladoVendedorLojaEmail(a)
   }
 }
 
@@ -142,7 +149,7 @@ async function lerLotes(sb: SB, eventos: EventoReservado[]): Promise<Map<string,
   if (ids.length === 0) return lotes
   const { data, error } = await sb
     .from('leiloes')
-    .select('id, slug, card_name, status, termina_em, pagar_ate, lider_user_id, vendedor_user_id, preco_atual_cents')
+    .select('id, slug, card_name, status, termina_em, pagar_ate, lider_user_id, vendedor_user_id, preco_atual_cents, loja_id, cancelado_motivo')
     .in('id', ids)
   // ★ Falha de leitura NAO vira "nada a avisar": sem o lote o plano
   //   finalizaria o evento em silencio.

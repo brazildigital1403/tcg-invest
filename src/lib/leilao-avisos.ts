@@ -21,6 +21,13 @@
  *                em leilao_cancelar_rodada (migration 20260928130000): um
  *                evento por seguidor de cada lote cancelado. So se o lote
  *                ainda esta cancelado.
+ *   pagamento_bloqueado -> sino + e-mail ao VENDEDOR: o vencedor quis pagar e o
+ *                recebimento dele esta pendente. Nasce em leilao_registrar_bloqueio
+ *                (migration 20260928150000), uma vez por lote. So se o lote ainda
+ *                aguarda pagamento.
+ *   cancelado_vendedor -> sino + e-mail ao vencedor e ao vendedor: o prazo venceu
+ *                com a loja sem receber, entao o tick cancelou em vez de marcar
+ *                calote. So se o lote ainda esta cancelado.
  *   pago, reembolsado, iniciado, teto_ajustado, erro_tick -> nada.
  *
  * ★ Tudo e conferido contra o ESTADO ATUAL do lote, nao so contra o evento:
@@ -36,6 +43,7 @@ export const SEM_EMAIL_FINAL_MS = 15 * 60 * 1000
 export type TipoEvento =
   | 'superado' | 'encerrado' | 'venceu' | 'calote'
   | 'iniciado' | 'teto_ajustado' | 'erro_tick' | 'pago' | 'reembolsado' | 'cancelado'
+  | 'pagamento_bloqueado' | 'cancelado_vendedor'
 
 /** Linha devolvida por leilao_eventos_reservar. */
 export interface EventoReservado {
@@ -62,10 +70,14 @@ export interface LoteAviso {
   lider_user_id: string | null
   vendedor_user_id: string
   preco_atual_cents: number | null
+  /** Para o link de Pagamentos no aviso de bloqueio (null = vendedor sem loja). */
+  loja_id?: string | null
+  cancelado_motivo?: string | null
 }
 
 export type ModeloEmail =
   | 'superado' | 'venceu' | 'sem_lances' | 'calote_vencedor' | 'calote_vendedor'
+  | 'bloqueio_vendedor' | 'cancelado_vendedor_comprador' | 'cancelado_vendedor_loja'
 
 export interface SinoPlanejado {
   user_id: string
@@ -237,6 +249,41 @@ export function planejarAvisos(
         sinos.push(sino(lote.vendedor_user_id, lote, 'Arremate não pago',
           `O vencedor de ${nome} não pagou dentro do prazo.`, e.id))
         emails.push({ modelo: 'calote_vendedor', userId: lote.vendedor_user_id, lote, precoCents: preco, pagarAte: lote.pagar_ate })
+        return { id: e.id, sinos, emails: e.email_em ? [] : emails }
+      }
+
+      case 'pagamento_bloqueado': {
+        // O vencedor abriu o pagamento e o recebimento do vendedor estava pendente.
+        if (lote.status !== 'aguardando_pagamento') return vazio(`lote_${lote.status}`)
+        const prazo = prazoCurtoBrasilia(lote.pagar_ate)
+        return {
+          id: e.id,
+          sinos: [sino(
+            lote.vendedor_user_id, lote, 'Um arrematante quer pagar',
+            `O vencedor de ${nome} tentou pagar, mas o seu recebimento está pendente.${prazo ? ` Regularize até ${prazo} (Brasília).` : ''}`,
+            e.id,
+          )],
+          emails: e.email_em ? [] : [{
+            modelo: 'bloqueio_vendedor', userId: lote.vendedor_user_id, lote,
+            precoCents: lote.preco_atual_cents ?? 0, pagarAte: lote.pagar_ate,
+          }],
+        }
+      }
+
+      case 'cancelado_vendedor': {
+        // Prazo vencido com o vendedor sem receber: cancelado, nao calote.
+        if (lote.status !== 'cancelado') return vazio(`lote_${lote.status}`)
+        const preco = lote.preco_atual_cents ?? 0
+        const sinos: SinoPlanejado[] = []
+        const emails: EmailPlanejado[] = []
+        if (e.user_id) {
+          sinos.push(sino(e.user_id, lote, 'Arremate cancelado',
+            `${nome}: a loja não conseguiu receber o pagamento. Nada foi cobrado.`, e.id))
+          emails.push({ modelo: 'cancelado_vendedor_comprador', userId: e.user_id, lote, precoCents: preco, pagarAte: lote.pagar_ate })
+        }
+        sinos.push(sino(lote.vendedor_user_id, lote, 'Arremate cancelado',
+          `${nome} foi cancelado porque o seu recebimento estava pendente.`, e.id))
+        emails.push({ modelo: 'cancelado_vendedor_loja', userId: lote.vendedor_user_id, lote, precoCents: preco, pagarAte: lote.pagar_ate })
         return { id: e.id, sinos, emails: e.email_em ? [] : emails }
       }
 

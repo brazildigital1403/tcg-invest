@@ -2656,6 +2656,8 @@ export interface LeilaoEmailArgs {
   minimoProximoCents?: number
   terminaEm?: string | null
   pagarAte?: string | null
+  /** Loja do vendedor, para o link de Pagamentos (null = vende sem loja). */
+  lojaId?: string | null
 }
 
 /** Participante: alguem cobriu o lance. */
@@ -2734,6 +2736,53 @@ export function renderLeilaoCaloteVendedorEmail(a: LeilaoEmailArgs): EmailRender
     ${btn('Ver o lote', urlLote(a.slug, 'leilao_calote_vendedor'))}
   `, `O vencedor de ${a.cardName} não pagou`)
   return { to: a.to, subject: subjUser(`Arremate não pago: ${a.cardName}`), html }
+}
+
+/** Onde o vendedor regulariza o recebimento: painel da loja ou /recebimentos. */
+function urlRecebimento(lojaId: string | null | undefined, campaign: string): string {
+  return addUtm(`${URL_CANONICA}${lojaId ? `/minha-loja/${lojaId}/pagamentos` : '/recebimentos'}`, campaign)
+}
+
+/** Vendedor: o vencedor quis pagar e o recebimento dele esta pendente. */
+export function renderLeilaoBloqueioVendedorEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const prazo = prazoCurtoBrasilia(a.pagarAte)
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('Um arrematante quer pagar')}
+    ${p(`${escapeHtml(nome)}, o vencedor de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) tentou pagar, mas o seu recebimento pela Bynx está pendente. Enquanto isso, o pagamento fica travado.`)}
+    ${p(prazo
+      ? `Regularize até ${forte(prazo)} (horário de Brasília) e o pagamento libera na hora para o comprador. Depois desse prazo o arremate é cancelado.`
+      : 'Regularize o quanto antes e o pagamento libera na hora para o comprador. Se o prazo terminar, o arremate é cancelado.')}
+    ${btn('Regularizar o recebimento', urlRecebimento(a.lojaId, 'leilao_bloqueio_vendedor'))}
+  `, `O vencedor de ${a.cardName} quer pagar`)
+  return { to: a.to, subject: subjUser(`Pagamento travado: ${a.cardName}`), html }
+}
+
+/** Vencedor: arremate cancelado porque a loja nao conseguiu receber. */
+export function renderLeilaoCanceladoVendedorCompradorEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Colecionador')
+  const html = baseLayout(`
+    ${badge('Leilão', '#f59e0b', '')}
+    ${h1('O arremate foi cancelado')}
+    ${p(`${escapeHtml(nome)}, a loja não conseguiu receber o pagamento de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) dentro do prazo, então o arremate foi cancelado.`)}
+    ${p('Nada foi cobrado no seu cartão e isso não conta contra você.')}
+    ${btn('Ver leilões ao vivo', addUtm(`${URL_CANONICA}/leiloes`, 'leilao_cancelado_vendedor'))}
+  `, `${a.cardName}: arremate cancelado, nada cobrado`)
+  return { to: a.to, subject: subjUser(`Arremate cancelado: ${a.cardName}`), html }
+}
+
+/** Vendedor: arremate cancelado porque o recebimento dele estava pendente. */
+export function renderLeilaoCanceladoVendedorLojaEmail(a: LeilaoEmailArgs): EmailRenderizado {
+  const nome = primeiroNome(a.nome, 'Lojista')
+  const html = baseLayout(`
+    ${badge('Leilão', '#ef4444', '')}
+    ${h1('Arremate cancelado')}
+    ${p(`${escapeHtml(nome)}, o arremate de ${forte(a.cardName)} (${forte(formatarBRL(a.precoCents))}) foi cancelado porque o seu recebimento pela Bynx estava pendente e o comprador não conseguiu pagar.`)}
+    ${p('Nada foi cobrado e não há envio a fazer. A carta continua com você. Regularize o recebimento antes da próxima rodada.')}
+    ${btn('Regularizar o recebimento', urlRecebimento(a.lojaId, 'leilao_cancelado_vendedor_loja'))}
+  `, `${a.cardName} foi cancelado: recebimento pendente`)
+  return { to: a.to, subject: subjUser(`Arremate cancelado: ${a.cardName}`), html }
 }
 
 

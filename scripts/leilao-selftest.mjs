@@ -381,6 +381,32 @@ try {
     }, 'avisos: calote -> vencedor e vendedor, so se ainda em calote')
 
     ok(() => {
+      let [p] = plano([ev(1, 'pagamento_bloqueado')],
+        lote({ status: 'aguardando_pagamento', lider_user_id: 'U1', pagar_ate: iso(agora + 3600e3) }))
+      assert.deepEqual(p.sinos.map(s => s.user_id), ['V1'], 'so o vendedor recebe o sino')
+      assert.deepEqual(p.emails.map(e => [e.modelo, e.userId]), [['bloqueio_vendedor', 'V1']])
+      assert.ok(/Regularize ate|Regularize até/.test(p.sinos[0].message), 'sino traz o prazo')
+      // Ja pago ou ja vencido: nada sai.
+      ;[p] = plano([ev(1, 'pagamento_bloqueado')], lote({ status: 'vendido' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+      ;[p] = plano([ev(1, 'pagamento_bloqueado')], lote({ status: 'cancelado' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+    }, 'avisos: pagamento_bloqueado -> so o vendedor, so enquanto aguarda pagamento')
+
+    ok(() => {
+      let [p] = plano([ev(1, 'cancelado_vendedor')], lote({ status: 'cancelado', lider_user_id: 'U1' }))
+      assert.deepEqual(p.sinos.map(s => s.user_id), ['U1', 'V1'])
+      assert.deepEqual(p.emails.map(e => e.modelo), ['cancelado_vendedor_comprador', 'cancelado_vendedor_loja'])
+      assert.ok(!p.emails.some(e => e.modelo.startsWith('calote')), 'nao vira calote')
+      for (const t of p.sinos.flatMap(s => [s.title, s.message])) {
+        assert.ok(!/\b(pra|pro|num|numa)\b/i.test(t), `contracao: ${t}`)
+      }
+      // Pagamento tardio reverteu: nada sai.
+      ;[p] = plano([ev(1, 'cancelado_vendedor')], lote({ status: 'vendido' }))
+      assert.equal(p.sinos.length + p.emails.length, 0)
+    }, 'avisos: cancelado_vendedor -> vencedor e vendedor, sem calote')
+
+    ok(() => {
       for (const t of ['pago', 'reembolsado', 'iniciado', 'teto_ajustado', 'erro_tick']) {
         const [p] = plano([ev(1, t)])
         assert.equal(p.sinos.length + p.emails.length, 0, t)
