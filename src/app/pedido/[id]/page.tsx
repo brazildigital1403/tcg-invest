@@ -64,6 +64,8 @@ interface Pedido {
   reclamacao_aberta?: boolean | null
   recebido_automatico?: boolean | null
   cancelado_por?: string | null
+  // Soma estornada por decisao de reclamacao (20260928140000). Parcial nao cancela o pedido.
+  valor_reembolsado_cents?: number | null
 }
 
 const PASSOS = [
@@ -494,6 +496,15 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
             )}
             <div style={S.linha}><span style={S.mut}>Frete</span><span>{pedido.frete_cents === 0 ? <span style={{ color: '#22c55e' }}>Grátis</span> : fmtBRL(pedido.frete_cents)}</span></div>
             <div style={S.total}><span>{cancelado ? 'Total' : 'Total pago'}</span><span>{fmtBRL(pedido.total_comprador_cents)}</span></div>
+            {/* Estorno PARCIAL de reclamacao: o pedido segue ativo, entao sem esta
+                linha o comprador via "Total pago" cheio com parte ja devolvida.
+                Estorno integral vira status reembolsado e tem o proprio aviso. */}
+            {!cancelado && (pedido.valor_reembolsado_cents ?? 0) > 0 && (pedido.valor_reembolsado_cents ?? 0) < pedido.total_comprador_cents && (
+              <>
+                <div style={S.linha}><span style={S.mut}>Estornado no seu cartão</span><span style={{ color: 'var(--bx-green)' }}>− {fmtBRL(pedido.valor_reembolsado_cents ?? 0)}</span></div>
+                <div style={S.linha}><span style={S.mut}>Valor final da compra</span><span style={{ fontWeight: 700 }}>{fmtBRL(pedido.total_comprador_cents - (pedido.valor_reembolsado_cents ?? 0))}</span></div>
+              </>
+            )}
           </div>
 
           {end?.linha1 && (
