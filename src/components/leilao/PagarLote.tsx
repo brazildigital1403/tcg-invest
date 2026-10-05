@@ -400,7 +400,7 @@ export default function PagarLote({
               <span>{formatarBRL(a.protecaoCents)}</span>
             </div>
             <div style={S.linha}>
-              <span style={S.rotulo}>Acréscimo do cartão</span>
+              <span style={S.rotulo}>Custo do cartão</span>
               <span>{formatarBRL(a.custoMetodoCents)}</span>
             </div>
             <div style={S.linha}>

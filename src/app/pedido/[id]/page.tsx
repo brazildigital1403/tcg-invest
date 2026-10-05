@@ -14,6 +14,7 @@ import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { canceladoSemCobranca } from '@/lib/pedidoStatus'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import ProtecaoBynx from './ProtecaoBynx'
+import { protecaoCompradorCents } from '@/lib/leilao-taxas'
 
 /**
  * /pedido/[id] — acompanhamento do pedido.
@@ -292,6 +293,14 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
 
   const souComprador = !!meuId && meuId === pedido.comprador_user_id
   const podeConfirmar = souComprador && pedido.status === 'enviado'
+  // Pedido de leilao grava protecao + cartao juntos em acrescimo_cents (checkout
+  // do leilao). A protecao sai da mesma lib, sobre o preco de martelo; se a
+  // conta nao fechar (taxa mudou depois), cai na linha unica de antes.
+  const protecaoLeilao = (() => {
+    if (!pedido.leilao_id) return null
+    const prot = protecaoCompradorCents(pedido.valor_item_cents)
+    return prot > 0 && prot <= pedido.acrescimo_cents ? prot : null
+  })()
   const podeAvaliar = souComprador && !cancelado && (pedido.status === 'enviado' || pedido.status === 'entregue') && jaAvaliou === false && !avalOk
   const avaliou = souComprador && !cancelado && (avalOk || jaAvaliou === true)
 
@@ -491,7 +500,14 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
 
           <div style={S.linhas}>
             <div style={S.linha}><span style={S.mut}>Produto</span><span>{fmtBRL(pedido.valor_item_cents)}</span></div>
-            {pedido.acrescimo_cents > 0 && (
+            {protecaoLeilao != null ? (
+              <>
+                <div style={S.linha}><span style={S.mut}>Taxa de proteção</span><span>{fmtBRL(protecaoLeilao)}</span></div>
+                {pedido.acrescimo_cents - protecaoLeilao > 0 && (
+                  <div style={S.linha}><span style={S.mut}>{pedido.metodo === 'pix' ? 'Taxa do Pix' : 'Custo do cartão'}</span><span>{fmtBRL(pedido.acrescimo_cents - protecaoLeilao)}</span></div>
+                )}
+              </>
+            ) : pedido.acrescimo_cents > 0 && (
               <div style={S.linha}><span style={S.mut}>{pedido.metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'}</span><span>{fmtBRL(pedido.acrescimo_cents)}</span></div>
             )}
             <div style={S.linha}><span style={S.mut}>Frete</span><span>{pedido.frete_cents === 0 ? <span style={{ color: '#22c55e' }}>Grátis</span> : fmtBRL(pedido.frete_cents)}</span></div>

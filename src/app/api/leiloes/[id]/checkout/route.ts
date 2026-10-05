@@ -498,7 +498,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       brl(precoCents, `${nome} (arremate${lote.condicao ? `, ${lote.condicao}` : ''})`),
     ]
     if (a.protecaoCents > 0) linhas.push(brl(a.protecaoCents, 'Taxa de proteção'))
-    if (a.custoMetodoCents > 0) linhas.push(brl(a.custoMetodoCents, metodo === 'pix' ? 'Taxa do Pix' : 'Acréscimo do cartão'))
+    if (a.custoMetodoCents > 0) linhas.push(brl(a.custoMetodoCents, metodo === 'pix' ? 'Taxa do Pix' : 'Custo do cartão'))
     if (freteCents > 0) linhas.push(brl(freteCents, freteLabel))
 
     const metadata: Record<string, string> = {

@@ -1,5 +1,6 @@
 /**
- * Taxas do LEILAO — PROPOSTA, pendente de aprovacao do Du.
+ * Taxas do LEILAO — aprovadas pelo Du em 05/10/2026 (Quadro #411): vendedor
+ * 6,99% + R$ 0,40 por pedido, comprador 5% de protecao (minimo R$ 2) + cartao.
  *
  * Arquivo proprio de proposito: src/lib/comissao.ts (economia travada das
  * vendas de preco fixo) NAO foi alterado. Daqui so se IMPORTA de la a taxa
