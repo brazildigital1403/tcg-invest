@@ -20,7 +20,7 @@ export default function HomeSearchBand() {
 
   useEffect(() => {
     const t = q.trim()
-    if (t.length < 2) { setResults([]); return }
+    if (t.length < 3) { setResults([]); return }
     const id = setTimeout(async () => {
       try {
         const r = await fetch(`/api/busca?q=${encodeURIComponent(t)}`)

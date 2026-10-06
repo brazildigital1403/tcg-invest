@@ -1,5 +1,5 @@
 // src/app/api/busca/route.ts
-// Endpoint de busca (typeahead da home + uso interno). Chama a RPC busca_global.
+// Endpoint de busca (typeahead da home + uso interno). Chama a RPC busca_global_v2.
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -10,7 +10,11 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const q = (searchParams.get('q') || '').trim()
 
-  if (q.length < 2) {
+  // Minimo de 3 (13/09->06/10): com 2 letras o indice de trigrama nao serve e a
+  // consulta vira varredura das 68 mil cartas (187 MB) a cada tecla. Medido:
+  // 2 letras custavam 1.246 ms e 13 mil buffers QUENTES na busca_global antiga.
+  // A busca_global_v2 tem o mesmo corte dentro da funcao, porque a RPC e publica.
+  if (q.length < 3) {
     return NextResponse.json({ results: [] })
   }
 
@@ -21,7 +25,7 @@ export async function GET(req: Request) {
   }
 
   const sb = createClient(url, anon)
-  const { data, error } = await sb.rpc('busca_global', { q, lim: 6 })
+  const { data, error } = await sb.rpc('busca_global_v2', { q, lim: 6 })
 
   if (error) {
     return NextResponse.json({ results: [], error: error.message }, { status: 500 })
