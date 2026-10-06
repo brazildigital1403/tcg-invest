@@ -232,14 +232,16 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
         setReputacao({ media: 0, total: 0 })
       }
 
-      // Histórico de patrimônio
+      // Histórico de patrimônio: os 60 mais RECENTES (decrescente + limit) e
+      // depois em ordem cronológica para o gráfico. Crescente com limit
+      // pegava os 60 mais antigos e congelava o gráfico no passado.
       const { data: history } = await supabase
         .from('portfolio_history')
         .select('valor, recorded_at')
         .eq('user_id', uid)
-        .order('recorded_at', { ascending: true })
+        .order('recorded_at', { ascending: false })
         .limit(60)
-      setPortfolioHistory(history || [])
+      setPortfolioHistory((history || []).reverse())
 
       // Progresso por set
       if (cards && cards.length > 0) {
