@@ -145,27 +145,108 @@ function supabaseEmail() {
   )
 }
 
+// ── Categorias e remetente de marketing (regua F0, cards #294 e #297) ───────
+//
+// Toda chamada de envio diz a CATEGORIA. Ela decide tres coisas:
+//   - se o e-mail respeita preferencia (transacional nunca respeita: recibo,
+//     pedido e suporte sempre chegam);
+//   - se exige `marketing_aceito` (so mercado, novidades e radar -- o
+//     checkbox do cadastro e o consentimento de mala direta);
+//   - de qual dominio sai: marketing sai por news.bynx.gg, para a reputacao
+//     de bynx.gg ficar so com o transacional (#297).
+//
+// `colecao` e relacionamento sobre a propria conta (boas-vindas, fim do
+// teste, indicacao, regua da loja). Os 14 envios de relacionamento que ja
+// existiam caem aqui por padrao, entao NADA muda para eles: continuam
+// respeitando so o descadastro, mais o toggle de colecao (que nasce ligado).
+
+export type CategoriaEmail = 'transacional' | 'colecao' | 'mercado' | 'novidades' | 'radar'
+export type CategoriaMarketing = 'mercado' | 'novidades' | 'radar'
+
+const CATEGORIAS_MARKETING: ReadonlySet<CategoriaEmail> = new Set<CategoriaEmail>(['mercado', 'novidades', 'radar'])
+
+export function ehCategoriaMarketing(c: CategoriaEmail): c is CategoriaMarketing {
+  return CATEGORIAS_MARKETING.has(c)
+}
+
 /**
- * Busca o estado de descadastro de um e-mail.
- * Em caso de erro devolve `optOut: false` e sem URL: preferimos mandar sem o
- * rodape a segurar um e-mail por causa de uma consulta que falhou.
+ * Remetente das categorias de marketing. news.bynx.gg ja esta verificado no
+ * Resend. A resposta vai para a caixa de verdade do Du em bynx.gg.
+ * ★ Ainda nao existe nenhum envio de marketing ligado -- isto e so a fundacao.
  */
-async function estadoDescadastro(email: string): Promise<{ optOut: boolean; url: string | null }> {
+export const FROM_MARKETING = 'Eduardo da Bynx <eduardo@news.bynx.gg>'
+export const REPLY_TO_MARKETING = 'eduardo@bynx.gg'
+
+/** Coluna de preferencia de cada categoria (transacional nao tem). */
+const COLUNA_PREF: Record<Exclude<CategoriaEmail, 'transacional'>, string> = {
+  colecao: 'email_pref_colecao',
+  mercado: 'email_pref_mercado',
+  novidades: 'email_pref_novidades',
+  radar: 'email_pref_radar',
+}
+
+type EstadoEmail = {
+  /** null quando o e-mail nao bate com nenhuma conta. */
+  userId: string | null
+  optOut: boolean
+  url: string | null
+  marketingAceito: boolean
+  /** null quando as colunas ainda nao existem (migration nao aplicada). */
+  prefs: Record<Exclude<CategoriaEmail, 'transacional'>, boolean> | null
+}
+
+/**
+ * Busca o estado de e-mail de um endereco: descadastro, consentimento e
+ * preferencias.
+ *
+ * Em caso de erro devolve `optOut: false` e sem URL: preferimos mandar sem o
+ * rodape a segurar um e-mail de COLECAO por causa de uma consulta que falhou.
+ * Marketing e o contrario -- sem confirmar o consentimento, nao manda (ver
+ * `enviarNurture`).
+ *
+ * ★ Tolerante a migration nao aplicada: se as colunas `email_pref_*` nao
+ * existirem, cai na consulta antiga e devolve `prefs: null`. O codigo pode
+ * subir antes da migration sem mudar nada.
+ */
+async function estadoEmail(email: string): Promise<EstadoEmail> {
+  const vazio: EstadoEmail = { userId: null, optOut: false, url: null, marketingAceito: false, prefs: null }
   try {
-    const { data } = await supabaseEmail()
+    const sb = supabaseEmail()
+    const completo = await sb
       .from('users')
-      .select('email_optout_nurture, unsubscribe_token')
+      .select('id, email_optout_nurture, unsubscribe_token, marketing_aceito, email_pref_colecao, email_pref_mercado, email_pref_novidades, email_pref_radar')
       .ilike('email', email)
       .limit(1)
-    const u = data?.[0]
-    if (!u) return { optOut: false, url: null }
+
+    let u: any = completo.data?.[0]
+    let temPrefs = !completo.error
+    if (completo.error) {
+      const legado = await sb
+        .from('users')
+        .select('id, email_optout_nurture, unsubscribe_token, marketing_aceito')
+        .ilike('email', email)
+        .limit(1)
+      u = legado.data?.[0]
+      temPrefs = false
+    }
+    if (!u) return vazio
     return {
+      userId: u.id ?? null,
       optOut: !!u.email_optout_nurture,
       url: u.unsubscribe_token ? `${URL_CANONICA}/api/email/descadastrar?t=${u.unsubscribe_token}` : null,
+      marketingAceito: u.marketing_aceito === true,
+      prefs: temPrefs
+        ? {
+            colecao: u.email_pref_colecao !== false,
+            mercado: u.email_pref_mercado !== false,
+            novidades: u.email_pref_novidades !== false,
+            radar: u.email_pref_radar !== false,
+          }
+        : null,
     }
   } catch (e: any) {
     console.warn('[email] nao consegui checar descadastro de', email, '-', e?.message)
-    return { optOut: false, url: null }
+    return vazio
   }
 }
 
@@ -174,49 +255,135 @@ function rodapeDescadastro(url: string): string {
   return `<br/><br/>
       <span style="font-size:11px;line-height:1.6;color:#4b5563;">
         Você recebe este e-mail porque tem conta na Bynx.
-        <a href="${url}" rel="noopener noreferrer nofollow" target="_blank" style="color:#8a8a8a;text-decoration:underline;">Descadastrar</a>.
+        <a href="${url}" rel="noopener noreferrer nofollow" target="_blank" style="color:#8a8a8a;text-decoration:underline;">Descadastrar ou escolher o que recebo</a>.
       </span>`
 }
 
+/** Por que um e-mail de relacionamento nao saiu (vai para o log e o retorno). */
+function motivoParaNaoEnviar(categoria: Exclude<CategoriaEmail, 'transacional'>, est: EstadoEmail): string | null {
+  if (est.optOut) return 'optout'
+  if (ehCategoriaMarketing(categoria)) {
+    // Marketing exige consentimento CONFIRMADO. Conta nao achada ou consulta
+    // que falhou = sem consentimento = nao manda.
+    if (!est.userId) return 'sem_conta'
+    if (!est.marketingAceito) return 'sem_marketing_aceito'
+    // Sem as colunas ainda, nao ha como saber a escolha: nao manda.
+    if (!est.prefs) return 'preferencia_indisponivel'
+  }
+  if (est.prefs && est.prefs[categoria] === false) return `pref_${categoria}_desligada`
+  return null
+}
+
 /**
- * Envia e-mail de RELACIONAMENTO: respeita o opt-out, poe o rodape e os dois
- * headers que o Gmail/Yahoo pedem. Quem ja saiu da lista NAO recebe — e o
- * retorno diz isso, em vez de fingir que enviou.
+ * Envia e-mail de RELACIONAMENTO: respeita o opt-out, a preferencia da
+ * categoria e (marketing) o consentimento; poe o rodape e os dois headers
+ * que o Gmail/Yahoo pedem. Quem nao deve receber NAO recebe -- e o retorno
+ * diz isso, em vez de fingir que enviou.
  */
 async function enviarNurture(params: {
   from: string; to: string; subject: string
   /** Recebe o rodape pra encaixar ANTES do fechamento do card. */
   montarHtml: (rodape: string) => string
+  template: string
+  /** Padrao `colecao`: nao muda nada para os envios que ja existiam. */
+  categoria?: Exclude<CategoriaEmail, 'transacional'>
+  trilha?: string
+  campanha?: string
 }) {
-  const { optOut, url } = await estadoDescadastro(params.to)
-  if (optOut) {
-    console.log(`[email] ${params.to} optou por nao receber relacionamento — "${params.subject}" nao enviado`)
-    return { data: null, error: null, puloPorOptOut: true } as any
+  const categoria = params.categoria ?? 'colecao'
+  const est = await estadoEmail(params.to)
+  const motivo = motivoParaNaoEnviar(categoria, est)
+  if (motivo) {
+    console.log(`[email] ${params.to} nao recebe "${params.subject}" (${categoria}): ${motivo}`)
+    await registrarEnvio({
+      userId: est.userId, email: params.to, template: params.template, categoria,
+      trilha: params.trilha, campanha: params.campanha, resendId: null,
+      status: 'pulado', meta: { motivo, assunto: params.subject },
+    })
+    return { data: null, error: null, puloPorOptOut: motivo === 'optout', puloMotivo: motivo } as any
   }
+
+  const marketing = ehCategoriaMarketing(categoria)
+  const url = est.url
   const html = params.montarHtml(url ? rodapeDescadastro(url) : '')
   return enviar({
-    from: params.from, to: params.to, subject: params.subject, html,
+    from: marketing ? FROM_MARKETING : params.from,
+    replyTo: marketing ? REPLY_TO_MARKETING : undefined,
+    to: params.to, subject: params.subject, html,
     headers: url
       ? {
           'List-Unsubscribe': `<${url}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         }
       : undefined,
+    template: params.template, categoria, trilha: params.trilha, campanha: params.campanha,
+    userId: est.userId,
   })
+}
+
+// ── Log de envio (email_envios, card #295) ──────────────────────────────────
+//
+// ★ BEST EFFORT, sempre. O log nunca derruba nem atrasa o envio por erro: o
+// e-mail ja saiu (ou ja falhou) quando chegamos aqui. Sem a tabela (migration
+// nao aplicada) o insert devolve erro, a gente avisa no log e segue.
+//
+// O Supabase JS nao lanca em erro de API -- devolve `{ error }`, igual o
+// Resend. Por isso o `if (error)` alem do try/catch.
+
+async function registrarEnvio(r: {
+  userId?: string | null; email: string; template: string; categoria: CategoriaEmail
+  trilha?: string; campanha?: string; resendId: string | null
+  status: 'enviado' | 'falhou' | 'pulado'; meta?: Record<string, unknown>
+}) {
+  try {
+    const { error } = await supabaseEmail().from('email_envios').insert({
+      user_id: r.userId ?? null,
+      email: r.email,
+      template: r.template,
+      trilha: r.trilha ?? null,
+      categoria: r.categoria,
+      campanha: r.campanha ?? null,
+      resend_id: r.resendId,
+      status: r.status,
+      meta: r.meta ?? null,
+    })
+    if (error) console.warn(`[email] log de envio nao gravado (${r.template}): ${error.message}`)
+  } catch (e: any) {
+    console.warn(`[email] log de envio nao gravado (${r.template}): ${e?.message}`)
+  }
 }
 
 async function enviar(params: {
   from: string; to: string | string[]; subject: string; html: string
   headers?: Record<string, string>
+  replyTo?: string
+  /** Nome estavel do template, para o log. */
+  template: string
+  /** Padrao `transacional`. */
+  categoria?: CategoriaEmail
+  trilha?: string
+  campanha?: string
+  userId?: string | null
 }) {
-  const res = await resend.emails.send(params)
+  const { template, categoria = 'transacional', trilha, campanha, userId, replyTo, ...envio } = params
+  const res = await resend.emails.send(replyTo ? { ...envio, replyTo } : envio)
+  const para = Array.isArray(params.to) ? params.to.join(', ') : params.to
   if (res.error) {
-    const para = Array.isArray(params.to) ? params.to.join(', ') : params.to
     console.error(
       `[email] FALHA no envio para ${para} — "${params.subject}": ` +
       `${res.error.name ?? 'erro'}: ${res.error.message ?? JSON.stringify(res.error)}`
     )
   }
+  await registrarEnvio({
+    userId: userId ?? null,
+    email: para,
+    template, categoria, trilha, campanha,
+    resendId: res.data?.id ?? null,
+    status: res.error ? 'falhou' : 'enviado',
+    meta: res.error
+      ? { assunto: params.subject, erro: `${res.error.name ?? 'erro'}: ${res.error.message ?? ''}` }
+      : { assunto: params.subject },
+  })
   return res
 }
 
@@ -521,7 +688,7 @@ export async function sendMasterSetUnlockedEmail(to: string, name: string, setNa
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Acesso vitalício — esse Master Set fica liberado na sua conta pra sempre. Dúvidas? Fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Seu Master Set ${setName} foi desbloqueado — imprima as folhas de fichário.`)
 
-  return enviar({ from: FROM, to, subject: subjUser(`🗂️ Master Set liberado: ${setName}`), html })
+  return enviar({ template: 'master-set-unlocked', from: FROM, to, subject: subjUser(`🗂️ Master Set liberado: ${setName}`), html })
 }
 
 export async function sendWelcomeEmail(to: string, name: string) {
@@ -541,7 +708,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${addUtm(`${APP_URL}/faq`, 'welcome', 'link-faq')}" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Bem-vindo à Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`, rodape)
 
-  return enviarNurture({ from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), montarHtml })
+  return enviarNurture({ template: 'welcome', from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), montarHtml })
 }
 
 // ── 2. Trial expirando — 5º dia ───────────────────────────────────────────────
@@ -559,7 +726,7 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Quer continuar no Pro? <a href="${addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'link-veja-planos')}" style="color:#f59e0b;text-decoration:none;">Veja os planos aqui</a>.</p>
   `, `Seu trial Pro expira em 2 dias`, rodape)
 
-  return enviarNurture({ from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), montarHtml })
+  return enviarNurture({ template: 'trial-expiring5', from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), montarHtml })
 }
 
 // ── 3. Trial expirando — último dia ──────────────────────────────────────────
@@ -575,7 +742,7 @@ export async function sendTrialExpiring1Email(to: string, name: string) {
     ${btn('Continuar no Pro →', addUtm(`${APP_URL}/minha-conta`, 'trial-1d', 'cta-button'))}
   `, `Hoje é o último dia do seu Pro trial`, rodape)
 
-  return enviarNurture({ from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), montarHtml })
+  return enviarNurture({ template: 'trial-expiring1', from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), montarHtml })
 }
 
 // ── 4. SUPORTE — novo ticket criado (para admin) ──────────────────────────────
@@ -604,7 +771,7 @@ export async function sendNewTicketAdminEmail(args: {
     ${btn('Ver no painel admin →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-new-admin', 'cta-button'))}
   `, `Novo ticket: ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Novo ticket: ${args.subject}`), html })
+  return enviar({ template: 'new-ticket-admin', from: FROM, to: args.to, subject: subjInterno('Suporte', `Novo ticket: ${args.subject}`), html })
 }
 
 // ── SERVIÇOS — pedido de orçamento completo (para o admin) ───────────────────
@@ -637,7 +804,7 @@ export async function sendNovaSolicitacaoServicoAdminEmail(args: {
     </table>
   `, `Novo orçamento ${args.numero}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Serviços', `Novo orçamento ${args.numero}: ${args.servico}`), html })
+  return enviar({ template: 'nova-solicitacao-servico-admin', from: FROM, to: args.to, subject: subjInterno('Serviços', `Novo orçamento ${args.numero}: ${args.servico}`), html })
 }
 
 // ── SERVIÇOS — e-mails ao cliente do serviço de bancada ──────────────────────
@@ -674,7 +841,7 @@ export async function sendServicoClienteEmail(args: {
     ${args.cta ? btn(args.cta.rotulo, addUtm(args.cta.href, 'servico-bancada', 'cta-button')) : ''}
   `, args.titulo)
 
-  return enviar({ from: FROM, to: args.to, subject: subjUser(args.assunto), html })
+  return enviar({ template: 'servico-cliente', from: FROM, to: args.to, subject: subjUser(args.assunto), html })
 }
 
 // ── CONTA — completar o endereco (campanha de 04/10/2026) ────────────────────
@@ -695,7 +862,7 @@ export async function sendCompletarEnderecoEmail(args: { to: string; nome?: stri
     ${p('O endereço não aparece no seu perfil público. Só é usado para calcular e enviar o que é seu.')}
     ${btn('Completar meu endereço', addUtm(`${APP_URL}/minha-conta#endereco`, 'endereco-out26', 'cta-button'))}
   `, 'Digite o CEP e o resto se preenche sozinho. Leva menos de um minuto.', rodape)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser('Falta só o seu CEP'), montarHtml })
+  return enviarNurture({ template: 'completar-endereco', from: FROM, to: args.to, subject: subjUser('Falta só o seu CEP'), montarHtml })
 }
 
 // ── SERVIÇOS — "Carta pronta" (o momento do resultado) ───────────────────────
@@ -992,7 +1159,7 @@ export function renderServicoProntaEmail(args: ServicoProntaArgs): { subject: st
 
 export async function sendServicoProntaEmail(args: ServicoProntaArgs) {
   const { subject, html } = renderServicoProntaEmail(args)
-  return enviar({ from: FROM, to: args.to, subject, html })
+  return enviar({ template: 'servico-pronta', from: FROM, to: args.to, subject, html })
 }
 
 // ── 5. SUPORTE — confirmação de ticket criado (para usuário) ─────────────────
@@ -1013,7 +1180,7 @@ export async function sendTicketCreatedUserEmail(args: {
     ${btn('Ver meu ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-created-user', 'cta-button'))}
   `, `Recebemos seu ticket: ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Ticket recebido: ${args.subject}`), html })
+  return enviar({ template: 'ticket-created-user', from: FROM, to: args.to, subject: subjInterno('Suporte', `Ticket recebido: ${args.subject}`), html })
 }
 
 // ── 6. SUPORTE — resposta do usuário (para admin) ────────────────────────────
@@ -1037,7 +1204,7 @@ export async function sendUserReplyAdminEmail(args: {
     ${btn('Responder no painel →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-user-reply', 'cta-button'))}
   `, `Nova resposta: ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Resposta: ${args.subject}`), html })
+  return enviar({ template: 'user-reply-admin', from: FROM, to: args.to, subject: subjInterno('Suporte', `Resposta: ${args.subject}`), html })
 }
 
 // ── 7. SUPORTE — resposta do admin (para o usuário) ──────────────────────────
@@ -1063,7 +1230,7 @@ export async function sendAdminReplyUserEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Para responder, basta abrir a conversa no botão acima. Você também pode responder este email, mas o caminho mais rápido é pelo app. 📬</p>
   `, `Resposta para seu ticket: ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
+  return enviar({ template: 'admin-reply-user', from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
 }
 
 // ── 7-bis. SUPORTE — conversa ABERTA pela equipe (para o usuário) ────────────
@@ -1097,7 +1264,7 @@ export async function sendAdminNovaConversaEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Você está recebendo isso porque tem conta na Bynx e nossa equipe precisou falar com você. Responda pelo botão acima — a conversa fica registrada na sua conta. 📬</p>
   `, `A equipe da Bynx te enviou uma mensagem sobre ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
+  return enviar({ template: 'admin-nova-conversa', from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
 }
 
 // ── 7-ter. LOJAS — pedido de documentos pro Selo de Loja Validada ───────────
@@ -1157,7 +1324,7 @@ export async function sendEmailLojaVerificacao(args: {
     </p>
   `, `${escapeHtml(args.nomeLoja)}: falta pouco para o Selo de Loja Validada`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`Verificação da ${args.nomeLoja}`), html })
+  return enviar({ template: 'email-loja-verificacao', from: FROM, to: args.to, subject: subjUser(`Verificação da ${args.nomeLoja}`), html })
 }
 
 // ── 8. SUPORTE — mudança de status (para o usuário) ──────────────────────────
@@ -1188,7 +1355,7 @@ export async function sendTicketStatusChangedEmail(args: {
     ${btn('Ver ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-status-changed', 'cta-button'))}
   `, `Seu ticket agora está ${info.label.toLowerCase()}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `${info.label}: ${args.subject}`), html })
+  return enviar({ template: 'ticket-status-changed', from: FROM, to: args.to, subject: subjInterno('Suporte', `${info.label}: ${args.subject}`), html })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1258,7 +1425,7 @@ export async function sendEmailLojaAprovada(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`🎉 Sua loja foi aprovada!`), html })
+  return enviar({ template: 'email-loja-aprovada', from: FROM, to: args.to, subject: subjUser(`🎉 Sua loja foi aprovada!`), html })
 }
 
 // ── 10. LOJAS — loja suspensa (para o owner) ─────────────────────────────────
@@ -1289,7 +1456,7 @@ export async function sendEmailLojaSuspensa(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi suspensa na Bynx`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`Sua loja foi suspensa`), html })
+  return enviar({ template: 'email-loja-suspensa', from: FROM, to: args.to, subject: subjUser(`Sua loja foi suspensa`), html })
 }
 
 // ── 11. LOJAS — plano alterado (para o owner) ────────────────────────────────
@@ -1428,7 +1595,7 @@ export async function sendEmailLojaPlanoAlterado(args: {
     ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label}`
     : `Plano da sua loja foi atualizado para ${cfgNovo.label}`)
 
-  return enviar({ from: FROM, to: args.to, subject, html })
+  return enviar({ template: 'email-loja-plano-alterado', from: FROM, to: args.to, subject, html })
 }
 
 // ── 12. PURCHASE — confirmação de compra (após webhook Stripe) ───────────────
@@ -1504,7 +1671,7 @@ export async function sendPaginaLendariaEmail(
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Compra única, vitalícia, com impressão ilimitada. Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, pacote ? 'Todas as Páginas Lendárias estão liberadas no seu fichário.' : `${pagina?.nome || 'Sua Página Lendária'} está liberada no seu fichário.`)
 
-  return enviar({
+  return enviar({ template: 'pagina-lendaria',
     from: FROM,
     to,
     subject: subjUser(pacote ? '🌙 A Coleção Lendária é sua — todas as páginas liberadas!' : `🌙 ${pagina?.nome || 'Sua Página Lendária'} é sua — vem ver no fichário!`),
@@ -1643,7 +1810,7 @@ export async function sendPurchaseConfirmationEmail(
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, preheader)
 
-  return enviar({ from: FROM, to, subject, html })
+  return enviar({ template: 'purchase-confirmation', from: FROM, to, subject, html })
 }
 
 // ── 13. TRIAL — alias de sendTrialExpiring1Email ─────────────────────────────
@@ -1711,7 +1878,7 @@ export async function sendReferralActivatedEmail(args: {
     </p>
   `, `Você ganhou ${args.pointsAwarded} pontos por indicar alguém!`, rodape)
 
-  return enviarNurture({
+  return enviarNurture({ template: 'referral-activated',
     from: FROM,
     to: args.to,
     subject: subjUser(`🎉 +${args.pointsAwarded} pts! Sua indicação ativou`),
@@ -1768,7 +1935,7 @@ export async function sendReferralEngagedEmail(args: {
     </p>
   `, `+${POINTS} pts! Sua indicação virou Pro na Bynx`, rodape)
 
-  return enviarNurture({
+  return enviarNurture({ template: 'referral-engaged',
     from: FROM,
     to: args.to,
     subject: subjUser(`🚀 +${POINTS} pts! Sua indicação virou Pro`),
@@ -1828,7 +1995,7 @@ export async function sendRedemptionConfirmedEmail(args: {
     </p>
   `, `Resgate confirmado: ${args.rewardTitle}`)
 
-  return enviar({
+  return enviar({ template: 'redemption-confirmed',
     from: FROM,
     to: args.to,
     subject: subjUser(`✅ Resgate confirmado: ${args.rewardTitle}`),
@@ -1851,7 +2018,7 @@ export async function sendPaymentFailedEmail(to: string, name: string) {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Já atualizou? Pode ignorar este email — a próxima tentativa de cobrança resolve sozinha.</p>
   `, `Atualize seu pagamento para manter o Pro ativo`)
 
-  return enviar({ from: FROM, to, subject: subjUser(`💳 Não conseguimos renovar seu Pro`), html })
+  return enviar({ template: 'payment-failed', from: FROM, to, subject: subjUser(`💳 Não conseguimos renovar seu Pro`), html })
 }
 
 // ── PAGAMENTO — chargeback aberto (alerta para admin) ────────────────────────
@@ -1883,7 +2050,7 @@ export async function sendDisputeAdminEmail(args: {
     ${btn('Abrir disputas no Stripe →', 'https://dashboard.stripe.com/disputes')}
   `, `Chargeback aberto: ${valor}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Alerta', `Chargeback aberto (${valor})`), html })
+  return enviar({ template: 'dispute-admin', from: FROM, to: args.to, subject: subjInterno('Alerta', `Chargeback aberto (${valor})`), html })
 }
 
 
@@ -1913,7 +2080,7 @@ export async function sendNovaNegociacaoEmail(args: {
     ${p('Responda pelo chat da Bynx para combinar valor, condição e envio — tudo dentro da plataforma.')}
     ${btn('Abrir conversa →', url)}
   `, `${args.buyerName || 'Um comprador'} quer ${args.cardName}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`🤝 Nova negociação: ${args.cardName}`), html })
+  return enviar({ template: 'nova-negociacao', from: FROM, to: args.to, subject: subjUser(`🤝 Nova negociação: ${args.cardName}`), html })
 }
 
 export async function sendCartaEnviadaEmail(args: {
@@ -1931,7 +2098,7 @@ export async function sendCartaEnviadaEmail(args: {
     ${p('Quando a carta chegar, confirme o recebimento pelo chat para concluir a negociação e adicioná-la à sua coleção.')}
     ${btn('Acompanhar negociação →', url)}
   `, `${args.sellerName || 'O vendedor'} enviou ${args.cardName}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`📦 Carta enviada: ${args.cardName}`), html })
+  return enviar({ template: 'carta-enviada', from: FROM, to: args.to, subject: subjUser(`📦 Carta enviada: ${args.cardName}`), html })
 }
 
 export async function sendNegociacaoConcluidaEmail(args: {
@@ -1949,7 +2116,7 @@ export async function sendNegociacaoConcluidaEmail(args: {
     ${p('Que tal avaliar o comprador? Avaliações ajudam toda a comunidade a negociar com mais confiança.')}
     ${btn('Avaliar comprador →', url)}
   `, `Venda concluída: ${args.cardName}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`✅ Venda concluída: ${args.cardName}`), html })
+  return enviar({ template: 'negociacao-concluida', from: FROM, to: args.to, subject: subjUser(`✅ Venda concluída: ${args.cardName}`), html })
 }
 
 /**
@@ -1983,7 +2150,7 @@ export async function sendTrialLojaExpirandoEmail(args: {
     ${p('Se quiser manter tudo como está, é só assinar. Você não perde nada do que já cadastrou.')}
     ${btn('Ver os planos →', url)}
   `, `O Pro da ${args.loja} termina ${quando}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`⏳ O Pro da ${args.loja} termina ${quando}`), html })
+  return enviar({ template: 'trial-loja-expirando', from: FROM, to: args.to, subject: subjUser(`⏳ O Pro da ${args.loja} termina ${quando}`), html })
 }
 
 /**
@@ -2005,7 +2172,7 @@ export async function sendTrialLojaExpirouEmail(args: {
     ${p('O que saiu da sua página pública: a galeria de fotos e o selo Pro. Assinando, tudo volta na hora, com as mesmas fotos.')}
     ${btn('Voltar para o Pro →', url)}
   `, `O Pro da ${args.loja} terminou — a loja segue no ar, no Básico`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`Sua loja agora está no plano Básico`), html })
+  return enviar({ template: 'trial-loja-expirou', from: FROM, to: args.to, subject: subjUser(`Sua loja agora está no plano Básico`), html })
 }
 
 /**
@@ -2059,7 +2226,7 @@ export async function sendRecebimentosParadosEmail(args: {
     ${p('É o único item que falta. São uns 3 minutos: CNPJ ou CPF e a conta bancária, preenchidos direto na Stripe. Não custa nada, e a Bynx nunca vê esses dados.')}
     ${btn('Ativar recebimentos →', urlLembrete)}${rodape}
   `, `${args.loja}: falta só ativar os recebimentos`)
-    return enviarNurture({
+    return enviarNurture({ template: 'recebimentos-parados',
       from: FROM, to: args.to,
       subject: subjUser(`A ${args.loja} continua sem botão de comprar`),
       montarHtml: montarLembrete,
@@ -2083,7 +2250,7 @@ export async function sendRecebimentosParadosEmail(args: {
     ${p('Ativar não custa nada: você preenche CNPJ ou CPF e a conta bancária direto na Stripe, em uns 3 minutos. O dinheiro de cada venda cai nessa conta, e a Bynx nunca vê esses dados.')}
     ${btn('Ativar recebimentos →', url)}${rodape}
   `, `${args.loja}: ${args.quantos} à venda sem botão de comprar`)
-  return enviarNurture({
+  return enviarNurture({ template: 'recebimentos-parados',
     from: FROM, to: args.to,
     subject: subjUser(`🔌 ${args.quantos} da ${args.loja} sem botão de comprar`),
     montarHtml,
@@ -2129,7 +2296,7 @@ export async function sendLojaSemCaraEmail(args: {
     ${p('É o passo mais rápido de todos e muda a página pública na hora — não precisa esperar aprovação de nada.')}
     ${btn('Editar minha vitrine →', url)}${rodape}
   `, `${verbo} ${juntar(args.falta)} na ${args.loja}`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`${verbo} ${juntar(args.falta)} na página da ${args.loja}`), montarHtml })
+  return enviarNurture({ template: 'loja-sem-cara', from: FROM, to: args.to, subject: subjUser(`${verbo} ${juntar(args.falta)} na página da ${args.loja}`), montarHtml })
 }
 
 /**
@@ -2155,7 +2322,7 @@ export async function sendLojaSemFotoEmail(args: {
     ${p('A galeria é o que separa a sua página da de uma loja no plano Básico. Uma foto do balcão, da prateleira ou da vitrine já resolve — não precisa de produção.')}
     ${btn('Subir as fotos →', url)}${rodape}
   `, `${args.loja}: ${args.limite} fotos disponíveis e nenhuma no ar`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`📷 ${args.limite} fotos sobrando no plano da ${args.loja}`), montarHtml })
+  return enviarNurture({ template: 'loja-sem-foto', from: FROM, to: args.to, subject: subjUser(`📷 ${args.limite} fotos sobrando no plano da ${args.loja}`), montarHtml })
 }
 
 /** PASSO 4 · vitrine vazia: nada a venda, nem carta nem produto. */
@@ -2174,7 +2341,7 @@ export async function sendLojaVitrineVaziaEmail(args: {
     ${p('Uma carta pelo Marketplace ou um selado pelo painel de produtos já colocam a loja em funcionamento. Um item só já muda a página.')}
     ${btn('Colocar o primeiro item →', url)}${rodape}
   `, `A vitrine da ${args.loja} está vazia`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A vitrine da ${args.loja} não tem nada à venda`), montarHtml })
+  return enviarNurture({ template: 'loja-vitrine-vazia', from: FROM, to: args.to, subject: subjUser(`A vitrine da ${args.loja} não tem nada à venda`), montarHtml })
 }
 
 /**
@@ -2198,7 +2365,7 @@ export async function sendLojaPerdeuProEmail(args: {
     ${p('Elas não foram apagadas: continuam guardadas e voltam no mesmo lugar no instante em que você assinar. A loja segue no ar e vendendo do mesmo jeito.')}
     ${btn('Voltar para o Pro →', url)}${rodape}
   `, `As fotos da ${args.loja} saíram da página pública`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`As fotos da ${args.loja} saíram da página`), montarHtml })
+  return enviarNurture({ template: 'loja-perdeu-pro', from: FROM, to: args.to, subject: subjUser(`As fotos da ${args.loja} saíram da página`), montarHtml })
 }
 
 /**
@@ -2234,7 +2401,7 @@ export async function sendLojaResumoMensalEmail(args: {
         : 'No Premium você vê de onde vem cada clique, quais itens são mais vistos e o movimento dia a dia.')}
     ${btn('Ver o painel →', url)}${rodape}
   `, `${args.loja}: ${args.cliques} cliques e ${args.pedidos} pedidos em ${args.mes}`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A ${args.loja} em ${args.mes}`), montarHtml })
+  return enviarNurture({ template: 'loja-resumo-mensal', from: FROM, to: args.to, subject: subjUser(`A ${args.loja} em ${args.mes}`), montarHtml })
 }
 
 /**
@@ -2258,7 +2425,7 @@ export async function sendLojaReativacaoEmail(args: {
     ${p('A loja continua no ar e nada do que você cadastrou foi apagado. Se quiser retomar, o painel está do mesmo jeito que você deixou.')}
     ${btn('Abrir minha loja →', url)}${rodape}
   `, `A ${args.loja} está parada há ${args.dias} dias`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A ${args.loja} está parada faz um tempo`), montarHtml })
+  return enviarNurture({ template: 'loja-reativacao', from: FROM, to: args.to, subject: subjUser(`A ${args.loja} está parada faz um tempo`), montarHtml })
 }
 
 export async function sendNegociacaoExpirandoEmail(args: {
@@ -2277,7 +2444,7 @@ export async function sendNegociacaoExpirandoEmail(args: {
     ${p('Basta responder pelo chat da Bynx para o prazo reiniciar.')}
     ${btn('Responder agora →', url)}
   `, `Faltam ${args.horasRestantes}h na negociação de ${args.cardName}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`⏰ Faltam ${args.horasRestantes}h: ${args.cardName}`), html })
+  return enviar({ template: 'negociacao-expirando', from: FROM, to: args.to, subject: subjUser(`⏰ Faltam ${args.horasRestantes}h: ${args.cardName}`), html })
 }
 
 /**
@@ -2320,7 +2487,7 @@ export async function sendNegociacaoExpiradaEmail(args: {
       ? `${args.cardName} voltou a aparecer no marketplace`
       : `${args.cardName} não está mais reservada para você`)
 
-  return enviar({
+  return enviar({ template: 'negociacao-expirada',
     from: FROM,
     to: args.to,
     subject: subjUser(ehVendedor
@@ -2348,7 +2515,7 @@ export async function sendMensagensNaoLidasEmail(args: {
     ${btn('Ver conversas →', url)}
   `, plural ? `${args.qtd} mensagens não lidas na Bynx` : 'Você tem uma mensagem não lida')
   const subject = subjUser(plural ? `💬 ${args.qtd} mensagens não lidas` : '💬 Você tem uma mensagem não lida')
-  return enviar({ from: FROM, to: args.to, subject, html })
+  return enviar({ template: 'mensagens-nao-lidas', from: FROM, to: args.to, subject, html })
 }
 
 // ─── Stripe Connect (vendas on-site) ────────────────────────────────────────
@@ -2388,7 +2555,7 @@ export async function sendConnectAtivoEmail(args: {
     ${btnB2B(quem ? 'Ver meus pagamentos' : 'Ver meus recebimentos', addUtm(url, 'connect_ativo'), B2B_GRADIENT_PREMIUM, '#a855f7')}
   `, quem ? 'Sua loja já pode vender na Bynx' : 'Você já pode vender na Bynx')
 
-  return enviar({
+  return enviar({ template: 'connect-ativo',
     from: FROM,
     to: args.to,
     subject: subjUser(quem ? `🎉 ${quem}: seus recebimentos estão ativos!` : '🎉 Seus recebimentos estão ativos!'),
@@ -2431,7 +2598,7 @@ export async function sendConnectPendenciaEmail(args: {
     ${p('<span style="color:rgba(255,255,255,0.4);font-size:13px;">Essas informações são exigidas pela Stripe, que processa os pagamentos com segurança. A Bynx não tem acesso aos seus dados bancários.</span>')}
   `, `A Stripe precisa de ${plural} para liberar seus recebimentos`)
 
-  return enviar({
+  return enviar({ template: 'connect-pendencia',
     from: FROM,
     to: args.to,
     subject: subjUser(quem ? `📋 ${quem}: falta pouco para ativar seus recebimentos` : '📋 Falta pouco para ativar seus recebimentos'),
@@ -2478,7 +2645,7 @@ export async function sendVendaLojistaEmail(args: {
     ${btnB2B('Ver o pedido', addUtm(url, 'venda_lojista'), B2B_GRADIENT_PREMIUM, '#a855f7')}
   `, `${args.itemNome} vendido — envie o produto`)
 
-  return enviar({
+  return enviar({ template: 'venda-lojista',
     from: FROM,
     to: args.to,
     subject: subjUser(`💰 Você vendeu: ${args.itemNome}`),
@@ -2511,7 +2678,7 @@ export async function sendPedidoCompradorEmail(args: {
     ${btn('Acompanhar pedido', addUtm(url, 'pedido_comprador'))}
   `, `Pedido #${args.pedidoNumero} confirmado`)
 
-  return enviar({
+  return enviar({ template: 'pedido-comprador',
     from: FROM,
     to: args.to,
     subject: subjUser(`✅ Pedido confirmado: ${args.itemNome}`),
@@ -2565,7 +2732,7 @@ export async function sendPagamentoLembreteEmail(args: {
     ${p('Se você desistiu, não precisa fazer nada: o pedido se cancela sozinho e nada é cobrado. E se alguma etapa travou, responda este e-mail que a gente resolve.')}
   `, `Conclua o pagamento do pedido #${args.pedidoNumero}`)
 
-  return enviar({
+  return enviar({ template: 'pagamento-lembrete',
     from: FROM,
     to: args.to,
     subject: subjUser(`🛒 Falta só o pagamento: ${args.itemNome}`),
@@ -2603,7 +2770,7 @@ export async function sendPedidoExpiradoEmail(args: {
     ${p('Se alguma coisa travou no caminho — o frete, a forma de pagamento, qualquer etapa da tela — responda este e-mail. Saber onde travou ajuda a gente a consertar.')}
   `, `Pedido #${args.pedidoNumero} cancelado por falta de pagamento`)
 
-  return enviar({
+  return enviar({ template: 'pedido-expirado',
     from: FROM,
     to: args.to,
     subject: subjUser(`O prazo do pedido #${args.pedidoNumero} venceu`),
@@ -2634,7 +2801,7 @@ export async function sendPedidoEnviadoEmail(args: {
     ${btn('Acompanhar pedido', addUtm(url, 'pedido_enviado'))}
   `, `${args.itemNome} está a caminho`)
 
-  return enviar({
+  return enviar({ template: 'pedido-enviado',
     from: FROM,
     to: args.to,
     subject: subjUser(`📦 A caminho: ${args.itemNome}`),
@@ -2669,7 +2836,7 @@ export async function sendReembolsoCompradorEmail(args: {
     ${btn('Ver o pedido', addUtm(url, 'pedido_reembolsado'))}
   `, `Reembolso do pedido #${args.pedidoNumero}`)
 
-  return enviar({
+  return enviar({ template: 'reembolso-comprador',
     from: FROM,
     to: args.to,
     subject: subjUser(`↩️ Reembolso: ${args.itemNome}`),
