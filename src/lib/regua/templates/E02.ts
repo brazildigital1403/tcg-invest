@@ -12,7 +12,7 @@
  *   assunto repetem os mesmos valores. Se o menor preco mudar, regerar a arte
  *   (mockups/E02-boas-vindas-scan/assets/hero-fila.html) e trocar PRECOS juntos.
  *
- * PENDENTE ANTES DO ENVIO: /minha-colecao ainda nao abre o Scan IA com ?scan=1.
+ * Deep link: /minha-colecao?scan=1 abre o Scan IA direto (src/lib/deepLink.ts).
  */
 import { btnRegua, blocoPromocao, layoutRegua } from '@/lib/email'
 import { urlArte, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'

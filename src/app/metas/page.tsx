@@ -18,7 +18,7 @@
  *   aqui seria uma varredura por meta a cada visita).
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/ui/AppLayout'
@@ -28,6 +28,7 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { IconTarget, IconSearch, IconCheck, IconPlus, IconCollection, IconCarrinho, IconPokeball, IconArrowRight } from '@/components/ui/Icons'
 import { getUserPlan } from '@/lib/isPro'
 import { track } from '@/lib/analytics'
+import { lerParametro, limparParametros } from '@/lib/deepLink'
 import LequeCartas, { type CartaLeque } from '@/components/metas/LequeCartas'
 import AnelMeta, { LegendaAnel } from '@/components/metas/AnelMeta'
 import {
@@ -70,14 +71,37 @@ export default function MetasPage() {
   const [salvando, setSalvando] = useState<string | null>(null)
   const [erro, setErro] = useState('')
 
+  // Deep link do E11: /metas?nova=set:<setId> abre a criacao ja com o set.
+  // Deslogado, o parametro fica na URL e vai no `next` do login (e do cadastro,
+  // que passa pelo /auth/pos-cadastro), entao volta junto depois de entrar.
+  // Logado, o loader abaixo confere o set, abre a criacao e tira o parametro
+  // da URL; set que nao existe e ignorado (a tela segue como /metas).
+  const [novaSet, setNovaSet] = useState<string | null>(null)
+
+  // Login feito pelo modal NESTA pagina: o destino do `next` e a mesma rota,
+  // e a pagina nao remonta. Sem recarregar aqui, ela seguia como deslogada.
+  const uidRef = useRef<string | null>(null)
+  const [sessaoVersao, setSessaoVersao] = useState(0)
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, sessao) => {
+      if (evento === 'SIGNED_IN' && sessao?.user && sessao.user.id !== uidRef.current) setSessaoVersao(v => v + 1)
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
   useEffect(() => {
     let ativo = true
     ;(async () => {
       const { data: u } = await supabase.auth.getUser()
       const uid = u.user?.id ?? null
       if (!ativo) return
+      if (sessaoVersao > 0 && uid === uidRef.current) return
+      const pedido = /^set:(.+)$/.exec((lerParametro('nova') || '').trim())?.[1].trim() || null
+      uidRef.current = uid
       setUserId(uid)
+      setNovaSet(pedido)
       if (!uid) { setLoaded(true); return }
+      if (sessaoVersao > 0) setLoaded(false)
       const [lista, p, s] = await Promise.all([
         listarMetas().catch(() => [] as Meta[]),
         getUserPlan(uid),
@@ -86,18 +110,24 @@ export default function MetasPage() {
       if (!ativo) return
       setMetas(lista)
       setPlano(p.plano)
-      setSets((s.data || []) as SetInfo[])
-      setCriando(lista.length === 0)
+      const listaSets = (s.data || []) as SetInfo[]
+      setSets(listaSets)
+      const novaValida = pedido && listaSets.some(x => x.id === pedido) ? pedido : null
+      if (pedido && !s.error) { limparParametros('nova'); setNovaSet(novaValida) }
+      setCriando(lista.length === 0 || !!novaValida)
       setLoaded(true)
     })()
     return () => { ativo = false }
-  }, [])
+  }, [sessaoVersao])
 
   const nomeDoSet = useMemo(() => {
     const m = new Map<string, SetInfo>()
     for (const s of sets) m.set(s.id, s)
     return m
   }, [sets])
+
+  const novaInfo = novaSet ? nomeDoSet.get(novaSet) : undefined
+  const novaExistente = novaInfo ? metas.find(m => m.tipo === 'set' && m.alvo === novaInfo.id) : undefined
 
   // Lista de Pokemon (cacheada no servidor) so quando o formulario abre.
   useEffect(() => {
@@ -163,7 +193,7 @@ export default function MetasPage() {
     return [...ps, ...ss]
   }, [busca, pokemons, sets])
 
-  async function criar(tipo: MetaTipo, alvo: string, origem: 'sugestao' | 'busca') {
+  async function criar(tipo: MetaTipo, alvo: string, origem: 'sugestao' | 'busca' | 'link') {
     setSalvando(`${tipo}:${alvo}`)
     setErro('')
     try {
@@ -219,7 +249,36 @@ export default function MetasPage() {
           <div style={{ ...bloco, padding: '34px 22px', textAlign: 'center' }}>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>Entre para criar sua primeira meta</div>
             <p style={{ fontSize: 14, color: 'var(--bx-text-2)', margin: '0 0 18px', lineHeight: 1.55 }}>Escolha um Pokémon ou uma coleção e veja, carta por carta, o que falta, quanto custa e quem vende hoje. Grátis.</p>
-            <button onClick={() => openLogin({ next: '/metas' })} style={btnPrim}>Entrar e criar meta</button>
+            <button onClick={() => openLogin({ next: novaSet ? `/metas?nova=${encodeURIComponent(`set:${novaSet}`)}` : '/metas' })} style={btnPrim}>Entrar e criar meta</button>
+          </div>
+        )}
+
+        {/* ── Meta pedida pelo link (?nova=set:<id>) ───────────────────── */}
+        {loaded && userId && criando && novaInfo && (
+          <div style={{ ...heroBox, padding: '18px 18px 20px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={kicker}>{novaExistente ? 'Você já acompanha esta coleção' : 'Nova meta'}</div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
+              <span style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(var(--ac-1-rgb), 0.12)', border: '1px solid rgba(var(--ac-1-rgb), 0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <IconCollection size={20} color="var(--ac-1)" />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.01em' }}>{tituloMeta('set', novaInfo.id, novaInfo.name_pt || novaInfo.name)}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--bx-text-3)' }}>{['Coleção', novaInfo.series, novaInfo.release_date?.slice(0, 4)].filter(Boolean).join(' · ')}</div>
+              </div>
+            </div>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--bx-text-2)', lineHeight: 1.55 }}>
+              {novaExistente
+                ? 'Esta meta já está na sua lista. Abra para ver o que falta, quanto custa e quem vende hoje.'
+                : 'A Bynx cruza com as cartas que você já tem e mostra o que falta, quanto custa e quem vende hoje.'}
+            </p>
+            {novaExistente ? (
+              <Link href={`/metas/${novaExistente.id}`} prefetch={false} style={{ ...btnPrim, alignSelf: 'flex-start' }}>Abrir a meta <IconArrowRight size={16} color="currentColor" /></Link>
+            ) : (
+              <button onClick={() => criar('set', novaInfo.id, 'link')} disabled={!!salvando} style={{ ...btnPrim, alignSelf: 'flex-start' }}>
+                <IconPlus size={16} color="currentColor" />{salvando === `set:${novaInfo.id}` ? 'Montando…' : 'Criar esta meta'}
+              </button>
+            )}
+            {erro && !novaExistente && <p style={{ margin: 0, fontSize: 13, color: 'var(--bx-red)' }}>{erro}</p>}
           </div>
         )}
 

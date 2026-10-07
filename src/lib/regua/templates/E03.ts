@@ -12,8 +12,8 @@
  *   (72x72, recorte quadrado da arte de images.pokemontcg.io).
  * Os precos da lista sao texto vivo: o motor passa o menor preco do dia.
  *
- * PENDENTE ANTES DO ENVIO: /pokedex ainda nao le ?p= (o CTA abre a Pokedex sem
- * o filtro).
+ * Deep link: /pokedex?p=<nome> abre a Pokedex filtrada pelo Pokemon e, com o
+ * plano liberado, direto nas cartas dele ("lugia-gx" casa com Lugia).
  */
 import { btnRegua, blocoPromocao, layoutRegua } from '@/lib/email'
 import { urlArte, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
