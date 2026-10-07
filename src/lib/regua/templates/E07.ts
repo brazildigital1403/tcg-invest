@@ -20,9 +20,10 @@
  * - Miniatura do anuncio: imagem da carta por URL (dado; foto do anuncio no
  *   storage da Bynx ou imagem do catalogo).
  *
- * PENDENTE ANTES DO ENVIO: /metas/[id] ainda nao abre a aba "A venda" com
- * ?ver=a-venda; a linha "Menor preco no Mercado Brasileiro" das cartas a venda
- * so entra quando o envio tiver esse valor (campo `mercado`).
+ * Deep link: /metas/[id]?ver=a-venda abre a aba "A venda" (sem nada a venda
+ * no clique, rola ate o Radar e destaca).
+ * PENDENTE ANTES DO ENVIO: a linha "Menor preco no Mercado Brasileiro" das
+ * cartas a venda so entra quando o envio tiver esse valor (campo `mercado`).
  */
 import { blocoPromocao, layoutRegua } from '@/lib/email'
 import { urlArte, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
