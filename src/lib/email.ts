@@ -171,11 +171,12 @@ export function ehCategoriaMarketing(c: CategoriaEmail): c is CategoriaMarketing
 
 /**
  * Remetente das categorias de marketing. news.bynx.gg ja esta verificado no
- * Resend. A resposta vai para a caixa de verdade do Du em bynx.gg.
+ * Resend. ★ A regua inteira fala como A BYNX (regra de 08/10): remetente
+ * "Bynx", resposta no suporte. So ticket/suporte segue pessoal.
  * ★ Ainda nao existe nenhum envio de marketing ligado -- isto e so a fundacao.
  */
-export const FROM_MARKETING = 'Eduardo da Bynx <eduardo@news.bynx.gg>'
-export const REPLY_TO_MARKETING = 'eduardo@bynx.gg'
+export const FROM_MARKETING = 'Bynx <novidades@news.bynx.gg>'
+export const REPLY_TO_MARKETING = 'suporte@bynx.gg'
 
 /** Coluna de preferencia de cada categoria (transacional nao tem). */
 const COLUNA_PREF: Record<Exclude<CategoriaEmail, 'transacional'>, string> = {
@@ -190,6 +191,8 @@ type EstadoEmail = {
   userId: string | null
   optOut: boolean
   url: string | null
+  /** Pagina de preferencias sem login (mesmo token do descadastro). */
+  prefsUrl: string | null
   marketingAceito: boolean
   /** null quando as colunas ainda nao existem (migration nao aplicada). */
   prefs: Record<Exclude<CategoriaEmail, 'transacional'>, boolean> | null
@@ -214,7 +217,7 @@ function semCuringa(email: string): string {
 }
 
 async function estadoEmail(email: string): Promise<EstadoEmail> {
-  const vazio: EstadoEmail = { userId: null, optOut: false, url: null, marketingAceito: false, prefs: null }
+  const vazio: EstadoEmail = { userId: null, optOut: false, url: null, prefsUrl: null, marketingAceito: false, prefs: null }
   try {
     const sb = supabaseEmail()
     const completo = await sb
@@ -239,6 +242,7 @@ async function estadoEmail(email: string): Promise<EstadoEmail> {
       userId: u.id ?? null,
       optOut: !!u.email_optout_nurture,
       url: u.unsubscribe_token ? `${URL_CANONICA}/api/email/descadastrar?t=${u.unsubscribe_token}` : null,
+      prefsUrl: u.unsubscribe_token ? `${URL_CANONICA}/email/preferencias?t=${u.unsubscribe_token}` : null,
       marketingAceito: u.marketing_aceito === true,
       prefs: temPrefs
         ? {
@@ -287,8 +291,12 @@ function motivoParaNaoEnviar(categoria: Exclude<CategoriaEmail, 'transacional'>,
  */
 async function enviarNurture(params: {
   from: string; to: string; subject: string
-  /** Recebe o rodape pra encaixar ANTES do fechamento do card. */
-  montarHtml: (rodape: string) => string
+  /**
+   * Recebe o rodape pra encaixar ANTES do fechamento do card. O segundo
+   * argumento traz os links crus, para quem monta com `layoutRegua` (que tem
+   * rodape proprio com Preferencias e Descadastrar).
+   */
+  montarHtml: (rodape: string, links: LinksRelacionamento | null) => string
   template: string
   /** Padrao `colecao`: nao muda nada para os envios que ja existiam. */
   categoria?: Exclude<CategoriaEmail, 'transacional'>
@@ -310,7 +318,10 @@ async function enviarNurture(params: {
 
   const marketing = ehCategoriaMarketing(categoria)
   const url = est.url
-  const html = params.montarHtml(url ? rodapeDescadastro(url) : '')
+  const links: LinksRelacionamento | null = url
+    ? { descadastrar: url, preferencias: est.prefsUrl ?? `${URL_CANONICA}/minha-conta` }
+    : null
+  const html = params.montarHtml(url ? rodapeDescadastro(url) : '', links)
   return enviar({
     from: marketing ? FROM_MARKETING : params.from,
     replyTo: marketing ? REPLY_TO_MARKETING : undefined,
@@ -515,6 +526,371 @@ function p(text: string, style = '') {
 
 function divider() {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;"><tr><td height="1" bgcolor="#1f2937" style="background-color:#1f2937;height:1px;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>`
+}
+
+// ── Layout da regua (F1, mockups aprovados em 08/10) ────────────────────────
+//
+// Esqueleto de TODO e-mail da regua: cabecalho com o logo, cartao do corpo com
+// o filete da marca, bloco "Selecao Bynx" (opcional, cartao proprio depois do
+// corpo) e rodape de relacionamento (motivo, Preferencias, Descadastrar, logo).
+// Fonte: _Regua/direcao/base.html e bloco-promocao.html.
+//
+// HTML de e-mail: tabelas, CSS inline, hex (cliente de e-mail nao le var()).
+// O <style> so faz fonte, reset e o ajuste do celular; sem ele o e-mail
+// continua legivel. Zero emoji, nem no assunto.
+
+export type LinksRelacionamento = { descadastrar: string; preferencias: string }
+
+/** Logo OPACO (fundo escuro chapado): PNG transparente some no claro do Outlook. */
+const LOGO_REGUA = `${URL_CANONICA}/emails/regua/logo-bynx.png`
+const FONT_REGUA = "font-family:'DM Sans',Helvetica,Arial,sans-serif;"
+
+/** Links internos da regua: utm_medium=regua. Link de afiliado NAO passa aqui. */
+function utmRegua(href: string, campanha: string, conteudo?: string): string {
+  try {
+    const url = new URL(href)
+    url.searchParams.set('utm_source', 'email')
+    url.searchParams.set('utm_medium', 'regua')
+    url.searchParams.set('utm_campaign', campanha)
+    if (conteudo) url.searchParams.set('utm_content', conteudo)
+    return url.toString()
+  } catch {
+    return href
+  }
+}
+
+/** `&` cru dentro de atributo href vira `&amp;`. */
+function attr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+}
+
+/** Logo no lugar de "Bynx" quando o nome fica sozinho numa linha (assinatura). */
+function assinaturaLogo(altura = 32): string {
+  const largura = Math.round((altura * 424) / 160)
+  return `<p style="margin:20px 0 0;"><a href="${URL_CANONICA}" target="_blank" style="text-decoration:none;display:inline-block;"><img src="${LOGO_REGUA}" width="${largura}" height="${altura}" alt="Bynx" style="display:block;width:${largura}px;height:${altura}px;border:0;color:#f0f0f0;${FONT_REGUA}font-size:16px;font-weight:800;"/></a></p>`
+}
+
+/** Motivo do recebimento, por categoria (rodape de relacionamento). */
+export function motivoRecebimento(categoria: Exclude<CategoriaEmail, 'transacional'>): string {
+  return ehCategoriaMarketing(categoria)
+    ? 'Você recebe porque tem conta na Bynx e aceitou novidades.'
+    : 'Você recebe porque tem conta na Bynx.'
+}
+
+/** Botao principal (um por e-mail): bulletproof, gradiente da marca, texto escuro. */
+export function btnRegua(label: string, href: string): string {
+  const h = attr(href)
+  return `<!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${h}" style="height:52px;v-text-anchor:middle;width:280px;" arcsize="23%" stroke="f" fillcolor="#f59e0b">
+        <w:anchorlock/><center style="color:#0a0a0a;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">${label}</center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${h}" target="_blank" class="btn tinta" style="display:inline-block;padding:0 36px;height:52px;line-height:52px;min-width:208px;text-align:center;border-radius:12px;background-color:#f59e0b;background-image:linear-gradient(135deg,#f59e0b,#ef4444);color:#0a0a0a;${FONT_REGUA}font-size:16px;font-weight:800;text-decoration:none;mso-hide:all;">${label}</a>
+        <!--<![endif]-->`
+}
+
+function documentoRegua(linhas: string, preheader: string): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>Bynx</title>
+<!--[if mso]>
+<noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<style>td,th,a,p,span,div{font-family:Arial,sans-serif!important}</style>
+<![endif]-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap');
+:root{color-scheme:dark;supported-color-schemes:dark}
+body{margin:0!important;padding:0!important;background-color:#080a0f!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+table{mso-table-lspace:0;mso-table-rspace:0}
+img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none}
+a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important}
+u+#body a{color:inherit;text-decoration:none}
+@media only screen and (max-width:480px){
+  .casca{padding:0!important}
+  .cartao{border-radius:0!important;border-left:0!important;border-right:0!important}
+  .px{padding-left:16px!important;padding-right:16px!important}
+  .topo{padding:16px 16px 12px!important}
+  .h1{font-size:26px!important;line-height:32px!important}
+  .btn{display:block!important;padding-left:0!important;padding-right:0!important}
+  .promo-gap{width:8px!important}
+  .promo-px{padding-left:12px!important;padding-right:12px!important}
+  .promo-item{padding:8px!important}
+  .promo-foto{height:116px!important}
+  .promo-foto img{width:104px!important;height:104px!important}
+  .promo-preco{font-size:19px!important;line-height:24px!important}
+  .promo-btn{display:block!important;padding:0 4px!important;font-size:14px!important}
+  .promo-d-foto{width:112px!important}
+  .promo-d-foto-box{height:112px!important;padding:6px!important}
+  .promo-d-foto-box img{width:100px!important;height:100px!important}
+  .promo-d-txt{padding-left:14px!important;padding-right:4px!important}
+  .promo-d-tit{font-size:16px!important;line-height:22px!important;max-height:44px!important}
+  .promo-d-preco{font-size:22px!important;line-height:28px!important}
+}
+[data-ogsc] .tinta{color:#0a0a0a!important}
+</style>
+</head>
+<body id="body" style="margin:0;padding:0;background-color:#080a0f;" bgcolor="#080a0f">
+${preheader ? `<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#080a0f;">${escapeHtml(preheader)}${'&nbsp;&zwnj;'.repeat(12)}</div>` : ''}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#080a0f" style="background-color:#080a0f;">
+<tr><td align="center" class="casca" style="padding:24px 12px;background-color:#080a0f;" bgcolor="#080a0f">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+${linhas}
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr>
+</table>
+</body>
+</html>`
+}
+
+/**
+ * Layout da regua. `conteudo` e o miolo do cartao (ja com `.px` nas celulas);
+ * `promocao` e a saida de `blocoPromocao` (vazio = sem bloco).
+ */
+export function layoutRegua(args: {
+  conteudo: string
+  campanha: string
+  categoria: Exclude<CategoriaEmail, 'transacional'>
+  links: LinksRelacionamento | null
+  preheader?: string
+  /** Texto do canto direito do cabecalho, ex.: "Radar Bynx · #1". */
+  rotulo?: string
+  /** Fecha o cartao com o logo no lugar da assinatura "Bynx". */
+  assinatura?: boolean
+  promocao?: string
+}): string {
+  const logoHref = attr(utmRegua(URL_CANONICA, args.campanha, 'logo'))
+  const prefs = args.links?.preferencias ?? `${URL_CANONICA}/minha-conta`
+
+  const cabecalho = `
+  <tr><td class="topo" style="padding:0 4px 16px;background-color:#080a0f;" bgcolor="#080a0f">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td align="left" valign="middle">
+        <a href="${logoHref}" target="_blank" style="text-decoration:none;">
+          <img src="${LOGO_REGUA}" width="85" height="32" alt="Bynx" style="display:block;width:85px;height:32px;border:0;color:#f0f0f0;${FONT_REGUA}font-size:20px;font-weight:800;"/>
+        </a>
+      </td>
+      ${args.rotulo ? `<td align="right" valign="middle" style="${FONT_REGUA}font-size:14px;line-height:20px;font-weight:700;letter-spacing:0.08em;color:#6b6c6f;text-transform:uppercase;">${escapeHtml(args.rotulo)}</td>` : ''}
+    </tr></table>
+  </td></tr>`
+
+  const cartao = `
+  <tr><td class="cartao" bgcolor="#0d0f14" style="background-color:#0d0f14;border:1px solid #202227;border-radius:18px;overflow:hidden;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td height="4" bgcolor="#f59e0b" style="height:4px;font-size:1px;line-height:4px;background-color:#f59e0b;background-image:linear-gradient(90deg,#f59e0b,#ef4444);">&nbsp;</td>
+    </tr></table>
+    ${args.conteudo}
+    ${args.assinatura ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="px" style="padding:0 32px 28px;">${assinaturaLogo()}</td></tr></table>` : ''}
+  </td></tr>`
+
+  const rodape = `
+  <tr><td class="px" align="center" style="padding:28px 24px 8px;${FONT_REGUA}background-color:#080a0f;" bgcolor="#080a0f">
+    <p style="margin:0 0 12px;font-size:14px;line-height:22px;color:#6b6c6f;">${escapeHtml(motivoRecebimento(args.categoria))}</p>
+    <p style="margin:0 0 16px;font-size:14px;line-height:22px;">
+      <a href="${attr(prefs)}" target="_blank" rel="noopener noreferrer nofollow" style="color:#a1a2a4;text-decoration:underline;">Preferências de e-mail</a>
+      ${args.links ? `<span style="color:#6b6c6f;">&nbsp;&middot;&nbsp;</span>
+      <a href="${attr(args.links.descadastrar)}" target="_blank" rel="noopener noreferrer nofollow" style="color:#a1a2a4;text-decoration:underline;">Descadastrar</a>` : ''}
+    </p>
+    <p style="margin:0;"><a href="${URL_CANONICA}" target="_blank" style="text-decoration:none;display:inline-block;"><img src="${LOGO_REGUA}" width="74" height="28" alt="Bynx" style="display:block;margin:0 auto;width:74px;height:28px;border:0;color:#a1a2a4;${FONT_REGUA}font-size:14px;font-weight:800;"/></a></p>
+  </td></tr>`
+
+  return documentoRegua(cabecalho + cartao + (args.promocao || '') + rodape, args.preheader || '')
+}
+
+// ── Bloco "Selecao Bynx" (afiliado do Mercado Livre) ────────────────────────
+//
+// Cartao PROPRIO depois do corpo e antes do rodape. Botao de contorno, nunca
+// cheio: o unico botao cheio do e-mail e o CTA principal. Sem selo
+// "Publicidade" e sem aviso de comissao (ajuste do Du em 08/10).
+// Link de afiliado SEM utm (nao mexer no meli.la) e com rel sponsored.
+
+export type PromocaoEmail = { titulo: string; preco: string; imagem: string; url: string }
+
+const REL_AFILIADO = 'sponsored nofollow noopener noreferrer'
+
+/** "62,29" -> "R$ 62,29"; ja com R$, so padroniza o espaco. */
+function precoPromocao(preco: string): string {
+  const p = (preco || '').trim()
+  return /^R\$/i.test(p) ? p.replace(/^R\$\s*/i, 'R$ ') : `R$ ${p}`
+}
+
+/** O ML serve .jpg no mesmo caminho do .webp; Outlook do Windows nao le webp. */
+function imagemPromocao(src: string): string {
+  try {
+    const u = new URL(src)
+    if (u.hostname.endsWith('mlstatic.com')) u.pathname = u.pathname.replace(/\.webp$/i, '.jpg')
+    return u.toString()
+  } catch {
+    return src
+  }
+}
+
+function botaoOferta(href: string, inline: boolean): string {
+  const h = attr(href)
+  const estilo = inline
+    ? 'display:inline-block;padding:0 22px;'
+    : 'display:block;'
+  return `<!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${h}" style="height:44px;v-text-anchor:middle;width:${inline ? 220 : 240}px;" arcsize="23%" strokecolor="#6e6f72" fillcolor="#191b20">
+              <w:anchorlock/><center style="color:#f0f0f0;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">Ver Oferta</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <a href="${h}" target="_blank" rel="${REL_AFILIADO}" class="promo-btn" style="${estilo}height:42px;line-height:42px;text-align:center;border:1px solid #6e6f72;border-radius:12px;background-color:#191b20;color:#f0f0f0;${FONT_REGUA}font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap;mso-hide:all;">Ver Oferta</a>
+              <!--<![endif]-->`
+}
+
+function itemDupla(p: PromocaoEmail): string {
+  const h = attr(p.url)
+  const t = escapeHtml(p.titulo)
+  return `<td width="49%" valign="top" class="promo-item" bgcolor="#191b20" style="width:49%;background-color:#191b20;border:1px solid #202227;border-radius:16px;padding:12px;${FONT_REGUA}">
+            <a href="${h}" target="_blank" rel="${REL_AFILIADO}" style="text-decoration:none;display:block;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td class="promo-foto" align="center" valign="middle" height="152" bgcolor="#ffffff" style="height:152px;background-color:#ffffff;border-radius:12px;padding:0;">
+                  <img src="${attr(imagemPromocao(p.imagem))}" width="136" height="136" alt="${t}" style="display:block;margin:0 auto;width:136px;height:136px;object-fit:contain;border:0;color:#0a0a0a;${FONT_REGUA}font-size:14px;line-height:18px;"/>
+                </td>
+              </tr></table>
+            </a>
+            <a href="${h}" target="_blank" rel="${REL_AFILIADO}" style="text-decoration:none;display:block;">
+              <div style="margin:12px 0 0;height:40px;max-height:40px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:14px;line-height:20px;font-weight:700;color:#f0f0f0;">${t}</div>
+              <div class="promo-preco" style="margin:8px 0 0;font-size:22px;line-height:28px;font-weight:800;color:#f0f0f0;white-space:nowrap;">${escapeHtml(precoPromocao(p.preco))}</div>
+            </a>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;"><tr><td align="left">
+              ${botaoOferta(p.url, false)}
+            </td></tr></table>
+          </td>`
+}
+
+function itemDestaque(p: PromocaoEmail): string {
+  const h = attr(p.url)
+  const t = escapeHtml(p.titulo)
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#191b20" style="background-color:#191b20;border:1px solid #202227;border-radius:16px;"><tr>
+          <td class="promo-item" style="padding:14px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td class="promo-d-foto" width="168" valign="top" style="width:168px;">
+                <a href="${h}" target="_blank" rel="${REL_AFILIADO}" style="text-decoration:none;display:block;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                    <td class="promo-d-foto-box" align="center" valign="middle" height="168" bgcolor="#ffffff" style="height:168px;background-color:#ffffff;border-radius:12px;padding:10px;">
+                      <img src="${attr(imagemPromocao(p.imagem))}" width="148" height="148" alt="${t}" style="display:block;margin:0 auto;width:148px;height:148px;object-fit:contain;border:0;color:#0a0a0a;${FONT_REGUA}font-size:14px;line-height:18px;"/>
+                    </td>
+                  </tr></table>
+                </a>
+              </td>
+              <td class="promo-d-txt" valign="middle" style="padding-left:22px;${FONT_REGUA}">
+                <a href="${h}" target="_blank" rel="${REL_AFILIADO}" style="text-decoration:none;display:block;">
+                  <div class="promo-d-tit" style="max-height:52px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:19px;line-height:26px;font-weight:800;color:#f0f0f0;">${t}</div>
+                  <div class="promo-d-preco" style="margin:10px 0 0;font-size:30px;line-height:36px;font-weight:800;color:#f0f0f0;white-space:nowrap;">${escapeHtml(precoPromocao(p.preco))}</div>
+                </a>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:16px;"><tr><td align="left">
+                  ${botaoOferta(p.url, true)}
+                </td></tr></table>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>`
+}
+
+/**
+ * Bloco "Selecao Bynx". `dupla` (padrao) mostra 2 lado a lado; `destaque`
+ * mostra 1 grande. Com 1 produto so, a dupla vira destaque. Sem produto, o
+ * bloco nao sai (string vazia).
+ */
+export function blocoPromocao(variante: 'dupla' | 'destaque', produtos: PromocaoEmail[]): string {
+  const lista = produtos.filter((p) => p && p.url && p.titulo)
+  if (lista.length === 0) return ''
+  const usarDupla = variante === 'dupla' && lista.length >= 2
+
+  const miolo = usarDupla
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          ${itemDupla(lista[0])}
+          <td width="2%" class="promo-gap" style="width:10px;font-size:1px;line-height:1px;">&nbsp;</td>
+          ${itemDupla(lista[1])}
+        </tr></table>`
+    : itemDestaque(lista[0])
+
+  return `
+  <tr><td height="16" style="height:16px;font-size:1px;line-height:16px;background-color:#080a0f;" bgcolor="#080a0f">&nbsp;</td></tr>
+  <tr><td class="cartao" bgcolor="#0d0f14" style="background-color:#0d0f14;border:1px solid #202227;border-radius:18px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td class="px" style="padding:20px 24px 14px;${FONT_REGUA}font-size:16px;line-height:22px;font-weight:800;color:#f0f0f0;">Seleção Bynx</td></tr>
+      <tr><td class="px promo-px" style="padding:0 24px 24px;">
+        ${miolo}
+      </td></tr>
+    </table>
+  </td></tr>`
+}
+
+/**
+ * Produtos da vitrine `email` (ativos, por ordem), lidos NA HORA do disparo --
+ * sem o cache das paginas. Fora de cache, entao falha vira [] (o e-mail sai
+ * sem o bloco, nunca deixa de sair por causa dele).
+ */
+export async function getPromocoesEmail(limite = 2, chave = 'email'): Promise<PromocaoEmail[]> {
+  try {
+    const { data, error } = await supabaseEmail()
+      .from('ml_afiliado_produtos')
+      .select('titulo, preco, imagem_url, url')
+      .eq('chave', chave)
+      .eq('ativo', true)
+      .order('ordem', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(limite)
+    if (error) {
+      console.warn(`[email] promocoes (${chave}) indisponiveis: ${error.message}`)
+      return []
+    }
+    return (data || []).map((r) => ({ titulo: r.titulo, preco: r.preco, imagem: r.imagem_url, url: r.url }))
+  } catch (e) {
+    console.warn(`[email] promocoes (${chave}) indisponiveis: ${(e as Error)?.message}`)
+    return []
+  }
+}
+
+/** Documento so com o bloco: a previa ao vivo do /admin/promocoes. */
+export function previaBlocoPromocao(variante: 'dupla' | 'destaque', produtos: PromocaoEmail[]): string {
+  return documentoRegua(blocoPromocao(variante, produtos), '')
+}
+
+/**
+ * E-mail de EXEMPLO com o layout + bloco, para conferir no navegador
+ * (/api/admin/email-preview?tpl=base). Texto neutro: nao e envio de verdade.
+ */
+export function previaReguaBase(produtos: PromocaoEmail[], variante: 'dupla' | 'destaque' = 'dupla'): string {
+  const cta = utmRegua(`${URL_CANONICA}/minha-colecao`, 'previa-base', 'cta')
+  const conteudo = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td class="px" style="padding:28px 32px 0;${FONT_REGUA}">
+        <p style="margin:0 0 8px;font-size:14px;line-height:20px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#f59e0b;">Pré-visualização</p>
+        <h1 class="h1" style="margin:0 0 10px;font-size:30px;line-height:36px;font-weight:800;letter-spacing:-0.02em;color:#f0f0f0;">Este é o esqueleto da régua.</h1>
+        <p style="margin:0;font-size:16px;line-height:25px;color:#a3a4a6;">Cabeçalho com o logo, este cartão com o filete da marca, um botão principal, a Seleção Bynx logo abaixo e o rodapé com o motivo do recebimento.</p>
+      </td></tr>
+      <tr><td class="px" align="left" style="padding:24px 32px 28px;">
+        ${btnRegua('Ver minha coleção', cta)}
+      </td></tr>
+    </table>`
+  return layoutRegua({
+    conteudo,
+    campanha: 'previa-base',
+    categoria: 'novidades',
+    links: {
+      descadastrar: `${URL_CANONICA}/api/email/descadastrar?t=00000000-0000-0000-0000-000000000000`,
+      preferencias: `${URL_CANONICA}/email/preferencias?t=00000000-0000-0000-0000-000000000000`,
+    },
+    preheader: 'Pré-visualização do layout da régua com a Seleção Bynx.',
+    rotulo: 'Novidades',
+    assinatura: true,
+    promocao: blocoPromocao(variante, produtos),
+  })
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1282,8 +1658,10 @@ export async function sendAdminNovaConversaEmail(args: {
 // perde. Por isso a conversa vive num TICKET e o botao leva pra la, onde ha
 // upload de arquivo em bucket privado.
 //
-// Assinado pelo Du em primeira pessoa de proposito: e um pedido de RG e CNPJ,
-// e pedido de documento assinado por "a equipe" cheira a golpe.
+// ★ Voz da Bynx (regra de 08/10): saiu o "Aqui e o Eduardo, fundador". O
+// e-mail nao e ticket -- ele LEVA ao ticket, e o ticket continua pessoal. Para
+// o pedido de documento nao parecer golpe, o texto diz onde o envio acontece
+// (dentro da conta, conversa privada) e o que acontece com os arquivos.
 
 export async function sendEmailLojaVerificacao(args: {
   to: string
@@ -1302,8 +1680,7 @@ export async function sendEmailLojaVerificacao(args: {
     <div style="height:16px;"></div>
     ${h1('Falta pouco para o seu selo')}
     ${p(`Olá, ${escapeHtml(primeiro)}, tudo bem?`)}
-    ${p('Aqui é o Eduardo, fundador da Bynx.')}
-    ${p(`Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na plataforma. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Loja Validada</strong> no seu perfil — o selo é o que sinaliza aos colecionadores que a sua loja é uma empresa real e confiável — preciso confirmar alguns itens:`)}
+    ${p(`Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na Bynx. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Loja Validada</strong> no seu perfil — o selo é o que sinaliza aos colecionadores que a sua loja é uma empresa real e confiável — precisamos confirmar alguns itens:`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 4px;">
       ${item('Cartão CNPJ da loja, com situação cadastral ativa (ou CCMEI, no caso de MEI)')}
@@ -1312,7 +1689,7 @@ export async function sendEmailLojaVerificacao(args: {
       ${item('Uma ou duas fotos da loja física ou do estoque')}
     </table>
 
-    ${p('Clique no botão abaixo e envie os arquivos por lá — é uma conversa privada entre você e eu, dentro da sua conta. Uso essas informações apenas para a validação e não compartilho com terceiros. Assim que eu conferir, o selo é ativado no mesmo dia e os arquivos são apagados.')}
+    ${p('Clique no botão abaixo e envie os arquivos por lá — é uma conversa privada entre você e a Bynx, dentro da sua conta. Usamos essas informações apenas para a validação e não compartilhamos com terceiros. Assim que conferirmos, o selo é ativado no mesmo dia e os arquivos são apagados.')}
 
     ${btnB2B('Enviar os documentos', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'loja-verificacao', 'cta-button'))}
 
@@ -1321,12 +1698,9 @@ export async function sendEmailLojaVerificacao(args: {
       <em>Um detalhe importante: dados bancários e fiscais para receber pagamentos não entram aqui. Isso é feito de forma segura no momento em que você ativar o recebimento pela plataforma.</em>
     </p>
     <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.55);line-height:1.7;${FONT}">
-      Qualquer dúvida, é só me responder por lá que eu te ajudo.<br/><br/>
-      Abraço,<br/>
-      <strong style="color:#f0f0f0;">Eduardo</strong><br/>
-      Fundador da Bynx<br/>
-      <a href="${APP_URL}" style="color:${B2B_LINK_COLOR};text-decoration:none;">bynx.gg</a>
+      Qualquer dúvida, é só responder por lá que ajudamos.
     </p>
+    ${assinaturaLogo()}
   `, `${escapeHtml(args.nomeLoja)}: falta pouco para o Selo de Loja Validada`)
 
   return enviar({ template: 'email-loja-verificacao', from: FROM, to: args.to, subject: subjUser(`Verificação da ${args.nomeLoja}`), html })
