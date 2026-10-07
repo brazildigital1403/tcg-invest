@@ -73,10 +73,15 @@ const nextConfig: NextConfig = {
    *   servidor sozinho. As tres OG dinamicas (/lojas/[slug], /set/[id],
    *   /pokemon/[name]) rodam no lambda e nao acham o arquivo: sem isto aqui,
    *   elas cairiam no fallback de rede a cada request.
+   *
+   *   A rota de imagem pessoal da regua (/api/email/img/[tipo]) le do disco as
+   *   mesmas fontes e os fundos fixos `public/emails/regua/<id>/img-*`
+   *   (src/lib/regua/img/base.tsx). Sem isto, cai no fallback de rede.
    */
   outputFileTracingIncludes: {
     '/**/opengraph-image': ['./public/fonts/**'],
     '/**/twitter-image': ['./public/fonts/**'],
+    '/api/email/img/**': ['./public/fonts/**', './public/emails/regua/**/img-*'],
   },
 
   /**
