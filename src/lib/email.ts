@@ -208,6 +208,11 @@ type EstadoEmail = {
  * existirem, cai na consulta antiga e devolve `prefs: null`. O codigo pode
  * subir antes da migration sem mudar nada.
  */
+/** `ilike` sem curinga: `_` e `%` num e-mail casariam OUTRA conta. */
+function semCuringa(email: string): string {
+  return email.replace(/[\\%_]/g, (c) => `\\${c}`)
+}
+
 async function estadoEmail(email: string): Promise<EstadoEmail> {
   const vazio: EstadoEmail = { userId: null, optOut: false, url: null, marketingAceito: false, prefs: null }
   try {
@@ -215,7 +220,7 @@ async function estadoEmail(email: string): Promise<EstadoEmail> {
     const completo = await sb
       .from('users')
       .select('id, email_optout_nurture, unsubscribe_token, marketing_aceito, email_pref_colecao, email_pref_mercado, email_pref_novidades, email_pref_radar')
-      .ilike('email', email)
+      .ilike('email', semCuringa(email))
       .limit(1)
 
     let u: any = completo.data?.[0]
@@ -224,7 +229,7 @@ async function estadoEmail(email: string): Promise<EstadoEmail> {
       const legado = await sb
         .from('users')
         .select('id, email_optout_nurture, unsubscribe_token, marketing_aceito')
-        .ilike('email', email)
+        .ilike('email', semCuringa(email))
         .limit(1)
       u = legado.data?.[0]
       temPrefs = false
