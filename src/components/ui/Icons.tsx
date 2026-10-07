@@ -791,3 +791,13 @@ export function IconRestauro({ size = 20, color = defaultColor, strokeWidth = de
     </svg>
   )
 }
+
+/** Duplicar / copiar: duas folhas sobrepostas. viewBox 20x20 como o resto. */
+export function IconCopy({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <rect x="7" y="7" width="10" height="10" rx="2" stroke={color} strokeWidth={strokeWidth}/>
+      <path d="M13 7V5a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}

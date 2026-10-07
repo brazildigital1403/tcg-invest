@@ -94,7 +94,7 @@ export default function MercadoLivre({ url, variante, titulo, subtitulo, produto
 
   // variante card
   const t = titulo || 'Garanta seus lacrados e acessórios'
-  const s = subtitulo || 'Boxes, blisters e proteção pra sua coleção — os mais buscados, num clique.'
+  const s = subtitulo || 'Boxes, blisters e proteção para a sua coleção. Os mais buscados, em um clique.'
 
   // Galeria de produtos reais (foto + titulo + preco). Cada card linka pro produto
   // (v1: todos pro link da lista marcada; cookie de 30 dias atribui a compra).
