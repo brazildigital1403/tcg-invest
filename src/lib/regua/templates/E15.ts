@@ -26,7 +26,7 @@
  */
 import { btnRegua, blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { brl, urlArte, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, ajustarRodape, attr, comCss, esc, linha, pct, rs } from './ui-b'
+import { COR, FONT, attr, esc, linha, pct, rs } from './ui-b'
 
 export type CartaVariacaoE15 = {
   nome: string
@@ -198,10 +198,11 @@ function montar(d: DadosE15, ctx: CtxRegua) {
     preheader,
     rotulo: 'Sua coleção · 30 dias',
     assinatura: true,
+    notasRodape: { depois: ['Este cartão chega no máximo 3 vezes. Se você voltar, ele para.'] },
+    css: CSS,
     promocao: blocoPromocao('dupla', ctx.promocoes),
   })
-  const rodape = ajustarRodape(html, CATEGORIA, { depois: ['Este cartão chega no máximo 3 vezes. Se você voltar, ele para.'] })
-  return { assunto, preheader, html: comCss(rodape, CSS) }
+  return { assunto, preheader, html }
 }
 
 export const E15: TemplateRegua<DadosE15> = {

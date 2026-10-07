@@ -25,13 +25,15 @@
  *     Ref.: mockups/E14-leilao-resultado/assets/hero-b.html.
  *   ?exemplo=1 nas duas: Blaine's Charizard (persona Lucas).
  *
- * Valores, recibo e anuncio vao em TEXTO VIVO. Categoria 'colecao' (aviso de
- * leilao nao e marketing); o motivo do rodape e o aprovado de cada variante.
+ * Valores, recibo e anuncio vao em TEXTO VIVO. Categoria 'transacional' (aviso
+ * de leilao nao e marketing): sem Descadastrar no rodape; o motivo e o
+ * aprovado de cada variante. Cabecalho da A com "BYNX | LEILOES" a esquerda,
+ * como no mockup; o da B fica no canto direito.
  * Rotas /leiloes/... ainda nao existem no main (branch feat/leilao).
  */
 import { btnRegua, blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { brl, urlArte, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, ajustarRodape, attr, brlCurto, btnCompra, comCss, esc, linha, logoAssinatura, rs } from './ui-b'
+import { COR, FONT, attr, brlCurto, btnCompra, esc, linha, rs } from './ui-b'
 
 type CartaLote = {
   nome: string
@@ -79,7 +81,7 @@ export type DadosE14 =
     })
 
 const ID = 'e14'
-const CATEGORIA = 'colecao' as const
+const CATEGORIA = 'transacional' as const
 
 const CSS = `@media only screen and (max-width:480px){
   .h2{font-size:21px!important;line-height:27px!important}
@@ -105,12 +107,12 @@ function hero(d: DadosE14, ctx: CtxRegua, href: string, alt: string): string {
     </table>`
 }
 
-function assinatura(texto: string, padding: string): string {
+/** Fecho com filete; o logo da assinatura vem logo abaixo, pelo layoutRegua. */
+function fecho(texto: string, paddingTopo: number): string {
   return linha(`
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid ${COR.borda};padding-top:22px;${FONT}">
-          <p style="margin:0 0 12px;font-size:16px;line-height:25px;color:${COR.texto2};">${texto}</p>
-          ${logoAssinatura()}
-        </td></tr></table>`, padding)
+          <p style="margin:0;font-size:16px;line-height:25px;color:${COR.texto2};">${texto}</p>
+        </td></tr></table>`, `${paddingTopo}px 32px 0`)
 }
 
 function corpoArrematou(d: Extract<DadosE14, { resultado: 'arrematou' }>, ctx: CtxRegua): string {
@@ -182,7 +184,7 @@ function corpoArrematou(d: Extract<DadosE14, { resultado: 'arrematou' }>, ctx: C
             <p style="margin:4px 0 0;font-size:16px;line-height:24px;color:${COR.texto};">Pagou aqui, está protegido: se a loja não enviar em até 3 dias úteis, você cancela e o valor volta.</p>
           </td>
         </tr></table>`, '26px 32px 0')}
-    ${assinatura(`Parabéns pela carta, ${esc(d.nome)}. Agora ela vai para o fichário certo. Quando chegar, responda este <span style="white-space:nowrap;">e-mail</span> e conte para a gente se veio do jeito que você esperava: a gente lê cada resposta.`, '30px 32px 28px')}`
+    ${fecho(`Parabéns pela carta, ${esc(d.nome)}. Agora ela vai para o fichário certo. Quando chegar, responda este <span style="white-space:nowrap;">e-mail</span> e conte para a gente se veio do jeito que você esperava: a gente lê cada resposta.`, 30)}`
 }
 
 function corpoFaltou(d: Extract<DadosE14, { resultado: 'faltou' }>, ctx: CtxRegua): string {
@@ -239,7 +241,7 @@ function corpoFaltou(d: Extract<DadosE14, { resultado: 'faltou' }>, ctx: CtxRegu
           <p style="margin:4px 0 0;font-size:16px;line-height:25px;color:${COR.texto};">A ${esc(d.loja)} faz rodada ao vivo na Bynx Leilões. Quando a próxima entrar na agenda, o aviso chega no sino e aqui.</p>
           ${f.anuncio ? `<a href="${attr(agenda)}" target="_blank" style="display:inline-block;padding:12px 0;font-size:16px;line-height:20px;font-weight:800;color:${COR.ambar};text-decoration:underline;">Ver a agenda de leilões</a>` : ''}
         </td></tr></table>`, '28px 32px 0')}
-    ${assinatura('Leilão tem disso: às vezes o martelo bate logo acima do seu lance. Na próxima, chegue antes. A gente guarda a cadeira para você.', '14px 32px 28px')}`
+    ${fecho('Leilão tem disso: às vezes o martelo bate logo acima do seu lance. Na próxima, chegue antes. A gente guarda a cadeira para você.', 14)}`
 }
 
 function montar(d: DadosE14, ctx: CtxRegua) {
@@ -269,11 +271,15 @@ function montar(d: DadosE14, ctx: CtxRegua) {
     links: ctx.links,
     preheader,
     rotulo: 'Leilões',
-    // A assinatura com o logo fica dentro do conteudo, depois do filete do mockup.
-    assinatura: false,
+    rotuloEsquerda: d.resultado === 'arrematou',
+    // O logo vem logo depois do texto de fecho (12px, como no mockup).
+    assinatura: true,
+    respiroAssinatura: 12,
+    motivo,
+    css: CSS,
     promocao: blocoPromocao(promocaoVariante, ctx.promocoes),
   })
-  return { assunto, preheader, html: comCss(ajustarRodape(html, CATEGORIA, { motivo }), CSS) }
+  return { assunto, preheader, html }
 }
 
 const LOTE_EXEMPLO = {

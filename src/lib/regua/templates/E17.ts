@@ -33,7 +33,7 @@
  */
 import { btnRegua, blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { urlArte, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, ajustarRodape, attr, comCss, esc, linha, rs } from './ui-b'
+import { COR, FONT, attr, esc, linha, rs } from './ui-b'
 
 export type DadosE17 = {
   nome: string
@@ -167,10 +167,11 @@ function montar(d: DadosE17, ctx: CtxRegua) {
     preheader,
     rotulo: 'Retrospectiva 2026',
     assinatura: true,
+    motivo: 'Você recebe porque tem conta na Bynx e cartas na sua coleção.',
+    css: CSS,
     promocao: blocoPromocao('dupla', ctx.promocoes),
   })
-  const rodape = ajustarRodape(html, CATEGORIA, { motivo: 'Você recebe porque tem conta na Bynx e cartas na sua coleção.' })
-  return { assunto, preheader, html: comCss(rodape, CSS) }
+  return { assunto, preheader, html }
 }
 
 export const E17: TemplateRegua<DadosE17> = {

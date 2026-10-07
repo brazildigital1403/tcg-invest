@@ -565,13 +565,18 @@ function attr(s: string): string {
 }
 
 /** Logo no lugar de "Bynx" quando o nome fica sozinho numa linha (assinatura). */
-function assinaturaLogo(altura = 32): string {
+function assinaturaLogo(altura = 32, respiro = 20): string {
   const largura = Math.round((altura * 424) / 160)
-  return `<p style="margin:20px 0 0;"><a href="${URL_CANONICA}" target="_blank" style="text-decoration:none;display:inline-block;"><img src="${LOGO_REGUA}" width="${largura}" height="${altura}" alt="Bynx" style="display:block;width:${largura}px;height:${altura}px;border:0;color:#f0f0f0;${FONT_REGUA}font-size:16px;font-weight:800;"/></a></p>`
+  return `<p style="margin:${respiro}px 0 0;"><a href="${URL_CANONICA}" target="_blank" style="text-decoration:none;display:inline-block;"><img src="${LOGO_REGUA}" width="${largura}" height="${altura}" alt="Bynx" style="display:block;width:${largura}px;height:${altura}px;border:0;color:#f0f0f0;${FONT_REGUA}font-size:16px;font-weight:800;"/></a></p>`
 }
 
-/** Motivo do recebimento, por categoria (rodape de relacionamento). */
-export function motivoRecebimento(categoria: Exclude<CategoriaEmail, 'transacional'>): string {
+/**
+ * Motivo do recebimento, por categoria (rodape da regua). Transacional (aviso
+ * de leilao, pedido) e o padrao generico: quem manda o aviso de verdade passa
+ * o motivo proprio em `layoutRegua({ motivo })`.
+ */
+export function motivoRecebimento(categoria: CategoriaEmail): string {
+  if (categoria === 'transacional') return 'Você recebe este aviso porque tem conta na Bynx.'
   return ehCategoriaMarketing(categoria)
     ? 'Você recebe porque tem conta na Bynx e aceitou novidades.'
     : 'Você recebe porque tem conta na Bynx.'
@@ -590,7 +595,7 @@ export function btnRegua(label: string, href: string): string {
         <!--<![endif]-->`
 }
 
-function documentoRegua(linhas: string, preheader: string): string {
+function documentoRegua(linhas: string, preheader: string, css = ''): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -636,7 +641,7 @@ u+#body a{color:inherit;text-decoration:none}
   .promo-d-preco{font-size:22px!important;line-height:28px!important}
 }
 [data-ogsc] .tinta{color:#0a0a0a!important}
-</style>
+${css ? `${css}\n` : ''}</style>
 </head>
 <body id="body" style="margin:0;padding:0;background-color:#080a0f;" bgcolor="#080a0f">
 ${preheader ? `<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#080a0f;">${escapeHtml(preheader)}${'&nbsp;&zwnj;'.repeat(12)}</div>` : ''}
@@ -656,33 +661,68 @@ ${linhas}
 /**
  * Layout da regua. `conteudo` e o miolo do cartao (ja com `.px` nas celulas);
  * `promocao` e a saida de `blocoPromocao` (vazio = sem bloco).
+ *
+ * Categoria `transacional` (aviso de leilao, pedido): o rodape traz o motivo
+ * e as Preferencias, mas NUNCA o Descadastrar -- ninguem sai de um aviso
+ * sobre algo que a pessoa mesma fez (mesma regra do recibo e do pedido).
  */
 export function layoutRegua(args: {
   conteudo: string
   campanha: string
-  categoria: Exclude<CategoriaEmail, 'transacional'>
+  categoria: CategoriaEmail
   links: LinksRelacionamento | null
   preheader?: string
-  /** Texto do canto direito do cabecalho, ex.: "Radar Bynx · #1". */
+  /** Texto do cabecalho, ex.: "Radar Bynx · #1". Fica no canto direito. */
   rotulo?: string
+  /**
+   * Rotulo colado no logo, a esquerda, com um filete entre os dois
+   * ("BYNX | LEILOES", como no E14). Padrao: canto direito.
+   */
+  rotuloEsquerda?: boolean
   /** Fecha o cartao com o logo no lugar da assinatura "Bynx". */
   assinatura?: boolean
+  /** Espaco (px) entre o fim do conteudo e o logo da assinatura. Padrao 20. */
+  respiroAssinatura?: number
+  /**
+   * P.S. que vem DEPOIS do logo da assinatura (so com `assinatura: true`).
+   * HTML pronto: quem chama ja escapou os dados e traz o proprio espacamento.
+   */
+  psDepoisDoLogo?: string
+  /** Motivo do recebimento no rodape. Padrao: o da categoria (`motivoRecebimento`). Texto puro. */
+  motivo?: string
+  /** Linhas extras do rodape, antes e depois do motivo, no mesmo estilo. Texto puro. */
+  notasRodape?: { antes?: string[]; depois?: string[] }
+  /** Regras extras no <style> do <head> (ajustes de celular do template). */
+  css?: string
   promocao?: string
 }): string {
   const logoHref = attr(utmRegua(URL_CANONICA, args.campanha, 'logo'))
   const prefs = args.links?.preferencias ?? `${URL_CANONICA}/minha-conta`
+  const transacional = args.categoria === 'transacional'
+  const estiloRotulo = `${FONT_REGUA}font-size:14px;line-height:20px;font-weight:700;letter-spacing:0.08em;color:#6b6c6f;text-transform:uppercase;`
+
+  let rotulo = ''
+  if (args.rotulo && args.rotuloEsquerda) {
+    rotulo = `<td align="left" valign="middle" width="100%" style="padding-left:12px;${estiloRotulo}"><span style="display:inline-block;border-left:1px solid #46484d;padding-left:12px;">${escapeHtml(args.rotulo)}</span></td>`
+  } else if (args.rotulo) {
+    rotulo = `<td align="right" valign="middle" style="${estiloRotulo}">${escapeHtml(args.rotulo)}</td>`
+  }
 
   const cabecalho = `
   <tr><td class="topo" style="padding:0 4px 16px;background-color:#080a0f;" bgcolor="#080a0f">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td align="left" valign="middle">
+      <td align="left" valign="middle"${args.rotulo && args.rotuloEsquerda ? ' width="85"' : ''}>
         <a href="${logoHref}" target="_blank" style="text-decoration:none;">
           <img src="${LOGO_REGUA}" width="85" height="32" alt="Bynx" style="display:block;width:85px;height:32px;border:0;color:#f0f0f0;${FONT_REGUA}font-size:20px;font-weight:800;"/>
         </a>
       </td>
-      ${args.rotulo ? `<td align="right" valign="middle" style="${FONT_REGUA}font-size:14px;line-height:20px;font-weight:700;letter-spacing:0.08em;color:#6b6c6f;text-transform:uppercase;">${escapeHtml(args.rotulo)}</td>` : ''}
+      ${rotulo}
     </tr></table>
   </td></tr>`
+
+  const assinatura = args.assinatura
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="px" style="padding:0 32px 28px;${args.psDepoisDoLogo ? FONT_REGUA : ''}">${assinaturaLogo(32, args.respiroAssinatura ?? 20)}${args.psDepoisDoLogo ? `\n        ${args.psDepoisDoLogo}` : ''}</td></tr></table>`
+    : ''
 
   const cartao = `
   <tr><td class="cartao" bgcolor="#0d0f14" style="background-color:#0d0f14;border:1px solid #202227;border-radius:18px;overflow:hidden;">
@@ -690,21 +730,32 @@ export function layoutRegua(args: {
       <td height="4" bgcolor="#f59e0b" style="height:4px;font-size:1px;line-height:4px;background-color:#f59e0b;background-image:linear-gradient(90deg,#f59e0b,#ef4444);">&nbsp;</td>
     </tr></table>
     ${args.conteudo}
-    ${args.assinatura ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="px" style="padding:0 32px 28px;">${assinaturaLogo()}</td></tr></table>` : ''}
+    ${assinatura}
   </td></tr>`
+
+  const estiloNota = 'margin:0 0 12px;font-size:14px;line-height:22px;color:#6b6c6f;'
+  const linhasRodape = [
+    ...(args.notasRodape?.antes || []),
+    args.motivo || motivoRecebimento(args.categoria),
+    ...(args.notasRodape?.depois || []),
+  ].map((t) => `<p style="${estiloNota}">${escapeHtml(t)}</p>`).join('\n    ')
+  // Transacional nao tem Descadastrar; o resto (sem `links`) tambem nao, como sempre.
+  const descadastrar = !transacional && args.links
+    ? `<span style="color:#6b6c6f;">&nbsp;&middot;&nbsp;</span>
+      <a href="${attr(args.links.descadastrar)}" target="_blank" rel="noopener noreferrer nofollow" style="color:#a1a2a4;text-decoration:underline;">Descadastrar</a>`
+    : ''
 
   const rodape = `
   <tr><td class="px" align="center" style="padding:28px 24px 8px;${FONT_REGUA}background-color:#080a0f;" bgcolor="#080a0f">
-    <p style="margin:0 0 12px;font-size:14px;line-height:22px;color:#6b6c6f;">${escapeHtml(motivoRecebimento(args.categoria))}</p>
+    ${linhasRodape}
     <p style="margin:0 0 16px;font-size:14px;line-height:22px;">
       <a href="${attr(prefs)}" target="_blank" rel="noopener noreferrer nofollow" style="color:#a1a2a4;text-decoration:underline;">Preferências de e-mail</a>
-      ${args.links ? `<span style="color:#6b6c6f;">&nbsp;&middot;&nbsp;</span>
-      <a href="${attr(args.links.descadastrar)}" target="_blank" rel="noopener noreferrer nofollow" style="color:#a1a2a4;text-decoration:underline;">Descadastrar</a>` : ''}
+      ${descadastrar}
     </p>
     <p style="margin:0;"><a href="${URL_CANONICA}" target="_blank" style="text-decoration:none;display:inline-block;"><img src="${LOGO_REGUA}" width="74" height="28" alt="Bynx" style="display:block;margin:0 auto;width:74px;height:28px;border:0;color:#a1a2a4;${FONT_REGUA}font-size:14px;font-weight:800;"/></a></p>
   </td></tr>`
 
-  return documentoRegua(cabecalho + cartao + (args.promocao || '') + rodape, args.preheader || '')
+  return documentoRegua(cabecalho + cartao + (args.promocao || '') + rodape, args.preheader || '', args.css || '')
 }
 
 // ── Bloco "Selecao Bynx" (afiliado do Mercado Livre) ────────────────────────
@@ -2207,9 +2258,10 @@ export async function sendTrialExpiring7Email(to: string, name: string) {
 }
 
 // ── Helper: escapa HTML em mensagens de usuário ──────────────────────────────
+// Exportado: os templates da regua (src/lib/regua/templates) usam este mesmo.
 
-function escapeHtml(s: string): string {
-  return (s || '').replace(/[&<>"']/g, c =>
+export function escapeHtml(s: string | number | null | undefined): string {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)
   )
 }

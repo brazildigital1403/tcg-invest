@@ -9,17 +9,13 @@
  * Regra de seguranca: todo dado dinamico passa por `esc` (texto) ou `attr`
  * (atributo) antes de entrar no HTML.
  */
-import { URL_CANONICA, utmRegua } from '@/lib/email'
+import { URL_CANONICA, escapeHtml, utmRegua } from '@/lib/email'
 import { brl } from '@/lib/regua/comum'
 
 export const FONT = "font-family:'DM Sans',Helvetica,Arial,sans-serif;"
 
-/** Escapa texto para HTML. */
-export function esc(s: string | number | null | undefined): string {
-  return String(s ?? '').replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  )
-}
+/** Escapa texto para HTML (o mesmo `escapeHtml` de email.ts). */
+export const esc = escapeHtml
 
 /** Escapa valor de atributo (href, src, alt). */
 export const attr = esc

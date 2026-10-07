@@ -26,7 +26,7 @@
  */
 import { blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { brl, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, attr, btnCompra, comCss, esc, linha, rs } from './ui-b'
+import { COR, FONT, attr, btnCompra, esc, linha, rs } from './ui-b'
 
 export type OfertaE18 = {
   /** "Mega Gengar ex" */
@@ -193,9 +193,10 @@ function montar(d: DadosE18, ctx: CtxRegua) {
     links: ctx.links,
     preheader,
     assinatura: true,
+    css: CSS,
     promocao: blocoPromocao('dupla', ctx.promocoes),
   })
-  return { assunto, preheader, html: comCss(html, CSS) }
+  return { assunto, preheader, html }
 }
 
 const OFERTAS_EXEMPLO: OfertaE18[] = [

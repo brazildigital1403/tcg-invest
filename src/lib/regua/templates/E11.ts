@@ -12,7 +12,7 @@
  */
 import { btnRegua, blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { brl, urlArte, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, attr, comCss, linha, logoAssinatura, rs } from './ui-b'
+import { COR, FONT, attr, linha, rs } from './ui-b'
 
 export type DadosE11 = {
   /** Menor preco da Mew ex 151 (sv3pt5/151) no Mercado Brasileiro no dia do envio. */
@@ -109,13 +109,13 @@ function montar(d: DadosE11, ctx: CtxRegua) {
           </td></tr>
         </table>`, '32px 32px 0')}
     ${linha(`
-        <p style="margin:0 0 12px;font-size:16px;line-height:25px;color:${COR.texto};">Saber o que falta e quanto custa fica por nossa conta: a meta faz a conta carta por carta. O seu trabalho é só marcar o que já tem.</p>
-        ${logoAssinatura()}
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;"><tr>
+        <p style="margin:0;font-size:16px;line-height:25px;color:${COR.texto};">Saber o que falta e quanto custa fica por nossa conta: a meta faz a conta carta por carta. O seu trabalho é só marcar o que já tem.</p>`, '24px 32px 0')}`
+
+  const ps = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;"><tr>
           <td style="border-top:1px dashed ${COR.borda2};padding-top:16px;${FONT}">
             <p style="margin:0;font-size:16px;line-height:25px;color:${COR.texto};"><span style="font-weight:800;color:${COR.ambar};">P.S.</span> Ainda não fecha set nenhum? A meta também vale para um Pokémon: escolha o seu favorito e a Bynx mostra todas as cartas dele, cada uma com o menor preço.</p>
           </td>
-        </tr></table>`, '24px 32px 28px')}`
+        </tr></table>`
 
   const html = layoutRegua({
     conteudo,
@@ -123,11 +123,13 @@ function montar(d: DadosE11, ctx: CtxRegua) {
     categoria: 'novidades',
     links: ctx.links,
     preheader,
-    // Assinatura com o logo vem dentro do conteudo: o P.S. aprovado fica DEPOIS dela.
-    assinatura: false,
+    assinatura: true,
+    respiroAssinatura: 12,
+    psDepoisDoLogo: ps,
+    css: CSS,
     promocao: blocoPromocao('destaque', ctx.promocoes),
   })
-  return { assunto, preheader, html: comCss(html, CSS) }
+  return { assunto, preheader, html }
 }
 
 export const E11: TemplateRegua<DadosE11> = {

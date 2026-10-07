@@ -25,7 +25,7 @@
  */
 import { btnRegua, blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { brl, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, attr, comCss, esc, linha, logoAssinatura, rs } from './ui-b'
+import { COR, FONT, attr, esc, linha, rs } from './ui-b'
 
 export type RepetidaE20 = {
   nome: string
@@ -176,11 +176,11 @@ function montar(d: DadosE20, ctx: CtxRegua) {
       </td></tr>
     </table>
     ${linha(`
-        <p style="margin:0 0 12px;padding-top:20px;border-top:1px solid ${COR.borda};font-size:16px;line-height:25px;color:${COR.texto2};">Travou em algum passo do anúncio? É só responder este <span style="white-space:nowrap;">e-mail</span>: nós lemos todas as respostas.</p>
-        ${logoAssinatura()}
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;border-top:1px solid ${COR.borda};"><tr>
+        <p style="margin:0;padding-top:20px;border-top:1px solid ${COR.borda};font-size:16px;line-height:25px;color:${COR.texto2};">Travou em algum passo do anúncio? É só responder este <span style="white-space:nowrap;">e-mail</span>: nós lemos todas as respostas.</p>`, '28px 32px 0')}`
+
+  const ps = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;border-top:1px solid ${COR.borda};"><tr>
           <td style="padding-top:16px;${FONT}font-size:15px;line-height:23px;color:${COR.texto2};"><span style="font-weight:800;color:${COR.ambar};">P.S.</span> Uma repetida vendida é um booster a mais no fim de semana.</td>
-        </tr></table>`, '28px 32px 28px')}`
+        </tr></table>`
 
   const html = layoutRegua({
     conteudo,
@@ -189,11 +189,13 @@ function montar(d: DadosE20, ctx: CtxRegua) {
     links: ctx.links,
     preheader,
     rotulo: 'Mercado',
-    // Logo da assinatura no conteudo: o P.S. aprovado vem DEPOIS dele.
-    assinatura: false,
+    assinatura: true,
+    respiroAssinatura: 12,
+    psDepoisDoLogo: ps,
+    css: CSS,
     promocao: blocoPromocao('destaque', ctx.promocoes),
   })
-  return { assunto, preheader, html: comCss(html, CSS) }
+  return { assunto, preheader, html }
 }
 
 export const E20: TemplateRegua<DadosE20> = {
