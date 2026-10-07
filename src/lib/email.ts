@@ -136,7 +136,7 @@ const B2B_LINK_COLOR       = '#60a5fa'
  * Por isso nao uso APP_URL direto — ele pode vir com www do ambiente.
  * Medido em 27/07/2026: GET e POST em www devolvem 308.
  */
-const URL_CANONICA = APP_URL.replace('://www.', '://')
+export const URL_CANONICA = APP_URL.replace('://www.', '://')
 
 function supabaseEmail() {
   return createClient(
@@ -546,7 +546,7 @@ const LOGO_REGUA = `${URL_CANONICA}/emails/regua/logo-bynx.png`
 const FONT_REGUA = "font-family:'DM Sans',Helvetica,Arial,sans-serif;"
 
 /** Links internos da regua: utm_medium=regua. Link de afiliado NAO passa aqui. */
-function utmRegua(href: string, campanha: string, conteudo?: string): string {
+export function utmRegua(href: string, campanha: string, conteudo?: string): string {
   try {
     const url = new URL(href)
     url.searchParams.set('utm_source', 'email')
