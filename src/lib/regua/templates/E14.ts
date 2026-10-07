@@ -254,7 +254,7 @@ function montar(d: DadosE14, ctx: CtxRegua) {
     assunto = `Martelo batido. O ${d.carta.nome} é seu`
     preheader = `Pague até ${d.arremate.prazo.replace(', às ', ', ')}. Total ${brl(d.arremate.total)} + frete, já com a Proteção Bynx.`
     conteudo = corpoArrematou(d, ctx)
-    motivo = `Você recebe este aviso porque arrematou o lote ${d.lote.numero} na Bynx Leilões. Sair das novidades não interrompe os avisos de pagamento e envio do pedido.`
+    motivo = `Você recebe este aviso porque arrematou o lote ${d.lote.numero} na Bynx Leilões. Os avisos de pagamento e envio do pedido chegam por aqui também.`
   } else {
     assunto = `Faltou um lance para o ${d.carta.apelido} ser seu`
     preheader = d.faltou.anuncio
