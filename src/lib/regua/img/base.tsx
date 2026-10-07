@@ -82,6 +82,42 @@ export const eLista = (v: unknown, min = 0, max = 99): v is unknown[] => Array.i
 
 // ─── arquivos locais (fontes e fundos) ──────────────────────────────────────
 
+// ─── busca na rede com nova tentativa ───────────────────────────────────────
+
+/** Tempo de cada tentativa. Duas cabem com folga no maxDuration = 20 da rota. */
+const TENTATIVA_MS = 7000
+/** Teto de uma busca inteira (tentativas somadas), para sobrar tempo ao render. */
+const PRAZO_BUSCA_MS = 14500
+
+class FalhaTransitoria extends Error {}
+
+/**
+ * `fetch` com UMA nova tentativa quando a falha e transitoria: timeout, erro
+ * de rede ou 5xx. 4xx nao repete (a imagem nao existe; tentar de novo nao
+ * muda nada). Medido em producao (e13-lance): a 1a busca da funcao fria passou
+ * dos 8s e virou 500; as seguintes responderam em ~3s. Cada tentativa tem
+ * 7s e a soma respeita `PRAZO_BUSCA_MS`, dentro do maxDuration de 20s da rota.
+ */
+export async function buscarComRetentativa(url: string, prazoFinal = Date.now() + PRAZO_BUSCA_MS): Promise<Response> {
+  let ultimo: unknown = null
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    const resta = prazoFinal - Date.now()
+    if (resta < 1000) break
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(Math.min(TENTATIVA_MS, resta)) })
+      if (r.status >= 500) {
+        ultimo = new FalhaTransitoria(`status ${r.status}`)
+        continue
+      }
+      return r
+    } catch (e) {
+      // AbortError/TimeoutError ou falha de rede: transitoria, tenta de novo.
+      ultimo = e
+    }
+  }
+  throw ultimo instanceof Error ? ultimo : new Error('busca sem tempo para tentar')
+}
+
 const cacheArquivo = new Map<string, Buffer>()
 
 /**
@@ -96,7 +132,7 @@ async function arquivoPublico(caminho: string): Promise<Buffer> {
   try {
     buf = await readFile(join(process.cwd(), 'public', caminho))
   } catch {
-    const r = await fetch(`${URL_CANONICA}/${caminho}`, { signal: AbortSignal.timeout(8000) })
+    const r = await buscarComRetentativa(`${URL_CANONICA}/${caminho}`)
     if (!r.ok) throw new Error(`[img regua] arquivo ${caminho}: ${r.status}`)
     buf = Buffer.from(await r.arrayBuffer())
   }
@@ -185,8 +221,10 @@ export function imagemCartaImg(url: string, o: OpcoesImagem): Promise<string> {
     if (!segura) throw new Error('[img regua] imagem de origem nao permitida')
     const w = Math.round(o.largura * 2)
     const h = Math.round(o.altura * 2)
-    let r = await fetch(melhorUrl(segura, w), { signal: AbortSignal.timeout(8000) })
-    if (!r.ok && melhorUrl(segura, w) !== segura) r = await fetch(segura, { signal: AbortSignal.timeout(8000) })
+    // Um prazo so para as buscas desta imagem (_hires + original + retentativas).
+    const prazo = Date.now() + PRAZO_BUSCA_MS
+    let r = await buscarComRetentativa(melhorUrl(segura, w), prazo)
+    if (!r.ok && melhorUrl(segura, w) !== segura) r = await buscarComRetentativa(segura, prazo)
     if (!r.ok) throw new Error(`[img regua] imagem ${r.status}`)
     const original = Buffer.from(await r.arrayBuffer())
     const s = await sharp()
