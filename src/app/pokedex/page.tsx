@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { getUserPlan } from '@/lib/isPro'
 import { checkCardLimit, LIMITE_FREE, ENFORCEMENT_ATIVO, limiteCartasDoErro } from '@/lib/checkCardLimit'
@@ -16,6 +16,7 @@ import { IconCard, IconCheck, IconPlus, IconBell } from '@/components/ui/Icons'
 import FichaPokemon from '@/components/pokedex/FichaPokemon'
 import { useRouter } from 'next/navigation'
 import { criarMeta } from '@/lib/metas'
+import { lerParametro, limparParametros } from '@/lib/deepLink'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,24 @@ const fmt = (v: any) => v && Number(v) > 0
 
 // Formata número grande com separador de milhar pt-BR
 const fmtNum = (n: number) => new Intl.NumberFormat('pt-BR').format(n)
+
+/**
+ * Pokemon pedido pelo deep link ?p= (E03 manda o nome da carta em minusculas).
+ * Primeiro o nome exato; senao, o maior nome da lista que abre o pedido seguido
+ * de espaco ou hifen ("lugia-gx" -> Lugia, "charizard ex" -> Charizard).
+ */
+function acharPokemonDoLink<T extends { name: string }>(lista: T[], pedido: string): T | null {
+  const q = pedido.trim().toLowerCase()
+  if (!q) return null
+  const exato = lista.find(p => p.name.toLowerCase() === q)
+  if (exato) return exato
+  let melhor: T | null = null
+  for (const p of lista) {
+    const n = p.name.toLowerCase()
+    if ((q.startsWith(n + ' ') || q.startsWith(n + '-')) && (!melhor || n.length > melhor.name.length)) melhor = p
+  }
+  return melhor
+}
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
@@ -481,6 +500,23 @@ export default function Pokedex() {
   const temFiltroAtivo   = !!(search || typeFilter || genFilter)
   const completou        = totalNoFiltro > 0 && capturados === totalNoFiltro
   const stagiou          = userId !== null  // só mostra a stat se logou
+
+  // Deep link dos e-mails da regua (E03): /pokedex?p=<nome> abre a Pokedex ja
+  // filtrada pelo Pokemon e, quando o plano libera, direto nas cartas dele
+  // (sem liberar, fica a grade filtrada: o link nao abre o aviso de upgrade).
+  // Roda uma vez, depois da lista carregada (o plano ja foi lido antes dela).
+  const deepLinkFeito = useRef(false)
+  useEffect(() => {
+    if (loading || deepLinkFeito.current || pokemons.length === 0) return
+    deepLinkFeito.current = true
+    const pedido = (lerParametro('p') || '').trim()
+    if (!pedido) return
+    limparParametros('p')
+    const alvo = acharPokemonDoLink(pokemons, pedido)
+    setSearch(alvo ? alvo.name : pedido)
+    if (alvo && !(ENFORCEMENT_ATIVO && !pokedexCompleta)) handleSelectPokemon(alvo)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, pokemons])
 
   // Filtro mudou → volta pro primeiro lote (senão "Squirtle" com 3 resultados
   // ficava escondido atrás de um visibleCount de 960 do scroll anterior).
