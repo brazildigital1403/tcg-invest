@@ -21,7 +21,7 @@
  */
 import { btnRegua, blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { brl, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, attr, comCss, esc, linha, logoAssinatura, pct, rs } from './ui-b'
+import { COR, FONT, attr, esc, linha, pct, rs } from './ui-b'
 
 export type CartaAltaE16 = {
   nome: string
@@ -122,10 +122,9 @@ function montar(d: DadosE16, ctx: CtxRegua) {
           <td style="border-top:1px solid ${COR.borda};padding-top:12px;${FONT}">
             <p style="margin:0;font-size:16px;line-height:24px;color:${COR.texto2};">Prefere menos? <a href="${attr(ctx.links?.preferencias ?? `${URL_CANONICA}/minha-conta`)}" target="_blank" style="display:inline-block;padding:10px 0;font-weight:700;color:${COR.texto};text-decoration:underline;">Escolher os temas</a></p>
           </td>
-        </tr></table>`, '28px 32px 0')}
-    ${linha(`
-        ${logoAssinatura('0 0 14px')}
-        <p style="margin:0;font-size:14px;line-height:20px;color:${COR.texto2};"><span style="font-weight:700;color:${COR.texto};">P.S.</span> Sem nenhum toque em ${DIAS_SUNSET} dias, a Bynx para de mandar novidades. Avisos de pedido e pagamento continuam.</p>`, '20px 32px 28px')}`
+        </tr></table>`, '28px 32px 0')}`
+
+  const ps = `<p style="margin:14px 0 0;font-size:14px;line-height:20px;color:${COR.texto2};"><span style="font-weight:700;color:${COR.texto};">P.S.</span> Sem nenhum toque em ${DIAS_SUNSET} dias, a Bynx para de mandar novidades. Avisos de pedido e pagamento continuam.</p>`
 
   const html = layoutRegua({
     conteudo,
@@ -133,11 +132,12 @@ function montar(d: DadosE16, ctx: CtxRegua) {
     categoria: 'novidades',
     links: ctx.links,
     preheader,
-    // Logo da assinatura no conteudo: o P.S. aprovado vem DEPOIS dele.
-    assinatura: false,
+    assinatura: true,
+    psDepoisDoLogo: ps,
+    css: CSS,
     promocao: blocoPromocao('dupla', ctx.promocoes),
   })
-  return { assunto, preheader, html: comCss(html, CSS) }
+  return { assunto, preheader, html }
 }
 
 export const E16: TemplateRegua<DadosE16> = {

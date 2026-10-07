@@ -18,12 +18,12 @@
  *
  * Todos os valores tambem vao em texto vivo (corpo e alt). Sem assinatura
  * propria no mockup aprovado: o rodape assina com o logo.
- * Categoria 'colecao' (aviso de leilao nao e marketing); o motivo do rodape
- * e o aprovado ("deu lance no lote...").
+ * Categoria 'transacional' (aviso de leilao nao e marketing): sem
+ * Descadastrar no rodape; o motivo e o aprovado ("deu lance no lote...").
  */
 import { btnRegua, blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { brl, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, ajustarRodape, attr, comCss, esc, linha, rs } from './ui-b'
+import { COR, FONT, attr, esc, linha, rs } from './ui-b'
 
 export type DadosE13 = {
   nome: string
@@ -45,7 +45,7 @@ export type DadosE13 = {
 }
 
 const ID = 'e13'
-const CATEGORIA = 'colecao' as const
+const CATEGORIA = 'transacional' as const
 
 const CSS = `@media only screen and (max-width:480px){
   .hora{font-size:26px!important;line-height:46px!important;padding:0 12px!important}
@@ -100,13 +100,12 @@ function montar(d: DadosE13, ctx: CtxRegua) {
     rotulo: 'Bynx Leilões',
     // O mockup aprovado nao tem bloco de assinatura: o rodape assina com o logo.
     assinatura: false,
+    motivo: `Você recebe porque deu lance no lote ${d.lote.numero} da Rodada ${d.lote.rodada} da ${d.loja}.`,
+    notasRodape: { antes: ['Lance nos últimos segundos prorroga o lote: ninguém leva no último segundo.'] },
+    css: CSS,
     promocao: blocoPromocao('destaque', ctx.promocoes),
   })
-  const rodape = ajustarRodape(html, CATEGORIA, {
-    antes: ['Lance nos últimos segundos prorroga o lote: ninguém leva no último segundo.'],
-    motivo: `Você recebe porque deu lance no lote ${d.lote.numero} da Rodada ${d.lote.rodada} da ${d.loja}.`,
-  })
-  return { assunto, preheader, html: comCss(rodape, CSS) }
+  return { assunto, preheader, html }
 }
 
 export const E13: TemplateRegua<DadosE13> = {

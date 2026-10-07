@@ -35,7 +35,11 @@ export type TemplateRegua<D> = {
   id: string
   nome: string
   trilha: string
-  categoria: Exclude<CategoriaEmail, 'transacional'>
+  /**
+   * `transacional` = aviso sobre algo que a pessoa fez (lance, arremate): nao
+   * depende de preferencia de marketing e o rodape nao tem Descadastrar.
+   */
+  categoria: CategoriaEmail
   /** Dados de exemplo (persona ficticia com cartas e precos reais) para a pre-visualizacao. */
   exemplo: D
   montar: (dados: D, ctx: CtxRegua) => EmailMontado

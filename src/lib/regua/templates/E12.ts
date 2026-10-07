@@ -25,7 +25,7 @@
  */
 import { blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { urlArte, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
-import { COR, FONT, attr, comCss, esc, linha } from './ui-b'
+import { COR, FONT, attr, esc, linha } from './ui-b'
 
 export type CartaVotoE12 = {
   nome: string
@@ -122,9 +122,10 @@ function montar(d: DadosE12, ctx: CtxRegua) {
     links: ctx.links,
     preheader,
     assinatura: true,
+    css: CSS,
     promocao: blocoPromocao('dupla', ctx.promocoes),
   })
-  return { assunto, preheader, html: comCss(html, CSS) }
+  return { assunto, preheader, html }
 }
 
 export const E12: TemplateRegua<DadosE12> = {

@@ -24,7 +24,7 @@
 import { btnRegua, blocoPromocao, layoutRegua, utmRegua, URL_CANONICA } from '@/lib/email'
 import { brl, urlArte, urlImagemPessoal, type CtxRegua, type TemplateRegua } from '@/lib/regua/comum'
 import { PRAZOS, PRECOS } from '@/lib/servicos'
-import { COR, FONT, attr, comCss, esc, linha, rs } from './ui-b'
+import { COR, FONT, attr, esc, linha, rs } from './ui-b'
 
 export type DadosE19 = {
   carta: { nome: string; set: string }
@@ -142,9 +142,10 @@ function montar(d: DadosE19, ctx: CtxRegua) {
     preheader,
     rotulo: 'Novo na Bynx · Serviços',
     assinatura: true,
+    css: CSS,
     promocao: blocoPromocao('destaque', ctx.promocoes),
   })
-  return { assunto, preheader, html: comCss(html, CSS) }
+  return { assunto, preheader, html }
 }
 
 export const E19: TemplateRegua<DadosE19> = {
