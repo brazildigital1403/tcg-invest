@@ -104,7 +104,8 @@ export async function POST(req: NextRequest) {
   }
 
   const tipo = evento?.type as Evento
-  const regra = MAPA[tipo] as (typeof MAPA)[Evento] | undefined
+  // hasOwn: `type: "constructor"` nao pode cair no prototipo do objeto.
+  const regra = tipo && Object.hasOwn(MAPA, tipo) ? MAPA[tipo] : undefined
   // Evento que nao acompanhamos (sent, delivery_delayed, ...): 200 para o
   // Svix nao ficar re-entregando.
   if (!regra) return NextResponse.json({ ok: true, ignorado: tipo ?? null })
