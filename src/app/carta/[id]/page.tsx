@@ -162,6 +162,10 @@ type NormalizedCard = {
   // Preço (apenas Bynx tem)
   /** Guard de preco: true = valor nao serve pra divulgacao (ver card_preco_baseline). */
   precoSuspeito: boolean
+  /** Mediana historica da propria carta (card_preco_baseline). So e usada quando precoSuspeito. */
+  precoMediana: number | null
+  /** Quantos levantamentos formaram a mediana. */
+  precoNSnaps: number | null
   precoMin: number | null
   precoMedio: number | null
   precoMax: number | null
@@ -306,6 +310,8 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
   let bynx: any = null
   let printedTotal: number | null = null
   let precoSuspeito = false
+  let precoMediana: number | null = null
+  let precoNSnaps: number | null = null
   const sb = getServiceSupabase()
   if (sb) {
     const COLS =
@@ -375,6 +381,15 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
           Number(m?.n_snaps) || 0,
           Number(m?.n_liquidez) || 0,
         )
+        // ★ 08/10/2026: a mediana segue pro cliente. Em carta marcada, a UI
+        // passa a mostrar ELA como referencia e esconde a oferta inflada atras
+        // de um toque -- assim o numero errado sai do HTML que o servidor
+        // entrega, que e o que o Google e os modelos de IA leem. Mesmo select,
+        // zero consulta nova.
+        if (precoSuspeito && Number(m?.mediana) > 0) {
+          precoMediana = Number(m?.mediana)
+          precoNSnaps = Number(m?.n_snaps) || null
+        }
       } catch (err) {
         console.error('[carta] marca de preco:', (err as Error)?.message)
       }
@@ -467,6 +482,8 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
     imageLarge: tcg?.images?.large || bynx?.image_large || null,
     attacks: normalizeAttacks(tcg?.attacks || bynx?.attacks),
     precoSuspeito,
+    precoMediana,
+    precoNSnaps,
     precoMin: bynx?.preco_min ? Number(bynx.preco_min) : null,
     precoMedio: bynx?.preco_medio ? Number(bynx.preco_medio) : null,
     precoMax: bynx?.preco_max ? Number(bynx.preco_max) : null,

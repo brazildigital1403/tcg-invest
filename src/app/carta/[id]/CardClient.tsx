@@ -62,6 +62,10 @@ type CardProps = {
     attacks: Array<{ name: string; text?: string; damage?: string }> | null
     /** Guard de preco: valor nao serve como referencia (card_preco_baseline). */
     precoSuspeito?: boolean
+    /** Mediana historica da carta; so vem preenchida quando precoSuspeito. */
+    precoMediana?: number | null
+    /** Quantos levantamentos formaram a mediana. */
+    precoNSnaps?: number | null
     precoMin: number | null
     precoMedio: number | null
     precoMax: number | null
@@ -82,6 +86,13 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
   const variantes = card.variantes && card.variantes.length ? card.variantes : []
   const [varSel, setVarSel] = useState<string>(variantes[0]?.key || 'normal')
   const vAtual = variantes.find((v) => v.key === varSel) || variantes[0] || null
+  // ★ Carta marcada pelo guard E com mediana historica (08/10/2026): a mediana
+  // vira a referencia e a faixa de hoje fica atras de um toque. Nasce fechada
+  // de proposito -- assim a oferta inflada NAO entra no HTML do servidor, que
+  // e o que o Google e os modelos de IA leem. Marcada sem mediana cai no
+  // comportamento antigo (faixa visivel e apagada).
+  const refHistorica = card.precoSuspeito && card.precoMediana && card.precoMediana > 0 ? card.precoMediana : null
+  const [verOferta, setVerOferta] = useState(false)
 
   // ─── Estado vazio: por que a carta nao tem preco? (BRIEF-LIGA-ZENROWS 10.8)
   //
@@ -303,12 +314,30 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
                     </div>
                   )}
 
-                  {/* ★ Guard de preco: a carta esta marcada como nao-confiavel.
-                      A faixa CONTINUA visivel (opcao A, decisao do Du) -- o
-                      numero e o que a fonte diz de fato, e esconder o dado
-                      bruto seria esconder informacao. O que muda e que ele
-                      para de ser afirmado como referencia: entra apagado,
-                      atras de um aviso que explica por que nao serve. */}
+                  {/* ★ Guard de preco, carta marcada COM mediana (08/10/2026):
+                      a mediana historica e o numero grande, e a faixa de hoje
+                      so aparece depois do toque em "Ver a oferta de hoje".
+                      Trocar o numero errado por um numero certo e melhor que
+                      apagar: a pagina continua respondendo "quanto vale". */}
+                  {refHistorica && (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+                        <p style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--bx-text)' }}>
+                          {fmt(refHistorica)}
+                        </p>
+                        <p style={{ margin: 0, fontSize: 11, color: 'var(--bx-text-3)' }}>referência histórica</p>
+                      </div>
+                      <p style={{ margin: '0 0 14px', fontSize: 11, color: 'var(--bx-text-3)' }}>
+                        {card.precoNSnaps && card.precoNSnaps > 1
+                          ? `Mediana de ${card.precoNSnaps} levantamentos da Bynx para esta carta.`
+                          : 'Mediana dos levantamentos da Bynx para esta carta.'}
+                      </p>
+                    </>
+                  )}
+
+                  {/* Aviso do guard. Marcada SEM mediana (caso raro) mantem o
+                      texto antigo e a faixa visivel e apagada -- opcao A de
+                      setembro, que continua valendo como fallback. */}
                   {card.precoSuspeito && (
                     <div
                       style={{
@@ -328,64 +357,119 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
                       </svg>
                       <div>
                         <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--ac-1, #f59e0b)' }}>
-                          Preço sob revisão
+                          {refHistorica ? 'Oferta de hoje sob revisão' : 'Preço sob revisão'}
                         </p>
                         <p style={{ margin: '4px 0 0', fontSize: 12.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.64)' }}>
-                          Só existe uma oferta desta carta hoje, e ela está muito acima do histórico. Não usamos esse valor como referência.
+                          {refHistorica
+                            ? 'A única oferta à venda está muito acima do histórico desta carta. Enquanto isso, a referência é o histórico.'
+                            : 'Só existe uma oferta desta carta hoje, e ela está muito acima do histórico. Não usamos esse valor como referência.'}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: 12,
-                      // Marcada pelo guard: a faixa continua legivel, mas
-                      // recuada -- o aviso acima e que manda na leitura.
-                      opacity: card.precoSuspeito ? 0.45 : 1,
-                    }}
-                  >
-                    {[
-                      { label: 'Mínimo', value: vAtual.min, color: '#22c55e' },
-                      { label: 'Médio', value: vAtual.med, color: '#60a5fa' },
-                      { label: 'Máximo', value: vAtual.max, color: '#f59e0b' },
-                    ].map((p) => (
-                      <div key={p.label} style={{ textAlign: 'center' }}>
-                        <p
-                          style={{
-                            fontSize: 10,
-                            color: 'rgba(255,255,255,0.35)',
-                            marginBottom: 4,
-                          }}
-                        >
-                          {p.label}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: 17,
-                            fontWeight: 800,
-                            color: p.color,
-                            letterSpacing: '-0.02em',
-                          }}
-                        >
-                          {fmt(p.value || 0)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  {refHistorica && (
+                    <button
+                      type="button"
+                      onClick={() => setVerOferta((v) => !v)}
+                      aria-expanded={verOferta}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        minHeight: 44,
+                        padding: '10px 14px',
+                        fontSize: 12,
+                        fontFamily: 'inherit',
+                        color: 'var(--bx-text-2)',
+                        background: 'transparent',
+                        border: '1px solid var(--bx-border)',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s ease, background 0.15s ease',
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        aria-hidden="true"
+                        style={{ flex: 'none', transform: verOferta ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}
+                      >
+                        <path d="M5 8l5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {verOferta ? 'Ocultar a oferta de hoje' : 'Ver a oferta de hoje'}
+                    </button>
+                  )}
+
+                  {(!refHistorica || verOferta) && (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap: 12,
+                        marginTop: refHistorica ? 14 : 0,
+                        // Marcada pelo guard: a faixa continua legivel, mas
+                        // recuada -- o aviso acima e que manda na leitura.
+                        opacity: card.precoSuspeito ? 0.45 : 1,
+                      }}
+                    >
+                      {[
+                        { label: 'Mínimo', value: vAtual.min, color: '#22c55e' },
+                        { label: 'Médio', value: vAtual.med, color: '#60a5fa' },
+                        { label: 'Máximo', value: vAtual.max, color: '#f59e0b' },
+                      ].map((p) => (
+                        <div key={p.label} style={{ textAlign: 'center' }}>
+                          <p
+                            style={{
+                              fontSize: 10,
+                              color: 'rgba(255,255,255,0.35)',
+                              marginBottom: 4,
+                            }}
+                          >
+                            {p.label}
+                          </p>
+                          <p
+                            style={{
+                              fontSize: 17,
+                              fontWeight: 800,
+                              color: p.color,
+                              letterSpacing: '-0.02em',
+                            }}
+                          >
+                            {fmt(p.value || 0)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <p
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5,
+                      display: 'block',
                       marginTop: 14,
                       fontSize: 10,
+                      lineHeight: 1.7,
                       color: 'rgba(255,255,255,0.4)',
                     }}
                   >
-                    Fonte: <b style={{ color: '#f59e0b', fontWeight: 700 }}>Mercado Brasileiro</b>
+                    {refHistorica ? (
+                      verOferta ? (
+                        <>
+                          Oferta de hoje: <b style={{ color: '#f59e0b', fontWeight: 700 }}>Mercado Brasileiro</b>
+                          <br />
+                          Referência: <b style={{ color: '#f59e0b', fontWeight: 700 }}>histórico da Bynx</b>
+                        </>
+                      ) : (
+                        <>
+                          Fonte: <b style={{ color: '#f59e0b', fontWeight: 700 }}>histórico da Bynx</b>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        Fonte: <b style={{ color: '#f59e0b', fontWeight: 700 }}>Mercado Brasileiro</b>
+                      </>
+                    )}
                   </p>
                 </>
               ) : (
