@@ -26,7 +26,7 @@ import { familiaDoSet } from '@/lib/setFamilia'
 import { getPrecoVariante as faixaVariante } from '@/lib/calcPatrimonio'
 import { CONDICAO_KEYS, temCondicao } from '@/lib/condicoes'
 import { ehVerificada } from '@/lib/origemCarta'
-import { lerParametro, limparParametros } from '@/lib/deepLink'
+import { destinoAtual, lerParametro, limparParametros, urlLoginComDestino } from '@/lib/deepLink'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -318,7 +318,7 @@ export default function MinhaColecao() {
   async function loadCards() {
     try {
       const { data: userData } = await supabase.auth.getUser()
-      if (!userData?.user) { window.location.href = '/login'; return }
+      if (!userData?.user) { window.location.href = urlLoginComDestino(destinoAtual()); return }
 
       setUserId(userData.user.id)
       const { isPro: pro, isTrial: trial, caps } = await getUserPlan(userData.user.id)
