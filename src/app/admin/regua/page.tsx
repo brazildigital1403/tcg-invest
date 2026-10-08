@@ -1,6 +1,6 @@
 'use client'
 
-// Regua de e-mail: os 20 templates (E01..E20) com a previa de cada um, montada
+// Regua de e-mail: os 20 templates (E01..E20) e as variantes (E01B, E03B...) com a previa de cada um, montada
 // pelo /api/admin/email-preview com os dados de exemplo do proprio template.
 // O painel do motor (MotorRegua) mostra gatilho, publico e contagem de cada um;
 // nos editoriais, o disparo com confirmacao dupla (so com REGUA_ATIVA=1).

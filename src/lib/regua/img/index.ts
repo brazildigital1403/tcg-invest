@@ -1,8 +1,10 @@
 import { tipoImg, type TipoImg } from './base'
 import { e01Fichario } from './e01'
+import { e03bFichario, e03bFicharioCelular, e03bMini1, e03bMini2, e03bMini3 } from './e03b'
 import { e04Proxima } from './e04'
 import { e05Trial } from './e05'
 import { e06Grafico } from './e06'
+import { e06bGancho } from './e06b'
 import { e07Fichario } from './e07'
 import { e08Painel } from './e08'
 import { e09Bolso } from './e09'
@@ -12,6 +14,7 @@ import { e14Arrematado, e14Faltou } from './e14'
 import { e15Postal } from './e15'
 import { e16Fichario } from './e16'
 import { e17Stories, e17TrofeuCartas, e17TrofeuFichario, e17TrofeuPrimeira, e17TrofeuRepetidas } from './e17'
+import { e17bHero, e17bTrofeuAlta, e17bTrofeuDia } from './e17b'
 import { e18Remarcadas } from './e18'
 import { e19Bancada } from './e19'
 import { e20Varal } from './e20'
@@ -24,9 +27,15 @@ import { e20Varal } from './e20'
  */
 export const DESENHOS: Record<string, TipoImg> = {
   'e01-fichario': tipoImg(e01Fichario),
+  'e03b-fichario': tipoImg(e03bFichario),
+  'e03b-fichario-celular': tipoImg(e03bFicharioCelular),
+  'e03b-mini-1': tipoImg(e03bMini1),
+  'e03b-mini-2': tipoImg(e03bMini2),
+  'e03b-mini-3': tipoImg(e03bMini3),
   'e04-proxima': tipoImg(e04Proxima),
   'e05-trial': tipoImg(e05Trial),
   'e06-grafico': tipoImg(e06Grafico),
+  'e06b-gancho': tipoImg(e06bGancho),
   'e07-fichario': tipoImg(e07Fichario),
   'e08-painel': tipoImg(e08Painel),
   'e09-bolso': tipoImg(e09Bolso),
@@ -41,6 +50,9 @@ export const DESENHOS: Record<string, TipoImg> = {
   'e17-trofeu-fichario': tipoImg(e17TrofeuFichario),
   'e17-trofeu-repetidas': tipoImg(e17TrofeuRepetidas),
   'e17-trofeu-primeira': tipoImg(e17TrofeuPrimeira),
+  'e17b-hero': tipoImg(e17bHero),
+  'e17b-trofeu-dia': tipoImg(e17bTrofeuDia),
+  'e17b-trofeu-alta': tipoImg(e17bTrofeuAlta),
   'e18-remarcadas': tipoImg(e18Remarcadas),
   'e19-bancada': tipoImg(e19Bancada),
   'e20-varal': tipoImg(e20Varal),
