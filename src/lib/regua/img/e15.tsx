@@ -137,7 +137,7 @@ async function desenhar(d: ImgE15) {
             <T style={{ position: 'absolute', left: 2, bottom: 5, fontSize: caber(d.cidade, 23, 190, 14), maxWidth: 194, overflow: 'hidden', fontWeight: 700, color: C.texto, transform: MAO }}>{d.cidade}</T>
           </div>
           <div style={{ display: 'flex', position: 'relative', height: 40, borderBottom: '1.5px solid #2f3135' }}>
-            <T style={{ position: 'absolute', left: 2, bottom: 5, fontSize: 23, fontWeight: 700, color: C.texto, transform: MAO }}>{`${d.uf} · Brasil`}</T>
+            <T style={{ position: 'absolute', left: 2, bottom: 5, fontSize: 23, fontWeight: 700, color: C.texto, transform: MAO }}>{d.uf ? `${d.uf} · Brasil` : 'Brasil'}</T>
           </div>
         </Abs>
       </Abs>

@@ -107,7 +107,7 @@ function montar(d: DadosE12, ctx: CtxRegua) {
         <p style="margin:0;font-size:14px;line-height:20px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${COR.texto2};">Onde e quando</p>
       </td></tr>
       <tr><td style="padding:4px 0 0;">
-        <img src="${attr(urlImagemPessoal('e12-ingresso', ctx.tokenImagem))}" width="600" alt="Ingresso da Bynx Leilões no nome do ${nome}: rodada ${esc(d.rodada.numero)} da ${esc(d.rodada.loja)}, ${esc(d.rodada.dia)}, ao vivo." style="display:block;width:100%;max-width:600px;height:auto;border:0;color:${COR.texto};${FONT}font-size:16px;font-weight:700;line-height:24px;background-color:${COR.elevado};"/>
+        <img src="${attr(urlImagemPessoal('e12-ingresso', ctx.tokenImagem))}" width="600" alt="Ingresso da Bynx Leilões no seu nome: rodada ${esc(d.rodada.numero)} da ${esc(d.rodada.loja)}, ${esc(d.rodada.dia)}, ao vivo." style="display:block;width:100%;max-width:600px;height:auto;border:0;color:${COR.texto};${FONT}font-size:16px;font-weight:700;line-height:24px;background-color:${COR.elevado};"/>
       </td></tr>
       <tr><td class="px" style="padding:6px 32px 0;${FONT}">
         <p style="margin:0;font-size:14px;line-height:21px;color:${COR.texto2};">Lotes de 30 a 90 segundos, pagamento com cartão na Bynx, lance a partir de 18 anos.</p>

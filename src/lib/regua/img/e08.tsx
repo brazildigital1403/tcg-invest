@@ -80,7 +80,7 @@ async function desenhar(d: ImgE08) {
   const n = pctTxt.length
   const pw = Math.min(37, Math.floor((240 - 3 * (n - 1)) / n))
   const ganho = `${sobe ? '+' : '-'}${brlImg(Math.abs(d.naColecao))}`
-  const marca = `PAINEL DA ${d.nome.toUpperCase()}`
+  const marca = 'SEU PAINEL'
 
   return (
     <>

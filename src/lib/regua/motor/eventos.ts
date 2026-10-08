@@ -915,7 +915,7 @@ export async function avaliarE15(ctx: Contexto): Promise<Avaliacao> {
     if (!dest) { pular(a, 'sem_carta_que_subiu'); continue }
     const outras = v.altas.filter((m) => m !== dest)
     const d: DadosE15 = {
-      nome: u.nome, cidade: u.cidade, uf: u.uf, desde: ddmm(desde), ate: ddmm(ctx.hoje),
+      nome: u.nome, cidade: cidadeExibicao(u.cidade), uf: (u.uf || '').trim().toUpperCase(), desde: ddmm(desde), ate: ddmm(ctx.hoje),
       valorInicio: r2(col.valor - v.saldo), valorHoje: col.valor,
       subiram: v.altas.length, cairam: v.quedas.length,
       destaque: cartaVar(dest),
@@ -923,7 +923,7 @@ export async function avaliarE15(ctx: Contexto): Promise<Avaliacao> {
       outrasAltas: { quantidade: outras.length, soma: r2(outras.reduce((s, m) => s + m.naColecao, 0)) },
     }
     const img: ImgE15 = {
-      nome: u.nome, cidade: u.cidade, uf: u.uf, desde: d.desde, ate: d.ate, variacao: v.saldo,
+      nome: u.nome, cidade: d.cidade, uf: d.uf, desde: d.desde, ate: d.ate, variacao: v.saldo,
       subiram: d.subiram, cairam: d.cairam, selo: dest.carta.cat!.imagemGrande,
     }
     a.cands.push({ usuario: u, template: 'E15', campanha: `e15-toque${toque}`, chave: `winback:${toque}`, dados: d, img: { 'e15-postal': img } })
@@ -1041,6 +1041,13 @@ export async function avaliarE20(ctx: Contexto): Promise<Avaliacao> {
  * repetidas). Cada template e avaliado DEPOIS do envio do anterior, entao o
  * teto ja enxerga o que saiu no mesmo tick.
  */
+/** "sorocaba" / "SAO PAULO" -> "Sorocaba" / "Sao Paulo"; preposicoes ficam em minuscula. */
+function cidadeExibicao(c: string | null | undefined): string {
+  const MIN = new Set(['da', 'das', 'de', 'do', 'dos', 'e'])
+  return (c || '').trim().toLowerCase().split(/\s+/).filter(Boolean)
+    .map((w, i) => (i > 0 && MIN.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ')
+}
+
 export const ORDEM_EVENTOS: { id: string; avaliar: (ctx: Contexto) => Promise<Avaliacao> }[] = [
   { id: 'E02', avaliar: avaliarE02 },
   { id: 'E05', avaliar: avaliarE05 },
