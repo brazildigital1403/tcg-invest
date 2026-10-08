@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendTrialExpiring5Email, sendTrialExpiring7Email } from '@/lib/email'
+import { e05Substitui } from '@/lib/regua/motor/config'
+import { diaBR } from '@/lib/regua/motor/tempo'
 
 // Roda diariamente via Vercel Cron (ver vercel.json)
 export async function GET(req: NextRequest) {
@@ -18,6 +20,14 @@ export async function GET(req: NextRequest) {
   const now = new Date()
   let sent5 = 0
   let sent7 = 0
+
+  // Regua (substituicao decidida): com REGUA_ATIVA=1 e o E05 aberto, os avisos
+  // D-2 e D-1 daqui deixam de sair; o E05 do /api/cron-regua assume o fim do
+  // trial (e cai no aviso antigo de ultimo dia quando nao tem dado para montar).
+  if (e05Substitui(diaBR(now))) {
+    console.log('[cron/trial-emails] regua ativa: E05 substitui os avisos D-2/D-1')
+    return NextResponse.json({ ok: true, sent5, sent7, substituidoPorE05: true })
+  }
 
   try {
     // Busca usuários em trial
