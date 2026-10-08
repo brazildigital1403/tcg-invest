@@ -47,6 +47,21 @@ const VARIANTE_COLOR: Record<string, string> = {
  * (pastas, grafico, progresso por set, reputacao) e o que depende de SESSAO
  * (viewer, dono, perfil privado) -- que nao pode vir de pagina cacheada.
  */
+/** Linha de perfil_cartas_publicas -- as colunas que o perfil publico usa. */
+type CartaPerfil = {
+  card_name: string | null
+  variante: string | null
+  quantity: number | null
+  card_image: string | null
+  set_name: string | null
+  set_id: string | null
+  pokemon_api_id: string | null
+  card_link: string | null
+  graduada: boolean | null
+  valor_graduada: number | null
+  origem: string | null
+}
+
 export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null }) {
 
   const params = useParams()
@@ -151,24 +166,20 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
       // a RPC devolve so o numero (perfil publico ou proprio dono).
       const { data: vendasCount } = await supabase.rpc('vendas_concluidas_count', { uid })
 
-      // Total cartas
-      const { count: totalCartas } = await supabase
-        .from('user_cards').select('*', { count: 'exact', head: true }).eq('user_id', uid)
-
-      // Cartas com preços — para showcase e patrimônio
-      // R6: usamos pokemon_api_id como chave de lookup em pokemon_cards (canonical).
-      const { data: cards } = await supabase
-        .from('user_cards')
-        // `graduada` e `valor_graduada` sao obrigatorios: calcPatrimonio trata
-        // slab como outro produto (degrau 1 da cascata), mas sem os campos no
-        // payload o degrau nunca dispara. O grafico logo abaixo desta tela usa
-        // portfolio_history, que JA conta o slab -- entao o numero grande do
-        // perfil ficava abaixo do ultimo ponto do proprio grafico.
-        // `origem` alimenta o stat de cartas verificadas. Sem ele aqui o box
-        // aparecia no SSR e SUMIA na hidratacao -- mesma armadilha que os
-        // links do showcase ja tiveram.
-        .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id, card_link, graduada, valor_graduada, origem')
-        .eq('user_id', uid)
+      // Cartas do perfil pela RPC perfil_cartas_publicas (#485), nao pela
+      // tabela: a policy publica de user_cards deixou de entregar as cartas de
+      // quem esconde valores, e a RPC devolve as mesmas colunas com o
+      // valor_graduada mascarado (NULL) para terceiros. Alimenta showcase,
+      // patrimonio, cartas verificadas e progresso por set. `graduada` e
+      // `valor_graduada` seguem obrigatorios: calcPatrimonio trata slab como
+      // outro produto (degrau 1 da cascata). `origem` alimenta o stat de
+      // cartas verificadas.
+      const { data: cardsRaw } = await supabase
+        .rpc('perfil_cartas_publicas', { p_user_id: uid })
+      const cards = (cardsRaw || []) as CartaPerfil[]
+      // Conta LINHAS, igual ao servidor (perfilPublico.ts) -- somar quantity
+      // faria o numero piscar na hidratacao.
+      const totalCartas = (cards || []).length
 
       if (cards && cards.length > 0) {
         const ids = [...new Set(

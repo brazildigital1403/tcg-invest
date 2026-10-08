@@ -49,9 +49,12 @@ export const metadata: Metadata = {
 
 const getRanking = unstable_cache(
   async (): Promise<{ maiorColecao: RankingRow[]; maisCompleto: RankingRow[] }> => {
-    const { data: cards, error: e1 } = await supabase
-      .from('user_cards')
-      .select('user_id, set_id, quantity')
+    // RPC em vez da tabela: a policy publica de user_cards passou a excluir
+    // quem esconde valores (#485), e o ranking e de contagem, nao de dinheiro.
+    // A funcao devolve so user_id, set_id e quantity dos perfis publicos.
+    const { data: cardsRaw, error: e1 } = await supabase
+      .rpc('perfil_destaque_cartas')
+    const cards = (cardsRaw || []) as { user_id: string; set_id: string | null; quantity: number | null }[]
     if (e1) throw new Error(`[/destaque] user_cards: ${e1.message}`)
 
     const { data: sets, error: e2 } = await supabase
