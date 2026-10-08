@@ -24,10 +24,10 @@ export function modoAtual(): Modo {
 
 /** Inicio de cada gatilho de EVENTO (YYYY-MM-DD, Brasilia). */
 export const INICIO: Record<string, string> = {
-  E02: '2026-10-27',
-  E03: '2026-10-27',
-  E04: '2026-10-27',
-  E05: '2026-10-27',
+  E02: '2026-10-08',
+  E03: '2026-10-08',
+  E04: '2026-10-08',
+  E05: '2026-10-08',
   E07: '2026-11-05',
   E08: '2026-11-05',
   E09: '2026-11-05',
