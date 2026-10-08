@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { lerParametro } from '@/lib/deepLink'
 
 type Point = { snapshot_date: string; preco_min: number | null; preco_medio: number | null; preco_max: number | null }
 
@@ -24,7 +25,12 @@ const RANGES = [
   { label: '6m', days: 180 },
 ]
 
-export default function PriceHistory({ cardId }: { cardId: string }) {
+/**
+ * `periodoDaUrl`: abre no periodo pedido em `?periodo=30d|90d|6m` (deep link do
+ * e-mail E06B: "ver quanto a carta subiu no mes" cai direto no grafico de 30
+ * dias). Lido no cliente, como os outros deep links (src/lib/deepLink.ts).
+ */
+export default function PriceHistory({ cardId, periodoDaUrl = false }: { cardId: string; periodoDaUrl?: boolean }) {
   const [all, setAll] = useState<Point[]>([])
   const [loaded, setLoaded] = useState(false)
   const [range, setRange] = useState(180)
@@ -33,11 +39,15 @@ export default function PriceHistory({ cardId }: { cardId: string }) {
     let active = true
     supabase.rpc('get_card_price_history', { p_id: cardId, p_days: 365 }).then(({ data }) => {
       if (!active) return
+      if (periodoDaUrl) {
+        const pedido = RANGES.find((r) => r.label === lerParametro('periodo'))
+        if (pedido) setRange(pedido.days)
+      }
       setAll((data as Point[]) || [])
       setLoaded(true)
     })
     return () => { active = false }
-  }, [cardId])
+  }, [cardId, periodoDaUrl])
 
   const pts = useMemo(() => {
     const cutoff = new Date()

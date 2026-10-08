@@ -478,7 +478,7 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
 
         <WatchButton cardId={card.id} full />
 
-        <PriceHistory cardId={card.id} />
+        <PriceHistory cardId={card.id} periodoDaUrl />
 
       {/* Ataques */}
         {card.attacks && card.attacks.length > 0 && (
