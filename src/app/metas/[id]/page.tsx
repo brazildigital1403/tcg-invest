@@ -519,7 +519,7 @@ export default function MetaPage() {
           <div style={{ ...bloco, padding: '34px 22px', textAlign: 'center' }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Entre para ver sua meta</div>
             <p style={{ fontSize: 14, color: 'var(--bx-text-2)', margin: '0 0 18px' }}>Suas metas ficam salvas na sua conta.</p>
-            <button onClick={() => openLogin({ next: `/metas/${id}` })} style={btnPrim}>Entrar</button>
+            <button onClick={() => openLogin({ next: lerParametro('ver') === 'a-venda' ? `/metas/${id}?ver=a-venda` : `/metas/${id}` })} style={btnPrim}>Entrar</button>
           </div>
         )}
 

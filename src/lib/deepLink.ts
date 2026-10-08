@@ -33,3 +33,23 @@ export function limparParametros(...nomes: string[]): void {
     if (mudou) window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
   } catch { /* URL invalida: deixa como esta */ }
 }
+
+/**
+ * Caminho + query da pagina atual ("/minha-colecao?scan=1"), para virar o
+ * `next` do login. Sem isso o deep link do e-mail se perdia quando a pessoa
+ * chegava deslogada: /login mandava para a home (minha-colecao) e a meta
+ * voltava sem o `?ver=a-venda` (metas/[id]).
+ */
+export function destinoAtual(): string {
+  if (typeof window === 'undefined') return '/'
+  return `${window.location.pathname}${window.location.search}`
+}
+
+/**
+ * Abre o login no modal global (`?auth=login`) e, depois de entrar, volta
+ * para `destino`. Mesmo mecanismo do /metas?nova= (o AuthModalProvider so
+ * aceita caminho relativo no `next`).
+ */
+export function urlLoginComDestino(destino: string): string {
+  return `/?auth=login&next=${encodeURIComponent(destino)}`
+}

@@ -2,10 +2,12 @@
 
 // Regua de e-mail: os 20 templates (E01..E20) com a previa de cada um, montada
 // pelo /api/admin/email-preview com os dados de exemplo do proprio template.
-// So leitura: nada e enviado daqui.
+// O painel do motor (MotorRegua) mostra gatilho, publico e contagem de cada um;
+// nos editoriais, o disparo com confirmacao dupla (so com REGUA_ATIVA=1).
 
 import { useCallback, useEffect, useState } from 'react'
 import { IconDesktop, IconPhone, IconLink } from '@/components/ui/Icons'
+import MotorRegua from '@/components/admin/MotorRegua'
 
 type ItemRegua = {
   id: string
@@ -102,7 +104,7 @@ export default function AdminReguaPage() {
           Régua de e-mail
         </h1>
         <p style={{ fontSize: 13, color: 'var(--bx-text-3)', margin: 0, lineHeight: 1.5 }}>
-          Os 20 e-mails da régua com os dados de exemplo de cada um e a Seleção Bynx do momento. Só pré-visualização: nada é enviado daqui.
+          Os 20 e-mails da régua com os dados de exemplo de cada um e a Seleção Bynx do momento. A contagem não envia nada; o disparo dos editoriais só sai com a régua ligada e confirmação dupla.
         </p>
       </div>
 
@@ -162,6 +164,8 @@ export default function AdminReguaPage() {
                   </button>
                 </div>
               </div>
+
+              <MotorRegua key={item.id} id={item.id} />
 
               {item.variantes.length > 0 && (
                 <div className="rg-variantes" role="group" aria-label="Versão do exemplo">

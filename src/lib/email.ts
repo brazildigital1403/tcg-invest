@@ -2,7 +2,9 @@ import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = 'Bynx <noreply@bynx.gg>'
+/** Remetente do transacional e da colecao (o motor da regua le daqui). */
+export const FROM_PRODUTO = 'Bynx <noreply@bynx.gg>'
+const FROM = FROM_PRODUTO
 
 // ─── Padrao de ASSUNTO (nao fugir disso) ────────────────────────────────────
 //

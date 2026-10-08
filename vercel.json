@@ -35,9 +35,19 @@
     {
       "path": "/api/cron-pagamento-lembrete",
       "schedule": "0 0,12,15,18,21 * * *"
+    },
+    {
+      "path": "/api/cron-regua",
+      "schedule": "30,50 22 * * *"
     }
   ],
   "functions": {
+    "src/app/api/cron-regua/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/admin/regua/disparo/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/cron-notificacoes/route.ts": {
       "maxDuration": 60
     },
