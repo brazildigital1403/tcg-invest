@@ -62,9 +62,10 @@ export const TETO_MARKETING_SEMANA = 2
 
 /**
  * Templates de categoria de marketing que ficam FORA do teto (estrategia,
- * principio 6): ativacao (E03, E04) e alerta com limite proprio (E09).
+ * principio 6): ativacao (E03, E04 e as variantes E03B, E04B) e alerta com
+ * limite proprio (E09).
  */
-export const FORA_DO_TETO = new Set(['E03', 'E04', 'E09'])
+export const FORA_DO_TETO = new Set(['E03', 'E03B', 'E04', 'E04B', 'E09'])
 
 /** E08: limiar (BRIEFS decisao 7) e frequencia. */
 export const E08_LIMIAR = { pct: 15, reais: 10 }

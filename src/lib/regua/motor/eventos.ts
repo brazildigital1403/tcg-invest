@@ -7,12 +7,15 @@
  * Gatilhos (estrategia.md / BRIEFS.md):
  * - E02 D0: cadastro nas ultimas 48h (rede de seguranca do envio na hora, ver
  *   `enviarE02Agora`). Uma vez.
- * - E03 D1: cadastro entre 24h e 48h atras; 0 a 4 cartas (a variante B, 5 a 9,
- *   nao foi desenhada; 10+ sai do fluxo). Uma vez.
- * - E04 D3: cadastro entre 72h e 96h atras, sem meta. Uma vez.
+ * - E03 D1: cadastro entre 24h e 48h atras; 0 a 4 cartas recebe o E03, 5 a 9
+ *   recebe o E03B; 10+ sai do fluxo. Uma vez (E03 OU E03B).
+ * - E04 D3: cadastro entre 72h e 96h atras, sem meta. 0 cartas recebe o E04B.
+ *   Uma vez (E04 OU E04B).
  * - E05: trial acaba entre 12h e 36h a partir do tick (o "1 dia antes"), sem
  *   assinatura. Uma vez. Sem dado para montar = o aviso antigo (D-1) sai no lugar.
- * - E06: sexta quinzenal, 5+ cartas, caso "uma carta salvou a semana".
+ * - E06: sexta quinzenal, 5+ cartas, caso "uma carta salvou a semana". Quem
+ *   nao e esse caso e mexeu pouco (nada mexeu, ou saldo dos 7 dias abaixo de
+ *   3% do comeco) recebe o E06B. Mesma chave: E06 OU E06B.
  * - E07: meta com faltam <= 3 (ou 90%+ com ate 9 faltando) e 1+ a venda. Uma vez por meta.
  * - E08: digest diario, limiar 15% E R$ 10 em 7 dias; 1/dia, 3/semana; carta
  *   nao repete aviso em 7 dias.
@@ -29,9 +32,12 @@ import { comissaoVendedorCents, normalizarPrazo } from '@/lib/comissao'
 import { podeReceber, resolverRecebedor } from '@/lib/vendedorRecebimento'
 import type { DadosE02 } from '@/lib/regua/templates/E02'
 import type { CartaGavetaE03, DadosE03 } from '@/lib/regua/templates/E03'
+import type { CartaE03B, DadosE03B, DestaqueE03B } from '@/lib/regua/templates/E03B'
 import type { DadosE04 } from '@/lib/regua/templates/E04'
+import type { DadosE04B } from '@/lib/regua/templates/E04B'
 import type { DadosE05 } from '@/lib/regua/templates/E05'
 import type { DadosE06, MovimentoE06 } from '@/lib/regua/templates/E06'
+import type { DadosE06B, JanelaE06B, LinhaE06B } from '@/lib/regua/templates/E06B'
 import type { CartaFaltaE07, DadosE07 } from '@/lib/regua/templates/E07'
 import type { CartaPlacarE08, DadosE08 } from '@/lib/regua/templates/E08'
 import type { DadosE09 } from '@/lib/regua/templates/E09'
@@ -40,9 +46,11 @@ import type { DadosE16 } from '@/lib/regua/templates/E16'
 import type { DadosE20, GanchoE20 } from '@/lib/regua/templates/E20'
 import { E03 } from '@/lib/regua/templates/E03'
 import { REGUA } from '@/lib/regua/registro'
+import type { ImgE03B } from '@/lib/regua/img/e03b'
 import type { ImgE04 } from '@/lib/regua/img/e04'
 import type { ImgE05 } from '@/lib/regua/img/e05'
 import type { ImgE06 } from '@/lib/regua/img/e06'
+import type { ImgE06B } from '@/lib/regua/img/e06b'
 import type { BolsoE07, ImgE07 } from '@/lib/regua/img/e07'
 import type { ImgE08 } from '@/lib/regua/img/e08'
 import type { ImgE09 } from '@/lib/regua/img/e09'
@@ -200,8 +208,14 @@ export async function avaliarE03(ctx: Contexto): Promise<Avaliacao> {
     a.noGatilho++
     const col = await colecaoDe(ctx, u.id)
     if (col.total >= 10) { pular(a, 'sai_10_ou_mais_cartas'); continue }
-    if (col.total >= 5) { pular(a, 'variante_b_5_a_9_sem_template'); continue }
-    if (!passaNasRegras(ctx, a, u, REGUA.E03.categoria, {})) continue
+    // E03 e E03B sao o mesmo D1: quem recebeu um nao recebe o outro.
+    if (!passaNasRegras(ctx, a, u, REGUA.E03.categoria, { templates: ['E03', 'E03B'] })) continue
+    if (col.total >= 5) {
+      const r = await dadosE03B(ctx, u, col)
+      if (typeof r === 'string') { pular(a, r); continue }
+      a.cands.push({ usuario: u, template: 'E03B', campanha: 'e03b', chave: 'e03', dados: r.d, img: r.img })
+      continue
+    }
     if (cartas.length < base.length) { pular(a, 'preco_da_gaveta_indisponivel'); continue }
     const d: DadosE03 = {
       cartas,
@@ -211,6 +225,77 @@ export async function avaliarE03(ctx: Contexto): Promise<Avaliacao> {
     a.cands.push({ usuario: u, template: 'E03', campanha: 'e03', chave: 'e03', dados: d, img: null })
   }
   return a
+}
+
+/** Cartas da colecao agrupadas por carta do catalogo (ou nome): valor na colecao e copias. */
+type Agrupada = { carta: CartaPessoa; valor: number; copias: number }
+function agrupar(col: Colecao): Agrupada[] {
+  const m = new Map<string, Agrupada>()
+  for (const x of col.cartas) {
+    const k = x.cardId || `nome:${x.nome}`
+    const ja = m.get(k)
+    if (ja) { ja.valor = r2(ja.valor + x.valorUnit * x.quantidade); ja.copias += x.quantidade; continue }
+    m.set(k, { carta: x, valor: r2(x.valorUnit * x.quantidade), copias: x.quantidade })
+  }
+  return [...m.values()].sort((p, q) => q.valor - p.valor)
+}
+
+/** Alta medida da carta (30 dias primeiro, depois 7), so >= 10% e dentro da curva. */
+function altaDe(ctx: Contexto, x: CartaPessoa): { pct: number; dias: 30 | 7; antes: number; agora: number } | null {
+  if (!mediuVariacao(x)) return null
+  for (const dias of [30, 7] as const) {
+    const v = ctx.historico.variacao(x.cat, dias)
+    if (v && v.pct >= 10 && v.pct <= PCT_SUSPEITO) return { pct: v.pct, dias, antes: v.antes, agora: v.agora }
+  }
+  return null
+}
+
+async function dadosE03B(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: DadosE03B; img: Record<string, unknown> } | string> {
+  await prepararHistorico(ctx, [col])
+  const grupos = agrupar(col).filter((g) => g.valor > 0)
+  const comCat = grupos.filter((g) => g.carta.cat?.slug)
+  const top = comCat[0]
+  if (!top || top !== grupos[0]) return 'mais_valiosa_fora_do_catalogo'
+  if (!top.carta.cat!.imagemGrande) return 'mais_valiosa_sem_imagem'
+  const tres = comCat.slice(0, 3)
+  const altas = tres.map((g) => altaDe(ctx, g.carta))
+  const cartas: CartaE03B[] = tres.map((g, i) => ({
+    nome: g.carta.nome,
+    set: g.carta.cat!.set,
+    slug: g.carta.cat!.slug,
+    valor: g.valor,
+    variacao: altas[i] ? { pct: r1(altas[i]!.pct), dias: altas[i]!.dias } : null,
+    miniatura: !!(g.carta.cat!.imagemGrande || g.carta.cat!.imagem),
+  }))
+  const a0 = altas[0]
+  const destaque: DestaqueE03B = a0
+    ? { tipo: 'alta', dias: a0.dias, antes: a0.antes, agora: a0.agora, ganho: r2((a0.agora - a0.antes) * top.copias) }
+    : { tipo: 'peso', outras: col.total - top.copias, outrasValor: r2(col.valor - top.valor) }
+  const copiasTres = tres.reduce((s2, g) => s2 + g.copias, 0)
+  const valorTres = tres.reduce((s2, g) => s2 + g.valor, 0)
+  const trial = emTrial(u, ctx.agoraMs) && !!u.trialExpira
+  const d: DadosE03B = {
+    nome: u.nome || null,
+    total: col.total,
+    valorTotal: col.valor,
+    cartas,
+    destaque,
+    restante: { quantidade: Math.max(0, col.total - copiasTres), valor: r2(Math.max(0, col.valor - valorTres)) },
+    dataPreco: ddmm(ctx.hoje),
+    fimTeste: trial ? porExtensoComHora(u.trialExpira!) : null,
+    scansRestantes: trial ? fotosLivresTrial(u, ctx.agoraMs) : null,
+  }
+  const fichario: ImgE03B = {
+    destaque: top.carta.cat!.imagemGrande,
+    cartas: grupos.slice(1).map((g) => g.carta.cat?.imagemGrande).filter((x): x is string => !!x).slice(0, 8),
+    selo: a0 ? `+${Math.round(a0.pct)}% em ${a0.dias} dias` : null,
+  }
+  const img: Record<string, unknown> = { 'e03b-fichario': fichario, 'e03b-fichario-celular': fichario }
+  tres.forEach((g, i) => {
+    const im = g.carta.cat!.imagemGrande || g.carta.cat!.imagem
+    if (im) img[`e03b-mini-${i + 1}`] = { imagem: im }
+  })
+  return { d, img }
 }
 
 // ─── E04 · D3 primeira meta ─────────────────────────────────────────────────
@@ -223,7 +308,8 @@ async function dadosE04(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: D
     l.push(x)
     porSet.set(x.cat.setId, l)
   }
-  if (porSet.size === 0) return 'sem_cartas_variante_0_sem_template'
+  // 0 cartas vai para o E04B antes daqui; com carta mas nenhuma com set no catalogo, fica fora.
+  if (porSet.size === 0) return 'cartas_sem_set_no_catalogo'
   await prepararHistorico(ctx, [col])
   const sets = [...porSet.entries()].sort((x, y) => y[1].length - x[1].length).slice(0, 3)
   for (const [setId, minhas] of sets) {
@@ -262,6 +348,22 @@ async function dadosE04(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: D
   return 'sem_carta_em_alta_no_set'
 }
 
+/** As tres cartas do Pikachu da arte fixa do E04B (o texto traz o menor preco do dia). */
+const PIKACHUS_E04B = { base1999: 'base1-58', crownZenith: 'swsh12pt5-160', surgingSparks: 'sv8-238' } as const
+
+async function dadosE04B(ctx: Contexto, u: Usuario): Promise<DadosE04B | string> {
+  await carregarCatalogo(ctx.c, ctx.catalogo, Object.values(PIKACHUS_E04B))
+  const preco = (id: string) => ctx.catalogo.get(id)?.precoMin ?? 0
+  const precos = {
+    base1999: preco(PIKACHUS_E04B.base1999),
+    crownZenith: preco(PIKACHUS_E04B.crownZenith),
+    surgingSparks: preco(PIKACHUS_E04B.surgingSparks),
+  }
+  if (!(precos.base1999 > 0 && precos.crownZenith > 0 && precos.surgingSparks > 0)) return 'preco_dos_pikachus_indisponivel'
+  const trial = emTrial(u, ctx.agoraMs) && !!u.trialExpira
+  return { precos, fimTeste: trial ? ddmm(diaBR(new Date(u.trialExpira!))) : null }
+}
+
 export async function avaliarE04(ctx: Contexto): Promise<Avaliacao> {
   const a = novaAvaliacao('E04')
   const f = aberto(ctx, 'E04')
@@ -273,8 +375,16 @@ export async function avaliarE04(ctx: Contexto): Promise<Avaliacao> {
     if (semTempo(ctx)) { a.incompleto = true; break }
     a.noGatilho++
     if (comMeta.has(u.id)) { pular(a, 'ja_tem_meta'); continue }
-    if (!passaNasRegras(ctx, a, u, REGUA.E04.categoria, {})) continue
-    const r = await dadosE04(ctx, u, await colecaoDe(ctx, u.id))
+    // E04 e E04B sao o mesmo D3: quem recebeu um nao recebe o outro.
+    if (!passaNasRegras(ctx, a, u, REGUA.E04.categoria, { templates: ['E04', 'E04B'] })) continue
+    const col = await colecaoDe(ctx, u.id)
+    if (col.total === 0) {
+      const d = await dadosE04B(ctx, u)
+      if (typeof d === 'string') { pular(a, d); continue }
+      a.cands.push({ usuario: u, template: 'E04B', campanha: 'e04b', chave: 'e04', dados: d, img: null })
+      continue
+    }
+    const r = await dadosE04(ctx, u, col)
     if (typeof r === 'string') { pular(a, r); continue }
     a.cands.push({ usuario: u, template: 'E04', campanha: 'e04', chave: 'e04', dados: r.d, img: { 'e04-proxima': r.img } })
   }
@@ -397,8 +507,8 @@ async function dadosE06(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: D
   if (ms.length === 0) return 'nada_mexeu'
   const heroi = [...ms].sort((p, q) => q.naColecao - p.naColecao)[0]
   const saldo = ms.reduce((s, m) => s + m.naColecao, 0)
-  // So o caso desenhado: "uma carta salvou a semana" (o caso comum nao tem template).
-  if (!(heroi.naColecao > 0) || !(saldo - heroi.naColecao < 0) || !(saldo >= 0)) return 'caso_comum_sem_template'
+  // So o caso desenhado: "uma carta salvou a semana". O resto e o caso comum (E06B ou nada).
+  if (!(heroi.naColecao > 0) || !(saldo - heroi.naColecao < 0) || !(saldo >= 0)) return 'caso_comum'
   if (!heroi.carta.cat?.imagemGrande) return 'heroi_sem_imagem'
 
   const inicio = somarDias(ctx.hoje, -7)
@@ -441,6 +551,105 @@ async function dadosE06(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: D
   return { d, img }
 }
 
+/** Corte do E06B: o saldo dos 7 dias, em modulo, abaixo disto (fracao do valor do comeco). */
+const E06B_CORTE = 0.03
+
+const NOMES_JANELA: Record<JanelaE06B, string | null> = { '30d': '30 dias', '90d': '3 meses', ano: null }
+
+/**
+ * E06B, a semana comum (mockup E06B v3). Gancho: a carta com a maior subida em
+ * R$ em 30 dias (10%+); senao em 90 dias; senao a mais valiosa ("o ano dela").
+ * Queda nunca vira gancho. O tamanho da subida nunca vai para o e-mail.
+ */
+async function dadosE06B(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: DadosE06B; img: ImgE06B } | string> {
+  await prepararHistorico(ctx, [col])
+  const m7 = mexidas(ctx, col, 7).filter((m) => Math.abs(m.naColecao) >= 1)
+  const saldo = r2(m7.reduce((s2, m) => s2 + m.naColecao, 0))
+  const valorInicio = col.valor - saldo
+  if (m7.length > 0 && Math.abs(saldo) >= E06B_CORTE * valorInicio) return 'caso_comum_acima_de_3pct_sem_template'
+
+  const grupos = agrupar(col).filter((x) => x.valor > 0)
+  if (grupos.length === 0 || !(col.valor > 0)) return 'sem_valor'
+  const chave = (x: CartaPessoa) => x.cardId ?? `nome:${x.nome}`
+  const porChave = new Map(grupos.map((x) => [chave(x.carta), x]))
+  const subidas = (dias: number) => mexidas(ctx, col, dias)
+    .filter((m) => m.pct >= 10 && m.naColecao > 0 && m.carta.cat?.imagemGrande && m.carta.cat?.slug)
+    .sort((p, q) => q.naColecao - p.naColecao || (porChave.get(chave(q.carta))?.valor ?? 0) - (porChave.get(chave(p.carta))?.valor ?? 0))
+  let janela: JanelaE06B = '30d'
+  let g: CartaPessoa | null = subidas(30)[0]?.carta ?? null
+  if (!g) { janela = '90d'; g = subidas(90)[0]?.carta ?? null }
+  if (!g) {
+    janela = 'ano'
+    g = grupos.find((x) => x.carta.cat?.imagemGrande && x.carta.cat?.slug)?.carta ?? null
+  }
+  if (!g || !g.cat) return 'sem_carta_com_imagem'
+  const gGrupo = porChave.get(chave(g))
+  if (!gGrupo) return 'sem_carta_com_imagem'
+  const maisValiosa = gGrupo === grupos[0]
+
+  // Rotulo so para quem mexeu: 7 dias com numero; senao 30 dias sem numero.
+  const r7 = new Map(m7.map((m) => [m.carta.cardId!, m]))
+  const r30 = new Map(mexidas(ctx, col, 30).filter((m) => Math.abs(m.pct) >= 10).map((m) => [m.carta.cardId!, m]))
+  const rotulo = (x: Agrupada): LinhaE06B['rotulo'] => {
+    const id = x.carta.cardId
+    if (!id) return null
+    const w = r7.get(id)
+    if (w) return { texto: `${w.naColecao > 0 ? '+' : '−'}${brlTxt(Math.abs(w.naColecao))} na semana`, cor: w.naColecao > 0 ? 'verde' : 'vermelho' }
+    const m = r30.get(id)
+    if (m) return m.pct > 0 ? { texto: 'subiu no mês', cor: 'verde' } : { texto: 'caiu no mês', cor: 'vermelho' }
+    if (x === gGrupo && janela === '90d') return { texto: 'subiu em 3 meses', cor: 'verde' }
+    return null
+  }
+  const rot = new Map(grupos.map((x) => [x, rotulo(x)]))
+
+  // Linhas: o gancho, quem mexeu e as mais valiosas, ate 5 (so carta do catalogo, que tem link).
+  const naLista = grupos.filter((x) => x.carta.cat?.slug)
+  const prioridade = [gGrupo, ...naLista.filter((x) => rot.get(x)), ...naLista.slice(0, 4)]
+  const escolhidas = [...new Set(prioridade)].filter((x) => x.carta.cat?.slug).slice(0, 5)
+  const linhas: LinhaE06B[] = grupos.filter((x) => escolhidas.includes(x)).map((x) => ({
+    nome: x.carta.nome, set: x.carta.cat!.set, slug: x.carta.cat!.slug, valor: x.valor, rotulo: rot.get(x) ?? null,
+  }))
+  const fora = grupos.filter((x) => !escolhidas.includes(x))
+  const nomes = grupos.map((x) => x.carta.nome)
+  const repetido = (n: string) => nomes.indexOf(n) !== nomes.lastIndexOf(n)
+  const nomeResto = (x: Agrupada) => `${x.carta.nome}${repetido(x.carta.nome) && x.carta.cat ? ` ${x.carta.cat.set}` : ''}${x.copias > 1 ? ` x${x.copias}` : ''}`
+
+  // Barra: o peso de cada carta (as 9 mais valiosas; o resto num segmento so).
+  const tipo = (x: Agrupada): DadosE06B['barra'][number]['tipo'] => (x === gGrupo ? 'gancho' : rot.get(x)?.cor === 'verde' ? 'subiu' : 'demais')
+  const segs = grupos.slice(0, 9).map((x) => ({ pct: (x.valor / col.valor) * 100, tipo: tipo(x) }))
+  const restoPct = grupos.slice(9).reduce((s2, x) => s2 + (x.valor / col.valor) * 100, 0)
+  if (restoPct > 0) segs.push({ pct: restoPct, tipo: 'demais' })
+  const barra = segs.map((x) => ({ ...x, pct: Math.round(x.pct) })).filter((x) => x.pct > 0)
+  const soma = barra.reduce((s2, x) => s2 + x.pct, 0)
+  if (barra.length && soma !== 100) barra[0].pct += 100 - soma
+
+  const inicio = somarDias(ctx.hoje, -7)
+  const outras = col.total - gGrupo.copias
+  const d: DadosE06B = {
+    nome: u.nome,
+    periodo: { inicio: ddmm(inicio), fim: ddmm(ctx.hoje) },
+    totalCartas: col.total,
+    valorHoje: col.valor,
+    janela,
+    gancho: { nome: g.nome, set: g.cat.set, slug: g.cat.slug, maisValiosa },
+    peso: { pct: r1((gGrupo.valor / col.valor) * 100), outras, superaOutras: maisValiosa && outras > 0 && gGrupo.valor > col.valor - gGrupo.valor },
+    barra,
+    linhas,
+    resto: fora.length
+      ? { quantidade: fora.reduce((s2, x) => s2 + x.copias, 0), nomes: fora.slice(0, 3).map(nomeResto), maisNomes: Math.max(0, fora.length - 3) }
+      : null,
+    saldo,
+    notaColecionador: null,
+  }
+  const img: ImgE06B = {
+    nome: g.nome,
+    imagem: g.cat.imagemGrande,
+    kicker: maisValiosa ? 'a sua carta Nº 1' : 'na sua coleção',
+    janela: NOMES_JANELA[janela],
+  }
+  return { d, img }
+}
+
 function brlTxt(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/\s/g, ' ')
 }
@@ -454,8 +663,16 @@ export async function avaliarE06(ctx: Contexto): Promise<Avaliacao> {
   for (const u of alvo) {
     if (semTempo(ctx)) { a.incompleto = true; break }
     a.noGatilho++
-    if (!passaNasRegras(ctx, a, u, 'colecao', { chave: `e06:${ctx.hoje}`, janelaDias: 10 })) continue
-    const r = await dadosE06(ctx, u, cols.get(u.id)!)
+    // E06 e E06B dividem a chave do dia: cada pessoa recebe um OU outro.
+    if (!passaNasRegras(ctx, a, u, 'colecao', { templates: ['E06', 'E06B'], chave: `e06:${ctx.hoje}`, janelaDias: 10 })) continue
+    const col = cols.get(u.id)!
+    const r = await dadosE06(ctx, u, col)
+    if (r === 'nada_mexeu' || r === 'caso_comum') {
+      const b = await dadosE06B(ctx, u, col)
+      if (typeof b === 'string') { pular(a, b); continue }
+      a.cands.push({ usuario: u, template: 'E06B', campanha: 'e06b', chave: `e06:${ctx.hoje}`, dados: b.d, img: { 'e06b-gancho': b.img } })
+      continue
+    }
     if (typeof r === 'string') { pular(a, r); continue }
     a.cands.push({ usuario: u, template: 'E06', campanha: 'e06', chave: `e06:${ctx.hoje}`, dados: r.d, img: { 'e06-grafico': r.img } })
   }

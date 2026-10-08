@@ -1,6 +1,8 @@
 /**
  * Disparos EDITORIAIS da regua (o Du aprova cada um no /admin/regua):
- * E01, E10 (Radar), E11, E12, E17, E18, E19.
+ * E01, E10 (Radar), E11, E12, E17, E18, E19. O E01 sai como E01B para quem
+ * tem 0 cartas e o E17 sai como E17B para quem tem 1 a 9 (mesmo disparo, mesma
+ * chave: cada pessoa recebe um OU outro).
  *
  * Cada editorial recebe os dados da EDICAO (o que muda por disparo: numero do
  * Radar, ofertas da Black Friday, rodada do leilao...) e o motor completa o
@@ -13,15 +15,18 @@
  * recebeu).
  */
 import type { DadosE01 } from '@/lib/regua/templates/E01'
+import { CARTAS_E01B, type DadosE01B } from '@/lib/regua/templates/E01B'
 import type { DadosE10 } from '@/lib/regua/templates/E10'
 import type { DadosE11 } from '@/lib/regua/templates/E11'
 import type { DadosE12 } from '@/lib/regua/templates/E12'
 import type { DadosE17 } from '@/lib/regua/templates/E17'
+import type { DadosE17B, SegundoTrofeuE17B } from '@/lib/regua/templates/E17B'
 import type { DadosE18, OfertaE18, PessoalE18 } from '@/lib/regua/templates/E18'
 import type { DadosE19 } from '@/lib/regua/templates/E19'
 import { REGUA } from '@/lib/regua/registro'
 import type { BolsoE01, ImgE01 } from '@/lib/regua/img/e01'
 import type { ImgE12 } from '@/lib/regua/img/e12'
+import type { ImgE17BAlta, ImgE17BDia, ImgE17BHero } from '@/lib/regua/img/e17b'
 import type { ImgE18 } from '@/lib/regua/img/e18'
 import type { ImgE19 } from '@/lib/regua/img/e19'
 import type { CategoriaEmail } from '@/lib/email'
@@ -48,11 +53,11 @@ export const BLOQUEIO_ENVIO: Partial<Record<string, string>> = {
 
 /** Quem e o publico de cada editorial (texto do admin). */
 export const PUBLICO_TEXTO: Record<IdEditorial, string> = {
-  E01: 'Aceitaram novidades, cadastro até 31/08, com carta que mexeu 10%+ em 7 dias. Ondas por último acesso: 1 até 30 dias, 2 de 31 a 90, 3 o resto.',
+  E01: 'Aceitaram novidades, cadastro até 31/08, com carta que mexeu 10%+ em 7 dias; quem tem 0 cartas recebe o E01B. Ondas por último acesso: 1 até 30 dias, 2 de 31 a 90, 3 o resto.',
   E10: 'Aceitaram novidades com o Radar ligado. 5+ cartas ganham a abertura com a coleção.',
   E11: 'Aceitaram novidades, cadastro a partir de 01/09. Mesmas ondas do E01. Nunca E01 e E11 em 30 dias.',
   E12: 'Aceitaram novidades, fora de quem está no winback.',
-  E17: 'Todos com 10+ cartas e ao menos 1 repetida (categoria Coleção).',
+  E17: 'Todos com 10+ cartas e ao menos 1 repetida; 1 a 9 cartas recebe o E17B (categoria Coleção).',
   E18: 'Aceitaram novidades com Mercado ligado.',
   E19: 'Aceitaram novidades, com carta de R$ 300+ ou graduada.',
 }
@@ -62,7 +67,8 @@ export type Publico =
   /** Envio de teste para contas listadas: fora do teto e do dedup, campanha com ':teste'. */
   | { tipo: 'emails'; emails: string[] }
 
-type Montagem = { dados: unknown; img: Record<string, unknown> | null; chave: string; campanha: string } | string
+/** `template` so quando a pessoa recebe a variante (E01B, E17B) no lugar do editorial disparado. */
+type Montagem = { dados: unknown; img: Record<string, unknown> | null; chave: string; campanha: string; template?: string } | string
 
 type Def = {
   categoria: CategoriaEmail
@@ -90,10 +96,23 @@ const eNum = (v: unknown): v is number => typeof v === 'number' && Number.isFini
 
 // ─── E01 ────────────────────────────────────────────────────────────────────
 
+/** E01B: quem tem 0 cartas. O preco do dia das tres cartas de 1999 e as novidades depois do cadastro. */
+async function montarE01B(ctx: Contexto, u: Usuario): Promise<Montagem> {
+  await carregarCatalogo(ctx.c, ctx.catalogo, CARTAS_E01B.map((c) => c.slug))
+  const cartas = CARTAS_E01B.map((c) => {
+    const cat = ctx.catalogo.get(c.slug)
+    return { ...c, slug: cat?.slug || c.slug, preco: cat?.precoMin ?? 0 }
+  })
+  if (cartas.some((c) => !(c.preco > 0))) return 'preco_da_colecao_1999_indisponivel'
+  const dados: DadosE01B = { nome: u.nome, cartas, entrouEm: u.criadoDia.slice(0, 7) }
+  return { dados, img: null, chave: 'e01', campanha: 'e01b', template: 'E01B' }
+}
+
 async function montarE01(ctx: Contexto, u: Usuario, col: Colecao): Promise<Montagem> {
+  if (col.total === 0) return montarE01B(ctx, u)
   const ms = mexidas(ctx, col, 7).filter((m) => m.carta.cat?.imagemGrande)
   const gancho = ms.filter((m) => m.pct >= 10).sort((a, b) => b.pct - a.pct)[0]
-  if (!gancho) return 'sem_carta_que_subiu_variante_0_sem_template'
+  if (!gancho) return 'sem_carta_que_subiu_10pct'
   const mexeu = new Map(ms.filter((m) => Math.abs(m.pct) >= 10).map((m) => [m.carta.cardId!, m.pct > 0 ? 'subiu' as const : 'caiu' as const]))
   let pagina = maisValiosas(col).slice(0, 8)
   if (!pagina.some((x) => x.cardId === gancho.carta.cardId)) pagina = [gancho.carta, ...pagina.slice(0, 7)]
@@ -182,8 +201,74 @@ async function montarE12(_ctx: Contexto, u: Usuario, _col: Colecao, edicao: Reco
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
+const SEMANA_E17B = ['Um domingo', 'Uma segunda', 'Uma terça', 'Uma quarta', 'Uma quinta', 'Uma sexta', 'Um sábado']
+const MES_CURTO = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
+
+/**
+ * E17B: 1 a 9 cartas. A mais valiosa nunca aparece; o trofeu 2 e a carta
+ * aberta que mais subiu em 30 dias (so %), ou a de set mais antigo.
+ */
+async function montarE17B(ctx: Contexto, u: Usuario, col: Colecao): Promise<Montagem> {
+  const valiosas = maisValiosas(col)
+  const top = valiosas[0]
+  if (!top) return 'sem_imagem'
+  let subiu = false
+  if (mediuVariacao(top)) {
+    const entrada = ctx.historico.precoEm(top.cat!, top.criadoDia)
+    subiu = entrada !== null && top.cat!.precoMin > entrada
+  }
+  // O primeiro dia (so cartas com imagem, para o trofeu ter o que mostrar).
+  const comImagem = col.cartas.filter((x) => x.cat?.imagemGrande)
+  const dia0 = comImagem.map((x) => x.criadoDia).sort()[0]
+  const doDia = col.cartas.filter((x) => x.criadoDia === dia0)
+  const versoNoDia = doDia.some((x) => (x.cardId || x.nome) === (top.cardId || top.nome))
+  const abertasDia = valiosas.filter((x) => x !== top && x.criadoDia === dia0).map((x) => x.cat!.imagemGrande).slice(0, versoNoDia ? 3 : 4)
+  const dataCurta = `${Number(dia0.slice(8, 10))} ${MES_CURTO[Number(dia0.slice(5, 7)) - 1]}`
+
+  // Trofeu 2: a aberta que mais subiu em 30 dias; senao a de set mais antigo.
+  const abertas = valiosas.slice(1)
+  let segundo: SegundoTrofeuE17B | null = null
+  let imgSegundo: ImgE17BAlta | null = null
+  let melhor: { x: (typeof abertas)[number]; pct: number } | null = null
+  for (const x of abertas) {
+    if (!mediuVariacao(x)) continue
+    const v = ctx.historico.variacao(x.cat, 30)
+    if (!v || !(v.pct > 0) || v.pct > PCT_SUSPEITO) continue
+    if (!melhor || v.pct > melhor.pct) melhor = { x, pct: v.pct }
+  }
+  if (melhor) {
+    segundo = { tipo: 'alta', nome: melhor.x.nome, pct: r1(melhor.pct) }
+    imgSegundo = { imagem: melhor.x.cat!.imagemGrande, etiqueta: `${r1(melhor.pct).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`, seta: true }
+  } else {
+    const antiga = abertas.filter((x) => x.cat?.lancamento).sort((p, q) => (p.cat!.lancamento! < q.cat!.lancamento! ? -1 : 1))[0]
+    if (antiga) {
+      const ano = antiga.cat!.lancamento!.slice(0, 4)
+      segundo = { tipo: 'antiga', nome: antiga.nome, ano }
+      imgSegundo = { imagem: antiga.cat!.imagemGrande, etiqueta: ano, seta: false }
+    }
+  }
+
+  const dados: DadosE17B = {
+    nome: u.nome,
+    mesEntrada: mesPorExtenso(u.criadoDia),
+    subiu,
+    primeiroDia: {
+      data: diaDeMes(dia0),
+      diaSemana: SEMANA_E17B[new Date(`${dia0}T12:00:00Z`).getUTCDay()],
+      cartas: doDia.reduce((s, x) => s + x.quantidade, 0),
+    },
+    segundo,
+    umaCarta: valiosas.length === 1,
+  }
+  const hero: ImgE17BHero = { leque: abertas.slice(0, 3).map((x) => x.cat!.imagemGrande), subiu }
+  const dia: ImgE17BDia = { abertas: abertasDia, verso: versoNoDia, data: dataCurta }
+  const img: Record<string, unknown> = { 'e17b-hero': hero, 'e17b-trofeu-dia': dia }
+  if (imgSegundo) img['e17b-trofeu-alta'] = imgSegundo
+  return { dados, img, chave: 'e17:2026', campanha: 'e17b', template: 'E17B' }
+}
+
 async function montarE17(ctx: Contexto, u: Usuario, col: Colecao): Promise<Montagem> {
-  if (col.total < 10) return 'menos_de_10_cartas_variante_curta_sem_template'
+  if (col.total < 10) return montarE17B(ctx, u, col)
   const reps = repetidas(col).filter((r) => r.carta.cat?.imagemGrande)
   if (reps.length === 0) return 'sem_repetida'
   const ordem = [...col.cartas].sort((a, b) => (a.criadoDia < b.criadoDia ? -1 : a.criadoDia > b.criadoDia ? 1 : 0))
@@ -310,8 +395,9 @@ async function montarE19(ctx: Contexto, _u: Usuario, col: Colecao): Promise<Mont
 const DEFS: Record<IdEditorial, Def> = {
   E01: {
     categoria: 'novidades',
-    noSegmento: (ctx, u, col, o) => u.criadoDia <= '2026-08-31' && col.total > 0 && (!o || onda(ctx, u) === o),
-    dedup: () => ({ templates: ['E01', 'E11'], janelaDias: 365 }),
+    // 0 cartas tambem entra: recebe o E01B (montarE01).
+    noSegmento: (ctx, u, _col, o) => u.criadoDia <= '2026-08-31' && (!o || onda(ctx, u) === o),
+    dedup: () => ({ templates: ['E01', 'E01B', 'E11'], janelaDias: 365 }),
     validar: () => null,
     montar: (ctx, u, col) => montarE01(ctx, u, col),
   },
@@ -325,7 +411,7 @@ const DEFS: Record<IdEditorial, Def> = {
   E11: {
     categoria: 'novidades',
     noSegmento: (ctx, u, _col, o) => u.criadoDia >= '2026-09-01' && (!o || onda(ctx, u) === o),
-    dedup: () => ({ templates: ['E01', 'E11'], janelaDias: 30 }),
+    dedup: () => ({ templates: ['E01', 'E01B', 'E11'], janelaDias: 30 }),
     validar: () => null,
     montar: montarE11,
   },
@@ -338,8 +424,9 @@ const DEFS: Record<IdEditorial, Def> = {
   },
   E17: {
     categoria: 'colecao',
-    noSegmento: (_ctx, _u, col) => col.total >= 10,
-    dedup: () => ({ chave: 'e17:2026' }),
+    // 1 a 9 cartas recebe o E17B (montarE17); 0 cartas nao recebe.
+    noSegmento: (_ctx, _u, col) => col.total >= 1,
+    dedup: () => ({ templates: ['E17', 'E17B'], chave: 'e17:2026' }),
     validar: () => null,
     montar: (ctx, u, col) => montarE17(ctx, u, col),
   },
@@ -453,7 +540,7 @@ export async function dispararEditorial(args: {
     const col = cols.get(u.id) ?? { cartas: [], total: 0, diferentes: 0, valor: 0 }
     const m = await def.montar(ctx, u, col, edicao)
     if (typeof m === 'string') { pular(a, m); continue }
-    a.cands.push({ usuario: u, template: args.template, campanha: m.campanha, chave: m.chave, dados: m.dados, img: m.img, teste } as Candidato)
+    a.cands.push({ usuario: u, template: m.template ?? args.template, campanha: m.campanha, chave: m.chave, dados: m.dados, img: m.img, teste } as Candidato)
   }
 
   const amostra: ResultadoDisparo['amostra'] = []

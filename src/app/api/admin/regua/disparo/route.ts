@@ -17,6 +17,7 @@ export const maxDuration = 60
  *   passam nas regras e a contagem por motivo de exclusao. Evento: ignora o
  *   calendario (mostra "se fosse o dia"). Editorial: com a edicao de exemplo.
  *   Devolve tambem gatilho, publico, bloqueio, a edicao de partida e o modo.
+ *   Variante (E01B, E03B...): a contagem e a do principal (os dois saem juntos).
  *
  * POST { template, edicao, publico, acao: 'simular'|'enviar', confirmacao }
  *   So EDITORIAIS (E01, E10, E11, E12, E17, E18, E19).
@@ -32,11 +33,13 @@ export async function GET(req: NextRequest) {
   const id = (req.nextUrl.searchParams.get('template') || '').toUpperCase()
   if (!temTemplate(id)) return NextResponse.json({ error: 'template inexistente' }, { status: 400 })
   const info = GATILHOS[id]
-  const base = { template: id, modo: modoAtual(), ...info, edicao: ehEditorial(id) ? edicaoExemplo(id) : null }
+  if (!info) return NextResponse.json({ error: 'template sem gatilho' }, { status: 400 })
+  const alvo = info.principal ?? id
+  const base = { template: id, modo: modoAtual(), ...info, edicao: !info.principal && ehEditorial(id) ? edicaoExemplo(id) : null }
   try {
     if (info.tipo === 'leilao') return NextResponse.json({ ...base, contagem: null })
-    if (info.tipo === 'evento') return NextResponse.json({ ...base, contagem: await contarEvento(id, true) })
-    const r = await dispararEditorial({ template: id, edicao: edicaoExemplo(id), publico: { tipo: 'segmento' }, acao: 'simular' })
+    if (info.tipo === 'evento') return NextResponse.json({ ...base, contagem: await contarEvento(alvo, true) })
+    const r = await dispararEditorial({ template: alvo, edicao: edicaoExemplo(alvo), publico: { tipo: 'segmento' }, acao: 'simular' })
     return NextResponse.json({ ...base, contagem: r })
   } catch (e) {
     const msg = (e as Error)?.message || 'erro'

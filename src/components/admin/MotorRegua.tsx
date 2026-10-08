@@ -23,6 +23,8 @@ type Info = {
   gatilho: string
   publico: string
   bloqueio?: string
+  /** Variante: sai no gatilho/disparo deste template (a contagem e a dele). */
+  principal?: string
   edicao: Record<string, unknown> | null
   contagem: Contagem
   erro?: string
@@ -112,7 +114,7 @@ export default function MotorRegua({ id }: { id: string }) {
   }
 
   const c = resultado ?? info?.contagem ?? null
-  const editorial = info?.tipo === 'editorial'
+  const editorial = info?.tipo === 'editorial' && !info?.principal
   const podeEnviar = editorial && info?.modo === 'real' && !info?.bloqueio
 
   return (
@@ -128,6 +130,7 @@ export default function MotorRegua({ id }: { id: string }) {
         <dl className="mr-dl">
           <dt>Gatilho</dt><dd>{info.gatilho}</dd>
           <dt>Público</dt><dd>{info.publico}</dd>
+          {info.principal && (<><dt>Variante</dt><dd>Sai junto com o {info.principal}: a contagem abaixo é a do {info.principal} (as duas versões juntas){info.tipo === 'editorial' ? ` e o disparo é feito no ${info.principal}` : ''}.</dd></>)}
           {info.bloqueio && (<><dt>Bloqueio</dt><dd className="mr-alerta">{info.bloqueio}</dd></>)}
         </dl>
       )}
@@ -137,7 +140,7 @@ export default function MotorRegua({ id }: { id: string }) {
       ) : c ? (
         <div className="mr-contagem">
           <div className="mr-nums">
-            <div><span className="mr-num">{c.noSegmento}</span><span className="mr-legenda">no {editorial ? 'segmento' : 'gatilho'}</span></div>
+            <div><span className="mr-num">{c.noSegmento}</span><span className="mr-legenda">no {info?.tipo === 'editorial' ? 'segmento' : 'gatilho'}</span></div>
             <div><span className="mr-num ac">{c.elegiveis}</span><span className="mr-legenda">{resultado?.acao === 'enviar' ? 'no disparo' : 'receberiam'}</span></div>
           </div>
           {c.fechado && <p className="mr-txt">Gatilho fechado hoje: {c.fechado.replace(/_/g, ' ')}. A contagem acima ignora o calendário.</p>}
