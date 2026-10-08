@@ -201,7 +201,7 @@ export async function avaliarE03(ctx: Contexto): Promise<Avaliacao> {
     const col = await colecaoDe(ctx, u.id)
     if (col.total >= 10) { pular(a, 'sai_10_ou_mais_cartas'); continue }
     if (col.total >= 5) { pular(a, 'variante_b_5_a_9_sem_template'); continue }
-    if (!passaNasRegras(ctx, a, u, 'novidades', {})) continue
+    if (!passaNasRegras(ctx, a, u, REGUA.E03.categoria, {})) continue
     if (cartas.length < base.length) { pular(a, 'preco_da_gaveta_indisponivel'); continue }
     const d: DadosE03 = {
       cartas,
@@ -273,7 +273,7 @@ export async function avaliarE04(ctx: Contexto): Promise<Avaliacao> {
     if (semTempo(ctx)) { a.incompleto = true; break }
     a.noGatilho++
     if (comMeta.has(u.id)) { pular(a, 'ja_tem_meta'); continue }
-    if (!passaNasRegras(ctx, a, u, 'novidades', {})) continue
+    if (!passaNasRegras(ctx, a, u, REGUA.E04.categoria, {})) continue
     const r = await dadosE04(ctx, u, await colecaoDe(ctx, u.id))
     if (typeof r === 'string') { pular(a, r); continue }
     a.cands.push({ usuario: u, template: 'E04', campanha: 'e04', chave: 'e04', dados: r.d, img: { 'e04-proxima': r.img } })

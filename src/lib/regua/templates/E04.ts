@@ -72,7 +72,7 @@ function montar(d: DadosE04, ctx: CtxRegua) {
   const html = layoutRegua({
     conteudo,
     campanha: CAMPANHA,
-    categoria: 'novidades',
+    categoria: 'colecao',
     links: ctx.links,
     preheader,
     assinatura: true,
@@ -85,7 +85,7 @@ export const E04: TemplateRegua<DadosE04> = {
   id: 'E04',
   nome: 'D3: sua Pokédex e a primeira meta',
   trilha: 'Ativação',
-  categoria: 'novidades',
+  categoria: 'colecao',
   // PERSONA DE EXEMPLO (direcao/PERSONAS.md): Rafael, 9 cartas no D1, 2 do 151.
   exemplo: {
     nome: 'Rafael',

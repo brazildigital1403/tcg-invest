@@ -107,7 +107,7 @@ function montar(d: DadosE03, ctx: CtxRegua) {
   const html = layoutRegua({
     conteudo,
     campanha: CAMPANHA,
-    categoria: 'novidades',
+    categoria: 'colecao',
     links: ctx.links,
     preheader,
     assinatura: true,
@@ -120,7 +120,7 @@ export const E03: TemplateRegua<DadosE03> = {
   id: 'E03',
   nome: 'D1: a gaveta da infância',
   trilha: 'Ativação',
-  categoria: 'novidades',
+  categoria: 'colecao',
   // Variante A, sem persona. Cartas e menor preco reais de 07/10 (dados.json).
   exemplo: {
     cartas: [
