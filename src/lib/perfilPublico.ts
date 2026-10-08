@@ -210,5 +210,15 @@ export const buscarPerfilPublico = cache(async function buscarPerfilPublico(
       slug: (x.carta.pokemon_api_id && slugDe.get(x.carta.pokemon_api_id)) || null,
     }))
 
+  // ★ "Ocultar valores" tem que valer no DADO, nao so no render. O client
+  // escondia o box e o preco, mas o payload do SSR seguia carregando o
+  // patrimonio exato e o valor de cada carta -- um view-source bastava. A
+  // ordem do showcase continua por valor (e o que a opcao sempre prometeu:
+  // cartas visiveis, numeros nao); o numero e que nao sai daqui.
+  if (base.user.perfil_ocultar_valores) {
+    base.patrimonio = 0
+    base.showcase = base.showcase.map(c => ({ ...c, maxValue: 0 }))
+  }
+
   return base
 })

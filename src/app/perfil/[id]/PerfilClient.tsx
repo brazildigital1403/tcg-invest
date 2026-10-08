@@ -93,6 +93,7 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
         : await query.eq('username', id).single()
 
       if (!userData) { setNotFound(true); setLoading(false); return }
+      const ocultar = !!userData.perfil_ocultar_valores
 
       // S40: perfil privado. Menores de 18 e quem optou por privado ficam
       // ocultos pra terceiros. O proprio dono ve o perfil (com banner de aviso).
@@ -185,8 +186,11 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
         }
 
         // Patrimônio — fonte única (src/lib/calcPatrimonio.ts)
+        // Com "ocultar valores" o numero nao entra no estado: a tela ja nao
+        // pintava, mas o valor ficava no React e no payload. Mesmo corte que
+        // o SSR faz em perfilPublico.ts -- senao a hidratacao reintroduz.
         const { valor } = calcPatrimonio(cards as any[], priceMap)
-        setPatrimonio(valor)
+        setPatrimonio(ocultar ? 0 : valor)
 
         // Showcase: 6 cartas mais caras pelo maior valor
         // Showcase: as 6 mais valiosas.
@@ -212,6 +216,9 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
           .filter(c => c.maxValue > 0 || c.card_image)
           .sort((a, b) => b.maxValue - a.maxValue)
           .slice(0, 6)
+          // Ordena pelo valor e so depois apaga: a vitrine continua sendo "as
+          // mais valiosas", mas o numero nao fica no estado.
+          .map(c => ocultar ? { ...c, maxValue: 0, medioValue: 0 } : c)
 
         setShowcase(withPrices)
       }
@@ -237,7 +244,9 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
       // Histórico de patrimônio: os 60 mais RECENTES (decrescente + limit) e
       // depois em ordem cronológica para o gráfico. Crescente com limit
       // pegava os 60 mais antigos e congelava o gráfico no passado.
-      const { data: history } = await supabase
+      // Com "ocultar valores" a serie nem e buscada: o grafico ja nao era
+      // desenhado, mas os 60 pontos em reais chegavam ao navegador.
+      const { data: history } = ocultar ? { data: [] } : await supabase
         .from('portfolio_history')
         .select('valor, recorded_at')
         .eq('user_id', uid)
