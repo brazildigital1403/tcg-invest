@@ -80,7 +80,7 @@ function montar(d: DadosE06B, ctx: CtxRegua) {
   const cap = (s: string) => (d.nome ? s : s.charAt(0).toUpperCase() + s.slice(1))
 
   const assunto = ano
-    ? cap(`${voc}o ano do seu ${g.nome} em um gráfico`)
+    ? cap(`${voc}os últimos 6 meses do seu ${g.nome} em um gráfico`)
     : cap(`${voc}quanto o seu ${g.nome} subiu ${quando(d.janela)}?`)
 
   const outrasTxt = d.peso.outras === 1 ? 'a outra carta' : `as outras ${d.peso.outras}`
@@ -102,9 +102,9 @@ function montar(d: DadosE06B, ctx: CtxRegua) {
       ? 'A subida dos últimos 3 meses, do primeiro ao último dia, está no gráfico&nbsp;dele.'
       : 'O histórico dele, do primeiro ao último dia, está no&nbsp;gráfico.'
   const titulo = ano
-    ? `O ano do seu ${esc(g.nome)} em um&nbsp;gráfico`
+    ? `Os últimos 6 meses do seu ${esc(g.nome)} em um&nbsp;gráfico`
     : `O seu ${esc(g.nome)} subiu ${quando(d.janela)}. Quanto?`
-  const cta = ano ? `Ver o ano do meu ${g.nome}` : `Ver quanto o meu ${g.nome} subiu`
+  const cta = ano ? `Ver os 6 meses do meu ${g.nome}` : `Ver quanto o meu ${g.nome} subiu`
 
   // Barra empilhada: ambar = gancho, verde = as que subiram, cinza = as demais.
   const corBarra = { gancho: '#f59e0b', subiu: '#22c55e', demais: '#6e6f72' }
