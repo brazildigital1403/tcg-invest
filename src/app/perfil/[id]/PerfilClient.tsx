@@ -201,7 +201,9 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
           // `slug` vem do lookup e e o que mantem o link pra /carta depois da
           // hidratacao -- sem ele o client remontava o showcase sem link e os
           // 6 links que o SSR tinha gerado sumiam da tela.
-          return { ...c, slug: p?.slug ?? null, maxValue: valorCarta(c as any, p), medioValue: valorCarta(c as any, p), _suspeita: !!p?.preco_nao_confiavel }
+          // card_image vazio cai pra imagem do catalogo (#473): carta do Scan
+          // pode entrar sem imagem propria, e o catalogo tem a arte certa.
+          return { ...c, card_image: c.card_image || p?.image_small || null, slug: p?.slug ?? null, maxValue: valorCarta(c as any, p), medioValue: valorCarta(c as any, p), _suspeita: !!p?.preco_nao_confiavel }
         })
           // Carta marcada pelo guard fica FORA do showcase. Ela costuma ser a
           // mais "valiosa" justamente por causa do preço inflado -- entraria em
@@ -465,7 +467,7 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                 const vColor = VARIANTE_COLOR[card.variante || 'normal'] || '#60a5fa'
                 const vLabel = VARIANTE_LABEL[card.variante || 'normal'] || 'Normal'
                 const corpo = (
-                  <div style={{ ...SURFACE, flex: '0 0 150px', overflow: 'hidden', position: 'relative', transition: 'transform 0.15s' }}
+                  <div style={{ ...SURFACE, flex: '0 0 150px', minWidth: 0, overflow: 'hidden', position: 'relative', transition: 'transform 0.15s' }}
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'}
                     onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = ''}
                   >
@@ -477,7 +479,13 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                     )}
                     {/* Imagem */}
                     {card.card_image
-                      ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+                      // ★ PROPORCAO FIXA (#473). Era width:100% e nada mais: como a
+                      // caixa e flex sem min-width, a largura NATURAL do arquivo
+                      // mandava no tamanho do cartao. No perfil do Rodrigo, que
+                      // mistura tres fontes de imagem (265x368, 350x489), os seis
+                      // cartoes sairam 204x284, 167x233, 164x229 e 148x206 lado a
+                      // lado. Mesma proporcao do CardItem, 63/88.
+                      ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', aspectRatio: '63/88', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconCollection size={32} color="rgba(255,255,255,0.3)" /></div>
                     }
                     {/* Info */}
@@ -504,11 +512,11 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                   <Link
                     key={card.card_name + i}
                     href={`/carta/${card.slug}`}
-                    style={{ textDecoration: 'none', color: 'inherit', flex: '0 0 150px', display: 'block' }}
+                    style={{ textDecoration: 'none', color: 'inherit', flex: '0 0 150px', minWidth: 0, display: 'block' }}
                   >
                     {corpo}
                   </Link>
-                ) : <div key={card.card_name + i} style={{ flex: '0 0 150px' }}>{corpo}</div>
+                ) : <div key={card.card_name + i} style={{ flex: '0 0 150px', minWidth: 0 }}>{corpo}</div>
               })}
             </div>
           </div>

@@ -157,16 +157,21 @@ export const buscarPerfilPublico = cache(async function buscarPerfilPublico(
   const ids = [...new Set(cartas.map(c => c.pokemon_api_id).filter(Boolean))] as string[]
   const priceMap: Record<string, unknown> = {}
   const slugDe = new Map<string, string>()
+  // Imagem do CATALOGO (#473): o perfil mostrava so a imagem gravada na carta
+  // do usuario, e carta que entrou pelo Scan pode vir sem ela -- a mais valiosa
+  // do Ricardo (Gardevoir ex, R$ 58,89) aparecia como caixa cinza no 1o lugar.
+  const imagemDe = new Map<string, string>()
 
   if (ids.length > 0) {
     for (let i = 0; i < ids.length; i += 100) {
       const { data } = await db
         .from('pokemon_cards')
-        .select('id, slug, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max')
+        .select('id, slug, image_small, preco_min, preco_medio, preco_max, preco_foil_min, preco_foil_medio, preco_foil_max, preco_promo_min, preco_promo_medio, preco_promo_max, preco_reverse_min, preco_reverse_medio, preco_reverse_max, preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max')
         .in('id', ids.slice(i, i + 100))
       for (const p of data || []) {
         priceMap[p.id as string] = p
         if (p.slug) slugDe.set(p.id as string, p.slug as string)
+        if (p.image_small) imagemDe.set(p.id as string, p.image_small as string)
       }
     }
     const suspeitos = await idsSuspeitos(db, Object.keys(priceMap))
@@ -197,7 +202,7 @@ export const buscarPerfilPublico = cache(async function buscarPerfilPublico(
     .slice(0, 6)
     .map(x => ({
       card_name: x.carta.card_name || '',
-      card_image: x.carta.card_image || null,
+      card_image: x.carta.card_image || (x.carta.pokemon_api_id && imagemDe.get(x.carta.pokemon_api_id)) || null,
       set_name: x.carta.set_name || null,
       variante: x.carta.variante || null,
       maxValue: x.valor,
