@@ -30,8 +30,8 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Turnstile from '@/components/auth/Turnstile'
-import { trackProUpgradeInitiated, trackSignUp } from '@/lib/analytics'
-import { camposDeAtribuicao } from '@/lib/atribuicao'
+import { trackProUpgradeInitiated, trackSignUp, trackSignupStep } from '@/lib/analytics'
+import { camposDeAtribuicao, lerCta } from '@/lib/atribuicao'
 import { IconWarning, IconClose, IconEye, IconEyeOff } from '@/components/ui/Icons'
 import type { OfertaId } from '@/lib/ofertaTcgcon'
 import {
@@ -403,6 +403,9 @@ useEffect(() => {
         const loginDest = next || '/dashboard-financeiro'
         router.push(loginDest)
       } else {
+        // Etapa 2 enviada (ainda pode falhar em CPF duplicado, senha ou captcha;
+        // o sucesso e o sign_up logo abaixo).
+        trackSignupStep(2, lerCta())
         // ── Trava de CPF unico: pre-checa ANTES de criar a conta no Auth ──
         // (evita usuario orfao no Auth caso o insert em users seja barrado).
         const cpfTaken = await cpfEmUso(cpf)
@@ -985,6 +988,7 @@ useEffect(() => {
                       const e = validarCampos()
                       if (e.name || e.email || e.password) { setErros(e); setTouched({ name: true, email: true, password: true }); return }
                       if (!dataNasc) { setServerError('Informe sua data de nascimento.'); return }
+                      trackSignupStep(1, lerCta())
                       setServerError(''); setSignupStep(2)
                     }}
                     style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15, marginTop: 4, opacity: (!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13) ? 0.5 : 1 }}>
