@@ -158,7 +158,7 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
     // segue pro dashboard, como sempre.
     const path = window.location.pathname
     const next = path && path !== '/' ? path + window.location.search : null
-    window.dispatchEvent(new CustomEvent('bynx:open-login', { detail: { next } }))
+    window.dispatchEvent(new CustomEvent('bynx:open-login', { detail: { next, cta: 'header:entrar' } }))
   }
 
   // Busca do menu mobile: Enter navega pra /busca?q=…

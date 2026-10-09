@@ -48,7 +48,7 @@ export default function ConviteBynx({ stats, next }: { stats: StatsConvite; next
         </div>
       </dl>
       <Link
-        href={`/?auth=signup&next=${encodeURIComponent(next)}`}
+        href={`/?auth=signup&cta=carta%3Aconvite&next=${encodeURIComponent(next)}`}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: 10,
           background: 'var(--bx-brand)', color: 'var(--bx-brand-ink)', fontWeight: 700, fontSize: 15,

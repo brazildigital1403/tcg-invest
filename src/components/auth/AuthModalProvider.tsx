@@ -25,6 +25,8 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AuthModal from './AuthModal'
 import type { OfertaId } from '@/lib/ofertaTcgcon'
+import { gravarCta, lerCta } from '@/lib/atribuicao'
+import { trackAuthModalOpened } from '@/lib/analytics'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -34,10 +36,13 @@ interface OpenSignupOpts {
   next?: string | null
   plan?: Plan
   oferta?: OfertaId | null
+  /** Qual botao abriu ("carta:adicionar"). Sem rotulo vira "pag:/rota". */
+  cta?: string | null
 }
 
 interface OpenLoginOpts {
   next?: string | null
+  cta?: string | null
 }
 
 interface AuthModalContextValue {
@@ -92,9 +97,39 @@ interface URLAuthListenerProps {
   openLogin: (opts?: OpenLoginOpts) => void
 }
 
+// Rota anterior, gravada a cada troca de pagina (navegacao do Next nao
+// atualiza o document.referrer). Fallback quando o link nao traz `cta`.
+const CHAVE_PAG_ANTERIOR = 'bx_pag_anterior'
+
+function paginaDeOrigem(): string | null {
+  try {
+    const ant = window.sessionStorage.getItem(CHAVE_PAG_ANTERIOR)
+    if (ant) return `pag:${ant}`
+    const r = document.referrer
+    if (!r) return null
+    const u = new URL(r)
+    if (u.origin !== window.location.origin) return null
+    return `pag:${u.pathname}`
+  } catch {
+    return null
+  }
+}
+
 function URLAuthListener({ openSignup, openLogin }: URLAuthListenerProps) {
   const pathname = usePathname() || '/'
   const searchParams = useSearchParams()
+
+  // Ao sair de uma rota, deixa ela anotada como "pagina anterior". O cleanup
+  // roda antes do efeito da rota nova, entao o listener abaixo ja a enxerga.
+  useEffect(() => {
+    return () => {
+      try {
+        window.sessionStorage.setItem(CHAVE_PAG_ANTERIOR, pathname)
+      } catch {
+        // sessionStorage bloqueado: fica o referrer
+      }
+    }
+  }, [pathname])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -103,6 +138,10 @@ function URLAuthListener({ openSignup, openLogin }: URLAuthListenerProps) {
     const authParam = searchParams.get('auth')
     const nextParam = searchParams.get('next')
     const planParam = searchParams.get('plan')
+    // Sem `cta` na URL, o rotulo cai na PAGINA DE ORIGEM do clique (referrer
+    // da mesma origem), nao na pagina em que o modal abre: o link do hub do
+    // Pokemon abre o modal na home, e "pag:/" nao diria nada.
+    const ctaParam = searchParams.get('cta') || paginaDeOrigem()
 
     if (authParam !== 'signup' && authParam !== 'login') return
 
@@ -119,6 +158,7 @@ function URLAuthListener({ openSignup, openLogin }: URLAuthListenerProps) {
       url.searchParams.delete('auth')
       url.searchParams.delete('next')
       url.searchParams.delete('plan')
+      url.searchParams.delete('cta')
       window.history.replaceState({}, '', url.toString())
     }
 
@@ -134,9 +174,9 @@ function URLAuthListener({ openSignup, openLogin }: URLAuthListenerProps) {
 
       // Não logado → abre modal
       if (authParam === 'signup') {
-        openSignup({ next: validNext, plan: validPlan })
+        openSignup({ next: validNext, plan: validPlan, cta: ctaParam })
       } else {
-        openLogin({ next: validNext })
+        openLogin({ next: validNext, cta: ctaParam })
       }
       cleanUrl()
     })
@@ -164,14 +204,20 @@ export default function AuthModalProvider({ children }: { children: React.ReactN
     setNext(sanitizeNext(opts.next ?? null))
     setOferta(opts.oferta ?? null)
     setIsOpen(true)
+    gravarCta(opts.cta, typeof window !== 'undefined' ? window.location.pathname : null)
+    trackAuthModalOpened({ modo: 'signup', cta: lerCta() })
   }, [])
 
+  // Login tambem carimba: quem clica "Entrar" e troca pra "Criar conta"
+  // dentro do modal cadastra com o rotulo do botao que abriu.
   const openLogin = useCallback((opts: OpenLoginOpts = {}) => {
     setMode('login')
     setPlan(null)
     setOferta(null)
     setNext(sanitizeNext(opts.next ?? null))
     setIsOpen(true)
+    gravarCta(opts.cta, typeof window !== 'undefined' ? window.location.pathname : null)
+    trackAuthModalOpened({ modo: 'login', cta: lerCta() })
   }, [])
 
   const closeModal = useCallback(() => {
@@ -188,10 +234,12 @@ export default function AuthModalProvider({ children }: { children: React.ReactN
     // `detail.next` e opcional: o PublicHeader passou a manda-lo em 08/10/2026
     // pra pessoa voltar pra pagina em que estava depois de autenticar.
     function handleOpenSignup(e: Event) {
-      openSignup({ next: (e as CustomEvent<{ next?: string | null }>).detail?.next ?? null })
+      const d = (e as CustomEvent<{ next?: string | null; cta?: string | null }>).detail
+      openSignup({ next: d?.next ?? null, cta: d?.cta ?? null })
     }
     function handleOpenLogin(e: Event) {
-      openLogin({ next: (e as CustomEvent<{ next?: string | null }>).detail?.next ?? null })
+      const d = (e as CustomEvent<{ next?: string | null; cta?: string | null }>).detail
+      openLogin({ next: d?.next ?? null, cta: d?.cta ?? null })
     }
 
     window.addEventListener('bynx:open-signup', handleOpenSignup)

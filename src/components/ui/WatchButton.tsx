@@ -23,11 +23,14 @@ export default function WatchButton({
   cardId,
   full = false,
   label,
+  cta = 'watch:acompanhar',
 }: {
   cardId: string
   full?: boolean
   /** Copy do estado inativo. Padrao: "Acompanhar preço". */
   label?: string
+  /** Rotulo do botao na atribuicao do cadastro (ver gravarCta). */
+  cta?: string
 }) {
   const { openSignup } = useAuthModal()
   const [userId, setUserId] = useState<string | null>(null)
@@ -69,7 +72,7 @@ export default function WatchButton({
     if (!userId) {
       const next = typeof window !== 'undefined' ? window.location.pathname : null
       gravarIntencao({ tipo: 'watch', cardId, slug: next || '' })
-      openSignup({ next })
+      openSignup({ next, cta })
       return
     }
     if (busy) return

@@ -59,7 +59,7 @@ export default function OfertasDaCarta({
         <p style={{ fontSize: 13.5, color: 'var(--bx-text-2)', lineHeight: 1.5, margin: 0 }}>
           Ninguém está vendendo <b style={{ color: 'var(--bx-text)', fontWeight: 600 }}>{nomeCarta}</b> na Bynx agora.
           Tem uma?{' '}
-          <Link href="/?auth=signup&next=%2Fmarketplace" style={{ color: 'var(--ac-1)', fontWeight: 600, textDecoration: 'none' }}>
+          <Link href="/?auth=signup&cta=carta%3Aanuncie&next=%2Fmarketplace" style={{ color: 'var(--ac-1)', fontWeight: 600, textDecoration: 'none' }}>
             Anuncie a sua
           </Link>
           .

@@ -203,7 +203,7 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
       // Deslogado: guarda a intencao e abre o cadastro. O `next` carrega o
       // ?add= porque o e-mail pode abrir em outro navegador.
       gravarIntencao({ tipo: 'add', cardId: card.id, slug: slugCarta, variante: varSel })
-      openSignup({ next: `/carta/${slugCarta}?add=${encodeURIComponent(card.id)}` })
+      openSignup({ next: `/carta/${slugCarta}?add=${encodeURIComponent(card.id)}`, cta: 'carta:adicionar' })
       return
     }
     setAdicionando(true)
@@ -601,7 +601,7 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
                 )}
               </Link>
             ) : (
-              <WatchButton cardId={card.id} full label="Avisar quando anunciarem" />
+              <WatchButton cardId={card.id} full label="Avisar quando anunciarem" cta="carta:avisar" />
             )}
 
             <button
@@ -825,7 +825,7 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
                     }}
                   >
                     <Link
-                      href={`/?auth=signup&next=${encodeURIComponent(pathname || '/')}`}
+                      href={`/?auth=signup&cta=carta%3Asem-preco&next=${encodeURIComponent(pathname || '/')}`}
                       style={{ color: '#f59e0b', textDecoration: 'none' }}
                     >
                       Entre na Bynx
@@ -856,7 +856,7 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
           periodoDaUrl
           pontos={historico ?? undefined}
           precoSuspeito={!!card.precoSuspeito}
-          rodape={ofertas.n > 0 ? <WatchButton cardId={card.id} full /> : undefined}
+          rodape={ofertas.n > 0 ? <WatchButton cardId={card.id} full cta="carta:acompanhar" /> : undefined}
         />
 
         {/* ★ FICHA DA CARTA (Fase 2 do #490, 09/10/2026). Dado que ja estava na

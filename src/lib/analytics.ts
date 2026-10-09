@@ -48,6 +48,7 @@ type EventName =
   | 'pro_upgrade_initiated'
   | 'pro_upgrade_completed'
   | 'loja_clique'
+  | 'auth_modal_opened'
 
 // ─── Push genérico (fail-safe, SSR-safe) ────────────────────────────────────
 
@@ -97,6 +98,15 @@ export function trackSignUp(params: {
   } catch {
     // Silent fail — tracking nunca quebra cadastro.
   }
+}
+
+/**
+ * Modal de auth aberto, com o botao que abriu (ver gravarCta em atribuicao.ts).
+ * E o topo do funil clique -> conta criada: quantos abrem o modal pelo
+ * "Adicionar a colecao" e quantos chegam ao sign_up.
+ */
+export function trackAuthModalOpened(params: { modo: 'signup' | 'login'; cta: string | null }): void {
+  push('auth_modal_opened', { modo: params.modo, cta: params.cta || undefined })
 }
 
 /**
