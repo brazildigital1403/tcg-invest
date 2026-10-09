@@ -191,6 +191,10 @@ type NormalizedCard = {
   regiao: string | null
   setSeries: string | null
   flavorText: string | null
+  /** Habilidades (Pokemon). Vazio ate o backfill de 10/2026 chegar na carta. */
+  abilities: Array<{ name: string; text: string; type: string | null }>
+  /** Texto de regra: a carta inteira em Treinador e Energia; a regra de ex/V/VMAX nos Pokemon. */
+  rules: string[]
   /** Ultima venda registrada no Mercado Brasileiro (preco que alguem PAGOU). */
   ultimaVenda: { cents: number; variante: string | null; condicao: string | null; em: string | null } | null
   /** Vendas nos ultimos 3 meses (rotulo de quantidade + media). */
@@ -232,6 +236,20 @@ function parseTipoValor(raw: unknown): Array<{ type: string; value: string }> {
   return v
     .filter((x): x is { type: string; value: string } => !!x && typeof x === 'object' && typeof (x as { type?: unknown }).type === 'string')
     .map(x => ({ type: x.type, value: typeof x.value === 'string' ? x.value : '' }))
+}
+
+function parseHabilidades(raw: unknown): Array<{ name: string; text: string; type: string | null }> {
+  const v = parseJsonb(raw)
+  if (!Array.isArray(v)) return []
+  return v
+    .filter((x): x is { name?: unknown; text?: unknown; type?: unknown } => !!x && typeof x === 'object')
+    .map(x => ({ name: typeof x.name === 'string' ? x.name : '', text: typeof x.text === 'string' ? x.text : '', type: typeof x.type === 'string' ? x.type : null }))
+    .filter(x => x.name || x.text)
+}
+
+function parseRegras(raw: unknown): string[] {
+  const v = parseJsonb(raw)
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : []
 }
 
 function parseLegalidades(raw: unknown): Record<string, string> | null {
@@ -389,6 +407,8 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
       // ★ Ficha da carta (Fase 2 do #490, 09/10/2026): colunas que ja
       // existiam na linha e nunca entravam no select. Zero consulta nova.
       'artist, subtypes, weaknesses, resistances, retreat_cost, legalities, regiao, set_series, flavor_text, ' +
+      // Habilidades e texto de regra (colunas de 09/10/2026, backfill pela Servidor).
+      'abilities, rules, ' +
       'ultima_venda_cents, ultima_venda_variante, ultima_venda_condicao, ultima_venda_atualizado_em, ' +
       'vendas_3m_qtd_label, vendas_3m_medio_cents, vendas_3m_capturado_em, ' +
       'preco_min, preco_medio, preco_max, ' +
@@ -572,6 +592,8 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
     regiao: bynx?.regiao ?? null,
     setSeries: bynx?.set_series || tcg?.set?.series || null,
     flavorText: bynx?.flavor_text || tcg?.flavorText || null,
+    abilities: parseHabilidades(bynx?.abilities ?? tcg?.abilities),
+    rules: parseRegras(bynx?.rules ?? tcg?.rules),
     ultimaVenda:
       bynx?.ultima_venda_cents != null && Number(bynx.ultima_venda_cents) > 0
         ? {
@@ -954,6 +976,7 @@ export default async function CartaPage({
   prop('Tipo', card.types.map(tipoTcgPt).join(', ') || null)
   prop('HP', card.hp ? String(card.hp) : null)
   prop('Ilustrador', card.artist)
+  prop('Habilidade', card.abilities.map(a => a.name).filter(Boolean).join(', ') || null)
   prop('Idioma', idiomaPt(card.idioma))
   prop('Ano', card.setReleaseYear)
   if (propriedades.length) productSchema.additionalProperty = propriedades

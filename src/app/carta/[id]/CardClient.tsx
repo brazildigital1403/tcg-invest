@@ -32,6 +32,13 @@ import { trackFirstCardAdded } from '@/lib/analytics'
 import { raridadePt, subtipoPt, tipoTcgPt, idiomaPt, regiaoPt, legalidadePt } from '@/lib/pokedexTextos'
 import { fmtPct, resumirHistorico, rotulo30, type PontoHistorico } from '@/lib/historicoCarta'
 
+// Tipo da habilidade como a API oficial nomeia; o que nao estiver aqui sai como veio.
+const TIPO_HABILIDADE_PT: Record<string, string> = {
+  'Ability': 'Habilidade', 'Poké-Power': 'Poder Pokémon', 'Poké-Body': 'Corpo Pokémon',
+  'Pokémon Power': 'Poder Pokémon', 'Ancient Trait': 'Traço Ancestral', 'VSTAR Power': 'Poder VSTAR',
+}
+const tipoHabilidadePt = (t: string | null) => (t ? TIPO_HABILIDADE_PT[t] || t : 'Habilidade')
+
 const fmtData = (iso: string | null | undefined) => {
   if (!iso) return null
   const d = new Date(iso)
@@ -84,6 +91,8 @@ type CardProps = {
     regiao?: string | null
     setSeries?: string | null
     flavorText?: string | null
+    abilities?: Array<{ name: string; text: string; type: string | null }>
+    rules?: string[]
     ultimaVenda?: { cents: number; variante: string | null; condicao: string | null; em: string | null } | null
     vendas3m?: { label: string | null; medioCents: number | null; em: string | null } | null
     /** Guard de preco: valor nao serve como referencia (card_preco_baseline). */
@@ -361,6 +370,19 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
   if (card.ultimaVenda) {
     const quando = fmtData(card.ultimaVenda.em)
     frasesExtras.push(`A última venda registrada foi por ${fmt(card.ultimaVenda.cents / 100)}${quando ? ` em ${quando}` : ''}.`)
+  }
+  // Habilidade (Pokemon) ou o texto da carta (Treinador e Energia, que nao
+  // tem ataque): e o que diferencia a carta das outras do mesmo nome.
+  const habilidades = card.abilities ?? []
+  const regras = card.rules ?? []
+  const temAtaques = !!card.attacks && card.attacks.length > 0
+  const ehTextoDaCarta = !temAtaques && habilidades.length === 0 && regras.length > 0
+  if (habilidades.length) {
+    const nomes = habilidades.map(h => h.name).filter(Boolean)
+    if (nomes.length) frasesExtras.push(`Tem a ${habilidades.length > 1 ? 'habilidades' : 'habilidade'} ${nomes.join(' e ')}.`)
+  } else if (ehTextoDaCarta) {
+    const txt = regras.join(' ')
+    frasesExtras.push(`Texto da carta: ${txt.length > 180 ? txt.slice(0, 177).trimEnd() + '...' : txt}`)
   }
   while (frasesExtras.length && (cabecaProsa + frase1 + ' ' + frasesExtras.join(' ')).length > 500) frasesExtras.pop()
 
@@ -900,9 +922,26 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
           </section>
         )}
 
-      {/* Ataques: recolhidos (Fase 2b). Ocupavam ~1 tela no celular; o texto
-          continua no HTML dentro do <details>, que o Google le. */}
-        {card.attacks && card.attacks.length > 0 && (
+      {/* Texto da carta: Treinador e Energia nao tem ataque, o texto de regra
+          E a carta. Fica visivel, nao recolhido. */}
+        {ehTextoDaCarta && (
+          <section aria-labelledby="texto-da-carta" style={{ marginBottom: 24 }}>
+            <h2 id="texto-da-carta" style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+              Texto da carta
+            </h2>
+            <div style={{ background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {regras.map((r, i) => (
+                <p key={i} style={{ fontSize: 13.5, color: 'var(--bx-text)', lineHeight: 1.5, margin: 0 }}>{r}</p>
+              ))}
+            </div>
+          </section>
+        )}
+
+      {/* Habilidades e ataques: recolhidos (Fase 2b). Ocupavam ~1 tela no
+          celular; o texto continua no HTML dentro do <details>, que o Google
+          le. A habilidade vem antes do ataque, como na carta; a regra de
+          ex/V/VMAX fecha o bloco. */}
+        {(temAtaques || habilidades.length > 0) && (
           <details className="bx-details" style={{ marginBottom: 24, background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', borderRadius: 12 }}>
             <summary
               style={{
@@ -911,11 +950,32 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
                 fontSize: 14, fontWeight: 600, color: 'var(--bx-text)',
               }}
             >
-              <span>Ataques ({card.attacks.length})</span>
+              <span>
+                {habilidades.length > 0 && temAtaques
+                  ? `Habilidades e ataques (${habilidades.length + (card.attacks?.length ?? 0)})`
+                  : habilidades.length > 0
+                    ? `Habilidades (${habilidades.length})`
+                    : `Ataques (${card.attacks?.length ?? 0})`}
+              </span>
               <IconChevronDown size={16} color="var(--bx-text-3)" />
             </summary>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px 12px' }}>
-              {card.attacks.map((atk, i: number) => (
+              {habilidades.map((h, i) => (
+                <div
+                  key={`h${i}`}
+                  style={{
+                    background: 'rgba(var(--ac-1-rgb),0.06)',
+                    border: '1px solid rgba(var(--ac-1-rgb),0.22)',
+                    borderRadius: 12,
+                    padding: '12px 16px',
+                  }}
+                >
+                  <p style={{ fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ac-1)', marginBottom: 3 }}>{tipoHabilidadePt(h.type)}</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{h.name}</p>
+                  {h.text && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>{h.text}</p>}
+                </div>
+              ))}
+              {(card.attacks ?? []).map((atk, i: number) => (
                 <div
                   key={i}
                   style={{
@@ -965,6 +1025,11 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
                   )}
                 </div>
               ))}
+              {regras.length > 0 && (
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5, padding: '2px 4px 0' }}>
+                  {regras.join(' ')}
+                </p>
+              )}
             </div>
           </details>
         )}
