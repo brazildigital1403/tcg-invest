@@ -53,7 +53,10 @@ function buildVariantesCarta(b: any) {
 }
 import CartasRelacionadas from '@/components/cards/CartasRelacionadas'
 import MercadoLivre from '@/components/ui/MercadoLivre'
-import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
+import { getMlAfiliadoLink } from '@/lib/mlAfiliado'
+import BlogDaCarta from '@/components/cards/BlogDaCarta'
+import { postsParaCarta } from '@/lib/blogCartaIndex'
+import { raridadePt, subtipoPt, tipoTcgPt, idiomaPt } from '@/lib/pokedexTextos'
 import Link from 'next/link'
 
 function slugifyName(s: string): string {
@@ -158,7 +161,7 @@ type NormalizedCard = {
   types: string[]
   imageSmall: string | null
   imageLarge: string | null
-  attacks: Array<{ name: string; text?: string; damage?: string }> | null
+  attacks: Array<{ name: string; text?: string; damage?: string; cost?: string[] }> | null
   // Preço (apenas Bynx tem)
   /** Guard de preco: true = valor nao serve pra divulgacao (ver card_preco_baseline). */
   precoSuspeito: boolean
@@ -171,6 +174,24 @@ type NormalizedCard = {
   precoMax: number | null
   /** Idioma da impressao (pt, en, jp...). Vai junto quando a carta entra na colecao pela pagina publica. */
   idioma: string | null
+  // ─── Ficha da carta (Fase 2 do #490). Tudo vem da mesma linha; vazio = a
+  // carta nao tem o dado (68,8% do catalogo e da fonte brasileira, sem dado de
+  // jogo), e a UI simplesmente nao mostra a linha. ───────────────────────────
+  /** Nome do set em portugues (pokemon_sets.name_pt), quando existe. */
+  setNamePt: string | null
+  artist: string | null
+  subtypes: string[]
+  weaknesses: Array<{ type: string; value: string }>
+  resistances: Array<{ type: string; value: string }>
+  retreatCost: string[]
+  legalities: Record<string, string> | null
+  regiao: string | null
+  setSeries: string | null
+  flavorText: string | null
+  /** Ultima venda registrada no Mercado Brasileiro (preco que alguem PAGOU). */
+  ultimaVenda: { cents: number; variante: string | null; condicao: string | null; em: string | null } | null
+  /** Vendas nos ultimos 3 meses (rotulo de quantidade + media). */
+  vendas3m: { label: string | null; medioCents: number | null; em: string | null } | null
   // `variantes` ja era devolvido por fetchCardData desde a S43, mas nunca foi
   // declarado aqui — o excess property check reclamava dele desde entao.
   variantes?: Array<{
@@ -187,14 +208,45 @@ type NormalizedCard = {
   ligaRangeMax: number | null
 }
 
+// ─── Helpers da ficha: fraqueza/resistencia e legalidade chegam como jsonb,
+// mas em parte do catalogo o jsonb e uma STRING com JSON dentro (dupla
+// serializacao da importacao). Os dois formatos viram o mesmo objeto. ─────────
+function parseJsonb(raw: unknown): unknown {
+  if (raw == null) return null
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+  return raw
+}
+
+function parseTipoValor(raw: unknown): Array<{ type: string; value: string }> {
+  const v = parseJsonb(raw)
+  if (!Array.isArray(v)) return []
+  return v
+    .filter((x): x is { type: string; value: string } => !!x && typeof x === 'object' && typeof (x as { type?: unknown }).type === 'string')
+    .map(x => ({ type: x.type, value: typeof x.value === 'string' ? x.value : '' }))
+}
+
+function parseLegalidades(raw: unknown): Record<string, string> | null {
+  const v = parseJsonb(raw)
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const out: Record<string, string> = {}
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) if (typeof val === 'string') out[k] = val
+  return Object.keys(out).length ? out : null
+}
+
 // ─── Helper: normaliza attacks (pode vir como array da API TCG, ou como
 // string JSON serializada vinda do Supabase/Bynx). Garante sempre array|null. ─
 function normalizeAttacks(
   raw: unknown,
-): Array<{ name: string; text?: string; damage?: string }> | null {
+): Array<{ name: string; text?: string; damage?: string; cost?: string[] }> | null {
   if (!raw) return null
   if (Array.isArray(raw)) {
-    return raw as Array<{ name: string; text?: string; damage?: string }>
+    return raw as Array<{ name: string; text?: string; damage?: string; cost?: string[] }>
   }
   if (typeof raw === 'string') {
     try {
@@ -276,17 +328,29 @@ function precoForaDaMediana(preco: number, mediana: number, nSnaps: number, nLiq
  * Falha lanca (regra da casa: vazio dentro de unstable_cache fica servido);
  * quem vira null e o chamador, fora do cache.
  */
-const printedTotalDoSet = unstable_cache(
-  async (setId: string): Promise<number | null> => {
+// ★ 09/10/2026 (Fase 2 do #490): o mesmo select passou a trazer `name_pt` --
+// o nome do set em portugues entra no title, no H1, na description e no
+// breadcrumb ("Raio Negro (Black Bolt)"). O brasileiro busca "zekrom ex raio
+// negro" e a pagina so dizia "Black Bolt". Chave -v2 porque a forma mudou.
+type InfoSet = { printed_total: number | null; name_pt: string | null }
+const infoDoSet = unstable_cache(
+  async (setId: string): Promise<InfoSet> => {
     const sb = getServiceSupabase()
     if (!sb) throw new Error('[carta] sem cliente Supabase')
-    const { data, error } = await sb.from('pokemon_sets').select('printed_total').eq('id', setId).maybeSingle()
-    if (error) throw new Error(`[carta] printed_total: ${error.message}`)
-    return data?.printed_total ?? null
+    const { data, error } = await sb.from('pokemon_sets').select('printed_total, name_pt').eq('id', setId).maybeSingle()
+    if (error) throw new Error(`[carta] info do set: ${error.message}`)
+    return { printed_total: data?.printed_total ?? null, name_pt: data?.name_pt ?? null }
   },
-  ['carta-printed-total-v1'],
+  ['carta-set-info-v2'],
   { revalidate: 86400 },
 )
+
+/** "Raio Negro (Black Bolt)" quando ha nome em portugues; senao o nome como veio. */
+function rotuloDoSet(c: { setName: string | null; setNamePt: string | null }): string | null {
+  if (!c.setName) return c.setNamePt
+  if (c.setNamePt && c.setNamePt !== c.setName) return `${c.setNamePt} (${c.setName})`
+  return c.setName
+}
 
 /**
  * Teto de tempo que vale MESMO. O `AbortSignal.timeout` do fetch da API
@@ -319,6 +383,11 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
     const COLS =
       'id, slug, name, number, set_id, set_name, set_release_date, set_total, supertype, ' +
       'rarity, hp, types, image_small, image_large, attacks, idioma, ' +
+      // ★ Ficha da carta (Fase 2 do #490, 09/10/2026): colunas que ja
+      // existiam na linha e nunca entravam no select. Zero consulta nova.
+      'artist, subtypes, weaknesses, resistances, retreat_cost, legalities, regiao, set_series, flavor_text, ' +
+      'ultima_venda_cents, ultima_venda_variante, ultima_venda_condicao, ultima_venda_atualizado_em, ' +
+      'vendas_3m_qtd_label, vendas_3m_medio_cents, vendas_3m_capturado_em, ' +
       'preco_min, preco_medio, preco_max, ' +
       'preco_foil_min, preco_foil_medio, preco_foil_max, ' +
       'preco_reverse_min, preco_reverse_medio, preco_reverse_max, ' +
@@ -429,9 +498,9 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
   //
   // Roda em paralelo com a API: as duas so dependem do `bynx`, nao uma da
   // outra. Em serie eram dois RTTs empilhados.
-  const [printedDoSet, tcgRes] = await Promise.all([
+  const [infoSet, tcgRes] = await Promise.all([
     bynx?.set_id
-      ? printedTotalDoSet(bynx.set_id).catch(() => null)
+      ? infoDoSet(bynx.set_id).catch(() => null)
       : Promise.resolve(null),
     vaiChamarApi
       ? comTeto(fetch(`https://api.pokemontcg.io/v2/cards/${idReal}`, {
@@ -453,7 +522,7 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
       : Promise.resolve(null),
   ])
 
-  printedTotal = printedDoSet
+  printedTotal = infoSet?.printed_total ?? null
 
   // O corpo tambem entra no teto: resposta que chega mas trava no stream
   // seguraria a pagina do mesmo jeito.
@@ -490,6 +559,33 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
     precoMedio: bynx?.preco_medio ? Number(bynx.preco_medio) : null,
     precoMax: bynx?.preco_max ? Number(bynx.preco_max) : null,
     idioma: bynx?.idioma ?? null,
+    setNamePt: infoSet?.name_pt ?? null,
+    artist: bynx?.artist || tcg?.artist || null,
+    subtypes: Array.isArray(bynx?.subtypes) ? bynx.subtypes : Array.isArray(tcg?.subtypes) ? tcg.subtypes : [],
+    weaknesses: parseTipoValor(bynx?.weaknesses ?? tcg?.weaknesses),
+    resistances: parseTipoValor(bynx?.resistances ?? tcg?.resistances),
+    retreatCost: Array.isArray(bynx?.retreat_cost) ? bynx.retreat_cost : Array.isArray(tcg?.retreatCost) ? tcg.retreatCost : [],
+    legalities: parseLegalidades(bynx?.legalities ?? tcg?.legalities),
+    regiao: bynx?.regiao ?? null,
+    setSeries: bynx?.set_series || tcg?.set?.series || null,
+    flavorText: bynx?.flavor_text || tcg?.flavorText || null,
+    ultimaVenda:
+      bynx?.ultima_venda_cents != null && Number(bynx.ultima_venda_cents) > 0
+        ? {
+            cents: Number(bynx.ultima_venda_cents),
+            variante: bynx.ultima_venda_variante ?? null,
+            condicao: bynx.ultima_venda_condicao ?? null,
+            em: bynx.ultima_venda_atualizado_em ?? null,
+          }
+        : null,
+    vendas3m:
+      bynx?.vendas_3m_qtd_label || (bynx?.vendas_3m_medio_cents != null && Number(bynx.vendas_3m_medio_cents) > 0)
+        ? {
+            label: bynx.vendas_3m_qtd_label ?? null,
+            medioCents: bynx.vendas_3m_medio_cents != null ? Number(bynx.vendas_3m_medio_cents) : null,
+            em: bynx.vendas_3m_capturado_em ?? null,
+          }
+        : null,
     variantes: buildVariantesCarta(bynx),
     // ATENCAO ao `!= null`: aqui 0 e um valor CARREGADO DE SENTIDO ("a
     // varredura passou e ninguem esta vendendo"), diferente de null ("a
@@ -579,7 +675,11 @@ export async function generateMetadata({
       ? ` ${card.number}/${card.setTotal}`
       : ` #${card.number}`
     : ''
-  const setStr = card.setName ? ` — ${card.setName}` : ''
+  // No title entra SO o nome em portugues quando existe (cabe no limite de
+  // 50 chars); na description entra o par "Raio Negro (Black Bolt)".
+  const setTitulo = card.setNamePt || card.setName
+  const setDesc = rotuloDoSet(card)
+  const setStr = setTitulo ? ` — ${setTitulo}` : ''
   // ★ O preco que representa a carta no Google e o MENOR (25/08/2026).
   // Quem compra leva pelo menor, entao e esse que o SERP deve anunciar --
   // prometer a media e prometer um numero que ninguem paga.
@@ -607,14 +707,14 @@ export async function generateMetadata({
   if (precoStr) {
     const baseComPreco = `${card.name}${numStr} — ${precoStr}`
     const restante = 50 - baseComPreco.length
-    const sufixoSet = card.setName ? ` | ${card.setName}` : ''
+    const sufixoSet = setTitulo ? ` | ${setTitulo}` : ''
     title = sufixoSet && sufixoSet.length <= restante ? baseComPreco + sufixoSet : baseComPreco
   } else {
     title = `${card.name}${numStr}${setStr}`
   }
   const description = precoStr
-    ? `Quanto vale ${card.name}${numStr} de ${card.setName || 'Pokémon TCG'}? A partir de ${precoStr}, atualizado em reais na Bynx. Veja a faixa (mín–máx), as variantes e acompanhe na sua coleção.`
-    : `Quanto vale ${card.name}${numStr}${card.setName ? ` de ${card.setName}` : ''}? Veja o preço em reais, variantes, raridade e ataques, e acompanhe na sua coleção Pokémon TCG na Bynx.`
+    ? `Quanto vale ${card.name}${numStr} de ${setDesc || 'Pokémon TCG'}? A partir de ${precoStr}, atualizado em reais na Bynx. Veja a faixa (mín–máx), as variantes e acompanhe na sua coleção.`
+    : `Quanto vale ${card.name}${numStr}${setDesc ? ` de ${setDesc}` : ''}? Veja o preço em reais, variantes, raridade e ataques, e acompanhe na sua coleção Pokémon TCG na Bynx.`
 
   const ogImage = card.imageLarge || card.imageSmall || 'https://bynx.gg/og-image.jpg'
 
@@ -717,13 +817,30 @@ export default async function CartaPage({
     // 2.225 cartas de usuarios e 62 anuncios apontando pra ele -- migracao de
     // chave em cascata, risco desproporcional pro que se ganha aqui.
     sku: card.slug || card.id,
-    description: `${card.name}${card.setName ? ` de ${card.setName}` : ''} — Pokémon TCG`,
+    description: `${card.name}${rotuloDoSet(card) ? ` de ${rotuloDoSet(card)}` : ''} — Pokémon TCG`,
     brand: {
       '@type': 'Brand',
       name: 'Pokémon TCG',
     },
     category: 'Trading Card Game',
   }
+
+  // ★ Dado estruturado da ficha (Fase 2 do #490): o que um modelo de IA le sem
+  // interpretar prosa. So entra o que existe; nada de campo vazio.
+  const propriedades: Array<{ '@type': 'PropertyValue'; name: string; value: string }> = []
+  const prop = (name: string, value: string | null | undefined) => {
+    if (value) propriedades.push({ '@type': 'PropertyValue', name, value })
+  }
+  prop('Número', card.number && card.setTotal ? `${card.number}/${card.setTotal}` : card.number)
+  prop('Set', rotuloDoSet(card))
+  prop('Raridade', raridadePt(card.rarity))
+  prop('Estágio', card.subtypes.map(subtipoPt).join(', ') || null)
+  prop('Tipo', card.types.map(tipoTcgPt).join(', ') || null)
+  prop('HP', card.hp ? String(card.hp) : null)
+  prop('Ilustrador', card.artist)
+  prop('Idioma', idiomaPt(card.idioma))
+  prop('Ano', card.setReleaseYear)
+  if (propriedades.length) productSchema.additionalProperty = propriedades
 
   // ★ O JSON-LD PASSOU A DECLARAR AS OFERTAS REAIS (04/09/2026), com DUAS
   // exclusoes deliberadas: graduada e travada. Ver `ofertasParaDivulgacao` --
@@ -787,14 +904,24 @@ export default async function CartaPage({
     }
   }
 
+  // a RPC casa por id de carta, nao por slug — passa o id resolvido.
+  // (Vem antes do breadcrumb desde 09/10: a trilha passou a incluir o hub do
+  // Pokemon, e o nome dele sai daqui. E Data Cache de 24h, a ordem nao custa.)
+  const related = await fetchRelatedCards(card.id)
+
   // BreadcrumbList: ajuda navegação no Google + UX
-  // Trilha (breadcrumb): Inicio > Pokedex > [Set] > Carta
+  // ★ Trilha nova (Fase 2 do #490): Inicio > Pokemon > {Pokemon} > {Set em PT} > Carta.
+  // Antes era Inicio > Sets > {Set} > Carta: o hub do Pokemon, que e a pagina
+  // mais rica do site, so aparecia como botao solto, e o set saia em ingles.
   const breadcrumbItems: { name: string; href: string }[] = [
     { name: 'Início', href: '/' },
-    { name: 'Sets', href: '/set' },
+    { name: 'Pokémon', href: '/pokedex-pokemon-tcg' },
   ]
+  if (related.pokemon_name) {
+    breadcrumbItems.push({ name: related.pokemon_name, href: `/pokemon/${slugifyName(related.pokemon_name)}` })
+  }
   if (card.setName && card.setId) {
-    breadcrumbItems.push({ name: card.setName, href: `/set/${card.setId}` })
+    breadcrumbItems.push({ name: card.setNamePt || card.setName, href: `/set/${card.setId}` })
   }
   breadcrumbItems.push({ name: card.name, href: `/carta/${card.slug || card.id}` })
 
@@ -809,12 +936,30 @@ export default async function CartaPage({
     })),
   }
 
-  // a RPC casa por id de carta, nao por slug — passa o id resolvido
-  const related = await fetchRelatedCards(card.id)
+  // Outras cartas do mesmo Pokemon como produtos relacionados no JSON-LD
+  // (ja estao em memoria, vindas da RPC cacheada).
+  const similares = related.same_pokemon.filter(c => (c.slug || c.id) !== (card.slug || card.id)).slice(0, 6)
+  if (similares.length) {
+    productSchema.isSimilarTo = similares.map(c => ({
+      '@type': 'Product',
+      name: c.name,
+      url: `https://bynx.gg/carta/${c.slug || c.id}`,
+    }))
+  }
 
-  // Link de afiliado do Mercado Livre (acessorios; cai no 'default' se nao houver)
-  const mlLink = await getMlAfiliadoLink('acessorios')
-  const mlProdutos = await getMlAfiliadoProdutos('acessorios')
+  // Posts do blog que casam com a carta (indice global em cache de 1h, casamento
+  // em memoria: zero consulta por carta).
+  const postsDaCarta = await postsParaCarta({
+    cardId: card.id,
+    cardSlug: card.slug,
+    pokemonName: related.pokemon_name,
+    setNames: [card.setName, card.setNamePt],
+  })
+
+  // ★ Mercado Livre POR SET (Fase 2 do #490): booster e ETB do set da carta em
+  // vez dos mesmos acessorios genericos em 66 mil paginas. A lib ja cai em
+  // 'acessorios'/'default' quando o set nao tem link cadastrado. Uma faixa so.
+  const mlLink = await getMlAfiliadoLink(card.setId || 'acessorios')
 
   return (
     <>
@@ -873,15 +1018,18 @@ export default async function CartaPage({
           pokemonName={related.pokemon_name}
         />
 
+        <BlogDaCarta posts={postsDaCarta} />
+
+        {/* Uma faixa, abaixo do conteudo: anuncio nao traz SEO (sponsored
+            nofollow) e a grade de 6 produtos ocupava 635 px antes do convite
+            de cadastro no celular. */}
         {mlLink && (
           <MercadoLivre
-            variante="card"
-            layout="grid"
-            gridMax={6}
+            variante="strip"
             url={mlLink.url}
             titulo={mlLink.titulo}
             subtitulo={mlLink.subtitulo}
-            produtos={mlProdutos}
+            produtos={[]}
           />
         )}
       </CardClient>

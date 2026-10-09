@@ -30,6 +30,13 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { adicionarCartaPublica } from '@/lib/adicionarCartaPublica'
 import { gravarIntencao, lerIntencao, limparIntencao } from '@/lib/intencao'
 import { trackFirstCardAdded } from '@/lib/analytics'
+import { raridadePt, subtipoPt, tipoTcgPt, idiomaPt, regiaoPt, legalidadePt } from '@/lib/pokedexTextos'
+
+const fmtData = (iso: string | null | undefined) => {
+  if (!iso) return null
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', {
@@ -65,7 +72,20 @@ type CardProps = {
     types: string[]
     imageSmall: string | null
     imageLarge: string | null
-    attacks: Array<{ name: string; text?: string; damage?: string }> | null
+    attacks: Array<{ name: string; text?: string; damage?: string; cost?: string[] }> | null
+    // Ficha da carta (Fase 2 do #490). Vazio = a carta nao tem o dado.
+    setNamePt?: string | null
+    artist?: string | null
+    subtypes?: string[]
+    weaknesses?: Array<{ type: string; value: string }>
+    resistances?: Array<{ type: string; value: string }>
+    retreatCost?: string[]
+    legalities?: Record<string, string> | null
+    regiao?: string | null
+    setSeries?: string | null
+    flavorText?: string | null
+    ultimaVenda?: { cents: number; variante: string | null; condicao: string | null; em: string | null } | null
+    vendas3m?: { label: string | null; medioCents: number | null; em: string | null } | null
     /** Guard de preco: valor nao serve como referencia (card_preco_baseline). */
     precoSuspeito?: boolean
     /** Mediana historica da carta; so vem preenchida quando precoSuspeito. */
@@ -254,6 +274,49 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
   const numLabel = card.number ? (card.setTotal ? card.number + '/' + card.setTotal : '#' + card.number) : ''
   const imgAlt = 'Carta ' + card.name + (numLabel ? ' ' + numLabel : '') + (card.setName ? ' do set ' + card.setName : '') + ' — Pokémon TCG | Bynx'
 
+  // Linhas da ficha: so o que existe. Tipo/raridade/estagio traduzidos pelos
+  // mesmos tradutores da Pokedex; o custo de recuo vira "2 (Incolor, Incolor)".
+  const ficha: Array<[string, string]> = []
+  const linha = (k: string, v: string | null | undefined) => {
+    if (v) ficha.push([k, v])
+  }
+  linha('Número', numLabel || null)
+  linha('Set', card.setNamePt && card.setNamePt !== card.setName ? `${card.setNamePt} (${card.setName})` : card.setName)
+  linha('Série', card.setSeries)
+  linha('Raridade', raridadePt(card.rarity))
+  linha('Estágio', card.subtypes?.length ? card.subtypes.map(subtipoPt).join(' · ') : null)
+  linha('Tipo', card.types.length ? card.types.map(tipoTcgPt).join(' · ') : null)
+  linha('HP', card.hp ? String(card.hp) : null)
+  linha('Fraqueza', card.weaknesses?.length ? card.weaknesses.map(w => `${tipoTcgPt(w.type)} ${w.value}`.trim()).join(' · ') : null)
+  linha('Resistência', card.resistances?.length ? card.resistances.map(r => `${tipoTcgPt(r.type)} ${r.value}`.trim()).join(' · ') : null)
+  linha('Custo de recuo', card.retreatCost?.length ? `${card.retreatCost.length} (${card.retreatCost.map(tipoTcgPt).join(', ')})` : null)
+  linha('Ilustrador', card.artist)
+  linha(
+    'Legalidade',
+    card.legalities
+      ? ['standard', 'expanded']
+          .filter(f => card.legalities?.[f])
+          .map(f => `${f === 'standard' ? 'Standard' : 'Expanded'}: ${legalidadePt(card.legalities?.[f])}`)
+          .join(' · ') || null
+      : null,
+  )
+  linha('Ano', card.setReleaseYear)
+  linha('Idioma', idiomaPt(card.idioma))
+  linha('Região', regiaoPt(card.regiao))
+  if (card.ultimaVenda) {
+    const detalhe = [card.ultimaVenda.variante, card.ultimaVenda.condicao].filter(Boolean).join(', ')
+    const quando = fmtData(card.ultimaVenda.em)
+    linha('Última venda', `${fmt(card.ultimaVenda.cents / 100)}${detalhe ? ` (${detalhe})` : ''}${quando ? ` em ${quando}` : ''}`)
+  }
+  if (card.vendas3m && (card.vendas3m.label || card.vendas3m.medioCents)) {
+    const base = [card.vendas3m.label, card.vendas3m.medioCents ? `média ${fmt(card.vendas3m.medioCents / 100)}` : null]
+      .filter(Boolean)
+      .join(', ')
+    const quando = fmtData(card.vendas3m.em)
+    linha('Vendas em 3 meses', `${base}${quando ? ` (${quando})` : ''}`)
+  }
+
+
   return (
     <>
     {/* Sinal "carta acessada". card.id (ja resolvido pelo servidor), NUNCA o
@@ -288,7 +351,13 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
           </h1>
           <p style={{ fontSize: 13, color: 'var(--bx-text-2)', marginBottom: 12 }}>
             {numLabel}
-            {card.setName ? <> · <b style={{ color: 'var(--bx-text)', fontWeight: 500 }}>{card.setName}</b></> : null}
+            {card.setName ? (
+              <>
+                {' · '}
+                <b style={{ color: 'var(--bx-text)', fontWeight: 500 }}>{card.setNamePt || card.setName}</b>
+                {card.setNamePt && card.setNamePt !== card.setName ? ` (${card.setName})` : ''}
+              </>
+            ) : null}
             {card.setReleaseYear ? ` · ${card.setReleaseYear}` : ''}
           </p>
 
@@ -726,6 +795,47 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
             acao secundaria da primeira dobra. */}
         {ofertas.n > 0 && <WatchButton cardId={card.id} full />}
 
+        {/* ★ FICHA DA CARTA (Fase 2 do #490, 09/10/2026). Dado que ja estava na
+            mesma linha do banco e nunca aparecia: fatos unicos por carta, em
+            lista (nao vira boilerplate), em portugues. Cobre ~25-31% das cartas
+            com dado de jogo; nas outras ficam idioma, regiao, set e numero.
+            Renderizado no servidor: entra no HTML que o Google e a IA leem. */}
+        {ficha.length > 0 && (
+          <section aria-labelledby="ficha-da-carta" style={{ marginBottom: 24 }}>
+            <h2
+              id="ficha-da-carta"
+              style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}
+            >
+              Ficha da carta
+            </h2>
+            <dl
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                gap: '8px 14px',
+                background: 'var(--bx-surface)',
+                border: '1px solid var(--bx-border)',
+                borderRadius: 12,
+                padding: '14px 16px',
+                margin: 0,
+              }}
+            >
+              {ficha.map(([k, v]) => (
+                <div key={k} style={{ minWidth: 0 }}>
+                  <dt style={{ fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--bx-text-3)' }}>{k}</dt>
+                  <dd style={{ fontSize: 13.5, color: 'var(--bx-text)', margin: '2px 0 0', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{v}</dd>
+                </div>
+              ))}
+            </dl>
+            {card.flavorText && (
+              <p style={{ fontSize: 12.5, color: 'var(--bx-text-2)', fontStyle: 'italic', lineHeight: 1.5, margin: '10px 2px 0' }}>
+                {card.flavorText}
+                <span style={{ fontStyle: 'normal', color: 'var(--bx-text-3)' }}> (texto original da carta)</span>
+              </p>
+            )}
+          </section>
+        )}
+
         <PriceHistory cardId={card.id} periodoDaUrl />
 
       {/* Ataques */}
@@ -761,6 +871,12 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
                     <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
                       {atk.name}
                     </p>
+                    {/* Custo de energia: ja vinha no JSON gravado e a UI ignorava. */}
+                    {Array.isArray(atk.cost) && atk.cost.length > 0 && (
+                      <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>
+                        {atk.cost.map(tipoTcgPt).join(' · ')}
+                      </p>
+                    )}
                     {atk.text && (
                       <p
                         style={{

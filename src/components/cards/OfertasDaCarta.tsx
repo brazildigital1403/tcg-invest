@@ -33,7 +33,40 @@ export default function OfertasDaCarta({
   ofertas: OfertaCarta[]
   nomeCarta: string
 }) {
-  if (!ofertas.length) return null
+  // ★ Estado vazio (Fase 2 do #490): o marketplace cobre 89 cartas de 68 mil,
+  // entao "nenhum anuncio" e o caso de 99,9% das paginas -- e era um buraco
+  // em branco. Agora e um convite: quem tem a carta e o unico que pode
+  // preencher isso. O link passa pelo cadastro e volta pro Mercado; com
+  // sessao, o listener da URL redireciona direto.
+  if (!ofertas.length) {
+    return (
+      <section
+        aria-labelledby="ofertas-bynx"
+        style={{
+          background: 'var(--bx-surface)',
+          border: '1px solid var(--bx-border)',
+          borderRadius: 12,
+          padding: 16,
+          margin: '4px 0 22px',
+        }}
+      >
+        <h2
+          id="ofertas-bynx"
+          style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--bx-text-3)', margin: '0 0 6px' }}
+        >
+          À venda na Bynx
+        </h2>
+        <p style={{ fontSize: 13.5, color: 'var(--bx-text-2)', lineHeight: 1.5, margin: 0 }}>
+          Ninguém está vendendo <b style={{ color: 'var(--bx-text)', fontWeight: 600 }}>{nomeCarta}</b> na Bynx agora.
+          Tem uma?{' '}
+          <Link href="/?auth=signup&next=%2Fmarketplace" style={{ color: 'var(--ac-1)', fontWeight: 600, textDecoration: 'none' }}>
+            Anuncie a sua
+          </Link>
+          .
+        </p>
+      </section>
+    )
+  }
 
   // ★ O "A PARTIR DE" IGNORA A TRAVADA (08/09/2026). Ela aparece na lista com
   // o cronometro, mas anunciar o preco dela aqui seria prometer um valor que

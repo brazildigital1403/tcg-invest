@@ -55,6 +55,7 @@ const RARIDADE_PT: Record<string, string> = {
   'Shiny Rare': 'Rara Brilhante', 'Shiny Ultra Rare': 'Ultra Rara Brilhante', 'ACE SPEC Rare': 'Rara ACE SPEC',
   'Amazing Rare': 'Rara Incrível', 'Radiant Rare': 'Rara Radiante', 'Trainer Gallery Rare Holo': 'Galeria de Treinador',
   'Classic Collection': 'Coleção Clássica', 'Promo': 'Promo', 'LEGEND': 'LENDA',
+  'Black White Rare': 'Rara Preto e Branco', 'Mega Hyper Rare': 'Mega Hiper Rara', 'Rare Holo Promo': 'Rara Holo Promo',
 }
 export const raridadePt = (r?: string | null) => (r ? RARIDADE_PT[r] || r : null)
 
@@ -66,6 +67,17 @@ const SUBTIPO_PT: Record<string, string> = {
   'Tera': 'Tera', 'Ancient': 'Ancestral', 'Future': 'Futuro',
 }
 export const subtipoPt = (s: string) => SUBTIPO_PT[s] || s
+
+// Idioma e regiao da impressao (pokemon_cards.idioma / regiao), para a ficha
+// da carta. O que nao estiver aqui sai como veio.
+const IDIOMA_PT: Record<string, string> = {
+  pt: 'Português', en: 'Inglês', jp: 'Japonês', ja: 'Japonês', cn: 'Chinês', zh: 'Chinês', kr: 'Coreano', ko: 'Coreano',
+  es: 'Espanhol', fr: 'Francês', de: 'Alemão', it: 'Italiano',
+}
+export const idiomaPt = (i?: string | null) => (i ? IDIOMA_PT[i.toLowerCase()] || i : null)
+const REGIAO_PT: Record<string, string> = { ocidental: 'Ocidental', oriental: 'Oriental', japao: 'Japão', asia: 'Ásia' }
+export const regiaoPt = (r?: string | null) => (r ? REGIAO_PT[r.toLowerCase()] || r : null)
+export const legalidadePt = (v?: string | null) => (v === 'Legal' ? 'Permitida' : v === 'Banned' ? 'Banida' : v || null)
 
 // ─── Ficha da especie ─────────────────────────────────────────────────────────
 // Tipos da especie, cadeia de evolucao (slugs da PokeAPI, ex. "mr-mime") e o
