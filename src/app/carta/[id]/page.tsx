@@ -52,7 +52,9 @@ function buildVariantesCarta(b: any) {
   })).filter((v) => v.min || v.med || v.max)
 }
 import CarrosselCartas, { type CartaCarrossel } from '@/components/cards/CarrosselCartas'
-import ConviteBynx, { type StatsConvite } from '@/components/cards/ConviteBynx'
+import ConviteBynx from '@/components/cards/ConviteBynx'
+import { fetchStatsConvite } from '@/lib/conviteStats'
+import { MIN_CARTAS_COM_PRECO, slugIlustrador } from '@/lib/ilustrador'
 import type { PontoHistorico } from '@/lib/historicoCarta'
 import MercadoLivre from '@/components/ui/MercadoLivre'
 import { getMlAfiliadoLink } from '@/lib/mlAfiliado'
@@ -758,41 +760,6 @@ async function fetchHistorico(id: string): Promise<PontoHistorico[] | null> {
   }
 }
 
-/**
- * Numeros do convite de cadastro, GLOBAIS (nao dependem da carta): cache de
- * 1 h compartilhado pelas ~66 mil paginas. `landing_stats` le a matview de
- * sets (a home ja usa) e a contagem de usuarios e uma tabela de centenas de
- * linhas. Falha lanca; o chamador cai no ultimo valor medido.
- */
-const STATS_CONVITE_FALLBACK: StatsConvite = { cartas: 68448, colecionadores: 468 }
-const statsDoConvite = unstable_cache(
-  async (): Promise<StatsConvite> => {
-    const sb = getServiceSupabase()
-    if (!sb) throw new Error('[carta] sem cliente Supabase')
-    const [{ data: stats, error: e1 }, { count, error: e2 }] = await Promise.all([
-      sb.rpc('landing_stats'),
-      sb.from('users').select('id', { count: 'exact', head: true }),
-    ])
-    if (e1) throw new Error(`[carta] landing_stats: ${e1.message}`)
-    if (e2) throw new Error(`[carta] contagem de usuarios: ${e2.message}`)
-    const s = Array.isArray(stats) ? stats[0] : stats
-    const cartas = Number(s?.total_cards)
-    const colecionadores = Number(count)
-    if (!(cartas > 0) || !(colecionadores > 0)) throw new Error('[carta] stats do convite vazias')
-    return { cartas, colecionadores }
-  },
-  ['carta-convite-v1'],
-  { revalidate: 3600 },
-)
-
-async function fetchStatsConvite(): Promise<StatsConvite> {
-  try {
-    return await statsDoConvite()
-  } catch {
-    return STATS_CONVITE_FALLBACK
-  }
-}
-
 // ─── Helper: formata BRL ───────────────────────────────────────────────────
 
 const formatBRL = (v: number | null) =>
@@ -1197,13 +1164,15 @@ export default async function CartaPage({
           />
         )}
 
-        {/* Do mesmo ilustrador (Fase 3): sem "ver todas" porque o hub de
-            ilustrador ainda nao existe -- e um item da Fase 3 que para no Du. */}
+        {/* Do mesmo ilustrador (Fase 3), com link pro hub /ilustrador/[slug]. */}
         {related.artist && (
           <CarrosselCartas
             idTitulo="mais-do-ilustrador"
             titulo={`Ilustradas por ${related.artist}`}
             cartas={maisDoIlustrador}
+            // O hub so existe com 3+ cartas com preco (abaixo disso e 404);
+            // a lista de 7 ja cacheada e o mesmo criterio.
+            verTodas={doIlustrador.length >= MIN_CARTAS_COM_PRECO ? { href: `/ilustrador/${slugIlustrador(related.artist)}`, label: `Ver todas as cartas de ${related.artist}` } : undefined}
           />
         )}
 

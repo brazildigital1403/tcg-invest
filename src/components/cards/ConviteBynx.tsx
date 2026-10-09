@@ -17,7 +17,16 @@ export type StatsConvite = { cartas: number; colecionadores: number }
 const fmtMil = (n: number) => `${Math.floor(n / 1000)} mil`
 const fmtDezena = (n: number) => `${Math.floor(n / 10) * 10}+`
 
-export default function ConviteBynx({ stats, next }: { stats: StatsConvite; next: string }) {
+export default function ConviteBynx({
+  stats,
+  next,
+  cta = 'carta:convite',
+}: {
+  stats: StatsConvite
+  next: string
+  /** Rotulo do botao na atribuicao do cadastro (signup_cta). */
+  cta?: string
+}) {
   return (
     <section
       aria-labelledby="convite-bynx"
@@ -48,7 +57,7 @@ export default function ConviteBynx({ stats, next }: { stats: StatsConvite; next
         </div>
       </dl>
       <Link
-        href={`/?auth=signup&cta=carta%3Aconvite&next=${encodeURIComponent(next)}`}
+        href={`/?auth=signup&cta=${encodeURIComponent(cta)}&next=${encodeURIComponent(next)}`}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: 10,
           background: 'var(--bx-brand)', color: 'var(--bx-brand-ink)', fontWeight: 700, fontSize: 15,
