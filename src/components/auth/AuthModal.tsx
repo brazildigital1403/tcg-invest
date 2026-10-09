@@ -41,6 +41,7 @@ import {
   getFingerprint,
   isDisposableEmail,
 } from '@/lib/referrals'
+import { senhaChecks, senhaValida } from '@/lib/senha'
 
 // ─── Validadores ─────────────────────────────────────────────────────────────
 
@@ -107,20 +108,6 @@ function formatarCEP(v: string) {
   return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d
 }
 
-// Espelha a politica do Supabase Auth: 8+ chars com minuscula, maiuscula, numero e simbolo.
-function senhaChecks(s: string) {
-  return {
-    len: s.length >= 8,
-    lower: /[a-z]/.test(s),
-    upper: /[A-Z]/.test(s),
-    num: /[0-9]/.test(s),
-    sym: /[^a-zA-Z0-9]/.test(s),
-  }
-}
-function senhaValida(s: string) {
-  const c = senhaChecks(s)
-  return c.len && c.lower && c.upper && c.num && c.sym
-}
 
 function forcasenha(senha: string) {
   if (senha.length < 6) return { nivel: 0, label: 'Muito curta', cor: '#ef4444' }
