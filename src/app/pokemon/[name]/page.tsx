@@ -126,24 +126,30 @@ function getSb() {
  *    sua conta, dobrando tudo. Memoizado por slug dentro do mesmo request.
  */
 const fetchHub = cache(
-  async (slug: string): Promise<{ hub: Hub | null; cards: HubCard[] }> => {
+  async (slug: string): Promise<{ hub: Hub | null; cards: HubCard[]; historia: Historia | null }> => {
     const sb = getSb()
-    if (!sb) return { hub: null, cards: [] }
+    if (!sb) return { hub: null, cards: [], historia: null }
 
-    const [hubRes, cardsRes] = await Promise.all([
+    // A historia da especie (pokemon_historias, Fase 3 do #490) vai junto: e
+    // um lookup pelo indice unico do slug, leitura publica por policy.
+    const [hubRes, cardsRes, histRes] = await Promise.all([
       sb.rpc('get_pokemon_hub', { p_slug: slug }),
       sb.rpc('get_pokemon_hub_cards', { p_slug: slug }),
+      sb.from('pokemon_historias').select('texto, primeira_frase').eq('slug', slug).maybeSingle(),
     ])
 
     if (hubRes.error) throw hubRes.error
     const hub = (hubRes.data && hubRes.data[0]) as Hub | undefined
-    if (!hub) return { hub: null, cards: [] }
+    if (!hub) return { hub: null, cards: [], historia: null }
 
     if (cardsRes.error) throw cardsRes.error
+    const historia = !histRes.error && histRes.data?.texto ? (histRes.data as Historia) : null
 
-    return { hub, cards: (cardsRes.data || []) as HubCard[] }
+    return { hub, cards: (cardsRes.data || []) as HubCard[], historia }
   },
 )
+
+type Historia = { texto: string; primeira_frase: string }
 
 // ─── Texto de SEO gerado por dados (único por Pokémon) ─────────────────────
 
@@ -255,7 +261,7 @@ export default async function PokemonHubPage({
 }) {
   const { name } = await params
   const slug = decodeURIComponent(name).toLowerCase()
-  const { hub, cards } = await fetchHub(slug)
+  const { hub, cards, historia } = await fetchHub(slug)
 
   if (!hub) notFound()
 
@@ -317,7 +323,7 @@ export default async function PokemonHubPage({
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: `Cartas de ${hub.name}`,
-    description: `${hub.cards_count} cartas do ${hub.name} no Pokémon TCG, com preços em reais.`,
+    description: historia ? `${historia.primeira_frase} ${hub.cards_count} cartas no Pokémon TCG, com preços em reais.` : `${hub.cards_count} cartas do ${hub.name} no Pokémon TCG, com preços em reais.`,
     url: `https://bynx.gg/pokemon/${hub.slug}`,
     inLanguage: 'pt-BR',
     mainEntity: {
@@ -520,10 +526,21 @@ export default async function PokemonHubPage({
             </div>
           </div>
 
-          {/* Texto de SEO (sobre o Pokémon) */}
-          <p style={{ fontSize: 15, lineHeight: 1.7, color: 'rgba(255,255,255,0.65)', maxWidth: 820, margin: '26px 0 4px' }}>
-            {textoSEO(hub)}
-          </p>
+          {/* Sobre a especie: a historia escrita (pokemon_historias) quando existe;
+              senao o texto montado por dados, como sempre foi. */}
+          {historia ? (
+            <section aria-labelledby="sobre-especie" style={{ maxWidth: 820, margin: '26px 0 4px' }}>
+              <h2 id="sobre-especie" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--bx-text-3)', margin: '0 0 8px' }}>
+                Sobre {hub.name}
+              </h2>
+              <p style={{ fontSize: 15, lineHeight: 1.7, color: 'rgba(255,255,255,0.72)', margin: 0 }}>{historia.texto}</p>
+              <p style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.5)', margin: '10px 0 0' }}>{textoSEO(hub)}</p>
+            </section>
+          ) : (
+            <p style={{ fontSize: 15, lineHeight: 1.7, color: 'rgba(255,255,255,0.65)', maxWidth: 820, margin: '26px 0 4px' }}>
+              {textoSEO(hub)}
+            </p>
+          )}
 
           {/* Anúncio display */}
           <div style={{ maxWidth: 970, margin: '26px auto 8px', padding: '0 4px' }}>

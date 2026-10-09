@@ -727,6 +727,34 @@ const doIlustradorEmCache = unstable_cache(
   { revalidate: 86400 },
 )
 
+/**
+ * Historia da ESPECIE (Fase 3 do #490, item 5): a primeira frase entra na
+ * pagina da carta, a historia inteira fica no hub. Lookup pelo slug (indice
+ * unico), cache global por especie de 1 dia. Sem historia = null, e a pagina
+ * fica como esta (o piloto cobre a Geracao 1).
+ */
+const historiaEmCache = unstable_cache(
+  async (slug: string): Promise<string | null> => {
+    const sb = getServiceSupabase()
+    if (!sb) throw new Error('[carta] sem cliente Supabase')
+    const { data, error } = await sb.from('pokemon_historias').select('primeira_frase').eq('slug', slug).maybeSingle()
+    if (error) throw new Error(`[carta] historia: ${error.message}`)
+    return data?.primeira_frase ?? null
+  },
+  ['carta-historia-v1'],
+  { revalidate: 86400 },
+)
+
+async function fetchHistoriaFrase(pokemonName: string | null): Promise<string | null> {
+  if (!pokemonName) return null
+  try {
+    return await historiaEmCache(slugifyName(pokemonName))
+  } catch (err) {
+    console.error('[carta] historia:', (err as Error)?.message)
+    return null
+  }
+}
+
 async function fetchValiosasDoPokemon(nome: string | null): Promise<MiniCard[]> {
   if (!nome) return []
   try {
@@ -1047,11 +1075,12 @@ export default async function CartaPage({
   // (Vem antes do breadcrumb desde 09/10: a trilha passou a incluir o hub do
   // Pokemon, e o nome dele sai daqui. E Data Cache de 24h, a ordem nao custa.)
   const related = await fetchRelatedCards(card.id)
-  const [valiosas, doIlustrador, historico, statsConvite] = await Promise.all([
+  const [valiosas, doIlustrador, historico, statsConvite, historiaFrase] = await Promise.all([
     fetchValiosasDoPokemon(related.pokemon_name),
     fetchDoIlustrador(related.artist),
     fetchHistorico(card.id),
     fetchStatsConvite(),
+    fetchHistoriaFrase(related.pokemon_name),
   ])
 
   // BreadcrumbList: ajuda navegação no Google + UX
@@ -1157,6 +1186,7 @@ export default async function CartaPage({
             : { n: 0, menor: null, href: null }
         }
         historico={historico}
+        historia={historiaFrase && related.pokemon_name ? { frase: historiaFrase, nome: related.pokemon_name, href: `/pokemon/${slugifyName(related.pokemon_name)}` } : null}
       >
         {/* ★ Ordem abaixo da ficha (Fase 2b do #490, mockup aprovado em 09/10):
             mais cartas do Pokemon -> convite -> a venda na Bynx -> blog -> mais

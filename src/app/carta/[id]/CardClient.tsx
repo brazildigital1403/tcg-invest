@@ -118,10 +118,12 @@ type CardProps = {
   ofertas?: { n: number; menor: number | null; href: string | null }
   /** Historico de preco ja buscado no servidor (null = a busca falhou; o bloco busca sozinho). */
   historico?: PontoHistorico[] | null
+  /** Primeira frase da historia da especie (pokemon_historias), com link pro hub. */
+  historia?: { frase: string; nome: string; href: string } | null
   children?: ReactNode
 }
 
-export default function CardClient({ card, children, breadcrumb, ofertas: ofertasProp, historico }: CardProps) {
+export default function CardClient({ card, children, breadcrumb, ofertas: ofertasProp, historico, historia }: CardProps) {
   const [copied, setCopied] = useState(false)
   const pathname = usePathname()
   const { openSignup } = useAuthModal()
@@ -860,6 +862,17 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
               )}
             </div>
 
+
+        {/* ★ Historia da especie (Fase 3, item 5): uma frase, com link pro hub
+            onde esta a historia inteira. So nas especies que ja tem texto. */}
+        {historia && (
+          <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--bx-text-2)', margin: '0 0 10px' }}>
+            {historia.frase}{' '}
+            <Link href={historia.href} style={{ color: 'var(--ac-1)', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              Sobre {historia.nome}
+            </Link>
+          </p>
+        )}
 
         {/* ★ Resumo em prosa: o que a pagina sabe da carta, em duas ou tres
             frases. Entra no HTML do servidor. */}
