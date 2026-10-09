@@ -169,6 +169,8 @@ type NormalizedCard = {
   precoMin: number | null
   precoMedio: number | null
   precoMax: number | null
+  /** Idioma da impressao (pt, en, jp...). Vai junto quando a carta entra na colecao pela pagina publica. */
+  idioma: string | null
   // `variantes` ja era devolvido por fetchCardData desde a S43, mas nunca foi
   // declarado aqui — o excess property check reclamava dele desde entao.
   variantes?: Array<{
@@ -316,7 +318,7 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
   if (sb) {
     const COLS =
       'id, slug, name, number, set_id, set_name, set_release_date, set_total, supertype, ' +
-      'rarity, hp, types, image_small, image_large, attacks, ' +
+      'rarity, hp, types, image_small, image_large, attacks, idioma, ' +
       'preco_min, preco_medio, preco_max, ' +
       'preco_foil_min, preco_foil_medio, preco_foil_max, ' +
       'preco_reverse_min, preco_reverse_medio, preco_reverse_max, ' +
@@ -487,6 +489,7 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
     precoMin: bynx?.preco_min ? Number(bynx.preco_min) : null,
     precoMedio: bynx?.preco_medio ? Number(bynx.preco_medio) : null,
     precoMax: bynx?.preco_max ? Number(bynx.preco_max) : null,
+    idioma: bynx?.idioma ?? null,
     variantes: buildVariantesCarta(bynx),
     // ATENCAO ao `!= null`: aqui 0 e um valor CARREGADO DE SENTIDO ("a
     // varredura passou e ninguem esta vendendo"), diferente de null ("a
@@ -827,7 +830,21 @@ export default async function CartaPage({
 
       {/* UI interativa (client) — recebe data pré-fetched, sem loading state */}
       {/* CardClient renderiza ad + relacionadas via children: tema dark, acima do rodape */}
-      <CardClient card={card} breadcrumb={breadcrumbItems}>
+      <CardClient
+        card={card}
+        breadcrumb={breadcrumbItems}
+        // Resumo das ofertas compraveis para a acao da primeira dobra:
+        // "Comprar na Bynx a partir de R$ X" aponta pro anuncio mais barato.
+        ofertas={
+          cruas.length
+            ? {
+                n: cruas.length,
+                menor: Math.min(...cruas.map(o => o.preco)),
+                href: [...cruas].sort((a, b) => a.preco - b.preco)[0].href,
+              }
+            : { n: 0, menor: null, href: null }
+        }
+      >
         {/* Ofertas reais da Bynx: primeiro item do bloco, antes das relacionadas.
             Quem chega pelo Google ve o preco de mercado no topo e, logo abaixo,
             que da pra comprar aqui. */}

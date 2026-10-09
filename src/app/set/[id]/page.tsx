@@ -535,7 +535,7 @@ export default async function SetPage({
               financeiro
             </p>
             <Link
-              href="/"
+              href={`/?auth=signup&next=${encodeURIComponent(`/set/${set.id}`)}`}
               style={{
                 background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
                 color: '#000',

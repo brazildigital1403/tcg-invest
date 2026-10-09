@@ -105,13 +105,17 @@ export default function CookieBanner() {
 
   return (
     <div style={S.wrapper} role="dialog" aria-live="polite" aria-label="Aviso de cookies">
+      {/* ★ Compacto (08/10/2026): o banner tinha 156 px e cobria a caixa de
+          preco da pagina da carta em 375x812 para todo visitante novo. Agora e
+          uma linha (~76 px), sem icone no celular, com os dois botoes em 44 px.
+          Mesma logica de consentimento; so o tamanho mudou. */}
       <div style={S.banner}>
         <div style={S.content}>
-          <div style={S.iconBox} aria-hidden="true"><IconShield size={20} /></div>
+          <div className="bx-ck-ico" style={S.iconBox} aria-hidden="true"><IconShield size={18} /></div>
           <div style={S.textBox}>
             <p style={S.title}>Cookies e privacidade</p>
             <p style={S.text}>
-              A Bynx usa cookies para o site funcionar e para melhorar sua experiência.{' '}
+              Usamos cookies para medir o site.{' '}
               {/*
                 ★ `prefetch={false}` (10/09/2026). Este banner aparece pra todo
                 visitante que ainda nao decidiu sobre cookie, ou seja, quase
@@ -130,13 +134,14 @@ export default function CookieBanner() {
         </div>
         <div style={S.btnRow}>
           <button type="button" style={S.btnSecondary} onClick={rejectAll}>
-            Apenas essenciais
+            Só essenciais
           </button>
           <button type="button" style={S.btnPrimary} onClick={acceptAll}>
-            Aceitar todos
+            Aceitar
           </button>
         </div>
       </div>
+      <style>{`@media (max-width: 480px){ .bx-ck-ico{ display:none !important } }`}</style>
     </div>
   )
 }
@@ -150,7 +155,7 @@ const S = {
     left: 0,
     right: 0,
     zIndex: 9998,
-    padding: '0 16px 16px 16px',
+    padding: '0 10px 10px 10px',
     pointerEvents: 'none' as const,
   },
   banner: {
@@ -161,45 +166,42 @@ const S = {
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)',
     border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 16,
-    padding: '16px 20px',
+    borderRadius: 14,
+    padding: '10px 12px',
     boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
     fontFamily: "'DM Sans', system-ui, sans-serif",
     color: '#f0f0f0',
     display: 'flex',
     alignItems: 'center',
-    gap: 16,
-    flexWrap: 'wrap' as const,
+    gap: 10,
     justifyContent: 'space-between',
   },
   content: {
     display: 'flex',
-    alignItems: 'flex-start',
-    gap: 14,
-    flex: '1 1 380px',
+    alignItems: 'center',
+    gap: 10,
+    flex: '1 1 auto',
     minWidth: 0,
   },
   iconBox: {
-    fontSize: 24,
     flexShrink: 0,
     lineHeight: 1,
-    paddingTop: 2,
+    color: 'rgba(255,255,255,0.6)',
   },
   textBox: {
     minWidth: 0,
     flex: 1,
   },
   title: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: 700,
     margin: 0,
-    marginBottom: 4,
     letterSpacing: '-0.01em',
   },
   text: {
-    fontSize: 13,
+    fontSize: 11.5,
     color: 'rgba(255,255,255,0.6)',
-    lineHeight: 1.5,
+    lineHeight: 1.35,
     margin: 0,
   },
   link: {
@@ -209,17 +211,17 @@ const S = {
   },
   btnRow: {
     display: 'flex',
-    gap: 8,
+    gap: 6,
     flexShrink: 0,
-    flexWrap: 'wrap' as const,
   },
   btnSecondary: {
     background: 'rgba(255,255,255,0.06)',
     border: '1px solid rgba(255,255,255,0.12)',
     color: 'rgba(255,255,255,0.7)',
-    padding: '10px 18px',
+    minHeight: 44,
+    padding: '0 12px',
     borderRadius: 10,
-    fontSize: 13,
+    fontSize: 12.5,
     cursor: 'pointer',
     fontWeight: 500,
     fontFamily: 'inherit',
@@ -229,9 +231,10 @@ const S = {
     background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
     border: 'none',
     color: '#000',
-    padding: '10px 22px',
+    minHeight: 44,
+    padding: '0 14px',
     borderRadius: 10,
-    fontSize: 13,
+    fontSize: 12.5,
     cursor: 'pointer',
     fontWeight: 700,
     fontFamily: 'inherit',

@@ -185,11 +185,13 @@ export default function AuthModalProvider({ children }: { children: React.ReactN
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    function handleOpenSignup() {
-      openSignup()
+    // `detail.next` e opcional: o PublicHeader passou a manda-lo em 08/10/2026
+    // pra pessoa voltar pra pagina em que estava depois de autenticar.
+    function handleOpenSignup(e: Event) {
+      openSignup({ next: (e as CustomEvent<{ next?: string | null }>).detail?.next ?? null })
     }
-    function handleOpenLogin() {
-      openLogin()
+    function handleOpenLogin(e: Event) {
+      openLogin({ next: (e as CustomEvent<{ next?: string | null }>).detail?.next ?? null })
     }
 
     window.addEventListener('bynx:open-signup', handleOpenSignup)

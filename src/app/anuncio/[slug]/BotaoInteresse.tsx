@@ -42,8 +42,9 @@ export default function BotaoInteresse({
     const { data } = await supabase.auth.getUser()
     if (!data?.user) {
       // Sem sessao: abre o login NA PROPRIA PAGINA em vez de mandar pra /login
-      // e perder o anuncio que a pessoa estava vendo.
-      openLogin()
+      // e perder o anuncio que a pessoa estava vendo. O `next` traz de volta
+      // depois do login (antes ia pro dashboard).
+      openLogin({ next: window.location.pathname })
       return
     }
 

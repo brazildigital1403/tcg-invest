@@ -1,10 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 type Variant = { title: string; subtitle: string; cta: string }
 
+// ★ 08/10/2026: a copy deixou de ser sorteada a cada F5 e o CTA deixou de ir
+// pra home. Medido na pagina da carta: o banner era o unico texto
+// institucional ate a 2a tela, mudava a cada recarga (ninguem via a mesma
+// proposta duas vezes) e o `href="/"` jogava fora a carta que a pessoa
+// estava vendo. Fica a primeira variante -- a unica que faz a pergunta que
+// trouxe o visitante -- e o CTA abre o cadastro voltando pra rota atual.
+// As outras variantes seguem aqui como referencia de copy.
 const VARIANTS: Variant[] = [
   {
     title: 'Quanto vale a sua coleção?',
@@ -39,11 +46,9 @@ const VARIANTS: Variant[] = [
 ]
 
 export default function PromoBanner() {
-  const [i, setI] = useState(0)
-  useEffect(() => {
-    setI(Math.floor(Math.random() * VARIANTS.length))
-  }, [])
-  const v = VARIANTS[i]
+  const pathname = usePathname()
+  const v = VARIANTS[0]
+  const href = `/?auth=signup&next=${encodeURIComponent(pathname || '/')}`
 
   return (
     <div className="bynx-promo">
@@ -103,7 +108,7 @@ export default function PromoBanner() {
         >
           {v.subtitle}
         </p>
-        <Link href="/" className="pb-cta">
+        <Link href={href} className="pb-cta">
           <span className="pb-shine" />
           <span style={{ position: 'relative' }}>{v.cta + ' \u2192'}</span>
         </Link>

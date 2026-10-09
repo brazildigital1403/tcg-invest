@@ -13,7 +13,7 @@
  * interativa (botão Copiar link). Sem loading state, sem fetch client.
  */
 
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -24,6 +24,12 @@ import PromoBanner from '@/components/ui/PromoBanner'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import PriceHistory from '@/components/ui/PriceHistory'
 import WatchButton from '@/components/ui/WatchButton'
+import { IconCheck, IconCopy, IconPlus } from '@/components/ui/Icons'
+import { supabase } from '@/lib/supabaseClient'
+import { useAuthModal } from '@/components/auth/AuthModalProvider'
+import { adicionarCartaPublica } from '@/lib/adicionarCartaPublica'
+import { gravarIntencao, lerIntencao, limparIntencao } from '@/lib/intencao'
+import { trackFirstCardAdded } from '@/lib/analytics'
 
 const fmt = (v: number) =>
   new Intl.NumberFormat('pt-BR', {
@@ -75,14 +81,114 @@ type CardProps = {
     // oferta. NAO usar como preco (cruza variante) — so no estado vazio.
     ligaRangeMin?: number | null
     ligaRangeMax?: number | null
+    slug?: string | null
+    idioma?: string | null
   }
   breadcrumb?: { name: string; href: string }[]
+  /** Anuncios compraveis da carta na Bynx (ja filtrados por ofertasParaDivulgacao). */
+  ofertas?: { n: number; menor: number | null; href: string | null }
   children?: ReactNode
 }
 
-export default function CardClient({ card, children, breadcrumb }: CardProps) {
+export default function CardClient({ card, children, breadcrumb, ofertas: ofertasProp }: CardProps) {
   const [copied, setCopied] = useState(false)
   const pathname = usePathname()
+  const { openSignup } = useAuthModal()
+  const ofertas = ofertasProp || { n: 0, menor: null, href: null }
+
+  // ─── Sessao e colecao (08/10/2026) ───────────────────────────────────────
+  // O HTML do servidor sai no estado deslogado (botao "Adicionar"); o efeito
+  // troca para "Na sua colecao" quando ha sessao e a carta ja esta la. Mesmo
+  // padrao do WatchButton: renderiza, depois confere.
+  const [naColecao, setNaColecao] = useState(false)
+  const [adicionando, setAdicionando] = useState(false)
+  const [avisoAdicionar, setAvisoAdicionar] = useState<string | null>(null)
+
+  const slugCarta = card.slug || card.id
+  const cartaParaGravar = {
+    id: card.id,
+    name: card.name,
+    number: card.number,
+    setTotal: card.setTotal,
+    imageLarge: card.imageLarge,
+    imageSmall: card.imageSmall,
+    rarity: card.rarity,
+    setName: card.setName,
+    idioma: card.idioma ?? null,
+  }
+
+  async function gravar(uid: string, variante: string): Promise<boolean> {
+    const r = await adicionarCartaPublica(uid, { ...cartaParaGravar, variante })
+    if (r.ok) {
+      if (!r.jaTinha) trackFirstCardAdded(uid)
+      setAvisoAdicionar(null)
+      return true
+    }
+    setAvisoAdicionar(
+      r.motivo === 'limite'
+        ? `Sua coleção chegou ao limite de ${r.limite} cartas do plano.`
+        : 'Não deu para adicionar agora. Tente de novo em instantes.',
+    )
+    return false
+  }
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data } = await supabase.auth.getUser()
+      const uid = data.user?.id ?? null
+      if (!active || !uid) return
+      const { data: row } = await supabase
+        .from('user_cards')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('pokemon_api_id', card.id)
+        .eq('graduada', false)
+        .limit(1)
+        .maybeSingle()
+      if (!active) return
+      let tem = !!row
+
+      // Intencao pendente: ?add=<id> na URL (sobrevive ao e-mail de
+      // confirmacao em outro navegador) ou o que ficou no localStorage.
+      const params = new URLSearchParams(window.location.search)
+      const pendente = lerIntencao()
+      const pedido =
+        params.get('add') === card.id ||
+        (pendente?.tipo === 'add' && pendente.cardId === card.id)
+      if (pedido) {
+        if (!tem) tem = await gravar(uid, pendente?.variante || 'normal')
+        limparIntencao()
+        if (params.has('add')) {
+          params.delete('add')
+          const q = params.toString()
+          window.history.replaceState(null, '', window.location.pathname + (q ? `?${q}` : ''))
+        }
+      }
+      if (active) setNaColecao(tem)
+    })()
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.id])
+
+  async function adicionar() {
+    if (adicionando) return
+    const { data } = await supabase.auth.getUser()
+    const uid = data.user?.id
+    if (!uid) {
+      // Deslogado: guarda a intencao e abre o cadastro. O `next` carrega o
+      // ?add= porque o e-mail pode abrir em outro navegador.
+      gravarIntencao({ tipo: 'add', cardId: card.id, slug: slugCarta, variante: varSel })
+      openSignup({ next: `/carta/${slugCarta}?add=${encodeURIComponent(card.id)}` })
+      return
+    }
+    setAdicionando(true)
+    const ok = await gravar(uid, varSel)
+    setAdicionando(false)
+    if (ok) setNaColecao(true)
+  }
   const variantes = card.variantes && card.variantes.length ? card.variantes : []
   const [varSel, setVarSel] = useState<string>(variantes[0]?.key || 'normal')
   const vAtual = variantes.find((v) => v.key === varSel) || variantes[0] || null
@@ -93,6 +199,28 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
   // comportamento antigo (faixa visivel e apagada).
   const refHistorica = card.precoSuspeito && card.precoMediana && card.precoMediana > 0 ? card.precoMediana : null
   const [verOferta, setVerOferta] = useState(false)
+
+  // O numero grande da primeira dobra: a mediana quando o guard marcou, senao
+  // o menor preco da variante escolhida. Sem nenhum dos dois, o box nao
+  // aparece e o estado vazio do bloco de preco explica o porque.
+  const valeNum =
+    refHistorica ??
+    (vAtual?.min && vAtual.min > 0 ? vAtual.min : card.precoMin && card.precoMin > 0 && !card.precoSuspeito ? card.precoMin : null)
+  // Minimo = medio = maximo e "uma oferta", nao uma faixa: mostrar o mesmo
+  // numero tres vezes em tres cores confundia (UX, 08/10).
+  const umaOferta =
+    !refHistorica &&
+    !!vAtual &&
+    vAtual.min != null &&
+    vAtual.min > 0 &&
+    vAtual.min === vAtual.med &&
+    vAtual.med === vAtual.max
+  const notaContexto =
+    ofertas.n > 0
+      ? `${ofertas.n} ${ofertas.n === 1 ? 'anúncio' : 'anúncios'} na Bynx${ofertas.menor != null ? `, a partir de ${fmt(ofertas.menor)}` : ''}.`
+      : umaOferta
+        ? 'Uma oferta à venda hoje no Brasil. Ninguém está vendendo na Bynx ainda.'
+        : 'Ninguém está vendendo esta carta na Bynx ainda.'
 
   // ─── Estado vazio: por que a carta nao tem preco? (BRIEF-LIGA-ZENROWS 10.8)
   //
@@ -144,126 +272,245 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
 
       <main className="bx-gutter" style={{ maxWidth: 720, margin: '0 auto', padding: '32px 20px 80px' }}>
         <Breadcrumb items={breadcrumb || []} />
-        {/* Card hero */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 32,
-            marginBottom: 32,
-            flexWrap: 'wrap',
-            alignItems: 'flex-start',
-          }}
-        >
-          {/* Imagem */}
-          <div style={{ flex: '0 0 auto' }}>
-            {/* next/image em vez de <img>: a fonte e um PNG de 1.606 KB exibido
-                a 260px. O otimizador entrega o mesmo quadro em ~29 KB de WebP
-                (medido 28/07/2026), 98% menos, com qualidade melhor do que
-                apontar pra imageSmall. `priority` porque esta e a LCP da pagina.
-                Continua lendo imageLarge: quem reduz e o otimizador, e partir do
-                arquivo grande preserva nitidez em tela retina. */}
+        {/* ★ PRIMEIRA DOBRA REFEITA (08/10/2026, mockup aprovado pelo Du).
+            Antes: imagem de 260 px no topo e o preco em 822 px -- abaixo da
+            dobra de 812 do celular, com o banner de cookies por cima. Medido
+            em 375x812 pelo agente de UX. Agora a pagina responde "quanto
+            vale" a ~300 px, a imagem vira confirmacao (148 px) e o botao
+            primario e o que a pagina nunca teve: ADICIONAR A COLECAO.
+            Deslogado, ele grava a intencao e abre o cadastro; a carta entra
+            no retorno (?add= no next + localStorage, ver src/lib/intencao.ts).
+            Por que: 6 cadastros com landing /carta, 1 com carta, 0 Pro,
+            nenhum voltou depois do 1o dia -- a pagina era um beco sem saida. */}
+        <section style={{ marginBottom: 20 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 4 }}>
+            {card.name}
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--bx-text-2)', marginBottom: 12 }}>
+            {numLabel}
+            {card.setName ? <> · <b style={{ color: 'var(--bx-text)', fontWeight: 500 }}>{card.setName}</b></> : null}
+            {card.setReleaseYear ? ` · ${card.setReleaseYear}` : ''}
+          </p>
+
+          {valeNum != null && (
+            <div style={{ padding: '12px 14px', background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', borderRadius: 12 }}>
+              <p style={{ fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bx-text-3)' }}>
+                {refHistorica ? 'Referência histórica' : 'Vale a partir de'}
+              </p>
+              <p style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05, marginTop: 2 }}>{fmt(valeNum)}</p>
+              <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginTop: 4 }}>
+                {refHistorica ? (
+                  card.precoNSnaps && card.precoNSnaps > 1
+                    ? `Mediana de ${card.precoNSnaps} levantamentos da Bynx para esta carta.`
+                    : 'Mediana dos levantamentos da Bynx para esta carta.'
+                ) : (
+                  <>Menor preço à venda no <b style={{ color: 'var(--ac-1)', fontWeight: 600 }}>Mercado Brasileiro</b></>
+                )}
+              </p>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 14, marginTop: 12, alignItems: 'flex-start' }}>
+            {/* next/image: a fonte e um PNG de ~1,6 MB; o otimizador entrega
+                WebP no tamanho pedido. `priority` porque segue sendo a LCP. */}
             <Image
               src={card.imageLarge || card.imageSmall || '/og-image.jpg'}
               alt={imgAlt}
-              width={260}
-              height={363}
+              width={148}
+              height={206}
               priority
               style={{
-                width: 260,
+                width: 148,
                 height: 'auto',
-                borderRadius: 16,
-                boxShadow: `0 0 48px ${color}33, 0 24px 64px rgba(0,0,0,0.6)`,
+                borderRadius: 10,
+                boxShadow: `0 0 32px ${color}33, 0 16px 40px rgba(0,0,0,0.5)`,
                 display: 'block',
+                flex: 'none',
               }}
             />
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {card.types.map((t: string) => (
+                  <span
+                    key={t}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: '5px 10px',
+                      borderRadius: 100,
+                      background: (TYPE_COLORS[t] || '#f59e0b') + '22',
+                      color: TYPE_COLORS[t] || '#f59e0b',
+                      border: `1px solid ${(TYPE_COLORS[t] || '#f59e0b')}44`,
+                    }}
+                  >
+                    {t}
+                  </span>
+                ))}
+                {card.rarity && (
+                  <span style={{ fontSize: 12, padding: '5px 10px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'var(--bx-text-2)', border: '1px solid var(--bx-border)' }}>
+                    {card.rarity}
+                  </span>
+                )}
+                {card.hp && (
+                  <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 100, background: 'rgba(239,68,68,0.1)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)' }}>
+                    HP {card.hp}
+                  </span>
+                )}
+              </div>
+
+              {variantes.length > 1 && (
+                <>
+                  <p style={{ fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bx-text-3)', marginTop: 2 }}>Variante</p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {variantes.map((v) => {
+                      const on = v.key === varSel
+                      return (
+                        <button
+                          key={v.key}
+                          type="button"
+                          onClick={() => setVarSel(v.key)}
+                          aria-pressed={on}
+                          style={{
+                            fontSize: 12,
+                            minHeight: 36,
+                            padding: '6px 12px',
+                            borderRadius: 8,
+                            fontFamily: 'inherit',
+                            cursor: 'pointer',
+                            border: `1px solid ${on ? 'rgba(var(--ac-1-rgb),0.5)' : 'var(--bx-border)'}`,
+                            background: on ? 'rgba(var(--ac-1-rgb),0.12)' : 'var(--bx-surface)',
+                            color: on ? 'var(--ac-1)' : 'var(--bx-text-2)',
+                            transition: 'border-color 0.15s ease, background 0.15s ease, color 0.15s ease',
+                          }}
+                        >
+                          {v.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              <p style={{ fontSize: 11.5, color: 'var(--bx-text-3)', lineHeight: 1.4 }}>{notaContexto}</p>
+            </div>
           </div>
 
-          {/* Info */}
-          <div style={{ flex: 1, minWidth: 200 }}>
-            {/* Nome */}
-            <h1
-              style={{
-                fontSize: 32,
-                fontWeight: 900,
-                letterSpacing: '-0.04em',
-                marginBottom: 6,
-              }}
-            >
-              {card.name}
-            </h1>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+            {naColecao ? (
+              <Link
+                href="/minha-colecao"
+                style={{
+                  height: 48,
+                  borderRadius: 10,
+                  background: 'rgba(34,197,94,0.12)',
+                  border: '1px solid rgba(34,197,94,0.35)',
+                  color: 'var(--bx-green)',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  textDecoration: 'none',
+                }}
+              >
+                <IconCheck size={18} />
+                Na sua coleção <span style={{ fontWeight: 500, opacity: 0.8 }}>· Ver</span>
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={adicionar}
+                disabled={adicionando}
+                style={{
+                  height: 48,
+                  borderRadius: 10,
+                  border: 'none',
+                  background: 'var(--bx-brand)',
+                  color: 'var(--bx-brand-ink)',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  fontFamily: 'inherit',
+                  cursor: adicionando ? 'default' : 'pointer',
+                  opacity: adicionando ? 0.75 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  width: '100%',
+                  transition: 'opacity 0.15s ease',
+                }}
+              >
+                <IconPlus size={18} />
+                {adicionando ? 'Adicionando...' : 'Adicionar à minha coleção'}
+              </button>
+            )}
+            {avisoAdicionar && (
+              <p style={{ fontSize: 12, color: 'var(--ac-1)', lineHeight: 1.4 }}>
+                {avisoAdicionar}{' '}
+                <Link href="/planos" style={{ color: 'var(--ac-1)', fontWeight: 600 }}>Ver planos</Link>
+              </p>
+            )}
 
-            {/* Set + número */}
-            <p
-              style={{
-                fontSize: 14,
-                color: 'rgba(255,255,255,0.45)',
-                marginBottom: 16,
-              }}
-            >
-              {card.number && card.setTotal
-                ? `${card.number}/${card.setTotal}`
-                : card.number
-                  ? `#${card.number}`
-                  : ''}
-              {card.setName ? ` · ${card.setName}` : ''}
-              {card.setReleaseYear ? ` · ${card.setReleaseYear}` : ''}
-            </p>
+            {ofertas.n > 0 && ofertas.href ? (
+              /* Acento do comprador (roxo -> rosa), via classe de contexto do
+                 globals.css: dentro dela todo var(--ac-*) resolve pro par de
+                 compra, sem hex cravado. Mesmo padrao do "Comprar agora" da
+                 /produto. */
+              <Link
+                href={ofertas.href}
+                className="bx-ctx-comprador"
+                style={{
+                  height: 46,
+                  borderRadius: 10,
+                  border: '1px solid rgba(var(--ac-1-rgb),0.45)',
+                  background: 'rgba(var(--ac-1-rgb),0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                  fontSize: 14,
+                }}
+              >
+                <span style={{ background: 'var(--ac-grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+                  Comprar na Bynx
+                </span>
+                {ofertas.menor != null && (
+                  <small style={{ fontWeight: 500, color: 'var(--bx-text-3)', fontSize: 12 }}>
+                    {ofertas.n > 1 ? 'a partir de ' : 'por '}{fmt(ofertas.menor)}
+                  </small>
+                )}
+              </Link>
+            ) : (
+              <WatchButton cardId={card.id} full label="Avisar quando anunciarem" />
+            )}
 
-            {/* Badges */}
-            <div
+            <button
+              type="button"
+              onClick={handleCopy}
               style={{
-                display: 'flex',
-                gap: 8,
-                flexWrap: 'wrap',
-                marginBottom: 24,
+                alignSelf: 'flex-start',
+                minHeight: 36,
+                padding: '8px 2px',
+                background: 'transparent',
+                border: 'none',
+                color: copied ? 'var(--bx-green)' : 'var(--bx-text-3)',
+                fontSize: 12,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'color 0.15s ease',
               }}
             >
-              {card.types.map((t: string) => (
-                <span
-                  key={t}
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    padding: '4px 12px',
-                    borderRadius: 100,
-                    background: (TYPE_COLORS[t] || '#f59e0b') + '22',
-                    color: TYPE_COLORS[t] || '#f59e0b',
-                    border: `1px solid ${(TYPE_COLORS[t] || '#f59e0b')}44`,
-                  }}
-                >
-                  {t}
-                </span>
-              ))}
-              {card.rarity && (
-                <span
-                  style={{
-                    fontSize: 12,
-                    padding: '4px 12px',
-                    borderRadius: 100,
-                    background: 'rgba(255,255,255,0.06)',
-                    color: 'rgba(255,255,255,0.5)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                  }}
-                >
-                  {card.rarity}
-                </span>
-              )}
-              {card.hp && (
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    padding: '4px 12px',
-                    borderRadius: 100,
-                    background: 'rgba(239,68,68,0.1)',
-                    color: '#ef4444',
-                    border: '1px solid rgba(239,68,68,0.2)',
-                  }}
-                >
-                  HP {card.hp}
-                </span>
-              )}
-            </div>
+              <IconCopy size={14} />
+              {copied ? 'Link copiado' : 'Copiar link'}
+            </button>
+          </div>
+        </section>
 
             {/* Preços */}
             <div
@@ -288,52 +535,6 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
               </p>
               {variantes.length > 0 && vAtual ? (
                 <>
-                  {variantes.length > 1 && (
-                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
-                      {variantes.map((v) => {
-                        const on = v.key === varSel
-                        return (
-                          <button
-                            key={v.key}
-                            onClick={() => setVarSel(v.key)}
-                            style={{
-                              fontSize: 12,
-                              padding: '6px 13px',
-                              borderRadius: 8,
-                              fontFamily: 'inherit',
-                              cursor: 'pointer',
-                              border: `1px solid ${on ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                              background: on ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.03)',
-                              color: on ? '#f59e0b' : 'rgba(255,255,255,0.5)',
-                            }}
-                          >
-                            {v.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {/* ★ Guard de preco, carta marcada COM mediana (08/10/2026):
-                      a mediana historica e o numero grande, e a faixa de hoje
-                      so aparece depois do toque em "Ver a oferta de hoje".
-                      Trocar o numero errado por um numero certo e melhor que
-                      apagar: a pagina continua respondendo "quanto vale". */}
-                  {refHistorica && (
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
-                        <p style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--bx-text)' }}>
-                          {fmt(refHistorica)}
-                        </p>
-                        <p style={{ margin: 0, fontSize: 11, color: 'var(--bx-text-3)' }}>referência histórica</p>
-                      </div>
-                      <p style={{ margin: '0 0 14px', fontSize: 11, color: 'var(--bx-text-3)' }}>
-                        {card.precoNSnaps && card.precoNSnaps > 1
-                          ? `Mediana de ${card.precoNSnaps} levantamentos da Bynx para esta carta.`
-                          : 'Mediana dos levantamentos da Bynx para esta carta.'}
-                      </p>
-                    </>
-                  )}
 
                   {/* Aviso do guard. Marcada SEM mediana (caso raro) mantem o
                       texto antigo e a faixa visivel e apagada -- opcao A de
@@ -403,7 +604,12 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
                     </button>
                   )}
 
-                  {(!refHistorica || verOferta) && (
+                  {umaOferta && vAtual.min != null && (
+                    <p style={{ fontSize: 13, color: 'var(--bx-text-2)' }}>
+                      Uma oferta hoje: <b style={{ color: 'var(--bx-text)', fontWeight: 600 }}>{fmt(vAtual.min)}</b>. A faixa aparece quando há mais de um preço.
+                    </p>
+                  )}
+                  {(!refHistorica || verOferta) && !umaOferta && (
                     <div
                       style={{
                         display: 'grid',
@@ -502,7 +708,7 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
                     }}
                   >
                     <Link
-                      href="/"
+                      href={`/?auth=signup&next=${encodeURIComponent(pathname || '/')}`}
                       style={{ color: '#f59e0b', textDecoration: 'none' }}
                     >
                       Entre na Bynx
@@ -515,52 +721,10 @@ export default function CardClient({ card, children, breadcrumb }: CardProps) {
               )}
             </div>
 
-            {/* Botões */}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {/* ★ Ia pra HOME (`href="/"`), copiado do "Entre na Bynx" logo
-                  acima. O CTA principal de ~66,9 mil paginas de carta jogava o
-                  comprador na raiz do site. Agora leva pro Mercado com a carta
-                  ja buscada. */}
-              <Link
-                href={`/marketplace?q=${encodeURIComponent(card.name || '')}`}
-                style={{
-                  flex: 1,
-                  display: 'block',
-                  textAlign: 'center',
-                  background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-                  color: '#000',
-                  padding: '13px',
-                  borderRadius: 12,
-                  fontWeight: 700,
-                  fontSize: 14,
-                  textDecoration: 'none',
-                  minWidth: 140,
-                }}
-              >
-                Tenho interesse
-              </Link>
-              <button
-                onClick={handleCopy}
-                style={{
-                  padding: '13px 16px',
-                  borderRadius: 12,
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  color: copied ? '#22c55e' : 'rgba(255,255,255,0.6)',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  whiteSpace: 'nowrap',
-                  transition: 'color 0.2s',
-                }}
-              >
-                {copied ? 'Copiado!' : 'Copiar link'}
-              </button>
-            </div>
-          </div>
-        </div>
 
-        <WatchButton cardId={card.id} full />
+        {/* Com anuncio, o aviso de preco fica aqui; sem anuncio ele ja e a
+            acao secundaria da primeira dobra. */}
+        {ofertas.n > 0 && <WatchButton cardId={card.id} full />}
 
         <PriceHistory cardId={card.id} periodoDaUrl />
 

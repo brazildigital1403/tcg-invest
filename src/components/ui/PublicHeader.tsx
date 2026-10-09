@@ -152,7 +152,13 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
   function openLogin() {
     setMobileMenuOpen(false)
     if (typeof window === 'undefined') return
-    window.dispatchEvent(new CustomEvent('bynx:open-login'))
+    // ★ Leva a rota atual como `next` (08/10/2026). Antes o evento ia sem
+    // detalhe e, apos o login, a pessoa caia no dashboard -- quem estava numa
+    // pagina de carta perdia a carta. Na home o `next` fica nulo e o modal
+    // segue pro dashboard, como sempre.
+    const path = window.location.pathname
+    const next = path && path !== '/' ? path + window.location.search : null
+    window.dispatchEvent(new CustomEvent('bynx:open-login', { detail: { next } }))
   }
 
   // Busca do menu mobile: Enter navega pra /busca?q=…

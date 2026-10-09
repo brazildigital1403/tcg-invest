@@ -502,7 +502,7 @@ export default async function PokemonHubPage({
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <Link
-                  href="/"
+                  href={`/?auth=signup&next=${encodeURIComponent(`/pokemon/${hub.slug}`)}`}
                   style={{
                     background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
                     color: '#000',
@@ -621,7 +621,7 @@ export default async function PokemonHubPage({
               Tem cartas do {hub.name}? Organize sua coleção como portfólio financeiro
             </p>
             <Link
-              href="/"
+              href={`/?auth=signup&next=${encodeURIComponent(`/pokemon/${hub.slug}`)}`}
               style={{
                 background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
                 color: '#000',
