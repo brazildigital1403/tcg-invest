@@ -187,7 +187,8 @@ export async function avaliarE03(ctx: Contexto): Promise<Avaliacao> {
   const a = novaAvaliacao('E03')
   const f = aberto(ctx, 'E03')
   if (f) { a.fechado = f; return a }
-  const alvo = usuariosAtivos(ctx).filter((u) => u.criadoMs <= ctx.agoraMs - 24 * H && u.criadoMs > ctx.agoraMs - 48 * H)
+  // Janela ate 72h: quem teve o D1 adiado (boas-vindas recente) ainda recebe no tick seguinte.
+  const alvo = usuariosAtivos(ctx).filter((u) => u.criadoMs <= ctx.agoraMs - 24 * H && u.criadoMs > ctx.agoraMs - 72 * H)
   if (alvo.length === 0) return a
   // Precos do dia das cartas fixas da gaveta (por PK) e a alta de 30 dias.
   const base = E03.exemplo.cartas
@@ -205,6 +206,9 @@ export async function avaliarE03(ctx: Contexto): Promise<Avaliacao> {
     cartas.push(carta)
   }
   for (const u of alvo) {
+    // D1 nunca junto do boas-vindas: precisa de 20h desde o E02 (ou do welcome antigo).
+    // O E02 do mesmo tick ja entrou no contexto (registrar), entao o caso 'os dois de uma vez' cai aqui.
+    if (enviosQueContam(ctx, u.id).some((e) => (e.template === 'E02' || e.template === 'welcome') && e.enviadoMs > ctx.agoraMs - 20 * H)) { pular(a, 'boas_vindas_ha_menos_de_20h'); continue }
     a.noGatilho++
     const col = await colecaoDe(ctx, u.id)
     if (col.total >= 10) { pular(a, 'sai_10_ou_mais_cartas'); continue }
