@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { IconPlus, IconClose, IconEdit, IconCopy, IconCheck, IconLink, IconWarning } from '@/components/ui/Icons'
-import { validarDestino, validarSlug, urlCurta, type LinkCurto } from '@/lib/linksCurtos'
+import { validarDestino, validarSlug, urlCurta, sugerirSlug, type LinkCurto } from '@/lib/linksCurtos'
 
 const FORM_VAZIO = { slug: '', destino: '', descricao: '' }
 type Form = typeof FORM_VAZIO
@@ -33,6 +33,8 @@ export default function AdminLinksPage() {
   const [salvando, setSalvando] = useState(false)
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [copiado, setCopiado] = useState<string | null>(null)
+  // Slug sugerido pelas UTMs do destino ate a pessoa digitar um por conta propria.
+  const [slugAuto, setSlugAuto] = useState(true)
 
   const carregar = useCallback(async () => {
     setLoading(true); setErro(null)
@@ -51,7 +53,7 @@ export default function AdminLinksPage() {
   useEffect(() => { carregar() }, [carregar])
 
   function abrirNovo() {
-    setEditSlug(null); setForm({ ...FORM_VAZIO }); setFormErro(null); setFormAberto(true)
+    setEditSlug(null); setForm({ ...FORM_VAZIO }); setFormErro(null); setSlugAuto(true); setFormAberto(true)
   }
   function abrirEdicao(l: LinkCurto) {
     setEditSlug(l.slug); setForm({ slug: l.slug, destino: l.destino, descricao: l.descricao || '' }); setFormErro(null); setFormAberto(true)
@@ -149,19 +151,26 @@ export default function AdminLinksPage() {
                   className={`lnk-input${slugErro ? (slugErro.ok ? ' valido' : ' invalido') : ''}`}
                   value={form.slug}
                   disabled={!!editSlug}
-                  onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
-                  placeholder="yt"
+                  onChange={e => { const v = e.target.value; setSlugAuto(v.trim() === ''); setForm(f => ({ ...f, slug: v })) }}
+                  placeholder="canal-campanha"
                   autoCapitalize="none" autoCorrect="off" spellCheck={false}
                 />
               </div>
-              <p className="lnk-ajuda">Minúsculas, números e hífen. Não pode ser nome de página da Bynx.</p>
+              <p className="lnk-ajuda">
+                {!editSlug && slugAuto && form.slug
+                  ? 'Sugerido pelas UTMs do destino (canal-campanha). Pode trocar.'
+                  : 'Regra: canal-campanha (yt-o-que-e-a-bynx, ig-caixa). Minúsculas, números e hífen; não pode ser nome de página da Bynx.'}
+              </p>
             </div>
             <div className="lnk-form-larga">
               <span className="lnk-rotulo">Destino (URL completa, com as UTMs)</span>
               <input
                 className="lnk-input"
                 value={form.destino}
-                onChange={e => setForm(f => ({ ...f, destino: e.target.value }))}
+                onChange={e => {
+                  const v = e.target.value
+                  setForm(f => ({ ...f, destino: v, slug: !editSlug && slugAuto ? sugerirSlug(v) : f.slug }))
+                }}
                 placeholder="https://bynx.gg/?utm_source=youtube&utm_medium=video&utm_campaign=..."
                 inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
               />

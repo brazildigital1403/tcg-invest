@@ -55,3 +55,37 @@ export function validarDestino(destino: unknown): { ok: true; destino: string } 
 export function urlCurta(slug: string) {
   return `https://bynx.gg/${slug}`
 }
+
+// ─── Sugestao de slug a partir das UTMs ────────────────────────────────────
+//
+// Regra da casa (Du, 09/10/2026): slug = canal-campanha, com a campanha igual
+// a utm_campaign do destino. Assim o painel de cliques se le sozinho
+// (yt-o-que-e-a-bynx, ig-caixa) e casa com o PostHog. O admin preenche o slug
+// com isto enquanto a pessoa nao digitar um por conta propria.
+
+const CANAL_POR_SOURCE: Record<string, string> = {
+  youtube: 'yt', instagram: 'ig', tiktok: 'tt', whatsapp: 'zap', email: 'email', newsletter: 'email',
+  facebook: 'fb', twitter: 'x', x: 'x', telegram: 'tg', linkedin: 'li', discord: 'dc', google: 'g',
+}
+
+export function slugificar(s: string) {
+  return s
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/** 'https://bynx.gg/?utm_source=youtube&utm_campaign=o-que-e-a-bynx' -> 'yt-o-que-e-a-bynx'. Vazio se nao der para sugerir. */
+export function sugerirSlug(destino: string): string {
+  let u: URL
+  try { u = new URL(destino.trim()) } catch { return '' }
+  const source = slugificar(u.searchParams.get('utm_source') || '')
+  const campanha = slugificar(u.searchParams.get('utm_campaign') || '')
+  const canal = CANAL_POR_SOURCE[source] || source
+  const partes = [canal, campanha].filter(Boolean)
+  if (partes.length === 0) return ''
+  let slug = partes.join('-').replace(/-+/g, '-')
+  if (slug.length > 32) slug = slug.slice(0, 32).replace(/-+$/g, '')
+  return SLUG_RE.test(slug) && !SLUGS_RESERVADOS.has(slug) ? slug : ''
+}
