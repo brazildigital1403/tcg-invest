@@ -75,7 +75,7 @@ const IDIOMA_PT: Record<string, string> = {
   es: 'Espanhol', fr: 'Francês', de: 'Alemão', it: 'Italiano',
 }
 export const idiomaPt = (i?: string | null) => (i ? IDIOMA_PT[i.toLowerCase()] || i : null)
-const REGIAO_PT: Record<string, string> = { ocidental: 'Ocidental', oriental: 'Oriental', japao: 'Japão', asia: 'Ásia' }
+const REGIAO_PT: Record<string, string> = { ocidental: 'Ocidental', oriental: 'Oriental', japao: 'Japão', jp: 'Japão', asia: 'Ásia' }
 export const regiaoPt = (r?: string | null) => (r ? REGIAO_PT[r.toLowerCase()] || r : null)
 export const legalidadePt = (v?: string | null) => (v === 'Legal' ? 'Permitida' : v === 'Banned' ? 'Banida' : v || null)
 

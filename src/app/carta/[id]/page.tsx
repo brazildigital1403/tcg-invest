@@ -51,13 +51,14 @@ function buildVariantesCarta(b: any) {
     max: precoNum(b[v.pre + 'max']),
   })).filter((v) => v.min || v.med || v.max)
 }
-import CartasRelacionadas from '@/components/cards/CartasRelacionadas'
+import CarrosselCartas, { type CartaCarrossel } from '@/components/cards/CarrosselCartas'
+import ConviteBynx, { type StatsConvite } from '@/components/cards/ConviteBynx'
+import type { PontoHistorico } from '@/lib/historicoCarta'
 import MercadoLivre from '@/components/ui/MercadoLivre'
 import { getMlAfiliadoLink } from '@/lib/mlAfiliado'
 import BlogDaCarta from '@/components/cards/BlogDaCarta'
 import { postsParaCarta } from '@/lib/blogCartaIndex'
 import { raridadePt, subtipoPt, tipoTcgPt, idiomaPt } from '@/lib/pokedexTextos'
-import Link from 'next/link'
 
 function slugifyName(s: string): string {
   return s
@@ -598,14 +599,7 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
 })
 
 // --- Cartas relacionadas (link building / SEO) ---
-type MiniCard = {
-  id: string
-  name: string
-  number: string | null
-  image_small: string | null
-  set_name: string | null
-  slug: string | null
-}
+type MiniCard = CartaCarrossel
 type RelatedCards = {
   pokemon_name: string | null
   same_set: MiniCard[]
@@ -626,13 +620,39 @@ const relacionadasEmCache = unstable_cache(
     const { data, error } = await sb.rpc('get_related_cards', { p_id: id, p_limit: 8 })
     if (error) throw new Error(`[carta] get_related_cards: ${error.message}`)
     const d = (data || {}) as { pokemon_name?: string | null; same_set?: MiniCard[]; same_pokemon?: MiniCard[] }
+    const sameSet = Array.isArray(d.same_set) ? d.same_set : []
+    const samePokemon = Array.isArray(d.same_pokemon) ? d.same_pokemon : []
+
+    // ★ Preco das relacionadas (Fase 2b do #490, 09/10/2026). A RPC devolve
+    // miniatura sem preco, e carta sem preco num carrossel e so figurinha.
+    // Lookup por chave primaria de no maximo 16 ids (Index Scan, dezenas de
+    // buffers), dentro do mesmo cache de 24 h. Chave -v2 porque a forma mudou.
+    const ids = Array.from(new Set([...sameSet, ...samePokemon].map(c => c.id)))
+    const extras = new Map<string, Partial<MiniCard>>()
+    if (ids.length) {
+      const { data: linhas, error: e2 } = await sb
+        .from('pokemon_cards')
+        .select('id, rarity, idioma, preco_min, preco_medio, preco_max')
+        .in('id', ids)
+      if (e2) throw new Error(`[carta] preco das relacionadas: ${e2.message}`)
+      for (const l of (linhas || []) as any[]) {
+        extras.set(l.id, {
+          rarity: l.rarity ?? null,
+          idioma: l.idioma ?? null,
+          preco_min: precoNum(l.preco_min),
+          preco_medio: precoNum(l.preco_medio),
+          preco_max: precoNum(l.preco_max),
+        })
+      }
+    }
+    const enriquecer = (c: MiniCard): MiniCard => ({ ...c, ...(extras.get(c.id) || {}) })
     return {
       pokemon_name: d.pokemon_name ?? null,
-      same_set: Array.isArray(d.same_set) ? d.same_set : [],
-      same_pokemon: Array.isArray(d.same_pokemon) ? d.same_pokemon : [],
+      same_set: sameSet.map(enriquecer),
+      same_pokemon: samePokemon.map(enriquecer),
     }
   },
-  ['carta-relacionadas-v1'],
+  ['carta-relacionadas-v2'],
   { revalidate: 86400 },
 )
 
@@ -641,6 +661,76 @@ async function fetchRelatedCards(id: string): Promise<RelatedCards> {
     return await relacionadasEmCache(id)
   } catch {
     return { pokemon_name: null, same_set: [], same_pokemon: [] }
+  }
+}
+
+/**
+ * ★ Historico de preco no SERVIDOR (Fase 2b do #490, 09/10/2026). Ate aqui o
+ * grafico nascia num useEffect: o HTML que o Google e os modelos de IA leem
+ * nao tinha historico nenhum. `get_card_price_history` e lookup por PK em
+ * price_snapshots (medido: 7 buffers, 0,2 ms). Um dia de Data Cache, como as
+ * relacionadas. Lista vazia e resultado VALIDO (carta sem levantamento);
+ * falha lanca, e o chamador devolve null fora do cache -- ai o cliente busca
+ * sozinho, como sempre fez.
+ */
+const historicoEmCache = unstable_cache(
+  async (id: string): Promise<PontoHistorico[]> => {
+    const sb = getServiceSupabase()
+    if (!sb) throw new Error('[carta] sem cliente Supabase')
+    const { data, error } = await sb.rpc('get_card_price_history', { p_id: id, p_days: 365 })
+    if (error) throw new Error(`[carta] get_card_price_history: ${error.message}`)
+    return ((data || []) as any[]).map(p => ({
+      snapshot_date: String(p.snapshot_date).slice(0, 10),
+      preco_min: p.preco_min != null ? Number(p.preco_min) : null,
+      preco_medio: p.preco_medio != null ? Number(p.preco_medio) : null,
+      preco_max: p.preco_max != null ? Number(p.preco_max) : null,
+    }))
+  },
+  ['carta-historico-v1'],
+  { revalidate: 86400 },
+)
+
+async function fetchHistorico(id: string): Promise<PontoHistorico[] | null> {
+  try {
+    return await historicoEmCache(id)
+  } catch (err) {
+    console.error('[carta] historico:', (err as Error)?.message)
+    return null
+  }
+}
+
+/**
+ * Numeros do convite de cadastro, GLOBAIS (nao dependem da carta): cache de
+ * 1 h compartilhado pelas ~66 mil paginas. `landing_stats` le a matview de
+ * sets (a home ja usa) e a contagem de usuarios e uma tabela de centenas de
+ * linhas. Falha lanca; o chamador cai no ultimo valor medido.
+ */
+const STATS_CONVITE_FALLBACK: StatsConvite = { cartas: 68448, colecionadores: 468 }
+const statsDoConvite = unstable_cache(
+  async (): Promise<StatsConvite> => {
+    const sb = getServiceSupabase()
+    if (!sb) throw new Error('[carta] sem cliente Supabase')
+    const [{ data: stats, error: e1 }, { count, error: e2 }] = await Promise.all([
+      sb.rpc('landing_stats'),
+      sb.from('users').select('id', { count: 'exact', head: true }),
+    ])
+    if (e1) throw new Error(`[carta] landing_stats: ${e1.message}`)
+    if (e2) throw new Error(`[carta] contagem de usuarios: ${e2.message}`)
+    const s = Array.isArray(stats) ? stats[0] : stats
+    const cartas = Number(s?.total_cards)
+    const colecionadores = Number(count)
+    if (!(cartas > 0) || !(colecionadores > 0)) throw new Error('[carta] stats do convite vazias')
+    return { cartas, colecionadores }
+  },
+  ['carta-convite-v1'],
+  { revalidate: 3600 },
+)
+
+async function fetchStatsConvite(): Promise<StatsConvite> {
+  try {
+    return await statsDoConvite()
+  } catch {
+    return STATS_CONVITE_FALLBACK
   }
 }
 
@@ -907,7 +997,11 @@ export default async function CartaPage({
   // a RPC casa por id de carta, nao por slug — passa o id resolvido.
   // (Vem antes do breadcrumb desde 09/10: a trilha passou a incluir o hub do
   // Pokemon, e o nome dele sai daqui. E Data Cache de 24h, a ordem nao custa.)
-  const related = await fetchRelatedCards(card.id)
+  const [related, historico, statsConvite] = await Promise.all([
+    fetchRelatedCards(card.id),
+    fetchHistorico(card.id),
+    fetchStatsConvite(),
+  ])
 
   // BreadcrumbList: ajuda navegação no Google + UX
   // ★ Trilha nova (Fase 2 do #490): Inicio > Pokemon > {Pokemon} > {Set em PT} > Carta.
@@ -956,6 +1050,25 @@ export default async function CartaPage({
     setNames: [card.setName, card.setNamePt],
   })
 
+  // ★ Os dois carrosseis (Fase 2b do #490). A RPC atual traz as 8 cartas MAIS
+  // RECENTES do Pokemon; aqui elas saem da mais cara para a mais barata, 6 no
+  // maximo. O titulo diz "mais cartas", nao "mais valiosas": ordenar 8 recentes
+  // por preco nao prova que sao as mais valiosas do Pokemon -- isso e a RPC v2
+  // da Fase 3. Do set, as 6 vizinhas de numero, na ordem da RPC.
+  // Total impresso: do mesmo set, e o da propria carta (printed_total, "86");
+  // de outro set nao se sabe aqui, e o set_total do catalogo conta as secretas
+  // ("166/172" numa pagina que diz "172/86") -- sai so o numero.
+  const maisDoPokemon = [...related.same_pokemon]
+    .sort((a, b) => (b.preco_min ?? 0) - (a.preco_min ?? 0))
+    .slice(0, 6)
+    .map(c => ({ ...c, set_total: null }))
+  const jaMostradas = new Set(maisDoPokemon.map(c => c.id))
+  const maisDoSet = related.same_set
+    .filter(c => !jaMostradas.has(c.id))
+    .slice(0, 6)
+    .map(c => ({ ...c, set_total: card.setTotal }))
+  const slugDaPagina = `/carta/${card.slug || card.id}`
+
   // ★ Mercado Livre POR SET (Fase 2 do #490): booster e ETB do set da carta em
   // vez dos mesmos acessorios genericos em 66 mil paginas. A lib ja cai em
   // 'acessorios'/'default' quando o set nao tem link cadastrado. Uma faixa so.
@@ -989,36 +1102,36 @@ export default async function CartaPage({
               }
             : { n: 0, menor: null, href: null }
         }
+        historico={historico}
       >
-        {/* Ofertas reais da Bynx: primeiro item do bloco, antes das relacionadas.
-            Quem chega pelo Google ve o preco de mercado no topo e, logo abaixo,
-            que da pra comprar aqui. */}
+        {/* ★ Ordem abaixo da ficha (Fase 2b do #490, mockup aprovado em 09/10):
+            mais cartas do Pokemon -> convite -> a venda na Bynx -> blog -> mais
+            do set -> Mercado Livre. O convite vem DEPOIS de a pessoa ter lido o
+            que a pagina sabe da carta, e o anuncio nunca antes do convite. */}
+        {related.pokemon_name && (
+          <CarrosselCartas
+            idTitulo="mais-do-pokemon"
+            titulo={`Mais cartas de ${related.pokemon_name}`}
+            cartas={maisDoPokemon}
+            verTodas={{ href: `/pokemon/${slugifyName(related.pokemon_name)}`, label: `Ver todas as cartas de ${related.pokemon_name}` }}
+          />
+        )}
+
+        <ConviteBynx stats={statsConvite} next={slugDaPagina} />
+
+        {/* Ofertas reais da Bynx (estado vazio convida a anunciar). */}
         <OfertasDaCarta ofertas={ofertas} nomeCarta={card.name} />
 
-        {/* Cartas relacionadas (SEO / link building) - links crawlaveis, server-rendered */}
-        {related.pokemon_name && (
-  <div style={{ margin: '4px 0 22px' }}>
-    <Link
-      href={`/pokemon/${slugifyName(related.pokemon_name)}`}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 8,
-        background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
-        color: '#f59e0b', fontWeight: 700, fontSize: 14,
-        padding: '12px 20px', borderRadius: 12, textDecoration: 'none',
-      }}
-    >
-      Ver todas as cartas de {related.pokemon_name} &rarr;
-    </Link>
-  </div>
-)}
-        <CartasRelacionadas
-          sameSet={related.same_set}
-          samePokemon={related.same_pokemon}
-          setName={card.setName}
-          pokemonName={related.pokemon_name}
-        />
-
         <BlogDaCarta posts={postsDaCarta} />
+
+        {(card.setNamePt || card.setName) && (
+          <CarrosselCartas
+            idTitulo="mais-do-set"
+            titulo={`Mais de ${card.setNamePt || card.setName}`}
+            cartas={maisDoSet}
+            verTodas={card.setId ? { href: `/set/${card.setId}`, label: 'Ver o set completo' } : undefined}
+          />
+        )}
 
         {/* Uma faixa, abaixo do conteudo: anuncio nao traz SEO (sponsored
             nofollow) e a grade de 6 produtos ocupava 635 px antes do convite

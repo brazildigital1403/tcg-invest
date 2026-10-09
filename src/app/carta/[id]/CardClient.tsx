@@ -20,17 +20,17 @@ import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
 import PublicFooter from '@/components/ui/PublicFooter'
 import SinalCartaVista from '@/components/cards/SinalCartaVista'
-import PromoBanner from '@/components/ui/PromoBanner'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import PriceHistory from '@/components/ui/PriceHistory'
 import WatchButton from '@/components/ui/WatchButton'
-import { IconCheck, IconCopy, IconPlus } from '@/components/ui/Icons'
+import { IconCheck, IconChevronDown, IconCopy, IconPlus } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import { adicionarCartaPublica } from '@/lib/adicionarCartaPublica'
 import { gravarIntencao, lerIntencao, limparIntencao } from '@/lib/intencao'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { raridadePt, subtipoPt, tipoTcgPt, idiomaPt, regiaoPt, legalidadePt } from '@/lib/pokedexTextos'
+import { fmtPct, resumirHistorico, rotulo30, type PontoHistorico } from '@/lib/historicoCarta'
 
 const fmtData = (iso: string | null | undefined) => {
   if (!iso) return null
@@ -107,10 +107,12 @@ type CardProps = {
   breadcrumb?: { name: string; href: string }[]
   /** Anuncios compraveis da carta na Bynx (ja filtrados por ofertasParaDivulgacao). */
   ofertas?: { n: number; menor: number | null; href: string | null }
+  /** Historico de preco ja buscado no servidor (null = a busca falhou; o bloco busca sozinho). */
+  historico?: PontoHistorico[] | null
   children?: ReactNode
 }
 
-export default function CardClient({ card, children, breadcrumb, ofertas: ofertasProp }: CardProps) {
+export default function CardClient({ card, children, breadcrumb, ofertas: ofertasProp, historico }: CardProps) {
   const [copied, setCopied] = useState(false)
   const pathname = usePathname()
   const { openSignup } = useAuthModal()
@@ -315,6 +317,52 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
     const quando = fmtData(card.vendas3m.em)
     linha('Vendas em 3 meses', `${base}${quando ? ` (${quando})` : ''}`)
   }
+
+  // ─── Resumo em prosa (Fase 2b do #490, 09/10/2026) ────────────────────────
+  // Duas a tres frases montadas SO com dado que existe nesta carta: preco (ou a
+  // referencia historica quando o guard marcou), variacao em 30 dias, raridade,
+  // ano, ilustrador, ultima venda. E a frase que um modelo de IA cita. Teto de
+  // 500 caracteres; nunca paragrafo identico entre cartas, porque cada frase
+  // so entra quando o dado dela existe.
+  const resumoHist = resumirHistorico(historico)
+  const setRotulo = card.setNamePt && card.setNamePt !== card.setName ? `${card.setNamePt} (${card.setName})` : card.setName
+  const cabecaProsa = `${card.name}${numLabel ? ` ${numLabel}` : ''}`
+  let frase1 = setRotulo ? ` de ${setRotulo}` : ''
+  if (refHistorica) {
+    frase1 += ` tem referência histórica de ${fmt(refHistorica)} no Brasil`
+    if (card.precoNSnaps && card.precoNSnaps > 1) frase1 += `, mediana de ${card.precoNSnaps} levantamentos da Bynx`
+  } else if (valeNum != null) {
+    frase1 += ` vale a partir de ${fmt(valeNum)} no Brasil`
+    if (resumoHist?.variacao30 && !card.precoSuspeito) {
+      const p = resumoHist.variacao30.pct
+      const periodo = rotulo30(resumoHist)
+      if (p >= 1) frase1 += ` e subiu ${fmtPct(p)} ${periodo}`
+      else if (p <= -1) frase1 += ` e caiu ${fmtPct(p)} ${periodo}`
+      else frase1 += ` e ficou estável ${periodo === 'em 30 dias' ? 'nos últimos 30 dias' : periodo}`
+    }
+  } else if (semOferta) {
+    frase1 += ' está sem oferta no Mercado Brasileiro no momento'
+  } else if (temOfertaSemDetalhe && rangeMin != null) {
+    frase1 += ` tem ofertas a partir de ${fmt(rangeMin)} no Brasil`
+  } else {
+    frase1 += ' ainda não tem preço registrado na Bynx'
+  }
+  frase1 += '.'
+  const frasesExtras: string[] = []
+  const raridadeProsa = raridadePt(card.rarity)
+  if (raridadeProsa) {
+    let f = `É uma ${raridadeProsa}`
+    if (card.setReleaseYear) f += ` de ${card.setReleaseYear}`
+    if (card.artist) f += `, ilustrada por ${card.artist}`
+    frasesExtras.push(f + '.')
+  } else if (card.artist) {
+    frasesExtras.push(`Ilustrada por ${card.artist}${card.setReleaseYear ? ` (${card.setReleaseYear})` : ''}.`)
+  }
+  if (card.ultimaVenda) {
+    const quando = fmtData(card.ultimaVenda.em)
+    frasesExtras.push(`A última venda registrada foi por ${fmt(card.ultimaVenda.cents / 100)}${quando ? ` em ${quando}` : ''}.`)
+  }
+  while (frasesExtras.length && (cabecaProsa + frase1 + ' ' + frasesExtras.join(' ')).length > 500) frasesExtras.pop()
 
 
   return (
@@ -791,9 +839,25 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
             </div>
 
 
-        {/* Com anuncio, o aviso de preco fica aqui; sem anuncio ele ja e a
-            acao secundaria da primeira dobra. */}
-        {ofertas.n > 0 && <WatchButton cardId={card.id} full />}
+        {/* ★ Resumo em prosa: o que a pagina sabe da carta, em duas ou tres
+            frases. Entra no HTML do servidor. */}
+        <p style={{ fontSize: 15, lineHeight: 1.55, color: 'var(--bx-text-2)', margin: '0 0 22px' }}>
+          <b style={{ color: 'var(--bx-text)', fontWeight: 700 }}>{cabecaProsa}</b>
+          {frase1}
+          {frasesExtras.length ? ' ' + frasesExtras.join(' ') : ''}
+        </p>
+
+        {/* ★ Historico no HTML (Fase 2b): pontos vindos do servidor; se a busca
+            falhou (null), o bloco busca no cliente como antes. Com anuncio, o
+            "Acompanhar preco" fica colado aqui; sem anuncio ele ja e a acao
+            secundaria da primeira dobra. */}
+        <PriceHistory
+          cardId={card.id}
+          periodoDaUrl
+          pontos={historico ?? undefined}
+          precoSuspeito={!!card.precoSuspeito}
+          rodape={ofertas.n > 0 ? <WatchButton cardId={card.id} full /> : undefined}
+        />
 
         {/* ★ FICHA DA CARTA (Fase 2 do #490, 09/10/2026). Dado que ja estava na
             mesma linha do banco e nunca aparecia: fatos unicos por carta, em
@@ -836,23 +900,21 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
           </section>
         )}
 
-        <PriceHistory cardId={card.id} periodoDaUrl />
-
-      {/* Ataques */}
+      {/* Ataques: recolhidos (Fase 2b). Ocupavam ~1 tela no celular; o texto
+          continua no HTML dentro do <details>, que o Google le. */}
         {card.attacks && card.attacks.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <p
+          <details className="bx-details" style={{ marginBottom: 24, background: 'var(--bx-surface)', border: '1px solid var(--bx-border)', borderRadius: 12 }}>
+            <summary
               style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.4)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                marginBottom: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                minHeight: 48, padding: '0 16px', cursor: 'pointer',
+                fontSize: 14, fontWeight: 600, color: 'var(--bx-text)',
               }}
             >
-              Ataques
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <span>Ataques ({card.attacks.length})</span>
+              <IconChevronDown size={16} color="var(--bx-text-3)" />
+            </summary>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px 12px' }}>
               {card.attacks.map((atk, i: number) => (
                 <div
                   key={i}
@@ -904,52 +966,13 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
                 </div>
               ))}
             </div>
-          </div>
+          </details>
         )}
 
-        {/* Banner promocional Bynx (copy rotativa a cada F5) - logo apos os ATAQUES */}
-        <PromoBanner />
-
+        {/* Carrosseis, convite, ofertas, blog e Mercado Livre vem do servidor
+            (page.tsx). O PromoBanner sorteado e o "Criar conta" do rodape
+            sairam em 09/10: o convite unico esta entre eles. */}
         {children}
-
-        {/* Footer CTA */}
-        <div
-          style={{
-            textAlign: 'center',
-            paddingTop: 32,
-            borderTop: '1px solid rgba(255,255,255,0.06)',
-          }}
-        >
-          <p
-            style={{
-              fontSize: 13,
-              color: 'rgba(255,255,255,0.3)',
-              marginBottom: 14,
-            }}
-          >
-            Gerencie toda sua coleção Pokémon como portfólio financeiro
-          </p>
-          {/* ★ Ia pra HOME (`href="/"`) — mesmo defeito ja corrigido no CTA de
-              cima, que ficou pra tras aqui. O visitante que chega do Google
-              numa das ~66,9 mil paginas de carta era jogado na raiz do site e
-              perdia a carta que estava vendo. Agora abre o cadastro e volta
-              pra esta mesma carta depois de criar a conta. */}
-          <Link
-            href={`/?auth=signup&next=${encodeURIComponent(pathname || '/')}`}
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-              color: '#000',
-              padding: '12px 28px',
-              borderRadius: 12,
-              fontWeight: 700,
-              fontSize: 14,
-              textDecoration: 'none',
-              display: 'inline-block',
-            }}
-          >
-            Criar conta grátis na Bynx →
-          </Link>
-        </div>
       </main>
       <PublicFooter />
     </div>

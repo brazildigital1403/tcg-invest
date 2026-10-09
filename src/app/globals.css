@@ -137,6 +137,15 @@ body {
 
 /* Respiro lateral padrao do site (Bynx): 24px desktop / 16px mobile */
 .bx-gutter { padding-left: 24px !important; padding-right: 24px !important; }
+
+/* Bloco recolhido (<details>) da pagina da carta: sem o marcador nativo, chevron gira ao abrir. */
+.bx-details > summary { list-style: none; }
+.bx-details > summary::-webkit-details-marker { display: none; }
+.bx-details > summary svg { transition: transform 0.15s ease; }
+.bx-details[open] > summary svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .bx-details > summary svg { transition: none; } }
+/* Carrossel de cartas: barra de rolagem discreta. */
+.bx-carrossel { scrollbar-width: thin; scrollbar-color: var(--bx-border-2) transparent; }
 @media (max-width: 768px) {
   .bx-gutter { padding-left: 16px !important; padding-right: 16px !important; }
 }
