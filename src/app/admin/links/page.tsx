@@ -218,13 +218,15 @@ export default function AdminLinksPage() {
               <tbody>
                 {links.map(l => (
                   <tr key={l.slug} className={l.ativo ? '' : 'desligado'}>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <IconLink size={14} color="var(--ac-1)" />
-                        <a href={`/${l.slug}`} target="_blank" rel="noreferrer" className="lnk-url">bynx.gg/{l.slug}</a>
+                    <td>
+                      {/* Copiar vem PRIMEIRO e fixo: um embaixo do outro em toda linha,
+                          independente do tamanho do slug. O link corta com reticencias. */}
+                      <span className="lnk-linkcell">
                         <BotaoIcone rotulo={copiado === l.slug ? 'Copiado' : 'Copiar link'} onClick={() => copiar(l.slug)}>
                           {copiado === l.slug ? <IconCheck size={15} color="var(--bx-green)" /> : <IconCopy size={15} color="currentColor" />}
                         </BotaoIcone>
+                        <IconLink size={14} color="var(--ac-1)" style={{ flexShrink: 0 }} />
+                        <a href={`/${l.slug}`} target="_blank" rel="noreferrer" className="lnk-url lnk-url-corta" title={`bynx.gg/${l.slug}`}>bynx.gg/{l.slug}</a>
                       </span>
                     </td>
                     <td className="lnk-destino"><span title={l.destino}>{l.destino}</span></td>
@@ -314,6 +316,8 @@ export default function AdminLinksPage() {
         .lnk-input.invalido { border-color: var(--bx-red); }
 
         .lnk-url { color: var(--bx-text); font-weight: 800; text-decoration: none; }
+        .lnk-linkcell { display: flex; align-items: center; gap: 4px; min-width: 0; }
+        .lnk-url-corta { display: block; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lnk-url:hover { color: var(--ac-1); }
         .lnk-destino { font-size: 13px; color: var(--bx-text-3); max-width: 100%; }
         .lnk-destino span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -332,10 +336,10 @@ export default function AdminLinksPage() {
           text-align: left; padding: 12px 14px; color: var(--bx-text-3); font-weight: 700; font-size: 11px;
           text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--bx-border); white-space: nowrap;
         }
-        .lnk-tabela td { padding: 8px 14px; border-bottom: 1px solid var(--bx-border); vertical-align: middle; color: var(--bx-text); }
+        .lnk-tabela td { padding: 8px 14px; border-bottom: 1px solid var(--bx-border); vertical-align: middle; color: var(--bx-text); min-width: 0; }
         .lnk-tabela tr:last-child td { border-bottom: none; }
-        .lnk-tabela th:nth-child(1), .lnk-tabela td:nth-child(1) { width: 22%; }
-        .lnk-tabela th:nth-child(2), .lnk-tabela td:nth-child(2) { width: 30%; }
+        .lnk-tabela th:nth-child(1), .lnk-tabela td:nth-child(1) { width: 27%; }
+        .lnk-tabela th:nth-child(2), .lnk-tabela td:nth-child(2) { width: 26%; }
         .lnk-tabela th:nth-child(4), .lnk-tabela td:nth-child(4) { width: 8%; }
         .lnk-tabela th:nth-child(5), .lnk-tabela td:nth-child(5) { width: 12%; }
         .lnk-tabela th:nth-child(6), .lnk-tabela td:nth-child(6) { width: 11%; }
