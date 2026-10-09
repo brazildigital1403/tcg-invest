@@ -271,21 +271,13 @@ useEffect(() => {
         e.name = 'Informe nome e sobrenome'
       if (!validarCPF(cpf))
         e.cpf = 'CPF inválido'
-      if (!city.trim())
-        e.city = 'Informe sua cidade'
-      const wDigits = whatsapp.replace(/\D/g, '')
-      if (wDigits.length < 10)
-        e.whatsapp = 'WhatsApp incompleto (DDD + número)'
-      if (cep.replace(/\D/g, '').length !== 8)
-        e.cep = 'CEP inválido'
-      if (!logradouro.trim())
-        e.logradouro = 'Informe a rua'
-      if (!numero.trim())
-        e.numero = 'Informe o número'
-      if (!bairro.trim())
-        e.bairro = 'Informe o bairro'
-      if (uf.trim().length !== 2)
-        e.uf = 'UF'
+      // ★ CADASTRO CURTO (09/10/2026, Fase 3 do #490, versao B escolhida pelo
+      // Du): endereco, cidade, WhatsApp, Instagram e TikTok sairam daqui.
+      // Medido: 468 usuarios, 31 compraram ou venderam -- 93% entregavam
+      // endereco e WhatsApp para algo que nunca usaram. O CEP volta no
+      // anuncio (AnunciarModal) e no checkout (Stripe coleta o endereco de
+      // entrega); o WhatsApp volta no anuncio; o resto em Minha Conta. O
+      // CPF fica: e a trava de conta duplicada no plano gratis.
     }
     if (!validarEmail(email)) {
       e.email = 'E-mail inválido'
@@ -403,8 +395,9 @@ useEffect(() => {
         const loginDest = next || '/dashboard-financeiro'
         router.push(loginDest)
       } else {
-        // Etapa 2 enviada (ainda pode falhar em CPF duplicado, senha ou captcha;
-        // o sucesso e o sign_up logo abaixo).
+        // Formulario enviado (ainda pode falhar em CPF duplicado, senha ou
+        // captcha; o sucesso e o sign_up logo abaixo). Desde o cadastro curto
+        // (09/10) so existe uma etapa: a "1" dos dias 09/10 e a 2 etapas.
         trackSignupStep(2, lerCta())
         // ── Trava de CPF unico: pre-checa ANTES de criar a conta no Auth ──
         // (evita usuario orfao no Auth caso o insert em users seja barrado).
@@ -706,13 +699,8 @@ useEffect(() => {
                 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }
                 return (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    {[1,2].map(s => (
-                      <div key={s} style={{ flex: 1, height: 3, borderRadius: 100, background: s <= signupStep ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
-                    ))}
-                  </div>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 12 }}>
-                    Etapa {signupStep} de 2 — {signupStep === 1 ? 'Dados da conta' : 'Perfil e aceites'}
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 12, lineHeight: 1.45 }}>
+                    Leva menos de um minuto. Endereço e WhatsApp só quando você for comprar ou vender.
                   </p>
 
                   {signupStep === 1 && (
@@ -728,12 +716,27 @@ useEffect(() => {
                           />
                         </Campo>
                       </div>
-                      <div>
-                        <label style={lbl}>Data de nascimento *</label>
-                        <input type="date" value={dataNasc} onChange={e => setDataNasc(e.target.value)}
-                          max={new Date().toISOString().split('T')[0]}
-                          style={{ ...inputStyle(), width: '100%', colorScheme: 'dark' }}
-                        />
+                      {/* Empilhado, nao em duas colunas: em 375 px o rotulo da data quebrava
+                          em duas linhas e o CPF cortava o placeholder. */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div>
+                          <label style={lbl}>Data de nascimento *</label>
+                          <input type="date" value={dataNasc} onChange={e => setDataNasc(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
+                            style={{ ...inputStyle(), width: '100%', colorScheme: 'dark' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={lbl}>CPF *</label>
+                          <Campo erro={touched.cpf ? erros.cpf : undefined}>
+                            <input type="text" placeholder="000.000.000-00" inputMode="numeric"
+                              value={cpf}
+                              onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
+                              onBlur={() => { handleBlur('cpf'); checkCpfDisponivel() }}
+                              style={inputStyle(touched.cpf ? erros.cpf : undefined, touched.cpf && !erros.cpf && cpf.length > 0)}
+                            />
+                          </Campo>
+                        </div>
                       </div>
                       {menorDe13 && (
                         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 14px' }}>
@@ -748,152 +751,15 @@ useEffect(() => {
                     </>
                   )}
 
-                  {signupStep === 2 && (
-                    <>
-                      <div>
-                        <label style={lbl}>CPF *</label>
-                        <Campo erro={touched.cpf ? erros.cpf : undefined}>
-                          <input type="text" placeholder="000.000.000-00" inputMode="numeric"
-                            value={cpf}
-                            onChange={e => { setCpf(formatarCPF(e.target.value)); if (touched.cpf) setErros(validarCampos()) }}
-                            onBlur={() => { handleBlur('cpf'); checkCpfDisponivel() }}
-                            style={inputStyle(touched.cpf ? erros.cpf : undefined, touched.cpf && !erros.cpf && cpf.length > 0)}
-                          />
-                        </Campo>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <div>
-                          <label style={lbl}>CEP *</label>
-                          <Campo erro={touched.cep ? (erros.cep || cepErro || undefined) : (cepErro || undefined)}>
-                            <input type="text" placeholder="00000-000" inputMode="numeric"
-                              value={cep}
-                              onChange={e => { const v = formatarCEP(e.target.value); setCep(v); setCepErro(''); if (touched.cep) setErros(validarCampos()); if (v.replace(/\D/g, '').length === 8) buscarCep(v) }}
-                              onBlur={() => { handleBlur('cep'); buscarCep() }}
-                              style={inputStyle(touched.cep ? (erros.cep || cepErro || undefined) : (cepErro || undefined), touched.cep && !erros.cep && !cepErro && cep.replace(/\D/g, '').length === 8)}
-                            />
-                          </Campo>
-                        </div>
-                        <div>
-                          <label style={lbl}>WhatsApp *</label>
-                          <Campo erro={touched.whatsapp ? erros.whatsapp : undefined}>
-                            <input type="text" placeholder="(11) 99999-9999" inputMode="tel"
-                              value={whatsapp}
-                              onChange={e => { setWhatsapp(formatarWhatsApp(e.target.value)); if (touched.whatsapp) setErros(validarCampos()) }}
-                              onBlur={() => handleBlur('whatsapp')}
-                              style={inputStyle(touched.whatsapp ? erros.whatsapp : undefined, touched.whatsapp && !erros.whatsapp && whatsapp.length > 0)}
-                            />
-                          </Campo>
-                        </div>
-                      </div>
-
-                      {cepLoading && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: -4 }}>Buscando endereço...</p>}
-
-                      <div>
-                        <label style={lbl}>Rua *</label>
-                        <Campo erro={touched.logradouro ? erros.logradouro : undefined}>
-                          <input type="text" placeholder="Rua / Avenida"
-                            value={logradouro}
-                            onChange={e => { setLogradouro(e.target.value); if (touched.logradouro) setErros(validarCampos()) }}
-                            onBlur={() => handleBlur('logradouro')}
-                            style={inputStyle(touched.logradouro ? erros.logradouro : undefined, touched.logradouro && !erros.logradouro && logradouro.length > 0)}
-                          />
-                        </Campo>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <div>
-                          <label style={lbl}>Número *</label>
-                          <Campo erro={touched.numero ? erros.numero : undefined}>
-                            <input type="text" placeholder="123"
-                              value={numero}
-                              onChange={e => { setNumero(e.target.value); if (touched.numero) setErros(validarCampos()) }}
-                              onBlur={() => handleBlur('numero')}
-                              style={inputStyle(touched.numero ? erros.numero : undefined, touched.numero && !erros.numero && numero.length > 0)}
-                            />
-                          </Campo>
-                        </div>
-                        <div>
-                          <label style={lbl}>Complemento <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>(opcional)</span></label>
-                          <Campo>
-                            <input type="text" placeholder="Apto, bloco"
-                              value={complemento}
-                              onChange={e => setComplemento(e.target.value)}
-                              style={inputStyle(undefined, false)}
-                            />
-                          </Campo>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label style={lbl}>Bairro *</label>
-                        <Campo erro={touched.bairro ? erros.bairro : undefined}>
-                          <input type="text" placeholder="Bairro"
-                            value={bairro}
-                            onChange={e => { setBairro(e.target.value); if (touched.bairro) setErros(validarCampos()) }}
-                            onBlur={() => handleBlur('bairro')}
-                            style={inputStyle(touched.bairro ? erros.bairro : undefined, touched.bairro && !erros.bairro && bairro.length > 0)}
-                          />
-                        </Campo>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 92px', gap: 10 }}>
-                        <div>
-                          <label style={lbl}>Cidade *</label>
-                          <Campo erro={touched.city ? erros.city : undefined}>
-                            <input type="text" placeholder="Cidade"
-                              value={city}
-                              onChange={e => { setCity(e.target.value); if (touched.city) setErros(validarCampos()) }}
-                              onBlur={() => handleBlur('city')}
-                              style={inputStyle(touched.city ? erros.city : undefined, touched.city && !erros.city && city.length > 0)}
-                            />
-                          </Campo>
-                        </div>
-                        <div>
-                          <label style={lbl}>UF *</label>
-                          <Campo erro={touched.uf ? erros.uf : undefined}>
-                            <input type="text" placeholder="SP" maxLength={2}
-                              value={uf}
-                              onChange={e => { setUf(e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2)); if (touched.uf) setErros(validarCampos()) }}
-                              onBlur={() => handleBlur('uf')}
-                              style={{ ...inputStyle(touched.uf ? erros.uf : undefined, touched.uf && !erros.uf && uf.length === 2), textTransform: 'uppercase' }}
-                            />
-                          </Campo>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label style={lbl}>Instagram <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>(opcional)</span></label>
-                        <Campo>
-                          <input type="text" placeholder="@seuperfil" autoComplete="off"
-                            value={instagram}
-                            onChange={e => setInstagram(e.target.value)}
-                            style={inputStyle(undefined, false)}
-                          />
-                        </Campo>
-                      </div>
-                      <div>
-                        <label style={lbl}>TikTok <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>(opcional)</span></label>
-                        <Campo>
-                          <input type="text" placeholder="@seuperfil" autoComplete="off"
-                            value={tiktok}
-                            onChange={e => setTiktok(e.target.value)}
-                            style={inputStyle(undefined, false)}
-                          />
-                        </Campo>
-                      </div>
-
-                      <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true"
-                        value={hpWebsite} onChange={e => setHpWebsite(e.target.value)}
-                        style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-                      />
-                    </>
-                  )}
+                  <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true"
+                    value={hpWebsite} onChange={e => setHpWebsite(e.target.value)}
+                    style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                  />
                 </>
                 )
               })()}
 
-              {(!isLogin ? signupStep === 1 : true) && <div>
+              <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }}>E-mail *</label>
                 <Campo erro={touched.email ? erros.email : undefined}>
                   <input type="email" placeholder="seu@email.com"
@@ -903,9 +769,9 @@ useEffect(() => {
                     style={inputStyle(touched.email ? erros.email : undefined, touched.email && !erros.email && email.length > 0)}
                   />
                 </Campo>
-              </div>}
+              </div>
 
-              {(!isLogin ? signupStep === 1 : true) && <div>
+              <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }}>Senha *</label>
                 <Campo erro={touched.password ? erros.password : undefined}>
                   <div style={{ position: 'relative' }}>
@@ -945,9 +811,9 @@ useEffect(() => {
                     )
                   })()}
                 </Campo>
-              </div>}
+              </div>
 
-              {!isLogin && signupStep === 2 && (
+              {!isLogin && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px' }}>
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
                     <input type="checkbox" checked={termosAceito} onChange={e => setTermosAceito(e.target.checked)}
@@ -980,46 +846,20 @@ useEffect(() => {
               {/* CAPTCHA (Cloudflare Turnstile) */}
               <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
 
-              {!isLogin && signupStep === 1 ? (
-                <>
-                  <button
-                    disabled={!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13}
-                    onClick={() => {
-                      const e = validarCampos()
-                      if (e.name || e.email || e.password) { setErros(e); setTouched({ name: true, email: true, password: true }); return }
-                      if (!dataNasc) { setServerError('Informe sua data de nascimento.'); return }
-                      trackSignupStep(1, lerCta())
-                      setServerError(''); setSignupStep(2)
-                    }}
-                    style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 15, marginTop: 4, opacity: (!name.trim() || !email.trim() || !password.trim() || !dataNasc || menorDe13) ? 0.5 : 1 }}>
-                    Continuar →
-                  </button>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: -4 }}>* campos obrigatórios</p>
-                </>
-              ) : (
-                <>
-                  <button onClick={handleAuth} disabled={loading}
-                    style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1, marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    {loading ? (
-                      <>
-                        <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                        Carregando...
-                      </>
-                    ) : isLogin ? 'Entrar →'
-                      : pendingPlan === 'plus' ? 'Criar conta e assinar Plus →'
-                      : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
-                      : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
-                      : 'Criar conta grátis →'}
-                  </button>
-                  {!isLogin && (
-                    <button onClick={() => setSignupStep(1)}
-                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)', padding: '11px', borderRadius: 10, fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
-                      ← Voltar
-                    </button>
-                  )}
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: -4 }}>* campos obrigatórios</p>
-                </>
-              )}
+              <button onClick={handleAuth} disabled={loading}
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', border: 'none', color: '#000', padding: '14px', borderRadius: 10, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1, marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {loading ? (
+                  <>
+                    <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    Carregando...
+                  </>
+                ) : isLogin ? 'Entrar →'
+                  : pendingPlan === 'plus' ? 'Criar conta e assinar Plus →'
+                  : pendingPlan === 'mensal' ? 'Criar conta e assinar Pro Mensal →'
+                  : pendingPlan === 'anual' ? 'Criar conta e assinar Pro Anual →'
+                  : 'Criar conta grátis →'}
+              </button>
+              {!isLogin && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: -4 }}>* campos obrigatórios</p>}
 
               {isLogin && (
                 <p style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: -4 }}>

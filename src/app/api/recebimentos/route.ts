@@ -26,7 +26,7 @@ import { classificarConta } from '@/lib/connect-status'
  * alguem de marcar a propria conta como liberada.
  */
 
-const SELECT = 'id, email, name, username, cep, suspended_at, stripe_connect_account_id, stripe_connect_status, connect_charges_enabled, connect_payouts_enabled, repasse_prazo'
+const SELECT = 'id, email, name, username, cep, city, whatsapp, suspended_at, stripe_connect_account_id, stripe_connect_status, connect_charges_enabled, connect_payouts_enabled, repasse_prazo'
 
 function stripeClient(): Stripe | null {
   if (!process.env.STRIPE_SECRET_KEY) return null
@@ -152,7 +152,8 @@ export async function PATCH(req: NextRequest) {
 
     const temCep = 'cep' in body
     const temPrazo = 'repasse_prazo' in body
-    if (!temCep && !temPrazo) {
+    const temWhats = 'whatsapp' in body
+    if (!temCep && !temPrazo && !temWhats) {
       return NextResponse.json({ error: 'Nada para atualizar.' }, { status: 400 })
     }
 
@@ -171,6 +172,35 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'CEP inválido. Use 8 dígitos.' }, { status: 400 })
       }
       patch.cep = cd
+
+      // ★ Cidade pelo CEP (09/10/2026, cadastro curto). A cidade saiu do
+      // cadastro; o card do marketplace e o perfil mostram a do vendedor. Quem
+      // chega aqui sem cidade ganha a do CEP pelo ViaCEP. Falha e silenciosa:
+      // o CEP e o que importa para o frete, a cidade e enfeite.
+      if (!user.city) {
+        try {
+          const r = await fetch(`https://viacep.com.br/ws/${cd}/json/`, { signal: AbortSignal.timeout(3000) })
+          const j = r.ok ? await r.json() : null
+          if (j && !j.erro) {
+            if (typeof j.localidade === 'string' && j.localidade) patch.city = j.localidade.slice(0, 120)
+            if (typeof j.uf === 'string' && /^[A-Z]{2}$/.test(j.uf)) patch.uf = j.uf
+          }
+        } catch {
+          // ViaCEP fora do ar: segue sem cidade
+        }
+      }
+    }
+
+    // ── WhatsApp do vendedor ─────────────────────────────────────────────
+    // Saiu do cadastro em 09/10 (cadastro curto). E por ele que o comprador
+    // fala com quem vende fora do Connect (/api/marketplace/[id]/contato
+    // devolve 404 sem ele), entao o Anunciar pede quando falta.
+    if (temWhats) {
+      const wd = soDigitos(body.whatsapp)
+      if (wd.length < 10 || wd.length > 11) {
+        return NextResponse.json({ error: 'WhatsApp inválido. Use DDD + número.' }, { status: 400 })
+      }
+      patch.whatsapp = `(${wd.slice(0, 2)}) ${wd.slice(2, wd.length - 4)}-${wd.slice(-4)}`
     }
 
     // ── Prazo de repasse ─────────────────────────────────────────────────

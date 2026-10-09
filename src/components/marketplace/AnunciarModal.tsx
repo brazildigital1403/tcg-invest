@@ -211,7 +211,7 @@ const CONDICAO_TEXTO: Record<string, string> = {
   D: 'Damaged: danificada, com dobra, rasgo ou mancha.',
 }
 
-function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading, erro, userId, isPro, pedirCep }: {
+function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, loading, erro, userId, isPro, pedirCep, pedirWhats }: {
   card: any
   precoMercado: number
   precoFonte: 'BRL' | 'USD' | 'BRL_FOIL' | 'BRL_REVERSE' | 'BRL_PROMO' | null
@@ -226,6 +226,8 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
    * pessoa nem na loja dela. Ver o comentario do campo, mais abaixo.
    */
   pedirCep: boolean
+  /** true quando a pessoa nao tem WhatsApp no cadastro (saiu do cadastro em 09/10). */
+  pedirWhats: boolean
 }) {
   const grad = card.graduada && card.graduadora ? GRADUADORA_MAP[card.graduadora] : null
   const [preco, setPreco]       = useState(grad && card.valor_graduada ? Number(card.valor_graduada).toFixed(2).replace('.', ',') : (precoMercado > 0 ? precoMercado.toFixed(2).replace('.', ',') : ''))
@@ -235,9 +237,12 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
   const [fotos, setFotos] = useState<string[]>([])
   const [cep, setCep] = useState('')
   const [cepErro, setCepErro] = useState<string | null>(null)
+  const [whats, setWhats] = useState('')
+  const [whatsErro, setWhatsErro] = useState<string | null>(null)
 
   const cepDigitos = cep.replace(/\D/g, '')
   const cepOk = !pedirCep || cepDigitos.length === 8
+  const whatsDigitos = whats.replace(/\D/g, '')
 
   const precoNum = parseFloat(String(preco).replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')) || 0
   // Graduada nao compara: o preco do catalogo e o da carta crua, e o slab
@@ -306,7 +311,13 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
       return
     }
     setCepErro(null)
-    onConfirm({ preco: precoNum, condicao: grad ? null : condicao, variante, descricao, fotos, graduada: !!grad, graduadora: grad ? card.graduadora : null, nota: grad ? card.nota : null, black_label: grad ? !!card.black_label : false, cert_graduacao: grad ? (card.cert_graduacao || null) : null, subnotas: grad ? (card.subnotas || null) : null, cep: pedirCep ? cepDigitos : null })
+    if (pedirWhats && (whatsDigitos.length < 10 || whatsDigitos.length > 11)) {
+      setWhatsErro('Informe seu WhatsApp com DDD, para quem comprar falar com você.')
+      document.getElementById('bx-an-whats')?.focus()
+      return
+    }
+    setWhatsErro(null)
+    onConfirm({ preco: precoNum, condicao: grad ? null : condicao, variante, descricao, fotos, graduada: !!grad, graduadora: grad ? card.graduadora : null, nota: grad ? card.nota : null, black_label: grad ? !!card.black_label : false, cert_graduacao: grad ? (card.cert_graduacao || null) : null, subnotas: grad ? (card.subnotas || null) : null, cep: pedirCep ? cepDigitos : null, whatsapp: pedirWhats ? whatsDigitos : null })
   }
 
   return (
@@ -442,6 +453,33 @@ function DetalhesAnuncio({ card, precoMercado, precoFonte, onBack, onConfirm, lo
             </div>
           )}
 
+          {/* WhatsApp: saiu do cadastro em 09/10 (cadastro curto). Sem ele, quem
+              quiser comprar fora do Connect nao tem como falar com o vendedor. */}
+          {pedirWhats && (
+            <div>
+              <label htmlFor="bx-an-whats" className="bx-an-rot">Seu WhatsApp</label>
+              <input
+                id="bx-an-whats"
+                value={whats}
+                onChange={e => {
+                  const d = e.target.value.replace(/\D/g, '').slice(0, 11)
+                  setWhats(d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d)
+                  if (whatsErro) setWhatsErro(null)
+                }}
+                inputMode="tel"
+                autoComplete="tel-national"
+                placeholder="(11) 99999-9999"
+                aria-invalid={!!whatsErro}
+                aria-describedby="bx-an-whats-ajuda"
+                className="bx-an-texto"
+                style={{ maxWidth: 220, fontSize: 16 }}
+              />
+              <div id="bx-an-whats-ajuda" style={{ fontSize: 12.5, color: whatsErro ? 'var(--bx-red)' : 'var(--bx-text-2)', marginTop: 6, lineHeight: 1.45 }}>
+                {whatsErro || 'É por ele que quem compra fala com você. Fica guardado para os próximos anúncios.'}
+              </div>
+            </div>
+          )}
+
           {/* Observacoes */}
           <div>
             <label htmlFor="bx-an-obs" className="bx-an-rot">Observações <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>(opcional)</span></label>
@@ -506,13 +544,14 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
    * disser que falta.
    */
   const [pedirCep, setPedirCep] = useState(false)
+  const [pedirWhats, setPedirWhats] = useState(false)
 
   useEffect(() => {
     let vivo = true
     // Uma ida so: a RLS de `users` libera a propria linha, e a de `lojas`
     // libera a loja ativa -- as duas leituras que o modal ja podia fazer.
     Promise.all([
-      supabase.from('users').select('is_pro, cep').eq('id', userId).maybeSingle(),
+      supabase.from('users').select('is_pro, cep, whatsapp').eq('id', userId).maybeSingle(),
       supabase.from('lojas').select('cep').eq('owner_user_id', userId).eq('status', 'ativa')
         .order('created_at', { ascending: true }).limit(1),
     ]).then(([me, lojas]) => {
@@ -521,6 +560,7 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
       const oito = (v: unknown) => String(v || '').replace(/\D/g, '').length === 8
       const temNaLoja = (lojas.data || []).some(l => oito((l as any)?.cep))
       setPedirCep(!oito((me.data as any)?.cep) && !temNaLoja)
+      setPedirWhats(String((me.data as any)?.whatsapp || '').replace(/\D/g, '').length < 10)
     })
     return () => { vivo = false }
   }, [userId])
@@ -632,7 +672,7 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
      * afetadas, calado. A rota /api/recebimentos ja valida os 8 digitos e ja
      * e a dona desse campo -- nao vale uma segunda porta para o mesmo dado.
      */
-    if (dados.cep) {
+    if (dados.cep || dados.whatsapp) {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) {
@@ -643,15 +683,16 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
         const r = await fetch('/api/recebimentos', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ cep: dados.cep }),
+          body: JSON.stringify({ ...(dados.cep ? { cep: dados.cep } : {}), ...(dados.whatsapp ? { whatsapp: dados.whatsapp } : {}) }),
         })
         if (!r.ok) {
           const j = await r.json().catch(() => null)
           setLoading(false)
-          setErroPublicar(j?.error || 'Não consegui salvar o CEP. Tente de novo.')
+          setErroPublicar(j?.error || 'Não consegui salvar seus dados. Tente de novo.')
           return
         }
-        setPedirCep(false)
+        if (dados.cep) setPedirCep(false)
+        if (dados.whatsapp) setPedirWhats(false)
       } catch {
         setLoading(false)
         setErroPublicar('Não consegui salvar o CEP. Verifique a conexão e tente de novo.')
@@ -761,7 +802,7 @@ export default function AnunciarModal({ userId, onClose, onAdded, initialCard }:
             )
             : step === 'escolher'
             ? <EscolherCarta userId={userId} cartaSel={cartaSel} onSelect={handleSelectCard} />
-            : <DetalhesAnuncio userId={userId} isPro={isPro} pedirCep={pedirCep} card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} erro={erroPublicar} />
+            : <DetalhesAnuncio userId={userId} isPro={isPro} pedirCep={pedirCep} pedirWhats={pedirWhats} card={cartaSel} precoMercado={precoMercado} precoFonte={precoFonte} onBack={() => setStep('escolher')} onConfirm={handlePublicar} loading={loading} erro={erroPublicar} />
           }
         </div>
       </div>
