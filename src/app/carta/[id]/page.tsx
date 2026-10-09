@@ -602,57 +602,56 @@ const fetchCardData = cache(async function fetchCardData(idOrSlug: string): Prom
 type MiniCard = CartaCarrossel
 type RelatedCards = {
   pokemon_name: string | null
+  artist: string | null
   same_set: MiniCard[]
-  same_pokemon: MiniCard[]
+}
+
+const COLS_MINI = 'id, slug, name, number, image_small, set_name, rarity, idioma, preco_min, preco_medio, preco_max'
+
+function miniCard(l: any): MiniCard {
+  return {
+    id: String(l.id),
+    slug: l.slug ?? null,
+    name: String(l.name ?? ''),
+    number: l.number ?? null,
+    image_small: l.image_small ?? null,
+    set_name: l.set_name ?? null,
+    rarity: l.rarity ?? null,
+    idioma: l.idioma ?? null,
+    preco_min: precoNum(l.preco_min),
+    preco_medio: precoNum(l.preco_medio),
+    preco_max: precoNum(l.preco_max),
+  }
 }
 
 /**
- * ★ No Data Cache (14/09/2026). `get_related_cards` e a RPC mais cara do render
- * (~600 blocos no Pikachu) e, no engasgo de 14/09 18:00, foi a que mais
- * demorou (10,3s). Carta relacionada so muda quando entra carta nova no set ou
- * no Pokemon: 1 dia de cache e de sobra, e sobrevive a deploy.
- * Falha lanca dentro do cache; o chamador converte em vazio fora dele.
+ * ★ Relacionadas em TRES caches, cada um pela sua chave natural (Fase 3 do
+ * #490, 09/10/2026). Medido com explain (analyze, buffers): a lista do Pokemon
+ * custa 630 blocos no Pikachu e a do ilustrador 1.479 no 5ban Graphics. Com
+ * cache POR CARTA (como era na v1), as 660 paginas de Pikachu repetiam a mesma
+ * varredura, uma por dia cada. Agora:
+ *  - `get_related_cards_v2` (por carta): nome do Pokemon, ilustrador e as 8
+ *    vizinhas do set, ja com preco -- 88 blocos no pior caso medido;
+ *  - mais valiosas do Pokemon, em cache pelo NOME do Pokemon (`@>` usa o GIN);
+ *  - do mesmo ilustrador, em cache pelo nome do ILUSTRADOR (btree em artist).
+ * As duas ultimas rodam uma vez por dia para todas as cartas que compartilham
+ * a chave. Falha lanca dentro do cache; o chamador converte em vazio fora.
+ * A v1 continua no banco ate esta versao estar provada em producao.
  */
 const relacionadasEmCache = unstable_cache(
   async (id: string): Promise<RelatedCards> => {
     const sb = getServiceSupabase()
     if (!sb) throw new Error('[carta] sem cliente Supabase')
-    const { data, error } = await sb.rpc('get_related_cards', { p_id: id, p_limit: 8 })
-    if (error) throw new Error(`[carta] get_related_cards: ${error.message}`)
-    const d = (data || {}) as { pokemon_name?: string | null; same_set?: MiniCard[]; same_pokemon?: MiniCard[] }
-    const sameSet = Array.isArray(d.same_set) ? d.same_set : []
-    const samePokemon = Array.isArray(d.same_pokemon) ? d.same_pokemon : []
-
-    // ★ Preco das relacionadas (Fase 2b do #490, 09/10/2026). A RPC devolve
-    // miniatura sem preco, e carta sem preco num carrossel e so figurinha.
-    // Lookup por chave primaria de no maximo 16 ids (Index Scan, dezenas de
-    // buffers), dentro do mesmo cache de 24 h. Chave -v2 porque a forma mudou.
-    const ids = Array.from(new Set([...sameSet, ...samePokemon].map(c => c.id)))
-    const extras = new Map<string, Partial<MiniCard>>()
-    if (ids.length) {
-      const { data: linhas, error: e2 } = await sb
-        .from('pokemon_cards')
-        .select('id, rarity, idioma, preco_min, preco_medio, preco_max')
-        .in('id', ids)
-      if (e2) throw new Error(`[carta] preco das relacionadas: ${e2.message}`)
-      for (const l of (linhas || []) as any[]) {
-        extras.set(l.id, {
-          rarity: l.rarity ?? null,
-          idioma: l.idioma ?? null,
-          preco_min: precoNum(l.preco_min),
-          preco_medio: precoNum(l.preco_medio),
-          preco_max: precoNum(l.preco_max),
-        })
-      }
-    }
-    const enriquecer = (c: MiniCard): MiniCard => ({ ...c, ...(extras.get(c.id) || {}) })
+    const { data, error } = await sb.rpc('get_related_cards_v2', { p_id: id, p_limit: 8 })
+    if (error) throw new Error(`[carta] get_related_cards_v2: ${error.message}`)
+    const d = (data || {}) as { pokemon_name?: string | null; artist?: string | null; same_set?: any[] }
     return {
       pokemon_name: d.pokemon_name ?? null,
-      same_set: sameSet.map(enriquecer),
-      same_pokemon: samePokemon.map(enriquecer),
+      artist: d.artist ?? null,
+      same_set: Array.isArray(d.same_set) ? d.same_set.map(miniCard) : [],
     }
   },
-  ['carta-relacionadas-v2'],
+  ['carta-relacionadas-v3'],
   { revalidate: 86400 },
 )
 
@@ -660,7 +659,67 @@ async function fetchRelatedCards(id: string): Promise<RelatedCards> {
   try {
     return await relacionadasEmCache(id)
   } catch {
-    return { pokemon_name: null, same_set: [], same_pokemon: [] }
+    return { pokemon_name: null, artist: null, same_set: [] }
+  }
+}
+
+/** As 7 cartas mais caras do Pokemon (7 porque a carta atual pode estar entre elas). */
+const valiosasDoPokemonEmCache = unstable_cache(
+  async (nome: string): Promise<MiniCard[]> => {
+    const sb = getServiceSupabase()
+    if (!sb) throw new Error('[carta] sem cliente Supabase')
+    const { data, error } = await sb
+      .from('pokemon_cards')
+      .select(COLS_MINI)
+      .contains('base_pokemon_names', [nome])
+      .not('image_small', 'is', null)
+      .gt('preco_min', 0)
+      .order('preco_min', { ascending: false })
+      .limit(7)
+    if (error) throw new Error(`[carta] valiosas do Pokemon: ${error.message}`)
+    return (data || []).map(miniCard)
+  },
+  ['carta-pokemon-valiosas-v1'],
+  { revalidate: 86400 },
+)
+
+/** As 7 cartas mais caras do mesmo ilustrador. */
+const doIlustradorEmCache = unstable_cache(
+  async (artista: string): Promise<MiniCard[]> => {
+    const sb = getServiceSupabase()
+    if (!sb) throw new Error('[carta] sem cliente Supabase')
+    const { data, error } = await sb
+      .from('pokemon_cards')
+      .select(COLS_MINI)
+      .eq('artist', artista)
+      .not('image_small', 'is', null)
+      .gt('preco_min', 0)
+      .order('preco_min', { ascending: false })
+      .limit(7)
+    if (error) throw new Error(`[carta] cartas do ilustrador: ${error.message}`)
+    return (data || []).map(miniCard)
+  },
+  ['carta-ilustrador-v1'],
+  { revalidate: 86400 },
+)
+
+async function fetchValiosasDoPokemon(nome: string | null): Promise<MiniCard[]> {
+  if (!nome) return []
+  try {
+    return await valiosasDoPokemonEmCache(nome)
+  } catch (err) {
+    console.error('[carta] valiosas do Pokemon:', (err as Error)?.message)
+    return []
+  }
+}
+
+async function fetchDoIlustrador(artista: string | null): Promise<MiniCard[]> {
+  if (!artista) return []
+  try {
+    return await doIlustradorEmCache(artista)
+  } catch (err) {
+    console.error('[carta] cartas do ilustrador:', (err as Error)?.message)
+    return []
   }
 }
 
@@ -997,8 +1056,10 @@ export default async function CartaPage({
   // a RPC casa por id de carta, nao por slug — passa o id resolvido.
   // (Vem antes do breadcrumb desde 09/10: a trilha passou a incluir o hub do
   // Pokemon, e o nome dele sai daqui. E Data Cache de 24h, a ordem nao custa.)
-  const [related, historico, statsConvite] = await Promise.all([
-    fetchRelatedCards(card.id),
+  const related = await fetchRelatedCards(card.id)
+  const [valiosas, doIlustrador, historico, statsConvite] = await Promise.all([
+    fetchValiosasDoPokemon(related.pokemon_name),
+    fetchDoIlustrador(related.artist),
     fetchHistorico(card.id),
     fetchStatsConvite(),
   ])
@@ -1032,7 +1093,7 @@ export default async function CartaPage({
 
   // Outras cartas do mesmo Pokemon como produtos relacionados no JSON-LD
   // (ja estao em memoria, vindas da RPC cacheada).
-  const similares = related.same_pokemon.filter(c => (c.slug || c.id) !== (card.slug || card.id)).slice(0, 6)
+  const similares = valiosas.filter(c => c.id !== card.id).slice(0, 6)
   if (similares.length) {
     productSchema.isSimilarTo = similares.map(c => ({
       '@type': 'Product',
@@ -1050,23 +1111,26 @@ export default async function CartaPage({
     setNames: [card.setName, card.setNamePt],
   })
 
-  // ★ Os dois carrosseis (Fase 2b do #490). A RPC atual traz as 8 cartas MAIS
-  // RECENTES do Pokemon; aqui elas saem da mais cara para a mais barata, 6 no
-  // maximo. O titulo diz "mais cartas", nao "mais valiosas": ordenar 8 recentes
-  // por preco nao prova que sao as mais valiosas do Pokemon -- isso e a RPC v2
-  // da Fase 3. Do set, as 6 vizinhas de numero, na ordem da RPC.
+  // ★ Os tres carrosseis (Fase 2b + Fase 3 do #490): as 6 mais valiosas do
+  // Pokemon (agora de verdade: ordenadas no banco entre TODAS as cartas dele),
+  // as 6 vizinhas do set e as 6 mais caras do mesmo ilustrador. Nenhuma carta
+  // se repete entre eles, e a propria carta fica de fora.
   // Total impresso: do mesmo set, e o da propria carta (printed_total, "86");
   // de outro set nao se sabe aqui, e o set_total do catalogo conta as secretas
   // ("166/172" numa pagina que diz "172/86") -- sai so o numero.
-  const maisDoPokemon = [...related.same_pokemon]
-    .sort((a, b) => (b.preco_min ?? 0) - (a.preco_min ?? 0))
-    .slice(0, 6)
-    .map(c => ({ ...c, set_total: null }))
-  const jaMostradas = new Set(maisDoPokemon.map(c => c.id))
-  const maisDoSet = related.same_set
-    .filter(c => !jaMostradas.has(c.id))
-    .slice(0, 6)
-    .map(c => ({ ...c, set_total: card.setTotal }))
+  const jaMostradas = new Set<string>([card.id])
+  const pegar = (lista: MiniCard[], setTotal: number | null) => {
+    const out: MiniCard[] = []
+    for (const c of lista) {
+      if (out.length >= 6 || jaMostradas.has(c.id)) continue
+      jaMostradas.add(c.id)
+      out.push({ ...c, set_total: setTotal })
+    }
+    return out
+  }
+  const maisDoPokemon = pegar(valiosas, null)
+  const maisDoSet = pegar(related.same_set, card.setTotal)
+  const maisDoIlustrador = pegar(doIlustrador, null)
   const slugDaPagina = `/carta/${card.slug || card.id}`
 
   // ★ Mercado Livre POR SET (Fase 2 do #490): booster e ETB do set da carta em
@@ -1111,7 +1175,7 @@ export default async function CartaPage({
         {related.pokemon_name && (
           <CarrosselCartas
             idTitulo="mais-do-pokemon"
-            titulo={`Mais cartas de ${related.pokemon_name}`}
+            titulo={`Mais valiosas de ${related.pokemon_name}`}
             cartas={maisDoPokemon}
             verTodas={{ href: `/pokemon/${slugifyName(related.pokemon_name)}`, label: `Ver todas as cartas de ${related.pokemon_name}` }}
           />
@@ -1130,6 +1194,16 @@ export default async function CartaPage({
             titulo={`Mais de ${card.setNamePt || card.setName}`}
             cartas={maisDoSet}
             verTodas={card.setId ? { href: `/set/${card.setId}`, label: 'Ver o set completo' } : undefined}
+          />
+        )}
+
+        {/* Do mesmo ilustrador (Fase 3): sem "ver todas" porque o hub de
+            ilustrador ainda nao existe -- e um item da Fase 3 que para no Du. */}
+        {related.artist && (
+          <CarrosselCartas
+            idTitulo="mais-do-ilustrador"
+            titulo={`Ilustradas por ${related.artist}`}
+            cartas={maisDoIlustrador}
           />
         )}
 
