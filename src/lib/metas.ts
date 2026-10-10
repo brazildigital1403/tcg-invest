@@ -134,6 +134,8 @@ export type OfertaMeta = {
   idioma: string
   badges: string[]
   graduada: boolean
+  /** `users.id` de quem vende -- chave do carrinho por vendedor. */
+  vendedorId: string
   vendedor: string
   lojaId: string | null
   lojaNome: string | null

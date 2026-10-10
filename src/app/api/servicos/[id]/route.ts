@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  sbAdmin, carregarAutorizado, erro, enderecoRecebimento, BUCKET_SERVICOS, pagamentosDoPedido, etapaDevida,
+  sbAdmin, carregarAutorizado, erro, enderecoRecebimento, BUCKET_SERVICOS, pagamentosDoPedido, etapaCobravel,
   envioLiberado, pixRecebimento,
 } from '@/lib/servicosServer'
 
@@ -34,7 +34,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     // Pagamento por etapa: o endereco so sai depois do sinal (ou do integral).
     const pagamentos = await pagamentosDoPedido(id)
-    const devida = etapaDevida(sol.status, !!sol.proposta_aceita_em, pagamentos)
+    // O servico so vira "devido" depois que a cobranca saiu (com recusa na
+    // proposta, o admin confere o valor antes). Ate la: "recalculando".
+    const cobrancaEnviada = (eventos || []).some(e => e.status === 'cobranca_servico')
+    const { devida, recalculando } = etapaCobravel(sol.status, !!sol.proposta_aceita_em, pagamentos, cobrancaEnviada)
 
     const paths = (midias || []).map(m => m.path)
     const { data: assinadas } = paths.length
@@ -50,8 +53,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       // A proposta so aparece para o cliente depois de enviada (rascunho do painel fica oculto).
       procedimentos: sol.proposta_enviada_em ? procs || [] : [],
       endereco: sol.status === 'aceito' && envioLiberado(pagamentos) ? enderecoRecebimento() : null,
-      pagamentos: pagamentos.map(({ etapa, valor_cents, pago_em }) => ({ etapa, valor_cents, pago_em })),
+      pagamentos: pagamentos.map(({ etapa, valor_cents, pago_em, reembolsado_cents, reembolsado_em }) => ({ etapa, valor_cents, pago_em, reembolsado_cents, reembolsado_em })),
       devida: devida ? { etapa: devida.etapa, valor_cents: devida.valor_cents } : null,
+      recalculando,
       pix: devida ? pixRecebimento() : null,
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {

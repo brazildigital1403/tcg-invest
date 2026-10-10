@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { pctLabel, calcularCheckout, fmtBRL, type PrazoRepasse, type MetodoPagamento } from '@/lib/comissao'
-import { IconSearch, IconCheck, IconWarning, IconWallet, IconBolt, IconCard, IconTruck, IconKey } from '@/components/ui/Icons'
+import { IconSearch, IconCheck, IconWarning, IconWallet, IconBolt, IconCard, IconTruck, IconKey, IconClock } from '@/components/ui/Icons'
+import { rotulosPendencias } from '@/lib/connect-status'
 
 /**
  * Pagamentos da loja — Stripe Connect Express (Fase 1 do epico de vendas).
@@ -37,6 +38,32 @@ const EXEMPLO_CENTS = 24990
 function fmtCep(v: string): string {
   const d = String(v || '').replace(/\D/g, '').slice(0, 8)
   return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d
+}
+
+/**
+ * O que a Stripe ainda quer, com nome de gente.
+ *
+ * ★ Nao mostra contagem, mostra os ITENS. A versao antiga dizia "Pendencias: N
+ * item(ns)" e o cartao de conta restrita nao dizia nada — quem lia ia ao
+ * onboarding procurar as cegas. Um numero so ajuda quando a pessoa ja sabe do
+ * que ele fala.
+ *
+ * Lista vazia some por completo: em 27/09/2026 uma conta EM ANALISE foi
+ * classificada como restrita e o lojista recebeu "a Stripe precisa de mais 0
+ * informacao(oes)". A classificacao foi corrigida na raiz (`connect-status.ts`,
+ * gotcha 3), e aqui fica a segunda tranca — se a contagem for zero, nao ha
+ * frase nenhuma para ficar absurda.
+ */
+function ListaPendencias({ campos }: { campos?: string[] }) {
+  const itens = rotulosPendencias(campos || [])
+  if (itens.length === 0) return null
+  return (
+    <ul style={S.pendLista}>
+      {itens.map(i => (
+        <li key={i} style={S.pendItem}>{i}</li>
+      ))}
+    </ul>
+  )
 }
 
 export default function LojaPagamentosPage({ params }: { params: Promise<{ id: string }> }) {
@@ -230,16 +257,14 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
               </div>
             ) : status === 'pendente' ? (
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
-                <div style={S.icone}>⏳</div>
+                <div style={S.icone}><IconClock size={36} strokeWidth={1.2} /></div>
                 <span style={S.badgePend}>Cadastro incompleto</span>
                 <p style={S.txt}>
                   {voltouDoOnboarding
                     ? 'A Stripe ainda está conferindo (ou faltou algum dado). Continue de onde parou.'
                     : 'Você começou o cadastro mas ainda falta concluir.'}
                 </p>
-                {(info?.pendencias?.length || 0) > 0 && (
-                  <p style={S.pend}>Pendências: {info!.pendencias.length} item(ns) a preencher</p>
-                )}
+                <ListaPendencias campos={info?.pendencias} />
                 <button onClick={ativar} disabled={indo} style={{ ...SH.btnPrimary, marginTop: 4, opacity: indo ? 0.6 : 1 }}>
                   {indo ? 'Abrindo…' : 'Continuar cadastro →'}
                 </button>
@@ -248,7 +273,8 @@ export default function LojaPagamentosPage({ params }: { params: Promise<{ id: s
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
                 <div style={{ ...S.icone, color: '#f59e0b' }}><IconWarning size={36} strokeWidth={1.2} /></div>
                 <span style={S.badgeRestr}>Conta com pendência</span>
-                <p style={S.txt}>A Stripe pediu informações adicionais para liberar seus recebimentos.</p>
+                <p style={S.txt}>A Stripe pediu mais dados para liberar seus recebimentos.</p>
+                <ListaPendencias campos={info?.pendencias} />
                 <button onClick={ativar} disabled={indo} style={{ ...SH.btnPrimary, marginTop: 4, opacity: indo ? 0.6 : 1 }}>
                   {indo ? 'Abrindo…' : 'Resolver pendência →'}
                 </button>
@@ -431,6 +457,8 @@ const S: Record<string, React.CSSProperties> = {
   txt: { fontSize: 13.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.55, margin: '0 0 14px', maxWidth: 460, marginLeft: 'auto', marginRight: 'auto' },
   mini: { fontSize: 11.5, color: 'rgba(255,255,255,0.35)', marginTop: 10 },
   pend: { fontSize: 12, color: '#f59e0b', margin: '0 0 12px' },
+  pendLista: { margin: '0 auto 14px', padding: '0 0 0 20px', maxWidth: 300, textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, gap: 6, color: '#f59e0b' },
+  pendItem: { fontSize: 13, lineHeight: 1.4, color: 'rgba(255,255,255,0.75)' },
   badgeOk: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', marginBottom: 12 },
   badgeAnalise: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(96,165,250,0.15)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', marginBottom: 12 },
   badgePend: { display: 'inline-block', fontSize: 11, fontWeight: 800, padding: '5px 11px', borderRadius: 20, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', marginBottom: 12 },

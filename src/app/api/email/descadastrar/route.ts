@@ -55,13 +55,26 @@ export async function POST(req: NextRequest) {
 }
 
 // ─── GET: pessoa clicou no link do rodape ───────────────────────────────────
+// Sucesso redireciona para /email/preferencias; a pagina abaixo so aparece
+// quando o token e invalido ou o banco falhou.
 export async function GET(req: NextRequest) {
   const token = new URL(req.url).searchParams.get('t') || ''
   const r = await descadastrar(token)
 
-  const titulo = r === 'ok' ? 'Pronto, você saiu da lista' : 'Não conseguimos confirmar'
-  const texto = r === 'ok'
-    ? 'Você não vai mais receber nossos e-mails de novidade e lembrete. Recibo de compra, pedido do Mercado e resposta de suporte continuam chegando — esses são sobre coisas que você fez na conta.'
+  // ★ Regua F0 (#391): em vez de so confirmar a saida, leva para a pagina de
+  // preferencias com o mesmo token. A saida JA foi gravada acima -- quem
+  // clicou em "Descadastrar" esta fora, como o rodape promete; a pagina so
+  // oferece voltar a receber uma parte. 303 para o navegador fazer GET.
+  if (r === 'ok') {
+    const destino = new URL('/email/preferencias', req.url)
+    destino.searchParams.set('t', token)
+    destino.searchParams.set('saiu', '1')
+    return NextResponse.redirect(destino, 303)
+  }
+
+  const titulo = 'Não conseguimos confirmar'
+  const texto = r === 'erro'
+    ? 'Tivemos um problema para registrar a sua saída. Tente o link de novo em alguns minutos, ou responda qualquer e-mail nosso que a gente resolve.'
     : 'Esse link parece inválido ou expirado. Se quiser sair da lista, responda qualquer e-mail nosso que a gente resolve.'
 
   return new NextResponse(

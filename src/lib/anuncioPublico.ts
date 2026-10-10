@@ -4,6 +4,7 @@ import { getServiceSupabase } from '@/lib/supabaseServer'
 import { podeExpirar, liberaEm as calcLiberaEm } from '@/lib/marketplaceStatus'
 import { badgesDaCarta } from '@/lib/badgesCarta'
 import { resolverRecebedor, podeReceber } from '@/lib/vendedorRecebimento'
+import { pesoDeCartasG } from '@/lib/melhor-envio'
 
 /**
  * Um anuncio do marketplace, para a pagina PUBLICA dele.
@@ -30,14 +31,18 @@ import { resolverRecebedor, podeReceber } from '@/lib/vendedorRecebimento'
 
 /**
  * ★ O FRETE DA CARTA JA TEM PESO PADRAO, e ele nunca apareceu na tela.
- * `pacoteDeCarta` (src/lib/melhor-envio.ts) cota toda carta como 80 g em
- * 13x18x2 cm, com seguro pelo valor do anuncio. O Du achou que a Bynx nao
- * tinha essa informacao em lugar nenhum -- tinha, so que enterrada no codigo,
- * o que na pratica e a mesma coisa pra quem compra e pra quem vende.
- * Estes valores existem pra EXIBIR o que ja e cobrado; a fonte da cotacao
- * continua sendo o `pacoteDeCarta`, nao daqui.
+ * O Du achou que a Bynx nao tinha essa informacao em lugar nenhum -- tinha,
+ * so que enterrada no codigo, o que na pratica e a mesma coisa pra quem
+ * compra e pra quem vende. Estes valores existem pra EXIBIR o que ja e
+ * cobrado; a fonte da cotacao continua sendo o `pacoteDeCartas`.
+ *
+ * ★ NAO CRAVAR O NUMERO AQUI (02/10/2026). Ate hoje esta linha dizia 80 g e a
+ * de `melhor-envio.ts` tambem: duas copias da mesma conta, que e exatamente
+ * o jeito de uma envelhecer sem a outra. Quando a gramatura foi corrigida
+ * para 19 g, a ficha publica teria continuado anunciando 80 g para o
+ * comprador. Agora ela DERIVA da lib de frete -- muda la, muda aqui.
  */
-export const CARTA_PESO_G = 80
+export const CARTA_PESO_G = pesoDeCartasG(1)
 export const CARTA_DIMENSOES = '13 x 18 x 2 cm'
 
 export type AnuncioPublico = {
@@ -63,6 +68,8 @@ export type AnuncioPublico = {
   travado: boolean
   /** ISO de quando ele volta pro marketplace. `null` quando nao e travado. */
   liberaEm: string | null
+  /** `users.id` de quem vende. E a chave do carrinho por vendedor. */
+  vendedorId: string
   vendedorNome: string
   vendedorCidade: string | null
   vendedorUsername: string | null
@@ -77,7 +84,8 @@ export type AnuncioPublico = {
    * ★ DEIXOU DE SER "TEM LOJA" (24/09/2026). Ate aqui isto era
    * `lojaPodeVender`, e sem loja nao havia caminho -- o que condenava 70 dos
    * 100 anuncios ao "Tenho interesse" para sempre. Agora quem responde e o
-   * `resolverRecebedor`: vale a conta da loja, e vale a conta da pessoa.
+   * `resolverRecebedor`: anuncio de loja vale pela conta DA LOJA, anuncio de
+   * pessoa pela conta DA PESSOA -- sem heranca entre as duas (01/10/2026).
    *
    * Continua exigindo o Connect LIBERADO, e nao so cadastrado: oferecer
    * "Comprar" a quem nao pode receber e prometer o que quebra no fim do
@@ -143,6 +151,7 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
     disponivel: a.status === 'disponivel',
     travado: podeExpirar(a.status),
     liberaEm: calcLiberaEm(a.status, a.status_em),
+    vendedorId: a.user_id as string,
     vendedorNome: (l?.nome || u?.name || 'Vendedor Bynx').trim(),
     vendedorCidade: u?.city?.trim() || null,
     vendedorUsername: u?.username || null,
@@ -157,4 +166,72 @@ export const buscarAnuncioPublico = cache(async function buscarAnuncioPublico(
     lojaCidade: l?.cidade?.trim() || null,
     lojaEstado: l?.estado?.trim() || null,
   }
+})
+
+/** Carta do mesmo vendedor, no bloco "Mais deste vendedor". */
+export type OutroDoVendedor = {
+  id: string
+  slug: string | null
+  nome: string
+  imagem: string | null
+  precoCents: number
+  condicao: string | null
+}
+
+/**
+ * As outras cartas a venda do mesmo vendedor.
+ *
+ * ★ POR QUE EXISTE (02/10/2026). O frete e quase todo custo fixo de postagem:
+ * medido na cotacao real, 1 carta de Fortaleza para SP custa R$ 17,43 e 10
+ * cartas na mesma remessa custam R$ 17,49. Mas quem abria o anuncio de uma
+ * carta de R$ 0,90 via R$ 17,44 de frete e ia embora, porque NADA na tela
+ * dizia que a mesma vendedora tinha mais 12 cartas e que o envio seria um so.
+ * O carrinho por vendedor subiu em `36cb82a` e ficou sem convite: carrinho
+ * possivel nao e carrinho usado.
+ *
+ * ★ `disponivel` DE VERDADE: exige `status = 'disponivel'` E `removido_em`
+ * nulo. Travado em negociacao e moderado pelo admin ficam de fora -- o numero
+ * na faixa tem que bater com o que a pessoa encontra ao clicar, senao a
+ * primeira impressao do recurso e a de um numero que mente.
+ *
+ * Nao recebe o recebedor de volta: quem chama ja sabe se o vendedor fecha
+ * venda (`podeComprar` do proprio anuncio), e as cartas sao as mesmas pessoa.
+ */
+export const buscarOutrosDoVendedor = cache(async function buscarOutrosDoVendedor(
+  vendedorId: string,
+  excetoAnuncioId: string,
+  limite = 6,
+): Promise<{ itens: OutroDoVendedor[]; total: number }> {
+  const db = getServiceSupabase()
+  if (!db) return { itens: [], total: 0 }
+
+  const { data, error, count } = await db
+    .from('marketplace')
+    .select('id, slug, card_name, card_image, fotos, price, condicao', { count: 'exact' })
+    .eq('user_id', vendedorId)
+    .eq('status', 'disponivel')
+    .is('removido_em', null)
+    .neq('id', excetoAnuncioId)
+    // ★ MAIS BARATAS PRIMEIRO, de proposito. Quem esta nesta tela chegou por
+    //   uma carta e vai decidir se junta outra para diluir o frete -- abrir
+    //   com a mais cara e desenhar para o caso que nao existe.
+    .order('price', { ascending: true })
+    .limit(limite)
+
+  if (error) {
+    console.error('[anuncio] outros do vendedor:', error.message)
+    return { itens: [], total: 0 }
+  }
+
+  const itens: OutroDoVendedor[] = (data || []).map(c => ({
+    id: c.id as string,
+    slug: (c.slug as string) || null,
+    nome: (c.card_name as string) || 'Carta',
+    // A foto do vendedor vence a imagem do catalogo, igual a pagina do anuncio.
+    imagem: (Array.isArray(c.fotos) && c.fotos[0]) || (c.card_image as string) || null,
+    precoCents: Math.round(Number(c.price) * 100),
+    condicao: (c.condicao as string) || null,
+  }))
+
+  return { itens, total: count ?? itens.length }
 })

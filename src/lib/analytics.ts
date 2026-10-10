@@ -48,6 +48,8 @@ type EventName =
   | 'pro_upgrade_initiated'
   | 'pro_upgrade_completed'
   | 'loja_clique'
+  | 'auth_modal_opened'
+  | 'signup_step'
 
 // ─── Push genérico (fail-safe, SSR-safe) ────────────────────────────────────
 
@@ -97,6 +99,26 @@ export function trackSignUp(params: {
   } catch {
     // Silent fail — tracking nunca quebra cadastro.
   }
+}
+
+/**
+ * Modal de auth aberto, com o botao que abriu (ver gravarCta em atribuicao.ts).
+ * E o topo do funil clique -> conta criada: quantos abrem o modal pelo
+ * "Adicionar a colecao" e quantos chegam ao sign_up.
+ */
+export function trackAuthModalOpened(params: { modo: 'signup' | 'login'; cta: string | null }): void {
+  push('auth_modal_opened', { modo: params.modo, cta: params.cta || undefined })
+}
+
+/**
+ * Etapa do cadastro concluida (1 = dados da conta, 2 = perfil e aceites, que
+ * e o submit). Com o auth_modal_opened antes e o sign_up depois, da a
+ * proporcao entre etapas -- a medida que faltava antes de encurtar o
+ * formulario (Fase 3 do #490). Mesma ressalva do sign_up: so quem aceitou
+ * cookies e visto.
+ */
+export function trackSignupStep(etapa: 1 | 2, cta: string | null): void {
+  push('signup_step', { etapa, cta: cta || undefined })
 }
 
 /**
@@ -230,7 +252,7 @@ export type BynxEvent =
   // Metas de colecao (#368). O que decide a estrategia e o ultimo: Gratis que
   // bate o limite de cartas VINDO de uma meta. Amostra (PostHog ve ~22%); a
   // leitura principal sai do banco (metas_colecao.created_at / concluida_em).
-  | { name: 'meta_criada'; properties: { tipo: 'pokemon' | 'set'; alvo: string; idioma: string | null; plano: string; origem?: 'sugestao' | 'busca' | 'idioma' | 'pokedex' } }
+  | { name: 'meta_criada'; properties: { tipo: 'pokemon' | 'set'; alvo: string; idioma: string | null; plano: string; origem?: 'sugestao' | 'busca' | 'idioma' | 'pokedex' | 'link' } }
   | { name: 'meta_aberta'; properties: { tipo: 'pokemon' | 'set'; total: number; tenho: number; plano: string } }
   | { name: 'meta_concluida'; properties: { tipo: 'pokemon' | 'set'; total: number; plano: string } }
   | { name: 'limite_cartas_atingido'; properties: { origem: 'meta' | 'pokedex'; limite: number; plano: string } }

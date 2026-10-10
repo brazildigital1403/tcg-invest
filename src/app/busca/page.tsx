@@ -34,7 +34,7 @@ function getSb() {
 async function buscar(q: string): Promise<Row[]> {
   const sb = getSb()
   if (!sb) return []
-  const { data, error } = await sb.rpc('busca_global', { q, lim: 24 })
+  const { data, error } = await sb.rpc('busca_global_v2', { q, lim: 24 })
   if (error) return []
   return (data || []) as Row[]
 }
@@ -83,7 +83,7 @@ export default async function BuscaPage({
 }) {
   const { q } = await searchParams
   const termo = (q || '').trim()
-  const rows = termo.length >= 2 ? await buscar(termo) : []
+  const rows = termo.length >= 3 ? await buscar(termo) : []
   const pokemons = rows.filter((r) => r.kind === 'pokemon')
   const cartas = rows.filter((r) => r.kind === 'card')
 

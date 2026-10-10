@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import PublicHeader from '@/components/ui/PublicHeader'
-import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield } from '@/components/ui/Icons'
+import { IconLocation, IconCalendar, IconWallet, IconTrendingUp, IconCollection, IconCollection as IconCards, IconMarketplace, IconCheck, IconBox, IconShield, IconCarrinho } from '@/components/ui/Icons'
 import { supabase } from '@/lib/supabaseClient'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
 import MinhasLojasBox from '@/components/perfil/MinhasLojasBox'
@@ -47,6 +47,21 @@ const VARIANTE_COLOR: Record<string, string> = {
  * (pastas, grafico, progresso por set, reputacao) e o que depende de SESSAO
  * (viewer, dono, perfil privado) -- que nao pode vir de pagina cacheada.
  */
+/** Linha de perfil_cartas_publicas -- as colunas que o perfil publico usa. */
+type CartaPerfil = {
+  card_name: string | null
+  variante: string | null
+  quantity: number | null
+  card_image: string | null
+  set_name: string | null
+  set_id: string | null
+  pokemon_api_id: string | null
+  card_link: string | null
+  graduada: boolean | null
+  valor_graduada: number | null
+  origem: string | null
+}
+
 export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null }) {
 
   const params = useParams()
@@ -68,6 +83,8 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
   const [isPrivate, setIsPrivate] = useState(false)
   const [isOwnerPreview, setIsOwnerPreview] = useState(false)
   const [logado, setLogado] = useState<boolean | null>(null)
+  /** Este vendedor fecha venda pela Bynx agora? Ver a regra no `load`. */
+  const [podeComprar, setPodeComprar] = useState(false)
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [interesseEnviando, setInteresseEnviando] = useState<string | null>(null)
   const { showConfirm, showAlert } = useAppModal()
@@ -85,12 +102,13 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
       // Suporta username OU UUID
       // S29: lê de public_users (view sem PII) em vez da tabela `users` direto.
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-      const query = supabase.from('public_users').select('id, name, city, created_at, username, perfil_publico, perfil_ocultar_valores')
+      const query = supabase.from('public_users').select('id, name, city, created_at, username, perfil_publico, perfil_ocultar_valores, vende_online')
       const { data: userData } = isUUID
         ? await query.eq('id', id).single()
         : await query.eq('username', id).single()
 
       if (!userData) { setNotFound(true); setLoading(false); return }
+      const ocultar = !!userData.perfil_ocultar_valores
 
       // S40: perfil privado. Menores de 18 e quem optou por privado ficam
       // ocultos pra terceiros. O proprio dono ve o perfil (com banner de aviso).
@@ -112,6 +130,27 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
 
       const uid = userData.id // sempre usa o UUID real
 
+      // ★ COMPRAR OU NEGOCIAR (02/10/2026). Ate aqui o perfil oferecia
+      //   "Tenho interesse" para todo anuncio, inclusive de quem ja fecha
+      //   venda pela Bynx -- era a terceira tela a decidir isso por conta
+      //   propria, e a terceira a discordar das outras duas.
+      //
+      //   A regra e a de `resolverRecebedor`, e e EXCLUSIVA: tendo loja
+      //   ativa, quem recebe e a conta DA LOJA; sem loja, a da pessoa. Nunca
+      //   as duas -- isso seria a heranca que saiu em 4a0de6f.
+      const { data: lojaDoDono } = await supabase
+        .from('lojas')
+        .select('connect_charges_enabled')
+        .eq('owner_user_id', uid)
+        .eq('status', 'ativa')
+        .order('created_at', { ascending: true })
+        .limit(1)
+      setPodeComprar(
+        lojaDoDono && lojaDoDono.length > 0
+          ? !!lojaDoDono[0].connect_charges_enabled
+          : !!userData.vende_online
+      )
+
       // Anúncios ativos
       // `removido_em` e a moderacao do admin, que NAO mexe no `status` — sem
       // este filtro o perfil publico seguia exibindo anuncio removido.
@@ -127,24 +166,20 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
       // a RPC devolve so o numero (perfil publico ou proprio dono).
       const { data: vendasCount } = await supabase.rpc('vendas_concluidas_count', { uid })
 
-      // Total cartas
-      const { count: totalCartas } = await supabase
-        .from('user_cards').select('*', { count: 'exact', head: true }).eq('user_id', uid)
-
-      // Cartas com preços — para showcase e patrimônio
-      // R6: usamos pokemon_api_id como chave de lookup em pokemon_cards (canonical).
-      const { data: cards } = await supabase
-        .from('user_cards')
-        // `graduada` e `valor_graduada` sao obrigatorios: calcPatrimonio trata
-        // slab como outro produto (degrau 1 da cascata), mas sem os campos no
-        // payload o degrau nunca dispara. O grafico logo abaixo desta tela usa
-        // portfolio_history, que JA conta o slab -- entao o numero grande do
-        // perfil ficava abaixo do ultimo ponto do proprio grafico.
-        // `origem` alimenta o stat de cartas verificadas. Sem ele aqui o box
-        // aparecia no SSR e SUMIA na hidratacao -- mesma armadilha que os
-        // links do showcase ja tiveram.
-        .select('card_name, variante, quantity, card_image, set_name, pokemon_api_id, card_link, graduada, valor_graduada, origem')
-        .eq('user_id', uid)
+      // Cartas do perfil pela RPC perfil_cartas_publicas (#485), nao pela
+      // tabela: a policy publica de user_cards deixou de entregar as cartas de
+      // quem esconde valores, e a RPC devolve as mesmas colunas com o
+      // valor_graduada mascarado (NULL) para terceiros. Alimenta showcase,
+      // patrimonio, cartas verificadas e progresso por set. `graduada` e
+      // `valor_graduada` seguem obrigatorios: calcPatrimonio trata slab como
+      // outro produto (degrau 1 da cascata). `origem` alimenta o stat de
+      // cartas verificadas.
+      const { data: cardsRaw } = await supabase
+        .rpc('perfil_cartas_publicas', { p_user_id: uid })
+      const cards = (cardsRaw || []) as CartaPerfil[]
+      // Conta LINHAS, igual ao servidor (perfilPublico.ts) -- somar quantity
+      // faria o numero piscar na hidratacao.
+      const totalCartas = (cards || []).length
 
       if (cards && cards.length > 0) {
         const ids = [...new Set(
@@ -162,8 +197,11 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
         }
 
         // Patrimônio — fonte única (src/lib/calcPatrimonio.ts)
+        // Com "ocultar valores" o numero nao entra no estado: a tela ja nao
+        // pintava, mas o valor ficava no React e no payload. Mesmo corte que
+        // o SSR faz em perfilPublico.ts -- senao a hidratacao reintroduz.
         const { valor } = calcPatrimonio(cards as any[], priceMap)
-        setPatrimonio(valor)
+        setPatrimonio(ocultar ? 0 : valor)
 
         // Showcase: 6 cartas mais caras pelo maior valor
         // Showcase: as 6 mais valiosas.
@@ -178,7 +216,9 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
           // `slug` vem do lookup e e o que mantem o link pra /carta depois da
           // hidratacao -- sem ele o client remontava o showcase sem link e os
           // 6 links que o SSR tinha gerado sumiam da tela.
-          return { ...c, slug: p?.slug ?? null, maxValue: valorCarta(c as any, p), medioValue: valorCarta(c as any, p), _suspeita: !!p?.preco_nao_confiavel }
+          // card_image vazio cai pra imagem do catalogo (#473): carta do Scan
+          // pode entrar sem imagem propria, e o catalogo tem a arte certa.
+          return { ...c, card_image: c.card_image || p?.image_small || null, slug: p?.slug ?? null, maxValue: valorCarta(c as any, p), medioValue: valorCarta(c as any, p), _suspeita: !!p?.preco_nao_confiavel }
         })
           // Carta marcada pelo guard fica FORA do showcase. Ela costuma ser a
           // mais "valiosa" justamente por causa do preço inflado -- entraria em
@@ -187,6 +227,9 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
           .filter(c => c.maxValue > 0 || c.card_image)
           .sort((a, b) => b.maxValue - a.maxValue)
           .slice(0, 6)
+          // Ordena pelo valor e so depois apaga: a vitrine continua sendo "as
+          // mais valiosas", mas o numero nao fica no estado.
+          .map(c => ocultar ? { ...c, maxValue: 0, medioValue: 0 } : c)
 
         setShowcase(withPrices)
       }
@@ -209,14 +252,18 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
         setReputacao({ media: 0, total: 0 })
       }
 
-      // Histórico de patrimônio
-      const { data: history } = await supabase
+      // Histórico de patrimônio: os 60 mais RECENTES (decrescente + limit) e
+      // depois em ordem cronológica para o gráfico. Crescente com limit
+      // pegava os 60 mais antigos e congelava o gráfico no passado.
+      // Com "ocultar valores" a serie nem e buscada: o grafico ja nao era
+      // desenhado, mas os 60 pontos em reais chegavam ao navegador.
+      const { data: history } = ocultar ? { data: [] } : await supabase
         .from('portfolio_history')
         .select('valor, recorded_at')
         .eq('user_id', uid)
-        .order('recorded_at', { ascending: true })
+        .order('recorded_at', { ascending: false })
         .limit(60)
-      setPortfolioHistory(history || [])
+      setPortfolioHistory((history || []).reverse())
 
       // Progresso por set
       if (cards && cards.length > 0) {
@@ -440,7 +487,7 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                 const vColor = VARIANTE_COLOR[card.variante || 'normal'] || '#60a5fa'
                 const vLabel = VARIANTE_LABEL[card.variante || 'normal'] || 'Normal'
                 const corpo = (
-                  <div style={{ ...SURFACE, flex: '0 0 150px', overflow: 'hidden', position: 'relative', transition: 'transform 0.15s' }}
+                  <div style={{ ...SURFACE, flex: '0 0 150px', minWidth: 0, overflow: 'hidden', position: 'relative', transition: 'transform 0.15s' }}
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'}
                     onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = ''}
                   >
@@ -452,7 +499,13 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                     )}
                     {/* Imagem */}
                     {card.card_image
-                      ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', display: 'block' }} />
+                      // ★ PROPORCAO FIXA (#473). Era width:100% e nada mais: como a
+                      // caixa e flex sem min-width, a largura NATURAL do arquivo
+                      // mandava no tamanho do cartao. No perfil do Rodrigo, que
+                      // mistura tres fontes de imagem (265x368, 350x489), os seis
+                      // cartoes sairam 204x284, 167x233, 164x229 e 148x206 lado a
+                      // lado. Mesma proporcao do CardItem, 63/88.
+                      ? <img loading="lazy" decoding="async" src={card.card_image} alt={card.card_name} style={{ width: '100%', aspectRatio: '63/88', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ paddingBottom: '140%', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconCollection size={32} color="rgba(255,255,255,0.3)" /></div>
                     }
                     {/* Info */}
@@ -479,11 +532,11 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                   <Link
                     key={card.card_name + i}
                     href={`/carta/${card.slug}`}
-                    style={{ textDecoration: 'none', color: 'inherit', flex: '0 0 150px', display: 'block' }}
+                    style={{ textDecoration: 'none', color: 'inherit', flex: '0 0 150px', minWidth: 0, display: 'block' }}
                   >
                     {corpo}
                   </Link>
-                ) : <div key={card.card_name + i} style={{ flex: '0 0 150px' }}>{corpo}</div>
+                ) : <div key={card.card_name + i} style={{ flex: '0 0 150px', minWidth: 0 }}>{corpo}</div>
               })}
             </div>
           </div>
@@ -544,7 +597,19 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                       <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 100, color: 'rgba(255,255,255,0.5)' }}>{card.condicao || 'NM'}</span>
                     </div>
                     <p style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', letterSpacing: '-0.02em', marginBottom: 10 }}>{fmt(Number(card.price))}</p>
-                    {logado && viewerId !== user?.id && (
+                    {viewerId !== user?.id && (podeComprar ? (
+                      /* ★ COMPRAR NAO EXIGE LOGIN, e de proposito: o checkout
+                         atende quem nao tem conta (o `AppLayout` nao bloqueia
+                         deslogado) e o Mercado ja mostra "Comprar" assim. Exigir
+                         conta aqui deixaria o visitante deslogado olhando um
+                         anuncio comprável sem botao nenhum -- e faria esta tela
+                         discordar da vitrine de novo. "Tenho interesse" segue
+                         pedindo login, porque abre conversa. */
+                      <Link href={`/checkout/${card.id}`} className="bx-ctx-comprador"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', background: 'var(--ac-grad)', color: 'var(--bx-brand-ink)', padding: '9px', borderRadius: 10, fontWeight: 800, fontSize: 12, textDecoration: 'none' }}>
+                        <IconCarrinho size={14} /> Comprar
+                      </Link>
+                    ) : logado ? (
                       <button type="button" disabled={interesseEnviando === card.id}
                         onClick={async () => {
                           const confirmou = await showConfirm({
@@ -560,7 +625,7 @@ export default function PerfilPage({ inicial }: { inicial?: PerfilPublico | null
                         style={{ display: 'block', width: '100%', textAlign: 'center', background: BRAND, color: '#000', padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', opacity: interesseEnviando === card.id ? 0.6 : 1 }}>
                         {interesseEnviando === card.id ? 'Abrindo...' : 'Tenho interesse'}
                       </button>
-                    )}
+                    ) : null)}
                   </div>
                 </div>
               ))}

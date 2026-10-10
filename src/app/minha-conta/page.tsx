@@ -9,6 +9,8 @@ import { trackProUpgradeInitiated } from '@/lib/analytics'
 import { IconStarFilled, IconBolt, IconAccount, IconCalendar, IconLocation, IconWallet, IconShield, IconShare, IconCheck, IconKey, IconCard, IconWarning, IconCollection, IconClose, IconLink, IconCamera, IconCollection as IconBinder } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
+import EnderecoCard from '@/components/conta/EnderecoCard'
+import EmailPreferencias from '@/components/conta/EmailPreferencias'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { ENFORCEMENT_ATIVO, LIMITE_FREE } from '@/lib/checkCardLimit'
 
@@ -760,6 +762,21 @@ export default function MinhaConta() {
               </button>
             </div>
           </div>
+        </div>
+
+        {userData && (
+          <EnderecoCard
+            inicial={{
+              cep: userData.cep || '', logradouro: userData.logradouro || '', numero: userData.numero || '',
+              complemento: userData.complemento || '', bairro: userData.bairro || '', city: userData.city || '', uf: userData.uf || '',
+            }}
+            onSalvo={end => { setCity(end.city); setUserData((prev: any) => ({ ...prev, ...end })) }}
+          />
+        )}
+
+        {/* ── E-MAILS (regua F0, #391) ── */}
+        <div style={SURFACE}>
+          <EmailPreferencias embutido />
         </div>
 
         {/* ── SEGURANÇA ── */}

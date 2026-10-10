@@ -25,12 +25,13 @@ import { authFetch } from '@/lib/authFetch'
 import { comprimirImagem } from '@/lib/comprimirImagem'
 import { useAuthModal } from '@/components/auth/AuthModalProvider'
 import {
-  IconCheck, IconMinus, IconPlus, IconUpload, IconClose, IconWhatsApp, IconWarning, IconAccount,
+  IconCheck, IconMinus, IconPlus, IconUpload, IconClose, IconWhatsApp, IconWarning, IconAccount, IconClock,
 } from '@/components/ui/Icons'
 import {
   SERVICOS, SERVICOS_FORM_ATIVO, PRECOS, PRAZOS, LINKS, QUEIXAS, FOTO_SLOTS, MAX_CARTAS_POR_SOLICITACAO,
   OBJETIVOS, GRADUADORAS_ALVO, ROTULO_GRADUADORA, ALERTA_GRADUACAO,
-  precoDoServico, brl, type ServicoId, type FotoSlotId,
+  precoDoServico, brl, taxaValorDeclaradoCents, CORREIOS_VD, EXPRESSO_MAX_CARTAS, EXPRESSO_SERVICOS, AVISO_FILA_EXPRESSO,
+  PRAZO_PADRAO_ATE_CARTAS, PRECO_A_PARTIR, rotuloPreco, type ServicoId, type FotoSlotId,
 } from '@/lib/servicos'
 
 interface Foto { file: File; url: string }
@@ -88,7 +89,17 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const [qtd, setQtd] = useState(qtdInicial)
   const [logado, setLogado] = useState<boolean | null>(null)
   const [cartas, setCartas] = useState<CartaForm[]>(() => Array.from({ length: qtdInicial }, novaCarta))
-  const [prazo, setPrazo] = useState<'padrao' | 'expresso'>('padrao')
+  const [prazoEscolhido, setPrazo] = useState<'padrao' | 'expresso'>('padrao')
+  // Expresso so existe no pre-grading: trocar de servico volta ao padrao sozinho.
+  const temExpresso = PRECOS?.expresso != null && EXPRESSO_SERVICOS.includes(servico)
+  const prazo = temExpresso ? prazoEscolhido : 'padrao'
+  // Vagas do expresso na bancada (null = ainda perguntando).
+  const [vagaExpresso, setVagaExpresso] = useState<boolean | null>(null)
+  useEffect(() => {
+    let vivo = true
+    fetch('/api/servicos', { cache: 'no-store' }).then(r => r.json()).then(d => { if (vivo) setVagaExpresso(d.expresso_disponivel === true) }).catch(() => { if (vivo) setVagaExpresso(false) })
+    return () => { vivo = false }
+  }, [])
   const [objetivo, setObjetivo] = useState('')
   const [objetivoOutro, setObjetivoOutro] = useState('')
   const [graduadora, setGraduadora] = useState('')
@@ -99,6 +110,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
   const [tentou, setTentou] = useState(false)
   const [aviso, setAviso] = useState('')
   const [numero, setNumero] = useState<string | null>(null)
+  const [filaExpresso, setFilaExpresso] = useState(false)
   const [pedidoId, setPedidoId] = useState<string | null>(null)
   const [enviando, setEnviando] = useState('')
   const [erroEnvio, setErroEnvio] = useState('')
@@ -149,11 +161,46 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
     })
     if (erroW) p.push('Confira o WhatsApp')
     if (!ciente) p.push('Marque a ciência sobre recusa')
+    if (prazo === 'expresso' && qtd > EXPRESSO_MAX_CARTAS) p.push('O expresso é para 1 carta')
     return p
-  }, [logado, cartas, erroW, ciente, objetivo, objetivoOutro, graduadora])
+  }, [logado, cartas, erroW, ciente, objetivo, objetivoOutro, graduadora, prazo, qtd])
 
   const precoUnit = precoDoServico(servico)
   const totalDeclarado = cartas.reduce((s, c) => s + valorNum(c.valor), 0)
+  // Previsao do orcamento: servico por carta, expresso, desconto por volume e a
+  // taxa de valor declarado dos Correios na volta. O frete so sai no orcamento.
+  const previsao = useMemo(() => {
+    if (precoUnit == null) return null
+    const servicoR = precoUnit * qtd
+    const expressoR = prazo === 'expresso' && PRECOS?.expresso != null ? PRECOS.expresso : 0
+    const pctDesc = qtd > 20 ? PRECOS?.descAcima20 : qtd >= 10 ? PRECOS?.desc10a20 : null
+    const descontoR = pctDesc ? Math.round(servicoR * pctDesc) / 100 : 0
+    const correiosR = taxaValorDeclaradoCents(Math.round(totalDeclarado * 100)) / 100
+    return { servicoR, expressoR, pctDesc, descontoR, correiosR, total: servicoR + expressoR - descontoR + correiosR }
+  }, [precoUnit, qtd, prazo, totalDeclarado])
+
+  // Frete de volta estimado pelo CEP do cadastro (so logado, sob demanda). A
+  // chave guarda o que foi cotado: mudou servico, cartas, valor ou prazo, a
+  // estimativa deixa de valer e o botao volta.
+  const chaveFrete = `${servico}|${qtd}|${Math.round(totalDeclarado * 100)}|${prazo}`
+  const [freteEst, setFreteEst] = useState<{ chave: string; carregando: boolean; frete?: number; vd?: number; nome?: string; aviso?: string; semCep?: boolean } | null>(null)
+  const estimativa = freteEst?.chave === chaveFrete ? freteEst : null
+  async function estimarFrete() {
+    setFreteEst({ chave: chaveFrete, carregando: true })
+    try {
+      const r = await authFetch('/api/servicos/frete-estimado', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ servico, cartas: qtd, valor_declarado_cents: Math.round(totalDeclarado * 100), prazo }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: d.error || 'Não foi possível estimar agora.' }); return }
+      if (d.sem_cep) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Falta o seu CEP no cadastro.', semCep: true }); return }
+      if (d.sem_opcao) { setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Sem opção de envio para o seu CEP. Vem no orçamento.' }); return }
+      setFreteEst({ chave: chaveFrete, carregando: false, frete: d.frete_cents / 100, vd: d.valor_declarado_cents / 100, nome: d.servico_frete })
+    } catch {
+      setFreteEst({ chave: chaveFrete, carregando: false, aviso: 'Sem conexão.' })
+    }
+  }
 
   async function enviar() {
     setTentou(true)
@@ -199,6 +246,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
         const d = await r.json().catch(() => ({}))
         if (!r.ok) { setErroEnvio(d.error || 'Não conseguimos registrar o pedido. Tente de novo.'); return }
         envioRef.current = { id: d.id, numero: d.numero, uploads: d.uploads, feitos: [] }
+        setFilaExpresso(d.fila_expresso === true)
       }
 
       // 2. Sobe cada foto direto no bucket privado, pela URL assinada.
@@ -262,8 +310,9 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             <span className="sv-eyebrow">Solicitação registrada</span>
             <h2 className="sv-h1">{numero}</h2>
             <p className="sv-sub">Recebemos as fotos. O orçamento chega em até {PRAZOS.orcamento || 'poucos dias úteis'}, no seu e-mail e na página do pedido.</p>
+            {filaExpresso && <p className="sv-sub">{AVISO_FILA_EXPRESSO}</p>}
             <p className="ag-alerta"><IconWarning size={16} /> Não envie a carta ainda. O endereço aparece depois que você aprova o orçamento.</p>
-            <a className="sv-cta" href={pedidoId ? `/servico/${pedidoId}` : '/compras'}>Acompanhar o pedido</a>
+            <a className="sv-cta" href={pedidoId ? `/servico/${pedidoId}` : '/servicos'}>Acompanhar o pedido</a>
           </div>
         </div>
       </section>
@@ -287,7 +336,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                   <button key={s.id} type="button" role="radio" aria-checked={on} className={`sv-opt${on ? ' sv-opt-on' : ''}`} onClick={() => setServico(s.id)}>
                     <span className="sv-opt-dot">{on && <IconCheck size={13} strokeWidth={2.6} />}</span>
                     <span className="sv-opt-l"><b>{s.nome}</b><small>{s.curto}</small></span>
-                    {preco != null && <span className="sv-opt-r">R$ {brl(preco)}<small>por carta</small></span>}
+                    {preco != null && <span className="sv-opt-r">{rotuloPreco(s.id, preco)}<small>por carta</small></span>}
                   </button>
                 )
               })}
@@ -366,18 +415,19 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
           <div className="sv-card ag-bloco">
             <div className="ag-bloco-h"><span className="ag-n">4</span><h2 className="sv-h3">Prazo e contato</h2></div>
 
-            {PRECOS?.expresso != null ? (
+            {temExpresso ? (
               <div className="ag-opts ag-opts-2" role="radiogroup" aria-label="Prazo">
                 {(['padrao', 'expresso'] as const).map(p => {
                   const on = p === prazo
+                  const semVaga = p === 'expresso' && vagaExpresso === false
                   return (
-                    <button key={p} type="button" role="radio" aria-checked={on} className={`sv-opt${on ? ' sv-opt-on' : ''}`} onClick={() => setPrazo(p)}>
+                    <button key={p} type="button" role="radio" aria-checked={on} disabled={semVaga} className={`sv-opt${on ? ' sv-opt-on' : ''}`} onClick={() => setPrazo(p)}>
                       <span className="sv-opt-dot">{on && <IconCheck size={13} strokeWidth={2.6} />}</span>
                       <span className="sv-opt-l">
                         <b>{p === 'padrao' ? 'Padrão' : 'Expresso'}</b>
                         <small>{p === 'padrao'
-                          ? (PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação` : 'Prazo informado no orçamento')
-                          : (PRAZOS.expressoDias ? `${PRAZOS.expressoDias} dias corridos após a sua aprovação` : 'Prioridade na bancada')}</small>
+                          ? (qtd > PRAZO_PADRAO_ATE_CARTAS ? 'Prazo informado no orçamento' : PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a chegada` : 'Prazo informado no orçamento')
+                          : semVaga ? 'Agenda do expresso ocupada agora' : `1 carta, postada em até ${PRAZOS.expressoDiasUteis} dias úteis após a chegada`}</small>
                       </span>
                       <span className="sv-opt-r">{p === 'padrao' ? 'Sem custo' : `+ R$ ${brl(PRECOS!.expresso!)}`}</span>
                     </button>
@@ -385,7 +435,23 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                 })}
               </div>
             ) : (
-              <p className="sv-p ag-dica-topo">{PRAZOS.padraoDiasUteis ? `Prazo de ${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação da proposta de tratamento.` : 'O prazo vem no orçamento, contado a partir da sua aprovação da proposta de tratamento.'}</p>
+              <p className="sv-p ag-dica-topo">{qtd > PRAZO_PADRAO_ATE_CARTAS
+                ? `Com mais de ${PRAZO_PADRAO_ATE_CARTAS} cartas, o prazo vem no orçamento.`
+                : PRAZOS.padraoDiasUteis ? `Prazo de ${PRAZOS.padraoDiasUteis} dias úteis após a sua aprovação da proposta de tratamento.` : 'O prazo vem no orçamento, contado a partir da sua aprovação da proposta de tratamento.'}</p>
+            )}
+            {prazo === 'expresso' && (
+              <div className={`ag-exp${qtd > EXPRESSO_MAX_CARTAS ? ' ag-exp-erro' : ''}`} role={qtd > EXPRESSO_MAX_CARTAS ? 'alert' : undefined}>
+                <span className="ag-exp-ic">{qtd > EXPRESSO_MAX_CARTAS ? <IconWarning size={18} /> : <IconClock size={18} />}</span>
+                <div>
+                  <b>{qtd > EXPRESSO_MAX_CARTAS
+                    ? `O expresso é para 1 carta. Este pedido tem ${qtd}.`
+                    : 'Expresso: 1 carta, volta por SEDEX'}</b>
+                  <p>{qtd > EXPRESSO_MAX_CARTAS
+                    ? 'Deixe aqui só a carta com pressa e mande as outras em um pedido padrão.'
+                    : 'Tem mais cartas? Mande as outras em um pedido padrão.'}{' '}
+                    As cartas do pedido padrão entram na bancada depois que a expressa for enviada. É assim que conseguimos cumprir o prazo.</p>
+                </div>
+              </div>
             )}
 
             <div className="ag-dois">
@@ -431,9 +497,35 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
             <div className="ag-linhas">
               <div><span>Serviço</span><b>{SERVICOS.find(s => s.id === servico)?.nome}</b></div>
               <div><span>Cartas</span><b>{qtd}</b></div>
-              <div><span>Valor declarado</span><b>R$ {brl(totalDeclarado)}</b></div>
-              {precoUnit != null && <div><span>Estimativa</span><b>R$ {brl(precoUnit * qtd)}</b></div>}
+              <div><span>Valor declarado das cartas</span><b>R$ {brl(totalDeclarado)}</b></div>
             </div>
+            {previsao && (
+              <div className="ag-linhas ag-previsao">
+                <span className="ag-prev-t">Previsão do orçamento</span>
+                <div><span>{SERVICOS.find(s => s.id === servico)?.nome} ({qtd} × {PRECO_A_PARTIR.includes(servico) ? 'a partir de ' : ''}R$ {brl(precoUnit!)})</span><b>R$ {brl(previsao.servicoR)}</b></div>
+                {previsao.expressoR > 0 && <div><span>Prazo expresso</span><b>R$ {brl(previsao.expressoR)}</b></div>}
+                {previsao.descontoR > 0 && <div><span>Desconto por volume ({previsao.pctDesc}%)</span><b>− R$ {brl(previsao.descontoR)}</b></div>}
+                <div><span>Taxa dos Correios pelo valor declarado, na volta{estimativa?.vd != null ? '' : ' (estimativa)'}</span><b>R$ {brl(estimativa?.vd ?? previsao.correiosR)}</b></div>
+                <div>
+                  <span>Frete de volta{estimativa?.nome ? ` (${estimativa.nome})` : ''}</span>
+                  {estimativa?.frete != null
+                    ? <b>R$ {brl(estimativa.frete)}</b>
+                    : logado
+                      ? <button type="button" className="ag-prev-bt" onClick={estimarFrete} disabled={!!estimativa?.carregando}>{estimativa?.carregando ? 'Calculando...' : 'Estimar pelo meu CEP'}</button>
+                      : <b className="ag-prev-obs">no orçamento</b>}
+                </div>
+                {estimativa?.aviso && <p className="ag-prev-nota">{estimativa.aviso}{estimativa.semCep && <> <a href="/minha-conta#endereco" target="_blank" rel="noopener">Cadastrar em Minha Conta</a></>}</p>}
+                <div className="ag-prev-total">
+                  <span>Total previsto</span>
+                  <b>{estimativa?.frete != null
+                    ? `R$ ${brl(previsao.total - previsao.correiosR + (estimativa.vd ?? 0) + estimativa.frete)}`
+                    : `R$ ${brl(previsao.total)} + frete`}</b>
+                </div>
+                {totalDeclarado * 100 > CORREIOS_VD.tetoSedexCents && (
+                  <p className="ag-prev-nota">O valor declarado passa do teto dos Correios. Combinamos a entrega com você no orçamento.</p>
+                )}
+              </div>
+            )}
             {tentou && pendencias.length > 0 && (
               <ul className="ag-pend" role="alert">
                 {pendencias.slice(0, 4).map(p => <li key={p}>{p}</li>)}
@@ -450,7 +542,7 @@ export default function AgendarClient({ servicoInicial, qtdInicial }: { servicoI
                 {LINKS.whatsapp && <a className="sv-ghost" href={LINKS.whatsapp}><IconWhatsApp size={18} /> Pedir pelo WhatsApp</a>}
               </div>
             )}
-            <p className="sv-small" style={{ textAlign: 'center', margin: 0 }}>Nada é cobrado agora. O preço final vem no orçamento.</p>
+            <p className="sv-small" style={{ textAlign: 'center', margin: 0 }}>Nada é cobrado agora. O valor final vem no orçamento, depois que analisamos as fotos.</p>
           </div>
         </aside>
       </div>
@@ -574,7 +666,7 @@ function CartaBloco({ idx, total, carta, tentou, onChange }: {
         </div>
 
         <div className="ag-fld">
-          <label htmlFor={`ag-valor-${idx}`}>Valor declarado <em>base do seguro</em></label>
+          <label htmlFor={`ag-valor-${idx}`}>Valor declarado <em>base do envio nos Correios</em></label>
           <span className="ag-rs">
             <b>R$</b>
             <input id={`ag-valor-${idx}`} className={inv(valorNum(carta.valor) <= 0)} value={carta.valor} onChange={e => onChange({ valor: e.target.value.replace(/[^\d.,]/g, '') })} inputMode="decimal" placeholder="0,00" />
@@ -710,7 +802,21 @@ const AG_CSS = `
 .ag-linhas{display:grid;gap:10px}
 .ag-linhas div{display:flex;justify-content:space-between;gap:10px;font-size:14px}
 .ag-linhas span{color:var(--bx-text-2)}
-.ag-linhas b{font-variant-numeric:tabular-nums;text-align:right}
+.ag-linhas b{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.ag-previsao{padding-top:14px;border-top:1px solid var(--bx-border)}
+.ag-prev-t{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bx-text-3)}
+.ag-prev-obs{font-weight:500;color:var(--bx-text-2)}
+.ag-prev-total{padding-top:10px;border-top:1px solid var(--bx-border);font-size:15px}
+.ag-prev-total span{color:var(--bx-text);font-weight:700}
+.ag-prev-nota{margin:0;font-size:12px;color:var(--bx-text-2)}
+.ag-prev-bt{background:none;border:0;padding:0;min-height:24px;font:inherit;font-size:13px;font-weight:600;color:var(--ac-1);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.ag-prev-bt:disabled{opacity:.6;cursor:default}
+.ag-exp{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:12px;border:1px solid var(--bx-border-2);background:var(--bx-surface);transition:border-color .15s ease,background .15s ease}
+.ag-exp-ic{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:rgba(var(--ac-1-rgb),.12);color:var(--ac-1)}
+.ag-exp b{display:block;font-size:14px;margin-bottom:4px}
+.ag-exp p{margin:0;font-size:13px;line-height:1.5;color:var(--bx-text-2)}
+.ag-exp-erro{border-color:rgba(var(--ac-2-rgb),.55);background:rgba(var(--ac-2-rgb),.06)}
+.ag-exp-erro .ag-exp-ic{background:rgba(var(--ac-2-rgb),.14);color:var(--ac-2)}
 .ag-pend{margin:0;padding:12px 14px 12px 30px;border-radius:12px;background:color-mix(in srgb,var(--bx-red) 8%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 26%,transparent);font-size:13px;line-height:1.6;color:var(--bx-text)}
 
 .ag-erro{margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--bx-red)}

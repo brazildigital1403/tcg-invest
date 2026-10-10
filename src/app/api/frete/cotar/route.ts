@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
-import { cotarFrete, pacoteDeCarta, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
+import { cotarFrete, pacoteDeCarta, pacoteDeCartas, pacoteDeProduto, type ItemFrete } from '@/lib/melhor-envio'
 import { criarLimitador, ipDaRequest } from '@/lib/rateLimit'
 import { resolverRecebedor } from '@/lib/vendedorRecebimento'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
@@ -67,22 +67,25 @@ export async function POST(req: NextRequest) {
 
     // ── Modo carrinho: N itens da MESMA loja numa remessa so ───────────────
     if (ehCarrinho) {
-      const lojaId = body?.loja_id
+      // ★ `vendedor_id`, nao `loja_id` (02/10/2026). A sacola agrupa por quem
+      //   vende, e `resolverRecebedor` e quem sabe se e loja ou pessoa -- a
+      //   MESMA funcao que o modo item unico ja usa logo abaixo. Enquanto esta
+      //   rota lia `lojas` direto, quem vendia sem loja nao tinha carrinho.
+      const vendedorId = body?.vendedor_id
       const entradas: { id: string; tipo: string; qtd?: number }[] = Array.isArray(body?.itens)
         ? body.itens.filter((i: unknown) => !!i && typeof (i as { id?: unknown }).id === 'string').slice(0, 50)
         : []
-      if (!lojaId || entradas.length === 0) {
+      if (!vendedorId || entradas.length === 0) {
         return NextResponse.json({ error: 'Carrinho vazio.' }, { status: 400 })
       }
 
-      const { data: ljs } = await sb.from('lojas').select('id, cep, frete_modo, owner_user_id').eq('id', lojaId).eq('status', 'ativa').limit(1)
-      const loja = ljs?.[0]
-      if (!loja) return NextResponse.json({ error: 'Loja indisponivel.' }, { status: 409 })
-      if (loja.frete_modo !== 'calculado') {
-        return NextResponse.json({ error: 'Essa loja usa frete fixo.' }, { status: 409 })
+      const recebedor = await resolverRecebedor(sb, vendedorId)
+      if (!recebedor) return NextResponse.json({ error: 'Vendedor indisponivel.' }, { status: 409 })
+      if (recebedor.freteModo !== 'calculado') {
+        return NextResponse.json({ error: 'Esse vendedor usa frete fixo.' }, { status: 409 })
       }
-      if (!loja.cep || digits(loja.cep).length !== 8) {
-        return NextResponse.json({ error: 'A loja ainda nao configurou o CEP de origem.' }, { status: 409 })
+      if (!recebedor.cepOrigem) {
+        return NextResponse.json({ error: 'Esse vendedor ainda nao informou o CEP de envio.' }, { status: 409 })
       }
 
       const idsProd = entradas.filter(e => e.tipo === 'produto').map(e => e.id)
@@ -97,18 +100,32 @@ export async function POST(req: NextRequest) {
       if (idsProd.length) {
         const { data } = await sb
           .from('loja_produtos')
-          .select('id, preco_cents, peso_g, tipo, loja_id')
+          .select('id, preco_cents, peso_g, tipo, loja_id, largura_cm, altura_cm, comprimento_cm, formato, idioma')
           .in('id', idsProd)
         for (const pr of data || []) {
-          if (pr.loja_id !== loja.id) continue
-          pacotes.push({ ...pacoteDeProduto(pr.peso_g, pr.tipo, pr.preco_cents, qtdDe(pr.id)), id: `p-${pr.id}` })
+          if (!recebedor.lojaId || pr.loja_id !== recebedor.lojaId) continue
+          pacotes.push({ ...pacoteDeProduto(pr.peso_g, pr.tipo, pr.preco_cents, qtdDe(pr.id), pr), id: `p-${pr.id}` })
         }
       }
       if (idsCarta.length) {
         const { data } = await sb.from('marketplace').select('id, price, user_id').in('id', idsCarta).is('removido_em', null)
+        // ★ AS CARTAS VIRAM UM VOLUME SO, nao um pacote por item (02/10/2026).
+        //   Empilhar `pacoteDeCarta` por carta declarava 80 g cada: 10 cartas
+        //   davam 800 g, o frete subia de R$ 17,50 para R$ 23,51 e o Correios
+        //   Mini Envios sumia da lista a partir da 4a (teto de 300 g). Dez
+        //   cartas pesam 154 g de verdade e cabem no mesmo envelope.
+        //   ★ Esta conta tem que ser IDENTICA a de `/api/carrinho`, senao o
+        //     resumo e o checkout cotam volumes diferentes e todo carrinho
+        //     com 2+ cartas cai no 409 de "opcao nao disponivel".
+        let nCartas = 0
+        let valorCartasCents = 0
         for (const an of data || []) {
-          if (an.user_id !== loja.owner_user_id) continue
-          pacotes.push({ ...pacoteDeCarta(Math.round(Number(an.price) * 100)), id: `c-${an.id}` })
+          if (an.user_id !== recebedor.ownerUserId) continue
+          nCartas += 1
+          valorCartasCents += Math.round(Number(an.price) * 100)
+        }
+        if (nCartas > 0) {
+          pacotes.push({ ...pacoteDeCartas(nCartas, valorCartasCents), id: 'cartas' })
         }
       }
 
@@ -116,7 +133,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Nenhum item valido pra cotar.' }, { status: 409 })
       }
 
-      const ops = await cotarFrete(loja.cep, cep, pacotes)
+      const ops = await cotarFrete(recebedor.cepOrigem, cep, pacotes)
       if (ops.length === 0) {
         return NextResponse.json({ error: 'Nenhuma opcao de frete pra esse CEP.' }, { status: 422 })
       }
@@ -150,7 +167,7 @@ export async function POST(req: NextRequest) {
     } else if (tipo === 'produto') {
       const { data: prods } = await sb
         .from('loja_produtos')
-        .select('id, loja_id, preco_cents, peso_g, tipo')
+        .select('id, loja_id, preco_cents, peso_g, tipo, largura_cm, altura_cm, comprimento_cm, formato, idioma')
         .eq('id', id)
         .limit(1)
       const prod = prods?.[0]
@@ -160,7 +177,7 @@ export async function POST(req: NextRequest) {
       const loja = ljs?.[0]
       lojaCep = loja?.cep ?? null
       modo = loja?.frete_modo ?? 'fixo'
-      pacote = pacoteDeProduto(prod.peso_g, prod.tipo, prod.preco_cents, qtd)
+      pacote = pacoteDeProduto(prod.peso_g, prod.tipo, prod.preco_cents, qtd, prod)
     } else {
       const { data: ans } = await sb
         .from('marketplace')

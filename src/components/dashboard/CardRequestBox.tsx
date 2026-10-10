@@ -49,9 +49,11 @@ export default function CardRequestBox({ userId, termo, resultados, isSearching,
 
   const termoTrim = (termo || '').trim()
 
-  // So loga auto quando o termo PARECE um nome (>=3 letras seguidas).
-  // Mata o ruido de digitacao de numero ("199/", "135/13", "021/165", "0/086").
-  const pareceNome = /[a-zA-ZÀ-ÿ]{3,}/.test(termoTrim)
+  // So loga auto quando o termo PARECE um nome: >=4 letras seguidas E pelo
+  // menos uma vogal. Mata o ruido de digitacao de numero ("199/", "135/13")
+  // e o de sigla/tecla ("Pbl", "Pfl", "paf", "twm", "swsh") -- na limpeza de
+  // 08/10/2026, 18 dos 85 registros pendentes eram esse tipo de lixo.
+  const pareceNome = /[a-zA-ZÀ-ÿ]{4,}/.test(termoTrim) && /[aeiouáéíóúâêôãõà]/i.test(termoTrim)
 
   // Marca qual termo foi EFETIVAMENTE buscado (quando a busca dispara).
   // Evita logar durante a janela de debounce (antes da busca rodar).

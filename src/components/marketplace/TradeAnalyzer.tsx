@@ -142,7 +142,7 @@ function cleanNome(raw: string) {
  */
 /**
  * ★ 31/08: o degrau de `valor_graduada` que existia aqui era CODIGO MORTO e
- * foi removido. A unica fonte de carta desta tela e `smart_search_cards_v5`,
+ * foi removido. A unica fonte de carta desta tela e `smart_search_cards_v6`,
  * que devolve `pokemon_cards_all` -- e essa view nao tem `graduada` nem
  * `valor_graduada` (conferido no information_schema: zero colunas). Os campos
  * so existem em `user_cards`. O `if` nunca era verdadeiro, e o comentario
@@ -183,7 +183,7 @@ async function precificar(card: any, usdRate: number): Promise<{
   return { preco: 0, fonte: 'BRL', variante: 'normal', variantes, semPreco: true }
 }
 
-// ─── Busca de carta (mesma RPC do AddCardModal, smart_search_cards_v5) ──────
+// ─── Busca de carta (mesma RPC do AddCardModal, smart_search_cards_v6) ──────
 
 const PAGE_SIZE = 12
 
@@ -210,7 +210,7 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
     if (termo.trim().length < 2) { setResultados([]); setHasMore(false); setBuscando(false); return }
     setBuscando(true)
     debounceRef.current = setTimeout(async () => {
-      const { data, error } = await supabase.rpc('smart_search_cards_v5', { q: termo, limit_n: PAGE_SIZE, offset_n: 0 })
+      const { data, error } = await supabase.rpc('smart_search_cards_v6', { q: termo, limit_n: PAGE_SIZE, offset_n: 0 })
       const rows = error ? [] : (data || [])
       setResultados(rows)
       setOffset(rows.length)
@@ -223,7 +223,7 @@ function BuscaCarta({ onPick, onCancel }: { onPick: (c: TradeCard) => void; onCa
   async function carregarMais() {
     if (carregandoMais || !hasMore) return
     setCarregandoMais(true)
-    const { data, error } = await supabase.rpc('smart_search_cards_v5', { q: termo, limit_n: PAGE_SIZE, offset_n: offset })
+    const { data, error } = await supabase.rpc('smart_search_cards_v6', { q: termo, limit_n: PAGE_SIZE, offset_n: offset })
     const rows: any[] = error ? [] : (data || [])
     setResultados(prev => {
       const vistos = new Set(prev.map((c: any) => c.id))

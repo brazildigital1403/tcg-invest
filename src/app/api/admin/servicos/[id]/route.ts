@@ -7,6 +7,8 @@
 //   status          qualquer transicao de TRANSICOES_ADMIN (custodia na chegada,
 //                   rastreio de volta no envio)
 //   pagamento       marca Pix combinado fora do site
+//   estornar        estorno de uma etapa paga: cartao na Stripe (primeiro) e
+//                   depois no banco; Pix so registra a devolucao feita no banco
 //   laudo           grava o laudo de uma carta
 //   ficha           ficha de condicao de entrada ou saida de uma carta
 //   procedimentos   rascunho da proposta de tratamento de uma carta
@@ -17,53 +19,23 @@
 // abertas nao passam a mesma transicao duas vezes.
 
 import { NextRequest, NextResponse } from 'next/server'
+import Stripe from 'stripe'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
   sbAdmin, erro, registrarEvento, notificarCliente, BUCKET_SERVICOS, sincronizarPagamentos, pagamentosDoPedido,
-  confirmarPagamento, ROTULO_ETAPA, type EtapaPagamento,
+  confirmarPagamento, aposConfirmarPagamento, aposEstorno, notificarAdmin, pendencias, ROTULO_ETAPA, type EtapaPagamento,
+  cotarVoltaServico,
 } from '@/lib/servicosServer'
 import {
-  TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, FOTOS_ENTRADA, FOTOS_SAIDA, RISCOS,
-  validarFicha, fotosFaltando,
+  TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, RISCOS,
+  validarFicha, lerFaixaNota, lerGraduadora, STATUS_EXPRESSO_EM_ANDAMENTO, brl,
 } from '@/lib/servicos'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
 const MIMES_ADMIN = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'application/pdf']
 const MAX_ADMIN_BYTES = 50 * 1024 * 1024
 const CENTS_MAX = 100_000_000
-
-// O que falta antes de cada passo. Mensagens curtas: o painel lista todas.
-async function pendencias(sb: SupabaseClient, id: string, servico: string, fase: 'entrada' | 'saida') {
-  const [{ data: itens }, { data: midias }, { data: procs }] = await Promise.all([
-    sb.from('servico_itens').select('id, nome, aceito, ficha_entrada, ficha_saida, laudo').eq('solicitacao_id', id).order('created_at'),
-    sb.from('servico_midias').select('item_id, tipo, posicao').eq('solicitacao_id', id),
-    sb.from('servico_procedimentos').select('item_id, decisao').eq('solicitacao_id', id),
-  ])
-  const faltas: string[] = []
-  const ativos = (itens || []).filter(i => i.aceito !== false)
-  if (fase === 'entrada' && !(midias || []).some(m => m.tipo === 'video_abertura')) faltas.push('Vídeo de abertura do pacote')
-  ativos.forEach((it, k) => {
-    const n = ativos.length > 1 ? ` da carta ${k + 1}` : ''
-    const doItem = (midias || []).filter(m => m.item_id === it.id)
-    if (fase === 'entrada') {
-      if (!it.ficha_entrada) faltas.push(`Ficha de entrada${n}`)
-      const f = fotosFaltando(FOTOS_ENTRADA, doItem)
-      if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de entrada${n}`)
-    } else {
-      const tratada = (procs || []).some(p => p.item_id === it.id && p.decisao === 'aprovado')
-      if (tratada) {
-        if (!it.ficha_saida) faltas.push(`Ficha de saída${n}`)
-        const f = fotosFaltando(FOTOS_SAIDA, doItem)
-        if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de saída${n}`)
-      }
-      // Laudo vale preenchido no formulario OU anexado (PDF/imagem do tipo 'laudo').
-      if (servico !== 'restauracao' && !it.laudo && !doItem.some(m => m.tipo === 'laudo')) faltas.push(`Laudo de pré-grading${n}`)
-    }
-  })
-  return faltas
-}
 
 function cents(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
@@ -89,6 +61,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       sb.from('servico_procedimentos').select('*').eq('solicitacao_id', id).order('ordem'),
     ])
 
+    // Pedido padrao atras de um expresso do mesmo cliente: a fila da bancada
+    // manda terminar e enviar o expresso antes.
+    const { data: expressos } = sol.prazo === 'padrao'
+      ? await sb.from('servico_solicitacoes').select('id, numero').eq('user_id', sol.user_id).eq('prazo', 'expresso')
+        .in('status', [...STATUS_EXPRESSO_EM_ANDAMENTO]).order('numero').limit(3)
+      : { data: [] as { id: string; numero: number }[] }
+
     const paths = (midias || []).map(m => m.path)
     const { data: assinadas } = paths.length
       ? await sb.storage.from(BUCKET_SERVICOS).createSignedUrls(paths, 600)
@@ -102,6 +81,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       eventos: eventos || [],
       midias: (midias || []).map(m => ({ ...m, url: urlPor.get(m.path) || null })),
       procedimentos: procs || [],
+      fila_expresso: (expressos || []).map(e => ({ id: e.id, numero: e.numero })),
       pagamentos: await pagamentosDoPedido(id),
       pendencias_entrada: ['recebida'].includes(sol.status) ? await pendencias(sb, id, sol.servico, 'entrada') : [],
       pendencias_saida: ['em_bancada', 'descansando'].includes(sol.status) ? await pendencias(sb, id, sol.servico, 'saida') : [],
@@ -124,6 +104,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const { data: solRows } = await sb.from('servico_solicitacoes').select('id, status, pago_em, servico, proposta_aceita_em').eq('id', id).limit(1)
     const sol = solRows?.[0]
     if (!sol) return erro(404, 'Solicitação não encontrada')
+
+    // ── Cotar frete de volta (so le; nao grava nada) ─────────────────────
+    // Cartas que entram no servico (as decisoes ainda nao salvas vem no corpo).
+    if (body.acao === 'cotar_frete') {
+      const { data: full } = await sb.from('servico_solicitacoes').select('user_id, prazo, valor_declarado_cents').eq('id', id).limit(1)
+      const { data: us } = await sb.from('users').select('cep').eq('id', full?.[0]?.user_id).limit(1)
+      const cep = String(us?.[0]?.cep || '').replace(/\D/g, '')
+      if (cep.length !== 8) return erro(409, 'O cliente não tem CEP válido no cadastro. Digite o frete à mão.')
+      const cartas = Math.max(1, Number(body.cartas) || 1)
+      const valor = Number(body.valor_declarado_cents) > 0 ? Number(body.valor_declarado_cents) : full?.[0]?.valor_declarado_cents || 0
+      try {
+        const opcoes = await cotarVoltaServico({ servico: sol.servico, cartas, valorDeclaradoCents: valor, expresso: full?.[0]?.prazo === 'expresso', cepDestino: cep })
+        return NextResponse.json({ opcoes, cep_destino: cep.slice(0, 5) + '-' + cep.slice(5) })
+      } catch (e) {
+        console.error('[admin/servicos cotar_frete]', e instanceof Error ? e.message : e)
+        return erro(502, 'Não foi possível cotar agora. Digite o frete à mão.')
+      }
+    }
 
     // ── Orcar ──────────────────────────────────────────────────────────────
     if (body.acao === 'orcar') {
@@ -255,9 +253,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         if (!linhas.some(l => l.etapa === etapa)) return erro(400, 'Etapa de pagamento inválida')
         const r = await confirmarPagamento(id, etapa, 'pix_manual')
         if (!r.ok) return erro(409, 'Esta etapa já está paga')
-        await registrarEvento(id, sol.status, `Pix confirmado: ${ROTULO_ETAPA[etapa].toLowerCase()}`)
-        if ((etapa === 'sinal' || etapa === 'integral') && sol.status === 'aceito') await notificarCliente(id, 'liberado_envio')
-        if (etapa === 'servico') await notificarCliente(id, 'servico_pago')
+        await aposConfirmarPagamento(id, sol.status, etapa, 'pix_manual')
         return NextResponse.json({ ok: true, tudoPago: r.tudoPago })
       }
       // Pedido antigo, sem etapas: um pagamento so. So na transicao "nao pago -> pago".
@@ -269,6 +265,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       await registrarEvento(id, sol.status, 'Pagamento via Pix confirmado')
       return NextResponse.json({ ok: true })
     }
+
+    // ── Estorno de uma etapa paga ───────────────────────────────────────────
+    if (body.acao === 'estornar') return await estornar(id, sol.status, body)
 
     // ── Ficha de condicao (entrada ou saida) ───────────────────────────────
     if (body.acao === 'ficha') {
@@ -313,6 +312,32 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ ok: true })
     }
 
+    // ── Cobrar o servico (com valor conferido/ajustado) ────────────────────
+    // Depois da resposta da proposta e antes do Pix do servico. Ajusta o valor
+    // da etapa (e o orcamento/total do pedido, pra tudo bater) e envia a
+    // cobranca. Pode repetir enquanto o servico nao foi pago (reenvia com o
+    // valor novo).
+    if (body.acao === 'cobrar_servico') {
+      if (sol.status !== 'proposta' || !sol.proposta_aceita_em) return erro(409, 'A cobrança do serviço sai depois da resposta da proposta')
+      const valor = cents(body.valor_cents)
+      if (valor == null || Number.isNaN(valor) || valor <= 0) return erro(400, 'Informe o valor do serviço')
+      const { count } = await sb.from('servico_procedimentos').select('id', { count: 'exact', head: true })
+        .eq('solicitacao_id', id).eq('decisao', 'aprovado')
+      if (!count) return erro(409, 'Nenhum procedimento aprovado: devolva a carta sem serviço')
+      const { data: mudou, error } = await sb.from('servico_pagamentos').update({ valor_cents: valor })
+        .eq('solicitacao_id', id).eq('etapa', 'servico').is('pago_em', null).select('id')
+      if (error) throw new Error(error.message)
+      if (!mudou?.length) return erro(409, 'O serviço já está pago ou este pedido não tem a etapa de serviço')
+      const { data: cur } = await sb.from('servico_solicitacoes').select('seguro_cents, frete_volta_cents').eq('id', id).limit(1)
+      await sb.from('servico_solicitacoes').update({
+        orcamento_cents: valor,
+        total_cents: valor + (cur?.[0]?.seguro_cents || 0) + (cur?.[0]?.frete_volta_cents || 0),
+      }).eq('id', id)
+      await registrarEvento(id, 'cobranca_servico', `Cobrança do serviço enviada: R$ ${(valor / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+      await notificarCliente(id, 'cobrar_servico')
+      return NextResponse.json({ ok: true })
+    }
+
     // ── Enviar a proposta ao cliente ───────────────────────────────────────
     if (body.acao === 'enviar_proposta') {
       if (sol.status !== 'recebida') return erro(409, 'A proposta sai depois da chegada da carta')
@@ -345,6 +370,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       for (const c of CAMPOS_LAUDO) {
         const v = entrada[c.k]
         if (typeof v === 'string' && v.trim()) laudo[c.k] = v.trim().slice(0, c.k === 'caderno' ? 2000 : 200)
+      }
+      // Faixa e intervalo ("8 a 9", "8,5 a 9"), nunca nota unica; graduadora da
+      // lista. Salvar pela metade continua valendo: o que falta so trava o "pronta".
+      if (laudo.faixa_nota) {
+        const f = lerFaixaNota(laudo.faixa_nota)
+        if (!f) return erro(400, 'Faixa provável no formato "8 a 9" (ou "8,5 a 9"), de 1 a 10, com o menor valor primeiro. Nota única não vale.')
+        laudo.faixa_nota = f.texto
+      }
+      if (laudo.graduadora) {
+        const g = lerGraduadora(laudo.graduadora)
+        if (!g) return erro(400, 'Escolha a graduadora recomendada na lista')
+        laudo.graduadora = g
       }
       const { data, error } = await sb.from('servico_itens')
         .update({ laudo: Object.keys(laudo).length ? laudo : null }).eq('id', itemId).eq('solicitacao_id', id).select('id')
@@ -400,4 +437,170 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     console.error('[admin/servicos/id POST]', e instanceof Error ? e.message : e)
     return erro(500, 'Erro interno')
   }
+}
+
+// ── Estorno (fatia 6) ────────────────────────────────────────────────────────
+//
+// ★ ORDEM: provedor antes do banco. O refund nasce na Stripe e SO DEPOIS o
+//   reembolsado_cents e somado. Se a gravacao falhar depois do refund, o erro diz
+//   que o dinheiro SAIU e nada e repetido: a conciliacao do webhook (charge.refunded)
+//   iguala o banco ao total da Stripe sozinha.
+// ★ IDEMPOTENCIA em tres camadas:
+//   1. Chave da Stripe presa ao estado ANTERIOR (pagamento + total ja estornado).
+//      Dois cliques a partir do mesmo estado caem na mesma chave: mesmo valor ->
+//      o mesmo refund volta; valor diferente -> a Stripe recusa a chave. Nunca
+//      nascem dois refunds do mesmo estado.
+//   2. Antes de criar, confere o total ja estornado NA STRIPE. Se for maior que o
+//      do banco, ha estorno ainda nao conciliado: recusa (o estado do banco esta
+//      velho e a chave do item 1 nao protegeria).
+//   3. O update so soma onde reembolsado_cents ainda e o valor lido. Quem perdeu
+//      a corrida (outro clique, ou o webhook) nao registra evento nem e-mail.
+// ★ O motivo nao tem coluna: vai na metadata do refund (fica na Stripe), no log e
+//   no e-mail interno. Nunca na linha do tempo (o cliente le a linha do tempo).
+// ★ Estorno nunca muda o status do pedido. A decisao fica com o admin.
+
+const reaisE = (c: number) => `R$ ${brl(c / 100)}`
+
+async function estornar(id: string, statusAtual: string, body: Record<string, unknown>) {
+  const sb = sbAdmin()
+  const pagamentoId = String(body.pagamento_id || '')
+  const motivo = typeof body.motivo === 'string' ? body.motivo.trim().replace(/\s+/g, ' ').slice(0, 300) : ''
+  if (!/^[0-9a-f-]{36}$/i.test(pagamentoId)) return erro(400, 'Etapa de pagamento inválida')
+  if (motivo.length < 3) return erro(400, 'Diga o motivo do estorno')
+
+  const { data: pl, error: eP } = await sb.from('servico_pagamentos')
+    .select('id, etapa, valor_cents, metodo, pago_em, stripe_payment_intent_id, reembolsado_cents')
+    .eq('id', pagamentoId).eq('solicitacao_id', id).limit(1)
+  if (eP) throw new Error(eP.message)
+  const pg = pl?.[0]
+  if (!pg) return erro(404, 'Etapa de pagamento não encontrada neste pedido')
+  if (!pg.pago_em) return erro(409, 'Esta etapa não foi paga: não há o que estornar')
+
+  const ja = Number(pg.reembolsado_cents || 0)
+  const restante = pg.valor_cents - ja
+  if (restante <= 0) return erro(409, 'Esta etapa já foi estornada por inteiro')
+  const bruto = body.valor_cents
+  const valor = bruto === undefined || bruto === null || bruto === '' ? restante : cents(bruto)
+  if (valor === null || Number.isNaN(valor) || valor <= 0) return erro(400, 'Valor do estorno inválido')
+  if (valor > restante) return erro(400, `O máximo que ainda dá para estornar nesta etapa é ${reaisE(restante)}`)
+  const novoTotal = ja + valor
+  const rotulo = ROTULO_ETAPA[pg.etapa as EtapaPagamento] || pg.etapa
+  const tag = `[admin/servicos/estorno] pedido ${id} pagamento ${pg.id} etapa ${pg.etapa}`
+
+  // ── Pix: a Bynx devolve pelo banco; aqui so se registra ────────────────────
+  if (pg.metodo === 'pix_manual') {
+    if (body.pix_devolvido !== true) {
+      return erro(409, 'Estorno de Pix é manual: devolva o valor pelo banco e depois registre aqui a devolução.')
+    }
+    const agora = new Date().toISOString()
+    const { data: gravou, error } = await sb.from('servico_pagamentos')
+      .update({ reembolsado_cents: novoTotal, reembolsado_em: agora })
+      .eq('id', pg.id).eq('reembolsado_cents', ja).select('id')
+    if (error) throw new Error(error.message)
+    if (!gravou?.length) return erro(409, 'O pagamento mudou em outra aba. Recarregue e confira antes de registrar de novo.')
+    console.log(`${tag}: devolucao Pix registrada ${valor} (total ${novoTotal}/${pg.valor_cents}) -- motivo: ${motivo}`)
+    await aposEstorno(id, statusAtual, valor, 'pix_manual', agora)
+    await notificarAdmin(id, 'Devolução por Pix registrada:', [
+      `${reaisE(valor)} de ${rotulo.toLowerCase()} (total devolvido ${reaisE(novoTotal)} de ${reaisE(pg.valor_cents)}).`,
+      `Motivo: ${motivo}`,
+    ])
+    return NextResponse.json({ ok: true, reembolsado_cents: novoTotal })
+  }
+
+  if (pg.metodo !== 'stripe' || !pg.stripe_payment_intent_id) {
+    return erro(409, 'Esta etapa não tem pagamento com cartão registrado na Stripe')
+  }
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error(`${tag}: STRIPE_SECRET_KEY ausente`)
+    return erro(503, 'Stripe indisponível no momento. Nada foi estornado.')
+  }
+  const apiVersion = '2025-03-31.basil' as Stripe.StripeConfig['apiVersion']
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion })
+  const piId = pg.stripe_payment_intent_id as string
+
+  // ── Camada 2: o banco esta em dia com a Stripe? ────────────────────────────
+  try {
+    const pi = await stripe.paymentIntents.retrieve(piId, { expand: ['latest_charge'] })
+    const charge = typeof pi.latest_charge === 'object' ? pi.latest_charge : null
+    if (pi.status !== 'succeeded' || !charge) {
+      console.error(`${tag}: PI ${piId} status ${pi.status}, sem charge -- recusado`)
+      return erro(409, 'O pagamento na Stripe não está concluído. Confira no painel da Stripe. Nada foi estornado.')
+    }
+    if (pi.metadata?.pagamento_id && pi.metadata.pagamento_id !== pg.id) {
+      console.error(`${tag}: PI ${piId} aponta para outro pagamento (${pi.metadata.pagamento_id}) -- recusado`)
+      return erro(409, 'Este pagamento da Stripe pertence a outra etapa. Confira antes de estornar. Nada foi estornado.')
+    }
+    if ((charge.amount_refunded || 0) !== ja) {
+      console.error(`${tag}: Stripe ja estornou ${charge.amount_refunded}, o banco diz ${ja} -- recusado ate conciliar`)
+      return erro(409, `A Stripe mostra ${reaisE(charge.amount_refunded || 0)} já estornado nesta etapa e o painel mostra ${reaisE(ja)}. Aguarde a conciliação (alguns segundos) e recarregue antes de estornar de novo. Nada foi estornado agora.`)
+    }
+  } catch (e) {
+    const code = (e as { code?: string })?.code
+    console.error(`${tag}: falha lendo o PI ${piId}:`, code || '', e instanceof Error ? e.message : e)
+    return erro(502, code === 'resource_missing'
+      ? 'Este pagamento não existe na conta da Stripe configurada (conta ou modo diferente). Nada foi estornado.'
+      : 'Não foi possível falar com a Stripe agora. Nada foi estornado. Tente de novo.')
+  }
+
+  // ── Provedor primeiro ──────────────────────────────────────────────────────
+  let refund: Stripe.Refund
+  try {
+    refund = await stripe.refunds.create({
+      payment_intent: piId,
+      amount: valor,
+      reason: 'requested_by_customer',
+      metadata: { solicitacao_id: id, pagamento_id: String(pg.id), etapa: String(pg.etapa), origem: 'painel_admin', motivo },
+    }, {
+      // Camada 1: presa ao estado anterior, nao ao valor pedido.
+      idempotencyKey: `servico-estorno:${pg.id}:de-${ja}`,
+    })
+  } catch (e) {
+    const err = e as { code?: string; type?: string; message?: string }
+    console.error(`${tag}: Stripe recusou o refund de ${valor}:`, err.type || '', err.code || '', err.message || e)
+    if (err.type === 'StripeIdempotencyError') {
+      return erro(409, 'Outro estorno desta etapa foi pedido ao mesmo tempo com outro valor. Recarregue e confira antes de tentar de novo. Nada foi estornado agora.')
+    }
+    return erro(502, `A Stripe recusou o estorno${err.message ? `: ${err.message}` : ''}. Nada foi estornado.`)
+  }
+  if (refund.status === 'failed' || refund.status === 'canceled') {
+    console.error(`${tag}: refund ${refund.id} nasceu ${refund.status} -- nada gravado`)
+    return erro(502, `A Stripe não concluiu o estorno (status ${refund.status}). Nada foi registrado. Confira no painel da Stripe.`)
+  }
+
+  // ── Banco depois, so na transicao ──────────────────────────────────────────
+  const agora = new Date().toISOString()
+  const saiu = `O estorno de ${reaisE(valor)} SAIU na Stripe (refund ${refund.id})`
+  const { data: gravou, error: eU } = await sb.from('servico_pagamentos')
+    .update({ reembolsado_cents: novoTotal, reembolsado_em: agora, stripe_refund_id: refund.id })
+    .eq('id', pg.id).eq('reembolsado_cents', ja).select('id')
+  if (eU) {
+    console.error(`${tag}: CRITICAL refund ${refund.id} de ${valor} criado no PI ${piId}, mas o banco falhou: ${eU.message}`)
+    return erro(500, `${saiu}, mas não foi gravado no painel. NÃO estorne de novo: confira na Stripe. A conciliação automática deve registrar em instantes.`)
+  }
+  if (!gravou?.length) {
+    // Outro clique (mesma chave, mesmo refund) ou o webhook gravou antes.
+    const { data: agoraL, error: eR } = await sb.from('servico_pagamentos')
+      .select('reembolsado_cents').eq('id', pg.id).limit(1)
+    const atual = Number(agoraL?.[0]?.reembolsado_cents || 0)
+    if (!eR && atual >= novoTotal) {
+      console.log(`${tag}: refund ${refund.id} ja estava registrado (total ${atual}) -- sem evento duplicado`)
+      await notificarAdmin(id, 'Estorno no cartão:', [
+        `${reaisE(valor)} de ${rotulo.toLowerCase()} (refund ${refund.id}), já registrado por outra aba ou pela conciliação.`,
+        `Motivo: ${motivo}`,
+      ])
+      return NextResponse.json({ ok: true, ja_registrado: true, reembolsado_cents: atual })
+    }
+    console.error(`${tag}: CRITICAL refund ${refund.id} de ${valor} criado no PI ${piId}, banco em ${atual} (esperado ${ja}) -- conferir`)
+    return erro(409, `${saiu}, mas o pagamento mudou no meio e o painel não somou. NÃO estorne de novo: confira na Stripe e recarregue.`)
+  }
+
+  console.log(`${tag}: ESTORNADO ${valor} refund ${refund.id} status ${refund.status} (total ${novoTotal}/${pg.valor_cents}) -- motivo: ${motivo}`)
+  await aposEstorno(id, statusAtual, valor, 'stripe', agora)
+  await notificarAdmin(id, 'Estorno no cartão:', [
+    `${reaisE(valor)} de ${rotulo.toLowerCase()} (total estornado ${reaisE(novoTotal)} de ${reaisE(pg.valor_cents)}).`,
+    `Motivo: ${motivo}`,
+    `Refund: ${refund.id} (${refund.status})`,
+    `PaymentIntent: ${piId}`,
+  ])
+  return NextResponse.json({ ok: true, reembolsado_cents: novoTotal, refund_status: refund.status })
 }

@@ -13,7 +13,16 @@ export default function LoginRedirect() {
       if (data.session?.user) {
         router.replace('/dashboard-financeiro')
       } else {
-        router.replace('/')
+        // Abre o modal de login na home e, se a pessoa veio de uma pagina
+        // interna (carta, anuncio), volta pra ela depois (08/10/2026).
+        let next = ''
+        try {
+          const ref = document.referrer ? new URL(document.referrer) : null
+          if (ref && ref.origin === window.location.origin && ref.pathname !== '/' && ref.pathname !== '/login') {
+            next = `&next=${encodeURIComponent(ref.pathname + ref.search)}`
+          }
+        } catch { /* referrer invalido: segue sem next */ }
+        router.replace(`/?auth=login${next}`)
       }
     }
     check()

@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import {
   IconSearch, IconChevronDown, IconPokedex, IconScan, IconAccount, IconArticle, IconShield,
-  IconStar,
+  IconStar, IconRestauro,
 } from '@/components/ui/Icons'
 import LinkCarrinho from '@/components/ui/LinkCarrinho'
 
@@ -79,6 +79,8 @@ const EXPLORAR_FERRAMENTAS = [
   { href: '/separadores-pokemon', label: 'Separadores', sub: 'Organize suas pastas', Icon: IconSeparador },
   { href: '/fichario-lendario', label: 'Páginas Lendárias', sub: 'Fundo contínuo pro fichário', Icon: IconLendariasMini },
   { href: '/cartas-graduadas', label: 'Cartas graduadas', sub: 'Notas, graduadoras e Black Label', Icon: IconShield },
+  { href: '/restauracao-de-cartas', label: 'Restauração', sub: 'Vinco, amassado e carta ondulada', Icon: IconRestauro },
+  { href: '/pre-grading', label: 'Pré-grading', sub: 'A nota provável antes de graduar', Icon: IconRestauro },
 ]
 const EXPLORAR_COMUNIDADE = [
   { href: '/colecionadores', label: 'Colecionadores', sub: 'Perfis e coleções', Icon: IconAccount },
@@ -150,7 +152,13 @@ export default function PublicHeader({ landingScrollTargets }: Props = {}) {
   function openLogin() {
     setMobileMenuOpen(false)
     if (typeof window === 'undefined') return
-    window.dispatchEvent(new CustomEvent('bynx:open-login'))
+    // ★ Leva a rota atual como `next` (08/10/2026). Antes o evento ia sem
+    // detalhe e, apos o login, a pessoa caia no dashboard -- quem estava numa
+    // pagina de carta perdia a carta. Na home o `next` fica nulo e o modal
+    // segue pro dashboard, como sempre.
+    const path = window.location.pathname
+    const next = path && path !== '/' ? path + window.location.search : null
+    window.dispatchEvent(new CustomEvent('bynx:open-login', { detail: { next, cta: 'header:entrar' } }))
   }
 
   // Busca do menu mobile: Enter navega pra /busca?q=…

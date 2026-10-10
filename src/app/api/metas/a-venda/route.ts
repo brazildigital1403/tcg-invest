@@ -32,6 +32,8 @@ type Oferta = {
   idioma: string
   badges: string[]
   graduada: boolean
+  /** `users.id` de quem vende -- chave do carrinho por vendedor. */
+  vendedorId: string
   vendedor: string
   lojaId: string | null
   lojaNome: string | null
@@ -93,6 +95,7 @@ export async function POST(req: Request) {
       idioma: (a.idioma as string) || 'pt',
       badges: badgesDaCarta(a),
       graduada: !!a.graduada,
+      vendedorId: a.user_id as string,
       vendedor: (l?.nome || u?.name || 'Vendedor Bynx').trim(),
       lojaId: l?.id || null,
       lojaNome: l?.nome?.trim() || null,

@@ -24,7 +24,44 @@ import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 
 const SELECT_LOJA = 'id, owner_user_id, nome, status, plano, plano_expira_em'
 const TIPOS = ['selado', 'pelucia', 'funko', 'fichario', 'acessorio'] as const
-const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, vendidos, fotos, ativo, created_at'
+
+/**
+ * ★ IDIOMA DO PRODUTO (02/10/2026, Quadro #447). A coluna existia no banco
+ * desde sempre, com default 'pt', e NINGUEM escolhia: nem o formulario nem
+ * esta rota tinham o campo, e nenhuma tela lia. Resultado: os 7 produtos
+ * cadastrados estavam marcados como portugues, incluindo a Elite Trainer Box
+ * "Pitch Black" da Mais Que Geek, que a foto do proprio anuncio mostra ser
+ * INGLESA ("ELITE TRAINER BOX", "WARNING: CHOKING HAZARD").
+ *
+ * Importa porque o mesmo produto tem caixa diferente em cada idioma -- a ETB
+ * inglesa mede 8,6 x 16,5 x 18,8 cm e a brasileira nao -- e e a medida que
+ * decide o frete. Sem saber o idioma nao da para ter tabela de medida padrao.
+ *
+ * Os 9 sao os mesmos do `AddCardModal`, de proposito: um conjunto novo so
+ * para produto seria mais uma lista para divergir.
+ */
+const IDIOMAS = ['pt', 'en', 'jp', 'es', 'fr', 'de', 'it', 'cn', 'kr'] as const
+
+/**
+ * ★ "SELADO" NAO E UM FORMATO, SAO OITO (02/10/2026). O tipo cobria Elite
+ * Trainer Box, booster box de 36 pacotes, blister de 3, deck, lata e colecao
+ * especial -- caixas que nao se parecem em nada --, e a Bynx estimava UMA
+ * dimensao para todas (25x20x12): grande demais para a ETB, pequena demais
+ * para a booster box.
+ *
+ * Com `idioma`, este campo e a chave da medida padrao que vem a seguir: a ETB
+ * inglesa mede 8,6 x 16,5 x 18,8 cm e a brasileira nao.
+ *
+ * ★ SO EM `selado`. Pelucia, funko, fichario e acessorio nao tem formato de
+ * fabrica -- cada um tem a sua caixa, e formato ali seria dado que ninguem le
+ * e que mente na ficha. O banco tem o mesmo check.
+ */
+const FORMATOS = ['etb', 'booster_box', 'bundle', 'blister', 'deck', 'lata', 'colecao', 'pacote'] as const
+type Formato = (typeof FORMATOS)[number]
+const ehFormato = (v: unknown): v is Formato => FORMATOS.includes(v as Formato)
+type Idioma = (typeof IDIOMAS)[number]
+const ehIdioma = (v: unknown): v is Idioma => IDIOMAS.includes(v as Idioma)
+const CAMPOS = 'id, tipo, nome, descricao, preco_cents, estoque, peso_g, largura_cm, altura_cm, comprimento_cm, idioma, formato, vendidos, fotos, ativo, created_at'
 
 type Tipo = (typeof TIPOS)[number]
 const ehTipo = (v: unknown): v is Tipo => TIPOS.includes(v as Tipo)
@@ -35,6 +72,15 @@ function pesoParaGramas(v: unknown): number | null {
   const w = Number(v)
   return Number.isFinite(w) ? Math.round(w) : NaN
 }
+
+/** Medida em cm. Vazio vira null (= usar a estimativa por tipo). */
+function cm(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.round(n) : NaN
+}
+
+const DIMS = ['largura_cm', 'altura_cm', 'comprimento_cm'] as const
 
 /** Valida os campos comuns de create/update. Devolve erro (string) ou null. */
 function validar(p: Record<string, unknown>, parcial: boolean): string | null {
@@ -57,6 +103,32 @@ function validar(p: Record<string, unknown>, parcial: boolean): string | null {
     const w = pesoParaGramas(p.peso_g)
     if (w === null) return null
     if (!Number.isInteger(w) || w <= 0 || w > 30000) return 'Peso inválido. Use de 1 a 30000 g.'
+  }
+  // ★ TUDO OU NADA nas tres medidas. Com uma faltando, o volume declarado
+  //   seria parte medida e parte estimada por tipo, e nao daria para saber
+  //   qual das duas mandou no peso cubado -- que e o que o frete cobra.
+  const informadas = DIMS.filter(k => k in p && p[k] != null && p[k] !== '')
+  if (informadas.length > 0) {
+    for (const k of informadas) {
+      const n = cm(p[k])
+      if (n === null || !Number.isInteger(n) || n < 1 || n > 100) {
+        return 'Medida inválida. Use de 1 a 100 cm em cada lado.'
+      }
+    }
+    if (informadas.length < DIMS.length) {
+      return 'Informe as três medidas da embalagem, ou deixe as três em branco.'
+    }
+  }
+  if ('idioma' in p && p.idioma != null && p.idioma !== '' && !ehIdioma(p.idioma)) {
+    return 'Idioma inválido.'
+  }
+  if ('formato' in p && p.formato != null && p.formato !== '') {
+    if (!ehFormato(p.formato)) return 'Formato inválido.'
+    // Num PATCH parcial o tipo pode nem vir no corpo; ai quem decide e o banco,
+    // que tem o mesmo check. Aqui so barramos o que da para ver daqui.
+    if ('tipo' in p && p.tipo !== 'selado') {
+      return 'O formato só existe em produto selado.'
+    }
   }
   if ('descricao' in p && p.descricao != null && String(p.descricao).length > 1000) {
     return 'Descrição muito longa (máx. 1000 caracteres).'
@@ -126,6 +198,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         preco_cents: Number(body.preco_cents),
         estoque: Number(body.estoque),
         peso_g: pesoParaGramas(body.peso_g),
+        idioma: ehIdioma(body.idioma) ? body.idioma : 'pt',
+        // Formato so sobrevive em selado -- o check do banco recusaria o resto.
+        formato: body.tipo === 'selado' && ehFormato(body.formato) ? body.formato : null,
+        largura_cm: cm(body.largura_cm),
+        altura_cm: cm(body.altura_cm),
+        comprimento_cm: cm(body.comprimento_cm),
         // Corte pelo plano da loja (antes era 10 pra todos). Ver src/lib/planoLoja.ts.
         fotos: Array.isArray(body.fotos) ? body.fotos.slice(0, LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(loja as { plano: string; plano_expira_em: string | null })]) : [],
       })
@@ -164,6 +242,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if ('preco_cents' in body) patch.preco_cents = Number(body.preco_cents)
     if ('estoque' in body) patch.estoque = Number(body.estoque)
     if ('peso_g' in body) patch.peso_g = pesoParaGramas(body.peso_g)
+    for (const k of DIMS) if (k in body) patch[k] = cm(body[k])
+    if ('idioma' in body && ehIdioma(body.idioma)) patch.idioma = body.idioma
+    // ★ Trocar o tipo para fora de `selado` TEM que limpar o formato, senao o
+    //   check do banco recusa o update inteiro e o lojista leva um erro que
+    //   nao sabe de onde veio.
+    if ('tipo' in body && body.tipo !== 'selado') patch.formato = null
+    else if ('formato' in body) patch.formato = ehFormato(body.formato) ? body.formato : null
     if ('ativo' in body) patch.ativo = !!body.ativo
     if ('fotos' in body && Array.isArray(body.fotos)) patch.fotos = body.fotos.slice(0, LIMITE_FOTOS_PRODUTO[planoEfetivoLoja(auth.loja as { plano: string; plano_expira_em: string | null })])
 

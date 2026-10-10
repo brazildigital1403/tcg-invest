@@ -26,6 +26,7 @@ import { familiaDoSet } from '@/lib/setFamilia'
 import { getPrecoVariante as faixaVariante } from '@/lib/calcPatrimonio'
 import { CONDICAO_KEYS, temCondicao } from '@/lib/condicoes'
 import { ehVerificada } from '@/lib/origemCarta'
+import { destinoAtual, lerParametro, limparParametros, urlLoginComDestino } from '@/lib/deepLink'
 
 const n = (v: any) => { const f = parseFloat(String(v)); return isNaN(f) ? null : f }
 
@@ -317,7 +318,7 @@ export default function MinhaColecao() {
   async function loadCards() {
     try {
       const { data: userData } = await supabase.auth.getUser()
-      if (!userData?.user) { window.location.href = '/login'; return }
+      if (!userData?.user) { window.location.href = urlLoginComDestino(destinoAtual()); return }
 
       setUserId(userData.user.id)
       const { isPro: pro, isTrial: trial, caps } = await getUserPlan(userData.user.id)
@@ -495,6 +496,14 @@ export default function MinhaColecao() {
   }
 
   useEffect(() => { loadCards() }, [])
+  // Deep link dos e-mails da regua (E02, E05): /minha-colecao?scan=1 abre o
+  // Scan IA direto, no mesmo modal do botao "Escanear foto". Espera o userId
+  // (o modal precisa dele) e tira o parametro da URL: recarregar nao reabre.
+  useEffect(() => {
+    if (!userId || lerParametro('scan') !== '1') return
+    limparParametros('scan')
+    setOpenScanModal(true)
+  }, [userId])
   useEffect(() => {
     fetch('/api/exchange-rate')
       .then(r => r.json())

@@ -16,7 +16,7 @@ import { useContactModal } from '@/components/ui/ContactModalProvider'
 import {
   IconCollection, IconDashboard, IconPokedex, IconMarketplace, IconBalanca, IconAccount,
   IconLogout, IconBell, IconBellDot, IconInstagram, IconDiscord, IconWhatsApp,
-  IconChat, IconStar, IconStarFilled, IconEye, IconArticle, IconTarget,
+  IconChat, IconStar, IconStarFilled, IconEye, IconArticle, IconTarget, IconBox, IconRestauro, IconClock,
 } from '@/components/ui/Icons'
 import { useMetasVisivel } from '@/components/metas/useMetasVisivel'
 import MuroPosTrial from '@/components/ui/MuroPosTrial'
@@ -188,11 +188,34 @@ const ITEM_COMPARADOR: MenuItem = { name: 'Comparador', full: 'Comparador de tro
 const ITEM_SEPARADORES: MenuItem = { name: 'Separadores', full: 'Separadores', href: '/separadores', Icon: IconSeparador, group: 'imprimir' }
 const ITEM_INDIQUE: MenuItem = { name: 'Indique', full: 'Indique e Ganhe', href: '/indique-e-ganhe', Icon: IconGift, group: 'conta' }
 const ITEM_COMPRAS: MenuItem = { name: 'Compras', full: 'Minhas Compras', href: '/compras', Icon: IconMarketplace, group: 'conta' }
+/**
+ * ★ SO PARA QUEM JA VENDEU SEM LOJA (01/10/2026, F5 -- decisao do Du).
+ * Quem tem loja ve as vendas no painel dela, e quem nunca vendeu nao
+ * precisa de um item morto no menu: seriam ~440 pessoas com um link para
+ * uma tela vazia. A condicao e sobre o PEDIDO existir, nao sobre a pessoa
+ * ter loja hoje -- quem vendeu sem loja e depois abriu uma continua
+ * precisando chegar nos pedidos antigos.
+ */
+const ITEM_VENDAS: MenuItem = { name: 'Vendas', full: 'Minhas Vendas', href: '/vendas', Icon: IconBox, group: 'conta' }
 const ITEM_CONTA: MenuItem = { name: 'Conta', full: 'Minha Conta', href: '/minha-conta', Icon: IconAccount, group: 'conta' }
 const ITEM_MINHA_LOJA: MenuItem = { name: 'Loja', full: 'Minha Loja', href: '/minha-loja', Icon: IconMinhaLoja, group: 'conta' }
 const ITEM_VENDER: MenuItem = { name: 'Vender', full: 'Vender na Bynx', href: '/minha-loja/nova', Icon: IconMinhaLoja, group: 'conta' }
 const ITEM_GUIA_LOJAS: MenuItem = { name: 'Guia', full: 'Guia de Lojas', href: '/lojas', Icon: IconGuiaLojas, group: 'explorar' }
 const ITEM_BLOG: MenuItem = { name: 'Blog', full: 'Blog', href: '/blog', Icon: IconArticle, group: 'explorar' }
+// Servicos de bancada (04/10/2026): a landing de restauracao leva tambem ao pre-grading.
+const ITEM_BANCADA: MenuItem = { name: 'Restauração', full: 'Restauração', href: '/restauracao-de-cartas', Icon: IconRestauro, group: 'explorar' }
+/**
+ * Os pedidos de restauracao / pre-grading do proprio usuario (04/10/2026).
+ * Mesmo padrao do ITEM_VENDAS: so aparece para quem tem 1+ linha em
+ * `servico_solicitacoes`; quem nunca pediu nao ganha um item morto. Fica
+ * colado em Minhas Compras, no grupo Conta, nos dois menus.
+ */
+const ITEM_SERVICOS: MenuItem = { name: 'Serviços', full: 'Meus serviços', href: '/servicos', Icon: IconClock, group: 'conta' }
+const comServicos = (arr: MenuItem[], visivel: boolean): MenuItem[] => {
+  if (!visivel) return arr
+  const i = arr.indexOf(ITEM_COMPRAS)
+  return i < 0 ? [...arr, ITEM_SERVICOS] : [...arr.slice(0, i), ITEM_SERVICOS, ...arr.slice(i)]
+}
 const ITEM_SUPORTE: MenuItem = { name: 'Suporte', full: 'Suporte', href: '/suporte', Icon: IconChat, group: 'conta' }
 // Nenhum dos itens de menu levava pra oferta: dentro do app o preco so existia
 // em /minha-conta, que nem esta na barra de baixo do celular.
@@ -234,6 +257,12 @@ const GROUP_ORDER: { key: GroupKey; label: string }[] = [
  * mantendo sidebar e drawer sem prefetch.
  */
 const BOTTOM_TAB_HREFS = ['/dashboard-financeiro', '/minha-colecao', '/marketplace', '/pokedex']
+// Barra do lojista puro: lista EXPLICITA (04/10/2026). Antes nenhum href acima
+// existia no menu dele e a barra caia em menu.slice(0, 4), o que punha
+// Restauracao e Blog em aba por acidente. Vendas entra no lugar do Guia quando
+// existe venda sem loja. Restauracao e Blog seguem na gaveta "Mais".
+const BOTTOM_TAB_HREFS_LOJISTA = ['/minha-loja', '/lojas', '/compras', '/minha-conta']
+const BOTTOM_TAB_HREFS_LOJISTA_VENDAS = ['/minha-loja', '/vendas', '/compras', '/minha-conta']
 // Rotulo curto da bottom nav. O /marketplace saiu daqui: agora o item ja se
 // chama "Mercado" em todo lugar (sidebar, drawer e bottom nav diziam nomes
 // diferentes pra mesma tela). A ROTA segue /marketplace — trocar quebraria
@@ -260,6 +289,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [temCartas, setTemCartas] = useState<boolean | null>(null)
   const [ehParceiro, setEhParceiro] = useState(false)
   const [temLoja, setTemLoja] = useState<boolean | null>(lojaCache.getHasLoja())
+  // Comeca em false, e NAO entra no `menuPronto`: quem nao tem venda nunca
+  // ve o item, e quem tem o ve assim que a consulta responde. Fazer o menu
+  // esperar por isso atrasaria a casca inteira por um item de minoria.
+  const [temVenda, setTemVenda] = useState(false)
+  // Mesmo raciocinio do temVenda: fora do `menuPronto`, comeca em false.
+  const [temServico, setTemServico] = useState(false)
   const [exploreMode, setExploreMode] = useState(false)
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
@@ -310,25 +345,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const menu = useMemo<MenuItem[]>(() => {
     const semDash = (arr: MenuItem[]) => (ENFORCEMENT_ATIVO && podeDashboard !== true) ? arr.filter(m => m.href !== '/dashboard-financeiro') : arr
     if (temLoja === null || temCartas === null) {
-      return comMetas(semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_SUPORTE]), metasVisivel)
+      return comMetas(semDash([ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_INDIQUE, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_SUPORTE]), metasVisivel)
     }
     if (isLojistaPuro) {
-      const lojista = [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
+      const lojista = [ITEM_MINHA_LOJA, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_SUPORTE]
+      // Lojista que vendeu sem loja ANTES de abrir a dela ainda precisa chegar
+      // naqueles pedidos: eles nao aparecem no painel da loja.
+      if (temVenda) lojista.splice(3, 0, ITEM_VENDAS)
       if (ehParceiro) lojista.push(ITEM_PARCEIROS)
-      return lojista
+      return comServicos(lojista, temServico)
     }
     const base: MenuItem[] = [ITEM_DASHBOARD, ITEM_COLECAO, ITEM_ACOMPANHANDO, ITEM_POKEDEX, ITEM_MARKETPLACE, ITEM_COMPARADOR, ITEM_SEPARADORES, ITEM_MASTER_SETS, ITEM_PAGINAS_LENDARIAS]
     if (temLoja) base.push(ITEM_MINHA_LOJA)
     else base.push(ITEM_VENDER)
     if (ehParceiro) base.push(ITEM_PARCEIROS)
-    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_SUPORTE)
-    return comMetas(semDash(base), metasVisivel)
-  }, [temLoja, temCartas, isLojistaPuro, podeDashboard, ehParceiro, metasVisivel])
+    if (temVenda) base.push(ITEM_VENDAS)
+    base.push(ITEM_INDIQUE, ITEM_GUIA_LOJAS, ITEM_BANCADA, ITEM_BLOG, ITEM_COMPRAS, ITEM_CONTA, ITEM_PLANOS, ITEM_SUPORTE)
+    return comServicos(comMetas(semDash(base), metasVisivel), temServico)
+  }, [temLoja, temCartas, temVenda, temServico, isLojistaPuro, podeDashboard, ehParceiro, metasVisivel])
 
   const primaryTabs = useMemo<MenuItem[]>(() => {
-    const inBottom = BOTTOM_TAB_HREFS.map(h => menu.find(m => m.href === h)).filter(Boolean) as MenuItem[]
+    const hrefs = isLojistaPuro
+      ? (temVenda ? BOTTOM_TAB_HREFS_LOJISTA_VENDAS : BOTTOM_TAB_HREFS_LOJISTA)
+      : BOTTOM_TAB_HREFS
+    const inBottom = hrefs.map(h => menu.find(m => m.href === h)).filter(Boolean) as MenuItem[]
     return inBottom.length >= 3 ? inBottom : menu.slice(0, 4)
-  }, [menu])
+  }, [menu, isLojistaPuro, temVenda])
   const maisItems = useMemo<MenuItem[]>(() => menu.filter(m => !primaryTabs.includes(m)), [menu, primaryTabs])
   const menuPronto = temLoja !== null && temCartas !== null && (!ENFORCEMENT_ATIVO || podeDashboard !== null)
 
@@ -366,15 +408,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const { data: authData } = await supabase.auth.getUser()
       if (!authData.user) return
 
-      const [{ data: cardsCheck }, { data: lojasCheck }, { data: parceiroCheck }] = await Promise.all([
+      const [{ data: cardsCheck }, { data: lojasCheck }, { data: parceiroCheck }, { data: vendaCheck }, { data: servicoCheck }] = await Promise.all([
         supabase.from('user_cards').select('id', { head: false }).eq('user_id', authData.user.id).limit(1),
         supabase.from('lojas').select('id').eq('owner_user_id', authData.user.id).limit(1),
         // RLS: so o proprio parceiro recebe a linha — pros demais vem vazio
         supabase.from('parceiros').select('id').limit(1),
+        // Venda sem loja. A RLS de `pedidos` libera SELECT pro participante,
+        // entao o proprio vendedor le a linha dele sem rota.
+        supabase.from('pedidos').select('id').eq('vendedor_user_id', authData.user.id).is('loja_id', null).limit(1),
+        // Pedido de restauracao / pre-grading. RLS: o dono so le o proprio; o
+        // `.eq('user_id')` e o que faz usar o idx_servico_solic_user.
+        supabase.from('servico_solicitacoes').select('id').eq('user_id', authData.user.id).limit(1),
       ])
       const _temCartas = !!cardsCheck && cardsCheck.length > 0
       const _temLoja = !!lojasCheck && lojasCheck.length > 0
       setEhParceiro(!!parceiroCheck && parceiroCheck.length > 0)
+      setTemVenda(!!vendaCheck && vendaCheck.length > 0)
+      setTemServico(!!servicoCheck && servicoCheck.length > 0)
       setTemCartas(_temCartas)
       setTemLoja(_temLoja)
       lojaCache.setHasLoja(_temLoja)

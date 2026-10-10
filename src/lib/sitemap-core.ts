@@ -44,6 +44,10 @@ export const STATIC_ROUTES: StaticRoute[] = [
   { path: '/cartas-graduadas', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/pokedex-pokemon-tcg', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/scan-ia', changeFrequency: 'monthly', priority: 0.85 },
+  // Servicos de bancada (04/10/2026, aprovado pelo Du). O formulario
+  // (/restauracao-de-cartas/agendar) e as paginas de pedido ficam fora: noindex.
+  { path: '/restauracao-de-cartas', changeFrequency: 'monthly', priority: 0.85 },
+  { path: '/pre-grading', changeFrequency: 'monthly', priority: 0.85 },
   // Landing publica do Fichario Lendario. Mesma prioridade das outras
   // landings de produto acima. A rota do PRODUTO (/paginas-lendarias) fica
   // FORA daqui de proposito -- so funciona logada, e esta no disallow do

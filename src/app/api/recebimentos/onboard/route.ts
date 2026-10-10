@@ -11,18 +11,32 @@ import { normalizarPrazo } from '@/lib/comissao'
  * Stripe -- a Bynx nunca ve esses dados.
  *
  * ★ E O ESPELHO de /api/lojas/[id]/connect/onboard para quem nao tem loja.
- * A conta nasce no usuario, e a loja dele (se um dia existir) HERDA essa conta
- * pelo `resolverRecebedor` -- ninguem refaz cadastro por ter aberto uma loja.
+ * A conta nasce no USUARIO e fica dele: a loja que ele abrir depois NAO herda
+ * esta conta (mudou em 01/10/2026 -- ver `vendedorRecebimento.ts`). Abrir loja
+ * pede ativar o Connect dela, e e de proposito: o CNPJ que fatura tem de ser o
+ * de quem aparece na nota. Os anuncios PESSOAIS continuam cobrando por aqui.
  *
  * ★ QUEM PODE ATIVAR: quem anuncia (decisao do Du, 24/09/2026). O guard e ter
  * pelo menos um anuncio no ar. Nao e burocracia: conta Express e uma conta que
  * a PLATAFORMA responde por perante a Stripe, entao ela nasce ligada a alguem
  * que esta de fato vendendo, e nao a qualquer cadastro.
  *
- * ★ `business_type` NAO VAI DEFINIDO: quem escolhe e a pessoa no onboarding, e
- * `individual` com CPF e uma opcao valida no BR. Cravar aqui obrigaria CNPJ a
- * quem nao tem -- foi exatamente o que travou a GhosTCG, parada com 40
- * requisitos `past_due` por ter entrado como empresa.
+ * ★ `business_type: 'individual'` VAI CRAVADO (02/10/2026). Esta rota serve
+ * quem vende SEM loja -- a loja tem a dela, `/api/lojas/[id]/connect`, e la o
+ * CNPJ e legitimo. Aqui nao ha empresa para declarar, e deixar a Stripe
+ * perguntar so oferece uma porta errada para a pessoa entrar.
+ *
+ * ★ O COMENTARIO QUE ESTAVA AQUI DIZIA O CONTRARIO, E ESTAVA ERRADO: afirmava
+ * que cravar "obrigaria CNPJ a quem nao tem". E o inverso -- `individual` e
+ * justamente o que DISPENSA o CNPJ; quem o exige e `company`. O engano
+ * custou duas pessoas: a conta que entrou como empresa pede CNPJ, quadro
+ * societario, endereco e telefone COMERCIAIS -- 40 requisitos que pessoa
+ * fisica nao tem como cumprir.
+ *
+ * ★ DUAS DE DUAS ERRARAM A PORTA. O Lenix (`acct_1UM5BCAAJNKrwVj1`, criado
+ * em 02/10 09:03) ficou Restrita com as 40 exigencias de empresa, sem ter
+ * empresa. A conta Express tambem NAO deixa trocar o `business_type` depois:
+ * so saindo e comecando outra.
  */
 
 export async function POST(req: NextRequest) {
@@ -91,6 +105,9 @@ export async function POST(req: NextRequest) {
         type: 'express',
         country: 'BR',
         default_currency: 'brl',
+        // Ver o cabecalho: quem vende sem loja e pessoa fisica, e a Stripe
+        // para de perguntar quando o tipo ja vem definido.
+        business_type: 'individual',
         email: user.email || undefined,
         capabilities: {
           card_payments: { requested: true },
@@ -113,14 +130,30 @@ export async function POST(req: NextRequest) {
         .update({
           stripe_connect_account_id: accountId,
           stripe_connect_status: 'pendente',
-          updated_at: new Date().toISOString(),
+          // ★ SEM `updated_at` AQUI: `users` NAO TEM essa coluna -- `lojas`
+          //   tem, e esta rota nasceu copiando a da loja. O update falhava com
+          //   42703 DEPOIS de a conta ja existir na Stripe, entao a pessoa via
+          //   "Erro ao salvar a conta" e o banco ficava sem o account_id. Ver
+          //   o bloco de erro logo abaixo.
         })
         .eq('id', user.id)
 
       if (upErr) {
-        console.error('[recebimentos/onboard] falha ao salvar account id:', upErr.message)
-        // A conta existe na Stripe e nao gravou aqui: abortar evita criar uma
-        // conta orfa nova a cada clique.
+        // ★ ESTE ERRO DERRUBOU A FUNCIONALIDADE INTEIRA POR 6 DIAS (25/09 a
+        //   01/10). O update citava `updated_at`, que nao existe em `users`:
+        //   falhava SEMPRE, para todo mundo, 0 de 450 usuarios ativaram. E o
+        //   comentario antigo aqui dizia que abortar "evita criar uma conta
+        //   orfa nova a cada clique" -- nao evita: a conta ja foi criada na
+        //   Stripe na linha de cima. Cada clique deixava uma conta Express
+        //   orfa na conta LIVE da Bynx.
+        //
+        //   Descoberto pelo print que a Barbara mandou ("Erro ao salvar a
+        //   conta. Tente de novo."), depois de ela dizer que nao conseguia.
+        console.error(
+          '[recebimentos/onboard] CRITICAL: conta', accountId,
+          'criada na Stripe e NAO gravada no banco:', upErr.message,
+          '| user', user.id, '-- reconciliar a mao'
+        )
         return NextResponse.json({ error: 'Erro ao salvar a conta. Tente de novo.' }, { status: 500 })
       }
 

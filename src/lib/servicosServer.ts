@@ -12,10 +12,18 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { requireAdmin } from '@/lib/admin-auth'
 import {
-  numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio,
-  ESCALA, PILARES, CAMPOS_LAUDO, FOTOS_SAIDA, type FichaCondicao,
+  numeroServico, brl, SERVICOS, PRAZOS, GUIA_EMBALAGEM, linkRastreio, fmtDataHoraAnoBRT,
+  ESCALA, PILARES, CAMPOS_LAUDO, FOTOS_ENTRADA, FOTOS_SAIDA, compararFicha, fotosFaltando, faltasDoLaudo,
+  etapaDevida, type FichaCondicao, type EtapaPagamento, type LinhaPagamento,
 } from '@/lib/servicos'
 import { sendServicoClienteEmail, sendServicoProntaEmail, SERVICO_PRONTA_DETALHE, type ServicoProntaItem } from '@/lib/email'
+import { cotarFrete, pacoteServicoVolta } from '@/lib/melhor-envio'
+import { notify } from '@/lib/notify'
+
+// O calculo do valor devido mora em servicos.ts (a lista /servicos, client-side,
+// usa a mesma conta). Reexportado para os importadores de sempre.
+export { etapaDevida, etapaCobravel } from '@/lib/servicos'
+export type { EtapaPagamento, LinhaPagamento } from '@/lib/servicos'
 
 export const BUCKET_SERVICOS = 'servico-midias'
 export const FOTO_MAX_BYTES = 10 * 1024 * 1024
@@ -30,9 +38,6 @@ export const TIPO_POR_SLOT: Record<Slot, string> = {
   rasante: 'cliente_extra',
   cantos: 'cliente_extra',
 }
-
-/** Termo de ciencia de risco vigente. Trocar a versao quando o texto mudar. */
-export const TERMO_VERSAO_ATUAL = 'v1-2026-09'
 
 export function numeroSolicitacao(n: number | string) {
   return numeroServico(Number(n))
@@ -115,7 +120,10 @@ export async function urlDeUpload(path: string) {
 // update filtra pelo status atual), entao cada e-mail sai uma vez. Falha de
 // envio nunca derruba a rota: loga e segue.
 
-export type EtapaEmail = 'recebido' | 'orcado' | 'recusado_bynx' | 'aceito' | 'liberado_envio' | 'cobrar_servico' | 'servico_pago' | 'recebida' | 'proposta' | 'pronta' | 'enviada'
+export type EtapaEmail = 'recebido' | 'orcado' | 'recusado_bynx' | 'aceito' | 'liberado_envio' | 'cobrar_servico' | 'servico_pago' | 'recebida' | 'proposta' | 'pronta' | 'enviada' | 'estorno'
+
+/** Dados que so o e-mail de estorno precisa (o resto do pedido vem do banco). */
+export interface ExtraEmailEstorno { valorCents: number; metodo: 'stripe' | 'pix_manual'; em: string }
 
 const APP = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 const reais = (c: number | null | undefined) => `R$ ${brl((c || 0) / 100)}`
@@ -126,23 +134,60 @@ export function enderecoRecebimento(): string | null {
   return e ? e.replace(/\\n/g, '\n') : null
 }
 
+// ── Frete de volta (Melhor Envio) ───────────────────────────────────────────
+// Cota o envelope A4 da volta (pacoteServicoVolta) do CEP da bancada (tirado do
+// SERVICOS_ENDERECO) ate o CEP do cadastro do cliente. Duas cotacoes por
+// opcao: com seguro minimo (frete puro) e com o valor declarado real; a
+// diferenca e a taxa de valor declarado que a transportadora cobra, e e ela
+// que vai na linha "Valor declarado nos Correios" -- assim nada e cobrado duas
+// vezes. So Correios (PAC/SEDEX): e o que a landing promete e a regra de
+// indenizacao que explicamos ao cliente. Expresso: so SEDEX.
+
+export function cepOrigemServicos(): string | null {
+  const direto = process.env.SERVICOS_CEP_ORIGEM?.replace(/\D/g, '')
+  if (direto && direto.length === 8) return direto
+  const m = enderecoRecebimento()?.match(/\b(\d{5})-?(\d{3})\b/)
+  return m ? m[1] + m[2] : null
+}
+
+export interface OpcaoVolta { id: number; nome: string; empresa: string; prazoDias: number; freteCents: number; valorDeclaradoCents: number; pesoG: number }
+
+export async function cotarVoltaServico(p: {
+  servico: string; cartas: number; valorDeclaradoCents: number; expresso: boolean; cepDestino: string
+}): Promise<OpcaoVolta[]> {
+  const origem = cepOrigemServicos()
+  if (!origem) throw new Error('CEP de origem ausente no SERVICOS_ENDERECO')
+  const destino = String(p.cepDestino || '').replace(/\D/g, '')
+  if (destino.length !== 8) throw new Error('CEP de destino inválido')
+  const comVd = pacoteServicoVolta(p.servico, p.cartas, p.valorDeclaradoCents)
+  const semVd = { ...comVd, insuranceValue: 1 }
+  // Lista inteira (50): o SEDEX costuma ficar fora das 12 mais baratas e sem ele nao da para separar a taxa.
+  const [cheio, puro] = await Promise.all([cotarFrete(origem, destino, [comVd], 50), cotarFrete(origem, destino, [semVd], 50)])
+  const puroPor = new Map(puro.map(o => [o.id, o.precoCents]))
+  return cheio
+    .filter(o => /correios/i.test(o.empresa) && (!p.expresso || /sedex/i.test(o.nome)))
+    .map(o => {
+      const frete = Math.min(o.precoCents, puroPor.get(o.id) ?? o.precoCents)
+      return {
+        id: o.id, nome: o.nome, empresa: o.empresa, prazoDias: o.prazoDias,
+        freteCents: frete, valorDeclaradoCents: Math.max(0, o.precoCents - frete), pesoG: Math.round(comVd.weightKg * 1000),
+      }
+    })
+    .slice(0, 4)
+}
+
 // ── Pagamento por etapa (fatia 3) ───────────────────────────────────────────
-// sinal    no aceite: seguro + frete de volta (a Bynx gasta com ou sem servico)
+// sinal    no aceite: valor declarado dos Correios + frete de volta (a Bynx gasta com ou sem servico)
 // servico  na aprovacao da proposta, antes da bancada: servico (+ expresso)
 // integral pre-grading sozinho: tudo no aceite (nao tem proposta)
 // Decisao do Du, 27/09/2026, seguindo o painel de pagamento.
 
-export type EtapaPagamento = 'sinal' | 'servico' | 'integral'
 export const ROTULO_ETAPA: Record<EtapaPagamento, string> = { sinal: 'Sinal', servico: 'Serviço', integral: 'Pagamento' }
 
 /** Chave Pix de recebimento: so no servidor (env), como o endereco. */
 export function pixRecebimento(): { chave: string; nome: string | null } | null {
   const chave = process.env.SERVICOS_PIX_CHAVE?.trim()
   return chave ? { chave, nome: process.env.SERVICOS_PIX_NOME?.trim() || null } : null
-}
-
-export interface LinhaPagamento {
-  id: string; etapa: EtapaPagamento; valor_cents: number; metodo: string | null; pago_em: string | null
 }
 
 /** Quanto cobrar em cada etapa, a partir do orcamento. */
@@ -181,17 +226,47 @@ export async function sincronizarPagamentos(solicitacaoId: string) {
 
 export async function pagamentosDoPedido(solicitacaoId: string): Promise<LinhaPagamento[]> {
   const { data } = await sbAdmin().from('servico_pagamentos')
-    .select('id, etapa, valor_cents, metodo, pago_em').eq('solicitacao_id', solicitacaoId)
+    .select('id, etapa, valor_cents, metodo, pago_em, reembolsado_cents, reembolsado_em').eq('solicitacao_id', solicitacaoId)
   const ordem: EtapaPagamento[] = ['integral', 'sinal', 'servico']
   return ((data || []) as LinhaPagamento[]).sort((a, b) => ordem.indexOf(a.etapa) - ordem.indexOf(b.etapa))
 }
 
-/** A etapa que o cliente deve pagar AGORA (ou null). */
-export function etapaDevida(status: string, propostaAceita: boolean, linhas: LinhaPagamento[]): LinhaPagamento | null {
-  const aberta = (e: EtapaPagamento) => linhas.find(l => l.etapa === e && !l.pago_em) || null
-  if (status === 'aceito' || status === 'recebida') return aberta('integral') || aberta('sinal')
-  if (status === 'proposta' && propostaAceita) return aberta('servico')
-  return null
+// ── Pendencias antes de cada passo ──────────────────────────────────────────
+// O que falta antes de cada passo. Mensagens curtas: o painel lista todas.
+// Saida: carta tratada exige ficha e fotos de saida; pre-grading e completo
+// exigem o laudo PREENCHIDO (faixa valida, graduadora e centralizacao). Midia
+// do tipo 'laudo' pode ser anexada, mas nao cumpre a trava sozinha: senao o
+// proprio PDF do relatorio, subido como laudo, liberaria o "pronta".
+export async function pendencias(sb: SupabaseClient, id: string, servico: string, fase: 'entrada' | 'saida') {
+  const [{ data: itens }, { data: midias }, { data: procs }] = await Promise.all([
+    sb.from('servico_itens').select('id, nome, aceito, ficha_entrada, ficha_saida, laudo').eq('solicitacao_id', id).order('created_at'),
+    sb.from('servico_midias').select('item_id, tipo, posicao').eq('solicitacao_id', id),
+    sb.from('servico_procedimentos').select('item_id, decisao').eq('solicitacao_id', id),
+  ])
+  const faltas: string[] = []
+  const ativos = (itens || []).filter(i => i.aceito !== false)
+  if (fase === 'entrada' && !(midias || []).some(m => m.tipo === 'video_abertura')) faltas.push('Vídeo de abertura do pacote')
+  ativos.forEach((it, k) => {
+    const n = ativos.length > 1 ? ` da carta ${k + 1}` : ''
+    const doItem = (midias || []).filter(m => m.item_id === it.id)
+    if (fase === 'entrada') {
+      if (!it.ficha_entrada) faltas.push(`Ficha de entrada${n}`)
+      const f = fotosFaltando(FOTOS_ENTRADA, doItem)
+      if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de entrada${n}`)
+    } else {
+      const tratada = (procs || []).some(p => p.item_id === it.id && p.decisao === 'aprovado')
+      if (tratada) {
+        if (!it.ficha_saida) faltas.push(`Ficha de saída${n}`)
+        const f = fotosFaltando(FOTOS_SAIDA, doItem)
+        if (f.length) faltas.push(`${f.length} ${f.length === 1 ? 'foto' : 'fotos'} de saída${n}`)
+      }
+      if (servico !== 'restauracao') {
+        const l = faltasDoLaudo(it.laudo)
+        if (l.length) faltas.push(`Laudo de pré-grading${n}: falta ${l.join(', ')}`)
+      }
+    }
+  })
+  return faltas
 }
 
 /** Etapa paga libera o envio da carta (endereco)? */
@@ -222,6 +297,36 @@ export async function confirmarPagamento(solicitacaoId: string, etapa: EtapaPaga
   return { ok: true as const, tudoPago }
 }
 
+/**
+ * O que acontece DEPOIS que confirmarPagamento fez a transicao (ok: true):
+ * evento na linha do tempo + e-mail ao cliente. Uma regra so para o Pix manual
+ * (admin) e para o cartao (webhook). So chamar quando a transicao aconteceu
+ * nesta chamada -- e isso que garante um e-mail e um evento por etapa.
+ */
+export async function aposConfirmarPagamento(solicitacaoId: string, statusAtual: string, etapa: EtapaPagamento, metodo: 'pix_manual' | 'stripe', sufixoNota = '') {
+  const rotulo = metodo === 'stripe' ? 'Cartão' : 'Pix'
+  await registrarEvento(solicitacaoId, statusAtual, `${rotulo} confirmado: ${ROTULO_ETAPA[etapa].toLowerCase()}${sufixoNota}`)
+  if ((etapa === 'sinal' || etapa === 'integral') && statusAtual === 'aceito') await notificarCliente(solicitacaoId, 'liberado_envio')
+  if (etapa === 'servico') await notificarCliente(solicitacaoId, 'servico_pago')
+  // Pix quem confirma e o proprio admin; cartao chega sozinho pelo webhook.
+  if (metodo === 'stripe') await avisarAdminNoSino(solicitacaoId, 'Cartão pago', `${ROTULO_ETAPA[etapa]} confirmado pela Stripe${sufixoNota}.`)
+}
+
+/**
+ * O que acontece DEPOIS que um estorno foi gravado (a transicao do
+ * reembolsado_cents aconteceu nesta chamada): evento neutro na linha do tempo
+ * (o cliente ve; o motivo NAO vai aqui) + e-mail ao cliente. Uma regra so para o
+ * estorno pelo painel e para a conciliacao do webhook. Nunca muda o status do
+ * pedido: essa decisao fica com o admin.
+ */
+export async function aposEstorno(
+  solicitacaoId: string, statusAtual: string, valorCents: number, metodo: 'stripe' | 'pix_manual', em: string, sufixoNota = '',
+) {
+  const nota = metodo === 'stripe' ? `Estorno de ${reais(valorCents)} no cartão` : `Devolução de ${reais(valorCents)} por Pix`
+  await registrarEvento(solicitacaoId, statusAtual, `${nota}${sufixoNota}`)
+  await notificarCliente(solicitacaoId, 'estorno', { valorCents, metodo, em })
+}
+
 function blocoPix(valor: number, numero: string) {
   const pix = pixRecebimento()
   return pix
@@ -229,7 +334,23 @@ function blocoPix(valor: number, numero: string) {
     : `Valor: ${reais(valor)}\nA chave Pix chega por e-mail ou WhatsApp. Na descrição do Pix, escreva: ${numero}`
 }
 
-export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail) {
+/** Texto do sino por marco do pedido de servico (o e-mail segue com o detalhe). */
+const SINO_SERVICO: Partial<Record<EtapaEmail, { t: string; m: string | ((totalCents: number | null) => string) }>> = {
+  recebido: { t: 'Pedido de serviço registrado', m: `recebemos as fotos. O orçamento chega em até ${PRAZOS.orcamento || '48 horas'}.` },
+  orcado: { t: 'Seu orçamento chegou', m: total => `${total ? `${reais(total)}. ` : ''}Abra o pedido para aprovar.` },
+  recusado_bynx: { t: 'Pedido não aceito', m: 'o motivo está no pedido.' },
+  aceito: { t: 'Orçamento aprovado', m: 'falta o pagamento para liberar o endereço de envio.' },
+  liberado_envio: { t: 'Pode enviar a sua carta', m: 'pagamento confirmado. O endereço de envio está no pedido.' },
+  cobrar_servico: { t: 'Falta o pagamento do serviço', m: 'confira o valor no pedido.' },
+  servico_pago: { t: 'Pagamento do serviço confirmado', m: 'sua carta vai para a bancada.' },
+  recebida: { t: 'Sua carta chegou', m: 'o pacote foi aberto em vídeo e a carta recebeu o número de custódia.' },
+  proposta: { t: 'Proposta de tratamento', m: 'aprove ou recuse cada procedimento no pedido.' },
+  estorno: { t: 'Estorno registrado', m: 'o valor está no pedido.' },
+  pronta: { t: 'Sua carta está pronta', m: 'veja as fotos e o laudo no pedido.' },
+  enviada: { t: 'Sua carta está a caminho', m: 'o rastreio está no pedido.' },
+}
+
+export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail, extra?: ExtraEmailEstorno) {
   try {
     const sb = sbAdmin()
     const { data: sols } = await sb.from('servico_solicitacoes')
@@ -242,9 +363,19 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
       sb.from('servico_itens').select('nome, aceito, recusa_motivo, custodia').eq('solicitacao_id', solicitacaoId).order('created_at'),
     ])
     const u = us?.[0]
+    const numero = numeroServico(sol.numero)
+
+    // Sino: o mesmo marco do e-mail, curto, levando ao pedido. Vai antes do
+    // e-mail e nao depende dele (conta sem e-mail tambem ve o aviso).
+    const sino = SINO_SERVICO[etapa]
+    if (sino) {
+      await notify(sol.user_id, etapa === 'enviada' ? 'enviado' : 'aviso', sino.t,
+        `${numero}: ${typeof sino.m === 'function' ? sino.m(sol.total_cents) : sino.m}`,
+        { link: `/servico/${sol.id}`, servico_id: sol.id, etapa })
+        .catch(() => false)
+    }
     if (!u?.email) return
 
-    const numero = numeroServico(sol.numero)
     const servico = SERVICOS.find(x => x.id === sol.servico)?.nome || 'Serviço'
     const link = `${APP}/servico/${sol.id}`
     const cta = { rotulo: 'Ver o pedido', href: link }
@@ -266,11 +397,11 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         ...base, assunto: `Orçamento do pedido ${numero}`, selo: 'Orçamento pronto', titulo: `Seu orçamento: ${reais(sol.total_cents)}`,
         paragrafos: [
           `Analisamos as fotos. ${aceitas.length === 1 ? 'Uma carta pode' : `${aceitas.length} cartas podem`} ser tratada${aceitas.length === 1 ? '' : 's'}${recusadas.length ? `, e ${recusadas.length === 1 ? 'uma ficou' : `${recusadas.length} ficaram`} de fora (o motivo está no pedido)` : ''}.`,
-          'Para seguir, abra o pedido, leia o termo e aprove. Você paga agora só o sinal (seguro e frete de volta); o serviço é cobrado depois que a carta chegar e você aprovar a proposta de tratamento.',
+          'Para seguir, abra o pedido, leia o termo e aprove. Você paga agora só o sinal (frete de volta e valor declarado nos Correios); o serviço é cobrado depois que a carta chegar e você aprovar a proposta de tratamento.',
         ],
         linhas: [
           { rotulo: 'Serviço', valor: reais(sol.orcamento_cents) },
-          ...(sol.seguro_cents ? [{ rotulo: 'Seguro', valor: reais(sol.seguro_cents) }] : []),
+          ...(sol.seguro_cents ? [{ rotulo: 'Valor declarado nos Correios', valor: reais(sol.seguro_cents) }] : []),
           ...(sol.frete_volta_cents ? [{ rotulo: 'Frete de volta', valor: reais(sol.frete_volta_cents) }] : []),
           { rotulo: 'Total', valor: reais(sol.total_cents) },
         ],
@@ -295,7 +426,7 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
           titulo: devida.etapa === 'sinal' ? `Falta o sinal de ${reais(devida.valor_cents)}` : `Falta o pagamento de ${reais(devida.valor_cents)}`,
           paragrafos: [
             devida.etapa === 'sinal'
-              ? 'O sinal cobre o seguro e o frete de volta da sua carta. O valor do serviço só é cobrado depois, quando você aprovar a proposta de tratamento.'
+              ? 'O sinal cobre o frete de volta da sua carta e o valor declarado nos Correios. O valor do serviço só é cobrado depois, quando você aprovar a proposta de tratamento.'
               : 'Assim que o pagamento cair, liberamos o endereço de envio.',
             'Depois do Pix, a Bynx confirma o pagamento e o endereço de envio aparece na página do pedido e no seu e-mail.',
           ],
@@ -356,6 +487,24 @@ export async function notificarCliente(solicitacaoId: string, etapa: EtapaEmail)
         ],
         cta: { rotulo: 'Ver e decidir a proposta', href: link },
       })
+    } else if (etapa === 'estorno') {
+      if (!extra || !(extra.valorCents > 0)) return
+      const quando = fmtDataHoraAnoBRT.format(extra.em).replace(' ', ' às ')
+      await sendServicoClienteEmail({
+        ...base,
+        assunto: extra.metodo === 'stripe' ? `Estorno no cartão: pedido ${numero}` : `Devolução por Pix: pedido ${numero}`,
+        selo: extra.metodo === 'stripe' ? 'Estorno no cartão' : 'Devolução por Pix',
+        titulo: extra.metodo === 'stripe' ? `Estorno de ${reais(extra.valorCents)}` : `Devolução de ${reais(extra.valorCents)}`,
+        paragrafos: extra.metodo === 'stripe'
+          ? [
+            `Fizemos o estorno de ${reais(extra.valorCents)} no cartão usado no pedido ${numero}, em ${quando} (horário de Brasília).`,
+            'O valor volta pela operadora do cartão. Dependendo do banco emissor, ele pode levar alguns dias para aparecer na fatura.',
+          ]
+          : [
+            `Registramos a devolução de ${reais(extra.valorCents)} por Pix referente ao pedido ${numero}, em ${quando} (horário de Brasília).`,
+          ],
+        cta,
+      })
     } else if (etapa === 'pronta') {
       await enviarEmailPronta(sb, solicitacaoId, { ...base, numero, servico, link })
     } else if (etapa === 'enviada') {
@@ -393,7 +542,6 @@ export const VALIDADE_FOTOS_EMAIL_DIAS = 30
 const PRONTA_COBRA_NO_EMAIL = false
 
 const ROTULO_ESCALA = new Map<string, string>(ESCALA.map(e => [e.id, e.rotulo]))
-const ORDEM_ESCALA = new Map<string, number>(ESCALA.map((e, i) => [e.id, i]))
 const LAUDO_NO_EMAIL = ['faixa_nota', 'graduadora', 'centralizacao_frente', 'centralizacao_verso', 'proximo_passo'] as const
 
 /**
@@ -414,24 +562,16 @@ async function imagemDoCatalogo(sb: SupabaseClient, cardId: string | null): Prom
   }
 }
 
-function condicaoDoItem(entrada: FichaCondicao | null, saida: FichaCondicao | null): ServicoProntaItem['condicao'] {
-  if (!entrada && !saida) return []
-  const linhas: NonNullable<ServicoProntaItem['condicao']> = []
-  for (const lado of ['frente', 'verso'] as const) {
-    for (const p of PILARES) {
-      const a = entrada?.[lado]?.[p.id] || null
-      const b = saida?.[lado]?.[p.id] || null
-      if (!a && !b) continue
-      linhas.push({
-        lado: lado === 'frente' ? 'Frente' : 'Verso',
-        pilar: p.rotulo,
-        chegada: a ? ROTULO_ESCALA.get(a) || null : null,
-        saida: b ? ROTULO_ESCALA.get(b) || null : null,
-        melhorou: !!(a && b && (ORDEM_ESCALA.get(b) ?? 99) < (ORDEM_ESCALA.get(a) ?? 99)),
-      })
-    }
-  }
-  return linhas
+/** Linhas de condicao do e-mail "pronta": a regra de comparacao vem de compararFicha. */
+export function condicaoDoItem(entrada: FichaCondicao | null, saida: FichaCondicao | null): ServicoProntaItem['condicao'] {
+  const rotuloPilar = new Map<string, string>(PILARES.map(p => [p.id, p.rotulo]))
+  return compararFicha(entrada, saida).map(l => ({
+    lado: l.lado === 'frente' ? 'Frente' : 'Verso',
+    pilar: rotuloPilar.get(l.pilar) || l.pilar,
+    chegada: l.chegada ? ROTULO_ESCALA.get(l.chegada) || null : null,
+    saida: l.saida ? ROTULO_ESCALA.get(l.saida) || null : null,
+    melhorou: l.variacao === 'melhorou',
+  }))
 }
 
 async function enviarEmailPronta(
@@ -517,7 +657,33 @@ async function enviarEmailPronta(
 }
 
 /** Aviso interno ao admin (ex.: cliente decidiu a proposta). Nunca derruba a rota. */
+/**
+ * Sino do admin: aviso curto que abre o pedido no painel. Usado nos marcos em
+ * que a bancada precisa agir e dentro do notificarAdmin, para todo e-mail
+ * interno ter o par no sino. O painel e por senha, nao por conta, entao o sino
+ * vai para a CONTA de usuario do SERVICOS_SINO_EMAIL (ou do ADMIN_EMAIL, se
+ * esse e-mail tiver conta na Bynx). Sem conta, nao grava nada.
+ */
+export async function avisarAdminNoSino(solicitacaoId: string, titulo: string, mensagem: string) {
+  const email = process.env.SERVICOS_SINO_EMAIL || process.env.ADMIN_EMAIL
+  if (!email) return
+  try {
+    const sb = sbAdmin()
+    const [{ data: us }, { data: sols }] = await Promise.all([
+      sb.from('users').select('id').ilike('email', email.trim()).limit(1),
+      sb.from('servico_solicitacoes').select('id, numero').eq('id', solicitacaoId).limit(1),
+    ])
+    const adminId = us?.[0]?.id
+    const sol = sols?.[0]
+    if (!adminId || !sol) return
+    await notify(adminId, 'aviso', `${titulo} ${numeroServico(sol.numero)}`, mensagem, { link: `/admin/servicos/${sol.id}`, servico_id: sol.id })
+  } catch (e) {
+    console.error('[servicos] sino admin', e instanceof Error ? e.message : e)
+  }
+}
+
 export async function notificarAdmin(solicitacaoId: string, titulo: string, paragrafos: string[]) {
+  await avisarAdminNoSino(solicitacaoId, titulo.replace(/:\s*$/, ''), paragrafos[0] || 'Abra o pedido no painel.')
   const destino = process.env.ADMIN_EMAIL
   if (!destino) return
   try {

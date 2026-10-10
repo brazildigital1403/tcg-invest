@@ -6,12 +6,26 @@ import { supabase } from '@/lib/supabaseClient'
 import { IconWallet } from '@/components/ui/Icons'
 
 /**
- * Faixa em "Meus anúncios": a pessoa tem carta no ar e ninguem consegue comprar.
+ * Faixa de quem vende sem loja: tem carta no ar e ninguem consegue comprar.
  *
  * ★ E O IRMAO DO `AvisoRecebimentos` (que e da loja), para quem NAO TEM LOJA.
  * A licao daquele vale inteira aqui: o problema nunca foi falta de tela, foi
  * falta de aviso ONDE a pessoa olha. Criar /recebimentos e nao avisar em lugar
  * nenhum seria "grava mas nao le" de novo -- so que em UX.
+ *
+ * ★ 29/09/2026: A LICAO SE REPETIU, MEDIDA. A faixa existia so na aba "Meus
+ * anuncios" do Mercado -- uma aba dentro de uma pagina. Quatro dias depois de
+ * /recebimentos entrar no ar: 22 vendedores sem loja, 80 anuncios, R$ 37.285
+ * parados e ZERO contas ativadas em 450 usuarios. 14 desses vendedores (43
+ * anuncios, R$ 27.687) ja tinham CEP e podiam ativar no mesmo dia; o caminho
+ * estava pronto e ninguem sabia que existia. Agora a faixa aparece tambem no
+ * INICIO, que e a tela que a pessoa abre sem procurar nada.
+ *
+ * ★ POR ISSO `anunciosNoAr` E OPCIONAL. O Mercado ja carregou os anuncios da
+ * pessoa e passa o numero; o Inicio nao carrega nenhum, e obrigar a tela
+ * chamadora a buscar anuncio so para decidir se mostra uma faixa espalharia
+ * essa consulta por toda page que quisesse avisar. Sem a prop, o componente
+ * conta sozinho -- com `head: true`, que traz so o total, nao as linhas.
  *
  * ★ QUEM TEM LOJA NAO VE ESTA FAIXA: a dela e a da loja, que aponta para o
  * painel certo. Duas faixas dizendo a mesma coisa em lugares diferentes seria
@@ -30,32 +44,49 @@ export default function AvisoRecebimentoPessoa({
   anunciosNoAr,
 }: {
   userId: string | null
-  /** Anuncios realmente no ar. Zero esconde a faixa. */
-  anunciosNoAr: number
+  /**
+   * Anuncios realmente no ar. Zero esconde a faixa. Omitido, o componente
+   * conta sozinho -- e o caso do Inicio, que nao carrega anuncio nenhum.
+   */
+  anunciosNoAr?: number
 }) {
   const [mostrar, setMostrar] = useState(false)
   const [temCep, setTemCep] = useState(true)
+  const [contados, setContados] = useState<number | null>(null)
+
+  // Quem passou o numero manda; quem nao passou espera a contagem.
+  const quantosNoAr = anunciosNoAr ?? contados
 
   useEffect(() => {
-    if (!userId || anunciosNoAr === 0) { setMostrar(false); return }
+    if (!userId) { setMostrar(false); return }
+    if (anunciosNoAr === 0) { setMostrar(false); return }
     let vivo = true
     async function checar() {
-      const [me, lojas] = await Promise.all([
+      // A contagem entra na mesma ida que o resto: uma faixa que nao vai
+      // aparecer nao deve custar duas viagens ao banco.
+      const precisaContar = anunciosNoAr === undefined
+      const [me, lojas, anuncios] = await Promise.all([
         supabase.from('users').select('connect_charges_enabled, cep').eq('id', userId!).maybeSingle(),
         supabase.from('lojas').select('id').eq('owner_user_id', userId!).eq('status', 'ativa').limit(1),
+        precisaContar
+          ? supabase.from('marketplace').select('id', { count: 'exact', head: true })
+              .eq('user_id', userId!).eq('status', 'disponivel')
+          : Promise.resolve({ count: null, error: null }),
       ])
       if (!vivo || me.error) return
+      const noAr = precisaContar ? (anuncios.count || 0) : anunciosNoAr!
+      if (precisaContar) setContados(noAr)
       const temLoja = (lojas.data?.length || 0) > 0
       setTemCep(String(me.data?.cep || '').replace(/\D/g, '').length === 8)
-      setMostrar(!temLoja && !me.data?.connect_charges_enabled)
+      setMostrar(noAr > 0 && !temLoja && !me.data?.connect_charges_enabled)
     }
     checar()
     return () => { vivo = false }
   }, [userId, anunciosNoAr])
 
-  if (!mostrar) return null
+  if (!mostrar || !quantosNoAr) return null
 
-  const quantos = `${anunciosNoAr} ${anunciosNoAr === 1 ? 'anúncio' : 'anúncios'}`
+  const quantos = `${quantosNoAr} ${quantosNoAr === 1 ? 'anúncio' : 'anúncios'}`
 
   return (
     <div style={S.faixa}>
@@ -65,7 +96,7 @@ export default function AvisoRecebimentoPessoa({
           Você tem {quantos} no ar, e ninguém consegue comprar
         </strong>
         <p style={S.linha}>
-          {anunciosNoAr === 1 ? 'Ele aparece' : 'Eles aparecem'} normalmente no Mercado, mas sem o botão
+          {quantosNoAr === 1 ? 'Ele aparece' : 'Eles aparecem'} normalmente no Mercado, mas sem o botão
           de comprar — quem se interessa só consegue conversar, e a venda acontece por fora da Bynx.
         </p>
         <p style={S.linha}>

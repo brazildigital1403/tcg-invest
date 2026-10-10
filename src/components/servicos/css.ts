@@ -31,6 +31,9 @@ export const SV_CSS = `
 .sv-eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ac-1)}
 .sv-head .sv-p{max-width:620px}
 
+/* Faixa dos shorts: brilho do acento por tras do carrossel */
+.sv-band-shorts{background:radial-gradient(60% 70% at 85% 30%,rgba(var(--ac-1-rgb),0.10),transparent 70%),radial-gradient(45% 60% at 10% 80%,rgba(var(--ac-2-rgb),0.07),transparent 70%)}
+
 /* ── Hero ── */
 .sv-hero{position:relative;overflow:hidden;padding:88px 0 104px;background:radial-gradient(50% 60% at 72% 30%,rgba(var(--ac-1-rgb),0.13),transparent 70%),radial-gradient(35% 45% at 8% 70%,rgba(var(--ac-2-rgb),0.08),transparent 70%)}
 .sv-hero-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:56px;align-items:center}

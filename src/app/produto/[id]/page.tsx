@@ -53,6 +53,14 @@ interface Produto {
   preco_cents: number
   estoque: number
   peso_g: number | null
+  /** `pt`, `en`, `jp`... Decide a caixa: ETB inglesa e brasileira nao medem igual. */
+  idioma: string | null
+  /** Subtipo de `selado`: etb, booster_box, blister... Null nos outros tipos. */
+  formato: string | null
+  /** Medidas da embalagem em cm, informadas pelo lojista. Null = nao informou. */
+  largura_cm: number | null
+  altura_cm: number | null
+  comprimento_cm: number | null
   vendidos: number | null
   fotos: string[] | null
   loja_id: string
@@ -60,6 +68,8 @@ interface Produto {
 
 interface LojaDoProduto {
   id: string
+  /** Dono da loja: e ele quem recebe, e e a chave do carrinho por vendedor. */
+  owner_user_id: string
   slug: string
   nome: string | null
   logo_url: string | null
@@ -87,7 +97,7 @@ const buscar = cache(async function buscar(id: string): Promise<{ produto: Produ
 
   const q = db
     .from('loja_produtos')
-    .select('id, slug, tipo, nome, descricao, preco_cents, estoque, peso_g, vendidos, fotos, loja_id')
+    .select('id, slug, tipo, nome, descricao, preco_cents, estoque, peso_g, idioma, formato, largura_cm, altura_cm, comprimento_cm, vendidos, fotos, loja_id')
     .eq('ativo', true)
     .limit(1)
 
@@ -97,7 +107,7 @@ const buscar = cache(async function buscar(id: string): Promise<{ produto: Produ
 
   const { data: ls } = await db
     .from('lojas')
-    .select('id, slug, nome, logo_url, verificada, cidade, estado, connect_charges_enabled')
+    .select('id, owner_user_id, slug, nome, logo_url, verificada, cidade, estado, connect_charges_enabled')
     .eq('id', produto.loja_id)
     .eq('status', 'ativa')
     // Loja oculta (de teste) nao tem pagina publica de produto. Sem isto a
@@ -163,6 +173,30 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
 
   const nomeLoja = loja.nome || 'Loja'
   const fotos = Array.isArray(produto.fotos) ? produto.fotos.filter(Boolean) : []
+  // Tudo ou nada, igual ao cadastro e ao calculo do frete: com uma medida
+  // faltando a cotacao cai na estimativa, entao a ficha nao pode dizer que ha
+  // medida.
+  // Rotulo so para os idiomas que o comprador reconhece de cara; o resto cai
+  // na sigla, que e melhor do que nao dizer nada.
+  const IDIOMA_NOME: Record<string, string> = {
+    pt: 'Português', en: 'Inglês', jp: 'Japonês', es: 'Espanhol',
+    fr: 'Francês', de: 'Alemão', it: 'Italiano', cn: 'Chinês', kr: 'Coreano',
+  }
+  const idiomaRotulo = produto.idioma ? (IDIOMA_NOME[produto.idioma] || produto.idioma.toUpperCase()) : null
+
+  const FORMATO_NOME: Record<string, string> = {
+    etb: 'Elite Trainer Box', booster_box: 'Booster Box', bundle: 'Bundle',
+    blister: 'Blister', deck: 'Deck', lata: 'Lata',
+    colecao: 'Coleção especial', pacote: 'Pacote avulso',
+  }
+  // ★ O FORMATO SUBSTITUI O TIPO na ficha quando existe: dizer "Selado" para
+  //   quem esta olhando uma Elite Trainer Box e a informacao mais pobre das
+  //   duas, e o lojista ja se deu o trabalho de classificar.
+  const formatoRotulo = produto.formato ? (FORMATO_NOME[produto.formato] || null) : null
+
+  const temMedidas = !!(produto.largura_cm && produto.altura_cm && produto.comprimento_cm)
+  const medidas = `${produto.largura_cm} x ${produto.altura_cm} x ${produto.comprimento_cm} cm`
+
   const Icone = TIPO_ICONE[produto.tipo]
   const rotulo = TIPO_LABEL[produto.tipo] || produto.tipo
   const podeVender = !!loja.connect_charges_enabled
@@ -183,6 +217,14 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
     image: fotos,
     category: rotulo,
     ...(produto.peso_g ? { weight: { '@type': 'QuantitativeValue', value: produto.peso_g, unitCode: 'GRM' } } : {}),
+    // CMT = centimetro na UN/CEFACT, a mesma tabela do GRM acima.
+    ...(produto.largura_cm && produto.altura_cm && produto.comprimento_cm
+      ? {
+          width: { '@type': 'QuantitativeValue', value: produto.largura_cm, unitCode: 'CMT' },
+          height: { '@type': 'QuantitativeValue', value: produto.altura_cm, unitCode: 'CMT' },
+          depth: { '@type': 'QuantitativeValue', value: produto.comprimento_cm, unitCode: 'CMT' },
+        }
+      : {}),
     offers: {
       '@type': 'Offer',
       url: `https://bynx.gg${urlDoProduto(produto)}`,
@@ -253,7 +295,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
               )}
 
               {!esgotado && podeVender && (
-                <BotaoCarrinho id={produto.id} tipo="produto" lojaId={loja.id} estoque={produto.estoque} />
+                <BotaoCarrinho id={produto.id} tipo="produto" vendedorId={loja.owner_user_id} lojaId={loja.id} estoque={produto.estoque} />
               )}
 
               <div style={S.acoesLinha}>
@@ -296,9 +338,17 @@ export default async function ProdutoPage({ params }: { params: Promise<{ id: st
                 </Link>
               </div>
 
+              {/* ★ A EMBALAGEM SO APARECE QUANDO O LOJISTA INFORMOU
+                  (02/10/2026, Quadro #447). Sem as tres medidas o frete usa a
+                  estimativa por TIPO (`DIMS_POR_TIPO`), que e um chute nosso --
+                  e exibir um chute como ficha tecnica seria afirmar ao
+                  comprador uma medida que ninguem mediu. A carta pode mostrar
+                  a dela porque toda carta usa a MESMA embalagem; produto, nao. */}
               <div style={S.ficha}>
-                <Ficha k="Tipo" v={rotulo} />
+                <Ficha k="Tipo" v={formatoRotulo || rotulo} />
+                {idiomaRotulo ? <Ficha k="Idioma" v={idiomaRotulo} /> : null}
                 {produto.peso_g ? <Ficha k="Peso" v={`${produto.peso_g} g`} /> : null}
+                {temMedidas ? <Ficha k="Embalagem" v={medidas} /> : null}
                 <Ficha k="Estoque" v={`${produto.estoque} ${produto.estoque > 1 ? 'unidades' : 'unidade'}`} />
                 {typeof produto.vendidos === 'number' && produto.vendidos > 0
                   ? <Ficha k="Vendidos" v={String(produto.vendidos)} />

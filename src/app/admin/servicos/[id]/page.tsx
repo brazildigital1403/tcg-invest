@@ -13,13 +13,13 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import {
-  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, OBJETIVOS, ROTULO_GRADUADORA,
-  FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, turnoServico, type FichaCondicao, type SlotFoto,
+  STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, PRAZOS, CORREIOS_VD, taxaValorDeclaradoCents, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
+  STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, fmtDataHoraAnoBRT, turnoServico, type FichaCondicao, type SlotFoto,
 } from '@/lib/servicos'
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
 import ChecklistFotos from '@/components/servicos/admin/ChecklistFotos'
 import PropostaEditor, { type Procedimento } from '@/components/servicos/admin/PropostaEditor'
-import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning } from '@/components/ui/Icons'
+import { IconChevronLeft, IconWhatsApp, IconCheck, IconClose, IconUpload, IconWarning, IconHistory, IconTruck } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import Rastreio from '@/components/servicos/Rastreio'
 
@@ -41,11 +41,15 @@ type Item = {
 type Evento = { id: string; status: string; nota: string | null; created_at: string }
 type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; mime: string; tamanho: number; url: string | null }
 type Proc = Procedimento & { id: string; item_id: string; decisao: string }
-type Pagamento = { id: string; etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; metodo: string | null; pago_em: string | null }
-const ROTULO_ETAPA: Record<string, string> = { sinal: 'Sinal (seguro + frete)', servico: 'Serviço', integral: 'Pagamento integral' }
+type Pagamento = {
+  id: string; etapa: 'sinal' | 'servico' | 'integral'; valor_cents: number; metodo: string | null; pago_em: string | null
+  reembolsado_cents?: number; reembolsado_em?: string | null
+}
+const ROTULO_ETAPA: Record<string, string> = { sinal: 'Sinal (valor declarado + frete)', servico: 'Serviço', integral: 'Pagamento integral' }
 type Dados = {
   solicitacao: Sol; cliente: { name: string; email: string } | null; itens: Item[]; eventos: Evento[]; midias: Midia[]
   procedimentos: Proc[]; pendencias_entrada: string[]; pendencias_saida: string[]
+  fila_expresso?: { id: string; numero: number }[]
   pagamentos: Pagamento[]
 }
 
@@ -126,7 +130,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
   if (erroCarga) return <div className="sv-adm"><style>{CSS}</style><p className="ad-erro">{erroCarga}</p><button type="button" className="ad-bt" onClick={carregar}>Tentar de novo</button></div>
   if (!dados) return <div className="sv-adm"><style>{CSS}</style><p className="ad-muted">Carregando...</p></div>
 
-  const { solicitacao: s, cliente, itens, eventos, midias, procedimentos, pendencias_entrada, pendencias_saida, pagamentos } = dados
+  const { solicitacao: s, cliente, itens, eventos, midias, procedimentos, pendencias_entrada, pendencias_saida, pagamentos, fila_expresso } = dados
   const objetivo = OBJETIVOS.find(o => o.id === s.objetivo)?.rotulo
   const vez = turnoServico(s.status)
 
@@ -141,11 +145,17 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
           <p className="ad-muted">
             {SERVICOS.find(x => x.id === s.servico)?.nome} · {itens.length} {itens.length === 1 ? 'carta' : 'cartas'} · prazo {s.prazo === 'expresso' ? 'expresso' : 'padrão'} · pedido em {fmtDataHoraBRT.format(new Date(s.created_at))}
           </p>
+          {!!fila_expresso?.length && (
+            <p className="ad-aviso"><IconWarning size={14} /> Fila: este cliente tem expresso em andamento ({fila_expresso.map(e => <Link key={e.id} href={`/admin/servicos/${e.id}`}>{numeroServico(e.numero)}</Link>).reduce<React.ReactNode[]>((a, el, i) => (i ? [...a, ', ', el] : [el]), [])}). Este pedido só entra na bancada depois que o expresso for enviado.</p>
+          )}
           {objetivo && (
             <p className={`ad-objetivo${s.objetivo === 'graduacao' ? ' ad-objetivo-grad' : ''}`}>
               Objetivo: <b>{s.objetivo === 'outro' ? s.objetivo_outro : objetivo}</b>
               {s.objetivo === 'graduacao' && <> · graduadora: <b>{ROTULO_GRADUADORA[s.graduadora_alvo || ''] || s.graduadora_alvo}</b></>}
             </p>
+          )}
+          {(STATUS_RELATORIO as readonly string[]).includes(s.status) && (
+            <a className="ad-bt ad-bt-pri ad-relatorio" href={`/admin/servicos/${s.id}/relatorio`} target="_blank" rel="noopener">Gerar relatório</a>
           )}
         </div>
         <div className="ad-cliente">
@@ -210,7 +220,15 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
             pendencias={s.status === 'recebida' ? pendencias_entrada : pendencias_saida}
             procs={procedimentos}
             pagamentos={pagamentos}
-            mover={(para, extra) => acao({ acao: 'status', para, ...extra }, `status-${para}`, `Status: ${STATUS_SERVICO[para]}.`)}
+            cobrancaEnviada={eventos.some(e => e.status === 'cobranca_servico')}
+            cobrarServico={valor => acao({ acao: 'cobrar_servico', valor_cents: valor }, 'cobrar_servico', 'Cobrança do serviço enviada ao cliente.')}
+            mover={(para, extra) => {
+              // A carta pode chegar antes do Pix: deixa marcar, mas avisa.
+              const primeira = pagamentos.find(p => p.etapa === 'integral' || p.etapa === 'sinal')
+              if (para === 'recebida' && primeira && !primeira.pago_em
+                && !confirm(`O pagamento ${primeira.etapa === 'sinal' ? 'do sinal' : 'do orçamento'} ainda não foi confirmado. Marcar a carta como recebida mesmo assim?`)) return Promise.resolve(false)
+              return acao({ acao: 'status', para, ...extra }, `status-${para}`, `Status: ${STATUS_SERVICO[para]}.`)
+            }}
             enviarProposta={() => acao({ acao: 'enviar_proposta' }, 'enviar_proposta', 'Proposta enviada ao cliente.')}
           />
 
@@ -219,7 +237,7 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
             <dl className="ad-dl">
               <div><dt>Declarado</dt><dd>{reais(s.valor_declarado_cents)}</dd></div>
               <div><dt>Serviço</dt><dd>{reais(s.orcamento_cents)}</dd></div>
-              <div><dt>Seguro</dt><dd>{reais(s.seguro_cents)}</dd></div>
+              <div><dt>Valor declarado (Correios)</dt><dd>{reais(s.seguro_cents)}</dd></div>
               <div><dt>Frete de volta</dt><dd>{reais(s.frete_volta_cents)}</dd></div>
               <div className="ad-total"><dt>Total</dt><dd>{reais(s.total_cents)}</dd></div>
             </dl>
@@ -237,6 +255,14 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
                           {ocupado === `pagamento-${pg.etapa}` ? 'Salvando...' : 'Confirmar Pix'}
                         </button>
                       )}
+                    {pg.pago_em && (
+                      <Estorno pg={pg} ocupado={ocupado}
+                        estornar={(valor, motivo) => acao(
+                          { acao: 'estornar', pagamento_id: pg.id, valor_cents: valor, motivo, ...(pg.metodo === 'pix_manual' ? { pix_devolvido: true } : {}) },
+                          `estorno-${pg.id}`,
+                          pg.metodo === 'stripe' ? 'Estorno feito na Stripe e registrado.' : 'Devolução por Pix registrada.',
+                        )} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -274,20 +300,113 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
   )
 }
 
+// ── Estorno de uma etapa paga ───────────────────────────────────────────────
+// Cartao: o servidor cria o refund na Stripe e so depois grava. Pix: a Bynx
+// devolve pelo banco e aqui so registra. Nada muda o status do pedido.
+
+function Estorno({ pg, ocupado, estornar }: {
+  pg: Pagamento; ocupado: string
+  estornar: (valorCents: number, motivo: string) => Promise<boolean>
+}) {
+  const ja = pg.reembolsado_cents || 0
+  const restante = pg.valor_cents - ja
+  const cartao = pg.metodo === 'stripe'
+  const [aberto, setAberto] = useState(false)
+  const [valor, setValor] = useState(brl(restante / 100))
+  const [motivo, setMotivo] = useState('')
+  const valorCents = paraCents(valor)
+  const valorOk = Number.isInteger(valorCents) && valorCents > 0 && valorCents <= restante
+  const rotulo = `estorno-${pg.id}`
+
+  async function enviar() {
+    if (!valorOk || motivo.trim().length < 3) return
+    const pergunta = cartao
+      ? `Estornar ${reais(valorCents)} no cartão do cliente? Isso não pode ser desfeito.`
+      : `Confirmar que você já devolveu ${reais(valorCents)} por Pix ao cliente? O registro não pode ser desfeito.`
+    if (!confirm(pergunta)) return
+    if (await estornar(valorCents, motivo.trim())) { setAberto(false); setMotivo('') }
+  }
+
+  return (
+    <>
+      {ja > 0 && (
+        <small className="ad-estornado">
+          <IconHistory size={12} /> {cartao ? 'Estornado' : 'Devolvido por Pix'} {reais(ja)}
+          {pg.reembolsado_em ? ` em ${fmtDataHoraAnoBRT.format(new Date(pg.reembolsado_em))}` : ''}
+          {ja < pg.valor_cents ? ` (resta ${reais(restante)})` : ''}
+        </small>
+      )}
+      {restante > 0 && (pg.metodo === 'stripe' || pg.metodo === 'pix_manual') && (
+        aberto ? (
+          <div className="ad-estorno">
+            {!cartao && (
+              <p className="ad-aviso"><IconWarning size={14} /> Estorno de Pix é manual: devolva pelo banco primeiro. Aqui só se registra a devolução.</p>
+            )}
+            <label><span>Valor (máximo {reais(restante)})</span>
+              <input className="ad-in" inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} />
+            </label>
+            <label><span>Motivo (fica no registro interno, o cliente não vê)</span>
+              <input className="ad-in" value={motivo} onChange={e => setMotivo(e.target.value)} maxLength={300} placeholder="Ex.: carta recusada na chegada" />
+            </label>
+            {!valorOk && valor.trim() !== '' && <p className="ad-erro" style={{ margin: 0 }}>Valor entre R$ 0,01 e {reais(restante)}.</p>}
+            <div className="ad-estorno-bts">
+              <button type="button" className="ad-bt" disabled={ocupado === rotulo} onClick={() => setAberto(false)}>Cancelar</button>
+              <button type="button" className="ad-bt ad-bt-perigo" disabled={!!ocupado || !valorOk || motivo.trim().length < 3} onClick={enviar}>
+                {ocupado === rotulo ? 'Estornando...' : cartao ? `Estornar ${valorOk ? reais(valorCents) : ''}` : 'Registrar devolução'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="ad-bt ad-bt-perigo ad-bt-estorno" disabled={!!ocupado}
+            onClick={() => { setValor(brl(restante / 100)); setAberto(true) }}>
+            {cartao ? 'Estornar' : 'Registrar devolução do Pix'}
+          </button>
+        )
+      )}
+    </>
+  )
+}
+
 // ── Orcamento ───────────────────────────────────────────────────────────────
 
 function Orcamento({ sol, itens, ocupado, enviar }: {
   sol: Sol; itens: Item[]; ocupado: boolean
   enviar: (p: Record<string, unknown>) => Promise<boolean>
 }) {
-  // Seguro so em restauracao e completo (pre-grading nao mexe na carta), como na tabela publica.
-  const sugestaoSeguro = PRECOS?.seguroPct != null && sol.servico !== 'pre_grading' ? Math.round(sol.valor_declarado_cents * PRECOS.seguroPct / 100) : null
+  // Taxa de valor declarado dos Correios na volta (coluna seguro_cents, nome antigo).
+  // Sugestao pela tarifa de balcao; o admin corrige se postar por contrato.
+  const sugestaoSeguro = taxaValorDeclaradoCents(sol.valor_declarado_cents)
+  const acimaSedex = sol.valor_declarado_cents > CORREIOS_VD.tetoSedexCents
+  const acimaPac = sol.valor_declarado_cents > CORREIOS_VD.tetoPacCents
   const [decisao, setDecisao] = useState<Record<string, { aceito: boolean; motivo: string }>>(() =>
     Object.fromEntries(itens.map(i => [i.id, { aceito: i.aceito !== false, motivo: i.recusa_motivo || '' }])))
   const [servico, setServico] = useState(sol.orcamento_cents != null ? brl(sol.orcamento_cents / 100) : '')
   const [seguro, setSeguro] = useState(sol.seguro_cents != null ? brl(sol.seguro_cents / 100) : sugestaoSeguro != null ? brl(sugestaoSeguro / 100) : '')
   const [frete, setFrete] = useState(sol.frete_volta_cents != null ? brl(sol.frete_volta_cents / 100) : '')
   const [obs, setObs] = useState(sol.orcamento_obs || '')
+  // Cotacao da volta pelo Melhor Envio (envelope A4 com relatorio; so le).
+  type OpcaoVolta = { id: number; nome: string; empresa: string; prazoDias: number; freteCents: number; valorDeclaradoCents: number; pesoG: number }
+  const [cot, setCot] = useState<{ carregando: boolean; erro: string; opcoes: OpcaoVolta[]; cep: string; escolhida: number | null }>({ carregando: false, erro: '', opcoes: [], cep: '', escolhida: null })
+  async function cotarVolta() {
+    const aceitas = itens.filter(i => decisao[i.id]?.aceito !== false)
+    setCot(c => ({ ...c, carregando: true, erro: '' }))
+    try {
+      const r = await fetch(`/api/admin/servicos/${sol.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'cotar_frete', cartas: aceitas.length || 1, valor_declarado_cents: aceitas.reduce((t, i) => t + i.valor_declarado_cents, 0) }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setCot(c => ({ ...c, carregando: false, erro: d.error || 'Não foi possível cotar.' })); return }
+      setCot({ carregando: false, erro: (d.opcoes || []).length ? '' : 'Nenhuma opção para esse CEP.', opcoes: d.opcoes || [], cep: d.cep_destino || '', escolhida: null })
+    } catch {
+      setCot(c => ({ ...c, carregando: false, erro: 'Sem conexão.' }))
+    }
+  }
+  function usarOpcao(o: OpcaoVolta) {
+    setFrete(brl(o.freteCents / 100))
+    setSeguro(brl(o.valorDeclaradoCents / 100))
+    setCot(c => ({ ...c, escolhida: o.id }))
+  }
 
   const todasRecusadas = itens.every(i => decisao[i.id]?.aceito === false)
   const total = useMemo(() => {
@@ -319,15 +438,45 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
       </div>
 
       {!todasRecusadas && sol.prazo === 'expresso' && PRECOS?.expresso != null && (
-        <p className="ad-aviso"><IconWarning size={14} /> Pedido expresso: inclua os R$ {brl(PRECOS.expresso)} do prazo expresso no valor do serviço.</p>
+        <p className="ad-aviso"><IconWarning size={14} /> Pedido expresso: inclua R$ {brl(PRECOS.expresso)} no valor do serviço. A volta vai por SEDEX (considere no frete) e a carta precisa ser postada em até {PRAZOS.expressoDiasUteis} dias úteis após a chegada.</p>
       )}
       {!todasRecusadas && (
         <div className="ad-valores">
           <label><span>Serviço</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={servico} onChange={e => setServico(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
-          <label><span>Seguro{PRECOS?.seguroPct != null ? ` (${PRECOS.seguroPct}%)` : ''}</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
+          <label><span>Valor declarado Correios (use Cotar frete)</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={seguro} onChange={e => setSeguro(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <label><span>Frete de volta</span><input className="ad-in" inputMode="decimal" placeholder="0,00" value={frete} onChange={e => setFrete(e.target.value.replace(/[^\d.,]/g, ''))} /></label>
           <div className="ad-total-orc"><span>Total</span><b>{total == null ? 'valor inválido' : reais(total)}</b></div>
         </div>
+      )}
+      {!todasRecusadas && (
+        <div className="ad-cot">
+          <button type="button" className="ad-bt" disabled={cot.carregando} onClick={cotarVolta}>
+            <IconTruck size={15} /> {cot.carregando ? 'Cotando...' : cot.opcoes.length ? 'Cotar de novo' : 'Cotar frete de volta'}
+          </button>
+          {cot.erro && <p className="ad-muted">{cot.erro}</p>}
+          {cot.opcoes.length > 0 && (
+            <>
+              <p className="ad-muted">Envelope A4 com relatório, {cot.opcoes[0].pesoG} g, até o CEP {cot.cep}{sol.prazo === 'expresso' ? ' · só SEDEX (expresso)' : ''}. Escolher preenche o frete e o valor declarado.</p>
+              <ul className="ad-cot-l">
+                {cot.opcoes.map(o => (
+                  <li key={o.id}>
+                    <button type="button" className={cot.escolhida === o.id ? 'on' : ''} onClick={() => usarOpcao(o)}>
+                      <b>{o.empresa} {o.nome}</b>
+                      <span>{o.prazoDias} {o.prazoDias === 1 ? 'dia útil' : 'dias úteis'}</span>
+                      <span>frete {reais(o.freteCents)} + valor declarado {reais(o.valorDeclaradoCents)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+      {!todasRecusadas && acimaSedex && (
+        <p className="ad-aviso"><IconWarning size={14} /> Valor declarado acima do teto do SEDEX ({reais(CORREIOS_VD.tetoSedexCents)}, vigente desde {CORREIOS_VD.vigencia}): os Correios não aceitam declarar esse valor. Combine a entrega com o cliente antes de orçar.</p>
+      )}
+      {!todasRecusadas && !acimaSedex && acimaPac && (
+        <p className="ad-aviso"><IconWarning size={14} /> Acima do teto do PAC ({reais(CORREIOS_VD.tetoPacCents)}): a volta precisa ir por SEDEX. Considere isso no frete.</p>
       )}
       <textarea className="ad-in" rows={3} placeholder="Observação para o cliente (opcional)" value={obs} maxLength={2000} onChange={e => setObs(e.target.value)} />
       <button
@@ -370,8 +519,9 @@ const ROTULO_ACAO: Record<string, string> = {
 }
 const PERIGO = ['cancelado', 'recusado_cliente', 'devolvida_sem_servico']
 
-function Acoes({ sol, ocupado, pendencias, procs, pagamentos, mover, enviarProposta }: {
+function Acoes({ sol, ocupado, pendencias, procs, pagamentos, cobrancaEnviada, cobrarServico, mover, enviarProposta }: {
   sol: Sol; ocupado: string; pendencias: string[]; procs: Proc[]; pagamentos: Pagamento[]
+  cobrancaEnviada: boolean; cobrarServico: (valor: number) => Promise<boolean>
   mover: (para: string, extra?: Record<string, unknown>) => Promise<boolean>
   enviarProposta: () => Promise<boolean>
 }) {
@@ -384,6 +534,10 @@ function Acoes({ sol, ocupado, pendencias, procs, pagamentos, mover, enviarPropo
   const aprovados = procs.filter(p => p.decisao === 'aprovado').length
   const aberto = (e: string) => pagamentos.some(pg => pg.etapa === e && !pg.pago_em)
   const bancadaSemPagamento = (sol.status === 'proposta' && aberto('servico')) || (sol.status === 'recebida' && aberto('integral'))
+  const pagServico = pagamentos.find(pg => pg.etapa === 'servico' && !pg.pago_em)
+  const recusados = procs.filter(p => p.decisao === 'recusado').length
+  const [valorServico, setValorServico] = useState(pagServico ? brl(pagServico.valor_cents / 100) : '')
+  const mostraCobranca = sol.status === 'proposta' && !!sol.proposta_aceita_em && !!pagServico && aprovados > 0
   if (!opcoes.length) return null
 
   return (
@@ -393,6 +547,26 @@ function Acoes({ sol, ocupado, pendencias, procs, pagamentos, mover, enviarPropo
         <div className="ad-pend">
           <b>Antes de seguir, falta:</b>
           <ul>{pendencias.map(p => <li key={p}>{p}</li>)}</ul>
+        </div>
+      )}
+      {mostraCobranca && (
+        <div className="ad-cobranca">
+          <b>Cobrança do serviço</b>
+          <span className="ad-muted" style={{ margin: 0 }}>
+            {cobrancaEnviada
+              ? 'Enviada ao cliente. Se mudar o valor, a cobrança é reenviada.'
+              : recusados > 0
+                ? `O cliente recusou ${recusados} ${recusados === 1 ? 'procedimento' : 'procedimentos'}. Confira o valor antes de cobrar.`
+                : 'Confira o valor e envie a cobrança.'}
+          </span>
+          <div className="ad-cobranca-lin">
+            <span>R$</span>
+            <input className="ad-in" inputMode="decimal" value={valorServico} onChange={e => setValorServico(e.target.value.replace(/[^\d.,]/g, ''))} />
+            <button type="button" className="ad-bt ad-bt-pri" disabled={!!ocupado || !(paraCents(valorServico) > 0)}
+              onClick={() => confirm(`Enviar ao cliente a cobrança do serviço de R$ ${valorServico}?`) && cobrarServico(paraCents(valorServico))}>
+              {ocupado === 'cobrar_servico' ? 'Enviando...' : cobrancaEnviada ? 'Reenviar com este valor' : 'Enviar cobrança'}
+            </button>
+          </div>
         </div>
       )}
       {opcoes.includes('em_bancada') && bancadaSemPagamento && (
@@ -528,12 +702,25 @@ function CartaAdmin({ idx, item, status, servico, midias, procs, ocupado, subir,
           <button type="button" className="ad-link" onClick={() => setAbrirLaudo(v => !v)}>{abrirLaudo ? 'Fechar laudo' : item.laudo ? 'Ver laudo' : 'Escrever laudo'}</button>
           {abrirLaudo && (
             <div className="ad-laudo">
+              {servico !== 'restauracao' && (
+                <p className="ad-muted ad-laudo-largo" style={{ margin: 0 }}>
+                  Para liberar o Pronta: faixa provável (intervalo, como 8 a 9), graduadora e centralização da frente e do verso. O arquivo anexado como laudo não substitui o preenchimento.
+                </p>
+              )}
               {CAMPOS_LAUDO.map(c => (
                 <label key={c.k} className={c.k === 'caderno' ? 'ad-laudo-largo' : ''}>
                   <span>{c.rotulo}</span>
                   {c.k === 'caderno'
                     ? <textarea className="ad-in" rows={3} placeholder={c.ex} value={laudo[c.k] || ''} onChange={e => setLaudo(l => ({ ...l, [c.k]: e.target.value }))} />
-                    : <input className="ad-in" placeholder={c.ex} value={laudo[c.k] || ''} onChange={e => setLaudo(l => ({ ...l, [c.k]: e.target.value }))} />}
+                    : c.k === 'graduadora'
+                      ? (
+                        <select className="ad-in" value={laudo[c.k] || ''} onChange={e => setLaudo(l => ({ ...l, [c.k]: e.target.value }))}>
+                          <option value="">Escolha</option>
+                          {GRADUADORAS.map(g => <option key={g.nome} value={g.nome}>{g.nome}</option>)}
+                          {laudo[c.k] && !GRADUADORAS.some(g => g.nome === laudo[c.k]) && <option value={laudo[c.k]}>{laudo[c.k]} (fora da lista)</option>}
+                        </select>
+                      )
+                      : <input className="ad-in" placeholder={c.k === 'faixa_nota' ? '8 a 9 ou 8,5 a 9' : c.ex} value={laudo[c.k] || ''} onChange={e => setLaudo(l => ({ ...l, [c.k]: e.target.value }))} />}
                 </label>
               ))}
               <button type="button" className="ad-bt ad-bt-pri ad-laudo-largo" disabled={!!ocupado} onClick={() => salvarLaudo(laudo)}>
@@ -576,12 +763,20 @@ const CSS = `
 .ad-pill-cliente{color:var(--bx-blue);background:color-mix(in srgb,var(--bx-blue) 12%,transparent)}
 .ad-pill-fim{color:var(--bx-text-3);background:var(--bx-surface-2)}
 .ad-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.ad-cobranca{display:grid;gap:8px;padding:12px;border-radius:10px;border:1px solid rgba(var(--ac-1-rgb),.4);background:var(--bx-bg)}
+.ad-cobranca > b{font-size:13.5px}
+.ad-cobranca-lin{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;font-size:14px;color:var(--bx-text-2)}
 .ad-pags{display:grid;gap:8px}
 .ad-pag{display:grid;gap:6px;padding:10px 12px;border-radius:10px;border:1px solid var(--bx-border-2);background:var(--bx-bg)}
 .ad-pag > div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
 .ad-pag span{font-variant-numeric:tabular-nums;font-weight:700}
 .ad-pag small{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--bx-green)}
 .ad-pag-ok{border-color:color-mix(in srgb,var(--bx-green) 35%,transparent)}
+.ad-pag small.ad-estornado{color:var(--bx-text-2)}
+.ad-estorno{display:grid;gap:8px;padding-top:8px;border-top:1px solid var(--bx-border-2)}
+.ad-estorno label{display:grid;gap:4px;font-size:12px;color:var(--bx-text-2)}
+.ad-estorno-bts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.ad-bt-estorno{min-height:34px;font-size:12.5px;justify-self:start}
 .ad-objetivo{font-size:13px;color:var(--bx-text-2);margin:4px 0 0}
 .ad-objetivo-grad b{color:var(--ac-1)}
 .ad-pend{padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--bx-red) 7%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 26%,transparent);font-size:13px}
@@ -605,6 +800,14 @@ textarea.ad-in{resize:vertical}
 .ad-ok{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--bx-green);margin:0 0 12px}
 .ad-erro{font-size:13px;color:var(--bx-red);margin:0 0 12px}
 .ad-aviso{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;line-height:1.45;color:var(--bx-text-2);margin:0}
+.ad-cot{display:grid;gap:8px}
+.ad-cot .ad-bt{justify-self:start;display:inline-flex;align-items:center;gap:6px}
+.ad-cot-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ad-cot-l button{width:100%;display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--bx-border);background:var(--bx-surface);color:var(--bx-text);font:inherit;font-size:13px;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.ad-cot-l button:hover{border-color:var(--bx-border-2);background:var(--bx-surface-2)}
+.ad-cot-l button.on{border-color:rgba(var(--ac-1-rgb),.6)}
+.ad-cot-l button span{color:var(--bx-text-2);font-size:12.5px}
+.ad-cot-l button span:last-child{grid-column:1 / -1}
 .ad-aviso svg{flex-shrink:0;margin-top:2px;color:var(--ac-1)}
 .ad-obs{font-size:13px;line-height:1.5;color:var(--bx-text-2);margin:0;padding:10px 12px;border-radius:9px;background:var(--bx-surface-2);white-space:pre-wrap}
 
@@ -648,6 +851,7 @@ textarea.ad-in{resize:vertical}
 .ad-laudo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .ad-laudo label{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--bx-text-2)}
 .ad-laudo-largo{grid-column:1 / -1}
+.ad-relatorio{margin-top:10px}
 
 .ad-tl{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .ad-tl li{display:grid;gap:2px;padding-left:12px;border-left:2px solid var(--bx-border-2)}

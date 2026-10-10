@@ -39,6 +39,7 @@ import { getUserPlan } from '@/lib/isPro'
 import { track, trackFirstCardAdded } from '@/lib/analytics'
 import { checkCardLimit, limiteCartasDoErro } from '@/lib/checkCardLimit'
 import { adicionar as adicionarAoCarrinho, estaNoCarrinho } from '@/lib/carrinho'
+import { lerParametro, limparParametros } from '@/lib/deepLink'
 import {
   IDIOMAS_META, brl, buscarOfertasDaMeta, carregarMeta, criarMeta, fraseLeitura, pct, rotuloIdioma, tituloMeta,
   type CartaDaMeta, type Meta, type OfertaMeta,
@@ -46,7 +47,7 @@ import {
 
 type Aba = 'faltam' | 'tenho' | 'avenda'
 type GrupoVendedor = {
-  chave: string; vendedor: string; lojaId: string | null; compraDireta: boolean
+  chave: string; vendedor: string; vendedorId: string; lojaId: string | null; compraDireta: boolean
   itens: { carta: CartaDaMeta; oferta: OfertaMeta }[]; soma: number
 }
 type Toast = { texto: string; desfazer?: () => void }
@@ -91,6 +92,8 @@ export default function MetaPage() {
   const [trocandoIdioma, setTrocandoIdioma] = useState(false)
   const [dicaVista, setDicaVista] = useState(true)
   const gradeRef = useRef<HTMLDivElement>(null)
+  const radarRef = useRef<HTMLDivElement>(null)
+  const [destacarRadar, setDestacarRadar] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const mostrarToast = useCallback((t: Toast) => {
@@ -176,7 +179,7 @@ export default function MetaPage() {
     const grupos = new Map<string, GrupoVendedor>()
     for (const i of itens) {
       const chave = i.oferta.lojaId || `v:${i.oferta.vendedor}`
-      const g = grupos.get(chave) || { chave, vendedor: i.oferta.vendedor, lojaId: i.oferta.lojaId, compraDireta: i.oferta.compraDireta, itens: [], soma: 0 }
+      const g = grupos.get(chave) || { chave, vendedor: i.oferta.vendedor, vendedorId: i.oferta.vendedorId, lojaId: i.oferta.lojaId, compraDireta: i.oferta.compraDireta, itens: [], soma: 0 }
       g.itens.push(i); g.soma += i.oferta.preco
       grupos.set(chave, g)
     }
@@ -198,8 +201,10 @@ export default function MetaPage() {
   }, [aVenda, orcamento])
 
   function colocarNoCarrinho(g: GrupoVendedor) {
-    if (!g.lojaId) return
-    for (const i of g.itens) if (!estaNoCarrinho(i.oferta.id)) adicionarAoCarrinho({ id: i.oferta.id, tipo: 'carta', lojaId: g.lojaId })
+    // ★ O guard passou a ser `vendedorId`, nao `lojaId` (02/10/2026): a sacola
+    //   agrupa por vendedor, e quem vende sem loja tambem entra.
+    if (!g.vendedorId) return
+    for (const i of g.itens) if (!estaNoCarrinho(i.oferta.id)) adicionarAoCarrinho({ id: i.oferta.id, tipo: 'carta', vendedorId: g.vendedorId, lojaId: g.lojaId })
     setNoCarrinho(prev => new Set([...prev, ...g.itens.map(i => i.oferta.id)]))
   }
 
@@ -237,6 +242,29 @@ export default function MetaPage() {
       if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' })
     }, 60)
   }
+
+  // Deep link do E07: /metas/[id]?ver=a-venda abre direto na aba "A venda".
+  // Espera as ofertas (sem elas a aba nem existe). Se nada do que falta esta a
+  // venda agora (vendeu entre o envio e o clique), rola ate o Radar, que e o
+  // bloco que diz isso, e destaca por um instante. O parametro sai da URL
+  // depois de atendido; deslogado, ele fica (a meta so carrega com sessao).
+  const pedidoAVenda = useRef<boolean | null>(null)
+  useEffect(() => {
+    if (pedidoAVenda.current === null) pedidoAVenda.current = lerParametro('ver') === 'a-venda'
+    if (!pedidoAVenda.current || !meta || ofertas === null) return
+    pedidoAVenda.current = false
+    limparParametros('ver')
+    if (aVenda.itens.length > 0) { irPara('avenda'); return }
+    if (meta.concluida_em) return
+    setTimeout(() => {
+      const el = radarRef.current
+      if (!el) return
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 96, behavior: 'smooth' })
+      setDestacarRadar(true)
+      setTimeout(() => setDestacarRadar(false), 2400)
+    }, 60)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta, ofertas, aVenda.itens.length])
 
   async function iniciarMarcacao() {
     irPara('faltam')
@@ -491,7 +519,7 @@ export default function MetaPage() {
           <div style={{ ...bloco, padding: '34px 22px', textAlign: 'center' }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Entre para ver sua meta</div>
             <p style={{ fontSize: 14, color: 'var(--bx-text-2)', margin: '0 0 18px' }}>Suas metas ficam salvas na sua conta.</p>
-            <button onClick={() => openLogin({ next: `/metas/${id}` })} style={btnPrim}>Entrar</button>
+            <button onClick={() => openLogin({ next: lerParametro('ver') === 'a-venda' ? `/metas/${id}?ver=a-venda` : `/metas/${id}` })} style={btnPrim}>Entrar</button>
           </div>
         )}
 
@@ -611,7 +639,7 @@ export default function MetaPage() {
                     </div>
                   </div>
                 )}
-                <div style={{ ...bloco, padding: 16, display: 'flex', gap: 14, alignItems: 'flex-start', minWidth: 0 }}>
+                <div ref={radarRef} className={destacarRadar ? 'bx-meta-destaque' : undefined} style={{ ...bloco, padding: 16, display: 'flex', gap: 14, alignItems: 'flex-start', minWidth: 0, transition: 'box-shadow 0.2s ease, border-color 0.2s ease' }}>
                   <span style={icone(40)}><IconBell size={18} color="var(--ac-1)" /></span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -869,6 +897,7 @@ export default function MetaPage() {
           .bx-meta-leque-lg, .bx-anel-lg { display: none; }
           .bx-meta-acoes > * { flex: 1 1 100%; }
           .bx-meta-faixas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+          .bx-meta-destaque { border-color: var(--ac-1) !important; box-shadow: 0 0 0 3px rgba(var(--ac-1-rgb), 0.25); }
           .bx-meta-trilho { scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
           .bx-meta-trilho::-webkit-scrollbar { display: none; }
           .bx-meta-seg { scrollbar-width: none; }

@@ -176,14 +176,55 @@ export function capturarAtribuicao(): void {
   gravar(CHAVE_LAST, atual)
 }
 
+// ─── Qual BOTAO abriu o cadastro (09/10/2026, Fase 3 do #490) ─────────────
+// `signup_landing_page` diz de que pagina a pessoa veio; isto diz qual acao
+// abriu o modal: "carta:adicionar", "carta:convite", "header:entrar"... Sem
+// isso a pagina da carta nao tem como ser medida botao a botao. Vive em
+// sessionStorage: e da sessao em que a pessoa decidiu, nao historico.
+// Botao sem rotulo vira "pag:/rota" -- ainda diz em que pagina aconteceu.
+const CHAVE_CTA = 'bx_cta'
+
+function normalizarCta(v: string): string {
+  return v
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9:/_.-]/g, '')
+    .slice(0, 60)
+}
+
+export function gravarCta(cta?: string | null, pathname?: string | null): void {
+  if (typeof window === 'undefined') return
+  const bruto = cta && cta.trim() ? cta : pathname ? `pag:${pathname.split('?')[0]}` : null
+  if (!bruto) return
+  const v = normalizarCta(bruto)
+  if (!v) return
+  try {
+    window.sessionStorage.setItem(CHAVE_CTA, v)
+  } catch {
+    // sessionStorage bloqueado: segue sem o rotulo
+  }
+}
+
+export function lerCta(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.sessionStorage.getItem(CHAVE_CTA)
+  } catch {
+    return null
+  }
+}
+
 /** Campos prontos pro insert em `users`. Retorna {} se nao houver nada. */
 export function camposDeAtribuicao(): Record<string, string | null> {
   if (typeof window === 'undefined') return {}
   const f = ler(CHAVE_FIRST)
   const l = ler(CHAVE_LAST)
-  if (!f && !l) return {}
+  const cta = lerCta()
+  if (!f && !l && !cta) return {}
 
   return {
+    signup_cta: cta,
     signup_utm_source: f?.utm_source ?? null,
     signup_utm_medium: f?.utm_medium ?? null,
     signup_utm_campaign: f?.utm_campaign ?? null,

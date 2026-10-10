@@ -97,7 +97,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         type: 'recebido',
         title: 'Pedido recebido pelo comprador',
         message: `O comprador confirmou que recebeu "${pedido.item_nome}".`,
-        data: { link: `/minha-loja/${pedido.loja_id}/pedidos` },
+        // Sem loja o painel e /vendas -- com `loja_id` nulo isto virava
+        // `/minha-loja/null/pedidos`, um link morto.
+        data: { link: pedido.loja_id ? `/minha-loja/${pedido.loja_id}/pedidos` : '/vendas' },
       })
     } catch (err) {
       console.error('[pedidos receber] falha no sino:', (err as Error)?.message)

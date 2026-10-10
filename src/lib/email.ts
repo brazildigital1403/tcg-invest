@@ -7,7 +7,9 @@ import { urlLote as caminhoLote, urlPagar as caminhoPagar } from './leilao-urls'
 import { DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR, DIAS_UTEIS_ENVIO } from './leilao-reclamacao'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = 'Bynx <noreply@bynx.gg>'
+/** Remetente do transacional e da colecao (o motor da regua le daqui). */
+export const FROM_PRODUTO = 'Bynx <noreply@bynx.gg>'
+const FROM = FROM_PRODUTO
 
 // ─── Padrao de ASSUNTO (nao fugir disso) ────────────────────────────────────
 //
@@ -141,7 +143,7 @@ const B2B_LINK_COLOR       = '#60a5fa'
  * Por isso nao uso APP_URL direto — ele pode vir com www do ambiente.
  * Medido em 27/07/2026: GET e POST em www devolvem 308.
  */
-const URL_CANONICA = APP_URL.replace('://www.', '://')
+export const URL_CANONICA = APP_URL.replace('://www.', '://')
 
 function supabaseEmail() {
   return createClient(
@@ -150,27 +152,117 @@ function supabaseEmail() {
   )
 }
 
+// ── Categorias e remetente de marketing (regua F0, cards #294 e #297) ───────
+//
+// Toda chamada de envio diz a CATEGORIA. Ela decide tres coisas:
+//   - se o e-mail respeita preferencia (transacional nunca respeita: recibo,
+//     pedido e suporte sempre chegam);
+//   - se exige `marketing_aceito` (so mercado, novidades e radar -- o
+//     checkbox do cadastro e o consentimento de mala direta);
+//   - de qual dominio sai: marketing sai por news.bynx.gg, para a reputacao
+//     de bynx.gg ficar so com o transacional (#297).
+//
+// `colecao` e relacionamento sobre a propria conta (boas-vindas, fim do
+// teste, indicacao, regua da loja). Os 14 envios de relacionamento que ja
+// existiam caem aqui por padrao, entao NADA muda para eles: continuam
+// respeitando so o descadastro, mais o toggle de colecao (que nasce ligado).
+
+export type CategoriaEmail = 'transacional' | 'colecao' | 'mercado' | 'novidades' | 'radar'
+export type CategoriaMarketing = 'mercado' | 'novidades' | 'radar'
+
+const CATEGORIAS_MARKETING: ReadonlySet<CategoriaEmail> = new Set<CategoriaEmail>(['mercado', 'novidades', 'radar'])
+
+export function ehCategoriaMarketing(c: CategoriaEmail): c is CategoriaMarketing {
+  return CATEGORIAS_MARKETING.has(c)
+}
+
 /**
- * Busca o estado de descadastro de um e-mail.
- * Em caso de erro devolve `optOut: false` e sem URL: preferimos mandar sem o
- * rodape a segurar um e-mail por causa de uma consulta que falhou.
+ * Remetente das categorias de marketing. news.bynx.gg ja esta verificado no
+ * Resend. ★ A regua inteira fala como A BYNX (regra de 08/10): remetente
+ * "Bynx", resposta no suporte. So ticket/suporte segue pessoal.
+ * ★ Ainda nao existe nenhum envio de marketing ligado -- isto e so a fundacao.
  */
-async function estadoDescadastro(email: string): Promise<{ optOut: boolean; url: string | null }> {
+export const FROM_MARKETING = 'Bynx <novidades@news.bynx.gg>'
+export const REPLY_TO_MARKETING = 'suporte@bynx.gg'
+
+/** Coluna de preferencia de cada categoria (transacional nao tem). */
+const COLUNA_PREF: Record<Exclude<CategoriaEmail, 'transacional'>, string> = {
+  colecao: 'email_pref_colecao',
+  mercado: 'email_pref_mercado',
+  novidades: 'email_pref_novidades',
+  radar: 'email_pref_radar',
+}
+
+type EstadoEmail = {
+  /** null quando o e-mail nao bate com nenhuma conta. */
+  userId: string | null
+  optOut: boolean
+  url: string | null
+  /** Pagina de preferencias sem login (mesmo token do descadastro). */
+  prefsUrl: string | null
+  marketingAceito: boolean
+  /** null quando as colunas ainda nao existem (migration nao aplicada). */
+  prefs: Record<Exclude<CategoriaEmail, 'transacional'>, boolean> | null
+}
+
+/**
+ * Busca o estado de e-mail de um endereco: descadastro, consentimento e
+ * preferencias.
+ *
+ * Em caso de erro devolve `optOut: false` e sem URL: preferimos mandar sem o
+ * rodape a segurar um e-mail de COLECAO por causa de uma consulta que falhou.
+ * Marketing e o contrario -- sem confirmar o consentimento, nao manda (ver
+ * `enviarNurture`).
+ *
+ * ★ Tolerante a migration nao aplicada: se as colunas `email_pref_*` nao
+ * existirem, cai na consulta antiga e devolve `prefs: null`. O codigo pode
+ * subir antes da migration sem mudar nada.
+ */
+/** `ilike` sem curinga: `_` e `%` num e-mail casariam OUTRA conta. */
+function semCuringa(email: string): string {
+  return email.replace(/[\\%_]/g, (c) => `\\${c}`)
+}
+
+async function estadoEmail(email: string): Promise<EstadoEmail> {
+  const vazio: EstadoEmail = { userId: null, optOut: false, url: null, prefsUrl: null, marketingAceito: false, prefs: null }
   try {
-    const { data } = await supabaseEmail()
+    const sb = supabaseEmail()
+    const completo = await sb
       .from('users')
-      .select('email_optout_nurture, unsubscribe_token')
-      .ilike('email', email)
+      .select('id, email_optout_nurture, unsubscribe_token, marketing_aceito, email_pref_colecao, email_pref_mercado, email_pref_novidades, email_pref_radar')
+      .ilike('email', semCuringa(email))
       .limit(1)
-    const u = data?.[0]
-    if (!u) return { optOut: false, url: null }
+
+    let u: any = completo.data?.[0]
+    let temPrefs = !completo.error
+    if (completo.error) {
+      const legado = await sb
+        .from('users')
+        .select('id, email_optout_nurture, unsubscribe_token, marketing_aceito')
+        .ilike('email', semCuringa(email))
+        .limit(1)
+      u = legado.data?.[0]
+      temPrefs = false
+    }
+    if (!u) return vazio
     return {
+      userId: u.id ?? null,
       optOut: !!u.email_optout_nurture,
       url: u.unsubscribe_token ? `${URL_CANONICA}/api/email/descadastrar?t=${u.unsubscribe_token}` : null,
+      prefsUrl: u.unsubscribe_token ? `${URL_CANONICA}/email/preferencias?t=${u.unsubscribe_token}` : null,
+      marketingAceito: u.marketing_aceito === true,
+      prefs: temPrefs
+        ? {
+            colecao: u.email_pref_colecao !== false,
+            mercado: u.email_pref_mercado !== false,
+            novidades: u.email_pref_novidades !== false,
+            radar: u.email_pref_radar !== false,
+          }
+        : null,
     }
   } catch (e: any) {
     console.warn('[email] nao consegui checar descadastro de', email, '-', e?.message)
-    return { optOut: false, url: null }
+    return vazio
   }
 }
 
@@ -179,49 +271,142 @@ function rodapeDescadastro(url: string): string {
   return `<br/><br/>
       <span style="font-size:11px;line-height:1.6;color:#4b5563;">
         Você recebe este e-mail porque tem conta na Bynx.
-        <a href="${url}" rel="noopener noreferrer nofollow" target="_blank" style="color:#8a8a8a;text-decoration:underline;">Descadastrar</a>.
+        <a href="${url}" rel="noopener noreferrer nofollow" target="_blank" style="color:#8a8a8a;text-decoration:underline;">Descadastrar ou escolher o que recebo</a>.
       </span>`
 }
 
+/** Por que um e-mail de relacionamento nao saiu (vai para o log e o retorno). */
+function motivoParaNaoEnviar(categoria: Exclude<CategoriaEmail, 'transacional'>, est: EstadoEmail): string | null {
+  if (est.optOut) return 'optout'
+  if (ehCategoriaMarketing(categoria)) {
+    // Marketing exige consentimento CONFIRMADO. Conta nao achada ou consulta
+    // que falhou = sem consentimento = nao manda.
+    if (!est.userId) return 'sem_conta'
+    if (!est.marketingAceito) return 'sem_marketing_aceito'
+    // Sem as colunas ainda, nao ha como saber a escolha: nao manda.
+    if (!est.prefs) return 'preferencia_indisponivel'
+  }
+  if (est.prefs && est.prefs[categoria] === false) return `pref_${categoria}_desligada`
+  return null
+}
+
 /**
- * Envia e-mail de RELACIONAMENTO: respeita o opt-out, poe o rodape e os dois
- * headers que o Gmail/Yahoo pedem. Quem ja saiu da lista NAO recebe — e o
- * retorno diz isso, em vez de fingir que enviou.
+ * Envia e-mail de RELACIONAMENTO: respeita o opt-out, a preferencia da
+ * categoria e (marketing) o consentimento; poe o rodape e os dois headers
+ * que o Gmail/Yahoo pedem. Quem nao deve receber NAO recebe -- e o retorno
+ * diz isso, em vez de fingir que enviou.
  */
 async function enviarNurture(params: {
   from: string; to: string; subject: string
-  /** Recebe o rodape pra encaixar ANTES do fechamento do card. */
-  montarHtml: (rodape: string) => string
+  /**
+   * Recebe o rodape pra encaixar ANTES do fechamento do card. O segundo
+   * argumento traz os links crus, para quem monta com `layoutRegua` (que tem
+   * rodape proprio com Preferencias e Descadastrar).
+   */
+  montarHtml: (rodape: string, links: LinksRelacionamento | null) => string
+  template: string
+  /** Padrao `colecao`: nao muda nada para os envios que ja existiam. */
+  categoria?: Exclude<CategoriaEmail, 'transacional'>
+  trilha?: string
+  campanha?: string
 }) {
-  const { optOut, url } = await estadoDescadastro(params.to)
-  if (optOut) {
-    console.log(`[email] ${params.to} optou por nao receber relacionamento — "${params.subject}" nao enviado`)
-    return { data: null, error: null, puloPorOptOut: true } as any
+  const categoria = params.categoria ?? 'colecao'
+  const est = await estadoEmail(params.to)
+  const motivo = motivoParaNaoEnviar(categoria, est)
+  if (motivo) {
+    console.log(`[email] ${params.to} nao recebe "${params.subject}" (${categoria}): ${motivo}`)
+    await registrarEnvio({
+      userId: est.userId, email: params.to, template: params.template, categoria,
+      trilha: params.trilha, campanha: params.campanha, resendId: null,
+      status: 'pulado', meta: { motivo, assunto: params.subject },
+    })
+    return { data: null, error: null, puloPorOptOut: motivo === 'optout', puloMotivo: motivo } as any
   }
-  const html = params.montarHtml(url ? rodapeDescadastro(url) : '')
+
+  const marketing = ehCategoriaMarketing(categoria)
+  const url = est.url
+  const links: LinksRelacionamento | null = url
+    ? { descadastrar: url, preferencias: est.prefsUrl ?? `${URL_CANONICA}/minha-conta` }
+    : null
+  const html = params.montarHtml(url ? rodapeDescadastro(url) : '', links)
   return enviar({
-    from: params.from, to: params.to, subject: params.subject, html,
+    from: marketing ? FROM_MARKETING : params.from,
+    replyTo: marketing ? REPLY_TO_MARKETING : undefined,
+    to: params.to, subject: params.subject, html,
     headers: url
       ? {
           'List-Unsubscribe': `<${url}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         }
       : undefined,
+    template: params.template, categoria, trilha: params.trilha, campanha: params.campanha,
+    userId: est.userId,
   })
+}
+
+// ── Log de envio (email_envios, card #295) ──────────────────────────────────
+//
+// ★ BEST EFFORT, sempre. O log nunca derruba nem atrasa o envio por erro: o
+// e-mail ja saiu (ou ja falhou) quando chegamos aqui. Sem a tabela (migration
+// nao aplicada) o insert devolve erro, a gente avisa no log e segue.
+//
+// O Supabase JS nao lanca em erro de API -- devolve `{ error }`, igual o
+// Resend. Por isso o `if (error)` alem do try/catch.
+
+async function registrarEnvio(r: {
+  userId?: string | null; email: string; template: string; categoria: CategoriaEmail
+  trilha?: string; campanha?: string; resendId: string | null
+  status: 'enviado' | 'falhou' | 'pulado'; meta?: Record<string, unknown>
+}) {
+  try {
+    const { error } = await supabaseEmail().from('email_envios').insert({
+      user_id: r.userId ?? null,
+      email: r.email,
+      template: r.template,
+      trilha: r.trilha ?? null,
+      categoria: r.categoria,
+      campanha: r.campanha ?? null,
+      resend_id: r.resendId,
+      status: r.status,
+      meta: r.meta ?? null,
+    })
+    if (error) console.warn(`[email] log de envio nao gravado (${r.template}): ${error.message}`)
+  } catch (e: any) {
+    console.warn(`[email] log de envio nao gravado (${r.template}): ${e?.message}`)
+  }
 }
 
 async function enviar(params: {
   from: string; to: string | string[]; subject: string; html: string
   headers?: Record<string, string>
+  replyTo?: string
+  /** Nome estavel do template, para o log. */
+  template: string
+  /** Padrao `transacional`. */
+  categoria?: CategoriaEmail
+  trilha?: string
+  campanha?: string
+  userId?: string | null
 }) {
-  const res = await resend.emails.send(params)
+  const { template, categoria = 'transacional', trilha, campanha, userId, replyTo, ...envio } = params
+  const res = await resend.emails.send(replyTo ? { ...envio, replyTo } : envio)
+  const para = Array.isArray(params.to) ? params.to.join(', ') : params.to
   if (res.error) {
-    const para = Array.isArray(params.to) ? params.to.join(', ') : params.to
     console.error(
       `[email] FALHA no envio para ${para} — "${params.subject}": ` +
       `${res.error.name ?? 'erro'}: ${res.error.message ?? JSON.stringify(res.error)}`
     )
   }
+  await registrarEnvio({
+    userId: userId ?? null,
+    email: para,
+    template, categoria, trilha, campanha,
+    resendId: res.data?.id ?? null,
+    status: res.error ? 'falhou' : 'enviado',
+    meta: res.error
+      ? { assunto: params.subject, erro: `${res.error.name ?? 'erro'}: ${res.error.message ?? ''}` }
+      : { assunto: params.subject },
+  })
   return res
 }
 
@@ -348,6 +533,422 @@ function p(text: string, style = '') {
 
 function divider() {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;"><tr><td height="1" bgcolor="#1f2937" style="background-color:#1f2937;height:1px;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>`
+}
+
+// ── Layout da regua (F1, mockups aprovados em 08/10) ────────────────────────
+//
+// Esqueleto de TODO e-mail da regua: cabecalho com o logo, cartao do corpo com
+// o filete da marca, bloco "Selecao Bynx" (opcional, cartao proprio depois do
+// corpo) e rodape de relacionamento (motivo, Preferencias, Descadastrar, logo).
+// Fonte: _Regua/direcao/base.html e bloco-promocao.html.
+//
+// HTML de e-mail: tabelas, CSS inline, hex (cliente de e-mail nao le var()).
+// O <style> so faz fonte, reset e o ajuste do celular; sem ele o e-mail
+// continua legivel. Zero emoji, nem no assunto.
+
+export type LinksRelacionamento = { descadastrar: string; preferencias: string }
+
+/** Logo OPACO (fundo escuro chapado): PNG transparente some no claro do Outlook. */
+const LOGO_REGUA = `${URL_CANONICA}/emails/regua/logo-bynx.png`
+const FONT_REGUA = "font-family:'DM Sans',Helvetica,Arial,sans-serif;"
+
+/** Links internos da regua: utm_medium=regua. Link de afiliado NAO passa aqui. */
+export function utmRegua(href: string, campanha: string, conteudo?: string): string {
+  try {
+    const url = new URL(href)
+    url.searchParams.set('utm_source', 'email')
+    url.searchParams.set('utm_medium', 'regua')
+    url.searchParams.set('utm_campaign', campanha)
+    if (conteudo) url.searchParams.set('utm_content', conteudo)
+    return url.toString()
+  } catch {
+    return href
+  }
+}
+
+/** `&` cru dentro de atributo href vira `&amp;`. */
+function attr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+}
+
+/** Logo no lugar de "Bynx" quando o nome fica sozinho numa linha (assinatura). */
+function assinaturaLogo(altura = 32, respiro = 20): string {
+  const largura = Math.round((altura * 424) / 160)
+  return `<p style="margin:${respiro}px 0 0;"><a href="${URL_CANONICA}" target="_blank" style="text-decoration:none;display:inline-block;"><img src="${LOGO_REGUA}" width="${largura}" height="${altura}" alt="Bynx" style="display:block;width:${largura}px;height:${altura}px;border:0;color:#f0f0f0;${FONT_REGUA}font-size:16px;font-weight:800;"/></a></p>`
+}
+
+/**
+ * Motivo do recebimento, por categoria (rodape da regua). Transacional (aviso
+ * de leilao, pedido) e o padrao generico: quem manda o aviso de verdade passa
+ * o motivo proprio em `layoutRegua({ motivo })`.
+ */
+export function motivoRecebimento(categoria: CategoriaEmail): string {
+  if (categoria === 'transacional') return 'Você recebe este aviso porque tem conta na Bynx.'
+  return ehCategoriaMarketing(categoria)
+    ? 'Você recebe porque tem conta na Bynx e aceitou novidades.'
+    : 'Você recebe porque tem conta na Bynx.'
+}
+
+/** Botao principal (um por e-mail): bulletproof, gradiente da marca, texto escuro. */
+export function btnRegua(label: string, href: string): string {
+  const h = attr(href)
+  return `<!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${h}" style="height:52px;v-text-anchor:middle;width:280px;" arcsize="23%" stroke="f" fillcolor="#f59e0b">
+        <w:anchorlock/><center style="color:#0a0a0a;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">${label}</center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${h}" target="_blank" class="btn tinta" style="display:inline-block;padding:0 36px;height:52px;line-height:52px;min-width:208px;text-align:center;border-radius:12px;background-color:#f59e0b;background-image:linear-gradient(135deg,#f59e0b,#ef4444);color:#0a0a0a;${FONT_REGUA}font-size:16px;font-weight:800;text-decoration:none;mso-hide:all;">${label}</a>
+        <!--<![endif]-->`
+}
+
+function documentoRegua(linhas: string, preheader: string, css = ''): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>Bynx</title>
+<!--[if mso]>
+<noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<style>td,th,a,p,span,div{font-family:Arial,sans-serif!important}</style>
+<![endif]-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap');
+:root{color-scheme:dark;supported-color-schemes:dark}
+body{margin:0!important;padding:0!important;background-color:#080a0f!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+table{mso-table-lspace:0;mso-table-rspace:0}
+img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none}
+a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important}
+u+#body a{color:inherit;text-decoration:none}
+@media only screen and (max-width:480px){
+  .casca{padding:0!important}
+  .cartao{border-radius:0!important;border-left:0!important;border-right:0!important}
+  .px{padding-left:16px!important;padding-right:16px!important}
+  .topo{padding:16px 16px 12px!important}
+  .h1{font-size:26px!important;line-height:32px!important}
+  .btn{display:block!important;padding-left:0!important;padding-right:0!important}
+  .promo-gap{width:8px!important}
+  .promo-px{padding-left:12px!important;padding-right:12px!important}
+  .promo-item{padding:8px!important}
+  .promo-foto{height:116px!important}
+  .promo-foto img{width:104px!important;height:104px!important}
+  .promo-preco{font-size:19px!important;line-height:24px!important}
+  .promo-btn{display:block!important;padding:0 4px!important;font-size:14px!important}
+  .promo-d-foto{width:112px!important}
+  .promo-d-foto-box{height:112px!important;padding:6px!important}
+  .promo-d-foto-box img{width:100px!important;height:100px!important}
+  .promo-d-txt{padding-left:14px!important;padding-right:4px!important}
+  .promo-d-tit{font-size:16px!important;line-height:22px!important;max-height:44px!important}
+  .promo-d-preco{font-size:22px!important;line-height:28px!important}
+}
+[data-ogsc] .tinta{color:#0a0a0a!important}
+${css ? `${css}\n` : ''}</style>
+</head>
+<body id="body" style="margin:0;padding:0;background-color:#080a0f;" bgcolor="#080a0f">
+${preheader ? `<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#080a0f;">${escapeHtml(preheader)}${'&nbsp;&zwnj;'.repeat(12)}</div>` : ''}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#080a0f" style="background-color:#080a0f;">
+<tr><td align="center" class="casca" style="padding:24px 12px;background-color:#080a0f;" bgcolor="#080a0f">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+${linhas}
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr>
+</table>
+</body>
+</html>`
+}
+
+/**
+ * Layout da regua. `conteudo` e o miolo do cartao (ja com `.px` nas celulas);
+ * `promocao` e a saida de `blocoPromocao` (vazio = sem bloco).
+ *
+ * Categoria `transacional` (aviso de leilao, pedido): o rodape traz o motivo
+ * e as Preferencias, mas NUNCA o Descadastrar -- ninguem sai de um aviso
+ * sobre algo que a pessoa mesma fez (mesma regra do recibo e do pedido).
+ */
+export function layoutRegua(args: {
+  conteudo: string
+  campanha: string
+  categoria: CategoriaEmail
+  links: LinksRelacionamento | null
+  preheader?: string
+  /** Texto do cabecalho, ex.: "Radar Bynx · #1". Fica no canto direito. */
+  rotulo?: string
+  /**
+   * Rotulo colado no logo, a esquerda, com um filete entre os dois
+   * ("BYNX | LEILOES", como no E14). Padrao: canto direito.
+   */
+  rotuloEsquerda?: boolean
+  /** Fecha o cartao com o logo no lugar da assinatura "Bynx". */
+  assinatura?: boolean
+  /** Espaco (px) entre o fim do conteudo e o logo da assinatura. Padrao 20. */
+  respiroAssinatura?: number
+  /**
+   * P.S. que vem DEPOIS do logo da assinatura (so com `assinatura: true`).
+   * HTML pronto: quem chama ja escapou os dados e traz o proprio espacamento.
+   */
+  psDepoisDoLogo?: string
+  /** Motivo do recebimento no rodape. Padrao: o da categoria (`motivoRecebimento`). Texto puro. */
+  motivo?: string
+  /** Linhas extras do rodape, antes e depois do motivo, no mesmo estilo. Texto puro. */
+  notasRodape?: { antes?: string[]; depois?: string[] }
+  /** Regras extras no <style> do <head> (ajustes de celular do template). */
+  css?: string
+  promocao?: string
+}): string {
+  const logoHref = attr(utmRegua(URL_CANONICA, args.campanha, 'logo'))
+  const prefs = args.links?.preferencias ?? `${URL_CANONICA}/minha-conta`
+  const transacional = args.categoria === 'transacional'
+  const estiloRotulo = `${FONT_REGUA}font-size:14px;line-height:20px;font-weight:700;letter-spacing:0.08em;color:#6b6c6f;text-transform:uppercase;`
+
+  let rotulo = ''
+  if (args.rotulo && args.rotuloEsquerda) {
+    rotulo = `<td align="left" valign="middle" width="100%" style="padding-left:12px;${estiloRotulo}"><span style="display:inline-block;border-left:1px solid #46484d;padding-left:12px;">${escapeHtml(args.rotulo)}</span></td>`
+  } else if (args.rotulo) {
+    rotulo = `<td align="right" valign="middle" style="${estiloRotulo}">${escapeHtml(args.rotulo)}</td>`
+  }
+
+  const cabecalho = `
+  <tr><td class="topo" style="padding:0 4px 16px;background-color:#080a0f;" bgcolor="#080a0f">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td align="left" valign="middle"${args.rotulo && args.rotuloEsquerda ? ' width="85"' : ''}>
+        <a href="${logoHref}" target="_blank" style="text-decoration:none;">
+          <img src="${LOGO_REGUA}" width="85" height="32" alt="Bynx" style="display:block;width:85px;height:32px;border:0;color:#f0f0f0;${FONT_REGUA}font-size:20px;font-weight:800;"/>
+        </a>
+      </td>
+      ${rotulo}
+    </tr></table>
+  </td></tr>`
+
+  const assinatura = args.assinatura
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="px" style="padding:0 32px 28px;${args.psDepoisDoLogo ? FONT_REGUA : ''}">${assinaturaLogo(32, args.respiroAssinatura ?? 20)}${args.psDepoisDoLogo ? `\n        ${args.psDepoisDoLogo}` : ''}</td></tr></table>`
+    : ''
+
+  const cartao = `
+  <tr><td class="cartao" bgcolor="#0d0f14" style="background-color:#0d0f14;border:1px solid #202227;border-radius:18px;overflow:hidden;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td height="4" bgcolor="#f59e0b" style="height:4px;font-size:1px;line-height:4px;background-color:#f59e0b;background-image:linear-gradient(90deg,#f59e0b,#ef4444);">&nbsp;</td>
+    </tr></table>
+    ${args.conteudo}
+    ${assinatura}
+  </td></tr>`
+
+  const estiloNota = 'margin:0 0 12px;font-size:14px;line-height:22px;color:#6b6c6f;'
+  const linhasRodape = [
+    ...(args.notasRodape?.antes || []),
+    args.motivo || motivoRecebimento(args.categoria),
+    ...(args.notasRodape?.depois || []),
+  ].map((t) => `<p style="${estiloNota}">${escapeHtml(t)}</p>`).join('\n    ')
+  // Transacional nao tem Descadastrar; o resto (sem `links`) tambem nao, como sempre.
+  const descadastrar = !transacional && args.links
+    ? `<span style="color:#6b6c6f;">&nbsp;&middot;&nbsp;</span>
+      <a href="${attr(args.links.descadastrar)}" target="_blank" rel="noopener noreferrer nofollow" style="color:#a1a2a4;text-decoration:underline;">Descadastrar</a>`
+    : ''
+
+  const rodape = `
+  <tr><td class="px" align="center" style="padding:28px 24px 8px;${FONT_REGUA}background-color:#080a0f;" bgcolor="#080a0f">
+    ${linhasRodape}
+    <p style="margin:0 0 16px;font-size:14px;line-height:22px;">
+      <a href="${attr(prefs)}" target="_blank" rel="noopener noreferrer nofollow" style="color:#a1a2a4;text-decoration:underline;">Preferências de e-mail</a>
+      ${descadastrar}
+    </p>
+    <p style="margin:0;"><a href="${URL_CANONICA}" target="_blank" style="text-decoration:none;display:inline-block;"><img src="${LOGO_REGUA}" width="74" height="28" alt="Bynx" style="display:block;margin:0 auto;width:74px;height:28px;border:0;color:#a1a2a4;${FONT_REGUA}font-size:14px;font-weight:800;"/></a></p>
+  </td></tr>`
+
+  return documentoRegua(cabecalho + cartao + (args.promocao || '') + rodape, args.preheader || '', args.css || '')
+}
+
+// ── Bloco "Selecao Bynx" (afiliado do Mercado Livre) ────────────────────────
+//
+// Cartao PROPRIO depois do corpo e antes do rodape. Botao de contorno, nunca
+// cheio: o unico botao cheio do e-mail e o CTA principal. Sem selo
+// "Publicidade" e sem aviso de comissao (ajuste do Du em 08/10).
+// Link de afiliado SEM utm (nao mexer no meli.la) e com rel sponsored.
+
+export type PromocaoEmail = { titulo: string; preco: string; imagem: string; url: string }
+
+const REL_AFILIADO = 'sponsored nofollow noopener noreferrer'
+
+/** "62,29" -> "R$ 62,29"; ja com R$, so padroniza o espaco. */
+function precoPromocao(preco: string): string {
+  const p = (preco || '').trim()
+  return /^R\$/i.test(p) ? p.replace(/^R\$\s*/i, 'R$ ') : `R$ ${p}`
+}
+
+/** O ML serve .jpg no mesmo caminho do .webp; Outlook do Windows nao le webp. */
+function imagemPromocao(src: string): string {
+  try {
+    const u = new URL(src)
+    if (u.hostname.endsWith('mlstatic.com')) u.pathname = u.pathname.replace(/\.webp$/i, '.jpg')
+    return u.toString()
+  } catch {
+    return src
+  }
+}
+
+function botaoOferta(href: string, inline: boolean): string {
+  const h = attr(href)
+  const estilo = inline
+    ? 'display:inline-block;padding:0 22px;'
+    : 'display:block;'
+  return `<!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${h}" style="height:44px;v-text-anchor:middle;width:${inline ? 220 : 240}px;" arcsize="23%" strokecolor="#6e6f72" fillcolor="#191b20">
+              <w:anchorlock/><center style="color:#f0f0f0;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">Ver Oferta</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <a href="${h}" target="_blank" rel="${REL_AFILIADO}" class="promo-btn" style="${estilo}height:42px;line-height:42px;text-align:center;border:1px solid #6e6f72;border-radius:12px;background-color:#191b20;color:#f0f0f0;${FONT_REGUA}font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap;mso-hide:all;">Ver Oferta</a>
+              <!--<![endif]-->`
+}
+
+function itemDupla(p: PromocaoEmail): string {
+  const h = attr(p.url)
+  const t = escapeHtml(p.titulo)
+  return `<td width="49%" valign="top" class="promo-item" bgcolor="#191b20" style="width:49%;background-color:#191b20;border:1px solid #202227;border-radius:16px;padding:12px;${FONT_REGUA}">
+            <a href="${h}" target="_blank" rel="${REL_AFILIADO}" style="text-decoration:none;display:block;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td class="promo-foto" align="center" valign="middle" height="152" bgcolor="#ffffff" style="height:152px;background-color:#ffffff;border-radius:12px;padding:0;">
+                  <img src="${attr(imagemPromocao(p.imagem))}" width="136" height="136" alt="${t}" style="display:block;margin:0 auto;width:136px;height:136px;object-fit:contain;border:0;color:#0a0a0a;${FONT_REGUA}font-size:14px;line-height:18px;"/>
+                </td>
+              </tr></table>
+            </a>
+            <a href="${h}" target="_blank" rel="${REL_AFILIADO}" style="text-decoration:none;display:block;">
+              <div style="margin:12px 0 0;height:40px;max-height:40px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:14px;line-height:20px;font-weight:700;color:#f0f0f0;">${t}</div>
+              <div class="promo-preco" style="margin:8px 0 0;font-size:22px;line-height:28px;font-weight:800;color:#f0f0f0;white-space:nowrap;">${escapeHtml(precoPromocao(p.preco))}</div>
+            </a>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;"><tr><td align="left">
+              ${botaoOferta(p.url, false)}
+            </td></tr></table>
+          </td>`
+}
+
+function itemDestaque(p: PromocaoEmail): string {
+  const h = attr(p.url)
+  const t = escapeHtml(p.titulo)
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#191b20" style="background-color:#191b20;border:1px solid #202227;border-radius:16px;"><tr>
+          <td class="promo-item" style="padding:14px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td class="promo-d-foto" width="168" valign="top" style="width:168px;">
+                <a href="${h}" target="_blank" rel="${REL_AFILIADO}" style="text-decoration:none;display:block;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                    <td class="promo-d-foto-box" align="center" valign="middle" height="168" bgcolor="#ffffff" style="height:168px;background-color:#ffffff;border-radius:12px;padding:10px;">
+                      <img src="${attr(imagemPromocao(p.imagem))}" width="148" height="148" alt="${t}" style="display:block;margin:0 auto;width:148px;height:148px;object-fit:contain;border:0;color:#0a0a0a;${FONT_REGUA}font-size:14px;line-height:18px;"/>
+                    </td>
+                  </tr></table>
+                </a>
+              </td>
+              <td class="promo-d-txt" valign="middle" style="padding-left:22px;${FONT_REGUA}">
+                <a href="${h}" target="_blank" rel="${REL_AFILIADO}" style="text-decoration:none;display:block;">
+                  <div class="promo-d-tit" style="max-height:52px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:19px;line-height:26px;font-weight:800;color:#f0f0f0;">${t}</div>
+                  <div class="promo-d-preco" style="margin:10px 0 0;font-size:30px;line-height:36px;font-weight:800;color:#f0f0f0;white-space:nowrap;">${escapeHtml(precoPromocao(p.preco))}</div>
+                </a>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:16px;"><tr><td align="left">
+                  ${botaoOferta(p.url, true)}
+                </td></tr></table>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>`
+}
+
+/**
+ * Bloco "Selecao Bynx". `dupla` (padrao) mostra 2 lado a lado; `destaque`
+ * mostra 1 grande. Com 1 produto so, a dupla vira destaque. Sem produto, o
+ * bloco nao sai (string vazia).
+ */
+export function blocoPromocao(variante: 'dupla' | 'destaque', produtos: PromocaoEmail[]): string {
+  const lista = produtos.filter((p) => p && p.url && p.titulo)
+  if (lista.length === 0) return ''
+  const usarDupla = variante === 'dupla' && lista.length >= 2
+
+  const miolo = usarDupla
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          ${itemDupla(lista[0])}
+          <td width="2%" class="promo-gap" style="width:10px;font-size:1px;line-height:1px;">&nbsp;</td>
+          ${itemDupla(lista[1])}
+        </tr></table>`
+    : itemDestaque(lista[0])
+
+  return `
+  <tr><td height="16" style="height:16px;font-size:1px;line-height:16px;background-color:#080a0f;" bgcolor="#080a0f">&nbsp;</td></tr>
+  <tr><td class="cartao" bgcolor="#0d0f14" style="background-color:#0d0f14;border:1px solid #202227;border-radius:18px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td class="px" style="padding:20px 24px 14px;${FONT_REGUA}font-size:16px;line-height:22px;font-weight:800;color:#f0f0f0;">Seleção Bynx</td></tr>
+      <tr><td class="px promo-px" style="padding:0 24px 24px;">
+        ${miolo}
+      </td></tr>
+    </table>
+  </td></tr>`
+}
+
+/**
+ * Produtos da vitrine `email` (ativos, por ordem), lidos NA HORA do disparo --
+ * sem o cache das paginas. Fora de cache, entao falha vira [] (o e-mail sai
+ * sem o bloco, nunca deixa de sair por causa dele).
+ */
+export async function getPromocoesEmail(limite = 2, chave = 'email'): Promise<PromocaoEmail[]> {
+  try {
+    const { data, error } = await supabaseEmail()
+      .from('ml_afiliado_produtos')
+      .select('titulo, preco, imagem_url, url')
+      .eq('chave', chave)
+      .eq('ativo', true)
+      .order('ordem', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(limite)
+    if (error) {
+      console.warn(`[email] promocoes (${chave}) indisponiveis: ${error.message}`)
+      return []
+    }
+    return (data || []).map((r) => ({ titulo: r.titulo, preco: r.preco, imagem: r.imagem_url, url: r.url }))
+  } catch (e) {
+    console.warn(`[email] promocoes (${chave}) indisponiveis: ${(e as Error)?.message}`)
+    return []
+  }
+}
+
+/** Documento so com o bloco: a previa ao vivo do /admin/promocoes. */
+export function previaBlocoPromocao(variante: 'dupla' | 'destaque', produtos: PromocaoEmail[]): string {
+  return documentoRegua(blocoPromocao(variante, produtos), '')
+}
+
+/**
+ * E-mail de EXEMPLO com o layout + bloco, para conferir no navegador
+ * (/api/admin/email-preview?tpl=base). Texto neutro: nao e envio de verdade.
+ */
+export function previaReguaBase(produtos: PromocaoEmail[], variante: 'dupla' | 'destaque' = 'dupla'): string {
+  const cta = utmRegua(`${URL_CANONICA}/minha-colecao`, 'previa-base', 'cta')
+  const conteudo = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td class="px" style="padding:28px 32px 0;${FONT_REGUA}">
+        <p style="margin:0 0 8px;font-size:14px;line-height:20px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#f59e0b;">Pré-visualização</p>
+        <h1 class="h1" style="margin:0 0 10px;font-size:30px;line-height:36px;font-weight:800;letter-spacing:-0.02em;color:#f0f0f0;">Este é o esqueleto da régua.</h1>
+        <p style="margin:0;font-size:16px;line-height:25px;color:#a3a4a6;">Cabeçalho com o logo, este cartão com o filete da marca, um botão principal, a Seleção Bynx logo abaixo e o rodapé com o motivo do recebimento.</p>
+      </td></tr>
+      <tr><td class="px" align="left" style="padding:24px 32px 28px;">
+        ${btnRegua('Ver minha coleção', cta)}
+      </td></tr>
+    </table>`
+  return layoutRegua({
+    conteudo,
+    campanha: 'previa-base',
+    categoria: 'novidades',
+    links: {
+      descadastrar: `${URL_CANONICA}/api/email/descadastrar?t=00000000-0000-0000-0000-000000000000`,
+      preferencias: `${URL_CANONICA}/email/preferencias?t=00000000-0000-0000-0000-000000000000`,
+    },
+    preheader: 'Pré-visualização do layout da régua com a Seleção Bynx.',
+    rotulo: 'Novidades',
+    assinatura: true,
+    promocao: blocoPromocao(variante, produtos),
+  })
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -526,7 +1127,7 @@ export async function sendMasterSetUnlockedEmail(to: string, name: string, setNa
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Acesso vitalício — esse Master Set fica liberado na sua conta pra sempre. Dúvidas? Fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Seu Master Set ${setName} foi desbloqueado — imprima as folhas de fichário.`)
 
-  return enviar({ from: FROM, to, subject: subjUser(`🗂️ Master Set liberado: ${setName}`), html })
+  return enviar({ template: 'master-set-unlocked', from: FROM, to, subject: subjUser(`🗂️ Master Set liberado: ${setName}`), html })
 }
 
 export async function sendWelcomeEmail(to: string, name: string) {
@@ -546,7 +1147,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Tem alguma dúvida? Dá uma olhada no nosso <a href="${addUtm(`${APP_URL}/faq`, 'welcome', 'link-faq')}" style="color:#f59e0b;text-decoration:none;">FAQ</a> ou fala com a gente em <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Bem-vindo à Bynx, ${firstName}! Seus 7 dias de Pro grátis começaram.`, rodape)
 
-  return enviarNurture({ from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), montarHtml })
+  return enviarNurture({ template: 'welcome', from: FROM, to, subject: subjUser(`Bem-vindo, ${firstName}! 🎉`), montarHtml })
 }
 
 // ── 2. Trial expirando — 5º dia ───────────────────────────────────────────────
@@ -564,7 +1165,7 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Quer continuar no Pro? <a href="${addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'link-veja-planos')}" style="color:#f59e0b;text-decoration:none;">Veja os planos aqui</a>.</p>
   `, `Seu trial Pro expira em 2 dias`, rodape)
 
-  return enviarNurture({ from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), montarHtml })
+  return enviarNurture({ template: 'trial-expiring5', from: FROM, to, subject: subjUser(`⏰ Seu teste Pro expira em 2 dias`), montarHtml })
 }
 
 // ── 3. Trial expirando — último dia ──────────────────────────────────────────
@@ -580,7 +1181,7 @@ export async function sendTrialExpiring1Email(to: string, name: string) {
     ${btn('Continuar no Pro →', addUtm(`${APP_URL}/minha-conta`, 'trial-1d', 'cta-button'))}
   `, `Hoje é o último dia do seu Pro trial`, rodape)
 
-  return enviarNurture({ from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), montarHtml })
+  return enviarNurture({ template: 'trial-expiring1', from: FROM, to, subject: subjUser(`🚨 Último dia de Pro grátis`), montarHtml })
 }
 
 // ── 4. SUPORTE — novo ticket criado (para admin) ──────────────────────────────
@@ -609,7 +1210,7 @@ export async function sendNewTicketAdminEmail(args: {
     ${btn('Ver no painel admin →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-new-admin', 'cta-button'))}
   `, `Novo ticket: ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Novo ticket: ${args.subject}`), html })
+  return enviar({ template: 'new-ticket-admin', from: FROM, to: args.to, subject: subjInterno('Suporte', `Novo ticket: ${args.subject}`), html })
 }
 
 // ── SERVIÇOS — pedido de orçamento completo (para o admin) ───────────────────
@@ -642,7 +1243,7 @@ export async function sendNovaSolicitacaoServicoAdminEmail(args: {
     </table>
   `, `Novo orçamento ${args.numero}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Serviços', `Novo orçamento ${args.numero}: ${args.servico}`), html })
+  return enviar({ template: 'nova-solicitacao-servico-admin', from: FROM, to: args.to, subject: subjInterno('Serviços', `Novo orçamento ${args.numero}: ${args.servico}`), html })
 }
 
 // ── SERVIÇOS — e-mails ao cliente do serviço de bancada ──────────────────────
@@ -679,7 +1280,28 @@ export async function sendServicoClienteEmail(args: {
     ${args.cta ? btn(args.cta.rotulo, addUtm(args.cta.href, 'servico-bancada', 'cta-button')) : ''}
   `, args.titulo)
 
-  return enviar({ from: FROM, to: args.to, subject: subjUser(args.assunto), html })
+  return enviar({ template: 'servico-cliente', from: FROM, to: args.to, subject: subjUser(args.assunto), html })
+}
+
+// ── CONTA — completar o endereco (campanha de 04/10/2026) ────────────────────
+// Relacionamento (respeita o descadastro). Sem emoji, nem no assunto. Vai para
+// quem esta sem CEP: o frete das compras e a volta dos servicos cotam por ele.
+
+export async function sendCompletarEnderecoEmail(args: { to: string; nome?: string | null }) {
+  const primeiro = primeiroNome(args.nome, 'colecionador')
+  const montarHtml = (rodape: string) => baseLayout(`
+    ${badge('Minha Conta', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1('Falta só o seu CEP')}
+    ${p(`Oi, ${escapeHtml(primeiro)}.`)}
+    ${p('O seu cadastro na Bynx está sem endereço. Agora dá para completar em Minha Conta: você digita o CEP e a rua, o bairro e a cidade se preenchem sozinhos. Falta só o número.')}
+    ${p('<strong style="color:#f0f0f0;">Para que serve:</strong>')}
+    ${p('O frete das cartas que você compra no Mercado sai calculado na hora, sem esperar o vendedor.')}
+    ${p('Se mandar uma carta para restauração ou pré-grading, o frete de volta já vem no orçamento.')}
+    ${p('O endereço não aparece no seu perfil público. Só é usado para calcular e enviar o que é seu.')}
+    ${btn('Completar meu endereço', addUtm(`${APP_URL}/minha-conta#endereco`, 'endereco-out26', 'cta-button'))}
+  `, 'Digite o CEP e o resto se preenche sozinho. Leva menos de um minuto.', rodape)
+  return enviarNurture({ template: 'completar-endereco', from: FROM, to: args.to, subject: subjUser('Falta só o seu CEP'), montarHtml })
 }
 
 // ── SERVIÇOS — "Carta pronta" (o momento do resultado) ───────────────────────
@@ -976,7 +1598,7 @@ export function renderServicoProntaEmail(args: ServicoProntaArgs): { subject: st
 
 export async function sendServicoProntaEmail(args: ServicoProntaArgs) {
   const { subject, html } = renderServicoProntaEmail(args)
-  return enviar({ from: FROM, to: args.to, subject, html })
+  return enviar({ template: 'servico-pronta', from: FROM, to: args.to, subject, html })
 }
 
 // ── 5. SUPORTE — confirmação de ticket criado (para usuário) ─────────────────
@@ -997,7 +1619,7 @@ export async function sendTicketCreatedUserEmail(args: {
     ${btn('Ver meu ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-created-user', 'cta-button'))}
   `, `Recebemos seu ticket: ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Ticket recebido: ${args.subject}`), html })
+  return enviar({ template: 'ticket-created-user', from: FROM, to: args.to, subject: subjInterno('Suporte', `Ticket recebido: ${args.subject}`), html })
 }
 
 // ── 6. SUPORTE — resposta do usuário (para admin) ────────────────────────────
@@ -1021,7 +1643,7 @@ export async function sendUserReplyAdminEmail(args: {
     ${btn('Responder no painel →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-user-reply', 'cta-button'))}
   `, `Nova resposta: ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `Resposta: ${args.subject}`), html })
+  return enviar({ template: 'user-reply-admin', from: FROM, to: args.to, subject: subjInterno('Suporte', `Resposta: ${args.subject}`), html })
 }
 
 // ── 7. SUPORTE — resposta do admin (para o usuário) ──────────────────────────
@@ -1047,7 +1669,7 @@ export async function sendAdminReplyUserEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Para responder, basta abrir a conversa no botão acima. Você também pode responder este email, mas o caminho mais rápido é pelo app. 📬</p>
   `, `Resposta para seu ticket: ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
+  return enviar({ template: 'admin-reply-user', from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
 }
 
 // ── 7-bis. SUPORTE — conversa ABERTA pela equipe (para o usuário) ────────────
@@ -1081,7 +1703,7 @@ export async function sendAdminNovaConversaEmail(args: {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Você está recebendo isso porque tem conta na Bynx e nossa equipe precisou falar com você. Responda pelo botão acima — a conversa fica registrada na sua conta. 📬</p>
   `, `A equipe da Bynx te enviou uma mensagem sobre ${args.subject}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
+  return enviar({ template: 'admin-nova-conversa', from: FROM, to: args.to, subject: subjInterno('Suporte', args.subject), html })
 }
 
 // ── 7-ter. LOJAS — pedido de documentos pro Selo de Loja Validada ───────────
@@ -1094,8 +1716,10 @@ export async function sendAdminNovaConversaEmail(args: {
 // perde. Por isso a conversa vive num TICKET e o botao leva pra la, onde ha
 // upload de arquivo em bucket privado.
 //
-// Assinado pelo Du em primeira pessoa de proposito: e um pedido de RG e CNPJ,
-// e pedido de documento assinado por "a equipe" cheira a golpe.
+// ★ Voz da Bynx (regra de 08/10): saiu o "Aqui e o Eduardo, fundador". O
+// e-mail nao e ticket -- ele LEVA ao ticket, e o ticket continua pessoal. Para
+// o pedido de documento nao parecer golpe, o texto diz onde o envio acontece
+// (dentro da conta, conversa privada) e o que acontece com os arquivos.
 
 export async function sendEmailLojaVerificacao(args: {
   to: string
@@ -1114,8 +1738,7 @@ export async function sendEmailLojaVerificacao(args: {
     <div style="height:16px;"></div>
     ${h1('Falta pouco para o seu selo')}
     ${p(`Olá, ${escapeHtml(primeiro)}, tudo bem?`)}
-    ${p('Aqui é o Eduardo, fundador da Bynx.')}
-    ${p(`Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na plataforma. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Loja Validada</strong> no seu perfil — o selo é o que sinaliza aos colecionadores que a sua loja é uma empresa real e confiável — preciso confirmar alguns itens:`)}
+    ${p(`Que bom ter a <strong style="color:#f0f0f0;">${escapeHtml(args.nomeLoja)}</strong> na Bynx. Para concluir a verificação e liberar o <strong style="color:#f0f0f0;">Selo de Loja Validada</strong> no seu perfil — o selo é o que sinaliza aos colecionadores que a sua loja é uma empresa real e confiável — precisamos confirmar alguns itens:`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 4px;">
       ${item('Cartão CNPJ da loja, com situação cadastral ativa (ou CCMEI, no caso de MEI)')}
@@ -1124,7 +1747,7 @@ export async function sendEmailLojaVerificacao(args: {
       ${item('Uma ou duas fotos da loja física ou do estoque')}
     </table>
 
-    ${p('Clique no botão abaixo e envie os arquivos por lá — é uma conversa privada entre você e eu, dentro da sua conta. Uso essas informações apenas para a validação e não compartilho com terceiros. Assim que eu conferir, o selo é ativado no mesmo dia e os arquivos são apagados.')}
+    ${p('Clique no botão abaixo e envie os arquivos por lá — é uma conversa privada entre você e a Bynx, dentro da sua conta. Usamos essas informações apenas para a validação e não compartilhamos com terceiros. Assim que conferirmos, o selo é ativado no mesmo dia e os arquivos são apagados.')}
 
     ${btnB2B('Enviar os documentos', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'loja-verificacao', 'cta-button'))}
 
@@ -1133,15 +1756,12 @@ export async function sendEmailLojaVerificacao(args: {
       <em>Um detalhe importante: dados bancários e fiscais para receber pagamentos não entram aqui. Isso é feito de forma segura no momento em que você ativar o recebimento pela plataforma.</em>
     </p>
     <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.55);line-height:1.7;${FONT}">
-      Qualquer dúvida, é só me responder por lá que eu te ajudo.<br/><br/>
-      Abraço,<br/>
-      <strong style="color:#f0f0f0;">Eduardo</strong><br/>
-      Fundador da Bynx<br/>
-      <a href="${APP_URL}" style="color:${B2B_LINK_COLOR};text-decoration:none;">bynx.gg</a>
+      Qualquer dúvida, é só responder por lá que ajudamos.
     </p>
+    ${assinaturaLogo()}
   `, `${escapeHtml(args.nomeLoja)}: falta pouco para o Selo de Loja Validada`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`Verificação da ${args.nomeLoja}`), html })
+  return enviar({ template: 'email-loja-verificacao', from: FROM, to: args.to, subject: subjUser(`Verificação da ${args.nomeLoja}`), html })
 }
 
 // ── 8. SUPORTE — mudança de status (para o usuário) ──────────────────────────
@@ -1172,7 +1792,7 @@ export async function sendTicketStatusChangedEmail(args: {
     ${btn('Ver ticket →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-status-changed', 'cta-button'))}
   `, `Seu ticket agora está ${info.label.toLowerCase()}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Suporte', `${info.label}: ${args.subject}`), html })
+  return enviar({ template: 'ticket-status-changed', from: FROM, to: args.to, subject: subjInterno('Suporte', `${info.label}: ${args.subject}`), html })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1242,7 +1862,7 @@ export async function sendEmailLojaAprovada(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi aprovada e já está no ar!`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`🎉 Sua loja foi aprovada!`), html })
+  return enviar({ template: 'email-loja-aprovada', from: FROM, to: args.to, subject: subjUser(`🎉 Sua loja foi aprovada!`), html })
 }
 
 // ── 10. LOJAS — loja suspensa (para o owner) ─────────────────────────────────
@@ -1273,7 +1893,7 @@ export async function sendEmailLojaSuspensa(args: {
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">📬 <a href="mailto:suporte@bynx.gg" style="color:${B2B_LINK_COLOR};text-decoration:none;">suporte@bynx.gg</a></p>
   `, `Sua loja ${args.nomeLoja} foi suspensa na Bynx`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`Sua loja foi suspensa`), html })
+  return enviar({ template: 'email-loja-suspensa', from: FROM, to: args.to, subject: subjUser(`Sua loja foi suspensa`), html })
 }
 
 // ── 11. LOJAS — plano alterado (para o owner) ────────────────────────────────
@@ -1412,7 +2032,7 @@ export async function sendEmailLojaPlanoAlterado(args: {
     ? `${cfgNovo.emoji} Sua loja agora é ${cfgNovo.label}`
     : `Plano da sua loja foi atualizado para ${cfgNovo.label}`)
 
-  return enviar({ from: FROM, to: args.to, subject, html })
+  return enviar({ template: 'email-loja-plano-alterado', from: FROM, to: args.to, subject, html })
 }
 
 // ── 12. PURCHASE — confirmação de compra (após webhook Stripe) ───────────────
@@ -1488,7 +2108,7 @@ export async function sendPaginaLendariaEmail(
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Compra única, vitalícia, com impressão ilimitada. Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, pacote ? 'Todas as Páginas Lendárias estão liberadas no seu fichário.' : `${pagina?.nome || 'Sua Página Lendária'} está liberada no seu fichário.`)
 
-  return enviar({
+  return enviar({ template: 'pagina-lendaria',
     from: FROM,
     to,
     subject: subjUser(pacote ? '🌙 A Coleção Lendária é sua — todas as páginas liberadas!' : `🌙 ${pagina?.nome || 'Sua Página Lendária'} é sua — vem ver no fichário!`),
@@ -1627,7 +2247,7 @@ export async function sendPurchaseConfirmationEmail(
     <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Qualquer dúvida, é só responder este email. 📬 <a href="mailto:suporte@bynx.gg" style="color:#f59e0b;text-decoration:none;">suporte@bynx.gg</a></p>
   `, preheader)
 
-  return enviar({ from: FROM, to, subject, html })
+  return enviar({ template: 'purchase-confirmation', from: FROM, to, subject, html })
 }
 
 // ── 13. TRIAL — alias de sendTrialExpiring1Email ─────────────────────────────
@@ -1645,9 +2265,10 @@ export async function sendTrialExpiring7Email(to: string, name: string) {
 }
 
 // ── Helper: escapa HTML em mensagens de usuário ──────────────────────────────
+// Exportado: os templates da regua (src/lib/regua/templates) usam este mesmo.
 
-function escapeHtml(s: string): string {
-  return (s || '').replace(/[&<>"']/g, c =>
+export function escapeHtml(s: string | number | null | undefined): string {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)
   )
 }
@@ -1695,7 +2316,7 @@ export async function sendReferralActivatedEmail(args: {
     </p>
   `, `Você ganhou ${args.pointsAwarded} pontos por indicar alguém!`, rodape)
 
-  return enviarNurture({
+  return enviarNurture({ template: 'referral-activated',
     from: FROM,
     to: args.to,
     subject: subjUser(`🎉 +${args.pointsAwarded} pts! Sua indicação ativou`),
@@ -1752,7 +2373,7 @@ export async function sendReferralEngagedEmail(args: {
     </p>
   `, `+${POINTS} pts! Sua indicação virou Pro na Bynx`, rodape)
 
-  return enviarNurture({
+  return enviarNurture({ template: 'referral-engaged',
     from: FROM,
     to: args.to,
     subject: subjUser(`🚀 +${POINTS} pts! Sua indicação virou Pro`),
@@ -1812,7 +2433,7 @@ export async function sendRedemptionConfirmedEmail(args: {
     </p>
   `, `Resgate confirmado: ${args.rewardTitle}`)
 
-  return enviar({
+  return enviar({ template: 'redemption-confirmed',
     from: FROM,
     to: args.to,
     subject: subjUser(`✅ Resgate confirmado: ${args.rewardTitle}`),
@@ -1835,7 +2456,7 @@ export async function sendPaymentFailedEmail(to: string, name: string) {
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">Já atualizou? Pode ignorar este email — a próxima tentativa de cobrança resolve sozinha.</p>
   `, `Atualize seu pagamento para manter o Pro ativo`)
 
-  return enviar({ from: FROM, to, subject: subjUser(`💳 Não conseguimos renovar seu Pro`), html })
+  return enviar({ template: 'payment-failed', from: FROM, to, subject: subjUser(`💳 Não conseguimos renovar seu Pro`), html })
 }
 
 // ── PAGAMENTO — chargeback aberto (alerta para admin) ────────────────────────
@@ -1867,7 +2488,7 @@ export async function sendDisputeAdminEmail(args: {
     ${btn('Abrir disputas no Stripe →', 'https://dashboard.stripe.com/disputes')}
   `, `Chargeback aberto: ${valor}`)
 
-  return enviar({ from: FROM, to: args.to, subject: subjInterno('Alerta', `Chargeback aberto (${valor})`), html })
+  return enviar({ template: 'dispute-admin', from: FROM, to: args.to, subject: subjInterno('Alerta', `Chargeback aberto (${valor})`), html })
 }
 
 
@@ -1897,7 +2518,7 @@ export async function sendNovaNegociacaoEmail(args: {
     ${p('Responda pelo chat da Bynx para combinar valor, condição e envio — tudo dentro da plataforma.')}
     ${btn('Abrir conversa →', url)}
   `, `${args.buyerName || 'Um comprador'} quer ${args.cardName}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`🤝 Nova negociação: ${args.cardName}`), html })
+  return enviar({ template: 'nova-negociacao', from: FROM, to: args.to, subject: subjUser(`🤝 Nova negociação: ${args.cardName}`), html })
 }
 
 export async function sendCartaEnviadaEmail(args: {
@@ -1915,7 +2536,7 @@ export async function sendCartaEnviadaEmail(args: {
     ${p('Quando a carta chegar, confirme o recebimento pelo chat para concluir a negociação e adicioná-la à sua coleção.')}
     ${btn('Acompanhar negociação →', url)}
   `, `${args.sellerName || 'O vendedor'} enviou ${args.cardName}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`📦 Carta enviada: ${args.cardName}`), html })
+  return enviar({ template: 'carta-enviada', from: FROM, to: args.to, subject: subjUser(`📦 Carta enviada: ${args.cardName}`), html })
 }
 
 export async function sendNegociacaoConcluidaEmail(args: {
@@ -1933,7 +2554,7 @@ export async function sendNegociacaoConcluidaEmail(args: {
     ${p('Que tal avaliar o comprador? Avaliações ajudam toda a comunidade a negociar com mais confiança.')}
     ${btn('Avaliar comprador →', url)}
   `, `Venda concluída: ${args.cardName}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`✅ Venda concluída: ${args.cardName}`), html })
+  return enviar({ template: 'negociacao-concluida', from: FROM, to: args.to, subject: subjUser(`✅ Venda concluída: ${args.cardName}`), html })
 }
 
 /**
@@ -1967,7 +2588,7 @@ export async function sendTrialLojaExpirandoEmail(args: {
     ${p('Se quiser manter tudo como está, é só assinar. Você não perde nada do que já cadastrou.')}
     ${btn('Ver os planos →', url)}
   `, `O Pro da ${args.loja} termina ${quando}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`⏳ O Pro da ${args.loja} termina ${quando}`), html })
+  return enviar({ template: 'trial-loja-expirando', from: FROM, to: args.to, subject: subjUser(`⏳ O Pro da ${args.loja} termina ${quando}`), html })
 }
 
 /**
@@ -1989,7 +2610,7 @@ export async function sendTrialLojaExpirouEmail(args: {
     ${p('O que saiu da sua página pública: a galeria de fotos e o selo Pro. Assinando, tudo volta na hora, com as mesmas fotos.')}
     ${btn('Voltar para o Pro →', url)}
   `, `O Pro da ${args.loja} terminou — a loja segue no ar, no Básico`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`Sua loja agora está no plano Básico`), html })
+  return enviar({ template: 'trial-loja-expirou', from: FROM, to: args.to, subject: subjUser(`Sua loja agora está no plano Básico`), html })
 }
 
 /**
@@ -2043,7 +2664,7 @@ export async function sendRecebimentosParadosEmail(args: {
     ${p('É o único item que falta. São uns 3 minutos: CNPJ ou CPF e a conta bancária, preenchidos direto na Stripe. Não custa nada, e a Bynx nunca vê esses dados.')}
     ${btn('Ativar recebimentos →', urlLembrete)}${rodape}
   `, `${args.loja}: falta só ativar os recebimentos`)
-    return enviarNurture({
+    return enviarNurture({ template: 'recebimentos-parados',
       from: FROM, to: args.to,
       subject: subjUser(`A ${args.loja} continua sem botão de comprar`),
       montarHtml: montarLembrete,
@@ -2067,7 +2688,7 @@ export async function sendRecebimentosParadosEmail(args: {
     ${p('Ativar não custa nada: você preenche CNPJ ou CPF e a conta bancária direto na Stripe, em uns 3 minutos. O dinheiro de cada venda cai nessa conta, e a Bynx nunca vê esses dados.')}
     ${btn('Ativar recebimentos →', url)}${rodape}
   `, `${args.loja}: ${args.quantos} à venda sem botão de comprar`)
-  return enviarNurture({
+  return enviarNurture({ template: 'recebimentos-parados',
     from: FROM, to: args.to,
     subject: subjUser(`🔌 ${args.quantos} da ${args.loja} sem botão de comprar`),
     montarHtml,
@@ -2113,7 +2734,7 @@ export async function sendLojaSemCaraEmail(args: {
     ${p('É o passo mais rápido de todos e muda a página pública na hora — não precisa esperar aprovação de nada.')}
     ${btn('Editar minha vitrine →', url)}${rodape}
   `, `${verbo} ${juntar(args.falta)} na ${args.loja}`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`${verbo} ${juntar(args.falta)} na página da ${args.loja}`), montarHtml })
+  return enviarNurture({ template: 'loja-sem-cara', from: FROM, to: args.to, subject: subjUser(`${verbo} ${juntar(args.falta)} na página da ${args.loja}`), montarHtml })
 }
 
 /**
@@ -2139,7 +2760,7 @@ export async function sendLojaSemFotoEmail(args: {
     ${p('A galeria é o que separa a sua página da de uma loja no plano Básico. Uma foto do balcão, da prateleira ou da vitrine já resolve — não precisa de produção.')}
     ${btn('Subir as fotos →', url)}${rodape}
   `, `${args.loja}: ${args.limite} fotos disponíveis e nenhuma no ar`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`📷 ${args.limite} fotos sobrando no plano da ${args.loja}`), montarHtml })
+  return enviarNurture({ template: 'loja-sem-foto', from: FROM, to: args.to, subject: subjUser(`📷 ${args.limite} fotos sobrando no plano da ${args.loja}`), montarHtml })
 }
 
 /** PASSO 4 · vitrine vazia: nada a venda, nem carta nem produto. */
@@ -2158,7 +2779,7 @@ export async function sendLojaVitrineVaziaEmail(args: {
     ${p('Uma carta pelo Marketplace ou um selado pelo painel de produtos já colocam a loja em funcionamento. Um item só já muda a página.')}
     ${btn('Colocar o primeiro item →', url)}${rodape}
   `, `A vitrine da ${args.loja} está vazia`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A vitrine da ${args.loja} não tem nada à venda`), montarHtml })
+  return enviarNurture({ template: 'loja-vitrine-vazia', from: FROM, to: args.to, subject: subjUser(`A vitrine da ${args.loja} não tem nada à venda`), montarHtml })
 }
 
 /**
@@ -2182,7 +2803,7 @@ export async function sendLojaPerdeuProEmail(args: {
     ${p('Elas não foram apagadas: continuam guardadas e voltam no mesmo lugar no instante em que você assinar. A loja segue no ar e vendendo do mesmo jeito.')}
     ${btn('Voltar para o Pro →', url)}${rodape}
   `, `As fotos da ${args.loja} saíram da página pública`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`As fotos da ${args.loja} saíram da página`), montarHtml })
+  return enviarNurture({ template: 'loja-perdeu-pro', from: FROM, to: args.to, subject: subjUser(`As fotos da ${args.loja} saíram da página`), montarHtml })
 }
 
 /**
@@ -2218,7 +2839,7 @@ export async function sendLojaResumoMensalEmail(args: {
         : 'No Premium você vê de onde vem cada clique, quais itens são mais vistos e o movimento dia a dia.')}
     ${btn('Ver o painel →', url)}${rodape}
   `, `${args.loja}: ${args.cliques} cliques e ${args.pedidos} pedidos em ${args.mes}`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A ${args.loja} em ${args.mes}`), montarHtml })
+  return enviarNurture({ template: 'loja-resumo-mensal', from: FROM, to: args.to, subject: subjUser(`A ${args.loja} em ${args.mes}`), montarHtml })
 }
 
 /**
@@ -2242,7 +2863,7 @@ export async function sendLojaReativacaoEmail(args: {
     ${p('A loja continua no ar e nada do que você cadastrou foi apagado. Se quiser retomar, o painel está do mesmo jeito que você deixou.')}
     ${btn('Abrir minha loja →', url)}${rodape}
   `, `A ${args.loja} está parada há ${args.dias} dias`)
-  return enviarNurture({ from: FROM, to: args.to, subject: subjUser(`A ${args.loja} está parada faz um tempo`), montarHtml })
+  return enviarNurture({ template: 'loja-reativacao', from: FROM, to: args.to, subject: subjUser(`A ${args.loja} está parada faz um tempo`), montarHtml })
 }
 
 export async function sendNegociacaoExpirandoEmail(args: {
@@ -2261,7 +2882,7 @@ export async function sendNegociacaoExpirandoEmail(args: {
     ${p('Basta responder pelo chat da Bynx para o prazo reiniciar.')}
     ${btn('Responder agora →', url)}
   `, `Faltam ${args.horasRestantes}h na negociação de ${args.cardName}`)
-  return enviar({ from: FROM, to: args.to, subject: subjUser(`⏰ Faltam ${args.horasRestantes}h: ${args.cardName}`), html })
+  return enviar({ template: 'negociacao-expirando', from: FROM, to: args.to, subject: subjUser(`⏰ Faltam ${args.horasRestantes}h: ${args.cardName}`), html })
 }
 
 /**
@@ -2304,7 +2925,7 @@ export async function sendNegociacaoExpiradaEmail(args: {
       ? `${args.cardName} voltou a aparecer no marketplace`
       : `${args.cardName} não está mais reservada para você`)
 
-  return enviar({
+  return enviar({ template: 'negociacao-expirada',
     from: FROM,
     to: args.to,
     subject: subjUser(ehVendedor
@@ -2332,7 +2953,7 @@ export async function sendMensagensNaoLidasEmail(args: {
     ${btn('Ver conversas →', url)}
   `, plural ? `${args.qtd} mensagens não lidas na Bynx` : 'Você tem uma mensagem não lida')
   const subject = subjUser(plural ? `💬 ${args.qtd} mensagens não lidas` : '💬 Você tem uma mensagem não lida')
-  return enviar({ from: FROM, to: args.to, subject, html })
+  return enviar({ template: 'mensagens-nao-lidas', from: FROM, to: args.to, subject, html })
 }
 
 // ─── Stripe Connect (vendas on-site) ────────────────────────────────────────
@@ -2372,7 +2993,7 @@ export async function sendConnectAtivoEmail(args: {
     ${btnB2B(quem ? 'Ver meus pagamentos' : 'Ver meus recebimentos', addUtm(url, 'connect_ativo'), B2B_GRADIENT_PREMIUM, '#a855f7')}
   `, quem ? 'Sua loja já pode vender na Bynx' : 'Você já pode vender na Bynx')
 
-  return enviar({
+  return enviar({ template: 'connect-ativo',
     from: FROM,
     to: args.to,
     subject: subjUser(quem ? `🎉 ${quem}: seus recebimentos estão ativos!` : '🎉 Seus recebimentos estão ativos!'),
@@ -2415,7 +3036,7 @@ export async function sendConnectPendenciaEmail(args: {
     ${p('<span style="color:rgba(255,255,255,0.4);font-size:13px;">Essas informações são exigidas pela Stripe, que processa os pagamentos com segurança. A Bynx não tem acesso aos seus dados bancários.</span>')}
   `, `A Stripe precisa de ${plural} para liberar seus recebimentos`)
 
-  return enviar({
+  return enviar({ template: 'connect-pendencia',
     from: FROM,
     to: args.to,
     subject: subjUser(quem ? `📋 ${quem}: falta pouco para ativar seus recebimentos` : '📋 Falta pouco para ativar seus recebimentos'),
@@ -2430,7 +3051,13 @@ export async function sendVendaLojistaEmail(args: {
   to: string
   nomeUser: string
   nomeLoja: string
-  lojaId: string
+  /**
+   * ★ AUSENTE quem vende SEM LOJA (01/10/2026, F5). Antes o tipo exigia a
+   * string e o webhook passava o `loja_id` nulo do pedido: o botao do
+   * e-mail apontava para `/minha-loja/null/pedidos`. Mesmo padrao do
+   * `sendConnectAtivoEmail`, que ja nascia opcional.
+   */
+  lojaId?: string | null
   pedidoNumero: number | string
   itemNome: string
   liquidoBRL: string
@@ -2439,12 +3066,13 @@ export async function sendVendaLojistaEmail(args: {
   repassePrazo: number
 }) {
   const firstName = primeiroNome(args.nomeUser, 'Colecionador')
-  const url = `${APP_URL}/minha-loja/${args.lojaId}/pedidos`
+  const semLoja = !args.lojaId
+  const url = semLoja ? `${APP_URL}/vendas` : `${APP_URL}/minha-loja/${args.lojaId}/pedidos`
 
   const html = baseLayout(`
     <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">💰</div></div>
     ${h1('Você vendeu!')}
-    ${p(`${escapeHtml(firstName)}, <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> foi vendido na sua vitrine da Bynx. O pagamento já está confirmado.`)}
+    ${p(`${escapeHtml(firstName)}, <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> ${semLoja ? 'foi vendido na Bynx' : 'foi vendido na sua vitrine da Bynx'}. O pagamento já está confirmado.`)}
     ${divider()}
     ${p(`<strong style="color:#f0f0f0;">Pedido #${args.pedidoNumero}</strong>`)}
     ${p(`Comprador: ${escapeHtml(args.compradorNome)}`)}
@@ -2455,7 +3083,7 @@ export async function sendVendaLojistaEmail(args: {
     ${btnB2B('Ver o pedido', addUtm(url, 'venda_lojista'), B2B_GRADIENT_PREMIUM, '#a855f7')}
   `, `${args.itemNome} vendido — envie o produto`)
 
-  return enviar({
+  return enviar({ template: 'venda-lojista',
     from: FROM,
     to: args.to,
     subject: subjUser(`💰 Você vendeu: ${args.itemNome}`),
@@ -2488,7 +3116,7 @@ export async function sendPedidoCompradorEmail(args: {
     ${btn('Acompanhar pedido', addUtm(url, 'pedido_comprador'))}
   `, `Pedido #${args.pedidoNumero} confirmado`)
 
-  return enviar({
+  return enviar({ template: 'pedido-comprador',
     from: FROM,
     to: args.to,
     subject: subjUser(`✅ Pedido confirmado: ${args.itemNome}`),
@@ -2497,6 +3125,97 @@ export async function sendPedidoCompradorEmail(args: {
 }
 
 /** Comprador: a loja despachou. Fecha o ciclo da compra. */
+/**
+ * Lembrete de pagamento -- a sessao do checkout ainda esta VIVA.
+ *
+ * ★ POR QUE EXISTE (30/09/2026). O unico pedido de cliente real que a Bynx
+ * teve (o #9, R$ 1.950,88, 5 Elite Trainer Box) nasceu num domingo as 21:34,
+ * nunca chegou ao PaymentIntent e morreu 24h depois na expiracao da Stripe.
+ * Ninguem falou com ele nesse meio tempo: o handler de
+ * `checkout.session.expired` cancelava o pedido em silencio.
+ *
+ * ★ A DIFERENCA ENTRE ESTE E-MAIL E O DE EXPIRADO E O LINK. Aqui a Session
+ * ainda existe, entao o botao leva DE VOLTA ao mesmo checkout, com o mesmo
+ * preco e o mesmo frete ja cotados -- a pessoa continua de onde parou. Depois
+ * de expirar nao ha o que continuar: o de expirado leva a vitrine e a compra
+ * comeca de novo. Por isso sao duas funcoes e nao uma com condicional.
+ */
+export async function sendPagamentoLembreteEmail(args: {
+  to: string
+  nomeUser: string
+  pedidoNumero: number | string
+  itemNome: string
+  nomeVendedor: string
+  totalBRL: string
+  /** URL da Session da Stripe, que so existe enquanto ela esta aberta. */
+  urlCheckout: string
+  /** Horas que ainda restam antes de a sessao vencer. */
+  horasRestantes: number
+}) {
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
+  const prazo = args.horasRestantes >= 2
+    ? `cerca de ${Math.floor(args.horasRestantes)} horas`
+    : 'menos de uma hora'
+
+  const html = baseLayout(`
+    <div style="text-align:center;margin-bottom:20px;"><div style="font-size:48px;line-height:1;">🛒</div></div>
+    ${h1('Seu pedido está esperando o pagamento')}
+    ${p(`${escapeHtml(firstName)}, o seu pedido de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> em <strong style="color:#f0f0f0;">${escapeHtml(args.nomeVendedor)}</strong> ficou sem concluir o pagamento.`)}
+    ${divider()}
+    ${p(`<strong style="color:#f0f0f0;">Pedido #${args.pedidoNumero}</strong>`)}
+    ${p(`Total: <strong style="color:#f0f0f0;">${args.totalBRL}</strong>`)}
+    ${divider()}
+    ${p(`O item continua reservado para você por ${prazo}. O botão abaixo leva de volta para a mesma tela de pagamento, com o frete que você já escolheu.`)}
+    ${btn('Concluir o pagamento', args.urlCheckout)}
+    ${p('Se você desistiu, não precisa fazer nada: o pedido se cancela sozinho e nada é cobrado. E se alguma etapa travou, responda este e-mail que a gente resolve.')}
+  `, `Conclua o pagamento do pedido #${args.pedidoNumero}`)
+
+  return enviar({ template: 'pagamento-lembrete',
+    from: FROM,
+    to: args.to,
+    subject: subjUser(`🛒 Falta só o pagamento: ${args.itemNome}`),
+    html,
+  })
+}
+
+/**
+ * O pedido venceu sem pagamento. Nada foi cobrado, e a compra pode ser refeita.
+ *
+ * ★ NAO E UM E-MAIL DE ERRO, E UM CONVITE. O tom importa: a pessoa nao fez
+ * nada errado e nao deve nada. O que ela precisa saber e (1) que nao foi
+ * cobrada, porque essa e a primeira duvida de quem ve "pedido cancelado", e
+ * (2) que o item ainda esta la.
+ */
+export async function sendPedidoExpiradoEmail(args: {
+  to: string
+  nomeUser: string
+  pedidoNumero: number | string
+  itemNome: string
+  nomeVendedor: string
+  /** Onde a compra recomeca: o produto, o anuncio ou a vitrine da loja. */
+  urlVolta: string
+}) {
+  const firstName = primeiroNome(args.nomeUser, 'Colecionador')
+
+  const html = baseLayout(`
+    ${h1('O prazo do seu pedido venceu')}
+    ${p(`${escapeHtml(firstName)}, o pedido de <strong style="color:#f0f0f0;">${escapeHtml(args.itemNome)}</strong> em <strong style="color:#f0f0f0;">${escapeHtml(args.nomeVendedor)}</strong> foi cancelado porque o pagamento não foi concluído no prazo.`)}
+    ${divider()}
+    ${p('<strong style="color:#f0f0f0;">Nada foi cobrado de você.</strong> Nenhum valor saiu do seu cartão e não há nada a estornar.')}
+    ${divider()}
+    ${p('O item voltou para a vitrine e continua disponível. Se você ainda quiser, basta refazer a compra.')}
+    ${btn('Ver o item de novo', addUtm(args.urlVolta, 'pedido_expirado'))}
+    ${p('Se alguma coisa travou no caminho — o frete, a forma de pagamento, qualquer etapa da tela — responda este e-mail. Saber onde travou ajuda a gente a consertar.')}
+  `, `Pedido #${args.pedidoNumero} cancelado por falta de pagamento`)
+
+  return enviar({ template: 'pedido-expirado',
+    from: FROM,
+    to: args.to,
+    subject: subjUser(`O prazo do pedido #${args.pedidoNumero} venceu`),
+    html,
+  })
+}
+
 export async function sendPedidoEnviadoEmail(args: {
   to: string
   nomeUser: string
@@ -2520,7 +3239,7 @@ export async function sendPedidoEnviadoEmail(args: {
     ${btn('Acompanhar pedido', addUtm(url, 'pedido_enviado'))}
   `, `${args.itemNome} está a caminho`)
 
-  return enviar({
+  return enviar({ template: 'pedido-enviado',
     from: FROM,
     to: args.to,
     subject: subjUser(`📦 A caminho: ${args.itemNome}`),
@@ -2555,7 +3274,7 @@ export async function sendReembolsoCompradorEmail(args: {
     ${btn('Ver o pedido', addUtm(url, 'pedido_reembolsado'))}
   `, `Reembolso do pedido #${args.pedidoNumero}`)
 
-  return enviar({
+  return enviar({ template: 'reembolso-comprador',
     from: FROM,
     to: args.to,
     subject: subjUser(`↩️ Reembolso: ${args.itemNome}`),

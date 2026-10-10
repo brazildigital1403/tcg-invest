@@ -9,11 +9,16 @@ import { requireAdmin } from '@/lib/admin-auth'
  * Upload de imagem pro blog — usado tanto pra capa do post quanto pra imagens
  * de bloco de conteudo. Mesmo tratamento de /api/lojas/[id]/logo, sem escopo
  * de dono (bucket `blog-fotos`, so o admin escreve).
+ *
+ * Campo opcional `pasta` (lista fechada): o /admin/promocoes manda
+ * `promocoes` para a foto do produto nao cair em `posts/`. Sem o campo, nada
+ * muda para o Blog.
  */
 
 const MIMES_OK = ['image/jpeg', 'image/png', 'image/webp'] as const
 const TAMANHO_MAX_BYTES = 5 * 1024 * 1024
 const BUCKET = 'blog-fotos'
+const PASTAS_OK = ['posts', 'promocoes'] as const
 
 function supabaseAdmin() {
   return createClient(
@@ -56,7 +61,9 @@ export async function POST(req: NextRequest) {
 
     const sb = supabaseAdmin()
     const ext = extFromMime(mime)
-    const path = `posts/${randomUUID()}.${ext}`
+    const pastaPedida = String(formData.get('pasta') || 'posts')
+    const pasta = PASTAS_OK.includes(pastaPedida as typeof PASTAS_OK[number]) ? pastaPedida : 'posts'
+    const path = `${pasta}/${randomUUID()}.${ext}`
     const arrayBuffer = await file.arrayBuffer()
 
     const { error: uploadErr } = await sb.storage.from(BUCKET).upload(path, arrayBuffer, {

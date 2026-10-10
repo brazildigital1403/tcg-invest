@@ -48,10 +48,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     await registrarEvento(id, 'proposta', `Proposta respondida pelo cliente: ${resumo}`)
     await notificarAdmin(id, 'Proposta respondida', [
       `O cliente respondeu a proposta de tratamento: ${resumo}.`,
-      aprovados.length ? 'Já dá para levar as cartas para a bancada.' : 'Nada foi aprovado: a carta volta sem serviço.',
+      !aprovados.length
+        ? 'Nada foi aprovado: a carta volta sem serviço.'
+        : recusados.length
+          ? 'Houve recusa: confira ou ajuste o valor do serviço no painel e envie a cobrança ao cliente.'
+          : 'A cobrança do serviço já foi enviada ao cliente. Com o Pix confirmado, a carta vai para a bancada.',
     ])
     // Com algo aprovado, o servico e cobrado agora, antes da bancada.
-    if (aprovados.length) await notificarCliente(id, 'cobrar_servico')
+    // Tudo aprovado: o valor do orcamento vale, cobra na hora. Com recusa, o valor
+    // pode mudar -- a cobranca so sai quando o admin confere/ajusta no painel.
+    if (aprovados.length && !recusados.length) {
+      await registrarEvento(id, 'cobranca_servico', 'Cobrança do serviço enviada')
+      await notificarCliente(id, 'cobrar_servico')
+    }
     return NextResponse.json({ ok: true, aprovados: aprovados.length, recusados: recusados.length })
   } catch (e) {
     console.error('[servicos/proposta]', e instanceof Error ? e.message : e)

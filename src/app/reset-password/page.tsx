@@ -4,15 +4,16 @@ import { useState, useEffect } from 'react'
 import { IconWarning, IconLink, IconKey, IconEye, IconEyeOff } from '@/components/ui/Icons'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { senhaChecks, senhaValida, SENHA_REGRA_MSG, ehErroDeRegraDeSenha } from '@/lib/senha'
 
+// Barra de forca = quantos itens da regra do Auth ja estao cumpridos. So diz
+// 'Forte' quando TODOS estao -- antes dizia 'Forte' com 2 de 3 e o Auth recusava.
 function forcaSenha(senha: string) {
+  const c = senhaChecks(senha)
+  const ok = [c.len, c.lower, c.upper, c.num, c.sym].filter(Boolean).length
   if (senha.length < 6) return { nivel: 0, label: 'Muito curta', cor: '#ef4444' }
-  if (senha.length < 8) return { nivel: 1, label: 'Fraca', cor: '#f59e0b' }
-  const temNum  = /\d/.test(senha)
-  const temEsp  = /[^a-zA-Z0-9]/.test(senha)
-  const temMaiu = /[A-Z]/.test(senha)
-  const score   = [temNum, temEsp, temMaiu].filter(Boolean).length
-  if (score <= 1) return { nivel: 2, label: 'Média', cor: '#f59e0b' }
+  if (ok <= 2) return { nivel: 1, label: 'Fraca', cor: '#f59e0b' }
+  if (ok < 5) return { nivel: 2, label: 'Falta item da regra', cor: '#f59e0b' }
   return { nivel: 3, label: 'Forte', cor: '#22c55e' }
 }
 
@@ -45,8 +46,8 @@ export default function ResetPassword() {
   async function handleReset() {
     setError('')
 
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres.')
+    if (!senhaValida(password)) {
+      setError(SENHA_REGRA_MSG)
       return
     }
     if (password !== confirm) {
@@ -59,9 +60,20 @@ export default function ResetPassword() {
     setLoading(false)
 
     if (err) {
-      setError(err.message.includes('same password')
-        ? 'A nova senha não pode ser igual à anterior.'
-        : 'Erro ao atualizar senha. O link pode ter expirado.')
+      // O Supabase responde "New password should be different from the old
+      // password." -- o teste antigo procurava 'same password', nunca casava, e
+      // quem repetia a senha atual via "O link pode ter expirado" (caso da
+      // Heloisa, 08/10/2026). Os outros textos sao os mesmos do AuthModal.
+      const m = err.message || ''
+      setError(
+        /different from the old|same password/i.test(m)
+          ? 'A nova senha não pode ser igual à anterior. Escolha uma senha diferente.'
+          : ehErroDeRegraDeSenha(m)
+            ? SENHA_REGRA_MSG
+            : /session|jwt|token|expired/i.test(m)
+              ? 'O link de recuperação expirou ou já foi usado. Solicite um novo na tela de login.'
+              : `Erro ao atualizar senha: ${m}`
+      )
       return
     }
 
@@ -146,7 +158,7 @@ export default function ResetPassword() {
               <input
                 autoFocus
                 type={showPass ? 'text' : 'password'}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="8+ caracteres, com maiúscula, número e símbolo"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 style={{
@@ -171,6 +183,26 @@ export default function ResetPassword() {
                   ))}
                 </div>
                 <p style={{ fontSize: 11, color: forca.cor }}>{forca.label}</p>
+                {(() => {
+                  const c = senhaChecks(password)
+                  const reqs: { ok: boolean; txt: string }[] = [
+                    { ok: c.len, txt: '8+ caracteres' },
+                    { ok: c.lower, txt: 'letra minúscula' },
+                    { ok: c.upper, txt: 'letra maiúscula' },
+                    { ok: c.num, txt: 'número' },
+                    { ok: c.sym, txt: 'símbolo (!@#...)' },
+                  ]
+                  return (
+                    <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 12px' }}>
+                      {reqs.map((r, i) => (
+                        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: r.ok ? '#22c55e' : 'rgba(255,255,255,0.42)' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 999, background: r.ok ? '#22c55e' : 'rgba(255,255,255,0.25)', flex: 'none' }} />
+                          {r.txt}
+                        </span>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             )}
           </div>

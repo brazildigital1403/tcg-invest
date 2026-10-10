@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconTarget, IconShield } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconTarget, IconShield, IconTag, IconLink } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
@@ -101,6 +101,16 @@ function IconParceirosAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { s
   )
 }
 
+// Icone da regua de e-mail inline (envelope)
+function IconReguaAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <rect x="2.5" y="4.5" width="15" height="11" rx="2" stroke={color} strokeWidth="1.4"/>
+      <path d="M3 5.5l7 5.5 7-5.5" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean }
 
 const adminMenu: MenuItem[] = [
@@ -115,6 +125,9 @@ const adminMenu: MenuItem[] = [
   { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },
   { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro' },
   { label: 'Parceiros', href: '/admin/parceiros', Icon: IconParceirosAdmin },
+  { label: 'Promoções', href: '/admin/promocoes', Icon: IconTag },
+  { label: 'Links', href: '/admin/links', Icon: IconLink },
+  { label: 'Régua', href: '/admin/regua', Icon: IconReguaAdmin },
   { label: 'Avisos', href: '/admin/notificacoes', Icon: IconBell },
   { label: 'Conversas', href: '/admin/conversas', Icon: IconConversasAdmin, countKey: 'conversas' },
   { label: 'Conteúdo', href: '/admin/conteudo', Icon: IconConteudoAdmin },
@@ -160,7 +173,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => { alive = false }
   }, [pathname])
 
-  if (pathname === '/admin/login') return <>{children}</>
+  // Login e relatorio de bancada (documento A4 para imprimir) saem sem a casca do admin.
+  if (pathname === '/admin/login' || /^\/admin\/servicos\/[^/]+\/relatorio\/?$/.test(pathname)) return <>{children}</>
 
   function toggleSidebar() {
     setCollapsed(prev => {

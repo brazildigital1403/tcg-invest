@@ -9,8 +9,15 @@
  * pra uma caixa que ninguem le.
  *
  * Serve dois pontos de entrada:
- *   - /admin/tickets  -> conversa nova, e-mail digitado na mao
+ *   - /admin/tickets  -> conversa nova, destinatario BUSCADO por nome ou e-mail
  *   - /admin/lojas    -> ja vem com o dono e o nome da loja preenchidos
+ *
+ * ★ O CAMPO ERA E-MAIL CRU E ISSO NAO FUNCIONAVA (01/10/2026, achado do Du ao
+ * tentar falar com uma usuaria): ninguem sabe de cor o e-mail de 450 pessoas.
+ * Ele digitou "barbara" e o campo esperava `barbara...@gmail.com` exato. Agora
+ * o campo busca em `/api/admin/users?q=`, que JA procurava por nome, e-mail e
+ * username com sanitizacao -- nao precisou de rota nova, so de usar a que
+ * existia.
  *
  * Estilo segue o hex do resto do /admin (a area nao usa os tokens do app).
  */
@@ -29,6 +36,15 @@ interface Props {
   onCriado?: (ticketId: string) => void
 }
 
+/** O minimo pra reconhecer a pessoa na lista sem poluir. */
+type Achado = {
+  id: string
+  email: string
+  name: string | null
+  username: string | null
+  city: string | null
+}
+
 const CARD = '#12141b'
 const BORDA = 'rgba(255,255,255,0.1)'
 const TEXTO = '#f0f0f0'
@@ -39,6 +55,11 @@ export default function NovaConversaModal({
   aberto, onFechar, emailFixo, nomeFixo, assuntoInicial, mensagemInicial, onCriado,
 }: Props) {
   const [email, setEmail]       = useState(emailFixo || '')
+  // O que a pessoa digitou no campo de busca, e o usuario ESCOLHIDO na lista.
+  const [busca, setBusca]       = useState('')
+  const [achados, setAchados]   = useState<Achado[]>([])
+  const [buscando, setBuscando] = useState(false)
+  const [escolhido, setEscolhido] = useState<Achado | null>(null)
   const [assunto, setAssunto]   = useState(assuntoInicial || '')
   const [mensagem, setMensagem] = useState(mensagemInicial || '')
   const [enviando, setEnviando] = useState(false)
@@ -53,7 +74,36 @@ export default function NovaConversaModal({
     setAssunto(assuntoInicial || '')
     setMensagem(mensagemInicial || '')
     setErro(null); setOk(null)
+    setBusca(''); setAchados([]); setEscolhido(null)
   }, [aberto, emailFixo, assuntoInicial, mensagemInicial])
+
+  /**
+   * Busca com 300ms de espera. Sem o debounce, cada tecla vira uma consulta
+   * -- "barbara" dispararia sete. Menos de 2 caracteres nao busca: devolveria
+   * meia base e nao ajudaria a achar ninguem.
+   */
+  useEffect(() => {
+    if (emailFixo) return
+    const termo = busca.trim()
+    if (termo.length < 2) { setAchados([]); setBuscando(false); return }
+
+    let vivo = true
+    setBuscando(true)
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/admin/users?q=${encodeURIComponent(termo)}&perPage=8`)
+        const d = await r.json().catch(() => ({}))
+        if (!vivo) return
+        setAchados(Array.isArray(d.users) ? d.users : [])
+      } catch {
+        if (vivo) setAchados([])
+      } finally {
+        if (vivo) setBuscando(false)
+      }
+    }, 300)
+
+    return () => { vivo = false; clearTimeout(t) }
+  }, [busca, emailFixo])
 
   if (!aberto) return null
 
@@ -119,17 +169,95 @@ export default function NovaConversaModal({
           a resposta volta pra esta tela de tickets.
         </p>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={label}>E-mail do usuário</label>
-          <input
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            readOnly={!!emailFixo}
-            placeholder="pessoa@email.com"
-            style={{ ...input, opacity: emailFixo ? 0.6 : 1, cursor: emailFixo ? 'default' : 'text' }}
-          />
-          {nomeFixo && (
-            <p style={{ margin: '6px 0 0', fontSize: 11.5, color: MUTED }}>{nomeFixo}</p>
+        <div style={{ marginBottom: 14, position: 'relative' }}>
+          <label style={label}>Para quem</label>
+
+          {emailFixo ? (
+            /* Veio de fora (ex: /admin/lojas): destinatario travado, como antes. */
+            <>
+              <input value={email} readOnly style={{ ...input, opacity: 0.6, cursor: 'default' }} />
+              {nomeFixo && <p style={{ margin: '6px 0 0', fontSize: 11.5, color: MUTED }}>{nomeFixo}</p>}
+            </>
+          ) : escolhido ? (
+            /* Ja escolhido: mostra quem e, com a saida para trocar. */
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+              borderRadius: 8, background: '#0d0f14', border: `1px solid ${AMBAR}55`,
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: TEXTO }}>
+                  {escolhido.name || escolhido.username || 'Sem nome'}
+                </div>
+                <div style={{ fontSize: 11.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {escolhido.email}{escolhido.city ? ` · ${escolhido.city}` : ''}
+                </div>
+              </div>
+              <button
+                onClick={() => { setEscolhido(null); setEmail(''); setBusca(''); setAchados([]) }}
+                style={{
+                  padding: '6px 11px', borderRadius: 7, fontSize: 11.5, fontWeight: 700,
+                  background: 'transparent', border: `1px solid ${BORDA}`, color: MUTED,
+                  cursor: 'pointer', fontFamily: 'inherit', flex: '0 0 auto',
+                }}
+              >
+                Trocar
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                value={busca}
+                onChange={e => {
+                  const v = e.target.value
+                  setBusca(v)
+                  // ★ E-mail completo digitado ou colado vale sozinho, sem
+                  //   precisar escolher na lista: e o caminho de quem JA sabe
+                  //   o endereco e so quer mandar.
+                  setEmail(v.includes('@') && v.includes('.') ? v.trim() : '')
+                }}
+                placeholder="Nome, e-mail ou usuário — ex: barbara"
+                autoComplete="off"
+                style={input}
+              />
+
+              {busca.trim().length >= 2 && (
+                <div style={{
+                  marginTop: 6, borderRadius: 8, overflow: 'hidden',
+                  border: `1px solid ${BORDA}`, background: '#0d0f14',
+                  maxHeight: 232, overflowY: 'auto',
+                }}>
+                  {buscando && achados.length === 0 ? (
+                    <div style={{ padding: '11px 12px', fontSize: 12, color: MUTED }}>Procurando…</div>
+                  ) : achados.length === 0 ? (
+                    <div style={{ padding: '11px 12px', fontSize: 12, color: MUTED, lineHeight: 1.5 }}>
+                      Ninguém com esse nome ou e-mail.
+                      {email && <> Dá para enviar assim mesmo, porque <b style={{ color: TEXTO }}>{email}</b> é um e-mail válido.</>}
+                    </div>
+                  ) : (
+                    achados.map(u => (
+                      <button
+                        key={u.id}
+                        onClick={() => { setEscolhido(u); setEmail(u.email); setAchados([]) }}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px',
+                          background: 'transparent', border: 'none', borderBottom: `1px solid ${BORDA}`,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 700, color: TEXTO }}>
+                          {u.name || u.username || 'Sem nome'}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {u.email}{u.city ? ` · ${u.city}` : ''}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 

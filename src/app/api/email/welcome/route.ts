@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendWelcomeEmail } from '@/lib/email'
+import { enviarE02Agora } from '@/lib/regua/motor'
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,8 +45,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    await sendWelcomeEmail(row.email, row.name || '')
-    console.debug(`[email/welcome] Enviado para user ${user.id}`)
+    // Regua (substituicao decidida): com REGUA_ATIVA=1 e o E02 aberto, o E02
+    // sai no lugar do welcome antigo. Chave desligada: welcome de sempre.
+    const assumiu = await enviarE02Agora(user.id).catch((e) => {
+      console.error('[email/welcome] E02 falhou, segue o welcome antigo:', e?.message)
+      return false
+    })
+    if (!assumiu) await sendWelcomeEmail(row.email, row.name || '')
+    console.debug(`[email/welcome] ${assumiu ? 'E02' : 'welcome'} para user ${user.id}`)
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {

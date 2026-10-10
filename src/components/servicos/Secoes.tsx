@@ -12,9 +12,11 @@ import {
 } from '@/components/ui/Icons'
 import {
   RESOLVE, ATENUA, NAO_RESOLVE, PASSOS, CUSTODIA, PRECOS, PRAZOS, CIDADE, LINKS, SERVICOS,
-  CASO_RECUSADO, precoDoServico, brl, type Faq, type ServicoId,
+  CASO_RECUSADO, precoDoServico, type Faq, type ServicoId,
+  SHORTS, rotuloPreco, PRAZO_PADRAO_ATE_CARTAS,
 } from '@/lib/servicos'
 import VideoLazy from './VideoLazy'
+import ShortsCarrossel from './ShortsCarrossel'
 import { DiagramaDefeito, DEFEITO_POR_TITULO, IlustracaoBancada, IlustracaoCustodia } from './Mockups'
 
 export function agendarHref(servico: ServicoId) {
@@ -108,7 +110,7 @@ export function Custodia({ alt }: { alt?: boolean }) {
       <div className="sv-g4">
         {CUSTODIA.map((c, i) => {
           const Ic = CUSTODIA_ICONES[i] || IconShield
-          const d = i === 3 && PRECOS?.seguroPct != null ? `${c.d} Seguro de ${PRECOS.seguroPct}% sobre o valor declarado.` : c.d
+          const d = c.d
           return (
             <div key={c.t} className="sv-card sv-card-hover sv-feat">
               <span className="sv-ic sv-ic-lg sv-ic-ok"><Ic size={20} /></span>
@@ -159,19 +161,18 @@ export function NaoRegistrado({ alt }: { alt?: boolean }) {
 /** Nao renderiza enquanto PRECOS for null: nada de "consulte". */
 export function Precos({ destaque, alt }: { destaque: ServicoId; alt?: boolean }) {
   if (!PRECOS) return null
-  const prazo = PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a aprovação da proposta de tratamento. ` : ''
+  const prazo = PRAZOS.padraoDiasUteis ? `${PRAZOS.padraoDiasUteis} dias úteis após a aprovação da proposta de tratamento (até ${PRAZO_PADRAO_ATE_CARTAS} cartas). ` : ''
   return (
     <Faixa id="preco" alt={alt}>
-      <Cabecalho eyebrow="Investimento e prazo" titulo="Preço por carta" sub="O orçamento pelas fotos é grátis. Frete de ida e volta por sua conta." />
+      <Cabecalho eyebrow="Investimento e prazo" titulo="Preço por carta" sub="O orçamento pelas fotos é grátis. Frete de ida e volta por sua conta, com valor declarado nos Correios." />
       <div className="sv-g3">
         {SERVICOS.map(s => {
           const v = precoDoServico(s.id)!
-          const seguro = s.id !== 'pre_grading' && PRECOS!.seguroPct != null ? ` + ${PRECOS!.seguroPct}% de seguro` : ''
           return (
             <div key={s.id} className={`sv-plan${s.id === destaque ? ' sv-plan-dest' : ''}`}>
               {s.id === 'completo' && <span className="sv-ribbon">Mais completo</span>}
               <span className="sv-plan-nome">{s.nome}</span>
-              <span className="sv-plan-v">R$ {brl(v)} <small>por carta{seguro}</small></span>
+              <span className="sv-plan-v">{rotuloPreco(s.id, v)} <small>por carta</small></span>
               <span className="sv-plan-d">{prazo}{s.descricao}</span>
             </div>
           )
@@ -181,6 +182,7 @@ export function Precos({ destaque, alt }: { destaque: ServicoId; alt?: boolean }
         <div className="sv-pills">
           {PRECOS.desc10a20 != null && <span className="sv-pill">{PRECOS.desc10a20}% de desconto de 10 a 20 cartas</span>}
           {PRECOS.descAcima20 != null && <span className="sv-pill">{PRECOS.descAcima20}% acima de 20 cartas</span>}
+          <span className="sv-pill">Loja ou mais de 50 cartas: proposta sob consulta</span>
         </div>
       )}
     </Faixa>
@@ -210,6 +212,30 @@ export function QuemFaz({ foto, alt }: { foto?: string | null; alt?: boolean }) 
         </div>
       </div>
     </Faixa>
+  )
+}
+
+/**
+ * Shorts gravados na bancada, em carrossel. Faixa propria, com brilho de fundo.
+ * `destaque`: ids que abrem o carrossel (cada landing puxa os mais ligados a ela).
+ */
+export function ShortsBancada({ destaque = [], sub }: { destaque?: string[]; sub?: string }) {
+  if (!SHORTS.length) return null
+  const lista = [...SHORTS].sort((a, b) => {
+    const ia = destaque.indexOf(a.id), ib = destaque.indexOf(b.id)
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+  })
+  return (
+    <section id="videos" className="sv-band sv-band-shorts">
+      <div className="bx-gutter sv-container">
+        <Cabecalho
+          eyebrow="Na bancada"
+          titulo="Veja o trabalho de perto"
+          sub={sub || 'Preparação, medição, limpeza e o resultado na graduadora. Tudo gravado na bancada da Bynx, sem roteiro e sem corte de mágica.'}
+        />
+        <ShortsCarrossel shorts={lista} canal={LINKS.youtube} />
+      </div>
+    </section>
   )
 }
 
