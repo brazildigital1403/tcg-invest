@@ -3666,3 +3666,102 @@ export function renderCancelamentoAtrasoEmail(a: ReclamacaoEmailBase & {
     html,
   }
 }
+
+/**
+ * Comprador e loja: direito de arrependimento (art. 49 do CDC) em pedido de
+ * leilao. Uma funcao para todas as etapas, mesmo layout:
+ *   antes_do_envio  desistiu com o pedido pago: cancelado e estornado na hora
+ *   aberto          desistiu depois do envio: comprador recebe a confirmacao
+ *                   com data e hora e o prazo para postar; loja e avisada
+ *   postado         (loja) o comprador informou o rastreio da devolucao
+ *   entregue        (loja) a devolucao chegou: prazo para contestar
+ *   contestado      (comprador) a loja contestou; a Bynx decide
+ *   estornado       devolucao aceita (pela loja ou sem contestacao no prazo)
+ *   expirado        o comprador nao postou no prazo: sem estorno
+ */
+export type EtapaArrependimento = 'antes_do_envio' | 'aberto' | 'postado' | 'entregue' | 'contestado' | 'estornado' | 'expirado'
+
+export function renderArrependimentoEmail(a: ReclamacaoEmailBase & {
+  papel: 'comprador' | 'loja'
+  etapa: EtapaArrependimento
+  /** "10/10 às 14:32" (Brasilia): registro da desistencia. */
+  registradoEm?: string
+  /** Prazo da etapa ja formatado: postar, contestar ou decidir. */
+  prazo?: string
+  rastreio?: string | null
+  valorCents?: number
+}): EmailRenderizado {
+  const comprador = a.papel === 'comprador'
+  const nome = escapeHtml(primeiroNome(a.nome, comprador ? 'Colecionador' : 'Lojista'))
+  const num = escapeHtml(String(a.pedidoNumero))
+  const item = forte(a.itemNome)
+  const loja = forte(a.lojaNome)
+  const valor = a.valorCents ? blocoLeilao('Valor estornado', formatarBRL(a.valorCents), '#22c55e') : ''
+  const prazoBanco = comprador ? p('O estorno volta para o mesmo meio de pagamento em alguns dias úteis, no prazo do banco emissor.') : ''
+  const semReputacao = comprador ? '' : p('Desistência não é reclamação e não afeta a reputação da loja.')
+
+  let titulo = ''
+  let corpo = ''
+  let assunto = ''
+  switch (a.etapa) {
+    case 'antes_do_envio':
+      titulo = comprador ? 'Compra cancelada e estornada' : 'O comprador desistiu antes do envio'
+      corpo = comprador
+        ? p(`${nome}, você desistiu da compra do pedido #${num} (${item}) antes do envio. O pedido foi cancelado e o valor integral foi estornado.`) + valor + prazoBanco
+        : p(`${nome}, o comprador desistiu do pedido #${num} (${item}) antes do envio, como garante o Código de Defesa do Consumidor. O pedido foi cancelado, o valor foi estornado e o repasse foi revertido. Não envie a carta.`) + semReputacao
+      assunto = comprador ? `Pedido #${a.pedidoNumero} cancelado e estornado` : `Pedido #${a.pedidoNumero}: comprador desistiu antes do envio`
+      break
+    case 'aberto':
+      titulo = comprador ? 'Recebemos a sua desistência' : 'O comprador vai devolver a carta'
+      corpo = comprador
+        ? p(`${nome}, registramos a sua desistência do pedido #${num} (${item})${a.registradoEm ? ` em ${escapeHtml(a.registradoEm)} (horário de Brasília)` : ''}.`)
+          + p(`Poste a carta de volta para a ${loja} até ${forte(a.prazo || '')} e informe o código de rastreio na página do pedido. Envie como recebeu: sleeve, toploader e envelope com proteção.`)
+          + p('Quando a devolução chegar e a loja conferir, o estorno integral sai no seu cartão. Se não postar no prazo, a desistência expira e a compra continua valendo.')
+        : p(`${nome}, o comprador desistiu do pedido #${num} (${item}) dentro dos 7 dias garantidos pelo Código de Defesa do Consumidor. Ele tem até ${forte(a.prazo || '')} para postar a carta de volta.`)
+          + p('Quando a devolução chegar, você confere a carta. Se ela voltou trocada ou danificada, conteste com a prova pelo painel. Sem contestação, o estorno sai sozinho.')
+          + semReputacao
+      assunto = comprador ? `Desistência do pedido #${a.pedidoNumero} registrada` : `Pedido #${a.pedidoNumero}: o comprador vai devolver a carta`
+      break
+    case 'postado':
+      titulo = 'A devolução foi postada'
+      corpo = p(`${nome}, o comprador postou a devolução do pedido #${num} (${item}).${a.rastreio ? ` Rastreio: ${forte(a.rastreio)}.` : ''}`)
+        + p('Quando a carta chegar, confira antes de qualquer coisa. Se voltou trocada ou danificada, conteste pelo painel com o vídeo da abertura do pacote.')
+      assunto = `Pedido #${a.pedidoNumero}: devolução postada`
+      break
+    case 'entregue':
+      titulo = 'A devolução chegou na loja'
+      corpo = p(`${nome}, a devolução do pedido #${num} (${item}) foi entregue na loja. Você tem até ${forte(a.prazo || '')} para contestar, se a carta voltou trocada ou danificada.`)
+        + p('Sem contestação até lá, o estorno integral sai sozinho para o comprador.')
+      assunto = `Pedido #${a.pedidoNumero}: devolução entregue, prazo para conferir`
+      break
+    case 'contestado':
+      titulo = 'A loja contestou a devolução'
+      corpo = p(`${nome}, a ${loja} contestou a devolução do pedido #${num} (${item}). A Bynx analisa as provas dos dois lados e decide até ${forte(a.prazo || '')} (horário de Brasília).`)
+      assunto = `Pedido #${a.pedidoNumero}: devolução em análise`
+      break
+    case 'estornado':
+      titulo = comprador ? 'Devolução concluída e estornada' : 'Devolução concluída'
+      corpo = comprador
+        ? p(`${nome}, a devolução do pedido #${num} (${item}) foi concluída e o valor integral foi estornado.`) + valor + prazoBanco
+        : p(`${nome}, a devolução do pedido #${num} (${item}) foi concluída. O valor foi estornado ao comprador e o repasse deste pedido foi revertido.`) + semReputacao
+      assunto = comprador ? `Pedido #${a.pedidoNumero}: estorno da devolução` : `Pedido #${a.pedidoNumero}: devolução concluída`
+      break
+    case 'expirado':
+      titulo = 'A desistência expirou'
+      corpo = comprador
+        ? p(`${nome}, a devolução do pedido #${num} (${item}) não foi postada até ${forte(a.prazo || '')}. A desistência expirou e a compra continua valendo.`)
+        : p(`${nome}, o comprador não postou a devolução do pedido #${num} (${item}) no prazo. A desistência expirou e a venda continua valendo.`)
+      assunto = `Pedido #${a.pedidoNumero}: desistência expirada`
+      break
+  }
+
+  const html = baseLayout(`
+    ${badge('Desistência da compra', '#f59e0b', '')}
+    ${h1(titulo)}
+    ${corpo}
+    ${comprador
+      ? btn('Ver o pedido', urlPedidoComprador(a.pedidoId, `arrependimento_${a.etapa}`))
+      : btnB2B('Ver pedidos', urlPedidosLoja(a.lojaId, `arrependimento_${a.etapa}`))}
+  `, `Pedido #${a.pedidoNumero}`)
+  return { to: a.to, subject: subjUser(assunto), html }
+}

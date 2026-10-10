@@ -5,17 +5,27 @@
  *
  * Regras (prazos encurtados em 28/09 para caber no repasse de 30 dias; os
  * numeros vivem SO nas constantes DIAS_* abaixo -- UI, e-mail e rotas
- * interpolam, e o SQL de 20260928140000_pedido_reclamacoes.sql espelha):
+ * interpolam, e o SQL de 20260928170000_leilao_arrependimento.sql espelha):
  *   - a loja envia em ate DIAS_UTEIS_ENVIO (3) dias uteis depois do pagamento;
  *     sem envio, o comprador pode pedir o cancelamento (estorno integral);
- *   - o comprador reclama em ate DIAS_RECLAMAR (5) dias depois da entrega
- *     (confirmacao dele ou fechamento automatico);
+ *   - o comprador reclama OU desiste em ate DIAS_RECLAMAR (7) dias depois da
+ *     entrega (confirmacao dele ou fechamento automatico). Uma janela so para
+ *     os dois desde 10/10 (antes, 5 dias so para reclamar);
  *   - sem confirmacao, o pedido vira entregue em enviado + DIAS_FECHAMENTO_AUTO
- *     (12) dias; aviso no dia DIAS_AVISO_RECEBIMENTO (8). Reclamacao aberta
+ *     (10) dias; aviso no dia DIAS_AVISO_RECEBIMENTO (6). Reclamacao aberta
  *     trava o fechamento;
  *   - a loja responde em DIAS_UTEIS_LOJA (2) dias uteis; silencio = decisao a
  *     favor do comprador;
- *   - a Bynx decide em ate DIAS_UTEIS_DECISAO (3) dias uteis.
+ *   - a Bynx decide em ate DIAS_UTEIS_DECISAO (2) dias uteis.
+ *
+ * ARREPENDIMENTO (art. 49 do CDC, Quadro #469, decisao do Du em 10/10):
+ *   - antes do envio: estorno integral na hora;
+ *   - depois: DIAS_POSTAR_DEVOLUCAO (7) dias para postar a carta de volta;
+ *     chegou na loja, ela tem DIAS_UTEIS_CONTESTAR (2) dias uteis para
+ *     contestar com prova; sem contestacao, o estorno integral sai sozinho;
+ *     nao postou, a desistencia expira sem estorno;
+ *   - a loja fotografa frente e verso ao enviar lote a partir de
+ *     VALOR_FOTO_ENVIO_CENTS (R$ 150): e a prova dela numa contestacao.
  *
  * ★ DIA UTIL: segunda a sexta, fora dos feriados nacionais de data FIXA. Os
  *   moveis (Carnaval, Sexta-feira Santa, Corpus Christi) NAO entram: contar um
@@ -29,16 +39,22 @@ export const MOTIVOS = {
   diferente_do_anuncio: 'Diferente do anúncio',
   suspeita_falsificacao: 'Suspeita de falsificação',
   danificado: 'Chegou danificado',
+  arrependimento: 'Desistência da compra',
 } as const
 export type MotivoReclamacao = keyof typeof MOTIVOS
-export const LISTA_MOTIVOS = Object.keys(MOTIVOS) as MotivoReclamacao[]
+/**
+ * Os motivos do formulario "Tive um problema". O arrependimento NAO entra:
+ * tem botao, rota e RPC proprios (nasce em aguardando_devolucao).
+ */
+export const LISTA_MOTIVOS: MotivoReclamacao[] = ['nao_chegou', 'diferente_do_anuncio', 'suspeita_falsificacao', 'danificado']
 
+/** Motivo aceito pela rota de reclamacao (arrependimento fica de fora). */
 export function ehMotivo(v: unknown): v is MotivoReclamacao {
-  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(MOTIVOS, v)
+  return typeof v === 'string' && (LISTA_MOTIVOS as string[]).includes(v)
 }
 /** Nos tres motivos de "chegou, mas", as fotos frente/verso/embalagem sao obrigatorias. */
 export function motivoExigeFoto(m: MotivoReclamacao): boolean {
-  return m !== 'nao_chegou'
+  return m !== 'nao_chegou' && m !== 'arrependimento'
 }
 
 export const SLOTS_FOTO = ['frente', 'verso', 'embalagem'] as const
@@ -93,12 +109,23 @@ export function ehRespostaLoja(v: unknown): v is RespostaLoja {
 }
 
 export const DIAS_UTEIS_ENVIO = 3
-/** Espelhado no SQL (interval '5 days'): mudar aqui exige migration nova. */
-export const DIAS_RECLAMAR = 5
+/** Espelhado no SQL (interval '7 days'): mudar aqui exige migration nova. */
+export const DIAS_RECLAMAR = 7
 export const DIAS_UTEIS_LOJA = 2
 export const DIAS_UTEIS_DECISAO = 2
 export const DIAS_AVISO_RECEBIMENTO = 6
 export const DIAS_FECHAMENTO_AUTO = 10
+/** Arrependimento: dias corridos para postar a carta de volta. */
+export const DIAS_POSTAR_DEVOLUCAO = 7
+/** Arrependimento: dias uteis da loja para contestar depois que a devolucao chega. */
+export const DIAS_UTEIS_CONTESTAR = 2
+/** Lote de leilao a partir deste valor exige foto da carta no envio. */
+export const VALOR_FOTO_ENVIO_CENTS = 15000
+export const SLOTS_FOTO_ENVIO = ['frente', 'verso'] as const
+export type SlotFotoEnvio = (typeof SLOTS_FOTO_ENVIO)[number]
+
+/** Descricao gravada no arrependimento: o CDC nao pede motivo. */
+export const DESCRICAO_ARREPENDIMENTO = 'Desistência da compra (direito de arrependimento, art. 49 do CDC).'
 
 export const ROTULO_BOTAO_PROBLEMA = 'Tive um problema com este pedido'
 export const TEXTO_PROTECAO =
@@ -226,6 +253,137 @@ export function acaoRecebimento(p: PedidoPrazo, agora: number): 'fechar' | 'avis
   if (agora >= env + DIAS_FECHAMENTO_AUTO * DIA_MS) return 'fechar'
   if (!p.aviso_recebimento_em && agora >= env + DIAS_AVISO_RECEBIMENTO * DIA_MS) return 'avisar'
   return null
+}
+
+// ─── Arrependimento ─────────────────────────────────────────────────────────
+
+export type PodeDesistir =
+  | { pode: true; modo: 'antes_do_envio'; ate: null }
+  | { pode: true; modo: 'devolucao'; ate: Date | null }
+  | { pode: false; motivo: 'nao_e_leilao' | 'status' | 'prazo_encerrado' | 'ja_aberta' | 'em_disputa' }
+
+/**
+ * Comprador pode desistir? Pago = antes do envio, estorno na hora. Enviado ou
+ * entregue dentro de DIAS_RECLAMAR = devolucao. Mesma janela da reclamacao.
+ * 'cancelando' (desistencia ou atraso que caiu no meio) conta como pago para
+ * o retry reaproveitar o estorno.
+ */
+export function podeDesistir(p: PedidoPrazo & { em_disputa?: boolean | null }, agora: number): PodeDesistir {
+  if (!p.ehLeilao) return { pode: false, motivo: 'nao_e_leilao' }
+  if (p.em_disputa) return { pode: false, motivo: 'em_disputa' }
+  if (p.status === 'pago' || p.status === 'cancelando') return { pode: true, modo: 'antes_do_envio', ate: null }
+  const r = podeReclamar(p, agora)
+  if (!r.pode) return { pode: false, motivo: r.motivo }
+  return { pode: true, modo: 'devolucao', ate: r.ate }
+}
+
+/** Ate quando postar a devolucao: abertura + DIAS_POSTAR_DEVOLUCAO dias corridos. */
+export function prazoPostagem(abertura: Date | string | number): Date | null {
+  return somarDias(abertura, DIAS_POSTAR_DEVOLUCAO)
+}
+
+/** Fim da janela de contestacao da loja: entrega da devolucao + DIAS_UTEIS_CONTESTAR. */
+export function prazoContestacao(entrega: Date | string | number): Date | null {
+  return somarDiasUteis(entrega, DIAS_UTEIS_CONTESTAR)
+}
+
+/**
+ * Codigo de rastreio dos Correios (padrao S10 da UPU): 2 letras, 8 digitos,
+ * digito verificador e 2 letras (AA123456789BR). Aceita espaco e minuscula;
+ * devolve normalizado ou null se o formato ou o digito nao bate.
+ * Digito: pesos 8,6,4,2,3,5,9,7; r = 11 - soma % 11; 10 -> 0, 11 -> 5.
+ */
+export function validarRastreio(v: unknown): string | null {
+  const s = typeof v === 'string' ? v.replace(/[\s.-]/g, '').toUpperCase() : ''
+  const m = /^([A-Z]{2})(\d{8})(\d)([A-Z]{2})$/.exec(s)
+  if (!m) return null
+  const pesos = [8, 6, 4, 2, 3, 5, 9, 7]
+  const soma = [...m[2]].reduce((acc, d, i) => acc + Number(d) * pesos[i], 0)
+  let dv = 11 - (soma % 11)
+  if (dv === 10) dv = 0
+  else if (dv === 11) dv = 5
+  return dv === Number(m[3]) ? s : null
+}
+
+export interface DevolucaoEstado {
+  motivo: MotivoReclamacao | string
+  status: StatusReclamacao | string
+  postar_ate?: string | null
+  devolucao_postada_em?: string | null
+  devolucao_entregue_em?: string | null
+  contestar_ate?: string | null
+  contestada_em?: string | null
+}
+
+/** Desistencia ainda andando sozinha (antes de contestacao): fora dos botoes de decisao da Bynx. */
+export function arrependimentoAguardando(r: { motivo?: unknown; status?: unknown }): boolean {
+  return r.motivo === 'arrependimento' && r.status === 'aguardando_devolucao'
+}
+
+function ehDevolucaoAberta(r: DevolucaoEstado): boolean {
+  return arrependimentoAguardando(r)
+}
+
+/** Comprador ainda pode informar a postagem? */
+export function podeInformarPostagem(r: DevolucaoEstado, agora: number): boolean {
+  return ehDevolucaoAberta(r) && !r.devolucao_postada_em && agora <= ms(r.postar_ate)
+}
+
+/**
+ * Loja pode contestar a devolucao? Depois da postagem (ela pode receber antes
+ * de a Bynx marcar a entrega) e ate contestar_ate, quando ele existe.
+ */
+export function lojaPodeContestar(r: DevolucaoEstado, agora: number): boolean {
+  if (!ehDevolucaoAberta(r) || !r.devolucao_postada_em || r.contestada_em) return false
+  return !r.contestar_ate || agora <= ms(r.contestar_ate)
+}
+
+/**
+ * O que o cron faz com uma desistencia aberta:
+ *   - 'expirar': nao postou ate postar_ate -> encerra sem estorno;
+ *   - 'estornar': entregue na loja e a janela de contestacao passou em branco.
+ */
+export function acaoDevolucao(r: DevolucaoEstado, agora: number): 'expirar' | 'estornar' | null {
+  if (!ehDevolucaoAberta(r)) return null
+  if (!r.devolucao_postada_em) {
+    const lim = ms(r.postar_ate)
+    return Number.isFinite(lim) && agora > lim ? 'expirar' : null
+  }
+  if (r.devolucao_entregue_em && !r.contestada_em) {
+    const lim = ms(r.contestar_ate)
+    return Number.isFinite(lim) && agora > lim ? 'estornar' : null
+  }
+  return null
+}
+
+/** Foto da carta obrigatoria no envio? So lote de leilao a partir de R$ 150. */
+export function exigeFotoEnvio(p: { ehLeilao: boolean; valor_item_cents: number | null | undefined }): boolean {
+  return p.ehLeilao && (p.valor_item_cents ?? 0) >= VALOR_FOTO_ENVIO_CENTS
+}
+
+/**
+ * Caminhos das fotos de envio mandados pelo cliente: na pasta <pedido>/envio/,
+ * slot conhecido (frente, verso), sem repetir. Devolve na ordem frente, verso.
+ */
+export function validarFotosEnvio(
+  fotos: unknown,
+  pasta: string,
+  exigir: boolean,
+): { ok: true; fotos: string[] } | { ok: false; erro: string } {
+  const lista = Array.isArray(fotos) ? fotos.map(String) : []
+  if (lista.length > SLOTS_FOTO_ENVIO.length) return { ok: false, erro: 'Fotos demais.' }
+  const porSlot = new Map<string, string>()
+  for (const f of lista) {
+    if (!f.startsWith(pasta) || f.includes('..')) return { ok: false, erro: 'Foto inválida.' }
+    const slot = f.slice(pasta.length).split('-')[0]
+    if (!(SLOTS_FOTO_ENVIO as readonly string[]).includes(slot)) return { ok: false, erro: 'Foto inválida.' }
+    if (porSlot.has(slot)) return { ok: false, erro: 'Foto repetida.' }
+    porSlot.set(slot, f)
+  }
+  if (exigir && porSlot.size < SLOTS_FOTO_ENVIO.length) {
+    return { ok: false, erro: 'Fotografe a frente e o verso da carta antes de confirmar o envio.' }
+  }
+  return { ok: true, fotos: SLOTS_FOTO_ENVIO.filter(s => porSlot.has(s)).map(s => porSlot.get(s)!) }
 }
 
 // ─── Loja e Bynx ────────────────────────────────────────────────────────────

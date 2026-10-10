@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { lojaPodeResponder, lojaSemResposta, type ReclamacaoEstado } from '@/lib/leilao-reclamacao'
+import { lojaPodeResponder, lojaSemResposta, lojaPodeContestar, type ReclamacaoEstado, type DevolucaoEstado } from '@/lib/leilao-reclamacao'
 import { SEM_CACHE, UUID_RE, COLUNAS_RECLAMACAO, assinarFotos } from '@/lib/reclamacaoServer'
 
 /**
@@ -41,11 +41,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (idsPedido.length) {
       const { data: peds } = await sb
         .from('pedidos')
-        .select('id, numero, item_nome, item_imagem, rastreio, enviado_em, entregue_em, total_comprador_cents')
+        .select('id, numero, item_nome, item_imagem, rastreio, enviado_em, entregue_em, total_comprador_cents, envio_fotos')
         .in('id', idsPedido)
       for (const p of peds || []) pedidos[p.id as string] = p
     }
-    const urls = await assinarFotos(sb, linhas.flatMap(l => l.fotos || []))
+    // Fotos do comprador (reclamacao) e da propria loja no envio (prova na desistencia).
+    const urls = await assinarFotos(sb, [
+      ...linhas.flatMap(l => l.fotos || []),
+      ...Object.values(pedidos).flatMap(p => (p.envio_fotos as string[] | null) || []),
+    ])
 
     const agora = Date.now()
     const ordem = (s: string) => (s === 'aguardando_loja' ? 0 : s === 'em_analise' || s === 'aguardando_devolucao' ? 1 : 2)
@@ -54,7 +58,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         ...l,
         pedido: pedidos[l.pedido_id] || null,
         fotos_url: (l.fotos || []).map(f => urls[f]).filter(Boolean),
+        envio_fotos_url: (((pedidos[l.pedido_id]?.envio_fotos as string[] | null) || [])).map(f => urls[f]).filter(Boolean),
         pode_responder: lojaPodeResponder(l, agora),
+        pode_contestar: lojaPodeContestar(l as unknown as DevolucaoEstado, agora),
         sem_resposta: lojaSemResposta(l, agora),
       }))
       .sort((a, b) => ordem(String(a.status)) - ordem(String(b.status)))

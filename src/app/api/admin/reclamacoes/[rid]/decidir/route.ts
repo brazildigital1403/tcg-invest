@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { planejarDecisao, restanteEstornavel, conferirRefund } from '@/lib/leilao-reclamacao'
+import { planejarDecisao, restanteEstornavel, conferirRefund, arrependimentoAguardando } from '@/lib/leilao-reclamacao'
 import {
-  SEM_CACHE, UUID_RE, sbServico, carregarPedido, lotesDoPedido, estornarNaStripe, situacaoNaStripe, sino, emailSeguro, contato, nomeDaLoja,
+  SEM_CACHE, UUID_RE, MSG_EM_DISPUTA, sbServico, carregarPedido, lotesDoPedido, estornarNaStripe, situacaoNaStripe, sino, emailSeguro, contato, nomeDaLoja,
 } from '@/lib/reclamacaoServer'
 import { renderReclamacaoDecisaoEmail } from '@/lib/email'
 
@@ -59,13 +59,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
 
     const { data: recs } = await sb
       .from('pedido_reclamacoes')
-      .select('id, pedido_id, status, prazo_loja_ate, comprador_user_id')
+      .select('id, pedido_id, motivo, status, prazo_loja_ate, comprador_user_id')
       .eq('id', rid)
       .limit(1)
     const rec = recs?.[0]
     if (!rec) return json(404, { error: 'Reclamação não encontrada.' })
     const pedido = await carregarPedido(sb, rec.pedido_id)
     if (!pedido) return json(404, { error: 'Pedido não encontrado.' })
+    // Desistencia nao contestada anda sozinha (loja libera ou o cron estorna).
+    // A Bynx so entra depois da contestacao, que leva para em_analise.
+    if (arrependimentoAguardando(rec)) {
+      return json(409, { error: 'Desistência aguardando a devolução: a Bynx só decide se a loja contestar. Use "Marcar devolução entregue".' })
+    }
+    if (pedido.em_disputa && decisao !== 'improcedente') return json(409, { error: MSG_EM_DISPUTA })
 
     const chave = `reclamacao-${rid}`
     let charge: { amount: number; amountRefunded: number } | null = null

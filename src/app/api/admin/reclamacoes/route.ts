@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { lojaSemResposta, podeDecidir, STATUS_ABERTOS, type ReclamacaoEstado } from '@/lib/leilao-reclamacao'
+import { lojaSemResposta, podeDecidir, arrependimentoAguardando, STATUS_ABERTOS, type ReclamacaoEstado } from '@/lib/leilao-reclamacao'
 import { SEM_CACHE, COLUNAS_RECLAMACAO, sbServico, assinarFotos } from '@/lib/reclamacaoServer'
 
 /**
@@ -52,12 +52,14 @@ export async function GET(req: NextRequest) {
     const idsUser = [...new Set(linhas.map(l => l.comprador_user_id))]
     const [peds, lojas, users, urls] = await Promise.all([
       idsPed.length
-        ? sb.from('pedidos').select('id, numero, status, item_nome, item_imagem, rastreio, pago_em, enviado_em, entregue_em, recebido_automatico, total_comprador_cents, valor_reembolsado_cents').in('id', idsPed)
+        ? sb.from('pedidos').select('id, numero, status, item_nome, item_imagem, rastreio, pago_em, enviado_em, entregue_em, recebido_automatico, total_comprador_cents, valor_reembolsado_cents, envio_fotos, em_disputa').in('id', idsPed)
         : Promise.resolve({ data: [] as Record<string, unknown>[] }),
       idsLoja.length ? sb.from('lojas').select('id, nome, slug').in('id', idsLoja) : Promise.resolve({ data: [] as Record<string, unknown>[] }),
       idsUser.length ? sb.from('users').select('id, name, email').in('id', idsUser) : Promise.resolve({ data: [] as Record<string, unknown>[] }),
       assinarFotos(sb, linhas.flatMap(l => l.fotos || [])),
     ])
+    // Fotos de envio da loja: a prova dela numa desistencia contestada.
+    const urlsEnvio = await assinarFotos(sb, (peds.data || []).flatMap(p => (p.envio_fotos as string[] | null) || []))
     const porId = (rows: Record<string, unknown>[] | null | undefined) =>
       Object.fromEntries((rows || []).map(r => [r.id as string, r]))
     const P = porId(peds.data), L = porId(lojas.data), U = porId(users.data)
@@ -66,7 +68,10 @@ export async function GET(req: NextRequest) {
     // A ordem ja vem das duas leituras (abertas antigas primeiro, depois fechadas).
     const reclamacoes = linhas
       .map(l => {
-        const p = P[l.pedido_id] as { total_comprador_cents?: number; valor_reembolsado_cents?: number } | undefined
+        const p = P[l.pedido_id] as { total_comprador_cents?: number; valor_reembolsado_cents?: number; envio_fotos?: string[] } | undefined
+        // Desistencia antes da contestacao nao passa pelos botoes de decisao:
+        // ela anda sozinha (postagem, entrega, estorno). A Bynx so marca a entrega.
+        const arrep = arrependimentoAguardando(l)
         return {
           ...l,
           pedido: p || null,
@@ -74,7 +79,9 @@ export async function GET(req: NextRequest) {
           comprador: U[l.comprador_user_id] || null,
           fotos_url: (l.fotos || []).map(f => urls[f]).filter(Boolean),
           sem_resposta: lojaSemResposta(l, agora),
-          pode_decidir: podeDecidir(l, agora),
+          pode_decidir: podeDecidir(l, agora) && !arrep,
+          pode_marcar_entregue: arrep && !!l.devolucao_postada_em && !l.devolucao_entregue_em,
+          envio_fotos_url: (p?.envio_fotos || []).map(f => urlsEnvio[f]).filter(Boolean),
           restante_cents: Math.max(0, (p?.total_comprador_cents || 0) - (p?.valor_reembolsado_cents || 0)),
         }
       })

@@ -32,18 +32,21 @@ try {
   ok(() => {
     // Decisao do Du (28/09): prazos encurtados para caber no repasse de 30 dias.
     assert.equal(R.DIAS_UTEIS_ENVIO, 3)
-    assert.equal(R.DIAS_RECLAMAR, 5)
+    assert.equal(R.DIAS_RECLAMAR, 7)
+    assert.equal(R.DIAS_POSTAR_DEVOLUCAO, 7)
+    assert.equal(R.DIAS_UTEIS_CONTESTAR, 2)
+    assert.equal(R.VALOR_FOTO_ENVIO_CENTS, 15000)
     assert.equal(R.DIAS_UTEIS_LOJA, 2)
     assert.equal(R.DIAS_UTEIS_DECISAO, 2)
     assert.equal(R.DIAS_AVISO_RECEBIMENTO, 6)
     assert.equal(R.DIAS_FECHAMENTO_AUTO, 10)
-    assert.match(R.TEXTO_PROTECAO, /até 5 dias depois da entrega/)
+    assert.match(R.TEXTO_PROTECAO, /até 7 dias depois da entrega/)
     assert.match(R.TEXTO_PROTECAO, /até 2 dias úteis/)
     // O SQL nao importa a constante: o intervalo do trigger e da RPC espelha.
-    const sql = readFileSync(join(raiz, 'supabase/migrations/20260928140000_pedido_reclamacoes.sql'), 'utf8')
+    const sql = readFileSync(join(raiz, 'supabase/migrations/20260928170000_leilao_arrependimento.sql'), 'utf8')
     const intervalos = [...sql.matchAll(/interval '(\d+) days'/g)].map(m => Number(m[1]))
-    assert.deepEqual(intervalos, [R.DIAS_RECLAMAR, R.DIAS_RECLAMAR], 'SQL fora de sincronia com DIAS_RECLAMAR')
-  }, 'constantes da politica (3/5/2/3, aviso 8, fecha 12) e espelho no SQL')
+    assert.deepEqual(intervalos, [R.DIAS_RECLAMAR, R.DIAS_RECLAMAR, R.DIAS_RECLAMAR], 'SQL fora de sincronia com DIAS_RECLAMAR')
+  }, 'constantes da politica (3/7/2/2, aviso 6, fecha 10, postar 7, contestar 2) e espelho no SQL')
 
   ok(() => {
     // Sexta 25/09/2026 10h BRT -> 3 dias uteis = quarta 30/09 23:59:59.999 BRT
@@ -73,12 +76,12 @@ try {
     assert.deepEqual(R.podeReclamar({ status: 'enviado', ehLeilao: true }, agora), { pode: true, ate: null })
     assert.deepEqual(R.podeReclamar({ status: 'pago', ehLeilao: true }, agora), { pode: false, motivo: 'status' })
     assert.deepEqual(R.podeReclamar({ status: 'enviado', ehLeilao: true, reclamacao_aberta: true }, agora), { pode: false, motivo: 'ja_aberta' })
-    // Entregue ha 4 dias: pode; ha 6: nao (com os 7 antigos, ainda podia).
-    const e4 = R.podeReclamar({ status: 'entregue', ehLeilao: true, entregue_em: new Date(agora - 4 * DIA).toISOString() }, agora)
+    // Entregue ha 6 dias: pode; ha 8: nao (janela de 7 desde 10/10).
+    const e4 = R.podeReclamar({ status: 'entregue', ehLeilao: true, entregue_em: new Date(agora - 6 * DIA).toISOString() }, agora)
     assert.equal(e4.pode, true)
     assert.equal(e4.ate.getTime(), agora + DIA)
-    assert.equal(R.podeReclamar({ status: 'entregue', ehLeilao: true, entregue_em: new Date(agora - 5 * DIA).toISOString() }, agora).pode, true, 'limite exato')
-    assert.deepEqual(R.podeReclamar({ status: 'entregue', ehLeilao: true, entregue_em: new Date(agora - 6 * DIA).toISOString() }, agora),
+    assert.equal(R.podeReclamar({ status: 'entregue', ehLeilao: true, entregue_em: new Date(agora - 7 * DIA).toISOString() }, agora).pode, true, 'limite exato')
+    assert.deepEqual(R.podeReclamar({ status: 'entregue', ehLeilao: true, entregue_em: new Date(agora - 8 * DIA).toISOString() }, agora),
       { pode: false, motivo: 'prazo_encerrado' })
     // prazo gravado pelo trigger vence o calculado
     assert.equal(R.podeReclamar({ status: 'entregue', ehLeilao: true, entregue_em: new Date(agora - 20 * DIA).toISOString(),
@@ -136,7 +139,7 @@ try {
     const c = cadeia(pago)
     assert.equal(R.fmtPrazo(c.envio), '15/10 às 23:59')    // 13, 14, 15 (12 e feriado)
     assert.equal(R.fmtPrazo(c.entregue), '25/10 às 23:59')  // envio + 10
-    assert.equal(R.fmtPrazo(c.reclama), '30/10 às 23:59')   // entrega + 5
+    assert.equal(R.fmtPrazo(c.reclama), '01/11 às 23:59')   // entrega + 7
     assert.equal(R.fmtPrazo(c.loja), '04/11 às 23:59')      // 03, 04 (02/11 e feriado)
     assert.equal(R.fmtPrazo(c.decisao), '06/11 às 23:59')   // 05, 06
     // Cabe em 30: decisao 28 dias civis depois do pagamento.
@@ -153,8 +156,11 @@ try {
       if (d > 30) acima++
       if (d > pior) { pior = d; piorPago = new Date(ms).toISOString() }
     }
-    // Decisao do Du (28/09): fecha em 10, Bynx decide em 2 dias uteis. Pior caso
-    // real em 10 anos: 28 dias civis; nenhuma data passa do repasse de 30.
+    // Decisao do Du (28/09): fecha em 10, Bynx decide em 2 dias uteis. Com a
+    // janela de 7 dias (10/10) o pior caso real em 10 anos subiu de 28 para 30
+    // dias civis: ainda nenhuma data passa do repasse de 30, mas sem folga.
+    // O arrependimento NAO entra nesta cadeia: depende do transito de volta e
+    // passa de 30 (risco do repasse em aberto no Quadro).
     console.log(`    pior caso: ${pior} dias civis (pago ${piorPago}); ${acima} de ${total} datas de pagamento passam de 30`)
     assert.equal(acima, 0, `${acima} datas passam de 30 dias (pior ${pior}, pago ${piorPago})`)
     // Trava de regressao: alongar qualquer prazo sem rever o repasse quebra aqui.
@@ -212,6 +218,10 @@ try {
     assert.equal(R.ehRespostaLoja('constructor'), false)
     assert.equal(R.motivoExigeFoto('nao_chegou'), false)
     assert.equal(R.motivoExigeFoto('suspeita_falsificacao'), true)
+    assert.equal(R.motivoExigeFoto('arrependimento'), false)
+    assert.equal(R.ehMotivo('arrependimento'), false, 'arrependimento tem rota propria')
+    assert.equal(R.LISTA_MOTIVOS.includes('arrependimento'), false)
+    assert.equal(R.MOTIVOS.arrependimento, 'Desistência da compra')
   }, 'validacao de video, descricao e motivo')
 
   ok(() => {
@@ -272,6 +282,92 @@ try {
     assert.equal(V({ amount: 2990, amountRefunded: 1495, applicationFeeAmount: null, atualReais: 29.9 }), 14.95)
     assert.equal(V({ amount: 0, amountRefunded: 0, applicationFeeAmount: null, atualReais: 0 }), 0)
   }, 'valorLancamentoAposEstorno (base original, parciais cumulativos, fora de ordem)')
+
+  ok(() => {
+    const agora = t('2026-10-10T15:00:00Z')
+    const iso = d => new Date(agora + d * DIA).toISOString()
+    // podeDesistir
+    assert.deepEqual(R.podeDesistir({ status: 'pago', ehLeilao: false }, agora), { pode: false, motivo: 'nao_e_leilao' })
+    assert.deepEqual(R.podeDesistir({ status: 'pago', ehLeilao: true }, agora), { pode: true, modo: 'antes_do_envio', ate: null })
+    assert.deepEqual(R.podeDesistir({ status: 'cancelando', ehLeilao: true }, agora), { pode: true, modo: 'antes_do_envio', ate: null })
+    assert.deepEqual(R.podeDesistir({ status: 'pago', ehLeilao: true, em_disputa: true }, agora), { pode: false, motivo: 'em_disputa' })
+    assert.deepEqual(R.podeDesistir({ status: 'enviado', ehLeilao: true }, agora), { pode: true, modo: 'devolucao', ate: null })
+    const e6 = R.podeDesistir({ status: 'entregue', ehLeilao: true, entregue_em: iso(-6) }, agora)
+    assert.equal(e6.pode && e6.modo, 'devolucao')
+    assert.equal(e6.ate.getTime(), agora + DIA)
+    assert.deepEqual(R.podeDesistir({ status: 'entregue', ehLeilao: true, entregue_em: iso(-8) }, agora), { pode: false, motivo: 'prazo_encerrado' })
+    assert.deepEqual(R.podeDesistir({ status: 'enviado', ehLeilao: true, reclamacao_aberta: true }, agora), { pode: false, motivo: 'ja_aberta' })
+    assert.deepEqual(R.podeDesistir({ status: 'reembolsado', ehLeilao: true }, agora), { pode: false, motivo: 'status' })
+    // prazos
+    assert.equal(R.prazoPostagem(agora).getTime(), agora + 7 * DIA)
+    // Sexta 09/10 12h BRT + 2 uteis: segunda 12/10 e feriado -> terca 13, quarta 14 (fim do dia)
+    assert.equal(R.prazoContestacao('2026-10-09T15:00:00Z').toISOString(), '2026-10-15T02:59:59.999Z')
+  }, 'podeDesistir, prazoPostagem, prazoContestacao')
+
+  ok(() => {
+    // Exemplo da UPU (S10): SS123456785GB, digito 5.
+    assert.equal(R.validarRastreio('SS123456785GB'), 'SS123456785GB')
+    assert.equal(R.validarRastreio(' ss 123 456 785 gb '), 'SS123456785GB', 'normaliza espaco e caixa')
+    assert.equal(R.validarRastreio('SS123456784GB'), null, 'digito errado')
+    assert.equal(R.validarRastreio('SS12345678GB'), null, 'curto')
+    assert.equal(R.validarRastreio('1S123456785GB'), null)
+    assert.equal(R.validarRastreio(null), null)
+    // dv 10 -> 0 e dv 11 -> 5
+    const dvDe = d8 => { const p = [8, 6, 4, 2, 3, 5, 9, 7]; return 11 - [...d8].reduce((a, c, i) => a + Number(c) * p[i], 0) % 11 }
+    let achou10 = null, achou11 = null
+    for (let i = 0; i < 100000 && !(achou10 && achou11); i++) {
+      const d8 = String(i).padStart(8, '0')
+      const dv = dvDe(d8)
+      if (dv === 10 && !achou10) achou10 = d8
+      if (dv === 11 && !achou11) achou11 = d8
+    }
+    assert.equal(R.validarRastreio(`AA${achou10}0BR`), `AA${achou10}0BR`)
+    assert.equal(R.validarRastreio(`AA${achou11}5BR`), `AA${achou11}5BR`)
+  }, 'validarRastreio (S10, digito, 10->0, 11->5)')
+
+  ok(() => {
+    const agora = t('2026-10-10T15:00:00Z')
+    const iso = d => new Date(agora + d * DIA).toISOString()
+    const base = { motivo: 'arrependimento', status: 'aguardando_devolucao', postar_ate: iso(3) }
+    assert.equal(R.podeInformarPostagem(base, agora), true)
+    assert.equal(R.podeInformarPostagem({ ...base, postar_ate: iso(-1) }, agora), false, 'passou do prazo')
+    assert.equal(R.podeInformarPostagem({ ...base, devolucao_postada_em: iso(-1) }, agora), false, 'ja postou')
+    assert.equal(R.podeInformarPostagem({ ...base, motivo: 'danificado' }, agora), false)
+    // contestacao
+    assert.equal(R.lojaPodeContestar(base, agora), false, 'antes da postagem nao contesta')
+    const postada = { ...base, devolucao_postada_em: iso(-2) }
+    assert.equal(R.lojaPodeContestar(postada, agora), true, 'postada, sem entrega marcada')
+    assert.equal(R.lojaPodeContestar({ ...postada, devolucao_entregue_em: iso(-1), contestar_ate: iso(1) }, agora), true)
+    assert.equal(R.lojaPodeContestar({ ...postada, devolucao_entregue_em: iso(-3), contestar_ate: iso(-1) }, agora), false, 'janela passou')
+    assert.equal(R.lojaPodeContestar({ ...postada, contestada_em: iso(0) }, agora), false, 'ja contestou')
+    assert.equal(R.lojaPodeContestar({ ...postada, status: 'em_analise' }, agora), false)
+    // cron
+    assert.equal(R.acaoDevolucao(base, agora), null, 'no prazo de postar')
+    assert.equal(R.acaoDevolucao({ ...base, postar_ate: iso(-0.01) }, agora), 'expirar')
+    assert.equal(R.acaoDevolucao(postada, agora), null, 'postada, sem entrega: espera')
+    assert.equal(R.acaoDevolucao({ ...postada, postar_ate: iso(-5) }, agora), null, 'postou a tempo nao expira depois')
+    assert.equal(R.acaoDevolucao({ ...postada, devolucao_entregue_em: iso(-1), contestar_ate: iso(1) }, agora), null)
+    assert.equal(R.acaoDevolucao({ ...postada, devolucao_entregue_em: iso(-3), contestar_ate: iso(-0.01) }, agora), 'estornar')
+    assert.equal(R.acaoDevolucao({ ...postada, devolucao_entregue_em: iso(-3), contestar_ate: iso(-1), contestada_em: iso(-2) }, agora), null, 'contestada vai para a Bynx')
+    assert.equal(R.acaoDevolucao({ ...base, motivo: 'nao_chegou', postar_ate: iso(-1) }, agora), null, 'reclamacao comum nao expira por aqui')
+    assert.equal(R.acaoDevolucao({ ...base, status: 'resolvida', postar_ate: iso(-1) }, agora), null)
+  }, 'podeInformarPostagem, lojaPodeContestar, acaoDevolucao')
+
+  ok(() => {
+    assert.equal(R.exigeFotoEnvio({ ehLeilao: true, valor_item_cents: 15000 }), true, 'limite exato')
+    assert.equal(R.exigeFotoEnvio({ ehLeilao: true, valor_item_cents: 14999 }), false)
+    assert.equal(R.exigeFotoEnvio({ ehLeilao: false, valor_item_cents: 90000 }), false, 'marketplace nao muda')
+    assert.equal(R.exigeFotoEnvio({ ehLeilao: true, valor_item_cents: null }), false)
+    const pasta = 'ped/envio/'
+    assert.deepEqual(R.validarFotosEnvio(['ped/envio/verso-1.webp', 'ped/envio/frente-2.webp'], pasta, true),
+      { ok: true, fotos: ['ped/envio/frente-2.webp', 'ped/envio/verso-1.webp'] })
+    assert.equal(R.validarFotosEnvio(['ped/envio/frente-2.webp'], pasta, true).ok, false, 'falta o verso')
+    assert.deepEqual(R.validarFotosEnvio([], pasta, false), { ok: true, fotos: [] })
+    assert.equal(R.validarFotosEnvio(['ped/outro/frente-1.webp'], pasta, false).ok, false, 'fora da pasta')
+    assert.equal(R.validarFotosEnvio(['ped/envio/../x/frente-1.webp'], pasta, false).ok, false)
+    assert.equal(R.validarFotosEnvio(['ped/envio/embalagem-1.webp'], pasta, false).ok, false, 'slot desconhecido')
+    assert.equal(R.validarFotosEnvio(['ped/envio/frente-1.webp', 'ped/envio/frente-2.webp'], pasta, false).ok, false, 'repetida')
+  }, 'exigeFotoEnvio e validarFotosEnvio')
 
   console.log(`\n${n} blocos ok`)
 } finally {

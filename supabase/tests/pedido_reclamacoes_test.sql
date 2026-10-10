@@ -17,8 +17,8 @@
 -- Usuarios: a700...01 vendedor (dono da loja) | a700...02 comprador | a700...03 outro
 -- Loja:     f700...01 (pedidos.loja_id e NOT NULL)
 -- Lote:     b700...01 (so para dar leilao_id aos pedidos)
--- Pedidos:  e700...01 leilao enviado          | e700...02 leilao entregue ha 6 dias
---           (fora dos 5 de DIAS_RECLAMAR; dentro dos 7 antigos)
+-- Pedidos:  e700...01 leilao enviado          | e700...02 leilao entregue ha 8 dias
+--           (fora dos 7 de DIAS_RECLAMAR, desde 20260928170000)
 --           e700...03 SEM leilao, enviado     | e700...04 leilao pago (nao enviado)
 --           e700...05 leilao enviado (vira entregue no T1)
 --           e700...06 leilao so pelo ITEM (pedido_itens.leilao_id), enviado
@@ -57,7 +57,7 @@ values
   ('e7000000-0000-4000-8000-000000000002', 'f7000000-0000-4000-8000-000000000001',
    'a7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002', 'Charizard',
    5000, 2000, 490, 7490, 880, 6610, 'cartao', 30, 'entregue', 'b7000000-0000-4000-8000-000000000001',
-   now() - interval '14 days', now() - interval '12 days', now() - interval '6 days'),
+   now() - interval '14 days', now() - interval '12 days', now() - interval '8 days'),
   ('e7000000-0000-4000-8000-000000000003', 'f7000000-0000-4000-8000-000000000001',
    'a7000000-0000-4000-8000-000000000001', 'a7000000-0000-4000-8000-000000000002', 'Carta sem leilao',
    5000, 2000, 490, 7490, 880, 6610, 'cartao', 30, 'enviado', null,
@@ -121,7 +121,7 @@ begin
   select prazo_reclamacao_ate, entregue_em into v_prazo, v_ent
     from public.pedidos where id = 'e7000000-0000-4000-8000-000000000005';
   -- espelho de DIAS_RECLAMAR em src/lib/leilao-reclamacao.ts
-  assert v_prazo = v_ent + interval '5 days', format('FALHOU T1a: prazo %s entregue %s', v_prazo, v_ent);
+  assert v_prazo = v_ent + interval '7 days', format('FALHOU T1a: prazo %s entregue %s', v_prazo, v_ent);
   select prazo_reclamacao_ate into v_prazo from public.pedidos where id = 'e7000000-0000-4000-8000-000000000003';
   assert v_prazo is null, format('FALHOU T1b: pedido sem leilao ganhou prazo %s', v_prazo);
 end $$;
@@ -228,7 +228,7 @@ begin
 exception when check_violation then null;
 end $$;
 
--- T5b: com 3 fotos passa (pedido entregue ontem, dentro dos 5 dias).
+-- T5b: com 3 fotos passa (pedido entregue ontem, dentro dos 7 dias).
 do $$
 declare v_id uuid;
 begin

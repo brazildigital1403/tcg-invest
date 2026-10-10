@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     let q = sb
       .from('pedidos')
-      .select('id, numero, status, item_nome, item_imagem, valor_item_cents, frete_cents, liquido_loja_cents, total_comprador_cents, metodo, repasse_prazo, endereco, rastreio, created_at, pago_em, enviado_em')
+      .select('id, numero, status, item_nome, item_imagem, valor_item_cents, frete_cents, liquido_loja_cents, total_comprador_cents, metodo, repasse_prazo, endereco, rastreio, created_at, pago_em, enviado_em, leilao_id')
       .eq('loja_id', lojaId)
       .neq('status', 'aguardando_pagamento') // pedido nao pago nao interessa ao lojista
       .order('created_at', { ascending: false })
@@ -108,7 +108,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
 
     const r = acao === 'enviar'
-      ? await marcarEnviado(sb, pedido as PedidoPosVenda, rastreio || '', ctxVend)
+      ? await marcarEnviado(sb, pedido as PedidoPosVenda, rastreio || '', ctxVend, body?.fotos)
       : await cancelarEReembolsar(sb, pedido as PedidoPosVenda, motivo, ctxVend)
 
     if (!r.ok) return NextResponse.json({ error: r.erro }, { status: r.status })

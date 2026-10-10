@@ -12,7 +12,7 @@ import { fmtBRL } from '@/lib/comissao'
 import { IconClock, IconCheck, IconWarning } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import {
-  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, fmtPrazo, fotosParaGaleria,
+  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, DIAS_UTEIS_CONTESTAR, fmtPrazo, fotosParaGaleria,
   type MotivoReclamacao, type StatusReclamacao, type RespostaLoja, type Decisao,
 } from '@/lib/leilao-reclamacao'
 
@@ -46,6 +46,16 @@ type Linha = {
   sem_resposta: boolean
   pode_decidir: boolean
   restante_cents: number
+  // Desistencia (motivo 'arrependimento')
+  postar_ate: string | null
+  devolucao_rastreio: string | null
+  devolucao_postada_em: string | null
+  devolucao_entregue_em: string | null
+  contestar_ate: string | null
+  contestada_em: string | null
+  contestacao_video_url: string | null
+  pode_marcar_entregue: boolean
+  envio_fotos_url: string[]
 }
 
 type Seg = 'agora' | 'loja' | 'fim' | 'tudo'
@@ -57,7 +67,7 @@ const SEGS: { k: Seg; l: string }[] = [
 ]
 function segDe(r: Linha): Seg {
   if (r.status === 'resolvida' || r.status === 'improcedente') return 'fim'
-  return r.pode_decidir ? 'agora' : 'loja'
+  return r.pode_decidir || r.pode_marcar_entregue ? 'agora' : 'loja'
 }
 
 export default function AdminReclamacoesPage() {
@@ -107,12 +117,28 @@ export default function AdminReclamacoesPage() {
     }
   }
 
+  async function marcarEntregue(r: Linha) {
+    if (!window.confirm(`Pedido #${r.pedido?.numero}: conferiu no rastreio ${r.devolucao_rastreio} que a devolução foi entregue na loja? A loja passa a ter ${DIAS_UTEIS_CONTESTAR} dias úteis para contestar; depois o estorno sai sozinho.`)) return
+    setSalvando(r.id); setMsg(null)
+    try {
+      const res = await fetch(`/api/admin/reclamacoes/${r.id}/devolucao-entregue`, { method: 'POST' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Falha ao marcar.')
+      setMsg({ tipo: 'ok', texto: `Entrega marcada. A loja pode contestar até ${fmtPrazo(j.contestar_ate)}.` })
+      await load()
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: (e as Error).message })
+    } finally {
+      setSalvando(null)
+    }
+  }
+
   const visiveis = (rows || []).filter(r => seg === 'tudo' || segDe(r) === seg)
 
   return (
     <div className="ar-wrap">
       <style>{CSS}</style>
-      <h1 className="ar-h1">Reclamações de leilão</h1>
+      <h1 className="ar-h1">Reclamações e desistências de leilão</h1>
       <p className="ar-sub">Proteção Bynx. A loja tem {DIAS_UTEIS_LOJA} dias úteis para responder; sem resposta, a decisão é a favor do comprador. A Bynx decide em até {DIAS_UTEIS_DECISAO} dias úteis. Horários de Brasília.</p>
 
       <div className="ar-segs">
@@ -179,6 +205,24 @@ export default function AdminReclamacoesPage() {
                       {r.video_url && <a className="ar-a" href={r.video_url} target="_blank" rel="noopener noreferrer nofollow">Abrir o vídeo</a>}
                     </div>
 
+                    {r.motivo === 'arrependimento' && (
+                      <div className="ar-bloco">
+                        <div className="ar-rot">Devolução</div>
+                        <div className="ar-grid">
+                          <div><span>Postar até</span>{fmtPrazo(r.postar_ate) || '-'}</div>
+                          <div><span>Rastreio da volta</span>{r.devolucao_rastreio ? <code>{r.devolucao_rastreio}</code> : '-'}</div>
+                          <div><span>Postada</span>{fmtPrazo(r.devolucao_postada_em) || '-'}</div>
+                          <div><span>Entregue na loja</span>{fmtPrazo(r.devolucao_entregue_em) || '-'}</div>
+                          <div><span>Loja contesta até</span>{fmtPrazo(r.contestar_ate) || '-'}</div>
+                        </div>
+                        {r.pode_marcar_entregue && (
+                          <div className="ar-bts">
+                            <button type="button" className="ar-bt ar-bt-pri" disabled={!!salvando} onClick={() => marcarEntregue(r)}>Marcar devolução entregue</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="ar-bloco">
                       <div className="ar-rot">Loja</div>
                       {r.resposta_tipo ? (
@@ -187,7 +231,16 @@ export default function AdminReclamacoesPage() {
                           {r.resposta_loja && <p className="ar-cit">{r.resposta_loja}</p>}
                         </>
                       ) : (
-                        <p className="ar-cit">{r.sem_resposta ? 'Não respondeu no prazo: decisão a favor do comprador.' : 'Ainda no prazo para responder.'}</p>
+                        <p className="ar-cit">{r.motivo === 'arrependimento' ? 'Não contestou.' : r.sem_resposta ? 'Não respondeu no prazo: decisão a favor do comprador.' : 'Ainda no prazo para responder.'}</p>
+                      )}
+                      {r.contestacao_video_url && <a className="ar-a" href={r.contestacao_video_url} target="_blank" rel="noopener noreferrer nofollow">Abrir o vídeo da loja</a>}
+                      {r.envio_fotos_url.length > 0 && (
+                        <>
+                          <div className="ar-rot">Fotos da loja no envio</div>
+                          <div className="ar-fotos">
+                            <GaleriaMidias midias={fotosParaGaleria(r.envio_fotos_url)} tamanho={110} />
+                          </div>
+                        </>
                       )}
                     </div>
 

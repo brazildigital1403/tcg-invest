@@ -9,6 +9,8 @@ import { fmtBRL } from '@/lib/comissao'
 import { IconBox, IconCheck, IconWallet, IconPhone, IconBolt, IconCard, IconPokeball } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import ReclamacoesLoja from './ReclamacoesLoja'
+import FotosEnvio from './FotosEnvio'
+import { exigeFotoEnvio } from '@/lib/leilao-reclamacao'
 
 /**
  * /minha-loja/[id]/pedidos — o painel onde o lojista despacha as vendas.
@@ -39,6 +41,7 @@ interface Pedido {
   created_at: string
   pago_em: string | null
   enviado_em: string | null
+  leilao_id?: string | null
 }
 
 const LABEL: Record<string, string> = {
@@ -91,6 +94,7 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
   const [erro, setErro] = useState<string | null>(null)
   const [aberto, setAberto] = useState<string | null>(null)
   const [rastreios, setRastreios] = useState<Record<string, string>>({})
+  const [fotosEnvio, setFotosEnvio] = useState<Record<string, string[]>>({})
   const [enviando, setEnviando] = useState<string | null>(null)
   const [cancelAberto, setCancelAberto] = useState<string | null>(null)
   const [cancelando, setCancelando] = useState<string | null>(null)
@@ -120,6 +124,11 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => { if (estado === 'pronto') carregar() }, [estado, carregar])
 
+  // Lote de leilao a partir de R$ 150: frente e verso antes de confirmar (o
+  // servidor confere de novo; carrinho com lote so no item cai la).
+  const faltaFoto = (p: Pedido) =>
+    LEILAO_ATIVO && exigeFotoEnvio({ ehLeilao: !!p.leilao_id, valor_item_cents: p.valor_item_cents }) && (fotosEnvio[p.id] || []).length < 2
+
   async function marcarEnviado(p: Pedido) {
     const cod = (rastreios[p.id] || '').trim()
     if (cod.length < 8) {
@@ -132,7 +141,7 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
       const r = await fetch(`/api/lojas/${lojaId}/pedidos`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pedido_id: p.id, acao: 'enviar', rastreio: cod }),
+        body: JSON.stringify({ pedido_id: p.id, acao: 'enviar', rastreio: cod, fotos: fotosEnvio[p.id] || [] }),
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j?.error || 'Falha ao enviar')
@@ -282,10 +291,13 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
 
                   {abertoAgora ? (
                     <div style={S.form}>
+                      {LEILAO_ATIVO && exigeFotoEnvio({ ehLeilao: !!p.leilao_id, valor_item_cents: p.valor_item_cents }) && (
+                        <FotosEnvio pedidoId={p.id} onChange={paths => setFotosEnvio(f => ({ ...f, [p.id]: paths }))} />
+                      )}
                       <div style={S.formLbl}><IconBox size={14} color="rgba(255,255,255,0.5)" />Código de rastreio <span style={{ color: '#f87171' }}>(obrigatório)</span></div>
                       <input value={rastreios[p.id] || ''} onChange={e => setRastreios(r => ({ ...r, [p.id]: e.target.value }))} placeholder="Cole o código dos Correios / Melhor Envio" style={S.input} />
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => marcarEnviado(p)} disabled={enviando === p.id || (rastreios[p.id] || '').trim().length < 8} style={{ ...SH.btnPrimary, flex: 1, opacity: (enviando === p.id || (rastreios[p.id] || '').trim().length < 8) ? 0.6 : 1 }}>
+                        <button onClick={() => marcarEnviado(p)} disabled={enviando === p.id || (rastreios[p.id] || '').trim().length < 8 || faltaFoto(p)} style={{ ...SH.btnPrimary, flex: 1, opacity: (enviando === p.id || (rastreios[p.id] || '').trim().length < 8 || faltaFoto(p)) ? 0.6 : 1 }}>
                           {enviando === p.id ? 'Salvando…' : 'Confirmar envio'}
                         </button>
                         <button onClick={() => setAberto(null)} style={S.btnGhost}>Voltar</button>

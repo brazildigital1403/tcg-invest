@@ -8,7 +8,8 @@ import { comprimirImagem } from '@/lib/comprimirImagem'
 import { IconShield, IconCamera, IconCheck, IconWarning, IconClock } from '@/components/ui/Icons'
 import {
   MOTIVOS, LISTA_MOTIVOS, SLOTS_FOTO, ROTULO_SLOT, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES,
-  ROTULO_BOTAO_PROBLEMA, TEXTO_PROTECAO, DIAS_UTEIS_ENVIO, motivoExigeFoto, podeReclamar, podeCancelarPorAtraso, prazoEnvio,
+  ROTULO_BOTAO_PROBLEMA, TEXTO_PROTECAO, DIAS_UTEIS_ENVIO, DIAS_RECLAMAR, DIAS_POSTAR_DEVOLUCAO, motivoExigeFoto, podeReclamar,
+  podeCancelarPorAtraso, podeDesistir, podeInformarPostagem, validarRastreio, prazoEnvio,
   fmtPrazo, type MotivoReclamacao, type SlotFoto, type StatusReclamacao, type RespostaLoja, type Decisao,
 } from '@/lib/leilao-reclamacao'
 
@@ -26,6 +27,13 @@ import {
  * Fotos: comprime no navegador (webp 1600px), pede a URL assinada a
  * /api/pedidos/[id]/reclamacao/upload-url e sobe direto no bucket privado.
  * O servidor confere que cada arquivo existe antes de gravar.
+ *
+ * DESISTENCIA (art. 49 do CDC, /api/pedidos/[id]/desistir):
+ *   pago      -> "Desistir da compra": estorno integral na hora;
+ *   enviado / entregue dentro de DIAS_RECLAMAR -> confirmacao (3 passos +
+ *               "devolvo no estado em que recebi") e abre a devolucao;
+ *   aberta    -> endereco da loja, prazo e campo do rastreio; depois o
+ *               andamento (postada, entregue na loja, contestada, estornada).
  */
 
 export interface PedidoProtecao {
@@ -38,6 +46,8 @@ export interface PedidoProtecao {
   prazo_reclamacao_ate?: string | null
   reclamacao_aberta?: boolean | null
   recebido_automatico?: boolean | null
+  em_disputa?: boolean | null
+  total_comprador_cents?: number
 }
 
 interface Reclamacao {
@@ -54,7 +64,15 @@ interface Reclamacao {
   decisao_nota: string | null
   valor_estornado_cents: number
   created_at: string
+  postar_ate: string | null
+  devolucao_rastreio: string | null
+  devolucao_postada_em: string | null
+  devolucao_entregue_em: string | null
+  contestar_ate: string | null
+  contestada_em: string | null
 }
+
+interface EnderecoLoja { nome: string; endereco: string | null; cidade: string | null; estado: string | null; cep: string | null }
 
 type Fotos = Partial<Record<SlotFoto, File>>
 
@@ -71,11 +89,15 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   const [ok, setOk] = useState(false)
   const [confirmaCancelar, setConfirmaCancelar] = useState(false)
   const [agora, setAgora] = useState(() => Date.now())
+  const [desistindo, setDesistindo] = useState(false)
+  const [confirmo, setConfirmo] = useState(false)
+  const [rastreio, setRastreio] = useState('')
+  const [endereco, setEndereco] = useState<EnderecoLoja | null>(null)
 
   const carregar = useCallback(async () => {
     const { data } = await supabase
       .from('pedido_reclamacoes')
-      .select('id, motivo, descricao, status, resposta_tipo, resposta_loja, contraproposta_cents, prazo_loja_ate, prazo_decisao_ate, decisao, decisao_nota, valor_estornado_cents, created_at')
+      .select('id, motivo, descricao, status, resposta_tipo, resposta_loja, contraproposta_cents, prazo_loja_ate, prazo_decisao_ate, decisao, decisao_nota, valor_estornado_cents, created_at, postar_ate, devolucao_rastreio, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em')
       .eq('pedido_id', pedido.id)
       .order('created_at', { ascending: false })
       .limit(5)
@@ -96,6 +118,18 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
     return () => { ativo = false }
   }, [pedido.id, pedido.leilao_id, carregar])
 
+  const devolucaoAberta = recls[0]?.motivo === 'arrependimento' && recls[0]?.status === 'aguardando_devolucao' && !recls[0]?.devolucao_postada_em
+  useEffect(() => {
+    if (!devolucaoAberta || endereco) return
+    let ativo = true
+    ;(async () => {
+      const r = await authFetch(`/api/pedidos/${pedido.id}/desistir`)
+      const j = await r.json().catch(() => ({}))
+      if (ativo && r.ok && j.loja) setEndereco(j.loja as EnderecoLoja)
+    })()
+    return () => { ativo = false }
+  }, [devolucaoAberta, endereco, pedido.id])
+
   if (!ehLeilao) return null
 
   // 'cancelando': uma tentativa de cancelamento por atraso caiu no meio. O
@@ -106,6 +140,9 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   const cancelar = podeCancelarPorAtraso(base, agora)
   const limiteEnvio = prazoEnvio(base)
   const atual = recls[0] || null
+  const desist = podeDesistir(base, agora)
+  const ehDesistencia = atual?.motivo === 'arrependimento'
+  const rastreioOk = !!validarRastreio(rastreio)
   const exigeFoto = motivo ? motivoExigeFoto(motivo) : false
   const fotosOk = !exigeFoto || SLOTS_FOTO.every(s => fotos[s])
   const podeEnviar = !!motivo && descricao.trim().length >= 10 && fotosOk && !enviando
@@ -142,6 +179,43 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
       setOk(true); setAberto(false)
       await carregar()
       onMudou()
+    } catch (e) {
+      setErro((e as Error).message)
+    } finally {
+      setEnviando(null)
+    }
+  }
+
+  async function desistir() {
+    setErro(null); setEnviando('Registrando')
+    try {
+      const r = await authFetch(`/api/pedidos/${pedido.id}/desistir`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmo }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(j.error || 'Não foi possível registrar a desistência.')
+      setDesistindo(false); setConfirmo(false)
+      await carregar()
+      onMudou()
+    } catch (e) {
+      setErro((e as Error).message)
+    } finally {
+      setEnviando(null)
+    }
+  }
+
+  async function informarPostagem() {
+    setErro(null); setEnviando('Enviando')
+    try {
+      const r = await authFetch(`/api/pedidos/${pedido.id}/desistir/postagem`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rastreio }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(j.error || 'Não foi possível registrar a postagem.')
+      setRastreio('')
+      await carregar()
     } catch (e) {
       setErro((e as Error).message)
     } finally {
@@ -191,8 +265,85 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
         ) : null
       )}
 
+      {/* Desistencia antes do envio: estorno integral na hora */}
+      {desist.pode && desist.modo === 'antes_do_envio' && !cancelar.pode && (
+        <div className="pb-card">
+          {desistindo ? (
+            <>
+              <div className="pb-head"><b>Desistir da compra</b></div>
+              <p className="pb-txt">O pedido é cancelado agora e {pedido.total_comprador_cents ? <>o valor de <b>{fmtBRL(pedido.total_comprador_cents)}</b></> : 'o valor integral'} é estornado no seu cartão. Não dá para desfazer.</p>
+              <div className="pb-linha">
+                <button type="button" className="pb-bt pb-bt-perigo" disabled={!!enviando} onClick={desistir}>{enviando || 'Confirmar desistência'}</button>
+                <button type="button" className="pb-bt pb-bt-ghost" disabled={!!enviando} onClick={() => { setDesistindo(false); setErro(null) }}>Voltar</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button type="button" className="pb-bt pb-bt-ghost pb-full" onClick={() => setDesistindo(true)}>Desistir da compra</button>
+              <p className="pb-txt pb-mut">Antes do envio, a desistência cancela o pedido com estorno integral.</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Desistencia com devolucao em andamento */}
+      {atual && ehDesistencia && (
+        <div className={`pb-card${atual.status === 'resolvida' ? ' pb-ok' : atual.status === 'aguardando_devolucao' && !atual.devolucao_postada_em ? ' pb-alerta' : ''}`}>
+          <div className="pb-head">
+            {atual.status === 'resolvida' ? <IconCheck size={17} color="var(--bx-green)" /> : <IconClock size={17} color="var(--bx-amber)" />}
+            <b>{atual.status === 'resolvida' ? 'Devolução concluída'
+              : atual.status === 'improcedente' ? 'Desistência encerrada'
+              : atual.status === 'em_analise' ? 'Devolução em análise pela Bynx'
+              : atual.devolucao_entregue_em ? 'A devolução chegou na loja'
+              : atual.devolucao_postada_em ? 'Devolução postada'
+              : 'Poste a carta e informe o envio'}</b>
+          </div>
+
+          {atual.status === 'aguardando_devolucao' && !atual.devolucao_postada_em && (
+            <>
+              <p className="pb-txt">Envie a carta como recebeu (sleeve, toploader e envelope com proteção) até <b>{fmtPrazo(atual.postar_ate)}</b> (horário de Brasília). Se não postar no prazo, a desistência expira e a compra continua valendo.</p>
+              {endereco && (
+                <div className="pb-quadro">
+                  <div className="pb-mut pb-rot0">Enviar para</div>
+                  <div><b>{endereco.nome}</b></div>
+                  <div className="pb-cit">{[endereco.endereco, [endereco.cidade, endereco.estado].filter(Boolean).join(' - '), endereco.cep].filter(Boolean).join(' · ')}</div>
+                </div>
+              )}
+              {podeInformarPostagem(atual, agora) && (
+                <>
+                  <label className="pb-rot" htmlFor="pb-rastreio">Código de rastreio da devolução</label>
+                  <input id="pb-rastreio" className="pb-input" value={rastreio} onChange={e => setRastreio(e.target.value.toUpperCase())}
+                    placeholder="AA123456789BR" autoCapitalize="characters" autoComplete="off" maxLength={20} />
+                  <div className="pb-linha">
+                    <button type="button" className="pb-bt pb-bt-pri" disabled={!rastreioOk || !!enviando} onClick={informarPostagem}>{enviando || 'Informar postagem'}</button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          {atual.devolucao_rastreio && (
+            <p className="pb-txt"><span className="pb-mut">Rastreio da devolução:</span> {atual.devolucao_rastreio}</p>
+          )}
+          {atual.status === 'aguardando_devolucao' && atual.devolucao_postada_em && !atual.devolucao_entregue_em && (
+            <p className="pb-txt">Quando a carta chegar na loja e ela conferir, o estorno integral sai no seu cartão.</p>
+          )}
+          {atual.status === 'aguardando_devolucao' && atual.devolucao_entregue_em && atual.contestar_ate && (
+            <p className="pb-txt">A loja tem até {fmtPrazo(atual.contestar_ate)} para conferir. Sem contestação, o estorno integral sai sozinho.</p>
+          )}
+          {atual.status === 'em_analise' && (
+            <p className="pb-txt">A loja contestou a devolução. A Bynx analisa as provas dos dois lados{atual.prazo_decisao_ate ? ` e decide até ${fmtPrazo(atual.prazo_decisao_ate)}` : ''}.</p>
+          )}
+          {(atual.status === 'resolvida' || atual.status === 'improcedente') && (
+            <div className="pb-quadro">
+              {atual.valor_estornado_cents > 0 ? <div>Estornado <b>{fmtBRL(atual.valor_estornado_cents)}</b></div> : null}
+              {atual.decisao_nota && <div className="pb-cit">{atual.decisao_nota}</div>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Estado da reclamacao mais recente */}
-      {atual && (
+      {atual && !ehDesistencia && (
         <div className={`pb-card${atual.status === 'resolvida' ? ' pb-ok' : ''}`}>
           <div className="pb-head">
             {atual.status === 'resolvida' ? <IconCheck size={17} color="var(--bx-green)" /> : <IconClock size={17} color="var(--bx-amber)" />}
@@ -284,6 +435,37 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
         </div>
       )}
 
+      {/* Desistencia depois do envio (direito de arrependimento) */}
+      {desist.pode && desist.modo === 'devolucao' && !aberto && (
+        <div className="pb-card">
+          {!desistindo ? (
+            <>
+              <button type="button" className="pb-bt pb-bt-ghost pb-full" onClick={() => setDesistindo(true)}>Desistir da compra</button>
+              <p className="pb-txt pb-mut">Você pode desistir em até {DIAS_RECLAMAR} dias depois de receber, sem explicar o motivo.{desist.ate ? ` Prazo: ${fmtPrazo(desist.ate)}.` : ''}</p>
+            </>
+          ) : (
+            <div className="pb-form">
+              <div className="pb-head"><b>Desistir da compra</b></div>
+              <p className="pb-txt pb-mut">Você não precisa explicar o motivo. Confira como funciona antes de confirmar.</p>
+              <ol className="pb-passos">
+                <li>Você recebe o endereço de devolução e tem até <b>{DIAS_POSTAR_DEVOLUCAO} dias</b> para postar a carta.</li>
+                <li>Envie a carta como recebeu: sleeve, toploader e envelope com proteção.</li>
+                <li>Quando a devolução chegar na loja, o estorno integral sai no seu cartão.</li>
+              </ol>
+              <label className="pb-check">
+                <input type="checkbox" checked={confirmo} onChange={e => setConfirmo(e.target.checked)} />
+                <span>Vou devolver a carta no estado em que recebi. Se a loja provar que voltou outra carta ou danificada, a Bynx analisa.</span>
+              </label>
+              <div className="pb-linha">
+                <button type="button" className="pb-bt pb-bt-perigo" disabled={!confirmo || !!enviando} onClick={desistir}>{enviando || 'Confirmar desistência'}</button>
+                <button type="button" className="pb-bt pb-bt-ghost" disabled={!!enviando} onClick={() => { setDesistindo(false); setConfirmo(false); setErro(null) }}>Voltar</button>
+              </div>
+              <p className="pb-txt pb-mut">Você recebe um e-mail confirmando a desistência, com data e hora.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {erro && !aberto && <div className="pb-erro">{erro}</div>}
     </div>
   )
@@ -318,6 +500,11 @@ const CSS = `
 .pb-bt-ghost{border:1px solid var(--bx-border);background:transparent;color:var(--bx-text-2)}
 .pb-bt-perigo{flex:1;margin-top:10px;border:1px solid color-mix(in srgb,var(--bx-red) 50%,transparent);background:color-mix(in srgb,var(--bx-red) 12%,transparent);color:var(--bx-red)}
 .pb-linha .pb-bt-perigo{margin-top:0}
+.pb-full{width:100%}
+.pb-rot0{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pb-passos{margin:4px 0 0;padding-left:20px;display:grid;gap:6px;font-size:12.5px;line-height:1.5;color:var(--bx-text-2)}
+.pb-check{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;line-height:1.5;color:var(--bx-text-2);cursor:pointer;margin-top:4px}
+.pb-check input{width:18px;height:18px;margin-top:1px;flex-shrink:0;accent-color:var(--ac-1)}
 .pb-erro{font-size:12.5px;color:var(--bx-red);background:color-mix(in srgb,var(--bx-red) 8%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 25%,transparent);border-radius:10px;padding:9px 12px}
 @media (max-width:420px){.pb-fotos{grid-template-columns:1fr}.pb-motivos{grid-template-columns:1fr}}
 `

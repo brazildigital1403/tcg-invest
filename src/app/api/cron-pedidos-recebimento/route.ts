@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import {
-  acaoRecebimento, somarDias, fmtPrazo, DIAS_FECHAMENTO_AUTO, DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR,
+  acaoRecebimento, acaoDevolucao, somarDias, fmtPrazo, DIAS_FECHAMENTO_AUTO, DIAS_AVISO_RECEBIMENTO, DIAS_RECLAMAR,
 } from '@/lib/leilao-reclamacao'
-import { sbServico, sino } from '@/lib/reclamacaoServer'
-import { enviarLoteEmails, renderRecebimentoAvisoEmail, type EmailLoteItem } from '@/lib/email'
+import { sbServico, sino, carregarPedido, concluirDevolucao, emailSeguro, contato, nomeDaLoja } from '@/lib/reclamacaoServer'
+import { enviarLoteEmails, renderRecebimentoAvisoEmail, renderArrependimentoEmail, type EmailLoteItem } from '@/lib/email'
 
 /**
  * GET /api/cron-pedidos-recebimento  (cron, 1x por hora basta)
@@ -18,6 +18,11 @@ import { enviarLoteEmails, renderRecebimentoAvisoEmail, type EmailLoteItem } fro
  *     grava prazo_reclamacao_ate = entregue_em + DIAS_RECLAMAR dias.
  *   - enviado ha DIAS_AVISO_RECEBIMENTO dias, sem aviso ainda -> sino + e-mail "Confirme ou nos
  *     conte se houve problema" e marca aviso_recebimento_em.
+ *   - DESISTENCIA (arrependimento, 20260928170000), regra em acaoDevolucao:
+ *     nao postou ate postar_ate -> expira sem estorno (resolver improcedente,
+ *     valor 0); entregue na loja e contestar_ate passou sem contestacao ->
+ *     estorno integral (concluirDevolucao, Stripe antes do banco, chave
+ *     'arrependimento-<rid>': o retry da proxima hora reaproveita o refund).
  *
  * IDEMPOTENTE: cada update filtra pelo estado de origem (compare-and-set):
  *   fechar -> .eq('status','enviado').eq('reclamacao_aberta', false). Reclamacao
@@ -189,6 +194,62 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // ── Desistencias (arrependimento) ──
+    // Poucas linhas (so abertas, indice parcial pedido_reclamacoes_devolucao_idx).
+    let expiradas = 0
+    let estornadas = 0
+    if (!semTempo()) {
+      const { data: devs, error: dErr } = await sb
+        .from('pedido_reclamacoes')
+        .select('id, pedido_id, loja_id, vendedor_user_id, comprador_user_id, motivo, status, postar_ate, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em')
+        .eq('status', 'aguardando_devolucao')
+        .eq('motivo', 'arrependimento')
+        .order('created_at', { ascending: true })
+        .limit(LIMITE)
+      if (dErr) console.error('[cron-recebimento] desistencias:', dErr.message)
+      for (const d of devs || []) {
+        if (semTempo()) break
+        const acao = acaoDevolucao(d, agora)
+        if (!acao || dry) continue
+        const pedido = await carregarPedido(sb, d.pedido_id as string)
+        if (!pedido) continue
+        const loja = await nomeLoja(d.loja_id as string)
+        const base = { pedidoId: pedido.id, pedidoNumero: pedido.numero, itemNome: pedido.item_nome, lojaNome: loja, lojaId: d.loja_id as string }
+        const lojista = (await nomeDaLoja(sb, d.loja_id as string)).owner || (d.vendedor_user_id as string)
+
+        if (acao === 'expirar') {
+          const { error: e } = await sb.rpc('pedido_reclamacao_resolver', {
+            p_reclamacao: d.id, p_status: 'improcedente', p_decisao: 'improcedente', p_valor_cents: 0,
+            p_refund: null, p_por: 'automatico', p_nota: 'A devolução não foi postada no prazo.',
+          })
+          if (e) { console.error(`[cron-recebimento] expirar desistencia ${pedido.numero}:`, e.message); continue }
+          expiradas++
+          const prazo = fmtPrazo(d.postar_ate as string)
+          await sino(sb, d.comprador_user_id as string, 'A desistência expirou',
+            `A devolução do pedido #${pedido.numero} não foi postada até ${prazo}. A compra continua valendo.`, `/pedido/${pedido.id}`)
+          await sino(sb, lojista, 'Desistência expirada',
+            `O comprador não postou a devolução do pedido #${pedido.numero}. A venda continua valendo.`, `/minha-loja/${d.loja_id}/pedidos`)
+          const cc = await contato(sb, d.comprador_user_id as string)
+          if (cc.email) await emailSeguro(renderArrependimentoEmail({ ...base, to: cc.email, nome: cc.nome, papel: 'comprador', etapa: 'expirado', prazo }))
+          continue
+        }
+
+        // estornar
+        const r = await concluirDevolucao(sb, d.id as string, pedido, 'automatico')
+        if (!r.ok) { console.error(`[cron-recebimento] estorno desistencia ${pedido.numero}: ${r.erro}`); continue }
+        if (r.resultado === 'ja_resolvida') continue
+        estornadas++
+        await sino(sb, d.comprador_user_id as string, 'Devolução concluída',
+          `A devolução do pedido #${pedido.numero} foi concluída e o valor foi estornado.`, `/pedido/${pedido.id}`)
+        await sino(sb, lojista, 'Devolução concluída',
+          `Sem contestação no prazo, o pedido #${pedido.numero} foi estornado ao comprador.`, `/minha-loja/${d.loja_id}/pedidos`)
+        const cc = await contato(sb, d.comprador_user_id as string)
+        if (cc.email) await emailSeguro(renderArrependimentoEmail({ ...base, to: cc.email, nome: cc.nome, papel: 'comprador', etapa: 'estornado', valorCents: r.valorCents }))
+        const cl = await contato(sb, lojista)
+        if (cl.email) await emailSeguro(renderArrependimentoEmail({ ...base, to: cl.email, nome: cl.nome, papel: 'loja', etapa: 'estornado' }))
+      }
+    }
+
     let emailsOk = 0
     if (emails.length) {
       const res = await enviarLoteEmails(emails)
@@ -196,7 +257,7 @@ export async function GET(req: NextRequest) {
       if (emailsOk < emails.length) console.error(`[cron-recebimento] ${emails.length - emailsOk} e-mail(s) de aviso falharam`)
     }
 
-    return NextResponse.json({ ok: true, candidatos: plano.length, fechados, avisados, emails: emailsOk, ms: Date.now() - inicio })
+    return NextResponse.json({ ok: true, candidatos: plano.length, fechados, avisados, emails: emailsOk, expiradas, estornadas, ms: Date.now() - inicio })
   } catch (err) {
     console.error('[cron-recebimento] erro:', (err as Error)?.message)
     return NextResponse.json({ ok: false, error: 'Erro interno.' }, { status: 500 })

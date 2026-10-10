@@ -2032,6 +2032,19 @@ export async function POST(req: NextRequest) {
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute
         console.error(`[webhook] CRITICAL DISPUTE: charge ${dispute.charge} reason ${dispute.reason} amount ${dispute.amount} status ${dispute.status}`)
+        // Trava de estorno do pedido (pedidos.em_disputa, 20260928170000): a
+        // Stripe ja segurou o valor; desistencia, cancelamento e decisao de
+        // reclamacao pela Bynx nao estornam por cima. So liga, nunca desliga
+        // aqui -- o desfecho da disputa e decidido caso a caso.
+        try {
+          const pi = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id
+          if (pi) {
+            const { error: dErr } = await supabase.from('pedidos').update({ em_disputa: true }).eq('stripe_payment_intent_id', pi)
+            if (dErr) console.error('[webhook] dispute: falha marcando em_disputa:', dErr.message)
+          }
+        } catch (err) {
+          console.error('[webhook] dispute: erro marcando em_disputa:', (err as Error)?.message)
+        }
         try {
           if (process.env.ADMIN_EMAIL) {
             await sendDisputeAdminEmail({
