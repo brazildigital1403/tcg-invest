@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { sendPedidoEnviadoEmail, sendReembolsoCompradorEmail } from '@/lib/email'
 import { exigeFotoEnvio, validarFotosEnvio, VALOR_FOTO_ENVIO_CENTS } from '@/lib/leilao-reclamacao'
 import { ehPedidoDeLeilao, pastaEnvio, arquivosNaPasta } from '@/lib/reclamacaoServer'
+import { validarRastreioEnvio } from '@/lib/rastreio'
 
 /**
  * O pos-venda de um pedido, do lado de quem VENDEU -- loja ou pessoa.
@@ -69,9 +70,11 @@ export type Resultado =
 /**
  * Marca como enviado e avisa o comprador.
  *
- * O rastreio e OBRIGATORIO e tem minimo de 8 caracteres: o comprador precisa
- * dele para acompanhar a entrega, e sem isso a confirmacao de recebimento vira
- * palavra contra palavra.
+ * O rastreio e OBRIGATORIO: o comprador precisa dele para acompanhar a
+ * entrega, e sem isso a confirmacao de recebimento vira palavra contra
+ * palavra. Desde 11/10 vem com a TRANSPORTADORA e e validado por ela
+ * (validarRastreioEnvio em lib/rastreio: Correios com digito verificador,
+ * as demais pela forma). Antes bastavam 8 caracteres e qualquer numero passava.
  *
  * ★ FOTO DA CARTA NO ENVIO (arrependimento, 20260928170000): lote de LEILAO a
  *   partir de VALOR_FOTO_ENVIO_CENTS exige frente e verso, ja enviadas ao
@@ -84,14 +87,12 @@ export async function marcarEnviado(
   pedido: PedidoPosVenda,
   rastreio: string,
   ctx: ContextoVendedor,
-  fotosEnvio?: unknown
+  fotosEnvio?: unknown,
+  transportadora?: unknown
 ): Promise<Resultado> {
-  if (!rastreio || rastreio.length < 8) {
-    return {
-      ok: false, status: 400,
-      erro: 'Informe um código de rastreio válido (mínimo 8 caracteres) para marcar como enviado.',
-    }
-  }
+  const rv = validarRastreioEnvio(transportadora, rastreio)
+  if (!rv.ok) return { ok: false, status: 400, erro: rv.erro }
+  rastreio = rv.codigo
   if (pedido.status !== 'pago') {
     return {
       ok: false, status: 409,

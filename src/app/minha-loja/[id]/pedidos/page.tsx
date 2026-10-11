@@ -14,6 +14,7 @@ import { MOTIVOS, exigeFotoEnvio, fmtPrazo } from '@/lib/leilao-reclamacao'
 import { classificarCaso, ocorrenciaDoPedido, diasDesde, faltam, type Aba, type Caso } from '@/lib/painelPedidos'
 import OcorrenciaLoja, { type Recl } from './OcorrenciaLoja'
 import FotosEnvio from './FotosEnvio'
+import CampoRastreio, { rastreioValido, type ValorRastreio } from '@/components/ui/CampoRastreio'
 
 /**
  * /minha-loja/[id]/pedidos — onde o lojista despacha as vendas.
@@ -381,7 +382,7 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
   avisar: (a: Aviso) => void
 }) {
   const { p, r, c } = l
-  const [rastreio, setRastreio] = useState('')
+  const [rastreio, setRastreio] = useState<ValorRastreio>({ transportadora: 'correios', codigo: '' })
   const [fotos, setFotos] = useState<string[]>([])
   const [enviando, setEnviando] = useState(false)
   const [cancelAberto, setCancelAberto] = useState(false)
@@ -392,7 +393,7 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
   const [erro, setErro] = useState<string | null>(null)
 
   const pedeFoto = LEILAO_ATIVO && exigeFotoEnvio({ ehLeilao: !!p.leilao_id, valor_item_cents: p.valor_item_cents })
-  const podeConfirmarEnvio = rastreio.trim().length >= 8 && (!pedeFoto || fotos.length >= 2) && !enviando
+  const podeConfirmarEnvio = rastreioValido(rastreio) && (!pedeFoto || fotos.length >= 2) && !enviando
   const selo = seloOcorrencia(l)
   const nota = notaDoCaso(l)
   const ocorrenciaVisivel = !!r && (c.ocorrencia === 'desistencia' || c.ocorrencia === 'reclamacao')
@@ -410,7 +411,7 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
   async function confirmarEnvio() {
     setEnviando(true); setErro(null)
     try {
-      await patch({ acao: 'enviar', rastreio: rastreio.trim(), fotos })
+      await patch({ acao: 'enviar', rastreio: rastreio.codigo.trim(), transportadora: rastreio.transportadora, fotos })
       avisar({ texto: `Pedido #${p.numero} marcado como enviado. O comprador já foi avisado.`, irPara: 'comprador' })
       onFechar()
       onMudou()
@@ -498,12 +499,7 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
               {envioAberto ? (
                 <div className="lp-form">
                   {pedeFoto && <FotosEnvio pedidoId={p.id} onChange={setFotos} />}
-                  <label className="lp-rot" htmlFor={`rastreio-${p.id}`}>Código de rastreio</label>
-                  <div className="lp-campo">
-                    <IconTruck size={17} color="var(--bx-text-3)" />
-                    <input id={`rastreio-${p.id}`} value={rastreio} onChange={e => setRastreio(e.target.value)}
-                      placeholder="Código dos Correios ou do Melhor Envio" autoComplete="off" />
-                  </div>
+                  <CampoRastreio valor={rastreio} onChange={setRastreio} />
                   {erro && <div className="lp-erro-card" role="alert">{erro}</div>}
                   <button type="button" className="lp-bt lp-bt-pri" disabled={!podeConfirmarEnvio} onClick={confirmarEnvio}>
                     {enviando ? 'Salvando…' : 'Confirmar envio'}

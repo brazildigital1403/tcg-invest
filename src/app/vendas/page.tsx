@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
+import CampoRastreio, { rastreioValido, type ValorRastreio } from '@/components/ui/CampoRastreio'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
@@ -63,11 +64,13 @@ function linhaEndereco(e: Record<string, unknown> | null): string | null {
   return partes.length ? partes.join(' · ') : null
 }
 
+const RASTREIO_VAZIO: ValorRastreio = { transportadora: 'correios', codigo: '' }
+
 export default function VendasPage() {
   const [vendas, setVendas] = useState<Venda[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
-  const [rastreios, setRastreios] = useState<Record<string, string>>({})
+  const [rastreios, setRastreios] = useState<Record<string, ValorRastreio>>({})
   const [agindo, setAgindo] = useState<string | null>(null)
   const [cancelAberto, setCancelAberto] = useState<string | null>(null)
   const [motivos, setMotivos] = useState<Record<string, string>>({})
@@ -102,7 +105,11 @@ export default function VendasPage() {
     setErro(null)
     try {
       const corpo: Record<string, unknown> = { pedido_id: v.id, acao }
-      if (acao === 'enviar') corpo.rastreio = (rastreios[v.id] || '').trim()
+      if (acao === 'enviar') {
+        const rv = rastreios[v.id] || RASTREIO_VAZIO
+        corpo.rastreio = rv.codigo.trim()
+        corpo.transportadora = rv.transportadora
+      }
       else corpo.motivo = (motivos[v.id] || '').trim() || null
 
       const r = await fetch('/api/vendas', {
@@ -163,8 +170,7 @@ export default function VendasPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {vendas.map(v => {
               const end = linhaEndereco(v.endereco)
-              const cod = (rastreios[v.id] || '').trim()
-              const podeEnviar = cod.length >= 8
+              const podeEnviar = rastreioValido(rastreios[v.id] || RASTREIO_VAZIO)
               const morto = v.status === 'cancelado' || v.status === 'reembolsado'
 
               return (
@@ -203,15 +209,9 @@ export default function VendasPage() {
                   {v.status === 'pago' && (
                     <>
                       <div>
-                        <div style={S.rot}>
-                          <IconBox size={14} color="rgba(255,255,255,0.5)" />
-                          Código de rastreio <span style={{ color: '#f87171', fontWeight: 800 }}>(obrigatório)</span>
-                        </div>
-                        <input
-                          value={rastreios[v.id] || ''}
-                          onChange={e => setRastreios(r => ({ ...r, [v.id]: e.target.value }))}
-                          placeholder="Cole o código dos Correios / Melhor Envio"
-                          style={S.input}
+                        <CampoRastreio
+                          valor={rastreios[v.id] || RASTREIO_VAZIO}
+                          onChange={val => setRastreios(r => ({ ...r, [v.id]: val }))}
                         />
                         <button
                           onClick={() => agir(v, 'enviar')}
@@ -221,8 +221,8 @@ export default function VendasPage() {
                           {agindo === v.id ? 'Enviando…' : 'Marcar como enviado'}
                         </button>
                         <p style={S.info}>
-                          O comprador precisa do código para acompanhar a entrega — por isso ele é
-                          obrigatório. Mínimo de 8 caracteres.
+                          O comprador precisa do código para acompanhar a entrega, por isso ele é
+                          obrigatório.
                         </p>
                       </div>
 

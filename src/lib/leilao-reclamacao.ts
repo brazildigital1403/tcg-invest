@@ -34,6 +34,8 @@
  *   prazo vence as 23:59:59 do ultimo dia util.
  */
 
+import { validarRastreioCorreios } from './rastreio'
+
 export const MOTIVOS = {
   nao_chegou: 'Não chegou',
   diferente_do_anuncio: 'Diferente do anúncio',
@@ -288,22 +290,10 @@ export function prazoContestacao(entrega: Date | string | number): Date | null {
 }
 
 /**
- * Codigo de rastreio dos Correios (padrao S10 da UPU): 2 letras, 8 digitos,
- * digito verificador e 2 letras (AA123456789BR). Aceita espaco e minuscula;
- * devolve normalizado ou null se o formato ou o digito nao bate.
- * Digito: pesos 8,6,4,2,3,5,9,7; r = 11 - soma % 11; 10 -> 0, 11 -> 5.
+ * Codigo de rastreio dos Correios (padrao S10). A regra mora em lib/rastreio
+ * (validarRastreioCorreios), dividida com o envio da loja.
  */
-export function validarRastreio(v: unknown): string | null {
-  const s = typeof v === 'string' ? v.replace(/[\s.-]/g, '').toUpperCase() : ''
-  const m = /^([A-Z]{2})(\d{8})(\d)([A-Z]{2})$/.exec(s)
-  if (!m) return null
-  const pesos = [8, 6, 4, 2, 3, 5, 9, 7]
-  const soma = [...m[2]].reduce((acc, d, i) => acc + Number(d) * pesos[i], 0)
-  let dv = 11 - (soma % 11)
-  if (dv === 10) dv = 0
-  else if (dv === 11) dv = 5
-  return dv === Number(m[3]) ? s : null
-}
+export const validarRastreio = validarRastreioCorreios
 
 export interface DevolucaoEstado {
   motivo: MotivoReclamacao | string

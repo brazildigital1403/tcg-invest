@@ -11,12 +11,17 @@ import ts from 'typescript'
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
 const tmp = mkdtempSync(join(tmpdir(), 'reclamacao-selftest-'))
+const srcRt = readFileSync(join(raiz, 'src/lib/rastreio.ts'), 'utf8')
+writeFileSync(join(tmp, 'rt.mjs'), ts.transpileModule(srcRt, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText)
 const src = readFileSync(join(raiz, 'src/lib/leilao-reclamacao.ts'), 'utf8')
 writeFileSync(join(tmp, 'r.mjs'), ts.transpileModule(src, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-}).outputText)
+}).outputText.replace("from './rastreio'", "from './rt.mjs'"))
 
 const R = await import(pathToFileURL(join(tmp, 'r.mjs')).href)
+const RT = await import(pathToFileURL(join(tmp, 'rt.mjs')).href)
 const srcE = readFileSync(join(raiz, 'src/lib/estornoLancamento.ts'), 'utf8')
 writeFileSync(join(tmp, 'e.mjs'), ts.transpileModule(srcE, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -431,6 +436,30 @@ try {
     assert.equal(P.faltam(new Date(agora + 0.5 * DIA), agora), null)
     assert.equal(P.diasDesde(iso(-2.5), agora), 2)
   }, 'classificarCaso: aba, quem age, prazo e ordem do painel da loja')
+
+  ok(() => {
+    const V = RT.validarRastreioEnvio
+    assert.deepEqual(V('correios', ' aa 123456785 br '), { ok: true, codigo: 'AA123456785BR' })
+    assert.equal(V('correios', 'AA123456785').ok, false, 'sem o BR (o caso do #40)')
+    assert.equal(V('correios', 'AA123456784BR').ok, false, 'digito errado')
+    assert.equal(V('correios', '12345678901').ok, false, 'numero solto (o caso do #41)')
+    assert.equal(V(undefined, 'AA123456785BR').ok, false, 'sem transportadora')
+    assert.equal(V('fedex', 'AA123456785BR').ok, false, 'transportadora fora da lista')
+    // demais transportadoras: so forma
+    assert.deepEqual(V('loggi', 'lgi-me 4829 1735 br'), { ok: true, codigo: 'LGI-ME48291735BR' })
+    assert.deepEqual(V('azul', 'AZL-AK79007250'), { ok: true, codigo: 'AZL-AK79007250' })
+    assert.equal(V('jadlog', '10184736295031').ok, true)
+    assert.equal(V('jadlog', '00000000').ok, false, 'tudo igual')
+    assert.equal(V('jadlog', '12345678').ok, false, 'escada')
+    assert.equal(V('jadlog', '98765432').ok, false, 'escada descendo')
+    assert.equal(V('outra', 'ABCDEFGH12').ok, false, 'poucos numeros')
+    assert.equal(V('outra', 'ABC 12345/67').ok, false, 'caractere estranho')
+    assert.equal(V('outra', '1234').ok, false, 'curto')
+    assert.equal(V('outra', '9'.repeat(5) + '8'.repeat(26)).ok, false, 'longo demais')
+    assert.equal(R.validarRastreio('SS123456785GB'), 'SS123456785GB', 'devolucao usa a mesma regra')
+    assert.equal(RT.ehTransportadora('correios'), true)
+    assert.equal(RT.ehTransportadora('toString'), false)
+  }, 'validarRastreioEnvio por transportadora (Correios com digito, demais pela forma)')
 
   console.log(`\n${n} blocos ok`)
 } finally {

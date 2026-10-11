@@ -110,7 +110,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
 
     const r = acao === 'enviar'
-      ? await marcarEnviado(sb, pedido as PedidoPosVenda, rastreio || '', ctxVend, body?.fotos)
+      ? await marcarEnviado(sb, pedido as PedidoPosVenda, rastreio || '', ctxVend, body?.fotos, body?.transportadora)
       : await cancelarEReembolsar(sb, pedido as PedidoPosVenda, motivo, ctxVend)
 
     if (!r.ok) return NextResponse.json({ error: r.erro }, { status: r.status })

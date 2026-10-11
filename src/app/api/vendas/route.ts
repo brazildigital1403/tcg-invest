@@ -147,7 +147,7 @@ export async function PATCH(req: NextRequest) {
     const r = acao === 'enviar'
       ? await marcarEnviado(sb, pedido as PedidoPosVenda, rastreio || '', {
           nomeExibido: nome, linkPainel: '/vendas', vendedorUserId: userId, canceladoPor: 'vendedor',
-        }, body?.fotos)
+        }, body?.fotos, body?.transportadora)
       : await cancelarEReembolsar(sb, pedido as PedidoPosVenda, motivo, {
           nomeExibido: nome, linkPainel: '/vendas', vendedorUserId: userId, canceladoPor: 'vendedor',
         })
