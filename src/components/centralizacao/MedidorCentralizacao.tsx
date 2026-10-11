@@ -493,13 +493,22 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
       const ret = rets.current[f]
       if (!completa(f) || !md || !ret) continue
       if (assinaturaSalva.current[f] === assinatura(s.cantos, s.linhas, s.semMoldura)) continue
+      // O servidor guarda as linhas com 3 casas; o texto sai das linhas JA
+      // arredondadas, senao o relatorio (que recalcula) poderia divergir na
+      // fronteira de uma casa decimal e descartar a face.
+      const r3 = (n: number) => Math.round(n * 1000) / 1000
+      const linhas: Linhas = {
+        ext: { esq: r3(s.linhas.ext.esq), dir: r3(s.linhas.ext.dir), topo: r3(s.linhas.ext.topo), base: r3(s.linhas.ext.base) },
+        int: { esq: r3(s.linhas.int.esq), dir: r3(s.linhas.int.dir), topo: r3(s.linhas.int.topo), base: r3(s.linhas.int.base) },
+      }
+      const mdR = medir(linhas)
       out[f] = {
-        texto: textoDoLaudo(md),
+        texto: textoDoLaudo(mdR),
         medicao: {
           cantos: s.cantos.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10] as Pt),
-          img: s.dims, linhas: s.linhas, sem_moldura: s.semMoldura, midia_id: s.midiaId, medido_em: new Date().toISOString(),
+          img: s.dims, linhas, sem_moldura: s.semMoldura, midia_id: s.midiaId, medido_em: new Date().toISOString(),
         },
-        imagem: () => gerarAnotada(ret, s.linhas, md, f, rodapeImagem),
+        imagem: () => gerarAnotada(ret, linhas, mdR, f, rodapeImagem),
       }
     }
     return out
