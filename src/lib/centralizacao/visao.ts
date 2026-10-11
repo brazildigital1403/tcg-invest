@@ -174,8 +174,35 @@ export function detectarCarta(img: Imagem, opts: { ladoDeteccao?: number } = {})
     }
     if (ok) picos.push({ th: T0 + t * dT, rho: (r - diag) * RQ, v })
   }
-  const vert = picos.filter(p => Math.abs(p.th) < 0.44).sort((a, b) => b.v - a.v).slice(0, 30)
-  const horz = picos.filter(p => Math.abs(p.th - Math.PI / 2) < 0.44).sort((a, b) => b.v - a.v).slice(0, 30)
+  // Inclinacao dominante: histograma da orientacao do gradiente modulo 90 graus,
+  // pesado pela forca. Carta girada (foto de celular a mao) deixa de exigir
+  // borda perto da vertical: as duas familias de retas ficam em torno de
+  // theta0 e theta0 + 90 graus. Continua assumindo carta em pe (giro ate 45).
+  const NB = 90, histo = new Float32Array(NB)
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x
+    if (mag[i] < corte) continue
+    let a = Math.atan2(gy[i], gx[i]) % (Math.PI / 2)
+    if (a < 0) a += Math.PI / 2
+    histo[Math.floor((a / (Math.PI / 2)) * NB) % NB] += mag[i]
+  }
+  let pico0 = 0
+  for (let b = 0; b < NB; b++) {
+    const v3 = histo[(b + NB - 1) % NB] + histo[b] + histo[(b + 1) % NB]
+    const m3 = histo[(pico0 + NB - 1) % NB] + histo[pico0] + histo[(pico0 + 1) % NB]
+    if (v3 > m3) pico0 = b
+  }
+  let theta0 = ((pico0 + 0.5) / NB) * (Math.PI / 2)
+  if (theta0 >= Math.PI / 4) theta0 -= Math.PI / 2
+  // Traz a reta para perto do centro da familia (theta e theta+pi sao a mesma reta com rho trocado).
+  const perto = (p: Pico, centro: number): Pico => {
+    let { th, rho } = p
+    while (th - centro > Math.PI / 2) { th -= Math.PI; rho = -rho }
+    while (centro - th > Math.PI / 2) { th += Math.PI; rho = -rho }
+    return { ...p, th, rho }
+  }
+  const vert = picos.map(p => perto(p, theta0)).filter(p => Math.abs(p.th - theta0) < 0.44).sort((a, b) => b.v - a.v).slice(0, 30)
+  const horz = picos.map(p => perto(p, theta0 + Math.PI / 2)).filter(p => Math.abs(p.th - theta0 - Math.PI / 2) < 0.44).sort((a, b) => b.v - a.v).slice(0, 30)
   const reta = (p: Pico): Reta => [Math.cos(p.th), Math.sin(p.th), -p.rho]
 
   // Combinacoes: 2 verticais + 2 horizontais com proporcao perto de 88/63.
@@ -237,9 +264,92 @@ export function detectarCarta(img: Imagem, opts: { ladoDeteccao?: number } = {})
   let res: { cantos: Pt[]; confianca: number[]; inferido: boolean[] } = { cantos: melhor.cantos, confianca: melhor.confianca, inferido: melhor.inferido }
   const exp = expandirAteFundo(img, res.cantos, res.inferido, s)
   if (exp) res = exp
+  const ext = bordaMaisExterna(img, res.cantos, res.confianca, res.inferido, s)
+  if (ext) res = ext
   const prop = ajustarProporcao(img, res.cantos, res.confianca, res.inferido, s)
   if (prop) res = prop
   return { ...res, ms: performance.now() - t0 }
+}
+
+// ── borda mais externa ───────────────────────────────────────────────────────
+// Carta com borda escura sobre fundo escuro (scan de full art: cinza sobre
+// preto) faz a deteccao pegar o contorno de dentro, onde a arte comeca, nos 4
+// lados. A borda do papel continua la, fraca mas reta: fazendo a media da cor ao
+// longo do lado INTEIRO, faixa por faixa para fora, ela vira um pico limpo, e o
+// granulado de um tapete se cancela. Candidata = pico mais externo bem acima do
+// ruido daquela foto. Quem decide se empurra e a proporcao da carta: so vale a
+// combinacao de lados que aproxima o retangulo de 63 x 88 (moldura de scanner ou
+// outra carta por perto deixariam a proporcao pior).
+
+function perfilLado(img: Imagem, P: Pt, Q: Pt, nx: number, ny: number, de: number, ate: number) {
+  const { width: W, height: H, data } = img
+  const cores: (number[] | null)[] = []
+  for (let o = de; o <= ate; o++) {
+    let r = 0, g = 0, b = 0, m = 0
+    for (let i = 0; i <= 120; i++) {
+      const t = 0.15 + (0.7 * i) / 120
+      const x = Math.round(P[0] + (Q[0] - P[0]) * t + nx * o), y = Math.round(P[1] + (Q[1] - P[1]) * t + ny * o)
+      if (x < 0 || y < 0 || x >= W || y >= H) continue
+      const q = (y * W + x) * 4
+      r += data[q]; g += data[q + 1]; b += data[q + 2]; m++
+    }
+    cores.push(m > 60 ? [r / m, g / m, b / m] : null)
+  }
+  const grad: number[] = cores.map((_, i) => {
+    const a = cores[i - 1], c = cores[i + 1]
+    return a && c ? Math.abs(a[0] - c[0]) + Math.abs(a[1] - c[1]) + Math.abs(a[2] - c[2]) : 0
+  })
+  return grad
+}
+
+function bordaMaisExterna(img: Imagem, cantos: Pt[], conf: number[], inferido: boolean[], s: number) {
+  const ALVO = CARTA_MM.h / CARTA_MM.w
+  const cx = cantos.reduce((a, p) => a + p[0], 0) / 4, cy = cantos.reduce((a, p) => a + p[1], 0) / 4
+  const normais: [number, number][] = []
+  const cand: number[] = [0, 0, 0, 0]
+  for (let k = 0; k < 4; k++) {
+    const P = cantos[k], Q = cantos[(k + 1) % 4]
+    const L = Math.hypot(Q[0] - P[0], Q[1] - P[1])
+    let nx = (Q[1] - P[1]) / L, ny = -(Q[0] - P[0]) / L
+    if (((P[0] + Q[0]) / 2 - cx) * nx + ((P[1] + Q[1]) / 2 - cy) * ny < 0) { nx = -nx; ny = -ny }
+    normais.push([nx, ny])
+    const de = -4, ate = Math.round(L * 0.1)
+    const g = perfilLado(img, P, Q, nx, ny, de, ate)
+    const at = (o: number) => g[o - de] ?? 0
+    let principal = 0
+    for (let o = -4; o <= 3; o++) principal = Math.max(principal, at(o))
+    const fora = g.slice(5 - de).filter(v => v > 0).sort((a, b) => a - b)
+    if (!fora.length || principal <= 0) continue
+    const ruido = Math.max(2, fora[fora.length >> 1])
+    for (let o = ate - 1; o >= 6; o--) {
+      const v = at(o)
+      if (v >= at(o - 1) && v >= at(o + 1) && v >= 4 * ruido && v >= 0.12 * principal) { cand[k] = o; break }
+    }
+  }
+  if (!cand.some(o => o > 0)) return null
+
+  const desloca = (mask: number) => {
+    const retas: Reta[] = []
+    for (let k = 0; k < 4; k++) {
+      const P = cantos[k], [nx, ny] = normais[k]
+      const d = mask & (1 << k) ? cand[k] : 0
+      retas.push([nx, ny, -(nx * (P[0] + nx * d) + ny * (P[1] + ny * d))])
+    }
+    return [0, 1, 2, 3].map(k => cruzar(retas[(k + 3) % 4], retas[k]))
+  }
+  const desvio = (c: Pt[]) => Math.abs(medidasQuad(c).prop - ALVO)
+  const atual = desvio(cantos)
+  let melhorMask = 0, melhorDesv = atual
+  for (let mask = 1; mask < 16; mask++) {
+    if ([0, 1, 2, 3].some(k => mask & (1 << k) && !cand[k])) continue
+    const dv = desvio(desloca(mask))
+    if (dv < melhorDesv - 1e-9) { melhorDesv = dv; melhorMask = mask }
+  }
+  if (!melhorMask || atual - melhorDesv < 0.01) return null
+  const r = refinar(img, desloca(melhorMask), inferido, s)
+  if (desvio(r.cantos) >= atual - 0.005) return null
+  const confianca = r.confianca.map((c, k) => (melhorMask & (1 << k) ? Math.min(c, 0.45) : c))
+  return { cantos: r.cantos, confianca, inferido: r.inferido }
 }
 
 // ── conferencia pela proporcao ───────────────────────────────────────────────
