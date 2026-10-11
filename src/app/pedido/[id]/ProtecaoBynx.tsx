@@ -5,7 +5,9 @@ import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
 import { comprimirImagem } from '@/lib/comprimirImagem'
-import { IconShield, IconCamera, IconCheck, IconWarning, IconClock } from '@/components/ui/Icons'
+import {
+  IconShield, IconCamera, IconCheck, IconWarning, IconClock, IconBox, IconTruck, IconLoja, IconCard, IconLocation, IconCopy,
+} from '@/components/ui/Icons'
 import {
   MOTIVOS, LISTA_MOTIVOS, SLOTS_FOTO, ROTULO_SLOT, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES,
   ROTULO_BOTAO_PROBLEMA, TEXTO_PROTECAO, DIAS_UTEIS_ENVIO, DIAS_RECLAMAR, DIAS_POSTAR_DEVOLUCAO, motivoExigeFoto, podeReclamar,
@@ -76,6 +78,47 @@ interface EnderecoLoja { nome: string; endereco: string | null; cidade: string |
 
 type Fotos = Partial<Record<SlotFoto, File>>
 
+type Passo = { rotulo: string; Icone: typeof IconBox }
+const PASSOS_CONFIRMAR: Passo[] = [
+  { rotulo: 'Embale', Icone: IconBox },
+  { rotulo: `Poste em ${DIAS_POSTAR_DEVOLUCAO} dias`, Icone: IconTruck },
+  { rotulo: 'Loja recebe', Icone: IconLoja },
+  { rotulo: 'Estorno integral', Icone: IconCard },
+]
+const PASSOS_ANDAMENTO: Passo[] = [
+  { rotulo: 'Desistência', Icone: IconCheck },
+  { rotulo: 'Postar', Icone: IconTruck },
+  { rotulo: 'Loja recebe', Icone: IconLoja },
+  { rotulo: 'Estorno', Icone: IconCard },
+]
+
+/** "18/10" em Brasilia. */
+function fmtData(v: string | null | undefined): string {
+  return fmtPrazo(v).split(' ')[0] || ''
+}
+
+/**
+ * Linha do tempo da devolucao. `etapa` = indice da etapa atual (as anteriores
+ * aparecem feitas); -1 = so explica o caminho, nada aceso.
+ */
+function LinhaDevolucao({ passos, etapa }: { passos: Passo[]; etapa: number }) {
+  return (
+    <ol className="pb-tl" aria-label="Etapas da devolução">
+      {passos.map((p, i) => {
+        const feito = etapa >= 0 && i < etapa
+        const atual = i === etapa
+        const Ic = feito ? IconCheck : p.Icone
+        return (
+          <li key={p.rotulo} className={`pb-tl-p${feito ? ' pb-tl-feito' : ''}${atual ? ' pb-tl-atual' : ''}`} aria-current={atual ? 'step' : undefined}>
+            <span className="pb-tl-ic"><Ic size={18} color="currentColor" /></span>
+            <span className="pb-tl-rot">{p.rotulo}</span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtecao; onMudou: () => void }) {
   const [ehLeilao, setEhLeilao] = useState<boolean | null>(pedido.leilao_id ? true : null)
   const [recls, setRecls] = useState<Reclamacao[]>([])
@@ -93,6 +136,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   const [confirmo, setConfirmo] = useState(false)
   const [rastreio, setRastreio] = useState('')
   const [endereco, setEndereco] = useState<EnderecoLoja | null>(null)
+  const [copiado, setCopiado] = useState(false)
 
   const carregar = useCallback(async () => {
     const { data } = await supabase
@@ -143,6 +187,8 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   const desist = podeDesistir(base, agora)
   const ehDesistencia = atual?.motivo === 'arrependimento'
   const rastreioOk = !!validarRastreio(rastreio)
+  // Avisa so quando ja tem tamanho de codigo e nao bate (antes disso, ainda digitando).
+  const rastreioInvalido = !rastreioOk && rastreio.replace(/[\s.-]/g, '').length >= 13
   const exigeFoto = motivo ? motivoExigeFoto(motivo) : false
   const fotosOk = !exigeFoto || SLOTS_FOTO.every(s => fotos[s])
   const podeEnviar = !!motivo && descricao.trim().length >= 10 && fotosOk && !enviando
@@ -287,60 +333,81 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
       )}
 
       {/* Desistencia com devolucao em andamento */}
-      {atual && ehDesistencia && (
-        <div className={`pb-card${atual.status === 'resolvida' ? ' pb-ok' : atual.status === 'aguardando_devolucao' && !atual.devolucao_postada_em ? ' pb-alerta' : ''}`}>
-          <div className="pb-head">
-            {atual.status === 'resolvida' ? <IconCheck size={17} color="var(--bx-green)" /> : <IconClock size={17} color="var(--bx-amber)" />}
-            <b>{atual.status === 'resolvida' ? 'Devolução concluída'
-              : atual.status === 'improcedente' ? 'Desistência encerrada'
-              : atual.status === 'em_analise' ? 'Devolução em análise pela Bynx'
-              : atual.devolucao_entregue_em ? 'A devolução chegou na loja'
-              : atual.devolucao_postada_em ? 'Devolução postada'
-              : 'Poste a carta e informe o envio'}</b>
-          </div>
-
-          {atual.status === 'aguardando_devolucao' && !atual.devolucao_postada_em && (
-            <>
-              <p className="pb-txt">Envie a carta como recebeu (sleeve, toploader e envelope com proteção) até <b>{fmtPrazo(atual.postar_ate)}</b> (horário de Brasília). Se não postar no prazo, a desistência expira e a compra continua valendo.</p>
-              {endereco && (
-                <div className="pb-quadro">
-                  <div className="pb-mut pb-rot0">Enviar para</div>
-                  <div><b>{endereco.nome}</b></div>
-                  <div className="pb-cit">{[endereco.endereco, [endereco.cidade, endereco.estado].filter(Boolean).join(' - '), endereco.cep].filter(Boolean).join(' · ')}</div>
-                </div>
-              )}
-              {podeInformarPostagem(atual, agora) && (
-                <>
-                  <label className="pb-rot" htmlFor="pb-rastreio">Código de rastreio da devolução</label>
-                  <input id="pb-rastreio" className="pb-input" value={rastreio} onChange={e => setRastreio(e.target.value.toUpperCase())}
-                    placeholder="AA123456789BR" autoCapitalize="characters" autoComplete="off" maxLength={20} />
-                  <div className="pb-linha">
-                    <button type="button" className="pb-bt pb-bt-pri" disabled={!rastreioOk || !!enviando} onClick={informarPostagem}>{enviando || 'Informar postagem'}</button>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-          {atual.devolucao_rastreio && (
-            <p className="pb-txt"><span className="pb-mut">Rastreio da devolução:</span> {atual.devolucao_rastreio}</p>
-          )}
-          {atual.status === 'aguardando_devolucao' && atual.devolucao_postada_em && !atual.devolucao_entregue_em && (
-            <p className="pb-txt">Quando a carta chegar na loja e ela conferir, o estorno integral sai no seu cartão.</p>
-          )}
-          {atual.status === 'aguardando_devolucao' && atual.devolucao_entregue_em && atual.contestar_ate && (
-            <p className="pb-txt">A loja tem até {fmtPrazo(atual.contestar_ate)} para conferir. Sem contestação, o estorno integral sai sozinho.</p>
-          )}
-          {atual.status === 'em_analise' && (
-            <p className="pb-txt">A loja contestou a devolução. A Bynx analisa as provas dos dois lados{atual.prazo_decisao_ate ? ` e decide até ${fmtPrazo(atual.prazo_decisao_ate)}` : ''}.</p>
-          )}
-          {(atual.status === 'resolvida' || atual.status === 'improcedente') && (
-            <div className="pb-quadro">
-              {atual.valor_estornado_cents > 0 ? <div>Estornado <b>{fmtBRL(atual.valor_estornado_cents)}</b></div> : null}
-              {atual.decisao_nota && <div className="pb-cit">{atual.decisao_nota}</div>}
+      {atual && ehDesistencia && (() => {
+        const etapa = atual.status === 'resolvida' ? 4
+          : atual.devolucao_entregue_em || atual.status === 'em_analise' ? 3
+          : atual.devolucao_postada_em ? 2
+          : 1
+        const aPostar = atual.status === 'aguardando_devolucao' && !atual.devolucao_postada_em
+        const enderecoTxt = endereco
+          ? [endereco.endereco, [endereco.cidade, endereco.estado].filter(Boolean).join(' - '), endereco.cep].filter(Boolean).join(' · ')
+          : ''
+        return (
+          <div className={`pb-card${atual.status === 'resolvida' ? ' pb-ok' : aPostar ? ' pb-alerta' : ''}`}>
+            <div className="pb-titulo">
+              {atual.status === 'resolvida' ? 'Devolução concluída'
+                : atual.status === 'improcedente' ? 'Desistência encerrada'
+                : atual.status === 'em_analise' ? 'Devolução em análise'
+                : atual.devolucao_entregue_em ? 'A loja está conferindo'
+                : atual.devolucao_postada_em ? 'Devolução a caminho'
+                : <>Poste até <span className="pb-dest">{fmtData(atual.postar_ate)}</span></>}
             </div>
-          )}
-        </div>
-      )}
+
+            {atual.status !== 'improcedente' && <LinhaDevolucao passos={PASSOS_ANDAMENTO} etapa={etapa} />}
+
+            {aPostar && (
+              <>
+                {endereco && (
+                  <div className="pb-end">
+                    <IconLocation size={18} color="var(--bx-text-3)" />
+                    <div className="pb-end-txt">
+                      <b>{endereco.nome}</b>
+                      <span>{enderecoTxt}</span>
+                    </div>
+                    <button type="button" className="pb-copiar" aria-label="Copiar endereço"
+                      onClick={() => { navigator.clipboard?.writeText(`${endereco.nome}\n${enderecoTxt}`).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 1600) }).catch(() => {}) }}>
+                      {copiado ? <IconCheck size={16} color="var(--bx-green)" /> : <IconCopy size={16} color="currentColor" />}
+                    </button>
+                  </div>
+                )}
+                <div className="pb-dica"><IconBox size={15} color="var(--bx-text-3)" />Embale como recebeu: sleeve, toploader e envelope com proteção.</div>
+                {podeInformarPostagem(atual, agora) && (
+                  <div className="pb-postar">
+                    <label className="pb-rot" htmlFor="pb-rastreio">Código de rastreio</label>
+                    <div className="pb-campo">
+                      <IconTruck size={17} color="var(--bx-text-3)" />
+                      <input id="pb-rastreio" value={rastreio} onChange={e => setRastreio(e.target.value.toUpperCase())}
+                        placeholder="AA123456789BR" autoCapitalize="characters" autoComplete="off" maxLength={20} />
+                    </div>
+                    {rastreioInvalido && <div className="pb-aviso-campo">Confira o código: são 2 letras, 9 números e 2 letras.</div>}
+                    <button type="button" className="pb-bt pb-bt-pri pb-full" disabled={!rastreioOk || !!enviando} onClick={informarPostagem}>{enviando || 'Informar postagem'}</button>
+                  </div>
+                )}
+                <div className="pb-rodape">Sem postagem até {fmtPrazo(atual.postar_ate)}, a desistência expira e a compra continua valendo.</div>
+              </>
+            )}
+
+            {atual.devolucao_rastreio && (
+              <div className="pb-linha-info"><IconTruck size={15} color="var(--bx-text-3)" /><span>Rastreio</span><b>{atual.devolucao_rastreio}</b></div>
+            )}
+            {atual.status === 'aguardando_devolucao' && atual.devolucao_postada_em && !atual.devolucao_entregue_em && (
+              <p className="pb-txt">Quando a loja receber e conferir, o estorno integral sai no seu cartão.</p>
+            )}
+            {atual.status === 'aguardando_devolucao' && atual.devolucao_entregue_em && atual.contestar_ate && (
+              <p className="pb-txt">Sem contestação até {fmtPrazo(atual.contestar_ate)}, o estorno sai sozinho.</p>
+            )}
+            {atual.status === 'em_analise' && (
+              <p className="pb-txt">A loja contestou. A Bynx analisa as provas{atual.prazo_decisao_ate ? ` e decide até ${fmtPrazo(atual.prazo_decisao_ate)}` : ''}.</p>
+            )}
+            {(atual.status === 'resolvida' || atual.status === 'improcedente') && (
+              <div className="pb-quadro">
+                {atual.valor_estornado_cents > 0 ? <div>Estornado <b>{fmtBRL(atual.valor_estornado_cents)}</b></div> : null}
+                {atual.decisao_nota && <div className="pb-cit">{atual.decisao_nota}</div>}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Estado da reclamacao mais recente */}
       {atual && !ehDesistencia && (
@@ -441,26 +508,21 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
           {!desistindo ? (
             <>
               <button type="button" className="pb-bt pb-bt-ghost pb-full" onClick={() => setDesistindo(true)}>Desistir da compra</button>
-              <p className="pb-txt pb-mut">Você pode desistir em até {DIAS_RECLAMAR} dias depois de receber, sem explicar o motivo.{desist.ate ? ` Prazo: ${fmtPrazo(desist.ate)}.` : ''}</p>
+              <p className="pb-txt pb-mut">Até {DIAS_RECLAMAR} dias depois de receber, sem explicar o motivo.{desist.ate ? ` Prazo: ${fmtPrazo(desist.ate)}.` : ''}</p>
             </>
           ) : (
             <div className="pb-form">
-              <div className="pb-head"><b>Desistir da compra</b></div>
-              <p className="pb-txt pb-mut">Você não precisa explicar o motivo. Confira como funciona antes de confirmar.</p>
-              <ol className="pb-passos">
-                <li>Você recebe o endereço de devolução e tem até <b>{DIAS_POSTAR_DEVOLUCAO} dias</b> para postar a carta.</li>
-                <li>Envie a carta como recebeu: sleeve, toploader e envelope com proteção.</li>
-                <li>Quando a devolução chegar na loja, o estorno integral sai no seu cartão.</li>
-              </ol>
+              <div className="pb-titulo">Desistir da compra</div>
+              <p className="pb-txt pb-mut">Não precisa explicar o motivo.</p>
+              <LinhaDevolucao passos={PASSOS_CONFIRMAR} etapa={-1} />
               <label className="pb-check">
                 <input type="checkbox" checked={confirmo} onChange={e => setConfirmo(e.target.checked)} />
-                <span>Vou devolver a carta no estado em que recebi. Se a loja provar que voltou outra carta ou danificada, a Bynx analisa.</span>
+                <span>Devolvo a carta como recebi.</span>
               </label>
               <div className="pb-linha">
                 <button type="button" className="pb-bt pb-bt-perigo" disabled={!confirmo || !!enviando} onClick={desistir}>{enviando || 'Confirmar desistência'}</button>
                 <button type="button" className="pb-bt pb-bt-ghost" disabled={!!enviando} onClick={() => { setDesistindo(false); setConfirmo(false); setErro(null) }}>Voltar</button>
               </div>
-              <p className="pb-txt pb-mut">Você recebe um e-mail confirmando a desistência, com data e hora.</p>
             </div>
           )}
         </div>
@@ -501,8 +563,33 @@ const CSS = `
 .pb-bt-perigo{flex:1;margin-top:10px;border:1px solid color-mix(in srgb,var(--bx-red) 50%,transparent);background:color-mix(in srgb,var(--bx-red) 12%,transparent);color:var(--bx-red)}
 .pb-linha .pb-bt-perigo{margin-top:0}
 .pb-full{width:100%}
+.pb-titulo{font-size:16px;font-weight:800;color:var(--bx-text);line-height:1.3}
+.pb-dest{color:var(--ac-1)}
+.pb-tl{list-style:none;margin:14px 0 4px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));position:relative}
+.pb-tl::before{content:'';position:absolute;top:18px;left:12.5%;right:12.5%;height:1px;background:var(--bx-border-2)}
+.pb-tl-p{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
+.pb-tl-ic{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--bx-surface-2);border:1px solid var(--bx-border-2);color:var(--bx-text-3);transition:background .15s ease,border-color .15s ease,color .15s ease}
+.pb-tl-rot{font-size:11.5px;line-height:1.3;color:var(--bx-text-3);font-weight:600}
+.pb-tl-feito .pb-tl-ic{color:var(--bx-green);border-color:color-mix(in srgb,var(--bx-green) 45%,transparent);background:color-mix(in srgb,var(--bx-green) 10%,var(--bx-surface-2))}
+.pb-tl-atual .pb-tl-ic{color:var(--ac-1);border-color:rgba(var(--ac-1-rgb),.6);background:rgba(var(--ac-1-rgb),.12)}
+.pb-tl-atual .pb-tl-rot{color:var(--bx-text)}
+.pb-end{display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;border-radius:12px;background:var(--bx-surface-2);border:1px solid var(--bx-border)}
+.pb-end-txt{display:grid;gap:2px;min-width:0;flex:1;font-size:13px;line-height:1.45}
+.pb-end-txt span{color:var(--bx-text-2);overflow-wrap:anywhere}
+.pb-copiar{width:44px;height:44px;flex-shrink:0;border-radius:10px;border:1px solid var(--bx-border-2);background:transparent;color:var(--bx-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease}
+.pb-copiar:hover{background:var(--bx-surface-3)}
+.pb-dica{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--bx-text-2)}
+.pb-dica svg{flex-shrink:0;margin-top:2px}
+.pb-postar{display:grid;gap:8px;margin-top:12px}
+.pb-campo{display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:10px;background:var(--bx-surface-2);border:1px solid var(--bx-border);transition:border-color .15s ease}
+.pb-campo:focus-within{border-color:var(--bx-border-2)}
+.pb-campo input{flex:1;min-width:0;min-height:46px;background:transparent;border:none;outline:none;color:var(--bx-text);font:inherit;font-size:16px;letter-spacing:.04em}
+.pb-aviso-campo{font-size:12.5px;color:var(--bx-amber)}
+.pb-rodape{margin-top:12px;font-size:11.5px;line-height:1.5;color:var(--bx-text-3)}
+.pb-linha-info{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--bx-text-2)}
+.pb-linha-info b{margin-left:auto;color:var(--bx-text);letter-spacing:.04em}
+@media (prefers-reduced-motion:reduce){.pb-tl-ic,.pb-copiar,.pb-campo{transition:none}}
 .pb-rot0{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-.pb-passos{margin:4px 0 0;padding-left:20px;display:grid;gap:6px;font-size:12.5px;line-height:1.5;color:var(--bx-text-2)}
 .pb-check{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;line-height:1.5;color:var(--bx-text-2);cursor:pointer;margin-top:4px}
 .pb-check input{width:18px;height:18px;margin-top:1px;flex-shrink:0;accent-color:var(--ac-1)}
 .pb-erro{font-size:12.5px;color:var(--bx-red);background:color-mix(in srgb,var(--bx-red) 8%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 25%,transparent);border-radius:10px;padding:9px 12px}
