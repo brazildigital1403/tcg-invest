@@ -268,7 +268,63 @@ export function detectarCarta(img: Imagem, opts: { ladoDeteccao?: number } = {})
   if (ext) res = ext
   const prop = ajustarProporcao(img, res.cantos, res.confianca, res.inferido, s)
   if (prop) res = prop
+  res = conferirPeloTamanho(res)
   return { ...res, ms: performance.now() - t0 }
+}
+
+// ── tamanho unico ────────────────────────────────────────────────────────────
+// A carta tem um tamanho so (63 x 88 mm). Com as laterais confiaveis, a altura
+// esta determinada: se topo e base detectados batem com ela, os dois sao
+// confiaveis mesmo que o refino tenha saido ruidoso (tapete granulado); se nao
+// batem e um deles e confiavel, o outro vai para onde o tamanho manda. O mesmo
+// vale trocando os eixos. Lado deduzido pelo tamanho fica marcado para conferir.
+
+const CONF_OK = 0.5
+const TOL_TAMANHO = 0.012 // ~1 mm na altura da carta
+const CONF_PELO_TAMANHO = 0.6
+
+function conferirPeloTamanho(res: { cantos: Pt[]; confianca: number[]; inferido: boolean[] }) {
+  const ALVO = CARTA_MM.h / CARTA_MM.w
+  let { cantos } = res
+  const conf = res.confianca.slice()
+  // Lados: 0 topo, 1 dir, 2 base, 3 esq. Cantos: TL, TR, BR, BL.
+  const eixo = (fixos: [number, number], moveis: [number, number]) => {
+    if (conf[fixos[0]] < CONF_OK || conf[fixos[1]] < CONF_OK) return
+    const { larg, alt } = medidasQuad(cantos)
+    const verticais = moveis[0] === 0 // moveis = topo/base: o que se mede e a altura
+    const medido = verticais ? alt : larg
+    const esperado = verticais ? larg * ALVO : alt / ALVO
+    const desvio = Math.abs(medido - esperado) / esperado
+    const [a, b] = moveis
+    if (desvio <= TOL_TAMANHO) {
+      // Batem com o tamanho da carta: os dois ficam confiaveis.
+      conf[a] = Math.max(conf[a], CONF_PELO_TAMANHO)
+      conf[b] = Math.max(conf[b], CONF_PELO_TAMANHO)
+      return
+    }
+    // Nao batem: so da para corrigir se exatamente um dos dois e confiavel.
+    const okA = conf[a] >= CONF_OK, okB = conf[b] >= CONF_OK
+    if (okA === okB) return
+    const firme = okA ? a : b, solto = okA ? b : a
+    // Reta do lado firme, deslocada paralelamente pelo tamanho esperado.
+    const P = cantos[firme], Q = cantos[(firme + 1) % 4]
+    const L = Math.hypot(Q[0] - P[0], Q[1] - P[1])
+    const cx = cantos.reduce((s2, p) => s2 + p[0], 0) / 4, cy = cantos.reduce((s2, p) => s2 + p[1], 0) / 4
+    let nx = (Q[1] - P[1]) / L, ny = -(Q[0] - P[0]) / L
+    if (((P[0] + Q[0]) / 2 - cx) * nx + ((P[1] + Q[1]) / 2 - cy) * ny > 0) { nx = -nx; ny = -ny } // aponta para dentro
+    const retaSolta: Reta = [nx, ny, -(nx * (P[0] + nx * esperado) + ny * (P[1] + ny * esperado))]
+    const retas: Reta[] = [0, 1, 2, 3].map(k => {
+      if (k === solto) return retaSolta
+      const A = cantos[k], B = cantos[(k + 1) % 4]
+      const n0 = B[1] - A[1], n1 = A[0] - B[0], nn = Math.hypot(n0, n1) || 1
+      return [n0 / nn, n1 / nn, -(n0 * A[0] + n1 * A[1]) / nn]
+    })
+    cantos = [0, 1, 2, 3].map(k => cruzar(retas[(k + 3) % 4], retas[k]))
+    conf[solto] = 0.45
+  }
+  eixo([1, 3], [0, 2]) // laterais firmes -> confere topo e base
+  eixo([0, 2], [1, 3]) // topo e base firmes -> confere laterais
+  return { cantos, confianca: conf.map(c => Math.round(c * 100) / 100), inferido: res.inferido }
 }
 
 // ── borda mais externa ───────────────────────────────────────────────────────
