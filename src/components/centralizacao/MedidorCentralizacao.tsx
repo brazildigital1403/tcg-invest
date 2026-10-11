@@ -545,7 +545,8 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
         </div>
       </div>
 
-      <div className="mc-grid">
+      {/* No celular, enquanto houver linha a conferir, o ajuste vem antes das graduadoras. */}
+      <div className={`mc-grid${pendentesFace.length ? ' mc-conferindo' : ''}`}>
         {/* ── palco ── */}
         <div className="mc-palco">
           {e.etapa === 'vazio' && (
@@ -858,6 +859,7 @@ const CSS = `
 .mc-erro{margin:0;font-size:13px;color:var(--bx-red)}
 @media (max-width:900px){
   .mc-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"palco" "grads" "painel"}
+  .mc-grid.mc-conferindo{grid-template-areas:"palco" "painel" "grads"}
   .mc-svg{max-height:68vh}
   .mc-lupa{width:120px;height:120px}
   .mc-palco{min-height:300px}
