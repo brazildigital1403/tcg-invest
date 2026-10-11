@@ -145,3 +145,38 @@ export function avisoFaixa(e: Escada | undefined, faixaMax: number | null): stri
   if (n == null || faixaMax <= n) return null
   return `Pela centralização, a carta cabe até ${nota} na ${e.graduadora}, e a faixa vai até ${String(faixaMax).replace('.', ',')}. Confira se a faixa considera isso.`
 }
+
+/**
+ * Frases da escada de UMA graduadora para o relatorio do cliente (o admin usa
+ * as do EscadasGraduadoras, que tem instrucao de bancada). Sem nota: so onde a
+ * centralizacao cabe e quanto falta.
+ */
+export function frasesCliente(e: Escada, base: 'duas' | FaceNome): { principal: string; extras: string[]; limite: string | null } {
+  const g = e.graduadora
+  if (!e.publica) {
+    return { principal: `A ${g} não publica limite de centralização em proporção e avalia esse critério de forma qualitativa. As medidas acima valem como referência para o envio.`, extras: [], limite: null }
+  }
+  const teto = e.teto != null ? e.degraus[e.teto] : null
+  const prox = e.teto == null ? e.degraus[0] : e.degraus[e.teto + 1]
+  const extras: string[] = []
+  let principal: string
+  if (teto) {
+    principal = prox ? `Na ${g}, a centralização cabe em ${teto.nota}.` : `Na ${g}, a centralização cabe em ${teto.nota}, o degrau mais alto da tabela.`
+  } else {
+    const baixo = e.degraus[0]
+    principal = `A centralização fica abaixo da tabela publicada pela ${g}. O degrau mais baixo, ${baixo.nota}, vai até ${fmtLimite(baixo.frente)} na frente.`
+  }
+  if (prox && e.folga.length) {
+    const partes = e.folga.map(f => `${fmtPontos(f.pp)} ${f.face === 'verso' ? 'no verso' : 'na frente'}`)
+    const mm = e.folga.length === 1 ? ` (${fmtMmCurto(e.folga[0].mm)})` : ''
+    const margem = e.folga.every(f => f.naMargem) ? ', menos que a precisão da medição' : ''
+    principal += ` Para ${prox.nota}, faltam ${partes.join(' e ')}${mm}${margem}.`
+  }
+  if (e.margem?.naMargem && teto) extras.push('Está no limite da faixa: uma diferença de 0,1 mm muda o resultado.')
+  if ((base === 'frente' || base === 'verso') && e.outraFace) {
+    const outra = e.outraFace.face
+    extras.push(`Só ${base === 'frente' ? 'a frente foi medida' : 'o verso foi medido'}. ${outra === 'verso' ? 'O verso' : 'A frente'} pode baixar a faixa.${e.outraFace.ate != null ? ` Para manter, ${outra === 'verso' ? 'o verso' : 'a frente'} precisa ficar até ${fmtLimite(e.outraFace.ate)}.` : ''}`)
+  }
+  const limite = teto ? `Limite de ${teto.nota}: frente até ${fmtLimite(teto.frente)}${teto.verso != null ? `, verso até ${fmtLimite(teto.verso)}` : ''}.` : null
+  return { principal, extras, limite }
+}

@@ -30,6 +30,7 @@ import {
   TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, RISCOS,
   validarFicha, lerFaixaNota, lerGraduadora, STATUS_EXPRESSO_EM_ANDAMENTO, brl, lerProporcao,
 } from '@/lib/servicos'
+import { lerMedicaoFace } from '@/lib/centralizacao/medicao'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,34 +38,6 @@ const MIMES_ADMIN = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'vide
 const MAX_ADMIN_BYTES = 50 * 1024 * 1024
 const CENTS_MAX = 100_000_000
 
-/**
- * Medicao de UMA face vinda da ferramenta de centralizacao, reconstruida campo a
- * campo (nada do corpo entra no banco sem passar por aqui). null se incompleta.
- */
-function lerMedicaoFace(v: unknown) {
-  if (!v || typeof v !== 'object') return null
-  const o = v as Record<string, unknown>
-  const num = (x: unknown, min: number, max: number) => (typeof x === 'number' && Number.isFinite(x) && x >= min && x <= max ? Math.round(x * 1000) / 1000 : null)
-  const img = Array.isArray(o.img) ? o.img.map(x => num(x, 1, 20000)) : []
-  if (img.length !== 2 || img.some(x => x == null)) return null
-  const [w, h] = img as number[]
-  const cantos = Array.isArray(o.cantos) && o.cantos.length === 4
-    ? o.cantos.map(p => (Array.isArray(p) && p.length === 2 ? [num(p[0], -w, 2 * w), num(p[1], -h, 2 * h)] : [null, null]))
-    : []
-  if (cantos.length !== 4 || cantos.some(p => p[0] == null || p[1] == null)) return null
-  const lin = (o.linhas && typeof o.linhas === 'object' ? o.linhas : {}) as Record<string, Record<string, unknown> | undefined>
-  const linhas: Record<string, Record<string, number>> = {}
-  for (const g of ['ext', 'int']) {
-    linhas[g] = {}
-    for (const l of ['esq', 'dir', 'topo', 'base']) {
-      const x = num(lin[g]?.[l], -10, 100)
-      if (x == null) return null
-      linhas[g][l] = x
-    }
-  }
-  const midia = typeof o.midia_id === 'string' && /^[0-9a-f-]{36}$/i.test(o.midia_id) ? o.midia_id : null
-  return { cantos, img, linhas, sem_moldura: o.sem_moldura === true, midia_id: midia, medido_em: new Date().toISOString() }
-}
 
 function cents(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
@@ -443,7 +416,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         const m = lerMedicaoFace(medicaoEntrada[face])
         if (!m) return erro(400, `Medição da ${face} incompleta`)
         laudo[`centralizacao_${face}`] = texto.trim()
-        medicao[face] = m
+        medicao[face] = { ...m, medido_em: new Date().toISOString() }
         algum = true
       }
       if (!algum) return erro(400, 'Nenhuma face medida')

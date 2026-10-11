@@ -24,7 +24,8 @@ import {
   GUARDA_RECOMENDADA, GUARDA_PRENSA, GUARDA_GRADUADORA,
   type RelatorioDados, type RelatorioCarta, type RelatorioFoto, type RelatorioPagamento,
 } from '@/lib/servicosRelatorio'
-import { IconCheck, IconClose, IconWarning } from '@/components/ui/Icons'
+import { IconCheck, IconClose, IconWarning, IconStar } from '@/components/ui/Icons'
+import { frasesCliente, type Escada, type FaceNome } from '@/lib/centralizacao/graduadoras'
 
 // ── Geometria (mm) ──────────────────────────────────────────────────────────
 const MM = 96 / 25.4
@@ -109,6 +110,51 @@ function FotoReal({ foto, alt }: { foto?: RelatorioFoto; alt: string }) {
     <div className={`real${foto ? '' : ' real-vazio'}`}>
       {/* eslint-disable-next-line @next/next/no-img-element -- bucket privado por URL assinada */}
       {foto?.url && !medindo ? <img src={foto.url} alt={alt} /> : foto && !medindo ? <span data-sem-url>Foto indisponível</span> : <span>{foto ? '' : 'Sem registro'}</span>}
+    </div>
+  )
+}
+
+/**
+ * Escada da graduadora recomendada, em papel. Nada depende de cor: hachura,
+ * espessura de borda e tracejado separam os degraus (impressao em preto e branco).
+ */
+function EscadaPapel({ e, base, consulta }: { e: Escada; base: 'duas' | FaceNome; consulta: string }) {
+  const f = frasesCliente(e, base)
+  const uma = base !== 'duas'
+  if (!e.publica) {
+    return (
+      <div className="sec">
+        <SecT rot={`Centralização na tabela da ${e.graduadora}`} semMarca />
+        <p>{f.principal}</p>
+      </div>
+    )
+  }
+  const tem10P = e.degraus.some(d => d.curto === '10P')
+  return (
+    <div className="sec">
+      <SecT rot={`Centralização na tabela da ${e.graduadora}`} semMarca />
+      <div className="esc-p">
+        <div><b>{e.graduadora}</b><div className="leg">{e.quando}</div></div>
+        <div className="esc" role="img" aria-label={f.principal}>
+          {e.teto == null && <div className="esc-col esc-chao"><span className={`carta-p${uma ? ' uma' : ''}`} /><span className="rot-dg">abaixo</span></div>}
+          {e.degraus.map((d, i) => (
+            <div key={d.nota} className="esc-col">
+              {d.estado === 'teto' && <span className={`carta-p${uma ? ' uma' : ''}`} />}
+              <i className={`dg ${d.estado}`} style={{ height: `${4 + i * 3.5}mm` }} />
+              <span className="rot-dg num">{d.gem && <IconStar size={9} color="currentColor" />}{d.curto}</span>
+            </div>
+          ))}
+        </div>
+        <div className="esc-txt">
+          <p><b>{f.principal}</b></p>
+          {f.extras.map((x, i) => <p key={i}>{x}</p>)}
+          {f.limite && <div className="leg">{f.limite}</div>}
+        </div>
+      </div>
+      <div className="leg">
+        Critério publicado pela {e.graduadora}, consultado em {consulta}. Um ponto é um ponto percentual do lado maior: de 55/45 para 54/46. A centralização é só um dos critérios: cantos, bordas e superfície também entram, e a nota final é da graduadora.
+        {e.obs ? ` ${e.obs}` : ''}{tem10P ? ' 10P = Pristine.' : ''}
+      </div>
     </div>
   )
 }
@@ -418,11 +464,11 @@ function montarBlocos(d: RelatorioDados): Bloco[] {
     }
 
     // ── Laudo (pre-grading: logo apos a ficha) ──
+    // Primeira pagina inteira de centralizacao (par de imagens em tamanho real,
+    // tabela de medidas e escada da graduadora recomendada); o resto do laudo
+    // (mapa, faixa, graduadora, proximo passo) vem depois, em "continuacao".
     const blocosLaudo = (): Bloco[] => {
       const secL = `${L('laudo')}. Laudo de pré-grading`
-      // A imagem anotada da ferramenta (linhas e mm) vale mais que a foto crua.
-      const anotada = fotoDe(c, 'laudo', 'centralizacao_frente')
-      const fotoC = anotada || (comSaida ? frenteSa : frenteCh)
       const la = c.laudo
       const leg = tipo === 'completo' ? 'Medido após o tratamento' : undefined
       if (!la) {
@@ -432,56 +478,117 @@ function montarBlocos(d: RelatorioDados): Bloco[] {
         }]
       }
       const quando = GRADUADORAS.find(g => g.nome === la.graduadora)?.quando
-      const limite = compararCentralizacao(la.graduadora, la.centralizacaoFrente, la.centralizacaoVerso)
+      const medida = la.centralizacaoMedida ?? null
+      const escada = la.centralizacaoEscada ?? null
+      const limite = escada ? null : compararCentralizacao(la.graduadora, la.centralizacaoFrente, la.centralizacaoVerso)
       const lo = la.faixa ? Math.floor(la.faixa.min) : 0
       const hi = la.faixa ? Math.ceil(la.faixa.max) : 0
-      return [
+      const semMoldura = !!(medida?.frente?.semMoldura || medida?.verso?.semMoldura)
+
+      const face = (f: 'frente' | 'verso') => {
+        const anot = fotoDe(c, 'laudo', `centralizacao_${f}`)
+        const crua = fotoDe(c, comSaida ? 'saida_difusa' : 'entrada_difusa', f)
+        const rot = f === 'frente' ? 'Frente' : 'Verso'
+        const quandoMed = medida?.[f]?.medidoEm ? ` · ${fmtDataAnoBRT.format(medida[f]!.medidoEm!)}` : ''
+        return (
+          <div className="face-c">
+            <div className={`moldura-c${anot ? ' anot' : ''}`}>
+              {anot ? <FotoReal foto={anot} alt={`${c.nome}, ${f} com as linhas da medição`} /> : <FotoReal foto={crua} alt={`${c.nome}, ${f}`} />}
+            </div>
+            <div className="leg">{anot ? `${rot} · linhas da medição${quandoMed}` : crua ? `${rot} · foto da ${comSaida ? 'saída' : 'chegada'}, sem linhas` : `${rot} · sem registro`}</div>
+          </div>
+        )
+      }
+
+      const linhaMedida = (f: 'frente' | 'verso') => {
+        const m = medida?.[f]
+        const rot = <td><b>{f === 'frente' ? 'Frente' : 'Verso'}</b></td>
+        if (!m) {
+          const t = f === 'frente' ? la.centralizacaoFrente : la.centralizacaoVerso
+          return <tr key={f}>{rot}<td colSpan={6} className="num">{t || 'Não medida'}</td></tr>
+        }
+        const mm = (v: number) => `${v.toFixed(2).replace('.', ',')} mm`
+        const eixo = (t: string, vale: boolean) => vale ? <><b>{t}</b> <span className="tag">vale</span></> : t
+        return (
+          <tr key={f}>
+            {rot}
+            <td className="num">{mm(m.mm.esq)}</td><td className="num">{mm(m.mm.dir)}</td>
+            <td className="num">{eixo(m.laterais.texto, m.vale === 'laterais')}</td>
+            <td className="num">{mm(m.mm.topo)}</td><td className="num">{mm(m.mm.base)}</td>
+            <td className="num">{eixo(m.topoBase.texto, m.vale === 'topoBase')}</td>
+          </tr>
+        )
+      }
+
+      const blocosC: Bloco[] = [
         {
           ...base, k: `${k}-laudo`, quebra: true, letra: L('laudo'), secao: secL,
           node: (
             <div className="sec">
               <SecT rot={secL} leg={leg} />
-              <div className="laudo">
-                <div className="laudo-col">
-                  <div>
-                    <div className="leg"><b>1. Centralização medida</b> · frente{anotada ? ' · linhas da medição' : fotoC ? ` · ${comSaida ? 'saída' : 'chegada'}` : ''}</div>
-                    <div className="centro"><FotoReal foto={fotoC} alt={`${c.nome}, frente usada na medição`} /></div>
-                  </div>
-                  <div className="sec">
-                    <SecT rot="2. Mapa de imperfeições" semMarca />
-                    <Kv l="Cantos">{la.cantos || 'Não registrado'}</Kv>
-                    <Kv l="Bordas">{la.bordas || 'Não registrado'}</Kv>
-                    <Kv l="Superfície">{la.superficie || 'Não registrado'}</Kv>
-                  </div>
+              <div className="leg"><b>1. Centralização medida</b> · frente e verso</div>
+              <div className="par-c">{face('frente')}{face('verso')}</div>
+              <div className="leg">
+                Linha externa: borda do papel. Linha interna: fim da moldura. Os números ao lado são a largura de cada borda, em mm. Impresso em 100%, a carta sai em tamanho real (63 mm de largura).
+                {semMoldura && ' Carta sem moldura: a linha interna foi posicionada à mão.'}
+              </div>
+            </div>
+          ),
+        },
+        {
+          ...base, k: `${k}-laudo-medidas`, letra: L('laudo'), secao: secL,
+          node: (
+            <div className="sec">
+              <table className="tab-c">
+                <thead><tr><th>Face</th><th>Esquerda</th><th>Direita</th><th>Laterais</th><th>Topo</th><th>Base</th><th>Topo e base</th></tr></thead>
+                <tbody>{linhaMedida('frente')}{linhaMedida('verso')}</tbody>
+              </table>
+              <div className="leg">
+                {medida
+                  ? 'Proporção com uma casa decimal: 54,5/45,5 fica exatamente no limite de 55/45. Em cada face vale o eixo mais descentralizado. Linhas ajustadas à mão sobre a foto endireitada, em passos de 0,1 mm. Centralização vem da impressão e não tem correção.'
+                  : 'Medida com régua sobre a foto em luz difusa. Centralização vem da impressão e não tem correção.'}
+              </div>
+              {limite && (
+                <div>
+                  <p><b>{limite.texto}</b></p>
+                  <div className="leg">{limite.nota}</div>
                 </div>
-                <div className="laudo-col laudo-dir">
-                  <table>
-                    <thead><tr><th>Lado</th><th>Centralização medida</th></tr></thead>
-                    <tbody>
-                      <tr><td><b>Frente</b></td><td className="num">{la.centralizacaoFrente || 'Não registrada'}</td></tr>
-                      <tr><td><b>Verso</b></td><td className="num">{la.centralizacaoVerso || 'Não registrada'}</td></tr>
-                    </tbody>
-                  </table>
-                  <div className="leg">Medida com régua sobre a foto em luz difusa. Centralização vem da impressão e não tem correção.</div>
-                  {limite && (
-                    <div>
-                      <p><b>{limite.texto}</b></p>
-                      <div className="leg">{limite.nota}</div>
-                    </div>
-                  )}
-                  <div className="faixa-selo">
-                    <div className="rot sem-marca">3. Faixa provável</div>
-                    <div className="faixa-num num">{la.faixa ? la.faixa.texto : 'Não registrada'}</div>
-                    <div className="escala">{Array.from({ length: 10 }, (_, i) => <i key={i} className={i + 1 >= lo && i + 1 <= hi ? 'on' : ''} />)}</div>
-                    <div className="escala-n num">{Array.from({ length: 10 }, (_, i) => <span key={i} className={i + 1 >= lo && i + 1 <= hi ? 'on' : ''}>{i + 1}</span>)}</div>
-                    <div className="ressalva">Estimativa, não é nota de graduação. A nota final é da graduadora.</div>
-                  </div>
-                  <div className="grid2" style={{ gap: '3mm 4mm' }}>
-                    <Kv l="4. Graduadora recomendada"><b>{la.graduadora || 'Não registrada'}</b>{quando && <div className="leg">{quando}</div>}</Kv>
-                    {p.graduadoraAlvo && <Kv l="Graduadora pretendida"><b>{p.graduadoraAlvo}</b><div className="leg">Informada por você no pedido.</div></Kv>}
-                  </div>
-                  <Kv l="5. Próximo passo"><b>{la.proximoPasso || 'Não registrado'}</b></Kv>
+              )}
+            </div>
+          ),
+        },
+      ]
+      if (escada) {
+        blocosC.push({
+          ...base, k: `${k}-laudo-escada`, letra: L('laudo'), secao: secL,
+          node: <EscadaPapel e={escada.escada} base={escada.base} consulta={escada.consulta} />,
+        })
+      }
+      return [
+        ...blocosC,
+        {
+          ...base, k: `${k}-laudo-resto`, letra: L('laudo'), secao: secL,
+          node: (
+            <div className="sec">
+              <div className="grid2">
+                <div className="sec">
+                  <SecT rot="2. Mapa de imperfeições" semMarca />
+                  <Kv l="Cantos">{la.cantos || 'Não registrado'}</Kv>
+                  <Kv l="Bordas">{la.bordas || 'Não registrado'}</Kv>
+                  <Kv l="Superfície">{la.superficie || 'Não registrado'}</Kv>
                 </div>
+                <div className="faixa-selo">
+                  <div className="rot sem-marca">3. Faixa provável</div>
+                  <div className="faixa-num num">{la.faixa ? la.faixa.texto : 'Não registrada'}</div>
+                  <div className="escala">{Array.from({ length: 10 }, (_, i) => <i key={i} className={i + 1 >= lo && i + 1 <= hi ? 'on' : ''} />)}</div>
+                  <div className="escala-n num">{Array.from({ length: 10 }, (_, i) => <span key={i} className={i + 1 >= lo && i + 1 <= hi ? 'on' : ''}>{i + 1}</span>)}</div>
+                  <div className="ressalva">Estimativa, não é nota de graduação. A nota final é da graduadora.</div>
+                </div>
+              </div>
+              <div className="grid2" style={{ gap: '3mm 6mm' }}>
+                <Kv l="4. Graduadora recomendada"><b>{la.graduadora || 'Não registrada'}</b>{quando && <div className="leg">{quando}</div>}</Kv>
+                <Kv l="5. Próximo passo"><b>{la.proximoPasso || 'Não registrado'}</b></Kv>
+                {p.graduadoraAlvo && <Kv l="Graduadora pretendida"><b>{p.graduadoraAlvo}</b><div className="leg">Informada por você no pedido.</div></Kv>}
               </div>
             </div>
           ),
@@ -1225,10 +1332,25 @@ const CSS = `
 .rel-doc .decisao{margin-top:1.5mm;font-size:8.5pt;font-weight:700;display:flex;gap:2mm;align-items:center}
 .rel-doc .decisao svg{flex:none}
 
-.rel-doc .laudo{display:grid;grid-template-columns:70mm minmax(0,1fr);gap:6mm}
-.rel-doc .laudo-col{display:flex;flex-direction:column;gap:4mm}
-.rel-doc .laudo-dir{gap:3.5mm}
-.rel-doc .centro{width:63mm;margin:2mm auto 0}
+.rel-doc .par-c{display:flex;justify-content:center;gap:8mm;margin:2mm 0 1mm}
+.rel-doc .face-c{display:flex;flex-direction:column;gap:1.5mm;width:76.3mm}
+.rel-doc .moldura-c{width:76.3mm;height:106.6mm;display:flex;align-items:center;justify-content:center}
+.rel-doc .moldura-c.anot .real{width:76.3mm;height:106.6mm}
+.rel-doc .tab-c td,.rel-doc .tab-c th{white-space:nowrap}
+.rel-doc .tab-c .tag{font-size:6.5pt;padding:0 1mm;margin-left:.5mm}
+.rel-doc .esc-p{display:grid;grid-template-columns:22mm 70mm minmax(0,1fr);gap:5mm;align-items:end}
+.rel-doc .esc{display:flex;align-items:flex-end;gap:1mm;padding-top:6mm}
+.rel-doc .esc-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1mm;min-width:0}
+.rel-doc .esc-chao{flex:0 0 9mm}
+.rel-doc .dg{display:block;width:100%;border:.5pt solid var(--bx-border-2);border-radius:.6mm .6mm 0 0}
+.rel-doc .dg.atingido{border:.75pt solid var(--bx-text);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--bx-text) 25%,transparent) 0 .5mm,transparent .5mm 1.4mm)}
+.rel-doc .dg.teto{border:1.5pt solid var(--bx-text);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--bx-text) 55%,transparent) 0 .5mm,transparent .5mm 1.4mm),var(--ac-grad)}
+.rel-doc .dg.proximo{border:.75pt dashed var(--bx-text)}
+.rel-doc .carta-p{display:block;width:3mm;height:4.2mm;border:1pt solid var(--bx-text);border-radius:.4mm;background:var(--bx-bg-elev)}
+.rel-doc .carta-p.uma{border-style:dashed}
+.rel-doc .rot-dg{display:inline-flex;align-items:center;gap:.5mm;font-size:7pt;font-weight:700;color:var(--bx-text)}
+.rel-doc .esc-txt{display:flex;flex-direction:column;gap:1.5mm;align-self:center}
+.rel-doc .esc-txt p{margin:0}
 .rel-doc .faixa-selo{border:1pt solid var(--bx-text);border-radius:2mm;padding:3mm;display:flex;flex-direction:column;gap:2mm}
 .rel-doc .faixa-num{font-size:26pt;font-weight:900;letter-spacing:-.03em;line-height:1}
 .rel-doc .escala{display:grid;grid-template-columns:repeat(10,1fr);gap:1mm}
