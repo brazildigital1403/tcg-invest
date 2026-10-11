@@ -166,15 +166,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
         const loja = await nomeDaLoja(sb, pedido.loja_id)
         const lojista = loja.owner || pedido.vendedor_user_id
         const chave = plano.status === 'aguardando_devolucao' ? 'devolucao_iniciada' : decisao
+        // Desistencia contestada nao e reclamacao: o texto diz o que foi.
+        const desistencia = rec.motivo === 'arrependimento'
         const base = {
           pedidoId: pedido.id, pedidoNumero: pedido.numero, itemNome: pedido.item_nome, lojaNome: loja.nome,
-          lojaId: pedido.loja_id, decisao: chave, valorCents: valor, nota,
+          lojaId: pedido.loja_id, decisao: chave, valorCents: valor, nota, desistencia,
         }
-        const titulo = chave === 'improcedente' ? 'Reclamação encerrada'
+        const oQue = desistencia ? 'Desistência' : 'Reclamação'
+        const titulo = chave === 'improcedente' ? `${oQue} encerrada sem estorno`
           : chave === 'devolucao_iniciada' ? 'Decisão: devolução da carta'
-          : 'Reclamação resolvida com estorno'
-        await sino(sb, pedido.comprador_user_id, titulo, `A Bynx decidiu a reclamação do pedido #${pedido.numero}.`, `/pedido/${pedido.id}`)
-        await sino(sb, lojista, titulo, `A Bynx decidiu a reclamação do pedido #${pedido.numero}.`, `/minha-loja/${pedido.loja_id}/pedidos`)
+          : `${oQue} concluída com estorno`
+        const mensagem = `A Bynx decidiu a ${desistencia ? 'desistência' : 'reclamação'} do pedido #${pedido.numero}.`
+        await sino(sb, pedido.comprador_user_id, titulo, mensagem, `/pedido/${pedido.id}`)
+        await sino(sb, lojista, titulo, mensagem, `/minha-loja/${pedido.loja_id}/pedidos`)
         const cc = await contato(sb, pedido.comprador_user_id)
         if (cc.email) await emailSeguro(renderReclamacaoDecisaoEmail({ ...base, to: cc.email, nome: cc.nome, papel: 'comprador' }))
         const cl = await contato(sb, lojista)

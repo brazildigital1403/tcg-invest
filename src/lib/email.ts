@@ -3603,17 +3603,44 @@ const TEXTO_DECISAO: Record<string, { titulo: string; comprador: string; loja: s
 }
 
 /** Comprador ou loja: a Bynx decidiu. `decisao` aceita 'devolucao_iniciada' (1o passo). */
+/**
+ * Desistencia contestada pela loja e decidida pela Bynx (11/10): mesmo
+ * e-mail, mas sem chamar de "reclamacao" o que foi direito de arrependimento.
+ * So estorno total, parcial ou improcedente (devolucao nao se aplica: a carta
+ * ja voltou).
+ */
+const TEXTO_DECISAO_DESISTENCIA: Record<string, { titulo: string; comprador: string; loja: string }> = {
+  estorno_total: {
+    titulo: 'Desistência concluída com estorno total',
+    comprador: 'A Bynx analisou a contestação da loja e estornou o valor integral do pedido.',
+    loja: 'A Bynx analisou a sua contestação e decidiu pelo estorno integral ao comprador. O repasse deste pedido foi revertido.',
+  },
+  estorno_parcial: {
+    titulo: 'Desistência concluída com estorno parcial',
+    comprador: 'A Bynx analisou a contestação da loja e decidiu por um estorno parcial do pedido.',
+    loja: 'A Bynx analisou a sua contestação e decidiu por um estorno parcial ao comprador. O repasse deste pedido foi ajustado na mesma proporção.',
+  },
+  improcedente: {
+    titulo: 'Desistência encerrada sem estorno',
+    comprador: 'A Bynx analisou a contestação da loja e decidiu sem estorno. A venda continua valendo.',
+    loja: 'A Bynx analisou a sua contestação e decidiu a favor da loja. Não há estorno, e a venda continua valendo.',
+  },
+}
+
 export function renderReclamacaoDecisaoEmail(a: ReclamacaoEmailBase & {
   papel: 'comprador' | 'loja'
   decisao: string
   valorCents: number
   nota: string | null
+  /** true = era desistencia (motivo 'arrependimento'), nao reclamacao. */
+  desistencia?: boolean
 }): EmailRenderizado {
-  const t = TEXTO_DECISAO[a.decisao] || TEXTO_DECISAO.improcedente
+  const t = (a.desistencia ? TEXTO_DECISAO_DESISTENCIA[a.decisao] : null)
+    || TEXTO_DECISAO[a.decisao] || TEXTO_DECISAO.improcedente
   const comprador = a.papel === 'comprador'
   const nome = primeiroNome(a.nome, comprador ? 'Colecionador' : 'Lojista')
   const html = baseLayout(`
-    ${badge('Proteção Bynx', '#f59e0b', '')}
+    ${badge(a.desistencia ? 'Desistência da compra' : 'Proteção Bynx', '#f59e0b', '')}
     ${h1(t.titulo)}
     ${p(`${escapeHtml(nome)}, sobre o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}${comprador ? ` da ${forte(a.lojaNome)}` : ''}): ${comprador ? t.comprador : t.loja}`)}
     ${a.valorCents > 0 ? blocoLeilao('Valor estornado', formatarBRL(a.valorCents), '#22c55e') : ''}
