@@ -233,9 +233,64 @@ export function detectarCarta(img: Imagem, opts: { ladoDeteccao?: number } = {})
     if (minC >= 0.5) break
   }
   if (!melhor) return { cantos: null, confianca: [0, 0, 0, 0], inferido: [false, false, false, false], ms: performance.now() - t0 }
-  const exp = expandirAteFundo(img, melhor.cantos, melhor.inferido, s)
-  if (exp) return { cantos: exp.cantos, confianca: exp.confianca, inferido: exp.inferido, ms: performance.now() - t0 }
-  return { cantos: melhor.cantos, confianca: melhor.confianca, inferido: melhor.inferido, ms: performance.now() - t0 }
+  let res = { cantos: melhor.cantos, confianca: melhor.confianca, inferido: melhor.inferido }
+  const exp = expandirAteFundo(img, res.cantos, res.inferido, s)
+  if (exp) res = exp
+  const prop = ajustarProporcao(img, res.cantos, res.confianca, res.inferido, s)
+  if (prop) res = prop
+  return { ...res, ms: performance.now() - t0 }
+}
+
+// ── conferencia pela proporcao ───────────────────────────────────────────────
+// A faixa escura do rodape de uma full art (a do copyright) sobre um tapete
+// escuro some no fundo: nem cor nem textura separam, e a borda de baixo saia
+// ~3 mm para dentro. A proporcao denuncia (1,358 contra 88/63 = 1,397). Quando
+// ela foge, testa empurrar para fora cada um dos dois lados do eixo curto o que
+// falta, refaz o refino e fica com a tentativa que fecha a proporcao.
+
+function medidasQuad(c: Pt[]) {
+  const d = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1])
+  const larg = (d(c[0], c[1]) + d(c[3], c[2])) / 2, alt = (d(c[0], c[3]) + d(c[1], c[2])) / 2
+  return { larg, alt, prop: alt / larg }
+}
+
+function ajustarProporcao(img: Imagem, cantos: Pt[], conf: number[], inferido: boolean[], s: number) {
+  const ALVO = CARTA_MM.h / CARTA_MM.w
+  const TOL = 0.015
+  const { larg, alt, prop } = medidasQuad(cantos)
+  if (Math.abs(prop - ALVO) <= TOL) return null
+  // Curta demais: falta altura (empurra topo ou base). Larga demais: falta largura (esq ou dir).
+  const faltaAltura = prop < ALVO
+  const falta = faltaAltura ? larg * ALVO - alt : alt / ALVO - larg
+  if (falta <= 0 || falta > Math.max(larg, alt) * 0.12) return null
+  const lados = faltaAltura ? [0, 2] : [1, 3] // topo, dir, base, esq
+  const cx = cantos.reduce((a, p) => a + p[0], 0) / 4, cy = cantos.reduce((a, p) => a + p[1], 0) / 4
+
+  let melhor: { cantos: Pt[]; confianca: number[]; inferido: boolean[]; nota: number } | null = null
+  const minAtual = Math.min(...conf)
+  for (const k of lados) {
+    const retas: Reta[] = []
+    for (let j = 0; j < 4; j++) {
+      const P = cantos[j], Q = cantos[(j + 1) % 4]
+      const L = Math.hypot(Q[0] - P[0], Q[1] - P[1])
+      let nx = (Q[1] - P[1]) / L, ny = -(Q[0] - P[0]) / L
+      if (((P[0] + Q[0]) / 2 - cx) * nx + ((P[1] + Q[1]) / 2 - cy) * ny < 0) { nx = -nx; ny = -ny }
+      const d = j === k ? falta : 0
+      retas.push([nx, ny, -(nx * (P[0] + nx * d) + ny * (P[1] + ny * d))])
+    }
+    const novos = [0, 1, 2, 3].map(j => cruzar(retas[(j + 3) % 4], retas[j]))
+    const r = refinar(img, novos, inferido, s)
+    const pr = medidasQuad(r.cantos).prop
+    if (Math.abs(pr - ALVO) > TOL) continue
+    // So aceita se o lado empurrado achou borda de verdade.
+    if (r.confianca[k] < 0.4) continue
+    const nota = Math.min(...r.confianca) - Math.abs(pr - ALVO) * 10
+    if (!melhor || nota > melhor.nota) melhor = { ...r, nota }
+  }
+  if (!melhor || Math.min(...melhor.confianca) < minAtual - 0.1) return null
+  // O lado empurrado fica sempre para conferencia.
+  const confianca = melhor.confianca.map((c, j) => (lados.includes(j) ? Math.min(c, 0.45) : c))
+  return { cantos: melhor.cantos, confianca, inferido: melhor.inferido }
 }
 
 // ── conferencia contra o fundo ───────────────────────────────────────────────
