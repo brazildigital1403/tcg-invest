@@ -227,13 +227,97 @@ export function detectarCarta(img: Imagem, opts: { ladoDeteccao?: number } = {})
 
   let melhor: (Omit<CartaDetectada, 'ms'> & { minC: number }) | null = null
   for (const escolhido of fila) {
-    const r = refinar(img, escolhido.q, escolhido.inferido, s)
+    const r = refinar(img, escolhido.q.map(p => [(p[0] + 0.5) * s, (p[1] + 0.5) * s] as Pt), escolhido.inferido, s)
     const minC = Math.min(...r.confianca)
     if (!melhor || minC > melhor.minC) melhor = { ...r, minC }
     if (minC >= 0.5) break
   }
   if (!melhor) return { cantos: null, confianca: [0, 0, 0, 0], inferido: [false, false, false, false], ms: performance.now() - t0 }
+  const exp = expandirAteFundo(img, melhor.cantos, melhor.inferido, s)
+  if (exp) return { cantos: exp.cantos, confianca: exp.confianca, inferido: exp.inferido, ms: performance.now() - t0 }
   return { cantos: melhor.cantos, confianca: melhor.confianca, inferido: melhor.inferido, ms: performance.now() - t0 }
+}
+
+// ── conferencia contra o fundo ───────────────────────────────────────────────
+// A linha mais forte nem sempre e a borda do papel: no verso, o fim da faixa
+// azul-escura (onde comeca o redemoinho claro) bate mais que a borda da carta
+// sobre um tapete escuro, e a borda de cima saia uns 3 mm para dentro. Cor nao
+// separa (o tapete varia demais), TEXTURA separa: o fundo e granulado e a borda
+// impressa e lisa. Se do lado de fora de um lado ainda e liso enquanto o fundo
+// da foto e granulado, o lado anda para fora ate o granulado comecar.
+
+function luminancia(img: Imagem, x: number, y: number) {
+  const xi = Math.min(img.width - 1, Math.max(0, Math.round(x))), yi = Math.min(img.height - 1, Math.max(0, Math.round(y)))
+  const o = (yi * img.width + xi) * 4
+  return 0.299 * img.data[o] + 0.587 * img.data[o + 1] + 0.114 * img.data[o + 2]
+}
+
+/** Desvio padrao da luminancia numa janela 5x5: textura local. */
+function textura(img: Imagem, x: number, y: number) {
+  let s = 0, s2 = 0
+  for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) { const l = luminancia(img, x + a, y + b); s += l; s2 += l * l }
+  const m = s / 25
+  return Math.sqrt(Math.max(0, s2 / 25 - m * m))
+}
+
+function expandirAteFundo(img: Imagem, cantos: Pt[], inferido: boolean[], s: number) {
+  const { width: W, height: H } = img
+  // Textura tipica do fundo: faixa de 3% na borda da foto.
+  const m = Math.max(4, Math.round(Math.min(W, H) * 0.03))
+  const amostras: number[] = []
+  for (let i = 0; i < 60; i++) {
+    const t = (i + 0.5) / 60
+    amostras.push(textura(img, t * W, m / 2), textura(img, t * W, H - m / 2), textura(img, m / 2, t * H), textura(img, W - m / 2, t * H))
+  }
+  amostras.sort((a, b) => a - b)
+  const fundo = amostras[amostras.length >> 1]
+  // Fundo liso (papel, mesa lisa): a textura nao distingue nada.
+  if (fundo < 12) return null
+  const limiar = fundo * 0.5
+
+  const cx = cantos.reduce((a, p) => a + p[0], 0) / 4, cy = cantos.reduce((a, p) => a + p[1], 0) / 4
+  const desloc = [0, 0, 0, 0]
+  for (let k = 0; k < 4; k++) {
+    const P = cantos[k], Q = cantos[(k + 1) % 4]
+    const L = Math.hypot(Q[0] - P[0], Q[1] - P[1])
+    let nx = (Q[1] - P[1]) / L, ny = -(Q[0] - P[0]) / L
+    if (((P[0] + Q[0]) / 2 - cx) * nx + ((P[1] + Q[1]) / 2 - cy) * ny < 0) { nx = -nx; ny = -ny }
+    const maxOff = Math.round(L * 0.1) // ~6 a 9 mm
+    const fora = (off: number) => {
+      const v: number[] = []
+      for (let i = 0; i <= 30; i++) {
+        const t = 0.2 + (0.6 * i) / 30
+        const x = P[0] + (Q[0] - P[0]) * t + nx * off, y = P[1] + (Q[1] - P[1]) * t + ny * off
+        if (x < 3 || y < 3 || x > W - 4 || y > H - 4) continue
+        v.push(textura(img, x, y))
+      }
+      if (v.length < 10) return Infinity // saiu da foto: trata como fundo
+      v.sort((a, b) => a - b)
+      return v[v.length >> 1]
+    }
+    // Ja e fundo logo do lado de fora: o lado esta certo.
+    if (fora(3) >= limiar || fora(5) >= limiar) continue
+    for (let off = 6; off <= maxOff; off++) {
+      if (fora(off) >= limiar && fora(off + 2) >= limiar) { desloc[k] = off; break }
+    }
+  }
+  if (!desloc.some(d => d > 0)) return null
+
+  // Desloca as retas dos lados e refaz o refino em volta da nova posicao.
+  const retas: Reta[] = []
+  for (let k = 0; k < 4; k++) {
+    const P = cantos[k], Q = cantos[(k + 1) % 4]
+    const L = Math.hypot(Q[0] - P[0], Q[1] - P[1])
+    let nx = (Q[1] - P[1]) / L, ny = -(Q[0] - P[0]) / L
+    if (((P[0] + Q[0]) / 2 - cx) * nx + ((P[1] + Q[1]) / 2 - cy) * ny < 0) { nx = -nx; ny = -ny }
+    const d = desloc[k]
+    retas.push([nx, ny, -(nx * (P[0] + nx * d) + ny * (P[1] + ny * d))])
+  }
+  const novos = [0, 1, 2, 3].map(k => cruzar(retas[(k + 3) % 4], retas[k]))
+  const r = refinar(img, novos, inferido, s)
+  // O lado que andou fica sempre para conferencia.
+  const confianca = r.confianca.map((c, k) => (desloc[k] > 0 ? Math.min(c, 0.45) : c))
+  return { cantos: r.cantos, confianca, inferido: r.inferido }
 }
 
 /**
@@ -241,8 +325,7 @@ export function detectarCarta(img: Imagem, opts: { ladoDeteccao?: number } = {})
  * (media de 7 px ao longo da borda), pico mais externo, reta robusta. Os cantos
  * saem do cruzamento das retas, entao o canto arredondado nao atrapalha.
  */
-function refinar(img: Imagem, qReduzido: Pt[], inferido: boolean[], s: number) {
-  const cant: Pt[] = qReduzido.map(p => [(p[0] + 0.5) * s, (p[1] + 0.5) * s])
+function refinar(img: Imagem, cant: Pt[], inferido: boolean[], s: number) {
   const cx = cant.reduce((a, p) => a + p[0], 0) / 4, cy = cant.reduce((a, p) => a + p[1], 0) / 4
   const rgb = [0, 0, 0]
   const lados: Reta[] = [], conf: number[] = []
