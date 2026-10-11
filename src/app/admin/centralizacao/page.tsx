@@ -140,7 +140,7 @@ function PeloPedido({ pedidoId, itemId, hoje }: { pedidoId: string; itemId: stri
 }
 
 const CSS = `
-.ce-pg{padding:28px 24px 64px;max-width:1280px;margin:0 auto;font-family:var(--font-dm-sans),system-ui,sans-serif;color:var(--bx-text)}
+.ce-pg{width:100%;box-sizing:border-box;padding:28px 24px 64px;max-width:1280px;margin:0 auto;font-family:var(--font-dm-sans),system-ui,sans-serif;color:var(--bx-text)}
 .ce-voltar{display:inline-flex;align-items:center;gap:4px;min-height:36px;font-size:13px;color:var(--bx-text-2);text-decoration:none;margin-bottom:8px}
 .ce-muted{font-size:13px;color:var(--bx-text-3)}
 .ce-erro{font-size:13.5px;color:var(--bx-red)}

@@ -292,7 +292,13 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
     return out
   }, [estado])
   const m = medidas[face]
-  const completa = (f: Face) => estado[f].etapa === 'linhas' && estado[f].conferidas.length === ORDEM_LINHAS.length
+  // Sem moldura, as linhas azuis nascem a 3 mm so como ponto de partida: confirmar
+  // sem mover nenhuma gravaria um 50/50 inventado.
+  const moldurasNoPadrao = (f: Face) => {
+    const s = estado[f], p = linhasPadrao()
+    return s.semMoldura && LADOS.some(l => s.linhas.int[l] === p.int[l])
+  }
+  const completa = (f: Face) => estado[f].etapa === 'linhas' && estado[f].conferidas.length === ORDEM_LINHAS.length && !moldurasNoPadrao(f)
   const comparacoes = useMemo(() => {
     const fr = medidas.frente, ve = medidas.verso
     if (!fr || !ve) return null
@@ -502,6 +508,23 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
   const podeSalvar = prontas.length > 0 && pendentesFace.length === 0 && !salvando
   const regua = m ? leituraRegua(m) : null
 
+  // A lupa fica no canto oposto ao ponto que esta sendo medido, para nao cobri-lo.
+  const posLupa = (() => {
+    let fx = 0.5, fy = 0.5
+    if (e.etapa === 'linhas') {
+      const v = lerLinha(e.linhas, ativa)
+      const p = lupaPos ?? (ehVertical(ativa) ? { x: v, y: CARTA_MM.h / 2 } : { x: CARTA_MM.w / 2, y: v })
+      fx = p.x / CARTA_MM.w; fy = p.y / CARTA_MM.h
+      // Alcas: externas em cima/esquerda, internas embaixo/direita.
+      if (ehVertical(ativa)) fy = ativa.startsWith('ext') ? 0 : 1
+      else fx = ativa.startsWith('ext') ? 0 : 1
+    } else if (cantoAtivo != null && e.cantos[cantoAtivo] && e.dims[0]) {
+      fx = e.cantos[cantoAtivo][0] / e.dims[0]; fy = e.cantos[cantoAtivo][1] / e.dims[1]
+    }
+    const m8 = 10
+    return { ...(fx > 0.5 ? { left: m8 } : { right: m8 }), ...(fy > 0.5 ? { top: m8 } : { bottom: m8 }) }
+  })()
+
   return (
     <div className="mc">
       <style>{CSS}</style>
@@ -552,7 +575,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
                 const r = e.dims[0] * 0.014
                 return (
                   <g key={i} onPointerDown={iniciarCanto(i)} className="mc-alca">
-                    <circle cx={x} cy={y} r={r * 3} fill="transparent" />
+                    <circle cx={x} cy={y} r={r * 4} fill="transparent" />
                     <circle cx={x} cy={y} r={r} fill={cantoAtivo === i ? 'var(--bx-amber)' : 'var(--bx-bg)'} stroke="var(--bx-amber)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
                   </g>
                 )
@@ -573,7 +596,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
           )}
 
           {lupa && (e.etapa === 'linhas' || (e.etapa === 'cantos' && cantoAtivo != null)) && (
-            <canvas ref={lupaRef} className="mc-lupa" width={180} height={180} aria-label="Lupa" />
+            <canvas ref={lupaRef} className="mc-lupa" width={180} height={180} aria-label="Lupa" style={posLupa} />
           )}
 
           <input ref={inputArquivo} type="file" accept="image/*" hidden onChange={ev => { escolherArquivo(face, ev.target.files?.[0]); ev.target.value = '' }} />
@@ -585,7 +608,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
           {e.aviso && <p className="mc-aviso"><IconWarning size={15} /> {e.aviso}</p>}
 
           {(opcoesFoto.length > 0 || e.etapa !== 'vazio') && (
-            <div className="mc-bloco">
+            <div className="mc-bloco mc-bloco-foto">
               <span className="mc-h">Foto</span>
               <div className="mc-bts">
                 {opcoesFoto.map(op => (
@@ -679,7 +702,9 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
                 </button>
                 {!podeSalvar && !salvando && (
                   <p className="mc-muted">
-                    {pendentesFace.length
+                    {pendentesFace.some(moldurasNoPadrao)
+                      ? 'No modo sem moldura, mova as 4 linhas azuis até a referência interna antes de salvar.'
+                      : pendentesFace.length
                       ? `Confira as 8 linhas ${pendentesFace.length === 2 ? 'das duas faces' : `da ${ROTULO_FACE[pendentesFace[0]].toLowerCase()}`} para salvar.`
                       : 'Meça pelo menos uma face para salvar.'}
                   </p>
@@ -761,7 +786,7 @@ function Eixo({ rotulo, a, b, texto }: { rotulo: string; a: number; b: number; t
 }
 
 const CSS = `
-.mc{font-family:var(--font-dm-sans),system-ui,sans-serif;color:var(--bx-text)}
+.mc{width:100%;font-family:var(--font-dm-sans),system-ui,sans-serif;color:var(--bx-text)}
 .mc-topo{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:14px}
 .mc-topo h1{font-size:24px;font-weight:800;letter-spacing:-0.03em;margin:0 0 4px}
 .mc-muted{font-size:12.5px;color:var(--bx-text-3);margin:0;line-height:1.5}
@@ -774,7 +799,7 @@ const CSS = `
 .mc-svg{display:block;width:100%;height:auto;max-height:82vh;touch-action:none;user-select:none;-webkit-user-select:none}
 .mc-linha{cursor:grab}
 .mc-alca{cursor:grab}
-.mc-lupa{position:absolute;top:12px;right:12px;width:180px;height:180px;border-radius:12px;border:1px solid var(--bx-border-2);box-shadow:0 10px 30px rgba(0,0,0,.5);pointer-events:none}
+.mc-lupa{position:absolute;width:180px;height:180px;border-radius:12px;border:1px solid var(--bx-border-2);box-shadow:0 10px 30px rgba(0,0,0,.5);pointer-events:none}
 .mc-vazio{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:40px 20px;color:var(--bx-text-2);font-size:13.5px;max-width:360px}
 .mc-vazio b{color:var(--bx-text);font-size:15px}
 .mc-spin{width:22px;height:22px;border-radius:999px;border:2px solid var(--bx-border-2);border-top-color:var(--ac-1);animation:mc-gira .8s linear infinite}
@@ -819,8 +844,10 @@ const CSS = `
 @media (max-width:900px){
   .mc-grid{grid-template-columns:minmax(0,1fr)}
   .mc-svg{max-height:68vh}
-  .mc-lupa{width:120px;height:120px;top:8px;right:8px}
+  .mc-lupa{width:120px;height:120px}
   .mc-palco{min-height:300px}
+  /* No celular, a linha ativa e o resultado vem logo abaixo da foto; trocar de foto fica depois. */
+  .mc-bloco-foto{order:5}
 }
 @media (prefers-reduced-motion:reduce){.mc *{transition:none!important;animation:none!important}}
 `
