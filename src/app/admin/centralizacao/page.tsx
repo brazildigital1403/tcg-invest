@@ -14,6 +14,7 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { numeroServico, fmtDataAnoBRT } from '@/lib/servicos'
 import MedidorCentralizacao, { FACES, type Face, type FotoOpcao, type MedicaoFace, type ResultadoFace } from '@/components/centralizacao/MedidorCentralizacao'
+import type { CamposLaudo } from '@/components/centralizacao/LaudoBancada'
 import { IconChevronLeft } from '@/components/ui/Icons'
 
 type Midia = { id: string; item_id: string | null; tipo: string; posicao: string | null; url: string | null; created_at: string }
@@ -85,7 +86,14 @@ function PeloPedido({ pedidoId, itemId, hoje }: { pedidoId: string; itemId: stri
     return med && typeof med === 'object' ? med : undefined
   }, [item])
 
-  const salvar = useCallback(async (r: Partial<Record<Face, ResultadoFace>>): Promise<string | null> => {
+  const texto = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null)
+  const laudoTexto = useMemo(() => {
+    const out: CamposLaudo = {}
+    for (const [k, v] of Object.entries(item?.laudo || {})) if (typeof v === 'string') out[k] = v
+    return out
+  }, [item])
+
+  const salvar = useCallback(async (r: Partial<Record<Face, ResultadoFace>>, laudo: CamposLaudo | null): Promise<string | null> => {
     const post = async (payload: Record<string, unknown>) => {
       const res = await fetch(`/api/admin/servicos/${pedidoId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const d = await res.json().catch(() => ({}))
@@ -103,17 +111,31 @@ function PeloPedido({ pedidoId, itemId, hoje }: { pedidoId: string; itemId: stri
         if (error) throw new Error('A imagem anotada não subiu. Tente de novo.')
         await post({ acao: 'midia_confirmar', tipo: 'laudo', item_id: itemId, posicao: `centralizacao_${f}`, path: u.path })
       }
-      await post({
-        acao: 'centralizacao', item_id: itemId,
-        frente: r.frente?.texto, verso: r.verso?.texto,
-        medicao: { frente: r.frente?.medicao, verso: r.verso?.medicao },
-      })
+      if (r.frente || r.verso) {
+        await post({
+          acao: 'centralizacao', item_id: itemId,
+          frente: r.frente?.texto, verso: r.verso?.texto,
+          medicao: { frente: r.frente?.medicao, verso: r.verso?.medicao },
+        })
+      }
+      // O resto do laudo: o formulario grava todos os campos de texto de uma
+      // vez, entao vai junto a centralizacao que vale agora (nova ou gravada).
+      if (laudo) {
+        await post({
+          acao: 'laudo', item_id: itemId,
+          laudo: {
+            ...laudo,
+            centralizacao_frente: r.frente?.texto ?? laudoTexto.centralizacao_frente ?? '',
+            centralizacao_verso: r.verso?.texto ?? laudoTexto.centralizacao_verso ?? '',
+          },
+        })
+      }
       await carregar()
       return null
     } catch (e) {
       return e instanceof Error ? e.message : 'Não deu certo.'
     }
-  }, [carregar, itemId, pedidoId])
+  }, [carregar, itemId, laudoTexto, pedidoId])
 
   if (erro) return <div className="ce-pg"><style>{CSS}</style><p className="ce-erro">{erro}</p></div>
   if (!dados) return <div className="ce-pg"><style>{CSS}</style><p className="ce-muted">Carregando o pedido...</p></div>
@@ -133,6 +155,8 @@ function PeloPedido({ pedidoId, itemId, hoje }: { pedidoId: string; itemId: stri
         rodapeImagem={`${num} · ${item.nome} · ${hoje} · bynx.gg`}
         fotos={fotos}
         salvas={salvas}
+        laudoInicial={laudoTexto}
+        centralizacaoGravada={{ frente: texto(item.laudo?.centralizacao_frente), verso: texto(item.laudo?.centralizacao_verso) }}
         onSalvar={salvar}
       />
     </div>

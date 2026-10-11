@@ -24,6 +24,7 @@ import {
   leituraRegua, REGUA_PASSO_MM, REGUA_LINHAS, MARGEM_MM, type Linhas, type ChaveLinha, type Medida,
 } from '@/lib/centralizacao/medida'
 import EscadasGraduadoras from './EscadasGraduadoras'
+import LaudoBancada, { CAMPOS_ABA, type CamposLaudo } from './LaudoBancada'
 import { IconCamera, IconUpload, IconWarning, IconCheck, IconDownload, IconCopy, IconChevronLeft, IconChevronRight } from '@/components/ui/Icons'
 
 export type Face = 'frente' | 'verso'
@@ -151,9 +152,20 @@ async function gerarAnotada(ret: HTMLCanvasElement, l: Linhas, m: Medida, face: 
   return new Promise((res, rej) => cv.toBlob(b => (b ? res(b) : rej(new Error('toBlob'))), 'image/jpeg', 0.9))
 }
 
+/** So os campos de texto que a aba Laudo edita. */
+function soCamposAba(l?: CamposLaudo): CamposLaudo {
+  const out: CamposLaudo = {}
+  for (const c of CAMPOS_ABA) { const v = l?.[c.k]; if (typeof v === 'string') out[c.k] = v }
+  return out
+}
+
+/** Identidade de uma medida (para saber se mudou desde a gravada). */
+const assinatura = (cantos: Pt[], l: Linhas, semMoldura: boolean) =>
+  JSON.stringify([cantos.map(([x, y]) => [Math.round(x * 10), Math.round(y * 10)]), l, semMoldura])
+
 // ── componente ───────────────────────────────────────────────────────────────
 
-export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, fotos, salvas, salvarRotulo, onSalvar }: {
+export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, fotos, salvas, salvarRotulo, laudoInicial, centralizacaoGravada, onSalvar }: {
   titulo: string
   subtitulo?: string
   /** Linha de identificacao na imagem anotada (pedido, carta, data). */
@@ -163,10 +175,26 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
   /** Medida ja gravada, para retomar onde parou. */
   salvas?: Partial<Record<Face, MedicaoFace>>
   salvarRotulo?: string
-  /** Sem onSalvar = modo avulso (baixar imagem e copiar medida). Devolve erro ou null. */
-  onSalvar?: (r: Partial<Record<Face, ResultadoFace>>) => Promise<string | null>
+  /** Campos de texto do laudo ja gravados (aba Laudo, so pelo pedido). */
+  laudoInicial?: CamposLaudo
+  /** Centralizacao ja gravada no laudo, para mostrar quando a face nao foi medida agora. */
+  centralizacaoGravada?: { frente: string | null; verso: string | null }
+  /**
+   * Sem onSalvar = modo avulso (baixar imagem e copiar medida). Recebe as faces
+   * com medida nova e os campos do laudo (null se a aba Laudo nao foi mexida).
+   * Devolve erro ou null.
+   */
+  onSalvar?: (r: Partial<Record<Face, ResultadoFace>>, laudo: CamposLaudo | null) => Promise<string | null>
 }) {
-  const [face, setFace] = useState<Face>('frente')
+  const [face, setFaceBruta] = useState<Face>('frente')
+  const [aba, setAba] = useState<'medir' | 'laudo'>('medir')
+  const setFace = useCallback((f: Face) => { setFaceBruta(f); setAba('medir') }, [])
+  const [laudo, setLaudo] = useState<CamposLaudo>(() => soCamposAba(laudoInicial))
+  const [laudoMexido, setLaudoMexido] = useState(false)
+  // Quando o pedido recarrega (depois de salvar), o laudo gravado volta a valer.
+  useEffect(() => { if (!laudoMexido) setLaudo(soCamposAba(laudoInicial)) }, [laudoInicial, laudoMexido])
+  // Medida restaurada do laudo: so vira imagem e medida nova se mudar.
+  const assinaturaSalva = useRef<Partial<Record<Face, string>>>({})
   const [estado, setEstado] = useState<Record<Face, EstadoFace>>({ frente: faceVazia(), verso: faceVazia() })
   const [ativa, setAtiva] = useState<ChaveLinha>('ext.esq')
   const [modo, setModo] = useState<'linhas' | 'regua' | 'foto'>('linhas')
@@ -249,6 +277,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
         const k = img.width / salva.img[0]
         const cantos = salva.cantos.map(([x, y]) => [x * k, y * k] as Pt)
         await endireitar(f, cantos, { semMoldura: salva.sem_moldura, linhasSalvas: salva.linhas, aviso: 'Medida gravada carregada. Ajuste e salve de novo se precisar.' })
+        assinaturaSalva.current[f] = assinatura(cantos, salva.linhas, salva.sem_moldura)
         return
       }
 
@@ -372,6 +401,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
       const alvo = ev.target as HTMLElement | null
       if (alvo && ['INPUT', 'TEXTAREA', 'SELECT'].includes(alvo.tagName)) return
       if (ev.metaKey || ev.ctrlKey || ev.altKey) return
+      if (aba === 'laudo') return
       const k = ev.key
       if (k === 'f' || k === 'F') { setFace('frente'); return }
       if (k === 'v' || k === 'V') { setFace('verso'); return }
@@ -393,7 +423,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
     }
     window.addEventListener('keydown', tecla)
     return () => window.removeEventListener('keydown', tecla)
-  }, [ativa, conferir, e.etapa, empurrar, face])
+  }, [aba, ativa, conferir, e.etapa, empurrar, face, setFace])
 
   // ── lupa ──
   useEffect(() => {
@@ -462,6 +492,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
       const s = estado[f], md = medidas[f]
       const ret = rets.current[f]
       if (!completa(f) || !md || !ret) continue
+      if (assinaturaSalva.current[f] === assinatura(s.cantos, s.linhas, s.semMoldura)) continue
       out[f] = {
         texto: textoDoLaudo(md),
         medicao: {
@@ -478,10 +509,14 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
   const salvar = async () => {
     if (!onSalvar) return
     const r = resultados()
-    if (!Object.keys(r).length) return
+    if (!Object.keys(r).length && !laudoMexido) return
     setSalvando(true); setMsg(null)
     try {
-      const erro = await onSalvar(r)
+      const erro = await onSalvar(r, laudoMexido ? laudo : null)
+      if (!erro) {
+        for (const f of Object.keys(r) as Face[]) assinaturaSalva.current[f] = assinatura(estado[f].cantos, estado[f].linhas, estado[f].semMoldura)
+        setLaudoMexido(false)
+      }
       setMsg(erro ? { tipo: 'erro', t: erro } : { tipo: 'ok', t: `Salvo no laudo em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.` })
     } finally { setSalvando(false) }
   }
@@ -508,7 +543,8 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
   const opcoesFoto = fotos?.[face] || []
   const prontas = FACES.filter(completa)
   const pendentesFace = FACES.filter(f => estado[f].etapa === 'linhas' && !completa(f))
-  const podeSalvar = prontas.length > 0 && pendentesFace.length === 0 && !salvando
+  const temMedidaNova = FACES.some(f => completa(f) && assinaturaSalva.current[f] !== assinatura(estado[f].cantos, estado[f].linhas, estado[f].semMoldura))
+  const podeSalvar = !salvando && pendentesFace.length === 0 && (temMedidaNova || laudoMexido)
   const regua = m ? leituraRegua(m) : null
 
   // A lupa fica no canto oposto ao ponto que esta sendo medido, para nao cobri-lo.
@@ -538,17 +574,38 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
         </div>
         <div className="mc-faces" role="tablist">
           {FACES.map(f => (
-            <button key={f} type="button" role="tab" aria-selected={face === f} className={`mc-face${face === f ? ' on' : ''}`} onClick={() => setFace(f)}>
+            <button key={f} type="button" role="tab" aria-selected={aba === 'medir' && face === f} className={`mc-face${aba === 'medir' && face === f ? ' on' : ''}`} onClick={() => setFace(f)}>
               {ROTULO_FACE[f]}{completa(f) && <IconCheck size={14} />}
             </button>
           ))}
+          {onSalvar && (
+            <button type="button" role="tab" aria-selected={aba === 'laudo'} className={`mc-face${aba === 'laudo' ? ' on' : ''}`} onClick={() => setAba('laudo')}>
+              Laudo{laudoMexido && <span className="mc-pend" aria-label="alterações não salvas" />}
+            </button>
+          )}
         </div>
       </div>
 
       {/* No celular, enquanto houver linha a conferir, o ajuste vem antes das graduadoras. */}
       <div className={`mc-grid${pendentesFace.length ? ' mc-conferindo' : ''}`}>
+        {/* ── aba Laudo (no lugar da foto) ── */}
+        {aba === 'laudo' && (
+          <div className="mc-palco mc-palco-laudo">
+            <LaudoBancada
+              valor={laudo}
+              onChange={v => { setLaudo(v); setLaudoMexido(true) }}
+              centralizacao={{
+                frente: completa('frente') && medidas.frente ? textoDoLaudo(medidas.frente) : centralizacaoGravada?.frente ?? null,
+                verso: completa('verso') && medidas.verso ? textoDoLaudo(medidas.verso) : centralizacaoGravada?.verso ?? null,
+              }}
+              frente={medidas.frente ?? null}
+              verso={medidas.verso ?? null}
+            />
+          </div>
+        )}
+
         {/* ── palco ── */}
-        <div className="mc-palco">
+        <div className="mc-palco" hidden={aba === 'laudo'}>
           {e.etapa === 'vazio' && (
             <div className="mc-vazio">
               <IconCamera size={28} />
@@ -618,7 +675,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
         </div>
 
         {/* ── painel ── */}
-        <aside className="mc-painel">
+        <aside className={`mc-painel${aba === 'laudo' ? ' mc-so-acoes' : ''}`}>
           {e.aviso && (
             <div className="mc-aviso">
               <IconWarning size={15} />
@@ -719,7 +776,9 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
                       ? 'No modo sem moldura, mova as 4 linhas azuis até a referência interna antes de salvar.'
                       : pendentesFace.length
                       ? `Confira as 8 linhas ${pendentesFace.length === 2 ? 'das duas faces' : `da ${ROTULO_FACE[pendentesFace[0]].toLowerCase()}`} para salvar.`
-                      : 'Meça pelo menos uma face para salvar.'}
+                      : !prontas.length && !laudoMexido
+                      ? 'Meça uma face ou preencha o laudo para salvar.'
+                      : 'Nada mudou desde a última gravação.'}
                   </p>
                 )}
               </>
@@ -854,6 +913,10 @@ const CSS = `
 .mc-barra i{position:absolute;top:0;bottom:0;width:1px;background:var(--bx-text-3)}
 .mc-eixo-mm{display:flex;justify-content:space-between;font-size:12px;color:var(--bx-text-3);font-variant-numeric:tabular-nums}
 .mc-acoes{display:grid;gap:8px}
+.mc-palco[hidden]{display:none}
+.mc-palco-laudo{display:block;min-height:0;background:var(--bx-surface)}
+.mc-so-acoes > :not(.mc-acoes){display:none}
+.mc-pend{width:7px;height:7px;border-radius:999px;background:var(--ac-1)}
 .mc-acoes > .mc-bt{min-height:46px;font-size:14px}
 .mc-ok{display:flex;align-items:center;gap:6px;margin:0;font-size:13px;color:var(--bx-green)}
 .mc-erro{margin:0;font-size:13px;color:var(--bx-red)}

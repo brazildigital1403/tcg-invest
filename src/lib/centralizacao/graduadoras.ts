@@ -126,3 +126,22 @@ export const fmtPontos = (pp: number) => {
   return `${t} ${v >= 2 ? 'pontos' : 'ponto'}`
 }
 export const fmtMmCurto = (mm: number) => `${mm.toFixed(2).replace('.', ',')} mm`
+
+/** Numero da nota do degrau ("MINT 9" -> 9, "Gem Mint 9.5" -> 9,5, "Pristine 10" -> 10). */
+export function notaNumero(nota: string): number | null {
+  const m = nota.match(/(\d+(?:\.\d)?)\s*$/)
+  return m ? Number(m[1]) : null
+}
+
+/**
+ * Aviso quando a faixa provavel escrita passa do que a centralizacao permite na
+ * graduadora escolhida. Nao trava nada: a faixa e do admin.
+ */
+export function avisoFaixa(e: Escada | undefined, faixaMax: number | null): string | null {
+  if (!e || !e.publica || faixaMax == null) return null
+  if (e.teto == null) return `Pela centralização, a carta fica abaixo da tabela da ${e.graduadora}. Confira se a faixa considera isso.`
+  const nota = e.degraus[e.teto].nota
+  const n = notaNumero(nota)
+  if (n == null || faixaMax <= n) return null
+  return `Pela centralização, a carta cabe até ${nota} na ${e.graduadora}, e a faixa vai até ${String(faixaMax).replace('.', ',')}. Confira se a faixa considera isso.`
+}
