@@ -1,6 +1,6 @@
 /**
  * Registro unico da regua: os 20 templates (lote A + lote B) e as variantes
- * aprovadas (E01B, E03B, E04B, E06B, E17B) num mapa so, mais os exemplos
+ * aprovadas (E01B, E03B, E04B, E05B, E06B, E17B) num mapa so, mais os exemplos
  * alternativos que alguns deles tem para a pre-visualizacao.
  *
  * Quem precisa de "todos os templates" (pre-visualizacao do admin, motor de
@@ -11,6 +11,7 @@ import { TEMPLATES_A } from './templates/index-a'
 import { TEMPLATES_B } from './templates/index-b'
 import { TEMPLATES_VARIANTES } from './templates/index-variantes'
 import { E03B_EXEMPLO_PIOR } from './templates/E03B'
+import { EXEMPLOS_EXTRAS as EXTRAS_E05B } from './templates/E05B'
 import { E10_EXEMPLO_5MAIS } from './templates/E10'
 import { EXEMPLOS_EXTRAS as EXTRAS_E14 } from './templates/E14'
 import { EXEMPLOS_EXTRAS as EXTRAS_E18 } from './templates/E18'
@@ -24,6 +25,7 @@ export const REGUA: Record<string, TemplateRegua<any>> = { ...TEMPLATES_A, ...TE
  */
 export const VARIANTES: Record<string, Record<string, unknown>> = {
   E03B: { 'pior-caso': E03B_EXEMPLO_PIOR },
+  E05B: EXTRAS_E05B,
   E10: { '5mais': E10_EXEMPLO_5MAIS },
   E14: EXTRAS_E14,
   E18: EXTRAS_E18,

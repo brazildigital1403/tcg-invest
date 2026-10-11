@@ -7,9 +7,10 @@
 import { E01B } from './E01B'
 import { E03B } from './E03B'
 import { E04B } from './E04B'
+import { E05B } from './E05B'
 import { E06B } from './E06B'
 import { E17B } from './E17B'
 
-export const TEMPLATES_VARIANTES = { E01B, E03B, E04B, E06B, E17B } as const
+export const TEMPLATES_VARIANTES = { E01B, E03B, E04B, E05B, E06B, E17B } as const
 
 export type IdTemplateVariante = keyof typeof TEMPLATES_VARIANTES
