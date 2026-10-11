@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import { comprimirImagem } from '@/lib/comprimirImagem'
@@ -21,6 +21,12 @@ export default function FotosEnvio({ pedidoId, onChange }: { pedidoId: string; o
   const [paths, setPaths] = useState<Partial<Record<SlotFotoEnvio, string>>>({})
   const [subindo, setSubindo] = useState<SlotFotoEnvio | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  // Previa local da foto que SUBIU (a mesma imagem comprimida enviada ao
+  // bucket): a loja ve que a foto entrou de verdade. Liberada ao trocar/sair.
+  const [previas, setPrevias] = useState<Partial<Record<SlotFotoEnvio, string>>>({})
+  const previasRef = useRef(previas)
+  previasRef.current = previas
+  useEffect(() => () => { Object.values(previasRef.current).forEach(u => u && URL.revokeObjectURL(u)) }, [])
 
   async function escolher(slot: SlotFotoEnvio, f: File) {
     setErro(null); setSubindo(slot)
@@ -36,6 +42,10 @@ export default function FotosEnvio({ pedidoId, onChange }: { pedidoId: string; o
       if (error) throw new Error('A foto não subiu. Confira sua conexão e tente de novo.')
       const novo = { ...paths, [slot]: u.path as string }
       setPaths(novo)
+      setPrevias(v => {
+        if (v[slot]) URL.revokeObjectURL(v[slot]!)
+        return { ...v, [slot]: URL.createObjectURL(arq) }
+      })
       onChange(SLOTS_FOTO_ENVIO.filter(s => novo[s]).map(s => novo[s]!))
     } catch (e) {
       setErro((e as Error).message)
@@ -51,11 +61,21 @@ export default function FotosEnvio({ pedidoId, onChange }: { pedidoId: string; o
       <p className="fe-txt">Fotografe a carta antes de embalar. Se ela voltar em uma devolução, é com estas fotos que você prova que mandou a carta certa.</p>
       <div className="fe-grid">
         {SLOTS_FOTO_ENVIO.map(s => (
-          <label key={s} className={`fe-slot${paths[s] ? ' fe-on' : ''}`}>
+          <label key={s} className={`fe-slot${paths[s] ? ' fe-on' : ''}`} aria-label={paths[s] ? `${ROTULO[s]}: enviada. Toque para trocar` : `Fotografar ${ROTULO[s].toLowerCase()}`}>
             <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden disabled={!!subindo}
               onChange={e => { const f = e.target.files?.[0]; if (f) escolher(s, f); e.target.value = '' }} />
-            {paths[s] ? <IconCheck size={20} color="var(--bx-green)" /> : <IconCamera size={20} color="currentColor" />}
-            <span>{subindo === s ? 'Enviando…' : ROTULO[s]}</span>
+            {previas[s] ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element -- blob local, sem otimizador */}
+                <img src={previas[s]} alt="" className="fe-img" />
+                <span className="fe-tag"><IconCheck size={13} color="var(--bx-green)" />{subindo === s ? 'Enviando…' : `${ROTULO[s]} · trocar`}</span>
+              </>
+            ) : (
+              <>
+                {paths[s] ? <IconCheck size={20} color="var(--bx-green)" /> : <IconCamera size={20} color="currentColor" />}
+                <span>{subindo === s ? 'Enviando…' : ROTULO[s]}</span>
+              </>
+            )}
           </label>
         ))}
       </div>
@@ -72,6 +92,10 @@ const CSS = `
 .fe-txt{margin:0;font-size:12.5px;line-height:1.5;color:var(--bx-text-2)}
 .fe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .fe-slot{min-height:96px;border-radius:10px;border:1px dashed rgba(var(--ac-1-rgb),.5);background:rgba(var(--ac-1-rgb),.06);color:var(--ac-1);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+
+.fe-slot{position:relative;overflow:hidden;aspect-ratio:5/7;min-height:0}
+.fe-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fe-tag{position:absolute;left:6px;right:6px;bottom:6px;min-height:28px;padding:0 8px;border-radius:8px;background:color-mix(in srgb,var(--bx-bg) 82%,transparent);color:var(--bx-text);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px}
 .fe-on{border-style:solid;border-color:color-mix(in srgb,var(--bx-green) 45%,transparent);background:color-mix(in srgb,var(--bx-green) 6%,transparent);color:var(--bx-text-2)}
 .fe-mut{font-size:12px;color:var(--bx-text-3)}
 .fe-erro{font-size:12.5px;color:var(--bx-red)}

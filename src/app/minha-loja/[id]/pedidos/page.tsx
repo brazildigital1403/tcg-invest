@@ -3,12 +3,11 @@
 import { use as usePromise, useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
-import { useAppModal } from '@/components/ui/useAppModal'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
 import { fmtBRL } from '@/lib/comissao'
 import {
   IconBox, IconCheck, IconTruck, IconShield, IconClock, IconWarning, IconSearch, IconFilter, IconChevronDown,
-  IconCopy, IconLocation, IconEye, IconPhone, IconPokeball,
+  IconCopy, IconLocation, IconEye, IconPhone, IconPokeball, IconClose,
 } from '@/components/ui/Icons'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { MOTIVOS, exigeFotoEnvio, fmtPrazo } from '@/lib/leilao-reclamacao'
@@ -56,6 +55,9 @@ interface Pedido {
   valor_reembolsado_cents?: number | null
 }
 
+/** Aviso na propria tela, logo abaixo das abas (no lugar do modal). */
+interface Aviso { texto: string; irPara?: Aba }
+
 type Filtro = 'todos' | 'venda' | 'leilao' | 'reclamacao' | 'desistencia'
 interface Linha { p: Pedido; r: Recl | null; c: Caso }
 
@@ -95,7 +97,6 @@ function enderecoTexto(end: Record<string, string | null>): string {
 export default function LojaPedidosPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: lojaId } = usePromise(params)
   const { estado, loja } = useLojaOwner(lojaId)
-  const { showAlert } = useAppModal()
 
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [recls, setRecls] = useState<Recl[]>([])
@@ -109,6 +110,14 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
   const [aberto, setAberto] = useState<string | null>(null)
   const [envioAberto, setEnvioAberto] = useState<string | null>(null)
   const [agora, setAgora] = useState(() => Date.now())
+  const [aviso, setAviso] = useState<Aviso | null>(null)
+
+  // Some sozinho em 8 s; o x fecha antes.
+  useEffect(() => {
+    if (!aviso) return
+    const t = setTimeout(() => setAviso(null), 8000)
+    return () => clearTimeout(t)
+  }, [aviso])
 
   const token = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
@@ -223,6 +232,21 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
             </nav>
           </div>
 
+          {aviso && (
+            <div className="lp-aviso" role="status">
+              <span className="lp-aviso-ic"><IconCheck size={16} color="var(--bx-green)" /></span>
+              <span className="lp-aviso-txt">{aviso.texto}</span>
+              {aviso.irPara && aviso.irPara !== abaAtual && (
+                <button type="button" className="lp-aviso-ir" onClick={() => { setAba(aviso.irPara!); setAviso(null) }}>
+                  Ver em {ABAS.find(a => a.k === aviso.irPara)?.l}
+                </button>
+              )}
+              <button type="button" className="lp-aviso-x" aria-label="Fechar aviso" onClick={() => setAviso(null)}>
+                <IconClose size={16} color="currentColor" />
+              </button>
+            </div>
+          )}
+
           <div className="lp-busca">
             <label className="lp-campo">
               <IconSearch size={18} color="var(--bx-text-3)" />
@@ -258,7 +282,7 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
               <CardPedido key={l.p.id} l={l} lojaId={lojaId} agora={agora}
                 aberto={aberto === l.p.id} envioAberto={envioAberto === l.p.id}
                 onAbrir={abrir} onFechar={() => { setAberto(null); setEnvioAberto(null) }}
-                onMudou={carregar} token={token} showAlert={showAlert} />
+                onMudou={carregar} token={token} avisar={setAviso} />
             ))
           )}
         </>
@@ -344,7 +368,7 @@ function notaDoCaso(l: Linha): string | null {
   return null
 }
 
-function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, onMudou, token, showAlert }: {
+function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, onMudou, token, avisar }: {
   l: Linha
   lojaId: string
   agora: number
@@ -354,7 +378,7 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
   onFechar: () => void
   onMudou: () => void
   token: () => Promise<string>
-  showAlert: (msg: string, tipo: 'success' | 'error') => void
+  avisar: (a: Aviso) => void
 }) {
   const { p, r, c } = l
   const [rastreio, setRastreio] = useState('')
@@ -364,6 +388,8 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
   const [motivo, setMotivo] = useState('')
   const [cancelando, setCancelando] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  // Erro fica no proprio card, junto do botao que falhou.
+  const [erro, setErro] = useState<string | null>(null)
 
   const pedeFoto = LEILAO_ATIVO && exigeFotoEnvio({ ehLeilao: !!p.leilao_id, valor_item_cents: p.valor_item_cents })
   const podeConfirmarEnvio = rastreio.trim().length >= 8 && (!pedeFoto || fotos.length >= 2) && !enviando
@@ -382,28 +408,28 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
   }
 
   async function confirmarEnvio() {
-    setEnviando(true)
+    setEnviando(true); setErro(null)
     try {
       await patch({ acao: 'enviar', rastreio: rastreio.trim(), fotos })
-      showAlert('Pedido marcado como enviado. O comprador já foi avisado.', 'success')
+      avisar({ texto: `Pedido #${p.numero} marcado como enviado. O comprador já foi avisado.`, irPara: 'comprador' })
       onFechar()
       onMudou()
     } catch (e) {
-      showAlert((e as Error).message, 'error')
+      setErro((e as Error).message)
     } finally {
       setEnviando(false)
     }
   }
 
   async function cancelar() {
-    setCancelando(true)
+    setCancelando(true); setErro(null)
     try {
       await patch({ acao: 'cancelar', motivo: motivo.trim() || null })
-      showAlert('Pedido cancelado e reembolsado. O comprador já foi avisado.', 'success')
+      avisar({ texto: `Pedido #${p.numero} cancelado e reembolsado. O comprador já foi avisado.`, irPara: 'concluidos' })
       onFechar()
       onMudou()
     } catch (e) {
-      showAlert((e as Error).message, 'error')
+      setErro((e as Error).message)
     } finally {
       setCancelando(false)
     }
@@ -478,6 +504,7 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
                     <input id={`rastreio-${p.id}`} value={rastreio} onChange={e => setRastreio(e.target.value)}
                       placeholder="Código dos Correios ou do Melhor Envio" autoComplete="off" />
                   </div>
+                  {erro && <div className="lp-erro-card" role="alert">{erro}</div>}
                   <button type="button" className="lp-bt lp-bt-pri" disabled={!podeConfirmarEnvio} onClick={confirmarEnvio}>
                     {enviando ? 'Salvando…' : 'Confirmar envio'}
                   </button>
@@ -488,6 +515,7 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
               {cancelAberto ? (
                 <div className="lp-cancel">
                   <span>Isso reembolsa o comprador integralmente e não pode ser desfeito.</span>
+                  {erro && <div className="lp-erro-card" role="alert">{erro}</div>}
                   <input className="lp-input" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Motivo (opcional, o comprador vê)" aria-label="Motivo do cancelamento" />
                   <button type="button" className="lp-bt lp-bt-perigo" disabled={cancelando} onClick={cancelar}>{cancelando ? 'Reembolsando…' : 'Confirmar cancelamento'}</button>
                   <button type="button" className="lp-bt lp-bt-ghost" disabled={cancelando} onClick={() => setCancelAberto(false)}>Voltar</button>
@@ -526,6 +554,14 @@ const CSS = `
 .lp-aba-on{border-color:rgba(var(--ac-1-rgb),.45);background:rgba(var(--ac-1-rgb),.12);color:var(--bx-text)}
 .lp-cont{min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:var(--bx-surface-3);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
 .lp-cont-hot{background:var(--ac-grad);color:var(--bx-brand-ink)}
+.lp-aviso{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px;border-radius:12px;background:color-mix(in srgb,var(--bx-green) 8%,var(--bx-surface));border:1px solid color-mix(in srgb,var(--bx-green) 35%,transparent);animation:lp-entra .2s ease}
+.lp-aviso-ic{width:28px;height:28px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bx-green) 14%,transparent)}
+.lp-aviso-txt{flex:1;min-width:0;font-size:13px;line-height:1.45;color:var(--bx-text)}
+.lp-aviso-ir{min-height:44px;padding:0 10px;border:none;background:transparent;color:var(--ac-1);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap}
+.lp-aviso-x{width:44px;height:44px;flex-shrink:0;border:none;background:transparent;color:var(--bx-text-3);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.lp-erro-card{font-size:12.5px;line-height:1.5;color:var(--bx-red);padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--bx-red) 8%,transparent)}
+@keyframes lp-entra{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.lp-aviso{animation:none}}
 .lp-busca{display:flex;gap:8px}
 .lp-campo{flex:1;min-width:0;min-height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:10px;background:var(--bx-surface-2);border:1px solid var(--bx-border);transition:border-color .15s ease}
 .lp-campo:focus-within{border-color:var(--bx-border-2)}
