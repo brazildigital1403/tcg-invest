@@ -72,6 +72,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
       return json(409, { error: 'Desistência aguardando a devolução: a Bynx só decide se a loja contestar. Use "Marcar devolução entregue".' })
     }
     if (pedido.em_disputa && decisao !== 'improcedente') return json(409, { error: MSG_EM_DISPUTA })
+    // Desistencia contestada: a carta ja voltou para a loja. "Devolucao" a
+    // mandaria de volta para aguardando_devolucao, onde ninguem mais conclui
+    // (a loja ja contestou, o cron so estorna sem contestacao).
+    if (rec.motivo === 'arrependimento' && decisao === 'devolucao') {
+      return json(409, { error: 'Na desistência a carta já voltou para a loja. Decida entre estorno total, parcial ou improcedente.' })
+    }
 
     const chave = `reclamacao-${rid}`
     let charge: { amount: number; amountRefunded: number } | null = null

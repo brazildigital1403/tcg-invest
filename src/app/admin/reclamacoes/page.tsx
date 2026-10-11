@@ -264,7 +264,9 @@ export default function AdminReclamacoesPage() {
                           <>
                             <div className="ar-bts">
                               <button type="button" className="ar-bt ar-bt-pri" disabled={!!salvando} onClick={() => decidir(r, 'estorno_total')}>Estorno total ({fmtBRL(r.restante_cents)})</button>
-                              <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => decidir(r, 'devolucao')}>Devolução</button>
+                              {r.motivo !== 'arrependimento' && (
+                                <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => decidir(r, 'devolucao')}>Devolução</button>
+                              )}
                               <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => decidir(r, 'improcedente')}>Improcedente</button>
                             </div>
                             <div className="ar-bts">
