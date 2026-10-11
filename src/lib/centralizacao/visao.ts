@@ -233,7 +233,8 @@ export function detectarCarta(img: Imagem, opts: { ladoDeteccao?: number } = {})
     if (minC >= 0.5) break
   }
   if (!melhor) return { cantos: null, confianca: [0, 0, 0, 0], inferido: [false, false, false, false], ms: performance.now() - t0 }
-  let res = { cantos: melhor.cantos, confianca: melhor.confianca, inferido: melhor.inferido }
+  if (!melhor.cantos) return { cantos: null, confianca: [0, 0, 0, 0], inferido: [false, false, false, false], ms: performance.now() - t0 }
+  let res: { cantos: Pt[]; confianca: number[]; inferido: boolean[] } = { cantos: melhor.cantos, confianca: melhor.confianca, inferido: melhor.inferido }
   const exp = expandirAteFundo(img, res.cantos, res.inferido, s)
   if (exp) res = exp
   const prop = ajustarProporcao(img, res.cantos, res.confianca, res.inferido, s)
