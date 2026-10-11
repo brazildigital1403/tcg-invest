@@ -110,6 +110,17 @@ function IconReguaAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?
   )
 }
 
+// Icone da ferramenta de centralizacao (carta com moldura e mira)
+function IconCentralizacaoAdmin({ size = 16, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <rect x="4" y="2.5" width="12" height="15" rx="1.5" stroke={color} strokeWidth="1.4"/>
+      <rect x="6.5" y="5" width="7" height="10" rx="0.5" stroke={color} strokeWidth="1.2" strokeDasharray="1.6 1.4"/>
+      <path d="M10 8.5v3M8.5 10h3" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 type MenuItem = { label: string; href: string; Icon: any; countKey?: string; attention?: boolean }
 
 const adminMenu: MenuItem[] = [
@@ -117,6 +128,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Tickets', href: '/admin/tickets', Icon: IconChat, countKey: 'tickets' },
   { label: 'Cartas', href: '/admin/card-requests', Icon: IconCardAlert, countKey: 'cartas', attention: true },
   { label: 'Serviços', href: '/admin/servicos', Icon: IconTarget, countKey: 'servicos', attention: true },
+  { label: 'Centralização', href: '/admin/centralizacao', Icon: IconCentralizacaoAdmin },
   { label: 'Lojas', href: '/admin/lojas', Icon: IconStore, countKey: 'lojas' },
   { label: 'Marketplace', href: '/admin/marketplace', Icon: IconMarketplaceAdmin, countKey: 'marketplace' },
   { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },

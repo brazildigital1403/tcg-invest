@@ -420,7 +420,9 @@ function montarBlocos(d: RelatorioDados): Bloco[] {
     // ── Laudo (pre-grading: logo apos a ficha) ──
     const blocosLaudo = (): Bloco[] => {
       const secL = `${L('laudo')}. Laudo de pré-grading`
-      const fotoC = comSaida ? frenteSa : frenteCh
+      // A imagem anotada da ferramenta (linhas e mm) vale mais que a foto crua.
+      const anotada = fotoDe(c, 'laudo', 'centralizacao_frente')
+      const fotoC = anotada || (comSaida ? frenteSa : frenteCh)
       const la = c.laudo
       const leg = tipo === 'completo' ? 'Medido após o tratamento' : undefined
       if (!la) {
@@ -442,7 +444,7 @@ function montarBlocos(d: RelatorioDados): Bloco[] {
               <div className="laudo">
                 <div className="laudo-col">
                   <div>
-                    <div className="leg"><b>1. Centralização medida</b> · frente{fotoC ? ` · ${comSaida ? 'saída' : 'chegada'}` : ''}</div>
+                    <div className="leg"><b>1. Centralização medida</b> · frente{anotada ? ' · linhas da medição' : fotoC ? ` · ${comSaida ? 'saída' : 'chegada'}` : ''}</div>
                     <div className="centro"><FotoReal foto={fotoC} alt={`${c.nome}, frente usada na medição`} /></div>
                   </div>
                   <div className="sec">

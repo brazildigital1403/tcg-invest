@@ -28,7 +28,7 @@ import {
 } from '@/lib/servicosServer'
 import {
   TRANSICOES_ADMIN, STATUS_SERVICO, MIDIAS_ADMIN, CAMPOS_LAUDO, RISCOS,
-  validarFicha, lerFaixaNota, lerGraduadora, STATUS_EXPRESSO_EM_ANDAMENTO, brl,
+  validarFicha, lerFaixaNota, lerGraduadora, STATUS_EXPRESSO_EM_ANDAMENTO, brl, lerProporcao,
 } from '@/lib/servicos'
 
 export const dynamic = 'force-dynamic'
@@ -36,6 +36,35 @@ export const dynamic = 'force-dynamic'
 const MIMES_ADMIN = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'application/pdf']
 const MAX_ADMIN_BYTES = 50 * 1024 * 1024
 const CENTS_MAX = 100_000_000
+
+/**
+ * Medicao de UMA face vinda da ferramenta de centralizacao, reconstruida campo a
+ * campo (nada do corpo entra no banco sem passar por aqui). null se incompleta.
+ */
+function lerMedicaoFace(v: unknown) {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  const num = (x: unknown, min: number, max: number) => (typeof x === 'number' && Number.isFinite(x) && x >= min && x <= max ? Math.round(x * 1000) / 1000 : null)
+  const img = Array.isArray(o.img) ? o.img.map(x => num(x, 1, 20000)) : []
+  if (img.length !== 2 || img.some(x => x == null)) return null
+  const [w, h] = img as number[]
+  const cantos = Array.isArray(o.cantos) && o.cantos.length === 4
+    ? o.cantos.map(p => (Array.isArray(p) && p.length === 2 ? [num(p[0], -w, 2 * w), num(p[1], -h, 2 * h)] : [null, null]))
+    : []
+  if (cantos.length !== 4 || cantos.some(p => p[0] == null || p[1] == null)) return null
+  const lin = (o.linhas && typeof o.linhas === 'object' ? o.linhas : {}) as Record<string, Record<string, unknown> | undefined>
+  const linhas: Record<string, Record<string, number>> = {}
+  for (const g of ['ext', 'int']) {
+    linhas[g] = {}
+    for (const l of ['esq', 'dir', 'topo', 'base']) {
+      const x = num(lin[g]?.[l], -10, 100)
+      if (x == null) return null
+      linhas[g][l] = x
+    }
+  }
+  const midia = typeof o.midia_id === 'string' && /^[0-9a-f-]{36}$/i.test(o.midia_id) ? o.midia_id : null
+  return { cantos, img, linhas, sem_moldura: o.sem_moldura === true, midia_id: midia, medido_em: new Date().toISOString() }
+}
 
 function cents(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
@@ -366,7 +395,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (body.acao === 'laudo') {
       const itemId = String(body.item_id || '')
       const entrada = (body.laudo && typeof body.laudo === 'object' ? body.laudo : {}) as Record<string, unknown>
-      const laudo: Record<string, string> = {}
+      const laudo: Record<string, unknown> = {}
       for (const c of CAMPOS_LAUDO) {
         const v = entrada[c.k]
         if (typeof v === 'string' && v.trim()) laudo[c.k] = v.trim().slice(0, c.k === 'caderno' ? 2000 : 200)
@@ -374,19 +403,53 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // Faixa e intervalo ("8 a 9", "8,5 a 9"), nunca nota unica; graduadora da
       // lista. Salvar pela metade continua valendo: o que falta so trava o "pronta".
       if (laudo.faixa_nota) {
-        const f = lerFaixaNota(laudo.faixa_nota)
+        const f = lerFaixaNota(laudo.faixa_nota as string)
         if (!f) return erro(400, 'Faixa provável no formato "8 a 9" (ou "8,5 a 9"), de 1 a 10, com o menor valor primeiro. Nota única não vale.')
         laudo.faixa_nota = f.texto
       }
       if (laudo.graduadora) {
-        const g = lerGraduadora(laudo.graduadora)
+        const g = lerGraduadora(laudo.graduadora as string)
         if (!g) return erro(400, 'Escolha a graduadora recomendada na lista')
         laudo.graduadora = g
       }
+      // O formulario do laudo so conhece os campos de texto: a medicao feita na
+      // ferramenta de centralizacao (coordenadas das linhas) e preservada.
+      const { data: antes } = await sb.from('servico_itens').select('laudo').eq('id', itemId).eq('solicitacao_id', id).limit(1)
+      const medicaoAntiga = (antes?.[0]?.laudo as Record<string, unknown> | null)?.centralizacao_medicao
+      if (medicaoAntiga && typeof medicaoAntiga === 'object') laudo.centralizacao_medicao = medicaoAntiga
       const { data, error } = await sb.from('servico_itens')
         .update({ laudo: Object.keys(laudo).length ? laudo : null }).eq('id', itemId).eq('solicitacao_id', id).select('id')
       if (error) throw new Error(error.message)
       if (!data?.length) return erro(404, 'Carta não encontrada neste pedido')
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── Centralizacao medida na ferramenta (/admin/centralizacao) ──────────
+    // Grava o texto no laudo (mesmo campo do formulario) e as coordenadas das
+    // linhas em laudo.centralizacao_medicao, para retomar a medida depois. So
+    // mexe nas faces enviadas; o resto do laudo fica como esta.
+    if (body.acao === 'centralizacao') {
+      const itemId = String(body.item_id || '')
+      const { data: it } = await sb.from('servico_itens').select('laudo').eq('id', itemId).eq('solicitacao_id', id).limit(1)
+      if (!it?.[0]) return erro(404, 'Carta não encontrada neste pedido')
+      const laudo = { ...((it[0].laudo && typeof it[0].laudo === 'object' ? it[0].laudo : {}) as Record<string, unknown>) }
+      const medicaoEntrada = (body.medicao && typeof body.medicao === 'object' ? body.medicao : {}) as Record<string, unknown>
+      const medicao = { ...((laudo.centralizacao_medicao && typeof laudo.centralizacao_medicao === 'object' ? laudo.centralizacao_medicao : {}) as Record<string, unknown>) }
+      let algum = false
+      for (const face of ['frente', 'verso'] as const) {
+        const texto = body[face]
+        if (texto == null) continue
+        if (typeof texto !== 'string' || texto.length > 200 || lerProporcao(texto) == null) return erro(400, `Centralização da ${face} em formato inválido`)
+        const m = lerMedicaoFace(medicaoEntrada[face])
+        if (!m) return erro(400, `Medição da ${face} incompleta`)
+        laudo[`centralizacao_${face}`] = texto.trim()
+        medicao[face] = m
+        algum = true
+      }
+      if (!algum) return erro(400, 'Nenhuma face medida')
+      laudo.centralizacao_medicao = { ...medicao, versao: 'centro-v1' }
+      const { error } = await sb.from('servico_itens').update({ laudo }).eq('id', itemId).eq('solicitacao_id', id)
+      if (error) throw new Error(error.message)
       return NextResponse.json({ ok: true })
     }
 

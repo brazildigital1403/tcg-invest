@@ -66,7 +66,10 @@ export async function montarRelatorio(sb: SupabaseClient, id: string): Promise<R
   // Foto mais recente de cada slot (a refeita vale). Chave: item + tipo + posicao.
   const ultima = new Map<string, { item_id: string; tipo: string; posicao: string; path: string; created_at: string }>()
   for (const m of midias || []) {
-    if (!m.item_id || !TIPOS_FOTO.includes(m.tipo) || !MIMES_FOTO.includes(m.mime)) continue
+    // Alem do protocolo, a imagem anotada da ferramenta de centralizacao
+    // (midia de laudo com posicao centralizacao_frente/verso).
+    const anotada = m.tipo === 'laudo' && /^centralizacao_(frente|verso)$/.test(m.posicao || '')
+    if (!m.item_id || !(TIPOS_FOTO.includes(m.tipo) || anotada) || !MIMES_FOTO.includes(m.mime)) continue
     ultima.set(`${m.item_id}:${m.tipo}:${m.posicao || ''}`, { item_id: m.item_id, tipo: m.tipo, posicao: m.posicao || '', path: m.path, created_at: m.created_at })
   }
   const paths = [...ultima.values()].map(m => m.path)
