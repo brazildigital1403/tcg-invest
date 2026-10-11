@@ -12,7 +12,9 @@
  * - E04 D3: cadastro entre 72h e 96h atras, sem meta. 0 cartas recebe o E04B.
  *   Uma vez (E04 OU E04B).
  * - E05: trial acaba entre 12h e 36h a partir do tick (o "1 dia antes"), sem
- *   assinatura. Uma vez. Sem dado para montar = o aviso antigo (D-1) sai no lugar.
+ *   assinatura. Uma vez (E05 OU E05B). 0 cartas recebe o E05B. Com carta mas sem
+ *   dado para montar (nenhuma subiu, nenhuma foto livre) = o aviso antigo (D-1)
+ *   sai no lugar.
  * - E06: sexta quinzenal, 5+ cartas, caso "uma carta salvou a semana". Quem
  *   nao e esse caso e mexeu pouco (nada mexeu, ou saldo dos 7 dias abaixo de
  *   3% do comeco) recebe o E06B. Mesma chave: E06 OU E06B.
@@ -36,6 +38,7 @@ import type { CartaE03B, DadosE03B, DestaqueE03B } from '@/lib/regua/templates/E
 import type { DadosE04 } from '@/lib/regua/templates/E04'
 import type { DadosE04B } from '@/lib/regua/templates/E04B'
 import type { DadosE05 } from '@/lib/regua/templates/E05'
+import type { DadosE05B } from '@/lib/regua/templates/E05B'
 import type { DadosE06, MovimentoE06 } from '@/lib/regua/templates/E06'
 import type { DadosE06B, JanelaE06B, LinhaE06B } from '@/lib/regua/templates/E06B'
 import type { CartaFaltaE07, DadosE07 } from '@/lib/regua/templates/E07'
@@ -397,10 +400,30 @@ export async function avaliarE04(ctx: Contexto): Promise<Avaliacao> {
 
 // ─── E05 · fim do trial ─────────────────────────────────────────────────────
 
+/** Dia do teste no envio (1 a 7), para o rotulo "Teste do Pro · dia N". */
+function diaDoTeste(ctx: Contexto, u: Usuario): number {
+  return Math.min(7, Math.max(1, Math.floor((ctx.agoraMs - u.criadoMs) / DIA_MS) + 1))
+}
+
+/**
+ * E05B: 0 cartas. Nao depende de foto livre: com 0 fotos o e-mail troca o
+ * caminho do Scan IA pelo da Pokedex (o template cuida disso).
+ */
+function dadosE05B(ctx: Contexto, u: Usuario): DadosE05B {
+  return {
+    nome: u.nome,
+    fimTeste: ddmm(diaBR(new Date(u.trialExpira!))),
+    horaFim: horaBR(u.trialExpira!),
+    diaTeste: diaDoTeste(ctx, u),
+    fotosLivres: fotosLivresTrial(u, ctx.agoraMs),
+    plus: { scans: 100, preco: PLAN_PRECOS.plus.mensal },
+  }
+}
+
+/** E05 principal: so com carta e com foto livre (a chamada ja garante col.total > 0). */
 async function dadosE05(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: DadosE05; img: ImgE05 } | string> {
   const fotos = fotosLivresTrial(u, ctx.agoraMs)
   if (fotos < 1) return 'sem_foto_livre'
-  if (col.total === 0) return 'sem_cartas'
   await prepararHistorico(ctx, [col])
   let melhor: { x: CartaPessoa; entrada: number; pct: number } | null = null
   for (const x of col.cartas) {
@@ -415,11 +438,10 @@ async function dadosE05(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: D
   const saldo = mexidas(ctx, col, 7).reduce((s, m) => s + m.naColecao, 0)
   const baseValor = col.valor - saldo
   const leque = maisValiosas(col).filter((x) => x.cardId !== melhor!.x.cardId).slice(0, 3).map((x) => x.cat!.imagemGrande)
-  const diaTeste = Math.min(7, Math.max(1, Math.floor((ctx.agoraMs - u.criadoMs) / DIA_MS) + 1))
   const d: DadosE05 = {
     nome: u.nome,
     horaFim: horaBR(u.trialExpira!),
-    diaTeste,
+    diaTeste: diaDoTeste(ctx, u),
     fotosRestantes: fotos,
     totalCartas: col.total,
     valorColecao: col.valor,
@@ -430,7 +452,11 @@ async function dadosE05(ctx: Contexto, u: Usuario, col: Colecao): Promise<{ d: D
   return { d, img: { destaque: { imagem: melhor.x.cat!.imagemGrande, pct: r1(melhor.pct) }, leque } }
 }
 
-/** E05 que nao deu para montar: o aviso antigo de ultimo dia sai no lugar (so no real). */
+/**
+ * E05 que nao deu para montar (tem carta, mas nenhuma que subiu, ou nenhuma
+ * foto livre): o aviso antigo de ultimo dia sai no lugar (so no real).
+ * 0 cartas NAO cai aqui: vai para o E05B.
+ */
 export type FallbackE05 = { usuario: Usuario; motivo: string }
 
 export async function avaliarE05(ctx: Contexto): Promise<Avaliacao & { fallback: FallbackE05[] }> {
@@ -443,8 +469,14 @@ export async function avaliarE05(ctx: Contexto): Promise<Avaliacao & { fallback:
     if (fim <= ctx.agoraMs + 12 * H || fim > ctx.agoraMs + 36 * H) continue
     if (semTempo(ctx)) { a.incompleto = true; break }
     a.noGatilho++
-    if (!passaNasRegras(ctx, a, u, 'colecao', { templates: ['E05', 'trial-expiring1'], janelaDias: 10 })) continue
-    const r = await dadosE05(ctx, u, await colecaoDe(ctx, u.id))
+    // E05, E05B e o aviso antigo sao o mesmo "1 dia antes": quem recebeu um nao recebe outro.
+    if (!passaNasRegras(ctx, a, u, 'colecao', { templates: ['E05', 'E05B', 'trial-expiring1'], janelaDias: 10 })) continue
+    const col = await colecaoDe(ctx, u.id)
+    if (col.total === 0) {
+      a.cands.push({ usuario: u, template: 'E05B', campanha: 'e05b', chave: 'e05', dados: dadosE05B(ctx, u), img: null })
+      continue
+    }
+    const r = await dadosE05(ctx, u, col)
     if (typeof r === 'string') {
       pular(a, `aviso_antigo_no_lugar:${r}`)
       a.fallback.push({ usuario: u, motivo: r })

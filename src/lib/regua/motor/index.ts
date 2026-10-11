@@ -3,7 +3,7 @@
  *
  * - Eventos (cron /api/cron-regua): E02, E03, E04, E05, E06, E07, E08, E09, E15, E16, E20.
  * - Editoriais (POST /api/admin/regua/disparo): E01, E10 (Radar), E11, E12, E17, E18, E19.
- * - Variantes (E01B, E03B, E04B, E06B, E17B): saem no gatilho do principal, para
+ * - Variantes (E01B, E03B, E04B, E05B, E06B, E17B): saem no gatilho do principal, para
  *   o publico que ele nao cobre. Nao tem gatilho nem disparo proprio.
  * - Leilao (E13, E14): `enviarAvisoLeilao`, para o modulo do leilao chamar.
  *
@@ -34,7 +34,8 @@ export const GATILHOS: Record<string, { tipo: TipoGatilho; gatilho: string; publ
   E03B: { tipo: 'evento', principal: 'E03', gatilho: `O mesmo do E03: 24h a 48h após o cadastro. A partir de ${fmt(INICIO.E03)}.`, publico: '5 a 9 cartas (Coleção). Quem recebe o E03B não recebe o E03.' },
   E04: { tipo: 'evento', gatilho: `72h a 96h após o cadastro, sem meta. A partir de ${fmt(INICIO.E04)}.`, publico: 'Todos com conta (Coleção), com carta em alta de 7 dias num set da coleção (0 cartas recebe o E04B).' },
   E04B: { tipo: 'evento', principal: 'E04', gatilho: `O mesmo do E04: 72h a 96h após o cadastro, sem meta. A partir de ${fmt(INICIO.E04)}.`, publico: '0 cartas (Coleção). Quem recebe o E04B não recebe o E04.' },
-  E05: { tipo: 'evento', gatilho: `Trial acaba em 12h a 36h. A partir de ${fmt(INICIO.E05)}, no lugar dos avisos D-2 e D-1.`, publico: 'Trial sem assinatura (Coleção). Sem dado para montar, sai o aviso antigo de último dia.' },
+  E05: { tipo: 'evento', gatilho: `Trial acaba em 12h a 36h. A partir de ${fmt(INICIO.E05)}, no lugar dos avisos D-2 e D-1.`, publico: 'Trial sem assinatura (Coleção), com carta que subiu e foto livre (0 cartas recebe o E05B). Com carta mas sem dado para montar, sai o aviso antigo de último dia.' },
+  E05B: { tipo: 'evento', principal: 'E05', gatilho: `O mesmo do E05: trial acaba em 12h a 36h. A partir de ${fmt(INICIO.E05)}. Mesma chave: E05 ou E05B.`, publico: 'Trial sem assinatura com 0 cartas (Coleção), com ou sem foto livre. Quem recebe o E05B não recebe o E05 nem o aviso antigo.' },
   E06: { tipo: 'evento', gatilho: `Sexta quinzenal a partir de ${fmt(E06_PRIMEIRA)}.`, publico: '5+ cartas, caso "uma carta salvou a semana". Semana calma (nada mexeu ou saldo abaixo de 3%) recebe o E06B; acima de 3% sem o caso "salvou" fica sem e-mail.' },
   E06B: { tipo: 'evento', principal: 'E06', gatilho: `A mesma sexta quinzenal do E06, a partir de ${fmt(E06_PRIMEIRA)}. Mesma chave: E06 ou E06B.`, publico: '5+ cartas, semana calma: nada mexeu ou o saldo dos 7 dias ficou abaixo de 3% do começo (Coleção).' },
   E07: { tipo: 'evento', gatilho: `Meta com até 3 faltando (ou 90%+ com até 9) e 1+ à venda. Uma vez por meta. A partir de ${fmt(INICIO.E07)}.`, publico: 'Quem tem meta (Coleção).' },
