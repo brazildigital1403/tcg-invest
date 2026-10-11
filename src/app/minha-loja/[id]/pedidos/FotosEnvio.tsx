@@ -48,7 +48,7 @@ export default function FotosEnvio({ pedidoId, onChange }: { pedidoId: string; o
     <div className="fe-wrap">
       <style>{CSS}</style>
       <div className="fe-lbl">Fotos da carta <span>(obrigatório)</span></div>
-      <p className="fe-txt">Fotografe a carta antes de embalar. Se ela voltar numa devolução, é com estas fotos que você prova que mandou a carta certa.</p>
+      <p className="fe-txt">Fotografe a carta antes de embalar. Se ela voltar em uma devolução, é com estas fotos que você prova que mandou a carta certa.</p>
       <div className="fe-grid">
         {SLOTS_FOTO_ENVIO.map(s => (
           <label key={s} className={`fe-slot${paths[s] ? ' fe-on' : ''}`}>

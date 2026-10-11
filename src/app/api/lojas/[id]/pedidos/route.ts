@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     let q = sb
       .from('pedidos')
-      .select('id, numero, status, item_nome, item_imagem, valor_item_cents, frete_cents, liquido_loja_cents, total_comprador_cents, metodo, repasse_prazo, endereco, rastreio, created_at, pago_em, enviado_em, leilao_id')
+      .select('id, numero, status, item_nome, item_imagem, valor_item_cents, frete_cents, liquido_loja_cents, total_comprador_cents, metodo, repasse_prazo, endereco, rastreio, created_at, pago_em, enviado_em, entregue_em, leilao_id, cancelado_por, cancelado_em, valor_reembolsado_cents')
       .eq('loja_id', lojaId)
       .neq('status', 'aguardando_pagamento') // pedido nao pago nao interessa ao lojista
       .order('created_at', { ascending: false })
@@ -56,8 +56,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         a_enviar: pedidos.filter(p => p.status === 'pago').length,
         enviados: pedidos.filter(p => p.status === 'enviado').length,
         total: pedidos.length,
+        // 'cancelando' e estorno em andamento: nao conta como faturado.
+        vendas: pedidos.filter(p => !['cancelado', 'reembolsado', 'cancelando'].includes(p.status)).length,
         faturado_cents: pedidos
-          .filter(p => p.status !== 'cancelado' && p.status !== 'reembolsado')
+          .filter(p => !['cancelado', 'reembolsado', 'cancelando'].includes(p.status))
           .reduce((s, p) => s + (p.liquido_loja_cents || 0), 0),
       },
     })

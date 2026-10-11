@@ -22,6 +22,11 @@ writeFileSync(join(tmp, 'e.mjs'), ts.transpileModule(srcE, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText)
 const E = await import(pathToFileURL(join(tmp, 'e.mjs')).href)
+const srcP = readFileSync(join(raiz, 'src/lib/painelPedidos.ts'), 'utf8')
+writeFileSync(join(tmp, 'p.mjs'), ts.transpileModule(srcP, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText.replace("from './leilao-reclamacao'", "from './r.mjs'"))
+const P = await import(pathToFileURL(join(tmp, 'p.mjs')).href)
 const DIA = 24 * 60 * 60 * 1000
 const t = iso => new Date(iso).getTime()
 
@@ -368,6 +373,64 @@ try {
     assert.equal(R.validarFotosEnvio(['ped/envio/embalagem-1.webp'], pasta, false).ok, false, 'slot desconhecido')
     assert.equal(R.validarFotosEnvio(['ped/envio/frente-1.webp', 'ped/envio/frente-2.webp'], pasta, false).ok, false, 'repetida')
   }, 'exigeFotoEnvio e validarFotosEnvio')
+
+  ok(() => {
+    const agora = t('2026-10-11T15:00:00Z')
+    const iso = d => new Date(agora + d * DIA).toISOString()
+    const C = (p, r = null) => P.classificarCaso({ created_at: iso(-5), ...p }, r, agora)
+    // pedido sem ocorrencia
+    let c = C({ status: 'pago', leilao_id: 'x', pago_em: iso(-1) })
+    assert.equal(c.aba, 'sua_vez'); assert.equal(c.acao, 'enviar'); assert.equal(c.botao, 'enviar'); assert.equal(c.tipo, 'leilao')
+    assert.ok(c.prazo, 'leilao pago tem prazo de envio')
+    c = C({ status: 'pago', pago_em: iso(-2) })
+    assert.equal(c.tipo, 'venda'); assert.equal(c.prazo, null, 'venda direta sem prazo de envio')
+    c = C({ status: 'pago', leilao_id: 'x', pago_em: iso(-9) })
+    assert.equal(c.urgencia, 'vencido')
+    assert.equal(C({ status: 'cancelando' }).aba, 'bynx')
+    c = C({ status: 'enviado', leilao_id: 'x', enviado_em: iso(-2) })
+    assert.equal(c.aba, 'comprador'); assert.equal(c.acao, 'confirmar_recebimento'); assert.equal(c.fechaEm.getTime(), agora + 8 * DIA)
+    assert.equal(C({ status: 'enviado', enviado_em: iso(-2) }).fechaEm, null, 'venda direta nao fecha sozinha')
+    assert.equal(C({ status: 'entregue' }).aba, 'concluidos')
+    assert.equal(C({ status: 'reembolsado' }).acao, 'reembolsado')
+    assert.equal(C({ status: 'cancelado' }).acao, 'cancelado')
+    // reclamacao
+    const rec = { motivo: 'nao_chegou', status: 'aguardando_loja', prazo_loja_ate: iso(0.5) }
+    c = C({ status: 'enviado', leilao_id: 'x' }, rec)
+    assert.equal(c.aba, 'sua_vez'); assert.equal(c.acao, 'responder'); assert.equal(c.urgencia, 'hoje'); assert.equal(c.ocorrencia, 'reclamacao')
+    c = C({ status: 'enviado', leilao_id: 'x' }, { ...rec, prazo_loja_ate: iso(-1) })
+    assert.equal(c.aba, 'bynx'); assert.equal(c.urgencia, 'vencido')
+    c = C({ status: 'entregue', leilao_id: 'x' }, { ...rec, status: 'em_analise', prazo_decisao_ate: iso(2) })
+    assert.equal(c.aba, 'bynx'); assert.equal(c.acao, 'decidir')
+    assert.equal(C({ status: 'entregue', leilao_id: 'x' }, { ...rec, status: 'aguardando_devolucao' }).acao, 'devolucao_bynx')
+    c = C({ status: 'entregue', leilao_id: 'x' }, { ...rec, status: 'resolvida' })
+    assert.equal(c.aba, 'concluidos', 'reclamacao fechada: manda o pedido'); assert.equal(c.ocorrencia, 'reclamacao')
+    // desistencia
+    const des = { motivo: 'arrependimento', status: 'aguardando_devolucao', prazo_loja_ate: iso(7), postar_ate: iso(7) }
+    c = C({ status: 'entregue', leilao_id: 'x' }, des)
+    assert.equal(c.aba, 'comprador'); assert.equal(c.acao, 'postar'); assert.equal(c.ocorrencia, 'desistencia')
+    c = C({ status: 'entregue', leilao_id: 'x' }, { ...des, devolucao_postada_em: iso(-1) })
+    assert.equal(c.aba, 'comprador'); assert.equal(c.quem, 'correios'); assert.equal(c.botao, 'conferir_cedo')
+    c = C({ status: 'entregue', leilao_id: 'x' }, { ...des, devolucao_postada_em: iso(-3), devolucao_entregue_em: iso(-1), contestar_ate: iso(1.5) })
+    assert.equal(c.aba, 'sua_vez'); assert.equal(c.acao, 'conferir'); assert.equal(c.botao, 'conferir')
+    c = C({ status: 'entregue', leilao_id: 'x' }, { ...des, devolucao_postada_em: iso(-5), devolucao_entregue_em: iso(-4), contestar_ate: iso(-1) })
+    assert.equal(c.aba, 'bynx'); assert.equal(c.acao, 'estorno')
+    c = C({ status: 'entregue', leilao_id: 'x' }, { ...des, status: 'em_analise', contestada_em: iso(-1), prazo_decisao_ate: iso(2) })
+    assert.equal(c.aba, 'bynx'); assert.equal(c.acao, 'decidir')
+    // ocorrencia que manda: a aberta, senao a mais recente
+    const lista = [{ status: 'resolvida', created_at: iso(-1) }, { status: 'em_analise', created_at: iso(-3) }]
+    assert.equal(P.ocorrenciaDoPedido(lista).status, 'em_analise')
+    assert.equal(P.ocorrenciaDoPedido([{ status: 'resolvida', created_at: iso(-3) }, { status: 'improcedente', created_at: iso(-1) }]).status, 'improcedente')
+    assert.equal(P.ocorrenciaDoPedido([]), null)
+    // ordem: prazo mais proximo primeiro, sem prazo no fim
+    const a = C({ status: 'pago', leilao_id: 'x', pago_em: iso(-5) }), b = C({ status: 'pago', leilao_id: 'x', pago_em: iso(0) })
+    assert.ok(a.ordem < b.ordem)
+    assert.ok(C({ status: 'enviado', enviado_em: iso(-1) }).ordem > a.ordem)
+    // textos auxiliares
+    assert.equal(P.faltam(new Date(agora + 3.2 * DIA), agora), 'faltam 3 dias')
+    assert.equal(P.faltam(new Date(agora + 1.2 * DIA), agora), 'falta 1 dia')
+    assert.equal(P.faltam(new Date(agora + 0.5 * DIA), agora), null)
+    assert.equal(P.diasDesde(iso(-2.5), agora), 2)
+  }, 'classificarCaso: aba, quem age, prazo e ordem do painel da loja')
 
   console.log(`\n${n} blocos ok`)
 } finally {
