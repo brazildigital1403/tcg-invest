@@ -78,17 +78,32 @@ export default function AdminReclamacoesPage() {
   const [valor, setValor] = useState('')
   const [nota, setNota] = useState('')
   const [salvando, setSalvando] = useState<string | null>(null)
-  const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
+  // Aviso na propria tela, dentro do item (rid) ou no topo; nunca alert/confirm do navegador.
+  const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string; rid?: string } | null>(null)
+  // Confirmacao pendente, desenhada dentro do item (no lugar do window.confirm).
+  const [pendente, setPendente] = useState<
+    { rid: string; texto: string; executar: () => Promise<void>; perigo?: boolean } | null
+  >(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<Linha[] | null> => {
     try {
       const r = await fetch('/api/admin/reclamacoes', { cache: 'no-store' })
-      if (!r.ok) { setErro(true); return }
+      if (!r.ok) { setErro(true); return null }
       const d = await r.json()
       setErro(false)
       setRows(d.reclamacoes || [])
-    } catch { setErro(true) }
+      return d.reclamacoes || []
+    } catch { setErro(true); return null }
   }, [])
+
+  // Depois de agir: recarrega, leva para a aba onde o item foi parar e o deixa
+  // aberto, com o aviso dentro dele. Assim o resultado fica na tela.
+  async function aposAcao(rid: string, texto: string) {
+    const lista = await load()
+    const linha = lista?.find(l => l.id === rid)
+    if (linha) { setSeg(segDe(linha)); setAberta(rid) }
+    setMsg({ tipo: 'ok', texto, rid })
+  }
   useEffect(() => { load() }, [load])
 
   async function decidir(r: Linha, decisao: Decisao) {
@@ -98,39 +113,69 @@ export default function AdminReclamacoesPage() {
       : decisao === 'estorno_parcial' ? `estornar ${fmtBRL(cents || 0)} ao comprador`
       : decisao === 'devolucao' ? 'pedir a devolução (sem estorno agora)'
       : 'encerrar sem estorno'
-    if (!window.confirm(`Pedido #${r.pedido?.numero}: ${resumo}. Confirmar?`)) return
-    setSalvando(r.id); setMsg(null)
-    try {
-      const res = await fetch(`/api/admin/reclamacoes/${r.id}/decidir`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decisao, valor_cents: cents, nota: nota.trim() || null }),
-      })
-      const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j.error || 'Falha ao decidir.')
-      setMsg({ tipo: 'ok', texto: j.valor_estornado_cents > 0 ? `Decidido. Estornado ${fmtBRL(j.valor_estornado_cents)}.` : 'Decidido.' })
-      setValor(''); setNota(''); setAberta(null)
-      await load()
-    } catch (e) {
-      setMsg({ tipo: 'erro', texto: (e as Error).message })
-    } finally {
-      setSalvando(null)
-    }
+    setMsg(null)
+    setPendente({
+      rid: r.id,
+      texto: `Pedido #${r.pedido?.numero}: ${resumo}.`,
+      perigo: decisao !== 'improcedente' && decisao !== 'devolucao',
+      executar: async () => {
+        setSalvando(r.id); setMsg(null)
+        try {
+          const res = await fetch(`/api/admin/reclamacoes/${r.id}/decidir`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decisao, valor_cents: cents, nota: nota.trim() || null }),
+          })
+          const j = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(j.error || 'Falha ao decidir.')
+          setValor(''); setNota(''); setPendente(null)
+          await aposAcao(r.id, j.valor_estornado_cents > 0 ? `Decidido. Estornado ${fmtBRL(j.valor_estornado_cents)} ao comprador.` : 'Decidido.')
+        } catch (e) {
+          setPendente(null)
+          setMsg({ tipo: 'erro', texto: (e as Error).message, rid: r.id })
+        } finally {
+          setSalvando(null)
+        }
+      },
+    })
   }
 
   async function marcarEntregue(r: Linha) {
-    if (!window.confirm(`Pedido #${r.pedido?.numero}: conferiu no rastreio ${r.devolucao_rastreio} que a devolução foi entregue na loja? A loja passa a ter ${DIAS_UTEIS_CONTESTAR} dias úteis para contestar; depois o estorno sai sozinho.`)) return
-    setSalvando(r.id); setMsg(null)
-    try {
-      const res = await fetch(`/api/admin/reclamacoes/${r.id}/devolucao-entregue`, { method: 'POST' })
-      const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j.error || 'Falha ao marcar.')
-      setMsg({ tipo: 'ok', texto: `Entrega marcada. A loja pode contestar até ${fmtPrazo(j.contestar_ate)}.` })
-      await load()
-    } catch (e) {
-      setMsg({ tipo: 'erro', texto: (e as Error).message })
-    } finally {
-      setSalvando(null)
-    }
+    setMsg(null)
+    setPendente({
+      rid: r.id,
+      texto: `Pedido #${r.pedido?.numero}: conferiu no rastreio ${r.devolucao_rastreio} que a devolução foi entregue na loja? A loja passa a ter ${DIAS_UTEIS_CONTESTAR} dias úteis para contestar; depois o estorno sai sozinho.`,
+      executar: async () => {
+        setSalvando(r.id); setMsg(null)
+        try {
+          const res = await fetch(`/api/admin/reclamacoes/${r.id}/devolucao-entregue`, { method: 'POST' })
+          const j = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(j.error || 'Falha ao marcar.')
+          setPendente(null)
+          await aposAcao(r.id, `Entrega marcada. A loja pode contestar até ${fmtPrazo(j.contestar_ate)}.`)
+        } catch (e) {
+          setPendente(null)
+          setMsg({ tipo: 'erro', texto: (e as Error).message, rid: r.id })
+        } finally {
+          setSalvando(null)
+        }
+      },
+    })
+  }
+
+  // Caixa de confirmacao dentro do item (substitui o window.confirm).
+  function caixaConfirmacao(r: Linha) {
+    if (!pendente || pendente.rid !== r.id) return null
+    return (
+      <div className={`ar-confirma${pendente.perigo ? ' ar-confirma-perigo' : ''}`} role="alertdialog" aria-label="Confirmar decisão">
+        <p>{pendente.texto}</p>
+        <div className="ar-bts">
+          <button type="button" className="ar-bt ar-bt-pri" disabled={!!salvando} onClick={() => pendente.executar()}>
+            {salvando === r.id ? 'Processando…' : 'Confirmar'}
+          </button>
+          <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => setPendente(null)}>Cancelar</button>
+        </div>
+      </div>
+    )
   }
 
   const visiveis = (rows || []).filter(r => seg === 'tudo' || segDe(r) === seg)
@@ -152,7 +197,7 @@ export default function AdminReclamacoesPage() {
         })}
       </div>
 
-      {msg && <div className={`ar-msg ar-msg-${msg.tipo}`}>{msg.texto}</div>}
+      {msg && !msg.rid && <div className={`ar-msg ar-msg-${msg.tipo}`} role="status">{msg.texto}</div>}
 
       {erro ? (
         <div className="ar-vazio"><p>Não deu para carregar a fila.</p><button type="button" className="ar-bt" onClick={load}>Tentar de novo</button></div>
@@ -167,7 +212,7 @@ export default function AdminReclamacoesPage() {
             const exp = aberta === r.id
             return (
               <div key={r.id} className={`ar-item${r.pode_decidir ? ' ar-item-agora' : ''}`}>
-                <button type="button" className="ar-linha" onClick={() => { setAberta(exp ? null : r.id); setValor(''); setNota(''); setMsg(null) }}>
+                <button type="button" className="ar-linha" onClick={() => { setAberta(exp ? null : r.id); setValor(''); setNota(''); setMsg(null); setPendente(null) }}>
                   <span className="ar-num">#{p?.numero ?? ''}</span>
                   <span className="ar-meio">
                     <b>{p?.item_nome || 'Pedido'} · {r.loja?.nome || 'Loja'}</b>
@@ -183,6 +228,9 @@ export default function AdminReclamacoesPage() {
 
                 {exp && (
                   <div className="ar-det">
+                    {msg?.rid === r.id && (
+                      <div className={`ar-msg ar-msg-${msg.tipo} ar-msg-item`} role="status">{msg.texto}</div>
+                    )}
                     <div className="ar-grid">
                       <div><span>Pago</span>{fmtPrazo(p?.pago_em) || '-'}</div>
                       <div><span>Enviado</span>{fmtPrazo(p?.enviado_em) || '-'}</div>
@@ -219,6 +267,9 @@ export default function AdminReclamacoesPage() {
                           <div className="ar-bts">
                             <button type="button" className="ar-bt ar-bt-pri" disabled={!!salvando} onClick={() => marcarEntregue(r)}>Marcar devolução entregue</button>
                           </div>
+                        )}
+                        {r.pode_marcar_entregue && !r.pode_decidir && (
+                          caixaConfirmacao(r)
                         )}
                       </div>
                     )}
@@ -275,7 +326,7 @@ export default function AdminReclamacoesPage() {
                             </div>
                           </>
                         )}
-                        {salvando === r.id && <p className="ar-cit">Processando...</p>}
+                        {caixaConfirmacao(r)}
                       </div>
                     )}
                   </div>
@@ -299,6 +350,10 @@ const CSS = `
 .ar-seg-on{background:var(--bx-surface-2);border-color:var(--bx-border-2);color:var(--bx-text)}
 .ar-msg{font-size:13px;border-radius:10px;padding:10px 14px;margin-bottom:12px}
 .ar-msg-ok{color:var(--bx-green);background:color-mix(in srgb,var(--bx-green) 10%,transparent)}
+.ar-msg-item{margin-bottom:0}
+.ar-confirma{border-radius:10px;padding:12px 14px;border:1px solid rgba(var(--ac-1-rgb),.45);background:rgba(var(--ac-1-rgb),.08);display:grid;gap:10px}
+.ar-confirma p{margin:0;font-size:13px;line-height:1.5;color:var(--bx-text)}
+.ar-confirma-perigo{border-color:color-mix(in srgb,var(--bx-amber) 50%,transparent);background:color-mix(in srgb,var(--bx-amber) 8%,transparent)}
 .ar-msg-erro{color:var(--bx-red);background:color-mix(in srgb,var(--bx-red) 10%,transparent)}
 .ar-lista{display:grid;gap:8px}
 .ar-item{border-radius:12px;border:1px solid var(--bx-border);background:var(--bx-surface);overflow:hidden}
