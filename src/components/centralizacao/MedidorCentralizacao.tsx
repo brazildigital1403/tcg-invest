@@ -21,9 +21,9 @@ import {
 } from '@/lib/centralizacao/visao'
 import {
   medir, moverLinha, linhasPadrao, lerLinha, ehVertical, ORDEM_LINHAS, NOME_LINHA, textoDoLaudo, fmtMm,
-  leituraRegua, REGUA_PASSO_MM, REGUA_LINHAS, type Linhas, type ChaveLinha, type Medida,
+  leituraRegua, REGUA_PASSO_MM, REGUA_LINHAS, MARGEM_MM, type Linhas, type ChaveLinha, type Medida,
 } from '@/lib/centralizacao/medida'
-import { compararCentralizacao, GRADUADORAS } from '@/lib/servicos'
+import EscadasGraduadoras from './EscadasGraduadoras'
 import { IconCamera, IconUpload, IconWarning, IconCheck, IconDownload, IconCopy, IconChevronLeft, IconChevronRight } from '@/components/ui/Icons'
 
 export type Face = 'frente' | 'verso'
@@ -57,10 +57,12 @@ type EstadoFace = {
   conf: Partial<Record<ChaveLinha, number>>
   conferidas: ChaveLinha[]
   semMoldura: boolean
+  /** Alguma borda veio incerta: o aviso oferece o ajuste de cantos. */
+  sugerirCantos: boolean
 }
 const faceVazia = (): EstadoFace => ({
   etapa: 'vazio', aviso: '', fotoUrl: '', midiaId: null, dims: [0, 0], cantos: [], retUrl: '',
-  linhas: linhasPadrao(), conf: {}, conferidas: [], semMoldura: false,
+  linhas: linhasPadrao(), conf: {}, conferidas: [], semMoldura: false, sugerirCantos: false,
 })
 
 // ── imagem <-> canvas ────────────────────────────────────────────────────────
@@ -117,8 +119,12 @@ async function gerarAnotada(ret: HTMLCanvasElement, l: Linhas, m: Medida, face: 
     ext: cssVar('--bx-amber', '#f59e0b'), int: cssVar('--bx-blue', '#60a5fa'),
   }
   ctx.fillStyle = cor.fundo; ctx.fillRect(0, 0, W, H)
-  ctx.drawImage(ret, MX, MY, cw, chh)
   const X = (mm: number) => MX + mm * k, Y = (mm: number) => MY + mm * k
+  // `ret` tem MARGEM_MM de sobra em volta. Desenha a carta e, se a borda do papel
+  // foi puxada para fora dos cantos detectados, um pouco da foto ate ela.
+  const r0x = Math.max(-MARGEM_MM, Math.min(0, l.ext.esq) - 0.5), r1x = Math.min(CARTA_MM.w + MARGEM_MM, Math.max(CARTA_MM.w, l.ext.dir) + 0.5)
+  const r0y = Math.max(-MARGEM_MM, Math.min(0, l.ext.topo) - 0.5), r1y = Math.min(CARTA_MM.h + MARGEM_MM, Math.max(CARTA_MM.h, l.ext.base) + 0.5)
+  ctx.drawImage(ret, (r0x + MARGEM_MM) * PPM, (r0y + MARGEM_MM) * PPM, (r1x - r0x) * PPM, (r1y - r0y) * PPM, X(r0x), Y(r0y), (r1x - r0x) * k, (r1y - r0y) * k)
   const linha = (k2: ChaveLinha) => {
     const v = lerLinha(l, k2)
     ctx.beginPath()
@@ -187,11 +193,13 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
   // ── processamento ──
 
   /** Endireita pelos cantos e (se a carta tem moldura) procura a moldura. */
-  const endireitar = useCallback(async (f: Face, cantos: Pt[], opts: { semMoldura: boolean; confExt?: number[]; linhasSalvas?: Linhas; aviso?: string }) => {
+  const endireitar = useCallback(async (f: Face, cantos: Pt[], opts: { semMoldura: boolean; confExt?: number[]; linhasSalvas?: Linhas; aviso?: string; sugerirCantos?: boolean }) => {
     const orig = originais.current[f]
     if (!orig) return
+    // Duas versoes: sem sobra para achar a moldura (o detector parte da borda do
+    // canvas) e com MARGEM_MM de foto em volta para mostrar, lupa e imagem anotada.
     const ret = retificar(orig.img, cantos, PPM)
-    const cv = retParaCanvas(ret)
+    const cv = retParaCanvas(retificar(orig.img, cantos, PPM, MARGEM_MM))
     rets.current[f] = cv
     const retUrl = await canvasParaUrl(cv)
     let linhas: Linhas, conf: Partial<Record<ChaveLinha, number>> = {}
@@ -212,7 +220,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
       return {
         etapa: 'linhas', cantos, retUrl, linhas, conf, semMoldura: opts.semMoldura,
         conferidas: opts.linhasSalvas ? [...ORDEM_LINHAS] : [],
-        aviso: opts.aviso ?? '',
+        aviso: opts.aviso ?? '', sugerirCantos: !!opts.sugerirCantos,
       }
     })
     // Comeca pela primeira linha incerta.
@@ -255,8 +263,8 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
       }
       const fracos = det.confianca.filter(c => c < CONF_MIN).length
       await endireitar(f, det.cantos, {
-        semMoldura, confExt: det.confianca,
-        aviso: fracos ? `${fracos === 1 ? 'Uma borda ficou incerta' : `${fracos} bordas ficaram incertas`}. Confira com a lupa ou ajuste os cantos.` : '',
+        semMoldura, confExt: det.confianca, sugerirCantos: fracos > 0,
+        aviso: fracos ? `${fracos === 1 ? 'Uma borda ficou incerta' : `${fracos} bordas ficaram incertas`}. Se a carta aparece cortada ou com sobra, ajuste os 4 cantos.` : '',
       })
     } catch (err) {
       console.error('[centralizacao]', err)
@@ -299,11 +307,6 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
     return s.semMoldura && LADOS.some(l => s.linhas.int[l] === p.int[l])
   }
   const completa = (f: Face) => estado[f].etapa === 'linhas' && estado[f].conferidas.length === ORDEM_LINHAS.length && !moldurasNoPadrao(f)
-  const comparacoes = useMemo(() => {
-    const fr = medidas.frente, ve = medidas.verso
-    if (!fr || !ve) return null
-    return GRADUADORAS.map(g => ({ g: g.nome, r: compararCentralizacao(g.nome, textoDoLaudo(fr), textoDoLaudo(ve)) }))
-  }, [medidas])
 
   // ── arraste ──
 
@@ -410,7 +413,7 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
       const janela = 6 // mm visiveis
       const x0 = c.x - janela / 2, y0 = c.y - janela / 2
       const k = S / janela
-      ctx.drawImage(src, x0 * PPM, y0 * PPM, janela * PPM, janela * PPM, 0, 0, S, S)
+      ctx.drawImage(src, (x0 + MARGEM_MM) * PPM, (y0 + MARGEM_MM) * PPM, janela * PPM, janela * PPM, 0, 0, S, S)
       for (const kk of ORDEM_LINHAS) {
         const val = lerLinha(e.linhas, kk)
         ctx.beginPath()
@@ -584,8 +587,8 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
           )}
 
           {e.etapa === 'linhas' && (
-            <svg ref={svgRef} className="mc-svg" viewBox="-9 -9 81 106" onPointerMove={mover} onPointerUp={soltar} onPointerCancel={soltar}>
-              <image href={e.retUrl} x={0} y={0} width={CARTA_MM.w} height={CARTA_MM.h} preserveAspectRatio="none" />
+            <svg ref={svgRef} className="mc-svg" viewBox="-12 -12 87 112" onPointerMove={mover} onPointerUp={soltar} onPointerCancel={soltar}>
+              <image href={e.retUrl} x={-MARGEM_MM} y={-MARGEM_MM} width={CARTA_MM.w + 2 * MARGEM_MM} height={CARTA_MM.h + 2 * MARGEM_MM} preserveAspectRatio="none" />
               {modo === 'regua' && <Regua l={e.linhas} />}
               {modo !== 'foto' && ORDEM_LINHAS.map(k => (
                 <LinhaSvg key={k} k={k} v={lerLinha(e.linhas, k)} ativa={k === ativa}
@@ -603,9 +606,29 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
           <input ref={inputCamera} type="file" accept="image/*" capture="environment" hidden onChange={ev => { escolherArquivo(face, ev.target.files?.[0]); ev.target.value = '' }} />
         </div>
 
+        {/* ── graduadoras, embaixo da carta ── */}
+        <div className="mc-grads">
+          <EscadasGraduadoras
+            frente={medidas.frente ?? null}
+            verso={medidas.verso ?? null}
+            previa={FACES.some(f => estado[f].etapa === 'linhas' && !completa(f))}
+            onMedir={f => { setFace(f); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+          />
+        </div>
+
         {/* ── painel ── */}
         <aside className="mc-painel">
-          {e.aviso && <p className="mc-aviso"><IconWarning size={15} /> {e.aviso}</p>}
+          {e.aviso && (
+            <div className="mc-aviso">
+              <IconWarning size={15} />
+              <div>
+                <p>{e.aviso}</p>
+                {e.sugerirCantos && e.etapa === 'linhas' && (
+                  <button type="button" className="mc-bt mc-bt-aviso" onClick={() => { atualizar(face, { etapa: 'cantos', sugerirCantos: false }); setCantoAtivo(0) }}>Ajustar os 4 cantos</button>
+                )}
+              </div>
+            </div>
+          )}
 
           {(opcoesFoto.length > 0 || e.etapa !== 'vazio') && (
             <div className="mc-bloco mc-bloco-foto">
@@ -657,17 +680,6 @@ export default function MedidorCentralizacao({ titulo, subtitulo, rodapeImagem, 
                 )}
               </div>
 
-              <div className="mc-bloco">
-                <span className="mc-h">Graduadoras</span>
-                {!comparacoes && <p className="mc-muted">Meça {face === 'frente' ? 'o verso' : 'a frente'} para comparar com os limites publicados.</p>}
-                {comparacoes?.map(({ g, r }) => r && (
-                  <div key={g} className="mc-grad">
-                    <b>{g}</b>
-                    <span>{r.texto}</span>
-                    <small>{r.nota}</small>
-                  </div>
-                ))}
-              </div>
             </>
           )}
 
@@ -733,9 +745,9 @@ function LinhaSvg({ k, v, ativa, conferida, incerta, onDown }: {
   const vert = ehVertical(k), ext = k.startsWith('ext')
   const cor = ext ? 'var(--bx-amber)' : 'var(--bx-blue)'
   // Alcas fora da carta, em margens opostas para externa e interna nao se tocarem.
-  const ax = vert ? v : ext ? -5 : 68
-  const ay = vert ? (ext ? -5 : 93) : v
-  const pts = vert ? { x1: v, y1: -7, x2: v, y2: 95 } : { x1: -7, y1: v, x2: 70, y2: v }
+  const ax = vert ? v : ext ? -9.5 : CARTA_MM.w + 9.5
+  const ay = vert ? (ext ? -9.5 : CARTA_MM.h + 9.5) : v
+  const pts = vert ? { x1: v, y1: -11, x2: v, y2: CARTA_MM.h + 11 } : { x1: -11, y1: v, x2: CARTA_MM.w + 11, y2: v }
   return (
     <g className="mc-linha" onPointerDown={onDown}>
       <line {...pts} stroke="transparent" strokeWidth={2.2} />
@@ -794,7 +806,10 @@ const CSS = `
 .mc-face{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--bx-border-2);background:var(--bx-surface);color:var(--bx-text-2);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease}
 .mc-face.on{background:rgba(var(--ac-1-rgb),.14);border-color:rgba(var(--ac-1-rgb),.5);color:var(--bx-text)}
 .mc-face svg{color:var(--bx-green)}
-.mc-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.mc-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;grid-template-areas:"palco painel" "grads painel";gap:16px;align-items:start}
+.mc-palco{grid-area:palco}
+.mc-grads{grid-area:grads;min-width:0}
+.mc-painel{grid-area:painel}
 .mc-palco{position:relative;border:1px solid var(--bx-border);border-radius:14px;background:var(--bx-bg-elev);overflow:hidden;min-height:420px;display:flex;align-items:center;justify-content:center}
 .mc-svg{display:block;width:100%;height:auto;max-height:82vh;touch-action:none;user-select:none;-webkit-user-select:none}
 .mc-linha{cursor:grab}
@@ -819,6 +834,9 @@ const CSS = `
 .mc-check input{margin-top:2px;accent-color:var(--ac-1)}
 .mc-aviso{display:flex;gap:8px;align-items:flex-start;margin:0;padding:10px 12px;border-radius:10px;font-size:12.5px;line-height:1.5;color:var(--bx-text);background:color-mix(in srgb,var(--bx-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--bx-amber) 35%,transparent)}
 .mc-aviso svg{flex:none;margin-top:1px;color:var(--bx-amber)}
+.mc-aviso p{margin:0}
+.mc-aviso > div{display:grid;gap:8px}
+.mc-bt-aviso{justify-self:start;min-height:36px;border-color:color-mix(in srgb,var(--bx-amber) 45%,transparent)}
 .mc-ativa{display:flex;align-items:center;gap:8px;font-size:14px}
 .mc-dot{width:10px;height:10px;border-radius:999px}
 .mc-dot.ext{background:var(--bx-amber)}
@@ -834,15 +852,12 @@ const CSS = `
 .mc-barra span{position:absolute;left:0;top:0;bottom:0;background:var(--ac-1);transition:width .15s ease}
 .mc-barra i{position:absolute;top:0;bottom:0;width:1px;background:var(--bx-text-3)}
 .mc-eixo-mm{display:flex;justify-content:space-between;font-size:12px;color:var(--bx-text-3);font-variant-numeric:tabular-nums}
-.mc-grad{display:grid;gap:3px;padding-top:8px;border-top:1px solid var(--bx-border);font-size:13px;line-height:1.45}
-.mc-grad b{font-size:12px;letter-spacing:.04em}
-.mc-grad small{font-size:11.5px;color:var(--bx-text-3);line-height:1.4}
 .mc-acoes{display:grid;gap:8px}
 .mc-acoes > .mc-bt{min-height:46px;font-size:14px}
 .mc-ok{display:flex;align-items:center;gap:6px;margin:0;font-size:13px;color:var(--bx-green)}
 .mc-erro{margin:0;font-size:13px;color:var(--bx-red)}
 @media (max-width:900px){
-  .mc-grid{grid-template-columns:minmax(0,1fr)}
+  .mc-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"palco" "grads" "painel"}
   .mc-svg{max-height:68vh}
   .mc-lupa{width:120px;height:120px}
   .mc-palco{min-height:300px}

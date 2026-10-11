@@ -5,6 +5,9 @@
 import { CARTA_MM, type Lado } from './visao'
 
 export type Lados = Record<Lado, number>
+
+/** Sobra de foto em volta da carta endireitada; a borda externa pode ir ate ela. */
+export const MARGEM_MM = 6
 /** ext = borda do papel; int = fim da moldura. Tudo em mm, 0..63 x 0..88. */
 export type Linhas = { ext: Lados; int: Lados }
 export type ChaveLinha = `${'ext' | 'int'}.${Lado}`
@@ -32,7 +35,7 @@ export function moverLinha(l: Linhas, k: ChaveLinha, valor: number): Linhas {
   if (grupo === 'ext') {
     if (lado === 'esq' || lado === 'topo') v = Math.min(v, l.int[lado] - F)
     else v = Math.max(v, l.int[lado] + F)
-    v = Math.max(-5, Math.min(lim + 5, v))
+    v = Math.max(-MARGEM_MM, Math.min(lim + MARGEM_MM, v))
   } else {
     const centro = lim / 2
     if (lado === 'esq' || lado === 'topo') v = Math.max(l.ext[lado] + F, Math.min(centro, v))

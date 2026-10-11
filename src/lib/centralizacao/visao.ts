@@ -334,10 +334,17 @@ export const aplicarH = (H: number[], x: number, y: number): Pt => {
   return [(H[0] * x + H[1] * y + H[2]) / w, (H[3] * x + H[4] * y + H[5]) / w]
 }
 
-/** Endireita a carta para um retangulo 63 x 88 mm em `pxPorMm`. */
-export function retificar(img: Imagem, cantos: Pt[], pxPorMm = 10): Retificada {
-  const W = Math.round(CARTA_MM.w * pxPorMm), Hh = Math.round(CARTA_MM.h * pxPorMm)
-  const H = homografia([[0, 0], [W, 0], [W, Hh], [0, Hh]], cantos)
+/**
+ * Endireita a carta para um retangulo 63 x 88 mm em `pxPorMm`. Com `margemMm`,
+ * a imagem inclui essa sobra de foto em volta: se os cantos ficaram um pouco
+ * para dentro, a borda real continua visivel para o ajuste. O pixel (x, y) da
+ * saida corresponde ao mm (x / pxPorMm - margemMm) da carta.
+ */
+export function retificar(img: Imagem, cantos: Pt[], pxPorMm = 10, margemMm = 0): Retificada {
+  const m = margemMm * pxPorMm
+  const cw = CARTA_MM.w * pxPorMm, ch = CARTA_MM.h * pxPorMm
+  const W = Math.round(cw + 2 * m), Hh = Math.round(ch + 2 * m)
+  const H = homografia([[m, m], [m + cw, m], [m + cw, m + ch], [m, m + ch]], cantos)
   const out = new Uint8ClampedArray(W * Hh * 4)
   const rgb = [0, 0, 0]
   for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
