@@ -1,6 +1,6 @@
 'use client'
 
-import { use as usePromise, useCallback, useEffect, useMemo, useState } from 'react'
+import { use as usePromise, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabaseClient'
 import { useLojaOwner, LojaEstadoFallback, SH, LOJA_HOME, TrilhaLoja } from '../_shared'
@@ -13,7 +13,7 @@ import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { MOTIVOS, exigeFotoEnvio, fmtPrazo } from '@/lib/leilao-reclamacao'
 import { classificarCaso, ocorrenciaDoPedido, diasDesde, faltam, type Aba, type Caso } from '@/lib/painelPedidos'
 import OcorrenciaLoja, { type Recl } from './OcorrenciaLoja'
-import FotosEnvio from './FotosEnvio'
+import FotosEnvio, { caminhosFotos, type FotosValor } from './FotosEnvio'
 import CampoRastreio, { rastreioValido, type ValorRastreio } from '@/components/ui/CampoRastreio'
 
 /**
@@ -55,6 +55,15 @@ interface Pedido {
   cancelado_por?: string | null
   valor_reembolsado_cents?: number | null
 }
+
+/**
+ * Rascunho do envio, POR PEDIDO e na pagina (11/10): fotos ja enviadas ao
+ * bucket, transportadora, codigo e se o formulario estava aberto. Recolher o
+ * card ou trocar de aba nao apaga; so um refresh da pagina (ou o envio
+ * concluido) limpa.
+ */
+interface Rascunho { rastreio: ValorRastreio; fotos: FotosValor; envio: boolean }
+const RASCUNHO_VAZIO: Rascunho = { rastreio: { transportadora: 'correios', codigo: '' }, fotos: {}, envio: false }
 
 /** Aviso na propria tela, logo abaixo das abas (no lugar do modal). */
 interface Aviso { texto: string; irPara?: Aba }
@@ -109,7 +118,25 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
   const [busca, setBusca] = useState('')
   const [ordem, setOrdem] = useState<'prazo' | 'recentes'>('prazo')
   const [aberto, setAberto] = useState<string | null>(null)
-  const [envioAberto, setEnvioAberto] = useState<string | null>(null)
+  const [rascunhos, setRascunhos] = useState<Record<string, Rascunho>>({})
+  // Ao sair da pagina, libera as previas locais das fotos.
+  const rascunhosRef = useRef(rascunhos)
+  useEffect(() => { rascunhosRef.current = rascunhos }, [rascunhos])
+  useEffect(() => () => {
+    Object.values(rascunhosRef.current).forEach(r => Object.values(r.fotos).forEach(f => f && URL.revokeObjectURL(f.previa)))
+  }, [])
+  const mexerRascunho = useCallback((id: string, mudanca: Partial<Rascunho> | null) => {
+    setRascunhos(v => {
+      if (mudanca === null) {
+        // Envio concluido: libera as previas locais e esquece o rascunho.
+        Object.values(v[id]?.fotos || {}).forEach(f => f && URL.revokeObjectURL(f.previa))
+        const { [id]: _fora, ...resto } = v
+        void _fora
+        return resto
+      }
+      return { ...v, [id]: { ...(v[id] || RASCUNHO_VAZIO), ...mudanca } }
+    })
+  }, [])
   const [agora, setAgora] = useState(() => Date.now())
   const [aviso, setAviso] = useState<Aviso | null>(null)
 
@@ -192,7 +219,7 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
 
   const abrir = (id: string, envio = false) => {
     setAberto(id)
-    setEnvioAberto(envio ? id : null)
+    if (envio) mexerRascunho(id, { envio: true })
   }
 
   return (
@@ -281,8 +308,9 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
           ) : (
             visiveis.map(l => (
               <CardPedido key={l.p.id} l={l} lojaId={lojaId} agora={agora}
-                aberto={aberto === l.p.id} envioAberto={envioAberto === l.p.id}
-                onAbrir={abrir} onFechar={() => { setAberto(null); setEnvioAberto(null) }}
+                aberto={aberto === l.p.id} rascunho={rascunhos[l.p.id] || RASCUNHO_VAZIO}
+                onRascunho={m => mexerRascunho(l.p.id, m)}
+                onAbrir={abrir} onFechar={() => setAberto(null)}
                 onMudou={carregar} token={token} avisar={setAviso} />
             ))
           )}
@@ -369,12 +397,13 @@ function notaDoCaso(l: Linha): string | null {
   return null
 }
 
-function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, onMudou, token, avisar }: {
+function CardPedido({ l, lojaId, agora, aberto, rascunho, onRascunho, onAbrir, onFechar, onMudou, token, avisar }: {
   l: Linha
   lojaId: string
   agora: number
   aberto: boolean
-  envioAberto: boolean
+  rascunho: Rascunho
+  onRascunho: (m: Partial<Rascunho> | null) => void
   onAbrir: (id: string, envio?: boolean) => void
   onFechar: () => void
   onMudou: () => void
@@ -382,13 +411,17 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
   avisar: (a: Aviso) => void
 }) {
   const { p, r, c } = l
-  const [rastreio, setRastreio] = useState<ValorRastreio>({ transportadora: 'correios', codigo: '' })
-  const [fotos, setFotos] = useState<string[]>([])
+  const { rastreio, fotos: fotosValor, envio: envioAberto } = rascunho
+  const fotos = caminhosFotos(fotosValor)
   const [enviando, setEnviando] = useState(false)
   const [cancelAberto, setCancelAberto] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [cancelando, setCancelando] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  // Depois de aberto, o detalhe fica MONTADO (so escondido ao recolher):
+  // texto digitado numa resposta ou contestacao nao se perde.
+  const [jaAbriu, setJaAbriu] = useState(aberto)
+  if (aberto && !jaAbriu) setJaAbriu(true)
   // Erro fica no proprio card, junto do botao que falhou.
   const [erro, setErro] = useState<string | null>(null)
 
@@ -413,6 +446,7 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
     try {
       await patch({ acao: 'enviar', rastreio: rastreio.codigo.trim(), transportadora: rastreio.transportadora, fotos })
       avisar({ texto: `Pedido #${p.numero} marcado como enviado. O comprador já foi avisado.`, irPara: 'comprador' })
+      onRascunho(null)
       onFechar()
       onMudou()
     } catch (e) {
@@ -443,7 +477,8 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
     }).catch(() => {})
   }
 
-  const rotuloBotao = c.botao === 'enviar' ? 'Marcar como enviado'
+  const temRascunho = fotos.length > 0 || rastreio.codigo.trim().length > 0
+  const rotuloBotao = c.botao === 'enviar' ? (temRascunho ? `Continuar envio${fotos.length ? ` · ${fotos.length} de ${pedeFoto ? 2 : fotos.length} fotos` : ''}` : 'Marcar como enviado')
     : c.botao === 'responder' ? 'Responder reclamação'
     : c.botao === 'conferir' ? 'Conferir devolução'
     : c.botao === 'conferir_cedo' ? 'A carta já chegou? Conferir agora'
@@ -478,8 +513,8 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
         </button>
       )}
 
-      {aberto && (
-        <div className="lp-det">
+      {(aberto || jaAbriu) && (
+        <div className="lp-det" hidden={!aberto}>
           {/* A enviar: endereco, envio, cancelamento */}
           {p.status === 'pago' && (
             <>
@@ -498,8 +533,8 @@ function CardPedido({ l, lojaId, agora, aberto, envioAberto, onAbrir, onFechar, 
               )}
               {envioAberto ? (
                 <div className="lp-form">
-                  {pedeFoto && <FotosEnvio pedidoId={p.id} onChange={setFotos} />}
-                  <CampoRastreio valor={rastreio} onChange={setRastreio} />
+                  {pedeFoto && <FotosEnvio pedidoId={p.id} valor={fotosValor} onChange={f => onRascunho({ fotos: f })} />}
+                  <CampoRastreio valor={rastreio} onChange={r => onRascunho({ rastreio: r })} />
                   {erro && <div className="lp-erro-card" role="alert">{erro}</div>}
                   <button type="button" className="lp-bt lp-bt-pri" disabled={!podeConfirmarEnvio} onClick={confirmarEnvio}>
                     {enviando ? 'Salvando…' : 'Confirmar envio'}
@@ -598,6 +633,7 @@ const CSS = `
 .lp-bt-sec{border:1px solid rgba(var(--ac-1-rgb),.45);background:rgba(var(--ac-1-rgb),.08);color:var(--bx-text);font-size:13px;font-weight:700}
 .lp-bt-perigo{border:none;background:var(--bx-red);color:#fff;font-size:13.5px}
 .lp-bt-ghost{border:1px solid var(--bx-border);background:transparent;color:var(--bx-text-2);font-size:13px;font-weight:700}
+.lp-det[hidden]{display:none}
 .lp-det{display:grid;gap:12px;padding-top:12px;border-top:1px solid var(--bx-border)}
 .lp-end{display:flex;align-items:center;gap:10px;padding:12px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
 .lp-end svg{flex-shrink:0}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { authFetch } from '@/lib/authFetch'
 import { comprimirImagem } from '@/lib/comprimirImagem'
@@ -17,16 +17,27 @@ import { SLOTS_FOTO_ENVIO, VALOR_FOTO_ENVIO_CENTS, type SlotFotoEnvio } from '@/
 
 const ROTULO: Record<SlotFotoEnvio, string> = { frente: 'Frente', verso: 'Verso' }
 
-export default function FotosEnvio({ pedidoId, onChange }: { pedidoId: string; onChange: (paths: string[]) => void }) {
-  const [paths, setPaths] = useState<Partial<Record<SlotFotoEnvio, string>>>({})
+/** Uma foto que ja subiu: o caminho no bucket e a previa local (blob). */
+export interface FotoEnviada { path: string; previa: string }
+export type FotosValor = Partial<Record<SlotFotoEnvio, FotoEnviada>>
+
+/** Caminhos na ordem frente, verso (o que vai para o servidor). */
+export function caminhosFotos(v: FotosValor): string[] {
+  return SLOTS_FOTO_ENVIO.filter(s => v[s]).map(s => v[s]!.path)
+}
+
+/**
+ * CONTROLADO (11/10): o valor mora na pagina, por pedido. Recolher o card ou
+ * trocar de aba desmontava este componente e as fotos sumiam da tela, embora
+ * ja estivessem no bucket. Agora so um refresh da pagina limpa.
+ */
+export default function FotosEnvio({ pedidoId, valor, onChange }: {
+  pedidoId: string
+  valor: FotosValor
+  onChange: (v: FotosValor) => void
+}) {
   const [subindo, setSubindo] = useState<SlotFotoEnvio | null>(null)
   const [erro, setErro] = useState<string | null>(null)
-  // Previa local da foto que SUBIU (a mesma imagem comprimida enviada ao
-  // bucket): a loja ve que a foto entrou de verdade. Liberada ao trocar/sair.
-  const [previas, setPrevias] = useState<Partial<Record<SlotFotoEnvio, string>>>({})
-  const previasRef = useRef(previas)
-  previasRef.current = previas
-  useEffect(() => () => { Object.values(previasRef.current).forEach(u => u && URL.revokeObjectURL(u)) }, [])
 
   async function escolher(slot: SlotFotoEnvio, f: File) {
     setErro(null); setSubindo(slot)
@@ -40,13 +51,9 @@ export default function FotosEnvio({ pedidoId, onChange }: { pedidoId: string; o
       if (!r.ok) throw new Error(u.error || 'Não foi possível enviar a foto.')
       const { error } = await supabase.storage.from('reclamacoes').uploadToSignedUrl(u.path, u.token, arq, { contentType: arq.type })
       if (error) throw new Error('A foto não subiu. Confira sua conexão e tente de novo.')
-      const novo = { ...paths, [slot]: u.path as string }
-      setPaths(novo)
-      setPrevias(v => {
-        if (v[slot]) URL.revokeObjectURL(v[slot]!)
-        return { ...v, [slot]: URL.createObjectURL(arq) }
-      })
-      onChange(SLOTS_FOTO_ENVIO.filter(s => novo[s]).map(s => novo[s]!))
+      // Previa local da MESMA imagem comprimida que subiu; a anterior do slot e liberada.
+      if (valor[slot]) URL.revokeObjectURL(valor[slot]!.previa)
+      onChange({ ...valor, [slot]: { path: u.path as string, previa: URL.createObjectURL(arq) } })
     } catch (e) {
       setErro((e as Error).message)
     } finally {
@@ -61,18 +68,18 @@ export default function FotosEnvio({ pedidoId, onChange }: { pedidoId: string; o
       <p className="fe-txt">Fotografe a carta antes de embalar. Se ela voltar em uma devolução, é com estas fotos que você prova que mandou a carta certa.</p>
       <div className="fe-grid">
         {SLOTS_FOTO_ENVIO.map(s => (
-          <label key={s} className={`fe-slot${paths[s] ? ' fe-on' : ''}`} aria-label={paths[s] ? `${ROTULO[s]}: enviada. Toque para trocar` : `Fotografar ${ROTULO[s].toLowerCase()}`}>
+          <label key={s} className={`fe-slot${valor[s] ? ' fe-on' : ''}`} aria-label={valor[s] ? `${ROTULO[s]}: enviada. Toque para trocar` : `Fotografar ${ROTULO[s].toLowerCase()}`}>
             <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden disabled={!!subindo}
               onChange={e => { const f = e.target.files?.[0]; if (f) escolher(s, f); e.target.value = '' }} />
-            {previas[s] ? (
+            {valor[s] ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element -- blob local, sem otimizador */}
-                <img src={previas[s]} alt="" className="fe-img" />
+                <img src={valor[s]!.previa} alt="" className="fe-img" />
                 <span className="fe-tag"><IconCheck size={13} color="var(--bx-green)" />{subindo === s ? 'Enviando…' : `${ROTULO[s]} · trocar`}</span>
               </>
             ) : (
               <>
-                {paths[s] ? <IconCheck size={20} color="var(--bx-green)" /> : <IconCamera size={20} color="currentColor" />}
+                <IconCamera size={20} color="currentColor" />
                 <span>{subindo === s ? 'Enviando…' : ROTULO[s]}</span>
               </>
             )}
