@@ -169,3 +169,66 @@ export function faltam(prazo: Date | null, agora: number): string | null {
   if (d < 1) return null
   return d === 1 ? 'falta 1 dia' : `faltam ${d} dias`
 }
+
+// ─── Lado do COMPRADOR (/pedido/[id]) ───────────────────────────────────────
+//
+// ★ 11/10, mockup aprovado: uma faixa no topo do pedido diz de quem e a vez
+//   (voce / a loja / a Bynx / os Correios), o que falta e ate quando. Mesma
+//   regra de prioridade da loja: a reclamacao ou desistencia ABERTA manda;
+//   sem ela, manda o status do pedido.
+
+export type QuemComprador = 'voce' | 'loja' | 'bynx' | 'correios' | 'pagamento' | 'concluido' | 'cancelado'
+export type AcaoComprador =
+  | 'pagar' | 'aguardar_envio' | 'cancelar_atraso' | 'confirmar_recebimento' | 'estorno'
+  | 'loja_responde' | 'bynx_decide' | 'bynx_devolucao'
+  | 'postar_devolucao' | 'devolucao_a_caminho' | 'loja_confere'
+  | 'entregue' | 'reembolsado' | 'cancelado'
+
+export interface CasoComprador {
+  quem: QuemComprador
+  acao: AcaoComprador
+  prazo: Date | null
+  /** Pedido enviado de leilao fecha sozinho nesta data. */
+  fechaEm: Date | null
+}
+
+export function casoComprador(
+  p: PedidoPainel & { status: string },
+  r: ReclamacaoPainel | null,
+  agora: number,
+): CasoComprador {
+  const leilao = !!p.leilao_id
+  const out = (quem: QuemComprador, acao: AcaoComprador, prazo: Date | null = null, fechaEm: Date | null = null): CasoComprador =>
+    ({ quem, acao, prazo, fechaEm })
+
+  if (r && (STATUS_ABERTOS as string[]).includes(r.status)) {
+    if (r.motivo === 'arrependimento' && r.status === 'aguardando_devolucao') {
+      if (!r.devolucao_postada_em) return out('voce', 'postar_devolucao', r.postar_ate ? new Date(r.postar_ate) : null)
+      if (!r.devolucao_entregue_em) return out('correios', 'devolucao_a_caminho')
+      return out('loja', 'loja_confere', r.contestar_ate ? new Date(r.contestar_ate) : null)
+    }
+    if (r.status === 'aguardando_loja') {
+      if (lojaSemResposta(r, agora)) return out('bynx', 'bynx_decide')
+      return out('loja', 'loja_responde', new Date(r.prazo_loja_ate))
+    }
+    if (r.status === 'em_analise') return out('bynx', 'bynx_decide', r.prazo_decisao_ate ? new Date(r.prazo_decisao_ate) : null)
+    if (r.status === 'aguardando_devolucao') return out('bynx', 'bynx_devolucao')
+  }
+
+  switch (p.status) {
+    case 'aguardando_pagamento': return out('pagamento', 'pagar')
+    case 'pago': {
+      const prazo = leilao ? prazoEnvio({ status: 'pago', ehLeilao: true, pago_em: p.pago_em }) : null
+      if (prazo && agora > prazo.getTime()) return out('voce', 'cancelar_atraso', prazo)
+      return out('loja', 'aguardar_envio', prazo)
+    }
+    case 'cancelando': return out('bynx', 'estorno')
+    case 'enviado': {
+      const fechaEm = leilao && p.enviado_em ? somarDias(p.enviado_em, DIAS_FECHAMENTO_AUTO) : null
+      return out('voce', 'confirmar_recebimento', null, fechaEm)
+    }
+    case 'entregue': return out('concluido', 'entregue')
+    case 'reembolsado': return out('cancelado', 'reembolsado')
+    default: return out('cancelado', 'cancelado')
+  }
+}

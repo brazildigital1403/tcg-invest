@@ -461,6 +461,40 @@ try {
     assert.equal(RT.ehTransportadora('toString'), false)
   }, 'validarRastreioEnvio por transportadora (Correios com digito, demais pela forma)')
 
+  ok(() => {
+    const agora = t('2026-10-11T15:00:00Z')
+    const iso = d => new Date(agora + d * DIA).toISOString()
+    const K = (p, r = null) => P.casoComprador(p, r, agora)
+    assert.equal(K({ status: 'aguardando_pagamento' }).quem, 'pagamento')
+    let c = K({ status: 'pago', leilao_id: 'x', pago_em: iso(-1) })
+    assert.equal(c.quem, 'loja'); assert.equal(c.acao, 'aguardar_envio'); assert.ok(c.prazo)
+    c = K({ status: 'pago', leilao_id: 'x', pago_em: iso(-9) })
+    assert.equal(c.quem, 'voce'); assert.equal(c.acao, 'cancelar_atraso')
+    c = K({ status: 'pago', pago_em: iso(-9) })
+    assert.equal(c.acao, 'aguardar_envio', 'venda direta sem prazo nem cancelamento por atraso'); assert.equal(c.prazo, null)
+    assert.equal(K({ status: 'cancelando' }).quem, 'bynx')
+    c = K({ status: 'enviado', leilao_id: 'x', enviado_em: iso(-2) })
+    assert.equal(c.quem, 'voce'); assert.equal(c.acao, 'confirmar_recebimento'); assert.equal(c.fechaEm.getTime(), agora + 8 * DIA)
+    assert.equal(K({ status: 'enviado', enviado_em: iso(-2) }).fechaEm, null)
+    assert.equal(K({ status: 'entregue' }).quem, 'concluido')
+    assert.equal(K({ status: 'reembolsado' }).acao, 'reembolsado')
+    // ocorrencia aberta manda
+    const rec = { motivo: 'danificado', status: 'aguardando_loja', prazo_loja_ate: iso(1) }
+    c = K({ status: 'entregue', leilao_id: 'x' }, rec)
+    assert.equal(c.quem, 'loja'); assert.equal(c.acao, 'loja_responde')
+    assert.equal(K({ status: 'entregue', leilao_id: 'x' }, { ...rec, prazo_loja_ate: iso(-1) }).acao, 'bynx_decide', 'loja calou: com a Bynx')
+    assert.equal(K({ status: 'entregue', leilao_id: 'x' }, { ...rec, status: 'em_analise', prazo_decisao_ate: iso(2) }).acao, 'bynx_decide')
+    assert.equal(K({ status: 'entregue', leilao_id: 'x' }, { ...rec, status: 'aguardando_devolucao' }).acao, 'bynx_devolucao')
+    assert.equal(K({ status: 'entregue', leilao_id: 'x' }, { ...rec, status: 'resolvida' }).quem, 'concluido', 'fechada: manda o pedido')
+    const des = { motivo: 'arrependimento', status: 'aguardando_devolucao', prazo_loja_ate: iso(7), postar_ate: iso(7) }
+    c = K({ status: 'entregue', leilao_id: 'x' }, des)
+    assert.equal(c.quem, 'voce'); assert.equal(c.acao, 'postar_devolucao')
+    assert.equal(K({ status: 'entregue', leilao_id: 'x' }, { ...des, devolucao_postada_em: iso(-1) }).quem, 'correios')
+    c = K({ status: 'entregue', leilao_id: 'x' }, { ...des, devolucao_postada_em: iso(-2), devolucao_entregue_em: iso(-1), contestar_ate: iso(1) })
+    assert.equal(c.quem, 'loja'); assert.equal(c.acao, 'loja_confere')
+    assert.equal(K({ status: 'entregue', leilao_id: 'x' }, { ...des, status: 'em_analise', contestada_em: iso(-1), prazo_decisao_ate: iso(2) }).acao, 'bynx_decide')
+  }, 'casoComprador: de quem e a vez na tela do pedido')
+
   console.log(`\n${n} blocos ok`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

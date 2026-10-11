@@ -8,12 +8,15 @@ import { supabase } from '@/lib/supabaseClient'
 import { limparVendedor } from '@/lib/carrinho'
 import { authFetch } from '@/lib/authFetch'
 import { fmtBRL } from '@/lib/comissao'
-import { IconCheck, IconBox, IconClock, IconShield, IconArrowRight, IconCard, IconBolt, IconPokeball } from '@/components/ui/Icons'
+import { IconCheck, IconShield, IconCard, IconBolt, IconPokeball } from '@/components/ui/Icons'
 import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { canceladoSemCobranca } from '@/lib/pedidoStatus'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import ProtecaoBynx from './ProtecaoBynx'
+import FaixaComprador from './FaixaComprador'
+import { casoComprador, ocorrenciaDoPedido, type ReclamacaoPainel } from '@/lib/painelPedidos'
+import { prazoReclamacao } from '@/lib/leilao-reclamacao'
 import { protecaoCompradorCents } from '@/lib/leilao-taxas'
 
 /**
@@ -73,9 +76,9 @@ interface Pedido {
 }
 
 const PASSOS = [
-  { k: 'pago', label: 'Pagamento confirmado' },
-  { k: 'enviado', label: 'Enviado pela loja' },
-  { k: 'entregue', label: 'Entregue' },
+  { k: 'pago', curto: 'Pago' },
+  { k: 'enviado', curto: 'Enviado' },
+  { k: 'entregue', curto: 'Entregue' },
 ]
 const ORDEM: Record<string, number> = { aguardando_pagamento: -1, pago: 0, enviado: 1, entregue: 2 }
 const LABEL_ESTRELA = ['', 'Muito ruim', 'Ruim', 'Ok', 'Boa', 'Excelente!']
@@ -88,15 +91,12 @@ const LABEL: Record<string, string> = {
   cancelado: 'Cancelado',
   reembolsado: 'Reembolsado',
 }
-const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-function fmtData(iso: string | null): string {
+
+/** "11/10" (data curta para a linha do tempo). */
+function diaCurto(iso: string | null): string {
   if (!iso) return ''
-  try {
-    const d = new Date(iso)
-    const hh = String(d.getHours()).padStart(2, '0')
-    const mm = String(d.getMinutes()).padStart(2, '0')
-    return `${d.getDate()} ${MES[d.getMonth()]}, ${hh}:${mm}`
-  } catch { return '' }
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' }).format(d)
 }
 
 // Casa (entregue) e copiar — nao existem no Icons.tsx.
@@ -147,10 +147,24 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const [confirmando, setConfirmando] = useState(false)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [copiado, setCopiado] = useState(false)
+  // Reclamacao/desistencia mais relevante (aberta ou a mais recente): decide a
+  // faixa do topo. Le pela RLS do comprador; sem leilao, fica vazio.
+  const [ocorrencia, setOcorrencia] = useState<ReclamacaoPainel | null>(null)
+  const [agora, setAgora] = useState(() => Date.now())
 
   const buscar = useCallback(async () => {
     const { data, error } = await supabase.from('pedidos').select('*').eq('id', id).maybeSingle()
     if (error || !data) { setSemAcesso(true); setCarregando(false); return }
+    if (LEILAO_ATIVO) {
+      const { data: rs } = await supabase
+        .from('pedido_reclamacoes')
+        .select('motivo, status, created_at, prazo_loja_ate, prazo_decisao_ate, postar_ate, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em')
+        .eq('pedido_id', id)
+        .order('created_at', { ascending: false })
+        .limit(5)
+      setOcorrencia(ocorrenciaDoPedido((rs || []) as (ReclamacaoPainel & { created_at: string })[]))
+    }
+    setAgora(Date.now())
     setPedido(data as Pedido)
     setCarregando(false)
     return data as Pedido
@@ -303,7 +317,6 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const end = pedido.endereco
 
   const souComprador = !!meuId && meuId === pedido.comprador_user_id
-  const podeConfirmar = souComprador && pedido.status === 'enviado'
   // Pedido de leilao grava protecao + cartao juntos em acrescimo_cents (checkout
   // do leilao). A protecao sai da mesma lib, sobre o preco de martelo; se a
   // conta nao fechar (taxa mudou depois), cai na linha unica de antes.
@@ -315,49 +328,19 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
   const podeAvaliar = souComprador && !cancelado && (pedido.status === 'enviado' || pedido.status === 'entregue') && jaAvaliou === false && !avalOk
   const avaliou = souComprador && !cancelado && (avalOk || jaAvaliou === true)
 
-  // ─── Status hero (adapta ao momento) ───────────────────────────────
-  let heroIco: React.ReactNode, heroH: string, heroS: string, heroBg: string
-  if (processando) {
-    heroIco = <IconClock size={28} color="#c084fc" />; heroBg = 'rgba(168,85,247,0.14)'
-    heroH = 'Confirmando seu pagamento…'; heroS = 'Isso leva alguns segundos. Pode deixar essa página aberta.'
-  } else if (reembolsado) {
-    heroIco = <IconArrowRight size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
-    heroH = 'Pedido reembolsado'; heroS = 'O valor foi estornado no seu cartão. Pode levar alguns dias pra aparecer na fatura.'
-  } else if (canceladoSemCobranca(pedido)) {
-    // Checkout abandonado, cancelado pelo webhook de sessao vencida. A frase
-    // generica mandava "falar com a loja", e a loja nao fez nada aqui.
-    heroIco = <IconShield size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
-    // Sem subtitulo, por decisao do Du (12/09): o quadro da esquerda ja diz
-    // exatamente isso, e os dois textos ficavam um em cima do outro.
-    heroH = 'Pagamento não concluído'; heroS = ''
-  } else if (pedido.status === 'cancelado') {
-    heroIco = <IconShield size={26} color="#f87171" />; heroBg = 'rgba(239,68,68,0.12)'
-    heroH = 'Pedido cancelado'; heroS = 'Este pedido foi cancelado. Se tiver dúvida, fale com a loja.'
-  } else if (pedido.status === 'entregue') {
-    heroIco = <IcHome size={26} color="#22c55e" />; heroBg = 'rgba(34,197,94,0.14)'
-    heroH = 'Pedido entregue!'; heroS = 'Que bom que chegou. Conta pra gente como foi a compra.'
-  } else if (pedido.status === 'enviado') {
-    heroIco = <IcTruck size={28} color="#c084fc" />; heroBg = 'rgba(168,85,247,0.14)'
-    heroH = 'Seu pedido está a caminho!'; heroS = 'A loja despachou. Acompanhe pelo código de rastreio abaixo.'
-  } else if (pedido.status === 'pago') {
-    heroIco = <IconCheck size={30} color="#22c55e" />; heroBg = 'rgba(34,197,94,0.14)'
-    heroH = 'Pagamento aprovado!'; heroS = 'A loja foi avisada e já vai preparar seu envio.'
-  } else {
-    heroIco = <IconClock size={28} color="#f5b942" />; heroBg = 'rgba(245,158,11,0.12)'
-    heroH = 'Aguardando pagamento'; heroS = 'Assim que o pagamento for confirmado, seu pedido aparece aqui.'
-  }
-
-  function stepIco(k: string, feito: boolean, atual: boolean) {
-    const col = feito ? '#0a0a0a' : atual ? '#c084fc' : 'rgba(255,255,255,0.4)'
-    if (k === 'pago') return <IconCheck size={17} color={col} />
-    if (k === 'enviado') return <IconBox size={16} color={col} />
-    return <IcHome size={15} color={col} />
-  }
-  function stepSub(k: string, feito: boolean, atual: boolean): string {
-    if (k === 'pago') return feito ? (fmtData(pedido!.pago_em || pedido!.created_at) || 'confirmado') : 'aguardando'
-    if (k === 'enviado') return feito ? (fmtData(pedido!.enviado_em) || 'despachado') : atual ? 'a loja vai despachar e você recebe o rastreio' : 'aguardando'
-    return feito ? 'recebimento confirmado' : atual ? 'aguardando confirmação' : 'aguardando'
-  }
+  // ─── Faixa do topo: de quem e a vez (casoComprador) ─────────────────
+  const caso = casoComprador(pedido, ocorrencia, agora)
+  const textoCancelado = reembolsado
+    ? pedido.cancelado_por === 'bynx' || pedido.cancelado_por === 'comprador'
+      // Protecao Bynx (leilao) ou desistencia: quem cancelou nao foi a loja.
+      ? `O valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado no seu cartão. Pode levar alguns dias para aparecer na fatura.`
+      : `A loja cancelou e o valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado no seu cartão.`
+    : canceladoSemCobranca(pedido)
+      ? 'O pagamento não foi concluído a tempo, então o pedido foi cancelado. Nada foi cobrado.'
+      : 'Este pedido foi cancelado. Se tiver dúvida, fale com a loja.'
+  const protecaoAte = pedido.leilao_id && pedido.status === 'entregue'
+    ? prazoReclamacao({ status: 'entregue', ehLeilao: true, entregue_em: pedido.entregue_em, prazo_reclamacao_ate: pedido.prazo_reclamacao_ate })
+    : null
 
   const metodoTxt = pedido.metodo === 'pix' ? 'Pix' : 'Cartão'
 
@@ -374,11 +357,9 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
         stat={`${pedido.item_nome} · ${fmtBRL(pedido.total_comprador_cents)} no ${metodoTxt}`}
       />
 
-      <div style={S.hero}>
-        <div style={{ ...S.heroIc, background: heroBg }}>{heroIco}</div>
-        <div style={S.heroH}>{heroH}</div>
-        {heroS && <div style={S.heroS}>{heroS}</div>}
-      </div>
+      <FaixaComprador caso={caso} processando={processando} entregueEm={pedido.entregue_em ?? null}
+        protecaoAte={protecaoAte} agora={agora} textoCancelado={textoCancelado} paraComprador={souComprador}
+        confirmando={confirmando} onConfirmar={confirmarRecebimento} />
 
       {erroAcao && <div style={S.avalErro}>{erroAcao}</div>}
 
@@ -386,70 +367,38 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
 
         {/* ───────── ESQUERDA: acompanhamento ───────── */}
         <div style={S.left}>
-          {cancelado ? (
-            <div style={S.panel}>
-              <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                <span style={{ display: 'inline-flex', marginTop: 1 }}><IconArrowRight size={18} color="#f87171" /></span>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55 }}>
-                  {reembolsado
-                    ? pedido.cancelado_por === 'bynx' || pedido.cancelado_por === 'comprador'
-                      // Protecao Bynx (leilao): quem cancelou nao foi a loja.
-                      ? `Este pedido foi cancelado e o valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado.`
-                      : `Este pedido foi cancelado pela loja e o valor de ${fmtBRL(pedido.total_comprador_cents)} foi estornado no seu cartão.`
-                    : canceladoSemCobranca(pedido)
-                      ? 'O pagamento não foi concluído a tempo, então o pedido foi cancelado. Nada foi cobrado.'
-                      : 'Este pedido foi cancelado.'}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={S.panel}>
-              <div style={S.ptit}>Status do pedido</div>
+          {/* Linha do tempo horizontal (a faixa ja diz o que falta). Cancelado
+              nao tem etapa: a faixa conta o que aconteceu. */}
+          {!cancelado && pedido.status !== 'aguardando_pagamento' && (
+            <ol className="pd-tl" aria-label="Etapas do pedido">
               {PASSOS.map((pp, i) => {
                 const feito = passoAtual >= i
                 const atual = i === passoAtual + 1
-                const ultimo = i === PASSOS.length - 1
-                const nodeStyle = feito ? S.tlnDone : atual ? S.tlnNext : S.tlnPend
+                const Ic = feito ? IconCheck : pp.k === 'enviado' ? IcTruck : pp.k === 'entregue' ? IcHome : IconCard
+                const data = pp.k === 'pago' ? pedido.pago_em : pp.k === 'enviado' ? pedido.enviado_em : pedido.entregue_em ?? null
+                const rot = feito
+                  ? `${pp.curto}${data ? ` · ${diaCurto(data)}` : ''}`
+                  : atual && pp.k === 'entregue' ? 'Você confirma' : pp.curto
                 return (
-                  <div key={pp.k} style={S.tl}>
-                    <div style={S.tlcol}>
-                      <div style={{ ...S.tln, ...nodeStyle }}>{stepIco(pp.k, feito, atual)}</div>
-                      {!ultimo && <div style={{ ...S.tlc, background: passoAtual > i ? '#22c55e' : 'rgba(255,255,255,0.12)' }} />}
-                    </div>
-                    <div style={{ paddingBottom: ultimo ? 0 : 20, flex: 1, minWidth: 0 }}>
-                      <div style={{ ...S.tlt, ...(feito || atual ? {} : S.tltOff) }}>{pp.label}</div>
-                      <div style={S.tld}>{stepSub(pp.k, feito, atual)}</div>
-                      {pp.k === 'enviado' && feito && pedido.rastreio && (
-                        <div style={S.rastr}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={S.rastrLbl}>CÓDIGO DE RASTREIO</div>
-                            <div style={S.rastrCod}>{pedido.rastreio}</div>
-                          </div>
-                          <button onClick={copiarRastreio} style={S.copyBtn}>
-                            {copiado ? <IconCheck size={13} color="#c084fc" /> : <IcCopy size={13} color="#c084fc" />}
-                            {copiado ? 'copiado' : 'copiar'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <li key={pp.k} className={`pd-tl-p${feito ? ' pd-feito' : ''}${atual ? ' pd-atual' : ''}`} aria-current={atual ? 'step' : undefined}>
+                    <span className="pd-tl-ic"><Ic size={17} color="currentColor" /></span>
+                    <span className="pd-tl-rot">{rot}</span>
+                  </li>
                 )
               })}
-            </div>
+            </ol>
           )}
 
-          {podeConfirmar && (
-            <div style={S.actionG}>
-              <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                <span style={{ display: 'inline-flex', marginTop: 1 }}><IconCheck size={22} color="#22c55e" /></span>
-                <div style={{ flex: 1 }}>
-                  <div style={S.actionH}>Já recebeu seu pedido?</div>
-                  <div style={S.actionS}>Confirme o recebimento pra fechar a compra. Isso avisa a loja e libera sua avaliação.</div>
-                  <button onClick={confirmarRecebimento} disabled={confirmando} style={{ ...S.btnG, opacity: confirmando ? 0.7 : 1 }}>
-                    <IconCheck size={17} color="#0a0a0a" />{confirmando ? 'Confirmando…' : 'Confirmar recebimento'}
-                  </button>
-                </div>
+          {pedido.rastreio && !cancelado && (
+            <div className="pd-rastreio">
+              <IcTruck size={18} color="var(--bx-text-3)" />
+              <div className="pd-rastreio-txt">
+                <span className="pd-rastreio-rot">Código de rastreio{pedido.enviado_em ? ` · enviado ${diaCurto(pedido.enviado_em)}` : ''}</span>
+                <b>{pedido.rastreio}</b>
               </div>
+              <button type="button" className="pd-copiar" aria-label="Copiar código de rastreio" onClick={copiarRastreio}>
+                {copiado ? <IconCheck size={16} color="var(--bx-green)" /> : <IcCopy size={16} color="currentColor" />}
+              </button>
             </div>
           )}
 
@@ -553,12 +502,35 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
 }
 
 function Casca({ children }: { children: React.ReactNode }) {
+  // .bx-ctx-comprador: acento roxo -> rosa do comprador em tudo que usa --ac-*
+  // (faixa, linha do tempo, Protecao Bynx).
   return (
     <AppLayout>
-      <div style={S.wrap}>{children}</div>
+      <div className="bx-ctx-comprador" style={S.wrap}>
+        <style>{CSS_PEDIDO}</style>
+        {children}
+      </div>
     </AppLayout>
   )
 }
+
+const CSS_PEDIDO = `
+.pd-tl{list-style:none;margin:0 0 14px;padding:16px 8px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));position:relative;border-radius:14px;background:var(--bx-surface);border:1px solid var(--bx-border)}
+.pd-tl::before{content:'';position:absolute;top:34px;left:calc(16.66% + 8px);right:calc(16.66% + 8px);height:1px;background:var(--bx-border-2)}
+.pd-tl-p{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
+.pd-tl-ic{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--bx-surface-2);border:1px solid var(--bx-border-2);color:var(--bx-text-3)}
+.pd-tl-rot{font-size:11.5px;line-height:1.3;color:var(--bx-text-3);font-weight:600}
+.pd-feito .pd-tl-ic{color:var(--bx-green);border-color:color-mix(in srgb,var(--bx-green) 45%,transparent);background:color-mix(in srgb,var(--bx-green) 10%,var(--bx-surface-2))}
+.pd-atual .pd-tl-ic{color:var(--ac-1);border-color:rgba(var(--ac-1-rgb),.6);background:rgba(var(--ac-1-rgb),.12)}
+.pd-atual .pd-tl-rot{color:var(--bx-text)}
+.pd-rastreio{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 14px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
+.pd-rastreio svg{flex-shrink:0}
+.pd-rastreio-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pd-rastreio-txt b{font-size:15px;letter-spacing:.04em;overflow-wrap:anywhere}
+.pd-rastreio-rot{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--bx-text-3)}
+.pd-copiar{width:44px;height:44px;flex-shrink:0;border-radius:10px;border:1px solid var(--bx-border-2);background:transparent;color:var(--bx-text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease}
+.pd-copiar:hover{background:var(--bx-surface-3)}
+`
 
 const S: Record<string, React.CSSProperties> = {
   page: { minHeight: '100vh', background: '#080a0f', color: '#f0f0f0', padding: '0 0 60px' },
