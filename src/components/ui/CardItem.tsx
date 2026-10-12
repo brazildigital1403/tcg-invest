@@ -233,15 +233,19 @@ export default function CardItem({
   const image = card.card_image || card.image_large || card.image_small
   const name = card.card_name?.replace(/\s*\([^)]*\)\s*$/, '') || card.name || '—'
   const setName = setLabel(card.set_name)
-  // Numero impresso: "(NNN/TTT)" do nome original (cartas Liga) tem prioridade;
-  // senao monta de number + total. Nunca exibe o id interno "liga-...".
+  // Numero impresso: o CATALOGO manda (number + set_total, que desde o #505 e o
+  // total impresso). O "(NNN/TTT)" do nome e so reserva: em user_cards e
+  // marketplace ele e foto do momento em que a carta entrou e envelhece
+  // (12/10/2026: 2.868 cartas de 182 usuarios com o total antigo no nome).
+  // Nunca exibe o id interno do fornecedor.
   const _printed = String(card.card_name || card.name || '').match(/\((\d+)\/(\d+)\)/)
   const rawNum = card.number || card.card_id?.split('/')?.[0]
   const total = card.price?.set_total || card.set_total
-  const number = _printed
-    ? `${_printed[1]}/${_printed[2]}`
-    : (rawNum && !String(rawNum).toLowerCase().startsWith('liga'))
-      ? (total ? `${String(rawNum).padStart(String(total).length, '0')}/${total}` : String(rawNum))
+  const temNumCatalogo = !!rawNum && !String(rawNum).toLowerCase().startsWith('liga')
+  const number = temNumCatalogo
+    ? (total ? `${String(rawNum).padStart(String(total).length, '0')}/${total}` : String(rawNum))
+    : _printed
+      ? `${_printed[1]}/${_printed[2]}`
       : ''
   const rColor = rarityColor(card.rarity || '')
   const imgAlt = name + (number ? ' ' + number : '') + (setName ? ' — ' + setName : '')
