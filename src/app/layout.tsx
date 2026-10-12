@@ -237,7 +237,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   price: "0",
                   priceCurrency: "BRL",
                   name: "Plano Gratuito",
-                  description: "Pokédex completa, preços em reais e até 100 cartas na coleção",
+                  description: "Pokédex completa, preços em reais, até 100 cartas na coleção e 20 medições de centralização por dia",
                 },
                 {
                   "@type": "Offer",
@@ -251,7 +251,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   price: "29.90",
                   priceCurrency: "BRL",
                   name: "Plano Pro Mensal",
-                  description: "Cartas ilimitadas, scan com IA ilimitado, histórico de preços e marketplace",
+                  description: "Cartas ilimitadas, scan com IA ilimitado, medição de centralização ilimitada, histórico de preços e marketplace",
                 },
                 {
                   "@type": "Offer",

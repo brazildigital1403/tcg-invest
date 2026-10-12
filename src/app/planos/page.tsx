@@ -120,6 +120,12 @@ const FAQ: { q: string; a: string }[] = [
       + 'acaba. Se estourar a cota com frequência, o Pro sai mais barato que comprar pacote todo mês.',
   },
   {
+    q: 'Quantas vezes posso medir a centralização de uma carta?',
+    a: 'No Grátis e no Plus são 20 medições a cada 24 horas, e cada uma volta a ficar disponível exatamente '
+      + '24 horas depois de usada. No Pro não há limite, e os 7 dias de Pro de toda conta nova também são ilimitados. '
+      + 'A medição usa uma foto da frente da carta e é uma estimativa, não uma nota de graduadora.',
+  },
+  {
     q: 'Quais formas de pagamento a Bynx aceita?',
     a: 'Hoje a assinatura é cobrada apenas no cartão de crédito, processada pela Stripe. '
       + 'Ainda não aceitamos Pix nem boleto para assinatura.',
@@ -182,6 +188,7 @@ const BLOCOS: { titulo: string; linhas: Linha[] }[] = [
       { label: 'Pokédex completa', vals: ['Sim', 'Sim', 'Sim', 'Sim'] },
       { label: 'Histórico de preço', vals: ['—', '—', 'Sim', 'Sim'] },
       { label: 'Exportar CSV e PDF', vals: ['—', '—', 'Sim', 'Sim'] },
+      { label: 'Medir centralização', vals: ['20 por dia', '20 por dia', 'Ilimitado', 'Ilimitado'] },
     ],
   },
   {

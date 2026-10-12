@@ -37,6 +37,7 @@ export default function MuroPosTrial({ cardCount }: { cardCount: number }) {
     'Coleção completa, sempre acessível',
     'Valor de cada carta em reais',
     'Dashboard com o valor da coleção',
+    'Medir centralização sem limite',
   ]
 
   return (

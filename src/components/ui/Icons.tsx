@@ -792,6 +792,17 @@ export function IconRestauro({ size = 20, color = defaultColor, strokeWidth = de
   )
 }
 
+/** Carta com a moldura da impressao tracejada e a mira: medir centralizacao. */
+export function IconCentralizacao({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" style={style}>
+      <rect x="4" y="2.5" width="12" height="15" rx="1.5" stroke={color} strokeWidth={strokeWidth}/>
+      <rect x="6.5" y="5" width="7" height="10" rx="0.5" stroke={color} strokeWidth={strokeWidth * 0.85} strokeDasharray="1.6 1.4"/>
+      <path d="M10 8.5v3M8.5 10h3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 /** Duplicar / copiar: duas folhas sobrepostas. viewBox 20x20 como o resto. */
 export function IconCopy({ size = 20, color = defaultColor, strokeWidth = defaultStroke, style }: IconProps) {
   return (

@@ -1132,7 +1132,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     ${p('Sua conta foi criada com sucesso. Você ganhou <strong style="color:#f59e0b;">7 dias de Pro grátis</strong> para explorar tudo que a Bynx tem a oferecer.')}
     ${divider()}
     <table width="100%" cellpadding="0" cellspacing="0">
-      ${['📚 Catalogue suas cartas — busca por nome ou número', '📷 Scan IA — adicione cartas direto pela foto', '📊 Dashboard em BRL — menor preço, médio e máx em tempo real', '📈 Histórico de preços — veja a evolução do mercado', '🛒 Marketplace brasileiro — compre e venda com segurança', '🎁 Indique e Ganhe — recompensas mensais indicando amigos'].map(f => `
+      ${['📚 Catalogue suas cartas — busca por nome ou número', '📷 Scan IA — adicione cartas direto pela foto', '📐 Centralização — meça a frente da carta pela foto', '📊 Dashboard em BRL — menor preço, médio e máx em tempo real', '📈 Histórico de preços — veja a evolução do mercado', '🛒 Marketplace brasileiro — compre e venda com segurança', '🎁 Indique e Ganhe — recompensas mensais indicando amigos'].map(f => `
         <tr><td style="padding:6px 0;">
           <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);">${f}</p>
         </td></tr>`).join('')}
@@ -1153,7 +1153,7 @@ export async function sendTrialExpiring5Email(to: string, name: string) {
     ${badge('Pro Trial', '#f59e0b', 'rgba(245,158,11,0.15)')}
     <div style="height:16px;"></div>
     ${h1('Seu trial Pro expira em 2 dias ⏰')}
-    ${p(`${escapeHtml(firstName)}, você ainda tem 2 dias para curtir tudo do Pro: importação ilimitada, scan com IA, marketplace, separadores e muito mais.`)}
+    ${p(`${escapeHtml(firstName)}, você ainda tem 2 dias para curtir tudo do Pro: importação ilimitada, scan com IA, medição de centralização sem limite, marketplace, separadores e muito mais.`)}
     ${p('Depois de 7 dias, sua conta volta para o plano Free, mas tudo que você adicionou continua salvo.')}
     ${btn('Ver planos →', addUtm(`${APP_URL}/minha-conta`, 'trial-2d', 'cta-button'))}
     ${divider()}

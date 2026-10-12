@@ -54,6 +54,7 @@ const TIERS: Tier[] = [
       { t: 'Perfil público', ok: true },
       { t: '3 anúncios no Marketplace', ok: true },
       { t: 'Pokédex completa · 1 pasta', ok: true },
+      { t: 'Medir centralização · 20 por dia', ok: true },
       // Dizia so "Dashboard, Scan IA e Exportar" em cinza apagado: com o X
       // pequeno ao lado, a linha lia como se ESTIVESSE incluida no Gratis.
       { t: <>Sem Dashboard, Scan IA ou Exportar</>, ok: false },
@@ -82,6 +83,7 @@ const TIERS: Tier[] = [
       { t: 'Tudo do Plus, e mais:', pre: true },
       { t: <><b>Cartas ilimitadas</b></>, ok: true },
       { t: <>Scan com IA · <b>ilimitado</b></>, ok: true },
+      { t: <>Medir centralização · <b>ilimitado</b></>, ok: true },
       { t: 'Exportar CSV/PDF · Histórico de preços', ok: true },
       { t: 'Separadores liberados', ok: true },
     ],
@@ -177,6 +179,7 @@ const ROWS: Row[] = [
   // A posicao 1 e o Plus: dizia "—", ou seja, que o plano pago de entrada NAO
   // tinha Scan. Agora tem 100 scans por mes.
   { label: 'Scan com IA', vals: [no, val('100 scans/mês'), val('Ilimitado'), val('Ilimitado')] },
+  { label: 'Medir centralização', vals: [val('20 por dia'), val('20 por dia'), val('Ilimitado'), val('Ilimitado')] },
   { label: 'Separadores de Fichário', vals: ['avulso', 'avulso', val('liberado'), val('liberado')] },
   { label: 'Master Sets', vals: ['avulso', 'avulso', 'avulso', val('todos liberados')] },
 ]

@@ -143,6 +143,7 @@ export default function PlanosClient() {
             <li style={S.li}><Check /> Preços em reais do mercado brasileiro</li>
             <li style={S.li}><Check /> 1 pasta no fichário e perfil público</li>
             <li style={S.li}><Check /> 3 anúncios no Mercado</li>
+            <li style={S.li}><Check /> Medir centralização: 20 por dia</li>
             <li style={{ ...S.li, color: 'var(--bx-text-faint)' }}><Cross /> Sem Scan, sem exportar</li>
           </ul>
           <button onClick={() => selecionar('free')} style={{ ...S.btn, ...S.btnGhost }}>
@@ -189,6 +190,7 @@ export default function PlanosClient() {
             <li style={S.li}><Check /> Cartas ilimitadas</li>
             <li style={S.li}><Check /> Histórico de preço de cada carta</li>
             <li style={S.li}><Check /> Exportar em CSV e PDF</li>
+            <li style={S.li}><Check /> Medir centralização sem limite</li>
             <li style={S.li}><Check /> Separadores de fichário liberados</li>
             {anual && <li style={S.li}><Check /> Master Sets e Páginas Lendárias</li>}
           </ul>

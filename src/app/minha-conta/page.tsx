@@ -11,6 +11,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import ReputacaoCard from '@/components/marketplace/ReputacaoCard'
 import EnderecoCard from '@/components/conta/EnderecoCard'
 import EmailPreferencias from '@/components/conta/EmailPreferencias'
+import UsoCentralizacao from '@/components/conta/UsoCentralizacao'
 import { useAppModal } from '@/components/ui/useAppModal'
 import { ENFORCEMENT_ATIVO, LIMITE_FREE } from '@/lib/checkCardLimit'
 
@@ -866,6 +867,7 @@ export default function MinhaConta() {
                     { txt: 'Perfil público', ok: true },
                     { txt: '3 anúncios no Marketplace', ok: true },
                     { txt: 'Pokédex completa', ok: true },
+                    { txt: 'Centralização: 20 por dia', ok: true },
                     { txt: 'Dashboard financeiro', ok: false },
                     { txt: 'Scan com IA', ok: false },
                     { txt: 'Exportar CSV/PDF', ok: false },
@@ -963,7 +965,7 @@ export default function MinhaConta() {
                       tem Scan, entao a linha do Pro mentia pra ele. */}
                   <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
                     {getPlanCaps(tier).limiteCartas === Infinity ? 'Cartas ilimitadas' : `Até ${getPlanCaps(tier).limiteCartas} cartas`}
-                    {' · '}Anúncios ilimitados{' · '}Perfil público
+                    {' · '}Anúncios ilimitados{' · '}{getPlanCaps(tier).centralizacaoDia === Infinity ? 'Centralização ilimitada' : `Centralização: ${getPlanCaps(tier).centralizacaoDia} por dia`}{' · '}Perfil público
                   </p>
                   <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Cancelar, trocar o cartão ou ver suas faturas</p>
                 </div>
@@ -1023,6 +1025,8 @@ export default function MinhaConta() {
               </button>
             )}
           </div>
+
+          <UsoCentralizacao />
 
           {/* Créditos de Scan */}
           <div style={{ paddingTop: 16 }}>

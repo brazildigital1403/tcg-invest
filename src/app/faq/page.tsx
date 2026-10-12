@@ -38,6 +38,10 @@ const faqs: { q: string; a: string }[] = [
     a: 'Sim, a Bynx tem um plano gratuito que permite gerenciar até 100 cartas, com acesso a marketplace e Indique e Ganhe. Para mais cartas, o scan com IA e outros recursos, temos os planos Plus (R$ 14,90/mês, com 100 scans) e Pro (R$ 29,90/mês, sem limites). Todo cadastro novo ainda testa o Pro grátis por 7 dias antes de decidir.',
   },
   {
+    q: 'Como funciona a medição de centralização?',
+    a: 'Você tira uma foto da frente da carta e a Bynx estima se ela está bem centralizada, levemente descentralizada ou descentralizada. É uma estimativa pela foto, não uma nota de graduadora. No Grátis e no Plus são 20 medições a cada 24 horas; no Pro, e nos 7 dias de Pro de toda conta nova, não há limite.',
+  },
+  {
     q: 'Como adiciono uma carta na minha coleção?',
     a: 'Vá em Minha Coleção e clique em "Adicionar carta". Você pode buscar pelo nome, número da carta ou escanear uma foto. Depois é só escolher a variante (Normal, Foil, Reverse, etc), a quantidade, e pronto — a carta entra na sua coleção e o valor é calculado automaticamente.',
   },

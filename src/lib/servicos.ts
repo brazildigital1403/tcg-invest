@@ -1042,7 +1042,11 @@ export const FAQ_PRE_GRADING_EXTRA: Faq[] = [
   },
   {
     q: 'Dá para avaliar só pelas fotos?',
-    a: 'As fotos servem para o orçamento. A medição que vira laudo é feita com a carta na bancada.',
+    // ★ 12/10/2026: existe a previa gratis (/centralizacao), que estima so a
+    //   centralizacao da FRENTE pela foto. A resposta antiga ("so as fotos nao
+    //   avaliam") passou a contradizer a pagina; agora separa as duas coisas.
+    a: 'As fotos servem para o orçamento. Antes de pedir, você pode medir grátis a centralização da frente pela foto, '
+      + 'mas é uma estimativa. O laudo, com o verso, cantos, bordas, superfície e as medidas em mm, é feito com a carta na bancada.',
   },
   {
     q: 'Posso mandar várias cartas de uma vez?',
