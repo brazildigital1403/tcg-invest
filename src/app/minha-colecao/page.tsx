@@ -100,7 +100,7 @@ export default function MinhaColecao() {
   const [detalheCard, setDetalheCard] = useState<any>(null)
   const [anunciarCard, setAnunciarCard] = useState<any>(null)
   // Logo e simbolo por set_id, pro cabecalho de cada grupo (#313).
-  const [setsInfo, setSetsInfo] = useState<Record<string, { logo_url: string | null; symbol_url: string | null }>>({})
+  const [setsInfo, setSetsInfo] = useState<Record<string, { logo_url: string | null; symbol_url: string | null; total: number | null }>>({})
   // Grupo que a pessoa abriu ou fechou a mao. O que nao esta aqui segue o
   // padrao: primeiro set aberto, ou todos abertos com filtro ativo.
   const [abertos, setAbertos] = useState<Record<string, boolean>>({})
@@ -430,8 +430,8 @@ export default function MinhaColecao() {
         return id ? (familiaDoSet(id)?.sets || [id]) : []
       }))] as string[]
       if (setIds.length > 0) {
-        supabase.from('pokemon_sets').select('id, logo_url, symbol_url').in('id', setIds)
-          .then(({ data: sd }) => setSetsInfo(Object.fromEntries((sd || []).map((x: any) => [x.id, { logo_url: x.logo_url, symbol_url: x.symbol_url }]))))
+        supabase.from('pokemon_sets').select('id, logo_url, symbol_url, total').in('id', setIds)
+          .then(({ data: sd }) => setSetsInfo(Object.fromEntries((sd || []).map((x: any) => [x.id, { logo_url: x.logo_url, symbol_url: x.symbol_url, total: x.total ?? null }]))))
       }
     } catch (err: any) {
       console.error('[minha-colecao] loadCards error:', err?.message || err)
@@ -651,7 +651,9 @@ export default function MinhaColecao() {
 
   // ── Agrupamento por set (#313) ──────────────────────────────────────────────
   // Chave e o set_id do catalogo, nao o nome: 99,6% das cartas tem (medido em
-  // 12/09) e o total vem da propria carta, entao nao depende de pokemon_sets.
+  // 12/09). O 100% da barra e o total COM secretas de pokemon_sets (#505, 12/10);
+  // o set_total da carta e o IMPRESSO e so entra como fallback, porque os sets
+  // do fornecedor BR (587 em 11/10) nao tem linha em pokemon_sets.
   // As 27 sem set caem num grupo pelo nome gravado na user_card.
   //
   // ★ O PROGRESSO sai da colecao inteira (`cards`); o que o filtro muda e so
@@ -684,7 +686,7 @@ export default function MinhaColecao() {
       }
       resumoSets.set(k, r)
     }
-    // Totais diferentes na mesma familia (86 impresso x 122 com secretas): o maior.
+    // Fallback quando o set nao esta em pokemon_sets: o maior set_total da familia.
     const t = n(c.set_total)
     if (t && (!r.total || t > r.total)) r.total = t
     r.ids.add(posicao(c))
@@ -1117,6 +1119,8 @@ export default function MinhaColecao() {
             const aberto = g.key in abertos ? abertos[g.key] : (filtroAtivo || i === 0)
             const comLogo = r.setIds.find(s => setsInfo[s]?.logo_url)
             const comSimbolo = r.setIds.find(s => setsInfo[s]?.symbol_url)
+            // Total com secretas do catalogo (chave da familia primeiro); senao o da carta.
+            const totalSet = r.setIds.map(s => setsInfo[s]?.total).find((t): t is number => !!t) ?? r.total
             return (
               <section key={g.key}>
                 <CabecalhoSet
@@ -1124,7 +1128,7 @@ export default function MinhaColecao() {
                   logoUrl={comLogo ? setsInfo[comLogo].logo_url : null}
                   symbolUrl={comSimbolo ? setsInfo[comSimbolo].symbol_url : null}
                   coletadas={r.ids.size}
-                  total={r.total}
+                  total={totalSet}
                   valor={fmt(r.valor)}
                   resultados={filtroAtivo ? g.cards.length : null}
                   aberto={aberto}
