@@ -21,8 +21,10 @@ import { detectarCarta, retificar, detectarMoldura, CARTA_MM, LADOS, type Pt, ty
 import { medir, linhasPadrao, type Linhas } from '@/lib/centralizacao/medida'
 import { faixaDe, ROTULO_FAIXA, fmtProporcao, lerNumeroImpresso, type FaixaPrevia } from '@/lib/centralizacao/previa'
 import { IconCamera, IconImage, IconWarning, IconCheck, IconChevronLeft, IconArrowRight, IconClock } from '@/components/ui/Icons'
+import PageHeader, { INICIO } from '@/components/ui/PageHeader'
+import CardItem, { type CardPrice } from '@/components/ui/CardItem'
 
-type Carta = { id: string; name: string; name_pt: string | null; number: string | null; set_name: string | null; set_total: number | null; idioma: string | null; image_small: string | null }
+type Carta = { id: string; name: string; name_pt: string | null; number: string | null; set_name: string | null; set_total: number | null; idioma: string | null; image_small: string | null } & CardPrice
 type Situacao = { limite: number | null; usadas: number; restantes: number | null; bloqueado: boolean; liberaEm: string | null; perguntar: boolean }
 type Etapa = 'carregando' | 'semLogin' | 'limite' | 'carta' | 'foto' | 'processando' | 'cantos' | 'semMoldura' | 'resultado' | 'erro'
 type Resultado = {
@@ -263,22 +265,23 @@ export default function PreviaCentralizacao({ cartaInicial }: { cartaInicial?: s
   return (
     <div className="pc">
       <style>{CSS}</style>
-      <header className="pc-cab">
-        <h1>Medir centralização</h1>
-        <p className="pc-muted">Tire uma foto da frente da carta e veja se ela está bem centralizada.</p>
-      </header>
+      <PageHeader
+        trilha={[INICIO, { name: 'Centralização', href: '/centralizacao' }]}
+        titulo="Medir centralização"
+        descricao="Tire uma foto da frente da carta e veja se ela está bem centralizada."
+      />
 
-      {etapa === 'carregando' && <div className="pc-bloco pc-centro"><span className="pc-gira" aria-hidden /> Carregando...</div>}
+      {etapa === 'carregando' && <div className="pc-bloco pc-estreito pc-centro"><span className="pc-gira" aria-hidden /> Carregando...</div>}
 
       {etapa === 'semLogin' && (
-        <div className="pc-bloco pc-centro">
+        <div className="pc-bloco pc-estreito pc-centro">
           <b>Entre na sua conta para medir</b>
           <span className="pc-muted">A medição de centralização é grátis para quem tem conta na Bynx.</span>
         </div>
       )}
 
       {etapa === 'erro' && (
-        <div className="pc-bloco pc-centro">
+        <div className="pc-bloco pc-estreito pc-centro">
           <IconWarning size={22} />
           <b>{aviso || 'Algo deu errado.'}</b>
           <button type="button" className="pc-bt" onClick={recomecar}>Começar de novo</button>
@@ -286,7 +289,7 @@ export default function PreviaCentralizacao({ cartaInicial }: { cartaInicial?: s
       )}
 
       {etapa === 'limite' && (
-        <div className="pc-bloco pc-limite">
+        <div className="pc-bloco pc-estreito pc-limite">
           <IconClock size={26} />
           <b>Você usou as {sit?.limite ?? 20} medições das últimas 24 horas</b>
           {falta && (
@@ -317,13 +320,10 @@ export default function PreviaCentralizacao({ cartaInicial }: { cartaInicial?: s
               <p className="pc-muted">Toque na sua carta. Confira a arte, o set e o idioma.</p>
               <ul className="pc-cands">
                 {candidatos.map(c => (
-                  <li key={c.id}>
-                    <button type="button" className="pc-cand" onClick={() => escolherCarta(c)}>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- miniatura do catalogo */}
-                      {c.image_small ? <img src={c.image_small} alt={nomeCarta(c)} loading="lazy" /> : <span className="pc-sem-img">Sem imagem</span>}
-                      <b>{nomeCarta(c)}</b>
-                      <small>{c.set_name}{c.idioma ? ` · ${IDIOMA[c.idioma] || c.idioma.toUpperCase()}` : ''}</small>
-                    </button>
+                  <li key={c.id} className="pc-cand" role="button" tabIndex={0} aria-label={`Escolher ${nomeCarta(c)}, ${c.set_name || ''}`}
+                    onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); escolherCarta(c) } }}>
+                    <CardItem mode="select" hidePriceTable onSelect={() => escolherCarta(c)}
+                      card={{ id: c.id, name: nomeCarta(c), number: c.number ?? undefined, set_name: c.set_name ?? undefined, set_total: c.set_total ?? undefined, idioma: c.idioma ?? undefined, image_small: c.image_small ?? undefined, price: c }} />
                   </li>
                 ))}
               </ul>
@@ -345,17 +345,19 @@ export default function PreviaCentralizacao({ cartaInicial }: { cartaInicial?: s
 
       {/* ── 2. foto ── */}
       {etapa === 'foto' && (
-        <div className="pc-bloco">
+        <div className="pc-bloco pc-estreito">
           {carta ? <CartaEscolhida c={carta} /> : <p className="pc-muted">Carta {numeroBuscado || 'não identificada'} · nossa equipe vai procurar no catálogo.</p>}
           <span className="pc-k">Como tirar a foto</span>
           <ul className="pc-dicas">
-            <li><b>Carta fora do sleeve e do toploader.</b> O plástico reflete e esconde a borda.</li>
-            <li><b>De cima, com o celular reto.</b> A carta ocupando boa parte da tela.</li>
-            <li><b>Fundo liso que contraste com a borda.</b> Borda amarela pede fundo escuro.</li>
-            <li><b>Sem reflexo.</b> Luz do teto ou de lado, sem flash.</li>
+            {[
+              ['Carta fora do sleeve e do toploader.', 'O plástico reflete e esconde a borda.'],
+              ['De cima, com o celular reto.', 'A carta ocupando boa parte da tela.'],
+              ['Fundo liso que contraste com a borda.', 'Borda amarela pede fundo escuro.'],
+              ['Sem reflexo.', 'Luz do teto ou de lado, sem flash.'],
+            ].map(([t, d]) => <li key={t}><IconCheck size={15} /><span><b>{t}</b> {d}</span></li>)}
           </ul>
           {aviso && <p className="pc-erro">{aviso}</p>}
-          <div className="pc-bts">
+          <div className="pc-bts pc-bts-col">
             <button type="button" className="pc-bt pc-bt-pri" onClick={() => inputCamera.current?.click()}><IconCamera size={16} /> Tirar foto da frente</button>
             <button type="button" className="pc-bt" onClick={() => inputGaleria.current?.click()}><IconImage size={16} /> Escolher da galeria</button>
           </div>
@@ -365,25 +367,25 @@ export default function PreviaCentralizacao({ cartaInicial }: { cartaInicial?: s
       )}
 
       {etapa === 'processando' && (
-        <div className="pc-bloco pc-centro"><span className="pc-gira" aria-hidden /> <b>Lendo a foto...</b><span className="pc-muted">Encontrando a carta e as bordas.</span></div>
+        <div className="pc-bloco pc-estreito pc-centro"><span className="pc-gira" aria-hidden /> <b>Lendo a foto...</b><span className="pc-muted">Encontrando a carta e as bordas.</span></div>
       )}
 
       {/* ── 3. so quando a deteccao falha ── */}
       {etapa === 'cantos' && foto && (
-        <div className="pc-bloco">
+        <div className="pc-bloco pc-estreito">
           <span className="pc-k">Ajustar os 4 cantos</span>
           <p className="pc-muted">Não achamos a carta inteira. Arraste cada círculo até um canto da carta e toque em Medir.</p>
           <div className="pc-palco">
             <svg ref={svgCantos} viewBox={`0 0 ${foto.img.width} ${foto.img.height}`} className="pc-svg"
               onPointerMove={moverCanto} onPointerUp={() => { arrastando.current = null }} onPointerCancel={() => { arrastando.current = null }}>
               <image href={foto.url} x={0} y={0} width={foto.img.width} height={foto.img.height} />
-              <polygon points={cantos.map(c => c.join(',')).join(' ')} fill="none" stroke="var(--bx-amber)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+              <polygon points={cantos.map(c => c.join(',')).join(' ')} fill="none" style={{ stroke: 'var(--ac-1)' }} strokeWidth={2} vectorEffect="non-scaling-stroke" />
               {cantos.map(([x, y], i) => {
                 const r = foto.img.width * 0.022
                 return (
                   <g key={i} onPointerDown={ev => { ev.preventDefault(); svgCantos.current?.setPointerCapture(ev.pointerId); arrastando.current = i }} className="pc-alca">
                     <circle cx={x} cy={y} r={r * 2.4} fill="transparent" />
-                    <circle cx={x} cy={y} r={r} fill="rgba(245,158,11,.25)" stroke="var(--bx-amber)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+                    <circle cx={x} cy={y} r={r} style={{ fill: 'rgba(var(--ac-1-rgb), .25)', stroke: 'var(--ac-1)' }} strokeWidth={2} vectorEffect="non-scaling-stroke" />
                   </g>
                 )
               })}
@@ -397,7 +399,7 @@ export default function PreviaCentralizacao({ cartaInicial }: { cartaInicial?: s
       )}
 
       {etapa === 'semMoldura' && (
-        <div className="pc-bloco pc-centro">
+        <div className="pc-bloco pc-estreito pc-centro">
           <IconWarning size={22} />
           <b>Não encontramos a borda da impressão desta carta</b>
           <span className="pc-muted">Acontece em cartas full art, que não têm borda, ou com reflexo forte. Para essas cartas, a medição é feita no Pré-grading.</span>
@@ -408,63 +410,68 @@ export default function PreviaCentralizacao({ cartaInicial }: { cartaInicial?: s
         </div>
       )}
 
-      {/* ── 4. resultado ── */}
+      {/* ── 4. resultado ── duas colunas a partir de 1024 px: resultado a esquerda,
+          o Pre-grading trancado a direita (sticky). No celular, uma coluna. */}
       {etapa === 'resultado' && res && (
-        <>
-          <div className="pc-bloco">
-            {carta && <CartaEscolhida c={carta} mini />}
-            <span className="pc-selo">Estimativa pela foto, não é nota</span>
-            <div className="pc-num">{fmtProporcao(res.pior)}</div>
-            <div className="pc-muted">{res.eixo === 'lr' ? 'Esquerda e direita' : 'Topo e base'}, o lado mais descentralizado</div>
-            <div className={`pc-faixa pc-f-${res.faixa}`}><i aria-hidden />{ROTULO_FAIXA[res.faixa]}</div>
-            <div className="pc-termo" role="img" aria-label={`Termômetro: ${ROTULO_FAIXA[res.faixa]}`}>
-              {(['bem', 'levemente', 'descentralizada'] as FaixaPrevia[]).map(f => <span key={f} className={`pc-z pc-z-${f}${f === res.faixa ? ' on' : ''}`} />)}
+        <div className="pc-res">
+          <div className="pc-res-a">
+            <div className="pc-bloco">
+              {carta && <CartaEscolhida c={carta} mini />}
+              <span className="pc-selo">Estimativa pela foto, não é nota</span>
+              <div className="pc-num">{fmtProporcao(res.pior)}</div>
+              <div className="pc-muted">{res.eixo === 'lr' ? 'Esquerda e direita' : 'Topo e base'}, o lado mais descentralizado</div>
+              <div className={`pc-faixa pc-f-${res.faixa}`}><i aria-hidden />{ROTULO_FAIXA[res.faixa]}</div>
+              <div className="pc-termo" role="img" aria-label={`Termômetro: ${ROTULO_FAIXA[res.faixa]}`}>
+                {(['bem', 'levemente', 'descentralizada'] as FaixaPrevia[]).map(f => <span key={f} className={`pc-z pc-z-${f}${f === res.faixa ? ' on' : ''}`} />)}
+              </div>
+              <div className="pc-termo-rot">
+                {(['bem', 'levemente', 'descentralizada'] as FaixaPrevia[]).map(f => <span key={f} className={f === res.faixa ? 'on' : ''}>{ROTULO_FAIXA[f]}</span>)}
+              </div>
+              <p className="pc-fine">50/50 é o perfeito: a mesma borda dos dois lados. Quanto mais o primeiro número sobe, mais a impressão foi parar para um lado.</p>
             </div>
-            <div className="pc-termo-rot">
-              {(['bem', 'levemente', 'descentralizada'] as FaixaPrevia[]).map(f => <span key={f} className={f === res.faixa ? 'on' : ''}>{ROTULO_FAIXA[f]}</span>)}
-            </div>
-            <p className="pc-fine">50/50 é o perfeito: a mesma borda dos dois lados. Quanto mais o primeiro número sobe, mais a impressão foi parar para um lado.</p>
-          </div>
 
-          <div className="pc-bloco pc-medido">
-            <svg viewBox={`${-MARGEM} ${-MARGEM} ${CARTA_MM.w + 2 * MARGEM} ${CARTA_MM.h + 2 * MARGEM}`} role="img" aria-label="Carta com as bordas medidas">
-              <image href={res.retUrl} x={-MARGEM} y={-MARGEM} width={CARTA_MM.w + 2 * MARGEM} height={CARTA_MM.h + 2 * MARGEM} preserveAspectRatio="none" />
-              <rect x={0} y={0} width={CARTA_MM.w} height={CARTA_MM.h} fill="none" stroke="var(--bx-amber)" strokeWidth={1.4} strokeDasharray="3 2" vectorEffect="non-scaling-stroke" />
-              <rect x={res.linhas.int.esq} y={res.linhas.int.topo} width={res.linhas.int.dir - res.linhas.int.esq} height={res.linhas.int.base - res.linhas.int.topo}
-                fill="none" stroke="var(--bx-blue)" strokeWidth={1.4} strokeDasharray="3 2" vectorEffect="non-scaling-stroke" />
-            </svg>
-            <div className="pc-leg">
-              <span className="pc-k">O que foi medido</span>
-              <span><i className="pc-dot pc-dot-ext" />Borda do papel</span>
-              <span><i className="pc-dot pc-dot-int" />Borda da impressão</span>
-              <button type="button" className="pc-link" onClick={() => { setEtapa('cantos') }}>As linhas não batem? Ajustar os 4 cantos</button>
-            </div>
-          </div>
-
-          {/* Pergunta de 1 toque: so avulso, com carta escolhida, e no maximo 3 por dia */}
-          {origem === 'avulso' && carta?.image_small && previaId && sit?.perguntar && !respondeu && (
-            <div className="pc-bloco pc-pergunta">
-              {/* eslint-disable-next-line @next/next/no-img-element -- miniatura do catalogo */}
-              <img src={carta.image_small} alt={nomeCarta(carta)} />
-              <div>
-                <b>A imagem do catálogo é a da sua carta?</b>
-                <div className="pc-bts">
-                  <button type="button" className="pc-bt" onClick={() => responderImagem(true)}>Sim</button>
-                  <button type="button" className="pc-bt" onClick={() => responderImagem(false)}>Não</button>
-                  <button type="button" className="pc-bt pc-bt-ghost" onClick={() => responderImagem(null)}>Pular</button>
-                </div>
+            <div className="pc-bloco pc-medido">
+              <svg viewBox={`${-MARGEM} ${-MARGEM} ${CARTA_MM.w + 2 * MARGEM} ${CARTA_MM.h + 2 * MARGEM}`} role="img" aria-label="Carta com as bordas medidas">
+                <image href={res.retUrl} x={-MARGEM} y={-MARGEM} width={CARTA_MM.w + 2 * MARGEM} height={CARTA_MM.h + 2 * MARGEM} preserveAspectRatio="none" />
+                <rect x={0} y={0} width={CARTA_MM.w} height={CARTA_MM.h} fill="none" style={{ stroke: 'var(--bx-amber)' }} strokeWidth={1.6} strokeDasharray="3 2" vectorEffect="non-scaling-stroke" />
+                <rect x={res.linhas.int.esq} y={res.linhas.int.topo} width={res.linhas.int.dir - res.linhas.int.esq} height={res.linhas.int.base - res.linhas.int.topo}
+                  fill="none" style={{ stroke: 'var(--bx-blue)' }} strokeWidth={1.6} strokeDasharray="3 2" vectorEffect="non-scaling-stroke" />
+              </svg>
+              <div className="pc-leg">
+                <span className="pc-k">O que foi medido</span>
+                <span><i className="pc-dot pc-dot-ext" />Borda do papel</span>
+                <span><i className="pc-dot pc-dot-int" />Borda da impressão</span>
+                <button type="button" className="pc-link" onClick={() => { setEtapa('cantos') }}>As linhas não batem? Ajustar os 4 cantos</button>
               </div>
             </div>
-          )}
-          {respondeu && origem === 'avulso' && <p className="pc-fine pc-obrigado"><IconCheck size={14} /> Obrigado, isso ajuda a manter o catálogo certo.</p>}
 
-          <Trancado faixa={res.faixa} />
+            <div className="pc-outra">
+              <button type="button" className="pc-bt" onClick={recomecar}>Medir outra carta</button>
+              {usoTexto && <span className="pc-fine">{usoTexto}</span>}
+            </div>
 
-          <div className="pc-bts">
-            <button type="button" className="pc-bt" onClick={recomecar}>Medir outra carta</button>
+            {/* Pergunta de 1 toque: so avulso, com carta escolhida, e no maximo 3 por dia */}
+            {origem === 'avulso' && carta?.image_small && previaId && sit?.perguntar && !respondeu && (
+              <div className="pc-bloco pc-pergunta">
+                {/* eslint-disable-next-line @next/next/no-img-element -- miniatura do catalogo */}
+                <img src={carta.image_small} alt={nomeCarta(carta)} />
+                <div>
+                  <b>A imagem do catálogo é a da sua carta?</b>
+                  <div className="pc-bts">
+                    <button type="button" className="pc-bt" onClick={() => responderImagem(true)}>Sim</button>
+                    <button type="button" className="pc-bt" onClick={() => responderImagem(false)}>Não</button>
+                    <button type="button" className="pc-bt pc-bt-ghost" onClick={() => responderImagem(null)}>Pular</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {respondeu && origem === 'avulso' && <p className="pc-fine pc-obrigado"><IconCheck size={14} /> Obrigado, isso ajuda a manter o catálogo certo.</p>}
           </div>
-          {usoTexto && <p className="pc-fine">{usoTexto}</p>}
-        </>
+
+          <aside className="pc-res-b">
+            <Trancado faixa={res.faixa} />
+          </aside>
+        </div>
       )}
 
       <input ref={inputCamera} type="file" accept="image/*" capture="environment" hidden onChange={ev => { processar(ev.target.files?.[0]); ev.target.value = '' }} />
@@ -521,8 +528,9 @@ function Trancado({ faixa }: { faixa: FaixaPrevia }) {
 }
 
 const CSS = `
-.pc{max-width:560px;margin:0 auto;display:grid;gap:12px;font-family:var(--font-dm-sans),system-ui,sans-serif;color:var(--bx-text)}
-.pc-cab h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-0.03em;text-wrap:balance}
+.pc{max-width:1120px;display:grid;gap:12px;font-family:var(--font-dm-sans),system-ui,sans-serif;color:var(--bx-text)}
+.pc > div:first-of-type{margin-bottom:12px!important}
+.pc-estreito{max-width:640px}
 .pc-muted{margin:0;font-size:13.5px;color:var(--bx-text-2);line-height:1.5}
 .pc-fine{margin:0;font-size:12px;color:var(--bx-text-3);line-height:1.45}
 .pc-c{text-align:center}
@@ -531,28 +539,25 @@ const CSS = `
 .pc-bloco{display:grid;gap:10px;padding:16px;border-radius:16px;border:1px solid var(--bx-border);background:var(--bx-surface)}
 .pc-centro{justify-items:center;text-align:center;padding:28px 16px}
 .pc-bts{display:flex;flex-wrap:wrap;gap:8px}
-.pc-bt{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);color:var(--bx-text);font:inherit;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none;transition:background .15s ease,transform .15s ease}
+.pc-bt{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);color:var(--bx-text);font:inherit;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none;transition:background .15s ease,transform .15s ease}
 .pc-bt:hover:not(:disabled){background:var(--bx-surface-3)}
 .pc-bt:disabled{opacity:.5;cursor:not-allowed}
 .pc-bt-pri{border:none;background:var(--bx-brand);color:var(--bx-brand-ink);font-weight:800}
 .pc-bt-pri:hover:not(:disabled){background:var(--bx-brand);transform:translateY(-2px)}
 .pc-bt-ghost{background:transparent}
 .pc-bt-full{width:100%}
-.pc-link{display:inline-flex;align-items:center;gap:4px;justify-self:start;min-height:40px;padding:0;border:0;background:none;color:var(--bx-text-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left}
+.pc-link{display:inline-flex;align-items:center;gap:4px;justify-self:start;min-height:44px;padding:0;border:0;background:none;color:var(--bx-text-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left}
 .pc-link:hover{color:var(--bx-text)}
 .pc-erro{margin:0;font-size:13px;color:var(--bx-red)}
 .pc-gira{width:22px;height:22px;border-radius:999px;border:2px solid var(--bx-border-2);border-top-color:var(--ac-1);animation:pc-gira .8s linear infinite}
 @keyframes pc-gira{to{transform:rotate(360deg)}}
 .pc-busca{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
-.pc-in{min-height:46px;padding:0 14px;border-radius:12px;border:1px solid var(--bx-border-2);background:var(--bx-bg);color:var(--bx-text);font:inherit;font-size:18px;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.pc-in{min-height:46px;padding:0 14px;border-radius:8px;border:1px solid var(--bx-border-2);background:var(--bx-bg);color:var(--bx-text);font:inherit;font-size:18px;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums}
 .pc-in:focus{outline:none;border-color:rgba(var(--ac-1-rgb),.6)}
-.pc-cands{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
-.pc-cand{width:100%;display:grid;gap:4px;padding:8px;border-radius:12px;border:1px solid var(--bx-border);background:var(--bx-bg);color:var(--bx-text);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s ease,transform .15s ease}
-.pc-cand:hover{border-color:rgba(var(--ac-1-rgb),.55);transform:translateY(-2px)}
-.pc-cand img{width:100%;aspect-ratio:63/88;object-fit:cover;border-radius:6px;background:var(--bx-surface-2)}
-.pc-cand b{font-size:13px;line-height:1.3}
-.pc-cand small{font-size:11.5px;color:var(--bx-text-3);line-height:1.3}
-.pc-sem-img{display:flex;align-items:center;justify-content:center;aspect-ratio:63/88;border-radius:6px;background:var(--bx-surface-2);font-size:11px;color:var(--bx-text-3)}
+.pc-cands{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.pc-cand{min-width:0;border-radius:18px;transition:transform .15s ease}
+.pc-cand:hover{transform:translateY(-2px)}
+.pc-cand:focus-visible{outline:2px solid var(--ac-1);outline-offset:2px}
 .pc-aviso{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:12px;font-size:13px;line-height:1.5;background:color-mix(in srgb,var(--bx-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--bx-amber) 35%,transparent)}
 .pc-aviso > svg{flex:none;margin-top:2px;color:var(--bx-amber)}
 .pc-aviso p{margin:0 0 6px}
@@ -561,7 +566,9 @@ const CSS = `
 .pc-escolhida.mini img{width:44px}
 .pc-escolhida b{display:block;font-size:15px}
 .pc-escolhida small{font-size:12px;color:var(--bx-text-3)}
-.pc-dicas{margin:0;padding-left:18px;display:grid;gap:6px;font-size:13px;color:var(--bx-text-2);line-height:1.45}
+.pc-dicas{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:13px;color:var(--bx-text-2);line-height:1.45}
+.pc-dicas li{display:grid;grid-template-columns:15px minmax(0,1fr);gap:8px;align-items:start}
+.pc-dicas li > svg{margin-top:2px;color:var(--ac-1)}
 .pc-dicas b{color:var(--bx-text)}
 .pc-palco{border-radius:12px;overflow:hidden;border:1px solid var(--bx-border);background:var(--bx-bg-elev)}
 .pc-svg{display:block;width:100%;height:auto;max-height:70vh;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -578,8 +585,22 @@ const CSS = `
 .pc-termo-rot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;font-size:11.5px;line-height:1.3;color:var(--bx-text-3)}
 .pc-termo-rot span:nth-child(2){text-align:center} .pc-termo-rot span:nth-child(3){text-align:right}
 .pc-termo-rot .on{color:var(--bx-text);font-weight:800}
-.pc-medido{grid-template-columns:140px minmax(0,1fr);align-items:center;gap:14px}
-.pc-medido svg{display:block;width:100%;height:auto;border-radius:10px;background:var(--bx-bg-elev)}
+.pc-medido{grid-template-columns:minmax(0,1fr);justify-items:center;gap:14px}
+.pc-medido svg{display:block;width:min(220px,100%);height:auto;border-radius:10px;background:var(--bx-bg-elev)}
+.pc-medido .pc-leg{justify-self:stretch}
+.pc-res{display:grid;gap:12px;align-items:start}
+.pc-res-a{display:grid;gap:12px;min-width:0}
+.pc-res-b{min-width:0}
+.pc-outra{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+@media (min-width:640px){
+  .pc-medido{grid-template-columns:240px minmax(0,1fr);justify-items:stretch;align-items:center}
+  .pc-medido svg{width:100%}
+}
+@media (min-width:1024px){
+  .pc-res{grid-template-columns:minmax(0,1fr) 380px;gap:20px}
+  .pc-res-b{position:sticky;top:88px}
+  .pc-medido{grid-template-columns:280px minmax(0,1fr)}
+}
 .pc-leg{display:grid;gap:8px;font-size:13px;color:var(--bx-text-2)}
 .pc-dot{display:inline-block;width:9px;height:9px;border-radius:999px;margin-right:6px;vertical-align:1px}
 .pc-dot-ext{background:var(--bx-amber)} .pc-dot-int{background:var(--bx-blue)}
@@ -603,6 +624,10 @@ const CSS = `
 .pc-limite{justify-items:center;text-align:center;padding:28px 16px}
 .pc-limite > svg{color:var(--ac-1)}
 .pc-relogio{font-size:40px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-@media (max-width:420px){.pc-medido{grid-template-columns:110px minmax(0,1fr)}}
+@media (max-width:639px){
+  .pc-bts-col{flex-direction:column}
+  .pc-bts-col .pc-bt{width:100%}
+  .pc-tranca li{grid-template-columns:20px minmax(0,1fr) 48px}
+}
 @media (prefers-reduced-motion:reduce){.pc *{animation:none!important;transition:none!important}}
 `

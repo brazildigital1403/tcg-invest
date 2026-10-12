@@ -24,6 +24,10 @@ import { ALGORITMO_PREVIA, faixaDe, lerNumeroImpresso } from '@/lib/centralizaca
 export const dynamic = 'force-dynamic'
 
 const DIA_MS = 24 * 60 * 60 * 1000
+/** Precos em reais por variante, no formato que o CardItem le (CardPrice). */
+const COLUNAS_PRECO = ['normal', 'foil', 'promo', 'reverse', 'pokeball']
+  .flatMap(v => (v === 'normal' ? ['preco_normal', 'preco_min', 'preco_medio', 'preco_max'] : [`preco_${v}`, `preco_${v}_min`, `preco_${v}_medio`, `preco_${v}_max`]))
+  .join(', ')
 /** Pergunta da imagem: no maximo 3 por 24 h por pessoa. */
 const PERGUNTAS_DIA = 3
 
@@ -92,8 +96,10 @@ export async function GET(req: NextRequest) {
     if (acao === 'candidatos') {
       const num = lerNumeroImpresso(req.nextUrl.searchParams.get('numero') || '')
       if (!num) return erro(400, 'Digite o número como está na carta, por exemplo 025/198.')
+      // Preco em reais vem da mesma linha (o CardItem mostra o menor preco da
+      // variante): nenhuma consulta a mais, so colunas a mais no mesmo indice.
       const { data, error } = await db.from('pokemon_cards')
-        .select('id, name, name_pt, number, set_name, set_total, idioma, image_small')
+        .select(`id, name, name_pt, number, set_name, set_total, idioma, image_small, ${COLUNAS_PRECO}`)
         .eq('number_norm', num.norm).eq('set_total', num.total)
         .limit(40)
       if (error) throw new Error(error.message)
