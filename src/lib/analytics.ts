@@ -189,6 +189,14 @@ export type BynxEvent =
     }
   | { name: 'user_logged_out'; properties: Record<string, never> }
 
+  // Previa de centralizacao (/centralizacao)
+  | {
+      name: 'centralizacao_medida'
+      properties: { faixa: string; origem: 'colecao' | 'avulso'; escolha: 'carta' | 'nenhuma'; ajustou_cantos: boolean }
+    }
+  | { name: 'centralizacao_limite'; properties: Record<string, never> }
+  | { name: 'centralizacao_cta_pre_grading'; properties: { faixa: string } }
+
   // Coleção (4)
   | {
       name: 'card_added_to_collection'

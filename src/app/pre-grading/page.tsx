@@ -71,6 +71,7 @@ export default function PreGradingPage() {
                 <a className="sv-ghost" href="#metodo">Ver como medimos</a>
               </div>
               <Garantias itens={['Você só envia depois de aprovar o preço', 'PSA, TAG, CGC, BGS e GBA', 'Brasil todo pelo correio']} />
+              <Link href="/centralizacao" style={{ display: 'inline-block', marginTop: 12, fontSize: 13.5, fontWeight: 700, color: 'var(--bx-text-2)' }}>Ainda em dúvida? Meça a centralização da frente grátis</Link>
             </div>
             <div className="sv-hero-r">
               <MockupLaudo />

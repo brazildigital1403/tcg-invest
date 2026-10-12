@@ -33,6 +33,12 @@ export interface PlanCaps {
   separadoresLiberados: boolean// separadores liberados (vs avulso)
   masterSetsLiberados: boolean // todos os Master Sets liberados (vs avulso)
   paginasLendariasLiberadas: boolean // Paginas Lendarias (fundo continuo) liberadas (vs avulso)
+  /**
+   * Medicoes da previa de centralizacao (/centralizacao) por 24 h corridas.
+   * Infinity = ilimitado. O gate de verdade e a rota /api/centralizacao, que le
+   * este numero. Decisao do Du (12/10/2026): 20 por dia, ilimitado no Pro.
+   */
+  centralizacaoDia: number
 }
 
 // Precos de referencia (centralizados; a UI e o Stripe leem daqui)
@@ -58,6 +64,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     podeDashboard: false, catalogoCompleto: true, podeExportar: false,
     scansMes: 0, separadoresLiberados: false, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
+    centralizacaoDia: 20,
   },
   plus: {
     label: 'Plus',
@@ -71,6 +78,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     //   um scan so (a rota scan-cards debita uma vez por requisicao).
     scansMes: 100, separadoresLiberados: false, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
+    centralizacaoDia: 20,
   },
   pro: {
     label: 'Pro',
@@ -79,6 +87,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     podeDashboard: true, catalogoCompleto: true, podeExportar: true,
     scansMes: Infinity, separadoresLiberados: true, masterSetsLiberados: false,
     paginasLendariasLiberadas: false,
+    centralizacaoDia: Infinity,
   },
   pro_anual: {
     label: 'Pro Anual',
@@ -87,6 +96,7 @@ const MATRIZ: Record<PlanTier, Omit<PlanCaps, 'tier'>> = {
     podeDashboard: true, catalogoCompleto: true, podeExportar: true,
     scansMes: Infinity, separadoresLiberados: true, masterSetsLiberados: true,
     paginasLendariasLiberadas: true,
+    centralizacaoDia: Infinity,
   },
 }
 

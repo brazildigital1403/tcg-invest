@@ -624,6 +624,17 @@ export default function CardDetailModal({
               )}
             </div>
 
+            {/* Previa de centralizacao: so para carta crua (graduada ja tem nota) */}
+            {!graduada && card.card_id && (
+              <div className="bx-cmd-bloco" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>Centralização</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--bx-text-3)' }}>Tire uma foto da frente e veja se ela está bem centralizada.</div>
+                </div>
+                <Link href={`/centralizacao?carta=${encodeURIComponent(card.card_id)}`} className="bx-cmd-ghost" style={{ flex: 'none', textDecoration: 'none' }}>Medir</Link>
+              </div>
+            )}
+
             {/* Graduacao */}
             <div className="bx-cmd-bloco">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
