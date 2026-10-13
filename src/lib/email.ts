@@ -58,6 +58,8 @@ function subjInterno(setor: 'Suporte' | 'Contato' | 'Sync' | 'Alerta' | 'Serviç
   return `[Bynx ${setor}] ${limparAssunto(texto)}`
 }
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
+import { textoComLinksHtml } from './textoComLinks'
+
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 const FONT = "font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
 
@@ -524,6 +526,18 @@ function h1(text: string) {
 
 function p(text: string, style = '') {
   return `<p style="margin:12px 0;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.7;${FONT}${style}">${text}</p>`
+}
+
+/**
+ * Bloco da mensagem de ticket (o que a pessoa escreveu ou o que a equipe
+ * respondeu). Era `white-space:pre-wrap` + escapeHtml: texto cru, URL morta.
+ * Agora paragrafos com respiro e link clicavel (`textoComLinksHtml`).
+ * Padding 12px na variante compacta (resumo pro admin), 16px na normal.
+ */
+function blocoMensagem(texto: string, compacto = false) {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:${compacto ? 12 : 16}px;">
+      <tr><td style="padding:${compacto ? '12px 16px' : '16px 18px'};">${textoComLinksHtml(texto, { fonte: FONT, cor: 'rgba(255,255,255,0.85)' })}</td></tr>
+    </table>`
 }
 
 function divider() {
@@ -1200,7 +1214,7 @@ export async function sendNewTicketAdminEmail(args: {
       <tr><td style="padding:12px 16px;font-size:11px;color:#9ca3af;${FONT}text-transform:uppercase;letter-spacing:0.08em;">Categoria · Prioridade</td></tr>
       <tr><td style="padding:0 16px 12px;font-size:13px;color:rgba(255,255,255,0.8);${FONT}">${args.category} · <strong style="color:#f59e0b;">${args.priority}</strong></td></tr>
       <tr><td colspan="2" bgcolor="#2d3748" style="background-color:#2d3748;height:1px;font-size:1px;line-height:1px;padding:0;">&nbsp;</td></tr>
-      <tr><td style="padding:12px 16px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
+      <tr><td style="padding:12px 16px;">${textoComLinksHtml(args.message, { fonte: FONT, cor: 'rgba(255,255,255,0.85)' })}</td></tr>
     </table>
     ${btn('Ver no painel admin →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-new-admin', 'cta-button'))}
   `, `Novo ticket: ${args.subject}`)
@@ -1632,9 +1646,7 @@ export async function sendUserReplyAdminEmail(args: {
     <div style="height:16px;"></div>
     ${h1('Nova resposta em ticket')}
     ${p(`<strong style="color:#f0f0f0;">${escapeHtml(args.userName || 'Colecionador')}</strong> (${escapeHtml(args.userEmail)}) respondeu em "<em style="color:#f59e0b;">${escapeHtml(args.subject)}</em>":`)}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
-      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
-    </table>
+    ${blocoMensagem(args.message)}
     ${btn('Responder no painel →', addUtm(`${APP_URL}/admin/tickets/${args.ticketId}`, 'ticket-user-reply', 'cta-button'))}
   `, `Nova resposta: ${args.subject}`)
 
@@ -1656,9 +1668,7 @@ export async function sendAdminReplyUserEmail(args: {
     <div style="height:16px;"></div>
     ${h1('Você tem uma nova resposta')}
     ${p(`${escapeHtml(firstName)}, nossa equipe respondeu seu ticket "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>":`)}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
-      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
-    </table>
+    ${blocoMensagem(args.message)}
     ${btn('Ver conversa completa →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-admin-reply', 'cta-button'))}
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Para responder, basta abrir a conversa no botão acima. Você também pode responder este email, mas o caminho mais rápido é pelo app. 📬</p>
@@ -1690,9 +1700,7 @@ export async function sendAdminNovaConversaEmail(args: {
     <div style="height:16px;"></div>
     ${h1('A equipe da Bynx te enviou uma mensagem')}
     ${p(`${escapeHtml(firstName)}, abrimos uma conversa com você sobre "<strong style="color:#f59e0b;">${escapeHtml(args.subject)}</strong>":`)}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1a1c24" style="background-color:#1a1c24;border-radius:8px;border:1px solid #2d3748;margin-top:16px;">
-      <tr><td style="padding:16px 18px;font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;${FONT}white-space:pre-wrap;">${escapeHtml(args.message)}</td></tr>
-    </table>
+    ${blocoMensagem(args.message)}
     ${btn('Responder →', addUtm(`${APP_URL}/suporte/${args.ticketId}`, 'ticket-admin-nova', 'cta-button'))}
     ${divider()}
     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);line-height:1.6;">Você está recebendo isso porque tem conta na Bynx e nossa equipe precisou falar com você. Responda pelo botão acima — a conversa fica registrada na sua conta. 📬</p>
