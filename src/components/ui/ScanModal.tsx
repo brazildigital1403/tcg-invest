@@ -454,7 +454,8 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
       backdropFilter: 'blur(8px)', zIndex: 9999,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 24, fontFamily: "'DM Sans', system-ui, sans-serif",
+      padding: '24px 24px calc(24px + env(safe-area-inset-bottom, 0px))',
+      fontFamily: "'DM Sans', system-ui, sans-serif",
     }}>
       <div style={{
         width: '100%', maxWidth: 880, background: '#0d0f14',
@@ -480,7 +481,7 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
             </div>
           </div>
           <button onClick={() => { stopCamera(); onClose() }}
-            style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </button>
         </div>
@@ -918,12 +919,12 @@ export default function ScanModal({ userId, onClose, onAdded }: Props) {
             )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { stopCamera(); onClose() }}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', padding: '10px 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer' }}>
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', minHeight: 44, padding: '0 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer' }}>
                 Cancelar
               </button>
               {step === 'confirm' && (
                 <button onClick={handleAdd} disabled={selectedCount === 0}
-                  style={{ background: selectedCount > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCount > 0 ? '#000' : 'rgba(255,255,255,0.3)', padding: '10px 24px', borderRadius: 10, fontSize: 13, cursor: selectedCount > 0 ? 'pointer' : 'default', fontWeight: 700, transition: 'all 0.2s' }}>
+                  style={{ background: selectedCount > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCount > 0 ? '#000' : 'rgba(255,255,255,0.3)', minHeight: 44, padding: '0 24px', borderRadius: 10, fontSize: 13, cursor: selectedCount > 0 ? 'pointer' : 'default', fontWeight: 700, transition: 'all 0.2s' }}>
                   Adicionar {selectedCount > 0 ? `(${selectedCount})` : ''} →
                 </button>
               )}

@@ -445,7 +445,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5M4 15h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Importar lista
           </button>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onClose} style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           </button>
           </div>
@@ -688,10 +688,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
                           <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
-                            style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
+                            style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
                           <span style={{ fontSize: 15, fontWeight: 700, color: '#f0f0f0', minWidth: 22, textAlign: 'center' }}>{qtyMap[preview.id] || 1}</span>
                           <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: (prev[preview.id] || 1) + 1 }))}
-                            style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
+                            style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
                         </div>
                       </div>
                     </div>
@@ -895,10 +895,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       <p style={{ fontSize: 10, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Quantidade</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: Math.max(1, (prev[preview.id] || 1) - 1) }))}
-                          style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                          style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                         <span style={{ fontSize: 16, fontWeight: 700, color: '#f0f0f0', minWidth: 24, textAlign: 'center' }}>{qtyMap[preview.id] || 1}</span>
                         <button onClick={() => setQtyMap(prev => ({ ...prev, [preview.id]: (prev[preview.id] || 1) + 1 }))}
-                          style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                          style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f0f0', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                       </div>
                     </div>
                   )}
@@ -915,20 +915,23 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         </div>
 
         {/* FOOTER */}
-        <div style={{ padding: isMobile ? '10px 16px' : '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: isMobile ? 'stretch' : 'space-between', alignItems: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.01)', gap: isMobile ? 8 : 12 }}>
+        {/* ★ No mobile o modal tem 100dvh: sem a safe area, o rodape fica
+            embaixo da barra de gestos do iPhone e o "Adicionar" so responde
+            com a ponta do dedo. */}
+        <div style={{ padding: isMobile ? '10px 16px calc(10px + env(safe-area-inset-bottom, 0px))' : '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: isMobile ? 'stretch' : 'space-between', alignItems: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.01)', gap: isMobile ? 8 : 12 }}>
           {!isMobile && (
             <p style={{ fontSize: 13, color: selectedCards.length > 0 ? '#f59e0b' : TEXT_MUTED, fontWeight: selectedCards.length > 0 ? 600 : 400 }}>
               {selectedCards.length === 0 ? 'Nenhuma carta selecionada' : `${selectedCards.length} carta${selectedCards.length !== 1 ? 's' : ''} selecionada${selectedCards.length !== 1 ? 's' : ''}`}
             </p>
           )}
           <div style={{ display: 'flex', gap: isMobile ? 8 : 10, flex: isMobile ? 1 : 'none' }}>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, padding: isMobile ? '11px 14px' : '10px 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, flex: isMobile ? 1 : 'none' }}>
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 14px' : '0 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, flex: isMobile ? 1 : 'none' }}>
               Cancelar
             </button>
             <button
               onClick={handleAdd}
               disabled={selectedCards.length === 0 || adding}
-              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, padding: isMobile ? '11px 14px' : '10px 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none' }}
+              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 14px' : '0 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none' }}
             >
               {adding ? 'Adicionando...' : `Adicionar ${selectedCards.length > 0 ? `(${selectedCards.length})` : ''} →`}
             </button>

@@ -73,7 +73,15 @@ export default function CondicaoEditor({ userCardId, quantity, condicoes: condic
   // ── Chip (estado atual) ──
   if (!editing) {
     return (
-      <button onClick={open} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+      /* ★ O chip media 103x21 e aparece 56 vezes na Colecao -- o alvo mais
+         repetido da tela, com menos da metade do minimo de 44. Crescer o chip
+         cresceria o cartao 23px, o contrario do que a tela toda fez. Entao a
+         AREA de toque cresce e o desenho fica igual: padding generoso anulado
+         por margem negativa do mesmo tamanho. Medido: 6px de folga acima (nome
+         da carta, nao clicavel) e 28px ate o primeiro botao da tabela de
+         precos -- da 51px de area sem encostar em alvo nenhum nem empurrar
+         uma linha sequer. */
+      <button onClick={open} style={{ background: 'none', border: 'none', padding: '10px 0 20px', margin: '-10px 0 -20px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
         {keysAtuais.length === 0 ? (
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', border: '1px dashed rgba(255,255,255,0.18)', borderRadius: 6, padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
             <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -91,7 +99,7 @@ export default function CondicaoEditor({ userCardId, quantity, condicoes: condic
   }
 
   // ── Editor inline ──
-  const stepBtn: React.CSSProperties = { width: 22, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#f0f0f0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
+  const stepBtn: React.CSSProperties = { width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#f0f0f0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
   const splitInvalido = splitOn && splitTotal !== qtd
 
   return (
@@ -107,7 +115,7 @@ export default function CondicaoEditor({ userCardId, quantity, condicoes: condic
             const cor = c ? CORES[c] : 'rgba(255,255,255,0.4)'
             return (
               <button key={c || 'na'} onClick={() => setSingle(c)}
-                style={{ fontSize: 10, padding: '4px 8px', borderRadius: 6, border: `1px solid ${active ? cor : 'rgba(255,255,255,0.1)'}`, background: active ? cor + '1a' : 'transparent', color: active ? cor : 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: active ? 700 : 400 }}>
+                style={{ fontSize: 10, minHeight: 32, padding: '0 10px', borderRadius: 7, border: `1px solid ${active ? cor : 'rgba(255,255,255,0.1)'}`, background: active ? cor + '1a' : 'transparent', color: active ? cor : 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: active ? 700 : 400 }}>
                 {c || '—'}
               </button>
             )
@@ -118,7 +126,7 @@ export default function CondicaoEditor({ userCardId, quantity, condicoes: condic
       {qtd > 1 && isPro && (
         <>
           <button onClick={toggleSplit}
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, color: splitOn ? '#f59e0b' : 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', gap: 5 }}>
+            style={{ background: 'none', border: 'none', minHeight: 36, padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, color: splitOn ? '#f59e0b' : 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 12, height: 12, borderRadius: 3, border: `1px solid ${splitOn ? '#f59e0b' : 'rgba(255,255,255,0.25)'}`, background: splitOn ? 'rgba(245,158,11,0.15)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {splitOn && <svg width="8" height="8" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#f59e0b" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             </span>
@@ -159,11 +167,11 @@ export default function CondicaoEditor({ userCardId, quantity, condicoes: condic
 
       <div style={{ display: 'flex', gap: 6 }}>
         <button onClick={save} disabled={saving || splitInvalido}
-          style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: '6px', borderRadius: 7, border: 'none', background: splitInvalido ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #f59e0b, #ef4444)', color: splitInvalido ? 'rgba(255,255,255,0.3)' : '#000', cursor: splitInvalido ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+          style={{ flex: 1, fontSize: 11, fontWeight: 700, minHeight: 44, padding: '0 6px', borderRadius: 8, border: 'none', background: splitInvalido ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #f59e0b, #ef4444)', color: splitInvalido ? 'rgba(255,255,255,0.3)' : '#000', cursor: splitInvalido ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
           {saving ? '...' : 'Salvar'}
         </button>
         <button onClick={() => setEditing(false)}
-          style={{ fontSize: 11, padding: '6px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'inherit' }}>
+          style={{ fontSize: 11, minHeight: 44, padding: '0 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'inherit' }}>
           Cancelar
         </button>
       </div>
