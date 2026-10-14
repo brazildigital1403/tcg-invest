@@ -75,6 +75,28 @@ function getVariantesDisponiveis(price: any, varianteSalva?: string) {
   return opts
 }
 
+/** Seção da folha de filtros: rótulo pequeno + chips que quebram linha. */
+function GrupoFiltro({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--bx-text-3)', margin: '16px 0 9px' }}>{titulo}</p>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>{children}</div>
+    </div>
+  )
+}
+
+/** Chip de opção. Alvo de 38px de altura e 44 de área com o gap da linha. */
+function OpcaoFiltro({ ativo, onClick, children }: { ativo: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{ minHeight: 38, display: 'inline-flex', alignItems: 'center', padding: '0 13px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'background 0.15s ease, border-color 0.15s ease', background: ativo ? 'rgba(245,158,11,0.14)' : 'var(--bx-surface)', border: `1px solid ${ativo ? 'rgba(245,158,11,0.38)' : 'var(--bx-border)'}`, color: ativo ? 'var(--ac-1)' : 'var(--bx-text-2)', fontWeight: ativo ? 700 : 500 }}
+    >
+      {children}
+    </button>
+  )
+}
+
 export default function MinhaColecao() {
   const { showAlert, showConfirm } = useAppModal()
   const [cards, setCards] = useState<any[]>([])
@@ -101,6 +123,7 @@ export default function MinhaColecao() {
   //   devolvia a colecao inteira com patrimonio R$ 0 e nenhum erro na tela.
   //   Mesma assinatura do incidente da Pokedex: falha virando vazio valido.
   const [precosFalharam, setPrecosFalharam] = useState(false)
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
   // Houve gravacao no modal? So entao o fechamento reconcilia com o servidor.
   // Ref, nao state: o modal chama onAdded e onClose no mesmo tick.
   const reconciliarRef = useRef(false)
@@ -793,6 +816,11 @@ export default function MinhaColecao() {
     grupos[posGrupo.get(k)!].cards.push(c)
   }
   const filtroAtivo = !!(search || filtroVariante || filtroRaridade || filtroCondicao || filtroGraduada)
+  // A busca tem campo proprio e nao entra na conta do botao.
+  const qtdFiltros = [filtroRaridade, filtroVariante, filtroCondicao, filtroGraduada].filter(Boolean).length
+  function limparFiltros() {
+    setFiltroRaridade(''); setFiltroVariante(''); setFiltroCondicao(''); setFiltroGraduada(false)
+  }
 
   // ★ Abrir "o primeiro grupo" (i === 0) foi dimensionado contra quem tem 100
   //   sets -- mas 75% dos grupos set x usuario da base tem no maximo 2 cartas,
@@ -1132,100 +1160,73 @@ export default function MinhaColecao() {
           </div>
         )}
 
-        {/* Busca + filtros — 1 linha única, após boxes */}
+        {/* ★ V1: busca + um botao "Filtros" com contador. A barra tinha 138px
+            e TRES linhas em 375px -- sete controles somando 867px de largura
+            para 343 disponiveis, e os seletores com 36px de altura, abaixo do
+            minimo de toque. Cinco deles ficam vazios na maioria das sessoes.
+            Agora a barra tem 44px em repouso (92 quando ha chip aplicado), o
+            que esta aplicado volta como chip removivel, e o resto mora numa
+            folha com a contagem viva no rodape.
+            Filtro novo (idioma, por exemplo) entra na folha sem a barra
+            crescer de novo. */}
         {cards.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
-            {/* Busca */}
-            <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
-              <IconSearch size={14} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar carta..."
-                style={{ width: '100%', background: 'var(--bx-surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px 8px 32px', color: 'var(--bx-text)', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
-                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-              />
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                <IconSearch size={15} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar carta..."
+                  style={{ width: '100%', minHeight: 44, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 10, padding: '0 12px 0 36px', color: 'var(--bx-text)', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--bx-border)'}
+                />
+              </div>
+              <button
+                onClick={() => setFiltrosAbertos(true)}
+                style={{ flexShrink: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 7, padding: '0 14px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: qtdFiltros ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${qtdFiltros ? 'rgba(245,158,11,0.3)' : 'var(--bx-border)'}`, color: qtdFiltros ? 'var(--ac-1)' : 'var(--bx-text-2)' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M3 6h14M6 10h8M9 14h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                Filtros
+                {qtdFiltros > 0 && (
+                  <span style={{ background: 'var(--ac-1)', color: 'var(--bx-brand-ink)', borderRadius: 999, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>{qtdFiltros}</span>
+                )}
+              </button>
             </div>
 
-            <style>{`
-              .mc-select {
-                -webkit-appearance: none; -moz-appearance: none; appearance: none;
-                background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 8l5 5 5-5' stroke='white' stroke-opacity='0.5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-                background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
-                padding-right: 30px !important;
-              }
-              .mc-select option { color: var(--bx-text); background: var(--bx-bg-elev); }
-            `}</style>
-
-            {/* Raridade */}
-            {raridades.length > 0 && (
-              <select value={filtroRaridade} onChange={e => setFiltroRaridade(e.target.value)} className="mc-select"
-                style={{ backgroundColor: filtroRaridade ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${filtroRaridade ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroRaridade ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-                <option value="" style={{ background: 'var(--bx-bg-elev)' }}>Raridade</option>
-                {raridades.map(r => <option key={r} value={r} style={{ background: 'var(--bx-bg-elev)' }}>{r}</option>)}
-              </select>
+            {/* O que esta aplicado fica a vista, e sai com um toque. */}
+            {qtdFiltros > 0 && (
+              <div style={{ display: 'flex', gap: 7, marginTop: 10, overflowX: 'auto', paddingBottom: 2 }}>
+                {(([
+                  filtroRaridade ? [filtroRaridade, () => setFiltroRaridade('')] : null,
+                  filtroVariante ? [filtroVariante.charAt(0).toUpperCase() + filtroVariante.slice(1), () => setFiltroVariante('')] : null,
+                  filtroCondicao ? [filtroCondicao, () => setFiltroCondicao('')] : null,
+                  filtroGraduada ? ['Graduadas', () => setFiltroGraduada(false)] : null,
+                ].filter(Boolean)) as [string, () => void][]).map(([rotulo, limpar]) => (
+                  <button key={rotulo} onClick={limpar}
+                    style={{ flexShrink: 0, minHeight: 36, display: 'inline-flex', alignItems: 'center', gap: 7, padding: '0 12px', borderRadius: 999, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.32)', color: 'var(--ac-1)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {rotulo} <span style={{ fontSize: 14, lineHeight: 1 }}>&times;</span>
+                  </button>
+                ))}
+                <button onClick={limparFiltros}
+                  style={{ flexShrink: 0, minHeight: 36, background: 'none', border: 'none', color: 'var(--bx-text-3)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: '0 6px', whiteSpace: 'nowrap' }}>
+                  Limpar
+                </button>
+              </div>
             )}
+          </div>
+        )}
 
-            {/* Variante */}
-            <select value={filtroVariante} onChange={e => setFiltroVariante(e.target.value)} className="mc-select"
-              style={{ backgroundColor: filtroVariante ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${filtroVariante ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroVariante ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-              <option value="" style={{ background: 'var(--bx-bg-elev)' }}>Variante</option>
-              <option value="normal" style={{ background: 'var(--bx-bg-elev)' }}>Normal</option>
-              <option value="foil" style={{ background: 'var(--bx-bg-elev)' }}>Foil</option>
-              <option value="promo" style={{ background: 'var(--bx-bg-elev)' }}>Promo</option>
-              <option value="reverse" style={{ background: 'var(--bx-bg-elev)' }}>Reverse Foil</option>
-              <option value="pokeball" style={{ background: 'var(--bx-bg-elev)' }}>Pokeball Foil</option>
-            </select>
-
-            {/* Condição */}
-            <select value={filtroCondicao} onChange={e => setFiltroCondicao(e.target.value)} className="mc-select"
-              style={{ backgroundColor: filtroCondicao ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${filtroCondicao ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroCondicao ? '#f59e0b' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-              <option value="" style={{ background: 'var(--bx-bg-elev)' }}>Condição</option>
-              {CONDICAO_KEYS.map(k => (
-                <option key={k} value={k} style={{ background: 'var(--bx-bg-elev)' }}>{k}</option>
-              ))}
-            </select>
-
-            {/* Graduadas */}
-            <button onClick={() => setFiltroGraduada(v => !v)}
-              style={{ backgroundColor: filtroGraduada ? 'rgba(139,92,246,0.12)' : 'var(--bx-surface-2)', border: `1px solid ${filtroGraduada ? 'rgba(139,92,246,0.45)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, padding: '8px 12px', color: filtroGraduada ? '#a78bfa' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit', fontWeight: filtroGraduada ? 700 : 500, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <IconShield size={13} style={{ display: 'inline-block', verticalAlign: -2, marginRight: 4 }} />Graduadas
+        {/* Fora da barra: nao e filtro, e nao pode disputar largura com ela. */}
+        {cards.length > 0 && grupos.length > 1 && !filtroAtivo && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <button
+              onClick={() => alternarTodos(!todosAbertos)}
+              style={{ background: 'none', border: 'none', color: 'var(--ac-1)', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 44, padding: '0 4px' }}
+            >
+              {todosAbertos ? 'Recolher tudo' : 'Expandir tudo'}
             </button>
-
-            {/* Ordenação — select único igual à Pokédex */}
-            <select value={ordenacao} onChange={e => setOrdenacao(e.target.value as any)} className="mc-select"
-              style={{ backgroundColor: 'var(--bx-surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-              <option value="numero" style={{ background: 'var(--bx-bg-elev)' }}>Nº ↑</option>
-              <option value="numero_desc" style={{ background: 'var(--bx-bg-elev)' }}>Nº ↓</option>
-              <option value="az" style={{ background: 'var(--bx-bg-elev)' }}>Nome A→Z</option>
-              <option value="za" style={{ background: 'var(--bx-bg-elev)' }}>Nome Z→A</option>
-              <option value="recente" style={{ background: 'var(--bx-bg-elev)' }}>Mais recente</option>
-              <option value="antiga" style={{ background: 'var(--bx-bg-elev)' }}>Mais antiga</option>
-              <option value="valor_desc" style={{ background: 'var(--bx-bg-elev)' }}>Maior valor</option>
-              <option value="valor_asc" style={{ background: 'var(--bx-bg-elev)' }}>Menor valor</option>
-            </select>
-
-            {/* Limpar filtros */}
-            {(search || filtroVariante || filtroRaridade || filtroCondicao || filtroGraduada) && (
-              <button
-                onClick={() => { setSearch(''); setFiltroVariante(''); setFiltroRaridade(''); setFiltroCondicao(''); setFiltroGraduada(false) }}
-                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
-              >
-                Limpar
-              </button>
-            )}
-
-            {/* Controle de massa: sem isto, abrir a colecao toda custa um
-                toque por set -- 82 toques em quem tem 83 grupos. */}
-            {grupos.length > 1 && !filtroAtivo && (
-              <button
-                onClick={() => alternarTodos(!todosAbertos)}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--ac-1)', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 44, padding: '0 4px' }}
-              >
-                {todosAbertos ? 'Recolher tudo' : 'Expandir tudo'}
-              </button>
-            )}
           </div>
         )}
 
@@ -1332,6 +1333,84 @@ export default function MinhaColecao() {
         .mc-fab-add:active { transform: scale(0.94); }
         @media (prefers-reduced-motion: reduce) { .mc-fab-add { transition: none; } }
       `}</style>
+
+      {/* ★ Folha de filtros (V1). Tudo o que saiu da barra mora aqui, e o
+          rodape mostra quantas cartas o estado atual devolve ANTES de aplicar
+          -- a pessoa nao precisa fechar para descobrir que zerou a lista. */}
+      {filtrosAbertos && (
+        <div
+          onClick={() => setFiltrosAbertos(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(5,6,10,0.7)', zIndex: 9000, display: 'flex', alignItems: 'flex-end' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: '100%', maxHeight: '86vh', background: 'var(--bx-bg-elev)', borderTop: '1px solid var(--bx-border-2)', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column' }}
+          >
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)', margin: '10px auto 2px', flexShrink: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 18px 0', flexShrink: 0 }}>
+              <strong style={{ fontSize: 17 }}>Filtros</strong>
+              {qtdFiltros > 0 && (
+                <button onClick={limparFiltros} style={{ background: 'none', border: 'none', color: 'var(--bx-text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, padding: '0 4px' }}>Limpar</button>
+              )}
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px 8px' }}>
+              <GrupoFiltro titulo="ORDENAR POR">
+                {([
+                  ['recente', 'Mais recente'], ['antiga', 'Mais antiga'], ['az', 'Nome A→Z'], ['za', 'Nome Z→A'],
+                  ['valor_desc', 'Maior valor'], ['valor_asc', 'Menor valor'], ['numero', 'Nº ↑'], ['numero_desc', 'Nº ↓'],
+                ] as const).map(([v, rotulo]) => (
+                  <OpcaoFiltro key={v} ativo={ordenacao === v} onClick={() => setOrdenacao(v)}>{rotulo}</OpcaoFiltro>
+                ))}
+              </GrupoFiltro>
+
+              {raridades.length > 0 && (
+                <GrupoFiltro titulo="RARIDADE">
+                  <OpcaoFiltro ativo={!filtroRaridade} onClick={() => setFiltroRaridade('')}>Todas</OpcaoFiltro>
+                  {raridades.map(r => (
+                    <OpcaoFiltro key={r} ativo={filtroRaridade === r} onClick={() => setFiltroRaridade(filtroRaridade === r ? '' : r)}>{r}</OpcaoFiltro>
+                  ))}
+                </GrupoFiltro>
+              )}
+
+              <GrupoFiltro titulo="VARIANTE">
+                <OpcaoFiltro ativo={!filtroVariante} onClick={() => setFiltroVariante('')}>Todas</OpcaoFiltro>
+                {['normal', 'foil', 'reverse', 'promo', 'pokeball'].map(v => (
+                  <OpcaoFiltro key={v} ativo={filtroVariante === v} onClick={() => setFiltroVariante(filtroVariante === v ? '' : v)}>
+                    {v.charAt(0).toUpperCase() + v.slice(1)}
+                  </OpcaoFiltro>
+                ))}
+              </GrupoFiltro>
+
+              <GrupoFiltro titulo="CONDIÇÃO">
+                <OpcaoFiltro ativo={!filtroCondicao} onClick={() => setFiltroCondicao('')}>Todas</OpcaoFiltro>
+                {CONDICAO_KEYS.map(k => (
+                  <OpcaoFiltro key={k} ativo={filtroCondicao === k} onClick={() => setFiltroCondicao(filtroCondicao === k ? '' : k)}>{k}</OpcaoFiltro>
+                ))}
+              </GrupoFiltro>
+
+              <button
+                onClick={() => setFiltroGraduada(v => !v)}
+                style={{ width: '100%', minHeight: 52, marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', color: 'var(--bx-text)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+              >
+                <span>Só cartas graduadas</span>
+                <span style={{ width: 44, height: 26, borderRadius: 999, background: filtroGraduada ? 'rgba(245,158,11,0.3)' : 'var(--bx-surface-3)', border: `1px solid ${filtroGraduada ? 'rgba(245,158,11,0.5)' : 'var(--bx-border-2)'}`, position: 'relative', transition: 'background 0.15s ease' }}>
+                  <span style={{ position: 'absolute', top: 2, left: filtroGraduada ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: filtroGraduada ? 'var(--ac-1)' : 'var(--bx-text-3)', transition: 'left 0.15s ease' }} />
+                </span>
+              </button>
+            </div>
+
+            <div style={{ padding: '14px 18px calc(16px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--bx-border)', flexShrink: 0 }}>
+              <button
+                onClick={() => setFiltrosAbertos(false)}
+                style={{ width: '100%', minHeight: 50, borderRadius: 12, background: 'var(--bx-brand)', color: 'var(--bx-brand-ink)', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Ver {filteredCards.length} carta{filteredCards.length !== 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {openAddModal && userId && (
         <AddCardModal
