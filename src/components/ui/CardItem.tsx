@@ -505,13 +505,22 @@ export default function CardItem({
             Confirmado: CardItem so roda em contexto App (Pokedex, Colecao,
             AnunciarModal) -- nunca dentro da Loja, que usa roxo como accent
             proprio; se isso mudar, revisar a cor. */}
+        {/* ★ O rotulo e o valor ficavam lado a lado num space-between, os dois
+            com nowrap e nenhum podendo cortar: a caixa do rotulo encolhia, o
+            texto continuava desenhado inteiro, e o numero caia POR CIMA da
+            palavra. Medido em 375px: a faixa tem 141px, sobram 123 uteis, e o
+            rotulo com o icone pede 97 -- restavam 20px para o numero. So valor
+            abaixo de R$ 10 cabia; 33,4% das cartas com venda saiam quebradas
+            (de R$ 100 pra cima invadia de 9 a 26px, e a maior venda da base e
+            de R$ 26.000). Empilhado, o valor fica com a largura toda: cabe
+            qualquer numero e ainda sobe de 10 para 14px. */}
         {ultimoVendidoFmt && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: '6px 9px', borderRadius: 8, background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.18)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, padding: '6px 9px', borderRadius: 8, background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.18)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
               <span style={{ color: '#a855f7', display: 'flex', flexShrink: 0 }}><IconHistory size={11} /></span>
               <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>Último vendido</span>
             </span>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#a855f7', whiteSpace: 'nowrap' }}>{ultimoVendidoFmt}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#a855f7', letterSpacing: '-0.015em', lineHeight: 1.15, whiteSpace: 'nowrap' }}>R$ {ultimoVendidoFmt}</span>
           </div>
         )}
 
