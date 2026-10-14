@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
@@ -101,6 +101,9 @@ export default function MinhaColecao() {
   //   devolvia a colecao inteira com patrimonio R$ 0 e nenhum erro na tela.
   //   Mesma assinatura do incidente da Pokedex: falha virando vazio valido.
   const [precosFalharam, setPrecosFalharam] = useState(false)
+  // Houve gravacao no modal? So entao o fechamento reconcilia com o servidor.
+  // Ref, nao state: o modal chama onAdded e onClose no mesmo tick.
+  const reconciliarRef = useRef(false)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
   const [exchangeRate, setExchangeRate] = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
   const [detalheCard, setDetalheCard] = useState<any>(null)
@@ -319,6 +322,41 @@ export default function MinhaColecao() {
     win.document.write(html)
     win.document.close()
     win.onload = () => { win.focus(); win.print() }
+  }
+
+  // ★ Carta adicionada entra na lista ONDE A PESSOA ESTA. Antes, cada carta
+  //   gravada disparava window.location.reload(): a colecao sumia atras de
+  //   "Carregando colecao...", o scroll ia pro topo, filtro e sets abertos
+  //   eram zerados, e o lookup reenviava a colecao inteira de ids (O(n) por
+  //   carta). Em sessao de 20 cartas -- 21% dos dias de cadastro -- eram 20
+  //   recargas e ate 60 POSTs contra um limite de 60/min.
+  //   O refetch acontece UMA vez, no fechamento do modal (`reconciliarRef`),
+  //   que e onde o preco definitivo e o "sob revisao" chegam.
+  function aplicarNovas(linhas?: any[]) {
+    if (!linhas?.length) return
+    setCards((prev) => {
+      const porId = new Map(prev.map((c: any) => [c.id, c]))
+      const novas: any[] = []
+      for (const l of linhas) {
+        const price = l.__price || porId.get(l.id)?.price || null
+        const { __price, ...linha } = l
+        const montada = {
+          ...(porId.get(l.id) || {}),
+          ...linha,
+          price,
+          number: price?.number || linha.number || porId.get(l.id)?.number || null,
+          set_total: price?.set_total || linha.set_total || porId.get(l.id)?.set_total || null,
+          ultima_venda: montarUltimaVenda(price || {}),
+        }
+        if (porId.has(l.id)) porId.set(l.id, montada)
+        else novas.push(montada)
+      }
+      const atualizadas = prev.map((c: any) => porId.get(c.id) || c)
+      const proxima = [...novas, ...atualizadas]
+      // Fora do updater: ler `cards` desta closure daria o valor velho.
+      queueMicrotask(() => setTotalCartas(proxima.length))
+      return proxima
+    })
   }
 
   // Uma falha aqui e um fato pro usuario, nao um array vazio: quem chama marca
@@ -1209,8 +1247,11 @@ export default function MinhaColecao() {
       {openAddModal && userId && (
         <AddCardModal
           userId={userId}
-          onClose={() => setOpenAddModal(false)}
-          onAdded={() => window.location.reload()}
+          onClose={() => {
+            setOpenAddModal(false)
+            if (reconciliarRef.current) { reconciliarRef.current = false; loadCards() }
+          }}
+          onAdded={(novas) => { reconciliarRef.current = true; aplicarNovas(novas) }}
         />
       )}
 
@@ -1218,7 +1259,10 @@ export default function MinhaColecao() {
         <ScanModal
           userId={userId}
           onClose={() => setOpenScanModal(false)}
-          onAdded={() => { setOpenScanModal(false); window.location.reload() }}
+          /* O scan grava por caminho proprio (casa por nome) e nao devolve as
+             linhas, entao aqui o refetch e a forma honesta de refletir -- mas
+             sem recarregar a pagina: scroll, filtro e sets abertos ficam. */
+          onAdded={() => { setOpenScanModal(false); loadCards() }}
         />
       )}
 

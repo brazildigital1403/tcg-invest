@@ -16,7 +16,9 @@ import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
 interface Props {
   userId: string | null
   onClose: () => void
-  onAdded: () => void
+  /** Recebe as linhas gravadas (com `__price` do catalogo) pra tela fazer
+   *  append local em vez de recarregar. Sem argumento = chamador recarrega. */
+  onAdded: (linhas?: any[]) => void
 }
 
 const BRAND = 'linear-gradient(135deg, #f59e0b, #ef4444)'
@@ -271,6 +273,11 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     const { data: authData } = await supabase.auth.getUser()
     if (!authData?.user?.id) { setAdding(false); return }
 
+    // Linhas efetivamente gravadas, pra tela inserir na lista sem recarregar.
+    // `__price` e o registro do catalogo que a busca ja trouxe -- a tela usa
+    // pra montar valor e numero na hora, e reconcilia no fechamento do modal.
+    const gravadas: any[] = []
+
     for (const card of selectedCards) {
       const number = card.number || ''
       const total = card.set_total ? `/${card.set_total}` : ''
@@ -317,13 +324,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         .maybeSingle()
 
       if (existente) {
+        const novaQty = (existente.quantity || 0) + quantity
+        const novasCond = mergeCondicoes(existente.condicoes as Record<string, number> | null, condicoes)
         const { error: incErr } = await supabase
           .from('user_cards')
-          .update({
-            quantity: (existente.quantity || 0) + quantity,
-            condicoes: mergeCondicoes(existente.condicoes as Record<string, number> | null, condicoes),
-          })
+          .update({ quantity: novaQty, condicoes: novasCond })
           .eq('id', existente.id)
+        if (!incErr) gravadas.push({ id: existente.id, quantity: novaQty, condicoes: novasCond, __price: card })
         if (incErr) {
           console.error('[AddCardModal] increment error:', incErr)
           await showAlert(`Erro ao atualizar "${card.name}". Tente novamente.`, 'error')
@@ -343,7 +350,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         return
       }
 
-      const { error: insertError } = await supabase.from('user_cards').insert({
+      const { data: linhaNova, error: insertError } = await supabase.from('user_cards').insert({
         user_id: authData.user.id,
         pokemon_api_id: card.id,
         card_name: cardName,
@@ -356,7 +363,9 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         quantity,
         condicoes,
         set_name: card.set_name || null,
-      })
+      }).select('*').single()
+
+      if (!insertError && linhaNova) gravadas.push({ ...linhaNova, __price: card })
 
       if (insertError) {
         // corrida concorrente (linha criada entre o SELECT e o INSERT) -> incrementa
@@ -370,13 +379,13 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             .limit(1)
             .maybeSingle()
           if (ex2) {
+            const qty2 = (ex2.quantity || 0) + quantity
+            const cond2 = mergeCondicoes(ex2.condicoes as Record<string, number> | null, condicoes)
             await supabase
               .from('user_cards')
-              .update({
-                quantity: (ex2.quantity || 0) + quantity,
-                condicoes: mergeCondicoes(ex2.condicoes as Record<string, number> | null, condicoes),
-              })
+              .update({ quantity: qty2, condicoes: cond2 })
               .eq('id', ex2.id)
+            gravadas.push({ id: ex2.id, quantity: qty2, condicoes: cond2, __price: card })
             trackFirstCardAdded(authData.user.id)
             continue
           }
@@ -399,8 +408,10 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     }
 
     setAdding(false)
+    // onAdded ANTES de onClose: a tela marca que precisa reconciliar e so
+    // entao fecha -- invertido, o fechamento nao saberia que houve gravacao.
+    onAdded(gravadas)
     onClose()
-    onAdded()
   }
 
   const filtered = searchResults
