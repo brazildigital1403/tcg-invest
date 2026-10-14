@@ -61,6 +61,7 @@ import { getMlAfiliadoLink } from '@/lib/mlAfiliado'
 import BlogDaCarta from '@/components/cards/BlogDaCarta'
 import { postsParaCarta } from '@/lib/blogCartaIndex'
 import { raridadePt, subtipoPt, tipoTcgPt, idiomaPt } from '@/lib/pokedexTextos'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 function slugifyName(s: string): string {
   return s
@@ -838,7 +839,7 @@ export async function generateMetadata({
   // Composição do title: "Charizard ex 199/091 — Destinos de Paldea"
   const numStr = card.number
     ? card.setTotal
-      ? ` ${card.number}/${card.setTotal}`
+      ? ` ${numeroSobreTotal(card.number, card.setTotal)}`
       : ` #${card.number}`
     : ''
   // No title entra SO o nome em portugues quando existe (cabe no limite de
@@ -1021,7 +1022,7 @@ export default async function CartaPage({
   const prop = (name: string, value: string | null | undefined) => {
     if (value) propriedades.push({ '@type': 'PropertyValue', name, value })
   }
-  prop('Número', card.number && card.setTotal ? `${card.number}/${card.setTotal}` : card.number)
+  prop('Número', card.number && card.setTotal ? numeroSobreTotal(card.number, card.setTotal) : card.number)
   prop('Set', rotuloDoSet(card))
   prop('Raridade', raridadePt(card.rarity))
   prop('Estágio', card.subtypes.map(subtipoPt).join(', ') || null)

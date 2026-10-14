@@ -34,6 +34,7 @@ import MercadoLivre from '@/components/ui/MercadoLivre'
 import { getMlAfiliadoLink, getMlAfiliadoProdutos } from '@/lib/mlAfiliado'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import { IconCollection } from '@/components/ui/Icons'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 // ISR: regenera a cada 6h. Após o rename dos sets, os títulos precisam
 // refletir o nome novo sem esperar 24h; preços/contagens também mudam.
@@ -459,7 +460,7 @@ export default async function SetPage({
                      que a grade usa. Continua lazy — so as visiveis baixam. */
                   <Image
                     src={card.image_small}
-                    alt={card.name + (card.number ? ' ' + card.number + (set.printedTotal ? '/' + set.printedTotal : '') : '') + ' — ' + (set.namePt || set.name)}
+                    alt={card.name + (card.number ? ' ' + numeroSobreTotal(card.number, set.printedTotal) : '') + ' — ' + (set.namePt || set.name)}
                     width={245}
                     height={342}
                     loading="lazy"
@@ -504,7 +505,7 @@ export default async function SetPage({
                 </p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
                   {card.number && set.printedTotal
-                    ? `${card.number}/${set.printedTotal}`
+                    ? numeroSobreTotal(card.number, set.printedTotal)
                     : card.number
                       ? `#${card.number}`
                       : ''}

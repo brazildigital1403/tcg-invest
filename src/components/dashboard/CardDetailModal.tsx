@@ -10,6 +10,7 @@ import { useAppModal } from '@/components/ui/useAppModal'
 import { CAMPO_VALOR } from '@/lib/calcPatrimonio'
 import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTextos'
 import { ehVerificada, textoOrigem } from '@/lib/origemCarta'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 interface Props {
   card: any
@@ -390,7 +391,7 @@ export default function CardDetailModal({
   const setNome = /^Liga BR\b/i.test(setNomeRaw) ? null : (setNomeRaw || null)
   const numeroRaw = price?.number || card.number
   const total = price?.set_total || card.set_total
-  const numero = numeroRaw ? (total ? `${String(numeroRaw).padStart(3, '0')}/${total}` : String(numeroRaw)) : null
+  const numero = numeroRaw ? (total ? numeroSobreTotal(String(numeroRaw).padStart(3, '0'), total) : String(numeroRaw)) : null
   const raridade = raridadePt(price?.rarity || card.rarity)
   const subtipos: string[] = (ficha?.subtypes || []).map(subtipoPt)
   const tipos: string[] = ficha?.types || []

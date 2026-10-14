@@ -7,6 +7,7 @@ import { IconHistory, IconCheck, IconPlus, IconBell, IconClose } from '@/compone
 import { TYPE_COLOR, raridadePt, subtipoPt, tipoTcgPt } from '@/lib/pokedexTextos'
 import SinalCartaVista from '@/components/cards/SinalCartaVista'
 import { CONDICAO_KEYS } from '@/lib/condicoes'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 /**
  * Detalhe da carta na Pokedex. Redesenhado em 21/09/2026 (mockup "Pokedex: nova
@@ -111,7 +112,7 @@ export default function CardDetailModal({
     return () => { active = false }
   }, [c.id, ultimoVendidoFmt, diasHistorico])
 
-  const numero = c.number && c.set_total ? `${String(c.number).padStart(3, '0')}/${c.set_total}` : c.number
+  const numero = c.number && c.set_total ? numeroSobreTotal(String(c.number).padStart(3, '0'), c.set_total) : c.number
   const raridade = raridadePt(c.rarity)
   const slug = c.slug || c.id
   const img = c.image_large || c.image_small

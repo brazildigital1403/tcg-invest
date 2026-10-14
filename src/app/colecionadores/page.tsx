@@ -12,6 +12,7 @@ import AlbumMetas from '@/components/colecionadores/AlbumMetas'
 import CatalogarAbas from '@/components/colecionadores/CatalogarAbas'
 import QuantoVale, { type CartaPreco } from '@/components/colecionadores/QuantoVale'
 import { getServiceSupabase } from '@/lib/supabaseServer'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 // ─── ISR ────────────────────────────────────────────────────────────────────
 // Revalida os numeros do catalogo 1x por hora. Stats (cartas, sets, valor) vem
@@ -221,7 +222,7 @@ const getVitrine = cache(async () => {
   const vitrine = (id: string): CartaVitrine | null => {
     const c = porId.get(id)
     if (!c?.image_small) return null
-    const numero = c.set_total ? `${String(c.number).padStart(3, '0')}/${c.set_total}` : String(c.number)
+    const numero = c.set_total ? numeroSobreTotal(String(c.number).padStart(3, '0'), c.set_total) : String(c.number)
     return { id: c.id, nome: c.name, numero, image: c.image_small, valor: num(c.preco_min) ?? 0 }
   }
   const lista = (ids: string[]) => ids.map(vitrine).filter((x): x is CartaVitrine => !!x)

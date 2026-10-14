@@ -23,6 +23,7 @@ import { faixaDe, ROTULO_FAIXA, fmtProporcao, lerNumeroImpresso, type FaixaPrevi
 import { IconCamera, IconImage, IconWarning, IconCheck, IconChevronLeft, IconArrowRight, IconClock } from '@/components/ui/Icons'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import CardItem, { type CardPrice } from '@/components/ui/CardItem'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 type Carta = { id: string; name: string; name_pt: string | null; number: string | null; set_name: string | null; set_total: number | null; idioma: string | null; image_small: string | null } & CardPrice
 type Situacao = { limite: number | null; usadas: number; restantes: number | null; bloqueado: boolean; liberaEm: string | null; perguntar: boolean }
@@ -487,7 +488,7 @@ function CartaEscolhida({ c, mini }: { c: Carta; mini?: boolean }) {
       {c.image_small && <img src={c.image_small} alt="" />}
       <div>
         <b>{nomeCarta(c)}</b>
-        <small>{[c.number && c.set_total ? `${c.number}/${c.set_total}` : c.number, c.set_name, c.idioma ? IDIOMA[c.idioma] || c.idioma.toUpperCase() : null].filter(Boolean).join(' · ')}</small>
+        <small>{[c.number && c.set_total ? numeroSobreTotal(c.number, c.set_total) : c.number, c.set_name, c.idioma ? IDIOMA[c.idioma] || c.idioma.toUpperCase() : null].filter(Boolean).join(' · ')}</small>
       </div>
     </div>
   )

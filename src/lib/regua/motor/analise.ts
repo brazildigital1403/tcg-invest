@@ -10,6 +10,7 @@
 import { PCT_SUSPEITO } from './config'
 import type { CartaPessoa, Colecao } from './banco'
 import type { Contexto } from './contexto'
+import { numeroSobreTotal } from '@/lib/numeroCarta'
 
 export type Mexida = {
   carta: CartaPessoa
@@ -102,5 +103,5 @@ export function numeroCarta(n: string): string {
 
 /** "209/193" quando o set tem total; senao so o numero. */
 export function numeroComTotal(numero: string, total: number | null): string {
-  return total ? `${numero}/${total}` : numero
+  return total ? numeroSobreTotal(numero, total) : numero
 }
