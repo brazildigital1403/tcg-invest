@@ -1036,73 +1036,44 @@ export default function MinhaColecao() {
               <Link href="/minha-colecao/pastas" style={{ fontSize: 13, color: '#f59e0b', textDecoration: 'none' }}>Ver todas →</Link>
             </div>
 
-            {/* HERO */}
-            <Link
-              href={`/minha-colecao/pastas/${pastasTopo.hero.id}`}
-              style={{
-                textDecoration: 'none', color: 'inherit', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
-                border: '1px solid rgba(245,158,11,0.22)', borderRadius: 18, padding: 18,
-                marginBottom: (pastasTopo.outras?.length ? 14 : 0),
-                background: pastasTopo.hero.imagem_url
-                  ? `linear-gradient(90deg, rgba(8,10,15,0.97), rgba(8,10,15,0.84)), center/cover no-repeat url(${pastasTopo.hero.imagem_url})`
-                  : 'linear-gradient(135deg, rgba(245,158,11,0.10), rgba(239,68,68,0.06))',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 220 }}>
-                <span style={{ display: 'inline-block', background: 'rgba(245,158,11,0.18)', color: '#f59e0b', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 7, marginBottom: 10 }}>★ Em destaque</span>
-                <p style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 4 }}>{pastasTopo.hero.nome}</p>
-                {pastasTopo.hero.descricao && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginBottom: 12 }}>{pastasTopo.hero.descricao}</p>}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, padding: '5px 10px', borderRadius: 8 }}><svg width="13" height="13" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><rect x="3" y="5" width="10" height="12" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M7 5V4a2 2 0 012-2h6a2 2 0 012 2v9a2 2 0 01-2 2h-1" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>{pastasTopo.hero.qtd} carta{Number(pastasTopo.hero.qtd) !== 1 ? 's' : ''}</span>
-                  {fmt(pastasTopo.hero.patrimonio) && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)', color: '#60a5fa', fontWeight: 700, fontSize: 12, padding: '5px 10px', borderRadius: 8 }}>{fmt(pastasTopo.hero.patrimonio)}</span>}
-                  {pastasTopo.hero.top_cards?.[0]?.nome && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, padding: '5px 10px', borderRadius: 8, maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><svg width="13" height="13" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}><path d="M6 3h8v4a4 4 0 01-8 0V3z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M6 5H4v1a2 2 0 002 2M14 5h2v1a2 2 0 01-2 2M8 11v2l-1 3h6l-1-3v-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>{String(pastasTopo.hero.top_cards[0].nome).replace(/\s*\([^)]*\)/, '')}</span>}
-                </div>
-              </div>
-              {pastasTopo.hero.top_cards?.length > 0 && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {pastasTopo.hero.top_cards.slice(0, 3).map((tc: any, i: number) => (
-                    <div key={i} style={{ width: 64, aspectRatio: '63/88', borderRadius: 8, overflow: 'hidden', background: 'var(--bx-bg-elev)', border: '1px solid rgba(255,255,255,0.14)' }}>
-                      {tc.img ? <img src={tc.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : null}
+            {/* ★ D2: carrossel compacto. O hero media 277px e cada pasta
+                seguinte 134 -- 439px no total, mais que cabecalho e resumo
+                somados, segurando a primeira carta em 1.217px. Aqui a pasta em
+                destaque vira o primeiro cartao da mesma trilha: a capa e o
+                patrimonio continuam (sao o que identifica a pasta), e o bloco
+                inteiro cabe em ~140px. */}
+            <style>{`
+              .pastas-track { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; }
+              .pastas-track::-webkit-scrollbar { display: none; }
+              .pasta-cartao { flex: 0 0 auto; width: 208px; height: 112px; scroll-snap-align: start; }
+            `}</style>
+            <div className="pastas-track">
+              {[{ ...pastasTopo.hero, destaque: true }, ...(pastasTopo.outras || []).slice(0, 5)].map((p: any) => (
+                <Link
+                  key={p.id}
+                  className="pasta-cartao"
+                  href={p.locked ? '/minha-colecao/pastas' : `/minha-colecao/pastas/${p.id}`}
+                  style={{
+                    textDecoration: 'none', color: 'inherit', position: 'relative', display: 'flex', flexDirection: 'column',
+                    justifyContent: 'flex-end', padding: 12, borderRadius: 14, overflow: 'hidden',
+                    border: p.destaque ? '1px solid rgba(245,158,11,0.3)' : '1px solid var(--bx-border)',
+                    background: p.imagem_url
+                      ? `linear-gradient(90deg, rgba(8,10,15,0.94), rgba(8,10,15,0.45)), center/cover no-repeat url(${p.imagem_url})`
+                      : 'linear-gradient(135deg, rgba(245,158,11,0.16), rgba(239,68,68,0.12))',
+                  }}
+                >
+                  <p style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nome}</p>
+                  <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginTop: 1 }}>{p.qtd} carta{Number(p.qtd) !== 1 ? 's' : ''}</p>
+                  {fmt(p.patrimonio) && <p style={{ fontSize: 12.5, fontWeight: 700, color: '#60a5fa', marginTop: 2 }}>{fmt(p.patrimonio)}</p>}
+                  {p.locked && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,10,15,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <span style={{ display: 'flex' }}><IconKey size={18} /></span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>Desbloquear no Pro</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </Link>
-
-            {/* OUTRAS PASTAS */}
-            {pastasTopo.outras?.length > 0 && (
-              <>
-                <style>{`
-                  .pastas-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; }
-                  .pastas-track::-webkit-scrollbar { display: none; }
-                  .pastas-card { flex: 1; min-width: 170px; scroll-snap-align: start; }
-                  @media (max-width: 768px) { .pastas-card { flex: 0 0 auto; min-width: 62vw; } }
-                `}</style>
-                <div className="pastas-track">
-                {pastasTopo.outras.slice(0, 4).map((p: any) => (
-                  <Link
-                    key={p.id}
-                    className="pastas-card"
-                    href={p.locked ? '/minha-colecao/pastas' : `/minha-colecao/pastas/${p.id}`}
-                    style={{ textDecoration: 'none', color: 'inherit', position: 'relative', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--bx-border)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-                  >
-                    <div style={{ height: 64, background: p.imagem_url ? `center/cover no-repeat url(${p.imagem_url})` : 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.18))' }} />
-                    <div style={{ padding: '10px 12px' }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nome}</p>
-                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.qtd} carta{Number(p.qtd) !== 1 ? 's' : ''}</p>
-                      {fmt(p.patrimonio) && <p style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', marginTop: 2 }}>{fmt(p.patrimonio)}</p>}
-                    </div>
-                    {p.locked && (
-                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,10,15,0.55)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                        <span style={{ display: 'flex' }}><IconKey size={18} /></span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>Desbloquear no Pro</span>
-                      </div>
-                    )}
-                  </Link>
-                ))}
-                </div>
-              </>
-            )}
+                  )}
+                </Link>
+              ))}
+            </div>
           </div>
         )}
 
