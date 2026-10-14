@@ -558,6 +558,23 @@ export default function MinhaColecao() {
   }
 
   useEffect(() => { loadCards() }, [])
+
+  // Set que a pessoa abriu ou fechou a mao sobrevive a recarga. Antes nao
+  // sobrevivia nem ao proprio app: cada carta adicionada recarregava a pagina
+  // e devolvia todos os grupos ao padrao. try/catch porque aba privada pode
+  // recusar o storage -- e aqui ficar sem preferencia nao pode quebrar a tela.
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem('bx-colecao-abertos')
+      if (salvo) setAbertos(JSON.parse(salvo))
+    } catch { /* sem preferencia, segue no padrao */ }
+  }, [])
+  useEffect(() => {
+    try {
+      if (Object.keys(abertos).length) localStorage.setItem('bx-colecao-abertos', JSON.stringify(abertos))
+    } catch { /* idem */ }
+  }, [abertos])
+
   // Deep link dos e-mails da regua (E02, E05): /minha-colecao?scan=1 abre o
   // Scan IA direto, no mesmo modal do botao "Escanear foto". Espera o userId
   // (o modal precisa dele) e tira o parametro da URL: recarregar nao reabre.
@@ -767,6 +784,28 @@ export default function MinhaColecao() {
     grupos[posGrupo.get(k)!].cards.push(c)
   }
   const filtroAtivo = !!(search || filtroVariante || filtroRaridade || filtroCondicao || filtroGraduada)
+
+  // ★ Abrir "o primeiro grupo" (i === 0) foi dimensionado contra quem tem 100
+  //   sets -- mas 75% dos grupos set x usuario da base tem no maximo 2 cartas,
+  //   e a mediana e UMA. O acordeao estava criando aba para esconder 1 carta:
+  //   uma colecao de 422 cartas abria com 3 na tela e 82 cabecalhos fechados.
+  //   Agora o padrao abre grupos ENQUANTO COUBER no orcamento -- quem tem
+  //   pouco por set ve a colecao inteira, e quem tem um set gigante continua
+  //   com ele sozinho aberto, que era o que o #313 queria proteger.
+  const ORCAMENTO_ABERTURA = 24
+  const abertoPadrao: Record<string, boolean> = {}
+  {
+    let soma = 0
+    for (const g of grupos) {
+      const cabe = soma < ORCAMENTO_ABERTURA
+      abertoPadrao[g.key] = cabe
+      if (cabe) soma += g.cards.length
+    }
+  }
+  const todosAbertos = grupos.length > 0 && grupos.every(g => (g.key in abertos ? abertos[g.key] : (filtroAtivo || abertoPadrao[g.key])))
+  function alternarTodos(abrir: boolean) {
+    setAbertos(Object.fromEntries(grupos.map(g => [g.key, abrir])))
+  }
 
   return (
     <AppLayout>
@@ -1174,6 +1213,17 @@ export default function MinhaColecao() {
                 Limpar
               </button>
             )}
+
+            {/* Controle de massa: sem isto, abrir a colecao toda custa um
+                toque por set -- 82 toques em quem tem 83 grupos. */}
+            {grupos.length > 1 && !filtroAtivo && (
+              <button
+                onClick={() => alternarTodos(!todosAbertos)}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--ac-1)', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 44, padding: '0 4px' }}
+              >
+                {todosAbertos ? 'Recolher tudo' : 'Expandir tudo'}
+              </button>
+            )}
           </div>
         )}
 
@@ -1203,7 +1253,7 @@ export default function MinhaColecao() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {grupos.map((g, i) => {
             const r = resumoSets.get(g.key)!
-            const aberto = g.key in abertos ? abertos[g.key] : (filtroAtivo || i === 0)
+            const aberto = g.key in abertos ? abertos[g.key] : (filtroAtivo || abertoPadrao[g.key])
             const comLogo = r.setIds.find(s => setsInfo[s]?.logo_url)
             const comSimbolo = r.setIds.find(s => setsInfo[s]?.symbol_url)
             // Total com secretas do catalogo (chave da familia primeiro); senao o da carta.
