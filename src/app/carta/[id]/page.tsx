@@ -936,7 +936,31 @@ async function destinoDeCartaRemovida(id: string): Promise<string | null> {
     .select('cat_id')
     .eq('liga_id', id)
     .maybeSingle()
-  return data?.cat_id ?? null
+  if (data?.cat_id) return destinoPorSlug(sb, data.cat_id)
+  // A URL publica e o slug, nao o id (14/10/2026): a copia escondida pela dedup
+  // continua em pokemon_cards_all com o slug dela; acha o id e consulta o mapa.
+  const { data: oculta } = await sb
+    .from('pokemon_cards_all')
+    .select('id')
+    .eq('slug', id)
+    .eq('oculto', true)
+    .maybeSingle()
+  if (!oculta?.id) return null
+  const { data: porId } = await sb
+    .from('dedup_liga_map')
+    .select('cat_id')
+    .eq('liga_id', oculta.id)
+    .maybeSingle()
+  return porId?.cat_id ? destinoPorSlug(sb, porId.cat_id) : null
+}
+
+// Manda direto para o slug da carta boa (evita um segundo 301 id -> slug).
+async function destinoPorSlug(
+  sb: NonNullable<ReturnType<typeof getServiceSupabase>>,
+  catId: string,
+): Promise<string> {
+  const { data } = await sb.from('pokemon_cards').select('slug').eq('id', catId).maybeSingle()
+  return data?.slug || catId
 }
 
 // ─── Page Component (server, renderiza Schema.org + CardClient) ───────────
