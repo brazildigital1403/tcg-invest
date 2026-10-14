@@ -291,6 +291,10 @@ function ChatFab({ count, onClick }: { count: number; onClick: () => void }) {
             right: 16px;
             transition: transform 0.2s ease, opacity 0.2s ease;
           }
+          /* Tela que tem FAB proprio (a Colecao marca o body) divide o canto:
+             os dois lado a lado somam 124px dos 375 e cabem folgados. Sem
+             isto, o de cima cobre o de baixo -- os dois moram em right 16. */
+          body.bx-fab-add .bynx-chatfab { right: 84px; }
           .bynx-chatfab.oculto {
             transform: translateY(calc(100% + 28px));
             opacity: 0;

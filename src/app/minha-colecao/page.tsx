@@ -559,6 +559,15 @@ export default function MinhaColecao() {
 
   useEffect(() => { loadCards() }, [])
 
+  // O FAB do chat (ChatDock) mora no mesmo canto: right 16, bottom 84. Ele so
+  // aparece aqui quando ha mensagem nao lida, mas quando aparece os dois se
+  // cobrem. Esta classe no body desloca o do chat pro lado -- lado a lado
+  // somam 124px dos 375 e cabem folgados.
+  useEffect(() => {
+    document.body.classList.add('bx-fab-add')
+    return () => document.body.classList.remove('bx-fab-add')
+  }, [])
+
   // Set que a pessoa abriu ou fechou a mao sobrevive a recarga. Antes nao
   // sobrevivia nem ao proprio app: cada carta adicionada recarregava a pagina
   // e devolvia todos os grupos ao padrao. try/catch porque aba privada pode
@@ -874,8 +883,9 @@ export default function MinhaColecao() {
           }
           acao={userId && (
             <button
+              className="mc-add-topo"
               onClick={() => setOpenAddModal(true)}
-              style={{ background: 'var(--bx-brand)', border: 'none', color: '#000', padding: '11px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
+              style={{ background: 'var(--bx-brand)', border: 'none', color: '#000', padding: '12px 20px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', alignItems: 'center', whiteSpace: 'nowrap', boxShadow: '0 0 20px rgba(245,158,11,0.2)', flexShrink: 0 }}
             >
               Adicionar carta
             </button>
@@ -1293,6 +1303,39 @@ export default function MinhaColecao() {
           })}
         </div>
       </div>
+
+      {/* ★ Adicionar ao alcance do polegar. No celular a unica entrada ficava
+          no topo da pagina: depois de rolar a colecao (4.493px medidos numa
+          conta de 8 sets, e muito mais numa de 83), cadastrar exigia voltar
+          ao topo A CADA carta -- e 46% dos dias de cadastro tem 5 cartas ou
+          mais. O botao do PageHeader sai no mobile e volta no desktop, o que
+          ainda devolve a linha do titulo (o h1 quebrava em duas linhas com
+          61px uteis). Sem menu de opcoes: abre a busca direto, que e por onde
+          99,9% das cartas entram -- o scan responde por 0,09%. */}
+      {userId && (
+        <button
+          className="mc-fab-add"
+          onClick={() => setOpenAddModal(true)}
+          aria-label="Adicionar carta"
+          style={{ position: 'fixed', right: 16, bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', width: 56, height: 56, borderRadius: '50%', background: 'var(--bx-brand)', border: 'none', color: 'var(--bx-brand-ink)', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', boxShadow: '0 12px 30px rgba(245,158,11,0.4), 0 4px 12px rgba(0,0,0,0.4)', zIndex: 150, transition: 'transform 0.15s ease' }}
+        >
+          <svg width="26" height="26" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
+      <style>{`
+        /* O FAB e a entrada do mobile; no desktop quem manda e o botao do
+           cabecalho. Os dois nunca aparecem juntos. */
+        .mc-fab-add { display: none; }
+        .mc-add-topo { display: flex; }
+        @media (max-width: 768px) {
+          .mc-fab-add { display: flex; }
+          .mc-add-topo { display: none; }
+        }
+        .mc-fab-add:active { transform: scale(0.94); }
+        @media (prefers-reduced-motion: reduce) { .mc-fab-add { transition: none; } }
+      `}</style>
 
       {openAddModal && userId && (
         <AddCardModal
