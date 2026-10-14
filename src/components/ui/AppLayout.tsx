@@ -619,12 +619,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           transition: width 0.15s ease, padding 0.15s ease;
         }
 
+        /* ★ overflow-x: hidden faz o navegador computar overflow-y: auto no
+           mesmo elemento -- e um elemento com overflow nao-visible vira
+           scrollport. O sticky do .tcg-header entao gruda NESTE container, que
+           nao rola (quem rola e o viewport), e o cabecalho sobe junto com a
+           pagina: medido em 375px, top ia de 0 para -800 e -2500. Nunca
+           funcionou em nenhuma tela do app.
+           overflow-x: clip corta igual e NAO cria scrollport. As duas
+           declaracoes ficam: navegador sem suporte a clip (Safari ate o 15)
+           ignora a segunda e segue com o hidden de hoje -- perde o sticky, que
+           ja nao tinha, mas nao ganha vazamento lateral. */
         .tcg-main-col {
           flex: 1;
           display: flex;
           flex-direction: column;
           min-width: 0;
           overflow-x: hidden;
+          overflow-x: clip;
         }
 
         .tcg-header {
@@ -645,10 +656,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         .tcg-header-menu-btn { display: none; }
         .tcg-switchbar { display: none; }
 
+        /* Mesmo motivo: aqui o scrollport quebrava o sticky de dentro das
+           paginas (cabecalho de set da Colecao, barras de filtro). */
         .tcg-content {
           flex: 1;
           padding: 24px;
           overflow-x: hidden;
+          overflow-x: clip;
         }
 
         .tcg-bottom-nav { display: none; }
