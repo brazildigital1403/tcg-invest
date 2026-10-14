@@ -95,6 +95,12 @@ export default function MinhaColecao() {
   const [filtroGraduada, setFiltroGraduada] = useState(false)
   const [ordenacao, setOrdenacao] = useState<'az' | 'za' | 'recente' | 'antiga' | 'numero' | 'numero_desc' | 'valor_asc' | 'valor_desc'>('recente')
   const [loading, setLoading] = useState(true)
+  // ★ O lookup de preco falhando NAO pode virar colecao sem valor em silencio.
+  //   Os 3 fetches terminavam em `.catch(() => [])`: um 429 (o limite e 60/min
+  //   por IP, e 10% das cartas da base entram em rajada de 20+ num minuto)
+  //   devolvia a colecao inteira com patrimonio R$ 0 e nenhum erro na tela.
+  //   Mesma assinatura do incidente da Pokedex: falha virando vazio valido.
+  const [precosFalharam, setPrecosFalharam] = useState(false)
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null)
   const [exchangeRate, setExchangeRate] = useState<{ usd: number; eur: number }>({ usd: 6.0, eur: 6.5 })
   const [detalheCard, setDetalheCard] = useState<any>(null)
@@ -315,7 +321,21 @@ export default function MinhaColecao() {
     win.onload = () => { win.focus(); win.print() }
   }
 
+  // Uma falha aqui e um fato pro usuario, nao um array vazio: quem chama marca
+  // `falhou` e a tela avisa, em vez de exibir a colecao sem preco nenhum.
+  async function buscarPrecos(body: Record<string, unknown>): Promise<any[]> {
+    const r = await fetch('/api/cards/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!r.ok) throw new Error(`lookup ${r.status}`)
+    const d = await r.json()
+    return d.cards || []
+  }
+
   async function loadCards() {
+    let precoFalhou = false
     try {
       const { data: userData } = await supabase.auth.getUser()
       if (!userData?.user) { window.location.href = urlLoginComDestino(destinoAtual()); return }
@@ -344,25 +364,27 @@ export default function MinhaColecao() {
       // ── 1. Lookup por pokemon_api_id (novo AddCardModal — mais preciso) ──
       const apiIds = [...new Set(cardsData.map((c: any) => c.pokemon_api_id).filter(Boolean))]
       if (apiIds.length > 0) {
-        const byId = await fetch('/api/cards/lookup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: apiIds }),
-        }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
-        ;(byId || []).forEach((p: any) => { priceById[p.id] = p })
+        try {
+          const byId = await buscarPrecos({ ids: apiIds })
+          byId.forEach((p: any) => { priceById[p.id] = p })
+        } catch (e: any) {
+          precoFalhou = true
+          console.error('[minha-colecao] lookup por id falhou:', e?.message || e)
+        }
       }
 
       // ── 2. Lookup por liga_link (cartas antigas importadas por link) ──
       const allLinks = [...new Set(cardsData.map((c: any) => c.card_link).filter(Boolean))]
       if (allLinks.length > 0) {
-        const byLink = await fetch('/api/cards/lookup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ liga_links: allLinks }),
-        }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
-        ;(byLink || []).forEach((p: any) => {
-          if (p.liga_link) priceByLink[p.liga_link] = p
-        })
+        try {
+          const byLink = await buscarPrecos({ liga_links: allLinks })
+          byLink.forEach((p: any) => {
+            if (p.liga_link) priceByLink[p.liga_link] = p
+          })
+        } catch (e: any) {
+          precoFalhou = true
+          console.error('[minha-colecao] lookup por link falhou:', e?.message || e)
+        }
       }
 
       // ── 3. Fallback por nome (cartas sem api_id nem liga_link) ──
@@ -382,15 +404,16 @@ export default function MinhaColecao() {
           [cleanEN(c.card_name), cleanPT(c.card_name)].filter(Boolean)
         ))].slice(0, 50)
         if (names.length > 0) {
-          const byName = await fetch('/api/cards/lookup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ names }),
-          }).then((r) => r.json()).then((d) => d.cards || []).catch(() => [])
-          ;(byName || []).forEach((p: any) => {
-            const k = p.name?.trim()
-            if (!priceByName[k]) priceByName[k] = p
-          })
+          try {
+            const byName = await buscarPrecos({ names })
+            byName.forEach((p: any) => {
+              const k = p.name?.trim()
+              if (!priceByName[k]) priceByName[k] = p
+            })
+          } catch (e: any) {
+            precoFalhou = true
+            console.error('[minha-colecao] lookup por nome falhou:', e?.message || e)
+          }
         }
         legacyCards.forEach((c: any) => {
           const en = cleanEN(c.card_name)
@@ -436,6 +459,7 @@ export default function MinhaColecao() {
     } catch (err: any) {
       console.error('[minha-colecao] loadCards error:', err?.message || err)
     } finally {
+      setPrecosFalharam(precoFalhou)
       setLoading(false)
     }
   }
@@ -841,11 +865,36 @@ export default function MinhaColecao() {
             rolagem lateral: no celular so o primeiro aparecia e ainda empurrava
             a colecao pra baixo. Minimo e maximo viraram a linha de baixo do
             valor; o aviso de preco sob revisao e a estimativa em USD ficam. */}
+        {/* ★ Preco que nao veio e um AVISO, nao um zero. Sem isto, um 429 do
+            lookup devolvia a colecao inteira valendo R$ 0,00 sem nenhum sinal
+            na tela -- a pessoa acha que perdeu o patrimonio, nao que a
+            consulta falhou. */}
+        {precosFalharam && cards.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '12px 14px', borderRadius: 14, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0, color: 'var(--bx-red)' }}>
+              <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M10 6v4.5M10 13.4v.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13.5, fontWeight: 700 }}>Não foi possível carregar os preços</p>
+              <p style={{ fontSize: 12, color: 'var(--bx-text-2)', marginTop: 2, lineHeight: 1.4 }}>Sua coleção está aqui. O valor volta ao tentar de novo.</p>
+            </div>
+            <button
+              onClick={() => loadCards()}
+              style={{ flexShrink: 0, minHeight: 44, padding: '0 16px', borderRadius: 10, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border-2)', color: 'var(--bx-text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Tentar
+            </button>
+          </div>
+        )}
+
         {cards.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 24 }}>
             <div style={{ background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', borderRadius: 14, padding: '12px 14px', minWidth: 0 }}>
               <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginBottom: 2 }}>Valor de mercado</p>
-              <p style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>{fmt(totais.valor) || 'R$ 0,00'}</p>
+              <p style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: precosFalharam && !totais.valor ? 'var(--bx-text-3)' : undefined }}>
+                {precosFalharam && !totais.valor ? 'indisponível' : (fmt(totais.valor) || 'R$ 0,00')}
+              </p>
               {totais.max > 0 && (
                 <p style={{ fontSize: 11, color: 'var(--bx-text-3)', marginTop: 2 }}>{fmt(totais.min) || 'R$ 0,00'} a {fmt(totais.max)}</p>
               )}
