@@ -124,6 +124,11 @@ export default function MinhaColecao() {
   //   Mesma assinatura do incidente da Pokedex: falha virando vazio valido.
   const [precosFalharam, setPrecosFalharam] = useState(false)
   const [filtrosAbertos, setFiltrosAbertos] = useState(false)
+  // ★ Item 9. A primeira dor do estudo foi "ficar abrindo aba por aba e nao
+  //   ver todas as cartas". O item 6 aliviou abrindo por orcamento, mas quem
+  //   tem 86 sets continua precisando tocar em cabecalho. "Tudo" joga fora o
+  //   agrupamento e devolve uma grade continua, na ordem que estiver escolhida.
+  const [vista, setVista] = useState<'sets' | 'tudo'>('sets')
   // Houve gravacao no modal? So entao o fechamento reconcilia com o servidor.
   // Ref, nao state: o modal chama onAdded e onClose no mesmo tick.
   const reconciliarRef = useRef(false)
@@ -599,8 +604,13 @@ export default function MinhaColecao() {
     try {
       const salvo = localStorage.getItem('bx-colecao-abertos')
       if (salvo) setAbertos(JSON.parse(salvo))
+      const v = localStorage.getItem('bx-colecao-vista')
+      if (v === 'tudo' || v === 'sets') setVista(v)
     } catch { /* sem preferencia, segue no padrao */ }
   }, [])
+  useEffect(() => {
+    try { localStorage.setItem('bx-colecao-vista', vista) } catch { /* idem */ }
+  }, [vista])
   useEffect(() => {
     try {
       if (Object.keys(abertos).length) localStorage.setItem('bx-colecao-abertos', JSON.stringify(abertos))
@@ -839,6 +849,22 @@ export default function MinhaColecao() {
       if (cabe) soma += g.cards.length
     }
   }
+  // A quarta fileira do celular (2 colunas) e onde a oferta entra na vista plana.
+  const POSICAO_OFERTA = 8
+  const renderCarta = (c: (typeof filteredCards)[number]) => (
+    <CardItem
+      key={c.id}
+      card={c}
+      mode="collection"
+      onSelect={() => setDetalheCard(c)}
+      variante={c.variante || 'normal'}
+      exchangeRate={exchangeRate}
+      onVarianteChange={(v) => handleVarianteChange(c, v)}
+      onQuantityChange={(delta) => handleUpdateQuantity(c, delta)}
+      footerSlot={<CondicaoEditor userCardId={c.id} quantity={c.quantity || 1} condicoes={c.condicoes || null} isPro={isPro} onSaved={(novas) => setCards(prev => prev.map(x => x.id === c.id ? { ...x, condicoes: novas } : x))} />}
+    />
+  )
+
   const todosAbertos = grupos.length > 0 && grupos.every(g => (g.key in abertos ? abertos[g.key] : (filtroAtivo || abertoPadrao[g.key])))
   function alternarTodos(abrir: boolean) {
     setAbertos(Object.fromEntries(grupos.map(g => [g.key, abrir])))
@@ -1220,13 +1246,26 @@ export default function MinhaColecao() {
 
         {/* Fora da barra: nao e filtro, e nao pode disputar largura com ela. */}
         {cards.length > 0 && grupos.length > 1 && !filtroAtivo && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <button
-              onClick={() => alternarTodos(!todosAbertos)}
-              style={{ background: 'none', border: 'none', color: 'var(--ac-1)', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 44, padding: '0 4px' }}
-            >
-              {todosAbertos ? 'Recolher tudo' : 'Expandir tudo'}
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 10, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)' }}>
+              {([['sets', 'Por set'], ['tudo', 'Tudo']] as const).map(([v, rotulo]) => (
+                <button
+                  key={v}
+                  onClick={() => setVista(v)}
+                  style={{ minHeight: 36, padding: '0 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: vista === v ? 700 : 500, background: vista === v ? 'rgba(245,158,11,0.14)' : 'transparent', color: vista === v ? 'var(--ac-1)' : 'var(--bx-text-3)', transition: 'background 0.15s ease, color 0.15s ease' }}
+                >
+                  {rotulo}
+                </button>
+              ))}
+            </div>
+            {vista === 'sets' && (
+              <button
+                onClick={() => alternarTodos(!todosAbertos)}
+                style={{ background: 'none', border: 'none', color: 'var(--ac-1)', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 44, padding: '0 4px' }}
+              >
+                {todosAbertos ? 'Recolher tudo' : 'Expandir tudo'}
+              </button>
+            )}
           </div>
         )}
 
@@ -1253,8 +1292,28 @@ export default function MinhaColecao() {
         `}</style>
         {/* Grade agrupada por set (#313): primeiro set aberto ao chegar, os
             outros fechados, pra quem tem 100 sets ver a colecao no primeiro view. */}
+        {/* ★ Vista "Tudo": uma grade so, sem cabecalho e sem acordeao. A ordem
+            e a mesma da barra de filtros -- o agrupamento sai, a ordenacao
+            fica. A oferta entra ocupando a linha inteira depois da quarta
+            fileira do celular (8 cartas), pra aparecer no caminho de quem rola
+            sem ser a primeira coisa da lista. */}
+        {vista === 'tudo' && filteredCards.length > 0 && (
+          <>
+            <div className="colecao-grid">
+              {filteredCards.flatMap((c, i) => (
+                i === POSICAO_OFERTA
+                  ? [<div key="oferta" style={{ gridColumn: '1 / -1', margin: '6px 0' }}><UpgradeBanner tipo="cartas" quantidade={cards.length} /></div>, renderCarta(c)]
+                  : [renderCarta(c)]
+              ))}
+            </div>
+            {filteredCards.length <= POSICAO_OFERTA && (
+              <div style={{ marginTop: 16 }}><UpgradeBanner tipo="cartas" quantidade={cards.length} /></div>
+            )}
+          </>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {grupos.map((g, i) => {
+          {(vista === 'tudo' ? [] : grupos).map((g, i) => {
             const r = resumoSets.get(g.key)!
             const aberto = g.key in abertos ? abertos[g.key] : (filtroAtivo || abertoPadrao[g.key])
             const comLogo = r.setIds.find(s => setsInfo[s]?.logo_url)
@@ -1276,19 +1335,7 @@ export default function MinhaColecao() {
                 />
                 {aberto && (
                   <div className="colecao-grid" style={{ marginTop: 10, marginBottom: 8 }}>
-                    {g.cards.map((c) => (
-                      <CardItem
-                        key={c.id}
-                        card={c}
-                        mode="collection"
-                        onSelect={() => setDetalheCard(c)}
-                        variante={c.variante || 'normal'}
-                        exchangeRate={exchangeRate}
-                        onVarianteChange={(v) => handleVarianteChange(c, v)}
-                        onQuantityChange={(delta) => handleUpdateQuantity(c, delta)}
-                        footerSlot={<CondicaoEditor userCardId={c.id} quantity={c.quantity || 1} condicoes={c.condicoes || null} isPro={isPro} onSaved={(novas) => setCards(prev => prev.map(x => x.id === c.id ? { ...x, condicoes: novas } : x))} />}
-                      />
-                    ))}
+                    {g.cards.map((c) => renderCarta(c))}
                   </div>
                 )}
                 {/* O bloco cheio da oferta, agora DEPOIS do primeiro grupo:
