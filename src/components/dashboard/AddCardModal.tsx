@@ -12,6 +12,7 @@ import CardRequestBox from './CardRequestBox'
 import ImportarCartasModal from './ImportarCartasModal'
 import ModalLimiteCartas from '@/components/ui/ModalLimiteCartas'
 import { CAMPO_VALOR, getPrecoVariante } from '@/lib/calcPatrimonio'
+import { aplicarPilha } from '@/lib/pilhaDaCarta'
 
 interface Props {
   userId: string | null
@@ -313,13 +314,20 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         if (c) condicoes = { [c]: quantity }
       }
 
-      // Ja existe na colecao? (mesma carta = mesmo pokemon_api_id) -> incrementa a quantidade
-      const { data: existente } = await supabase
-        .from('user_cards')
-        .select('id, quantity, condicoes')
-        .eq('user_id', authData.user.id)
-        .eq('pokemon_api_id', card.id)
-        .eq('graduada', false)
+      // ★ Ja existe ESTA PILHA na colecao? Ate 15/10 a pergunta era so pelo
+      //   pokemon_api_id, e o banco so aceitava uma linha por carta: a foil
+      //   somava na pilha da normal e nao havia como ser diferente. Agora a
+      //   chave inclui variante e idioma, igual ao indice unico.
+      const { data: existente } = await aplicarPilha(
+        supabase
+          .from('user_cards')
+          .select('id, quantity, condicoes')
+          .eq('user_id', authData.user.id)
+          .eq('pokemon_api_id', card.id)
+          .eq('graduada', false),
+        variante,
+        idioma,
+      )
         .limit(1)
         .maybeSingle()
 
@@ -370,12 +378,16 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       if (insertError) {
         // corrida concorrente (linha criada entre o SELECT e o INSERT) -> incrementa
         if (insertError.code === '23505') {
-          const { data: ex2 } = await supabase
-            .from('user_cards')
-            .select('id, quantity, condicoes')
-            .eq('user_id', authData.user.id)
-            .eq('pokemon_api_id', card.id)
-            .eq('graduada', false)
+          const { data: ex2 } = await aplicarPilha(
+            supabase
+              .from('user_cards')
+              .select('id, quantity, condicoes')
+              .eq('user_id', authData.user.id)
+              .eq('pokemon_api_id', card.id)
+              .eq('graduada', false),
+            variante,
+            idioma,
+          )
             .limit(1)
             .maybeSingle()
           if (ex2) {

@@ -23,6 +23,7 @@ import { lerParametro, limparParametros } from '@/lib/deepLink'
 // A paleta mora em lib/pokedexTextos (a ficha e o modal importam de la, sem
 // ciclo com esta pagina). Reexportada aqui por compatibilidade.
 import { TYPE_COLOR, tipoTcgPt } from '@/lib/pokedexTextos'
+import { aplicarPilha } from '@/lib/pilhaDaCarta'
 export { TYPE_COLOR }
 
 const GEN_RANGES: [string, number, number][] = [
@@ -353,11 +354,16 @@ export default function Pokedex() {
     setOcupadas(prev => new Set(prev).add(card.id))
     const liberar = () => setOcupadas(prev => { const n = new Set(prev); n.delete(card.id); return n })
 
-    const { data: existente } = await supabase
-      .from('user_cards')
-      .select('id, quantity, condicoes')
-      .eq('user_id', userId).eq('pokemon_api_id', card.id).eq('graduada', false)
-      .limit(1).maybeSingle()
+    // ★ A pilha e (carta, variante, idioma) desde 15/10 -- perguntar so pelo
+    //   pokemon_api_id somava a foil na pilha da normal.
+    const { data: existente } = await aplicarPilha(
+      supabase
+        .from('user_cards')
+        .select('id, quantity, condicoes')
+        .eq('user_id', userId).eq('pokemon_api_id', card.id).eq('graduada', false),
+      variante,
+      card._idioma,
+    ).limit(1).maybeSingle()
 
     if (existente) {
       const qtdAntes = existente.quantity || 1

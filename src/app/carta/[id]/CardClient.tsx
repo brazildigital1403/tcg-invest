@@ -31,6 +31,7 @@ import { gravarIntencao, lerIntencao, limparIntencao } from '@/lib/intencao'
 import { trackFirstCardAdded } from '@/lib/analytics'
 import { raridadePt, subtipoPt, tipoTcgPt, idiomaPt, regiaoPt, legalidadePt } from '@/lib/pokedexTextos'
 import { fmtPct, resumirHistorico, rotulo30, type PontoHistorico } from '@/lib/historicoCarta'
+import { aplicarPilha } from '@/lib/pilhaDaCarta'
 
 // Tipo da habilidade como a API oficial nomeia; o que nao estiver aqui sai como veio.
 const TIPO_HABILIDADE_PT: Record<string, string> = {
@@ -190,7 +191,27 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
         params.get('add') === card.id ||
         (pendente?.tipo === 'add' && pendente.cardId === card.id)
       if (pedido) {
-        if (!tem) tem = await gravar(uid, pendente?.variante || 'normal')
+        // ★ Duas perguntas diferentes, e so agora elas podem divergir: "tem"
+        //   (acima, sem variante) e o que pinta o botao -- a pessoa tem a
+        //   carta, em alguma forma. Gravar e outra coisa: a pilha pedida pode
+        //   nao existir ainda. Antes de 15/10 o banco so aceitava uma linha
+        //   por carta, entao as duas perguntas tinham a mesma resposta e
+        //   checar "tem" bastava; hoje, quem tem a normal e pede a foil pelo
+        //   link ficaria sem a foil para sempre.
+        const vPedida = pendente?.variante || 'normal'
+        const { data: temEstaPilha } = await aplicarPilha(
+          supabase
+            .from('user_cards')
+            .select('id')
+            .eq('user_id', uid)
+            .eq('pokemon_api_id', card.id)
+            .eq('graduada', false),
+          vPedida,
+          cartaParaGravar.idioma,
+        )
+          .limit(1)
+          .maybeSingle()
+        if (!temEstaPilha) tem = (await gravar(uid, vPedida)) || tem
         limparIntencao()
         if (params.has('add')) {
           params.delete('add')
