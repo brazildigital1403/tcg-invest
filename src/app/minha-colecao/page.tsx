@@ -85,6 +85,16 @@ function GrupoFiltro({ titulo, children }: { titulo: string; children: React.Rea
   )
 }
 
+/** Coluna da faixa de filtros do desktop: rótulo + chips que quebram linha. */
+function ColunaFiltro({ titulo, rolavel, children }: { titulo: string; rolavel?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--bx-text-3)', margin: '0 0 9px' }}>{titulo}</p>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', ...(rolavel ? { maxHeight: 148, overflowY: 'auto' as const, paddingRight: 4 } : {}) }}>{children}</div>
+    </div>
+  )
+}
+
 /** Chip de opção. Alvo de 38px de altura e 44 de área com o gap da linha. */
 function OpcaoFiltro({ ativo, onClick, children }: { ativo: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -129,6 +139,12 @@ export default function MinhaColecao() {
   //   tem 86 sets continua precisando tocar em cabecalho. "Tudo" joga fora o
   //   agrupamento e devolve uma grade continua, na ordem que estiver escolhida.
   const [vista, setVista] = useState<'sets' | 'tudo'>('sets')
+  // ★ A V1 foi desenhada para 375px e aplicada igual nos dois tamanhos. No
+  //   desktop a conta inverte: a linha tem 1.244px e os controles abertos
+  //   pedem 867 -- sobram 377. Em vez de folha de rodape (que la ocupava
+  //   1512x570, 78% da tela), o botao abre uma faixa no proprio fluxo, em 4
+  //   colunas, empurrando a grade. Mesmo padrao de deteccao do AddCardModal.
+  const [isMobile, setIsMobile] = useState(false)
   // Houve gravacao no modal? So entao o fechamento reconcilia com o servidor.
   // Ref, nao state: o modal chama onAdded e onClose no mesmo tick.
   const reconciliarRef = useRef(false)
@@ -611,6 +627,12 @@ export default function MinhaColecao() {
   useEffect(() => {
     try { localStorage.setItem('bx-colecao-vista', vista) } catch { /* idem */ }
   }, [vista])
+  useEffect(() => {
+    function medir() { setIsMobile(window.innerWidth <= 768) }
+    medir()
+    window.addEventListener('resize', medir)
+    return () => window.removeEventListener('resize', medir)
+  }, [])
   useEffect(() => {
     try {
       if (Object.keys(abertos).length) localStorage.setItem('bx-colecao-abertos', JSON.stringify(abertos))
@@ -1210,13 +1232,18 @@ export default function MinhaColecao() {
                 />
               </div>
               <button
-                onClick={() => setFiltrosAbertos(true)}
+                onClick={() => setFiltrosAbertos(v => !v)}
                 style={{ flexShrink: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 7, padding: '0 14px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: qtdFiltros ? 'rgba(245,158,11,0.1)' : 'var(--bx-surface-2)', border: `1px solid ${qtdFiltros ? 'rgba(245,158,11,0.3)' : 'var(--bx-border)'}`, color: qtdFiltros ? 'var(--ac-1)' : 'var(--bx-text-2)' }}
               >
                 <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M3 6h14M6 10h8M9 14h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 Filtros
                 {qtdFiltros > 0 && (
                   <span style={{ background: 'var(--ac-1)', color: 'var(--bx-brand-ink)', borderRadius: 999, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>{qtdFiltros}</span>
+                )}
+                {/* So no desktop: la a faixa fica aberta enquanto a pessoa
+                    filtra, entao o botao precisa dizer em que estado esta. */}
+                {!isMobile && (
+                  <span style={{ fontSize: 10, opacity: 0.7, transform: filtrosAbertos ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', display: 'inline-block' }}>&#9662;</span>
                 )}
               </button>
             </div>
@@ -1239,6 +1266,68 @@ export default function MinhaColecao() {
                   style={{ flexShrink: 0, minHeight: 36, background: 'none', border: 'none', color: 'var(--bx-text-3)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: '0 6px', whiteSpace: 'nowrap' }}>
                   Limpar
                 </button>
+              </div>
+            )}
+
+            {/* ★ D4, so no desktop: a faixa abre DENTRO do fluxo e empurra a
+                grade, em vez de cobrir a tela. Nada fica sobreposto, nada
+                precisa ser fechado pra voltar a ver as cartas, e a escolha
+                pode ficar aberta enquanto a pessoa filtra. No celular segue a
+                folha de rodape, que la e o certo. */}
+            {filtrosAbertos && !isMobile && (
+              <div style={{ marginTop: 12, border: '1px solid var(--bx-border)', borderRadius: 14, padding: 16, background: 'var(--bx-surface)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                  <ColunaFiltro titulo="ORDENAR POR">
+                    {([
+                      ['recente', 'Mais recente'], ['antiga', 'Mais antiga'], ['az', 'Nome A→Z'], ['za', 'Nome Z→A'],
+                      ['valor_desc', 'Maior valor'], ['valor_asc', 'Menor valor'], ['numero', 'Nº ↑'], ['numero_desc', 'Nº ↓'],
+                    ] as const).map(([v, rotulo]) => (
+                      <OpcaoFiltro key={v} ativo={ordenacao === v} onClick={() => setOrdenacao(v)}>{rotulo}</OpcaoFiltro>
+                    ))}
+                  </ColunaFiltro>
+
+                  {raridades.length > 0 && (
+                    /* A raridade tem 24 valores na conta do Du: sem teto, ela
+                       sozinha faria a faixa passar de 400px de altura. */
+                    <ColunaFiltro titulo="RARIDADE" rolavel>
+                      <OpcaoFiltro ativo={!filtroRaridade} onClick={() => setFiltroRaridade('')}>Todas</OpcaoFiltro>
+                      {raridades.map(r => (
+                        <OpcaoFiltro key={r} ativo={filtroRaridade === r} onClick={() => setFiltroRaridade(filtroRaridade === r ? '' : r)}>{r}</OpcaoFiltro>
+                      ))}
+                    </ColunaFiltro>
+                  )}
+
+                  <ColunaFiltro titulo="VARIANTE">
+                    <OpcaoFiltro ativo={!filtroVariante} onClick={() => setFiltroVariante('')}>Todas</OpcaoFiltro>
+                    {['normal', 'foil', 'reverse', 'promo', 'pokeball'].map(v => (
+                      <OpcaoFiltro key={v} ativo={filtroVariante === v} onClick={() => setFiltroVariante(filtroVariante === v ? '' : v)}>
+                        {v.charAt(0).toUpperCase() + v.slice(1)}
+                      </OpcaoFiltro>
+                    ))}
+                  </ColunaFiltro>
+
+                  <ColunaFiltro titulo="CONDIÇÃO">
+                    <OpcaoFiltro ativo={!filtroCondicao} onClick={() => setFiltroCondicao('')}>Todas</OpcaoFiltro>
+                    {CONDICAO_KEYS.map(k => (
+                      <OpcaoFiltro key={k} ativo={filtroCondicao === k} onClick={() => setFiltroCondicao(filtroCondicao === k ? '' : k)}>{k}</OpcaoFiltro>
+                    ))}
+                    <div style={{ width: '100%', height: 12 }} />
+                    <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--bx-text-3)', margin: '0 0 9px', width: '100%' }}>GRADUADAS</p>
+                    <OpcaoFiltro ativo={filtroGraduada} onClick={() => setFiltroGraduada(v => !v)}>Só graduadas</OpcaoFiltro>
+                  </ColunaFiltro>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--bx-border)' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--bx-text-3)' }}>
+                    {filteredCards.length} carta{filteredCards.length !== 1 ? 's' : ''} com esses filtros
+                  </span>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {qtdFiltros > 0 && (
+                      <button onClick={limparFiltros} style={{ minHeight: 40, padding: '0 14px', borderRadius: 10, background: 'none', border: '1px solid var(--bx-border)', color: 'var(--bx-text-3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Limpar</button>
+                    )}
+                    <button onClick={() => setFiltrosAbertos(false)} style={{ minHeight: 40, padding: '0 16px', borderRadius: 10, background: 'var(--bx-surface-2)', border: '1px solid var(--bx-border)', color: 'var(--bx-text-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Fechar filtros</button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -1384,7 +1473,7 @@ export default function MinhaColecao() {
       {/* ★ Folha de filtros (V1). Tudo o que saiu da barra mora aqui, e o
           rodape mostra quantas cartas o estado atual devolve ANTES de aplicar
           -- a pessoa nao precisa fechar para descobrir que zerou a lista. */}
-      {filtrosAbertos && (
+      {filtrosAbertos && isMobile && (
         <div
           onClick={() => setFiltrosAbertos(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(5,6,10,0.7)', zIndex: 9000, display: 'flex', alignItems: 'flex-end' }}
