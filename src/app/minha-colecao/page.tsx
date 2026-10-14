@@ -946,7 +946,25 @@ export default function MinhaColecao() {
             colecao vazia nao tem por que ver "desbloqueie o Scan".
             Antes disso, o unico gatilho de upsell do app era o muro pos-trial,
             que exige mais de 100 cartas — 12 pessoas na base inteira. */}
-        {cards.length > 0 && <UpgradeBanner tipo="cartas" quantidade={cards.length} />}
+        {/* ★ A oferta fica, mas deixa de ocupar metade da primeira dobra.
+            O bloco cheio mede 342px e aparece para 98% da base (289 de 295
+            donos de colecao sao free) -- junto com cabecalho, resumo, pastas e
+            filtros empurrava a primeira carta para 1.591px, ou seja, NENHUMA
+            carta na primeira dobra. Aqui fica a faixa fina (~90px); o bloco
+            cheio desceu para depois da primeira fileira de cartas, e quem rola
+            a colecao continua esbarrando nele. */}
+        {!isPro && cards.length > 0 && (
+          <Link
+            href="/planos"
+            style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '12px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.28)', textDecoration: 'none', color: 'inherit' }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13.5, fontWeight: 700, lineHeight: 1.3 }}>Scan com IA no plano Pro</p>
+              <p style={{ fontSize: 11.5, color: 'var(--bx-text-2)', marginTop: 2 }}>Catalogue pela foto, sem digitar</p>
+            </div>
+            <span style={{ flexShrink: 0, minHeight: 44, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: 'var(--ac-1)', fontSize: 13, fontWeight: 600 }}>Ver</span>
+          </Link>
+        )}
 
         {/* Resumo em duas caixas (#313, 12/09). Eram 3 cartoes de 72vw com
             rolagem lateral: no celular so o primeiro aparecia e ainda empurrava
@@ -1005,7 +1023,10 @@ export default function MinhaColecao() {
         )}
 
         {/* ── PASTAS EM DESTAQUE (hero + grade) ── */}
-        {pastasTopo?.hero && (
+        {/* Hero de pasta VAZIA nao ocupa 277px da dobra: medido, 44,9% de quem
+            ve este bloco tem a pasta em destaque com zero carta. Sem carta
+            dentro, a pasta vira so mais um bloco entre a pessoa e a colecao. */}
+        {pastasTopo?.hero && Number(pastasTopo.hero.qtd) > 0 && (
           <div style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <h2 style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1298,6 +1319,10 @@ export default function MinhaColecao() {
                     ))}
                   </div>
                 )}
+                {/* O bloco cheio da oferta, agora DEPOIS do primeiro grupo:
+                    a pessoa ve carta antes de ver preco de plano, e a oferta
+                    continua no caminho de quem rola. */}
+                {i === 0 && <div style={{ marginTop: 16 }}><UpgradeBanner tipo="cartas" quantidade={cards.length} /></div>}
               </section>
             )
           })}
