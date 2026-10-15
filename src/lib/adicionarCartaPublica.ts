@@ -33,7 +33,7 @@ export type ResultadoAdicionar =
 
 export async function adicionarCartaPublica(userId: string, c: CartaPublica): Promise<ResultadoAdicionar> {
   // ★ "Ja tinha" passa a significar "ja tinha ESTA pilha": a mesma carta em
-  //   outra variante ou outro idioma e uma linha propria desde 15/10.
+  //   outra variante ou outro idioma e uma linha propria desde 14/10.
   const { data: existente } = await aplicarPilha(
     supabase
       .from('user_cards')

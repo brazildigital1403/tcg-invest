@@ -354,7 +354,7 @@ export default function Pokedex() {
     setOcupadas(prev => new Set(prev).add(card.id))
     const liberar = () => setOcupadas(prev => { const n = new Set(prev); n.delete(card.id); return n })
 
-    // ★ A pilha e (carta, variante, idioma) desde 15/10 -- perguntar so pelo
+    // ★ A pilha e (carta, variante, idioma) desde 14/10 -- perguntar so pelo
     //   pokemon_api_id somava a foil na pilha da normal.
     const { data: existente } = await aplicarPilha(
       supabase

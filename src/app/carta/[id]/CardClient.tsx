@@ -194,7 +194,7 @@ export default function CardClient({ card, children, breadcrumb, ofertas: oferta
         // ★ Duas perguntas diferentes, e so agora elas podem divergir: "tem"
         //   (acima, sem variante) e o que pinta o botao -- a pessoa tem a
         //   carta, em alguma forma. Gravar e outra coisa: a pilha pedida pode
-        //   nao existir ainda. Antes de 15/10 o banco so aceitava uma linha
+        //   nao existir ainda. Antes de 14/10 o banco so aceitava uma linha
         //   por carta, entao as duas perguntas tinham a mesma resposta e
         //   checar "tem" bastava; hoje, quem tem a normal e pede a foil pelo
         //   link ficaria sem a foil para sempre.

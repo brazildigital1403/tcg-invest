@@ -314,7 +314,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         if (c) condicoes = { [c]: quantity }
       }
 
-      // ★ Ja existe ESTA PILHA na colecao? Ate 15/10 a pergunta era so pelo
+      // ★ Ja existe ESTA PILHA na colecao? Ate 14/10 a pergunta era so pelo
       //   pokemon_api_id, e o banco so aceitava uma linha por carta: a foil
       //   somava na pilha da normal e nao havia como ser diferente. Agora a
       //   chave inclui variante e idioma, igual ao indice unico.

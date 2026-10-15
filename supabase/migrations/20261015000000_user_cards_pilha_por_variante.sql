@@ -1,11 +1,15 @@
--- Epico Cadastro de carta, item 1 (15/10/2026): foil e normal viram pilhas separadas.
+-- Epico Cadastro de carta, item 1 (14/10/2026, 23h de Brasilia): foil e normal
+-- viram pilhas separadas.
+--
+-- O nome do arquivo e 20261015 porque o timestamp de migration e UTC, e 23h de
+-- Brasilia ja e dia 15 la. As datas NO TEXTO sao Brasilia, como manda a casa.
 --
 -- POR QUE: hoje o unico indice de deduplicacao e (user_id, pokemon_api_id). Variante e
 -- idioma ficam de fora, entao o banco so aceita UMA linha por carta por usuario. Somar a
 -- foil na pilha da normal nao e descuido do AddCardModal: e o modelo de dados. Com o
 -- indice atual, mesmo corrigindo o SELECT o insert morreria com 23505.
 --
--- ESTADO MEDIDO EM 15/10/2026, EM PRODUCAO:
+-- ESTADO MEDIDO EM 14/10/2026, EM PRODUCAO:
 --   user_cards            7.596 linhas, 4.104 kB  (nao e a pokemon_cards_all de 187 MB,
 --                                                  entao criar indice aqui nao encosta
 --                                                  no orcamento de IO da instancia)

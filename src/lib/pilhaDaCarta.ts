@@ -4,7 +4,7 @@
  * O indice unico da tabela e
  *   (user_id, pokemon_api_id, coalesce(variante,'normal'), idioma)
  *   where pokemon_api_id is not null and graduada = false
- * desde 15/10/2026. Antes era so (user_id, pokemon_api_id): o banco so aceitava
+ * desde 14/10/2026. Antes era so (user_id, pokemon_api_id): o banco so aceitava
  * UMA linha por carta por usuario, entao somar a foil na pilha da normal nao
  * era descuido de codigo, era o modelo de dados.
  *

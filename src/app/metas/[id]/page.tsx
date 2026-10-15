@@ -314,7 +314,7 @@ export default function MetaPage() {
         setLimite(lim); return
       }
       if (error.code === '23505') {
-        // ★ Ate 15/10 o indice unico ignorava idioma e variante, e qualquer
+        // ★ Ate 14/10 o indice unico ignorava idioma e variante, e qualquer
         //   segunda copia da carta caia aqui -- dai o aviso falar em "um
         //   idioma por carta". Agora a pilha inclui os dois, entao 23505 so
         //   acontece quando a pessoa ja tem exatamente esta carta, neste

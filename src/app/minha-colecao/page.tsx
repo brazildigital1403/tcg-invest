@@ -871,7 +871,7 @@ export default function MinhaColecao() {
       if (cabe) soma += g.cards.length
     }
   }
-  // ★ Quantas pilhas a MESMA carta tem na colecao. Desde 15/10 foil, reverse e
+  // ★ Quantas pilhas a MESMA carta tem na colecao. Desde 14/10 foil, reverse e
   //   idiomas diferentes sao linhas proprias: dois cartoes ficam com nome,
   //   numero, arte e selo de idioma iguais, e o unico sinal era o ponto de 7px
   //   na mini-tabela. Quem tem duas ou mais ganha a variante escrita.
@@ -964,10 +964,10 @@ export default function MinhaColecao() {
               </span>
             ) : (
               <span
-                /* ★ Desde 15/10 foil, reverse e idiomas diferentes sao linhas
+                /* ★ Desde 14/10 foil, reverse e idiomas diferentes sao linhas
                    proprias, e o gatilho do banco conta linhas: guardar a foil
                    E a normal da mesma carta gasta duas vagas. Decisao do Du
-                   em 15/10 -- a segunda pilha custa vaga mesmo. O texto antigo
+                   em 14/10 -- a segunda pilha custa vaga mesmo. O texto antigo
                    dizia so "cartas diferentes. Repetidas nao contam", que
                    deixou de explicar a conta que a pessoa ve na tela. */
                 title="O limite conta cada carta uma vez por variante e idioma: a foil e a normal da mesma carta ocupam duas vagas. Cópias repetidas da mesma carta não contam."

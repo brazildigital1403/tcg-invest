@@ -87,7 +87,7 @@ export async function transferirCartaAoComprador(
   // ── Entra na colecao do comprador ───────────────────────────────────────
   let somou = false
   if (catalogoId && !ehGraduada) {
-    // ★ A pilha e (carta, variante, idioma) desde 15/10. A compra traz a
+    // ★ A pilha e (carta, variante, idioma) desde 14/10. A compra traz a
     //   variante e o idioma do anuncio: uma foil comprada nao soma na pilha da
     //   normal que o comprador ja tinha.
     const { data: ja } = await aplicarPilha(

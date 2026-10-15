@@ -148,7 +148,7 @@ interface CardItemProps {
    * carta aparece na listagem em mais de uma pilha -- aí os dois cartões ficam
    * com nome, número, arte e selo de idioma idênticos, e o único sinal era o
    * ponto de 7px na mini-tabela de preços. Pilhas separadas por variante só
-   * existem desde 15/10/2026.
+   * existem desde 14/10/2026.
    */
   marcarVariante?: boolean
   // Câmbio para estimativas USD/EUR
