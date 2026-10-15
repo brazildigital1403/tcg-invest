@@ -143,6 +143,14 @@ interface CardItemProps {
   badge?: ReactNode
   // Slot extra no rodapé do card (ex: editor de condição)
   footerSlot?: ReactNode
+  /**
+   * Mostra a variante ao lado do número. Quem chama liga isto quando a MESMA
+   * carta aparece na listagem em mais de uma pilha -- aí os dois cartões ficam
+   * com nome, número, arte e selo de idioma idênticos, e o único sinal era o
+   * ponto de 7px na mini-tabela de preços. Pilhas separadas por variante só
+   * existem desde 15/10/2026.
+   */
+  marcarVariante?: boolean
   // Câmbio para estimativas USD/EUR
   exchangeRate?: { usd: number; eur: number }
   // Esconde a mini-tabela de variantes/preço (fica só o badge de preço na
@@ -224,6 +232,7 @@ export default function CardItem({
   onSelect,
   badge,
   footerSlot,
+  marcarVariante,
   exchangeRate = { usd: 6.0, eur: 6.5 },
   hidePriceTable = false,
   ocultarIdioma = false,
@@ -435,9 +444,14 @@ export default function CardItem({
         {/* Nome + número */}
         <div>
           <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--bx-text)', lineHeight: 1.3, marginBottom: 1 }}>{name}</p>
-          {(number || setName) && (
-            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
-              {number ? number : ''}{number && setName ? ' · ' : ''}{setName}
+          {(number || setName || marcarVariante) && (
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+              <span>{number ? number : ''}{number && setName ? ' · ' : ''}{setName}</span>
+              {marcarVariante && (
+                <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ac-1)', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 5, padding: '1px 6px' }}>
+                  {variante || 'normal'}
+                </span>
+              )}
             </p>
           )}
         </div>

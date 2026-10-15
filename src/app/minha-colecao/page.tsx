@@ -871,6 +871,19 @@ export default function MinhaColecao() {
       if (cabe) soma += g.cards.length
     }
   }
+  // ★ Quantas pilhas a MESMA carta tem na colecao. Desde 15/10 foil, reverse e
+  //   idiomas diferentes sao linhas proprias: dois cartoes ficam com nome,
+  //   numero, arte e selo de idioma iguais, e o unico sinal era o ponto de 7px
+  //   na mini-tabela. Quem tem duas ou mais ganha a variante escrita.
+  //   Graduada fica de fora da conta: ela ja se distingue pela tarja da
+  //   graduadora no topo do cartao.
+  const pilhasPorCarta = new Map<string, number>()
+  for (const c of cards) {
+    if (c.graduada) continue
+    const k = c.pokemon_api_id || c.card_id
+    if (k) pilhasPorCarta.set(k, (pilhasPorCarta.get(k) || 0) + 1)
+  }
+
   // A quarta fileira do celular (2 colunas) e onde a oferta entra na vista plana.
   const POSICAO_OFERTA = 8
   const renderCarta = (c: (typeof filteredCards)[number]) => (
@@ -880,6 +893,7 @@ export default function MinhaColecao() {
       mode="collection"
       onSelect={() => setDetalheCard(c)}
       variante={c.variante || 'normal'}
+      marcarVariante={!c.graduada && (pilhasPorCarta.get(c.pokemon_api_id || c.card_id) || 0) > 1}
       exchangeRate={exchangeRate}
       onVarianteChange={(v) => handleVarianteChange(c, v)}
       onQuantityChange={(delta) => handleUpdateQuantity(c, delta)}
