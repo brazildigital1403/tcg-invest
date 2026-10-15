@@ -182,8 +182,9 @@ const fetchSetData = cache(async function fetchSetData(
 // em `dedup_liga_map` (o mesmo mapa que a pagina da carta ja usa). Quando o set
 // fica sem carta visivel, a URL antiga vai com 301 para o set onde as cartas
 // ficaram, em vez de virar 404. So roda no caminho de "nao achei carta".
+// Vale para qualquer set_id que o mapa conheca, nao so os "liga-": a dedup no
+// mesmo idioma (cec -> sm12, 14/10/2026) usa o mesmo caminho.
 async function destinoDeSetRemovido(id: string): Promise<string | null> {
-  if (!id.startsWith('liga-')) return null
   const sb = getServiceSupabase()
   if (!sb) return null
   const { data: mapa } = await sb.from('dedup_liga_map').select('cat_id').eq('set_id', id).limit(200)
