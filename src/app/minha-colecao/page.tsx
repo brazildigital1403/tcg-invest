@@ -964,7 +964,13 @@ export default function MinhaColecao() {
               </span>
             ) : (
               <span
-                title="O limite do plano conta cartas diferentes. Repetidas nao contam."
+                /* ★ Desde 15/10 foil, reverse e idiomas diferentes sao linhas
+                   proprias, e o gatilho do banco conta linhas: guardar a foil
+                   E a normal da mesma carta gasta duas vagas. Decisao do Du
+                   em 15/10 -- a segunda pilha custa vaga mesmo. O texto antigo
+                   dizia so "cartas diferentes. Repetidas nao contam", que
+                   deixou de explicar a conta que a pessoa ve na tela. */
+                title="O limite conta cada carta uma vez por variante e idioma: a foil e a normal da mesma carta ocupam duas vagas. Cópias repetidas da mesma carta não contam."
                 style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'var(--bx-surface-2)', color: 'rgba(255,255,255,0.35)', border: '1px solid var(--bx-border)', whiteSpace: 'nowrap' }}
               >
                 {cards.length}/{limiteDisplay} diferentes
