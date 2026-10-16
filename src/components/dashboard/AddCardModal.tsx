@@ -285,6 +285,20 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     // pra montar valor e numero na hora, e reconcilia no fechamento do modal.
     const gravadas: any[] = []
 
+    // ★ Qualquer saida no meio do laco (limite do plano, recusa do gatilho,
+    //   erro de insert) precisa ENTREGAR o que ja entrou. Antes dava `return`
+    //   seco: as cartas gravadas sumiam da tela e a pessoa ficava sem saber o
+    //   que entrou e o que nao. Num lote isso era um lote perdido; numa serie
+    //   vira confusao, porque o modal segue aberto com a selecao intacta.
+    const entregarParcial = () => {
+      setAdding(false)
+      if (!gravadas.length) return
+      onAdded(gravadas)
+      setGravadasNaSessao(n => n + gravadas.length)
+      const ok = new Set(gravadas.map((g: any) => g.__price?.id).filter(Boolean))
+      setSelectedCards(prev => prev.filter(c => !ok.has(c.id)))
+    }
+
     for (const card of selectedCards) {
       const number = card.number || ''
       const total = card.set_total ? `/${card.set_total}` : ''
@@ -347,8 +361,8 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         if (!incErr) gravadas.push({ id: existente.id, quantity: novaQty, condicoes: novasCond, __price: card })
         if (incErr) {
           console.error('[AddCardModal] increment error:', incErr)
+          entregarParcial()
           await showAlert(`Erro ao atualizar "${card.name}". Tente novamente.`, 'error')
-          setAdding(false)
           return
         }
         trackFirstCardAdded(authData.user.id)
@@ -360,7 +374,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       if (Number.isFinite(limiteDoPlano)) setLimiteCartas(limiteDoPlano)
       if (bloqueado) {
         setShowLimite(true)
-        setAdding(false)
+        entregarParcial()
         return
       }
 
@@ -414,12 +428,22 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         if (limiteRecusado !== null) {
           setLimiteCartas(limiteRecusado)
           setShowLimite(true)
-          setAdding(false)
+          entregarParcial()
           return
         }
         console.error('[AddCardModal] insert error:', insertError)
-        await showAlert(`Erro ao adicionar "${card.name}". Tente novamente.`, 'error')
-        setAdding(false)
+        // ★ Entregar ANTES de avisar: showAlert e `await` e so volta quando a
+        //   pessoa fecha o aviso -- se a entrega viesse depois, a carta que JA
+        //   entrou ficaria fora da tela e ainda marcada na selecao enquanto o
+        //   aviso estivesse aberto. Medido no teste de falha simulada.
+        const entraram = gravadas.length
+        entregarParcial()
+        await showAlert(
+          entraram
+            ? `${entraram} carta${entraram !== 1 ? 's' : ''} entrou na coleção, mas "${card.name}" falhou. Tente de novo.`
+            : `Erro ao adicionar "${card.name}". Tente novamente.`,
+          'error',
+        )
         return
       }
       trackFirstCardAdded(authData.user.id)
