@@ -295,7 +295,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
       if (!gravadas.length) return
       onAdded(gravadas)
       setGravadasNaSessao(n => n + gravadas.length)
-      const ok = new Set(gravadas.map((g: any) => g.__price?.id).filter(Boolean))
+      const ok = new Set(gravadas.map(g => g.__price?.id).filter(Boolean))
       setSelectedCards(prev => prev.filter(c => !ok.has(c.id)))
     }
 
