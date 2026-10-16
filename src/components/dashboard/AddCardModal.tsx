@@ -103,6 +103,12 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const searchTimeout = useRef<any>(null)
+  // ★ Item 4: cadastro em serie. 92,8% das cartas da base entraram em sessoes de
+  //   5 ou mais, com mediana de 22 s entre uma carta e a seguinte -- o fluxo de
+  //   4 toques + fechar o modal estava cobrando pedagio por carta. O contador
+  //   conta o que ESTA SESSAO do modal gravou, nao a colecao inteira.
+  const [gravadasNaSessao, setGravadasNaSessao] = useState(0)
+  const buscaRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -267,7 +273,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     return out
   }
 
-  async function handleAdd() {
+  async function handleAdd(continuar = false) {
     if (!userId || !selectedCards.length) return
     setAdding(true)
 
@@ -423,7 +429,19 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     // onAdded ANTES de onClose: a tela marca que precisa reconciliar e so
     // entao fecha -- invertido, o fechamento nao saberia que houve gravacao.
     onAdded(gravadas)
-    onClose()
+    if (!continuar) { onClose(); return }
+
+    // ★ Segue no modal: limpa o que era desta carta e devolve o foco a busca,
+    //   pra proxima carta comecar a ser digitada sem nenhum toque. No celular
+    //   o foco mantem o teclado aberto, que e o que faz a serie valer.
+    setGravadasNaSessao(n => n + gravadas.length)
+    setSelectedCards([])
+    setPreview(null)
+    setSearchTerm('')
+    setSearchResults([])
+    setOffset(0)
+    setHasMore(false)
+    buscaRef.current?.focus()
   }
 
   const filtered = searchResults
@@ -468,16 +486,30 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
           <div style={{ position: 'relative', marginBottom: 12 }}>
             <IconSearch size={16} color={TEXT_MUTED} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
             <input
+              ref={buscaRef}
               autoFocus={!isMobile}
               value={searchTerm}
               onChange={e => handleSearch(e.target.value)}
               placeholder="Ex: Charizard · 051/217 · Pikachu Ascended Heroes · Pikachu 2019..."
-              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '12px 16px 12px 42px', color: '#f0f0f0', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: searchTerm ? '12px 46px 12px 42px' : '12px 16px 12px 42px', color: '#f0f0f0', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.5)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
             />
             {isSearching && (
-              <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#f59e0b' }}>Buscando...</span>
+              <span style={{ position: 'absolute', right: searchTerm ? 46 : 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#f59e0b' }}>Buscando...</span>
+            )}
+            {/* ★ Limpar a busca custava 9 backspaces na mediana dos termos --
+                pedagio por carta em quem cadastra em serie. Alvo de 36px e o
+                foco volta pro campo, entao a proxima carta ja pode ser
+                digitada. */}
+            {searchTerm && (
+              <button
+                onClick={() => { handleSearch(''); buscaRef.current?.focus() }}
+                aria-label="Limpar busca"
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: 'none', border: 'none', color: TEXT_MUTED, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              >
+                <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              </button>
             )}
           </div>
 
@@ -931,21 +963,42 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
             embaixo da barra de gestos do iPhone e o "Adicionar" so responde
             com a ponta do dedo. */}
         <div style={{ padding: isMobile ? '10px 16px calc(10px + env(safe-area-inset-bottom, 0px))' : '14px 28px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: isMobile ? 'stretch' : 'space-between', alignItems: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.01)', gap: isMobile ? 8 : 12 }}>
+          {/* ★ O contador da serie fica onde antes so havia "nenhuma carta
+              selecionada": enquanto a pessoa cadastra em sequencia, o que
+              importa saber e quantas JA entraram nesta sessao. */}
           {!isMobile && (
             <p style={{ fontSize: 13, color: selectedCards.length > 0 ? '#f59e0b' : TEXT_MUTED, fontWeight: selectedCards.length > 0 ? 600 : 400 }}>
-              {selectedCards.length === 0 ? 'Nenhuma carta selecionada' : `${selectedCards.length} carta${selectedCards.length !== 1 ? 's' : ''} selecionada${selectedCards.length !== 1 ? 's' : ''}`}
+              {selectedCards.length > 0
+                ? `${selectedCards.length} carta${selectedCards.length !== 1 ? 's' : ''} selecionada${selectedCards.length !== 1 ? 's' : ''}`
+                : gravadasNaSessao > 0
+                  ? `${gravadasNaSessao} carta${gravadasNaSessao !== 1 ? 's' : ''} adicionada${gravadasNaSessao !== 1 ? 's' : ''} agora`
+                  : 'Nenhuma carta selecionada'}
             </p>
           )}
           <div style={{ display: 'flex', gap: isMobile ? 8 : 10, flex: isMobile ? 1 : 'none' }}>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 14px' : '0 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, flex: isMobile ? 1 : 'none' }}>
-              Cancelar
+            {/* Fechar deixou de ser "Cancelar": com a serie, o que ja entrou
+                esta gravado -- chamar de cancelar sugeria desfazer. */}
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 14px' : '0 20px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, flex: isMobile ? 1 : 'none', whiteSpace: 'nowrap' }}>
+              {gravadasNaSessao > 0 ? 'Concluir' : 'Cancelar'}
             </button>
+            {/* ★ O primario agora GRAVA E FICA. "Adicionar e fechar" continua
+                existindo como secundario pra quem veio por uma carta so -- o
+                caminho de quem cadastra em serie deixou de pagar o reabrir. */}
+            {selectedCards.length > 0 && (
+              <button
+                onClick={() => handleAdd(false)}
+                disabled={adding}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 12px' : '0 16px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontWeight: 500, opacity: adding ? 0.7 : 1, whiteSpace: 'nowrap' }}
+              >
+                {isMobile ? 'E fechar' : 'Adicionar e fechar'}
+              </button>
+            )}
             <button
-              onClick={handleAdd}
+              onClick={() => handleAdd(true)}
               disabled={selectedCards.length === 0 || adding}
-              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 14px' : '0 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none' }}
+              style={{ background: selectedCards.length > 0 ? BRAND : 'rgba(255,255,255,0.06)', border: 'none', color: selectedCards.length > 0 ? '#000' : TEXT_MUTED, minHeight: 44, padding: isMobile ? '0 14px' : '0 24px', borderRadius: 10, fontSize: 13, cursor: selectedCards.length > 0 ? 'pointer' : 'default', fontWeight: 700, opacity: adding ? 0.7 : 1, transition: 'all 0.2s', boxShadow: selectedCards.length > 0 ? '0 0 20px rgba(245,158,11,0.2)' : 'none', flex: isMobile ? 1.5 : 'none', whiteSpace: 'nowrap' }}
             >
-              {adding ? 'Adicionando...' : `Adicionar ${selectedCards.length > 0 ? `(${selectedCards.length})` : ''} →`}
+              {adding ? 'Adicionando...' : `Adicionar e continuar${selectedCards.length > 0 ? ` (${selectedCards.length})` : ''}`}
             </button>
           </div>
         </div>
