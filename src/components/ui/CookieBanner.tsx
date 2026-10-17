@@ -66,7 +66,7 @@ function pushConsentUpdate(granted: boolean) {
 // denied (nada de cookie nao essencial e PostHog sem captura), entao esconder
 // aqui nao muda o que e gravado -- so tira o obstaculo da compra. O banner
 // volta em qualquer outra rota do site.
-const ROTAS_SEM_BANNER = new Set(Object.values(OFERTAS_EVENTO).map(o => o.landing))
+const ROTAS_SEM_BANNER = new Set<string>(Object.values(OFERTAS_EVENTO).map(o => o.landing))
 
 export default function CookieBanner() {
   const pathname = usePathname()
