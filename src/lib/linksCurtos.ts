@@ -17,7 +17,7 @@ export const SLUGS_RESERVADOS = new Set([
   'pokedex', 'pokemon', 'pre-grading', 'presente', 'privacidade', 'pro-ativado', 'produto', 'ranking',
   'recebimentos', 'recompensas', 'reset-password', 'restauracao-de-cartas', 'scan-ia',
   'separadores-pokemon', 'separadores', 'servico', 'servicos', 'set', 'sitemap', 'sobre',
-  'subprocessadores', 'suporte', 'tcgcon', 'termos', 'vendas',
+  'pokefanfest', 'subprocessadores', 'suporte', 'tcgcon', 'termos', 'vendas',
   // servidos pelo Next/Vercel ou por arquivo em public/
   'robots', 'favicon', 'manifest', 'ingest', 'monitoring', '_next', '_vercel', 'static', 'public',
   // nomes que confundem com rota curta "do sistema"

@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { OFERTA_TCGCON, ehOfertaValida, ofertaTcgconAtiva } from '@/lib/ofertaTcgcon'
+import { ehOfertaEvento, ofertaEvento, ofertaEventoAtiva, ehPlanoDaOferta } from '@/lib/ofertasEvento'
 import { OFERTA_PRESENTE, ehPlanoPresente, ofertaPresenteAtiva } from '@/lib/ofertaPresente'
 import { buscarConvite, carimbarConvite } from '@/lib/campanhaConvites'
 import { fimDoGratisLoja } from '@/lib/planoLoja'
@@ -375,22 +375,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ url: presenteSession.url })
     }
 
-    // ── Oferta de evento (TCG CON): cupom aplicado pelo servidor, sem trial ──
-    // `discounts` e `allow_promotion_codes` sao mutuamente exclusivos na Stripe:
-    // na oferta o desconto ja vem aplicado e o campo de codigo some.
-    if (ehOfertaValida(oferta)) {
-      if (plano !== 'anual') {
-        return NextResponse.json({ error: 'A oferta vale só para o Pro Anual.' }, { status: 400 })
+    // ── Oferta de EVENTO (lista em src/lib/ofertasEvento.ts): cupom aplicado
+    // pelo servidor, sem trial. `discounts` e `allow_promotion_codes` sao
+    // mutuamente exclusivos na Stripe: na oferta o desconto ja vem aplicado e
+    // o campo de codigo some. Um ramo para todos os eventos (Quadro #321).
+    if (ehOfertaEvento(oferta)) {
+      const ofe = ofertaEvento(oferta)
+      if (!ehPlanoDaOferta(oferta, plano)) {
+        return NextResponse.json({ error: `A oferta da ${ofe.eventoCurto} não vale para este plano.` }, { status: 400 })
       }
-      if (!ofertaTcgconAtiva()) {
-        return NextResponse.json({ error: 'A oferta da TCG CON encerrou.', code: 'OFERTA_ENCERRADA' }, { status: 410 })
+      if (!ofertaEventoAtiva(oferta)) {
+        return NextResponse.json({ error: `A oferta da ${ofe.eventoCurto} encerrou.`, code: 'OFERTA_ENCERRADA' }, { status: 410 })
       }
 
-      const promos = await stripe.promotionCodes.list({ code: OFERTA_TCGCON.codigo, active: true, limit: 1 })
+      const promos = await stripe.promotionCodes.list({ code: ofe.codigo, active: true, limit: 1 })
       const promo = promos.data[0]
       if (!promo) {
-        console.warn(`[stripe/checkout] promotion code ${OFERTA_TCGCON.codigo} inativo ou inexistente`)
-        return NextResponse.json({ error: 'A oferta da TCG CON encerrou.', code: 'OFERTA_ENCERRADA' }, { status: 410 })
+        console.warn(`[stripe/checkout] promotion code ${ofe.codigo} inativo ou inexistente`)
+        return NextResponse.json({ error: `A oferta da ${ofe.eventoCurto} encerrou.`, code: 'OFERTA_ENCERRADA' }, { status: 410 })
       }
 
       let ofertaSession: Stripe.Checkout.Session
@@ -402,15 +404,15 @@ export async function POST(req: NextRequest) {
           line_items: [{ price: priceId, quantity: 1 }],
           ...customerParam,
           discounts: [{ promotion_code: promo.id }],
-          metadata: { ...metadata, oferta: OFERTA_TCGCON.id },
+          metadata: { ...metadata, oferta: ofe.id },
           success_url: `${APP}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url:  `${APP}/tcgcon`,
+          cancel_url:  `${APP}${ofe.landing}`,
         })
       } catch (err: any) {
         // Restricao do promotion code (primeiro pedido / valor minimo) recusada pela Stripe.
-        console.warn(`[stripe/checkout] oferta tcgcon recusada para ${userId}: ${err?.message}`)
+        console.warn(`[stripe/checkout] oferta ${ofe.id} recusada para ${userId}: ${err?.message}`)
         return NextResponse.json({
-          error: 'O desconto da TCG CON vale só para a primeira assinatura da conta.',
+          error: `O desconto da ${ofe.eventoCurto} vale só para a primeira assinatura da conta.`,
           code: 'OFERTA_INELEGIVEL',
         }, { status: 409 })
       }
@@ -423,7 +425,7 @@ export async function POST(req: NextRequest) {
         .update({ trial_expires_at: null })
         .eq('id', userId)
         .or('is_pro.is.null,is_pro.eq.false')
-        .gte('created_at', OFERTA_TCGCON.inicioContasISO)
+        .gte('created_at', ofe.inicioContasISO)
       if (trialErr) console.error(`[stripe/checkout] zerar trial da oferta falhou (${userId}): ${trialErr.message}`)
 
       return NextResponse.json({ url: ofertaSession.url })

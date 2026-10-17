@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { ehOfertaEvento, ofertaEvento } from '@/lib/ofertasEvento'
 
 function sanitizeNext(raw: string | null): string {
   if (!raw) return '/dashboard-financeiro'
@@ -31,7 +32,8 @@ export default function PosCadastro() {
       const paid = plan === 'plus' || plan === 'mensal' || plan === 'anual'
       // Oferta de evento: o checkout aplica o cupom e zera o trial. Se falhar
       // (oferta encerrada, conta inelegivel), volta pra landing que explica.
-      const oferta = params.get('oferta') === 'tcgcon' ? 'tcgcon' : null
+      const ofertaParam = params.get('oferta')
+      const oferta = ehOfertaEvento(ofertaParam) ? ofertaParam : null
 
       // Espera a sessao aparecer (o Supabase processa o token da URL de forma assincrona).
       let session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'] = null
@@ -60,7 +62,7 @@ export default function PosCadastro() {
           const d = await res.json()
           if (d.url) { window.location.href = d.url; return }
         } catch { /* cai no destino padrao abaixo */ }
-        if (oferta) { router.replace('/tcgcon'); return }
+        if (oferta) { router.replace(ofertaEvento(oferta).landing); return }
       }
 
       // Free ou falha no checkout -> destino/dashboard.

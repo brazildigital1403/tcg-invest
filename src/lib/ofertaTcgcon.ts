@@ -23,12 +23,13 @@ export const OFERTA_TCGCON = {
   descontoPct: 30,
 } as const
 
-export type OfertaId = typeof OFERTA_TCGCON.id
+// ★ 17/10/2026: o tipo e o validador de oferta passaram a cobrir TODAS as
+// ofertas de evento (src/lib/ofertasEvento.ts). Este arquivo segue como a
+// regra da landing /tcgcon, que ja fechou.
+export type { OfertaEventoId as OfertaId } from './ofertasEvento'
+export { ehOfertaEvento as ehOfertaValida } from './ofertasEvento'
 
 export function ofertaTcgconAtiva(agora: number = Date.now()): boolean {
   return agora <= Date.parse(OFERTA_TCGCON.fimISO)
 }
 
-export function ehOfertaValida(v: unknown): v is OfertaId {
-  return v === OFERTA_TCGCON.id
-}

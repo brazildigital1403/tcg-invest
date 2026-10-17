@@ -144,7 +144,10 @@ export function trackFirstCardAdded(userId: string): void {
 /**
  * Dispara quando user clica em "Assinar Pro" — antes do redirect pro Stripe.
  */
-export function trackProUpgradeInitiated(plano: 'mensal' | 'anual'): void {
+// 17/10/2026: o Plus entrou nas ofertas de evento (Poke Fan Fest), entao o tipo
+// passou a cobrir os tres planos de usuario -- minha-conta e o AuthModal ja
+// mandavam 'plus' e o tsc reclamava desde sempre.
+export function trackProUpgradeInitiated(plano: 'mensal' | 'anual' | 'plus'): void {
   push('pro_upgrade_initiated', { plano })
 }
 
