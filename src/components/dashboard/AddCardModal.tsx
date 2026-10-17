@@ -233,13 +233,20 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) loadMore()
   }
 
+  // ★ Item 4, alvos separados. Tocar na carta era um toggle: a segunda vez
+  //   DESMARCAVA -- entao quem voltava pra conferir variante, idioma ou preco
+  //   de uma carta ja escolhida perdia a escolha sem perceber, e nao havia
+  //   como revisitar. Agora tocar na carta marca (se ainda nao estava) e abre
+  //   o preview; desmarcar e acao propria, no selo de check do cartao ou no X
+  //   do chip la em cima.
   function handleCardClick(card: any) {
     setPreview(card)
-    setSelectedCards(prev =>
-      prev.find(c => c.id === card.id)
-        ? prev.filter(c => c.id !== card.id)
-        : [...prev, card]
-    )
+    setSelectedCards(prev => prev.find(c => c.id === card.id) ? prev : [...prev, card])
+  }
+
+  function desmarcar(card: { id: string }) {
+    setSelectedCards(prev => prev.filter(c => c.id !== card.id))
+    if (preview?.id === card.id) setPreview(null)
   }
 
   function toggleSplit(id: string) {
@@ -554,7 +561,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                   <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '3px 6px 3px 10px', borderRadius: 100, fontWeight: 600, maxWidth: 140, flexShrink: 0 }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                     <button
-                      onClick={e => { e.stopPropagation(); setSelectedCards(prev => prev.filter(s => s.id !== c.id)); if (preview?.id === c.id) setPreview(null) }}
+                      onClick={e => { e.stopPropagation(); desmarcar(c) }}
                       style={{ background: 'rgba(245,158,11,0.2)', border: 'none', color: '#f59e0b', cursor: 'pointer', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, flexShrink: 0 }}
                     >
                       <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -621,10 +628,20 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
                       onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.18)' }}
                       onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = isPreviewed ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)' }}
                     >
+                      {/* O selo de check e o alvo de DESMARCAR: 36px de area
+                          (o desenho segue com 22) e stopPropagation pra nao
+                          cair no toque da carta, que agora so marca e abre. */}
                       {isSelected && (
-                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: '50%', background: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); desmarcar(card) }}
+                          aria-label={`Desmarcar ${card.name}`}
+                          title="Desmarcar"
+                          style={{ position: 'absolute', top: 1, right: 1, zIndex: 2, width: 36, height: 36, borderRadius: '50%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <span style={{ width: 22, height: 22, borderRadius: '50%', background: BRAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 10l4.5 4.5L16 6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </span>
+                        </button>
                       )}
 
                       {(() => {
