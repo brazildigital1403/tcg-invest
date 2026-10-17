@@ -22,21 +22,25 @@ import {
 } from '@/lib/ofertasEvento'
 import ARTES_LENDARIAS from '@/lib/paginas-lendarias-artes.json'
 import {
-  IconScan, IconCollection, IconStar, IconShield, IconClock, IconArrowRight,
-  IconLocation, IconChart, IconCard, IconMarketplace, IconDashboard,
+  IconStar, IconShield, IconClock, IconArrowRight, IconLocation, IconCard,
   IconImage, IconTag, IconDownload,
 } from '@/components/ui/Icons'
 
 const O = OFERTAS_EVENTO.pokefanfest
 
 // Hero mostra a Bynx inteira, sem eleger um recurso (pedido do Du na TCG CON).
+// 17/10: os seis boxes ganharam ilustracao ludica (pedido do Du: "esta sem
+// graca"). Imagens geradas por IA no estilo da casa (objeto unico, fundo da
+// Bynx, acento ambar->vermelho, sem Pokemon nem texto), fundo recortado para
+// PNG transparente em public/eventos/pokefanfest/. Icone outline continua
+// sendo o padrao do app; aqui e peca de campanha.
 const PILARES = [
-  { Icon: IconCollection, t: 'Coleção organizada', d: 'Cartas e pastas no seu ritmo' },
-  { Icon: IconChart, t: 'Preço em real', d: 'Quanto vale cada carta' },
-  { Icon: IconScan, t: 'ScanIA', d: 'Cataloga pela câmera' },
-  { Icon: IconMarketplace, t: 'Mercado', d: 'Anúncios e lojas parceiras' },
-  { Icon: IconStar, t: 'Master Sets', d: 'Todos liberados no Anual' },
-  { Icon: IconDashboard, t: 'Dashboard', d: 'Sua coleção em números' },
+  { img: '/eventos/pokefanfest/colecao.png', t: 'Coleção organizada', d: 'Cartas e pastas no seu ritmo' },
+  { img: '/eventos/pokefanfest/preco.png', t: 'Preço em real', d: 'Quanto vale cada carta' },
+  { img: '/eventos/pokefanfest/scan.png', t: 'ScanIA', d: 'Cataloga pela câmera' },
+  { img: '/eventos/pokefanfest/mercado.png', t: 'Mercado', d: 'Anúncios e lojas parceiras' },
+  { img: '/eventos/pokefanfest/sets.png', t: 'Master Sets', d: 'Todos liberados no Anual' },
+  { img: '/eventos/pokefanfest/dashboard.png', t: 'Dashboard', d: 'Sua coleção em números' },
 ]
 
 // As 5 cartas presentes em mais colecoes da Bynx (user_cards, usuarios distintos,
@@ -206,9 +210,9 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
                 <p className="pf-sub">Saiu do evento com cartas novas? Catalogue pela câmera, veja quanto vale cada uma em real e acompanhe o mercado brasileiro. {O.descontoPct}% na primeira cobrança, até domingo.</p>
 
                 <ul className="pf-pillars" aria-label="O que a Bynx faz">
-                  {PILARES.map(({ Icon, t, d }) => (
+                  {PILARES.map(({ img, t, d }) => (
                     <li key={t}>
-                      <span className="pf-ic"><Icon size={18} /></span>
+                      <span className="pf-pillar-art"><img src={img} alt="" width={84} height={84} loading="lazy" /></span>
                       <b>{t}</b>
                       <small>{d}</small>
                     </li>
@@ -420,9 +424,12 @@ const CSS = `
 .pf-fan-wrap figcaption{text-align:center;font-size:12px;color:var(--bx-text-3);margin-top:6px}
 
 .pf-pillars{list-style:none;margin:18px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.pf-pillars li{min-width:0;display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border)}
-.pf-pillars .pf-ic{width:32px;height:32px;border-radius:9px;margin-bottom:8px}
-.pf-pillars b{font-size:14px;font-weight:600;line-height:1.25}
+.pf-pillars li{min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:14px 12px 14px;border-radius:14px;background:var(--bx-surface);border:1px solid var(--bx-border);transition:transform .15s ease,border-color .15s ease,background .15s ease}
+.pf-pillars li:hover{transform:translateY(-2px);background:var(--bx-surface-2);border-color:var(--bx-border-2)}
+.pf-pillar-art{position:relative;display:grid;place-items:center;width:96px;height:96px;margin-bottom:6px}
+.pf-pillar-art::before{content:"";position:absolute;inset:10px;border-radius:50%;background:radial-gradient(circle,rgba(var(--ac-1-rgb),0.22),transparent 70%)}
+.pf-pillar-art img{position:relative;width:84px;height:84px;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(0,0,0,0.55))}
+.pf-pillars b{font-size:14px;font-weight:700;line-height:1.25}
 .pf-pillars small{font-size:12px;line-height:1.35;color:var(--bx-text-2)}
 @media (min-width:520px){.pf-pillars{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
