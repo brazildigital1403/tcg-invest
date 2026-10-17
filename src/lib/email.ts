@@ -59,6 +59,7 @@ function subjInterno(setor: 'Suporte' | 'Contato' | 'Sync' | 'Alerta' | 'Serviç
 }
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
 import { textoComLinksHtml } from './textoComLinks'
+import { ofertaEvento, precoComDesconto, brlOferta, PRECO_CHEIO, NOME_PLANO, type OfertaEventoId, type PlanoOferta } from './ofertasEvento'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 const FONT = "font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
@@ -3282,5 +3283,48 @@ export async function sendReembolsoCompradorEmail(args: {
     to: args.to,
     subject: subjUser(`↩️ Reembolso: ${args.itemNome}`),
     html,
+  })
+}
+
+// ── Cupom de oferta de evento ("Me lembra do código") ────────────────────────
+//
+// Quem esta no evento clica no anuncio e nao fecha na hora. A landing pede o
+// e-mail e este envio entrega o codigo para usar ate o prazo. Transacional e
+// unico: a pessoa pediu agora, nao e lista. Sem emoji (regra de campanha).
+
+export async function sendCupomEventoEmail(args: { to: string; oferta: OfertaEventoId }) {
+  const ofe = ofertaEvento(args.oferta)
+  const pct = ofe.descontoPct
+  const linhaPlano = (plano: PlanoOferta) => {
+    const periodo = plano === 'anual' ? 'no 1º ano' : 'no 1º mês'
+    return `<tr><td style="padding:6px 0;font-size:13px;color:rgba(255,255,255,0.75);${FONT}">${escapeHtml(NOME_PLANO[plano])}</td><td align="right" style="padding:6px 0;font-size:13px;${FONT}"><s style="color:rgba(255,255,255,0.35);">R$ ${brlOferta(PRECO_CHEIO[plano])}</s>&nbsp; <strong style="color:#f0f0f0;">R$ ${brlOferta(precoComDesconto(PRECO_CHEIO[plano], pct))}</strong> <span style="color:rgba(255,255,255,0.45);">${periodo}</span></td></tr>`
+  }
+  const landing = addUtm(`${APP_URL}${ofe.landing}`, `${ofe.id}-lembrete`, 'cta-button')
+  const html = baseLayout(`
+    ${badge(`Oferta ${escapeHtml(ofe.evento)} · ${escapeHtml(ofe.cidade)}`, '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:12px;"></div>
+    ${h1(`Seu código: ${escapeHtml(ofe.codigo)}`)}
+    ${p(`Você pediu para a gente lembrar. Este código dá <strong style="color:#f0f0f0;">${pct}% de desconto na primeira cobrança</strong> de qualquer plano, e vale até <strong style="color:#f0f0f0;">${escapeHtml(ofe.fechaTexto)}</strong>, horário de Brasília.`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 8px;">
+      <tr><td align="center" bgcolor="#1a1c24" style="background-color:#1a1c24;border:1px dashed rgba(245,158,11,0.6);border-radius:12px;padding:18px 16px;">
+        <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#f59e0b;${FONT}">Código do cupom</span>
+        <span style="display:block;margin-top:6px;font-size:28px;font-weight:800;letter-spacing:0.12em;color:#f0f0f0;${FONT}">${escapeHtml(ofe.codigo)}</span>
+      </td></tr>
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 0;">
+      ${ofe.planos.map(linhaPlano).join('')}
+    </table>
+    ${divider()}
+    ${p('<strong style="color:#f0f0f0;">Como usar</strong>')}
+    ${p('1. Abra a página da oferta pelo botão abaixo e crie sua conta.<br/>2. Escolha o plano. O desconto entra sozinho no pagamento.<br/>3. Se preferir assinar pela página de planos, digite o código no campo de cupom na hora de pagar.')}
+    ${btn('Garantir meu desconto', landing)}
+    ${p('Oferta para quem nunca assinou a Bynx, uma por conta. Depois da primeira cobrança o plano renova pelo valor cheio, e você cancela quando quiser. Você tem 7 dias para desistir e receber 100% de volta.', 'font-size:12px;color:rgba(255,255,255,0.4);margin-top:20px;')}
+  `, `Código ${ofe.codigo}: ${pct}% em qualquer plano até ${ofe.fechaTexto}.`,
+  '<br/>Você recebeu este e-mail porque pediu o código na página da oferta. É um envio único, sem lista.')
+
+  return enviar({
+    template: 'cupom-evento', from: FROM, to: args.to,
+    subject: subjUser(`Seu código ${ofe.codigo}: ${pct}% em qualquer plano`),
+    html, categoria: 'transacional', campanha: ofe.id,
   })
 }

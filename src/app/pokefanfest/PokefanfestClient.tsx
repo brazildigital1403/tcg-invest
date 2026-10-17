@@ -98,6 +98,9 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [copiado, setCopiado] = useState(false)
+  const [lembEmail, setLembEmail] = useState('')
+  const [lembStatus, setLembStatus] = useState<'idle' | 'enviando' | 'ok' | 'erro'>('idle')
+  const [lembMsg, setLembMsg] = useState('')
 
   useEffect(() => {
     setAgora(Date.now())
@@ -146,6 +149,34 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
       setCopiado(true)
       setTimeout(() => setCopiado(false), 2000)
     } catch { /* clipboard bloqueado: o codigo continua visivel na tela */ }
+  }
+
+  // "Me lembra do código": captura o e-mail de quem nao fecha agora. Na TCG
+  // CON (59 visitas, 0 cadastro) quem saiu da pagina sumiu para sempre.
+  async function lembrar(e: React.FormEvent) {
+    e.preventDefault()
+    if (lembStatus === 'enviando' || lembStatus === 'ok') return
+    setLembStatus('enviando')
+    setLembMsg('')
+    try {
+      const res = await fetch('/api/eventos/lembrete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oferta: O.id, email: lembEmail }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setLembStatus('ok')
+        setLembMsg('Enviado. O código está na sua caixa de entrada e vale até domingo, 23h59.')
+        return
+      }
+      if (res.status === 410) { setEncerradaServidor(true); return }
+      setLembStatus('erro')
+      setLembMsg(d.error || 'Não conseguimos enviar. Tente de novo em instantes.')
+    } catch {
+      setLembStatus('erro')
+      setLembMsg('Sem conexão com o servidor. Confira o sinal e tente de novo.')
+    }
   }
 
   return (
@@ -265,6 +296,29 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
                       <span>{copiado ? 'Copiado' : 'Copiar'}</span>
                     </button>
                   </div>
+
+                  <form className="pf-lemb" onSubmit={lembrar} noValidate>
+                    <label htmlFor="pf-lemb-email">Ou receba o código por e-mail para usar depois</label>
+                    <div className="pf-lemb-row">
+                      <input
+                        id="pf-lemb-email"
+                        type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        placeholder="seu@email.com"
+                        value={lembEmail}
+                        onChange={e => { setLembEmail(e.target.value); if (lembStatus === 'erro') { setLembStatus('idle'); setLembMsg('') } }}
+                        disabled={lembStatus === 'ok'}
+                        required
+                      />
+                      <button type="submit" className="pf-lemb-b" disabled={lembStatus === 'enviando' || lembStatus === 'ok'}>
+                        {lembStatus === 'enviando' ? 'Enviando...' : lembStatus === 'ok' ? 'Enviado' : 'Me lembra'}
+                      </button>
+                    </div>
+                    {lembMsg && (
+                      <p className={lembStatus === 'erro' ? 'pf-erro pf-erro-l' : 'pf-lemb-ok'} role="status">{lembMsg}</p>
+                    )}
+                  </form>
                 </div>
               </section>
 
@@ -454,7 +508,7 @@ const CSS = `
 .pf-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;margin-top:16px;border:0;border-radius:12px;background:var(--ac-grad);color:var(--bx-brand-ink);font:inherit;font-weight:700;font-size:16px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
 .pf-cta:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 28px rgba(var(--ac-2-rgb),.35)}
 .pf-cta:disabled{opacity:.7;cursor:progress}
-.pf-cta:focus-visible,.pf-code-b:focus-visible,.pf-ghost:focus-visible,.pf-login button:focus-visible,.pf-plan:focus-visible{outline:2px solid var(--bx-text);outline-offset:3px}
+.pf-cta:focus-visible,.pf-code-b:focus-visible,.pf-lemb-b:focus-visible,.pf-ghost:focus-visible,.pf-login button:focus-visible,.pf-plan:focus-visible{outline:2px solid var(--bx-text);outline-offset:3px}
 .pf-cta-flat{margin-top:0}
 .pf-erro{margin:10px 0 0;font-size:13px;line-height:1.45;color:var(--bx-red);text-align:center}
 .pf-assure{display:flex;justify-content:center;gap:6px;align-items:center;margin-top:10px;font-size:12.5px;color:var(--bx-text-2);text-align:center}
@@ -467,6 +521,19 @@ const CSS = `
 .pf-code-b:hover{background:rgba(var(--ac-1-rgb),0.14)}
 .pf-code-b b{font-size:15px;letter-spacing:.06em}
 .pf-code-b span{font-size:11px;color:var(--ac-1);font-weight:600}
+
+.pf-lemb{margin-top:14px;padding-top:14px;border-top:1px dashed var(--bx-border-2)}
+.pf-lemb label{display:block;font-size:13px;font-weight:600;margin-bottom:8px}
+.pf-lemb-row{display:flex;gap:8px}
+.pf-lemb input{flex:1;min-width:0;min-height:48px;padding:0 14px;border-radius:10px;border:1px solid var(--bx-border-2);background:var(--bx-surface);color:var(--bx-text);font:inherit;font-size:16px;transition:border-color .15s ease}
+.pf-lemb input::placeholder{color:var(--bx-text-3)}
+.pf-lemb input:focus{outline:none;border-color:rgba(var(--ac-1-rgb),.8)}
+.pf-lemb input:disabled{opacity:.6}
+.pf-lemb-b{flex-shrink:0;min-height:48px;padding:0 16px;border-radius:10px;border:1px solid rgba(var(--ac-1-rgb),.55);background:rgba(var(--ac-1-rgb),.08);color:var(--bx-text);font:inherit;font-weight:600;font-size:14px;cursor:pointer;transition:background .15s ease}
+.pf-lemb-b:hover:not(:disabled){background:rgba(var(--ac-1-rgb),.14)}
+.pf-lemb-b:disabled{opacity:.7;cursor:default}
+.pf-lemb-ok{margin:10px 0 0;font-size:13px;line-height:1.45;color:var(--bx-green)}
+.pf-erro-l{text-align:left}
 
 .pf-sec{padding-top:28px}
 .pf-sec h2{font-size:17px;font-weight:700;margin:0 0 12px;letter-spacing:-0.01em}
