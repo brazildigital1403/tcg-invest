@@ -180,9 +180,10 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
           <main className="bx-gutter">
             <div className="pf-wrap">
               <section className="pf-hero">
-                <span className="pf-eyebrow"><IconLocation size={13} />Para quem está na {O.eventoCurto} este fim de semana</span>
-                <h1 className="pf-h">Metade do preço <span>em qualquer plano.</span></h1>
-                <p className="pf-sub">Saiu do evento com cartas novas? Catalogue pela câmera, veja quanto vale cada uma em real e acompanhe o mercado brasileiro. {O.descontoPct}% na primeira cobrança, até domingo.</p>
+                <div className="pf-hero-head">
+                  <span className="pf-eyebrow"><IconLocation size={13} />Para quem está na {O.eventoCurto} este fim de semana</span>
+                  <h1 className="pf-h">Metade do preço <span>em qualquer plano.</span></h1>
+                </div>
 
                 <figure className="pf-fan-wrap">
                   <div className="pf-fan">
@@ -201,6 +202,8 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
                   </div>
                   <figcaption>As cartas mais colecionadas na Bynx</figcaption>
                 </figure>
+
+                <p className="pf-sub">Saiu do evento com cartas novas? Catalogue pela câmera, veja quanto vale cada uma em real e acompanhe o mercado brasileiro. {O.descontoPct}% na primeira cobrança, até domingo.</p>
 
                 <ul className="pf-pillars" aria-label="O que a Bynx faz">
                   {PILARES.map(({ Icon, t, d }) => (
@@ -266,6 +269,10 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
 
                 <div className="pf-prevs">
                   <article className="pf-prev">
+                    <div className="pf-prev-txt">
+                      <span className="pf-ic"><IconStar size={18} /></span>
+                      <p>Todos os Master Sets<small>Veja carta a carta o que falta para fechar cada set. Avulso, cada um é pago.</small></p>
+                    </div>
                     <div className="pf-prev-vis" role="img" aria-label="Prévia da tela de Master Sets">
                       <div className="pf-ms">
                         {SETS_PREVIA.map(s => {
@@ -285,13 +292,13 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
                         })}
                       </div>
                     </div>
-                    <div className="pf-prev-txt">
-                      <span className="pf-ic"><IconStar size={18} /></span>
-                      <p>Todos os Master Sets<small>Veja carta a carta o que falta para fechar cada set. Avulso, cada um é pago.</small></p>
-                    </div>
                   </article>
 
                   <article className="pf-prev">
+                    <div className="pf-prev-txt">
+                      <span className="pf-ic"><IconImage size={18} /></span>
+                      <p>Todas as Páginas Lendárias<small>A arte da carta se estende pela página inteira do fichário. Avulso, cada uma é paga.</small></p>
+                    </div>
                     <div className="pf-prev-vis" role="img" aria-label="Prévia de uma Página Lendária do Meowth">
                       <div className="pf-pl">
                         {PAGINA_ARTE && (
@@ -306,13 +313,13 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
                         </div>
                       </div>
                     </div>
-                    <div className="pf-prev-txt">
-                      <span className="pf-ic"><IconImage size={18} /></span>
-                      <p>Todas as Páginas Lendárias<small>A arte da carta se estende pela página inteira do fichário. Avulso, cada uma é paga.</small></p>
-                    </div>
                   </article>
 
                   <article className="pf-prev">
+                    <div className="pf-prev-txt">
+                      <span className="pf-ic"><IconTag size={18} /></span>
+                      <p>Separadores liberados<small>No tamanho exato da carta, prontos para imprimir e organizar suas pastas.</small></p>
+                    </div>
                     <div className="pf-prev-vis" role="img" aria-label="Prévia dos Separadores de fichário">
                       <div className="pf-sep">
                         {SEPARADORES_PREVIA.map(p => (
@@ -329,10 +336,6 @@ export default function PokefanfestClient({ colecionadores, cartas }: { colecion
                           </div>
                         ))}
                       </div>
-                    </div>
-                    <div className="pf-prev-txt">
-                      <span className="pf-ic"><IconTag size={18} /></span>
-                      <p>Separadores liberados<small>No tamanho exato da carta, prontos para imprimir e organizar suas pastas.</small></p>
                     </div>
                   </article>
                 </div>
@@ -399,12 +402,13 @@ const CSS = `
 .pf-timer b{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ac-1);letter-spacing:.02em}
 
 .pf-hero{padding:22px 0 0;background:var(--bx-hero-wash)}
+.pf-hero-head{display:flex;flex-direction:column;align-items:center;text-align:center}
 .pf-eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ac-1);background:rgba(var(--ac-1-rgb),0.10);border:1px solid rgba(var(--ac-1-rgb),0.25);padding:5px 10px;border-radius:999px}
-.pf-h{font-size:clamp(30px,8vw,40px);line-height:1.08;font-weight:800;letter-spacing:-0.03em;margin:14px 0 10px;text-wrap:balance}
+.pf-h{font-size:clamp(30px,8vw,40px);line-height:1.08;font-weight:800;letter-spacing:-0.03em;margin:14px 0 0;text-wrap:balance;text-align:center}
 .pf-h span{background:var(--ac-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.pf-sub{font-size:15px;line-height:1.5;color:var(--bx-text-2);margin:0}
+.pf-sub{font-size:15px;line-height:1.5;color:var(--bx-text-2);margin:14px 0 0;text-align:center}
 
-.pf-fan-wrap{margin:22px 0 0}
+.pf-fan-wrap{margin:16px 0 0}
 .pf-fan{position:relative;height:178px;background:radial-gradient(60% 70% at 50% 60%,rgba(var(--ac-1-rgb),0.16),transparent 70%)}
 .pf-fan-card{position:absolute;top:22px;left:50%;border-radius:6px;overflow:hidden;box-shadow:0 12px 28px rgba(0,0,0,0.55);line-height:0}
 .pf-fan-card img{display:block;width:100%;height:auto}
@@ -469,7 +473,7 @@ const CSS = `
 
 .pf-prevs{display:grid;gap:10px}
 .pf-prev{border-radius:16px;border:1px solid var(--bx-border);background:var(--bx-surface);overflow:hidden}
-.pf-prev-vis{position:relative;padding:16px 12px;background:var(--bx-bg-elev);border-bottom:1px solid var(--bx-border);display:flex;justify-content:center;overflow:hidden}
+.pf-prev-vis{position:relative;padding:16px 12px;background:var(--bx-bg-elev);border-top:1px solid var(--bx-border);display:flex;justify-content:center;overflow:hidden}
 .pf-prev-txt{display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;align-items:center;padding:12px}
 
 .pf-ms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}
