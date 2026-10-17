@@ -44,7 +44,7 @@ const CARD_FIELDS =
   'preco_pokeball_min, preco_pokeball_medio, preco_pokeball_max, ' +
   'price_usd_normal, price_usd_holofoil, price_usd_reverse, ' +
   'price_eur_normal, price_eur_holofoil, ' +
-  'outras_variantes, ' +
+  'outras_variantes, idioma, ' +
   'ultima_venda_cents, ultima_venda_variante, ultima_venda_condicao, ultima_venda_idioma, ultima_venda_atualizado_em'
 
 const MAX_VALUES = 5000   // teto total de valores aceitos por request
