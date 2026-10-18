@@ -115,9 +115,17 @@ async function avisarMetas(
   if (!carta) return 0
 
   const nomes: string[] = Array.isArray(carta.base_pokemon_names) ? carta.base_pokemon_names : []
+  // Meta de set usa a composicao do master set (master_sets.extra_set_ids,
+  // 17/10/2026): uma energia do 30c-e conta na meta de alvo "30c", entao o
+  // aviso tem que achar essa meta tambem, nao so a do set_id da carta.
+  let alvosSet: string[] = carta.set_id ? [carta.set_id] : []
+  if (carta.set_id) {
+    const { data: pais } = await sb.from('master_sets').select('set_id').contains('extra_set_ids', [carta.set_id])
+    for (const p of pais || []) if (p.set_id && !alvosSet.includes(p.set_id)) alvosSet.push(p.set_id)
+  }
   const [porSet, porPokemon] = await Promise.all([
-    carta.set_id
-      ? sb.from('metas_colecao').select('id, user_id, tipo, alvo, regiao, idioma').eq('tipo', 'set').eq('alvo', carta.set_id).is('concluida_em', null)
+    alvosSet.length
+      ? sb.from('metas_colecao').select('id, user_id, tipo, alvo, regiao, idioma').eq('tipo', 'set').in('alvo', alvosSet).is('concluida_em', null)
       : Promise.resolve({ data: [] as any[] }),
     nomes.length
       ? sb.from('metas_colecao').select('id, user_id, tipo, alvo, regiao, idioma').eq('tipo', 'pokemon').in('alvo', nomes).is('concluida_em', null)
@@ -144,8 +152,9 @@ async function avisarMetas(
   // Nome da colecao para o aviso dizer QUAL meta (quem tem duas metas de set
   // recebia "sua meta de colecao" e nao sabia de qual).
   let nomeSet: string | null = null
-  if (metas.some(m => m.tipo === 'set') && carta.set_id) {
-    const { data: s } = await sb.from('pokemon_sets').select('name, name_pt').eq('id', carta.set_id).maybeSingle()
+  const alvoDaMeta = metas.find(m => m.tipo === 'set')?.alvo as string | undefined
+  if (alvoDaMeta) {
+    const { data: s } = await sb.from('pokemon_sets').select('name, name_pt').eq('id', alvoDaMeta).maybeSingle()
     nomeSet = (s as { name?: string; name_pt?: string | null } | null)?.name_pt || (s as { name?: string } | null)?.name || null
   }
 

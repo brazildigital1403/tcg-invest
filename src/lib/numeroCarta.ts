@@ -18,7 +18,10 @@ export function totalNoFormatoDoNumero(numero: string, total: number | string): 
 }
 
 export function numeroSobreTotal(numero: string | number, total: number | string | null | undefined): string {
-  const n = String(numero)
+  // Sets JP importados guardam "112JP" no number: o sufixo e a chave que o
+  // scan usa para casar a carta e NAO sai do banco (18/10/2026). A carta
+  // imprime "112/086", entao a tela ignora o sufixo.
+  const n = String(numero).replace(/JP$/i, '')
   if (total === null || total === undefined || total === '') return n
   return `${n}/${totalNoFormatoDoNumero(n, total)}`
 }
