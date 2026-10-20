@@ -430,9 +430,19 @@ export function erroDoAbrir(msg: string): { status: number; mensagem: string } {
   if (msg.includes('nao_e_leilao')) return { status: 409, mensagem: 'A reclamação por aqui vale só para pedidos de leilão.' }
   if (msg.includes('status_invalido')) return { status: 409, mensagem: 'Este pedido não está em um estado que permita reclamação.' }
   if (msg.includes('prazo_encerrado')) return { status: 409, mensagem: `O prazo de ${DIAS_RECLAMAR} dias depois da entrega já terminou.` }
-  if (msg.includes('ja_existe')) return { status: 409, mensagem: 'Já existe uma reclamação ou desistência aberta para este pedido.' }
+  if (msg.includes('ja_existe')) return { status: 409, mensagem: 'Este pedido já tem uma reclamação ou desistência. Cada pedido aceita uma só.' }
   if (msg.includes('em_disputa')) return { status: 409, mensagem: MSG_EM_DISPUTA }
   if (msg.includes('motivo_invalido')) return { status: 400, mensagem: 'Escolha o motivo da reclamação.' }
   if (msg.includes('prazo_invalido')) return { status: 500, mensagem: 'Não foi possível registrar a desistência.' }
   return { status: 500, mensagem: 'Não foi possível registrar a reclamação.' }
+}
+
+/**
+ * O pedido ja teve reclamacao ou desistencia, aberta ou encerrada (uma por
+ * pedido, 20/10). O banco garante o mesmo no gatilho
+ * pedido_reclamacoes_uma_por_pedido; isto aqui so da a mensagem certa antes.
+ */
+export async function teveOcorrencia(sb: SupabaseClient, pedidoId: string): Promise<boolean> {
+  const { count } = await sb.from('pedido_reclamacoes').select('id', { count: 'exact', head: true }).eq('pedido_id', pedidoId)
+  return (count ?? 0) > 0
 }

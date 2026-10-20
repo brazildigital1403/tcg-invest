@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { podeDesistir, prazoPostagem, fmtPrazo, DESCRICAO_ARREPENDIMENTO, DIAS_RECLAMAR } from '@/lib/leilao-reclamacao'
+import { podeDesistir, prazoPostagem, fmtPrazo, DESCRICAO_ARREPENDIMENTO, DIAS_RECLAMAR, MSG_UMA_OCORRENCIA } from '@/lib/leilao-reclamacao'
 import {
   SEM_CACHE, UUID_RE, MSG_EM_DISPUTA, sbServico, usuarioDoBearer, carregarPedido, ehPedidoDeLeilao,
-  cancelarPagoComEstorno, erroDoAbrir, sino, emailSeguro, contato, nomeDaLoja,
+  cancelarPagoComEstorno, erroDoAbrir, sino, emailSeguro, contato, nomeDaLoja, teveOcorrencia,
 } from '@/lib/reclamacaoServer'
 import { renderArrependimentoEmail } from '@/lib/email'
 
@@ -77,10 +77,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const pedido = await carregarPedido(sb, pedidoId)
     if (!pedido || pedido.comprador_user_id !== userId) return json(404, { error: 'Pedido não encontrado.' })
     const ehLeilao = await ehPedidoDeLeilao(sb, pedido)
-    const pode = podeDesistir({ ...pedido, ehLeilao }, Date.now())
+    const pode = podeDesistir({ ...pedido, ehLeilao, teve_ocorrencia: await teveOcorrencia(sb, pedido.id) }, Date.now())
     if (!pode.pode) {
       const msg = pode.motivo === 'prazo_encerrado' ? `O prazo de ${DIAS_RECLAMAR} dias depois da entrega já terminou.`
         : pode.motivo === 'ja_aberta' ? 'Já existe uma reclamação ou desistência aberta para este pedido.'
+        : pode.motivo === 'ja_teve' ? MSG_UMA_OCORRENCIA
         : pode.motivo === 'em_disputa' ? MSG_EM_DISPUTA
         : pode.motivo === 'nao_e_leilao' ? 'A desistência por aqui vale só para pedidos de leilão.'
         : 'Este pedido não está em um estado que permita desistência.'

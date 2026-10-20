@@ -527,6 +527,21 @@ try {
     assert.equal(R.validarContestacao({ tipo: 'dano', texto: 'curto' }).ok, false)
   }, 'desistencia contestada: improcedente so na troca, destino e video (#501)')
 
+  ok(() => {
+    const agora = Date.parse('2026-10-20T12:00:00Z')
+    const p = { status: 'entregue', ehLeilao: true, entregue_em: '2026-10-18T12:00:00Z' }
+    assert.equal(R.podeReclamar(p, agora).pode, true)
+    assert.equal(R.podeDesistir(p, agora).pode, true)
+    // encerrada nao reabre: nem reclamar, nem desistir
+    assert.deepEqual(R.podeReclamar({ ...p, teve_ocorrencia: true }, agora), { pode: false, motivo: 'ja_teve' })
+    assert.deepEqual(R.podeDesistir({ ...p, teve_ocorrencia: true }, agora), { pode: false, motivo: 'ja_teve' })
+    // aberta continua dizendo 'ja_aberta'
+    assert.deepEqual(R.podeReclamar({ ...p, teve_ocorrencia: true, reclamacao_aberta: true }, agora), { pode: false, motivo: 'ja_aberta' })
+    assert.deepEqual(R.podeDesistir({ ...p, teve_ocorrencia: true, reclamacao_aberta: true }, agora), { pode: false, motivo: 'ja_aberta' })
+    // antes do envio tambem trava
+    assert.equal(R.podeDesistir({ status: 'pago', ehLeilao: true, teve_ocorrencia: true }, agora).pode, false)
+  }, 'uma ocorrencia por pedido (encerrada nao reabre)')
+
   console.log(`\n${n} blocos ok`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

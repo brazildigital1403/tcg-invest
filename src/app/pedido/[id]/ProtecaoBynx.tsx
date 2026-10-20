@@ -198,7 +198,9 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   // 'cancelando': uma tentativa de cancelamento por atraso caiu no meio. O
   // card segue como pago para o comprador poder repetir (o estorno e reaproveitado).
   const emCancelamento = pedido.status === 'cancelando'
-  const base = { ...pedido, status: emCancelamento ? 'pago' : pedido.status, ehLeilao: true }
+  // Uma ocorrencia por pedido (20/10): com qualquer reclamacao ou desistencia
+  // na lista, aberta ou encerrada, nao ha "Precisa de ajuda?" de novo.
+  const base = { ...pedido, status: emCancelamento ? 'pago' : pedido.status, ehLeilao: true, teve_ocorrencia: recls.length > 0 }
   const pode = podeReclamar(base, agora)
   const cancelar = podeCancelarPorAtraso(base, agora)
   const limiteEnvio = prazoEnvio(base)

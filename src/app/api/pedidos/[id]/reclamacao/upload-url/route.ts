@@ -3,7 +3,7 @@ import { LEILAO_ATIVO } from '@/lib/leilao-flag'
 import { SLOTS_FOTO, podeReclamar, type SlotFoto } from '@/lib/leilao-reclamacao'
 import {
   BUCKET_RECLAMACOES, SEM_CACHE, UUID_RE, sbServico, usuarioDoBearer, carregarPedido, ehPedidoDeLeilao,
-  caminhoFoto, mimeValido,
+  caminhoFoto, mimeValido, teveOcorrencia,
 } from '@/lib/reclamacaoServer'
 
 /**
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const pedido = await carregarPedido(sb, pedidoId)
     if (!pedido || pedido.comprador_user_id !== userId) return json(404, { error: 'Pedido não encontrado.' })
     const ehLeilao = await ehPedidoDeLeilao(sb, pedido)
-    const pode = podeReclamar({ ...pedido, ehLeilao }, Date.now())
+    const pode = podeReclamar({ ...pedido, ehLeilao, teve_ocorrencia: await teveOcorrencia(sb, pedido.id) }, Date.now())
     if (!pode.pode) return json(409, { error: 'Este pedido não aceita reclamação agora.' })
 
     const { data: reservou, error: rErr } = await sb.rpc('pedido_reclamacao_reservar_upload', {

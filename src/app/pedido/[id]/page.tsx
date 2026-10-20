@@ -338,7 +338,8 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
     : canceladoSemCobranca(pedido)
       ? 'O pagamento não foi concluído a tempo, então o pedido foi cancelado. Nada foi cobrado.'
       : 'Este pedido foi cancelado. Se tiver dúvida, fale com a loja.'
-  const protecaoAte = pedido.leilao_id && pedido.status === 'entregue'
+  // Uma ocorrencia por pedido: depois dela a faixa nao oferece reclamar/desistir.
+  const protecaoAte = pedido.leilao_id && pedido.status === 'entregue' && !ocorrencia
     ? prazoReclamacao({ status: 'entregue', ehLeilao: true, entregue_em: pedido.entregue_em, prazo_reclamacao_ate: pedido.prazo_reclamacao_ate })
     : null
 

@@ -205,6 +205,8 @@ export interface PedidoPrazo {
   prazo_reclamacao_ate?: string | null
   reclamacao_aberta?: boolean | null
   aviso_recebimento_em?: string | null
+  /** O pedido ja teve reclamacao ou desistencia (aberta ou encerrada). Uma por pedido (20/10). */
+  teve_ocorrencia?: boolean | null
 }
 
 /** Ate quando da para reclamar de um pedido entregue (null se nao entregue). */
@@ -216,11 +218,14 @@ export function prazoReclamacao(p: PedidoPrazo): Date | null {
 
 export type PodeReclamar =
   | { pode: true; ate: Date | null }
-  | { pode: false; motivo: 'nao_e_leilao' | 'status' | 'prazo_encerrado' | 'ja_aberta' }
+  | { pode: false; motivo: 'nao_e_leilao' | 'status' | 'prazo_encerrado' | 'ja_aberta' | 'ja_teve' }
 
 export function podeReclamar(p: PedidoPrazo, agora: number): PodeReclamar {
   if (!p.ehLeilao) return { pode: false, motivo: 'nao_e_leilao' }
   if (p.reclamacao_aberta) return { pode: false, motivo: 'ja_aberta' }
+  // Uma ocorrencia por pedido (decisao do Du, 20/10): encerrada nao reabre,
+  // senao o comprador desiste de novo depois de um parcial ou improcedente.
+  if (p.teve_ocorrencia) return { pode: false, motivo: 'ja_teve' }
   if (p.status === 'enviado') return { pode: true, ate: null }
   if (p.status !== 'entregue') return { pode: false, motivo: 'status' }
   const ate = prazoReclamacao(p)
@@ -262,7 +267,7 @@ export function acaoRecebimento(p: PedidoPrazo, agora: number): 'fechar' | 'avis
 export type PodeDesistir =
   | { pode: true; modo: 'antes_do_envio'; ate: null }
   | { pode: true; modo: 'devolucao'; ate: Date | null }
-  | { pode: false; motivo: 'nao_e_leilao' | 'status' | 'prazo_encerrado' | 'ja_aberta' | 'em_disputa' }
+  | { pode: false; motivo: 'nao_e_leilao' | 'status' | 'prazo_encerrado' | 'ja_aberta' | 'ja_teve' | 'em_disputa' }
 
 /**
  * Comprador pode desistir? Pago = antes do envio, estorno na hora. Enviado ou
@@ -273,6 +278,7 @@ export type PodeDesistir =
 export function podeDesistir(p: PedidoPrazo & { em_disputa?: boolean | null }, agora: number): PodeDesistir {
   if (!p.ehLeilao) return { pode: false, motivo: 'nao_e_leilao' }
   if (p.em_disputa) return { pode: false, motivo: 'em_disputa' }
+  if (p.teve_ocorrencia) return { pode: false, motivo: p.reclamacao_aberta ? 'ja_aberta' : 'ja_teve' }
   if (p.status === 'pago' || p.status === 'cancelando') return { pode: true, modo: 'antes_do_envio', ate: null }
   const r = podeReclamar(p, agora)
   if (!r.pode) return { pode: false, motivo: r.motivo }
@@ -565,6 +571,9 @@ export function validarContestacao(b: { tipo?: unknown; texto?: unknown; video_u
   if (b.tipo === 'troca' && !video) return { ok: false, erro: 'Para contestar troca, envie o link do vídeo da abertura do pacote.' }
   return { ok: true, tipo: b.tipo, texto, video }
 }
+
+/** Texto para quem tenta abrir a segunda ocorrencia do pedido. */
+export const MSG_UMA_OCORRENCIA = 'Este pedido já teve uma reclamação ou desistência. Cada pedido aceita uma só.'
 
 export function validarVideoUrl(v: unknown): string | null | false {
   if (v == null) return null
