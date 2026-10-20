@@ -32,7 +32,7 @@ export const COLUNAS_RECLAMACAO =
   'resposta_loja, contraproposta_cents, respondida_em, prazo_loja_ate, prazo_decisao_ate, decisao, ' +
   'decisao_nota, valor_estornado_cents, stripe_refund_id, decidido_por, decidido_em, created_at, updated_at, ' +
   'postar_ate, devolucao_rastreio, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestacao, ' +
-  'contestacao_video_url, contestada_em'
+  'contestacao_video_url, contestada_em, contestacao_tipo, destino_carta'
 
 export interface PedidoRecl {
   id: string

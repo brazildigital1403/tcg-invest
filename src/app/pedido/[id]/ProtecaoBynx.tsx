@@ -10,7 +10,7 @@ import {
   IconChevronDown, IconChevronRight,
 } from '@/components/ui/Icons'
 import {
-  MOTIVOS, LISTA_MOTIVOS, SLOTS_FOTO, ROTULO_SLOT, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES,
+  MOTIVOS, LISTA_MOTIVOS, type DestinoCarta, SLOTS_FOTO, ROTULO_SLOT, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES,
   ROTULO_BOTAO_PROBLEMA, TEXTO_PROTECAO, DIAS_UTEIS_ENVIO, DIAS_POSTAR_DEVOLUCAO, motivoExigeFoto, podeReclamar,
   podeCancelarPorAtraso, podeDesistir, podeInformarPostagem, validarRastreio, prazoEnvio,
   fmtPrazo, type MotivoReclamacao, type SlotFoto, type StatusReclamacao, type RespostaLoja, type Decisao,
@@ -65,6 +65,7 @@ interface Reclamacao {
   prazo_decisao_ate: string | null
   decisao: Decisao | null
   decisao_nota: string | null
+  destino_carta: DestinoCarta | null
   valor_estornado_cents: number
   created_at: string
   postar_ate: string | null
@@ -159,7 +160,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
   const carregar = useCallback(async () => {
     const { data } = await supabase
       .from('pedido_reclamacoes')
-      .select('id, motivo, descricao, status, resposta_tipo, resposta_loja, contraproposta_cents, prazo_loja_ate, prazo_decisao_ate, decisao, decisao_nota, valor_estornado_cents, created_at, postar_ate, devolucao_rastreio, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em')
+      .select('id, motivo, descricao, status, resposta_tipo, resposta_loja, contraproposta_cents, prazo_loja_ate, prazo_decisao_ate, decisao, decisao_nota, valor_estornado_cents, created_at, postar_ate, devolucao_rastreio, devolucao_postada_em, devolucao_entregue_em, contestar_ate, contestada_em, destino_carta')
       .eq('pedido_id', pedido.id)
       .order('created_at', { ascending: false })
       .limit(5)
@@ -398,6 +399,11 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
             {(atual.status === 'resolvida' || atual.status === 'improcedente') && (
               <div className="pb-quadro">
                 {atual.valor_estornado_cents > 0 ? <div>Estornado <b>{fmtBRL(atual.valor_estornado_cents)}</b></div> : null}
+                {atual.destino_carta && (
+                  <div className="pb-cit">{atual.destino_carta === 'devolver_comprador'
+                    ? 'A loja devolve o que chegou para você, com o frete por sua conta.'
+                    : 'O que chegou fica retido com a loja como prova.'}</div>
+                )}
                 {atual.decisao_nota && <div className="pb-cit">{atual.decisao_nota}</div>}
               </div>
             )}

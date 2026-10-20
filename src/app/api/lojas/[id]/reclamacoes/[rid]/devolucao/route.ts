@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { lojaPodeContestar, validarVideoUrl, somarDiasUteis, fmtPrazo, DIAS_UTEIS_DECISAO } from '@/lib/leilao-reclamacao'
+import { lojaPodeContestar, validarContestacao, somarDiasUteis, fmtPrazo, DIAS_UTEIS_DECISAO } from '@/lib/leilao-reclamacao'
 import {
   SEM_CACHE, UUID_RE, carregarPedido, concluirDevolucao, sino, emailSeguro, contato,
 } from '@/lib/reclamacaoServer'
@@ -10,7 +10,9 @@ import { renderArrependimentoEmail } from '@/lib/email'
 /**
  * POST /api/lojas/[id]/reclamacoes/[rid]/devolucao
  *   { acao: 'liberar' }                              a carta voltou certa: estorna agora
- *   { acao: 'contestar', texto, video_url? }         voltou trocada ou danificada
+ *   { acao: 'contestar', tipo, texto, video_url? }   voltou trocada ou danificada
+ *     tipo 'dano' (so estorno total/parcial) ou 'troca' (pode ser improcedente,
+ *     video da abertura obrigatorio). Regra do #501 em validarContestacao.
  *
  * So desistencia ('arrependimento') em aguardando_devolucao e ja postada.
  *   - liberar: concluirDevolucao (Stripe antes do banco, chave
@@ -79,10 +81,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return json(200, { ok: true, valor_estornado_cents: r.valorCents })
     }
 
-    const texto = typeof body?.texto === 'string' ? body.texto.trim().slice(0, 2000) : ''
-    if (texto.length < 10) return json(400, { error: 'Explique o que voltou diferente (mínimo 10 caracteres).' })
-    const video = validarVideoUrl(body?.video_url)
-    if (video === false) return json(400, { error: 'O link do vídeo precisa começar com https://.' })
+    const v = validarContestacao(body || {})
+    if (!v.ok) return json(400, { error: v.erro })
+    const { tipo, texto, video } = v
 
     const agora = new Date()
     const prazoDecisao = somarDiasUteis(agora, DIAS_UTEIS_DECISAO)!
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       .update({
         status: 'em_analise',
         contestacao: texto,
+        contestacao_tipo: tipo,
         contestacao_video_url: video,
         contestada_em: agora.toISOString(),
         resposta_tipo: 'provas',

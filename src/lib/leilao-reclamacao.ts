@@ -381,6 +381,9 @@ export function validarFotosEnvio(
 export interface ReclamacaoEstado {
   status: StatusReclamacao | string
   prazo_loja_ate: string
+  /** Para a regra do improcedente na desistencia (#501). */
+  motivo?: string | null
+  contestacao_tipo?: string | null
 }
 
 export function lojaPodeResponder(r: ReclamacaoEstado, agora: number): boolean {
@@ -397,7 +400,7 @@ export function podeDecidir(r: ReclamacaoEstado, agora: number): boolean {
 }
 
 export type PlanoDecisao =
-  | { ok: true; status: 'resolvida' | 'improcedente' | 'aguardando_devolucao'; valorCents: number }
+  | { ok: true; status: 'resolvida' | 'improcedente' | 'aguardando_devolucao'; valorCents: number; destinoCarta?: DestinoCarta }
   | { ok: false; erro: string }
 
 /**
@@ -413,6 +416,10 @@ export function planejarDecisao(args: {
   valorCents?: number | null
   restanteCents: number
   agora: number
+  /** Desistencia improcedente: o que a loja faz com o que chegou (obrigatorio). */
+  destino?: string | null
+  /** Chargeback aberto (pedidos.em_disputa): o improcedente so encerra o caso. */
+  emDisputa?: boolean
 }): PlanoDecisao {
   const { r, decisao, restanteCents, agora } = args
   if (!podeDecidir(r, agora)) {
@@ -423,8 +430,14 @@ export function planejarDecisao(args: {
   }
   const restante = Math.max(0, Math.floor(restanteCents))
   switch (decisao) {
-    case 'improcedente':
-      return { ok: true, status: 'improcedente', valorCents: 0 }
+    case 'improcedente': {
+      if (r.motivo !== 'arrependimento') return { ok: true, status: 'improcedente', valorCents: 0 }
+      if (!podeImprocedenteDesistencia(r, !!args.emDisputa)) {
+        return { ok: false, erro: 'A loja contestou por dano: a carta certa voltou. Decida entre estorno total ou parcial.' }
+      }
+      if (!ehDestinoCarta(args.destino)) return { ok: false, erro: 'Escolha o destino da carta que chegou na loja.' }
+      return { ok: true, status: 'improcedente', valorCents: 0, destinoCarta: args.destino }
+    }
     case 'estorno_total':
       if (restante <= 0) return { ok: false, erro: 'Não há valor a estornar neste pedido.' }
       return { ok: true, status: 'resolvida', valorCents: restante }
@@ -503,6 +516,56 @@ export function conferirRefund(
 // ─── Validacao de entrada ───────────────────────────────────────────────────
 
 /** Link de video: so https, ate 500 caracteres. '' ou null -> null; invalido -> false. */
+/**
+ * Desistencia contestada (#501, regra do Du em 20/10): a loja diz o que voltou.
+ *   dano  = a carta certa com dano novo. So estorno total ou parcial: desistir
+ *           nao depende de motivo (art. 49 do CDC), a loja so cobra o prejuizo
+ *           e fica com a carta.
+ *   troca = carta trocada, de menor valor ou envelope vazio. Pode terminar em
+ *           improcedente, e o video da abertura e obrigatorio.
+ */
+export const TIPOS_CONTESTACAO = {
+  dano: 'Voltou com dano',
+  troca: 'Carta trocada ou envelope vazio',
+} as const
+export type TipoContestacao = keyof typeof TIPOS_CONTESTACAO
+export function ehTipoContestacao(v: unknown): v is TipoContestacao {
+  return v === 'dano' || v === 'troca'
+}
+
+/** Destino do que chegou na loja quando a desistencia e improcedente. */
+export const DESTINOS_CARTA = {
+  devolver_comprador: 'Devolvida ao comprador, com frete por conta dele',
+  retida_prova: 'Retida pela loja como prova',
+} as const
+export type DestinoCarta = keyof typeof DESTINOS_CARTA
+export function ehDestinoCarta(v: unknown): v is DestinoCarta {
+  return v === 'devolver_comprador' || v === 'retida_prova'
+}
+
+/**
+ * Improcedente numa desistencia: so quando a loja contestou por troca. Com
+ * chargeback aberto o dinheiro ja esta com o banco do cartao, e o improcedente
+ * e o unico jeito de encerrar o caso aqui (as outras decisoes ficam travadas).
+ */
+export function podeImprocedenteDesistencia(r: { motivo?: string | null; contestacao_tipo?: string | null }, emDisputa = false): boolean {
+  if (r.motivo !== 'arrependimento') return true
+  return emDisputa || r.contestacao_tipo === 'troca'
+}
+
+/** Corpo da contestacao da loja: tipo, texto e video (obrigatorio na troca). */
+export function validarContestacao(b: { tipo?: unknown; texto?: unknown; video_url?: unknown }):
+  | { ok: true; tipo: TipoContestacao; texto: string; video: string | null }
+  | { ok: false; erro: string } {
+  if (!ehTipoContestacao(b.tipo)) return { ok: false, erro: 'Diga o que voltou: com dano ou trocada.' }
+  const texto = typeof b.texto === 'string' ? b.texto.trim().slice(0, 2000) : ''
+  if (texto.length < 10) return { ok: false, erro: 'Explique o que voltou diferente (mínimo 10 caracteres).' }
+  const video = validarVideoUrl(b.video_url)
+  if (video === false) return { ok: false, erro: 'O link do vídeo precisa começar com https://.' }
+  if (b.tipo === 'troca' && !video) return { ok: false, erro: 'Para contestar troca, envie o link do vídeo da abertura do pacote.' }
+  return { ok: true, tipo: b.tipo, texto, video }
+}
+
 export function validarVideoUrl(v: unknown): string | null | false {
   if (v == null) return null
   const s = String(v).trim()

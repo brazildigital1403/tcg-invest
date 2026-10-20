@@ -12,7 +12,7 @@ import { fmtBRL } from '@/lib/comissao'
 import { IconClock, IconCheck, IconWarning } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import {
-  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, DIAS_UTEIS_CONTESTAR, fmtPrazo, fotosParaGaleria,
+  MOTIVOS, STATUS_RECLAMACAO, RESPOSTAS_LOJA, DECISOES, TIPOS_CONTESTACAO, DESTINOS_CARTA, type TipoContestacao, type DestinoCarta, DIAS_UTEIS_LOJA, DIAS_UTEIS_DECISAO, DIAS_UTEIS_CONTESTAR, fmtPrazo, fotosParaGaleria,
   type MotivoReclamacao, type StatusReclamacao, type RespostaLoja, type Decisao,
 } from '@/lib/leilao-reclamacao'
 
@@ -54,6 +54,9 @@ type Linha = {
   contestar_ate: string | null
   contestada_em: string | null
   contestacao_video_url: string | null
+  contestacao_tipo: TipoContestacao | null
+  destino_carta: DestinoCarta | null
+  pode_improcedente: boolean
   pode_marcar_entregue: boolean
   envio_fotos_url: string[]
 }
@@ -82,8 +85,10 @@ export default function AdminReclamacoesPage() {
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string; rid?: string } | null>(null)
   // Confirmacao pendente, desenhada dentro do item (no lugar do window.confirm).
   const [pendente, setPendente] = useState<
-    { rid: string; texto: string; executar: () => Promise<void>; perigo?: boolean } | null
+    { rid: string; texto: string; executar: (destino: DestinoCarta | null) => Promise<void>; perigo?: boolean; pedeDestino?: boolean } | null
   >(null)
+  // Desistencia improcedente (#501): o destino do que chegou na loja, escolhido na confirmacao.
+  const [destino, setDestino] = useState<DestinoCarta | null>(null)
 
   const load = useCallback(async (): Promise<Linha[] | null> => {
     try {
@@ -113,17 +118,20 @@ export default function AdminReclamacoesPage() {
       : decisao === 'estorno_parcial' ? `estornar ${fmtBRL(cents || 0)} ao comprador`
       : decisao === 'devolucao' ? 'pedir a devolução (sem estorno agora)'
       : 'encerrar sem estorno'
+    const pedeDestino = decisao === 'improcedente' && r.motivo === 'arrependimento'
     setMsg(null)
+    setDestino(null)
     setPendente({
       rid: r.id,
-      texto: `Pedido #${r.pedido?.numero}: ${resumo}.`,
+      texto: `Pedido #${r.pedido?.numero}: ${resumo}.${pedeDestino ? ' O que a loja faz com o que chegou?' : ''}`,
       perigo: decisao !== 'improcedente' && decisao !== 'devolucao',
-      executar: async () => {
+      pedeDestino,
+      executar: async (dest) => {
         setSalvando(r.id); setMsg(null)
         try {
           const res = await fetch(`/api/admin/reclamacoes/${r.id}/decidir`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ decisao, valor_cents: cents, nota: nota.trim() || null }),
+            body: JSON.stringify({ decisao, valor_cents: cents, nota: nota.trim() || null, destino_carta: dest }),
           })
           const j = await res.json().catch(() => ({}))
           if (!res.ok) throw new Error(j.error || 'Falha ao decidir.')
@@ -168,8 +176,17 @@ export default function AdminReclamacoesPage() {
     return (
       <div className={`ar-confirma${pendente.perigo ? ' ar-confirma-perigo' : ''}`} role="alertdialog" aria-label="Confirmar decisão">
         <p>{pendente.texto}</p>
+        {pendente.pedeDestino && (
+          <div className="ar-bts" role="group" aria-label="Destino da carta">
+            {(Object.keys(DESTINOS_CARTA) as DestinoCarta[]).map(k => (
+              <button key={k} type="button" className={`ar-bt${destino === k ? ' ar-bt-on' : ''}`} aria-pressed={destino === k} onClick={() => setDestino(k)}>
+                {DESTINOS_CARTA[k]}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="ar-bts">
-          <button type="button" className="ar-bt ar-bt-pri" disabled={!!salvando} onClick={() => pendente.executar()}>
+          <button type="button" className="ar-bt ar-bt-pri" disabled={!!salvando || (!!pendente.pedeDestino && !destino)} onClick={() => pendente.executar(destino)}>
             {salvando === r.id ? 'Processando…' : 'Confirmar'}
           </button>
           <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => setPendente(null)}>Cancelar</button>
@@ -284,6 +301,7 @@ export default function AdminReclamacoesPage() {
                       ) : (
                         <p className="ar-cit">{r.motivo === 'arrependimento' ? 'Não contestou.' : r.sem_resposta ? 'Não respondeu no prazo: decisão a favor do comprador.' : 'Ainda no prazo para responder.'}</p>
                       )}
+                      {r.contestacao_tipo && <p className="ar-cit">Contestou por: <b>{TIPOS_CONTESTACAO[r.contestacao_tipo]}</b>{r.contestacao_tipo === 'dano' ? ' · só estorno total ou parcial' : ''}</p>}
                       {r.contestacao_video_url && <a className="ar-a" href={r.contestacao_video_url} target="_blank" rel="noopener noreferrer nofollow">Abrir o vídeo da loja</a>}
                       {r.envio_fotos_url.length > 0 && (
                         <>
@@ -299,6 +317,7 @@ export default function AdminReclamacoesPage() {
                       <div className="ar-bloco">
                         <div className="ar-rot">Decisão</div>
                         <p className="ar-cit"><b>{DECISOES[r.decisao]}</b>{r.valor_estornado_cents > 0 ? ` · ${fmtBRL(r.valor_estornado_cents)}` : ''}{r.stripe_refund_id ? ` · ${r.stripe_refund_id}` : ''}{r.decidido_em ? ` · ${fmtPrazo(r.decidido_em)}` : ''}</p>
+                        {r.destino_carta && <p className="ar-cit">O que chegou: {DESTINOS_CARTA[r.destino_carta].toLowerCase()}.</p>}
                         {r.decisao_nota && <p className="ar-cit">{r.decisao_nota}</p>}
                       </div>
                     )}
@@ -318,7 +337,9 @@ export default function AdminReclamacoesPage() {
                               {r.motivo !== 'arrependimento' && (
                                 <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => decidir(r, 'devolucao')}>Devolução</button>
                               )}
-                              <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => decidir(r, 'improcedente')}>Improcedente</button>
+                              {r.pode_improcedente && (
+                                <button type="button" className="ar-bt" disabled={!!salvando} onClick={() => decidir(r, 'improcedente')}>Improcedente</button>
+                              )}
                             </div>
                             <div className="ar-bts">
                               <input className="ar-input ar-valor" inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} placeholder={r.contraproposta_cents ? `R$ (loja propõe ${fmtBRL(r.contraproposta_cents)})` : 'Valor em R$'} />
@@ -384,6 +405,7 @@ const CSS = `
 .ar-bt{min-height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);color:var(--bx-text);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:opacity .15s ease}
 .ar-bt:disabled{opacity:.5;cursor:not-allowed}
 .ar-bt-pri{border-color:rgba(var(--ac-1-rgb),.5);background:rgba(var(--ac-1-rgb),.14);color:var(--ac-1)}
+.ar-bt-on{border-color:rgba(var(--ac-1-rgb),.7);background:rgba(var(--ac-1-rgb),.22);color:var(--bx-text)}
 .ar-vazio{display:flex;flex-direction:column;align-items:center;gap:10px;padding:40px 20px;border-radius:14px;border:1px dashed var(--bx-border-2);text-align:center;color:var(--bx-text-3);font-size:14px}
 .ar-vazio p{margin:0}
 @media (max-width:640px){

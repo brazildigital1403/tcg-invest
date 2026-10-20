@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { LEILAO_ATIVO } from '@/lib/leilao-flag'
-import { lojaSemResposta, podeDecidir, arrependimentoAguardando, STATUS_ABERTOS, type ReclamacaoEstado } from '@/lib/leilao-reclamacao'
+import { lojaSemResposta, podeDecidir, arrependimentoAguardando, STATUS_ABERTOS, type ReclamacaoEstado, podeImprocedenteDesistencia } from '@/lib/leilao-reclamacao'
 import { SEM_CACHE, COLUNAS_RECLAMACAO, sbServico, assinarFotos } from '@/lib/reclamacaoServer'
 
 /**
@@ -80,6 +80,8 @@ export async function GET(req: NextRequest) {
           fotos_url: (l.fotos || []).map(f => urls[f]).filter(Boolean),
           sem_resposta: lojaSemResposta(l, agora),
           pode_decidir: podeDecidir(l, agora) && !arrep,
+          // #501: desistencia contestada por dano nao termina sem estorno.
+          pode_improcedente: podeImprocedenteDesistencia(l, !!(p as { em_disputa?: boolean } | undefined)?.em_disputa),
           pode_marcar_entregue: arrep && !!l.devolucao_postada_em && !l.devolucao_entregue_em,
           envio_fotos_url: (p?.envio_fotos || []).map(f => urlsEnvio[f]).filter(Boolean),
           restante_cents: Math.max(0, (p?.total_comprador_cents || 0) - (p?.valor_reembolsado_cents || 0)),

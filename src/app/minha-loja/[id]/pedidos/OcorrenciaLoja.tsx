@@ -6,8 +6,8 @@ import { fmtBRL } from '@/lib/comissao'
 import { IconCheck, IconTruck, IconLoja, IconCard } from '@/components/ui/Icons'
 import GaleriaMidias from '@/components/servicos/GaleriaMidias'
 import {
-  MOTIVOS, RESPOSTAS_LOJA, DECISOES, DIAS_RECLAMAR, fmtPrazo, fotosParaGaleria,
-  type MotivoReclamacao, type StatusReclamacao, type RespostaLoja, type Decisao,
+  MOTIVOS, RESPOSTAS_LOJA, DECISOES, DIAS_RECLAMAR, TIPOS_CONTESTACAO, DESTINOS_CARTA, fmtPrazo, fotosParaGaleria,
+  type TipoContestacao, type MotivoReclamacao, type StatusReclamacao, type RespostaLoja, type Decisao,
 } from '@/lib/leilao-reclamacao'
 
 /**
@@ -53,6 +53,8 @@ export interface Recl {
   contestar_ate: string | null
   contestada_em: string | null
   contestacao_video_url: string | null
+  contestacao_tipo: TipoContestacao | null
+  destino_carta: keyof typeof DESTINOS_CARTA | null
 }
 
 async function bearer(): Promise<string> {
@@ -66,6 +68,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
   const [texto, setTexto] = useState('')
   const [valor, setValor] = useState('')
   const [video, setVideo] = useState('')
+  const [contTipo, setContTipo] = useState<TipoContestacao | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -79,7 +82,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j.error || 'Não foi possível registrar.')
-      setTipo(null); setDevAcao(null); setTexto(''); setValor(''); setVideo('')
+      setTipo(null); setDevAcao(null); setTexto(''); setValor(''); setVideo(''); setContTipo(null)
       onMudou()
     } catch (e) {
       setErro((e as Error).message)
@@ -131,7 +134,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
 
         {r.contestada_em && (
           <div className="oc-quadro">
-            <div className="oc-mut">Sua contestação</div>
+            <div className="oc-mut">Sua contestação{r.contestacao_tipo ? <> · {TIPOS_CONTESTACAO[r.contestacao_tipo]}</> : null}</div>
             {r.resposta_loja && <div className="oc-cit">{r.resposta_loja}</div>}
             {r.contestacao_video_url && <a className="oc-link" href={r.contestacao_video_url} target="_blank" rel="noopener noreferrer nofollow">Ver o vídeo enviado</a>}
           </div>
@@ -139,6 +142,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
         {fechada && (
           <div className="oc-quadro">
             <div>{r.status === 'resolvida' ? 'Devolução concluída' : 'Desistência encerrada'}{r.valor_estornado_cents > 0 ? <> · {fmtBRL(r.valor_estornado_cents)} estornado</> : null}</div>
+            {r.destino_carta && <div className="oc-cit">O que chegou: {DESTINOS_CARTA[r.destino_carta].toLowerCase()}.</div>}
             {r.decisao_nota && <div className="oc-cit">{r.decisao_nota}</div>}
           </div>
         )}
@@ -151,18 +155,30 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
               <p className="oc-txt">Confirma que recebeu a carta certa, no estado em que enviou? O estorno integral sai agora e não dá para desfazer.</p>
             ) : (
               <>
+                <div className="oc-opcoes oc-opcoes-2" role="group" aria-label="O que voltou">
+                  {(Object.keys(TIPOS_CONTESTACAO) as TipoContestacao[]).map(k => (
+                    <button key={k} type="button" className={`oc-op${contTipo === k ? ' oc-op-on' : ''}`} aria-pressed={contTipo === k} onClick={() => setContTipo(k)}>
+                      {TIPOS_CONTESTACAO[k]}
+                    </button>
+                  ))}
+                </div>
+                {contTipo && (
+                  <p className="oc-txt">{contTipo === 'dano'
+                    ? 'A carta certa voltou, mas com dano novo. A Bynx decide entre estorno total ou parcial, e a carta fica com você.'
+                    : 'Voltou outra carta, uma de menor valor ou nada. O vídeo da abertura do pacote é obrigatório. Comprovada a troca, não há estorno.'}</p>
+                )}
                 <textarea className="oc-input oc-area" value={texto} maxLength={2000} onChange={e => setTexto(e.target.value)}
                   placeholder="O que voltou diferente? Descreva a carta que chegou." aria-label="Motivo da contestação" />
                 <input className="oc-input" value={video} onChange={e => setVideo(e.target.value)} inputMode="url"
-                  placeholder="Link do vídeo da abertura do pacote (https://)" aria-label="Link do vídeo" />
+                  placeholder={contTipo === 'troca' ? 'Link do vídeo da abertura do pacote (obrigatório)' : 'Link do vídeo da abertura do pacote (opcional)'} aria-label="Link do vídeo" />
               </>
             )}
             {erro && <div className="oc-erro">{erro}</div>}
             <button type="button" className={`oc-bt ${devAcao === 'liberar' ? 'oc-pri' : 'oc-perigo'}`}
-              disabled={salvando || (devAcao === 'contestar' && texto.trim().length < 10)}
+              disabled={salvando || (devAcao === 'contestar' && (!contTipo || texto.trim().length < 10 || (contTipo === 'troca' && !video.trim())))}
               onClick={() => enviar(`/api/lojas/${lojaId}/reclamacoes/${r.id}/devolucao`, devAcao === 'liberar'
                 ? { acao: 'liberar' }
-                : { acao: 'contestar', texto: texto.trim(), video_url: video.trim() || null })}>
+                : { acao: 'contestar', tipo: contTipo, texto: texto.trim(), video_url: video.trim() || null })}>
               {salvando ? 'Enviando…' : devAcao === 'liberar' ? 'Confirmar e estornar' : 'Enviar contestação'}
             </button>
             <button type="button" className="oc-bt oc-ghost" disabled={salvando} onClick={() => { setDevAcao(null); setErro(null) }}>Voltar</button>
@@ -170,7 +186,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
         ) : (
           <div className="oc-form">
             <button type="button" className="oc-bt oc-pri" onClick={() => setDevAcao('liberar')}>Recebi a carta certa, liberar estorno</button>
-            <button type="button" className="oc-bt oc-perigo" onClick={() => { setDevAcao('contestar'); setTexto(''); setVideo('') }}>Contestar: voltou diferente</button>
+            <button type="button" className="oc-bt oc-perigo" onClick={() => { setDevAcao('contestar'); setTexto(''); setVideo(''); setContTipo(null) }}>Contestar: voltou diferente</button>
           </div>
         ))}
       </div>
@@ -259,6 +275,7 @@ const CSS = `
 .oc-link{color:var(--ac-1);font-size:12.5px;font-weight:700;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
 .oc-form{display:grid;gap:8px}
 .oc-opcoes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.oc-opcoes-2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .oc-op{min-height:44px;padding:6px 8px;border-radius:10px;border:1px solid var(--bx-border);background:transparent;color:var(--bx-text-2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .15s ease,border-color .15s ease}
 .oc-op-on{border-color:rgba(var(--ac-1-rgb),.55);background:rgba(var(--ac-1-rgb),.1);color:var(--bx-text)}
 .oc-input{width:100%;box-sizing:border-box;min-height:44px;background:var(--bx-surface-2);border:1px solid var(--bx-border);border-radius:10px;padding:10px 12px;color:var(--bx-text);font:inherit;font-size:16px;outline:none;transition:border-color .15s ease}

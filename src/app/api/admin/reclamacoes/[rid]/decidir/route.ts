@@ -10,11 +10,16 @@ import { renderReclamacaoDecisaoEmail } from '@/lib/email'
 /**
  * POST /api/admin/reclamacoes/[rid]/decidir
  *   { decisao: 'estorno_total' | 'estorno_parcial' | 'devolucao' | 'improcedente',
- *     valor_cents?: number (so no parcial), nota?: string }
+ *     valor_cents?: number (so no parcial), nota?: string,
+ *     destino_carta?: 'devolver_comprador' | 'retida_prova' (desistencia improcedente) }
  *
  * A Bynx decide (Protecao Bynx). Regras e travas em planejarDecisao
  * (lib/leilao-reclamacao, com autoteste):
  *   - so decide com a loja fora do prazo ou depois da resposta dela;
+ *   - desistencia contestada (#501): improcedente so quando a loja contestou
+ *     por TROCA (ou com chargeback aberto), e com o destino do que chegou,
+ *     gravado antes do resolver (o banco exige: constraint
+ *     pedido_reclamacoes_improcedente_destino_ck);
  *   - devolucao em DOIS passos: o primeiro so muda para 'aguardando_devolucao'
  *     (a trava do fechamento automatico continua); o segundo, com a carta de
  *     volta, estorna o restante. Frete de volta e combinado fora do sistema
@@ -59,7 +64,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
 
     const { data: recs } = await sb
       .from('pedido_reclamacoes')
-      .select('id, pedido_id, motivo, status, prazo_loja_ate, comprador_user_id')
+      .select('id, pedido_id, motivo, status, prazo_loja_ate, comprador_user_id, contestacao_tipo')
       .eq('id', rid)
       .limit(1)
     const rec = recs?.[0]
@@ -98,7 +103,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
       charge,
       refundDestaChaveCents,
     })
-    const plano = planejarDecisao({ r: rec, decisao, valorCents: body?.valor_cents, restanteCents: restante, agora: Date.now() })
+    const plano = planejarDecisao({
+      r: rec, decisao, valorCents: body?.valor_cents, restanteCents: restante, agora: Date.now(),
+      destino: body?.destino_carta, emDisputa: !!pedido.em_disputa,
+    })
     if (!plano.ok) return json(409, { error: plano.erro })
     // Sem trava por pedidos.status aqui de proposito: no retry depois de uma
     // falha do banco, o webhook pode ja ter marcado o pedido 'reembolsado' e o
@@ -130,7 +138,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
       }
     }
 
-    // 2. Banco
+    // 2. Banco. Destino da carta antes do resolver (desistencia improcedente);
+    // no retry ele so regrava o mesmo valor ou o corrige.
+    if (plano.destinoCarta) {
+      const { error: eDest } = await sb.from('pedido_reclamacoes')
+        .update({ destino_carta: plano.destinoCarta, updated_at: new Date().toISOString() })
+        .eq('id', rid)
+        .eq('status', 'em_analise')
+      if (eDest) {
+        console.error('[reclamacao decidir] destino_carta:', eDest.message)
+        return json(500, { error: 'Erro ao registrar a decisão.' })
+      }
+    }
     const { data: res, error } = await sb.rpc('pedido_reclamacao_resolver', {
       p_reclamacao: rid,
       p_status: plano.status,
@@ -171,12 +190,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ rid: strin
         const base = {
           pedidoId: pedido.id, pedidoNumero: pedido.numero, itemNome: pedido.item_nome, lojaNome: loja.nome,
           lojaId: pedido.loja_id, decisao: chave, valorCents: valor, nota, desistencia,
+          destinoCarta: plano.destinoCarta,
         }
         const oQue = desistencia ? 'Desistência' : 'Reclamação'
         const titulo = chave === 'improcedente' ? `${oQue} encerrada sem estorno`
           : chave === 'devolucao_iniciada' ? 'Decisão: devolução da carta'
           : `${oQue} concluída com estorno`
         const mensagem = `A Bynx decidiu a ${desistencia ? 'desistência' : 'reclamação'} do pedido #${pedido.numero}.`
+          + (plano.destinoCarta === 'devolver_comprador' ? ' A loja devolve o que chegou, com frete por conta do comprador.'
+            : plano.destinoCarta === 'retida_prova' ? ' O que chegou fica retido com a loja como prova.' : '')
         await sino(sb, pedido.comprador_user_id, titulo, mensagem, `/pedido/${pedido.id}`)
         await sino(sb, lojista, titulo, mensagem, `/minha-loja/${pedido.loja_id}/pedidos`)
         const cc = await contato(sb, pedido.comprador_user_id)

@@ -495,6 +495,38 @@ try {
     assert.equal(K({ status: 'entregue', leilao_id: 'x' }, { ...des, status: 'em_analise', contestada_em: iso(-1), prazo_decisao_ate: iso(2) }).acao, 'bynx_decide')
   }, 'casoComprador: de quem e a vez na tela do pedido')
 
+  ok(() => {
+    const agora = 10
+    const base = { motivo: 'arrependimento', status: 'em_analise', prazo_loja_ate: '2020-01-01T00:00:00Z' }
+    const dano = { ...base, contestacao_tipo: 'dano' }
+    const troca = { ...base, contestacao_tipo: 'troca' }
+    // dano: so estorno total ou parcial
+    assert.equal(R.planejarDecisao({ r: dano, decisao: 'improcedente', destino: 'retida_prova', restanteCents: 7490, agora }).ok, false)
+    assert.equal(R.planejarDecisao({ r: { ...base }, decisao: 'improcedente', destino: 'retida_prova', restanteCents: 7490, agora }).ok, false, 'contestacao antiga sem tipo conta como dano')
+    assert.deepEqual(R.planejarDecisao({ r: dano, decisao: 'estorno_parcial', valorCents: 2000, restanteCents: 7490, agora }), { ok: true, status: 'resolvida', valorCents: 2000 })
+    assert.deepEqual(R.planejarDecisao({ r: dano, decisao: 'estorno_total', restanteCents: 7490, agora }), { ok: true, status: 'resolvida', valorCents: 7490 })
+    // troca: improcedente com destino obrigatorio
+    assert.equal(R.planejarDecisao({ r: troca, decisao: 'improcedente', restanteCents: 7490, agora }).ok, false)
+    assert.equal(R.planejarDecisao({ r: troca, decisao: 'improcedente', destino: 'lixo', restanteCents: 7490, agora }).ok, false)
+    assert.deepEqual(R.planejarDecisao({ r: troca, decisao: 'improcedente', destino: 'devolver_comprador', restanteCents: 7490, agora }),
+      { ok: true, status: 'improcedente', valorCents: 0, destinoCarta: 'devolver_comprador' })
+    // chargeback: improcedente encerra mesmo no dano
+    assert.equal(R.planejarDecisao({ r: dano, decisao: 'improcedente', destino: 'retida_prova', emDisputa: true, restanteCents: 7490, agora }).ok, true)
+    // reclamacao comum nao muda
+    assert.equal(R.podeImprocedenteDesistencia({ motivo: 'danificado' }), true)
+    assert.equal(R.podeImprocedenteDesistencia(dano), false)
+    assert.equal(R.podeImprocedenteDesistencia(troca), true)
+    // contestacao da loja
+    assert.equal(R.validarContestacao({ texto: 'veio outra carta no envelope' }).ok, false, 'sem tipo')
+    assert.equal(R.validarContestacao({ tipo: 'troca', texto: 'veio outra carta no envelope' }).ok, false, 'troca sem video')
+    assert.equal(R.validarContestacao({ tipo: 'troca', texto: 'veio outra carta', video_url: 'http://x.com/v' }).ok, false)
+    assert.deepEqual(R.validarContestacao({ tipo: 'troca', texto: '  veio outra carta  ', video_url: 'https://x.com/v' }),
+      { ok: true, tipo: 'troca', texto: 'veio outra carta', video: 'https://x.com/v' })
+    assert.deepEqual(R.validarContestacao({ tipo: 'dano', texto: 'chegou com a quina dobrada' }),
+      { ok: true, tipo: 'dano', texto: 'chegou com a quina dobrada', video: null })
+    assert.equal(R.validarContestacao({ tipo: 'dano', texto: 'curto' }).ok, false)
+  }, 'desistencia contestada: improcedente so na troca, destino e video (#501)')
+
   console.log(`\n${n} blocos ok`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

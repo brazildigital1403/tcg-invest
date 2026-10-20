@@ -3609,6 +3609,18 @@ const TEXTO_DECISAO: Record<string, { titulo: string; comprador: string; loja: s
  * So estorno total, parcial ou improcedente (devolucao nao se aplica: a carta
  * ja voltou).
  */
+/** Desistencia improcedente (#501): o que acontece com o que chegou na loja. */
+const TEXTO_DESTINO_CARTA: Record<string, { comprador: string; loja: string }> = {
+  devolver_comprador: {
+    comprador: 'O que chegou na loja volta para você, com o frete por sua conta. A loja entra em contato para combinar o envio.',
+    loja: 'Devolva ao comprador o que chegou, com o frete por conta dele. Combine o envio com ele antes de postar.',
+  },
+  retida_prova: {
+    comprador: 'O que chegou na loja fica retido com ela como prova do caso.',
+    loja: 'Guarde o que chegou como prova do caso. Não descarte nem revenda.',
+  },
+}
+
 const TEXTO_DECISAO_DESISTENCIA: Record<string, { titulo: string; comprador: string; loja: string }> = {
   estorno_total: {
     titulo: 'Desistência concluída com estorno total',
@@ -3622,8 +3634,8 @@ const TEXTO_DECISAO_DESISTENCIA: Record<string, { titulo: string; comprador: str
   },
   improcedente: {
     titulo: 'Desistência encerrada sem estorno',
-    comprador: 'A Bynx analisou a contestação da loja e decidiu sem estorno. A venda continua valendo.',
-    loja: 'A Bynx analisou a sua contestação e decidiu a favor da loja. Não há estorno, e a venda continua valendo.',
+    comprador: 'A Bynx analisou a contestação da loja e o vídeo da abertura do pacote: o que chegou na loja não é a carta vendida. Por isso não há estorno, e a venda continua valendo.',
+    loja: 'A Bynx analisou a sua contestação e o vídeo da abertura e decidiu a favor da loja. Não há estorno, e a venda continua valendo.',
   },
 }
 
@@ -3634,6 +3646,8 @@ export function renderReclamacaoDecisaoEmail(a: ReclamacaoEmailBase & {
   nota: string | null
   /** true = era desistencia (motivo 'arrependimento'), nao reclamacao. */
   desistencia?: boolean
+  /** Desistencia improcedente: destino do que chegou na loja. */
+  destinoCarta?: string
 }): EmailRenderizado {
   const t = (a.desistencia ? TEXTO_DECISAO_DESISTENCIA[a.decisao] : null)
     || TEXTO_DECISAO[a.decisao] || TEXTO_DECISAO.improcedente
@@ -3644,6 +3658,7 @@ export function renderReclamacaoDecisaoEmail(a: ReclamacaoEmailBase & {
     ${h1(t.titulo)}
     ${p(`${escapeHtml(nome)}, sobre o pedido #${escapeHtml(String(a.pedidoNumero))} (${forte(a.itemNome)}${comprador ? ` da ${forte(a.lojaNome)}` : ''}): ${comprador ? t.comprador : t.loja}`)}
     ${a.valorCents > 0 ? blocoLeilao('Valor estornado', formatarBRL(a.valorCents), '#22c55e') : ''}
+    ${a.destinoCarta && TEXTO_DESTINO_CARTA[a.destinoCarta] ? p(comprador ? TEXTO_DESTINO_CARTA[a.destinoCarta].comprador : TEXTO_DESTINO_CARTA[a.destinoCarta].loja) : ''}
     ${a.nota ? p(`<strong style="color:#f0f0f0;">Observação da Bynx:</strong> ${escapeHtml(a.nota)}`) : ''}
     ${a.valorCents > 0 && comprador ? p('O estorno volta para o mesmo meio de pagamento em alguns dias úteis, no prazo do banco emissor.') : ''}
     ${comprador
