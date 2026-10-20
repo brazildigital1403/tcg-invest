@@ -180,7 +180,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
         // 72ms no pior multi-token, contra um teto de 8.000ms. Em troca,
         // maçarico 0->2, martelo esmagador 2->11, bola rapida 7->10.
         // v1 a v4 continuam no banco — reverter e trocar este nome.
-        const { data, error } = await supabase.rpc('smart_search_cards_v7', {
+        const { data, error } = await supabase.rpc('smart_search_cards_v8', {
           q: value,
           limit_n: PAGE_SIZE,
           offset_n: 0,
@@ -210,7 +210,7 @@ export default function AddCardModal({ userId, onClose, onAdded }: Props) {
     if (loadingMore || !hasMore || !searchTerm.trim()) return
     setLoadingMore(true)
     try {
-      const { data, error } = await supabase.rpc('smart_search_cards_v7', {
+      const { data, error } = await supabase.rpc('smart_search_cards_v8', {
         q: searchTerm,
         limit_n: PAGE_SIZE,
         offset_n: offset,
