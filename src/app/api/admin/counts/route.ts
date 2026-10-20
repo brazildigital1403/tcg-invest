@@ -47,11 +47,17 @@ export async function GET(req: NextRequest) {
         .in('status', ['aguardando_orcamento', 'recebida', 'em_bancada', 'descansando', 'pronta', 'enviada'])
       return count || 0
     }
+    // Usuarios: TOTAL da base, nao os novos da semana (Du, 20/10/2026) -- o
+    // badge serve para saber quantos usuarios a Bynx tem, sem abrir a tela.
+    const totalUsuarios = async (): Promise<number> => {
+      const { count } = await sb.from('users').select('*', { count: 'exact', head: true })
+      return count || 0
+    }
     const [tickets, lojas, marketplace, usuarios, financeiro, cartas, servicos] = await Promise.all([
       ticketsPrecisandoResposta(sb),
       lojasPendentes(),
       novosAnuncios(),
-      novos('users'),
+      totalUsuarios(),
       // Era novos('transactions'), e a tabela nunca recebeu uma linha (a escrita
       // pelo navegador batia na RLS) -- o badge de Financeiro vivia zerado. A tela
       // /admin/financeiro le `lancamentos`, que e o que conta aqui.
