@@ -164,6 +164,7 @@ export const NOTA_PRONTA: Record<string, string> = {
 export const TITULO_TERMO: Record<string, string> = {
   'v1-2026-09': 'Termo de ciência de risco',
   'v2-2026-09': 'Termo de ciência de risco',
+  'v3-2026-10': 'Termo de ciência de risco',
   'pg-v1-2026-09': 'Termo do pré-grading',
   'proposta-v1-2026-09': 'Termo da proposta de tratamento',
 }
