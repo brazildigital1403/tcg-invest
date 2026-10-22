@@ -157,6 +157,9 @@ export default function AdminServicoPage({ params }: { params: Promise<{ id: str
           {(STATUS_RELATORIO as readonly string[]).includes(s.status) && (
             <a className="ad-bt ad-bt-pri ad-relatorio" href={`/admin/servicos/${s.id}/relatorio`} target="_blank" rel="noopener">Gerar relatório</a>
           )}
+          {['orcado', 'aceito'].includes(s.status) && (
+            <a className="ad-bt ad-relatorio" href={`/admin/servicos/${s.id}/guia`} target="_blank" rel="noopener">Guia de envio (PDF)</a>
+          )}
         </div>
         <div className="ad-cliente">
           <b>{cliente?.name || 'Cliente'}</b>

@@ -8,7 +8,8 @@
 //
 // O dado vem do mesmo GET do /servico/[id] (dono pelo token): o endereco da
 // Bynx so chega com o pedido aceito e o sinal pago, entao o guia so monta nesse
-// momento. A etiqueta vai do lado de FORA do pacote: nada nela diz o que tem
+// momento. O admin (/admin/servicos/[id]/guia) le /api/admin/servicos/[id]/guia,
+// que traz o endereco em qualquer etapa e o cadastro do cliente. A etiqueta vai do lado de FORA do pacote: nada nela diz o que tem
 // dentro (pedido do Du, 22/10/2026). O remetente sai do proprio cadastro; sem endereco no cadastro, a
 // etiqueta fica com linhas para preencher a mao.
 
@@ -27,16 +28,44 @@ type Dados = {
   pagamentos: Pagamento[]
 }
 type Remetente = { nome: string; linha1: string; linha2: string } | null
+type Cadastro = { name: string | null; logradouro: string | null; numero: string | null; complemento: string | null; bairro: string | null; city: string | null; uf: string | null; cep: string | null }
+
+/** Remetente da etiqueta; sem rua ou CEP no cadastro, a etiqueta sai com linhas para preencher a mao. */
+function remetenteDe(u: Cadastro | null | undefined): Remetente {
+  if (!u?.name || !u.logradouro || !u.cep) return null
+  return {
+    nome: u.name,
+    linha1: [`${u.logradouro}, ${u.numero || 's/n'}`, u.complemento, u.bairro].filter(Boolean).join(' · '),
+    linha2: `${[u.city, u.uf].filter(Boolean).join('/')} · CEP ${u.cep}`,
+  }
+}
 
 const dataBRT = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' })
 
-export default function GuiaEnvio({ id }: { id: string }) {
+export default function GuiaEnvio({ id, admin = false }: { id: string; admin?: boolean }) {
   const [dados, setDados] = useState<Dados | null>(null)
   const [remetente, setRemetente] = useState<Remetente>(null)
   const [erro, setErro] = useState('')
+  // No celular a folha A4 (794 px) nao cabe: na TELA ela encolhe para a
+  // largura disponivel. No papel o zoom volta a 1 (regra de print no CSS).
+  const [escala, setEscala] = useState(1)
+  useEffect(() => {
+    const medir = () => setEscala(Math.min(1, (window.innerWidth - 24) / 794))
+    const t = setTimeout(medir, 0)
+    window.addEventListener('resize', medir)
+    return () => { clearTimeout(t); window.removeEventListener('resize', medir) }
+  }, [])
 
   const carregar = useCallback(async () => {
     try {
+      if (admin) {
+        const r = await fetch(`/api/admin/servicos/${id}/guia`, { cache: 'no-store' })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok) { setErro(d.error || 'Não deu para montar o guia.'); return }
+        setDados(d as Dados)
+        setRemetente(remetenteDe(d.cadastro))
+        return
+      }
       const r = await authFetch(`/api/servicos/${id}`, { cache: 'no-store' })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setErro(r.status === 401 ? 'Entre na sua conta para ver o guia de envio.' : d.error || 'Não deu para abrir o guia.'); return }
@@ -45,18 +74,12 @@ export default function GuiaEnvio({ id }: { id: string }) {
       const uid = s.session?.user.id
       if (uid) {
         const { data: u } = await supabase.from('users').select('name, logradouro, numero, complemento, bairro, city, uf, cep').eq('id', uid).maybeSingle()
-        if (u?.name && u.logradouro && u.cep) {
-          setRemetente({
-            nome: u.name,
-            linha1: [`${u.logradouro}, ${u.numero || 's/n'}`, u.complemento, u.bairro].filter(Boolean).join(' · '),
-            linha2: `${[u.city, u.uf].filter(Boolean).join('/')} · CEP ${u.cep}`,
-          })
-        }
+        setRemetente(remetenteDe(u))
       }
     } catch {
       setErro('Sem conexão com o servidor.')
     }
-  }, [id])
+  }, [id, admin])
 
   useEffect(() => {
     let vivo = true
@@ -66,6 +89,7 @@ export default function GuiaEnvio({ id }: { id: string }) {
 
   const s = dados?.solicitacao
   const pronto = !!dados?.endereco
+  const sinalPago = !!dados?.pagamentos.find(p => (p.etapa === 'sinal' || p.etapa === 'integral') && p.pago_em)
   let aviso = ''
   if (dados && !pronto) {
     aviso = s?.status === 'aceito'
@@ -78,17 +102,18 @@ export default function GuiaEnvio({ id }: { id: string }) {
       <style>{CSS}</style>
       <div className="gv-tela" data-theme="light">
         <div className="gv-barra">
-          <Link href={`/servico/${id}`} className="gv-voltar"><IconChevronLeft size={16} /> Voltar ao pedido</Link>
+          <Link href={admin ? `/admin/servicos/${id}` : `/servico/${id}`} className="gv-voltar"><IconChevronLeft size={16} /> {admin ? 'Pedido' : 'Voltar ao pedido'}</Link>
           {pronto && (
             <>
               <button type="button" className="gv-bt" onClick={() => window.print()}>Imprimir / Salvar PDF</button>
+              {admin && !sinalPago && <p className="gv-alerta"><IconWarning size={14} /> O sinal deste pedido ainda não foi pago: o cliente ainda não vê o endereço.</p>}
               <p className="gv-instrucao">No celular: toque em <b>Compartilhar</b> e depois em <b>Imprimir</b> para salvar em PDF. No computador: papel <b>A4</b>, margens <b>Nenhuma</b> e <b>Gráficos de plano de fundo</b> ligado.</p>
             </>
           )}
         </div>
         {(erro || aviso) && <p className="gv-erro"><IconWarning size={15} /> {erro || aviso}</p>}
         {!dados && !erro && <p className="gv-carregando">Carregando o guia...</p>}
-        {dados && pronto && s && <Folha dados={dados} remetente={remetente} />}
+        {dados && pronto && s && <div className="gv-zoom" style={{ zoom: escala }}><Folha dados={dados} remetente={remetente} /></div>}
       </div>
     </div>
   )
@@ -248,6 +273,7 @@ const CSS = `
 .gv-bt:hover{transform:translateY(-2px)}
 .gv-instrucao{flex-basis:100%;margin:0;font-size:12.5px;color:var(--bx-text-2)}
 .gv-instrucao b{color:var(--bx-text)}
+.gv-alerta{flex-basis:100%;margin:0;display:flex;gap:6px;align-items:center;font-size:12.5px;font-weight:700;color:var(--bx-red)}
 .gv-erro,.gv-carregando{max-width:210mm;margin:0 auto;padding:16px;display:flex;gap:6px;align-items:center;font-size:14px;color:var(--bx-text-2)}
 .gv-erro{font-weight:700;color:var(--bx-text)}
 
@@ -319,7 +345,8 @@ const CSS = `
   body>*:not(.gv-raiz):not(:has(.gv-raiz)){display:none!important}
   html,body{background:none!important}
   .gv-tela{background:none;padding:0;min-height:0}
-  .gv-barra,.gv-erro,.gv-carregando{display:none!important}
+  .gv-barra,.gv-erro,.gv-carregando,.gv-alerta{display:none!important}
+  .gv-zoom{zoom:1!important}
   .gv-doc .pagina{margin:0;box-shadow:none}
 }
 `
