@@ -501,7 +501,7 @@ function Orcamento({ sol, itens, ocupado, enviar }: {
         {todasRecusadas ? 'Recusar o pedido' : sol.status === 'orcado' ? 'Atualizar orçamento' : 'Salvar orçamento'}
       </button>
       {sol.status === 'aguardando_orcamento' && (
-        <p className="ad-muted" style={{ margin: 0 }}>Depois de salvar, mande o orçamento para o cliente por e-mail ou WhatsApp. O e-mail automático ainda não existe.</p>
+        <p className="ad-muted" style={{ margin: 0 }}>Ao salvar, o cliente recebe o orçamento por e-mail e no sino. Se quiser, avise também pelo WhatsApp.</p>
       )}
     </section>
   )
