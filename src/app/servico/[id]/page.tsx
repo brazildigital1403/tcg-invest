@@ -344,6 +344,7 @@ function Pedido({ id }: { id: string }) {
                   <span>Envie para</span>
                   <p>{endereco}</p>
                   <small>Escreva &quot;Pedido {numeroServico(s.numero)}&quot; do lado de fora do pacote.</small>
+                  <Link href={`/servico/${id}/guia`} className="sp-bt sp-guia-bt">Imprimir o guia de envio, com a etiqueta</Link>
                 </div>
               ) : (
                 <p className="sp-aviso"><IconWarning size={15} /> {devida ? 'O endereço de envio aparece aqui assim que o pagamento acima for confirmado.' : 'O endereço de envio chega por e-mail ou WhatsApp em seguida.'}</p>
@@ -532,6 +533,7 @@ const CSS = `
 .sp-endereco span{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ac-1)}
 .sp-endereco p{margin:6px 0;font-size:15px;line-height:1.55;white-space:pre-wrap}
 .sp-endereco small{font-size:12.5px;color:var(--bx-text-2)}
+.sp-guia-bt{margin-top:10px;width:100%}
 .sp-aviso{display:flex;gap:8px;align-items:flex-start;margin:0;font-size:14px;color:var(--bx-text-2)}
 .sp-aviso svg{flex-shrink:0;margin-top:2px;color:var(--ac-1)}
 .sp-guia{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px;line-height:1.5;color:var(--bx-text-2)}
