@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconTarget, IconTag, IconLink } from '@/components/ui/Icons'
+import { IconDashboard, IconChat, IconAccount, IconLogout, IconBell, IconKey, IconArticle, IconTarget, IconTag, IconLink, IconStar } from '@/components/ui/Icons'
 import WorldSwitcher from '@/components/ui/WorldSwitcher'
 import { supabase } from '@/lib/supabaseClient'
 import { lojaCache } from '@/lib/lojaCache'
@@ -134,6 +134,7 @@ const adminMenu: MenuItem[] = [
   { label: 'Usuários', href: '/admin/users', Icon: IconAccount, countKey: 'usuarios' },
   { label: 'Financeiro', href: '/admin/financeiro', Icon: IconWalletAdmin, countKey: 'financeiro' },
   { label: 'Parceiros', href: '/admin/parceiros', Icon: IconParceirosAdmin },
+  { label: 'Convites', href: '/admin/convites', Icon: IconStar },
   { label: 'Promoções', href: '/admin/promocoes', Icon: IconTag },
   { label: 'Links', href: '/admin/links', Icon: IconLink },
   { label: 'Régua', href: '/admin/regua', Icon: IconReguaAdmin },
