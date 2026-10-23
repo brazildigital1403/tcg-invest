@@ -60,6 +60,7 @@ function subjInterno(setor: 'Suporte' | 'Contato' | 'Sync' | 'Alerta' | 'Serviç
 const LOGO = 'https://bynx.gg/logo_BYNX.png'
 import { textoComLinksHtml } from './textoComLinks'
 import { ofertaEvento, precoComDesconto, brlOferta, PRECO_CHEIO, NOME_PLANO, type OfertaEventoId, type PlanoOferta } from './ofertasEvento'
+import { APRESENTACAO_PARCERIA } from './parceriaMaterial'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bynx.gg'
 const FONT = "font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
@@ -3326,5 +3327,66 @@ export async function sendCupomEventoEmail(args: { to: string; oferta: OfertaEve
     template: 'cupom-evento', from: FROM, to: args.to,
     subject: subjUser(`Seu código ${ofe.codigo}: ${pct}% em qualquer plano`),
     html, categoria: 'transacional', campanha: ofe.id,
+  })
+}
+
+// ── Programa de Parceiros: pedido recebido e cupom pronto ────────────────────
+//
+// A apresentacao (PDF) entra DEPOIS que a pessoa pede a parceria: e material
+// de referencia e para repassar, nao de convencimento (decisao de 23/10/2026).
+// Sempre como LINK, nunca anexo. Transacional, sem emoji, assinado "Bynx".
+
+function linhaParceria(rotulo: string, valor: string): string {
+  return `<tr><td style="padding:10px 0;border-bottom:1px solid #202227;font-size:14px;color:rgba(255,255,255,0.62);${FONT}">${rotulo}</td><td align="right" style="padding:10px 0;border-bottom:1px solid #202227;font-size:14px;font-weight:700;color:#f0f0f0;white-space:nowrap;${FONT}">${valor}</td></tr>`
+}
+
+export async function sendPedidoParceriaEmail(args: { to: string; nome?: string | null; instagram: string; userId?: string | null }) {
+  const primeiro = primeiroNome(args.nome, 'criador')
+  const html = baseLayout(`
+    ${badge('Programa de Parceiros', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1(`Oi, ${escapeHtml(primeiro)}. Seu pedido de parceria chegou.`)}
+    ${p(`A Bynx confere o seu perfil (<strong style="color:#f0f0f0;">@${escapeHtml(args.instagram)}</strong>) e cria o seu cupom. Enquanto isso, veja como funciona:`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 0;border-top:1px solid #202227;">
+      ${linhaParceria('Seus seguidores', '20% de desconto')}
+      ${linhaParceria('1ª cobrança', '100% para você, até R$ 100')}
+      ${linhaParceria('Renovações mensais', '20% por até 12 meses')}
+    </table>
+    ${btn('Ver a apresentação', APRESENTACAO_PARCERIA.url)}
+    ${p(`PDF, ${APRESENTACAO_PARCERIA.tamanho}. Os valores da apresentação são exemplo de cálculo, não previsão de ganho.`, 'font-size:12px;color:rgba(255,255,255,0.4);margin-top:20px;text-align:center;')}
+  `, 'A Bynx confere o seu perfil e cria o seu cupom. Veja como funciona a comissão.',
+  '<br/>Você recebeu este e-mail porque pediu para ser parceiro da Bynx.')
+
+  return enviar({
+    template: 'parceria-pedido', from: FROM, to: args.to,
+    subject: subjUser('Recebemos o seu pedido de parceria'),
+    html, categoria: 'transacional', campanha: 'parceria', userId: args.userId ?? null,
+  })
+}
+
+export async function sendParceriaAprovadaEmail(args: { to: string; nome?: string | null; cupom: string; descontoPct: number; userId?: string | null }) {
+  const primeiro = primeiroNome(args.nome, 'parceiro')
+  const central = addUtm(`${APP_URL}/parceiros`, 'parceria-aprovada', 'cta-button')
+  const html = baseLayout(`
+    ${badge('Programa de Parceiros', '#f59e0b', 'rgba(245,158,11,0.15)')}
+    <div style="height:16px;"></div>
+    ${h1(`${escapeHtml(primeiro)}, você agora é parceiro da Bynx.`)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 8px;">
+      <tr><td align="center" bgcolor="#1a1c24" style="background-color:#1a1c24;border:1px dashed rgba(245,158,11,0.6);border-radius:12px;padding:18px 16px;">
+        <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#f59e0b;${FONT}">Seu cupom</span>
+        <span style="display:block;margin-top:6px;font-size:28px;font-weight:800;letter-spacing:0.12em;color:#f0f0f0;${FONT}">${escapeHtml(args.cupom)}</span>
+        <span style="display:block;margin-top:6px;font-size:13px;color:rgba(255,255,255,0.5);${FONT}">${args.descontoPct}% para os seus seguidores na primeira cobrança</span>
+      </td></tr>
+    </table>
+    ${p('Na Central do Parceiro você acompanha as assinaturas pelo seu cupom e quanto tem a receber.')}
+    ${btn('Abrir a Central do Parceiro', central)}
+    <p style="margin:16px 0 0;text-align:center;font-size:13px;${FONT}"><a href="${APRESENTACAO_PARCERIA.url}" style="color:rgba(255,255,255,0.62);font-weight:700;text-decoration:underline;">Apresentação para repassar (PDF)</a></p>
+  `, `Seu cupom ${args.cupom} está ativo. Acompanhe tudo na Central do Parceiro.`,
+  '<br/>Você recebeu este e-mail porque agora é parceiro da Bynx.')
+
+  return enviar({
+    template: 'parceria-aprovada', from: FROM, to: args.to,
+    subject: subjUser('Seu cupom da Bynx está pronto'),
+    html, categoria: 'transacional', campanha: 'parceria', userId: args.userId ?? null,
   })
 }

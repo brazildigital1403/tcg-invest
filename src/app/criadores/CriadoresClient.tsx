@@ -20,9 +20,10 @@ import Turnstile from '@/components/auth/Turnstile'
 import SlabArte, { SLAB_ARTE_CSS } from '@/components/graduadas/SlabArte'
 import { trackSignUp } from '@/lib/analytics'
 import { SENHA_REGRA_MSG } from '@/lib/senha'
+import { APRESENTACAO_PARCERIA } from '@/lib/parceriaMaterial'
 import {
   IconCalendar, IconCheck, IconChevronDown, IconClose, IconInstagram, IconLink, IconPlay, IconAccount, IconCollection,
-  IconCard, IconShare,
+  IconCard, IconShare, IconDownload,
 } from '@/components/ui/Icons'
 
 const IMG = 'https://hvkcwfcvizrvhkerupfc.supabase.co/storage/v1/object/public/card-images/'
@@ -396,6 +397,24 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
     }
   }
 
+  // Pedido feito: a apresentacao entra aqui, no momento de maior valor. Antes
+  // do pedido ela so aparece como link discreto abaixo do botao.
+  if (ok) {
+    return (
+      <div className="cr-partner" role="status">
+        <div className="cr-okic cr-okic-sm"><IconCheck size={26} color="var(--bx-green)" strokeWidth={2.4} /></div>
+        <h3 className="cr-h3">Pedido recebido.</h3>
+        <p className="cr-p">A Bynx confere o seu perfil e cria o seu cupom. Você recebe tudo por e-mail.</p>
+        <a className="cr-doc" href={APRESENTACAO_PARCERIA.url} target="_blank" rel="noopener noreferrer">
+          <Image src={APRESENTACAO_PARCERIA.capa} alt="" width={112} height={63} sizes="112px" />
+          <span><b>Programa de Parceiros</b><small>PDF, {APRESENTACAO_PARCERIA.tamanho} · versão {APRESENTACAO_PARCERIA.versao}</small><small>Comissão, cupom e simulação</small></span>
+        </a>
+        <a className="cr-cta" href={APRESENTACAO_PARCERIA.url} target="_blank" rel="noopener noreferrer">Ver a apresentação</a>
+        <p className="cr-micro">Abre o PDF em outra aba. Dá para salvar e repassar.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="cr-partner">
       <ul>
@@ -403,10 +422,7 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
         <li><IconCheck size={18} color="var(--bx-green)" />Você recebe comissão na primeira assinatura e nas renovações.</li>
       </ul>
       <div className="cr-coupon">SEUNOME20 <small>seu cupom sai com o seu @</small></div>
-      {ok ? (
-        <p className="cr-ok" role="status">Pedido recebido. A Bynx confere o seu perfil e cria o seu cupom.</p>
-      ) : (
-        <form onSubmit={pedir} className="cr-partner-form">
+      <form onSubmit={pedir} className="cr-partner-form">
           {logado && (
             <label className="cr-field">
               <span>Seu @ do Instagram</span>
@@ -416,8 +432,10 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
           {erro && <p className="cr-erro" role="alert">{erro}</p>}
           <button type="submit" className="cr-outline" disabled={enviando}>{enviando ? 'Enviando...' : 'Quero ser parceiro da Bynx'}</button>
           {!logado && <p className="cr-micro">Primeiro ative o seu ano de Pro. A parceria vem logo depois.</p>}
+          <a className="cr-doclink" href={APRESENTACAO_PARCERIA.url} target="_blank" rel="noopener noreferrer">
+            <IconDownload size={14} />Ver a apresentação completa (PDF, {APRESENTACAO_PARCERIA.tamanho})
+          </a>
         </form>
-      )}
     </div>
   )
 }
@@ -665,6 +683,15 @@ const CSS = `
 .cr-ig{display:flex;align-items:center;gap:8px;height:48px;padding:0 12px;border-radius:12px;border:1px solid var(--bx-border-2);background:var(--bx-surface);color:var(--bx-text-3)}
 .cr-ig input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--bx-text);font:inherit;font-size:16px;outline:none}
 .cr-ok{margin:14px 0 0;font-size:14px;color:var(--bx-green);font-weight:700}
+.cr-doclink{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;margin-top:6px;font-size:13px;font-weight:700;color:var(--bx-text-2);text-decoration:underline;text-underline-offset:3px;transition:color .15s ease}
+.cr-doclink:hover{color:var(--bx-text)}
+.cr-okic-sm{width:52px;height:52px;margin:0 0 14px}
+.cr-h3{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0}
+.cr-doc{display:flex;gap:12px;align-items:center;margin-top:16px;padding:10px;border-radius:12px;background:var(--bx-bg-elev);border:1px solid var(--bx-border-2);color:var(--bx-text);text-decoration:none;transition:border-color .15s ease,transform .15s ease}
+.cr-doc:hover{border-color:rgba(var(--ac-1-rgb),.5);transform:translateY(-2px)}
+.cr-doc img{width:112px;height:auto;border-radius:6px;display:block;flex:none}
+.cr-doc b{display:block;font-size:14px}
+.cr-doc small{display:block;font-size:12px;color:var(--bx-text-3);margin-top:2px}
 
 .cr-steps{list-style:none;margin:20px 0 0;padding:0}
 .cr-steps li{display:flex;gap:12px;position:relative;padding-bottom:18px}

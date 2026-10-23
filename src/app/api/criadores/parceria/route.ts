@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { usuarioDoToken } from '@/lib/convitesGrupo'
+import { sendPedidoParceriaEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   const user = await usuarioDoToken(req.headers.get('authorization'))
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
   const sb = getServiceSupabase()
   if (!sb) return NextResponse.json({ error: 'Serviço indisponível. Tente de novo em instantes.' }, { status: 503 })
 
+  // O e-mail de confirmacao (com a apresentacao) sai so no PRIMEIRO pedido:
+  // reenviar o @ atualiza o registro sem mandar outro e-mail.
+  const { data: antes } = await sb.from('convite_grupo_resgates').select('quer_parceria').eq('user_id', user.id).limit(1)
+  const primeiroPedido = !!antes?.[0] && !antes[0].quer_parceria
+
   const { data, error } = await sb
     .from('convite_grupo_resgates')
     .update({ quer_parceria: true, instagram: ig, parceria_pedida_em: new Date().toISOString() })
@@ -30,6 +36,14 @@ export async function POST(req: NextRequest) {
   }
   if (!data?.length) {
     return NextResponse.json({ error: 'Ative o seu ano de Pro primeiro. A parceria vem logo depois.', code: 'SEM_RESGATE' }, { status: 409 })
+  }
+  if (primeiroPedido && user.email) {
+    const { data: u } = await sb.from('users').select('name').eq('id', user.id).limit(1)
+    try {
+      await sendPedidoParceriaEmail({ to: user.email, nome: u?.[0]?.name, instagram: ig, userId: user.id })
+    } catch (e) {
+      console.error('[criadores/parceria] e-mail de confirmacao falhou:', e instanceof Error ? e.message : e)
+    }
   }
   return NextResponse.json({ ok: true })
 }

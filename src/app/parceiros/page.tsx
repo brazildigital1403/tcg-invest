@@ -19,7 +19,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/ui/AppLayout'
-import { IconCheck, IconTag } from '@/components/ui/Icons'
+import Image from 'next/image'
+import { IconCheck, IconTag, IconDownload } from '@/components/ui/Icons'
+import { APRESENTACAO_PARCERIA } from '@/lib/parceriaMaterial'
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -232,6 +234,19 @@ export default function ParceirosPage() {
                 </div>
                 <div style={S.statLabel}>a receber no fechamento</div>
               </div>
+            </section>
+
+            {/* Material do programa: a apresentacao para reler as regras e repassar */}
+            <section style={S.section}>
+              <h2 style={S.sectionTitle}>Material do programa</h2>
+              <a href={APRESENTACAO_PARCERIA.url} target="_blank" rel="noopener noreferrer" style={S.matCard}>
+                <Image src={APRESENTACAO_PARCERIA.capa} alt="" width={112} height={63} sizes="112px" style={S.matCapa} />
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={S.matTitulo}>Programa de Parceiros</span>
+                  <span style={S.matInfo}>PDF, {APRESENTACAO_PARCERIA.tamanho} · versão {APRESENTACAO_PARCERIA.versao}</span>
+                  <span style={S.matBaixar}><IconDownload size={14} />Baixar PDF</span>
+                </span>
+              </a>
             </section>
 
             {/* Conversões do ciclo */}
@@ -455,6 +470,15 @@ const S: Record<string, CSSProperties> = {
 
   // Seções
   section: { marginBottom: 28 },
+  matCard: {
+    display: 'flex', gap: 12, alignItems: 'center', padding: 12, borderRadius: 12,
+    background: 'var(--bx-surface)', border: '1px solid var(--bx-border-2)',
+    color: 'var(--bx-text)', textDecoration: 'none',
+  },
+  matCapa: { width: 112, height: 'auto', borderRadius: 6, display: 'block', flex: 'none' },
+  matTitulo: { display: 'block', fontSize: 14, fontWeight: 700 },
+  matInfo: { display: 'block', fontSize: 12, color: 'var(--bx-text-3)', marginTop: 2 },
+  matBaixar: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 13, fontWeight: 700, color: 'var(--ac-1)' },
   sectionTitle: { fontSize: 16, fontWeight: 700, marginBottom: 12, letterSpacing: '-0.01em' },
 
   // Listas
