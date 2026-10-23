@@ -843,7 +843,12 @@ const CSS = `
 .cr-close .cr-cta{grid-column:9/13;grid-row:1;align-self:end;justify-self:stretch;min-width:0}
 .cr-close .cr-micro{grid-column:9/13;grid-row:2}
 
-.cr-sheet{padding:24px;max-height:calc(100dvh - 64px)}
+.cr-sheet{padding:28px;max-height:calc(100dvh - 64px)}
+/* O cadastro e um formulario de coluna unica: nao herda o CTA de largura
+   automatica nem o titulo de secao do desktop. */
+.cr-sheet .cr-h2{font-size:30px;line-height:1.1;margin-top:14px}
+.cr-sheet .cr-cta{display:flex;width:100%;min-width:0;padding:0;justify-self:auto;margin-top:16px}
+.cr-sheet .cr-micro{text-align:center}
 }
 @media (min-width:1024px) and (max-height:720px){
 .cr-h1{font-size:42px}
