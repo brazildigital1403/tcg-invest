@@ -174,6 +174,28 @@ export async function GET(req: NextRequest) {
       .map(([categoria, valor]) => ({ categoria, valor }))
       .sort((a, b) => b.valor - a.valor)
 
+    // ─── Gráfico 3: Receitas por categoria do mês atual (23/10/2026) ─
+    // Ate aqui so as despesas tinham divisao por categoria; com o servico de
+    // bancada entrando, a receita passa a ter 4 motores e vale ver qual cresce.
+    const receitaPorCategoria: Record<string, number> = {}
+    for (const l of lancMes) {
+      if (l.tipo === 'receita' && Number(l.valor_bruto) > 0) {
+        receitaPorCategoria[l.categoria] = (receitaPorCategoria[l.categoria] || 0) + Number(l.valor_bruto)
+      }
+    }
+    const chartPizzaReceitas = Object.entries(receitaPorCategoria)
+      .map(([categoria, valor]) => ({ categoria, valor }))
+      .sort((a, b) => b.valor - a.valor)
+
+    // ─── A receber: etapas de servico combinadas e ainda nao pagas ─────
+    // Pedido encerrado (cancelado, recusado, devolvido) nao conta.
+    const { data: pendServ } = await sb.from('servico_pagamentos')
+      .select('valor_cents, servico_solicitacoes!inner(status)')
+      .is('pago_em', null)
+      .not('servico_solicitacoes.status', 'in', '(cancelado,recusado_cliente,recusado_bynx,devolvida_sem_servico,entregue)')
+    const aReceberCents = (pendServ || []).reduce((acc, p) => acc + Number(p.valor_cents || 0), 0)
+    const aReceberCount = (pendServ || []).length
+
     // ─── Resposta ─────────────────────────────────────────────────
     return NextResponse.json({
       cards: {
@@ -196,6 +218,10 @@ export async function GET(req: NextRequest) {
         saldo_projeto: {
           valor: saldoProjeto,
         },
+        a_receber: {
+          valor: aReceberCents / 100,
+          count: aReceberCount,
+        },
       },
       mei: {
         faturamento_ano: faturamentoAno,
@@ -211,6 +237,7 @@ export async function GET(req: NextRequest) {
       })),
       chart_linha: chartLinha,
       chart_pizza: chartPizza,
+      chart_pizza_receitas: chartPizzaReceitas,
     })
   } catch (err: any) {
     console.error('[financeiro/dashboard GET]', err?.message)

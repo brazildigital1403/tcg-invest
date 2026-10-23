@@ -16,7 +16,7 @@ function supabaseAdmin() {
 // Foi o que aconteceu com 'comissao': a categoria nasceu no banco em 26/07 e
 // a pagina foi atualizada, mas esta lista ficou pra tras. 'master_set' entrou
 // junto em 27/07. Categoria nova no banco = mexer AQUI e na pagina.
-const CATEGORIAS_TODAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'assinatura', 'comissao', 'master_set', 'outros']
+const CATEGORIAS_TODAS = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'assinatura', 'comissao', 'master_set', 'servico', 'outros']
 const CATEGORIAS_DESPESA = ['infra', 'marketing', 'dominio', 'pagamentos', 'impostos', 'outros']
 
 // ─── Tipo do sub-item ─────────────────────────────────────────────────
