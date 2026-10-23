@@ -35,7 +35,7 @@ const LEQUE = [
   { nome: 'Sylveon ex', img: `${IMG}30C-Sylveon-ex-071.jpg` },
 ]
 const SLAB_HERO = { nome: 'Mew ex', img: `${IMG}30C-Mew-ex-158.jpg` }
-const SLAB_BGS = { nome: 'Umbreon ex', img: `${IMG}30C-Umbreon-ex-092.jpg` }
+const SLAB_BGS = { nome: 'Jirachi ex', img: `${IMG}30C-Jirachi-ex-102.jpg` }
 const SLAB_PSA = { nome: 'Pikachu', img: `${IMG}30C-Pikachu-036.jpg` }
 const MINIS = [`${IMG}30C-Lapras-131.jpg`, `${IMG}30C-Espeon-ex-070.jpg`, `${IMG}30C-Greninja-ex-021.jpg`]
 
@@ -44,9 +44,9 @@ const MINIS = [`${IMG}30C-Lapras-131.jpg`, `${IMG}30C-Espeon-ex-070.jpg`, `${IMG
 // liberado no CSP). Sem ele, o toque abre o link fora.
 type Midia = { tipo: 'Short' | 'Reel' | 'Post'; titulo: string; autor: string; capa: string; href: string; youtubeId?: string }
 const MIDIAS: Midia[] = [
-  { tipo: 'Short', titulo: 'Master Set fechando', autor: '@bynx_gg', capa: `${IMG}30C-Mew-ex-158.jpg`, href: 'https://www.youtube.com/@bynx_gg/shorts' },
-  { tipo: 'Reel', titulo: 'Graduada chegando', autor: '@bynx.gg', capa: `${IMG}30C-Umbreon-ex-092.jpg`, href: 'https://www.instagram.com/bynx.gg/reels/' },
-  { tipo: 'Post', titulo: 'A coleção na tela', autor: '@bynx.gg', capa: `${IMG}30C-Sylveon-ex-071.jpg`, href: 'https://www.instagram.com/bynx.gg/' },
+  { tipo: 'Short', titulo: 'Master Set fechando', autor: '@bynx_gg', capa: `${IMG}30C-Pikachu-047.jpg`, href: 'https://www.youtube.com/@bynx_gg/shorts' },
+  { tipo: 'Reel', titulo: 'Graduada chegando', autor: '@bynx.gg', capa: `${IMG}30C-Lycanroc-138.jpg`, href: 'https://www.instagram.com/bynx.gg/reels/' },
+  { tipo: 'Post', titulo: 'A coleção na tela', autor: '@bynx.gg', capa: `${IMG}30C-Umbreon-091.jpg`, href: 'https://www.instagram.com/bynx.gg/' },
 ]
 
 type Estado = 'carregando' | 'ativo' | 'encerrado' | 'invalido'
@@ -148,9 +148,14 @@ export default function CriadoresClient() {
       <style>{SLAB_ARTE_CSS + CSS}</style>
       <header className="cr-top bx-gutter">
         <Link href="/" className="cr-logo-a"><img src="/logo_BYNX.png" alt="Bynx" className="cr-logo" /></Link>
-        {logado
-          ? <span className="cr-top-ok">Você está na sua conta</span>
-          : <button type="button" className="cr-ghost" onClick={() => openLogin({ next: voltarAqui })}>Já tenho conta</button>}
+        <div className="cr-top-r">
+          {logado
+            ? <span className="cr-top-ok">Você está na sua conta</span>
+            : <button type="button" className="cr-ghost" onClick={() => openLogin({ next: voltarAqui })}>Já tenho conta</button>}
+          {!heroVisivel && !folha && estado === 'ativo' && (
+            <button type="button" className="cr-top-cta" onClick={cta} disabled={ativando}>{ctaTexto}</button>
+          )}
+        </div>
       </header>
 
       <main>
@@ -164,11 +169,11 @@ export default function CriadoresClient() {
             <figure className="cr-fan" aria-hidden="true">
               {LEQUE.map((c, i) => (
                 <div key={c.nome} className={`cr-fan-c cr-fan-${i}`}>
-                  <Image src={c.img} alt="" width={92} height={128} sizes="92px" />
+                  <Image src={c.img} alt="" width={160} height={224} sizes="(min-width:1024px) 160px, (min-width:768px) 118px, 92px" />
                 </div>
               ))}
               <div className="cr-fan-slab">
-                <SlabArte graduadora="bgs" nota={10} blackLabel img={SLAB_HERO.img} nome={SLAB_HERO.nome} sizes="150px" priority altVazio />
+                <SlabArte graduadora="bgs" nota={10} blackLabel img={SLAB_HERO.img} nome={SLAB_HERO.nome} sizes="(min-width:1024px) 260px, (min-width:768px) 190px, 150px" priority altVazio />
               </div>
             </figure>
 
@@ -181,11 +186,13 @@ export default function CriadoresClient() {
         </section>
 
         {/* 2. Colecao */}
-        <section className="cr-sec bx-gutter">
+        <section className="cr-sec cr-s-col bx-gutter">
           <div className="cr-in">
-            <p className="cr-eyebrow">Coleção</p>
-            <h2 className="cr-h2">Sua coleção. Suas regras.</h2>
-            <p className="cr-p">Você levou anos para montar. Quem decide como organizar é você.</p>
+            <div className="cr-head">
+              <p className="cr-eyebrow">Coleção</p>
+              <h2 className="cr-h2">Sua coleção. Suas regras.</h2>
+              <p className="cr-p">Você levou anos para montar. Quem decide como organizar é você.</p>
+            </div>
             <div className="cr-feat">
               <div>
                 <h3>Pastas do seu jeito</h3>
@@ -201,7 +208,7 @@ export default function CriadoresClient() {
                 <p>Escolha o alvo e veja a barra avançar a cada carta.</p>
                 <div className="cr-shot">
                   <div className="cr-meta">
-                    <div className="cr-thumbs">{MINIS.map(s => <Image key={s} src={s} alt="" width={34} height={47} sizes="34px" />)}</div>
+                    <div className="cr-thumbs">{MINIS.map(s => <Image key={s} src={s} alt="" width={48} height={67} sizes="(min-width:1024px) 48px, 34px" />)}</div>
                     <strong>Master Set 30th Celebration</strong>
                   </div>
                   <div className="cr-bar" aria-hidden="true"><i /></div>
@@ -212,7 +219,7 @@ export default function CriadoresClient() {
                 <p>Um link com a sua coleção, pronto para a bio e para os vídeos.</p>
                 <div className="cr-shot">
                   <div className="cr-url"><IconLink size={14} /><span>bynx.gg/perfil/<b>seunome</b></span></div>
-                  <div className="cr-minis">{MINIS.map(s => <Image key={s} src={s} alt="" width={100} height={140} sizes="100px" />)}</div>
+                  <div className="cr-minis">{MINIS.map(s => <Image key={s} src={s} alt="" width={120} height={168} sizes="(min-width:1024px) 120px, 100px" />)}</div>
                 </div>
               </div>
               <div>
@@ -230,20 +237,20 @@ export default function CriadoresClient() {
         </section>
 
         {/* 3. Graduadas */}
-        <section className="cr-sec bx-gutter">
+        <section className="cr-sec cr-s-grad bx-gutter">
           <div className="cr-in">
             <p className="cr-eyebrow">Graduadas</p>
             <h2 className="cr-h2">Slab não é linha de planilha.</h2>
             <p className="cr-p">Registre graduadora, nota, subnotas, Black Label e certificado. Veja o valor da graduada ao lado do valor da carta sem graduação.</p>
             <div className="cr-pair">
               <div>
-                <SlabArte graduadora="bgs" nota={10} blackLabel img={SLAB_BGS.img} nome={SLAB_BGS.nome} sizes="200px" certificado />
+                <SlabArte graduadora="bgs" nota={10} blackLabel img={SLAB_BGS.img} nome={SLAB_BGS.nome} sizes="(min-width:1024px) 260px, 200px" certificado />
                 <dl className="cr-subs">
                   {['Centering', 'Corners', 'Edges', 'Surface'].map(s => <div key={s}><dt>{s}</dt><dd>10</dd></div>)}
                 </dl>
               </div>
               <div>
-                <SlabArte graduadora="psa" nota={10} img={SLAB_PSA.img} nome={SLAB_PSA.nome} sizes="160px" />
+                <SlabArte graduadora="psa" nota={10} img={SLAB_PSA.img} nome={SLAB_PSA.nome} sizes="(min-width:1024px) 200px, 160px" />
               </div>
             </div>
             <p className="cr-quote">Na hora de mostrar a slab no vídeo, o número está na tela.</p>
@@ -251,7 +258,7 @@ export default function CriadoresClient() {
         </section>
 
         {/* 4. Conteudo */}
-        <section className="cr-sec bx-gutter">
+        <section className="cr-sec cr-s-cont bx-gutter">
           <div className="cr-in">
             <p className="cr-eyebrow">Conteúdo</p>
             <h2 className="cr-h2">Coleção organizada rende conteúdo melhor.</h2>
@@ -263,7 +270,7 @@ export default function CriadoresClient() {
         </section>
 
         {/* 5. Parceria */}
-        <section className="cr-sec bx-gutter" id="parceria">
+        <section className="cr-sec cr-s-par bx-gutter" id="parceria">
           <div className="cr-in">
             <p className="cr-eyebrow">Parceria</p>
             <h2 className="cr-h2">Sua comunidade ganha. Você também.</h2>
@@ -272,7 +279,7 @@ export default function CriadoresClient() {
         </section>
 
         {/* 6. Passos, FAQ e fechamento */}
-        <section className="cr-sec bx-gutter">
+        <section className="cr-sec cr-s-faq bx-gutter">
           <div className="cr-in">
             <p className="cr-eyebrow">Como funciona</p>
             <ol className="cr-steps">
@@ -346,7 +353,7 @@ function CartaoMidia({ m }: { m: Midia }) {
   }
   const conteudo = (
     <>
-      <Image src={m.capa} alt="" fill sizes="148px" />
+      <Image src={m.capa} alt="" fill sizes="(min-width:1024px) 176px, 148px" />
       <span className="cr-vid-tag">{m.tipo}</span>
       {m.tipo === 'Post'
         ? <span className="cr-vid-ext"><IconShare size={16} /></span>
@@ -702,5 +709,118 @@ const CSS = `
 .cr-todo a{display:flex;gap:10px;align-items:center;min-height:52px;padding:0 14px;border-radius:12px;background:var(--bx-surface-2);border:1px solid var(--bx-border);font-size:14px;font-weight:700;color:var(--bx-text);text-decoration:none;transition:background .15s ease}
 .cr-todo a:hover{background:var(--bx-surface-3)}
 .cr-sec-mini{margin-top:40px;padding-top:32px;border-top:1px solid var(--bx-border)}
+/* ---- desktop (23/10/2026): spec dos agentes de UX/arte, revisada ----
+   Abaixo de 768 px nada muda. 768-1023: coluna unica mais larga.
+   1024+: grade de 12 colunas em 1120 px (o .wrap da home), ritmo vertical
+   variado e o visual alternando de lado. Slab no maximo 260 px e carta 160:
+   a arte do storage tem 350 px e borraria no retina de quem grava. */
+.cr-top-r{display:flex;gap:10px;align-items:center}
+.cr-top-cta{display:none}
+.cr .sa-cert{font-family:inherit;font-variant-numeric:tabular-nums}
+@media (min-width:768px) and (max-width:1023px){
+.cr-sec .cr-in{max-width:680px}
+.cr-h1{font-size:44px}
+.cr-fan{height:330px}
+.cr-fan-c{width:118px;top:88px}
+.cr-fan-slab{width:190px}
+.cr-fan-0{transform:translateX(calc(-50% - 160px)) translateY(26px) rotate(-12deg)}
+.cr-fan-1{transform:translateX(calc(-50% - 90px)) translateY(8px) rotate(-6deg)}
+.cr-fan-2{transform:translateX(calc(-50% + 90px)) translateY(8px) rotate(6deg)}
+.cr-fan-3{transform:translateX(calc(-50% + 160px)) translateY(26px) rotate(12deg)}
+.cr-rail{overflow:visible;margin:22px 0 0;padding:0}
+.cr-vid{flex:1 1 0}
+}
+@media (min-width:1024px){
+.cr{padding-bottom:0}
+.cr-sticky{display:none}
+.cr-top{height:64px;padding-left:max(24px,calc((100% - 1120px)/2))!important;padding-right:max(24px,calc((100% - 1120px)/2))!important}
+.cr-top-cta{display:inline-flex;align-items:center;height:44px;padding:0 18px;border:0;border-radius:10px;background:var(--ac-grad);color:var(--bx-brand-ink);font:inherit;font-weight:700;font-size:14px;cursor:pointer;transition:transform .15s ease}
+.cr-top-cta:hover{transform:translateY(-2px)}
+.cr-sec .cr-in{max-width:1120px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px;align-items:start}
+.cr-sec .cr-in>*{grid-column:1/-1;min-width:0}
+.cr-sec+.cr-sec{border-top:0}
+.cr-eyebrow{background:none;border:0;padding:0;border-radius:0;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;justify-self:start}
+.cr-h2{font-size:clamp(32px,3vw,44px);line-height:1.08;letter-spacing:-.03em}
+.cr-p{font-size:17px}
+.cr-cta{display:inline-flex;width:auto;min-width:320px;padding:0 32px;justify-self:start}
+.cr-micro,.cr-chip-wrap{text-align:left}
+
+.cr-hero{padding-top:0;padding-bottom:0;overflow:clip}
+.cr-hero .cr-in{position:relative;min-height:min(calc(100svh - 64px),780px);align-content:center;padding:48px 0}
+.cr-hero .cr-in>*{grid-column:1/7}
+.cr-hero .cr-in>.cr-fan{grid-column:auto;grid-row:auto}
+.cr-h1{font-size:clamp(40px,3.6vw,54px);line-height:1.04;letter-spacing:-.035em}
+.cr-hero .cr-p{max-width:46ch}
+.cr-band{justify-self:start;max-width:520px}
+.cr-fan{position:absolute;top:0;bottom:0;right:0;width:calc(50% - 12px);height:auto;margin:0;background:radial-gradient(45% 50% at 54% 42%,rgba(var(--ac-1-rgb),.16),transparent 70%)}
+.cr-fan-slab{width:260px;left:54%;top:calc(50% - 236px);transform:translateX(-50%) rotate(-2deg)}
+.cr-fan-c{width:160px;top:calc(50% - 40px)}
+.cr-fan-0{top:calc(100% - 150px);transform:translateX(calc(-50% - 170px)) rotate(-16deg);z-index:4}
+.cr-fan-1{transform:translateX(calc(-50% - 150px)) translateY(-70px) rotate(-8deg);z-index:1}
+.cr-fan-2{transform:translateX(calc(-50% + 170px)) translateY(-120px) rotate(9deg);z-index:1}
+.cr-fan-3{transform:translateX(calc(-50% + 210px)) translateY(130px) rotate(14deg);z-index:2}
+
+.cr-s-col{padding-top:112px;padding-bottom:112px}
+.cr-s-col .cr-head{grid-column:1/5;grid-row:1/span 2;position:sticky;top:104px}
+.cr-s-col .cr-feat{grid-column:6/13;grid-row:1;margin-top:0;gap:0}
+.cr-s-col .cr-cta{grid-column:6/13;grid-row:2;margin-top:40px}
+.cr-feat>div{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);grid-template-rows:auto 1fr;column-gap:32px;padding:32px 0;border-top:1px solid var(--bx-border)}
+.cr-feat>div:last-child{border-bottom:1px solid var(--bx-border)}
+.cr-feat>div>.cr-shot{grid-column:2;grid-row:1/span 2;margin-top:0}
+.cr-feat h3{font-size:20px}
+.cr-feat p{font-size:15px;margin-top:6px}
+.cr-thumbs img{width:48px;margin-left:-14px}
+.cr-bar{height:12px}
+.cr-minis{grid-template-columns:repeat(3,minmax(0,120px));gap:10px}
+.cr-minis img:nth-child(2){transform:translateY(-10px)}
+.cr-pat{border:0;background:none;padding:0}
+.cr-pat-v{font-size:clamp(44px,4vw,60px);color:var(--bx-text-2);font-variant-numeric:tabular-nums}
+
+.cr-s-grad{background:var(--bx-bg-elev);padding-top:128px;padding-bottom:128px}
+.cr-s-grad .cr-in{grid-template-rows:repeat(4,auto) 1fr}
+.cr-s-grad .cr-in>:not(.cr-pair){grid-column:8/13}
+.cr-s-grad .cr-eyebrow{margin-top:48px}
+.cr-s-grad .cr-pair{grid-column:1/7;grid-row:1/span 5;display:flex;gap:28px;align-items:flex-start;margin-top:0}
+.cr-s-grad .cr-pair>div:first-child{flex:0 0 260px}
+.cr-s-grad .cr-pair>div:last-child{flex:0 0 200px;transform:translateY(72px) rotate(3deg)}
+.cr-subs{gap:8px}
+.cr-subs dd{font-size:20px;font-variant-numeric:tabular-nums}
+.cr-s-grad .cr-quote{font-size:24px;line-height:1.25;margin-top:32px;padding-left:16px}
+
+.cr-s-cont{padding-top:80px;padding-bottom:80px}
+.cr-s-cont .cr-in{grid-template-rows:repeat(3,auto) 1fr}
+.cr-s-cont .cr-in>:not(.cr-rail){grid-column:1/6}
+.cr-s-cont .cr-rail{grid-column:7/13;grid-row:1/span 4;overflow:visible;margin:0;padding:0 0 48px;gap:20px}
+.cr-s-cont .cr-vid{flex:0 0 calc((100% - 40px)/3)}
+.cr-s-cont .cr-vid:nth-child(2){margin-top:48px}
+.cr-s-cont .cr-vid:nth-child(3){margin-top:16px}
+.cr-vid-meta{font-size:14px}
+
+.cr-s-par{padding-top:96px;padding-bottom:96px}
+.cr-s-par .cr-in{grid-template-rows:auto auto 1fr}
+.cr-s-par .cr-in>:not(.cr-partner){grid-column:1/6}
+.cr-s-par .cr-h2{font-size:clamp(36px,3.4vw,48px)}
+.cr-s-par .cr-partner{grid-column:7/13;grid-row:1/span 3;margin-top:0;padding:28px}
+.cr-coupon{font-size:24px;min-height:64px;padding:0 20px;border-radius:12px;letter-spacing:.12em}
+
+.cr-s-faq{padding-top:88px;padding-bottom:88px}
+.cr-s-faq .cr-in{grid-template-rows:auto auto 1fr}
+.cr-s-faq .cr-eyebrow,.cr-s-faq .cr-steps{grid-column:1/5}
+.cr-s-faq .cr-faq{grid-column:6/13;grid-row:1/span 3;margin-top:0}
+.cr-steps b{font-size:17px}
+.cr-q summary{min-height:60px;font-size:16px}
+.cr-q p{font-size:15px}
+
+.cr-close{text-align:left;padding-top:120px;padding-bottom:120px}
+.cr-close .cr-h2{grid-column:1/9;grid-row:1/span 2;font-size:clamp(36px,3.4vw,52px);margin:0}
+.cr-close .cr-cta{grid-column:9/13;grid-row:1;align-self:end;justify-self:stretch;min-width:0}
+.cr-close .cr-micro{grid-column:9/13;grid-row:2}
+
+.cr-sheet{padding:24px;max-height:calc(100dvh - 64px)}
+}
+@media (min-width:1024px) and (max-height:720px){
+.cr-h1{font-size:42px}
+.cr-hero .cr-in{padding:32px 0}
+}
 @media (prefers-reduced-motion: reduce){.cr *{transition:none!important}}
 `
