@@ -14,7 +14,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabaseClient'
 import {
   STATUS_SERVICO, TRANSICOES_ADMIN, MIDIAS_ADMIN, CAMPOS_LAUDO, SERVICOS, PRECOS, PRAZOS, CORREIOS_VD, taxaValorDeclaradoCents, OBJETIVOS, ROTULO_GRADUADORA, GRADUADORAS,
-  STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, fmtDataHoraAnoBRT, turnoServico, type FichaCondicao, type SlotFoto,
+  STATUS_RELATORIO, FOTOS_ENTRADA, FOTOS_SAIDA, brl, numeroServico, fmtDataHoraBRT, fmtDataHoraAnoBRT, turnoServico, type FichaCondicao, type SlotFoto, avisoRastreio,
 } from '@/lib/servicos'
 import FichaCondicaoForm from '@/components/servicos/admin/FichaCondicao'
 import ChecklistFotos from '@/components/servicos/admin/ChecklistFotos'
@@ -608,6 +608,9 @@ function Acoes({ sol, ocupado, pendencias, procs, pagamentos, cobrancaEnviada, c
           <label><span>Rastreio da volta</span><input className="ad-in" value={rastreio} onChange={e => setRastreio(e.target.value)} placeholder="AA123456789BR" /></label>
           <label><span>Lacre</span><input className="ad-in" value={lacre} onChange={e => setLacre(e.target.value)} placeholder="opcional" /></label>
         </div>
+      )}
+      {opcoes.includes('enviada') && avisoRastreio(rastreio) && (
+        <p className="ad-aviso"><IconWarning size={14} /> {avisoRastreio(rastreio)}</p>
       )}
       <input className="ad-in" value={nota} onChange={e => setNota(e.target.value)} placeholder="Nota para a linha do tempo (opcional)" maxLength={500} />
       <div className="ad-acoes">

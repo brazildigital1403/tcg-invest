@@ -16,7 +16,7 @@ import AppLayout from '@/components/ui/AppLayout'
 import PageHeader, { INICIO } from '@/components/ui/PageHeader'
 import { authFetch } from '@/lib/authFetch'
 import {
-  STATUS_SERVICO, SERVICOS, termoDoServico, GUIA_EMBALAGEM, CAMPOS_LAUDO, brl, numeroServico, fmtDataHoraBRT, turnoServico,
+  STATUS_SERVICO, SERVICOS, termoDoServico, GUIA_EMBALAGEM, avisoRastreio, CAMPOS_LAUDO, brl, numeroServico, fmtDataHoraBRT, turnoServico,
   PILARES, ESCALA, DANOS, TERMO_PROPOSTA_V1, RISCOS, OBJETIVOS, ALERTA_GRADUACAO, SERVICOS_CARTAO_ATIVO, type FichaCondicao,
   ETAPAS_SERVICO, indiceEtapa, rotuloEtapa, STATUS_RELATORIO_CLIENTE,
 } from '@/lib/servicos'
@@ -355,10 +355,11 @@ function Pedido({ id }: { id: string }) {
                 <label htmlFor="sp-rastreio">{s.rastreio_ida ? 'Informou errado? Corrija abaixo' : 'Código de rastreio da postagem'}</label>
                 <div>
                   <input id="sp-rastreio" value={rastreio} onChange={e => setRastreio(e.target.value.toUpperCase())} placeholder="AA123456789BR" maxLength={30} autoCapitalize="characters" />
-                  <button type="button" className="sp-bt sp-bt-pri" disabled={ocupado || rastreio.replace(/\W/g, '').length < 8} onClick={async () => { await postar('rastreio', { codigo: rastreio }, 'Rastreio registrado.'); setRastreio('') }}>
+                  <button type="button" className="sp-bt sp-bt-pri" disabled={ocupado || rastreio.replace(/\W/g, '').length < 8 || !!avisoRastreio(rastreio)} onClick={async () => { await postar('rastreio', { codigo: rastreio }, 'Rastreio registrado.'); setRastreio('') }}>
                     {s.rastreio_ida ? 'Corrigir' : 'Informar'}
                   </button>
                 </div>
+                {avisoRastreio(rastreio) && <p className="sp-aviso" role="alert"><IconWarning size={15} /> {avisoRastreio(rastreio)}</p>}
               </div>}
             </section>
           )}
