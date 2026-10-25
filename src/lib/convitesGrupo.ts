@@ -19,8 +19,15 @@ export interface ConviteGrupoPublico {
   nome?: string
   diasPro?: number
   expiraEm?: string
-  /** Teto do convite (as vagas anunciadas). Os usos ficam no servidor. */
+  /** Teto do convite (as vagas anunciadas). */
   vagas?: number
+  /**
+   * Vagas que ainda restam (teto - usos). Publico desde 25/10/2026: o contador
+   * da landing mostra o numero real, nunca um numero de efeito.
+   */
+  restantes?: number
+  /** Por que encerrou: a tela diz "as vagas acabaram" ou "o prazo terminou". */
+  motivo?: 'vagas' | 'prazo' | 'desligado'
 }
 
 export type CodigoResgate =
@@ -70,7 +77,10 @@ export function estadoDoConvite(c: LinhaConvite | null): EstadoConvite {
 export function conviteParaPublico(c: LinhaConvite | null): ConviteGrupoPublico {
   const estado = estadoDoConvite(c)
   if (!c || estado === 'invalido') return { estado }
-  return { estado, nome: c.nome, diasPro: c.dias_pro, expiraEm: c.expira_em, vagas: c.max_usos }
+  const restantes = Math.max(0, c.max_usos - c.usos)
+  const motivo = estado !== 'encerrado' ? undefined
+    : !c.ativo ? 'desligado' : restantes === 0 ? 'vagas' : 'prazo'
+  return { estado, nome: c.nome, diasPro: c.dias_pro, expiraEm: c.expira_em, vagas: c.max_usos, restantes, motivo }
 }
 
 export async function registrarEventoConvite(conviteId: string, etapa: 'visita' | 'cta' | 'envio' | 'erro'): Promise<void> {

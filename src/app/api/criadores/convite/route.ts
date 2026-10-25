@@ -2,7 +2,7 @@
 //
 // Estado publico do convite de grupo (ativo, encerrado ou invalido), lido pela
 // landing /criadores, que e estatica e pega o codigo do link no navegador.
-// Devolve nome, dias, prazo e o teto de vagas; os usos ficam no servidor.
+// Devolve nome, dias, prazo, o teto e as vagas restantes (contador da landing).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { buscarConviteGrupo, conviteParaPublico } from '@/lib/convitesGrupo'

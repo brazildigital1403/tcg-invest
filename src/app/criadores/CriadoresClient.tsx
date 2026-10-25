@@ -60,12 +60,92 @@ const dataCurta = (iso: string) =>
 const dataBR = (iso: string) =>
   new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
 
+type Motivo = 'vagas' | 'prazo' | 'desligado' | null
+type VagasCtx = { restantes: number | null; vagas: number | null; expiraEm: string | null; pulso: number }
+
+// Faixas do contador (mockup aprovado em 25/10/2026): acima de 20 neutro,
+// 20 a 11 muda de cor, 10 ou menos vermelho com aviso fixo. Sem loop: o unico
+// movimento e um pulso quando o numero cai com a pessoa na pagina.
+function faixa(r: number): '' | 'f20' | 'f10' {
+  return r <= 10 ? 'f10' : r <= 20 ? 'f20' : ''
+}
+
+/** "Até 06/11, 23h59", ou o destaque "Termina hoje/amanhã às 23h59" a menos de 24 h. */
+function linhaPrazo(expiraEm: string): { texto: string; urgente: boolean } {
+  const fim = new Date(expiraEm)
+  const hora = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(fim).replace(':', 'h')
+  const falta = fim.getTime() - Date.now()
+  if (falta > 0 && falta < 24 * 3600_000) {
+    const dia = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d)
+    return { texto: `Termina ${dia(fim) === dia(new Date()) ? 'hoje' : 'amanhã'} às ${hora}`, urgente: true }
+  }
+  return { texto: `Até ${dataCurta(expiraEm)}, ${hora}`, urgente: false }
+}
+
+function fraseFechamento(restantes: number | null, vagas: number | null, expiraEm: string | null): string {
+  if (restantes === null || !vagas || !expiraEm) return 'Sem cartão. Sem cobrança no fim.'
+  if (restantes === 1) return `Última vaga para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
+  return `Restam ${restantes} de ${vagas} vagas para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
+}
+
+/** Bloco do hero: numero, regua de vagas e prazo. */
+function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & { carregando: boolean }) {
+  const prazo = expiraEm ? linhaPrazo(expiraEm) : null
+  if (restantes === null || !vagas) {
+    // Carregando: espaco reservado, sem numero. Erro: so o prazo (o teto nao e o que resta).
+    if (carregando) return <div className="cr-ct cr-ct-vazio" aria-hidden="true"><span className="cr-ct-sk" /></div>
+    return prazo ? <div className="cr-ct"><p className="cr-ct-p" style={{ marginTop: 0 }}><IconClock size={14} />{prazo.texto}</p></div> : null
+  }
+  const f = faixa(restantes)
+  const usadas = Math.max(0, vagas - restantes)
+  return (
+    <div className={`cr-ct ${f}${prazo?.urgente ? ' cr-ct-urg' : ''}`}>
+      <p className="cr-ct-l" aria-live="polite">
+        {restantes === 1 ? <span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>Última vaga</span>
+          : restantes <= 10 ? <><span className="cr-ct-pre">Últimas</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas</span></>
+          : restantes <= 20 ? <><span className="cr-ct-pre">Restam</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">de {vagas} vagas</span></>
+          : <><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">de {vagas} vagas</span></>}
+      </p>
+      {vagas <= 60 ? (
+        <div className="cr-ct-regua" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${vagas}, minmax(0, 1fr))` }}>
+          {Array.from({ length: vagas }, (_, i) => <i key={i} className={i < usadas ? 'u' : ''} />)}
+        </div>
+      ) : (
+        <div className="cr-ct-barra-cont" aria-hidden="true"><i style={{ width: `${(restantes / vagas) * 100}%` }} /></div>
+      )}
+      {prazo && <p className="cr-ct-p"><IconClock size={14} />{prazo.texto}</p>}
+      {restantes <= 10 && (
+        <p className="cr-ct-av"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Esta é a última vaga do convite.' : `Restam ${restantes} de ${vagas} vagas. O convite fecha quando acabarem.`}</p>
+      )}
+    </div>
+  )
+}
+
+/** Versao em uma linha: barra fixa do celular e pilula do cabecalho no desktop. */
+function ContadorCurto({ restantes, vagas, expiraEm, classe }: VagasCtx & { classe: string }) {
+  if (restantes === null || !vagas) return null
+  const f = faixa(restantes)
+  return (
+    <p className={`${classe} ${f}`}>
+      {restantes === 1 ? <b>Última vaga</b>
+        : restantes <= 10 ? <>Últimas <b>{restantes}</b> vagas</>
+        : <><b>{restantes}</b> de {vagas} vagas{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>}
+    </p>
+  )
+}
+
 export default function CriadoresClient() {
   const { openLogin } = useAuthModal()
   const [codigo, setCodigo] = useState<string | null>(null)
   const [estado, setEstado] = useState<Estado>('carregando')
   const [expiraEm, setExpiraEm] = useState<string | null>(null)
   const [vagas, setVagas] = useState<number | null>(null)
+  const [restantes, setRestantes] = useState<number | null>(null)
+  const [motivo, setMotivo] = useState<Motivo>(null)
+  const [erroConvite, setErroConvite] = useState(false)
+  const [pulso, setPulso] = useState(0)
+  const ultimaBusca = useRef(0)
+  const restantesRef = useRef<number | null>(null)
   const [logado, setLogado] = useState(false)
   const [folha, setFolha] = useState(false)
   const [sucesso, setSucesso] = useState<Sucesso | null>(null)
@@ -79,20 +159,47 @@ export default function CriadoresClient() {
     fetch('/api/criadores/evento', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ c, etapa }), keepalive: true }).catch(() => {})
   }, [])
 
+  // Busca o convite (estado, prazo, teto e vagas restantes). Roda ao abrir,
+  // ao voltar para a aba e ao abrir o cadastro, no maximo 1 vez por minuto
+  // (`forcar` ignora o limite so na primeira carga). Sem polling: o numero e
+  // uma linha por codigo, e o servidor e quem decide no envio.
+  const carregarConvite = useCallback((c: string, forcar = false) => {
+    const agora = Date.now()
+    if (!forcar && agora - ultimaBusca.current < 60_000) return
+    ultimaBusca.current = agora
+    fetch(`/api/criadores/convite?c=${encodeURIComponent(c)}`)
+      .then(r => r.json())
+      .then((d: { estado?: Estado; expiraEm?: string; vagas?: number; restantes?: number; motivo?: Motivo }) => {
+        setErroConvite(false)
+        setEstado(d.estado === 'ativo' || d.estado === 'encerrado' ? d.estado : 'invalido')
+        setExpiraEm(d.expiraEm || null)
+        setVagas(typeof d.vagas === 'number' ? d.vagas : null)
+        setMotivo(d.motivo || null)
+        if (typeof d.restantes === 'number') {
+          // Pulso unico so quando o numero CAI com a pessoa na pagina.
+          if (restantesRef.current !== null && d.restantes < restantesRef.current) setPulso(n => n + 1)
+          restantesRef.current = d.restantes
+          setRestantes(d.restantes)
+        }
+        if (d.estado === 'ativo' && !visitaFeita.current) { visitaFeita.current = true; evento('visita', c) }
+      })
+      .catch(() => {
+        // Erro de rede nao vira "link invalido": a pagina segue sem numero e
+        // o servidor confere o convite no envio.
+        setErroConvite(true)
+        setEstado(e => (e === 'carregando' ? 'ativo' : e))
+      })
+  }, [evento])
+
   useEffect(() => {
     const c = new URLSearchParams(window.location.search).get('c')
     setCodigo(c)
     if (!c) { setEstado('invalido'); return }
-    fetch(`/api/criadores/convite?c=${encodeURIComponent(c)}`)
-      .then(r => r.json())
-      .then((d: { estado?: Estado; expiraEm?: string; vagas?: number }) => {
-        setEstado(d.estado === 'ativo' || d.estado === 'encerrado' ? d.estado : 'invalido')
-        setExpiraEm(d.expiraEm || null)
-        setVagas(typeof d.vagas === 'number' ? d.vagas : null)
-        if (d.estado === 'ativo' && !visitaFeita.current) { visitaFeita.current = true; evento('visita', c) }
-      })
-      .catch(() => setEstado('invalido'))
-  }, [evento])
+    carregarConvite(c, true)
+    const aoVoltar = () => { if (document.visibilityState === 'visible') carregarConvite(c) }
+    document.addEventListener('visibilitychange', aoVoltar)
+    return () => document.removeEventListener('visibilitychange', aoVoltar)
+  }, [carregarConvite])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setLogado(!!data.session))
@@ -142,13 +249,14 @@ export default function CriadoresClient() {
     if (!codigo || estado !== 'ativo') return
     evento('cta', codigo)
     if (logado) ativarComConta()
-    else setFolha(true)
+    else { setFolha(true); carregarConvite(codigo) }
   }
 
   if (sucesso) return <TelaSucesso sucesso={sucesso} />
-  if (estado === 'encerrado' || estado === 'invalido') return <TelaEncerrado invalido={estado === 'invalido'} />
+  if (estado === 'encerrado' || estado === 'invalido') return <TelaEncerrado invalido={estado === 'invalido'} motivo={motivo} vagas={vagas} />
 
   const ctaTexto = ativando ? 'Liberando...' : 'Liberar meu 1 ano grátis'
+  const vagasCtx = { restantes: erroConvite ? null : restantes, vagas, expiraEm, pulso }
 
   return (
     <div className="cr">
@@ -160,7 +268,10 @@ export default function CriadoresClient() {
             ? <span className="cr-top-ok">Você está na sua conta</span>
             : <button type="button" className="cr-ghost" onClick={() => openLogin({ next: voltarAqui })}>Já tenho conta</button>}
           {!heroVisivel && !folha && estado === 'ativo' && (
-            <button type="button" className="cr-top-cta" onClick={cta} disabled={ativando}>{ctaTexto}</button>
+            <>
+              <ContadorCurto {...vagasCtx} classe="cr-ct-pill" />
+              <button type="button" className="cr-top-cta" onClick={cta} disabled={ativando}>{ctaTexto}</button>
+            </>
           )}
         </div>
       </header>
@@ -188,8 +299,8 @@ export default function CriadoresClient() {
             <ul className="cr-oferta">
               <li><IconCalendar size={16} color="var(--ac-1)" />12 meses grátis</li>
               <li><IconCheck size={16} color="var(--ac-1)" />Sem cartão</li>
-              {vagas && expiraEm && <li><IconClock size={16} color="var(--ac-1)" />{vagas} vagas até {dataCurta(expiraEm)}</li>}
             </ul>
+            <Contador {...vagasCtx} carregando={estado === 'carregando'} />
             {erroTopo && <p className="cr-erro" role="alert">{erroTopo}</p>}
             <button ref={heroCta} type="button" className="cr-cta" onClick={cta} disabled={ativando || estado !== 'ativo'}>{estado === 'carregando' ? 'Carregando...' : ctaTexto}</button>
             <p className="cr-micro">Sem cobrança no fim.</p>
@@ -317,7 +428,7 @@ export default function CriadoresClient() {
           <div className="cr-in">
             <h2 className="cr-h2">A Bynx foi feita para quem vive o hobby. Isso inclui você.</h2>
             <button type="button" className="cr-cta" onClick={cta} disabled={ativando}>{ctaTexto}</button>
-            <p className="cr-micro">{vagas && expiraEm ? `${vagas} vagas para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.` : 'Sem cartão. Sem cobrança no fim.'}</p>
+            <p className="cr-micro">{fraseFechamento(vagasCtx.restantes, vagas, expiraEm)}</p>
           </div>
         </section>
       </main>
@@ -328,7 +439,10 @@ export default function CriadoresClient() {
       </footer>
 
       {!heroVisivel && !folha && estado === 'ativo' && (
-        <div className="cr-sticky bx-gutter"><button type="button" className="cr-cta" onClick={cta} disabled={ativando}>{ctaTexto}</button></div>
+        <div className="cr-sticky bx-gutter">
+          <ContadorCurto {...vagasCtx} classe="cr-ct-barra" />
+          <button type="button" className="cr-cta" onClick={cta} disabled={ativando}>{ctaTexto}</button>
+        </div>
       )}
 
       {folha && codigo && (
@@ -336,7 +450,8 @@ export default function CriadoresClient() {
           codigo={codigo}
           onFechar={() => setFolha(false)}
           onJaTemConta={() => { setFolha(false); openLogin({ next: voltarAqui }) }}
-          onEncerrado={() => { setFolha(false); setEstado('encerrado') }}
+          restantes={vagasCtx.restantes}
+          onEncerrado={() => { restantesRef.current = 0; setRestantes(0) }}
           onSucesso={s => { setFolha(false); setSucesso(s); window.scrollTo({ top: 0 }) }}
         />
       )}
@@ -437,8 +552,9 @@ function Parceria({ logado, onPrecisaConta }: { logado: boolean; onPrecisaConta:
   )
 }
 
-function FolhaCadastro({ codigo, onFechar, onJaTemConta, onEncerrado, onSucesso }: {
+function FolhaCadastro({ codigo, restantes, onFechar, onJaTemConta, onEncerrado, onSucesso }: {
   codigo: string
+  restantes: number | null
   onFechar: () => void
   onJaTemConta: () => void
   onEncerrado: () => void
@@ -454,6 +570,7 @@ function FolhaCadastro({ codigo, onFechar, onJaTemConta, onEncerrado, onSucesso 
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState('')
   const [campoErro, setCampoErro] = useState('')
+  const [esgotou, setEsgotou] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar() }
@@ -475,7 +592,9 @@ function FolhaCadastro({ codigo, onFechar, onJaTemConta, onEncerrado, onSucesso 
         body: JSON.stringify({ c: codigo, nome, email, senha, termos, idade13, captcha }),
       })
       const d = await res.json().catch(() => ({}))
-      if (d.code === 'CONVITE_ENCERRADO') { onEncerrado(); return }
+      // Vagas acabaram com o formulario aberto: a folha NAO fecha nem apaga o
+      // que foi digitado. Avisa e oferece o plano Gratis.
+      if (d.code === 'CONVITE_ENCERRADO') { setEsgotou(true); onEncerrado(); return }
       if (d.code === 'JA_TEM_CONTA') { onJaTemConta(); return }
       if (!res.ok) {
         setCampoErro(d.campo || ''); setErro(d.error || 'Não conseguimos criar sua conta.')
@@ -503,6 +622,15 @@ function FolhaCadastro({ codigo, onFechar, onJaTemConta, onEncerrado, onSucesso 
           <button type="button" className="cr-x" onClick={onFechar} aria-label="Fechar"><IconClose size={18} /></button>
         </div>
         <h2 id="cr-sheet-t" className="cr-h2">Seu ano de Pro começa aqui</h2>
+        {esgotou ? (
+          <div className="cr-esgotou" role="alert">
+            <b>As vagas acabaram enquanto você preenchia.</b>
+            <p>Seus dados continuam aqui. Você pode criar a conta no plano Grátis.</p>
+            <Link href="/planos" className="cr-outline">Conhecer o plano Grátis</Link>
+          </div>
+        ) : restantes !== null && restantes > 0 && restantes <= 10 && (
+          <p className="cr-ct-folha"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Resta 1 vaga' : `Restam ${restantes} vagas`}</p>
+        )}
         <form onSubmit={enviar} noValidate>
           <label className="cr-field">
             <span>Nome</span>
@@ -527,7 +655,7 @@ function FolhaCadastro({ codigo, onFechar, onJaTemConta, onEncerrado, onSucesso 
           </label>
           <Turnstile onToken={setCaptcha} resetKey={captchaReset} />
           {erro && <p className="cr-erro" role="alert">{erro}</p>}
-          <button type="submit" className="cr-cta" disabled={carregando}>{carregando ? 'Criando sua conta...' : 'Criar conta e ativar meu ano'}</button>
+          <button type="submit" className="cr-cta" disabled={carregando || esgotou}>{carregando ? 'Criando sua conta...' : 'Criar conta e ativar meu ano'}</button>
           <p className="cr-micro">Sem CPF e sem cartão. CPF só se você entrar na Parceria.</p>
         </form>
       </div>
@@ -573,14 +701,18 @@ function TelaSucesso({ sucesso }: { sucesso: Sucesso }) {
   )
 }
 
-function TelaEncerrado({ invalido }: { invalido: boolean }) {
+function TelaEncerrado({ invalido, motivo, vagas }: { invalido: boolean; motivo: Motivo; vagas: number | null }) {
+  const titulo = invalido ? 'Este link de convite não existe.'
+    : motivo === 'vagas' ? (vagas ? `As ${vagas} vagas deste convite acabaram.` : 'As vagas deste convite acabaram.')
+    : motivo === 'prazo' ? 'O prazo deste convite terminou.'
+    : 'Este convite encerrou.'
   return (
     <div className="cr">
       <style>{CSS}</style>
       <header className="cr-top bx-gutter"><Link href="/" className="cr-logo-a"><img src="/logo_BYNX.png" alt="Bynx" className="cr-logo" /></Link></header>
       <main className="bx-gutter cr-state cr-center">
         <div className="cr-in">
-          <h1 className="cr-h2">{invalido ? 'Este link de convite não existe.' : 'Este convite encerrou.'}</h1>
+          <h1 className="cr-h2">{titulo}</h1>
           <p className="cr-p">{invalido ? 'Confira o link que você recebeu no grupo.' : 'A Bynx continua aberta para você.'}</p>
           <Link href="/" className="cr-outline">Conhecer a Bynx</Link>
         </div>
@@ -620,6 +752,41 @@ const CSS = `
 .cr-oferta{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
 .cr-oferta li{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;background:rgba(var(--ac-1-rgb),.08);border:1px solid rgba(var(--ac-1-rgb),.28);font-size:13px;font-weight:700;color:var(--bx-text)}
 .cr-partner li b{color:var(--bx-text);font-weight:700}
+.cr-ct{margin-top:14px;padding:14px;border-radius:12px;background:var(--bx-surface);border:1px solid var(--bx-border);transition:border-color .2s ease}
+.cr-ct-l{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}
+.cr-ct-n{display:inline-block;font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;color:var(--bx-text);transition:color .2s ease}
+.cr-ct-pre,.cr-ct-t{font-size:15px;font-weight:700;color:var(--bx-text-2)}
+.cr-ct-regua{display:grid;gap:2px;height:8px;margin-top:12px}
+.cr-ct-regua i{display:block;border-radius:2px;background:var(--ac-1);transition:background .2s ease}
+.cr-ct-regua i.u{background:var(--bx-surface-3)}
+.cr-ct-barra-cont{height:8px;margin-top:12px;border-radius:999px;background:var(--bx-surface-3);overflow:hidden}
+.cr-ct-barra-cont i{display:block;height:100%;background:var(--ac-1);border-radius:999px}
+.cr-ct-p{display:flex;align-items:center;gap:6px;margin:10px 0 0;font-size:13px;color:var(--bx-text-3)}
+.cr-ct-p svg{flex:none}
+.cr-ct-urg .cr-ct-p{color:var(--bx-text);font-weight:700}
+.cr-ct-urg .cr-ct-p svg{color:var(--ac-1)}
+.cr-ct.f20{border-color:rgba(var(--ac-1-rgb),.35)}
+.cr-ct.f20 .cr-ct-n{color:var(--ac-2)}
+.cr-ct.f20 .cr-ct-regua i:not(.u),.cr-ct.f20 .cr-ct-barra-cont i{background:var(--ac-2)}
+.cr-ct.f10{border-color:rgba(var(--ac-2-rgb),.45)}
+.cr-ct.f10 .cr-ct-n{color:var(--bx-red)}
+.cr-ct.f10 .cr-ct-regua i:not(.u),.cr-ct.f10 .cr-ct-barra-cont i{background:var(--bx-red)}
+.cr-ct-av{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--bx-border);font-size:13px;font-weight:700;color:var(--bx-text)}
+.cr-ct-dot{width:6px;height:6px;border-radius:50%;background:var(--bx-red);flex:none}
+.cr-ct-vazio{height:96px;display:flex;align-items:center}
+.cr-ct-sk{display:block;width:72px;height:40px;border-radius:8px;background:var(--bx-surface-3)}
+.cr-ct-pulso{animation:cr-pulso .2s ease 1}
+@keyframes cr-pulso{50%{transform:scale(1.06)}}
+.cr-ct-barra{display:flex;justify-content:center;gap:4px;margin:0 auto 6px;max-width:560px;font-size:12.5px;font-weight:700;color:var(--bx-text-2);font-variant-numeric:tabular-nums}
+.cr-ct-barra b,.cr-ct-pill b{color:var(--bx-text);font-weight:800;transition:color .2s ease}
+.cr-ct-barra.f20 b,.cr-ct-pill.f20 b{color:var(--ac-2)}
+.cr-ct-barra.f10 b,.cr-ct-pill.f10 b{color:var(--bx-red)}
+.cr-ct-pill{display:none}
+.cr-ct-folha{display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px;border-radius:10px;border:1px solid rgba(var(--ac-2-rgb),.45);font-size:13px;font-weight:700;color:var(--bx-text)}
+.cr-esgotou{margin-top:14px;padding:14px;border-radius:12px;border:1px solid rgba(var(--ac-2-rgb),.45);background:rgba(var(--ac-2-rgb),.08)}
+.cr-esgotou b{display:block;font-size:15px}
+.cr-esgotou p{font-size:13.5px;color:var(--bx-text-2);margin:4px 0 0}
+.cr-esgotou .cr-outline{margin-top:12px}
 .cr-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);font-size:12px;font-weight:700;color:var(--bx-text-2);text-decoration:none}
 
 .cr-fan{position:relative;height:262px;margin:22px 0 0;background:radial-gradient(55% 60% at 50% 55%,rgba(var(--ac-1-rgb),0.16),transparent 70%)}
@@ -763,6 +930,11 @@ const CSS = `
 .cr-top{height:64px;padding-left:max(24px,calc((100% - 1120px)/2))!important;padding-right:max(24px,calc((100% - 1120px)/2))!important}
 .cr-top-cta{display:inline-flex;align-items:center;height:44px;padding:0 18px;border:0;border-radius:10px;background:var(--ac-grad);color:var(--bx-brand-ink);font:inherit;font-weight:700;font-size:14px;cursor:pointer;transition:transform .15s ease}
 .cr-top-cta:hover{transform:translateY(-2px)}
+.cr-ct-pill{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--bx-border-2);background:var(--bx-surface-2);font-size:12.5px;font-weight:700;color:var(--bx-text-2);font-variant-numeric:tabular-nums;margin:0;white-space:nowrap}
+.cr-ct-pill.f20{border-color:rgba(var(--ac-1-rgb),.4)}
+.cr-ct-pill.f10{border-color:rgba(var(--ac-2-rgb),.5)}
+.cr-hero .cr-ct{justify-self:start;width:100%;max-width:440px}
+.cr-ct-n{font-size:52px}
 .cr-sec .cr-in{max-width:1120px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px;align-items:start}
 .cr-sec .cr-in>*{grid-column:1/-1;min-width:0}
 .cr-sec+.cr-sec{border-top:0}
@@ -856,5 +1028,5 @@ const CSS = `
 .cr-h1{font-size:42px}
 .cr-hero .cr-in{padding:32px 0}
 }
-@media (prefers-reduced-motion: reduce){.cr *{transition:none!important}}
+@media (prefers-reduced-motion: reduce){.cr *{transition:none!important}.cr-ct-pulso{animation:none}}
 `
