@@ -74,9 +74,15 @@ export function comissaoADevolver(a: {
   jaDevolvidoCents: number
   /** Custos que a Bynx paga por causa do estorno (etiqueta reversa). Default 0. */
   custosExtrasCents?: number
+  /**
+   * Parte da comissao que pagou debito anterior do vendedor
+   * (pedidos.debito_descontado_cents). Nao volta em estorno nenhum: o debito
+   * era devido de qualquer jeito. Default 0.
+   */
+  debitoCobradoCents?: number
 }): PlanoComissao {
   const cobrado = c(a.cobradoCents)
-  const comissao = c(a.comissaoCents)
+  const comissao = Math.max(0, c(a.comissaoCents) - c(a.debitoCobradoCents))
   const taxa = c(a.taxaStripeCents)
   const extras = c(a.custosExtrasCents)
   const estornado = Math.min(c(a.estornadoTotalCents), cobrado)
@@ -88,7 +94,7 @@ export function comissaoADevolver(a: {
   const devolver = Math.max(0, alvoTotal - jaDevolvido)
   return {
     devolverCents: devolver,
-    retidoCents: comissao - jaDevolvido - devolver,
+    retidoCents: c(a.comissaoCents) - jaDevolvido - devolver,
     faltaCobrirCents: Math.max(0, taxa + extras - comissao),
   }
 }
@@ -118,4 +124,13 @@ export function resultadoBynxCents(a: {
   custosExtrasCents?: number
 }): number {
   return c(a.comissaoCents) - c(a.comissaoDevolvidaCents) - c(a.taxaStripeCents) - c(a.custosExtrasCents)
+}
+
+/**
+ * Checkout (opcao a do Du, 25/10): quanto do debito em aberto do vendedor sai
+ * desta venda. Nunca mais que o liquido dele nesta venda (a loja nao paga
+ * para vender). O valor soma no application_fee_amount e sai do liquido.
+ */
+export function descontoDeDebito(a: { debitoAbertoCents: number; liquidoVendedorCents: number }): number {
+  return Math.min(c(a.debitoAbertoCents), c(a.liquidoVendedorCents))
 }

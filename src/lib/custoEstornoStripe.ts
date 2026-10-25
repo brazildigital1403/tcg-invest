@@ -20,6 +20,12 @@ export interface CustosDaCobranca {
   taxaStripeCents: number | null
   /** ApplicationFee da destination charge; null em cobranca direta. */
   comissao: { id: string; cents: number; devolvidoCents: number } | null
+  /** Conta Stripe do recebedor (destination charge); null em cobranca direta. */
+  destino: string | null
+  /** metadata.bynx_pedido_id do PaymentIntent, quando houver. */
+  pedidoId: string | null
+  /** Parte da comissao que pagou debito anterior (metadata.bynx_debito_cents). */
+  debitoCobradoCents: number
 }
 
 /** Le a cobranca do PaymentIntent com a taxa real e a comissao. Leitura so. */
@@ -37,6 +43,10 @@ export async function custosDaCobranca(s: Stripe, paymentIntent: string): Promis
     estornadoCents: ch.amount_refunded,
     taxaStripeCents: typeof bt?.fee === 'number' ? bt.fee : null,
     comissao: fee ? { id: fee.id, cents: fee.amount, devolvidoCents: fee.amount_refunded } : null,
+    destino: typeof ch.transfer_data?.destination === 'string' ? ch.transfer_data.destination
+      : ch.transfer_data?.destination?.id ?? null,
+    pedidoId: pi.metadata?.bynx_pedido_id || null,
+    debitoCobradoCents: Math.max(0, Math.floor(Number(pi.metadata?.bynx_debito_cents) || 0)),
   }
 }
 
@@ -80,6 +90,7 @@ export async function devolverComissaoComCusto(s: Stripe, a: {
     estornadoTotalCents: custos.estornadoCents + desteEstorno,
     jaDevolvidoCents: custos.comissao.devolvidoCents,
     custosExtrasCents: a.custosExtrasCents,
+    debitoCobradoCents: custos.debitoCobradoCents,
   })
   if (plano.devolverCents <= 0) return { ...plano, feeRefundId: null, reaproveitado: false }
 

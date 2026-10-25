@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { comissaoVendedorCents, acrescimoCompradorCents, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { resolverRecebedor, type Recebedor } from '@/lib/vendedorRecebimento'
+import { descontoNoCheckout, metadataDebito } from '@/lib/debitoVendedor'
 import { cotarFrete, pacoteDeCartas, pacoteDeProduto, type ItemFrete, type DimsProduto } from '@/lib/melhor-envio'
 
 /**
@@ -376,6 +377,11 @@ export async function POST(req: NextRequest) {
     const nomePrimeiro = primeiro.qtd > 1 ? `${primeiro.nome} (${primeiro.qtd}x)` : primeiro.nome
     const resumoNome = resto > 0 ? `${nomePrimeiro} + ${resto} ${resto === 1 ? 'item' : 'itens'}` : nomePrimeiro
 
+    // Debito anterior do vendedor (lib/debitoVendedor): sai deste pedido, ate o
+    // liquido dele sem o frete. O comprador paga o mesmo.
+    const descontoDebito = await descontoNoCheckout(db, recebedor.connectAccountId, conta.liquido_loja_cents - conta.frete_cents)
+    const comissaoCents = conta.comissao_bynx_cents + descontoDebito
+    const metaDebito = metadataDebito(recebedor.connectAccountId, descontoDebito)
     const { data: pedidoIns, error: pedErr } = await db
       .from('pedidos')
       .insert({
@@ -394,8 +400,9 @@ export async function POST(req: NextRequest) {
         frete_cents: conta.frete_cents,
         acrescimo_cents: conta.acrescimo_cents,
         total_comprador_cents: conta.total_comprador_cents,
-        comissao_bynx_cents: conta.comissao_bynx_cents,
-        liquido_loja_cents: conta.liquido_loja_cents,
+        comissao_bynx_cents: comissaoCents,
+        liquido_loja_cents: conta.liquido_loja_cents - descontoDebito,
+        debito_descontado_cents: descontoDebito,
         metodo,
         repasse_prazo: prazo,
         stripe_connect_account_id: recebedor.connectAccountId,
@@ -458,11 +465,12 @@ export async function POST(req: NextRequest) {
           bynx_pedido_id: String(pedidoIns.id),
           bynx_vendedor_id: String(recebedor.ownerUserId),
           ...(recebedor.lojaId ? { bynx_loja_id: String(recebedor.lojaId) } : {}),
+          ...metaDebito,
         },
         payment_intent_data: {
-          application_fee_amount: conta.comissao_bynx_cents,
+          application_fee_amount: comissaoCents,
           transfer_data: { destination: recebedor.connectAccountId },
-          metadata: { bynx_pedido_id: String(pedidoIns.id) },
+          metadata: { bynx_pedido_id: String(pedidoIns.id), ...metaDebito },
         },
         success_url: `${base}/pedido/${pedidoIns.id}?ok=1`,
         cancel_url: `${base}/carrinho?cancelado=1`,

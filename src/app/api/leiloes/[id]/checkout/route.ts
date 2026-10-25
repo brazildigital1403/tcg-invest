@@ -9,6 +9,7 @@ import { calcularArremate } from '@/lib/leilao-taxas'
 import { ehMetodoValido, normalizarPrazo, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { cotarFrete, pacoteDeCarta } from '@/lib/melhor-envio'
 import { resolverRecebedor, podeReceber, type Recebedor } from '@/lib/vendedorRecebimento'
+import { descontoNoCheckout, metadataDebito } from '@/lib/debitoVendedor'
 import { rotuloGraduacao } from '@/components/leilao/cardDoLote'
 
 /**
@@ -486,6 +487,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const lojaId = await lojaDoPedido(db, lote, recebedor)
 
+    // Debito anterior do vendedor (custo de estorno que a comissao nao cobriu,
+    // lib/debitoVendedor): sai desta venda, ate o liquido dele. O comprador
+    // paga o mesmo; muda so a divisao entre a Bynx e o vendedor.
+    // Teto = o liquido SEM o frete: o frete e para despachar esta venda.
+    const descontoDebito = await descontoNoCheckout(db, recebedor.connectAccountId, a.vendedorRecebeCents)
+    const comissaoCents = a.applicationFeeCents + descontoDebito
+    const liquidoFinalCents = liquidoCents - descontoDebito
+    const metaDebito = metadataDebito(recebedor.connectAccountId, descontoDebito)
+
     // ── 1. Stripe (o id do pedido nasce aqui) ────────────────────────────
     const pedidoId = randomUUID()
     const nome = nomeDoLote(lote)
@@ -506,6 +516,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       bynx_leilao_id: lote.id,
       bynx_vendedor_user_id: lote.vendedor_user_id,
       ...(lojaId ? { bynx_loja_id: lojaId } : {}),
+      ...metaDebito,
     }
 
     let session: Stripe.Checkout.Session
@@ -520,9 +531,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         expires_at: expiresAt,
         metadata,
         payment_intent_data: {
-          application_fee_amount: a.applicationFeeCents,
+          application_fee_amount: comissaoCents,
           transfer_data: { destination: recebedor.connectAccountId! },
-          metadata: { bynx_pedido_id: pedidoId, bynx_leilao_id: lote.id },
+          metadata: { bynx_pedido_id: pedidoId, bynx_leilao_id: lote.id, ...metaDebito },
         },
         success_url: `${base}/pedido/${pedidoId}?ok=1`,
         cancel_url: `${base}/leiloes/${lote.slug}/pagar?cancelado=1`,
@@ -556,8 +567,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // Tudo que o comprador paga alem do martelo: protecao + custo do metodo.
       acrescimo_cents: acrescimoCents,
       total_comprador_cents: totalCents,
-      comissao_bynx_cents: a.applicationFeeCents,
-      liquido_loja_cents: liquidoCents,
+      comissao_bynx_cents: comissaoCents,
+      liquido_loja_cents: liquidoFinalCents,
+      debito_descontado_cents: descontoDebito,
       metodo,
       repasse_prazo: normalizarPrazo(recebedor.repassePrazo),
       stripe_connect_account_id: recebedor.connectAccountId,

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { custosDaCobranca, devolverComissaoComCusto } from '@/lib/custoEstornoStripe'
+import { registrarFaltaComoDebito } from '@/lib/debitoVendedor'
 import { sendPedidoEnviadoEmail, sendReembolsoCompradorEmail } from '@/lib/email'
 import { exigeFotoEnvio, validarFotosEnvio, VALOR_FOTO_ENVIO_CENTS } from '@/lib/leilao-reclamacao'
 import { ehPedidoDeLeilao, pastaEnvio, arquivosNaPasta } from '@/lib/reclamacaoServer'
@@ -216,7 +217,10 @@ export async function cancelarEReembolsar(
       custos, chave, estornoCents: null, metadata: { pedido_id: pedido.id },
     })
     if (com.faltaCobrirCents > 0) {
-      console.error(`[posVenda cancelar] PREJUIZO: taxa passa da comissao em ${com.faltaCobrirCents} centavos | pedido ${pedido.id}`)
+      await registrarFaltaComoDebito(sb, {
+        custos, chave, faltaCents: com.faltaCobrirCents,
+        motivo: `Taxa do cartao acima da comissao no cancelamento do pedido ${pedido.id}`,
+      })
     }
     const refund = await stripe.refunds.create(
       {

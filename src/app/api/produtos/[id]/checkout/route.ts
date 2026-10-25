@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { cotarFrete, pacoteDeProduto } from '@/lib/melhor-envio'
+import { descontoNoCheckout, metadataDebito } from '@/lib/debitoVendedor'
 
 /**
  * Checkout de PRODUTO da loja (selado/pelucia/funko/fichario/acessorio).
@@ -178,7 +179,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     const totalCompradorCents = c.totalCompradorCents + freteCents
-    const liquidoLojaCents = c.liquidoLojaCents + freteCents
+    // Debito anterior da loja (lib/debitoVendedor): sai desta venda, ate o
+    // liquido dela sem o frete. O comprador paga o mesmo.
+    const descontoDebito = await descontoNoCheckout(db, loja.stripe_connect_account_id, c.liquidoLojaCents)
+    const comissaoCents = c.taxaBynxCents + descontoDebito
+    const metaDebito = metadataDebito(loja.stripe_connect_account_id, descontoDebito)
+    const liquidoLojaCents = c.liquidoLojaCents + freteCents - descontoDebito
 
     const { data: pedidoIns, error: pedErr } = await db
       .from('pedidos')
@@ -193,8 +199,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         frete_cents: freteCents,
         acrescimo_cents: c.acrescimoCents,
         total_comprador_cents: totalCompradorCents,
-        comissao_bynx_cents: c.taxaBynxCents,
+        comissao_bynx_cents: comissaoCents,
         liquido_loja_cents: liquidoLojaCents,
+        debito_descontado_cents: descontoDebito,
         metodo,
         repasse_prazo: prazo,
         stripe_connect_account_id: loja.stripe_connect_account_id,
@@ -258,11 +265,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           bynx_pedido_id: String(pedidoIns.id),
           bynx_produto_id: String(p.id),
           bynx_loja_id: String(loja.id),
+          ...metaDebito,
         },
         payment_intent_data: {
-          application_fee_amount: c.taxaBynxCents,
+          application_fee_amount: comissaoCents,
           transfer_data: { destination: loja.stripe_connect_account_id },
-          metadata: { bynx_pedido_id: String(pedidoIns.id) },
+          metadata: { bynx_pedido_id: String(pedidoIns.id), ...metaDebito },
         },
         success_url: `${base}/pedido/${pedidoIns.id}?ok=1`,
         cancel_url: `${base}/produto/${p.slug || p.id}?cancelado=1`,

@@ -5,6 +5,7 @@ import Stripe from 'stripe'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { enviarEmailRenderizado, type EmailRenderizado } from '@/lib/email'
 import { custosDaCobranca, devolverComissaoComCusto } from '@/lib/custoEstornoStripe'
+import { registrarFaltaComoDebito } from '@/lib/debitoVendedor'
 import {
   FOTO_MIMES, DIAS_RECLAMAR, refundValido, restanteEstornavel, conferirRefund, type SlotFoto, type SlotFotoEnvio,
 } from '@/lib/leilao-reclamacao'
@@ -199,7 +200,12 @@ export async function estornarNaStripe(args: {
     custosExtrasCents: args.custosExtrasCents, metadata: args.metadata,
   })
   if (com.faltaCobrirCents > 0) {
-    console.error(`[estorno] PREJUIZO: custos passam da comissao em ${com.faltaCobrirCents} centavos | PI ${args.paymentIntent} | ${args.chave}`)
+    // O que a comissao nao cobriu vira debito do vendedor, descontado na
+    // proxima venda dele (opcao a do Du, lib/debitoVendedor).
+    await registrarFaltaComoDebito(sbServico(), {
+      custos, chave: args.chave, faltaCents: com.faltaCobrirCents,
+      motivo: `Custo do estorno acima da comissao (${args.chave})`,
+    })
   }
 
   // 2. Estorno ao comprador, revertendo o transfer da loja.

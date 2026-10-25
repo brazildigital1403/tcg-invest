@@ -31,6 +31,7 @@ import { classificarConta } from '@/lib/connect-status'
 import { registrarVendaParceiro, registrarRenovacaoParceiro, reverterComissaoParceiro } from '@/lib/parceiros'
 import { carimbarConvite } from '@/lib/campanhaConvites'
 import { valorLancamentoAposEstorno } from '@/lib/estornoLancamento'
+import { quitarDebitoDaVenda } from '@/lib/debitoVendedor'
 import {
   sbAdmin as sbServicos, confirmarPagamento as confirmarPagamentoServico, aposConfirmarPagamento,
   registrarEvento as registrarEventoServico, notificarAdmin as notificarAdminServico, ROTULO_ETAPA as ROTULO_ETAPA_SERVICO,
@@ -825,6 +826,22 @@ export async function POST(req: NextRequest) {
           if (upPedErr) {
             console.error(`[webhook] venda: falha atualizando pedido ${pedido.numero}:`, upPedErr.message)
             break
+          }
+
+          // ── Debito anterior do vendedor cobrado nesta venda ─────────────
+          // O checkout somou na comissao o debito em aberto (custo de estorno
+          // que a comissao do pedido de origem nao cobriu). Agora que pagou,
+          // da baixa (FIFO, idempotente por pedido); se outra venda ja tinha
+          // pago o mesmo debito, devolve o excesso ao vendedor. lib/debitoVendedor.
+          const debitoCobrado = Math.floor(Number(session.metadata?.bynx_debito_cents) || 0)
+          const debitoConta = session.metadata?.bynx_debito_conta
+          if (debitoCobrado > 0 && debitoConta) {
+            await quitarDebitoDaVenda(supabase, stripe, {
+              conta: debitoConta,
+              pedidoId: pedido.id,
+              cobradoCents: debitoCobrado,
+              paymentIntent: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+            })
           }
 
           // ── Receita da Bynx ──────────────────────────────────────────────

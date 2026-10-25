@@ -574,7 +574,16 @@ try {
     // Lancamento: com a comissao devolvida lida da Stripe, fica o retido.
     assert.equal(E.valorLancamentoAposEstorno({ amount: 32940, amountRefunded: 32940, applicationFeeAmount: 5077, atualReais: 50.77, comissaoDevolvidaCents: 3724 }), 13.53)
     assert.equal(E.valorLancamentoAposEstorno({ amount: 32940, amountRefunded: 32940, applicationFeeAmount: 5077, atualReais: 50.77, comissaoDevolvidaCents: null }), 0, 'sem leitura: proporcao antiga')
-  }, 'custo do estorno: a Bynx retem a taxa da Stripe e a etiqueta, ate o limite da comissao')
+    // Debito: venda que pagou R$ 5,00 de debito anterior (comissao 32,26 = 27,26 + 5,00).
+    // No estorno integral os R$ 5,00 nao voltam; o resto segue a regra.
+    p = D({ cobradoCents: 17568, comissaoCents: 3226, taxaStripeCents: 740, estornadoTotalCents: 17568, jaDevolvidoCents: 0, debitoCobradoCents: 500 })
+    assert.deepEqual(p, { devolverCents: 1986, retidoCents: 1240, faltaCobrirCents: 0 })
+    // Desconto no checkout: o debito, limitado ao liquido do vendedor.
+    assert.equal(C.descontoDeDebito({ debitoAbertoCents: 4, liquidoVendedorCents: 14842 }), 4)
+    assert.equal(C.descontoDeDebito({ debitoAbertoCents: 20000, liquidoVendedorCents: 14842 }), 14842)
+    assert.equal(C.descontoDeDebito({ debitoAbertoCents: 0, liquidoVendedorCents: 14842 }), 0)
+    assert.equal(C.descontoDeDebito({ debitoAbertoCents: NaN, liquidoVendedorCents: -1 }), 0)
+  }, 'custo do estorno: a Bynx retem a taxa da Stripe e a etiqueta, ate o limite da comissao; debito na proxima venda')
 
   console.log(`\n${n} blocos ok`)
 } finally {

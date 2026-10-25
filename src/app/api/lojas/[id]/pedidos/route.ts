@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { autenticarOwnerOuAdmin } from '@/lib/lojas-auth'
 import { marcarEnviado, cancelarEReembolsar, SELECT_POS_VENDA, type PedidoPosVenda } from '@/lib/pedidoVendedor'
+import { debitoEmAberto } from '@/lib/debitoVendedor'
 
 /**
  * GET   /api/lojas/[id]/pedidos           -> pedidos da loja (o painel)
@@ -21,7 +22,7 @@ import { marcarEnviado, cancelarEReembolsar, SELECT_POS_VENDA, type PedidoPosVen
  * loja nao tem politica de estorno propria.
  */
 
-const SELECT_LOJA = 'id, owner_user_id, nome, status'
+const SELECT_LOJA = 'id, owner_user_id, nome, status, stripe_connect_account_id'
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     let q = sb
       .from('pedidos')
-      .select('id, numero, status, item_nome, item_imagem, valor_item_cents, frete_cents, liquido_loja_cents, total_comprador_cents, metodo, repasse_prazo, endereco, rastreio, created_at, pago_em, enviado_em, entregue_em, leilao_id, cancelado_por, cancelado_em, valor_reembolsado_cents')
+      .select('id, numero, status, item_nome, item_imagem, valor_item_cents, frete_cents, liquido_loja_cents, total_comprador_cents, metodo, repasse_prazo, endereco, rastreio, created_at, pago_em, enviado_em, entregue_em, leilao_id, cancelado_por, cancelado_em, valor_reembolsado_cents, debito_descontado_cents')
       .eq('loja_id', lojaId)
       .neq('status', 'aguardando_pagamento') // pedido nao pago nao interessa ao lojista
       .order('created_at', { ascending: false })
@@ -50,6 +51,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     }
 
     const pedidos = data || []
+    // Custo de estorno que a comissao nao cobriu: sai da proxima venda
+    // (lib/debitoVendedor). A loja precisa ver antes de vender.
+    const debitoAberto = await debitoEmAberto(sb, (auth.loja as { stripe_connect_account_id?: string | null }).stripe_connect_account_id)
     return NextResponse.json({
       pedidos,
       resumo: {
@@ -61,6 +65,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         faturado_cents: pedidos
           .filter(p => !['cancelado', 'reembolsado', 'cancelando'].includes(p.status))
           .reduce((s, p) => s + (p.liquido_loja_cents || 0), 0),
+        debito_aberto_cents: debitoAberto,
       },
     })
   } catch (err) {

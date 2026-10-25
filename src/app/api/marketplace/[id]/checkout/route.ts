@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { calcularCheckout, normalizarPrazo, ehMetodoValido, PIX_DISPONIVEL, type MetodoPagamento } from '@/lib/comissao'
 import { cotarFrete, pacoteDeCarta } from '@/lib/melhor-envio'
 import { resolverRecebedor, podeReceber, motivoSemCompra } from '@/lib/vendedorRecebimento'
+import { descontoNoCheckout, metadataDebito } from '@/lib/debitoVendedor'
 
 /**
  * POST /api/marketplace/[id]/checkout
@@ -219,7 +220,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     const totalCompradorCents = c.totalCompradorCents + freteCents
-    const liquidoLojaCents = c.liquidoLojaCents + freteCents
+    // Debito anterior do vendedor (lib/debitoVendedor): sai desta venda, ate o
+    // liquido dele sem o frete. O comprador paga o mesmo.
+    const descontoDebito = await descontoNoCheckout(db, recebedor.connectAccountId, c.liquidoLojaCents)
+    const comissaoCents = c.taxaBynxCents + descontoDebito
+    const metaDebito = metadataDebito(recebedor.connectAccountId, descontoDebito)
+    const liquidoLojaCents = c.liquidoLojaCents + freteCents - descontoDebito
 
     // ── Pedido (aguardando pagamento) ───────────────────────────────────
     const { data: pedidoIns, error: pedErr } = await db
@@ -238,8 +244,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         frete_cents: freteCents,
         acrescimo_cents: c.acrescimoCents,
         total_comprador_cents: totalCompradorCents,
-        comissao_bynx_cents: c.taxaBynxCents,
+        comissao_bynx_cents: comissaoCents,
         liquido_loja_cents: liquidoLojaCents,
+        debito_descontado_cents: descontoDebito,
         metodo,
         repasse_prazo: prazo,
         stripe_connect_account_id: recebedor.connectAccountId,
@@ -289,11 +296,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           bynx_anuncio_id: String(anuncio.id),
           bynx_vendedor_user_id: String(anuncio.user_id),
           ...(recebedor.lojaId ? { bynx_loja_id: String(recebedor.lojaId) } : {}),
+          ...metaDebito,
         },
         payment_intent_data: {
-          application_fee_amount: c.taxaBynxCents,
+          application_fee_amount: comissaoCents,
           transfer_data: { destination: recebedor.connectAccountId! },
-          metadata: { bynx_pedido_id: String(pedidoIns.id) },
+          metadata: { bynx_pedido_id: String(pedidoIns.id), ...metaDebito },
         },
         success_url: `${base}/pedido/${pedidoIns.id}?ok=1`,
         cancel_url: `${base}/checkout/${anuncio.id}?cancelado=1`,

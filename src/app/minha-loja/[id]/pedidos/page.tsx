@@ -54,6 +54,8 @@ interface Pedido {
   leilao_id?: string | null
   cancelado_por?: string | null
   valor_reembolsado_cents?: number | null
+  /** Parte da comissao desta venda que pagou debito anterior com a Bynx. */
+  debito_descontado_cents?: number | null
 }
 
 /**
@@ -110,7 +112,7 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
 
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [recls, setRecls] = useState<Recl[]>([])
-  const [resumo, setResumo] = useState<{ vendas?: number; faturado_cents: number } | null>(null)
+  const [resumo, setResumo] = useState<{ vendas?: number; faturado_cents: number; debito_aberto_cents?: number } | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [aba, setAba] = useState<Aba | null>(null)
@@ -232,6 +234,13 @@ export default function LojaPedidosPage({ params }: { params: Promise<{ id: stri
           <p className="lp-resumo">Líquido: {fmtBRL(resumo.faturado_cents)} em {resumo.vendas} {resumo.vendas === 1 ? 'venda' : 'vendas'}</p>
         )}
       </header>
+
+      {(resumo?.debito_aberto_cents ?? 0) > 0 && (
+        <div className="lp-debito" role="status">
+          <IconWarning size={16} color="var(--bx-amber)" />
+          <span><b>Débito com a Bynx: {fmtBRL(resumo!.debito_aberto_cents!)}.</b> É o custo de um estorno que a comissão do pedido não cobriu (taxa do cartão e etiqueta de devolução). Ele sai sozinho da sua próxima venda.</span>
+        </div>
+      )}
 
       {erro && <div className="lp-erro">{erro}</div>}
 
@@ -496,6 +505,9 @@ function CardPedido({ l, lojaId, agora, aberto, rascunho, onRascunho, onAbrir, o
         <span className="lp-id">
           <span className="lp-nome">{p.item_nome}</span>
           <span className="lp-sub">#{p.numero} · {c.tipo === 'leilao' ? 'Leilão' : 'Venda direta'} · {fmtDia(p.created_at)}</span>
+          {(p.debito_descontado_cents ?? 0) > 0 && (
+            <span className="lp-sub">{fmtBRL(p.debito_descontado_cents!)} desta venda pagou débito anterior</span>
+          )}
         </span>
         <span className="lp-valor">{fmtBRL(p.liquido_loja_cents)}</span>
       </button>
@@ -577,6 +589,9 @@ function CardPedido({ l, lojaId, agora, aberto, rascunho, onRascunho, onAbrir, o
 const CSS = `
 .lp-head{display:grid;gap:4px;margin-bottom:2px}
 .lp-resumo{margin:0;font-size:12px;color:var(--bx-text-3)}
+.lp-debito{display:flex;gap:10px;align-items:flex-start;background:color-mix(in srgb,var(--bx-amber) 8%,transparent);border:1px solid color-mix(in srgb,var(--bx-amber) 30%,transparent);border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.5;color:var(--bx-text-2)}
+.lp-debito b{color:var(--bx-text);font-weight:700}
+.lp-debito svg{flex-shrink:0;margin-top:2px}
 .lp-erro{background:color-mix(in srgb,var(--bx-red) 8%,transparent);border:1px solid color-mix(in srgb,var(--bx-red) 25%,transparent);color:var(--bx-red);border-radius:10px;padding:10px 14px;font-size:13px}
 .lp-fixo{position:sticky;top:0;z-index:5;background:var(--bx-bg);padding:6px 0;margin:-6px 0}
 .lp-abas{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
