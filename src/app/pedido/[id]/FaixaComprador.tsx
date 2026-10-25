@@ -106,7 +106,7 @@ export default function FaixaComprador({ caso, processando, entregueEm, protecao
     case 'loja_confere':
       selo = 'AGUARDANDO A LOJA'; Ic = IconLoja
       titulo = `A loja confere até ${ate}`
-      sub = 'Sem contestação até lá, o estorno integral sai sozinho.'
+      sub = 'Sem contestação até lá, o estorno integral sai sozinho. O valor aparece no seu cartão em 5 a 10 dias úteis, no prazo do banco.'
       break
     case 'entregue':
       Ic = IconCheck

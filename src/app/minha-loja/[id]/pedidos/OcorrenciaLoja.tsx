@@ -152,7 +152,7 @@ export default function OcorrenciaLoja({ r, lojaId, onMudou }: { r: Recl; lojaId
         {r.pode_contestar && (devAcao ? (
           <div className="oc-form">
             {devAcao === 'liberar' ? (
-              <p className="oc-txt">Confirma que recebeu a carta certa, no estado em que enviou? O estorno integral sai agora e não dá para desfazer.</p>
+              <p className="oc-txt">Confirma que recebeu a carta certa, no estado em que enviou? O estorno integral sai agora e não dá para desfazer. A taxa do cartão da venda não volta da Stripe e fica com a loja.</p>
             ) : (
               <>
                 <div className="oc-opcoes oc-opcoes-2" role="group" aria-label="O que voltou">

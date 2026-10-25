@@ -27,6 +27,11 @@ writeFileSync(join(tmp, 'e.mjs'), ts.transpileModule(srcE, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText)
 const E = await import(pathToFileURL(join(tmp, 'e.mjs')).href)
+const srcC = readFileSync(join(raiz, 'src/lib/custoEstorno.ts'), 'utf8')
+writeFileSync(join(tmp, 'c.mjs'), ts.transpileModule(srcC, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText)
+const C = await import(pathToFileURL(join(tmp, 'c.mjs')).href)
 const srcP = readFileSync(join(raiz, 'src/lib/painelPedidos.ts'), 'utf8')
 writeFileSync(join(tmp, 'p.mjs'), ts.transpileModule(srcP, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
@@ -541,6 +546,35 @@ try {
     // antes do envio tambem trava
     assert.equal(R.podeDesistir({ status: 'pago', ehLeilao: true, teve_ocorrencia: true }, agora).pode, false)
   }, 'uma ocorrencia por pedido (encerrada nao reabre)')
+
+  ok(() => {
+    const D = C.comissaoADevolver
+    // Pedido #39 da prova: cobrado 329,40, comissao 50,77, taxa real 13,53.
+    // Integral: devolve 37,24 (nao 50,77); a Bynx fica com a taxa e sai zerada.
+    let p = D({ cobradoCents: 32940, comissaoCents: 5077, taxaStripeCents: 1353, estornadoTotalCents: 32940, jaDevolvidoCents: 0 })
+    assert.deepEqual(p, { devolverCents: 3724, retidoCents: 1353, faltaCobrirCents: 0 })
+    assert.equal(C.resultadoBynxCents({ comissaoCents: 5077, comissaoDevolvidaCents: 3724, taxaStripeCents: 1353 }), 0)
+    // Com etiqueta de 19,90 a loja tambem paga a etiqueta.
+    p = D({ cobradoCents: 32940, comissaoCents: 5077, taxaStripeCents: 1353, estornadoTotalCents: 32940, jaDevolvidoCents: 0, custosExtrasCents: 1990 })
+    assert.deepEqual(p, { devolverCents: 1734, retidoCents: 3343, faltaCobrirCents: 0 })
+    // Parcial de R$ 50 (#38): segue a proporcao (7,71), abaixo do teto.
+    p = D({ cobradoCents: 32940, comissaoCents: 5077, taxaStripeCents: 1353, estornadoTotalCents: 5000, jaDevolvidoCents: 0 })
+    assert.equal(p.devolverCents, 770)
+    // Depois do parcial, o restante: o total devolvido para no teto (37,24).
+    p = D({ cobradoCents: 32940, comissaoCents: 5077, taxaStripeCents: 1353, estornadoTotalCents: 32940, jaDevolvidoCents: 770 })
+    assert.equal(p.devolverCents, 3724 - 770)
+    // Pedido #48 (lote de R$ 160) com etiqueta de 19,90: a comissao nao cobre por 4 centavos.
+    p = D({ cobradoCents: 17568, comissaoCents: 2726, taxaStripeCents: 740, estornadoTotalCents: 17568, jaDevolvidoCents: 0, custosExtrasCents: 1990 })
+    assert.deepEqual(p, { devolverCents: 0, retidoCents: 2726, faltaCobrirCents: 4 })
+    // Entrada ruim nao devolve nada nem quebra.
+    assert.deepEqual(D({ cobradoCents: NaN, comissaoCents: -5, taxaStripeCents: 0, estornadoTotalCents: 100, jaDevolvidoCents: 0 }), { devolverCents: 0, retidoCents: 0, faltaCobrirCents: 0 })
+    // Planos: teto do estorno sem prejuizo.
+    assert.equal(C.estornoMaximoSemPrejuizo({ cobradoCents: 2990, taxaStripeCents: 158, jaEstornadoCents: 0 }), 2832)
+    assert.equal(C.estornoMaximoSemPrejuizo({ cobradoCents: 2990, taxaStripeCents: 158, jaEstornadoCents: 2900 }), 0)
+    // Lancamento: com a comissao devolvida lida da Stripe, fica o retido.
+    assert.equal(E.valorLancamentoAposEstorno({ amount: 32940, amountRefunded: 32940, applicationFeeAmount: 5077, atualReais: 50.77, comissaoDevolvidaCents: 3724 }), 13.53)
+    assert.equal(E.valorLancamentoAposEstorno({ amount: 32940, amountRefunded: 32940, applicationFeeAmount: 5077, atualReais: 50.77, comissaoDevolvidaCents: null }), 0, 'sem leitura: proporcao antiga')
+  }, 'custo do estorno: a Bynx retem a taxa da Stripe e a etiqueta, ate o limite da comissao')
 
   console.log(`\n${n} blocos ok`)
 } finally {

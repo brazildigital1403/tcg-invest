@@ -393,7 +393,7 @@ export default function ProtecaoBynx({ pedido, onMudou }: { pedido: PedidoProtec
               <p className="pb-txt">Quando a loja receber e conferir, o estorno integral sai no seu cartão.</p>
             )}
             {atual.status === 'aguardando_devolucao' && atual.devolucao_entregue_em && atual.contestar_ate && (
-              <p className="pb-txt">Sem contestação até {fmtPrazo(atual.contestar_ate)}, o estorno sai sozinho.</p>
+              <p className="pb-txt">Sem contestação até {fmtPrazo(atual.contestar_ate)}, o estorno sai sozinho. O valor aparece no seu cartão em 5 a 10 dias úteis, no prazo do banco.</p>
             )}
             {atual.status === 'em_analise' && (
               <p className="pb-txt">A loja contestou. A Bynx analisa as provas{atual.prazo_decisao_ate ? ` e decide até ${fmtPrazo(atual.prazo_decisao_ate)}` : ''}.</p>

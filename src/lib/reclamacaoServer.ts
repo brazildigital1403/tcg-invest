@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { getServiceSupabase } from '@/lib/supabaseServer'
 import { enviarEmailRenderizado, type EmailRenderizado } from '@/lib/email'
+import { custosDaCobranca, devolverComissaoComCusto } from '@/lib/custoEstornoStripe'
 import {
   FOTO_MIMES, DIAS_RECLAMAR, refundValido, restanteEstornavel, conferirRefund, type SlotFoto, type SlotFotoEnvio,
 } from '@/lib/leilao-reclamacao'
@@ -152,12 +153,20 @@ export interface RefundFeito {
   status: string | null
   /** true = achado pela chave (retry), nao criado agora. */
   reaproveitado: boolean
+  /** Comissao devolvida a loja neste estorno (regra de custo, lib/custoEstorno). */
+  comissaoDevolvidaCents?: number
+  /** Custo que a comissao nao cobriu: prejuizo da Bynx se ninguem cobrar. */
+  faltaCobrirCents?: number
 }
 
 /**
- * Estorno de destination charge: devolve ao comprador, reverte o transfer da
- * loja e a taxa da Bynx NA MESMA PROPORCAO (reverse_transfer +
- * refund_application_fee). Mesmo desenho do cancelamento pela loja.
+ * Estorno de destination charge: devolve ao comprador e reverte o transfer da
+ * loja (reverse_transfer). A comissao NAO volta sozinha (refund_application_fee
+ * false): antes do estorno, devolverComissaoComCusto devolve a loja so a parte
+ * que deixa a Bynx sem prejuizo -- a taxa da Stripe (que a Stripe nao devolve)
+ * e os `custosExtrasCents` (etiqueta reversa) ficam com a loja, ate o limite da
+ * comissao (regra do Du, 25/10; conta e testes em lib/custoEstorno).
+ * O que passar desse limite sai em `faltaCobrirCents` e vai para o log.
  *
  * ★ IDEMPOTENCIA EM DOIS NIVEIS. (1) `idempotencyKey` = `chave`: clique duplo
  *   ou retry dentro de 24h devolve o MESMO refund. (2) Antes de criar, procura
@@ -173,6 +182,8 @@ export async function estornarNaStripe(args: {
   metadata: Record<string, string>
   /** Chaves de outro caminho que estorna o MESMO valor (ver cancelarPagoComEstorno). */
   chavesIrmas?: string[]
+  /** Custo que a Bynx paga por causa do estorno (etiqueta reversa). Sai da comissao da loja. */
+  custosExtrasCents?: number
 }): Promise<RefundFeito> {
   const s = stripe()
   const existentes = await s.refunds.list({ payment_intent: args.paymentIntent, limit: 100 })
@@ -180,17 +191,32 @@ export async function estornarNaStripe(args: {
   const achado = existentes.data.find(r => chaves.includes(r.metadata?.bynx_chave ?? '') && r.status !== 'failed' && r.status !== 'canceled')
   if (achado) return { id: achado.id, amount: achado.amount, status: achado.status ?? null, reaproveitado: true }
 
+  // 1. Comissao: so a parte que nao deixa a Bynx negativa (antes do refund,
+  // para o webhook charge.refunded ja ler a comissao no valor final).
+  const custos = await custosDaCobranca(s, args.paymentIntent)
+  const com = await devolverComissaoComCusto(s, {
+    custos, chave: args.chave, estornoCents: args.amountCents,
+    custosExtrasCents: args.custosExtrasCents, metadata: args.metadata,
+  })
+  if (com.faltaCobrirCents > 0) {
+    console.error(`[estorno] PREJUIZO: custos passam da comissao em ${com.faltaCobrirCents} centavos | PI ${args.paymentIntent} | ${args.chave}`)
+  }
+
+  // 2. Estorno ao comprador, revertendo o transfer da loja.
   const refund = await s.refunds.create(
     {
       payment_intent: args.paymentIntent,
       ...(args.amountCents != null ? { amount: args.amountCents } : {}),
       reverse_transfer: true,
-      refund_application_fee: true,
+      refund_application_fee: false,
       metadata: { ...args.metadata, bynx_chave: args.chave },
     },
     { idempotencyKey: args.chave },
   )
-  return { id: refund.id, amount: refund.amount, status: refund.status ?? null, reaproveitado: false }
+  return {
+    id: refund.id, amount: refund.amount, status: refund.status ?? null, reaproveitado: false,
+    comissaoDevolvidaCents: com.devolverCents, faltaCobrirCents: com.faltaCobrirCents,
+  }
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import { custosDaCobranca, devolverComissaoComCusto } from '@/lib/custoEstornoStripe'
 import { sendPedidoEnviadoEmail, sendReembolsoCompradorEmail } from '@/lib/email'
 import { exigeFotoEnvio, validarFotosEnvio, VALOR_FOTO_ENVIO_CENTS } from '@/lib/leilao-reclamacao'
 import { ehPedidoDeLeilao, pastaEnvio, arquivosNaPasta } from '@/lib/reclamacaoServer'
@@ -200,17 +201,32 @@ export async function cancelarEReembolsar(
     return { ok: false, status: 500, erro: 'Pagamentos indisponíveis no momento.' }
   }
 
-  // ── 1. A STRIPE MANDA. Um refund que devolve ao comprador, reverte o
-  //       transfer de quem vendeu e devolve a comissao da Bynx.
+  // ── 1. A STRIPE MANDA. Um refund que devolve ao comprador e reverte o
+  //       transfer de quem vendeu. A comissao volta para quem vendeu MENOS a
+  //       taxa da Stripe, que a Stripe nao devolve (regra de 25/10, ver
+  //       lib/custoEstorno): quem cancela a venda paga a taxa, nunca a Bynx.
+  //       Idempotente pela chave: clique duplo nao estorna duas vezes.
   const apiVersion = '2025-03-31.basil' as Stripe.StripeConfig['apiVersion']
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion })
+  const chave = `cancelamento-vendedor-${pedido.id}`
   let refundId: string
   try {
-    const refund = await stripe.refunds.create({
-      payment_intent: pedido.stripe_payment_intent_id,
-      reverse_transfer: true,
-      refund_application_fee: true,
+    const custos = await custosDaCobranca(stripe, pedido.stripe_payment_intent_id)
+    const com = await devolverComissaoComCusto(stripe, {
+      custos, chave, estornoCents: null, metadata: { pedido_id: pedido.id },
     })
+    if (com.faltaCobrirCents > 0) {
+      console.error(`[posVenda cancelar] PREJUIZO: taxa passa da comissao em ${com.faltaCobrirCents} centavos | pedido ${pedido.id}`)
+    }
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: pedido.stripe_payment_intent_id,
+        reverse_transfer: true,
+        refund_application_fee: false,
+        metadata: { pedido_id: pedido.id, bynx_chave: chave },
+      },
+      { idempotencyKey: chave },
+    )
     refundId = refund.id
   } catch (e) {
     console.error('[posVenda cancelar] refund falhou:', (e as Error)?.message)

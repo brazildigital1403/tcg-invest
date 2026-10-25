@@ -14,8 +14,9 @@ import { renderCancelamentoAtrasoEmail } from '@/lib/email'
  * pedido de LEILAO. Passado o prazo sem envio, o COMPRADOR pode pedir o
  * cancelamento e recebe o estorno integral.
  *
- * Mesmo estorno do cancelamento pela loja (refund integral com reverse_transfer
- * + refund_application_fee), com duas diferencas:
+ * Mesmo estorno do cancelamento pela loja (refund integral com reverse_transfer;
+ * a comissao volta para a loja menos a taxa da Stripe, lib/custoEstorno), com
+ * duas diferencas:
  *   - idempotente pela chave 'atraso-<pedido>' (idempotencyKey + procura de
  *     refund com a mesma chave antes de criar);
  *   - o financeiro (lancamentos, comissao de parceiro) fica com o webhook

@@ -26,7 +26,8 @@ import { renderReclamacaoDecisaoEmail } from '@/lib/email'
  *     (por conta de quem errou) -- nao ha cobranca aqui.
  *
  * ★ PROVEDOR ANTES DO BANCO. Com dinheiro, a Stripe estorna primeiro
- *   (reverse_transfer + refund_application_fee, proporcional no parcial) com
+ *   (reverse_transfer; comissao devolvida na proporcao, mas sem passar de
+ *   comissao - taxa da Stripe: lib/custoEstorno) com
  *   idempotencyKey 'reclamacao-<rid>' e procura previa pela mesma chave; so
  *   depois pedido_reclamacao_resolver grava (idempotente pelo refund). Se o
  *   banco falhar com o refund feito, repetir o clique reaproveita o refund.

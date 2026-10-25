@@ -1856,7 +1856,7 @@ export async function POST(req: NextRequest) {
         try {
           const { data: lancs } = await supabase
             .from('lancamentos')
-            .select('id, valor_bruto, descricao')
+            .select('id, valor_bruto, taxa, descricao')
             .eq('stripe_payment_intent_id', pi)
             .limit(1)
 
@@ -1869,17 +1869,34 @@ export async function POST(req: NextRequest) {
             // fracao cumulativa era aplicada sobre o valor_bruto ja reduzido
             // pelo estorno anterior e o 2o parcial reduzia em dobro. Ver
             // src/lib/estornoLancamento.ts (coberto por autoteste).
+            // Comissao que voltou DE FATO para a loja (regra de custo do
+            // estorno, 25/10): a Bynx retem a taxa da Stripe, entao a
+            // proporcao deixou de ser a leitura certa. Falhou a leitura:
+            // segue a proporcao (comportamento antigo) em vez de travar.
+            let comissaoDevolvidaCents: number | null = null
+            if (charge.application_fee) {
+              try {
+                const feeId = typeof charge.application_fee === 'string' ? charge.application_fee : charge.application_fee.id
+                comissaoDevolvidaCents = (await stripe.applicationFees.retrieve(feeId)).amount_refunded
+              } catch (e) {
+                console.warn(`[webhook] estorno: nao li a comissao devolvida do PI ${pi}: ${(e as Error)?.message}`)
+              }
+            }
             const novoValor = valorLancamentoAposEstorno({
               amount: bruto,
               amountRefunded: devolvido,
               applicationFeeAmount: charge.application_fee_amount,
               atualReais: Number(lanc.valor_bruto),
+              comissaoDevolvidaCents,
             })
+            // Liquido = o que sobrou menos a taxa da Stripe (que nao volta).
+            // Zero quando a regra reteve exatamente a taxa; nunca negativo (CHECK).
+            const novoLiquido = Math.max(0, Math.round((novoValor - Number(lanc.taxa || 0)) * 100) / 100)
             const { error: revErr } = await supabase
               .from('lancamentos')
               .update({
                 valor_bruto: novoValor,
-                valor_liquido: novoValor,
+                valor_liquido: novoLiquido,
                 observacao: `Estornado na Stripe em ${new Date().toISOString().slice(0, 10)} — `
                   + `${integral ? 'integral' : 'parcial'} (${devolvido}/${bruto} centavos), charge ${charge.id}.`,
                 updated_at: new Date().toISOString(),
