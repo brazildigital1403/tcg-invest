@@ -85,7 +85,8 @@ function linhaPrazo(expiraEm: string): { texto: string; urgente: boolean } {
 function fraseFechamento(restantes: number | null, vagas: number | null, expiraEm: string | null): string {
   if (restantes === null || !vagas || !expiraEm) return 'Sem cartão. Sem cobrança no fim.'
   if (restantes === 1) return `Última vaga para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
-  return `Restam ${restantes} de ${vagas} vagas para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
+  if (restantes <= 20) return `Restam ${restantes} vagas para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
+  return `${restantes} vagas disponíveis para criadores de Pokémon TCG, até ${dataCurta(expiraEm)}. Sem cartão.`
 }
 
 /** Bloco do hero: numero, regua de vagas e prazo. */
@@ -103,8 +104,8 @@ function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & 
       <p className="cr-ct-l" aria-live="polite">
         {restantes === 1 ? <span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>Última vaga</span>
           : restantes <= 10 ? <><span className="cr-ct-pre">Últimas</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas</span></>
-          : restantes <= 20 ? <><span className="cr-ct-pre">Restam</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">de {vagas} vagas</span></>
-          : <><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">de {vagas} vagas</span></>}
+          : restantes <= 20 ? <><span className="cr-ct-pre">Restam</span><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas</span></>
+          : <><span key={pulso} className={`cr-ct-n${pulso ? ' cr-ct-pulso' : ''}`}>{restantes}</span><span className="cr-ct-t">vagas disponíveis</span></>}
       </p>
       {vagas <= 60 ? (
         <div className="cr-ct-regua" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${vagas}, minmax(0, 1fr))` }}>
@@ -115,7 +116,7 @@ function Contador({ restantes, vagas, expiraEm, pulso, carregando }: VagasCtx & 
       )}
       {prazo && <p className="cr-ct-p"><IconClock size={14} />{prazo.texto}</p>}
       {restantes <= 10 && (
-        <p className="cr-ct-av"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Esta é a última vaga do convite.' : `Restam ${restantes} de ${vagas} vagas. O convite fecha quando acabarem.`}</p>
+        <p className="cr-ct-av"><span className="cr-ct-dot" aria-hidden="true" />{restantes === 1 ? 'Esta é a última vaga do convite.' : `Restam ${restantes} vagas. O convite fecha quando acabarem.`}</p>
       )}
     </div>
   )
@@ -129,7 +130,8 @@ function ContadorCurto({ restantes, vagas, expiraEm, classe }: VagasCtx & { clas
     <p className={`${classe} ${f}`}>
       {restantes === 1 ? <b>Última vaga</b>
         : restantes <= 10 ? <>Últimas <b>{restantes}</b> vagas</>
-        : <><b>{restantes}</b> de {vagas} vagas{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>}
+        : restantes <= 20 ? <>Restam <b>{restantes}</b> vagas{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>
+        : <><b>{restantes}</b> vagas disponíveis{expiraEm ? ` · até ${dataCurta(expiraEm)}` : ''}</>}
     </p>
   )
 }
