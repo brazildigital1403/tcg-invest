@@ -304,7 +304,7 @@ export default function CriadoresClient() {
             </ol>
             <div className="cr-faq">
               <Pergunta q="Preciso de cartão?" a="Não. Nada é cobrado, nem no fim do ano." aberta />
-              <Pergunta q="E depois de 12 meses?" a="Sua conta passa para o plano Grátis. As cartas continuam salvas, mas recursos do Pro, como scan, Master Sets e pastas extras, ficam bloqueados até você assinar. Avisamos antes." aberta />
+              <Pergunta q="E depois de 12 meses?" a="Sua conta passa para o plano Grátis. As cartas continuam salvas, mas recursos do Pro, como scan, Master Sets e pastas extras, ficam bloqueados até você assinar. Avisamos antes." />
               <Pergunta q="Já tenho conta." a="Toque em Já tenho conta, no topo da página. Depois de entrar, o botão Liberar meu 1 ano grátis aplica o ano na sua conta." />
               <Pergunta q="De onde vem o valor das cartas?" a="Do Mercado Brasileiro: preço em R$ de quem vende carta no Brasil, não dólar convertido. É uma estimativa de mercado para você acompanhar a coleção, não uma avaliação oficial nem garantia de venda." />
               <Pergunta q="Posso falar da Bynx no meu conteúdo?" a="Pode e queremos. Se quiser ganhar com isso, peça a Parceria lá no começo da página." />
